@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.egg-info/
+dist/
+build/
+data/raw_logs/
+data/labeled/
+models/
+*.ckpt
+*.pt
+.python-version
