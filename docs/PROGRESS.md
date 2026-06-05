@@ -1,27 +1,24 @@
 # ICE — Project Progress
-> Last updated: [YYYY-MM-DD]
+> Last updated: 2026-05-06
 
 ---
 
 ## Current Phase & Step
-Phase 2B — Step 2B.4: Validating labeled prompts with `validate_promt.py`
-
-*(Update this to whatever is actually true for your project right now)*
+Phase 2B — Step 2B.5: Generating synthetic prompts with `generate_synthetic_data.py`
 
 ---
 
 ## Last Completed
-- `data/unlabled/dataset_unlabeled.jsonl` — 19,710 merged and deduplicated prompts from four sources (personal, wildchat, lmsys, sharegpt) — does not include labels
-- `scripts/classifier/promt_labeling/VLLM_label_dataset.py` — async parallel labeling pipeline using instructor + vLLM, with idempotency and failed-prompt isolation — does not cover fine-tuning loop or validation
+- `scripts/classifier/promt_labeling/generate_synthetic_data.py` — generates synthetic prompts based on provided labels — complete
+- `scripts/classifier/promt_labeling/synth_promt_gen_number.csv` — defines the number of synthetic prompts to generate for each label combination — complete
+- `scripts/classifier/promt_labeling/synth_promt_renumber.py` — renumbers synthetic prompt IDs in a JSONL file — complete
 - `scripts/classifier/promt_labeling/validate_promt.py` — validates labeled prompts by analyzing label frequencies, co-occurrences, and data completeness — complete
 
 ---
 
 ## File Inventory
 *(Append-only — never delete entries)*
-
 - `scripts/classifier/promt_labeling/validate_promt.py` — validates labeled prompts by analyzing label frequencies, co-occurrences, and data completeness — complete
-
 - `data/unlabled/personal_promts.jsonl` — extracted personal prompts from raw chat logs — raw, no labels
 - `data/unlabled/wildchat_promts.jsonl` — 5k WildChat first-turn prompts — raw, no labels
 - `data/unlabled/lmsys_promts.jsonl` — 5k LMSYS first-turn prompts — raw, no labels
@@ -41,12 +38,19 @@ Phase 2B — Step 2B.4: Validating labeled prompts with `validate_promt.py`
 - `scripts/classifier/promt_labeling/compare_labeling.py` — compares labeling outputs for quality checks — complete
 - `docs/BLUEPRINT.md` — step-by-step build guide — reference only, not a contract
 - `docs/ARCHITECTURE.md` — full system design and invariants — authoritative
+- `scripts/classifier/promt_labeling/generate_synthetic_data.py` — generates synthetic prompts based on provided labels — complete
+- `scripts/classifier/promt_labeling/synth_promt_gen_number.csv` — defines the number of synthetic prompts to generate for each label combination — complete
+- `scripts/classifier/promt_labeling/synth_promt_renumber.py` — renumbers synthetic prompt IDs in a JSONL file — complete
+- `scripts/classifier/promt_labeling/validate_promt.py` — validates labeled prompts by analyzing label frequencies, co-occurrences, and data completeness — complete
 
 ---
 
 ## Deviations from Blueprint
 *(Append-only)*
-
+- [2025-XX-XX] Used uv instead of pip for all package management — Reason: project standard, cleaner dependency tracking
+- [2025-XX-XX] Used vLLM (Qwen2.5-7B-AWQ) instead of Ollama (70B) for labeling — Reason: vLLM already set up, faster throughput, structured output via instructor
+- [2025-XX-XX] Used instructor library for structured output instead of raw JSON parsing — Reason: more robust schema enforcement and retry logic
+- [2025-XX-XX] Folder structure differs from BLUEPRINT.md — using scripts/classifier/ subdirectory instead of flat scripts/ — Reason: better organization
 - [2025-XX-XX] Used uv instead of pip for all package management — Reason: project standard, cleaner dependency tracking
 - [2025-XX-XX] Used vLLM (Qwen2.5-7B-AWQ) instead of Ollama (70B) for labeling — Reason: vLLM already set up, faster throughput, structured output via instructor
 - [2025-XX-XX] Used instructor library for structured output instead of raw JSON parsing — Reason: more robust schema enforcement and retry logic
@@ -59,3 +63,5 @@ None.
 
 ---
 
+## Next Step
+- Continue with the next phase or step as outlined in `docs/BLUEPRINT.md`.

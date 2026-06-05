@@ -442,13 +442,11 @@ Fix any systematic errors you find before moving on to training.
 
 ---
 
-### Step 2B.5 — Convert labels to vectors
+### Step 2B.5 – Convert labels to vectors
 
-The model doesn't understand text labels — it understands numbers. You need to turn each list of text labels into a binary vector of 0s and 1s.
+**Create `scripts/training/build_training_data.py`.**
 
-Create `scripts/build_training_data.py`. This script:
-
-1. Defines the label order. This order must never change after you set it, or your model will be wrong. Write it as constants at the top of the file:
+1. **Label order (immutable)** – define these constants exactly:
 
 ```python
 TOPIC_LABELS = [
@@ -470,222 +468,200 @@ CONTEXT_RELIANCE_LABELS = [
 ]
 ```
 
-2. For each row in `prompts_labeled.jsonl`, creates a label vector: a list of 25 numbers.
-    
-    - Positions 0–10: topic labels (1.0 if active, 0.0 if not)
-    - Positions 11–21: intent labels (1.0 if active, 0.0 if not)
-    - Positions 22–24: context reliance (only one is 1.0, the others are 0.0)
-3. Saves the result as `data/labeled/training_data.jsonl` — each row has: `prompt`, `labels` (list of 25 floats), `source`.
-    
-4. Also saves the label definitions to `data/labeled/label_schema.json` — this file records the exact order of labels so you never have to guess.
-    
+2. **Input** – read `data/labeled/labeled_prompts.jsonl` (the final merged file of real + validated synthetic prompts).  
+   **Filter** – **skip any row where `topic_labels` is empty OR `intent_labels` is empty**. These are the orphan prompts (224 no‑topic, 151 no‑intent). Dropping them here ensures they never reach training.
+
+3. **Create label vector** (list of 25 floats):  
+   - Positions 0–10: 1.0 if that topic label is active in the row’s `label.topic_labels`, else 0.0  
+   - Positions 11–21: 1.0 if that intent label is active in the row’s `label.intent_labels`, else 0.0  
+   - Positions 22–24: one‑hot encoding of the row’s `label.context_reliance` (exactly one position is 1.0, the others 0.0)
+
+4. **Output** – write `data/labeled/training_data.jsonl` with one JSON object per line:  
+   `{"prompt": "...", "labels": [list of 25 floats], "source": "..."}`
+
+5. **Schema file** – write `data/labeled/label_schema.json` containing the three lists (topic, intent, context_reliance) in the exact order above. This file is the permanent record.
 
 ---
 
-## PHASE 2C — Train the Classifier
+### Step 2C.1 – Install the ML packages
 
-**What you're doing:** Training a small PyTorch neural network. The network takes a sentence embedding (a 384-dimensional vector representing the meaning of a prompt) and outputs 25 numbers — one for each label.
+Do **not** use `pip`. Use `uv`:
 
-**Where to learn:**
-
-- The official PyTorch 60-minute blitz: https://pytorch.org/tutorials/beginner/deep_learning_60min_blitz.html (do all of it before this phase)
-- What BCEWithLogitsLoss is: https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html
-- What CrossEntropyLoss is: https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html
-
----
-
-### Step 2C.1 — Install the ML packages
-
-```
-pip install torch torchvision sentence-transformers scikit-learn
+```bash
+uv add torch torchvision sentence-transformers scikit-learn
 ```
 
-Add to `requirements.txt`:
-
-```
-torch
-torchvision
-sentence-transformers
-scikit-learn
-```
-
-`sentence-transformers` is the library that gives you the `all-MiniLM-L6-v2` model. `scikit-learn` is for splitting your data into train/validation sets.
+If any package is already in `pyproject.toml`, `uv` will just update the lock file. No manual `requirements.txt` changes needed.
 
 ---
 
-### Step 2C.2 — Create the dataset class
+### Step 2C.2 – Create the dataset class
 
-Create the file `src/classifier/dataset.py`. This file defines how PyTorch reads your training data.
+**Create `src/classifier/dataset.py`.**
 
-It needs to:
+- Import `torch`, `torch.utils.data.Dataset`, `json`, `sentence_transformers`.
+- Class `ICEClassifierDataset(Dataset)`:
+  - `__init__(self, training_data_path)`:  
+    - Load `training_data.jsonl` (the file produced by Step 2B.5).  
+    - Load the `all-MiniLM-L6-v2` sentence‑transformer model: `SentenceTransformer("all-MiniLM-L6-v2")`.  
+    - Encode every prompt **once** into a 384‑dimensional embedding: `self.embeddings = model.encode(prompts, convert_to_tensor=True)`.  
+    - Convert the list of label vectors into a float tensor of shape `(N, 25)`.
+  - `__len__`: return `N`.
+  - `__getitem__(idx)`: return tuple `(embedding_tensor[idx], label_tensor[idx])`.
 
-1. Import `torch` and `torch.utils.data.Dataset`
-2. Define a class called `ICEClassifierDataset` that inherits from `Dataset`
-3. In `__init__`: load `data/labeled/training_data.jsonl`, load the `all-MiniLM-L6-v2` sentence transformer model (this is the frozen encoder), encode all prompts into 384-dimensional embeddings, convert everything to PyTorch tensors
-4. Define `__len__`: return the number of rows
-5. Define `__getitem__`: given an index, return a tuple of `(embedding_tensor, label_tensor)` where embedding_tensor has shape `(384,)` and label_tensor has shape `(25,)`
-
-**Important:** The sentence transformer encoding is frozen — you load it once, encode all prompts upfront, and save the resulting tensors. You do not train the encoder. You only train the linear layers on top.
-
-**Where to learn:** https://pytorch.org/tutorials/beginner/data_loading_tutorial.html
-
----
-
-### Step 2C.3 — Create the model architecture
-
-Create the file `src/classifier/model.py`. This defines the neural network.
-
-It needs to:
-
-1. Import `torch` and `torch.nn`
-2. Define a class called `ICEClassifier` that inherits from `nn.Module`
-3. In `__init__`, define these layers:
-    - `self.fc1 = nn.Linear(384, 128)` — first linear layer, 384 inputs → 128 outputs
-    - `self.relu = nn.ReLU()` — activation function
-    - `self.dropout = nn.Dropout(p=0.3)` — randomly zeros 30% of neurons during training to prevent overfitting
-    - `self.fc2 = nn.Linear(128, 25)` — second linear layer, 128 inputs → 25 outputs (your 25 labels)
-4. Define `forward(self, x)`:
-    - Pass x through fc1
-    - Apply relu
-    - Apply dropout
-    - Pass through fc2
-    - Return the result (raw logits — 25 numbers, not yet probabilities)
-
-That's the whole model. Two linear layers. It's small by design — it needs to run in milliseconds on CPU.
+**Important:** The encoder is frozen – you never call `.train()` on it. The embeddings are pre‑computed to avoid repeated inference.
 
 ---
 
-### Step 2C.4 — Write the training script
+### Step 2C.3 – Create the model architecture
 
-Create `scripts/train_classifier.py`. This is the script you'll actually run to train the model.
+**Create `src/classifier/model.py`.**
 
-At the top, add these arguments that can be passed from the command line:
+- Imports: `torch`, `torch.nn`
+- Class `ICEClassifier(nn.Module)`:
+  - `__init__(self)`:  
+    ```python
+    self.fc1 = nn.Linear(384, 128)
+    self.relu = nn.ReLU()
+    self.dropout = nn.Dropout(0.3)
+    self.fc2 = nn.Linear(128, 25)
+    ```
+  - `forward(self, x)`: `x → fc1 → relu → dropout → fc2`  
+    Return the raw logits (25 numbers, no activation).
 
-- `--seed` (integer, required) — for reproducibility
-- `--epochs` (integer, default 30)
-- `--batch_size` (integer, default 32)
+That’s the whole model. It will be ~ 5 MB on disk.
+
+---
+
+### Step 2C.4 – Write the training script
+
+**Create `scripts/training/train_classifier.py`.**
+
+It must accept command‑line arguments:
+- `--seed` (int, required)
+- `--epochs` (int, default 30)
+- `--batch_size` (int, default 32)
 - `--lr` (float, default 0.001)
-- `--val_split` (float, default 0.1) — 10% of data for validation
+- `--val_split` (float, default 0.1)
+- `--pos-weight-cap` (float, default 10.0) – how high the computed `pos_weight` values can go.
 
-The script needs to:
+**Logic:**
 
-1. Set the random seed everywhere:
-    
-    ```python
-    import random, numpy as np, torch
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
+1. **Set all seeds**: `random.seed`, `np.random.seed`, `torch.manual_seed`, `torch.cuda.manual_seed_all`.
+
+2. **Load dataset** `ICEClassifierDataset("data/labeled/training_data.jsonl")`.
+
+3. **Train/val split**: `torch.utils.data.random_split(dataset, [1-val_split, val_split])`, using `torch.Generator().manual_seed(args.seed)` to keep it reproducible.
+
+4. **DataLoaders**: `train_loader = DataLoader(..., batch_size=args.batch_size, shuffle=True)`, `val_loader = DataLoader(..., shuffle=False)`.
+
+5. **Device**: `device = torch.device("cuda" if torch.cuda.is_available() else "cpu")`. Move model there.
+
+6. **Compute pos_weight for BCE losses**:  
+   - Gather all label tensors from the **training set only**.  
+   - For each label index (0–21), count positives (1.0).  
+   - `pos_weight = (num_negatives) / (num_positives)` if positives > 0, else 1.0.  
+   - Cap the weight at `args.pos_weight_cap`.  
+   - Create a tensor of shape `(22,)`.  
+   - Split into `topic_pos_weight = pos_weight[:11]` and `intent_pos_weight = pos_weight[11:22]`.
+
+7. **Losses**:  
+   - `bce_topic = nn.BCEWithLogitsLoss(pos_weight=topic_pos_weight.to(device))`  
+   - `bce_intent = nn.BCEWithLogitsLoss(pos_weight=intent_pos_weight.to(device))`  
+   - `ce_context = nn.CrossEntropyLoss()`
+
+8. **Optimizer**: `torch.optim.Adam(model.parameters(), lr=args.lr)`
+
+9. **Training loop**:  
+   - For each epoch:  
+     - `model.train()`  
+     - For each batch:  
+       - `emb, labels = batch[0].to(device), batch[1].to(device)`  
+       - `outputs = model(emb)`  
+       - `topic_out = outputs[:, :11]`, `intent_out = outputs[:, 11:22]`, `ctx_out = outputs[:, 22:]`  
+       - `topic_gt = labels[:, :11]`, `intent_gt = labels[:, 11:22]`, `ctx_gt = labels[:, 22:].argmax(dim=1)`  
+       - `loss = bce_topic(topic_out, topic_gt) + bce_intent(intent_out, intent_gt) + ce_context(ctx_out, ctx_gt)`  
+       - `optimizer.zero_grad()`, `loss.backward()`, `optimizer.step()`  
+     - After epoch, compute average validation loss (no grad). Print epoch number, train loss, val loss.
+
+10. **Early stopping**: keep track of best validation loss. If it doesn’t improve for 5 consecutive epochs, stop.
+
+11. **Save model**: `torch.save(model.state_dict(), "models/classifier/ice_classifier.pt")`. Create directory if needed.
+
+12. **Log the run**: append a JSON line to `models/classifier/training_runs.jsonl`:
+    ```json
+    {
+      "seed": 42,
+      "epochs_completed": 15,
+      "final_val_loss": 0.234,
+      "timestamp": "2026-06-05T18:00:00",
+      "model_path": "models/classifier/ice_classifier.pt",
+      "args": { "batch_size": 32, "lr": 0.001, "val_split": 0.1, "pos_weight_cap": 10.0 }
+    }
     ```
-    
-2. Load the dataset using your `ICEClassifierDataset` class
-    
-3. Split into train and validation sets using `torch.utils.data.random_split`. If `val_split=0.1`, 90% goes to training and 10% to validation.
-    
-4. Create DataLoaders for both:
-    
-    ```python
-    train_loader = DataLoader(train_set, batch_size=32, shuffle=True)
-    val_loader = DataLoader(val_set, batch_size=32, shuffle=False)
-    ```
-    
-5. Create the model, send it to GPU if available:
-    
-    ```python
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ICEClassifier().to(device)
-    ```
-    
-6. Define two loss functions:
-    
-    - `bce_loss = nn.BCEWithLogitsLoss()` — used for topic labels (positions 0–10) and intent labels (positions 11–21), because multiple labels can be active at once
-    - `ce_loss = nn.CrossEntropyLoss()` — used for context reliance (positions 22–24), because exactly one must win
-7. Define an optimizer:
-    
-    ```python
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    ```
-    
-8. Training loop (for each epoch):
-    
-    - Set model to train mode: `model.train()`
-    - For each batch from train_loader:
-        - Send embeddings and labels to device
-        - Forward pass: `outputs = model(embeddings)`
-        - Split outputs: topic_out = outputs[:, :11], intent_out = outputs[:, 11:22], reliance_out = outputs[:, 22:]
-        - Split labels the same way from the 25-column label tensor
-        - Compute combined loss: `loss = bce_loss(topic_out, topic_labels) + bce_loss(intent_out, intent_labels) + ce_loss(reliance_out, reliance_labels)`
-        - `optimizer.zero_grad()` then `loss.backward()` then `optimizer.step()`
-    - After each epoch, evaluate on validation set: compute average val loss
-    - Print epoch number, train loss, val loss
-9. Early stopping: if validation loss doesn't improve for 5 consecutive epochs, stop training
-    
-10. After training, save the model weights:
-    
-    ```python
-    torch.save(model.state_dict(), "models/classifier/ice_classifier.pt")
-    ```
-    
-11. Log the training run to `models/classifier/training_runs.jsonl` — append a JSON object with: seed, epochs run, final val loss, timestamp, model path
-    
 
 Run it with:
-
+```bash
+uv run scripts/training/train_classifier.py --seed 42
 ```
-python scripts/train_classifier.py --seed 42
-```
-
-Watch the loss go down over epochs. If it's not going down at all, check your data. If it goes down then up (overfitting), increase dropout or reduce epochs.
 
 ---
 
-### Step 2C.5 — Write the inference wrapper
+### Step 2C.5 – Write the inference wrapper
 
-You need a clean Python class to use the trained classifier at runtime. This is the class that the FastAPI middleware will call.
+**Create `src/classifier/classifier.py`.**
 
-Create `src/classifier/classifier.py`. This file needs:
+1. **Abstract base class** `IntentClassifier`:
+   ```python
+   from abc import ABC, abstractmethod
+   class IntentClassifier(ABC):
+       @abstractmethod
+       def classify(self, prompt: str) -> ClassificationResult:
+           ...
+   ```
 
-1. An abstract base class called `IntentClassifier` with one required method:
-    
-    ```python
-    def classify(self, prompt: str) -> ClassificationResult
-    ```
-    
-    (This lets you swap in an LLM-based classifier later for research comparison without changing anything else.)
-    
-2. A dataclass called `ClassificationResult` with fields:
-    
-    - `topic_tags: list[str]` — active topic labels above the threshold
-    - `intent_tags: list[str]` — active intent labels above the threshold
-    - `context_reliance: str` — the winning context reliance class
-    - `raw_probs: list[float]` — all 25 raw probabilities (for logging)
-    - `max_confidence: float` — the highest probability across all 25 labels (used for the confidence fallback check)
-3. A class `PyTorchClassifier` that implements `IntentClassifier`:
-    
-    - In `__init__`: load the trained model from disk, load the label schema from `data/labeled/label_schema.json`, load the `all-MiniLM-L6-v2` sentence transformer, set model to eval mode, move to CPU (the classifier runs on CPU)
-    - In `classify(prompt)`:
-        - Encode the prompt to a 384-dim embedding using sentence transformer
-        - Run through the model: `output = model(embedding)`
-        - Apply sigmoid to topic outputs (positions 0–10) and intent outputs (positions 11–21) to get probabilities between 0 and 1
-        - Apply softmax to context reliance outputs (positions 22–24) to get a probability distribution summing to 1
-        - Active topic labels = all topics where probability > 0.50
-        - Active intent labels = all intents where probability > 0.50
-        - Winning context reliance = the label with the highest softmax probability
-        - max_confidence = the single highest probability across all 25 values
-        - Return a `ClassificationResult` with all these values
+2. **Dataclass** `ClassificationResult`:
+   ```python
+   from dataclasses import dataclass
+   @dataclass
+   class ClassificationResult:
+       topic_tags: list[str]
+       intent_tags: list[str]
+       context_reliance: str
+       raw_probs: list[float]        # 25 probabilities
+       max_confidence: float
+   ```
+
+3. **Concrete class** `PyTorchClassifier(IntentClassifier)`:
+   - `__init__(self, model_path="models/classifier/ice_classifier.pt", schema_path="data/labeled/label_schema.json")`:  
+     - Load label schema.  
+     - Load the trained model architecture (`ICEClassifier`) and state dict; set to `eval()` mode, move to CPU.  
+     - Load the `all-MiniLM-L6-v2` sentence‑transformer (CPU).
+   - `classify(self, prompt: str)`:  
+     - Encode the prompt to a 384‑dim tensor.  
+     - `with torch.no_grad(): outputs = self.model(embedding)`  
+     - Slice outputs: `topic_logits = outputs[:11]`, `intent_logits = outputs[11:22]`, `ctx_logits = outputs[22:]`  
+     - `topic_probs = torch.sigmoid(topic_logits)` → list of floats  
+     - `intent_probs = torch.sigmoid(intent_logits)` → list of floats  
+     - `ctx_probs = torch.softmax(ctx_logits, dim=0)` → list of 3 floats  
+     - Build `topic_tags` where probability > 0.5, using the schema’s topic list.  
+     - Build `intent_tags` where probability > 0.5, using the schema’s intent list.  
+     - `context_reliance` = the schema’s context class with the highest softmax probability.  
+     - `max_confidence = max(all 25 probabilities)`.  
+     - Return `ClassificationResult`.
 
 ---
 
-### Step 2C.6 — Test the classifier manually
+### Step 2C.6 – Test the classifier manually
 
-Create `scripts/test_classifier.py`. This script:
+**Create `scripts/training/test_classifier.py`.**
 
-1. Creates a `PyTorchClassifier()` instance
-2. Runs it on 10 example prompts (write them yourself — include obvious ones like "write me a Python function", "what is the capital of France", "I feel really stressed today")
-3. Prints the classification result for each
+- Instantiate `PyTorchClassifier()`.
+- Define at least 10 diverse prompts (e.g., `"write me a Python function"`, `"what is the capital of France"`, `"I feel really stressed today"`, `"that bug we fixed last night is back"`, `"what's the current price of Bitcoin?"`).
+- For each, call `classifier.classify(prompt)` and print the result.
+- Run with `uv run scripts/training/test_classifier.py`.
 
-Run it. Look at the outputs. Does "write me a Python function" get `Software_&_Tech` and `Generation`? Does "what is the capital of France" get `General_Reference_&_Trivia` and `Factual_Retrieval` with `Zero_Shot`? If the outputs look reasonable, the classifier works.
+If the output looks reasonable (topics, intents, and context_reliance match human expectation), Phase 2 is done.
 
 ---
 

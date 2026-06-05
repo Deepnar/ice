@@ -8,7 +8,8 @@ dist/
 build/
 data/raw_logs/
 data/unlabeled/
-data/
+data/labeled/
+data/synthetic/
 models/
 *.ckpt
 *.pt

@@ -1,130 +1,181 @@
 import json
 from collections import Counter
-import itertools
+from itertools import product
 
-# Load labeled data
-with open("/home/deepnar/Programs/ice/data/labeled/labeled_prompts.jsonl", "r") as f:
-    data = [json.loads(line) for line in f]
+# ----------------------------------------------------------------------
+# 1. LOAD DATA (skip empty lines)
+# ----------------------------------------------------------------------
+INPUT_PATH = "/home/deepnar/Programs/ice/data/labeled/labeled_prompts.jsonl"
 
-# Raw label frequencies
-topic_labels = [label for item in data for label in item["label"]["topic_labels"]]
-intent_labels = [label for item in data for label in item["label"]["intent_labels"]]
-context_reliance = [item["label"]["context_reliance"] for item in data]
-sources = [item["source"] for item in data]
-
-topic_counts = Counter(topic_labels)
-intent_counts = Counter(intent_labels)
-context_counts = Counter(context_reliance)
-source_counts = Counter(sources)
+with open(INPUT_PATH, "r") as f:
+    data = [json.loads(line) for line in f if line.strip()]
 
 total_prompts = len(data)
-topic_freq = {label: count / total_prompts for label, count in topic_counts.items()}
-intent_freq = {label: count / total_prompts for label, count in intent_counts.items()}
-context_freq = {label: count / total_prompts for label, count in context_counts.items()}
-source_freq = {label: count / total_prompts for label, count in source_counts.items()}
+print(f"Total prompts loaded: {total_prompts}\n")
 
-print("Topic Frequencies:")
-for label, freq in topic_freq.items():
-    print(f"{label}: {freq:.2%}")
+# ----------------------------------------------------------------------
+# 2. BASIC FREQUENCIES (unchanged)
+# ----------------------------------------------------------------------
+def flatten_labels(items, key):
+    """Extract list of labels from each item's label dict."""
+    return [label for item in items for label in item["label"][key]]
 
-print("\nIntent Frequencies:")
-for label, freq in intent_freq.items():
-    print(f"{label}: {freq:.2%}")
+topic_labels_flat = flatten_labels(data, "topic_labels")
+intent_labels_flat = flatten_labels(data, "intent_labels")
+context_vals = [item["label"]["context_reliance"] for item in data]
+sources = [item["source"] for item in data]
 
-print("\nContext Reliance Frequencies:")
-for label, freq in context_freq.items():
-    print(f"{label}: {freq:.2%}")
+topic_counts = Counter(topic_labels_flat)
+intent_counts = Counter(intent_labels_flat)
+context_counts = Counter(context_vals)
+source_counts = Counter(sources)
 
-print("\nSource Frequencies:")
-for label, freq in source_freq.items():
-    print(f"{label}: {freq:.2%}")
+def print_frequencies(counts, total, title):
+    print(f"--- {title} ---")
+    for label, count in counts.most_common():
+        freq = count / total
+        print(f"  {label:<35} {count:>6} ({freq:6.2%})")
+    print()
 
-# Co-occurrence matrices
-topic_pairs = list(itertools.combinations(topic_labels, 2))
-intent_pairs = list(itertools.combinations(intent_labels, 2))
-topic_intent_pairs = [(topic, intent) for topic in topic_labels for intent in intent_labels]
+print_frequencies(topic_counts, total_prompts, "Topic Frequencies")
+print_frequencies(intent_counts, total_prompts, "Intent Frequencies")
+print_frequencies(context_counts, total_prompts, "Context Reliance Frequencies")
+print_frequencies(source_counts, total_prompts, "Source Frequencies")
 
-topic_pair_counts = Counter(topic_pairs)
-intent_pair_counts = Counter(intent_pairs)
-topic_intent_pair_counts = Counter(topic_intent_pairs)
+# ----------------------------------------------------------------------
+# 3. FULL CO‑OCCURRENCE MATRICES (topics, intents, topic‑intent)
+# ----------------------------------------------------------------------
+def build_cooccurrence_matrix(data, label_type1, label_type2=None):
+    """
+    Return a matrix (dict of dicts) of co‑occurrence counts.
+    If label_type2 is None, it's a pairwise co‑occurrence within the same type
+    (symmetrical).  Otherwise, asymmetric matrix where rows are label_type1
+    and columns are label_type2.
+    """
+    all_labels1 = sorted(set(lbl for item in data for lbl in item["label"][label_type1]))
+    if label_type2 is None:
+        all_labels2 = all_labels1
+    else:
+        all_labels2 = sorted(set(lbl for item in data for lbl in item["label"][label_type2]))
 
-print("\nTop 20 Topic × Topic Co-occurrences:")
-for pair, count in topic_pair_counts.most_common(20):
-    print(f"{pair}: {count}")
+    matrix = {l1: {l2: 0 for l2 in all_labels2} for l1 in all_labels1}
 
-print("\nTop 20 Intent × Intent Co-occurrences:")
-for pair, count in intent_pair_counts.most_common(20):
-    print(f"{pair}: {count}")
+    for item in data:
+        labs1 = item["label"][label_type1]
+        if label_type2 is None:
+            labs2 = labs1
+            for i, l1 in enumerate(labs1):
+                for j, l2 in enumerate(labs1):
+                    if i < j:
+                        matrix[l1][l2] += 1
+                        matrix[l2][l1] += 1
+        else:
+            labs2 = item["label"][label_type2]
+            for l1 in labs1:
+                for l2 in labs2:
+                    matrix[l1][l2] += 1
+    return matrix
 
-print("\nTop 20 Topic × Intent Co-occurrences:")
-for pair, count in topic_intent_pair_counts.most_common(20):
-    print(f"{pair}: {count}")
+def print_cooccurrence_matrix(matrix, title):
+    print(f"--- {title} ---")
+    # column headers
+    col_labels = sorted(list(matrix.values())[0].keys(), key=str)
+    # print header row
+    header = " " * 35 + "".join(f"{lbl[:20]:>22}" for lbl in col_labels)
+    print(header)
+    for row_label in sorted(matrix.keys(), key=str):
+        row = matrix[row_label]
+        vals = "".join(f"{row[col]:>22}" for col in col_labels)
+        print(f"{row_label[:35]:<35}{vals}")
+    print()
 
-# Conditional distributions
-context_by_source = {}
-intent_by_topic = {}
+# Topic‑Topic co‑occurrence (symmetric)
+tt_matrix = build_cooccurrence_matrix(data, "topic_labels")
+print_cooccurrence_matrix(tt_matrix, "Topic × Topic Co‑occurrences")
 
+# Intent‑Intent co‑occurrence (symmetric)
+ii_matrix = build_cooccurrence_matrix(data, "intent_labels")
+print_cooccurrence_matrix(ii_matrix, "Intent × Intent Co‑occurrences")
+
+# Topic‑Intent co‑occurrence (asymmetric: rows = topic, cols = intent)
+ti_matrix = build_cooccurrence_matrix(data, "topic_labels", "intent_labels")
+print_cooccurrence_matrix(ti_matrix, "Topic (rows) × Intent (cols) Co‑occurrences")
+
+# ----------------------------------------------------------------------
+# 4. CONDITIONAL DISTRIBUTIONS (context by topic, context by intent)
+# ----------------------------------------------------------------------
+def context_by_label(data, label_type):
+    """
+    For each label, compute counts of each context_reliance value.
+    Returns dict: label -> Counter of context values.
+    """
+    dist = {}
+    for item in data:
+        for lbl in item["label"][label_type]:
+            dist.setdefault(lbl, Counter())[item["label"]["context_reliance"]] += 1
+    return dist
+
+print("--- Context Reliance by Topic ---")
+ctx_by_topic = context_by_label(data, "topic_labels")
+for topic in sorted(ctx_by_topic.keys()):
+    total = sum(ctx_by_topic[topic].values())
+    print(f"  {topic}:")
+    for ctx, cnt in ctx_by_topic[topic].most_common():
+        print(f"    {ctx}: {cnt} ({cnt/total:6.2%})")
+
+print("\n--- Context Reliance by Intent ---")
+ctx_by_intent = context_by_label(data, "intent_labels")
+for intent in sorted(ctx_by_intent.keys()):
+    total = sum(ctx_by_intent[intent].values())
+    print(f"  {intent}:")
+    for ctx, cnt in ctx_by_intent[intent].most_common():
+        print(f"    {ctx}: {cnt} ({cnt/total:6.2%})")
+
+# Existing context by source (slightly improved printing)
+print("\n--- Context Reliance by Source ---")
+ctx_by_src = {}
 for item in data:
-    source = item["source"]
-    context = item["label"]["context_reliance"]
-    topic = item["label"]["topic_labels"][0] if item["label"]["topic_labels"] else None
-    intent = item["label"]["intent_labels"][0] if item["label"]["intent_labels"] else None
+    src = item["source"]
+    ctx_by_src.setdefault(src, Counter())[item["label"]["context_reliance"]] += 1
+for src in sorted(ctx_by_src.keys()):
+    total = sum(ctx_by_src[src].values())
+    print(f"  {src}:")
+    for ctx, cnt in ctx_by_src[src].most_common():
+        print(f"    {ctx}: {cnt} ({cnt/total:6.2%})")
 
-    if source not in context_by_source:
-        context_by_source[source] = Counter()
-    context_by_source[source][context] += 1
+# ----------------------------------------------------------------------
+# 5. CARDINALITY & COMPLETENESS
+# ----------------------------------------------------------------------
+avg_topic = sum(len(item["label"]["topic_labels"]) for item in data) / total_prompts
+avg_intent = sum(len(item["label"]["intent_labels"]) for item in data) / total_prompts
+print(f"\nAverage topic labels per prompt: {avg_topic:.2f}")
+print(f"Average intent labels per prompt: {avg_intent:.2f}")
 
-    if topic and topic not in intent_by_topic:
-        intent_by_topic[topic] = Counter()
-    if topic and intent:
-        intent_by_topic[topic][intent] += 1
+no_topic = sum(1 for item in data if not item["label"]["topic_labels"])
+no_intent = sum(1 for item in data if not item["label"]["intent_labels"])
+invalid_ctx = sum(1 for item in data if item["label"]["context_reliance"] not in
+                  ["Zero_Shot", "Long_Term_Memory", "Real_Time_Search"])
+print(f"Prompts with no topic labels: {no_topic}")
+print(f"Prompts with no intent labels: {no_intent}")
+print(f"Prompts with invalid context reliance: {invalid_ctx}")
 
-print("\nContext Reliance by Source:")
-for source, contexts in context_by_source.items():
-    total = sum(contexts.values())
-    print(f"Source: {source}")
-    for context, count in contexts.items():
-        print(f"  {context}: {count / total:.2%}")
-
-print("\nIntent Distribution per Topic:")
-for topic, intents in intent_by_topic.items():
-    total = sum(intents.values())
-    print(f"Topic: {topic}")
-    for intent, count in intents.items():
-        print(f"  {intent}: {count / total:.2%}")
-
-# Label cardinality
-avg_topic_labels = sum(len(item["label"]["topic_labels"]) for item in data) / total_prompts
-avg_intent_labels = sum(len(item["label"]["intent_labels"]) for item in data) / total_prompts
-
-print(f"\nAverage number of topic labels per prompt: {avg_topic_labels:.2f}")
-print(f"Average number of intent labels per prompt: {avg_intent_labels:.2f}")
-
-# Data completeness checks
-no_topic_labels = sum(1 for item in data if not item["label"]["topic_labels"])
-no_intent_labels = sum(1 for item in data if not item["label"]["intent_labels"])
-invalid_context_reliance = sum(1 for item in data if item["label"]["context_reliance"] not in ["Zero_Shot", "Long_Term_Memory", "Real_Time_Search"])
-
-print(f"\nNumber of prompts with no topic labels: {no_topic_labels}")
-print(f"Number of prompts with no intent labels: {no_intent_labels}")
-print(f"Number of prompts with invalid context reliance: {invalid_context_reliance}")
-
-# Summary of skew
+# ----------------------------------------------------------------------
+# 6. SKEW SUMMARY & RECOMMENDATIONS
+# ----------------------------------------------------------------------
 threshold = 0.02
-infrequent_topics = [label for label, freq in topic_freq.items() if freq < threshold]
-infrequent_intents = [label for label, freq in intent_freq.items() if freq < threshold]
+infrequent_topics = [lbl for lbl, cnt in topic_counts.items() if cnt/total_prompts < threshold]
+infrequent_intents = [lbl for lbl, cnt in intent_counts.items() if cnt/total_prompts < threshold]
 
-print("\nLabels appearing less than 2% of the time:")
-print("Topics:", infrequent_topics)
-print("Intents:", infrequent_intents)
+print("\nLabels appearing in less than 2% of prompts:")
+print(f"  Topics: {infrequent_topics if infrequent_topics else 'None'}")
+print(f"  Intents: {infrequent_intents if infrequent_intents else 'None'}")
 
-# Recommend synthetic data generation
-print("\nRecommendations for synthetic data generation:")
-if "Long_Term_Memory" not in topic_freq or topic_freq["Long_Term_Memory"] < threshold:
-    print("- Increase the frequency of 'Long_Term_Memory' topics.")
-if "Real_Time_Search" not in topic_freq or topic_freq["Real_Time_Search"] < threshold:
-    print("- Increase the frequency of 'Real_Time_Search' topics.")
-if "Emotional_Processing" not in intent_freq or intent_freq["Emotional_Processing"] < threshold:
-    print("- Increase the frequency of 'Emotional_Processing' intents.")
-if "Zero_Shot" not in context_freq or context_freq["Zero_Shot"] < threshold:
-    print("- Increase the frequency of 'Zero_Shot' context reliance.")
+# Context reliance skew
+ctx_freq = {ctx: cnt/total_prompts for ctx, cnt in context_counts.items()}
+print("\nContext reliance balance check:")
+if ctx_freq.get("Long_Term_Memory", 0) < 0.15:
+    print("  ⚠️ Long_Term_Memory is below 15% — consider adding more LTM examples.")
+if ctx_freq.get("Real_Time_Search", 0) < 0.01:
+    print("  ⚠️ Real_Time_Search is below 1% — extremely underrepresented.")
+else:
+    print("  ✅ Context reliance distribution looks reasonable.")
