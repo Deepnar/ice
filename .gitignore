@@ -10,7 +10,7 @@ data/raw_logs/
 data/unlabeled/
 data/labeled/
 data/synthetic/
-data/curated_fixes.jsonl    
+data/curated_fixes.jsonl
 models/
 *.ckpt
 *.pt
