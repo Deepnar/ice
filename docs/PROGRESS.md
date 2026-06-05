@@ -1,19 +1,16 @@
 # ICE — Project Progress
-> Last updated: 2026-05-06
+> Last updated: 2026-06-06
 
 ---
 
 ## Current Phase & Step
-Phase 2C — Step 2C.1 – Fine-tune the classifier model
+Phase 3 — Step 3.1 – Start the database and Redis with Docker
 
 ---
 
 ## Last Completed
-- `data/curated_fixes.jsonl` — contains curated fixes for training — complete
-- `scripts/training/build_training_data.py` — builds training data from labeled prompts — complete
-- `scripts/training/fine_tune.py` — fine-tunes the classifier model on curated fixes — complete
-- `scripts/training/test_classifier.py` — tests the classifier with various prompts — complete
-- `scripts/training/train_classifier.py` — trains the classifier model — complete
+- `models/classifier/ice_classifier_v2_final.pt` — final trained PyTorch classifier weights (saved from the most recent training run) — does NOT include a TorchScript export or production inference API
+- `scripts/training/train_classifier.py` — training driver that reproduces the classifier training and logs runs to `models/classifier/training_runs.jsonl` — does NOT handle distributed training or automated production export
 
 ---
 
@@ -49,6 +46,22 @@ Phase 2C — Step 2C.1 – Fine-tune the classifier model
 - `scripts/training/test_classifier.py` — tests the classifier with various prompts — complete
 - `scripts/training/train_classifier.py` — trains the classifier model — complete
 
+- `models/classifier/ice_classifier_v2_final.pt` — final trained PyTorch classifier weights (saved artifact from latest run) — does NOT include TorchScript optimization or deployment wrapper
+- `models/classifier/training_runs.jsonl` — JSONL log of training runs, seeds, and validation losses — does NOT provide full experiment metadata or remote tracking
+- `scripts/training/train_classifier.py` — training script for the ICE classifier — does NOT handle multi‑GPU/distributed training or CI integration
+- `scripts/training/fine_tune.py` — fine‑tuning script that applies curated fixes to a checkpoint and saves an updated state dict — does NOT implement large‑scale distributed fine‑tuning or third‑party experiment tracking
+- `scripts/training/build_training_data.py` — converts labeled JSONL into vectorized training examples and writes the label schema — does NOT perform label cleaning or automated repairs
+- `scripts/training/test_classifier.py` — smoke/integration tests that run the model on hard prompts and print predictions — does NOT run as a unit/CI test suite
+- `src/classifier/model.py` — PyTorch MLP architecture (`ICEClassifier`) used for training and inference — does NOT include model export utilities (TorchScript/ONNX)
+- `src/classifier/dataset.py` — dataset loader that precomputes `all‑MiniLM‑L6‑v2` embeddings for training_data.jsonl — does NOT persist embeddings to disk or support streaming very large datasets
+- `src/classifier/classifier.py` — `PyTorchClassifier` inference wrapper and `ClassificationResult` dataclass — does NOT provide a network API (FastAPI) or batch inference endpoint
+- `scripts/classifier/promt_labeling/synthetic_data.py` — async synthetic prompt generator (uses local model endpoint / OpenAI‑compatible client) — does NOT include robust retry/backoff or production authentication handling
+- `scripts/classifier/promt_labeling/synth_promt_gen_number.csv` — CSV defining how many synthetic prompts to generate per label combination — does NOT validate or normalize counts
+- `scripts/classifier/promt_labeling/synth_promt_renumber.py` — renumbers `synth_` IDs in a JSONL file — does NOT merge conflicting IDs safely (simple overwrite approach)
+- `scripts/classifier/promt_labeling/validate_promt.py` — dataset validation and label frequency/co‑occurrence reporting — does NOT auto‑fix detected data issues
+- `data/curated_fixes.jsonl` — curated fixes used for fine‑tuning (sampled lines shown in repo) — does NOT claim to be exhaustive; used as high‑signal correction set
+- `data/labeled/labeled_prompts.jsonl` — labeled prompt dataset (first lines inspected) — does NOT include the full file here due to size; canonical labeled dataset lives in `data/labeled/`
+
 ---
 
 ## Deviations from Blueprint
@@ -71,3 +84,5 @@ None.
 ---
 
 ## Next Step
+
+PHASE 3 — The Database (Architecture‑Complete) from BLUEPRINT.md
