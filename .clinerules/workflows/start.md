@@ -8,7 +8,6 @@ STEP 5: Ask one clarifying question if anything is ambiguous. If nothing is ambi
 
 Rules in effect:
 - Use uv, not pip.
-- Use vLLM at http://localhost:8001/v1, not Ollama.
 - BLUEPRINT.md is a guide. ARCHITECTURE.md invariants are law.
 - Commit after each working change.
 - Update PROGRESS.md when I type /update or at session end.
