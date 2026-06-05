@@ -4,15 +4,16 @@
 ---
 
 ## Current Phase & Step
-Phase 2B — Step 2B.5 – Convert labels to vectors
+Phase 2C — Step 2C.1 – Fine-tune the classifier model
 
 ---
 
 ## Last Completed
-- `scripts/classifier/promt_labeling/generate_synthetic_data.py` — generates synthetic prompts based on provided labels — complete
-- `scripts/classifier/promt_labeling/synth_promt_gen_number.csv` — defines the number of synthetic prompts to generate for each label combination — complete
-- `scripts/classifier/promt_labeling/synth_promt_renumber.py` — renumbers synthetic prompt IDs in a JSONL file — complete
-- `scripts/classifier/promt_labeling/validate_promt.py` — validates labeled prompts by analyzing label frequencies, co-occurrences, and data completeness — complete
+- `data/curated_fixes.jsonl` — contains curated fixes for training — complete
+- `scripts/training/build_training_data.py` — builds training data from labeled prompts — complete
+- `scripts/training/fine_tune.py` — fine-tunes the classifier model on curated fixes — complete
+- `scripts/training/test_classifier.py` — tests the classifier with various prompts — complete
+- `scripts/training/train_classifier.py` — trains the classifier model — complete
 
 ---
 
@@ -42,6 +43,11 @@ Phase 2B — Step 2B.5 – Convert labels to vectors
 - `scripts/classifier/promt_labeling/synth_promt_gen_number.csv` — defines the number of synthetic prompts to generate for each label combination — complete
 - `scripts/classifier/promt_labeling/synth_promt_renumber.py` — renumbers synthetic prompt IDs in a JSONL file — complete
 - `scripts/classifier/promt_labeling/validate_promt.py` — validates labeled prompts by analyzing label frequencies, co-occurrences, and data completeness — complete
+- `data/curated_fixes.jsonl` — contains curated fixes for training — complete
+- `scripts/training/build_training_data.py` — builds training data from labeled prompts — complete
+- `scripts/training/fine_tune.py` — fine-tunes the classifier model on curated fixes — complete
+- `scripts/training/test_classifier.py` — tests the classifier with various prompts — complete
+- `scripts/training/train_classifier.py` — trains the classifier model — complete
 
 ---
 
@@ -51,6 +57,7 @@ Phase 2B — Step 2B.5 – Convert labels to vectors
 - [2025-XX-XX] Used vLLM (Qwen2.5-7B-AWQ) instead of Ollama (70B) for labeling — Reason: vLLM already set up, faster throughput, structured output via instructor
 - [2025-XX-XX] Used instructor library for structured output instead of raw JSON parsing — Reason: more robust schema enforcement and retry logic
 - [2025-XX-XX] Folder structure differs from BLUEPRINT.md — using scripts/classifier/ subdirectory instead of flat scripts/ — Reason: better organization
+- [2026-05-06] Added `scripts/training/build_training_data.py`, `scripts/training/fine_tune.py`, `scripts/training/test_classifier.py`, and `scripts/training/train_classifier.py` — Reason: to fine-tune and test the classifier model
 - [2025-XX-XX] Used uv instead of pip for all package management — Reason: project standard, cleaner dependency tracking
 - [2025-XX-XX] Used vLLM (Qwen2.5-7B-AWQ) instead of Ollama (70B) for labeling — Reason: vLLM already set up, faster throughput, structured output via instructor
 - [2025-XX-XX] Used instructor library for structured output instead of raw JSON parsing — Reason: more robust schema enforcement and retry logic
@@ -64,4 +71,3 @@ None.
 ---
 
 ## Next Step
-- Continue with the next phase or step as outlined in `docs/BLUEPRINT.md`.
