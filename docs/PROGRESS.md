@@ -4,7 +4,7 @@
 ---
 
 ## Current Phase & Step
-Phase 2B — Step 2B.5: Generating synthetic prompts with `generate_synthetic_data.py`
+Phase 2B — Step 2B.5 – Convert labels to vectors
 
 ---
 

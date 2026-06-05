@@ -27,7 +27,7 @@ STEP 1 — Gather information:
 
 STEP 2 — Update each section following these exact rules:
 
-**Current Phase & Step** — DELETE previous content. Write the exact phase number and step from BLUEPRINT.md we are on right now. If the actual state has diverged from BLUEPRINT.md, describe the actual state plainly.
+**Current Phase & Step** — DELETE previous content. Write the next exact phase number and step from BLUEPRINT.md we are on right now. If the actual state has diverged from BLUEPRINT.md, describe the actual state plainly. Search the next step based on the previous content's phase number from BLUEPRINT.md.
 
 **Last Completed** — DELETE previous content. Write the single most recently finished unit of work. Name the exact file(s) and what they do. One to three bullet points maximum.
 
@@ -40,7 +40,7 @@ If no deviation, add nothing.
 
 **Active Blockers** — DELETE previous content. List only currently-true blockers. Write "None" if there are none.
 
-**Next Step** — DELETE previous content. Write one sentence: the single most specific next action (file to create, function to write, test to add).
+
 
 Only modify PROGRESS.md. Do not touch any other file.
 
