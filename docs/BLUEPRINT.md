@@ -654,14 +654,90 @@ uv run scripts/training/train_classifier.py --seed 42
 
 ### Step 2C.6 – Test the classifier manually
 
-**Create `scripts/training/test_classifier.py`.**
+Create scripts/training/test_classifier.py
 
-- Instantiate `PyTorchClassifier()`.
-- Define at least 10 diverse prompts (e.g., `"write me a Python function"`, `"what is the capital of France"`, `"I feel really stressed today"`, `"that bug we fixed last night is back"`, `"what's the current price of Bitcoin?"`).
-- For each, call `classifier.classify(prompt)` and print the result.
-- Run with `uv run scripts/training/test_classifier.py`.
+This script should:
 
-If the output looks reasonable (topics, intents, and context_reliance match human expectation), Phase 2 is done.
+    Instantiate PyTorchClassifier() (the concrete class from src/classifier/classifier.py).
+
+    Define a list of test prompts (provided below).
+
+    For each prompt, call classifier.classify(prompt) and print:
+
+        The prompt
+
+        Predicted topics, intents, context_reliance, max confidence.
+
+    Print a summary of how many prompts got which context_reliance (to quickly spot if the model is still biased toward Zero_Shot).
+
+The test prompts – copy this list directly into the script
+python
+
+TEST_PROMPTS = [
+    # ===== Long_Term_Memory signals =====
+    "that bug we fixed last night is back, the authentication module still crashes",
+    "u said the goo blade would dissolve before touching him, can we keep that detail",
+    "continue from where we left off, i want the next scene to start right after the hug",
+    "what was the name of my friend who helped with the dipex project? i keep forgetting",
+    "remember when we decided to use postgres instead of sqlite? i need to explain why",
+    "my character Kael, the one with the fire ability, what should his weakness be",
+    "the plan we made for the newsletter launch, can u remind me the first step",
+    "we talked about adding a reflection worker, can u write the skeleton for it",
+    "this is the same issue i had yesterday with docker, the container keeps exiting",
+    "make the dialogue feel like what we discussed, more natural and less formal",
+    # ===== Real_Time_Search signals =====
+    "what’s the current price of bitcoin? i need to decide whether to sell",
+    "is python 3.13 out yet or still in rc? about to set up a new venv",
+    "who won the cricket match today between india and australia?",
+    "what’s the weather forecast for tomorrow in mumbai, i have a flight",
+    "did the supreme court issue any rulings this week on privacy?",
+    "are there any new releases of vllm today? i thought they said june 5",
+    "what’s the latest on that flooding in bangkok? is the airport open",
+    # ===== Ambiguous / implicit references (should be LTM) =====
+    "will it work this time or do i need to change the whole approach",
+    "i think this is the right way to go, what do u think",
+    "can u make it shorter but keep the same meaning",
+    "what do you think about the ending we wrote last month",
+    "i tried that thing u suggested, didn't help at all",
+    # ===== Rare classes =====
+    "asdfghjkl",                     # Null_Noise
+    "zzzzzzzz",                      # Null_Noise
+    "test",                          # Null_Noise (but be careful, might be mislabeled)
+    "do you actually remember me or do you just pretend",   # Meta_AI + Factual_Retrieval
+    "what’s the best way to prompt you to get really creative answers", # Meta_AI + Factual_Retrieval
+    "i wonder if a sentient AI would experience time differently than us", # Open_Exploration
+    "what would happen if we could store entire lifetimes in memory", # Open_Exploration
+    "haha that joke was terrible lmaoo",                # Casual_Banter
+    "thanks a lot for helping with that, ur a lifesaver", # Casual_Banter
+    "yo morning",                                       # Casual_Banter
+    # ===== Multi-label complex prompts =====
+    "fix the login bug and then write a summary of the changes for the team",
+    "i need a plan to learn rust in 2 weeks, and also i'm feeling overwhelmed by my current project",
+    "should i use mongodb or postgres for this social app, and can u write the schema for whichever u recommend",
+    # ===== Edge cases =====
+    "write a haiku about a frog",     # Zero_Shot, Creative_&_Media, Generation
+    "translate 'hello' to japanese", # Zero_Shot, General_Reference_&_Trivia, Utility_Formatting
+    "what is the capital of france", # Zero_Shot, General_Reference_&_Trivia, Factual_Retrieval (trivia, but casual enough)
+]
+
+Expected behavior
+
+After training, run:
+bash
+
+uv run python scripts/training/test_classifier.py
+
+    Prompts with clear memory signals (“that bug we fixed last night”, “u said”, “continue from”) should yield Long_Term_Memory.
+
+    Prompts requiring live data (“current price”, “today”, “this week”) should yield Real_Time_Search.
+
+    Gibberish should yield Null_Noise.
+
+    Meta questions should yield Meta_AI.
+
+    The model should not blindly assign Zero_Shot to ambiguous personal‑source prompts like “will it work this time”.
+
+If the outputs match these expectations, the classifier is working. If it still heavily biases toward Zero_Shot, you may need to check the data or increase the pos_weight for LTM.
 
 ---
 
