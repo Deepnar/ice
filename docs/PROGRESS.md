@@ -4,29 +4,32 @@
 ---
 
 ## Current Phase & Step
-Phase 2B — Step 2B.3: Writing the async labeling script using vLLM instead of Ollama
+Phase 2B — Step 2B.4: Validating labeled prompts with `validate_promt.py`
 
 *(Update this to whatever is actually true for your project right now)*
 
 ---
 
 ## Last Completed
-- `data/dataset/unlabled/dataset_unlabeled.jsonl` — 19,710 merged and deduplicated prompts from four sources (personal, wildchat, lmsys, sharegpt) — does not include labels
+- `data/unlabled/dataset_unlabeled.jsonl` — 19,710 merged and deduplicated prompts from four sources (personal, wildchat, lmsys, sharegpt) — does not include labels
 - `scripts/classifier/promt_labeling/VLLM_label_dataset.py` — async parallel labeling pipeline using instructor + vLLM, with idempotency and failed-prompt isolation — does not cover fine-tuning loop or validation
+- `scripts/classifier/promt_labeling/validate_promt.py` — validates labeled prompts by analyzing label frequencies, co-occurrences, and data completeness — complete
 
 ---
 
 ## File Inventory
 *(Append-only — never delete entries)*
 
-- `data/dataset/unlabled/personal_promts.jsonl` — extracted personal prompts from raw chat logs — raw, no labels
-- `data/dataset/unlabled/wildchat_promts.jsonl` — 5k WildChat first-turn prompts — raw, no labels
-- `data/dataset/unlabled/lmsys_promts.jsonl` — 5k LMSYS first-turn prompts — raw, no labels
-- `data/dataset/unlabled/sharegpt_promts.jsonl` — 5k ShareGPT human turns — raw, no labels
-- `data/dataset/unlabled/dataset_unlabeled.jsonl` — merged and deduplicated, ~19,710 rows — no labels
-- `data/dataset/unlabled/dataset_cleaned_filtered.jsonl` — cleaned version after filtering edge cases — no labels
-- `data/dataset/labled/labeled_prompts.jsonl` — 19,710 labeled rows with topic, intent, context_reliance fields — complete for Paper 1 training
-- `data/dataset/labled/failed_prompts.jsonl` — rows that failed labeling — not used for training
+- `scripts/classifier/promt_labeling/validate_promt.py` — validates labeled prompts by analyzing label frequencies, co-occurrences, and data completeness — complete
+
+- `data/unlabled/personal_promts.jsonl` — extracted personal prompts from raw chat logs — raw, no labels
+- `data/unlabled/wildchat_promts.jsonl` — 5k WildChat first-turn prompts — raw, no labels
+- `data/unlabled/lmsys_promts.jsonl` — 5k LMSYS first-turn prompts — raw, no labels
+- `data/unlabled/sharegpt_promts.jsonl` — 5k ShareGPT human turns — raw, no labels
+- `data/unlabled/dataset_unlabeled.jsonl` — merged and deduplicated, ~19,710 rows — no labels
+- `data/unlabled/dataset_cleaned_filtered.jsonl` — cleaned version after filtering edge cases — no labels
+- `data/labled/labeled_prompts.jsonl` — 19,710 labeled rows with topic, intent, context_reliance fields — complete for Paper 1 training
+- `data/labled/failed_prompts.jsonl` — rows that failed labeling — not used for training
 - `scripts/classifier/promt_extraction/extract_promts.py` — Amnesia Method extraction from raw chat logs — complete
 - `scripts/classifier/promt_extraction/wildchat_extractor.py` — WildChat source extractor — complete
 - `scripts/classifier/promt_extraction/lmsys_extractor.py` — LMSYS source extractor — complete

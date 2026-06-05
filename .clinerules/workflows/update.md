@@ -1,6 +1,6 @@
 Session ending or checkpoint update.
 
-Update PROGRESS.md following the rules in .clinerules/02-workflow.md exactly.
+Update PROGRESS.md following the rules in .clinerules/02-architecture.md exactly.
 
 Run git diff HEAD and git log --oneline -5 first.
 Read every file modified this session.

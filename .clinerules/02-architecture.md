@@ -22,8 +22,6 @@ Never update PROGRESS.md mid-task while implementation is in progress.
 
 ## How to Update PROGRESS.md
 STEP 1 — Gather information:
-- execute_command: `git diff HEAD`
-- execute_command: `git log --oneline -5`
 - read_file every source file created or modified this session.
 - read_file the current PROGRESS.md.
 
