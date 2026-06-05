@@ -1,0 +1,17 @@
+[project]
+name = "ice"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11.9"
+dependencies = [
+    "datasets>=4.8.5",
+    "huggingface-hub>=1.17.0",
+    "instructor>=1.15.1",
+    "ollama>=0.6.2",
+    "openai>=2.40.0",
+    "pandas>=3.0.3",
+    "pydantic>=2.13.4",
+    "tqdm>=4.67.3",
+    "vllm>=0.22.0",
+]

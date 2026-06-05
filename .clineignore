@@ -1,0 +1,34 @@
+# Dependencies and virtual environment
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Build artifacts and caches
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Large binary model weights
+models/
+*.pt
+*.ckpt
+*.bin
+*.safetensors
+
+
+# Raw unprocessed data (enormous)
+data/raw_logs/
+
+# Labeled data files that are very large – exclude them entirely
+# because Cline never needs to read thousands of labeled prompts.
+# The schema is in the code (label constants) and in data/labeled/label_schema.json.
+data/unlabeled/
+
+
+
+# Node modules, if any
+node_modules/

@@ -6,8 +6,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-data/raw_logs/
-data/labeled/
+data/
 models/
 *.ckpt
 *.pt
