@@ -4,14 +4,11 @@
 ---
 
 ## Current Phase & Step
-Phase 3 — Step 3.1 – Start the database and Redis with Docker
-
+Phase 5 
 ---
 
 ## Last Completed
-- `alembic/versions/675b74e56988_initial_schema.py` and `src/memory/models.py` — initial database schema and matching SQLAlchemy models (creates tables for episodic_memory, codex entities/edges/events/snapshots, procedural_memory, rag_documents/rag_chunks, memory_slots, context_clusters, conversations, curated_labels, idempotency_keys, sentinel rules/events, session_replays/session_summaries) — does NOT apply migrations to a live database or perform data migration.
-- `scripts/database/create_indexes.sql` — SQL script to create pgvector HNSW indexes on embedding columns (`episodic_memory.embedding`, `procedural_memory.embedding`, `rag_chunks.embedding`) to enable vector similarity search — does NOT execute automatically; requires manual run against the DB.
-- `docker/docker-compose.yml` — Docker Compose definition for a local development stack (Postgres with `pgvector` image + Redis) to enable the database and Redis services — does NOT start containers by itself or include environment secret management.
+- `src/api/main.py`, `src/api/db.py`, `src/api/config.py` — ICE FastAPI proxy (OpenAI-compatible middleware). Implements `/v1/chat/completions` and `/v1/models`, loads the `PyTorchClassifier` at startup, proxies/streams responses to/from the local Ollama model, and schedules asynchronous storage of episodic turns in PostgreSQL — does NOT include Celery worker wiring, authentication, or production hardening.
 
 ---
 
@@ -71,7 +68,13 @@ Phase 3 — Step 3.1 – Start the database and Redis with Docker
 - `src/memory/models.py` — SQLAlchemy declarative models matching the DB schema (EpisodicMemory, CodexEntity, CodexEdge, ProceduralMemory, RAG models, MemorySlot, etc.) — does NOT include DB session wiring, migration orchestration, or admin utilities.
 - `pyproject.toml` — project manifest updated with runtime dependencies required by ICE (alembic, pgvector, sentence-transformers, vllm, etc.) — does NOT lock installation environment; use `uv.lock` for resolved versions.
 - `uv.lock` — lockfile for the `uv` package manager listing resolved package versions — does NOT replace environment reproducibility guarantees beyond the lock semantics.
-- `.gitignore` — updated ignore rules to exclude local env, data dumps, and model artifacts — does NOT affect already-tracked files.
+ - `.gitignore` — updated ignore rules to exclude local env, data dumps, and model artifacts — does NOT affect already-tracked files.
+- `src/api/main.py` — FastAPI middleware proxy that loads the `PyTorchClassifier`, exposes OpenAI-compatible endpoints (`/v1/chat/completions`, `/v1/models`), streams responses from Ollama, and schedules background storage of episodic turns — does NOT implement authentication, background worker orchestration, or production-grade error handling.
+- `src/api/db.py` — SQLAlchemy engine and `SessionLocal` session factory plus `get_db` FastAPI dependency used by the proxy — does NOT provide async DB support, migration orchestration, or production connection tuning.
+- `src/api/config.py` — `pydantic_settings`-backed `Settings` (database_url, redis_url, ollama_base_url, classifier thresholds, model paths); reads `.env` — does NOT manage secrets or multi-environment profiles.
+- `src/classifier/classifier.py` — updated `PyTorchClassifier` wrapper that loads `ICEClassifier` weights, initializes `SentenceTransformer` embedder, and returns `ClassificationResult` (topic/intents/context + confidence) — does NOT provide batch inference, GPU offload, or a network inference endpoint.
+- `pyproject.toml` — project manifest updated to include FastAPI and runtime dependencies (fastapi, httpx, uvicorn, structlog, pydantic-settings, sse-starlette) required by the proxy — does NOT pin platform-specific extras or CI/test deps.
+- `uv.lock` — updated `uv` lockfile recording resolved dependency versions after adding proxy dependencies — does NOT guarantee cross-platform reproduction of binary wheels.
 
 ---
 
@@ -96,4 +99,4 @@ None.
 
 ## Next Step
 
-PHASE 3 — The Database (Architecture‑Complete) from BLUEPRINT.md
+PHASE 5
