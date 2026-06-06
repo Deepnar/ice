@@ -2,7 +2,7 @@ import torch
 from sentence_transformers import SentenceTransformer
 from dataclasses import dataclass
 from typing import List
-from classifier.model import ICEClassifier
+from .model import ICEClassifier
 
 @dataclass
 class ClassificationResult:

@@ -1618,6 +1618,8 @@ source = { virtual = "." }
 dependencies = [
     { name = "alembic" },
     { name = "datasets" },
+    { name = "fastapi" },
+    { name = "httpx" },
     { name = "huggingface-hub" },
     { name = "instructor" },
     { name = "ollama" },
@@ -1627,13 +1629,17 @@ dependencies = [
     { name = "psycopg", extra = ["binary"] },
     { name = "psycopg2-binary" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "scikit-learn" },
     { name = "sentence-transformers" },
     { name = "sqlalchemy" },
+    { name = "sse-starlette" },
+    { name = "structlog" },
     { name = "torch" },
     { name = "torchvision" },
     { name = "tqdm" },
+    { name = "uvicorn" },
     { name = "vllm" },
 ]
 
@@ -1641,6 +1647,8 @@ dependencies = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.18.4" },
     { name = "datasets", specifier = ">=4.8.5" },
+    { name = "fastapi", specifier = ">=0.136.3" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "huggingface-hub", specifier = ">=1.17.0" },
     { name = "instructor", specifier = ">=1.15.1" },
     { name = "ollama", specifier = ">=0.6.2" },
@@ -1650,13 +1658,17 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.4" },
     { name = "psycopg2-binary", specifier = ">=2.9.12" },
     { name = "pydantic", specifier = ">=2.13.4" },
+    { name = "pydantic-settings", specifier = ">=2.14.1" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "scikit-learn", specifier = ">=1.9.0" },
     { name = "sentence-transformers", specifier = ">=5.5.1" },
     { name = "sqlalchemy", specifier = ">=2.0.50" },
+    { name = "sse-starlette", specifier = ">=3.4.4" },
+    { name = "structlog", specifier = ">=26.1.0" },
     { name = "torch", specifier = ">=2.11.0" },
     { name = "torchvision", specifier = ">=0.26.0" },
     { name = "tqdm", specifier = ">=4.67.3" },
+    { name = "uvicorn", specifier = ">=0.48.0" },
     { name = "vllm", specifier = ">=0.22.0" },
 ]
 
@@ -5128,6 +5140,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/25/44/ec35f1b6e83094b997da438a02c8c9b0ade2b1e84cfc48bd4656780760a6/starlette-1.2.1.tar.gz", hash = "sha256:9b9b5ebb992e67d6093741e63c2f59e4f6fff986f81163c087867bd7b924b3f6", size = 2701854, upload-time = "2026-05-31T01:07:51.847Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1c/54/196d0c1db10af76baa4f64894448505d60d3cdf70ef92cbb35f46a4e4c71/starlette-1.2.1-py3-none-any.whl", hash = "sha256:4de0082d08c8f6764a85a54cf1120d6939507a19905c7768acad2a9f875d2b89", size = 73350, upload-time = "2026-05-31T01:07:50.09Z" },
+]
+
+[[package]]
+name = "structlog"
+version = "26.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5e/89/b4a0bcfdf4f71a3dea31379f095929613d7e4528a0996bca6aa964cd0dca/structlog-26.1.0.tar.gz", hash = "sha256:f63a716cbd1b1291cf7661de7794b455acfa4c43c5bcf1630e6ad5ddc1adb3b7", size = 1459881, upload-time = "2026-06-06T07:33:39.348Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/18/489c97b834dfff9cf2fc2507cede4bcd4b11e67f84bc462acd1992496f86/structlog-26.1.0-py3-none-any.whl", hash = "sha256:e081a26d6c373e6d201eca24eede26d8ffab07f88f477822e679183428d3d91e", size = 73764, upload-time = "2026-06-06T07:33:38.046Z" },
 ]
 
 [[package]]
