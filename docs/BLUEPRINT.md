@@ -769,9 +769,9 @@ services:
     container_name: ice_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ice
-      POSTGRES_PASSWORD: ice_local_dev
-      POSTGRES_DB: ice_db
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -805,16 +805,27 @@ docker compose ps
 Add to your `.env` file:
 
 ```
-DATABASE_URL=postgresql://ice:ice_local_dev@localhost:5432/ice_db
+DATABASE_URL=postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}
 REDIS_URL=redis://localhost:6379/0
+POSTGRES_USER=ice
+POSTGRES_PASSWORD=ice_local_dev
+POSTGRES_DB=ice_db
 ```
 
+### Step 3.1a – Enable the pgvector extension
+
+The pgvector extension must be manually activated once on the database.
+Run this command:
+
+```bash
+docker exec -i ice_postgres psql -U ice -d ice_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
 ---
 
 ### Step 3.2 – Install database packages
 
 ```bash
-uv add sqlalchemy alembic psycopg2-binary python-dotenv pgvector
+uv add sqlalchemy alembic "psycopg[binary]" python-dotenv pgvector
 ```
 
 No `pip` or `requirements.txt` needed – `uv` updates `pyproject.toml` and the lock file.
@@ -830,7 +841,7 @@ uv run alembic init alembic
 Edit `alembic.ini` – change the `sqlalchemy.url` line to:
 
 ```
-sqlalchemy.url = postgresql://ice:ice_local_dev@localhost:5432/ice_db
+sqlalchemy.url = postgresql+psycopg://ice:ice_local_dev@localhost:5432/ice_db
 ```
 
 Later you’ll wire Alembic to your models (step 3.5).
@@ -847,10 +858,10 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column, String, Integer, Float, Boolean, DateTime, Text,
-    ForeignKey, ARRAY, JSONB, UniqueConstraint
+    Column, String, Integer, Float, Boolean, DateTime, Date, Text,
+    ForeignKey, ARRAY, UniqueConstraint
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import declarative_base, relationship
 from pgvector.sqlalchemy import Vector
 
@@ -1047,7 +1058,8 @@ class SessionSummary(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
-    session_date = Column(DateTime(timezone=True), default=utcnow)
+    # The bulletproof version:
+    session_date = Column(Date, default=utcnow)
     topics_covered = Column(ARRAY(Text), default=[])
     decisions_made = Column(Text, default="")
     unresolved_items = Column(Text, default="")
@@ -1093,6 +1105,7 @@ Edit `alembic/env.py`:
 
 1. Add this import at the top (adjust path if needed):
    ```python
+   import pgvector.sqlalchemy
    from src.memory.models import Base
    ```
 2. Set `target_metadata = Base.metadata` (it currently says `target_metadata = None`).
@@ -1129,27 +1142,24 @@ You should see 18 tables listed. Type `\q` to exit.
 
 ### Step 3.6 – Create pgvector indexes
 
-Create a script `scripts/create_indexes.py` (or run the SQL directly).  
+Create a script `scripts/create_indexes.sql` (or run the SQL directly).  
 Here is the content – it creates the three vector indexes:
 
 ```sql
 CREATE INDEX IF NOT EXISTS idx_episodic_embedding
-ON episodic_memory USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
+ON episodic_memory USING hnsw (embedding vector_cosine_ops);
 
 CREATE INDEX IF NOT EXISTS idx_procedural_embedding
-ON procedural_memory USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
+ON procedural_memory USING hnsw (embedding vector_cosine_ops);
 
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_embedding
-ON rag_chunks USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
+ON rag_chunks USING hnsw (embedding vector_cosine_ops);
 ```
 
 Execute the SQL by connecting to the database and running:
 
 ```bash
-docker exec -it ice_postgres psql -U ice -d ice_db -f /dev/stdin < scripts/create_indexes.py
+docker exec -i ice_postgres psql -U ice -d ice_db -f /dev/stdin < scripts/create_indexes.sql
 ```
 
 Or manually:
