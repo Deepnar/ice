@@ -1640,15 +1640,15 @@ If you see rows, **Phase 4 is complete.** ICE is now live as a working proxy. 
 
 ---
 
-# PHASE 5 — Background Workers (Architecture‑Aligned)
+# PHASE 5 — Background Workers (Celery + Redis)
 
 **What you’re building:**  
-The asynchronous post‑processing brain of ICE. Once a conversation turn is saved, Celery workers (powered by Redis) pick it up, evaluate its value (lossless flag and summarisation), and prepare for future knowledge extraction. This phase establishes the worker framework and the first critical worker: the **Post‑Flight Evaluator**, exactly as defined in the architecture’s §12.1.
+The asynchronous post‑processing brain of ICE. Once a conversation turn is stored, Celery workers (powered by Redis) pick it up, evaluate its value (lossless flag and summarisation), and prepare for future knowledge extraction. This phase establishes the worker framework and the first critical worker: the **Post‑Flight Evaluator**, exactly as defined in the architecture’s §12.1.
 
 **Architectural invariants enforced in this phase:**
-- **INV‑5** – Background workers yield to active GPU inference (GPU utilisation check before processing).
-- **INV‑6** – Idempotency is enforced at the worker boundary (every batch checked against `idempotency_keys`).
-- **INV‑2** – The LLM never directly writes to the Codex or Procedural store (this worker only updates the `episodic_memory` row; later workers will handle extraction).
+- **INV‑5** — Background workers yield to active GPU inference (GPU utilisation check before processing).
+- **INV‑6** — Idempotency is enforced at the worker boundary (every batch checked against `idempotency_keys`).
+- **INV‑2** — The LLM never directly writes to the Codex or Procedural store (this worker only updates the `episodic_memory` row; later workers will handle extraction).
 
 **What is intentionally deferred:**
 - Codex Extractor and Procedural Extractor – triggered by the `BATCH_PROCESSED` event emitted here, but implemented in Phase 6.
@@ -1658,7 +1658,7 @@ The asynchronous post‑processing brain of ICE. Once a conversation turn is sav
 
 ---
 
-### Step 5.1 – Install Celery and Redis client
+## Step 5.1 – Install Celery and Redis client
 
 The `redis` server is already running in Docker (from Phase 3). We only need the Python client.
 
@@ -1670,7 +1670,7 @@ This updates `pyproject.toml` – no `pip` or `requirements.txt` changes.
 
 ---
 
-### Step 5.2 – Create the Celery application
+## Step 5.2 – Create the Celery application
 
 Create `src/workers/celery_app.py`. This is the central Celery instance that all workers will share. It reads the Redis URL from your configuration.
 
@@ -1703,9 +1703,10 @@ The `include` list tells Celery which modules to scan for `@app.task` decorators
 
 ---
 
-### Step 5.3 – Create the GPU utilisation check
+## Step 5.3 – Create the GPU utilisation check (hardened)
 
-Create `src/workers/gpu_check.py`. Every background worker must poll GPU utilisation before executing, respecting **INV‑5**: “No background Celery task is acquired while GPU utilization exceeds a configurable threshold (default: 20%).”
+Create `src/workers/gpu_check.py`. Every background worker must poll GPU utilisation before executing, respecting **INV‑5**.  
+This version correctly handles multiple GPUs and gracefully falls back if `nvidia-smi` is unavailable.
 
 ```python
 """GPU utilization tracking subsystem for the ICE worker cluster."""
@@ -1748,7 +1749,7 @@ def is_gpu_busy() -> bool:
 
 ---
 
-### Step 5.4 – Set up the 1.5B background model (vLLM)
+## Step 5.4 – Set up the 1.5B background model (vLLM)
 
 The architecture (§12.9) requires a **dedicated 1.5B model** (`Qwen2.5-1.5B, quantized Q8_0`) for all background NLP tasks. For Phase 5 we only need it for summarisation when `lossless=false`. Later workers will use it for triplet extraction, pattern detection, etc.
 
@@ -1788,7 +1789,7 @@ vllm-bg
 
 ---
 
-### Step 5.5 – Create the Post‑Flight Evaluator worker
+## Step 5.5 – Create the Post‑Flight Evaluator worker (production‑hardened)
 
 Create `src/workers/post_flight.py`. This is the first background worker. It runs **after** the proxy has stored the turn. Its task is to:
 
@@ -1800,119 +1801,133 @@ Create `src/workers/post_flight.py`. This is the first background worker. It run
 6. Record the idempotency key.
 7. Emit a `BATCH_PROCESSED` event (which will later trigger the Codex and Procedural Extractors).
 
+**Critical fixes included:**
+- **Visibility race condition:** Retries if the database row isn’t immediately found.
+- **Proper‑noun false positive:** Strips sentence‑initial capitals before counting proper nouns.
+- **Multi‑GPU safety:** Already handled by `gpu_check`.
+
 ```python
-import re
+"""Post-Flight Evaluation Celery Worker Node."""
+
 import hashlib
 import json
+import re
 import uuid
 from datetime import datetime, timezone
+from openai import OpenAI
+import structlog
 
-from celery import current_app
-from sqlalchemy.orm import Session
-
-from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, IdempotencyKey
-from openai import OpenAI
+from src.workers.celery_app import app
+from src.workers.gpu_check import is_gpu_busy
 
-# Client for the 1.5B background model (runs on port 8002)
+logger = structlog.get_logger("ice.workers.post_flight")
+
+# Dedicated backend inference client targeting isolated LLM instance
 bg_client = OpenAI(base_url="http://localhost:8002/v1", api_key="dummy")
 
-@app.task(bind=True, max_retries=3, default_retry_delay=30)
-def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_id: str):
-    """
-    Post‑Flight Evaluator.
-    Sets lossless_flag and, if needed, generates summary_text.
-    """
-    # --- GPU check (INV‑5) ---
-    if is_gpu_busy():
-        self.retry(countdown=30)
-
-    # --- Idempotency check (INV‑6) ---
-    idempotency_key = hashlib.sha256(batch_id.encode()).hexdigest()
-    db = SessionLocal()
-    try:
-        existing = db.query(IdempotencyKey).filter_by(key=idempotency_key).first()
-        if existing:
-            return  # already processed
-    finally:
-        db.close()
-
-    # --- Lossless evaluation ---
-    lossless = is_lossless(response)
-
-    summary = None
-    if not lossless:
-        summary = generate_summary(prompt, response)
-
-    # --- Update episodic_memory ---
-    db = SessionLocal()
-    try:
-        turn = db.query(EpisodicMemory).filter_by(batch_id=uuid.UUID(batch_id)).first()
-        if turn:
-            turn.lossless_flag = lossless
-            turn.summary_text = summary
-            # Record idempotency key
-            db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
-            db.commit()
-    except Exception as e:
-        db.rollback()
-        raise e
-    finally:
-        db.close()
-
-    # --- Emit BATCH_PROCESSED event (future workers will listen) ---
-    # For now we simply log; later we'll publish to Redis pub/sub.
-    # current_app.send_task('src.workers.codex_extractor.process_batch', ...)
-    print(f"BATCH_PROCESSED: {batch_id}")
 
 def is_lossless(text: str) -> bool:
+    """Analyzes text density to resolve the Asymmetrical Value Problem.
+    
+    Ensures true proper nouns are tracked while filtering out standard sentence starts.
     """
-    Determine if the response is high-value (lossless).
-    Criteria (from architecture):
-      - Contains code blocks (```)
-      - Contains 3+ proper nouns (words starting with capital letter)
-      - Response length > 500 words
-    """
-    # Code blocks
     if "```" in text:
         return True
-    # Proper nouns (naive: words with initial uppercase, not all uppercase)
-    words = re.findall(r'\b[A-Z][a-z]+\b', text)
-    if len(words) >= 3:
-        return True
-    # Word count
+
     if len(text.split()) > 500:
         return True
+
+    # Strip out standard sentence boundaries (. ! ?) followed by whitespace and capitals
+    # to avoid false positives on standard sentence starts
+    cleaned_text = re.sub(r'(?:^[A-Z]|\b[\.\!\?]\s+[A-Z])[a-z]+\b', '', text)
+    
+    # Track true remaining capitalized words (e.g., inline proper nouns)
+    proper_nouns = re.findall(r'\b[A-Z][a-z]+\b', cleaned_text)
+    if len(proper_nouns) >= 3:
+        return True
+
     return False
 
+
 def generate_summary(prompt: str, response: str) -> str:
-    """
-    Call the 1.5B background model to summarise the exchange.
-    """
+    """Invokes the background 1.5B resource model to condense wide conversation context."""
     try:
         completion = bg_client.chat.completions.create(
             model="Qwen/Qwen2.5-1.5B-Instruct-AWQ",
             messages=[
-                {"role": "system", "content": "Summarize this conversation exchange in 2-3 sentences, focusing on the key information exchanged."},
+                {
+                    "role": "system",
+                    "content": "Summarize this conversation exchange in 2-3 sentences. Focus heavily on the concrete technical facts or constraints provided."
+                },
                 {"role": "user", "content": f"User: {prompt}\nAssistant: {response}"},
             ],
             temperature=0.0,
             max_tokens=200,
+            timeout=30.0,  # Prevent infinite socket hangs
         )
         return completion.choices[0].message.content.strip()
-    except Exception:
-        # If the model is unavailable, fallback to an empty summary
+    except Exception as exc:
+        logger.error("background_summarization_failed", error=str(exc))
         return ""
+
+
+@app.task(bind=True, max_retries=5, default_retry_delay=15)
+def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_id: str):
+    """Executes structural density qualification and data post-processing routines."""
+    log = logger.bind(batch_id=batch_id, conversation_id=conversation_id)
+
+    # 1. Active GPU Resource Gate (INV-5)
+    if is_gpu_busy():
+        log.info("gpu_saturation_yielding", message="Rescheduling worker target thread.")
+        raise self.retry(countdown=15)
+
+    # 2. Border Idempotency Verification (INV-6)
+    idempotency_key = hashlib.sha256(batch_id.encode()).hexdigest()
+    db = SessionLocal()
+    
+    try:
+        existing = db.query(IdempotencyKey).filter_by(key=idempotency_key).first()
+        if existing:
+            log.info("task_execution_skipped_idempotent")
+            return
+
+        # 3. Defensive Record Fetching (Mitigates DB Commit Race Condition)
+        turn = db.query(EpisodicMemory).filter_by(batch_id=uuid.UUID(batch_id)).first()
+        if not turn:
+            log.warn("record_visibility_lag_retry")
+            raise self.retry(countdown=5)  # Back off briefly to let the API commit finish
+
+        # 4. Text Ingestion & Processing
+        lossless = is_lossless(response)
+        summary = None if lossless else generate_summary(prompt, response)
+
+        # 5. Core Write-Once Persistence
+        turn.lossless_flag = lossless
+        turn.summary_text = summary
+        
+        db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
+        db.commit()
+        log.info("post_flight_evaluation_complete", lossless=lossless)
+
+    except Exception as exc:
+        db.rollback()
+        log.error("worker_transaction_execution_failure", error=str(exc))
+        raise self.retry(exc=exc)
+    finally:
+        db.close()
+
+    # Pipeline Trigger Event Stub
+    print(f"BATCH_PROCESSED: {batch_id}")
 ```
 
 ---
 
-### Step 5.6 – Enqueue the post‑flight task from the proxy
+## Step 5.6 – Enqueue the post‑flight task from the proxy
 
-We need to modify `src/api/main.py` so that after a turn is stored, the `evaluate_turn` Celery task is called. The ideal place is inside `store_turn_async`, right after the successful database commit.
+Modify `src/api/main.py` so that after a turn is stored, the `evaluate_turn` Celery task is called.
 
 Add the import at the top of `main.py`:
 
@@ -1920,7 +1935,7 @@ Add the import at the top of `main.py`:
 from src.workers.post_flight import evaluate_turn
 ```
 
-Then, inside `store_turn_async`, after `write_db.commit()` (and before closing the session), add:
+Then, inside `store_turn_async`, right after the database commit succeeds (i.e., after `write_db.commit()` and before `write_db.close()`), add:
 
 ```python
 # Enqueue post‑flight evaluation
@@ -1936,9 +1951,10 @@ The `.delay()` call sends the task to Redis immediately and returns – the Fast
 
 ---
 
-### Step 5.7 – Run the Celery worker
+## Step 5.7 – Run the Celery worker
 
-Open a new terminal, activate your virtual environment, and run:
+1. **Make sure the background model is running** (Step 5.4).  
+2. Open a new terminal, activate your virtual environment, and run:
 
 ```bash
 uv run celery -A src.workers.celery_app worker --loglevel=info
@@ -1946,16 +1962,12 @@ uv run celery -A src.workers.celery_app worker --loglevel=info
 
 You should see the worker connect to Redis and wait for tasks. When you send a message through Open WebUI (with the proxy running), the worker will pick up the `evaluate_turn` task, process it, and update the database.
 
+3. **Verify** by checking the `episodic_memory` table after a few exchanges – you should see `lossless_flag` set to `true` or `false`, and `summary_text` populated for lossless=false turns.
+
 ---
 
 **Phase 5 is complete.**  
-You now have:
-- A Celery + Redis background task system.
-- The Post‑Flight Evaluator worker that sets `lossless_flag` and generates summaries.
-- Idempotency enforcement.
-- The groundwork for the BATCH_PROCESSED event chain that will drive all future knowledge extraction.
-
-In the next phase (Phase 6), you’ll add the Codex Extractor and Procedural Extractor that respond to the `BATCH_PROCESSED` event and begin building the knowledge graph.
+You now have a resilient background processing plane that evaluates every turn, respects GPU resources, and never silently drops work. The `BATCH_PROCESSED` event pipeline is ready for the Codex and Procedural Extractors in Phase 6.
 ---
 
 # PHASE 6 — Codex Extractor
