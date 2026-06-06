@@ -1176,150 +1176,407 @@ And then paste the three `CREATE INDEX` lines one by one.
 
 ---
 
-# PHASE 4 — The FastAPI Proxy
+# PHASE 4 — The FastAPI Proxy (Architecture‑Aligned)
 
-**What this phase is:** Building the HTTP server that sits between Open WebUI and Ollama. It intercepts every chat message, runs the classifier, and (for now) just passes the request through to Ollama while storing the turn in episodic_memory. Full retrieval and prompt assembly comes later.
+**What you're building:** The OpenAI‑compatible HTTP middleware that intercepts every chat request from Open WebUI, runs the pre‑flight classifier, forwards the request to Ollama, streams the response back, and stores every conversational turn in `episodic_memory`. This is the minimum viable ICE — after this phase, you have a working proxy that classifies and stores every message.
 
-**What you'll learn:** FastAPI, async Python, OpenAI-compatible APIs, Server-Sent Events (SSE).
+**What is intentionally deferred:**
+- Full retrieval orchestration (BM25 + vector + graph) → Phase 7
+- Model registry and dynamic routing → later phase
+- Dual‑agent protocol → later phase
+- HyDE query rewriting → later phase
+- Memory slots injection → schema exists, endpoints come in Phase 8
+- Post‑flight evaluation → Phase 5/6 (Celery workers)
+- SSE telemetry events → Phase 7
 
-**Where to learn:**
-
-- FastAPI from scratch: https://fastapi.tiangolo.com/tutorial/ (do the entire tutorial)
-- What Server-Sent Events are: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
-- How the OpenAI API format works: https://platform.openai.com/docs/api-reference/chat/create (just read the request/response shape)
+**Architectural invariants enforced in this phase:**
+- **INV‑9** — Pre‑flight classification is stateless (receives only the current prompt)
+- **INV‑3** — All retrieval will pass through the classifier gate (hook prepared)
+- **INV‑1** — Raw text is write‑once (enforced in the DB insert)
 
 ---
 
 ### Step 4.1 — Install FastAPI and related packages
 
-```
-pip install fastapi uvicorn httpx sse-starlette structlog pydantic python-dotenv uuid
+Use `uv` to add the required libraries:
+
+```bash
+uv add fastapi uvicorn httpx sse-starlette structlog pydantic python-dotenv pydantic-settings
 ```
 
-Add to `requirements.txt`:
+No `pip` or `requirements.txt` needed — `uv` updates `pyproject.toml` and the lock file.
+
+Add these new variables to your `.env` file:
 
 ```
-fastapi
-uvicorn
-httpx
-sse-starlette
-structlog
-pydantic
-python-dotenv
+OLLAMA_BASE_URL=http://localhost:11434
+CLASSIFIER_THRESHOLD=0.3
+CONFIDENCE_FALLBACK_THRESHOLD=0.75
 ```
 
-- `fastapi` is the web framework
-- `uvicorn` is the server that runs FastAPI
-- `httpx` is for making async HTTP requests (to forward to Ollama)
-- `sse-starlette` adds SSE streaming support to FastAPI
-- `structlog` is for structured JSON logging
+- `OLLAMA_BASE_URL` — where Ollama is running (default port 11434)
+- `CLASSIFIER_THRESHOLD` — minimum probability for a label to be considered active (tuned to 0.3 for your classifier)
+- `CONFIDENCE_FALLBACK_THRESHOLD` — if max confidence across all 25 labels falls below this, the system will fall back to wide‑net retrieval (implemented in Phase 7)
 
 ---
 
 ### Step 4.2 — Create the config module
 
-Create `src/api/config.py`. This file reads your `.env` and exposes configuration values as a Python object.
+Create `src/api/config.py`. This file reads your `.env` and exposes all configuration values as a typed Python object using `pydantic-settings`.
 
-It needs to read these values:
+```python
+"""Configuration for the ICE FastAPI proxy."""
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-- `DATABASE_URL`
-- `REDIS_URL`
-- `OLLAMA_BASE_URL` (add `OLLAMA_BASE_URL=http://localhost:11434` to your `.env`)
-- `CLASSIFIER_THRESHOLD` (add `CLASSIFIER_THRESHOLD=0.50` to your `.env`)
-- `CONFIDENCE_FALLBACK_THRESHOLD` (add `CONFIDENCE_FALLBACK_THRESHOLD=0.75` to your `.env`)
 
-Use `pydantic-settings` for this (add to requirements):
+class Settings(BaseSettings):
+    database_url: str = "postgresql+psycopg://ice:ice_local_dev@localhost:5432/ice_db"
+    redis_url: str = "redis://localhost:6379/0"
+    ollama_base_url: str = "http://localhost:11434"
+    classifier_threshold: float = 0.3
+    confidence_fallback_threshold: float = 0.75
+    classifier_model_path: str = "models/classifier/ice_classifier_v2_final.pt"
+    label_schema_path: str = "data/labeled/label_schema.json"
 
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+
+settings = Settings()
 ```
-pip install pydantic-settings
-```
 
-**Where to learn:** https://docs.pydantic.dev/latest/concepts/pydantic_settings/
+The `model_config` line tells pydantic‑settings to automatically read from your `.env` file. Any value in `.env` overrides the defaults above.
 
 ---
 
 ### Step 4.3 — Create the database session module
 
-Create `src/api/db.py`. This module creates the SQLAlchemy database engine and gives each request its own database connection that gets cleaned up after the request finishes.
+Create `src/api/db.py`. This module creates the SQLAlchemy engine and provides a **dependency** that FastAPI can inject into route handlers, giving each request its own database session.
 
-It needs:
+```python
+"""
+Database engine and session factory for the ICE FastAPI proxy.
+Uses synchronous SQLAlchemy – all database operations are fast enough
+that they don't need async.
+"""
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
 
-- An `engine` created from `DATABASE_URL`
-- A `SessionLocal` sessionmaker
-- A `get_db()` async generator function (using FastAPI's dependency injection pattern) that yields a database session and closes it when done
+from src.api.config import settings
 
-**Where to learn:** https://fastapi.tiangolo.com/tutorial/sql-databases/
+# Create the engine using the DATABASE_URL from config
+engine = create_engine(
+    settings.database_url,
+    pool_size=5,            # small pool – single‑user system
+    max_overflow=0,
+    pool_pre_ping=True,     # verify connections before using them
+)
+
+# Session factory – call SessionLocal() to get a new session
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def get_db() -> Session:
+    """
+    FastAPI dependency that provides a database session.
+    The session is automatically closed when the request finishes.
+
+    Usage in a route:
+        @app.get("/something")
+        def handler(db: Session = Depends(get_db)):
+            ...
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
 
 ---
 
 ### Step 4.4 — Create the main FastAPI application
 
-Create `src/api/main.py`. This is the entry point.
+Create `src/api/main.py`. This is the entry point for the ICE proxy. It contains:
 
-It needs:
+- A **startup event** that initialises the classifier.
+- A **health check** endpoint (`GET /health`).
+- The main **chat completions** endpoint (`POST /v1/chat/completions`), which accepts the OpenAI request format.
 
-1. A FastAPI app instance
-2. Startup event: initialize the classifier, log that the system is ready
-3. A health check endpoint: `GET /health` returns `{"status": "ok"}`
-4. The main chat endpoint: `POST /v1/chat/completions` (this path matches the OpenAI API format, which is what Open WebUI uses)
+Here is the complete file:
+
+```python
+"""ICE FastAPI Middleware.
+
+Intercepts OpenAI-compatible chat requests, classifies the prompt,
+forwards to Ollama, streams the response back, and safely stores records
+without blocking the event loop or triggering race conditions.
+"""
+
+import asyncio
+import hashlib
+import json
+import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import Optional
+
+import httpx
+import structlog
+from fastapi import BackgroundTasks, Depends, FastAPI, Request
+from fastapi.responses import JSONResponse, StreamingResponse
+from sqlalchemy.orm import Session
+
+from src.api.config import settings
+from src.api.db import SessionLocal, get_db
+from src.classifier.classifier import PyTorchClassifier
+from src.memory.models import Conversation, EpisodicMemory
+
+logger = structlog.get_logger("ice.api")
+classifier: Optional[PyTorchClassifier] = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle manager – initialises the classifier at startup."""
+    global classifier
+    logger.info("Loading classifier...")
+    classifier = PyTorchClassifier(
+        model_path=settings.classifier_model_path,
+        schema_path=settings.label_schema_path,
+    )
+    logger.info("Classifier loaded. ICE Proxy ready.")
+    yield
+
+
+app = FastAPI(
+    title="ICE Proxy",
+    description="Infinite Context Engine — OpenAI-compatible memory middleware",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+async def store_turn_async(
+    correlation_id: str,
+    user_message: str,
+    conversation_id: uuid.UUID,
+    topic_tags: list,
+    intent_tags: list,
+    context_reliance: str,
+    raw_stream_chunks: list[str],
+):
+    """Async post-flight task.
+
+    Assembles streaming fragments, parses clean SSE text, calculates embeddings
+    via thread pool offloading, and commits write-once transactions.
+    """
+    log = logger.bind(correlation_id=correlation_id)
+
+    # 1. Join raw fragments FIRST to repair broken line boundaries from socket splits
+    full_raw_stream = "".join(raw_stream_chunks)
+    clean_fragments = []
+
+    for line in full_raw_stream.split("\n"):
+        line = line.strip()
+        if not line or not line.startswith("data:"):
+            continue
+        if line == "data: [DONE]":
+            continue
+        try:
+            data = json.loads(line[5:].strip())
+            content = data["choices"][0]["delta"].get("content", "")
+            if content:
+                clean_fragments.append(content)
+        except (json.JSONDecodeError, KeyError, IndexError):
+            continue
+            
+    full_assistant_text = "".join(clean_fragments)
+
+    # 2. Offload CPU-heavy tensor tasks to avoid event loop starvation
+    embedding = await asyncio.to_thread(
+        classifier.embedder.encode, user_message, convert_to_tensor=False
+    )
+    embedding_list = (
+        embedding.tolist() if hasattr(embedding, "tolist") else list(embedding)
+    )
+
+    # 3. Establish deterministic idempotency boundaries
+    raw_key = f"{correlation_id}:{user_message}"
+    idempotency_key = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+
+    write_db = SessionLocal()
+    try:
+        turn = EpisodicMemory(
+            conversation_id=conversation_id,
+            batch_id=uuid.uuid4(),
+            timestamp=datetime.now(timezone.utc),
+            topic_tags=topic_tags,
+            intent_tags=intent_tags,
+            context_reliance=context_reliance,
+            entropy_score=None,          # set by Post‑Flight Evaluator
+            lossless_flag=None,          # NULL = not yet evaluated
+            raw_text=f"User: {user_message}\n\nAssistant: {full_assistant_text}",
+            summary_text=None,
+            embedding=embedding_list,
+            decay_score=1.0,
+            idempotency_key=idempotency_key,
+        )
+        write_db.add(turn)
+        write_db.commit()
+        log.info("turn_stored", episodic_id=str(turn.id))
+    except Exception as exc:
+        write_db.rollback()
+        log.error("failed_to_store_turn", error=str(exc))
+    finally:
+        write_db.close()
+
+
+@app.post("/v1/chat/completions")
+async def chat_completions(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    body = await request.json()
+    messages = body.get("messages", [])
+    model_name = body.get("model", "default")
+
+    correlation_id = str(uuid.uuid4())
+    log = logger.bind(correlation_id=correlation_id)
+
+    user_message = ""
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            user_message = msg.get("content", "")
+            break
+
+    if not user_message:
+        log.warning("No user message found in request")
+        return JSONResponse(
+            status_code=400,
+            content={"error": "No user message found in the request."},
+        )
+
+    # Stateless pre‑flight classification
+    result = classifier.classify(user_message)
+    log.info(
+        "classified",
+        topic_tags=result.topic_tags,
+        intent_tags=result.intent_tags,
+        context_reliance=result.context_reliance,
+        max_confidence=result.max_confidence,
+    )
+
+    if result.max_confidence < settings.confidence_fallback_threshold:
+        log.info(
+            "low_confidence_fallback",
+            max_confidence=result.max_confidence,
+            threshold=settings.confidence_fallback_threshold,
+        )
+
+    # State tracking boundary
+    conversation_id_str = request.headers.get("X-ICE-Conversation-ID")
+    if conversation_id_str:
+        conversation_id = uuid.UUID(conversation_id_str)
+        conversation = db.query(Conversation).filter_by(id=conversation_id).first()
+        if not conversation:
+            conversation = Conversation(id=conversation_id)
+            db.add(conversation)
+            db.commit()
+    else:
+        conversation = Conversation()
+        db.add(conversation)
+        db.commit()
+        conversation_id = conversation.id
+
+    ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
+    accumulated_raw_chunks = []
+
+    async def generate():
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream(
+                "POST",
+                ollama_url,
+                json={"model": model_name, "messages": messages, "stream": True},
+            ) as ollama_response:
+                async for chunk in ollama_response.aiter_text():
+                    accumulated_raw_chunks.append(chunk)
+                    yield chunk
+
+    # Enqueue background execution safely. FastAPI natively calls this ONLY
+    # after the generator completes and the response is flushed to the network wire.
+    background_tasks.add_task(
+        store_turn_async,
+        correlation_id=correlation_id,
+        user_message=user_message,
+        conversation_id=conversation_id,
+        topic_tags=result.topic_tags,
+        intent_tags=result.intent_tags,
+        context_reliance=result.context_reliance,
+        raw_stream_chunks=accumulated_raw_chunks,
+    )
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-ICE-Conversation-ID": str(conversation_id),
+        },
+    )
+```
+
+**Important notes about this implementation:**
+
+- **The classifier runs on CPU** — it's loaded in the `startup` event and reused across all requests.
+- **Pre‑flight is stateless** — only the current prompt is passed to the classifier (INV‑9).
+- **The confidence threshold check** is a hook for Phase 7; for now it just logs low‑confidence events.
+- **Conversation creation** — every request gets a new conversation unless Open WebUI passes an `X-ICE-Conversation-ID` header (future integration).
+- **SSE streaming** — tokens from Ollama are forwarded to Open WebUI as they arrive, exactly matching the OpenAI streaming format.
+- **Post‑stream storage** — the full assistant response is accumulated and stored in `episodic_memory` with all classifier tags, the embedding, and an idempotency key.
+- **`lossless_flag` is NULL** — the Asymmetrical Value Problem (§1.3) requires that this be set post‑flight by the Post‑Flight Evaluator in Phase 5/6.
 
 ---
 
-### Step 4.5 — Write the chat endpoint
+### Step 4.5 — Understanding the SSE streaming pattern
 
-This is the heart of Phase 4. In `src/api/main.py`, the `POST /v1/chat/completions` endpoint needs to:
+The streaming pattern used above is the standard method for proxying OpenAI‑compatible streaming endpoints. Here's what happens step‑by‑step:
 
-1. Accept the request body in OpenAI format: a JSON object with `messages` (list of message objects with `role` and `content`) and `model` (string), and `stream` (boolean)
-    
-2. Generate a `correlation_id` using `uuid.uuid4()` — attach this to all log lines for this request
-    
-3. Extract the last user message (the current prompt) from the messages list
-    
-4. Run the classifier: `result = classifier.classify(prompt)`
-    
-5. Log the classification result with structlog
-    
-6. For now, just forward the entire request to Ollama's API at `http://localhost:11434/v1/chat/completions` using httpx
-    
-7. Stream the response back to Open WebUI as SSE tokens
-    
-8. After streaming completes, store the turn in `episodic_memory` with:
-    
-    - Generate a new UUID for id
-    - Find or create a conversation_id (for now, extract from a header or generate one)
-    - topic_tags = result.topic_tags
-    - intent_tags = result.intent_tags
-    - context_reliance = result.context_reliance
-    - raw_text = the full exchange (user message + assistant response)
-    - embedding = encode the user message with sentence transformer
-    - idempotency_key = a SHA256 hash of correlation_id + prompt
+1. **Open WebUI** sends a `POST /v1/chat/completions` request with `"stream": true` to the ICE proxy.
+2. **ICE** parses the request, classifies the prompt, and creates a `StreamingResponse`.
+3. The `StreamingResponse` calls the `generate()` async generator.
+4. `generate()` opens an async HTTP stream to **Ollama** (the backend LLM).
+5. As Ollama produces tokens, they are **yielded** to Open WebUI as SSE events in real time.
+6. Simultaneously, every token is **accumulated** in a list for later storage.
+7. After the stream ends, the `store_turn()` background task writes the full exchange to `episodic_memory`.
 
-**The SSE streaming part is the hardest piece.** The pattern is:
-
-```python
-async def generate():
-    async with httpx.AsyncClient() as client:
-        async with client.stream("POST", ollama_url, json=request_body) as response:
-            async for chunk in response.aiter_text():
-                yield chunk
-
-return StreamingResponse(generate(), media_type="text/event-stream")
-```
-
-Read the SSE documentation linked above before attempting this.
+The key advantage: **the user sees the response streaming immediately**, while ICE transparently records everything for future memory retrieval.
 
 ---
 
 ### Step 4.6 — Run the proxy
 
-```
-cd src
-uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+From the project root, start the FastAPI server:
+
+```bash
+uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The `--reload` flag restarts the server automatically when you change a file.
+- `--host 0.0.0.0` makes the server accessible from Open WebUI (which may run in Docker).
+- `--port 8000` is the default ICE proxy port.
+- `--reload` automatically restarts the server when you change any source file (useful during development).
 
-Open your browser to `http://localhost:8000/health`. You should see `{"status": "ok"}`.
+Open your browser to `http://localhost:8000/health`. You should see:
+
+```json
+{"status": "ok"}
+```
 
 ---
 
@@ -1327,19 +1584,59 @@ Open your browser to `http://localhost:8000/health`. You should see `{"status": 
 
 Open WebUI needs to be told to use your proxy instead of Ollama directly.
 
-In Open WebUI settings, find the "Connections" or "API" section. Change the Ollama API URL from `http://localhost:11434` to `http://localhost:8000`.
+1. Open Open WebUI in your browser (typically `http://localhost:3000`).
+2. Go to **Settings → Connections** (or **Admin Settings → API Connections**, depending on your version).
+3. Find the **Ollama API URL** field.
+4. Change it from `http://localhost:11434` to **`http://localhost:8000`**.
+5. Save the settings.
 
-Now send a test message in Open WebUI. Watch your terminal — you should see log output from your FastAPI server showing the request being received, classified, and forwarded.
+Now send a test message in Open WebUI. Watch the terminal where `uvicorn` is running — you should see structured log output showing:
 
-Check your database: `docker exec -it ice_postgres psql -U ice -d ice_db -c "SELECT id, topic_tags, intent_tags, context_reliance FROM episodic_memory LIMIT 5;"`
-
-You should see rows being written.
+- The request being received.
+- The classification result (topic_tags, intent_tags, context_reliance, max_confidence).
+- The streaming response being proxied.
+- The turn being stored in the database.
 
 ---
 
-**Phase 4 is done.** ICE is now live as a proxy. Every message flows through your classifier and gets stored in your database.
+### Step 4.8 — Verify the database is being populated
+
+After sending a few test messages, check that turns are being written to `episodic_memory`:
+
+```bash
+docker exec -i ice_postgres psql -U ice -d ice_db -c "SELECT id, topic_tags, intent_tags, context_reliance, lossless_flag FROM episodic_memory LIMIT 5;"
+```
+
+You should see rows with:
+
+- Real UUIDs in the `id` column.
+- Arrays of topic and intent labels (e.g., `{Software_&_Tech}`).
+- A context reliance value (`Zero_Shot`, `Long_Term_Memory`, or `Real_Time_Search`).
+- `lossless_flag` set to NULL (meaning "not yet evaluated" — this will be set by the Post‑Flight Evaluator in Phase 5/6).
+
+If you see rows, **Phase 4 is complete.** ICE is now live as a working proxy. Every message flows through your classifier and gets stored in your unified memory.
 
 ---
+
+### Summary of what Phase 4 delivers
+
+| Feature | Status |
+|---------|--------|
+| OpenAI‑compatible `/v1/chat/completions` endpoint | ✅ Working |
+| Pre‑flight classification (stateless, CPU, ~5 ms) | ✅ Working |
+| SSE streaming proxy to Ollama | ✅ Working |
+| Conversation creation and tracking | ✅ Working |
+| Episodic turn storage (with all classifier tags + embedding) | ✅ Working |
+| Structured JSON logging with correlation_id | ✅ Working |
+| Confidence threshold hook (for Phase 7 fallback) | ✅ Prepared |
+| Memory slots injection | 🔜 Phase 8 |
+| Retrieval orchestrator (BM25 + vector + graph) | 🔜 Phase 7 |
+| Post‑flight evaluator (lossless flag, summarisation) | 🔜 Phase 5/6 |
+| Model registry and dynamic routing | 🔜 Later phase |
+
+---
+
+**Phase 4 is done.** The brain (classifier) now has a spine (FastAPI) that connects it to the real world. Every conversation you have is classified, streamed, and permanently stored. The minimum viable ICE is operational.
 
 ---
 
