@@ -4,7 +4,7 @@
 ---
 
 ## Current Phase & Step
-Phase 9 — Retrieval Orchestrator
+Phase 7 — Retrieval Orchestrator
 ---
 
 ## Last Completed
@@ -75,8 +75,6 @@ Phase 9 — Retrieval Orchestrator
 - `src/classifier/classifier.py` — updated `PyTorchClassifier` wrapper that loads `ICEClassifier` weights, initializes `SentenceTransformer` embedder, and returns `ClassificationResult` (topic/intents/context + confidence) — does NOT provide batch inference, GPU offload, or a network inference endpoint.
 - `pyproject.toml` — project manifest updated to include FastAPI and runtime dependencies (fastapi, httpx, uvicorn, structlog, pydantic-settings, sse-starlette) required by the proxy — does NOT pin platform-specific extras or CI/test deps.
 - `uv.lock` — updated `uv` lockfile recording resolved dependency versions after adding proxy dependencies — does NOT guarantee cross-platform reproduction of binary wheels.
-
-# New files added / modified this session (append-only)
 - `src/workers/compaction.py` — compresses append-only `CodexEvent` ledgers into `CodexSnapshot` snapshots and marks events compacted; does NOT handle cross-shard compaction, long-running maintenance windows, or advanced conflict resolution.
 - `src/workers/codex_extractor.py` — Celery task that extracts subject‑relation‑object triplets using a background LLM, materialises `CodexEntity`/`CodexEdge`/`CodexEvent` rows, and writes `IdempotencyKey` entries to enforce worker idempotency — does NOT manage model hosting, rate‑limiting, or multi-turn reconciliation logic.
 - `tests/test_full_pipeline.py` — integration test exercising classifier → storage → Post‑Flight → Codex Extractor flow; requires DB, Celery worker, and background model to run — does NOT run in CI without environment orchestration.
