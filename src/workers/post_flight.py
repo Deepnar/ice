@@ -13,6 +13,8 @@ from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, IdempotencyKey
 from src.workers.celery_app import app
 from src.workers.gpu_check import is_gpu_busy
+from src.workers.codex_extractor import extract_codex
+
 
 logger = structlog.get_logger("ice.workers.post_flight")
 
@@ -104,6 +106,8 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()
         log.info("post_flight_evaluation_complete", lossless=lossless)
+        if lossless:
+            extract_codex.delay(batch_id=batch_id)
 
     except Exception as exc:
         db.rollback()

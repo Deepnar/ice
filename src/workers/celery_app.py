@@ -7,12 +7,8 @@ app = Celery(
     backend=settings.redis_url,
     include=[
         "src.workers.post_flight",
-        # Future workers will be added here:
-        # "src.workers.codex_extractor",
-        # "src.workers.procedural_extractor",
-        # "src.workers.reflection",
-        # "src.workers.decay",
-        # "src.workers.sentinel_monitor",
+        "src.workers.codex_extractor",   # ← add this
+        "src.workers.compaction",        # ← add this
     ],
 )
 
