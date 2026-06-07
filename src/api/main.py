@@ -22,6 +22,8 @@ from src.api.config import settings
 from src.api.db import SessionLocal, get_db
 from src.classifier.classifier import PyTorchClassifier
 from src.memory.models import Conversation, EpisodicMemory
+from src.workers.post_flight import evaluate_turn
+
 
 logger = structlog.get_logger("ice.api")
 classifier: Optional[PyTorchClassifier] = None
@@ -128,6 +130,12 @@ async def store_turn_async(
         write_db.add(turn)
         write_db.commit()
         log.info("turn_stored", episodic_id=str(turn.id))
+        evaluate_turn.delay(
+            batch_id=str(turn.batch_id),
+            prompt=user_message,
+            response=full_assistant_text,
+            conversation_id=str(conversation_id),
+        )
     except Exception as exc:
         write_db.rollback()
         log.error("failed_to_store_turn", error=str(exc))

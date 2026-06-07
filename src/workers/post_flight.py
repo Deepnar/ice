@@ -1,0 +1,116 @@
+"""Post-Flight Evaluation Celery Worker Node."""
+
+import hashlib
+import json
+import re
+import uuid
+from datetime import datetime, timezone
+from openai import OpenAI
+import structlog
+
+from src.api.config import settings
+from src.api.db import SessionLocal
+from src.memory.models import EpisodicMemory, IdempotencyKey
+from src.workers.celery_app import app
+from src.workers.gpu_check import is_gpu_busy
+
+logger = structlog.get_logger("ice.workers.post_flight")
+
+# Dedicated backend inference client targeting isolated LLM instance
+bg_client = OpenAI(base_url="http://localhost:8002/v1", api_key="dummy")
+
+
+def is_lossless(text: str) -> bool:
+    """Analyzes text density to resolve the Asymmetrical Value Problem.
+    
+    Ensures true proper nouns are tracked while filtering out standard sentence starts.
+    """
+    if "```" in text:
+        return True
+
+    if len(text.split()) > 500:
+        return True
+
+    # Strip out standard sentence boundaries (. ! ?) followed by whitespace and capitals
+    # to avoid false positives on standard sentence starts
+    cleaned_text = re.sub(r'(?:^[A-Z]|\b[\.\!\?]\s+[A-Z])[a-z]+\b', '', text)
+    
+    # Track true remaining capitalized words (e.g., inline proper nouns)
+    proper_nouns = re.findall(r'\b[A-Z][a-z]+\b', cleaned_text)
+    if len(proper_nouns) >= 3:
+        return True
+
+    return False
+
+
+def generate_summary(prompt: str, response: str) -> str:
+    """Invokes the background 1.5B resource model to condense wide conversation context."""
+    if not response.strip():
+        return ""
+    try:
+        completion = bg_client.chat.completions.create(
+            model="Qwen/Qwen2.5-1.5B-Instruct-AWQ",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Summarize this conversation exchange in 2-3 sentences. Focus heavily on the concrete technical facts or constraints provided."
+                },
+                {"role": "user", "content": f"User: {prompt}\nAssistant: {response}"},
+            ],
+            temperature=0.0,
+            max_tokens=200,
+            timeout=30.0,  # Prevent infinite socket hangs
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception as exc:
+        logger.error("background_summarization_failed", error=str(exc))
+        return ""
+
+
+@app.task(bind=True, max_retries=5, default_retry_delay=15)
+def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_id: str):
+    """Executes structural density qualification and data post-processing routines."""
+    log = logger.bind(batch_id=batch_id, conversation_id=conversation_id)
+
+    # 1. Active GPU Resource Gate (INV-5)
+    if is_gpu_busy():
+        log.info("gpu_saturation_yielding", message="Rescheduling worker target thread.")
+        raise self.retry(countdown=15)
+
+    # 2. Border Idempotency Verification (INV-6)
+    idempotency_key = hashlib.sha256(batch_id.encode()).hexdigest()
+    db = SessionLocal()
+    
+    try:
+        existing = db.query(IdempotencyKey).filter_by(key=idempotency_key).first()
+        if existing:
+            log.info("task_execution_skipped_idempotent")
+            return
+
+        # 3. Defensive Record Fetching (Mitigates DB Commit Race Condition)
+        turn = db.query(EpisodicMemory).filter_by(batch_id=uuid.UUID(batch_id)).first()
+        if not turn:
+            log.warn("record_visibility_lag_retry")
+            raise self.retry(countdown=5)  # Back off briefly to let the API commit finish
+
+        # 4. Text Ingestion & Processing
+        lossless = is_lossless(response)
+        summary = None if lossless else generate_summary(prompt, response)
+
+        # 5. Core Write-Once Persistence
+        turn.lossless_flag = lossless
+        turn.summary_text = summary
+        
+        db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
+        db.commit()
+        log.info("post_flight_evaluation_complete", lossless=lossless)
+
+    except Exception as exc:
+        db.rollback()
+        log.error("worker_transaction_execution_failure", error=str(exc))
+        raise self.retry(exc=exc)
+    finally:
+        db.close()
+
+    # Pipeline Trigger Event Stub
+    print(f"BATCH_PROCESSED: {batch_id}")
