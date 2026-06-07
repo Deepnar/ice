@@ -1,5 +1,5 @@
 # ICE — Project Progress
-> Last updated: 2026-06-06
+> Last updated: 2026-06-07
 
 ---
 
@@ -8,7 +8,7 @@ Phase 5
 ---
 
 ## Last Completed
-- `src/api/main.py`, `src/api/db.py`, `src/api/config.py` — ICE FastAPI proxy (OpenAI-compatible middleware). Implements `/v1/chat/completions` and `/v1/models`, loads the `PyTorchClassifier` at startup, proxies/streams responses to/from the local Ollama model, and schedules asynchronous storage of episodic turns in PostgreSQL — does NOT include Celery worker wiring, authentication, or production hardening.
+- `src/workers/post_flight.py`, `src/workers/celery_app.py`, `src/workers/gpu_check.py` — background workers implemented: Celery app and worker entrypoint, GPU utilization gate, and a Post‑Flight Evaluator that sets `lossless_flag`, generates summaries, enforces idempotency, and writes evaluation markers to the database — does NOT include Codex/Procedural extractor workers, reflection worker, or production deployment.
 
 ---
 
@@ -68,7 +68,7 @@ Phase 5
 - `src/memory/models.py` — SQLAlchemy declarative models matching the DB schema (EpisodicMemory, CodexEntity, CodexEdge, ProceduralMemory, RAG models, MemorySlot, etc.) — does NOT include DB session wiring, migration orchestration, or admin utilities.
 - `pyproject.toml` — project manifest updated with runtime dependencies required by ICE (alembic, pgvector, sentence-transformers, vllm, etc.) — does NOT lock installation environment; use `uv.lock` for resolved versions.
 - `uv.lock` — lockfile for the `uv` package manager listing resolved package versions — does NOT replace environment reproducibility guarantees beyond the lock semantics.
- - `.gitignore` — updated ignore rules to exclude local env, data dumps, and model artifacts — does NOT affect already-tracked files.
+- `.gitignore` — updated ignore rules to exclude local env, data dumps, and model artifacts — does NOT affect already-tracked files.
 - `src/api/main.py` — FastAPI middleware proxy that loads the `PyTorchClassifier`, exposes OpenAI-compatible endpoints (`/v1/chat/completions`, `/v1/models`), streams responses from Ollama, and schedules background storage of episodic turns — does NOT implement authentication, background worker orchestration, or production-grade error handling.
 - `src/api/db.py` — SQLAlchemy engine and `SessionLocal` session factory plus `get_db` FastAPI dependency used by the proxy — does NOT provide async DB support, migration orchestration, or production connection tuning.
 - `src/api/config.py` — `pydantic_settings`-backed `Settings` (database_url, redis_url, ollama_base_url, classifier thresholds, model paths); reads `.env` — does NOT manage secrets or multi-environment profiles.
