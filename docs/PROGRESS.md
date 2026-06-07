@@ -4,11 +4,11 @@
 ---
 
 ## Current Phase & Step
-Phase 5 
+Phase 9 — Retrieval Orchestrator
 ---
 
 ## Last Completed
-- `src/workers/post_flight.py`, `src/workers/celery_app.py`, `src/workers/gpu_check.py` — background workers implemented: Celery app and worker entrypoint, GPU utilization gate, and a Post‑Flight Evaluator that sets `lossless_flag`, generates summaries, enforces idempotency, and writes evaluation markers to the database — does NOT include Codex/Procedural extractor workers, reflection worker, or production deployment.
+- `src/workers/codex_extractor.py` — background Codex Extractor Celery task that extracts subject‑relation‑object triplets from lossless `EpisodicMemory` turns, creates/updates `CodexEntity`/`CodexEdge`/`CodexEvent` records, and records idempotency keys — does NOT perform graph compaction/snapshotting or manage model hosting and rate‑limiting.
 
 ---
 
@@ -75,6 +75,15 @@ Phase 5
 - `src/classifier/classifier.py` — updated `PyTorchClassifier` wrapper that loads `ICEClassifier` weights, initializes `SentenceTransformer` embedder, and returns `ClassificationResult` (topic/intents/context + confidence) — does NOT provide batch inference, GPU offload, or a network inference endpoint.
 - `pyproject.toml` — project manifest updated to include FastAPI and runtime dependencies (fastapi, httpx, uvicorn, structlog, pydantic-settings, sse-starlette) required by the proxy — does NOT pin platform-specific extras or CI/test deps.
 - `uv.lock` — updated `uv` lockfile recording resolved dependency versions after adding proxy dependencies — does NOT guarantee cross-platform reproduction of binary wheels.
+
+# New files added / modified this session (append-only)
+- `src/workers/compaction.py` — compresses append-only `CodexEvent` ledgers into `CodexSnapshot` snapshots and marks events compacted; does NOT handle cross-shard compaction, long-running maintenance windows, or advanced conflict resolution.
+- `src/workers/codex_extractor.py` — Celery task that extracts subject‑relation‑object triplets using a background LLM, materialises `CodexEntity`/`CodexEdge`/`CodexEvent` rows, and writes `IdempotencyKey` entries to enforce worker idempotency — does NOT manage model hosting, rate‑limiting, or multi-turn reconciliation logic.
+- `tests/test_full_pipeline.py` — integration test exercising classifier → storage → Post‑Flight → Codex Extractor flow; requires DB, Celery worker, and background model to run — does NOT run in CI without environment orchestration.
+- `tests/test_direct_codex.py` — direct Codex extractor smoke test that runs extraction and applies triplets to the DB — does NOT mock external model responses.
+- `tests/test_triplet.py` — unit test for triplet extraction parsing and JSON fallback handling; exercises raw model output parsing — does NOT assert DB side effects.
+- `tests/test_codex_extractor.py` — integration test inserting a high‑value turn and enqueuing `evaluate_turn` to validate Codex extraction behavior — does NOT run headlessly without Celery and DB.
+- `scripts/classifier/promt_labeling/OLAMA_BAD_label_dataset.py` — auxiliary async labeling script with strict Pydantic schema and an Ollama/OpenAI async client (instructor wrapper) for structured labeling — does NOT include production-grade retry/backoff, secrets management, or orchestration.
 
 ---
 
