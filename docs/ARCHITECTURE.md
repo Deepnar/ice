@@ -1305,6 +1305,229 @@ Never silently proceed past a checkpoint gate.
 
 **R7 — Procedural extractor false positive rate.** The Procedural Extractor will generate spurious pattern entries from one-off behaviors that happen to look like patterns to a 1.5B model. The reinforcement threshold (default: 3 observations) provides a backstop, but the rate of spurious pending entries accumulating in procedural_memory is uncharacterized.
 
+# 24. Post‑V1 Roadmap — Missing Features & Enhancements
+
+This section enumerates every capability present in the **Architecture Specification (§1‑23)** that is not yet implemented in the current V1 codebase, plus several new ideas that emerged during development.  
+It serves as the single source of truth for what comes **after** the Paper 1/2 experiments are complete and the combined research manuscript is submitted.
+
+All items assume the V1 core (Phases 1‑9) is stable and tested. Implementation order is not prescribed – each item is independently valuable and can be built incrementally.
+
+---
+
+## 24.1 — User Interface Layer
+
+The V1 backend is fully functional but exposes its features only through an OpenAI‑compatible proxy and REST endpoints. A human‑friendly interface is required to unlock the system’s full power.
+
+### 24.1.1 — Custom Web Frontend (Full GUI)
+
+**What:** A standalone web application (e.g., React or HTMX + FastAPI) that replaces Open WebUI as the user‑facing chat client.  
+**Why:** The architecture defers a custom frontend (see §21 Deferred Systems) and explicitly designs the backend to support it. All memory‑management endpoints, scoping controls, bookmarking, and observability are already API‑accessible.  
+**Key screens:**
+- **Chat view** with real‑time SSE telemetry panel (classifier confidence, retrieval legs, tokens fetched, GPU state).
+- **Memory scope selector** per conversation: None / Auto / Project‑X / Manual filter.
+- **Codex graph browser** (visualise entity‑relation graph).
+- **Bookmark index** – filterable, searchable list of all bookmarked turns with one‑click navigation.
+- **Memory Slots editor** – rich text fields for all seven slots.
+- **Sentinel review queue** – items requiring user confirmation (contradictions, proposed slot updates).
+- **Model Registry manager** – view/edit model profiles, confirm auto‑discovered models.
+- **Session Replay** – replay any past session event‑by‑event.
+- **Cluster management** – create, merge, split clusters manually.
+
+**Effort:** Large (frontend + additional backend endpoints). This is the single most impactful feature for usability.
+
+### 24.1.2 — Terminal Frontend (TUI)
+
+**What:** A terminal‑based interface using `rich`, `textual`, or `prompt_toolkit` that provides the same memory‑aware chat experience without a browser.  
+**Why:** Many power users (developers, researchers) prefer the terminal. It also dramatically reduces the barrier to a “full ICE” demo – no need to install Open WebUI.  
+**Key features:**
+- Chat input / output with streaming.
+- Real‑time display of classifier tags and retrieved fragments.
+- Shortcut keys to bookmark, switch scopes, edit memory slots.
+- Ability to run alongside the user’s normal terminal workflow (e.g., in a tmux pane).
+
+**Effort:** Medium – the backend is already ready; the TUI is a Python project that can reuse the existing `HybridRetrievalOrchestrator` and `IntentClassifier` directly.
+
+### 24.1.3 — Open WebUI Plugin / Integration
+
+**What:** A deeper integration with Open WebUI (if its plugin system matures) to pass conversation IDs, scope metadata, and display ICE telemetry inside the existing chat interface.  
+**Why:** Many users already have Open WebUI; avoiding a full frontend switch lowers adoption friction.  
+**Effort:** Unknown – depends on Open WebUI’s API/plugin status.
+
+---
+
+## 24.2 — Model Routing & Mini‑MoE
+
+The architecture §9.2 specifies a **Dynamic Model Registry** and **automatic routing** based on classifier output. V1 currently passes the model name through to Ollama unchanged; the user must manually select the model.
+
+### 24.2.1 — Model Registry Backend
+
+**What:** A JSON file (or database table) listing each locally‑installed model with its topic/intent affinities, priority, and context window limit.  
+**Implementation:**
+- Auto‑populate at startup by querying Ollama’s `/api/tags` and, for unknown models, calling the background model to suggest tags.
+- Expose a `/model-registry` REST endpoint for viewing and editing entries.
+- Entries marked `confirmed=false` require user approval before first routing.
+
+### 24.2.2 — Classifier‑Driven Model Selection
+
+**What:** In `POST /v1/chat/completions`, after classification, the proxy selects the best model from the registry instead of using the `model` field from the request.  
+**Logic:**
+1. Score all registry entries by topic‑tag overlap × intent‑tag overlap.
+2. Pick the highest‑priority entry that has a context window large enough for the assembled prompt.
+3. Fall back to a configurable default generalist model.
+4. **Session stickiness:** do not switch models unless the classifier detects a sustained hard topic shift across 3 consecutive turns.
+
+### 24.2.3 — Dynamic Model Loading / Unloading
+
+**What:** If the selected model is not currently loaded, unload the current model and load the new one (via Ollama’s API).  
+**Why:** Enables the Dual‑Agent Protocol (§9.5) and general purpose Mini‑MoE without wasting VRAM.  
+**Open question:** Ollama’s load/unload latency must be measured; if too slow, keep multiple models in VRAM and trade memory for speed.
+
+### 24.2.4 — Backend‑Agnostic Model Runner
+
+**What:** Allow the backend to be any OpenAI‑compatible server (Ollama, vLLM, llama.cpp server, remote API).  
+**Implementation:** Replace hardcoded `ollama_base_url` with a list of backends; the proxy already uses the OpenAI chat‑completions format, so this is trivial.  
+**Why:** Users may prefer vLLM for performance, or may want to use a cloud endpoint as a fallback.
+
+---
+
+## 24.3 — Retrieval & Context Enhancements
+
+### 24.3.1 — HyDE Query Rewriting (Full Implementation)
+
+**What:** V1 has a stub and a bypass flag; the actual rewriting step using the background model is not wired in.  
+**Implementation:**
+- When `context_reliance == Long_Term_Memory` and `entropy_score < threshold`, call the background model to rewrite the prompt into a dense, self‑contained search query.
+- Use the rewritten query for BM25 and vector retrieval; keep the original prompt for the final LLM call.
+- Latency cost ~300 ms; acceptable given the retrieval quality gain.
+
+### 24.3.2 — Context‑Window‑Around‑Hit (Surrounding Turns)
+
+**What:** When a specific episodic turn is retrieved as relevant, also retrieve the **N turns before and after** it (e.g., ±5) to provide full conversation context.  
+**Why:** The user originally designed this; it prevents fragmentary injection where the AI sees an isolated fact but misses the preceding question and following follow‑up.  
+**Implementation:**
+- After the top‑k fragments are selected, for each episodic fragment, query `episodic_memory` for turns with the same `conversation_id` and `timestamp` within a window (e.g., ±5 positions).
+- Add those turns to the context payload (respecting the overall token budget).
+
+### 24.3.3 — Batch Summarisation for Decayed Memory
+
+**What:** For very old conversations (low decay score), instead of storing many individual summaries, group consecutive turns into **batches** and summarise each batch into a single paragraph. Retrieval then injects the batch summary rather than many small fragments.  
+**Why:** Saves token budget and provides a higher‑level summary of a long‑forgotten topic.  
+**Implementation:**
+- Periodic Celery task (or triggered by decay crossing a threshold) that groups old, non‑lossless turns by cluster or time window, calls the background model to summarise the block, and stores the result in a new `batch_summaries` table (or appends to the first turn’s summary).
+- The retrieval orchestrator queries both individual summaries and batch summaries, preferring individual for high‑decay, batch for low‑decay.
+
+### 24.3.4 — Bookmark Boosting in RRF
+
+**What:** Bookmarked turns already have `decay_immune`. In addition, their retrieval score should be multiplied by a configurable factor (e.g., 1.5×) before RRF fusion.  
+**Why:** The architecture §7.2 specifies a retrieval priority boost; this is not yet implemented.
+
+---
+
+## 24.4 — Memory Lifecycle & Cognition Extensions
+
+### 24.4.1 — Full Bookmarking System (Backend)
+
+**What:** The architecture §7 describes a rich bookmarking workflow: immediate lossless override, priority Codex extraction, meeting‑minutes summary, and pending‑items update.  
+**Current state:** `is_bookmarked` and `decay_immune` columns exist; the `/bookmarks` endpoint is not built; the special worker logic is not implemented.  
+**Implementation:**
+- Create a `POST /turns/{id}/bookmark` endpoint that sets `is_bookmarked=true`, `lossless_flag=true`, `decay_immune=true`, and fires a priority Codex extraction task.
+- Add a `GET /bookmarks` endpoint with filter/sort.
+- When assembling the prompt, apply a score multiplier to bookmarked fragments.
+
+### 24.4.2 — Conversation Scoping from the Frontend
+
+**What:** The `conversations` table has `memory_scope_type` and `cluster_ids`, and the retrieval orchestrator already respects them – but there is no way for a user to set the scope (except via raw API).  
+**Implementation:**
+- Add `/conversations/{id}/scope` PUT endpoint.
+- In the custom frontend, provide a dropdown or command to switch scope mid‑conversation.
+- Log scope changes as `session_replay` events.
+
+### 24.4.3 — Fine‑Tuning Loop for the Classifier
+
+**What:** The `curated_labels` table exists, but the weekly fine‑tuning pass (§1.4) is not implemented.  
+**Implementation:**
+- Celery beat task that loads curated labels, freezes the SentenceTransformer encoder, retrains the MLP head for a few epochs, and saves a new checkpoint.
+- Expose a `/classifier/fine-tune` trigger endpoint.
+
+### 24.4.4 — Procedural Memory Retrieval Expansion
+
+**What:** The procedural memory leg is currently triggered on a hardcoded set of intents. The architecture leaves open the question of whether it should ever be **unconditionally** injected (like memory slots).  
+**Implementation:**
+- Add a configuration flag `PROCEDURAL_ALWAYS_INJECT` (default false).
+- When true, include active procedural patterns in every `Long_Term_Memory` prompt regardless of intent.
+
+### 24.4.5 — Codex Enrichment & Motif Detection (Reflection Worker)
+
+**What:** The Reflection Worker (§6.2) is designed to do more than session synthesis: it should also enrich thin Codex entities, detect cross‑session motifs, and propose cluster creation. Currently only session synthesis is implemented.  
+**Implementation:**
+- Add tasks to the existing `run_reflection` workflow: scan top‑retrieved entities, collect relevant episodic passages, and append them to `context_payload`.
+- Periodically scan for co‑occurring entities across clusters and propose new clusters via the Sentinel review queue.
+
+---
+
+## 24.5 — Operations & Packaging
+
+### 24.5.1 — Single‑Command Startup
+
+**What:** A single script or `docker compose up` command that launches PostgreSQL, Redis, vLLM background model, Celery worker (with beat), and the ICE proxy.  
+**Why:** The current process requires starting each component manually in separate terminals – a barrier to new users and a hassle for daily use.  
+**Implementation:**
+- Extend `docker/docker-compose.yml` to include the proxy and Celery worker as services (with GPU access).
+- Alternatively, create a `./ice start` shell script that starts everything in background processes and shows a unified log tail.
+
+### 24.5.2 — One‑Click Installer / Package
+
+**What:** A `pyproject.toml` with entry points, a `setup.sh` script, or a pre‑built Docker image that gets a user from zero to a running ICE instance in minutes.  
+**Why:** Open‑source adoption depends on a frictionless install.  
+**Implementation:** Provide a `pip install ice-memory` that installs all dependencies and a CLI command `ice` to configure and start.
+
+### 24.5.3 — Shared Background Model (Reuse Main Model)
+
+**What:** Option to use the **same** model instance for both user‑facing inference and background NLP tasks, eliminating the need for a second vLLM process.  
+**Why:** On machines with limited VRAM, running two models is impossible. Even on a 24 GB GPU, a user may want to load a 70 B Q4 model and use every spare byte – dedicating 6 GB to a background model then hurts the primary model’s context window.  
+**Implementation:**
+- Add a configuration flag `BACKGROUND_MODEL_MODE` with values `dedicated` (current) and `shared`.
+- In `shared` mode, all background workers that call the LLM route their requests to the same Ollama/vLLM endpoint as the proxy, using a low priority or a separate queue.
+- GPU utilisation checks must account for the fact that the “user” model is also the “worker” model; background tasks should only run when the user is not actively chatting (e.g., queue them and process when idle).
+
+---
+
+## 24.6 — Deferred Systems (from Architecture §21)
+
+These are architecturally prepared but explicitly excluded from both V1 and the immediate post‑V1 roadmap. They are listed here for completeness.
+
+| System | Note |
+|--------|------|
+| Conversation Branching UI | Requires custom frontend; `parent_message_id` column ready |
+| Multi‑User / Team Memory | Schema ready; requires auth and namespacing |
+| P2P Mesh Sync | Cluster‑based sync across machines |
+| Cloud Routing (failover) | INV‑10; cloud endpoint selection when local capacity insufficient |
+| LLM Classifier (research only) | `IntentClassifier` ABC supports it; never the production path |
+
+---
+
+## 24.7 — Implementation Priority (Suggested)
+
+The highest‑impact, lowest‑effort items that can be tackled immediately after Paper 1:
+
+1. **HyDE query rewriting** (already wired, just add the model call)  
+2. **Bookmarking backend** (endpoints + retrieval boost)  
+3. **Single‑command startup** (Docker Compose or `ice start`)  
+4. **Shared background model option** (a few config flags)  
+5. **Model Registry backend** (without auto‑routing yet)  
+6. **Terminal frontend** (huge UX win for technical users)
+
+Larger efforts that should wait until Paper 1 is accepted or submitted:
+
+- Full custom web frontend  
+- Model auto‑routing with dynamic loading  
+- Batch summarisation  
+- Fine‑tuning loop
+
+---
+
+This section bridges the gap between the research artefact and a polished, community‑ready product. Every item is designed to be implemented incrementally without architectural rework.
+
 #### Open Questions
 
 **Q1 — What is the correct cluster granularity?** The automatic clustering worker groups turns using an LLM. No principled selection criterion for cluster size or splitting threshold is defined. This directly affects scoped retrieval quality.
@@ -1392,3 +1615,4 @@ The distinction matters for design decisions. A memory middleware system stores 
 None of this requires AGI-adjacent claims. These are concrete, measurable engineering properties. The system improves because reinforcement_count increases, because decay_score separates signal from noise, because Sentinel rules fire and trigger review, and because the Reflection Worker surfaces crystallized patterns.
 
 The framing matters because it sets the correct design constraint: **ICE must be evaluated not at session level but at longitudinal level.** A system that performs well in session 1 but does not improve by session 50 has failed as a cognition system, even if it functions correctly as a retrieval system. This constraint drives the Simulation Harness, the memory lifecycle mechanics, and the procedural and reflection subsystems.
+
