@@ -33,11 +33,12 @@ def cluster_turns(self):
         texts = "\n---\n".join([t.raw_text[:200] for t in unassigned])
         prompt = (
             "Given the following conversation fragments, suggest 1‑3 cluster names that group related topics. "
+            "Each name should be a short, descriptive phrase (e.g., \"PostgreSQL Schema Design\", \"Creative Writing – FLAW Lore\"). "
             "Output a JSON array of strings, e.g. [\"ICE Development\", \"Story Writing\"]. "
             "If only one theme is present, output a single‑element array."
         )
         completion = bg_client.chat.completions.create(
-            model="Qwen/Qwen2.5-1.5B-Instruct-AWQ",
+            model="Qwen/Qwen2.5-3B-Instruct-AWQ",
             messages=[
                 {"role": "system", "content": "You are a topic clustering engine."},
                 {"role": "user", "content": f"{prompt}\n\n{texts}"}

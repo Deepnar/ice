@@ -29,22 +29,25 @@ def generate_uuid5(canonical_name: str) -> uuid.UUID:
 
 
 def extract_triplets(text: str) -> list:
-    """Call the 1.5B model and return only well‑formed triplets."""
     prompt = (
         "You are an entity extraction tool. Extract subject-relation-object triplets from the text.\n"
-        "Return ONLY a valid JSON array of objects. Each object must have exactly three keys: \"subject\", \"relation\", \"object\".\n"
-        "If no entities exist, return an empty array [].\n"
-        "Do NOT include any other text, markdown, or explanations.\n\n"
+        "Each triplet must capture a fact: a subject (entity or concept), a relation (verb or verb phrase), "
+        "and an object (another entity or concept).\n"
+        "Return ONLY a valid JSON array of objects. Each object must have exactly three keys: "
+        "\"subject\", \"relation\", \"object\".\n"
+        "If no factual triplets exist, return an empty array [].\n"
+        "Do NOT include any other text, markdown, or explanation.\n\n"
         "Example:\n"
-        "Text: \"ICE uses PostgreSQL for memory storage.\"\n"
-        "Output: [{\"subject\":\"ICE\",\"relation\":\"uses\",\"object\":\"PostgreSQL\"}]\n\n"
+        "Text: \"ICE uses PostgreSQL for memory storage and Redis for task management.\"\n"
+        "Output: [{\"subject\":\"ICE\",\"relation\":\"uses\",\"object\":\"PostgreSQL\"}, "
+        "{\"subject\":\"ICE\",\"relation\":\"uses\",\"object\":\"Redis\"}]\n\n"
         "Now process this text:"
     )
     try:
         completion = bg_client.chat.completions.create(
-            model="Qwen/Qwen2.5-1.5B-Instruct-AWQ",
+            model="Qwen/Qwen2.5-3B-Instruct-AWQ",
             messages=[
-                {"role": "system", "content": "You are a JSON-only extraction tool. Never output anything but JSON."},
+                {"role": "system", "content": "You are a JSON-only entity extraction tool. Never output anything but JSON."},
                 {"role": "user", "content": f"Text:\n{text}\n\n{prompt}"}
             ],
             temperature=0.0,
@@ -54,20 +57,20 @@ def extract_triplets(text: str) -> list:
         raw = completion.choices[0].message.content.strip()
         logger.debug("extraction_raw_response", raw=raw)
 
-        # 1) Strip markdown fences
+        # Strip markdown fences
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
             raw = raw.strip()
 
-        # 2) Try to parse the first complete JSON value
+        # Parse first valid JSON value
         decoder = json.JSONDecoder()
         parsed = None
         try:
             parsed, _ = decoder.raw_decode(raw)
         except json.JSONDecodeError:
-            # Fallback: regex for individual triplet objects
+            # Fallback regex for individual triplet objects
             triplet_pattern = re.compile(
                 r'\{\s*"subject"\s*:\s*"([^"]+)"\s*,\s*"relation"\s*:\s*"([^"]+)"\s*,\s*"object"\s*:\s*"([^"]+)"\s*\}',
                 re.DOTALL
@@ -77,7 +80,6 @@ def extract_triplets(text: str) -> list:
                 return [{"subject": s, "relation": r, "object": o} for s, r, o in matches]
             return []
 
-        # 3) Ensure the parsed value is a list and filter only valid triplets
         if isinstance(parsed, list):
             valid = []
             for item in parsed:

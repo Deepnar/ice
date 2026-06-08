@@ -18,10 +18,15 @@ logger = structlog.get_logger("ice.workers.reflection")
 bg_client = OpenAI(base_url="http://localhost:8002/v1", api_key="dummy")
 
 SUMMARY_PROMPT = (
-    "Generate a structured session summary from the following conversation turns. "
-    "Include: topics covered, decisions made, unresolved items, and new entities or patterns observed. "
-    "Output a JSON object with keys: topics_covered (list), decisions_made (string), "
-    "unresolved_items (string), entities_updated (list of canonical names), patterns_observed (list of strings)."
+    "Generate a structured session summary from the following conversation turns.\n"
+    "Output ONLY a valid JSON object with these keys:\n"
+    "  - \"topics_covered\": a list of strings (e.g., [\"PostgreSQL\", \"FastAPI\"])\n"
+    "  - \"decisions_made\": a string describing any decisions\n"
+    "  - \"unresolved_items\": a string describing any unresolved questions\n"
+    "  - \"entities_updated\": a list of canonical entity names that appeared\n"
+    "  - \"patterns_observed\": a list of strings describing observed behavioural patterns\n\n"
+    "If a field has no content, use an empty list [] for lists, or an empty string \"\" for strings.\n"
+    "Do NOT include markdown or additional text."
 )
 
 
@@ -67,7 +72,7 @@ def _synthesize_session(db, turns, conversation_id):
         full_text = " ".join(words[-3000:])
 
     completion = bg_client.chat.completions.create(
-        model="Qwen/Qwen2.5-1.5B-Instruct-AWQ",
+        model="Qwen/Qwen2.5-3B-Instruct-AWQ",
         messages=[
             {"role": "system", "content": "You are a session analysis engine. Output only JSON."},
             {"role": "user", "content": f"{SUMMARY_PROMPT}\n\n{full_text}"}

@@ -47,22 +47,26 @@ def is_lossless(text: str) -> bool:
 
 
 def generate_summary(prompt: str, response: str) -> str:
-    """Invokes the background 1.5B resource model to condense wide conversation context."""
-    if not response.strip():
-        return ""
+    """Invokes the background 3B model to produce a tight, fact‑dense summary."""
     try:
         completion = bg_client.chat.completions.create(
-            model="Qwen/Qwen2.5-1.5B-Instruct-AWQ",
+            model="Qwen/Qwen2.5-3B-Instruct-AWQ",
             messages=[
                 {
                     "role": "system",
-                    "content": "Summarize this conversation exchange in 2-3 sentences. Focus heavily on the concrete technical facts or constraints provided."
+                    "content": (
+                        "You are a precise summarisation engine. "
+                        "Summarize the following user/assistant exchange in 2‑3 sentences. "
+                        "Focus ONLY on concrete facts, decisions, code snippets, or named entities. "
+                        "Do NOT include pleasantries, speculation, or meta‑commentary. "
+                        "If the exchange contains code, describe what the code does."
+                    )
                 },
                 {"role": "user", "content": f"User: {prompt}\nAssistant: {response}"},
             ],
             temperature=0.0,
             max_tokens=200,
-            timeout=30.0,  # Prevent infinite socket hangs
+            timeout=30.0,
         )
         return completion.choices[0].message.content.strip()
     except Exception as exc:
