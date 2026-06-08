@@ -4,11 +4,11 @@
 ---
 
 ## Current Phase & Step
-Phase 7 — Retrieval Orchestrator
+Phase 8 — Memory Slots
 ---
 
 ## Last Completed
-- `src/workers/codex_extractor.py` — background Codex Extractor Celery task that extracts subject‑relation‑object triplets from lossless `EpisodicMemory` turns, creates/updates `CodexEntity`/`CodexEdge`/`CodexEvent` records, and records idempotency keys — does NOT perform graph compaction/snapshotting or manage model hosting and rate‑limiting.
+- `src/retrieval/orchestrator.py` — Hybrid Retrieval Orchestrator implementing BM25 full‑text retrieval, pgvector cosine lookup, Codex graph traversal, Procedural pattern lookup, RAG chunk retrieval, and true Reciprocal Rank Fusion (RRF) with session diversification, deduplication, and token‑budget enforcement — does NOT include web search integration, production tuning, or multi‑tenant rate‑limiting.
 
 ---
 
@@ -82,6 +82,17 @@ Phase 7 — Retrieval Orchestrator
 - `tests/test_triplet.py` — unit test for triplet extraction parsing and JSON fallback handling; exercises raw model output parsing — does NOT assert DB side effects.
 - `tests/test_codex_extractor.py` — integration test inserting a high‑value turn and enqueuing `evaluate_turn` to validate Codex extraction behavior — does NOT run headlessly without Celery and DB.
 - `scripts/classifier/promt_labeling/OLAMA_BAD_label_dataset.py` — auxiliary async labeling script with strict Pydantic schema and an Ollama/OpenAI async client (instructor wrapper) for structured labeling — does NOT include production-grade retry/backoff, secrets management, or orchestration.
+- `src/retrieval/orchestrator.py` — Hybrid Retrieval Orchestrator implementing BM25, vector, codex, procedural and RAG legs plus true RRF fusion, session diversification, deduplication, and token budgeting — does NOT include web search integration or production tuning.
+- `src/api/prompt_assembler.py` — Context Structural Assembly Plane: composes the final system prompt from active `MemorySlot`s and retrieved `ContextFragment`s (codex/episodic/procedural/rag) in a stable prefix order — does NOT perform automatic token‑truncation policies or slot selection heuristics.
+- `src/workers/post_flight.py` — Post‑Flight Evaluator Celery task: computes `lossless_flag`, generates summaries for non‑lossless turns, enforces idempotency keys, commits state, and triggers `extract_codex` for lossless turns — does NOT manage external model availability, distributed retries beyond Celery, or GPU orchestration.
+- `src/workers/gpu_check.py` — GPU gating utility that queries `nvidia‑smi` to decide whether background tasks should yield under high GPU utilization (INV‑5) — does NOT support non‑NVIDIA GPUs or containerized cgroup metrics.
+- `src/workers/celery_app.py` — Celery application factory and task registration for background workers; wired to Redis broker/backend per `settings.redis_url` — does NOT include autoscaling, worker pools tuning, or broker HA configuration.
+- `tests/test_full_pipeline_phase_7.py` — integration test: Classifier → Retrieval → Prompt Assembly → Storage; inserts test turns and verifies retrieval legs and assembled prompt — requires DB and embedder, not CI‑ready.
+- `tests/test_full_pipeline_phase_6.py` — integration test: Classifier → Storage → Post‑Flight → Codex Extractor; inserts a high‑value turn and enqueues `evaluate_turn` to validate post‑flight and extractor behaviour — requires Celery, DB, and background model.
+- `tests/test_retrieval.py` — unit/integration test for retrieval legs (BM25, vector, codex) and prompt assembly; verifies fragment scoring and assembled system prompt — does NOT mock external services.
+- `docs/DAILY_COMMANDS.md` — developer runbook for starting Docker services, the background model, Celery workers, and the proxy — does NOT include platform‑specific troubleshooting steps.
+- `docs/VISION.md` — project vision and long‑term goals document explaining ICE's rationale, differentiation, and design principles — documentation only, not a technical spec.
+- `main.py` — tiny top‑level script (`print("Hello from ice!")`) used for quick smoke checks — does NOT run the full application.
 
 ---
 
@@ -106,4 +117,4 @@ None.
 
 ## Next Step
 
-PHASE 5
+PHASE 8
