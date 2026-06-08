@@ -51,6 +51,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from src.api.routers import memory_slots
+
+app.include_router(memory_slots.router)
+
 
 @app.get("/health")
 def health():
