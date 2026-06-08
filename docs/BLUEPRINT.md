@@ -2973,41 +2973,297 @@ Insert a test Codex entity via the `codex_extractor` (using your test script), e
 
 ---
 
-# PHASE 8 — Memory Slots
+# Phase 8 – Memory Slots Endpoints (Final, Production‑Hardened)
 
-**What this phase is:** The seven persistent memory slots that are always injected into every prompt, every session.
+**What we’re building:**  
+API endpoints to read, update, and initialise the seven persistent memory slots. The database table already exists, and the prompt assembler already injects active slots into every prompt. This phase adds the management layer.
 
-**This is actually a short phase** — the database table already exists, and the prompt assembler already injects them. You just need the API endpoints to read and write them.
+**Fixes adopted from the independent review:**
 
----
+- **Race‑condition guard** – catch `IntegrityError` in the `initialize_slots` endpoint and return a 409 instead of a 500.
+- **Omit manual `id` generation** – our model has `default=uuid.uuid4`, so we no longer pass `id=` when creating new slots.
 
-### Step 8.1 — Create the memory slots router
+**Fixes rejected:**
 
-Create `src/api/routers/memory_slots.py`. This FastAPI router needs these endpoints:
-
-- `GET /memory-slots` — return all active memory slots
-- `GET /memory-slots/{slot_name}` — return one specific slot
-- `PUT /memory-slots/{slot_name}` — update a slot's content (user writes)
-- `POST /memory-slots/initialize` — create the default 7 slots with empty content if they don't exist
-
-Include this router in `src/api/main.py`.
+- **`str(uuid.uuid4())`** – unnecessary; the model already handles UUIDs correctly with `as_uuid=True`.
 
 ---
 
-### Step 8.2 — Initialize default slots
+### Files to create or modify
 
-Create `scripts/initialize_memory_slots.py`. This script inserts the 7 default empty slots if they don't already exist:
+| File | Action |
+|------|--------|
+| `src/api/routers/memory_slots.py` | **New** – FastAPI router with CRUD endpoints |
+| `scripts/initialize_memory_slots.py` | **New** – one‑time script (also omits manual `id`) |
+| `src/api/main.py` | **Modify** – register the router |
 
+---
+
+### Step 8.1 – Create the memory‑slots router
+
+**File:** `src/api/routers/memory_slots.py`
+
+```python
+"""
+Memory Slots router – CRUD endpoints for ICE's persistent working memory.
+"""
+
+import logging
+from datetime import datetime, timezone
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+
+from src.api.db import get_db
+from src.memory.models import MemorySlot
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Allowed slot names – must match the architecture (§2.1)
+# ---------------------------------------------------------------------------
+VALID_SLOTS = [
+    "persona",
+    "user_preferences",
+    "tool_guidelines",
+    "project_context",
+    "guidance",
+    "pending_items",
+    "session_patterns",
+]
+
+router = APIRouter(prefix="/memory-slots", tags=["memory-slots"])
+
+
+# ---------------------------------------------------------------------------
+# Pydantic schemas
+# ---------------------------------------------------------------------------
+class SlotOut(BaseModel):
+    id: str
+    slot_name: str
+    content: str
+    token_count: int
+    version: int
+    last_updated: str
+    updated_by: str
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class SlotUpdate(BaseModel):
+    content: str = Field(..., min_length=0, description="New content for the slot")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+def _estimate_tokens(text: str) -> int:
+    """Rough token count (words * 1.33), same heuristic as the orchestrator."""
+    return int(len(text.split()) * 1.33)
+
+
+def _format_slot(slot: MemorySlot) -> dict:
+    """Return a JSON‑safe dict for a MemorySlot row."""
+    return {
+        "id": str(slot.id),
+        "slot_name": slot.slot_name,
+        "content": slot.content or "",
+        "token_count": slot.token_count,
+        "version": slot.version,
+        "last_updated": slot.last_updated.isoformat() if slot.last_updated else "",
+        "updated_by": slot.updated_by,
+        "is_active": slot.is_active,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+@router.get("/", response_model=List[SlotOut])
+def list_slots(db: Session = Depends(get_db)):
+    """Return all currently active memory slots."""
+    slots = db.query(MemorySlot).filter_by(is_active=True).all()
+    return [_format_slot(s) for s in slots]
+
+
+@router.get("/{slot_name}", response_model=SlotOut)
+def get_slot(slot_name: str, db: Session = Depends(get_db)):
+    """Return a single memory slot by name."""
+    if slot_name not in VALID_SLOTS:
+        raise HTTPException(status_code=400, detail=f"Invalid slot name. Must be one of {VALID_SLOTS}")
+    slot = db.query(MemorySlot).filter_by(slot_name=slot_name, is_active=True).first()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found or inactive")
+    return _format_slot(slot)
+
+
+@router.put("/{slot_name}", response_model=SlotOut)
+def update_slot(slot_name: str, update: SlotUpdate, db: Session = Depends(get_db)):
+    """
+    Update the content of a memory slot.  If the slot does not exist, it is created
+    (with version 1).  The `updated_by` field is always set to "user" for this endpoint.
+    """
+    if slot_name not in VALID_SLOTS:
+        raise HTTPException(status_code=400, detail=f"Invalid slot name. Must be one of {VALID_SLOTS}")
+
+    slot = db.query(MemorySlot).filter_by(slot_name=slot_name).first()
+
+    if not slot:
+        # Create a new slot – the model's default=uuid.uuid4 handles the ID automatically
+        slot = MemorySlot(
+            slot_name=slot_name,
+            content=update.content,
+            token_count=_estimate_tokens(update.content),
+            version=1,
+            last_updated=datetime.now(timezone.utc),
+            updated_by="user",
+            is_active=True,
+        )
+        db.add(slot)
+    else:
+        slot.content = update.content
+        slot.token_count = _estimate_tokens(update.content)
+        slot.version += 1
+        slot.last_updated = datetime.now(timezone.utc)
+        slot.updated_by = "user"
+        if not slot.is_active:
+            slot.is_active = True
+
+    db.commit()
+    db.refresh(slot)
+    return _format_slot(slot)
+
+
+@router.post("/initialize")
+def initialize_slots(db: Session = Depends(get_db)):
+    """
+    Create the seven default memory slots with empty content.
+    Skips any slot that already exists. Protected against concurrent initialization.
+    """
+    created = []
+    for name in VALID_SLOTS:
+        existing = db.query(MemorySlot).filter_by(slot_name=name).first()
+        if not existing:
+            # No manual 'id' – the model's default generates the UUID
+            slot = MemorySlot(
+                slot_name=name,
+                content="",
+                token_count=0,
+                version=1,
+                last_updated=datetime.now(timezone.utc),
+                updated_by="system",
+                is_active=True,
+            )
+            db.add(slot)
+            created.append(name)
+
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        logger.warning("initialization_race_condition_prevented", error=str(e))
+        raise HTTPException(
+            status_code=409,
+            detail="Initialization conflict. Slots may already exist.",
+        )
+
+    return {
+        "status": "ok",
+        "created": created,
+        "skipped": [n for n in VALID_SLOTS if n not in created],
+    }
 ```
-persona, user_preferences, tool_guidelines, project_context, 
-guidance, pending_items, session_patterns
-```
-
-Run it once after the database is created.
 
 ---
 
-**Phase 8 is done.** Memory slots are live and injectable.
+### Step 8.2 – Register the router in `src/api/main.py`
+
+**File:** `src/api/main.py`  
+**Where to add:**
+
+After the `app = FastAPI(...)` block, add the import and registration:
+
+```python
+from src.api.routers import memory_slots
+
+app.include_router(memory_slots.router)
+```
+
+---
+
+### Step 8.3 – Update the initialisation script
+
+**File:** `scripts/initialize_memory_slots.py`
+
+Replace the old script with this version (removes manual `id`):
+
+```python
+#!/usr/bin/env python3
+"""Initialise the seven default memory slots (if they don't already exist)."""
+
+import sys, os
+from datetime import datetime, timezone
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from src.api.db import SessionLocal
+from src.memory.models import MemorySlot
+
+VALID_SLOTS = [
+    "persona",
+    "user_preferences",
+    "tool_guidelines",
+    "project_context",
+    "guidance",
+    "pending_items",
+    "session_patterns",
+]
+
+db = SessionLocal()
+created = []
+for name in VALID_SLOTS:
+    existing = db.query(MemorySlot).filter_by(slot_name=name).first()
+    if not existing:
+        slot = MemorySlot(
+            slot_name=name,
+            content="",
+            token_count=0,
+            version=1,
+            last_updated=datetime.now(timezone.utc),
+            updated_by="system",
+            is_active=True,
+        )
+        db.add(slot)
+        created.append(name)
+        print(f"  Created slot '{name}'")
+    else:
+        print(f"  Slot '{name}' already exists – skipping")
+
+db.commit()
+db.close()
+print(f"\nDone. Created {len(created)} new slots.")
+```
+
+---
+
+### Step 8.4 – Verification
+
+Same as before:
+
+1. Start the proxy (`uv run uvicorn ...`)  
+2. `curl -X POST http://localhost:8000/memory-slots/initialize`  
+3. `curl http://localhost:8000/memory-slots/`  
+4. `curl -X PUT http://localhost:8000/memory-slots/persona -H "Content-Type: application/json" -d '{"content": "You are a sarcastic AI that loves puns."}'`
+
+All responses should work, and the `token_count` will be correctly calculated.
+
+---
+
+**Phase 8 is now production‑hardened.** The race‑condition guard prevents crashes under concurrent initialisation, and we’ve cleaned up the ID handling. Memory slots are fully operational and ready to serve as the persistent working memory of ICE.
 
 ---
 
