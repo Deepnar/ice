@@ -23,6 +23,9 @@ from src.api.db import SessionLocal, get_db
 from src.classifier.classifier import PyTorchClassifier
 from src.memory.models import Conversation, EpisodicMemory
 from src.workers.post_flight import evaluate_turn
+from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+from src.api.prompt_assembler import assemble_prompt
+from src.memory.models import MemorySlot
 
 
 logger = structlog.get_logger("ice.api")
@@ -188,7 +191,7 @@ async def chat_completions(
         return StreamingResponse(passthrough(), media_type="text/event-stream")
 
     # ───────────────────────────────────────────────────────────
-    # REAL USER PROMPT – classify and store
+    # REAL USER PROMPT – classify
     # ───────────────────────────────────────────────────────────
     result = classifier.classify(user_message)
     log.info(
@@ -213,6 +216,49 @@ async def chat_completions(
     db.add(conversation)
     db.commit()
     conversation_id = conversation.id
+
+    # ───────────────────────────────────────────────────────────
+    # RETRIEVAL & PROMPT ASSEMBLY (Long_Term_Memory or low confidence)
+    # ───────────────────────────────────────────────────────────
+    result.prompt = user_message
+
+    if (result.context_reliance == "Long_Term_Memory" or
+            result.max_confidence < settings.confidence_fallback_threshold):
+
+        # 1. Offload CPU‑bound embedding to a worker thread
+        embedding_tensor = await asyncio.to_thread(
+            classifier.embedder.encode, user_message, convert_to_tensor=False
+        )
+        prompt_embedding = (
+            embedding_tensor.tolist()
+            if hasattr(embedding_tensor, "tolist")
+            else list(embedding_tensor)
+        )
+
+        orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
+
+        # 2. Offload synchronous PostgreSQL retrieval queries to a worker thread
+        fragments = await asyncio.to_thread(
+            orchestrator.retrieve,
+            classification=result,
+            conversation_id=str(conversation_id),
+            prompt_embedding=prompt_embedding,
+            scope=None
+        )
+
+        # 3. Safe database fetch for memory slots
+        memory_slots = await asyncio.to_thread(
+            lambda: db.query(MemorySlot).filter_by(is_active=True).all()
+        )
+
+        # Assemble final prompt
+        messages = assemble_prompt(memory_slots, fragments, user_message)
+
+        logger.info(
+            "context_injection_complete",
+            injected_fragments=len(fragments),
+            active_slots=len(memory_slots)
+        )
 
     # ───────────────────────────────────────────────────────────
     # Stream from Ollama and schedule background storage

@@ -11,6 +11,7 @@ class ClassificationResult:
     context_reliance: str
     raw_probs: List[float]        # 25 probabilities
     max_confidence: float
+    prompt: str = ""
 
 class PyTorchClassifier:
     def __init__(self, model_path="models/classifier/ice_classifier.pt",
