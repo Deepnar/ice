@@ -8,7 +8,7 @@ Phase 9
 ---
 
 ## Last Completed
-- `src/api/routers/memory_slots.py`, `scripts/memory_slots/initialize_memory_slots.py` — Memory Slots: FastAPI CRUD router and initialization script that create and manage seven default persistent `MemorySlot`s (`persona`, `user_preferences`, `tool_guidelines`, `project_context`, `guidance`, `pending_items`, `session_patterns`) — do NOT include authentication, UI integration, or advanced slot selection and truncation policies.
+ - `feat: implemented remaining features for Phase 9` — multiple worker modules and integration harness added/updated to complete Phase 9 functionality: `src/workers/clustering.py`, `src/workers/decay.py`, `src/workers/drop_zone.py`, `src/workers/procedural_extractor.py`, `src/workers/reflection.py`, `src/workers/sentinel_monitor.py`, `src/workers/codex_extractor.py`, `src/workers/post_flight.py`, `src/workers/celery_app.py`, plus `scripts/simulation/run_simulation.py` and `tests/test_full_pipeline_phase_9.py` — these complete the extraction, decay, clustering, reflection, ingestion, and scheduled orchestration for Phase 9 but do NOT include production deployment, HA, or external model hosting.
 
 ---
 
@@ -95,6 +95,24 @@ Phase 9
 - `main.py` — tiny top‑level script (`print("Hello from ice!")`) used for quick smoke checks — does NOT run the full application.
 - `src/api/routers/memory_slots.py` — FastAPI router exposing `/memory-slots` CRUD and `/memory-slots/initialize`; includes Pydantic `SlotOut`/`SlotUpdate` schemas, token estimation helper, and basic concurrency/IntegrityError handling — does NOT implement auth, rate‑limiting, or UI integration.
 - `scripts/memory_slots/initialize_memory_slots.py` — CLI utility to idempotently create the seven default memory slots in the DB; prints created/skipped slots and commits — does NOT seed slot content, perform migrations, or manage advanced concurrency beyond simple existence checks.
+- `.gitignore` — updated ignore rules to include additional data directories and simulation outputs (e.g., `data/simulation/`, `data/unlabeled/`) — does NOT untrack files already committed.
+- `docs/BLUEPRINT.md` — blueprint edits: added/clarified Phase 9/Phase 10 sequencing and step descriptions — does NOT change implemented code; planning document only.
+- `src/workers/procedural_extractor.py` — Celery task `extract_procedural` that identifies recurring user workflows/patterns using a background 3B model and stores inferred `ProceduralMemory` rows (with embeddings) and idempotency keys — does NOT auto-activate patterns without reinforcement thresholds or UI review.
+- `src/workers/clustering.py` — periodic `cluster_turns` task that groups unassigned episodic turns, requests cluster names from the model, creates `ContextCluster` rows and assigns `cluster_id` to turns — does NOT include sophisticated cluster merging or human-in-the-loop validation.
+- `src/workers/codex_extractor.py` — extractor updated to robustly strip markdown fences and parse JSON, now using `Qwen/Qwen2.5-3B-Instruct-AWQ` by default for extraction calls — does NOT implement rate limiting or multi-turn provenance reconciliation.
+- `src/workers/post_flight.py` — post-flight evaluator updated to use the 3B summariser and to enqueue both `extract_codex` and `extract_procedural` for lossless turns; maintains idempotency and GPU gating — does NOT manage distributed GPU pools or external model lifecycle.
+- `src/workers/reflection.py` — reflection worker `run_reflection` synthesises session summaries (JSON output) into `SessionSummary`, updates `pending_items` memory slot when unresolved items are found, and supports per-conversation reflection — does NOT run automatically at scale without celery beat configuration.
+- `src/workers/decay.py` — daily `apply_decay` task that decays `decay_score`, archives stale turns, and moves extremely stale rows to `cold_storage` — does NOT include tuning for different retention policies per user/cluster.
+- `src/workers/drop_zone.py` — Drop Zone file-watcher daemon that ingests text/JSONL files from `ingest_inbox`, chunks them into RAG documents, embeds with the classifier embedder, and writes `RAGDocument`/`RAGChunk` rows — does NOT provide authentication or sandboxing for untrusted files.
+- `src/workers/sentinel_monitor.py` — periodic `monitor_sentinels` task that evaluates declarative sentinel rules and records `SentinelEvent`s when triggers fire — currently a no-op evaluator placeholder — does NOT include a rule language parser or action implementations beyond logging.
+- `src/workers/celery_app.py` — Celery application updated: includes new worker modules in `include` and a `beat_schedule` for `apply_decay`, `cluster_turns`, `monitor_sentinels`, and `run_reflection` — does NOT include autoscaling or HA broker configuration.
+- `scripts/simulation/run_simulation.py` — simulation harness that replays historical prompts/responses from `data/simulation_input.jsonl`, drives synchronous pipeline execution (classification → storage → post-flight → extraction) for evaluation runs — does NOT simulate distributed timing or concurrency precisely.
+- `data/simulation_input.jsonl` — sample JSONL used by the simulation harness to drive multi-turn tests — contains synthetic prompts/responses for validation; does NOT contain PII (sanity‑checked sample data only).
+- `ingest_inbox/processed/phase9_test_rag.txt` — processed test RAG document used by Drop Zone ingestion tests — sample artifact, not authoritative data.
+- `ingest_inbox/processed/test_rag.txt` — another processed RAG test file — sample artifact.
+- `tests/test_full_pipeline_phase_9.py` — comprehensive integration test for Phase 9 that exercises post-flight → codex → procedural extraction, decay, reflection, clustering, drop zone ingestion, and the simulation harness; requires Docker/Postgres, vLLM background model, and Celery to run — not CI-ready.
+- `pyproject.toml` — updated dependency spec (recording additions/changes needed for new workers, watchdog, clustering, etc.) — does NOT freeze resolved versions (see `uv.lock`).
+- `uv.lock` — updated lockfile reflecting newly-resolved package versions after dependency changes — does NOT replace environment-specific reproducibility guarantees entirely.
 
 ---
 
