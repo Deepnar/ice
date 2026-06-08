@@ -4,11 +4,11 @@
 ---
 
 ## Current Phase & Step
-Phase 8 — Memory Slots
+Phase 9 
 ---
 
 ## Last Completed
-- `src/retrieval/orchestrator.py` — Hybrid Retrieval Orchestrator implementing BM25 full‑text retrieval, pgvector cosine lookup, Codex graph traversal, Procedural pattern lookup, RAG chunk retrieval, and true Reciprocal Rank Fusion (RRF) with session diversification, deduplication, and token‑budget enforcement — does NOT include web search integration, production tuning, or multi‑tenant rate‑limiting.
+- `src/api/routers/memory_slots.py`, `scripts/memory_slots/initialize_memory_slots.py` — Memory Slots: FastAPI CRUD router and initialization script that create and manage seven default persistent `MemorySlot`s (`persona`, `user_preferences`, `tool_guidelines`, `project_context`, `guidance`, `pending_items`, `session_patterns`) — do NOT include authentication, UI integration, or advanced slot selection and truncation policies.
 
 ---
 
@@ -93,6 +93,8 @@ Phase 8 — Memory Slots
 - `docs/DAILY_COMMANDS.md` — developer runbook for starting Docker services, the background model, Celery workers, and the proxy — does NOT include platform‑specific troubleshooting steps.
 - `docs/VISION.md` — project vision and long‑term goals document explaining ICE's rationale, differentiation, and design principles — documentation only, not a technical spec.
 - `main.py` — tiny top‑level script (`print("Hello from ice!")`) used for quick smoke checks — does NOT run the full application.
+- `src/api/routers/memory_slots.py` — FastAPI router exposing `/memory-slots` CRUD and `/memory-slots/initialize`; includes Pydantic `SlotOut`/`SlotUpdate` schemas, token estimation helper, and basic concurrency/IntegrityError handling — does NOT implement auth, rate‑limiting, or UI integration.
+- `scripts/memory_slots/initialize_memory_slots.py` — CLI utility to idempotently create the seven default memory slots in the DB; prints created/skipped slots and commits — does NOT seed slot content, perform migrations, or manage advanced concurrency beyond simple existence checks.
 
 ---
 
@@ -117,4 +119,4 @@ None.
 
 ## Next Step
 
-PHASE 8
+Phase 9
