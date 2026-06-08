@@ -14,6 +14,7 @@ from src.memory.models import EpisodicMemory, IdempotencyKey
 from src.workers.celery_app import app
 from src.workers.gpu_check import is_gpu_busy
 from src.workers.codex_extractor import extract_codex
+from src.workers.procedural_extractor import extract_procedural
 
 
 logger = structlog.get_logger("ice.workers.post_flight")
@@ -108,6 +109,8 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
         log.info("post_flight_evaluation_complete", lossless=lossless)
         if lossless:
             extract_codex.delay(batch_id=batch_id)
+        
+        extract_procedural.delay(batch_id=batch_id)
 
     except Exception as exc:
         db.rollback()

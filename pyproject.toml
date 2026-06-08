@@ -32,4 +32,5 @@ dependencies = [
     "tqdm>=4.67.3",
     "uvicorn>=0.48.0",
     "vllm>=0.22.0",
+    "watchdog>=6.0.0",
 ]

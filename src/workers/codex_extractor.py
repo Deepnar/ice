@@ -29,7 +29,7 @@ def generate_uuid5(canonical_name: str) -> uuid.UUID:
 
 
 def extract_triplets(text: str) -> list:
-    """Call the 1.5B model and extract triplets – with robust fallback parsing."""
+    """Call the 1.5B model and return only well‑formed triplets."""
     prompt = (
         "You are an entity extraction tool. Extract subject-relation-object triplets from the text.\n"
         "Return ONLY a valid JSON array of objects. Each object must have exactly three keys: \"subject\", \"relation\", \"object\".\n"
@@ -54,26 +54,37 @@ def extract_triplets(text: str) -> list:
         raw = completion.choices[0].message.content.strip()
         logger.debug("extraction_raw_response", raw=raw)
 
-        # 1) Try direct JSON decode (best case)
+        # 1) Strip markdown fences
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+
+        # 2) Try to parse the first complete JSON value
         decoder = json.JSONDecoder()
+        parsed = None
         try:
-            triplets, _ = decoder.raw_decode(raw)
-            if isinstance(triplets, list):
-                return triplets
+            parsed, _ = decoder.raw_decode(raw)
         except json.JSONDecodeError:
-            pass
+            # Fallback: regex for individual triplet objects
+            triplet_pattern = re.compile(
+                r'\{\s*"subject"\s*:\s*"([^"]+)"\s*,\s*"relation"\s*:\s*"([^"]+)"\s*,\s*"object"\s*:\s*"([^"]+)"\s*\}',
+                re.DOTALL
+            )
+            matches = triplet_pattern.findall(raw)
+            if matches:
+                return [{"subject": s, "relation": r, "object": o} for s, r, o in matches]
+            return []
 
-        # 2) Fallback: regex for individual triplet objects inside a broken array
-        #    Match { "subject": "...", "relation": "...", "object": "..." }
-        triplet_pattern = re.compile(
-            r'\{\s*"subject"\s*:\s*"([^"]+)"\s*,\s*"relation"\s*:\s*"([^"]+)"\s*,\s*"object"\s*:\s*"([^"]+)"\s*\}',
-            re.DOTALL
-        )
-        matches = triplet_pattern.findall(raw)
-        if matches:
-            return [{"subject": s, "relation": r, "object": o} for s, r, o in matches]
+        # 3) Ensure the parsed value is a list and filter only valid triplets
+        if isinstance(parsed, list):
+            valid = []
+            for item in parsed:
+                if isinstance(item, dict) and "subject" in item and "relation" in item and "object" in item:
+                    valid.append(item)
+            return valid
 
-        # 3) Last resort: empty list
         return []
 
     except Exception as err:

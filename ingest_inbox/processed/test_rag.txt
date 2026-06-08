@@ -1,0 +1,1 @@
+ICE is a memory middleware that uses PostgreSQL with pgvector for vector storage. Redis serves as the message broker for Celery background tasks. The Codex Extractor calls a small 1.5B model to build a knowledge graph.
