@@ -42,15 +42,17 @@ def extract_procedural(self, batch_id: str):
         if not turn:
             return
 
-        # Call the 1.5B model to detect patterns
         prompt = (
-            "Identify any recurring workflows, decision sequences, or behavioural patterns "
-            "in this exchange that represent how the user approaches problems. "
-            "If no recurring pattern is evident, output 'NONE'. "
-            "Otherwise output a short one‑sentence description of the pattern."
+            "Analyze the following conversation exchange and identify any recurring workflow or behavioural pattern "
+            "that the user consistently follows. Examples of patterns: "
+            "\"When debugging, the user first asks for the error message, then the surrounding code.\" "
+            "\"When starting a new project, the user creates a Pydantic model before the FastAPI route.\"\n\n"
+            "If you detect a clear, repeatable pattern, output a one‑sentence description of that pattern.\n"
+            "If no pattern is evident, output 'NONE'.\n"
+            "Do NOT include any other text or explanation."
         )
         completion = bg_client.chat.completions.create(
-            model="Qwen/Qwen2.5-1.5B-Instruct-AWQ",
+            model="Qwen/Qwen2.5-3B-Instruct-AWQ",
             messages=[
                 {"role": "system", "content": "You are a behavioural pattern detector."},
                 {"role": "user", "content": f"Text:\n{turn.raw_text}\n\n{prompt}"}
