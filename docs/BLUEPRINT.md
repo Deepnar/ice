@@ -4162,7 +4162,267 @@ Inside `evaluate_turn`, after the `if lossless: extract_codex.delay(...)` block,
 **Phase 9 is complete.** ICE is now a fully autonomous long‑horizon cognition system, ready for your Paper 1 experiments. The entire pipeline is resilient, production‑hardened, and built to scale.
 
 ---
+# PHASE 10 — Research & Evaluation Pipeline
 
+**What this phase is:**  
+Turning your working ICE engine into a validated research artefact.  
+You will prepare real‑world data, run a long‑term simulation to build a rich memory state, evaluate retrieval quality under controlled conditions, and produce the quantitative results for your combined Paper 1/2.  
+
+This phase assumes Phases 1‑9 are complete and tested.  
+
+---
+
+### Step 10.1 — Prepare the data from all sources
+
+Your goal is to produce a **single chronological JSONL file** containing every (prompt, response) pair from your chat history.  
+The simulation harness reads exactly this format.
+
+#### 10.1.1 — Flaw (story & personal conversations)
+
+**What you have:** Raw `.txt` files where user messages begin with `You said:` and AI responses begin with `ChatGPT said:`.
+
+**What to do:**  
+- Write a small extraction script that:
+  1. Reads each file as a single string.
+  2. Splits the text on the delimiters `You said:` and `ChatGPT said:` to recover turns in order.
+  3. Pairs each user prompt with the following assistant response.
+  4. Outputs each pair as a JSONL line with a timestamp.  
+     (If timestamps are missing, use a synthetic but realistic date range, e.g., one turn every few hours over several months, to preserve chronology for decay experiments.)
+- Save the output as `data/simulation_flaw.jsonl`.
+
+#### 10.1.2 — DeepSeek export (complex JSON)
+
+**What you have:** A JSON array of conversation objects, each with a deeply nested `mapping` that defines the turn tree.
+
+**How to read it:**  
+- The root node has a `children` array; each child represents a message node.
+- Each message node can have more children (branching), but for linear export you can follow the default branch (often the first child at each node, or whichever was actually selected).
+- The node’s `message` field, if present, contains:
+  - `fragments`: array of objects with `type` (`REQUEST` = user, `RESPONSE` = assistant) and `content`.
+  - `model` name (useful for filtering).
+  - `inserted_at` timestamp.
+
+**What to do:**  
+- Write a parser that:
+  1. Traverses the mapping from root, following the linear path (e.g., always taking the first child, or a specific path if you have one).
+  2. Extracts each fragment’s `content` and `type`.
+  3. Collates consecutive fragments into a single message if needed (sometimes a single user turn is split across fragments).
+  4. Pairs user requests with their corresponding assistant responses.
+  5. Uses `inserted_at` as the timestamp (convert to UTC).
+- Output as `data/simulation_deepseek.jsonl`.
+
+#### 10.1.3 — Claude export (when available)
+
+Claude exports are typically JSON arrays of objects with a `messages` list.  
+Each message has a `role` (`user` / `assistant`) and `content`.  
+
+**What to do:**  
+- Walk the list, extract user/assistant pairs, use the provided timestamps.
+- Save as `data/simulation_claude.jsonl`.
+
+#### 10.1.4 — Merge and deduplicate
+
+- Combine all three (or more) source JSONL files into a single file: `data/simulation_full.jsonl`.
+- Sort by timestamp ascending.
+- Deduplicate by exact prompt text (keep the first occurrence).
+- Check that the total number of turns is reasonable (at least a few hundred for a meaningful memory state).
+- This file becomes the input to the simulation harness.
+
+---
+
+### Step 10.2 — Create the held‑out evaluation set
+
+The simulation will build a memory state from `simulation_full.jsonl`.  
+To test retrieval, you need a separate set of **new prompts** that should trigger memories of past turns, along with labels indicating which past turns are relevant.
+
+#### 10.2.1 — Select test prompts
+
+**Strategy:** Take a subset of your real prompts that you will later “ask” after the simulation has run.  
+For example, from the last few weeks of conversations, pick prompts that explicitly reference earlier information (e.g., “what was that laptop decision we made?”).  
+Also add some **synthetic probes** — prompts you deliberately craft to recall specific facts you know appear in the training data.
+
+**Size:** 200‑500 prompts is enough for a solid evaluation.
+
+#### 10.2.2 — Label ground truth
+
+For each test prompt, identify exactly which past `episodic_memory` turns (by `id` or by content hash) are relevant.  
+Store the labels in a JSON file:
+```json
+[
+  {
+    "prompt": "What was the name of that character?",
+    "relevant_turn_ids": ["uuid1", "uuid2"],
+    "source": "flaw_week4"
+  },
+  ...
+]
+```
+This file is your ground truth for computing **precision@k** and **recall**.
+
+---
+
+### Step 10.3 — Run the baseline simulation
+
+Now you feed the full simulation data into ICE to build a long‑term memory state.
+
+#### 10.3.1 — Clear and seed
+
+- Truncate all ICE tables (or start with a fresh database).
+- Run the simulation harness:
+  ```bash
+  uv run python scripts/simulation/run_simulation.py --seed 42 --input data/simulation_full.jsonl
+  ```
+- This replays every historical turn through classification, post‑flight evaluation, and Codex extraction synchronously.
+- After completion, your database represents **months of accumulated memory**.
+
+#### 10.3.2 — Run background workers to maturity
+
+The harness only triggers Codex extraction.  
+To fully populate procedural memory, session summaries, clusters, and decay scores:
+
+- Manually trigger the **Procedural Extractor**, **Reflection Worker**, **Clustering Worker**, and **Decay Worker** (via Celery) on the populated database.
+- Alternatively, run the simulation harness with a post‑processing script that calls all workers sequentially.
+- Let the Decay Worker run several passes to age some turns (if your timestamps go back far enough).
+
+**Check state health:**
+- Query `codex_entities` / `codex_edges` counts.
+- Check `procedural_memory` for extracted patterns.
+- Verify `decay_score` values are <1 for older turns.
+- Ensure `context_clusters` are assigned.
+
+---
+
+### Step 10.4 — Run the retrieval experiment (core of Paper 1/2)
+
+Now you measure how well ICE retrieves relevant past turns for each held‑out prompt.
+
+#### 10.4.1 — Evaluation script (you’ll build)
+
+Create `experiments/evaluate_retrieval.py` that:
+1. Loads the held‑out test prompts and their ground truth labels.
+2. For each test prompt:
+   - Runs the **pre‑flight classifier** (stateless).
+   - If `context_reliance == Long_Term_Memory`, runs the full hybrid retrieval orchestrator (BM25 + vector + Codex + procedural + RAG).
+   - Collects the retrieved fragments.
+3. Computes **precision@k** for k=5 (and k=10) by comparing retrieved fragment IDs (or hash) with ground truth relevant turn IDs.
+4. Logs per‑prompt results and aggregates.
+
+#### 10.4.2 — Experimental conditions
+
+Run the same evaluation under four different configurations:
+
+| Condition | Configuration change | What it measures |
+|-----------|----------------------|------------------|
+| **A — Full ICE** | Default (classifier gating + HyDE) | Best expected precision per token |
+| **B — Wide‑net always** | Replace classifier with a “return Long_Term_Memory always” stub, all legs active | Token cost of gating, precision impact |
+| **C — No HyDE** | Disable HyDE rewriting (bypass flag) | Contribution of query rewriting |
+| **D — No memory** | Skip retrieval entirely, zero context | Baseline (precision = 0) |
+
+To implement the conditions without touching production code, you can leverage the `IntentClassifier` interface: write a mock classifier that always returns the same tags, and inject it into the orchestrator.  
+For HyDE, the orchestrator already has a bypass flag.
+
+#### 10.4.3 — Metrics to collect
+
+- **Precision@5** and **Recall@5** for each condition.
+- **Tokens fetched** per request (logged by the orchestrator) – measure token savings vs. wide‑net.
+- **Classifier confidence** distribution.
+- **Breakdown by context_reliance class** – show how many prompts were correctly gated as Zero_Shot.
+
+Store all results in a structured format (CSV or JSON) for later analysis.
+
+---
+
+### Step 10.5 — Longitudinal improvement experiment
+
+The defining property of ICE is that it gets better the more it is used.
+
+#### 10.5.1 — Method
+
+- Re‑run the simulation harness multiple times, each time stopping after a different number of historical turns:
+  - Session 1 (first 20 turns)
+  - Session 10 (first 200 turns)
+  - Session 30 (first 600 turns)
+  - Session 60 (first 1200 turns)
+  - Session 120 (all turns)
+- At each checkpoint, run the retrieval evaluation on the **same held‑out set** of prompts that refer to content that appeared early in the timeline.
+- Plot retrieval precision@5 against the amount of accumulated memory.
+
+**Hypothesis:** Precision should rise as the Codex gains more validated facts and procedural patterns crystallise.
+
+#### 10.5.2 — Decay & reinforcement validation
+
+- From the final database, sample turns with high `access_count` and compare their `decay_score` with equally old but unaccessed turns.  
+  Confirm that frequently retrieved turns have higher scores (reinforcement works).
+- Verify that any bookmarked turns have `decay_immune = True` and have never decayed.
+
+---
+
+### Step 10.6 — Codex accuracy & truth quorum ablation
+
+#### 10.6.1 — Sample evaluation
+
+- Randomly sample 100 Codex triplets (entity‑relation‑entity) from the simulated database.
+- Manually (or with the help of a larger model) verify each triplet against the source conversation it was extracted from.
+- Compute **precision** (fraction of triplets that are factually correct) and **recall** (fraction of ground‑truth relationships that were extracted, if you have a gold set).
+
+#### 10.6.2 — Truth quorum impact
+
+- Run the simulation **without** the truth quorum (modify the Codex Extractor to promote all edges to `active` immediately regardless of batch count).
+- Repeat the accuracy measurement.
+- Compare precision between quorum‑on and quorum‑off conditions.  
+  The architecture hypothesizes that the quorum reduces hallucination rate.
+
+---
+
+### Step 10.7 — Sentinel memory health analysis (secondary contribution)
+
+- Run the Sentinel Monitor on the simulated database.
+- Aggregate the `sentinel_events` table: how many staleness alerts, contradiction alerts, retrieval‑health alerts fire?
+- This data provides the first known characterisation of memory health degradation patterns in long‑running personal AI systems.
+
+---
+
+### Step 10.8 — Reproducibility & logging
+
+- Every simulation and evaluation run must use a fixed `--seed`.
+- Log all hyperparameters, dataset sizes, and model versions to `experiments/results.json`.
+- Store the trained classifier checkpoint and the exact simulation input file (or its hash) for reference.
+- The goal: another researcher with your code and data can reproduce every number exactly.
+
+---
+
+## What this phase gives you for the paper
+
+| Paper section | Data from this phase |
+|---------------|----------------------|
+| System description | Ready — from architecture doc |
+| Experimental setup | Simulation input, held‑out set, conditions |
+| Results | Precision@5 tables, recall curves, token savings, HyDE contribution |
+| Longitudinal analysis | Precision vs. accumulated sessions plot |
+| Codex quality | Extraction precision, truth quorum effect |
+| Memory health | Sentinel event logs, decay/reinforcement plots |
+| Reproducibility | Seed‑fixed runs, logged parameters, open‑source code |
+
+---
+
+## Order of execution (the one‑liner)
+
+1. Extract & clean data → merged `simulation_full.jsonl`  
+2. Build held‑out test set with labels  
+3. Run baseline simulation → populated DB  
+4. Trigger all background workers to maturity  
+5. Run retrieval experiments (conditions A‑D)  
+6. Run longitudinal checkpoints  
+7. Sample Codex accuracy & truth quorum ablation  
+8. Run Sentinel & decay validation  
+9. Compile all results → paper
+
+---
+
+**Phase 10 is the bridge from engineering to science.**  
+When it finishes, you will have a complete, reproducible evaluation of the first personal AI memory system built for human thought, and the numbers to prove it.
+
+---
 # Global Reference — What to Install Where
 
 ## Globally on your machine (already done or via pacman):

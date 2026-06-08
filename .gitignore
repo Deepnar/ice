@@ -11,6 +11,7 @@ data/unlabeled/
 data/labeled/
 data/synthetic/
 data/curated_fixes.jsonl
+data/simulation/
 models/
 *.ckpt
 *.pt
