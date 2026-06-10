@@ -1,4 +1,4 @@
-"""Decay Worker – applies time‑based memory decay and archival."""
+"""Decay Worker – applies access‑weighted memory decay and archival."""
 
 import structlog
 from datetime import datetime, timezone, timedelta
@@ -10,7 +10,9 @@ from src.workers.celery_app import app
 from src.workers.gpu_check import is_gpu_busy
 
 logger = structlog.get_logger("ice.workers.decay")
-DECAY_RATE = 0.97          # 3% decay per day
+DECAY_RATE_UNACCESSED = 0.95   # 5% decay per day for never‑accessed turns
+DECAY_RATE_ACCESSED = 0.98     # 2% decay for turns that have been accessed
+STRENGTHEN_AMOUNT = 0.15
 ARCHIVE_THRESHOLD = 0.1
 COLD_THRESHOLD = 0.05
 
@@ -23,8 +25,9 @@ def apply_decay(self):
 
     db = SessionLocal()
     try:
-        # 1. Decay turns older than 7 days, not bookmarked, not decay_immune
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+
+        # Access‑weighted decay: unaccessed turns decay faster
         db.execute(text("""
             UPDATE episodic_memory
             SET decay_score = decay_score * :rate
@@ -32,25 +35,27 @@ def apply_decay(self):
               AND decay_immune = FALSE
               AND is_bookmarked = FALSE
               AND is_archived = FALSE
-        """), {"rate": DECAY_RATE, "cutoff": cutoff})
+              AND access_count = 0
+        """), {"rate": DECAY_RATE_UNACCESSED, "cutoff": cutoff})
 
-        # 2. Strengthen turns retrieved in the last 24 hours
-        recent = datetime.now(timezone.utc) - timedelta(days=1)
         db.execute(text("""
             UPDATE episodic_memory
-            SET decay_score = LEAST(decay_score + 0.15, 1.0)
-            WHERE access_count > 0
-              AND timestamp < :recent
-        """), {"recent": recent})
+            SET decay_score = decay_score * :rate
+            WHERE timestamp < :cutoff
+              AND decay_immune = FALSE
+              AND is_bookmarked = FALSE
+              AND is_archived = FALSE
+              AND access_count > 0
+        """), {"rate": DECAY_RATE_ACCESSED, "cutoff": cutoff})
 
-        # 3. Archive turns below threshold
+        # Archive turns below threshold
         db.execute(text("""
             UPDATE episodic_memory
             SET is_archived = TRUE
             WHERE decay_score < :archive_threshold AND is_archived = FALSE
         """), {"archive_threshold": ARCHIVE_THRESHOLD})
 
-        # 4. Move extremely stale archived turns to cold_storage
+        # Move extremely stale archived turns to cold_storage
         cold_rows = db.execute(text("""
             SELECT id, raw_text, summary_text, topic_tags, timestamp
             FROM episodic_memory

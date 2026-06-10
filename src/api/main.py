@@ -256,7 +256,8 @@ async def chat_completions(
         )
 
         # Assemble final prompt
-        messages = assemble_prompt(memory_slots, fragments, user_message)
+        messages = assemble_prompt(memory_slots, fragments, user_message,
+                           db_session=db, conversation_id=str(conversation_id))
 
         logger.info(
             "context_injection_complete",

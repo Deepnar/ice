@@ -1,8 +1,10 @@
-"""Context Structural Assembly Plane – builds the final prompt payload."""
+"""Context Structural Assembly Plane – builds the final prompt payload,
+   now including the sliding window of recent turns."""
 
-from typing import List
+from typing import List, Optional
+from sqlalchemy.orm import Session
 from src.retrieval.orchestrator import ContextFragment
-from src.memory.models import MemorySlot
+from src.memory.models import MemorySlot, EpisodicMemory
 
 SYSTEM_RULES = (
     "You are an AI assistant with access to a personal memory system (ICE).\n"
@@ -11,13 +13,42 @@ SYSTEM_RULES = (
 )
 
 
+def get_recent_turns(db_session: Session, conversation_id: str, n: int = 10) -> List[str]:
+    """Return the text of the last N turns from the current conversation."""
+    turns = db_session.query(EpisodicMemory).filter_by(
+        conversation_id=conversation_id
+    ).order_by(EpisodicMemory.timestamp.desc()).limit(n).all()
+    turns.reverse()  # chronological order
+    fragments = []
+    for t in turns:
+        if t.inject_raw and t.raw_text:
+            text = t.raw_text
+        elif t.summary_text:
+            text = t.summary_text
+        else:
+            text = (t.raw_text or "")[:300]
+        words = text.split()
+        if len(words) > 500:
+            text = " ".join(words[:500]) + "…"
+        fragments.append(text)
+    return fragments
+
+
 def assemble_prompt(
     memory_slots: List[MemorySlot],
     retrieved_fragments: List[ContextFragment],
     user_message: str,
+    db_session: Optional[Session] = None,
+    conversation_id: Optional[str] = None,
 ) -> List[dict]:
     """Assemble the final prompt in stable‑prefix order."""
     system_content = SYSTEM_RULES
+
+    # 0. Recent context (sliding window)
+    if db_session and conversation_id:
+        recent_texts = get_recent_turns(db_session, conversation_id, n=10)
+        if recent_texts:
+            system_content += "\n\n=== RECENT CONTEXT ===\n" + "\n\n".join(recent_texts)
 
     # 1. Persistent Memory Slots
     if memory_slots:

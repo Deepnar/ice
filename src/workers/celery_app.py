@@ -15,6 +15,7 @@ app = Celery(
         "src.workers.reflection",
         "src.workers.sentinel_monitor",
         "src.workers.clustering",
+        "src.workers.fine_tune", 
     ],
 )
 
@@ -39,5 +40,9 @@ app.conf.beat_schedule = {
     'reflection-daily': {
         'task': 'src.workers.reflection.run_reflection',
         'schedule': crontab(hour=5, minute=0),
+    },
+        'fine-tune-weekly': {
+        'task': 'src.workers.fine_tune.fine_tune_classifier',
+        'schedule': crontab(hour=4, minute=0, day_of_week=1),   # Monday 4am
     },
 }
