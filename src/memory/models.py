@@ -240,3 +240,12 @@ class CuratedLabel(Base):
     corrected_intent_labels = Column(ARRAY(Text), default=[])
     corrected_context_reliance = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+
+class ReviewQueue(Base):
+    __tablename__ = "review_queue"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    item_type = Column(Text, nullable=False)
+    item_content = Column(JSONB, default={})
+    status = Column(Text, default="pending")  # pending, approved, rejected
+    created_at = Column(DateTime(timezone=True), default=utcnow)

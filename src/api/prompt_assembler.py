@@ -1,5 +1,5 @@
 """Context Structural Assembly Plane – builds the final prompt payload,
-   now including the sliding window of recent turns."""
+   now including sliding window and bookmarked memories."""
 
 from typing import List, Optional
 from sqlalchemy.orm import Session
@@ -40,15 +40,14 @@ def assemble_prompt(
     user_message: str,
     db_session: Optional[Session] = None,
     conversation_id: Optional[str] = None,
+    bookmarked_texts: Optional[List[str]] = None,
 ) -> List[dict]:
     """Assemble the final prompt in stable‑prefix order."""
     system_content = SYSTEM_RULES
 
-    # 0. Recent context (sliding window)
-    if db_session and conversation_id:
-        recent_texts = get_recent_turns(db_session, conversation_id, n=10)
-        if recent_texts:
-            system_content += "\n\n=== RECENT CONTEXT ===\n" + "\n\n".join(recent_texts)
+    # 0. Bookmarked memories (explicit user reinforcements)
+    if bookmarked_texts:
+        system_content += "\n\n=== BOOKMARKED MEMORIES ===\n" + "\n\n".join(bookmarked_texts)
 
     # 1. Persistent Memory Slots
     if memory_slots:
@@ -59,25 +58,31 @@ def assemble_prompt(
         if slot_lines:
             system_content += "\n\n=== PERSISTENT CORE PREFERENCES ===\n" + "\n\n".join(slot_lines)
 
-    # 2. Codex (absolute facts)
+    # 2. Recent context (sliding window)
+    if db_session and conversation_id:
+        recent_texts = get_recent_turns(db_session, conversation_id, n=10)
+        if recent_texts:
+            system_content += "\n\n=== RECENT CONTEXT ===\n" + "\n\n".join(recent_texts)
+
+    # 3. Codex (absolute facts)
     codex_frags = [f for f in retrieved_fragments if f.source_type == "codex"]
     if codex_frags:
         codex_text = "\n\n".join(f.text.strip() for f in codex_frags)
         system_content += f"\n\n=== CODEX KNOWLEDGE GRAPH ASSERTIONS ===\n{codex_text}"
 
-    # 3. Episodic context
+    # 4. Episodic context
     episodic_frags = [f for f in retrieved_fragments if f.source_type == "episodic"]
     if episodic_frags:
         episodic_text = "\n\n".join(f.text.strip() for f in episodic_frags)
         system_content += f"\n\n=== RETRIEVED EPISODIC INTERACTIONS ===\n{episodic_text}"
 
-    # 4. Procedural patterns
+    # 5. Procedural patterns
     procedural_frags = [f for f in retrieved_fragments if f.source_type == "procedural"]
     if procedural_frags:
         proc_text = "\n\n".join(f.text.strip() for f in procedural_frags)
         system_content += f"\n\n=== PROCEDURAL EXECUTION PATTERNS ===\n{proc_text}"
 
-    # 5. RAG chunks
+    # 6. RAG chunks
     rag_frags = [f for f in retrieved_fragments if f.source_type == "rag"]
     if rag_frags:
         rag_text = "\n\n".join(f.text.strip() for f in rag_frags)

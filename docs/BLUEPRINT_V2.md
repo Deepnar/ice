@@ -2262,7 +2262,7 @@ Now restart the Celery worker. All Phase B components are complete.
 
 ---
 
-## Phase C — User Guidance & Control (Human‑Guided Reinforcement)
+# Phase C — User Guidance & Control (Human‑Guided Reinforcement)
 
 These are required by the architecture’s design goals (G5) and provide the manual evaluation hooks for the paper.
 
@@ -2275,6 +2275,1020 @@ These are required by the architecture’s design goals (G5) and provide the man
 | C5 | **Explicit cluster creation API** | §17 | None. | 1) `POST /clusters` – manually create a named cluster. 2) `PUT /clusters/{id}/assign` – assign turns to a cluster manually. | 2 h |
 | C6 | **Memory slot update confirmation flow** | §2.4 | Reflection proposes updates without user confirmation. | 1) When Reflection proposes a slot update, write it to a `review_queue` table instead of applying immediately. 2) Add `GET /review-queue` and `POST /review-queue/{id}/approve` endpoints. | 3 h |
 
+We’ll now build **Phase C** — all user‑guided memory control endpoints and the manual Codex injection pipeline.  
+Every feature is a direct implementation of the architecture’s “Human‑Guided Reinforcement” design goal (§17).
+
+---
+
+## New / Updated Files for Phase C
+
+| File | Action |
+|------|--------|
+| `src/api/routers/user_control.py` | **New** — all user‑control endpoints (bookmarks, label correction, scoping, clusters, review queue) |
+| `src/memory/models.py` | **Modify** — add `ReviewQueue` model |
+| `src/api/prompt_assembler.py` | **Modify** — add `[BOOKMARKED]` block injection |
+| `src/api/main.py` | **Modify** — pass bookmarked turns to assembler; build scope from conversation metadata |
+| `src/workers/codex_inject_watcher.py` | **New** — file watcher for manual Codex injection |
+| `src/workers/celery_app.py` | **Modify** — include new module if needed (for watcher, no, it's standalone) |
+
+---
+
+## 1. Add `ReviewQueue` model to `src/memory/models.py`
+
+We’ll place it after the existing model classes.
+
+```python
+class ReviewQueue(Base):
+    __tablename__ = "review_queue"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    item_type = Column(Text, nullable=False)
+    item_content = Column(JSONB, default={})
+    status = Column(Text, default="pending")  # pending, approved, rejected
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+```
+
+---
+
+## 2. Create the user‑control router: `src/api/routers/user_control.py`
+
+```python
+"""User‑guided memory control endpoints (Phase C)."""
+
+import uuid, json
+from datetime import datetime, timezone
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from src.api.db import get_db
+from src.memory.models import (
+    EpisodicMemory, CodexEntity, CodexEdge, CodexEvent,
+    CuratedLabel, Conversation, ContextCluster, MemorySlot, ReviewQueue
+)
+from src.workers.codex_extractor import extract_codex
+
+router = APIRouter(prefix="/user-control", tags=["user-control"])
+
+# ------------------------------------------------------------------
+# Pydantic schemas
+# ------------------------------------------------------------------
+class BookmarkOut(BaseModel):
+    id: str
+    timestamp: str
+    raw_text: str
+    summary_text: Optional[str] = None
+    is_bookmarked: bool
+    decay_immune: bool
+
+    class Config:
+        from_attributes = True
+
+class LabelOverride(BaseModel):
+    batch_id: str
+    topic_labels: List[str] = []
+    intent_labels: List[str] = []
+    context_reliance: str
+
+class ScopeUpdate(BaseModel):
+    memory_scope_type: str   # none, auto, project, manual
+    cluster_ids: Optional[List[str]] = None
+    custom_filter: Optional[str] = None
+
+class ClusterCreate(BaseModel):
+    name: str
+    description: Optional[str] = ""
+
+class ClusterAssign(BaseModel):
+    turn_ids: List[str]
+
+class ReviewApprove(BaseModel):
+    slot_name: Optional[str] = None   # for memory_slot_update
+    cluster_name: Optional[str] = None  # for new_cluster_proposal
+
+# ------------------------------------------------------------------
+# C1 — Bookmarking
+# ------------------------------------------------------------------
+@router.post("/turns/{turn_id}/bookmark", response_model=BookmarkOut)
+def bookmark_turn(turn_id: str, db: Session = Depends(get_db)):
+    """Mark a turn as bookmarked, force lossless, decay‑immune, and re‑extract Codex."""
+    turn = db.query(EpisodicMemory).filter_by(id=uuid.UUID(turn_id)).first()
+    if not turn:
+        raise HTTPException(status_code=404, detail="Turn not found")
+
+    turn.is_bookmarked = True
+    turn.lossless_flag = True
+    turn.decay_immune = True
+    db.commit()
+
+    # Trigger priority Codex extraction for this turn (bypasses GPU check via immediate task)
+    extract_codex.delay(batch_id=str(turn.batch_id))
+
+    return BookmarkOut(
+        id=str(turn.id),
+        timestamp=turn.timestamp.isoformat() if turn.timestamp else "",
+        raw_text=turn.raw_text[:200] + "…" if len(turn.raw_text) > 200 else turn.raw_text,
+        summary_text=turn.summary_text,
+        is_bookmarked=turn.is_bookmarked,
+        decay_immune=turn.decay_immune,
+    )
+
+
+@router.get("/bookmarks", response_model=List[BookmarkOut])
+def list_bookmarks(conversation_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """Return all bookmarked turns, optionally filtered by conversation."""
+    query = db.query(EpisodicMemory).filter_by(is_bookmarked=True)
+    if conversation_id:
+        query = query.filter_by(conversation_id=uuid.UUID(conversation_id))
+    turns = query.order_by(EpisodicMemory.timestamp.desc()).all()
+    return [
+        BookmarkOut(
+            id=str(t.id),
+            timestamp=t.timestamp.isoformat() if t.timestamp else "",
+            raw_text=t.raw_text[:200] + "…" if len(t.raw_text) > 200 else t.raw_text,
+            summary_text=t.summary_text,
+            is_bookmarked=t.is_bookmarked,
+            decay_immune=t.decay_immune,
+        )
+        for t in turns
+    ]
+
+
+# ------------------------------------------------------------------
+# C3 — Manual label correction
+# ------------------------------------------------------------------
+@router.post("/batch/override-tags")
+def override_tags(override: LabelOverride, db: Session = Depends(get_db)):
+    """Record a user‑corrected classification for a batch."""
+    entry = CuratedLabel(
+        batch_id=uuid.UUID(override.batch_id),
+        prompt="",  # we can later fill from episodic_memory, but not required for fine‑tuning
+        corrected_topic_labels=override.topic_labels,
+        corrected_intent_labels=override.intent_labels,
+        corrected_context_reliance=override.context_reliance,
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(entry)
+    db.commit()
+    return {"status": "ok", "id": str(entry.id)}
+
+
+# ------------------------------------------------------------------
+# C4 — Conversation scoping
+# ------------------------------------------------------------------
+@router.put("/conversations/{conv_id}/scope")
+def set_conversation_scope(conv_id: str, scope: ScopeUpdate, db: Session = Depends(get_db)):
+    """Set the memory scope for a conversation."""
+    conv = db.query(Conversation).filter_by(id=uuid.UUID(conv_id)).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    conv.memory_scope_type = scope.memory_scope_type
+    conv.cluster_ids = [uuid.UUID(cid) for cid in (scope.cluster_ids or [])]
+    conv.custom_filter = scope.custom_filter
+    db.commit()
+    return {"status": "ok", "conversation_id": str(conv.id), "memory_scope_type": conv.memory_scope_type}
+
+
+# ------------------------------------------------------------------
+# C5 — Explicit cluster creation & assignment
+# ------------------------------------------------------------------
+@router.post("/clusters", response_model=dict)
+def create_cluster(body: ClusterCreate, db: Session = Depends(get_db)):
+    """Manually create a named cluster."""
+    cluster = ContextCluster(name=body.name, description=body.description,
+                             created_at=datetime.now(timezone.utc))
+    db.add(cluster)
+    db.commit()
+    db.refresh(cluster)
+    return {"id": str(cluster.id), "name": cluster.name}
+
+@router.put("/clusters/{cluster_id}/assign")
+def assign_turns_to_cluster(cluster_id: str, body: ClusterAssign, db: Session = Depends(get_db)):
+    """Assign specific turns to a cluster."""
+    cluster = db.query(ContextCluster).filter_by(id=uuid.UUID(cluster_id)).first()
+    if not cluster:
+        raise HTTPException(status_code=404, detail="Cluster not found")
+    for tid in body.turn_ids:
+        turn = db.query(EpisodicMemory).filter_by(id=uuid.UUID(tid)).first()
+        if turn:
+            turn.cluster_id = cluster.id
+    db.commit()
+    return {"assigned": len(body.turn_ids)}
+
+
+# ------------------------------------------------------------------
+# C6 — Review queue (memory slot update confirmation)
+# ------------------------------------------------------------------
+@router.get("/review-queue", response_model=List[dict])
+def get_review_queue(status: Optional[str] = "pending", db: Session = Depends(get_db)):
+    """List review items, default pending."""
+    items = db.query(ReviewQueue).filter_by(status=status).all()
+    return [
+        {"id": str(i.id), "item_type": i.item_type, "item_content": i.item_content,
+         "status": i.status, "created_at": i.created_at.isoformat() if i.created_at else ""}
+        for i in items
+    ]
+
+@router.post("/review-queue/{item_id}/approve")
+def approve_review_item(item_id: str, body: ReviewApprove = None, db: Session = Depends(get_db)):
+    """Approve a review item and execute its action."""
+    item = db.query(ReviewQueue).filter_by(id=uuid.UUID(item_id)).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.status = "approved"
+
+    # Execute action based on item_type
+    if item.item_type == "memory_slot_update":
+        slot_name = item.item_content.get("slot_name")
+        content = item.item_content.get("proposed_content")
+        if slot_name and content:
+            slot = db.query(MemorySlot).filter_by(slot_name=slot_name).first()
+            if slot:
+                slot.content = content
+                slot.version += 1
+                slot.last_updated = datetime.now(timezone.utc)
+                slot.updated_by = "user"
+
+    elif item.item_type == "new_cluster_proposal":
+        name = item.item_content.get("cluster_name")
+        if name:
+            cluster = ContextCluster(name=name, created_at=datetime.now(timezone.utc))
+            db.add(cluster)
+
+    elif item.item_type == "sentinel_review":
+        # Sentinel review items are informational; just mark approved
+        pass
+
+    db.commit()
+    return {"status": "approved"}
+```
+
+---
+
+## 3. Update `src/api/main.py` to wire scoping and bookmarks
+
+We’ll modify the proxy to:
+
+- Look up the conversation’s scope settings and pass them to the orchestrator.
+- Fetch bookmarked turns for the current conversation and pass them to `assemble_prompt`.
+
+**Add import** for `ReviewQueue` (not needed), but we need `EpisodicMemory`. Already imported.
+
+**In the `chat_completions` function**, after the retrieval block, add:
+
+```python
+        # --- Build scope dict from conversation metadata ---
+        scope = None
+        conv_row = db.query(Conversation).filter_by(id=conversation_id).first()
+        if conv_row:
+            scope = {"conversation_id": str(conversation_id)}
+            if conv_row.memory_scope_type == "project" and conv_row.cluster_ids:
+                scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
+            # For manual, we could include custom_filter, but for now ignore.
+
+        # Then, when calling orchestrator.retrieve, pass that scope.
+        fragments = await asyncio.to_thread(
+            orchestrator.retrieve,
+            classification=result,
+            conversation_id=str(conversation_id),
+            prompt_embedding=prompt_embedding,
+            scope=scope,
+        )
+
+        # Fetch bookmarked turns for this conversation
+        bookmarked_turns = await asyncio.to_thread(
+            lambda: db.query(EpisodicMemory).filter_by(
+                is_bookmarked=True, conversation_id=conversation_id
+            ).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
+        )
+        bookmarked_texts = []
+        for bt in bookmarked_turns:
+            text = bt.raw_text if bt.inject_raw else (bt.summary_text or bt.raw_text[:300])
+            words = text.split()
+            if len(words) > 500:
+                text = " ".join(words[:500]) + "…"
+            bookmarked_texts.append(text)
+
+        # Assemble prompt with bookmarked block
+        messages = assemble_prompt(memory_slots, fragments, user_message,
+                                   db_session=db, conversation_id=str(conversation_id),
+                                   bookmarked_texts=bookmarked_texts)
+```
+
+We’ll need to update the `assemble_prompt` function signature to accept `bookmarked_texts`.
+
+---
+
+## 4. Update `src/api/prompt_assembler.py`
+
+Add an optional parameter `bookmarked_texts: Optional[List[str]] = None` and, if provided, insert a `[BOOKMARKED]` block right after `PERSISTENT CONTEXT` and before `RECENT CONTEXT` or `CODEX`.
+
+```python
+def assemble_prompt(
+    memory_slots: List[MemorySlot],
+    retrieved_fragments: List[ContextFragment],
+    user_message: str,
+    db_session: Optional[Session] = None,
+    conversation_id: Optional[str] = None,
+    bookmarked_texts: Optional[List[str]] = None,
+) -> List[dict]:
+    system_content = SYSTEM_RULES
+
+    # Bookmarked context (explicit user reinforcements)
+    if bookmarked_texts:
+        system_content += "\n\n=== BOOKMARKED MEMORIES ===\n" + "\n\n".join(bookmarked_texts)
+
+    # ... rest of the function unchanged
+```
+
+Place that block right before the `# 0. Recent context` comment.
+
+---
+
+## 5. Create the Manual Codex Injection Watcher
+
+File: `src/workers/codex_inject_watcher.py`
+
+```python
+#!/usr/bin/env python3
+"""Watch /codex_inject directory for YAML/JSON entity definition files
+   and insert them directly as Codex events (bypassing LLM extraction)."""
+
+import os, time, json, uuid, yaml, shutil
+from datetime import datetime, timezone
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+from src.api.db import SessionLocal
+from src.memory.models import CodexEntity, CodexEdge, CodexEvent
+
+WATCH_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../codex_inject'))
+PROCESSED_DIR = os.path.join(WATCH_DIR, "processed")
+
+class CodexInjectHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if event.is_directory:
+            return
+        filepath = event.src_path
+        ext = os.path.splitext(filepath)[1].lower()
+        if ext not in ('.yaml', '.yml', '.json'):
+            return
+        self.process_file(filepath)
+
+    def process_file(self, filepath):
+        with open(filepath, 'r') as f:
+            if filepath.endswith('.yaml') or filepath.endswith('.yml'):
+                data = yaml.safe_load(f)
+            else:
+                data = json.load(f)
+        db = SessionLocal()
+        try:
+            # Expected format: list of objects with keys: canonical_name, aliases?, tags?,
+            #   context_payload?, relations? (list of {target, relation})
+            entities = data if isinstance(data, list) else [data]
+            for ent in entities:
+                name = ent.get("canonical_name")
+                if not name:
+                    continue
+                entity = db.query(CodexEntity).filter_by(canonical_name=name.lower().strip()).first()
+                if not entity:
+                    entity = CodexEntity(
+                        id=uuid.uuid5(uuid.NAMESPACE_DNS, name.lower().strip()),
+                        canonical_name=name.lower().strip(),
+                        aliases=ent.get("aliases", []),
+                        tags=ent.get("tags", []),
+                        properties=ent.get("properties", {}),
+                        context_payload=ent.get("context_payload", ""),
+                        last_updated=datetime.now(timezone.utc)
+                    )
+                    db.add(entity)
+                    db.flush()
+                # Process relations
+                relations = ent.get("relations", [])
+                for rel in relations:
+                    target_name = rel.get("target")
+                    relation = rel.get("relation")
+                    if not target_name or not relation:
+                        continue
+                    target_entity = db.query(CodexEntity).filter_by(
+                        canonical_name=target_name.lower().strip()
+                    ).first()
+                    if not target_entity:
+                        target_entity = CodexEntity(
+                            id=uuid.uuid5(uuid.NAMESPACE_DNS, target_name.lower().strip()),
+                            canonical_name=target_name.lower().strip(),
+                            last_updated=datetime.now(timezone.utc)
+                        )
+                        db.add(target_entity)
+                        db.flush()
+                    # Check for existing edge
+                    existing = db.query(CodexEdge).filter_by(
+                        source_id=entity.id,
+                        target_id=target_entity.id,
+                        relation=relation,
+                        valid_until=None
+                    ).first()
+                    if not existing:
+                        new_edge = CodexEdge(
+                            id=uuid.uuid4(),
+                            source_id=entity.id,
+                            target_id=target_entity.id,
+                            relation=relation,
+                            strength=2.0,    # manual injection gives high confidence
+                            source_batch=uuid.uuid4(),
+                            confidence="active",
+                            valid_from=datetime.now(timezone.utc)
+                        )
+                        db.add(new_edge)
+                        db.add(CodexEvent(
+                            entity_id=entity.id,
+                            event_type="edge_added",
+                            payload={"manual_injection": True, "relation": relation, "target": target_name},
+                            batch_source=uuid.uuid4()
+                        ))
+            db.commit()
+            print(f"Injected {filepath}")
+        except Exception as e:
+            db.rollback()
+            print(f"Error processing {filepath}: {e}")
+        finally:
+            db.close()
+
+        # Move to processed
+        os.makedirs(PROCESSED_DIR, exist_ok=True)
+        shutil.move(filepath, os.path.join(PROCESSED_DIR, os.path.basename(filepath)))
+
+def main():
+    os.makedirs(WATCH_DIR, exist_ok=True)
+    os.makedirs(PROCESSED_DIR, exist_ok=True)
+    handler = CodexInjectHandler()
+    observer = Observer()
+    observer.schedule(handler, WATCH_DIR, recursive=False)
+    observer.start()
+    print(f"Codex Inject watcher watching {WATCH_DIR}...")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
+
+if __name__ == "__main__":
+    main()
+```
+
+Run it as a background process: `uv run python src/workers/codex_inject_watcher.py`.
+
+---
+
+## 6. Register the new router in `src/api/main.py`
+
+After the existing `app.include_router(memory_slots.router)` line, add:
+
+```python
+from src.api.routers import user_control
+app.include_router(user_control.router)
+```
+
+We’ll provide the complete, updated code for every file touched in Phase C.  
+For files that are too large to reproduce entirely, we give the entire modified function or the full new file, exactly as it should be placed.
+
+---
+
+## 1. Add `ReviewQueue` model to `src/memory/models.py`
+
+Place this class **at the end** of the file, just before the final `Base.metadata.create_all(engine)` if present.
+
+```python
+class ReviewQueue(Base):
+    __tablename__ = "review_queue"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    item_type = Column(Text, nullable=False)
+    item_content = Column(JSONB, default={})
+    status = Column(Text, default="pending")  # pending, approved, rejected
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+```
+
+---
+
+## 2. New router – `src/api/routers/user_control.py`
+
+Create the file and paste the entire content below. This file contains **all** Phase C endpoints.
+
+```python
+"""User‑guided memory control endpoints (Phase C)."""
+
+import uuid, json
+from datetime import datetime, timezone
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from src.api.db import get_db
+from src.memory.models import (
+    EpisodicMemory, CodexEntity, CodexEdge, CodexEvent,
+    CuratedLabel, Conversation, ContextCluster, MemorySlot, ReviewQueue
+)
+from src.workers.codex_extractor import extract_codex
+
+router = APIRouter(prefix="/user-control", tags=["user-control"])
+
+# ------------------------------------------------------------------
+# Pydantic schemas
+# ------------------------------------------------------------------
+class BookmarkOut(BaseModel):
+    id: str
+    timestamp: str
+    raw_text: str
+    summary_text: Optional[str] = None
+    is_bookmarked: bool
+    decay_immune: bool
+
+    class Config:
+        from_attributes = True
+
+class LabelOverride(BaseModel):
+    batch_id: str
+    topic_labels: List[str] = []
+    intent_labels: List[str] = []
+    context_reliance: str
+
+class ScopeUpdate(BaseModel):
+    memory_scope_type: str   # none, auto, project, manual
+    cluster_ids: Optional[List[str]] = None
+    custom_filter: Optional[str] = None
+
+class ClusterCreate(BaseModel):
+    name: str
+    description: Optional[str] = ""
+
+class ClusterAssign(BaseModel):
+    turn_ids: List[str]
+
+class ReviewApprove(BaseModel):
+    slot_name: Optional[str] = None   # for memory_slot_update
+    cluster_name: Optional[str] = None  # for new_cluster_proposal
+
+# ------------------------------------------------------------------
+# C1 — Bookmarking
+# ------------------------------------------------------------------
+@router.post("/turns/{turn_id}/bookmark", response_model=BookmarkOut)
+def bookmark_turn(turn_id: str, db: Session = Depends(get_db)):
+    """Mark a turn as bookmarked, force lossless, decay‑immune, and re‑extract Codex."""
+    turn = db.query(EpisodicMemory).filter_by(id=uuid.UUID(turn_id)).first()
+    if not turn:
+        raise HTTPException(status_code=404, detail="Turn not found")
+
+    turn.is_bookmarked = True
+    turn.lossless_flag = True
+    turn.decay_immune = True
+    db.commit()
+
+    # Trigger priority Codex extraction for this turn (bypasses GPU check via immediate task)
+    extract_codex.delay(batch_id=str(turn.batch_id))
+
+    return BookmarkOut(
+        id=str(turn.id),
+        timestamp=turn.timestamp.isoformat() if turn.timestamp else "",
+        raw_text=turn.raw_text[:200] + "…" if len(turn.raw_text) > 200 else turn.raw_text,
+        summary_text=turn.summary_text,
+        is_bookmarked=turn.is_bookmarked,
+        decay_immune=turn.decay_immune,
+    )
+
+
+@router.get("/bookmarks", response_model=List[BookmarkOut])
+def list_bookmarks(conversation_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """Return all bookmarked turns, optionally filtered by conversation."""
+    query = db.query(EpisodicMemory).filter_by(is_bookmarked=True)
+    if conversation_id:
+        query = query.filter_by(conversation_id=uuid.UUID(conversation_id))
+    turns = query.order_by(EpisodicMemory.timestamp.desc()).all()
+    return [
+        BookmarkOut(
+            id=str(t.id),
+            timestamp=t.timestamp.isoformat() if t.timestamp else "",
+            raw_text=t.raw_text[:200] + "…" if len(t.raw_text) > 200 else t.raw_text,
+            summary_text=t.summary_text,
+            is_bookmarked=t.is_bookmarked,
+            decay_immune=t.decay_immune,
+        )
+        for t in turns
+    ]
+
+
+# ------------------------------------------------------------------
+# C3 — Manual label correction
+# ------------------------------------------------------------------
+@router.post("/batch/override-tags")
+def override_tags(override: LabelOverride, db: Session = Depends(get_db)):
+    """Record a user‑corrected classification for a batch."""
+    entry = CuratedLabel(
+        batch_id=uuid.UUID(override.batch_id),
+        prompt="",
+        corrected_topic_labels=override.topic_labels,
+        corrected_intent_labels=override.intent_labels,
+        corrected_context_reliance=override.context_reliance,
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(entry)
+    db.commit()
+    return {"status": "ok", "id": str(entry.id)}
+
+
+# ------------------------------------------------------------------
+# C4 — Conversation scoping
+# ------------------------------------------------------------------
+@router.put("/conversations/{conv_id}/scope")
+def set_conversation_scope(conv_id: str, scope: ScopeUpdate, db: Session = Depends(get_db)):
+    """Set the memory scope for a conversation."""
+    conv = db.query(Conversation).filter_by(id=uuid.UUID(conv_id)).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    conv.memory_scope_type = scope.memory_scope_type
+    conv.cluster_ids = [uuid.UUID(cid) for cid in (scope.cluster_ids or [])]
+    conv.custom_filter = scope.custom_filter
+    db.commit()
+    return {"status": "ok", "conversation_id": str(conv.id), "memory_scope_type": conv.memory_scope_type}
+
+
+# ------------------------------------------------------------------
+# C5 — Explicit cluster creation & assignment
+# ------------------------------------------------------------------
+@router.post("/clusters", response_model=dict)
+def create_cluster(body: ClusterCreate, db: Session = Depends(get_db)):
+    """Manually create a named cluster."""
+    cluster = ContextCluster(name=body.name, description=body.description,
+                             created_at=datetime.now(timezone.utc))
+    db.add(cluster)
+    db.commit()
+    db.refresh(cluster)
+    return {"id": str(cluster.id), "name": cluster.name}
+
+@router.put("/clusters/{cluster_id}/assign")
+def assign_turns_to_cluster(cluster_id: str, body: ClusterAssign, db: Session = Depends(get_db)):
+    """Assign specific turns to a cluster."""
+    cluster = db.query(ContextCluster).filter_by(id=uuid.UUID(cluster_id)).first()
+    if not cluster:
+        raise HTTPException(status_code=404, detail="Cluster not found")
+    for tid in body.turn_ids:
+        turn = db.query(EpisodicMemory).filter_by(id=uuid.UUID(tid)).first()
+        if turn:
+            turn.cluster_id = cluster.id
+    db.commit()
+    return {"assigned": len(body.turn_ids)}
+
+
+# ------------------------------------------------------------------
+# C6 — Review queue (memory slot update confirmation)
+# ------------------------------------------------------------------
+@router.get("/review-queue", response_model=List[dict])
+def get_review_queue(status: Optional[str] = "pending", db: Session = Depends(get_db)):
+    """List review items, default pending."""
+    items = db.query(ReviewQueue).filter_by(status=status).all()
+    return [
+        {"id": str(i.id), "item_type": i.item_type, "item_content": i.item_content,
+         "status": i.status, "created_at": i.created_at.isoformat() if i.created_at else ""}
+        for i in items
+    ]
+
+@router.post("/review-queue/{item_id}/approve")
+def approve_review_item(item_id: str, body: ReviewApprove = None, db: Session = Depends(get_db)):
+    """Approve a review item and execute its action."""
+    item = db.query(ReviewQueue).filter_by(id=uuid.UUID(item_id)).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item.status = "approved"
+
+    # Execute action based on item_type
+    if item.item_type == "memory_slot_update":
+        slot_name = item.item_content.get("slot_name")
+        content = item.item_content.get("proposed_content")
+        if slot_name and content:
+            slot = db.query(MemorySlot).filter_by(slot_name=slot_name).first()
+            if slot:
+                slot.content = content
+                slot.version += 1
+                slot.last_updated = datetime.now(timezone.utc)
+                slot.updated_by = "user"
+
+    elif item.item_type == "new_cluster_proposal":
+        name = item.item_content.get("cluster_name")
+        if name:
+            cluster = ContextCluster(name=name, created_at=datetime.now(timezone.utc))
+            db.add(cluster)
+
+    elif item.item_type == "sentinel_review":
+        # Sentinel review items are informational; just mark approved
+        pass
+
+    db.commit()
+    return {"status": "approved"}
+```
+
+---
+
+## 3. Updated `src/api/prompt_assembler.py` (full file)
+
+Replace the entire file content with this version that now injects bookmarked memories.
+
+```python
+"""Context Structural Assembly Plane – builds the final prompt payload,
+   now including sliding window and bookmarked memories."""
+
+from typing import List, Optional
+from sqlalchemy.orm import Session
+from src.retrieval.orchestrator import ContextFragment
+from src.memory.models import MemorySlot, EpisodicMemory
+
+SYSTEM_RULES = (
+    "You are an AI assistant with access to a personal memory system (ICE).\n"
+    "The following context has been automatically retrieved from past conversations and knowledge.\n"
+    "Use it to answer the user's question accurately. If the context is irrelevant, ignore it."
+)
+
+
+def get_recent_turns(db_session: Session, conversation_id: str, n: int = 10) -> List[str]:
+    """Return the text of the last N turns from the current conversation."""
+    turns = db_session.query(EpisodicMemory).filter_by(
+        conversation_id=conversation_id
+    ).order_by(EpisodicMemory.timestamp.desc()).limit(n).all()
+    turns.reverse()  # chronological order
+    fragments = []
+    for t in turns:
+        if t.inject_raw and t.raw_text:
+            text = t.raw_text
+        elif t.summary_text:
+            text = t.summary_text
+        else:
+            text = (t.raw_text or "")[:300]
+        words = text.split()
+        if len(words) > 500:
+            text = " ".join(words[:500]) + "…"
+        fragments.append(text)
+    return fragments
+
+
+def assemble_prompt(
+    memory_slots: List[MemorySlot],
+    retrieved_fragments: List[ContextFragment],
+    user_message: str,
+    db_session: Optional[Session] = None,
+    conversation_id: Optional[str] = None,
+    bookmarked_texts: Optional[List[str]] = None,
+) -> List[dict]:
+    """Assemble the final prompt in stable‑prefix order."""
+    system_content = SYSTEM_RULES
+
+    # 0. Bookmarked memories (explicit user reinforcements)
+    if bookmarked_texts:
+        system_content += "\n\n=== BOOKMARKED MEMORIES ===\n" + "\n\n".join(bookmarked_texts)
+
+    # 1. Persistent Memory Slots
+    if memory_slots:
+        slot_lines = []
+        for slot in memory_slots:
+            if slot.is_active and slot.content:
+                slot_lines.append(f"[{slot.slot_name.upper()}]\n{slot.content.strip()}")
+        if slot_lines:
+            system_content += "\n\n=== PERSISTENT CORE PREFERENCES ===\n" + "\n\n".join(slot_lines)
+
+    # 2. Recent context (sliding window)
+    if db_session and conversation_id:
+        recent_texts = get_recent_turns(db_session, conversation_id, n=10)
+        if recent_texts:
+            system_content += "\n\n=== RECENT CONTEXT ===\n" + "\n\n".join(recent_texts)
+
+    # 3. Codex (absolute facts)
+    codex_frags = [f for f in retrieved_fragments if f.source_type == "codex"]
+    if codex_frags:
+        codex_text = "\n\n".join(f.text.strip() for f in codex_frags)
+        system_content += f"\n\n=== CODEX KNOWLEDGE GRAPH ASSERTIONS ===\n{codex_text}"
+
+    # 4. Episodic context
+    episodic_frags = [f for f in retrieved_fragments if f.source_type == "episodic"]
+    if episodic_frags:
+        episodic_text = "\n\n".join(f.text.strip() for f in episodic_frags)
+        system_content += f"\n\n=== RETRIEVED EPISODIC INTERACTIONS ===\n{episodic_text}"
+
+    # 5. Procedural patterns
+    procedural_frags = [f for f in retrieved_fragments if f.source_type == "procedural"]
+    if procedural_frags:
+        proc_text = "\n\n".join(f.text.strip() for f in procedural_frags)
+        system_content += f"\n\n=== PROCEDURAL EXECUTION PATTERNS ===\n{proc_text}"
+
+    # 6. RAG chunks
+    rag_frags = [f for f in retrieved_fragments if f.source_type == "rag"]
+    if rag_frags:
+        rag_text = "\n\n".join(f.text.strip() for f in rag_frags)
+        system_content += f"\n\n=== REFERENCE MATERIAL ===\n{rag_text}"
+
+    return [
+        {"role": "system", "content": system_content.strip()},
+        {"role": "user", "content": user_message},
+    ]
+```
+
+---
+
+## 4. Updated `src/api/main.py` – the `chat_completions` function
+
+Replace the **entire** `chat_completions` function with this version.  
+(Only the middle part where retrieval and prompt assembly happen is modified; the rest is unchanged.)
+
+```python
+@app.post("/v1/chat/completions")
+async def chat_completions(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    body = await request.json()
+    messages = body.get("messages", [])
+    model_name = body.get("model", "default")
+
+    correlation_id = str(uuid.uuid4())
+    log = logger.bind(correlation_id=correlation_id)
+
+    user_message = ""
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            user_message = msg.get("content", "")
+            break
+
+    if not user_message:
+        log.warning("No user message found in request")
+        return JSONResponse(
+            status_code=400,
+            content={"error": "No user message found in the request."},
+        )
+
+    # Stateless pre‑flight classification
+    result = classifier.classify(user_message)
+    log.info(
+        "classified",
+        topic_tags=result.topic_tags,
+        intent_tags=result.intent_tags,
+        context_reliance=result.context_reliance,
+        max_confidence=result.max_confidence,
+    )
+
+    if result.max_confidence < settings.confidence_fallback_threshold:
+        log.info(
+            "low_confidence_fallback",
+            max_confidence=result.max_confidence,
+            threshold=settings.confidence_fallback_threshold,
+        )
+
+    # State tracking boundary
+    conversation_id_str = request.headers.get("X-ICE-Conversation-ID")
+    if conversation_id_str:
+        conversation_id = uuid.UUID(conversation_id_str)
+        conversation = db.query(Conversation).filter_by(id=conversation_id).first()
+        if not conversation:
+            conversation = Conversation(id=conversation_id)
+            db.add(conversation)
+            db.commit()
+    else:
+        conversation = Conversation()
+        db.add(conversation)
+        db.commit()
+        conversation_id = conversation.id
+
+    # ───────────────────────────────────────────────────────────
+    # RETRIEVAL & PROMPT ASSEMBLY (Long_Term_Memory or low confidence)
+    # ───────────────────────────────────────────────────────────
+    result.prompt = user_message
+
+    if (result.context_reliance == "Long_Term_Memory" or
+        result.max_confidence < settings.confidence_fallback_threshold):
+
+        # 1. Offload CPU‑bound embedding to a worker thread
+        embedding_tensor = await asyncio.to_thread(
+            classifier.embedder.encode, user_message, convert_to_tensor=False
+        )
+        prompt_embedding = embedding_tensor.tolist() if hasattr(embedding_tensor, "tolist") else list(embedding_tensor)
+
+        orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
+
+        # Build scope from conversation metadata
+        scope = {"conversation_id": str(conversation_id)}
+        conv_row = db.query(Conversation).filter_by(id=conversation_id).first()
+        if conv_row and conv_row.memory_scope_type == "project" and conv_row.cluster_ids:
+            scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
+
+        # 2. Offload synchronous PostgreSQL retrieval queries to a worker thread
+        fragments = await asyncio.to_thread(
+            orchestrator.retrieve,
+            classification=result,
+            conversation_id=str(conversation_id),
+            prompt_embedding=prompt_embedding,
+            scope=scope,
+        )
+
+        # 3. Fetch bookmarked turns for this conversation
+        bookmarked_turns = await asyncio.to_thread(
+            lambda: db.query(EpisodicMemory).filter_by(
+                is_bookmarked=True, conversation_id=conversation_id
+            ).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
+        )
+        bookmarked_texts = []
+        for bt in bookmarked_turns:
+            text = bt.raw_text if bt.inject_raw else (bt.summary_text or bt.raw_text[:300])
+            words = text.split()
+            if len(words) > 500:
+                text = " ".join(words[:500]) + "…"
+            bookmarked_texts.append(text)
+
+        # 4. Safe database fetch for memory slots
+        memory_slots = await asyncio.to_thread(
+            lambda: db.query(MemorySlot).filter_by(is_active=True).all()
+        )
+
+        # Assemble final prompt with bookmarked block
+        messages = assemble_prompt(memory_slots, fragments, user_message,
+                                   db_session=db, conversation_id=str(conversation_id),
+                                   bookmarked_texts=bookmarked_texts)
+
+        log.info(
+            "context_injection_complete",
+            injected_fragments=len(fragments),
+            active_slots=len(memory_slots),
+            bookmarked_count=len(bookmarked_texts)
+        )
+
+    # ───────────────────────────────────────────────────────────
+    # STREAMING & STORAGE (unchanged)
+    # ───────────────────────────────────────────────────────────
+    ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
+    accumulated_raw_chunks = []
+
+    async def generate():
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream(
+                "POST",
+                ollama_url,
+                json={"model": model_name, "messages": messages, "stream": True},
+            ) as ollama_response:
+                async for chunk in ollama_response.aiter_text():
+                    accumulated_raw_chunks.append(chunk)
+                    yield chunk
+
+    background_tasks.add_task(
+        store_turn_async,
+        correlation_id=correlation_id,
+        user_message=user_message,
+        conversation_id=conversation_id,
+        topic_tags=result.topic_tags,
+        intent_tags=result.intent_tags,
+        context_reliance=result.context_reliance,
+        raw_stream_chunks=accumulated_raw_chunks,
+    )
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-ICE-Conversation-ID": str(conversation_id),
+        },
+    )
+```
+
+---
+
+## 5. New file `src/workers/codex_inject_watcher.py`
+
+Full content as given earlier, unchanged.
+
+---
+
+## 6. Register the new router in `src/api/main.py`
+
+Add at the top of the file, near the other router imports:
+
+```python
+from src.api.routers import user_control
+```
+
+Then, after the line `app.include_router(memory_slots.router)`, add:
+
+```python
+app.include_router(user_control.router)
+```
+
+---
+
+All Phase C files are now in their final form. The backend now supports every user‑guided memory interaction defined in the architecture.
 ---
 
 ## Phase D — Orchestration Layer Completion

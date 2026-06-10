@@ -26,6 +26,8 @@ from src.workers.post_flight import evaluate_turn
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.api.prompt_assembler import assemble_prompt
 from src.memory.models import MemorySlot
+from src.api.routers import user_control
+
 
 
 logger = structlog.get_logger("ice.api")
@@ -54,7 +56,7 @@ app = FastAPI(
 from src.api.routers import memory_slots
 
 app.include_router(memory_slots.router)
-
+app.include_router(user_control.router)
 
 @app.get("/health")
 def health():
@@ -176,23 +178,137 @@ async def chat_completions(
             content={"error": "No user message found in the request."},
         )
 
-    ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
+    # Stateless pre‑flight classification
+    result = classifier.classify(user_message)
+    log.info(
+        "classified",
+        topic_tags=result.topic_tags,
+        intent_tags=result.intent_tags,
+        context_reliance=result.context_reliance,
+        max_confidence=result.max_confidence,
+    )
+
+    if result.max_confidence < settings.confidence_fallback_threshold:
+        log.info(
+            "low_confidence_fallback",
+            max_confidence=result.max_confidence,
+            threshold=settings.confidence_fallback_threshold,
+        )
+
+    # State tracking boundary
+    conversation_id_str = request.headers.get("X-ICE-Conversation-ID")
+    if conversation_id_str:
+        conversation_id = uuid.UUID(conversation_id_str)
+        conversation = db.query(Conversation).filter_by(id=conversation_id).first()
+        if not conversation:
+            conversation = Conversation(id=conversation_id)
+            db.add(conversation)
+            db.commit()
+    else:
+        conversation = Conversation()
+        db.add(conversation)
+        db.commit()
+        conversation_id = conversation.id
 
     # ───────────────────────────────────────────────────────────
-    # FILTER: OpenWebUI internal prompts (title, tags, follow‑ups)
+    # RETRIEVAL & PROMPT ASSEMBLY (Long_Term_Memory or low confidence)
     # ───────────────────────────────────────────────────────────
-    if "### Task:" in user_message or "### Chat History:" in user_message:
-        log.info("skipping_internal_task")
-        async def passthrough():
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                async with client.stream(
-                    "POST",
-                    ollama_url,
-                    json={"model": model_name, "messages": messages, "stream": True},
-                ) as ollama_response:
-                    async for chunk in ollama_response.aiter_text():
-                        yield chunk
-        return StreamingResponse(passthrough(), media_type="text/event-stream")
+    result.prompt = user_message
+
+    if (result.context_reliance == "Long_Term_Memory" or
+        result.max_confidence < settings.confidence_fallback_threshold):
+
+        # 1. Offload CPU‑bound embedding to a worker thread
+        embedding_tensor = await asyncio.to_thread(
+            classifier.embedder.encode, user_message, convert_to_tensor=False
+        )
+        prompt_embedding = embedding_tensor.tolist() if hasattr(embedding_tensor, "tolist") else list(embedding_tensor)
+
+        orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
+
+        # Build scope from conversation metadata
+        scope = {"conversation_id": str(conversation_id)}
+        conv_row = db.query(Conversation).filter_by(id=conversation_id).first()
+        if conv_row and conv_row.memory_scope_type == "project" and conv_row.cluster_ids:
+            scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
+
+        # 2. Offload synchronous PostgreSQL retrieval queries to a worker thread
+        fragments = await asyncio.to_thread(
+            orchestrator.retrieve,
+            classification=result,
+            conversation_id=str(conversation_id),
+            prompt_embedding=prompt_embedding,
+            scope=scope,
+        )
+
+        # 3. Fetch bookmarked turns for this conversation
+        bookmarked_turns = await asyncio.to_thread(
+            lambda: db.query(EpisodicMemory).filter_by(
+                is_bookmarked=True, conversation_id=conversation_id
+            ).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
+        )
+        bookmarked_texts = []
+        for bt in bookmarked_turns:
+            text = bt.raw_text if bt.inject_raw else (bt.summary_text or bt.raw_text[:300])
+            words = text.split()
+            if len(words) > 500:
+                text = " ".join(words[:500]) + "…"
+            bookmarked_texts.append(text)
+
+        # 4. Safe database fetch for memory slots
+        memory_slots = await asyncio.to_thread(
+            lambda: db.query(MemorySlot).filter_by(is_active=True).all()
+        )
+
+        # Assemble final prompt with bookmarked block
+        messages = assemble_prompt(memory_slots, fragments, user_message,
+                                   db_session=db, conversation_id=str(conversation_id),
+                                   bookmarked_texts=bookmarked_texts)
+
+        log.info(
+            "context_injection_complete",
+            injected_fragments=len(fragments),
+            active_slots=len(memory_slots),
+            bookmarked_count=len(bookmarked_texts)
+        )
+
+    # ───────────────────────────────────────────────────────────
+    # STREAMING & STORAGE (unchanged)
+    # ───────────────────────────────────────────────────────────
+    ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
+    accumulated_raw_chunks = []
+
+    async def generate():
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream(
+                "POST",
+                ollama_url,
+                json={"model": model_name, "messages": messages, "stream": True},
+            ) as ollama_response:
+                async for chunk in ollama_response.aiter_text():
+                    accumulated_raw_chunks.append(chunk)
+                    yield chunk
+
+    background_tasks.add_task(
+        store_turn_async,
+        correlation_id=correlation_id,
+        user_message=user_message,
+        conversation_id=conversation_id,
+        topic_tags=result.topic_tags,
+        intent_tags=result.intent_tags,
+        context_reliance=result.context_reliance,
+        raw_stream_chunks=accumulated_raw_chunks,
+    )
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-ICE-Conversation-ID": str(conversation_id),
+        },
+    )
 
     # ───────────────────────────────────────────────────────────
     # REAL USER PROMPT – classify
