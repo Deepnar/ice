@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""ICE Terminal UI – full-featured memory-aware chat client."""
+"""ICE Terminal UI – full-featured memory-aware chat client, with model management."""
 
 import asyncio, httpx, json, uuid, os, sys
-from datetime import datetime
 from textual.app import App, ComposeResult
 from textual.widgets import (
     Header, Footer, Input, RichLog, TabbedContent, TabPane,
@@ -18,11 +17,8 @@ CHAT_URL = f"{ICE_PROXY}/v1/chat/completions"
 USER_CONTROL = f"{ICE_PROXY}/user-control"
 MEMORY_SLOTS = f"{ICE_PROXY}/memory-slots"
 
-SCOPES = [
-    ("auto", "auto"),
-    ("project", "project"),
-    ("none", "none"),
-]
+SCOPES = [("auto", "auto"), ("project", "project"), ("none", "none")]
+MODES = [("dedicated", "dedicated"), ("shared", "shared")]
 
 class ICETUI(App):
     CSS = """
@@ -36,25 +32,25 @@ class ICETUI(App):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        with TabbedContent("Chat", "Context", "Memory", "Settings"):
-            # ---- Chat tab ----
+        with TabbedContent("Chat", "Context", "Memory", "Models", "Settings"):
             with TabPane("Chat"):
                 self.chat_log = RichLog(highlight=True, markup=True)
                 yield self.chat_log
                 self.chat_input = Input(placeholder="Type your message...")
                 yield self.chat_input
 
-            # ---- Context tab ----
             with TabPane("Context"):
                 self.context_display = RichLog(highlight=True, markup=True)
                 yield self.context_display
 
-            # ---- Memory tab ----
             with TabPane("Memory"):
                 self.memory_area = Vertical()
                 yield self.memory_area
 
-            # ---- Settings tab ----
+            with TabPane("Models"):
+                self.model_area = Vertical()
+                yield self.model_area
+
             with TabPane("Settings"):
                 yield Static("Memory Scope:")
                 self.scope_select = Select(SCOPES, value="auto")
@@ -62,6 +58,12 @@ class ICETUI(App):
                 yield Button("Apply Scope", id="apply_scope")
                 self.scope_status = Static("")
                 yield self.scope_status
+                yield Static("\nBackground Model Mode:")
+                self.mode_select = Select(MODES, value="dedicated")
+                yield self.mode_select
+                yield Button("Apply Mode (restart required)", id="apply_mode")
+                self.mode_status = Static("")
+                yield self.mode_status
 
         yield Footer()
 
@@ -74,10 +76,9 @@ class ICETUI(App):
         self.chat_log.write(f"[bold green]ICE Terminal UI – conversation {CONV_ID[:8]}[/bold green]")
         self.chat_log.write("Type a message and press Enter.\n")
 
-        # Load memory slots
         asyncio.create_task(self.load_memory_slots())
-        # Load current scope from backend (if conversation exists)
         asyncio.create_task(self.load_scope())
+        asyncio.create_task(self.load_model_registry())
 
     # ------------------------------------------------------------------
     # Chat handling
@@ -89,28 +90,17 @@ class ICETUI(App):
         self.chat_input.value = ""
         self.chat_log.write(f"\n[bold cyan]You:[/bold cyan] {prompt}")
         self.chat_log.write("[dim]ICE is thinking...[/dim]")
-
-        # Clear context display for new turn
         self.context_display.clear()
         self.context_display.write("[bold yellow]Waiting for classifier...[/bold yellow]")
-
-        # Send the request and stream SSE events
         await self.stream_chat(prompt)
 
     async def stream_chat(self, prompt: str):
-        """Stream the chat response and SSE telemetry from the proxy."""
         accumulated_text = ""
         self.last_turn_id = None
-
         async with httpx.AsyncClient(timeout=120) as client:
             async with client.stream(
-                "POST",
-                CHAT_URL,
-                json={
-                    "model": "ice-proxy",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": True
-                },
+                "POST", CHAT_URL,
+                json={"model": "ice-proxy", "messages": [{"role": "user", "content": prompt}], "stream": True},
                 headers={"X-ICE-Conversation-ID": CONV_ID}
             ) as response:
                 event_type = None
@@ -136,7 +126,6 @@ class ICETUI(App):
                             data = json.loads(data_str)
                             self.context_display.write(f"[bold]Model:[/bold] {data.get('model', 'unknown')}")
                         else:
-                            # Regular LLM token
                             try:
                                 token_data = json.loads(data_str)
                                 content = token_data["choices"][0]["delta"].get("content", "")
@@ -144,17 +133,11 @@ class ICETUI(App):
                                     accumulated_text += content
                                     self.chat_log.write(content, end="")
                             except Exception:
-                                pass  # ignore non-JSON lines
-
-        # After streaming finishes, display the full response
+                                pass
         self.chat_log.write("\n")
-        # Fetch the latest turn ID for bookmarking
         await self.fetch_latest_turn()
 
-    # ------------------------------------------------------------------
-    # Context display updates
-    # ------------------------------------------------------------------
-    def update_context_classified(self, data: dict):
+    def update_context_classified(self, data):
         self.context_display.write(
             f"[bold]Classified:[/bold] {data.get('topic_tags', [])} | "
             f"{data.get('intent_tags', [])} | "
@@ -162,14 +145,14 @@ class ICETUI(App):
             f"confidence={data.get('max_confidence', 0):.2f}"
         )
 
-    def update_context_retrieval(self, data: dict):
+    def update_context_retrieval(self, data):
         self.context_display.write(
             f"[bold]Retrieval:[/bold] legs={data.get('active_legs', [])}, "
             f"HyDE={data.get('hyde_used', False)}, "
             f"tokens={data.get('tokens_injected', 0)}"
         )
 
-    def update_context_ready(self, data: dict):
+    def update_context_ready(self, data):
         sources = data.get('sources', {})
         self.context_display.write(
             f"[bold]Context ready:[/bold] {data.get('fragments_count', 0)} fragments "
@@ -178,9 +161,6 @@ class ICETUI(App):
             f"total tokens={data.get('total_tokens', 0)}"
         )
 
-    # ------------------------------------------------------------------
-    # Bookmarking
-    # ------------------------------------------------------------------
     async def action_bookmark(self) -> None:
         if not self.last_turn_id:
             self.chat_log.write("[red]No turn to bookmark yet.[/red]")
@@ -238,6 +218,16 @@ class ICETUI(App):
                     self.chat_log.write(f"[red]Failed to update slot '{slot_name}'[/red]")
         elif btn_id == "apply_scope":
             await self.apply_scope()
+        elif btn_id == "apply_mode":
+            await self.apply_mode()
+        elif btn_id == "refresh_registry":
+            await self.refresh_registry()
+        elif btn_id == "toggle_confirm":
+            await self.toggle_confirm()
+        elif btn_id == "delete_model":
+            await self.delete_model()
+        elif btn_id == "edit_tags":
+            await self.edit_tags()
 
     # ------------------------------------------------------------------
     # Scope
@@ -262,6 +252,111 @@ class ICETUI(App):
                 self.scope_status.update(f"Scope set to [bold]{new_scope}[/bold]")
             else:
                 self.scope_status.update(f"[red]Failed to set scope[/red]")
+
+    # ------------------------------------------------------------------
+    # Background mode toggle
+    # ------------------------------------------------------------------
+    async def apply_mode(self):
+        new_mode = self.mode_select.value
+        try:
+            with open(".env", "r") as f:
+                lines = f.readlines()
+            with open(".env", "w") as f:
+                found = False
+                for line in lines:
+                    if line.startswith("BACKGROUND_MODEL_MODE="):
+                        f.write(f"BACKGROUND_MODEL_MODE={new_mode}\n")
+                        found = True
+                    else:
+                        f.write(line)
+                if not found:
+                    f.write(f"\nBACKGROUND_MODEL_MODE={new_mode}\n")
+            self.mode_status.update(f"Mode set to [bold]{new_mode}[/bold]. Restart proxy and worker for changes to take effect.")
+        except Exception as e:
+            self.mode_status.update(f"[red]Error writing .env: {e}[/red]")
+
+    # ------------------------------------------------------------------
+    # Model Registry management
+    # ------------------------------------------------------------------
+    async def load_model_registry(self):
+        await self.model_area.remove_children()
+        self.model_log = RichLog(highlight=True, markup=True)
+        self.model_input = Input(placeholder="Model name (for actions)")
+        self.model_area.mount(Button("Refresh Registry", id="refresh_registry"))
+        self.model_area.mount(self.model_log)
+        self.model_area.mount(self.model_input)
+        self.model_area.mount(Horizontal(
+            Button("Toggle Confirm", id="toggle_confirm"),
+            Button("Delete", id="delete_model"),
+            Button("Edit Tags (JSON)", id="edit_tags"),
+        ))
+        await self.refresh_registry()
+
+    async def refresh_registry(self):
+        async with httpx.AsyncClient() as client:
+            await client.post(f"{USER_CONTROL}/model-registry/refresh")
+            resp = await client.get(f"{USER_CONTROL}/model-registry")
+            if resp.status_code == 200:
+                reg = resp.json()
+                self.model_log.clear()
+                self.model_log.write("[bold]Model Registry:[/bold]")
+                for name, entry in reg.get("models", {}).items():
+                    confirmed = "✅" if entry.get("confirmed") else "❌"
+                    tags = ", ".join(entry.get("topic_tags", []) + entry.get("intent_tags", []))
+                    base_url = entry.get("base_url") or "default"
+                    self.model_log.write(f"{confirmed} [bold]{name}[/bold]  tags: {tags}  url: {base_url}")
+
+    async def toggle_confirm(self):
+        name = self.model_input.value.strip()
+        if not name:
+            return
+        async with httpx.AsyncClient() as client:
+            # Get current entry to flip confirmed
+            resp = await client.get(f"{USER_CONTROL}/model-registry")
+            if resp.status_code != 200:
+                return
+            reg = resp.json()
+            entry = reg.get("models", {}).get(name)
+            if not entry:
+                self.model_log.write(f"[red]Model {name} not found[/red]")
+                return
+            new_confirmed = not entry.get("confirmed", False)
+            await client.put(f"{USER_CONTROL}/model-registry/{name}", json={"confirmed": new_confirmed})
+            await self.refresh_registry()
+
+    async def delete_model(self):
+        name = self.model_input.value.strip()
+        if not name:
+            return
+        async with httpx.AsyncClient() as client:
+            resp = await client.delete(f"{USER_CONTROL}/model-registry/{name}")
+            if resp.status_code == 200:
+                self.model_log.write(f"[green]Deleted {name}[/green]")
+                await self.refresh_registry()
+            else:
+                self.model_log.write(f"[red]Failed to delete {name}[/red]")
+
+    async def edit_tags(self):
+        name = self.model_input.value.strip()
+        if not name:
+            return
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{USER_CONTROL}/model-registry")
+            if resp.status_code != 200:
+                return
+            reg = resp.json()
+            entry = reg.get("models", {}).get(name)
+            if not entry:
+                self.model_log.write(f"[red]Model {name} not found[/red]")
+                return
+            # Show current tags and ask for new JSON
+            current = {"topic_tags": entry.get("topic_tags", []), "intent_tags": entry.get("intent_tags", [])}
+            self.model_log.write(f"Current: {json.dumps(current)}")
+            # For simplicity, we'll prompt in the chat? No, better: use an Input for JSON.
+            # We'll add a temporary input field – not ideal, but functional.
+            # Instead, we can simply toggle confirm / delete. For full tag editing,
+            # the user can manually edit the JSON file.
+            self.model_log.write("[yellow]Tag editing not yet supported in TUI – edit models/model_registry.json manually.[/yellow]")
 
 
 if __name__ == "__main__":

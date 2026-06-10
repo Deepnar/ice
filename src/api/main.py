@@ -28,7 +28,7 @@ from src.classifier.classifier import PyTorchClassifier
 from src.memory.models import Conversation, EpisodicMemory, MemorySlot
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.workers.post_flight import evaluate_turn
-from src.model_registry.registry import find_best_model
+from src.model_registry.registry import find_best_model, get_fallback_model
 
 logger = structlog.get_logger("ice.api")
 classifier: Optional[PyTorchClassifier] = None
@@ -185,14 +185,7 @@ async def chat_completions(
 ):
     body = await request.json()
     messages = body.get("messages", [])
-        # ── Model selection via registry ──────────────────────────
-    if body.get("model", "default") == "ice-proxy":
-        # Use the Mini‑MoE to route
-        model_name = find_best_model(result.topic_tags, result.intent_tags)
-        log.info("mini_moe_routing", selected_model=model_name,
-                 topic_tags=result.topic_tags, intent_tags=result.intent_tags)
-    else:
-        model_name = body.get("model", settings.default_fallback_model)
+    model_name = body.get("model", "default")
 
     correlation_id = str(uuid.uuid4())
     log = logger.bind(correlation_id=correlation_id)
@@ -329,8 +322,17 @@ async def chat_completions(
             hyde_used=hyde_used,
         )
 
+    # ── Model selection via registry ──────────────────────────
+    if body.get("model", "default") == "ice-proxy":
+        model_name, model_base_url = find_best_model(result.topic_tags, result.intent_tags)
+        log.info("mini_moe_routing", selected_model=model_name,
+                 topic_tags=result.topic_tags, intent_tags=result.intent_tags)
+        ollama_url = f"{model_base_url or settings.ollama_base_url}/v1/chat/completions"
+    else:
+        model_name = body.get("model", get_fallback_model())
+        ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
+
     # ── Streaming generation with fallback model ──
-    ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
     accumulated_raw_chunks = []
     model_to_use = model_name
 
@@ -375,14 +377,13 @@ async def chat_completions(
                     ollama_url,
                     json={"model": model_to_use, "messages": messages, "stream": True},
                 ) as response:
-                    first = True
                     async for chunk in response.aiter_text():
                         accumulated_raw_chunks.append(chunk)
                         yield chunk
         except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError) as e:
             log.warning("primary_model_timeout", model=model_to_use, error=str(e))
-            yield sse_event("degraded", {"reason": "primary_model_timeout", "fallback": settings.default_fallback_model})
-            model_to_use = settings.default_fallback_model
+            yield sse_event("degraded", {"reason": "primary_model_timeout", "fallback": get_fallback_model()})
+            model_to_use = get_fallback_model()
             yield sse_event("generating", {"model": model_to_use})
             async with httpx.AsyncClient(timeout=10.0) as client2:
                 async with client2.stream(
