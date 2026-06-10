@@ -27,6 +27,7 @@ dependencies = [
     "sqlalchemy>=2.0.50",
     "sse-starlette>=3.4.4",
     "structlog>=26.1.0",
+    "textual>=8.2.7",
     "torch>=2.11.0",
     "torchvision>=0.26.0",
     "tqdm>=4.67.3",

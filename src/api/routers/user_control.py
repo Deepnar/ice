@@ -216,3 +216,28 @@ def approve_review_item(item_id: str, body: ReviewApprove = None, db: Session = 
 
     db.commit()
     return {"status": "approved"}
+
+# --------------- Extra endpoints for TUI ---------------
+
+@router.get("/conversations/{conv_id}/scope")
+def get_conversation_scope(conv_id: str, db: Session = Depends(get_db)):
+    """Return the current scope settings for a conversation."""
+    conv = db.query(Conversation).filter_by(id=uuid.UUID(conv_id)).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {
+        "conversation_id": str(conv.id),
+        "memory_scope_type": conv.memory_scope_type,
+        "cluster_ids": [str(cid) for cid in (conv.cluster_ids or [])],
+        "custom_filter": conv.custom_filter,
+    }
+
+@router.get("/conversations/{conv_id}/latest-turn")
+def get_latest_turn(conv_id: str, db: Session = Depends(get_db)):
+    """Return the ID of the most recent turn in a conversation."""
+    turn = db.query(EpisodicMemory).filter_by(
+        conversation_id=uuid.UUID(conv_id)
+    ).order_by(EpisodicMemory.timestamp.desc()).first()
+    if not turn:
+        raise HTTPException(status_code=404, detail="No turns found")
+    return {"turn_id": str(turn.id)}
