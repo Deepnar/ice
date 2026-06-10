@@ -15,7 +15,9 @@ app = Celery(
         "src.workers.reflection",
         "src.workers.sentinel_monitor",
         "src.workers.clustering",
-        "src.workers.fine_tune", 
+        "src.workers.fine_tune"
+        "src.workers.codex_decay",
+        "src.workers.procedural_decay",
     ],
 )
 
@@ -29,6 +31,14 @@ app.conf.beat_schedule = {
         'task': 'src.workers.decay.apply_decay',
         'schedule': crontab(hour=3, minute=0),
     },
+    'codex-decay-daily': {
+        'task': 'src.workers.codex_decay.decay_codex_edges',
+        'schedule': crontab(hour=3, minute=30),
+    },
+    'procedural-decay-daily': {
+        'task': 'src.workers.procedural_decay.decay_procedural_patterns',
+        'schedule': crontab(hour=4, minute=30),
+    },
     'cluster-turns-daily': {
         'task': 'src.workers.clustering.cluster_turns',
         'schedule': crontab(hour=4, minute=0),
@@ -41,8 +51,8 @@ app.conf.beat_schedule = {
         'task': 'src.workers.reflection.run_reflection',
         'schedule': crontab(hour=5, minute=0),
     },
-        'fine-tune-weekly': {
+    'fine-tune-weekly': {
         'task': 'src.workers.fine_tune.fine_tune_classifier',
-        'schedule': crontab(hour=4, minute=0, day_of_week=1),   # Monday 4am
+        'schedule': crontab(hour=4, minute=0, day_of_week=1),
     },
 }
