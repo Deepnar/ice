@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     confidence_fallback_threshold: float = 0.75
     classifier_model_path: str = "models/classifier/ice_classifier_v2_final.pt"
     label_schema_path: str = "data/labeled/label_schema.json"
+    default_fallback_model: str = "qwen2.5:7b"          # ← new
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

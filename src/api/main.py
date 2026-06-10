@@ -1,7 +1,8 @@
 """ICE FastAPI Middleware.
 
 Intercepts OpenAI-compatible chat requests, classifies the prompt,
-forwards to Ollama, streams the response back, and safely stores records.
+forwards to Ollama, streams the response back, and safely stores records
+without blocking the event loop or triggering race conditions.
 """
 
 import asyncio
@@ -14,21 +15,19 @@ from typing import Optional
 
 import httpx
 import structlog
+import redis.asyncio as aioredis
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
 from src.api.db import SessionLocal, get_db
-from src.classifier.classifier import PyTorchClassifier
-from src.memory.models import Conversation, EpisodicMemory
-from src.workers.post_flight import evaluate_turn
-from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.api.prompt_assembler import assemble_prompt
-from src.memory.models import MemorySlot
-from src.api.routers import user_control
-
-
+from src.api.routers import memory_slots, user_control
+from src.classifier.classifier import PyTorchClassifier
+from src.memory.models import Conversation, EpisodicMemory, MemorySlot
+from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+from src.workers.post_flight import evaluate_turn
 
 logger = structlog.get_logger("ice.api")
 classifier: Optional[PyTorchClassifier] = None
@@ -36,6 +35,7 @@ classifier: Optional[PyTorchClassifier] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Lifecycle manager – initialises the classifier at startup."""
     global classifier
     logger.info("Loading classifier...")
     classifier = PyTorchClassifier(
@@ -53,29 +53,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-from src.api.routers import memory_slots
-
 app.include_router(memory_slots.router)
 app.include_router(user_control.router)
+
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-
-@app.get("/v1/models")
-async def list_models():
-    return {
-        "object": "list",
-        "data": [
-            {
-                "id": "ice-proxy",
-                "object": "model",
-                "created": 1,
-                "owned_by": "ice",
-            }
-        ],
-    }
 
 
 async def store_turn_async(
@@ -87,12 +71,17 @@ async def store_turn_async(
     context_reliance: str,
     raw_stream_chunks: list[str],
 ):
-    """Async post-flight task – parses SSE, computes embedding, writes to DB."""
+    """Async post-flight task.
+
+    Assembles streaming fragments, parses clean SSE text, calculates embeddings
+    via thread pool offloading, and commits write-once transactions.
+    """
     log = logger.bind(correlation_id=correlation_id)
 
-    # 1. Parse SSE to extract clean assistant text
+    # 1. Join raw fragments FIRST to repair broken line boundaries from socket splits
     full_raw_stream = "".join(raw_stream_chunks)
     clean_fragments = []
+
     for line in full_raw_stream.split("\n"):
         line = line.strip()
         if not line or not line.startswith("data:"):
@@ -106,9 +95,10 @@ async def store_turn_async(
                 clean_fragments.append(content)
         except (json.JSONDecodeError, KeyError, IndexError):
             continue
+
     full_assistant_text = "".join(clean_fragments)
 
-    # 2. Embedding offloaded to thread pool
+    # 2. Offload CPU-heavy tensor tasks to avoid event loop starvation
     embedding = await asyncio.to_thread(
         classifier.embedder.encode, user_message, convert_to_tensor=False
     )
@@ -116,6 +106,7 @@ async def store_turn_async(
         embedding.tolist() if hasattr(embedding, "tolist") else list(embedding)
     )
 
+    # 3. Establish deterministic idempotency boundaries
     raw_key = f"{correlation_id}:{user_message}"
     idempotency_key = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
@@ -128,8 +119,8 @@ async def store_turn_async(
             topic_tags=topic_tags,
             intent_tags=intent_tags,
             context_reliance=context_reliance,
-            entropy_score=None,
-            lossless_flag=None,
+            entropy_score=None,          # set by Post‑Flight Evaluator
+            lossless_flag=None,          # NULL = not yet evaluated
             raw_text=f"User: {user_message}\n\nAssistant: {full_assistant_text}",
             summary_text=None,
             embedding=embedding_list,
@@ -139,17 +130,50 @@ async def store_turn_async(
         write_db.add(turn)
         write_db.commit()
         log.info("turn_stored", episodic_id=str(turn.id))
-        evaluate_turn.delay(
-            batch_id=str(turn.batch_id),
-            prompt=user_message,
-            response=full_assistant_text,
-            conversation_id=str(conversation_id),
-        )
+
+        # Enqueue post‑flight evaluation (with graceful fallback to local buffer)
+        try:
+            evaluate_turn.delay(
+                batch_id=str(turn.batch_id),
+                prompt=user_message,
+                response=full_assistant_text,
+                conversation_id=str(conversation_id),
+            )
+        except Exception as celery_err:
+            log.error("celery_enqueue_failed", error=str(celery_err))
+            buffer_entry = {
+                "batch_id": str(turn.batch_id),
+                "prompt": user_message,
+                "response": full_assistant_text,
+                "conversation_id": str(conversation_id),
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            with open("data/post_flight_buffer.jsonl", "a") as buf:
+                buf.write(json.dumps(buffer_entry) + "\n")
+
+        # Emit CHAT_COMPLETED event to Redis
+        try:
+            r = aioredis.from_url(settings.redis_url)
+            await r.publish("chat:completed", json.dumps({
+                "correlation_id": correlation_id,
+                "conversation_id": str(conversation_id),
+                "batch_id": str(turn.batch_id),
+                "idempotency_key": idempotency_key
+            }))
+            await r.close()
+        except Exception as redis_err:
+            log.error("redis_publish_failed", error=str(redis_err))
+
     except Exception as exc:
         write_db.rollback()
         log.error("failed_to_store_turn", error=str(exc))
     finally:
         write_db.close()
+
+
+def sse_event(event_type: str, data: dict) -> str:
+    """Build a properly formatted SSE event string."""
+    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
 
 @app.post("/v1/chat/completions")
@@ -210,15 +234,22 @@ async def chat_completions(
         db.commit()
         conversation_id = conversation.id
 
-    # ───────────────────────────────────────────────────────────
-    # RETRIEVAL & PROMPT ASSEMBLY (Long_Term_Memory or low confidence)
-    # ───────────────────────────────────────────────────────────
+    # ── Scope from conversation metadata ──
+    scope = {"conversation_id": str(conversation_id)}
+    conv_row = db.query(Conversation).filter_by(id=conversation_id).first()
+    if conv_row and conv_row.memory_scope_type == "project" and conv_row.cluster_ids:
+        scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
+
+    # ── Retrieval & prompt assembly ──
     result.prompt = user_message
+    fragments = []
+    memory_slots_list = []
+    bookmarked_texts = []
+    hyde_used = False
 
     if (result.context_reliance == "Long_Term_Memory" or
         result.max_confidence < settings.confidence_fallback_threshold):
 
-        # 1. Offload CPU‑bound embedding to a worker thread
         embedding_tensor = await asyncio.to_thread(
             classifier.embedder.encode, user_message, convert_to_tensor=False
         )
@@ -226,13 +257,6 @@ async def chat_completions(
 
         orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
 
-        # Build scope from conversation metadata
-        scope = {"conversation_id": str(conversation_id)}
-        conv_row = db.query(Conversation).filter_by(id=conversation_id).first()
-        if conv_row and conv_row.memory_scope_type == "project" and conv_row.cluster_ids:
-            scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
-
-        # 2. Offload synchronous PostgreSQL retrieval queries to a worker thread
         fragments = await asyncio.to_thread(
             orchestrator.retrieve,
             classification=result,
@@ -241,13 +265,15 @@ async def chat_completions(
             scope=scope,
         )
 
-        # 3. Fetch bookmarked turns for this conversation
+        # HyDE usage detection (the orchestrator sets a flag internally; we approximate)
+        hyde_used = getattr(orchestrator, "_hyde_used", False)
+
+        # Bookmarked turns
         bookmarked_turns = await asyncio.to_thread(
             lambda: db.query(EpisodicMemory).filter_by(
                 is_bookmarked=True, conversation_id=conversation_id
             ).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
         )
-        bookmarked_texts = []
         for bt in bookmarked_turns:
             text = bt.raw_text if bt.inject_raw else (bt.summary_text or bt.raw_text[:300])
             words = text.split()
@@ -255,148 +281,114 @@ async def chat_completions(
                 text = " ".join(words[:500]) + "…"
             bookmarked_texts.append(text)
 
-        # 4. Safe database fetch for memory slots
-        memory_slots = await asyncio.to_thread(
+        # Memory slots
+        memory_slots_list = await asyncio.to_thread(
             lambda: db.query(MemorySlot).filter_by(is_active=True).all()
         )
 
-        # Assemble final prompt with bookmarked block
-        messages = assemble_prompt(memory_slots, fragments, user_message,
+        # Separate fragments by type for token trimming
+        episodic_frags = [f for f in fragments if f.source_type == "episodic"]
+        procedural_frags = [f for f in fragments if f.source_type == "procedural"]
+
+        messages = assemble_prompt(memory_slots_list, fragments, user_message,
                                    db_session=db, conversation_id=str(conversation_id),
                                    bookmarked_texts=bookmarked_texts)
 
+        # Token budget check (crude: words * 1.33 ≈ tokens, aim for 90% of 4096)
+        def word_count(text: str) -> int:
+            return len(text.split()) if text else 0
+
+        total_words = word_count(messages[0]["content"]) + word_count(user_message)
+        max_words = int(0.9 * 4096 / 1.33)
+
+        while total_words > max_words and (episodic_frags or procedural_frags):
+            if procedural_frags:
+                procedural_frags.pop()
+            elif episodic_frags:
+                episodic_frags.pop()
+            # Reassemble with the reduced fragment list
+            reduced = [f for f in fragments if f not in (set(episodic_frags) | set(procedural_frags))]
+            messages = assemble_prompt(memory_slots_list, reduced, user_message,
+                                       db_session=db, conversation_id=str(conversation_id),
+                                       bookmarked_texts=bookmarked_texts)
+            total_words = word_count(messages[0]["content"]) + word_count(user_message)
+
         log.info(
             "context_injection_complete",
             injected_fragments=len(fragments),
-            active_slots=len(memory_slots),
-            bookmarked_count=len(bookmarked_texts)
+            active_slots=len(memory_slots_list),
+            bookmarked_count=len(bookmarked_texts),
+            hyde_used=hyde_used,
         )
 
-    # ───────────────────────────────────────────────────────────
-    # STREAMING & STORAGE (unchanged)
-    # ───────────────────────────────────────────────────────────
+    # ── Streaming generation with fallback model ──
     ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
     accumulated_raw_chunks = []
+    model_to_use = model_name
 
     async def generate():
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            async with client.stream(
-                "POST",
-                ollama_url,
-                json={"model": model_name, "messages": messages, "stream": True},
-            ) as ollama_response:
-                async for chunk in ollama_response.aiter_text():
-                    accumulated_raw_chunks.append(chunk)
-                    yield chunk
+        nonlocal model_to_use
 
-    background_tasks.add_task(
-        store_turn_async,
-        correlation_id=correlation_id,
-        user_message=user_message,
-        conversation_id=conversation_id,
-        topic_tags=result.topic_tags,
-        intent_tags=result.intent_tags,
-        context_reliance=result.context_reliance,
-        raw_stream_chunks=accumulated_raw_chunks,
-    )
+        # SSE: classified
+        yield sse_event("classified", {
+            "topic_tags": result.topic_tags,
+            "intent_tags": result.intent_tags,
+            "context_reliance": result.context_reliance,
+            "max_confidence": result.max_confidence,
+        })
 
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-ICE-Conversation-ID": str(conversation_id),
-        },
-    )
+        # SSE: retrieval
+        yield sse_event("retrieval", {
+            "active_legs": list({f.source_type for f in fragments}),
+            "hyde_used": hyde_used,
+            "tokens_injected": sum(f.token_count for f in fragments),
+        })
 
-    # ───────────────────────────────────────────────────────────
-    # REAL USER PROMPT – classify
-    # ───────────────────────────────────────────────────────────
-    result = classifier.classify(user_message)
-    log.info(
-        "classified",
-        topic_tags=result.topic_tags,
-        intent_tags=result.intent_tags,
-        context_reliance=result.context_reliance,
-        max_confidence=result.max_confidence,
-    )
+        # SSE: context_ready
+        yield sse_event("context_ready", {
+            "fragments_count": len(fragments),
+            "sources": {
+                "codex": sum(1 for f in fragments if f.source_type == "codex"),
+                "episodic": sum(1 for f in fragments if f.source_type == "episodic"),
+                "procedural": sum(1 for f in fragments if f.source_type == "procedural"),
+                "rag": sum(1 for f in fragments if f.source_type == "rag"),
+            },
+            "total_tokens": sum(f.token_count for f in fragments),
+        })
 
-    if result.max_confidence < settings.confidence_fallback_threshold:
-        log.info(
-            "low_confidence_fallback",
-            max_confidence=result.max_confidence,
-            threshold=settings.confidence_fallback_threshold,
-        )
+        # SSE: generating
+        yield sse_event("generating", {"model": model_to_use})
 
-    # ───────────────────────────────────────────────────────────
-    # Conversation: create a new one per request (V1 default)
-    # ───────────────────────────────────────────────────────────
-    conversation = Conversation()
-    db.add(conversation)
-    db.commit()
-    conversation_id = conversation.id
+        # Primary request with tight timeout
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                async with client.stream(
+                    "POST",
+                    ollama_url,
+                    json={"model": model_to_use, "messages": messages, "stream": True},
+                ) as response:
+                    first = True
+                    async for chunk in response.aiter_text():
+                        accumulated_raw_chunks.append(chunk)
+                        yield chunk
+        except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError) as e:
+            log.warning("primary_model_timeout", model=model_to_use, error=str(e))
+            yield sse_event("degraded", {"reason": "primary_model_timeout", "fallback": settings.default_fallback_model})
+            model_to_use = settings.default_fallback_model
+            yield sse_event("generating", {"model": model_to_use})
+            async with httpx.AsyncClient(timeout=10.0) as client2:
+                async with client2.stream(
+                    "POST",
+                    ollama_url,
+                    json={"model": model_to_use, "messages": messages, "stream": True},
+                ) as response2:
+                    async for chunk in response2.aiter_text():
+                        accumulated_raw_chunks.append(chunk)
+                        yield chunk
+        except Exception as e:
+            yield sse_event("degraded", {"reason": "streaming_error", "error": str(e)})
 
-    # ───────────────────────────────────────────────────────────
-    # RETRIEVAL & PROMPT ASSEMBLY (Long_Term_Memory or low confidence)
-    # ───────────────────────────────────────────────────────────
-    result.prompt = user_message
-
-    if (result.context_reliance == "Long_Term_Memory" or
-            result.max_confidence < settings.confidence_fallback_threshold):
-
-        # 1. Offload CPU‑bound embedding to a worker thread
-        embedding_tensor = await asyncio.to_thread(
-            classifier.embedder.encode, user_message, convert_to_tensor=False
-        )
-        prompt_embedding = (
-            embedding_tensor.tolist()
-            if hasattr(embedding_tensor, "tolist")
-            else list(embedding_tensor)
-        )
-
-        orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
-
-        # 2. Offload synchronous PostgreSQL retrieval queries to a worker thread
-        fragments = await asyncio.to_thread(
-            orchestrator.retrieve,
-            classification=result,
-            conversation_id=str(conversation_id),
-            prompt_embedding=prompt_embedding,
-            scope=None
-        )
-
-        # 3. Safe database fetch for memory slots
-        memory_slots = await asyncio.to_thread(
-            lambda: db.query(MemorySlot).filter_by(is_active=True).all()
-        )
-
-        # Assemble final prompt
-        messages = assemble_prompt(memory_slots, fragments, user_message,
-                           db_session=db, conversation_id=str(conversation_id))
-
-        logger.info(
-            "context_injection_complete",
-            injected_fragments=len(fragments),
-            active_slots=len(memory_slots)
-        )
-
-    # ───────────────────────────────────────────────────────────
-    # Stream from Ollama and schedule background storage
-    # ───────────────────────────────────────────────────────────
-    accumulated_raw_chunks = []
-
-    async def generate():
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            async with client.stream(
-                "POST",
-                ollama_url,
-                json={"model": model_name, "messages": messages, "stream": True},
-            ) as ollama_response:
-                async for chunk in ollama_response.aiter_text():
-                    accumulated_raw_chunks.append(chunk)
-                    yield chunk
-
+    # Enqueue post‑flight storage (via BackgroundTasks, which runs after response)
     background_tasks.add_task(
         store_turn_async,
         correlation_id=correlation_id,
