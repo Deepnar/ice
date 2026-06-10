@@ -69,6 +69,10 @@ class PyTorchClassifier:
         # Combine probabilities
         raw_probs = topic_probs.tolist() + intent_probs.tolist() + ctx_probs.tolist()
         max_confidence = max(raw_probs)
+        # Safety net: story/lore questions always need long‑term memory
+        if "Creative_&_Media" in topic_tags:
+            context_reliance = "Long_Term_Memory"
+            # Re‑compute max confidence from the raw probs (unchanged)
 
         return ClassificationResult(
             topic_tags=topic_tags,

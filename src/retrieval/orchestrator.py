@@ -1,4 +1,4 @@
-"""Hybrid Retrieval Orchestrator – Production implementation with true RRF."""
+"""Hybrid Retrieval Orchestrator – Production implementation with true RRF and conversation scoping."""
 
 import hashlib
 import re
@@ -8,7 +8,7 @@ from openai import OpenAI
 import structlog
 from sqlalchemy.orm import Session
 from sqlalchemy import bindparam, text
-from pgvector.sqlalchemy import Vector as PgVector   
+from pgvector.sqlalchemy import Vector as PgVector
 from src.api.config import settings
 from src.memory.models import (
     EpisodicMemory,
@@ -60,10 +60,15 @@ class HybridRetrievalOrchestrator:
             logger.info("wide_net_fallback_triggered", confidence=classification.max_confidence)
             return self._wide_net_fallback(classification, prompt_embedding, conversation_id, scope)
 
+        # Extract optional conversation scope
+        conv_id = None
+        if scope and "conversation_id" in scope:
+            conv_id = scope["conversation_id"]
+
         # Execute all retrieval legs
         legs: Dict[str, List[ContextFragment]] = {
-            "bm25": self._bm25_episodic(classification, scope),
-            "vector": self._vector_episodic(prompt_embedding, classification, scope),
+            "bm25": self._bm25_episodic(classification, scope, conv_id),
+            "vector": self._vector_episodic(prompt_embedding, classification, scope, conv_id),
             "codex": self._codex_graph(classification),
             "procedural": self._procedural_lookup(prompt_embedding, classification),
             "rag": self._rag_lookup(prompt_embedding, classification),
@@ -78,14 +83,16 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # BM25 episodic (full‑text search)
     # ------------------------------------------------------------------
-    def _bm25_episodic(self, classification, scope) -> List[ContextFragment]:
+    def _bm25_episodic(self, classification, scope, conv_id: Optional[str] = None) -> List[ContextFragment]:
         clean_prompt = re.sub(r'[^\w\s]', ' ', classification.prompt)
         search_words = [w for w in clean_prompt.split() if w][:30]
         search_terms = " & ".join(search_words) if search_words else "ice"
 
         topic_filter = "AND topic_tags && :topics" if classification.topic_tags else ""
+        conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
+
         query = text(f"""
-            SELECT id, raw_text, summary_text, lossless_flag, conversation_id,
+            SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id,
                    ts_rank(
                        to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                        query
@@ -93,6 +100,7 @@ class HybridRetrievalOrchestrator:
             FROM episodic_memory, to_tsquery('english', :search_terms) query
             WHERE to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')) @@ query
               {topic_filter}
+              {conv_filter}
               AND is_archived = false
             ORDER BY score DESC
             LIMIT 10
@@ -101,6 +109,8 @@ class HybridRetrievalOrchestrator:
         params = {"search_terms": search_terms}
         if classification.topic_tags:
             params["topics"] = classification.topic_tags
+        if conv_id:
+            params["conv_id"] = conv_id
 
         try:
             rows = self.db.execute(query, params).fetchall()
@@ -113,14 +123,17 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # Vector episodic (pgvector cosine similarity)
     # ------------------------------------------------------------------
-    def _vector_episodic(self, prompt_embedding, classification, scope) -> List[ContextFragment]:
+    def _vector_episodic(self, prompt_embedding, classification, scope, conv_id: Optional[str] = None) -> List[ContextFragment]:
         topic_filter = "AND topic_tags && :topics" if classification.topic_tags else ""
+        conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
+
         query = text(f"""
-            SELECT id, raw_text, summary_text, lossless_flag, conversation_id,
+            SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id,
                 1 - (embedding <=> :prompt_embedding) as score
             FROM episodic_memory
             WHERE embedding IS NOT NULL
             {topic_filter}
+            {conv_filter}
             AND is_archived = false
             ORDER BY score DESC
             LIMIT 10
@@ -128,6 +141,8 @@ class HybridRetrievalOrchestrator:
         params = {"prompt_embedding": prompt_embedding}
         if classification.topic_tags:
             params["topics"] = classification.topic_tags
+        if conv_id:
+            params["conv_id"] = conv_id
 
         try:
             rows = self.db.execute(query, params).fetchall()
@@ -340,10 +355,25 @@ class HybridRetrievalOrchestrator:
     def _rows_to_fragments(self, rows, source_type):
         fragments = []
         for row in rows:
-            text = row.raw_text if row.lossless_flag else (row.summary_text or row.raw_text[:300])
+            # Decide which text to inject based on inject_raw flag
+            if row.inject_raw and row.raw_text:
+                text = row.raw_text
+            elif row.summary_text:
+                text = row.summary_text
+            elif row.raw_text:
+                text = row.raw_text[:300]
+            else:
+                continue
+
+            # Apply the 500‑word cap to all injected fragments
+            words = text.split()
+            if len(words) > 500:
+                text = ' '.join(words[:500]) + '…'
+
             if not text:
                 continue
-            score_val = getattr(row, "score", 1.0)   # safe fallback for queries without score
+
+            score_val = getattr(row, "score", 1.0)
             fragments.append(ContextFragment(
                 text=text,
                 source_type=source_type,

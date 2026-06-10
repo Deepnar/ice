@@ -49,6 +49,7 @@ class EpisodicMemory(Base):
     is_archived = Column(Boolean, default=False)
     is_bookmarked = Column(Boolean, default=False)
     decay_immune = Column(Boolean, default=False)
+    inject_raw = Column(Boolean, default=True)
     idempotency_key = Column(Text, unique=True, nullable=False)
 
     conversation = relationship("Conversation", back_populates="episodic_turns")
@@ -201,14 +202,14 @@ class SessionSummary(Base):
     __tablename__ = "session_summaries"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=True)
     # The bulletproof version:
     session_date = Column(Date, default=utcnow)
     topics_covered = Column(ARRAY(Text), default=[])
     decisions_made = Column(Text, default="")
     unresolved_items = Column(Text, default="")
-    entities_updated = Column(ARRAY(UUID(as_uuid=True)), default=[])
-    patterns_observed = Column(ARRAY(UUID(as_uuid=True)), default=[])
+    entities_updated = Column(ARRAY(Text), default=[])
+    patterns_observed = Column(ARRAY(Text), default=[])
 
 
 class IdempotencyKey(Base):

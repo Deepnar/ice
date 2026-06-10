@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timezone
 from sqlalchemy import text
 from openai import OpenAI
-
+import re
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, ContextCluster
 from src.workers.celery_app import app
@@ -25,17 +25,24 @@ def cluster_turns(self):
     db = SessionLocal()
     try:
         # Find turns with no cluster assigned
-        unassigned = db.query(EpisodicMemory).filter_by(cluster_id=None).limit(100).all()
+        unassigned = db.query(EpisodicMemory).filter_by(cluster_id=None).limit(30).all()
         if not unassigned:
             return
 
         # Compile raw texts and ask the model to suggest cluster names
-        texts = "\n---\n".join([t.raw_text[:200] for t in unassigned])
+        # Extract topic tags and a brief snippet to keep the prompt tiny
+        descriptions = []
+        for t in unassigned:
+            tags = ", ".join(t.topic_tags) if t.topic_tags else "untagged"
+            snippet = t.raw_text[:80].replace("\n", " ")
+            descriptions.append(f"[{tags}] {snippet}")
+        texts = "\n".join(descriptions)
         prompt = (
-            "Given the following conversation fragments, suggest 1‑3 cluster names that group related topics. "
-            "Each name should be a short, descriptive phrase (e.g., \"PostgreSQL Schema Design\", \"Creative Writing – FLAW Lore\"). "
-            "Output a JSON array of strings, e.g. [\"ICE Development\", \"Story Writing\"]. "
-            "If only one theme is present, output a single‑element array."
+            "The following are topic tags and brief snippets from several conversation turns. "
+            "Suggest 1-3 cluster names that group related topics. "
+            "Output ONLY a valid JSON array of strings, e.g. [\"Database Systems\", \"Creative Writing\"]. "
+            "Each string must be a short, descriptive phrase. "
+            "Do NOT output anything else. Do NOT include markdown or explanations."
         )
         completion = bg_client.chat.completions.create(
             model="Qwen/Qwen2.5-3B-Instruct-AWQ",
@@ -48,13 +55,30 @@ def cluster_turns(self):
             timeout=30.0
         )
         raw = completion.choices[0].message.content.strip()
+        logger.info("clustering_raw_response", raw=raw)
 
         # Robust JSON extraction to handle markdown fences
+                # Robust JSON extraction to handle markdown fences and missing quotes
         try:
             json_match = re.search(r"\[\s*.*?\s*\]", raw, re.DOTALL)
             if not json_match:
+                logger.error("clustering_no_json_match", raw=raw)
                 return
-            cluster_names = json.loads(json_match.group(0))
+            json_str = json_match.group(0)
+            # Try to parse as-is
+            try:
+                cluster_names = json.loads(json_str)
+            except json.JSONDecodeError:
+                # Fallback: add missing quotes around unquoted strings
+                fixed = re.sub(r'([\[\s,])([A-Za-z0-9_&+]+)([, \s\]])', r'\1"\2"\3', json_str)
+                try:
+                    cluster_names = json.loads(fixed)
+                except json.JSONDecodeError:
+                    logger.error("clustering_json_parse_error", raw=raw)
+                    return
+        except Exception as e:
+            logger.error("clustering_json_parse_error", error=str(e))
+            return
         except Exception as e:
             logger.error("clustering_json_parse_error", error=str(e))
             return

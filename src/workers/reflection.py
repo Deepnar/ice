@@ -50,7 +50,7 @@ def run_reflection(self, conversation_id: str = None):
         # Default: process most recent 50 turns as a fake session
         recent_turns = db.query(EpisodicMemory).order_by(
             EpisodicMemory.timestamp.desc()
-        ).limit(50).all()
+        ).limit(20).all()
         if recent_turns:
             recent_turns.reverse()  # chronological order for the model
             _synthesize_session(db, recent_turns, None)

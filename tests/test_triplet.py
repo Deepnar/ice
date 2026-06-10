@@ -26,7 +26,7 @@ prompt = (
     )
 
 completion = bg_client.chat.completions.create(
-model="Qwen/Qwen2.5-1.5B-Instruct-AWQ",
+model="Qwen/Qwen2.5-3B-Instruct-AWQ",
 messages=[
 {"role": "system", "content": "You are an isotropic semantic extraction engine."},
 {"role": "user", "content": f"Text:\n{text}\n\n{prompt}"}

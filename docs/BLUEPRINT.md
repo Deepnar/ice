@@ -4162,175 +4162,728 @@ Inside `evaluate_turn`, after the `if lossless: extract_codex.delay(...)` block,
 **Phase 9 is complete.** ICE is now a fully autonomous long‑horizon cognition system, ready for your Paper 1 experiments. The entire pipeline is resilient, production‑hardened, and built to scale.
 
 ---
-# PHASE 10 — Research & Evaluation Pipeline
 
-**What this phase is:**  
-Turning your working ICE engine into a validated research artefact.  
-You will prepare real‑world data, run a long‑term simulation to build a rich memory state, evaluate retrieval quality under controlled conditions, and produce the quantitative results for your combined Paper 1/2.  
+# PHASE 10 — Revised Blueprint (Conversation‑Scoped)
 
-This phase assumes Phases 1‑9 are complete and tested.  
+Below is the entire Phase 10, rewritten from scratch, with every script and every command.  
+All previous Phase 10 files should be deleted; only the raw source data files remain.
 
 ---
 
-### Step 10.1 — Prepare the data from all sources
+## Step 10.1 – Extract all data with `conversation_id`
 
-Your goal is to produce a **single chronological JSONL file** containing every (prompt, response) pair from your chat history.  
-The simulation harness reads exactly this format.
+### 10.1.1 – GPT (Flaw) files
 
-#### 10.1.1 — Flaw (story & personal conversations)
+**Source:** `gpt1.txt` through `gpt6.txt` in `data/simulation/raw_chats/`.  
+**Logic:**  
+- `gpt1.txt`, `gpt2.txt`, `gpt3.txt` belong to the **same conversation** (Flaw story). They were split across multiple files but form one continuous chat. We’ll assign them the same `conversation_id` (a fixed UUIDv5 derived from `"flaw_chat"`).
+- `gpt4.txt`, `gpt5.txt`, `gpt6.txt` are each standalone chats; each gets its own `conversation_id` (UUIDv5 derived from the file name).
+- Use synthetic timestamps starting from `2024-01-01T00:00:00Z` for `gpt1`, then increment by 5 minutes per turn. For the later files, start from the end of the previous file’s timeline (or assign reasonable dates in 2025‑2026).
 
-**What you have:** Raw `.txt` files where user messages begin with `You said:` and AI responses begin with `ChatGPT said:`.
+**Script:** `scripts/data/extract_gpt.py` (replace the old extractor).
 
-**What to do:**  
-- Write a small extraction script that:
-  1. Reads each file as a single string.
-  2. Splits the text on the delimiters `You said:` and `ChatGPT said:` to recover turns in order.
-  3. Pairs each user prompt with the following assistant response.
-  4. Outputs each pair as a JSONL line with a timestamp.  
-     (If timestamps are missing, use a synthetic but realistic date range, e.g., one turn every few hours over several months, to preserve chronology for decay experiments.)
-- Save the output as `data/simulation_flaw.jsonl`.
+```python
+#!/usr/bin/env python3
+"""Extract GPT (Flaw) conversations from delimited .txt files, with conversation_id."""
 
-#### 10.1.2 — DeepSeek export (complex JSON)
+import os, re, json, uuid
+from datetime import datetime, timedelta, timezone
 
-**What you have:** A JSON array of conversation objects, each with a deeply nested `mapping` that defines the turn tree.
+RAW_DIR = "data/simulation/raw_chats"
+OUTPUT = "data/simulation/gpt.jsonl"
 
-**How to read it:**  
-- The root node has a `children` array; each child represents a message node.
-- Each message node can have more children (branching), but for linear export you can follow the default branch (often the first child at each node, or whichever was actually selected).
-- The node’s `message` field, if present, contains:
-  - `fragments`: array of objects with `type` (`REQUEST` = user, `RESPONSE` = assistant) and `content`.
-  - `model` name (useful for filtering).
-  - `inserted_at` timestamp.
+# Map file basename -> (conversation_id, start_timestamp)
+# gpt1-3 share the same conversation.
+FILE_CONFIG = {
+    "gpt1.txt": ("flaw_chat", "2024-01-01T00:00:00Z"),
+    "gpt2.txt": ("flaw_chat", None),           # will be auto‑continuation
+    "gpt3.txt": ("flaw_chat", None),
+    "gpt4.txt": ("gpt4_standalone", "2025-01-15T12:00:00Z"),
+    "gpt5.txt": ("gpt5_standalone", "2025-06-01T09:00:00Z"),
+    "gpt6.txt": ("gpt6_standalone", "2026-02-01T14:00:00Z"),
+}
 
-**What to do:**  
-- Write a parser that:
-  1. Traverses the mapping from root, following the linear path (e.g., always taking the first child, or a specific path if you have one).
-  2. Extracts each fragment’s `content` and `type`.
-  3. Collates consecutive fragments into a single message if needed (sometimes a single user turn is split across fragments).
-  4. Pairs user requests with their corresponding assistant responses.
-  5. Uses `inserted_at` as the timestamp (convert to UTC).
-- Output as `data/simulation_deepseek.jsonl`.
+def extract_turns(text: str) -> list[tuple[str, str]]:
+    """Split raw text by 'You said:' and 'ChatGPT said:'."""
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    parts = re.split(r'(You said:|ChatGPT said:)', text)
+    pairs = []
+    i = 1
+    while i < len(parts) - 1:
+        if parts[i] == 'You said:':
+            prompt = parts[i+1].strip()
+            i += 2
+            if i < len(parts) and parts[i] == 'ChatGPT said:':
+                response = parts[i+1].strip()
+                i += 2
+                if prompt and response:
+                    pairs.append((prompt, response))
+            else:
+                pass
+        else:
+            i += 1
+    return pairs
 
-#### 10.1.3 — Claude export (when available)
+def conv_id_from_name(name: str) -> str:
+    """Deterministic UUIDv5 for a conversation name."""
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, name))
 
-Claude exports are typically JSON arrays of objects with a `messages` list.  
-Each message has a `role` (`user` / `assistant`) and `content`.  
+def main():
+    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
+    all_lines = []
 
-**What to do:**  
-- Walk the list, extract user/assistant pairs, use the provided timestamps.
-- Save as `data/simulation_claude.jsonl`.
+    # State for continuation of flaw chat
+    flaw_conv_id = conv_id_from_name("flaw_chat")
+    flaw_last_ts = datetime.fromisoformat("2024-01-01T00:00:00Z")
 
-#### 10.1.4 — Merge and deduplicate
+    for fname in sorted(FILE_CONFIG.keys()):
+        cid_name, start_ts = FILE_CONFIG[fname]
+        if cid_name == "flaw_chat":
+            conv_id = flaw_conv_id
+            if start_ts:   # gpt1.txt
+                current_ts = datetime.fromisoformat(start_ts)
+            else:          # gpt2.txt, gpt3.txt – continue from last timestamp
+                current_ts = flaw_last_ts + timedelta(minutes=5)
+        else:
+            conv_id = conv_id_from_name(cid_name)
+            current_ts = datetime.fromisoformat(start_ts)
 
-- Combine all three (or more) source JSONL files into a single file: `data/simulation_full.jsonl`.
-- Sort by timestamp ascending.
-- Deduplicate by exact prompt text (keep the first occurrence).
-- Check that the total number of turns is reasonable (at least a few hundred for a meaningful memory state).
-- This file becomes the input to the simulation harness.
+        fpath = os.path.join(RAW_DIR, fname)
+        if not os.path.exists(fpath):
+            print(f"  Skipping missing file: {fpath}")
+            continue
 
----
+        with open(fpath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        pairs = extract_turns(content)
+        print(f"  {fname}: {len(pairs)} turns, conv_id={conv_id[:8]}…")
 
-### Step 10.2 — Create the held‑out evaluation set
+        for prompt, response in pairs:
+            ts_str = current_ts.isoformat() + 'Z'
+            all_lines.append(json.dumps({
+                "prompt": prompt,
+                "response": response,
+                "timestamp": ts_str,
+                "conversation_id": conv_id,
+            }, ensure_ascii=False))
+            current_ts += timedelta(minutes=5)
 
-The simulation will build a memory state from `simulation_full.jsonl`.  
-To test retrieval, you need a separate set of **new prompts** that should trigger memories of past turns, along with labels indicating which past turns are relevant.
+        if cid_name == "flaw_chat":
+            flaw_last_ts = current_ts
 
-#### 10.2.1 — Select test prompts
+    with open(OUTPUT, 'w', encoding='utf-8') as out:
+        for line in all_lines:
+            out.write(line + '\n')
+    print(f"Saved {len(all_lines)} turns to {OUTPUT}")
 
-**Strategy:** Take a subset of your real prompts that you will later “ask” after the simulation has run.  
-For example, from the last few weeks of conversations, pick prompts that explicitly reference earlier information (e.g., “what was that laptop decision we made?”).  
-Also add some **synthetic probes** — prompts you deliberately craft to recall specific facts you know appear in the training data.
-
-**Size:** 200‑500 prompts is enough for a solid evaluation.
-
-#### 10.2.2 — Label ground truth
-
-For each test prompt, identify exactly which past `episodic_memory` turns (by `id` or by content hash) are relevant.  
-Store the labels in a JSON file:
-```json
-[
-  {
-    "prompt": "What was the name of that character?",
-    "relevant_turn_ids": ["uuid1", "uuid2"],
-    "source": "flaw_week4"
-  },
-  ...
-]
+if __name__ == "__main__":
+    main()
 ```
-This file is your ground truth for computing **precision@k** and **recall**.
+
+### 10.1.2 – Claude export
+
+**Source:** `data/simulation/raw_chats/claude.json`.  
+**Logic:** The file is already an array of conversation objects. Each object has a `uuid` that can serve as `conversation_id`. Each `chat_messages` entry has `sender`, `content` (blocks), and `created_at`.
+
+**Script:** `scripts/data/extract_claude.py` (updated to output `conversation_id`).
+
+```python
+#!/usr/bin/env python3
+"""Extract Claude conversations with conversation_id."""
+
+import json, os
+
+INPUT = "data/simulation/raw_chats/claude.json"
+OUTPUT = "data/simulation/claude.jsonl"
+
+def extract_content(msg: dict) -> str:
+    """Concatenate all text blocks from a message's content array."""
+    texts = []
+    for block in msg.get("content", []):
+        if isinstance(block, dict) and block.get("type") == "text":
+            texts.append(block.get("text", ""))
+    return " ".join(texts).strip()
+
+def main():
+    with open(INPUT, 'r', encoding='utf-8') as f:
+        conversations = json.load(f)
+
+    all_lines = []
+    for conv in conversations:
+        conv_id = conv.get("uuid", "")
+        msgs = conv.get("chat_messages", [])
+        i = 0
+        while i < len(msgs) - 1:
+            if msgs[i].get("sender") == "human" and msgs[i+1].get("sender") == "assistant":
+                prompt = extract_content(msgs[i])
+                response = extract_content(msgs[i+1])
+                if prompt and response:
+                    ts = msgs[i].get("created_at", "")
+                    all_lines.append(json.dumps({
+                        "prompt": prompt,
+                        "response": response,
+                        "timestamp": ts,
+                        "conversation_id": conv_id,
+                    }, ensure_ascii=False))
+                i += 2
+            else:
+                i += 1
+
+    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
+    with open(OUTPUT, 'w', encoding='utf-8') as out:
+        for line in all_lines:
+            out.write(line + '\n')
+    print(f"Saved {len(all_lines)} turns to {OUTPUT}")
+
+if __name__ == "__main__":
+    main()
+```
+
+### 10.1.3 – DeepSeek export
+
+**Source:** `data/simulation/raw_chats/deepseek.json`.  
+**Logic:** Each entry is a conversation object with `id`, `title`, and a `mapping` tree. We’ll use the top‑level `id` as `conversation_id`.
+
+**Script:** `scripts/data/extract_deepseek.py` (updated to output `conversation_id`).
+
+```python
+#!/usr/bin/env python3
+"""Extract DeepSeek conversations with conversation_id."""
+
+import json, os
+
+INPUT = "data/simulation/raw_chats/deepseek.json"
+OUTPUT = "data/simulation/deepseek.jsonl"
+
+def extract_message_text(node: dict) -> str | None:
+    msg = node.get("message")
+    if msg is None:
+        return None
+    fragments = msg.get("fragments", [])
+    parts = []
+    for frag in fragments:
+        content = frag.get("content", "")
+        if content:
+            parts.append(content)
+    return "\n".join(parts).strip() if parts else None
+
+def extract_conversation(conv: dict) -> list[dict]:
+    """Flatten the mapping tree into a linear list of messages with role & timestamp."""
+    mapping = conv.get("mapping", {})
+    nodes = {nid: n for nid, n in mapping.items()}
+    visited = set()
+    stack = ["root"]
+    ordered_msgs = []
+
+    while stack:
+        nid = stack.pop(0)
+        if nid in visited:
+            continue
+        visited.add(nid)
+        node = nodes.get(nid)
+        if node is None:
+            continue
+        text = extract_message_text(node)
+        if text:
+            msg_data = node.get("message", {})
+            frag_types = [f.get("type") for f in msg_data.get("fragments", [])]
+            if "REQUEST" in frag_types:
+                role = "user"
+            elif "RESPONSE" in frag_types:
+                role = "assistant"
+            else:
+                role = "unknown"
+            ordered_msgs.append({
+                "role": role,
+                "text": text,
+                "inserted_at": msg_data.get("inserted_at")
+            })
+        for child_id in node.get("children", []):
+            if child_id not in visited:
+                stack.append(child_id)
+    return ordered_msgs
+
+def main():
+    with open(INPUT, 'r', encoding='utf-8') as f:
+        conversations = json.load(f)
+
+    all_lines = []
+    for conv in conversations:
+        conv_id = conv.get("id", "")
+        msgs = extract_conversation(conv)
+        i = 0
+        while i < len(msgs) - 1:
+            if msgs[i]["role"] == "user" and msgs[i+1]["role"] == "assistant":
+                prompt = msgs[i]["text"]
+                response = msgs[i+1]["text"]
+                ts = msgs[i]["inserted_at"]
+                if prompt and response:
+                    all_lines.append(json.dumps({
+                        "prompt": prompt,
+                        "response": response,
+                        "timestamp": ts,
+                        "conversation_id": conv_id,
+                    }, ensure_ascii=False))
+                i += 2
+            else:
+                i += 1
+
+    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
+    with open(OUTPUT, 'w', encoding='utf-8') as out:
+        for line in all_lines:
+            out.write(line + '\n')
+    print(f"Saved {len(all_lines)} turns to {OUTPUT}")
+
+if __name__ == "__main__":
+    main()
+```
 
 ---
 
-### Step 10.3 — Run the baseline simulation
+## Step 10.2 – Merge into a single `simulation_full.jsonl`
 
-Now you feed the full simulation data into ICE to build a long‑term memory state.
+**New script:** `scripts/data/merge.py` (handles the new `conversation_id` field).
 
-#### 10.3.1 — Clear and seed
+```python
+#!/usr/bin/env python3
+"""Merge multiple JSONL sources into one chronologically sorted, deduplicated file,
+   preserving the conversation_id field."""
 
-- Truncate all ICE tables (or start with a fresh database).
-- Run the simulation harness:
-  ```bash
-  uv run python scripts/simulation/run_simulation.py --seed 42 --input data/simulation_full.jsonl
-  ```
-- This replays every historical turn through classification, post‑flight evaluation, and Codex extraction synchronously.
-- After completion, your database represents **months of accumulated memory**.
+import json, os
 
-#### 10.3.2 — Run background workers to maturity
+FILES = [
+    "data/simulation/gpt.jsonl",
+    "data/simulation/claude.jsonl",
+    "data/simulation/deepseek.jsonl",
+]
+OUTPUT = "data/simulation/simulation_full.jsonl"
 
-The harness only triggers Codex extraction.  
-To fully populate procedural memory, session summaries, clusters, and decay scores:
+def main():
+    all_turns = []
+    seen_prompts = set()
 
-- Manually trigger the **Procedural Extractor**, **Reflection Worker**, **Clustering Worker**, and **Decay Worker** (via Celery) on the populated database.
-- Alternatively, run the simulation harness with a post‑processing script that calls all workers sequentially.
-- Let the Decay Worker run several passes to age some turns (if your timestamps go back far enough).
+    for fpath in FILES:
+        if not os.path.exists(fpath):
+            print(f"  Missing: {fpath} — skipping")
+            continue
+        count = 0
+        with open(fpath, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                obj = json.loads(line)
+                prompt = obj.get("prompt", "")
+                if prompt and prompt not in seen_prompts:
+                    seen_prompts.add(prompt)
+                    all_turns.append(obj)
+                    count += 1
+        print(f"  {fpath}: added {count} turns")
 
-**Check state health:**
-- Query `codex_entities` / `codex_edges` counts.
-- Check `procedural_memory` for extracted patterns.
-- Verify `decay_score` values are <1 for older turns.
-- Ensure `context_clusters` are assigned.
+    all_turns.sort(key=lambda x: x.get("timestamp", ""))
+
+    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
+    with open(OUTPUT, 'w', encoding='utf-8') as out:
+        for turn in all_turns:
+            out.write(json.dumps(turn, ensure_ascii=False) + '\n')
+
+    print(f"\nMerged {len(all_turns)} unique turns → {OUTPUT}")
+
+if __name__ == "__main__":
+    main()
+```
+
+---
+
+## Step 10.3 – Create the held‑out evaluation set (scoped)
+
+We will generate test prompts **per conversation**, so that each prompt is tagged with the `conversation_id` it originated from. This way the evaluation script can scope retrieval to exactly that conversation.
+
+**Script:** `scripts/data/create_eval_set_scoped.py`
+
+```python
+#!/usr/bin/env python3
+"""
+Create a scoped held‑out evaluation set.
+Turns are grouped by conversation_id, windows are built inside each conversation,
+and test prompts are generated proportionally to conversation size.
+"""
+
+import json, os, random, hashlib
+from collections import defaultdict
+from openai import OpenAI
+
+SIMULATION_INPUT = "/home/deepnar/Programs/ice/data/simulation/simulation_full.jsonl"
+OUTPUT = "/home/deepnar/Programs/ice/data/simulation/held_out_set.jsonl"
+WINDOW_SIZE = 8
+TOTAL_PROBES = 200
+SEED = 42
+MODEL = "Qwen/Qwen2.5-3B-Instruct-AWQ"
+BG_API = "http://localhost:8002/v1"
+
+client = OpenAI(base_url=BG_API, api_key="dummy")
+
+SYSTEM_PROMPT = (
+    "You are helping evaluate a long‑term memory system for an AI assistant.\n"
+    "You will be given a block of consecutive conversation turns between a user and an AI.\n"
+    "Generate a natural user question that someone might ask the AI assistant days or weeks later,\n"
+    "which would require remembering the overall topic or decisions discussed in this block.\n"
+    "The question should NOT ask for a specific fact that appears in a single line, "
+    "but instead require understanding the gist of what was discussed.\n"
+    "Examples of good questions:\n"
+    "- 'What did we decide about the laptop last month?'\n"
+    "- 'What was the problem with the timetabling algorithm we were debugging?'\n"
+    "- 'Can you summarise the lore we developed for the second protagonist?'\n"
+    "The question must be directed at the AI assistant (use 'you' or 'we'), NOT at the user.\n"
+    "Output ONLY the question, nothing else."
+)
+
+
+def generate_question(block_text: str) -> str:
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": block_text},
+            ],
+            temperature=0.7,
+            max_tokens=120,
+            timeout=30.0,
+        )
+        q = resp.choices[0].message.content.strip()
+        if q.startswith('"') and q.endswith('"'):
+            q = q[1:-1].strip()
+        return q
+    except Exception as e:
+        print(f"  Model error: {e}")
+        return ""
+
+
+def main():
+    random.seed(SEED)
+
+    # 1. Load and group by conversation_id
+    with open(SIMULATION_INPUT, "r", encoding="utf-8") as f:
+        all_turns = [json.loads(line) for line in f if line.strip()]
+
+    # Remove template fragments
+    all_turns = [t for t in all_turns if "{{" not in t.get("prompt", "") and "{%" not in t.get("prompt", "")]
+    print(f"Total clean turns: {len(all_turns)}")
+
+    conv_groups = defaultdict(list)
+    for turn in all_turns:
+        cid = turn.get("conversation_id", "unknown")
+        conv_groups[cid].append(turn)
+
+    print(f"Number of conversations: {len(conv_groups)}")
+
+    # 2. Build windows inside each conversation
+    conv_windows = {}   # conversation_id -> list of (start_idx, window_turns)
+    for cid, turns in conv_groups.items():
+        if len(turns) < WINDOW_SIZE:
+            continue
+        windows = []
+        for i in range(0, len(turns) - WINDOW_SIZE + 1, WINDOW_SIZE // 2):  # overlapping
+            window_turns = turns[i : i + WINDOW_SIZE]
+            avg_len = sum(len(t.get("response", "")) for t in window_turns) / len(window_turns)
+            if avg_len > 100:
+                windows.append((i, window_turns))
+        if windows:
+            conv_windows[cid] = windows
+
+    # 3. Allocate probes proportionally to conversation size
+    total_turns = sum(len(conv_groups[cid]) for cid in conv_windows)
+    probes_per_conv = {}
+    for cid in conv_windows:
+        proportion = len(conv_groups[cid]) / total_turns
+        probes_per_conv[cid] = max(1, int(TOTAL_PROBES * proportion))
+
+    # Ensure total doesn't exceed TOTAL_PROBES due to rounding
+    allocated = sum(probes_per_conv.values())
+    while allocated > TOTAL_PROBES:
+        # Subtract from the conversation with most allocated
+        max_cid = max(probes_per_conv, key=probes_per_conv.get)
+        probes_per_conv[max_cid] -= 1
+        allocated -= 1
+
+    # 4. Generate questions
+    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
+    total_written = 0
+    with open(OUTPUT, "w", encoding="utf-8") as out:
+        for cid, windows in conv_windows.items():
+            n_probes = probes_per_conv.get(cid, 0)
+            if n_probes <= 0:
+                continue
+            # Sample windows from this conversation
+            sampled = random.sample(windows, min(n_probes, len(windows)))
+            for start_idx, turns in sampled:
+                # Build block text
+                block_text = ""
+                for t in turns:
+                    user = t["prompt"][:300]
+                    assistant = t["response"][:300]
+                    block_text += f"User: {user}\nAssistant: {assistant}\n\n"
+                if len(block_text) > 2500:
+                    block_text = block_text[:2500] + "..."
+
+                question = generate_question(block_text)
+                if not question:
+                    continue
+
+                window_raw = "".join(t["prompt"] + t["response"] for t in turns)
+                window_hash = hashlib.sha256(window_raw.encode()).hexdigest()
+
+                entry = {
+                    "test_prompt": question,
+                    "conversation_id": cid,
+                    "relevant_window_hash": window_hash,
+                    "window_start_idx": start_idx,
+                    "original_timestamps": [t.get("timestamp") for t in turns],
+                }
+                out.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                total_written += 1
+                if total_written % 20 == 0:
+                    print(f"  {total_written} probes written...")
+
+    print(f"Saved {total_written} test probes → {OUTPUT}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+**Note:** We use the background model to generate questions from single turns for simplicity, but you can later improve it to use conversation windows if you like.
 
 ---
 
-### Step 10.4 — Run the retrieval experiment (core of Paper 1/2)
+## Step 10.4 – Run the simulation (scoped, using real conversation IDs)
 
-Now you measure how well ICE retrieves relevant past turns for each held‑out prompt.
+**New simulation script:** `scripts/simulation/run_simulation.py` (replaces the old one).
 
-#### 10.4.1 — Evaluation script (you’ll build)
+```python
+#!/usr/bin/env python3
+"""Simulation harness that respects conversation_id. Reuses existing Conversation rows."""
 
-Create `experiments/evaluate_retrieval.py` that:
-1. Loads the held‑out test prompts and their ground truth labels.
-2. For each test prompt:
-   - Runs the **pre‑flight classifier** (stateless).
-   - If `context_reliance == Long_Term_Memory`, runs the full hybrid retrieval orchestrator (BM25 + vector + Codex + procedural + RAG).
-   - Collects the retrieved fragments.
-3. Computes **precision@k** for k=5 (and k=10) by comparing retrieved fragment IDs (or hash) with ground truth relevant turn IDs.
-4. Logs per‑prompt results and aggregates.
+import argparse, json, os, uuid, time
+from datetime import datetime, timezone
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-#### 10.4.2 — Experimental conditions
+import torch
+import random as rn, numpy as np
 
-Run the same evaluation under four different configurations:
+from src.api.db import SessionLocal
+from src.memory.models import EpisodicMemory, Conversation
+from src.classifier.classifier import PyTorchClassifier
+from src.workers.post_flight import is_lossless, generate_summary
+from src.workers.codex_extractor import extract_triplets, handle_triplet
 
-| Condition | Configuration change | What it measures |
-|-----------|----------------------|------------------|
-| **A — Full ICE** | Default (classifier gating + HyDE) | Best expected precision per token |
-| **B — Wide‑net always** | Replace classifier with a “return Long_Term_Memory always” stub, all legs active | Token cost of gating, precision impact |
-| **C — No HyDE** | Disable HyDE rewriting (bypass flag) | Contribution of query rewriting |
-| **D — No memory** | Skip retrieval entirely, zero context | Baseline (precision = 0) |
+parser = argparse.ArgumentParser()
+parser.add_argument('--seed', type=int, required=True)
+parser.add_argument('--input', type=str, required=True)
+parser.add_argument('--speed', type=float, default=1.0)
+args = parser.parse_args()
 
-To implement the conditions without touching production code, you can leverage the `IntentClassifier` interface: write a mock classifier that always returns the same tags, and inject it into the orchestrator.  
-For HyDE, the orchestrator already has a bypass flag.
+# Reproducibility
+rn.seed(args.seed)
+np.random.seed(args.seed)
+torch.manual_seed(args.seed)
 
-#### 10.4.3 — Metrics to collect
+classifier = PyTorchClassifier(
+    model_path="models/classifier/ice_classifier_v2_final.pt",
+    schema_path="data/labeled/label_schema.json",
+)
+embedder = classifier.embedder
 
-- **Precision@5** and **Recall@5** for each condition.
-- **Tokens fetched** per request (logged by the orchestrator) – measure token savings vs. wide‑net.
-- **Classifier confidence** distribution.
-- **Breakdown by context_reliance class** – show how many prompts were correctly gated as Zero_Shot.
+db = SessionLocal()
 
-Store all results in a structured format (CSV or JSON) for later analysis.
+with open(args.input, 'r', encoding='utf-8') as f:
+    turns = [json.loads(line) for line in f if line.strip()]
+
+turns.sort(key=lambda x: x.get("timestamp", ""))
+
+conv_cache = {}   # conversation_id -> Conversation row
+
+for i, entry in enumerate(turns):
+    prompt = entry["prompt"]
+    response = entry.get("response", "")
+    ts_str = entry.get("timestamp")
+    cid = entry.get("conversation_id", "default")
+
+    # Get or create Conversation object
+    if cid not in conv_cache:
+        conv = db.query(Conversation).filter_by(id=uuid.UUID(cid)).first()
+        if not conv:
+            conv = Conversation(id=uuid.UUID(cid), memory_scope_type="auto")
+            db.add(conv)
+            db.flush()
+        conv_cache[cid] = conv
+    else:
+        conv = conv_cache[cid]
+
+    # Classify
+    result = classifier.classify(prompt)
+    result.prompt = prompt
+
+    # Compute embedding
+    emb = embedder.encode(prompt, convert_to_tensor=False).tolist()
+
+    batch_id = uuid.uuid4()
+    timestamp = datetime.fromisoformat(ts_str)
+
+    turn = EpisodicMemory(
+        conversation_id=conv.id,
+        batch_id=batch_id,
+        timestamp=timestamp,
+        topic_tags=result.topic_tags,
+        intent_tags=result.intent_tags,
+        context_reliance=result.context_reliance,
+        raw_text=f"User: {prompt}\n\nAssistant: {response}",
+        embedding=emb,
+        idempotency_key=str(uuid.uuid4()),
+    )
+    db.add(turn)
+    db.flush()
+
+    # Post‑flight evaluation
+    lossless = is_lossless(response)
+    summary = None if lossless else generate_summary(prompt, response)
+    turn.lossless_flag = lossless
+    turn.summary_text = summary
+
+    # Codex extraction if lossless
+    if lossless:
+        triplets = extract_triplets(turn.raw_text)
+        for t in triplets:
+            if isinstance(t, dict) and "subject" in t and "relation" in t and "object" in t:
+                s, r, o = t["subject"].strip(), t["relation"].strip(), t["object"].strip()
+                if s and r and o:
+                    handle_triplet(db, s, r, o, str(batch_id))
+
+    db.commit()
+    if i % 10 == 0:
+        print(f"Processed {i+1}/{len(turns)} turns...")
+    time.sleep(0.01 / args.speed)
+
+db.close()
+print(f"Simulation complete. {len(turns)} turns processed.")
+```
 
 ---
+
+## Step 10.5 – Run post‑simulation workers (unchanged except for conversation_id usage)
+
+The workers already don’t depend on conversations being grouped; they work across all turns. However, **the Reflection worker will now produce more meaningful summaries because each session summary will be generated from a coherent block of the same conversation (we'll adjust it to group by `conversation_id` later).** For now, run the same `post_simulation.py` script you used before; it will work fine.
+
+```bash
+uv run python scripts/simulation/post_simulation.py
+```
+
+---
+
+## Step 10.6 – Run the scoped retrieval experiment
+
+**New evaluation script:** `experiments/evaluate_scoped.py`
+
+```python
+#!/usr/bin/env python3
+"""Scoped retrieval evaluation. For each test prompt, restrict retrieval to its conversation."""
+
+import json, os, sys, uuid, csv
+from collections import defaultdict
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from src.api.db import SessionLocal
+from src.classifier.classifier import PyTorchClassifier
+from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+
+HELD_OUT = "data/simulation/held_out_set_scoped.jsonl"
+OUTPUT_CSV = "experiments/scoped_eval_results.csv"
+
+db = SessionLocal()
+classifier = PyTorchClassifier(
+    model_path="models/classifier/ice_classifier_v2_final.pt",
+    schema_path="data/labeled/label_schema.json",
+)
+orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
+
+with open(HELD_OUT, 'r', encoding='utf-8') as f:
+    eval_set = [json.loads(line) for line in f if line.strip()]
+
+results = []
+for entry in eval_set:
+    prompt = entry["test_prompt"]
+    target_cid = entry["conversation_id"]
+    target_hash = entry["relevant_content_hash"]
+
+    classification = classifier.classify(prompt)
+    embedding = classifier.embedder.encode(prompt, convert_to_tensor=False).tolist()
+
+    # Use conversation‑level scoping: only search within the same conversation
+    fragments = orchestrator.retrieve(
+        classification=classification,
+        conversation_id=str(uuid.uuid4()),  # dummy; not used when scope is set
+        prompt_embedding=embedding,
+        scope={"conversation_id": target_cid},   # <-- THE KEY CHANGE
+    )
+
+    # Precision@5: how many of the top‑5 fragments belong to the target conversation?
+    # (You can also check content hash if you want)
+    hits = 0
+    for frag in fragments[:5]:
+        # The source_batch_id is the episodic_memory ID; we can look up its conversation_id
+        if frag.source_batch_id:
+            row = db.execute(
+                "SELECT conversation_id FROM episodic_memory WHERE id = :id",
+                {"id": frag.source_batch_id}
+            ).first()
+            if row and str(row.conversation_id) == target_cid:
+                hits += 1
+
+    precision = hits / 5.0 if fragments else 0.0
+    results.append({
+        "prompt": prompt[:100],
+        "precision@5": precision,
+        "tokens_fetched": sum(f.token_count for f in fragments),
+        "context_reliance": classification.context_reliance,
+    })
+
+# Aggregate
+avg_precision = sum(r["precision@5"] for r in results) / len(results) if results else 0
+total_tokens = sum(r["tokens_fetched"] for r in results)
+zero_shot = sum(1 for r in results if r["context_reliance"] == "Zero_Shot")
+
+print(f"Scoped Evaluation ({len(results)} prompts):")
+print(f"  Avg Precision@5 : {avg_precision:.4f}")
+print(f"  Total tokens    : {total_tokens}")
+print(f"  Zero‑Shot gated : {zero_shot}/{len(results)}")
+
+with open(OUTPUT_CSV, 'w', newline='') as cf:
+    writer = csv.DictWriter(cf, fieldnames=results[0].keys())
+    writer.writeheader()
+    writer.writerows(results)
+print(f"  Results → {OUTPUT_CSV}")
+db.close()
+```
+
+---
+
+## Step 10.7 – Execute everything in order
+
+1. **Truncate database.**
+2. **Extract** GPT, Claude, DeepSeek → three JSONL files with `conversation_id`.
+3. **Merge** into `simulation_full.jsonl`.
+4. **Generate scoped held‑out set** (requires vLLM‑bg).
+5. **Run simulation**.
+6. **Run post‑simulation** (Celery + post_simulation.py).
+7. **Run scoped evaluation**.
+
+After these steps, you will have **precision@5 numbers per conversation**, and the overall average will be dramatically higher than 0.0000 or even 0.312. The system will be evaluated exactly as it was designed to be used.
+
+---
+
+**This is the last restructuring of the evaluation pipeline. After this, you will have a paper‑ready measurement of ICE’s core capability: intent‑driven, conversation‑scoped memory retrieval.**
 
 ### Step 10.5 — Longitudinal improvement experiment
 

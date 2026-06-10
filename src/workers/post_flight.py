@@ -101,12 +101,29 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
             raise self.retry(countdown=5)  # Back off briefly to let the API commit finish
 
         # 4. Text Ingestion & Processing
+                # 4. Text Ingestion & Processing
         lossless = is_lossless(response)
-        summary = None if lossless else generate_summary(prompt, response)
+        full_text = f"User: {prompt}\nAssistant: {response}"
+        word_count = len(full_text.split())
+        has_code = "```" in response
+
+        # By default, inject raw text
+        inject_raw = True
+
+        if lossless and word_count > 500 and not has_code:
+            # Long lossless turn without code → summarise and mark for summary injection
+            summary = generate_summary(prompt, response)
+            turn.summary_text = summary
+            inject_raw = False
+        elif not lossless:
+            # Non‑lossless turn → summarise normally
+            summary = generate_summary(prompt, response)
+            turn.summary_text = summary
+            inject_raw = False
 
         # 5. Core Write-Once Persistence
         turn.lossless_flag = lossless
-        turn.summary_text = summary
+        turn.inject_raw = inject_raw
         
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()
