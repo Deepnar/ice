@@ -13,8 +13,8 @@ from src.workers.celery_app import app
 from src.workers.gpu_check import is_gpu_busy
 
 logger = structlog.get_logger("ice.workers.clustering")
-bg_client = OpenAI(base_url="http://localhost:8002/v1", api_key="dummy")
-
+from src.workers.bg_client_factory import get_bg_client
+bg_client = get_bg_client()
 
 @app.task(bind=True, max_retries=2, default_retry_delay=60)
 def cluster_turns(self):

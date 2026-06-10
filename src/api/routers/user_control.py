@@ -7,7 +7,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-
+from src.model_registry.registry import load_registry, populate_from_ollama
 from src.api.db import get_db
 from src.memory.models import (
     EpisodicMemory, CodexEntity, CodexEdge, CodexEvent,
@@ -52,6 +52,14 @@ class ClusterAssign(BaseModel):
 class ReviewApprove(BaseModel):
     slot_name: Optional[str] = None   # for memory_slot_update
     cluster_name: Optional[str] = None  # for new_cluster_proposal
+
+@router.get("/model-registry")
+def get_model_registry():
+    return load_registry()
+
+@router.post("/model-registry/refresh")
+def refresh_model_registry():
+    return populate_from_ollama()
 
 # ------------------------------------------------------------------
 # C1 — Bookmarking

@@ -20,8 +20,8 @@ from src.workers.procedural_extractor import extract_procedural
 logger = structlog.get_logger("ice.workers.post_flight")
 
 # Dedicated backend inference client targeting isolated LLM instance
-bg_client = OpenAI(base_url="http://localhost:8002/v1", api_key="dummy")
-
+from src.workers.bg_client_factory import get_bg_client
+bg_client = get_bg_client()
 
 def is_lossless(text: str) -> bool:
     """Analyzes text density to resolve the Asymmetrical Value Problem.

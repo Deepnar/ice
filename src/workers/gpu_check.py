@@ -3,6 +3,8 @@
 import subprocess
 import structlog
 
+from api.config import Settings
+
 logger = structlog.get_logger("ice.workers.gpu")
 
 GPU_UTIL_THRESHOLD = 20  # Max percentage allowable for background ingestion
@@ -13,6 +15,10 @@ def is_gpu_busy() -> bool:
     
     Returns True if any single GPU exceeds the configured threshold.
     """
+    def is_gpu_busy() -> bool:
+        if Settings.background_model_mode == "shared":
+            return False   # rely on Celery's rate limiting instead
+    ...  # existing logic
     try:
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],

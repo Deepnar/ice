@@ -28,6 +28,7 @@ from src.classifier.classifier import PyTorchClassifier
 from src.memory.models import Conversation, EpisodicMemory, MemorySlot
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.workers.post_flight import evaluate_turn
+from src.model_registry.registry import find_best_model
 
 logger = structlog.get_logger("ice.api")
 classifier: Optional[PyTorchClassifier] = None
@@ -184,7 +185,14 @@ async def chat_completions(
 ):
     body = await request.json()
     messages = body.get("messages", [])
-    model_name = body.get("model", "default")
+        # ── Model selection via registry ──────────────────────────
+    if body.get("model", "default") == "ice-proxy":
+        # Use the Mini‑MoE to route
+        model_name = find_best_model(result.topic_tags, result.intent_tags)
+        log.info("mini_moe_routing", selected_model=model_name,
+                 topic_tags=result.topic_tags, intent_tags=result.intent_tags)
+    else:
+        model_name = body.get("model", settings.default_fallback_model)
 
     correlation_id = str(uuid.uuid4())
     log = logger.bind(correlation_id=correlation_id)
