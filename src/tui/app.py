@@ -97,6 +97,7 @@ class ICETUI(App):
     async def stream_chat(self, prompt: str):
         accumulated_text = ""
         self.last_turn_id = None
+        model_announced = False
         async with httpx.AsyncClient(timeout=120) as client:
             async with client.stream(
                 "POST", CHAT_URL,
@@ -113,19 +114,31 @@ class ICETUI(App):
                         continue
                     if line.startswith("data: "):
                         data_str = line[6:].strip()
+                        if data_str == "[DONE]":
+                            continue
+
                         if event_type == "classified":
                             data = json.loads(data_str)
                             self.update_context_classified(data)
+                            event_type = None           # ← reset so tokens don’t get stuck
                         elif event_type == "retrieval":
                             data = json.loads(data_str)
                             self.update_context_retrieval(data)
+                            event_type = None
                         elif event_type == "context_ready":
                             data = json.loads(data_str)
                             self.update_context_ready(data)
+                            event_type = None
                         elif event_type == "generating":
-                            data = json.loads(data_str)
-                            self.context_display.write(f"[bold]Model:[/bold] {data.get('model', 'unknown')}")
+                            if not model_announced:
+                                data = json.loads(data_str)
+                                self.context_display.write(
+                                    f"[bold]Model:[/bold] {data.get('model', 'unknown')}"
+                                )
+                                model_announced = True
+                            event_type = None           # ← the next data line will be a token
                         else:
+                            # Plain LLM token (event_type is None or an unknown event)
                             try:
                                 token_data = json.loads(data_str)
                                 content = token_data["choices"][0]["delta"].get("content", "")

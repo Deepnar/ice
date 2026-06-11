@@ -12,7 +12,7 @@ from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, IdempotencyKey
 from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy
+from src.workers.gpu_check import is_gpu_busy, is_user_active
 from src.workers.codex_extractor import extract_codex
 from src.workers.procedural_extractor import extract_procedural
 
@@ -20,7 +20,7 @@ from src.workers.procedural_extractor import extract_procedural
 logger = structlog.get_logger("ice.workers.post_flight")
 
 # Dedicated backend inference client targeting isolated LLM instance
-from src.workers.bg_client_factory import get_bg_client
+from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 
 def is_lossless(text: str) -> bool:
@@ -46,11 +46,11 @@ def is_lossless(text: str) -> bool:
     return False
 
 
-def generate_summary(prompt: str, response: str) -> str:
+def generate_summary(prompt: str, response: str, model_used: str = "") -> str:
     """Invokes the background 3B model to produce a tight, fact‑dense summary."""
     try:
         completion = bg_client.chat.completions.create(
-            model="Qwen/Qwen2.5-3B-Instruct-AWQ",
+            model = model_used if model_used else get_bg_model_name(),
             messages=[
                 {
                     "role": "system",
@@ -75,7 +75,7 @@ def generate_summary(prompt: str, response: str) -> str:
 
 
 @app.task(bind=True, max_retries=5, default_retry_delay=15)
-def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_id: str):
+def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_id: str, model_used: str = ""):
     """Executes structural density qualification and data post-processing routines."""
     log = logger.bind(batch_id=batch_id, conversation_id=conversation_id)
 
@@ -83,6 +83,8 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
     if is_gpu_busy():
         log.info("gpu_saturation_yielding", message="Rescheduling worker target thread.")
         raise self.retry(countdown=15)
+    if settings.background_model_mode == "shared" and is_user_active():
+        raise self.retry(countdown=30)
 
     # 2. Border Idempotency Verification (INV-6)
     idempotency_key = hashlib.sha256(batch_id.encode()).hexdigest()
@@ -112,12 +114,12 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
 
         if lossless and word_count > 500 and not has_code:
             # Long lossless turn without code → summarise and mark for summary injection
-            summary = generate_summary(prompt, response)
+            summary = generate_summary(prompt, response, model_used)
             turn.summary_text = summary
             inject_raw = False
         elif not lossless:
             # Non‑lossless turn → summarise normally
-            summary = generate_summary(prompt, response)
+            summary = generate_summary(prompt, response, model_used)
             turn.summary_text = summary
             inject_raw = False
 
@@ -129,9 +131,9 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
         db.commit()
         log.info("post_flight_evaluation_complete", lossless=lossless)
         if lossless:
-            extract_codex.delay(batch_id=batch_id)
+            extract_codex.delay(batch_id=batch_id, model_used=model_used)
         
-        extract_procedural.delay(batch_id=batch_id)
+        extract_procedural.delay(batch_id=batch_id, model_used=model_used)
 
     except Exception as exc:
         db.rollback()

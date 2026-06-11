@@ -7,13 +7,14 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 from openai import OpenAI
 import re
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, ContextCluster
 from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy
+from src.workers.gpu_check import is_gpu_busy, is_user_active
 
 logger = structlog.get_logger("ice.workers.clustering")
-from src.workers.bg_client_factory import get_bg_client
+from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 
 @app.task(bind=True, max_retries=2, default_retry_delay=60)
@@ -21,7 +22,8 @@ def cluster_turns(self):
     """Periodic task: scan unassigned turns and propose clusters."""
     if is_gpu_busy():
         raise self.retry(countdown=60)
-
+    if settings.background_model_mode == "shared" and is_user_active():
+        raise self.retry(countdown=30)
     db = SessionLocal()
     try:
         # Find turns with no cluster assigned
@@ -45,7 +47,7 @@ def cluster_turns(self):
             "Do NOT output anything else. Do NOT include markdown or explanations."
         )
         completion = bg_client.chat.completions.create(
-            model="Qwen/Qwen2.5-3B-Instruct-AWQ",
+            model=get_bg_model_name(),
             messages=[
                 {"role": "system", "content": "You are a topic clustering engine."},
                 {"role": "user", "content": f"{prompt}\n\n{texts}"}

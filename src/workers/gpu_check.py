@@ -2,23 +2,23 @@
 
 import subprocess
 import structlog
-
-from api.config import Settings
+from src.api.config import settings
+import redis
+from datetime import datetime, timezone, timedelta
 
 logger = structlog.get_logger("ice.workers.gpu")
-
-GPU_UTIL_THRESHOLD = 20  # Max percentage allowable for background ingestion
+GPU_UTIL_THRESHOLD = 20
 
 
 def is_gpu_busy() -> bool:
     """Queries all active NVIDIA devices for compute utilization.
-    
+
     Returns True if any single GPU exceeds the configured threshold.
+    In shared mode, always returns False (background workers yield manually).
     """
-    def is_gpu_busy() -> bool:
-        if Settings.background_model_mode == "shared":
-            return False   # rely on Celery's rate limiting instead
-    ...  # existing logic
+    if settings.background_model_mode == "shared":
+        return False
+
     try:
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
@@ -27,16 +27,24 @@ def is_gpu_busy() -> bool:
             timeout=5,
             check=True,
         )
-        
         lines = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
         if not lines:
             return False
-            
-        # Extract maximum utilization across all present nodes
         max_utilization = max(int(util) for util in lines)
         return max_utilization > GPU_UTIL_THRESHOLD
-
     except (subprocess.SubprocessError, ValueError, FileNotFoundError) as err:
-        # Fall back gracefully if nvidia-smi is missing (e.g., CPU-only local dev contexts)
         logger.debug("Nvidia-smi query skipped or unavailable", error=str(err))
         return False
+    
+def is_user_active(idle_threshold_seconds: int = 10) -> bool:
+    """Return True if the user has chatted recently (shared mode should yield)."""
+    try:
+        r = redis.from_url(settings.redis_url)
+        last = r.get("ice:last_chat_completed")
+        r.close()
+        if last:
+            last_time = datetime.fromisoformat(last)
+            return (datetime.now(timezone.utc) - last_time).total_seconds() < idle_threshold_seconds
+    except Exception:
+        pass
+    return False

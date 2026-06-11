@@ -24,7 +24,7 @@ from src.classifier.classifier import ClassificationResult
 logger = structlog.get_logger("ice.retrieval")
 
 
-@dataclass
+@dataclass(frozen=True)
 class ContextFragment:
     text: str
     source_type: str          # "episodic", "codex", "procedural", "rag"
@@ -68,8 +68,8 @@ class HybridRetrievalOrchestrator:
         # HyDE query rewriting
         hyde_prompt = None
         if classification.context_reliance == "Long_Term_Memory":
-            hyde_prompt = self._hyde_rewrite(classification.prompt)
-        search_prompt = hyde_prompt if hyde_prompt else classification.prompt
+            hyde_prompt = self._hyde_rewrite(classification.prompt, conversation_id)
+            search_prompt = hyde_prompt if hyde_prompt else classification.prompt
 
         # Re‑compute embedding if the search prompt changed
         if hyde_prompt:
@@ -97,7 +97,27 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # HyDE rewriting
     # ------------------------------------------------------------------
-    def _hyde_rewrite(self, prompt: str) -> Optional[str]:
+    def _hyde_rewrite(self, prompt: str, conversation_id: str = None) -> Optional[str]:
+        # Collect the last 5 turns as context for the rewrite
+        context_text = ""
+        if conversation_id:
+            try:
+                recent = self.db.query(EpisodicMemory).filter_by(
+                    conversation_id=conversation_id
+                ).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
+                recent.reverse()
+                parts = []
+                for t in recent:
+                    parts.append(t.raw_text[:300])
+                context_text = "\n".join(parts)
+            except Exception:
+                pass
+
+        rewrite_prompt = (
+            f"Recent conversation:\n{context_text}\n\nUser's question:\n{prompt}"
+            if context_text else prompt
+        )
+
         try:
             resp = self.bg_client.chat.completions.create(
                 model="Qwen/Qwen2.5-3B-Instruct-AWQ",
@@ -107,7 +127,7 @@ class HybridRetrievalOrchestrator:
                         "as a dense, factual search query that would retrieve the relevant past conversation. "
                         "Include key entities and omit polite phrasing. Output ONLY the rewritten query, no other text."
                     )},
-                    {"role": "user", "content": prompt},
+                    {"role": "user", "content": rewrite_prompt},
                 ],
                 temperature=0.0,
                 max_tokens=200,
@@ -131,7 +151,7 @@ class HybridRetrievalOrchestrator:
         conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
 
         query = text(f"""
-            SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id,
+            SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
                    ts_rank(
                        to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                        query
@@ -168,8 +188,8 @@ class HybridRetrievalOrchestrator:
         conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
 
         query = text(f"""
-            SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id,
-                1 - (embedding <=> :prompt_embedding) as score
+            SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
+                (1 - (embedding <=> :prompt_embedding)) * COALESCE(decay_score, 1.0) as score
             FROM episodic_memory
             WHERE embedding IS NOT NULL
             {topic_filter}
@@ -367,6 +387,8 @@ class HybridRetrievalOrchestrator:
     # RRF fusion, diversification, dedup, token budget
     # ------------------------------------------------------------------
     def _apply_rrf(self, legs: Dict[str, List[ContextFragment]], k: int = 60) -> List[ContextFragment]:
+        """True RRF: rank each leg independently, then 1/(k + rank)."""
+        from dataclasses import replace
         rrf_scores: Dict[str, float] = {}
         fragment_registry: Dict[str, ContextFragment] = {}
 
@@ -380,8 +402,10 @@ class HybridRetrievalOrchestrator:
 
         fused = []
         for frag_hash, score in rrf_scores.items():
-            fragment_registry[frag_hash].score = score
-            fused.append(fragment_registry[frag_hash])
+            # Create a new frozen instance with the fused score
+            original = fragment_registry[frag_hash]
+            new_frag = replace(original, score=score)
+            fused.append(new_frag)
 
         fused.sort(key=lambda x: x.score, reverse=True)
         return fused
@@ -473,6 +497,7 @@ class HybridRetrievalOrchestrator:
     def _rows_to_fragments(self, rows, source_type):
         fragments = []
         for row in rows:
+            # Decide which text to inject based on inject_raw flag
             if row.inject_raw and row.raw_text:
                 text = row.raw_text
             elif row.summary_text:
@@ -482,6 +507,7 @@ class HybridRetrievalOrchestrator:
             else:
                 continue
 
+            # Apply the 500‑word cap to all injected fragments
             words = text.split()
             if len(words) > 500:
                 text = ' '.join(words[:500]) + '…'
@@ -490,6 +516,9 @@ class HybridRetrievalOrchestrator:
                 continue
 
             score_val = getattr(row, "score", 1.0)
+            if getattr(row, "is_bookmarked", False):
+                score_val *= 1.5
+
             fragments.append(ContextFragment(
                 text=text,
                 source_type=source_type,

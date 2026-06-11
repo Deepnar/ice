@@ -8,13 +8,14 @@ import structlog
 from sqlalchemy import text
 from sentence_transformers import SentenceTransformer
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, ProceduralMemory, IdempotencyKey
 from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy
+from src.workers.gpu_check import is_gpu_busy, is_user_active
 
 logger = structlog.get_logger("ice.workers.procedural")
-from src.workers.bg_client_factory import get_bg_client
+from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 # Load the embedding model once globally – prevents disk I/O starvation
 pattern_embedder = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
@@ -25,13 +26,14 @@ def encode_pattern(text: str):
 
 
 @app.task(bind=True, max_retries=3, default_retry_delay=30)
-def extract_procedural(self, batch_id: str):
+def extract_procedural(self, batch_id: str, model_used: str = ""):
     """Scan the exchange for recurring workflows or habits."""
     log = logger.bind(batch_id=batch_id)
 
     if is_gpu_busy():
         raise self.retry(countdown=30)
-
+    if settings.background_model_mode == "shared" and is_user_active():
+        raise self.retry(countdown=30)
     idempotency_key = hashlib.sha256(f"procedural:{batch_id}".encode()).hexdigest()
     db = SessionLocal()
     try:
@@ -51,8 +53,9 @@ def extract_procedural(self, batch_id: str):
             "If no pattern is evident, output 'NONE'.\n"
             "Do NOT include any other text or explanation."
         )
+        model_name = model_used if model_used else get_bg_model_name()
         completion = bg_client.chat.completions.create(
-            model="Qwen/Qwen2.5-3B-Instruct-AWQ",
+            model=model_name,
             messages=[
                 {"role": "system", "content": "You are a behavioural pattern detector."},
                 {"role": "user", "content": f"Text:\n{turn.raw_text}\n\n{prompt}"}

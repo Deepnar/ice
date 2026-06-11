@@ -79,5 +79,7 @@ class PyTorchClassifier:
             intent_tags=intent_tags,
             context_reliance=context_reliance,
             raw_probs=raw_probs,
-            max_confidence=max_confidence
+            max_confidence=max_confidence,
+            prompt=prompt,
+            
         )

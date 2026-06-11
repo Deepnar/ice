@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
+# ── Load environment variables from .env ─────────────────
+if [ -f "$(dirname "$0")/.env" ]; then
+    set -a
+    source "$(dirname "$0")/.env"
+    set +a
+fi
+
 # ── Configuration ──────────────────────────────────────
 PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LOG_DIR="$PROJECT_ROOT/logs"
@@ -18,15 +25,20 @@ echo "Starting PostgreSQL and Redis..."
 docker compose -f "$PROJECT_ROOT/docker/docker-compose.yml" up -d
 
 # ── Start vLLM background model ──────────────────────────
-echo "Starting background model (vllm-bg)..."
-nohup vllm serve Qwen/Qwen2.5-3B-Instruct-AWQ \
-    --port 8002 \
-    --max-model-len 8192 \
-    --gpu-memory-utilization 0.25 \
-    --enforce-eager \
-    --kv-cache-dtype fp8 \
-    > "$LOG_DIR/vllm_bg.log" 2>&1 &
-
+# Start vLLM background model (only in dedicated mode)
+BG_MODE="${BACKGROUND_MODEL_MODE:-dedicated}"
+if [ "$BG_MODE" = "dedicated" ]; then
+    echo "Starting background model (vllm-bg)..."
+    nohup vllm serve Qwen/Qwen2.5-3B-Instruct-AWQ \
+        --port 8002 \
+        --max-model-len 8192 \
+        --gpu-memory-utilization 0.25 \
+        --enforce-eager \
+        --kv-cache-dtype fp8 \
+        > "$LOG_DIR/vllm_bg.log" 2>&1 &
+else
+    echo "Shared mode – skipping background model (will use main LLM)."
+fi
 # ── Start Celery worker + beat ───────────────────────────
 echo "Starting Celery worker and beat..."
 nohup uv run celery -A src.workers.celery_app worker -B --loglevel=info \

@@ -52,6 +52,9 @@ def monitor_sentinels(self):
 
 def _evaluate_rule(rule, db) -> bool:
     cond = rule.trigger_conditions or {}
+    if isinstance(cond, str):
+        import json
+        cond = json.loads(cond)
     ttype = rule.trigger_type
 
     if ttype == "threshold":

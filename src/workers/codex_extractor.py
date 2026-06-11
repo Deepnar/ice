@@ -14,11 +14,11 @@ from src.memory.models import (
     CodexEntity, CodexEdge, CodexEvent, IdempotencyKey, EpisodicMemory
 )
 from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy
+from src.workers.gpu_check import is_gpu_busy, is_user_active
 
 logger = structlog.get_logger("ice.workers.codex")
 # Dedicated extraction client (port 8003)
-from src.workers.bg_client_factory import get_bg_client
+from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 CODEX_NAMESPACE = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
 
@@ -28,7 +28,7 @@ def generate_uuid5(canonical_name: str) -> uuid.UUID:
     return uuid.uuid5(CODEX_NAMESPACE, canonical_name.strip().lower())
 
 
-def extract_triplets(text: str) -> list:
+def extract_triplets(text: str, model_override: str = "") -> list:
     prompt = (
         "You are an entity extraction tool. Extract subject-relation-object triplets from the text.\n"
         "Each triplet must capture a fact: a subject (entity or concept), a relation (verb or verb phrase), "
@@ -44,8 +44,9 @@ def extract_triplets(text: str) -> list:
         "Now process this text:"
     )
     try:
+        model_name = model_override if model_override else get_bg_model_name()
         completion = bg_client.chat.completions.create(
-            model="Qwen/Qwen2.5-3B-Instruct-AWQ",
+            model=model_name,
             messages=[
                 {"role": "system", "content": "You are a JSON-only entity extraction tool. Never output anything but JSON."},
                 {"role": "user", "content": f"Text:\n{text}\n\n{prompt}"}
@@ -214,13 +215,14 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
 
 
 @app.task(bind=True, max_retries=3, default_retry_delay=30)
-def extract_codex(self, batch_id: str):
+def extract_codex(self, batch_id: str, model_used: str = ""):
     """Executes background semantic link mutations across target graph states."""
     log = logger.bind(batch_id=batch_id)
 
     if is_gpu_busy():
         raise self.retry(countdown=30)
-
+    if settings.background_model_mode == "shared" and is_user_active():
+        raise self.retry(countdown=30)
     idempotency_key = hashlib.sha256(f"codex:{batch_id}".encode()).hexdigest()
     db = SessionLocal()
     
@@ -232,7 +234,7 @@ def extract_codex(self, batch_id: str):
         if not turn or not turn.lossless_flag:
             return
 
-        triplets = extract_triplets(turn.raw_text)
+        triplets = extract_triplets(turn.raw_text, model_used)
         for triplet in triplets:
             s = triplet.get("subject", "").strip()
             r = triplet.get("relation", "").strip()

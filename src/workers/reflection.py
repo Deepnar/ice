@@ -6,16 +6,17 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import text
 from openai import OpenAI
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import (
     EpisodicMemory, SessionSummary, MemorySlot, CodexEntity, CodexEvent,
     ProceduralMemory, ContextCluster
 )
 from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy
+from src.workers.gpu_check import is_gpu_busy, is_user_active
 
 logger = structlog.get_logger("ice.workers.reflection")
-from src.workers.bg_client_factory import get_bg_client
+from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 # ------------------------------------------------------------------
 # Prompts
@@ -88,7 +89,8 @@ def run_reflection(self):
     """Execute a full reflection pass: synthesis, patterns, slots, enrichment, motifs."""
     if is_gpu_busy():
         raise self.retry(countdown=60)
-
+    if settings.background_model_mode == "shared" and is_user_active():
+        raise self.retry(countdown=30)
     db = SessionLocal()
     try:
         # 1. Load recent turns (last 200 across all conversations, for breadth)
@@ -134,7 +136,7 @@ def _synthesize_session(db, turns):
     if len(words) > 3000:
         full_text = " ".join(words[-3000:])
     completion = bg_client.chat.completions.create(
-        model="Qwen/Qwen2.5-3B-Instruct-AWQ",
+        model=get_bg_model_name(),
         messages=[
             {"role": "system", "content": "You are a session analysis engine. Output only JSON."},
             {"role": "user", "content": f"{SUMMARY_PROMPT}\n\n{full_text}"}

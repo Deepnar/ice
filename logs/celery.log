@@ -1,0 +1,56 @@
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 20740.95it/s]
+ 
+ -------------- celery@orien v5.6.3 (recovery)
+--- ***** ----- 
+-- ******* ---- Linux-7.0.11-1-cachyos-x86_64-with-glibc2.43 2026-06-10 19:59:30
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         ice_workers:0x7fd62c362d10
+- ** ---------- .> transport:   redis://localhost:6379/0
+- ** ---------- .> results:     redis://localhost:6379/0
+- *** --- * --- .> concurrency: 24 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> celery           exchange=celery(direct) key=celery
+                
+
+[tasks]
+  . src.workers.clustering.cluster_turns
+  . src.workers.codex_decay.decay_codex_edges
+  . src.workers.codex_extractor.extract_codex
+  . src.workers.compaction.compact_entities
+  . src.workers.decay.apply_decay
+  . src.workers.fine_tune.fine_tune_classifier
+  . src.workers.post_flight.evaluate_turn
+  . src.workers.procedural_decay.decay_procedural_patterns
+  . src.workers.procedural_extractor.extract_procedural
+  . src.workers.reflection.run_reflection
+  . src.workers.sentinel_monitor.monitor_sentinels
+
+[2026-06-10 19:59:35,016: INFO/Beat] beat: Starting...
+[2026-06-10 19:59:35,020: INFO/MainProcess] Connected to redis://localhost:6379/0
+[2026-06-10 19:59:35,024: INFO/MainProcess] mingle: searching for neighbors
+[2026-06-10 19:59:36,030: INFO/MainProcess] mingle: all alone
+[2026-06-10 19:59:36,054: INFO/MainProcess] celery@orien ready.
+[2026-06-10 20:00:00,008: INFO/Beat] Scheduler: Sending due task monitor-sentinels (src.workers.sentinel_monitor.monitor_sentinels)
+[2026-06-10 20:00:00,016: INFO/MainProcess] Task src.workers.sentinel_monitor.monitor_sentinels[8f718f8f-8753-4591-92e2-e5dd21a3b3a3] received
+[2026-06-10 20:00:00,110: INFO/ForkPoolWorker-15] Task src.workers.sentinel_monitor.monitor_sentinels[8f718f8f-8753-4591-92e2-e5dd21a3b3a3] succeeded in 0.09245027499855496s: None
+[2026-06-10 20:59:19,631: INFO/Beat] Scheduler: Sending due task monitor-sentinels (src.workers.sentinel_monitor.monitor_sentinels)
+[2026-06-10 20:59:19,634: INFO/MainProcess] Task src.workers.sentinel_monitor.monitor_sentinels[0ba11375-3617-4663-bfad-635f209d3b8e] received
+[2026-06-10 20:59:19,659: INFO/ForkPoolWorker-15] Task src.workers.sentinel_monitor.monitor_sentinels[0ba11375-3617-4663-bfad-635f209d3b8e] succeeded in 0.02461823799967533s: None
+[2026-06-10 21:00:00,000: INFO/Beat] Scheduler: Sending due task monitor-sentinels (src.workers.sentinel_monitor.monitor_sentinels)
+[2026-06-10 21:00:00,002: INFO/MainProcess] Task src.workers.sentinel_monitor.monitor_sentinels[f72f313f-9320-4626-9d62-6381651a16af] received
+[2026-06-10 21:00:00,027: INFO/ForkPoolWorker-15] Task src.workers.sentinel_monitor.monitor_sentinels[f72f313f-9320-4626-9d62-6381651a16af] succeeded in 0.024557568000091123s: None
+[2026-06-10 21:30:00,000: INFO/Beat] Scheduler: Sending due task monitor-sentinels (src.workers.sentinel_monitor.monitor_sentinels)
+[2026-06-10 21:30:00,002: INFO/MainProcess] Task src.workers.sentinel_monitor.monitor_sentinels[831107b9-e0cf-40b1-a7e1-c233fcd89ed1] received
+[2026-06-10 21:30:00,030: INFO/ForkPoolWorker-15] Task src.workers.sentinel_monitor.monitor_sentinels[831107b9-e0cf-40b1-a7e1-c233fcd89ed1] succeeded in 0.02708559900020191s: None
+[2026-06-10 22:00:00,000: INFO/Beat] Scheduler: Sending due task monitor-sentinels (src.workers.sentinel_monitor.monitor_sentinels)
+[2026-06-10 22:00:00,002: INFO/MainProcess] Task src.workers.sentinel_monitor.monitor_sentinels[00105dc3-58ae-449d-bbe2-4771ef19e4f5] received
+[2026-06-10 22:00:00,029: INFO/ForkPoolWorker-15] Task src.workers.sentinel_monitor.monitor_sentinels[00105dc3-58ae-449d-bbe2-4771ef19e4f5] succeeded in 0.026507773000048473s: None
+
+worker: Hitting Ctrl+C again will initiate cold shutdown, terminating all running tasks!
+
+worker: Warm shutdown (MainProcess)
+
+worker: Hitting Ctrl+C again will terminate all running tasks!

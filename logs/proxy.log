@@ -1,0 +1,12 @@
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 25957.66it/s]
+INFO:     Started server process [120080]
+INFO:     Waiting for application startup.
+2026-06-10 19:59:30 [info     ] Loading classifier...
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 21752.94it/s]
+2026-06-10 19:59:35 [info     ] Classifier loaded. ICE Proxy ready.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [120080]

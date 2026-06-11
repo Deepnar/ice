@@ -29,7 +29,7 @@ from src.memory.models import Conversation, EpisodicMemory, MemorySlot
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.workers.post_flight import evaluate_turn
 from src.model_registry.registry import find_best_model, get_fallback_model
-
+SESSION_STATE: dict = {}
 logger = structlog.get_logger("ice.api")
 classifier: Optional[PyTorchClassifier] = None
 
@@ -71,6 +71,7 @@ async def store_turn_async(
     intent_tags: list,
     context_reliance: str,
     raw_stream_chunks: list[str],
+    model_used: str = "",
 ):
     """Async post-flight task.
 
@@ -139,6 +140,7 @@ async def store_turn_async(
                 prompt=user_message,
                 response=full_assistant_text,
                 conversation_id=str(conversation_id),
+                model_used=model_used,
             )
         except Exception as celery_err:
             log.error("celery_enqueue_failed", error=str(celery_err))
@@ -152,7 +154,7 @@ async def store_turn_async(
             with open("data/post_flight_buffer.jsonl", "a") as buf:
                 buf.write(json.dumps(buffer_entry) + "\n")
 
-        # Emit CHAT_COMPLETED event to Redis
+        # Emit CHAT_COMPLETED event to Redis + update last‑chat timestamp
         try:
             r = aioredis.from_url(settings.redis_url)
             await r.publish("chat:completed", json.dumps({
@@ -161,6 +163,7 @@ async def store_turn_async(
                 "batch_id": str(turn.batch_id),
                 "idempotency_key": idempotency_key
             }))
+            await r.set("ice:last_chat_completed", datetime.now(timezone.utc).isoformat())  # ← new line
             await r.close()
         except Exception as redis_err:
             log.error("redis_publish_failed", error=str(redis_err))
@@ -205,6 +208,26 @@ async def chat_completions(
 
     # Stateless pre‑flight classification
     result = classifier.classify(user_message)
+    # ── Session stickiness: prevent model switching on a single off‑topic turn ──
+    global SESSION_STATE
+    conv_state = SESSION_STATE.get(str(conversation_id), {
+        "model": None,
+        "consecutive_shifts": 0,
+        "last_topic_tags": [],
+        "last_intent_tags": [],
+    })
+
+    # Determine if a hard topic shift occurred (no overlap with previous turn's tags)
+    topic_overlap = set(result.topic_tags) & set(conv_state["last_topic_tags"])
+    intent_overlap = set(result.intent_tags) & set(conv_state["last_intent_tags"])
+    if topic_overlap or intent_overlap:
+        conv_state["consecutive_shifts"] = 0
+    else:
+        conv_state["consecutive_shifts"] += 1
+
+    conv_state["last_topic_tags"] = result.topic_tags
+    conv_state["last_intent_tags"] = result.intent_tags
+    SESSION_STATE[str(conversation_id)] = conv_state
     log.info(
         "classified",
         topic_tags=result.topic_tags,
@@ -236,10 +259,13 @@ async def chat_completions(
         conversation_id = conversation.id
 
     # ── Scope from conversation metadata ──
-    scope = {"conversation_id": str(conversation_id)}
+    scope = {}
     conv_row = db.query(Conversation).filter_by(id=conversation_id).first()
-    if conv_row and conv_row.memory_scope_type == "project" and conv_row.cluster_ids:
-        scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
+    if conv_row and conv_row.memory_scope_type == "project":
+        scope["conversation_id"] = str(conversation_id)
+        if conv_row.cluster_ids:
+            scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
+    # For "auto" or "none", scope stays empty → retrieval searches globally
 
     # ── Retrieval & prompt assembly ──
     result.prompt = user_message
@@ -322,15 +348,52 @@ async def chat_completions(
             hyde_used=hyde_used,
         )
 
-    # ── Model selection via registry ──────────────────────────
+    # ── Model selection via registry (with stickiness) ──────────────────────────
     if body.get("model", "default") == "ice-proxy":
-        model_name, model_base_url = find_best_model(result.topic_tags, result.intent_tags)
-        log.info("mini_moe_routing", selected_model=model_name,
-                 topic_tags=result.topic_tags, intent_tags=result.intent_tags)
+        if conv_state["model"] and conv_state["consecutive_shifts"] < 3:
+            model_name = conv_state["model"]
+            model_base_url = None
+            log.info("mini_moe_sticky", model=model_name, shifts=conv_state["consecutive_shifts"])
+        else:
+            model_name, model_base_url = find_best_model(result.topic_tags, result.intent_tags)
+            conv_state["model"] = model_name
+            conv_state["consecutive_shifts"] = 0
+            log.info("mini_moe_routing", selected_model=model_name,
+                     topic_tags=result.topic_tags, intent_tags=result.intent_tags)
         ollama_url = f"{model_base_url or settings.ollama_base_url}/v1/chat/completions"
     else:
         model_name = body.get("model", get_fallback_model())
         ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
+
+    # ── Model selection (moved here so we can use assembled token count) ──
+    # Estimate token count of the assembled prompt
+    def _word_count(text: str) -> int:
+        return len(text.split()) if text else 0
+    system_words = _word_count(messages[0]["content"]) if messages else 0
+    user_words = _word_count(user_message)
+    required_tokens = int((system_words + user_words) * 1.33)
+
+    if body.get("model", "default") == "ice-proxy":
+        if conv_state["model"] and conv_state["consecutive_shifts"] < 3:
+            model_name = conv_state["model"]
+            model_base_url = None
+            log.info("mini_moe_sticky", model=model_name, shifts=conv_state["consecutive_shifts"])
+        else:
+            model_name, model_base_url = find_best_model(
+                result.topic_tags, result.intent_tags, required_tokens
+            )
+            conv_state["model"] = model_name
+            conv_state["consecutive_shifts"] = 0
+            log.info("mini_moe_routing", selected_model=model_name,
+                     topic_tags=result.topic_tags, intent_tags=result.intent_tags)
+        ollama_url = f"{model_base_url or settings.ollama_base_url}/v1/chat/completions"
+    else:
+        model_name = body.get("model", get_fallback_model())
+        ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
+
+    # ── Streaming generation with fallback model ──
+    ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"   # keep or remove? we'll keep
+    # ... (the existing ollama_url line can be removed since we already set it above)
 
     # ── Streaming generation with fallback model ──
     accumulated_raw_chunks = []
@@ -371,7 +434,7 @@ async def chat_completions(
 
         # Primary request with tight timeout
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            async with httpx.AsyncClient(timeout=10.0) as client:
                 async with client.stream(
                     "POST",
                     ollama_url,
@@ -385,7 +448,7 @@ async def chat_completions(
             yield sse_event("degraded", {"reason": "primary_model_timeout", "fallback": get_fallback_model()})
             model_to_use = get_fallback_model()
             yield sse_event("generating", {"model": model_to_use})
-            async with httpx.AsyncClient(timeout=10.0) as client2:
+            async with httpx.AsyncClient(timeout=30.0) as client2:
                 async with client2.stream(
                     "POST",
                     ollama_url,
@@ -407,6 +470,7 @@ async def chat_completions(
         intent_tags=result.intent_tags,
         context_reliance=result.context_reliance,
         raw_stream_chunks=accumulated_raw_chunks,
+        model_used=model_to_use, 
     )
 
     return StreamingResponse(

@@ -15,7 +15,7 @@ app = Celery(
         "src.workers.reflection",
         "src.workers.sentinel_monitor",
         "src.workers.clustering",
-        "src.workers.fine_tune"
+        "src.workers.fine_tune",
         "src.workers.codex_decay",
         "src.workers.procedural_decay",
     ],
