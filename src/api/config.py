@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     classifier_threshold: float = 0.3
     confidence_fallback_threshold: float = 0.75
-    classifier_model_path: str = "models/classifier/ice_classifier_v2_final.pt"
+    classifier_model_path: str = "models/classifier/ice_classifier_finetuned_20260614_074401.pt"
     label_schema_path: str = "data/labeled/label_schema.json"
     default_fallback_model: str = "qwen2.5:7b"
     background_model_mode: str = "dedicated"   # "dedicated" or "shared"          # ← new
