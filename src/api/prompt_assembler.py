@@ -6,12 +6,43 @@ from sqlalchemy.orm import Session
 from src.retrieval.orchestrator import ContextFragment
 from src.memory.models import MemorySlot, EpisodicMemory
 
-SYSTEM_RULES = (
+
+
+BASE_SYSTEM_RULES = (
     "You are an AI assistant with access to a personal memory system (ICE).\n"
-    "The following context has been automatically retrieved from past conversations and knowledge.\n"
-    "Use it to answer the user's question accurately. If the context is irrelevant, ignore it.\n"
-    "Give detailed, thorough answers. Don't be overly brief."
+    "Below is context retrieved from past conversations.\n\n"
+    "RULES:\n"
+    "1. Answer based ONLY on the context provided below.\n"
+    "2. If the context does NOT contain the answer, say so naturally.\n"
+    "3. Do NOT add details not present in the context.\n"
+    "4. Write naturally. Don't over-explain and don't add citations.\n"
 )
+
+
+
+INTENT_INSTRUCTIONS = {
+    "Factual_Retrieval": (
+        "Be precise. List facts, names, and numbers exactly as they appear in the context."
+    ),
+    "Troubleshooting": (
+        "Describe the problem and solution exactly as they appear in the context."
+    ),
+    "Generation": (
+        "Generate based ONLY on what's in the context. Follow examples and templates exactly."
+    ),
+    "Emotional_Processing": (
+        "Respond with empathy, but base your response ONLY on the context. "
+        "If the context doesn't mention a specific memory, don't invent it."
+    ),
+}
+
+
+def get_intent_instruction(intent_tags: List[str]) -> str:
+    """Return the appropriate instruction based on the first matching intent."""
+    for intent in intent_tags:
+        if intent in INTENT_INSTRUCTIONS:
+            return INTENT_INSTRUCTIONS[intent]
+    return ""
 
 
 def get_recent_turns(db_session: Session, conversation_id: str, n: int = 10) -> List[str]:
@@ -19,7 +50,7 @@ def get_recent_turns(db_session: Session, conversation_id: str, n: int = 10) -> 
     turns = db_session.query(EpisodicMemory).filter_by(
         conversation_id=conversation_id
     ).order_by(EpisodicMemory.timestamp.desc()).limit(n).all()
-    turns.reverse()  # chronological order
+    turns.reverse()
     fragments = []
     for t in turns:
         if t.inject_raw and t.raw_text:
@@ -42,42 +73,54 @@ def assemble_prompt(
     db_session: Optional[Session] = None,
     conversation_id: Optional[str] = None,
     bookmarked_texts: Optional[List[str]] = None,
-    classification=None,                          # NEW parameter
+    classification=None,
 ) -> List[dict]:
-    """Assemble the final prompt in stable‑prefix order."""
+    """Assemble the final prompt with safety-first instructions."""
 
-    # ── Emotional / personal queries: bypass structured prompt, inject raw context ──
+
     if classification and (
         "Emotional_Processing" in classification.intent_tags
         or "Social_&_Relationships" in classification.topic_tags
         or "Creative_&_Media" in classification.topic_tags
     ):
-        context_texts = [f.text for f in retrieved_fragments]
-        plain_context = "\n\n".join(context_texts)
+        context_texts = []
+        if bookmarked_texts:
+            context_texts.append("=== BOOKMARKED MEMORIES ===\n" + "\n\n".join(bookmarked_texts))
 
-        # Choose the right voice: exhaustive for factual queries, warm for the rest
-        if "Factual_Retrieval" in classification.intent_tags:
-            system_message = (
-                "You are an assistant with access to past conversations. "
-                "Answer the following question as thoroughly and completely as possible. "
-                "List all relevant details, names, and items. Do not summarise – be exhaustive."
-            )
-        else:
-            system_message = (
-                "You are a deeply personal AI assistant who has been talking with this user "
-                "for a long time. Answer warmly, specifically, and with emotional depth. "
-                "Use the provided context as if you genuinely remember these moments. "
-                "Give thorough, detailed answers — don’t be too brief."
-            )
+        for f in retrieved_fragments:
+            context_texts.append(f.text)
+
+        plain_context = "\n\n".join(context_texts) if context_texts else "No relevant context retrieved."
+
+        intent_instruction = get_intent_instruction(classification.intent_tags)
+
+        system_message = (
+            "You are a personal AI assistant with access to past conversations.\n\n"
+            "RULES:\n"
+            "1. Answer based ONLY on the context below.\n"
+            "2. If the context does NOT contain the answer, say so naturally.\n"
+            "3. Do NOT invent memories or details.\n"
+            "4. Write naturally and conversationally.\n"
+        )
+
+        if intent_instruction:
+            system_message += f"\nINTENT: {intent_instruction}\n"
 
         return [
             {"role": "system", "content": system_message},
             {"role": "user", "content": f"Context:\n{plain_context}\n\nQuestion: {user_message}"}
-    ]
+        ]
 
-    system_content = SYSTEM_RULES
 
-    # 0. Bookmarked memories (explicit user reinforcements)
+
+    system_content = BASE_SYSTEM_RULES
+
+    if classification:
+        intent_instruction = get_intent_instruction(classification.intent_tags)
+        if intent_instruction:
+            system_content += f"\n\nINTENT: {intent_instruction}\n"
+
+    # 0. Bookmarked memories
     if bookmarked_texts:
         system_content += "\n\n=== BOOKMARKED MEMORIES ===\n" + "\n\n".join(bookmarked_texts)
 
@@ -100,25 +143,31 @@ def assemble_prompt(
     codex_frags = [f for f in retrieved_fragments if f.source_type == "codex"]
     if codex_frags:
         codex_text = "\n\n".join(f.text.strip() for f in codex_frags)
-        system_content += f"\n\n=== CODEX KNOWLEDGE GRAPH ASSERTIONS ===\n{codex_text}"
+        system_content += f"\n\n=== CODEX KNOWLEDGE ===\n{codex_text}"
 
     # 4. Episodic context
     episodic_frags = [f for f in retrieved_fragments if f.source_type == "episodic"]
     if episodic_frags:
         episodic_text = "\n\n".join(f.text.strip() for f in episodic_frags)
-        system_content += f"\n\n=== RETRIEVED EPISODIC INTERACTIONS ===\n{episodic_text}"
+        system_content += f"\n\n=== PAST INTERACTIONS ===\n{episodic_text}"
 
     # 5. Procedural patterns
     procedural_frags = [f for f in retrieved_fragments if f.source_type == "procedural"]
     if procedural_frags:
         proc_text = "\n\n".join(f.text.strip() for f in procedural_frags)
-        system_content += f"\n\n=== PROCEDURAL EXECUTION PATTERNS ===\n{proc_text}"
+        system_content += f"\n\n=== PATTERNS ===\n{proc_text}"
 
     # 6. RAG chunks
     rag_frags = [f for f in retrieved_fragments if f.source_type == "rag"]
     if rag_frags:
         rag_text = "\n\n".join(f.text.strip() for f in rag_frags)
         system_content += f"\n\n=== REFERENCE MATERIAL ===\n{rag_text}"
+
+    system_content += (
+        "\n\nREMINDER: Answer naturally and conversationally. "
+        "If you don't know something, say so honestly. "
+        "Don't add details not in the context."
+    )
 
     return [
         {"role": "system", "content": system_content.strip()},
