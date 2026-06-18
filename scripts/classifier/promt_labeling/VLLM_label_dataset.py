@@ -587,9 +587,11 @@ async def label_prompt_async(semaphore: asyncio.Semaphore, item: dict, outfile, 
         pbar.update(1)
 
 async def main():
-    INPUT_PATH = "/home/deepnar/Programs/ice/data/labeled/dataset_cleaned_filtered.jsonl" 
-    OUTPUT_PATH = "/home/deepnar/Programs/ice/data/datasets/labeled_prompts.jsonl"
-    FAILED_PATH = "/home/deepnar/Programs/ice/data/datasets/failed_prompts.jsonl"
+    INPUT_PATH = "/home/deepnar/Programs/ice/data/labeled/probes_unlabeled.jsonl"
+
+    OUTPUT_PATH = "/home/deepnar/Programs/ice/data/labeled/probes_labeled.jsonl"
+
+    FAILED_PATH = "/home/deepnar/Programs/ice/data/labeled/probes_failed.jsonl"
 
     if not os.path.exists(INPUT_PATH):
         print(f"❌ Error: Cannot find input file at '{INPUT_PATH}'")
