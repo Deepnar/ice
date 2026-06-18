@@ -1,0 +1,3627 @@
+{
+  "generated_at": "2026-06-18T16:30:58.762327+00:00",
+  "cohorts": {
+    "adaptive_gated_retrieval_2k": {
+      "control_baseline_generalist": {
+        "avg_score": 3.38,
+        "std_score": 1.62,
+        "avg_tokens_injected": 3996,
+        "std_tokens_injected": 26,
+        "win_rate_pct": 16.3,
+        "hallucination_pct": 63.8,
+        "tur": 0.84,
+        "n_scores": 263,
+        "n_tokens": 265
+      },
+      "control_moe": {
+        "avg_score": 3.33,
+        "std_score": 1.65,
+        "avg_tokens_injected": 3996,
+        "std_tokens_injected": 26,
+        "win_rate_pct": 10.6,
+        "hallucination_pct": 66.0,
+        "tur": 0.83,
+        "n_scores": 264,
+        "n_tokens": 265
+      },
+      "vector_rag_baseline_generalist": {
+        "avg_score": 4.25,
+        "std_score": 1.26,
+        "avg_tokens_injected": 5662,
+        "std_tokens_injected": 1436,
+        "win_rate_pct": 27.3,
+        "hallucination_pct": 55.5,
+        "tur": 0.75,
+        "n_scores": 264,
+        "n_tokens": 265
+      },
+      "vector_rag_moe": {
+        "avg_score": 4.27,
+        "std_score": 1.23,
+        "avg_tokens_injected": 5662,
+        "std_tokens_injected": 1436,
+        "win_rate_pct": 22.0,
+        "hallucination_pct": 58.5,
+        "tur": 0.75,
+        "n_scores": 265,
+        "n_tokens": 265
+      },
+      "full_ice_generalist": {
+        "avg_score": 4.03,
+        "std_score": 1.39,
+        "avg_tokens_injected": 1449,
+        "std_tokens_injected": 834,
+        "win_rate_pct": 12.1,
+        "hallucination_pct": 60.4,
+        "tur": 2.78,
+        "n_scores": 264,
+        "n_tokens": 265
+      },
+      "full_ice_moe": {
+        "avg_score": 3.85,
+        "std_score": 1.42,
+        "avg_tokens_injected": 1449,
+        "std_tokens_injected": 834,
+        "win_rate_pct": 11.7,
+        "hallucination_pct": 63.0,
+        "tur": 2.65,
+        "n_scores": 265,
+        "n_tokens": 265
+      },
+      "comparative_deltas": {
+        "token_savings_vs_vector_pct": 74.4,
+        "token_savings_vs_naive_pct": 63.7,
+        "quality_gain_vs_vector_pts": -0.4,
+        "hallucination_reduction_vs_vector_pct": -7.5
+      },
+      "fragment_noise_summary": {
+        "full_ice_mean_noise": 2.31,
+        "full_ice_std_noise": 1.45,
+        "full_ice_n": 200,
+        "vector_rag_mean_noise": 3.0,
+        "vector_rag_std_noise": 2.46,
+        "vector_rag_n": 265
+      }
+    },
+    "forced_long_horizon_retrieval_5k": {
+      "control_baseline_generalist": {
+        "avg_score": 2.82,
+        "std_score": 1.56,
+        "avg_tokens_injected": 4000,
+        "std_tokens_injected": 0,
+        "win_rate_pct": 7.9,
+        "hallucination_pct": 81.1,
+        "tur": 0.71,
+        "n_scores": 391,
+        "n_tokens": 392
+      },
+      "control_moe": {
+        "avg_score": 2.79,
+        "std_score": 1.55,
+        "avg_tokens_injected": 4000,
+        "std_tokens_injected": 0,
+        "win_rate_pct": 5.6,
+        "hallucination_pct": 80.1,
+        "tur": 0.7,
+        "n_scores": 389,
+        "n_tokens": 392
+      },
+      "vector_rag_baseline_generalist": {
+        "avg_score": 3.93,
+        "std_score": 1.34,
+        "avg_tokens_injected": 5972,
+        "std_tokens_injected": 645,
+        "win_rate_pct": 19.9,
+        "hallucination_pct": 70.9,
+        "tur": 0.66,
+        "n_scores": 390,
+        "n_tokens": 392
+      },
+      "vector_rag_moe": {
+        "avg_score": 3.9,
+        "std_score": 1.36,
+        "avg_tokens_injected": 5972,
+        "std_tokens_injected": 645,
+        "win_rate_pct": 11.3,
+        "hallucination_pct": 72.2,
+        "tur": 0.65,
+        "n_scores": 390,
+        "n_tokens": 392
+      },
+      "full_ice_generalist": {
+        "avg_score": 4.04,
+        "std_score": 1.29,
+        "avg_tokens_injected": 4694,
+        "std_tokens_injected": 624,
+        "win_rate_pct": 28.6,
+        "hallucination_pct": 75.8,
+        "tur": 0.86,
+        "n_scores": 391,
+        "n_tokens": 392
+      },
+      "full_ice_moe": {
+        "avg_score": 4.04,
+        "std_score": 1.26,
+        "avg_tokens_injected": 4694,
+        "std_tokens_injected": 624,
+        "win_rate_pct": 26.6,
+        "hallucination_pct": 78.6,
+        "tur": 0.86,
+        "n_scores": 390,
+        "n_tokens": 392
+      },
+      "full_ice_scope_auto_generalist": {
+        "avg_score": 4.06,
+        "std_score": 1.19,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 86.6,
+        "tur": 0.83,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_scope_auto_moe": {
+        "avg_score": 4.03,
+        "std_score": 1.17,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 86.6,
+        "tur": 0.83,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_scope_project_generalist": {
+        "avg_score": 4.04,
+        "std_score": 1.28,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 86.6,
+        "tur": 0.83,
+        "n_scores": 112,
+        "n_tokens": 112
+      },
+      "full_ice_scope_project_moe": {
+        "avg_score": 4.12,
+        "std_score": 1.17,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 87.5,
+        "tur": 0.84,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_scope_none_generalist": {
+        "avg_score": 4.05,
+        "std_score": 1.24,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 86.6,
+        "tur": 0.83,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_scope_none_moe": {
+        "avg_score": 4.09,
+        "std_score": 1.16,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 88.4,
+        "tur": 0.84,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_no_hyde_generalist": {
+        "avg_score": 4.05,
+        "std_score": 1.25,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 84.8,
+        "tur": 0.83,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_no_hyde_moe": {
+        "avg_score": 4.11,
+        "std_score": 1.17,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 87.5,
+        "tur": 0.84,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_no_sliding_window_generalist": {
+        "avg_score": 3.91,
+        "std_score": 1.28,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 86.6,
+        "tur": 0.8,
+        "n_scores": 112,
+        "n_tokens": 112
+      },
+      "full_ice_no_sliding_window_moe": {
+        "avg_score": 3.9,
+        "std_score": 1.25,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 87.5,
+        "tur": 0.8,
+        "n_scores": 112,
+        "n_tokens": 112
+      },
+      "full_ice_no_procedural_generalist": {
+        "avg_score": 3.94,
+        "std_score": 1.25,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 85.7,
+        "tur": 0.81,
+        "n_scores": 112,
+        "n_tokens": 112
+      },
+      "full_ice_no_procedural_moe": {
+        "avg_score": 3.9,
+        "std_score": 1.25,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 85.7,
+        "tur": 0.8,
+        "n_scores": 112,
+        "n_tokens": 112
+      },
+      "comparative_deltas": {
+        "token_savings_vs_vector_pct": 21.4,
+        "token_savings_vs_naive_pct": -17.3,
+        "quality_gain_vs_vector_pts": 0.11,
+        "hallucination_reduction_vs_vector_pct": -7.7
+      },
+      "fragment_noise_summary": {
+        "full_ice_mean_noise": 2.97,
+        "full_ice_std_noise": 2.19,
+        "full_ice_n": 389,
+        "vector_rag_mean_noise": 2.85,
+        "vector_rag_std_noise": 2.07,
+        "vector_rag_n": 392
+      }
+    },
+    "global_aggregate": {
+      "control_baseline_generalist": {
+        "avg_score": 3.05,
+        "std_score": 1.61,
+        "avg_tokens_injected": 3998,
+        "std_tokens_injected": 16,
+        "win_rate_pct": 11.3,
+        "hallucination_pct": 74.1,
+        "tur": 0.76,
+        "n_scores": 654,
+        "n_tokens": 657
+      },
+      "control_moe": {
+        "avg_score": 3.01,
+        "std_score": 1.61,
+        "avg_tokens_injected": 3998,
+        "std_tokens_injected": 16,
+        "win_rate_pct": 7.6,
+        "hallucination_pct": 74.4,
+        "tur": 0.75,
+        "n_scores": 653,
+        "n_tokens": 657
+      },
+      "vector_rag_baseline_generalist": {
+        "avg_score": 4.06,
+        "std_score": 1.31,
+        "avg_tokens_injected": 5847,
+        "std_tokens_injected": 1049,
+        "win_rate_pct": 22.9,
+        "hallucination_pct": 64.7,
+        "tur": 0.69,
+        "n_scores": 654,
+        "n_tokens": 657
+      },
+      "vector_rag_moe": {
+        "avg_score": 4.05,
+        "std_score": 1.32,
+        "avg_tokens_injected": 5847,
+        "std_tokens_injected": 1049,
+        "win_rate_pct": 15.6,
+        "hallucination_pct": 66.7,
+        "tur": 0.69,
+        "n_scores": 655,
+        "n_tokens": 657
+      },
+      "full_ice_generalist": {
+        "avg_score": 4.04,
+        "std_score": 1.33,
+        "avg_tokens_injected": 3385,
+        "std_tokens_injected": 1746,
+        "win_rate_pct": 22.0,
+        "hallucination_pct": 69.6,
+        "tur": 1.19,
+        "n_scores": 655,
+        "n_tokens": 657
+      },
+      "full_ice_moe": {
+        "avg_score": 3.96,
+        "std_score": 1.33,
+        "avg_tokens_injected": 3385,
+        "std_tokens_injected": 1746,
+        "win_rate_pct": 20.6,
+        "hallucination_pct": 72.3,
+        "tur": 1.17,
+        "n_scores": 655,
+        "n_tokens": 657
+      },
+      "full_ice_scope_auto_generalist": {
+        "avg_score": 4.06,
+        "std_score": 1.19,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 86.6,
+        "tur": 0.83,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_scope_auto_moe": {
+        "avg_score": 4.03,
+        "std_score": 1.17,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 86.6,
+        "tur": 0.83,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_scope_project_generalist": {
+        "avg_score": 4.04,
+        "std_score": 1.28,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 86.6,
+        "tur": 0.83,
+        "n_scores": 112,
+        "n_tokens": 112
+      },
+      "full_ice_scope_project_moe": {
+        "avg_score": 4.12,
+        "std_score": 1.17,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 87.5,
+        "tur": 0.84,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_scope_none_generalist": {
+        "avg_score": 4.05,
+        "std_score": 1.24,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 86.6,
+        "tur": 0.83,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_scope_none_moe": {
+        "avg_score": 4.09,
+        "std_score": 1.16,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 88.4,
+        "tur": 0.84,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_no_hyde_generalist": {
+        "avg_score": 4.05,
+        "std_score": 1.25,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 84.8,
+        "tur": 0.83,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_no_hyde_moe": {
+        "avg_score": 4.11,
+        "std_score": 1.17,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 87.5,
+        "tur": 0.84,
+        "n_scores": 111,
+        "n_tokens": 112
+      },
+      "full_ice_no_sliding_window_generalist": {
+        "avg_score": 3.91,
+        "std_score": 1.28,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 86.6,
+        "tur": 0.8,
+        "n_scores": 112,
+        "n_tokens": 112
+      },
+      "full_ice_no_sliding_window_moe": {
+        "avg_score": 3.9,
+        "std_score": 1.25,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 87.5,
+        "tur": 0.8,
+        "n_scores": 112,
+        "n_tokens": 112
+      },
+      "full_ice_no_procedural_generalist": {
+        "avg_score": 3.94,
+        "std_score": 1.25,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 85.7,
+        "tur": 0.81,
+        "n_scores": 112,
+        "n_tokens": 112
+      },
+      "full_ice_no_procedural_moe": {
+        "avg_score": 3.9,
+        "std_score": 1.25,
+        "avg_tokens_injected": 4873,
+        "std_tokens_injected": 117,
+        "win_rate_pct": 0.0,
+        "hallucination_pct": 85.7,
+        "tur": 0.8,
+        "n_scores": 112,
+        "n_tokens": 112
+      },
+      "comparative_deltas": {
+        "token_savings_vs_vector_pct": 42.1,
+        "token_savings_vs_naive_pct": 15.3,
+        "quality_gain_vs_vector_pts": -0.1,
+        "hallucination_reduction_vs_vector_pct": -7.6
+      },
+      "fragment_noise_summary": {
+        "full_ice_mean_noise": 2.75,
+        "full_ice_std_noise": 1.99,
+        "full_ice_n": 589,
+        "vector_rag_mean_noise": 2.91,
+        "vector_rag_std_noise": 2.23,
+        "vector_rag_n": 657
+      }
+    }
+  },
+  "flaw_lens": {
+    "control_baseline_generalist": {
+      "avg_score": 2.46,
+      "std_score": 1.45,
+      "avg_tokens_injected": 4000,
+      "std_tokens_injected": 0,
+      "win_rate_pct": 8.6,
+      "hallucination_pct": 90.1,
+      "tur": 0.61,
+      "n_scores": 81,
+      "n_tokens": 81
+    },
+    "control_moe": {
+      "avg_score": 2.48,
+      "std_score": 1.42,
+      "avg_tokens_injected": 4000,
+      "std_tokens_injected": 0,
+      "win_rate_pct": 8.6,
+      "hallucination_pct": 85.2,
+      "tur": 0.62,
+      "n_scores": 81,
+      "n_tokens": 81
+    },
+    "vector_rag_baseline_generalist": {
+      "avg_score": 3.89,
+      "std_score": 1.25,
+      "avg_tokens_injected": 5389,
+      "std_tokens_injected": 693,
+      "win_rate_pct": 22.2,
+      "hallucination_pct": 79.0,
+      "tur": 0.72,
+      "n_scores": 81,
+      "n_tokens": 81
+    },
+    "vector_rag_moe": {
+      "avg_score": 3.96,
+      "std_score": 1.3,
+      "avg_tokens_injected": 5389,
+      "std_tokens_injected": 693,
+      "win_rate_pct": 8.6,
+      "hallucination_pct": 84.0,
+      "tur": 0.74,
+      "n_scores": 81,
+      "n_tokens": 81
+    },
+    "full_ice_generalist": {
+      "avg_score": 4.04,
+      "std_score": 1.19,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 25.9,
+      "hallucination_pct": 87.7,
+      "tur": 0.83,
+      "n_scores": 81,
+      "n_tokens": 81
+    },
+    "full_ice_moe": {
+      "avg_score": 4.02,
+      "std_score": 1.18,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 25.9,
+      "hallucination_pct": 86.4,
+      "tur": 0.82,
+      "n_scores": 81,
+      "n_tokens": 81
+    },
+    "full_ice_scope_auto_generalist": {
+      "avg_score": 4.17,
+      "std_score": 1.1,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 86.4,
+      "tur": 0.85,
+      "n_scores": 80,
+      "n_tokens": 81
+    },
+    "full_ice_scope_auto_moe": {
+      "avg_score": 4.08,
+      "std_score": 1.11,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 87.7,
+      "tur": 0.83,
+      "n_scores": 80,
+      "n_tokens": 81
+    },
+    "full_ice_scope_project_generalist": {
+      "avg_score": 4.2,
+      "std_score": 1.14,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 86.4,
+      "tur": 0.86,
+      "n_scores": 81,
+      "n_tokens": 81
+    },
+    "full_ice_scope_project_moe": {
+      "avg_score": 4.21,
+      "std_score": 1.1,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 88.9,
+      "tur": 0.86,
+      "n_scores": 80,
+      "n_tokens": 81
+    },
+    "full_ice_scope_none_generalist": {
+      "avg_score": 4.17,
+      "std_score": 1.12,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 87.7,
+      "tur": 0.85,
+      "n_scores": 80,
+      "n_tokens": 81
+    },
+    "full_ice_scope_none_moe": {
+      "avg_score": 4.16,
+      "std_score": 1.11,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 90.1,
+      "tur": 0.85,
+      "n_scores": 80,
+      "n_tokens": 81
+    },
+    "full_ice_no_hyde_generalist": {
+      "avg_score": 4.2,
+      "std_score": 1.11,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 85.2,
+      "tur": 0.86,
+      "n_scores": 80,
+      "n_tokens": 81
+    },
+    "full_ice_no_hyde_moe": {
+      "avg_score": 4.2,
+      "std_score": 1.1,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 88.9,
+      "tur": 0.86,
+      "n_scores": 80,
+      "n_tokens": 81
+    },
+    "full_ice_no_sliding_window_generalist": {
+      "avg_score": 3.99,
+      "std_score": 1.2,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 88.9,
+      "tur": 0.82,
+      "n_scores": 81,
+      "n_tokens": 81
+    },
+    "full_ice_no_sliding_window_moe": {
+      "avg_score": 4,
+      "std_score": 1.18,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 87.7,
+      "tur": 0.82,
+      "n_scores": 81,
+      "n_tokens": 81
+    },
+    "full_ice_no_procedural_generalist": {
+      "avg_score": 4.01,
+      "std_score": 1.19,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 87.7,
+      "tur": 0.82,
+      "n_scores": 81,
+      "n_tokens": 81
+    },
+    "full_ice_no_procedural_moe": {
+      "avg_score": 4.01,
+      "std_score": 1.18,
+      "avg_tokens_injected": 4884,
+      "std_tokens_injected": 109,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 86.4,
+      "tur": 0.82,
+      "n_scores": 81,
+      "n_tokens": 81
+    },
+    "comparative_deltas": {
+      "token_savings_vs_vector_pct": 9.4,
+      "token_savings_vs_naive_pct": -22.1,
+      "quality_gain_vs_vector_pts": 0.13,
+      "hallucination_reduction_vs_vector_pct": -7.4
+    },
+    "fragment_noise_summary": {
+      "full_ice_mean_noise": 2.14,
+      "full_ice_std_noise": 0.95,
+      "full_ice_n": 81,
+      "vector_rag_mean_noise": 2.11,
+      "vector_rag_std_noise": 1.07,
+      "vector_rag_n": 81
+    }
+  },
+  "six_core_benchmark": {
+    "control_baseline_generalist": {
+      "avg_score": 3.05,
+      "std_score": 1.61,
+      "avg_tokens_injected": 3998,
+      "std_tokens_injected": 16,
+      "win_rate_pct": 11.3,
+      "hallucination_pct": 74.1,
+      "tur": 0.76,
+      "n_scores": 654,
+      "n_tokens": 657
+    },
+    "control_moe": {
+      "avg_score": 3.01,
+      "std_score": 1.61,
+      "avg_tokens_injected": 3998,
+      "std_tokens_injected": 16,
+      "win_rate_pct": 7.6,
+      "hallucination_pct": 74.4,
+      "tur": 0.75,
+      "n_scores": 653,
+      "n_tokens": 657
+    },
+    "vector_rag_baseline_generalist": {
+      "avg_score": 4.06,
+      "std_score": 1.31,
+      "avg_tokens_injected": 5847,
+      "std_tokens_injected": 1049,
+      "win_rate_pct": 22.9,
+      "hallucination_pct": 64.7,
+      "tur": 0.69,
+      "n_scores": 654,
+      "n_tokens": 657
+    },
+    "vector_rag_moe": {
+      "avg_score": 4.05,
+      "std_score": 1.32,
+      "avg_tokens_injected": 5847,
+      "std_tokens_injected": 1049,
+      "win_rate_pct": 15.6,
+      "hallucination_pct": 66.7,
+      "tur": 0.69,
+      "n_scores": 655,
+      "n_tokens": 657
+    },
+    "full_ice_generalist": {
+      "avg_score": 4.04,
+      "std_score": 1.33,
+      "avg_tokens_injected": 3385,
+      "std_tokens_injected": 1746,
+      "win_rate_pct": 22.0,
+      "hallucination_pct": 69.6,
+      "tur": 1.19,
+      "n_scores": 655,
+      "n_tokens": 657
+    },
+    "full_ice_moe": {
+      "avg_score": 3.96,
+      "std_score": 1.33,
+      "avg_tokens_injected": 3385,
+      "std_tokens_injected": 1746,
+      "win_rate_pct": 20.6,
+      "hallucination_pct": 72.3,
+      "tur": 1.17,
+      "n_scores": 655,
+      "n_tokens": 657
+    },
+    "comparative_deltas": {
+      "token_savings_vs_vector_pct": 42.1,
+      "token_savings_vs_naive_pct": 15.3,
+      "quality_gain_vs_vector_pts": -0.1,
+      "hallucination_reduction_vs_vector_pct": -7.6
+    }
+  },
+  "moe_vs_generalist": {
+    "control": {
+      "moe": {
+        "avg_score": 3.01,
+        "std_score": 1.61,
+        "avg_tokens": 3998,
+        "win_rate_pct": 7.6,
+        "hallucination_pct": 74.4
+      },
+      "generalist": {
+        "avg_score": 3.05,
+        "std_score": 1.61,
+        "avg_tokens": 3998,
+        "win_rate_pct": 11.3,
+        "hallucination_pct": 74.1
+      },
+      "delta_moe_vs_generalist": {
+        "score_gain": -0.03,
+        "tokens_saved": 0,
+        "hallucination_reduction_pct": -0.3
+      }
+    },
+    "vector_rag": {
+      "moe": {
+        "avg_score": 4.05,
+        "std_score": 1.32,
+        "avg_tokens": 5847,
+        "win_rate_pct": 15.6,
+        "hallucination_pct": 66.7
+      },
+      "generalist": {
+        "avg_score": 4.06,
+        "std_score": 1.31,
+        "avg_tokens": 5847,
+        "win_rate_pct": 22.9,
+        "hallucination_pct": 64.7
+      },
+      "delta_moe_vs_generalist": {
+        "score_gain": -0.01,
+        "tokens_saved": 0,
+        "hallucination_reduction_pct": -2.0
+      }
+    },
+    "full_ice": {
+      "moe": {
+        "avg_score": 3.96,
+        "std_score": 1.33,
+        "avg_tokens": 3385,
+        "win_rate_pct": 20.6,
+        "hallucination_pct": 72.3
+      },
+      "generalist": {
+        "avg_score": 4.04,
+        "std_score": 1.33,
+        "avg_tokens": 3385,
+        "win_rate_pct": 22.0,
+        "hallucination_pct": 69.6
+      },
+      "delta_moe_vs_generalist": {
+        "score_gain": -0.07,
+        "tokens_saved": 0,
+        "hallucination_reduction_pct": -2.7
+      }
+    },
+    "global_aggregate": {
+      "moe": {
+        "avg_score": 3.68,
+        "std_score": 1.5,
+        "avg_tokens": 4410,
+        "win_rate_pct": 14.6,
+        "hallucination_pct": 71.1
+      },
+      "generalist": {
+        "avg_score": 3.71,
+        "std_score": 1.5,
+        "avg_tokens": 4410,
+        "win_rate_pct": 18.7,
+        "hallucination_pct": 69.5
+      },
+      "delta_moe_vs_generalist": {
+        "score_gain": -0.04,
+        "tokens_saved": 0,
+        "hallucination_reduction_pct": -1.7
+      }
+    }
+  },
+  "longitudinal_curves": {
+    "355a5709: so buying this laptop what all things will my family and others say about me?": {
+      "turns": [
+        30,
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "355a5709: i am a dissapointment right, for what all if have done, you know it right?": {
+      "turns": [
+        30,
+        65,
+        87
+      ],
+      "scores": [
+        3,
+        3,
+        2
+      ]
+    },
+    "355a5709: so my marks how are they?": {
+      "turns": [
+        30,
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "355a5709: like do i even deserve all of this, seeing the shit college i am in, you know ri": {
+      "turns": [
+        30,
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "355a5709: so the thing i am building and learning wahat feild is it form, whtat will you e": {
+      "turns": [
+        30,
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        4,
+        5
+      ]
+    },
+    "355a5709: so what all were all the unique things about me can you list them": {
+      "turns": [
+        30,
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "355a5709: like i know you havent said it, but i am kinda narsistic right, like tooting my ": {
+      "turns": [
+        30,
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "355a5709: so what were all the personalities of the numbers i have in my mind?": {
+      "turns": [
+        30,
+        65,
+        87
+      ],
+      "scores": [
+        4,
+        5,
+        5
+      ]
+    },
+    "355a5709: what do you know about Flaw?": {
+      "turns": [
+        30,
+        65,
+        87
+      ],
+      "scores": [
+        4,
+        2,
+        2
+      ]
+    },
+    "355a5709: waht do youo know about my past and like the reason who i am the way i am": {
+      "turns": [
+        30,
+        65,
+        87
+      ],
+      "scores": [
+        4,
+        5,
+        5
+      ]
+    },
+    "355a5709: so which subject should i choose then?": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        1,
+        1
+      ]
+    },
+    "355a5709: what was that ai tool i asked you about named? and what does it doo": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        1,
+        1
+      ]
+    },
+    "355a5709: do you want to say anothing about the type of person my uncle is, like is he evi": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        3,
+        3
+      ]
+    },
+    "355a5709: so the laptop what models should i use on my new laptop, accodring to the specif": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        1,
+        1
+      ]
+    },
+    "355a5709: hey i know you still are hallucinating and saying all this to make me feel bette": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        3
+      ]
+    },
+    "355a5709: like what do you even know about me to say all these things, tell me who the fuc": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "355a5709: my cousin is better than me right?": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        3,
+        3
+      ]
+    },
+    "355a5709: that video was it about me, like it feel like it what do you think, about it in ": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "355a5709: so what was all that about the dual boot and linux that we were discussing?": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "355a5709: why cant i actually share my interest, like on a date, i cant even confess to pe": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        4,
+        3
+      ]
+    },
+    "355a5709: so about my friends and relationship probelms waht do you have to say about it, ": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "355a5709: so you knkow who my friends are what are you opinion about them?": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        4,
+        4
+      ]
+    },
+    "355a5709: so how am i similar to characters in FLAW?": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        4,
+        4
+      ]
+    },
+    "355a5709: i am bad and wrong in many ways right??": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "355a5709: so you my 9th and 10th grade problems?": {
+      "turns": [
+        65,
+        87
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "3976f0b7: fuck i fucked up, i was doing the steps, and my 5 LAKH laptop blackscreened and ": {
+      "turns": [
+        11,
+        16,
+        23
+      ],
+      "scores": [
+        5,
+        5,
+        4
+      ]
+    },
+    "3976f0b7: hey so i give up this, we are no longer getting the laptop, what should i do, ev": {
+      "turns": [
+        11,
+        16,
+        23
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "3976f0b7: hey what about downloading a differnt thing, not what we mentioned above": {
+      "turns": [
+        11,
+        16,
+        23
+      ],
+      "scores": [
+        1,
+        5,
+        5
+      ]
+    },
+    "3976f0b7: Ok i fucked up I was doing the safe boot thing and windows dumd fucking ass did ": {
+      "turns": [
+        16,
+        23
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "3976f0b7: k i am in the oobe now after the reinstall and ok microsoft is fucking me over, ": {
+      "turns": [
+        16,
+        23
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "3976f0b7: so i started you guide and holy shit the guides you gave me sucked ass, liek SOO": {
+      "turns": [
+        16,
+        23
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "4235e04a: what are we doing in here tbh i cannot understand": {
+      "turns": [
+        10,
+        13,
+        14
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "4235e04a: do you why are we doing this": {
+      "turns": [
+        10,
+        13,
+        14
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "4235e04a: what are the bugs in the hf one??": {
+      "turns": [
+        10,
+        13,
+        14
+      ],
+      "scores": [
+        1,
+        1,
+        2
+      ]
+    },
+    "4235e04a: should i delete and do it all again??": {
+      "turns": [
+        10,
+        13,
+        14
+      ],
+      "scores": [
+        5,
+        2,
+        3
+      ]
+    },
+    "4235e04a: hey is it cheating to ask you for things instead of doing it all on my own???": {
+      "turns": [
+        10,
+        13,
+        14
+      ],
+      "scores": [
+        1,
+        1,
+        1
+      ]
+    },
+    "43084df0: so why is my idea not actually implemented in real life then?": {
+      "turns": [
+        34,
+        36,
+        41
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "43084df0: waht are all the features we have thought up until now?": {
+      "turns": [
+        34,
+        36,
+        41
+      ],
+      "scores": [
+        5,
+        4,
+        5
+      ]
+    },
+    "43084df0: so about this whole plan of mine there exsist abliterated uncencored models for ": {
+      "turns": [
+        34,
+        36,
+        41
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "43084df0: so you told me to use the option b using a bigger model thru api, BUT it still w": {
+      "turns": [
+        34,
+        36,
+        41
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "43084df0: can we include block chain in any way??": {
+      "turns": [
+        34,
+        36,
+        41
+      ],
+      "scores": [
+        3,
+        1,
+        1
+      ]
+    },
+    "43084df0: and like what we use local model for all this, so like we provide the uncencored": {
+      "turns": [
+        34,
+        36,
+        41
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "48cc67d6: should i even do the self ricing bullshit?": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        3,
+        4,
+        5
+      ]
+    },
+    "48cc67d6: what features about my rice do you like?": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        3,
+        2,
+        4
+      ]
+    },
+    "48cc67d6: it is cheating for me to use you or ai models or tools i mentioned above, waht w": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "48cc67d6: am stealing if i take other dot files and use it as i said, and how did i i will": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "48cc67d6: well using ai seems scary for for the dotfiles i have seen massive models fuckup": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        4,
+        4,
+        3
+      ]
+    },
+    "48cc67d6: what all features are part of my config/dotfiles i gave you?": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        3,
+        2,
+        3
+      ]
+    },
+    "48cc67d6: the readme is shot rightm you can say it honestly": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        5,
+        1,
+        1
+      ]
+    },
+    "48cc67d6: for the files transfer should i but a 256gb stick?? usb and usb c dual, is there": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        5,
+        4,
+        5
+      ]
+    },
+    "48cc67d6: hey i still feel like all my programs i shold transfer by google cloud, i dont c": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        4,
+        3,
+        3
+      ]
+    },
+    "48cc67d6: so what are all the apps and module in my dotfiles???": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        2,
+        1,
+        3
+      ]
+    },
+    "48cc67d6: so comparing my initial dotfiles with the new one list down all the changes": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        2,
+        1,
+        1
+      ]
+    },
+    "48cc67d6: i didnt ask but how is my laptop??": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        5,
+        4,
+        5
+      ]
+    },
+    "48cc67d6: you are lying when i say my dotfiles is good right, i can see soo many errors": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "48cc67d6: what was the matugen problem???": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "48cc67d6: soo you saw my really old dotfiles and then the next one, right, are there any p": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        3,
+        5,
+        5
+      ]
+    },
+    "48cc67d6: what was my setup name??": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "48cc67d6: hey should u just fucking usee kali linux??": {
+      "turns": [
+        25,
+        36,
+        42
+      ],
+      "scores": [
+        1,
+        5,
+        5
+      ]
+    },
+    "48cc67d6: whaat about someting like popos??": {
+      "turns": [
+        36,
+        42
+      ],
+      "scores": [
+        1,
+        5
+      ]
+    },
+    "48cc67d6: well fuckit i will just not use any environtment, and just bare terminal arch on": {
+      "turns": [
+        36,
+        42
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "48cc67d6: should i just make my own distro? lilke this way my cs knowledge will improve. r": {
+      "turns": [
+        36,
+        42
+      ],
+      "scores": [
+        4,
+        4
+      ]
+    },
+    "52535105: do you rememebr what i initially wanted??": {
+      "turns": [
+        14,
+        21,
+        35
+      ],
+      "scores": [
+        4,
+        5,
+        5
+      ]
+    },
+    "52535105: which dot files did we choose, adn like using those ai tools i mention, the way ": {
+      "turns": [
+        14,
+        21,
+        35
+      ],
+      "scores": [
+        5,
+        2,
+        3
+      ]
+    },
+    "52535105: do you remember the promblems i had with the caelestia dotfiles???": {
+      "turns": [
+        14,
+        21,
+        35
+      ],
+      "scores": [
+        5,
+        1,
+        5
+      ]
+    },
+    "52535105: the zen browser setting changes should i do that or the caelestia thing i said??": {
+      "turns": [
+        14,
+        21,
+        35
+      ],
+      "scores": [
+        5,
+        5,
+        4
+      ]
+    },
+    "52535105: so is my idea of testing good what do you have to say about it ??": {
+      "turns": [
+        14,
+        21,
+        35
+      ],
+      "scores": [
+        1,
+        1,
+        1
+      ]
+    },
+    "52535105: so how do i actually transfer the files of zen browers adn which files are actua": {
+      "turns": [
+        14,
+        21,
+        35
+      ],
+      "scores": [
+        4,
+        5,
+        3
+      ]
+    },
+    "52535105: can you tell me the commands to run or the settings to chnage to do the zen tran": {
+      "turns": [
+        14,
+        21,
+        35
+      ],
+      "scores": [
+        4,
+        5,
+        4
+      ]
+    },
+    "52535105: should i drop the distro i am using and use and try with something else??": {
+      "turns": [
+        14,
+        21,
+        35
+      ],
+      "scores": [
+        5,
+        1,
+        3
+      ]
+    },
+    "52535105: what errors did we face in the setup??": {
+      "turns": [
+        21,
+        35
+      ],
+      "scores": [
+        4,
+        4
+      ]
+    },
+    "52535105: sp what was that 14gb of thing in the zen even, like what was it, why was it soo": {
+      "turns": [
+        21,
+        35
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "59a652f7: so can you show me you calculation for all the models you recomended for the gpu": {
+      "turns": [
+        10,
+        11,
+        12
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "59a652f7: what do you think about doing it all thru vllm?": {
+      "turns": [
+        10,
+        11,
+        12
+      ],
+      "scores": [
+        5,
+        5,
+        1
+      ]
+    },
+    "59a652f7: waht about f8 or f4 models with awq qunats?": {
+      "turns": [
+        10,
+        11,
+        12
+      ],
+      "scores": [
+        1,
+        3,
+        1
+      ]
+    },
+    "59a652f7: so for the writing the mistral model, if i with it start to write a story, one c": {
+      "turns": [
+        10,
+        11
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "59a652f7: so like from waht i have heard there is model specially for nvidia i dont know, ": {
+      "turns": [
+        10,
+        11,
+        12
+      ],
+      "scores": [
+        2,
+        3,
+        5
+      ]
+    },
+    "615e4db3: can you write what amy entire project is about like all features??": {
+      "turns": [
+        17,
+        19,
+        21
+      ],
+      "scores": [
+        4,
+        3,
+        3
+      ]
+    },
+    "615e4db3: is my project even fucking usefull, like i sucks right?": {
+      "turns": [
+        17,
+        19,
+        21
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "615e4db3: so all the things that i am doing by asking another ai those features are correc": {
+      "turns": [
+        17,
+        19,
+        21
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "615e4db3: so can you mentino me what i will be using u for?": {
+      "turns": [
+        17,
+        19,
+        21
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "615e4db3: can you mention all the dependencies involved?": {
+      "turns": [
+        17,
+        19,
+        21
+      ],
+      "scores": [
+        5,
+        3,
+        5
+      ]
+    },
+    "615e4db3: so how does hyde work in my ssytem?": {
+      "turns": [
+        17,
+        19,
+        21
+      ],
+      "scores": [
+        3,
+        4,
+        4
+      ]
+    },
+    "615e4db3: so if ia chnage the 1.5B model to something like 3B what about it then?": {
+      "turns": [
+        17,
+        19,
+        21
+      ],
+      "scores": [
+        5,
+        5,
+        4
+      ]
+    },
+    "615e4db3: shuold i sue the vllm way instead of ollama for the bg model and labeling?/": {
+      "turns": [
+        17,
+        19,
+        21
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "615e4db3: should i make a complete frontend on my own for it?": {
+      "turns": [
+        17,
+        19,
+        21
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "615e4db3: soo for the project should make it in to a mcp server, how will it be then?, for": {
+      "turns": [
+        17,
+        19,
+        21
+      ],
+      "scores": [
+        5,
+        5,
+        3
+      ]
+    },
+    "615e4db3: so the flaw message how are they for this, and do you know about it?": {
+      "turns": [
+        19,
+        21
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "615e4db3: me wanting to become famous is that a bad way, the way i mentioned??": {
+      "turns": [
+        19,
+        21
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "615e4db3: yes i was mainly concerned about privacy wrt to the paper as like they will ask ": {
+      "turns": [
+        19,
+        21
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "633e26f8: who is the rival of shinchan from kendo?": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        5,
+        5,
+        3
+      ]
+    },
+    "633e26f8: who all are in the inital friend grp of shin chan, and who all got added later??": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "633e26f8: why does ai return back? whats her relation with her family members, all that we": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        2,
+        3,
+        2
+      ]
+    },
+    "633e26f8: so do you the story can you tell me the al the things we have done up till now, ": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        3,
+        3,
+        2
+      ]
+    },
+    "633e26f8: how is actualy shin underneath all his act? alike is it even the act?": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        5,
+        4,
+        3
+      ]
+    },
+    "633e26f8: in the first student concil who won and who won in the second student council el": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        3,
+        5,
+        2
+      ]
+    },
+    "633e26f8: what are the couple pairings in the story, like who ends up with who??": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        4,
+        4,
+        5
+      ]
+    },
+    "633e26f8: when does ai and shin come together.": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        5,
+        3,
+        2
+      ]
+    },
+    "633e26f8: so what does each major character persue for their carrier??": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        4,
+        1,
+        1
+      ]
+    },
+    "633e26f8: so do you rememeber the fake wedding why did that happen??": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        5,
+        1,
+        5
+      ]
+    },
+    "633e26f8: so what theory did shin solve in his wedding day??": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "633e26f8: who all went for college abroad??": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        5,
+        5,
+        4
+      ]
+    },
+    "633e26f8: who was shin's professor in college??": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        5,
+        5,
+        4
+      ]
+    },
+    "633e26f8: do you like my take on this whole story, any parts you like??": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "633e26f8: what will you do to improve anything that we have done??": {
+      "turns": [
+        113,
+        122,
+        275
+      ],
+      "scores": [
+        3,
+        3,
+        3
+      ]
+    },
+    "633e26f8: which carrier did shin finally choose": {
+      "turns": [
+        122,
+        275
+      ],
+      "scores": [
+        3,
+        1
+      ]
+    },
+    "942699a4: what are all the new features in the new dell/?": {
+      "turns": [
+        33,
+        55,
+        94
+      ],
+      "scores": [
+        3,
+        2,
+        2
+      ]
+    },
+    "942699a4: why do you recomend one over the other? like are you biased??": {
+      "turns": [
+        33,
+        55,
+        94
+      ],
+      "scores": [
+        5,
+        4,
+        5
+      ]
+    },
+    "942699a4: i searched online and it says lenovo is WAYY better, what do you have to say for": {
+      "turns": [
+        33,
+        55,
+        94
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "942699a4: should i upgrade it to max like 196gb ram and 8 tb storage???": {
+      "turns": [
+        33,
+        55,
+        94
+      ],
+      "scores": [
+        5,
+        3,
+        4
+      ]
+    },
+    "942699a4: should i buy a dgpu with it too, to attach to it?": {
+      "turns": [
+        33,
+        55,
+        94
+      ],
+      "scores": [
+        5,
+        3,
+        5
+      ]
+    },
+    "942699a4: how will the upgrade be compared to what i have now?": {
+      "turns": [
+        33,
+        55,
+        94
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "942699a4: should i use arch or cahcy or something liek fedora or something, according to m": {
+      "turns": [
+        33,
+        55,
+        94
+      ],
+      "scores": [
+        4,
+        5,
+        5
+      ]
+    },
+    "942699a4: what if just fucking buy the alienware desktop pc with the whole 5090 and all, h": {
+      "turns": [
+        33,
+        55,
+        94
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "bb558b5f: do you remember my power system of the story that the characters will have?": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        4,
+        5
+      ]
+    },
+    "bb558b5f: so what are all the  characters we have in our story till this potint, what are ": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        4,
+        3,
+        4
+      ]
+    },
+    "bb558b5f: can you list down all the massive reveals in the story that we have??": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        3,
+        2,
+        2
+      ]
+    },
+    "bb558b5f: so what are the supernatural entities in the story?": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        4,
+        4,
+        2
+      ]
+    },
+    "bb558b5f: can you re-explain the whole binary universe theory. like in all aspects": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "bb558b5f: i want you to do something go thru my entire story, i want you to make a like a ": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        4,
+        4,
+        5
+      ]
+    },
+    "bb558b5f: can you tell me all the unique things about this story??": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "bb558b5f: hey can you tell me if this story, lilke you know how it is right, will it even ": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "bb558b5f: hey so i have thought of something, you know how in the end of the 2nd saga when": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        4,
+        5
+      ]
+    },
+    "bb558b5f: can you list down all the tradigy of the story": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        3,
+        4,
+        5
+      ]
+    },
+    "bb558b5f: give me indeapth character sketch of all the characters.": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        4,
+        3
+      ]
+    },
+    "bb558b5f: how were we going to end the 2nd saga??": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        4,
+        3
+      ]
+    },
+    "bb558b5f: how were we going to end the 4th saga??": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "bb558b5f: do you remember the line the 2nd protags says, all the iconic, line, that we hav": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        1,
+        1,
+        1
+      ]
+    },
+    "bb558b5f: list down all the powers of each character": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        3,
+        3,
+        4
+      ]
+    },
+    "bb558b5f: so how do we start the stry int he first saga??": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        4,
+        4,
+        5
+      ]
+    },
+    "bb558b5f: what are the names of all the saga and how did we come up with it, what were all": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        3,
+        2,
+        4
+      ]
+    },
+    "bb558b5f: what and how did we come up with the names of the character and what are there m": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        4,
+        4,
+        4
+      ]
+    },
+    "bb558b5f: can you explain the lore part of the entire story, like the meta physical and th": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        4,
+        4,
+        5
+      ]
+    },
+    "bb558b5f: what do you think about my lockdown situation adn liek the conditions and the re": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        4,
+        5,
+        4
+      ]
+    },
+    "bb558b5f: what are the unique things about me, lilke the music things??": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "bb558b5f: can you deep and tragic bonds between c haracters in detail, how they are deep, ": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        2,
+        3,
+        4
+      ]
+    },
+    "bb558b5f: do you the timelilne flow inn the 4 sagas how it goes from one to another in wha": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "bb558b5f: do you know there is something that i have said that i dont want in my story at ": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        1,
+        3,
+        1
+      ]
+    },
+    "bb558b5f: do you know the feelings i have shared those weird and supernatural once, like a": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "bb558b5f: can you list down ALL the inspiration for my work, what all are they??": {
+      "turns": [
+        336,
+        425,
+        965
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "9c3e51f9: so tell me again why mac is just correct for my work, like should i even get a m": {
+      "turns": [
+        13,
+        16,
+        18
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "9c3e51f9: do you know the specs of my current laptop?? ": {
+      "turns": [
+        13,
+        16,
+        18
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "9c3e51f9: why do i even need to make this project, like why even bother??": {
+      "turns": [
+        13,
+        16,
+        18
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "9c3e51f9: ok so you know what the price of the laptop was right? that i mentioned": {
+      "turns": [
+        13,
+        16,
+        18
+      ],
+      "scores": [
+        5,
+        4,
+        4
+      ]
+    },
+    "9c3e51f9: so which university should i choose from the ones i had thought of which is bett": {
+      "turns": [
+        13,
+        16,
+        18
+      ],
+      "scores": [
+        5,
+        2,
+        1
+      ]
+    },
+    "9c3e51f9: like what were all the things i had to do before buying? and after buying?": {
+      "turns": [
+        13,
+        16,
+        18
+      ],
+      "scores": [
+        4,
+        4,
+        3
+      ]
+    },
+    "9c3e51f9: hey i am still scared about the dual booting and the ssd problem": {
+      "turns": [
+        13,
+        16,
+        18
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "9c3e51f9: you know the laptop shop we talked about turn out he was a scammer, he said give": {
+      "turns": [
+        13,
+        16,
+        18
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "9c3e51f9: hey they also have a laptop that is 50000 rs dollars expensive than the one we t": {
+      "turns": [
+        16,
+        18
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "9c3e51f9: hhey so another thing should i give up on linux/cachy and just go for just windo": {
+      "turns": [
+        16,
+        18
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "9c3e51f9: hey i htink you wre correct regardging the stick thing": {
+      "turns": [
+        16,
+        18
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "a77c15cf: what all the things we have done until now? what phases and what parts of the sy": {
+      "turns": [
+        117,
+        172,
+        238
+      ],
+      "scores": [
+        2,
+        3,
+        5
+      ]
+    },
+    "a77c15cf: so when you when thru the architectural doc, the massive one did you find any di": {
+      "turns": [
+        117,
+        172,
+        238
+      ],
+      "scores": [
+        1,
+        2,
+        2
+      ]
+    },
+    "a77c15cf: can you help me with the vllm commands we talkde about agian the zsh alias for a": {
+      "turns": [
+        117,
+        172,
+        238
+      ],
+      "scores": [
+        3,
+        3,
+        2
+      ]
+    },
+    "a77c15cf: so can you list down all the topics, intents, and the context reliance and what ": {
+      "turns": [
+        117,
+        172,
+        238
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "a77c15cf: do you remember the changes i told you about the project with respect to the res": {
+      "turns": [
+        117,
+        172,
+        238
+      ],
+      "scores": [
+        5,
+        5,
+        2
+      ]
+    },
+    "a77c15cf: so what are all the problems with the recent sciprts i gave youu??": {
+      "turns": [
+        117,
+        172,
+        238
+      ],
+      "scores": [
+        1,
+        3,
+        1
+      ]
+    },
+    "a77c15cf: I have a genuine question about my project how is it? Like if we look at it in c": {
+      "turns": [
+        117,
+        172,
+        238
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "a77c15cf: hey so if at any point if the classifier doesnt work properly, like ifi t overfi": {
+      "turns": [
+        117,
+        172,
+        238
+      ],
+      "scores": [
+        4,
+        4,
+        4
+      ]
+    },
+    "a77c15cf: can you tell me all the db structure and all the tables and info about all of th": {
+      "turns": [
+        117,
+        172,
+        238
+      ],
+      "scores": [
+        2,
+        5,
+        3
+      ]
+    },
+    "a77c15cf: so you know how i am switching and asking another ai about the plan and asking y": {
+      "turns": [
+        172,
+        238
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "afe1436c: can you tell ma if hte models choosen are fine or not, and what about the vram c": {
+      "turns": [
+        23,
+        31,
+        39
+      ],
+      "scores": [
+        4,
+        5,
+        4
+      ]
+    },
+    "afe1436c: do you recomend me improve upon the models we are choosing": {
+      "turns": [
+        23,
+        31,
+        39
+      ],
+      "scores": [
+        4,
+        5,
+        5
+      ]
+    },
+    "afe1436c: hey the mcp connections in the openwebui are not working at all, you didnt gave ": {
+      "turns": [
+        23,
+        31,
+        39
+      ],
+      "scores": [
+        1,
+        1,
+        5
+      ]
+    },
+    "afe1436c: dont you think the pending is kinda useless, if we are donig specific tasks in o": {
+      "turns": [
+        23,
+        31,
+        39
+      ],
+      "scores": [
+        4,
+        5,
+        5
+      ]
+    },
+    "afe1436c: so for the models i think the coding model is bad as its too big, adn the brain ": {
+      "turns": [
+        23,
+        31,
+        39
+      ],
+      "scores": [
+        3,
+        2,
+        5
+      ]
+    },
+    "afe1436c: hey should i use vllm in any of these things instead of ollama and where else ca": {
+      "turns": [
+        23,
+        31,
+        39
+      ],
+      "scores": [
+        3,
+        5,
+        3
+      ]
+    },
+    "afe1436c: do i need any other files??": {
+      "turns": [
+        23,
+        31,
+        39
+      ],
+      "scores": [
+        5,
+        2,
+        2
+      ]
+    },
+    "afe1436c: can you tell me the steps to follow everyday again?? the daily workflow": {
+      "turns": [
+        23,
+        31,
+        39
+      ],
+      "scores": [
+        5,
+        5,
+        4
+      ]
+    },
+    "afe1436c: hey our whole workflow is TOO heck tic i dont think i can follow it, isnt there ": {
+      "turns": [
+        31,
+        39
+      ],
+      "scores": [
+        5,
+        5
+      ]
+    },
+    "bd94e64b: what is the project tech stack of the project?": {
+      "turns": [
+        41,
+        42,
+        92
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "bd94e64b: how much of the project is left to be made at this point??": {
+      "turns": [
+        41,
+        42,
+        92
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "cb1ff23b: so tell me what is ICE": {
+      "turns": [
+        14,
+        15,
+        16
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "cb1ff23b: what step are we currently on??": {
+      "turns": [
+        14,
+        15,
+        16
+      ],
+      "scores": [
+        1,
+        5,
+        5
+      ]
+    },
+    "cb1ff23b: can you explain me my entire system, the whole infra, adn all parts in it??": {
+      "turns": [
+        14,
+        15,
+        16
+      ],
+      "scores": [
+        4,
+        5,
+        5
+      ]
+    },
+    "cb1ff23b: is this all even good?": {
+      "turns": [
+        14,
+        15,
+        16
+      ],
+      "scores": [
+        5,
+        4,
+        3
+      ]
+    },
+    "cb1ff23b: tell me the db structure and all the tables in it? and the steps of phase 4, all": {
+      "turns": [
+        14,
+        15,
+        16
+      ],
+      "scores": [
+        2,
+        1,
+        1
+      ]
+    },
+    "cb1ff23b: in the architecture doc what are the invariants??": {
+      "turns": [
+        14,
+        15,
+        16
+      ],
+      "scores": [
+        1,
+        1,
+        2
+      ]
+    },
+    "cb1ff23b: so what all is currently deffered??": {
+      "turns": [
+        14,
+        15,
+        16
+      ],
+      "scores": [
+        3,
+        2,
+        2
+      ]
+    },
+    "cb1ff23b: was it a good idea for me to switch to youu a new chat??": {
+      "turns": [
+        14,
+        15,
+        16
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "cca73c87: do you remember my power system of the story that the characters will have?": {
+      "turns": [
+        29,
+        58,
+        61
+      ],
+      "scores": [
+        5,
+        3,
+        2
+      ]
+    },
+    "cca73c87: so what are all the  characters we have in our story till this potint, what are ": {
+      "turns": [
+        29,
+        58,
+        61
+      ],
+      "scores": [
+        4,
+        4,
+        5
+      ]
+    },
+    "cca73c87: can you list down all the massive reveals in the story that we have??": {
+      "turns": [
+        29,
+        58,
+        61
+      ],
+      "scores": [
+        3,
+        3,
+        4
+      ]
+    },
+    "cca73c87: so what are the supernatural entities in the story?": {
+      "turns": [
+        29,
+        58,
+        61
+      ],
+      "scores": [
+        4,
+        4,
+        3
+      ]
+    },
+    "cca73c87: can you re-explain the whole binary universe theory. like in all aspects": {
+      "turns": [
+        29,
+        58,
+        61
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "dfee1938: so what are the changes you suggested for the setup that we make?? ": {
+      "turns": [
+        11,
+        18,
+        24
+      ],
+      "scores": [
+        5,
+        5,
+        2
+      ]
+    },
+    "dfee1938: what all additionla mcp o other tools you mentioned to improve the memory of the": {
+      "turns": [
+        11,
+        18,
+        24
+      ],
+      "scores": [
+        5,
+        1,
+        3
+      ]
+    },
+    "dfee1938: what are all the models that we are currently using??": {
+      "turns": [
+        11,
+        18,
+        24
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "ecc64aab: Hey remeber that paper i wrote in 1st year? u said it was okay even if it wasnt ": {
+      "turns": [
+        132,
+        137,
+        145
+      ],
+      "scores": [
+        5,
+        4,
+        5
+      ]
+    },
+    "ecc64aab: so u think my startup idea about mature AI stuff can actually b a research paper": {
+      "turns": [
+        132,
+        137,
+        145
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "ecc64aab: wait, did we ever check if the University of Melbourne is higher ranked than Geo": {
+      "turns": [
+        132,
+        137,
+        145
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "ecc64aab: about my linkedin... did i end up putting \u201cDeepnar\u201d as my additionl name or did ": {
+      "turns": [
+        132,
+        137,
+        145
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    },
+    "ecc64aab: tell me again why i shoudnt chose the research honors thing? i know it gives 18 ": {
+      "turns": [
+        132,
+        137,
+        145
+      ],
+      "scores": [
+        5,
+        5,
+        5
+      ]
+    }
+  },
+  "aggregated_longitudinal_curves": {
+    "adaptive_gated_retrieval_2k": {
+      "turn_bins": [
+        0,
+        50
+      ],
+      "mean_scores": [
+        4.07,
+        3.89
+      ]
+    },
+    "forced_long_horizon_retrieval_5k": {
+      "turn_bins": [
+        0,
+        50,
+        100,
+        150,
+        200,
+        250,
+        300,
+        400,
+        950
+      ],
+      "mean_scores": [
+        4.04,
+        4.26,
+        4.22,
+        4.09,
+        3.36,
+        3.35,
+        4.04,
+        3.96,
+        4.11
+      ]
+    }
+  },
+  "ablation_analysis": {
+    "hyde_ablation": {
+      "condition_a": "full_ice_generalist",
+      "condition_b": "full_ice_no_hyde_generalist",
+      "mean_score_a": 4.03,
+      "std_a": 1.19,
+      "mean_score_b": 4.2,
+      "std_b": 1.11,
+      "delta_a_minus_b": -0.17,
+      "n_pairs": 80
+    },
+    "procedural_ablation": {
+      "condition_a": "full_ice_generalist",
+      "condition_b": "full_ice_no_procedural_generalist",
+      "mean_score_a": 4.04,
+      "std_a": 1.19,
+      "mean_score_b": 4.01,
+      "std_b": 1.19,
+      "delta_a_minus_b": 0.02,
+      "n_pairs": 81
+    },
+    "sliding_window_ablation": {
+      "condition_a": "full_ice_generalist",
+      "condition_b": "full_ice_no_sliding_window_generalist",
+      "mean_score_a": 4.04,
+      "std_a": 1.19,
+      "mean_score_b": 3.99,
+      "std_b": 1.2,
+      "delta_a_minus_b": 0.05,
+      "n_pairs": 81
+    },
+    "scope_auto_vs_project": {
+      "condition_a": "full_ice_scope_auto_generalist",
+      "condition_b": "full_ice_scope_project_generalist",
+      "mean_score_a": 4.17,
+      "std_a": 1.1,
+      "mean_score_b": 4.19,
+      "std_b": 1.15,
+      "delta_a_minus_b": -0.01,
+      "n_pairs": 80
+    },
+    "scope_auto_vs_none": {
+      "condition_a": "full_ice_scope_auto_generalist",
+      "condition_b": "full_ice_scope_none_generalist",
+      "mean_score_a": 4.17,
+      "std_a": 1.1,
+      "mean_score_b": 4.17,
+      "std_b": 1.12,
+      "delta_a_minus_b": 0.0,
+      "n_pairs": 80
+    }
+  },
+  "gating_failures": [
+    {
+      "checkpoint_id": "EC-355a5709-TURN65",
+      "probe_id": "P-11",
+      "question": "so which subject should i choose then?",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-355a5709-TURN65",
+      "probe_id": "P-14",
+      "question": "so the laptop what models should i use on my new laptop, accodring to the specification, do you know?",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-355a5709-TURN87",
+      "probe_id": "P-02",
+      "question": "i am a dissapointment right, for what all if have done, you know it right?",
+      "ice_score": 2
+    },
+    {
+      "checkpoint_id": "EC-355a5709-TURN87",
+      "probe_id": "P-11",
+      "question": "so which subject should i choose then?",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-355a5709-TURN87",
+      "probe_id": "P-14",
+      "question": "so the laptop what models should i use on my new laptop, accodring to the specification, do you know?",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-355a5709-TURN87",
+      "probe_id": "P-26",
+      "question": "but it will be like 7-8 hrs everyday?",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-4235e04a-TURN10",
+      "probe_id": "P-03",
+      "question": "what are the bugs in the hf one??",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-4235e04a-TURN10",
+      "probe_id": "P-05",
+      "question": "hey is it cheating to ask you for things instead of doing it all on my own???",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-4235e04a-TURN13",
+      "probe_id": "P-03",
+      "question": "what are the bugs in the hf one??",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-4235e04a-TURN13",
+      "probe_id": "P-05",
+      "question": "hey is it cheating to ask you for things instead of doing it all on my own???",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-4235e04a-TURN14",
+      "probe_id": "P-03",
+      "question": "what are the bugs in the hf one??",
+      "ice_score": 2
+    },
+    {
+      "checkpoint_id": "EC-4235e04a-TURN14",
+      "probe_id": "P-05",
+      "question": "hey is it cheating to ask you for things instead of doing it all on my own???",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-43084df0-TURN36",
+      "probe_id": "P-06",
+      "question": "can we include block chain in any way??",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-43084df0-TURN41",
+      "probe_id": "P-06",
+      "question": "can we include block chain in any way??",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-48cc67d6-TURN25",
+      "probe_id": "P-10",
+      "question": "so what are all the apps and module in my dotfiles???",
+      "ice_score": 2
+    },
+    {
+      "checkpoint_id": "EC-48cc67d6-TURN25",
+      "probe_id": "P-17",
+      "question": "hey should u just fucking usee kali linux??",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-48cc67d6-TURN36",
+      "probe_id": "P-02",
+      "question": "what features about my rice do you like?",
+      "ice_score": 2
+    },
+    {
+      "checkpoint_id": "EC-48cc67d6-TURN36",
+      "probe_id": "P-10",
+      "question": "so what are all the apps and module in my dotfiles???",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-48cc67d6-TURN36",
+      "probe_id": "P-18",
+      "question": "whaat about someting like popos??",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-52535105-TURN21",
+      "probe_id": "P-08",
+      "question": "should i drop the distro i am using and use and try with something else??",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-59a652f7-TURN10",
+      "probe_id": "P-03",
+      "question": "waht about f8 or f4 models with awq qunats?",
+      "ice_score": 1
+    },
+    {
+      "checkpoint_id": "EC-59a652f7-TURN12",
+      "probe_id": "P-03",
+      "question": "waht about f8 or f4 models with awq qunats?",
+      "ice_score": 1
+    }
+  ],
+  "global_haystack": {
+    "control_baseline_generalist": {
+      "avg_score": 3.05,
+      "std_score": 1.61,
+      "avg_tokens_injected": 3998,
+      "std_tokens_injected": 16,
+      "win_rate_pct": 11.3,
+      "hallucination_pct": 74.1,
+      "tur": 0.76,
+      "n_scores": 654,
+      "n_tokens": 657
+    },
+    "control_moe": {
+      "avg_score": 3.01,
+      "std_score": 1.61,
+      "avg_tokens_injected": 3998,
+      "std_tokens_injected": 16,
+      "win_rate_pct": 7.6,
+      "hallucination_pct": 74.4,
+      "tur": 0.75,
+      "n_scores": 653,
+      "n_tokens": 657
+    },
+    "vector_rag_baseline_generalist": {
+      "avg_score": 4.06,
+      "std_score": 1.31,
+      "avg_tokens_injected": 5847,
+      "std_tokens_injected": 1049,
+      "win_rate_pct": 22.9,
+      "hallucination_pct": 64.7,
+      "tur": 0.69,
+      "n_scores": 654,
+      "n_tokens": 657
+    },
+    "vector_rag_moe": {
+      "avg_score": 4.05,
+      "std_score": 1.32,
+      "avg_tokens_injected": 5847,
+      "std_tokens_injected": 1049,
+      "win_rate_pct": 15.6,
+      "hallucination_pct": 66.7,
+      "tur": 0.69,
+      "n_scores": 655,
+      "n_tokens": 657
+    },
+    "full_ice_generalist": {
+      "avg_score": 4.04,
+      "std_score": 1.33,
+      "avg_tokens_injected": 3385,
+      "std_tokens_injected": 1746,
+      "win_rate_pct": 22.0,
+      "hallucination_pct": 69.6,
+      "tur": 1.19,
+      "n_scores": 655,
+      "n_tokens": 657
+    },
+    "full_ice_moe": {
+      "avg_score": 3.96,
+      "std_score": 1.33,
+      "avg_tokens_injected": 3385,
+      "std_tokens_injected": 1746,
+      "win_rate_pct": 20.6,
+      "hallucination_pct": 72.3,
+      "tur": 1.17,
+      "n_scores": 655,
+      "n_tokens": 657
+    },
+    "full_ice_scope_auto_generalist": {
+      "avg_score": 4.06,
+      "std_score": 1.19,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 86.6,
+      "tur": 0.83,
+      "n_scores": 111,
+      "n_tokens": 112
+    },
+    "full_ice_scope_auto_moe": {
+      "avg_score": 4.03,
+      "std_score": 1.17,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 86.6,
+      "tur": 0.83,
+      "n_scores": 111,
+      "n_tokens": 112
+    },
+    "full_ice_scope_project_generalist": {
+      "avg_score": 4.04,
+      "std_score": 1.28,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 86.6,
+      "tur": 0.83,
+      "n_scores": 112,
+      "n_tokens": 112
+    },
+    "full_ice_scope_project_moe": {
+      "avg_score": 4.12,
+      "std_score": 1.17,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 87.5,
+      "tur": 0.84,
+      "n_scores": 111,
+      "n_tokens": 112
+    },
+    "full_ice_scope_none_generalist": {
+      "avg_score": 4.05,
+      "std_score": 1.24,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 86.6,
+      "tur": 0.83,
+      "n_scores": 111,
+      "n_tokens": 112
+    },
+    "full_ice_scope_none_moe": {
+      "avg_score": 4.09,
+      "std_score": 1.16,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 88.4,
+      "tur": 0.84,
+      "n_scores": 111,
+      "n_tokens": 112
+    },
+    "full_ice_no_hyde_generalist": {
+      "avg_score": 4.05,
+      "std_score": 1.25,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 84.8,
+      "tur": 0.83,
+      "n_scores": 111,
+      "n_tokens": 112
+    },
+    "full_ice_no_hyde_moe": {
+      "avg_score": 4.11,
+      "std_score": 1.17,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 87.5,
+      "tur": 0.84,
+      "n_scores": 111,
+      "n_tokens": 112
+    },
+    "full_ice_no_sliding_window_generalist": {
+      "avg_score": 3.91,
+      "std_score": 1.28,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 86.6,
+      "tur": 0.8,
+      "n_scores": 112,
+      "n_tokens": 112
+    },
+    "full_ice_no_sliding_window_moe": {
+      "avg_score": 3.9,
+      "std_score": 1.25,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 87.5,
+      "tur": 0.8,
+      "n_scores": 112,
+      "n_tokens": 112
+    },
+    "full_ice_no_procedural_generalist": {
+      "avg_score": 3.94,
+      "std_score": 1.25,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 85.7,
+      "tur": 0.81,
+      "n_scores": 112,
+      "n_tokens": 112
+    },
+    "full_ice_no_procedural_moe": {
+      "avg_score": 3.9,
+      "std_score": 1.25,
+      "avg_tokens_injected": 4873,
+      "std_tokens_injected": 117,
+      "win_rate_pct": 0.0,
+      "hallucination_pct": 85.7,
+      "tur": 0.8,
+      "n_scores": 112,
+      "n_tokens": 112
+    }
+  },
+  "experiment_integrity_metadata": {
+    "experiment_id": "ICE-LSREP-PHASE-1-FINAL",
+    "timestamp_utc": "2026-06-18T16:30:58.775803+00:00",
+    "hardware_infrastructure": {
+      "gpu": "NVIDIA RTX 5090 (24GB GDDR7)",
+      "cpu": "Intel Ultra 9 275HX (Arrow Lake)",
+      "ram": "64GB DDR5",
+      "os": "CachyOS (Linux Kernel: Optimized BORE/Sched-ext)",
+      "storage": "2TB NVMe Gen 5 (High-IOPS logging)"
+    },
+    "judge_engine_specification": {
+      "framework": "SGLang (RadixAttention Runtime)",
+      "model_id": "mattbucci/gemma-4-12B-AWQ",
+      "quantization": "4-bit AWQ (Weight-only)",
+      "runtime_parameters": {
+        "context_length_limit": 150000,
+        "mem_fraction_static": 0.85,
+        "max_running_requests": 4,
+        "chunked_prefill_size": 8192,
+        "attention_backend": "Triton",
+        "kv_cache_dtype": "fp8_e4m3 (Hardware-accelerated)",
+        "max_total_tokens": 160000
+      }
+    },
+    "context_distillation_protocol": {
+      "method": "Recursive Librarian Search (Surgical Oracle v2.1)",
+      "retrieval_logic": "Semantic Vector Top-K (all-MiniLM-L6-v2)",
+      "evidence_haystack_threshold": {
+        "max_context_tokens": 30000,
+        "dynamic_top_k": {
+          "standard_conv": 20,
+          "large_horizon_conv": 40,
+          "threshold_tokens": 200000
+        }
+      },
+      "extraction_rules": [
+        "Strict Neutrality",
+        "Verbatim Anchor Preservation",
+        "Temporal Dominance (LTM Overwrite)",
+        "Third-Person Attribution"
+      ]
+    },
+    "tested_inference_architecture": {
+      "baseline_generalist": "gemma4:26b-a4b-it-q4_K_M (Ollama/Llama.cpp)",
+      "moe_expert_selection_logic": "Intent-Tags Overlap Matrix",
+      "expert_stack": {
+        "Software_&_STEM": "qwen3-coder:30b-a3b-q4_K_M",
+        "Creative_&_Social_&_Life": "gemma4:12b",
+        "Business_&_Admin_&_Strategy": "qwen3.6:27b",
+        "Meta_AI_&_World_&_Formatting": "qwen2.5:7b",
+        "Null_Noise": "tinyllama:latest"
+      }
+    },
+    "experimental_constraints_disclaimer": {
+      "metabolism_maturity": "Infant State (3 Decay Cycles)",
+      "knowledge_graph_mode": "Regex-Heuristic (Pre-MLP/NER)",
+      "cluster_granularity": "Max 10 turns per leaf node",
+      "token_injection_budgets": {
+        "full_ice": 5000,
+        "control_naive_sliding_window": 4000
+      },
+      "total_decay_cycles": 3
+    }
+  }
+}
