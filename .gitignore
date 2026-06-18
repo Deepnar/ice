@@ -17,3 +17,14 @@ models/
 *.pt
 .python-version
 docker/.env
+docs/chunks
+docs/FULL_CONTEXT.md
+docs/RAW.md
+docs/SUMMARY.md
+docs/RESEARCH.md
+experiments/curation_files
+experiments/results_phase2/_completed.txt
+experiments/results_phase2/evaluation_raw.json
+experiments/results_phase2/ground_truth_progress.json
+experiments/results_phase2/master_results.json
+experiments/results_phase2/vector_contexts.json
