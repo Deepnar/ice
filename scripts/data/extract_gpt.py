@@ -74,7 +74,7 @@ def main():
         print(f"  {fname}: {len(pairs)} turns, conv_id={conv_id[:8]}…")
 
         for prompt, response in pairs:
-            ts_str = current_ts.isoformat() + 'Z'
+            ts_str = current_ts.isoformat()
             all_lines.append(json.dumps({
                 "prompt": prompt,
                 "response": response,
