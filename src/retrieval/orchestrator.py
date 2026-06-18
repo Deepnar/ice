@@ -39,6 +39,7 @@ class HybridRetrievalOrchestrator:
         self.db = db
         self.embedder = embedder
         self.bg_client = OpenAI(base_url="http://localhost:8002/v1", api_key="dummy")
+        self.max_retrieval_tokens = 5000
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -50,7 +51,14 @@ class HybridRetrievalOrchestrator:
         prompt_embedding: list[float],
         scope: Optional[dict] = None,
     ) -> List[ContextFragment]:
-        """Orchestrate multi‑source retrieval."""
+        # ── Safety override: if we have a conversation scope, always check memory ──
+        if classification.context_reliance == "Zero_Shot" and conversation_id:
+            classification.context_reliance = "Long_Term_Memory"
+
+        # Keep the explicit creative/lore guard (belt and suspenders)
+        if "Creative_&_Media" in classification.topic_tags:
+            classification.context_reliance = "Long_Term_Memory"
+
         if classification.context_reliance == "Zero_Shot":
             return []
         if classification.context_reliance == "Real_Time_Search":
@@ -84,10 +92,71 @@ class HybridRetrievalOrchestrator:
             "rag": self._rag_lookup(prompt_embedding, classification),
         }
 
-        fused = self._apply_rrf(legs)
+        # ── Dynamic leg weighting (blended over all active intents) ──
+
+        # Base balanced weights
+        base_weights = {
+            "bm25": 0.8,
+            "vector": 1.0,
+            "codex": 0.5,
+            "procedural": 0.2,
+            "rag": 1.0,
+        }
+
+        # Profile definitions: each profile → (intents, weight_override)
+        PROFILES = [
+            ({"Factual_Retrieval", "Utility_Formatting"},
+            {"vector": 1.2, "bm25": 1.0, "codex": 0.1, "procedural": 0.1}),
+            ({"Troubleshooting", "Strategic_Planning"},
+            {"vector": 1.0, "bm25": 0.8, "codex": 0.3, "procedural": 1.2}),
+            ({"Generation", "Ideation", "Open_Exploration"},
+            {"vector": 0.6, "bm25": 0.4, "codex": 1.2, "procedural": 0.1}),
+            ({"Emotional_Processing", "Analysis_&_Summarization", "Decision_Making"},
+            {"vector": 1.1, "bm25": 0.5, "codex": 0.9, "procedural": 0.0}),
+            ({"Casual_Banter", "Null_Noise"},
+            {"vector": 0.5, "bm25": 0.2, "codex": 0.0, "procedural": 0.0}),
+        ]
+
+        # Build a mapping from intent label → its profile’s override
+        intent_to_profile_weights = {}
+        for intents_in_profile, override in PROFILES:
+            for intent in intents_in_profile:
+                intent_to_profile_weights[intent] = override
+
+        # Blend: each active intent contributes equally
+        active_intents = classification.intent_tags
+        num_active = len(active_intents) if active_intents else 1
+
+        blend_weights = {leg: 0.0 for leg in base_weights}
+        for tag in active_intents:
+            profile_weights = intent_to_profile_weights.get(tag)
+            if profile_weights:
+                for leg, w in profile_weights.items():
+                    blend_weights[leg] += w / num_active
+            else:
+                # Unknown intent – use base weights
+                for leg, w in base_weights.items():
+                    blend_weights[leg] += w / num_active
+
+        # Fallback to base weights if nothing matched
+        if all(v == 0.0 for v in blend_weights.values()):
+            blend_weights = dict(base_weights)
+
+        # --- TOPIC OVERRIDES (cumulative) ---
+        if "Creative_&_Media" in set(classification.topic_tags):
+            blend_weights["codex"] = blend_weights.get("codex", 0.5) + 0.3
+        if "Software_&_Tech" in set(classification.topic_tags):
+            blend_weights["procedural"] = blend_weights.get("procedural", 0.2) + 0.4
+
+        # Clamp to zero (no negative weights)
+        for leg in blend_weights:
+            blend_weights[leg] = max(0.0, blend_weights[leg])
+
+        # Fuse, diversify, deduplicate, trim
+        fused = self._apply_rrf(legs, alpha_map=blend_weights)
         diversified = self._session_diversify(fused, conversation_id, max_per_conversation=3)
         deduped = self._deduplicate(diversified)
-        final = self._enforce_token_budget(deduped, max_tokens=2000)
+        final = self._enforce_token_budget(deduped)
 
         # Strengthen retrieved turns (access count + decay boost)
         self._strengthen_retrieved(final)
@@ -147,7 +216,8 @@ class HybridRetrievalOrchestrator:
         search_words = [w for w in clean_prompt.split() if w][:30]
         search_terms = " & ".join(search_words) if search_words else "ice"
 
-        topic_filter = "AND topic_tags && :topics" if classification.topic_tags else ""
+        # topic_filter = "AND topic_tags && :topics" if classification.topic_tags else ""
+        topic_filter = ""
         conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
 
         query = text(f"""
@@ -163,12 +233,10 @@ class HybridRetrievalOrchestrator:
               AND decay_score > :min_decay
               AND is_archived = false
             ORDER BY score DESC
-            LIMIT 10
+            LIMIT 20
         """)
 
         params = {"search_terms": search_terms, "min_decay": 0.2}
-        if classification.topic_tags:
-            params["topics"] = classification.topic_tags
         if conv_id:
             params["conv_id"] = conv_id
 
@@ -184,7 +252,8 @@ class HybridRetrievalOrchestrator:
     # Vector episodic (pgvector cosine similarity)
     # ------------------------------------------------------------------
     def _vector_episodic(self, prompt_embedding, classification, scope, conv_id: Optional[str] = None) -> List[ContextFragment]:
-        topic_filter = "AND topic_tags && :topics" if classification.topic_tags else ""
+        # topic_filter = "AND topic_tags && :topics" if classification.topic_tags else ""
+        topic_filter = ""
         conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
 
         query = text(f"""
@@ -197,11 +266,9 @@ class HybridRetrievalOrchestrator:
             AND decay_score > :min_decay
             AND is_archived = false
             ORDER BY score DESC
-            LIMIT 10
+            LIMIT 20
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
         params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2}
-        if classification.topic_tags:
-            params["topics"] = classification.topic_tags
         if conv_id:
             params["conv_id"] = conv_id
 
@@ -386,23 +453,26 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # RRF fusion, diversification, dedup, token budget
     # ------------------------------------------------------------------
-    def _apply_rrf(self, legs: Dict[str, List[ContextFragment]], k: int = 60) -> List[ContextFragment]:
-        """True RRF: rank each leg independently, then 1/(k + rank)."""
+    def _apply_rrf(self, legs: Dict[str, List[ContextFragment]], alpha_map: Dict[str, float] = None, k: int = 60) -> List[ContextFragment]:
+        """Weighted RRF: rank each leg independently, then sum weighted 1/(k + rank)."""
         from dataclasses import replace
+        if alpha_map is None:
+            alpha_map = {}
+
         rrf_scores: Dict[str, float] = {}
         fragment_registry: Dict[str, ContextFragment] = {}
 
         for leg_name, fragments in legs.items():
+            weight = alpha_map.get(leg_name, 1.0)   # default weight = 1.0 if not specified
             fragments.sort(key=lambda x: x.score, reverse=True)
             for rank, frag in enumerate(fragments, start=1):
                 frag_hash = hashlib.sha256(frag.text.encode('utf-8')).hexdigest()
                 if frag_hash not in fragment_registry:
                     fragment_registry[frag_hash] = frag
-                rrf_scores[frag_hash] = rrf_scores.get(frag_hash, 0.0) + (1.0 / (k + rank))
+                rrf_scores[frag_hash] = rrf_scores.get(frag_hash, 0.0) + (weight / (k + rank))
 
         fused = []
         for frag_hash, score in rrf_scores.items():
-            # Create a new frozen instance with the fused score
             original = fragment_registry[frag_hash]
             new_frag = replace(original, score=score)
             fused.append(new_frag)
@@ -435,7 +505,9 @@ class HybridRetrievalOrchestrator:
                 unique.append(f)
         return unique
 
-    def _enforce_token_budget(self, fragments, max_tokens=2000):
+    def _enforce_token_budget(self, fragments, max_tokens=None):
+        if max_tokens is None:
+            max_tokens = self.max_retrieval_tokens
         total = 0
         result = []
         for f in fragments:
@@ -487,7 +559,8 @@ class HybridRetrievalOrchestrator:
         fragments.extend(self._codex_graph(classification))
         fragments.extend(self._rag_lookup(prompt_embedding, classification))
 
-        fused = self._apply_rrf({"fallback": fragments})
+        # Use the same dynamic weighting for the fallback leg
+        fused = self._apply_rrf({"fallback": fragments}, alpha_map={"fallback": 1.0})
         diversified = self._session_diversify(fused, conversation_id, max_per_conversation=3)
         return self._enforce_token_budget(self._deduplicate(diversified), max_tokens=2000)
 
