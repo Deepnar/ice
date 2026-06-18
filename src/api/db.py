@@ -11,7 +11,7 @@ from src.api.config import settings
 # Create the engine using the DATABASE_URL from config
 engine = create_engine(
     settings.database_url,
-    pool_size=5,            # small pool – single‑user system
+    pool_size=20,            # small pool – single‑user system
     max_overflow=0,
     pool_pre_ping=True,     # verify connections before using them
 )
