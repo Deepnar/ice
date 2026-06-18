@@ -171,14 +171,14 @@ def _synthesize_session(db, turns):
 # ------------------------------------------------------------------
 def _crystallize_patterns(db, turns):
     # Build a compact representation (last 1500 words)
-    text = "\n".join([t.raw_text[:200] for t in turns])
-    if len(text.split()) > 1500:
-        text = " ".join(text.split()[-1500:])
+    txt = "\n".join([t.raw_text[:200] for t in turns])
+    if len(txt.split()) > 1500:
+        txt = " ".join(txt.split()[-1500:])
     completion = bg_client.chat.completions.create(
-        model="Qwen/Qwen2.5-3B-Instruct-AWQ",
+        model=get_bg_model_name(),
         messages=[
             {"role": "system", "content": "You are a behavioural pattern detector."},
-            {"role": "user", "content": f"{CRYSTALLIZATION_PROMPT}\n\n{text}"}
+            {"role": "user", "content": f"{CRYSTALLIZATION_PROMPT}\n\n{txt}"}
         ],
         temperature=0.0, max_tokens=200, timeout=30.0
     )
@@ -225,14 +225,14 @@ def _crystallize_patterns(db, turns):
 # Memory Slot Evolution
 # ------------------------------------------------------------------
 def _evolve_memory_slots(db, turns):
-    text = "\n".join([t.raw_text[:200] for t in turns])
-    if len(text.split()) > 1500:
-        text = " ".join(text.split()[-1500:])
+    txt = "\n".join([t.raw_text[:200] for t in turns])
+    if len(txt.split()) > 1500:
+        txt = " ".join(txt.split()[-1500:])
     completion = bg_client.chat.completions.create(
-        model="Qwen/Qwen2.5-3B-Instruct-AWQ",
+        model=get_bg_model_name(),
         messages=[
             {"role": "system", "content": "You are a memory slot analyst. Output only JSON."},
-            {"role": "user", "content": f"{SLOT_EVOLUTION_PROMPT}\n\n{text}"}
+            {"role": "user", "content": f"{SLOT_EVOLUTION_PROMPT}\n\n{txt}"}
         ],
         temperature=0.0, max_tokens=300, timeout=30.0
     )
@@ -274,7 +274,7 @@ def _enrich_codex_entities(db):
             continue
         combined = "\n".join(passages)
         completion = bg_client.chat.completions.create(
-            model="Qwen/Qwen2.5-3B-Instruct-AWQ",
+            model=get_bg_model_name(),
             messages=[
                 {"role": "system", "content": "You are a knowledge graph enricher. Write a factual description."},
                 {"role": "user", "content": f"{ENRICHMENT_PROMPT}\nCurrent payload: {entity.context_payload or ''}\nRelevant passages:\n{combined[:2000]}"}
@@ -296,14 +296,14 @@ def _enrich_codex_entities(db):
 # Motif Detection
 # ------------------------------------------------------------------
 def _detect_motifs(db, turns):
-    text = "\n".join([t.raw_text[:200] for t in turns])
-    if len(text.split()) > 1500:
-        text = " ".join(text.split()[-1500:])
+    txt = "\n".join([t.raw_text[:200] for t in turns])
+    if len(txt.split()) > 1500:
+        txt = " ".join(txt.split()[-1500:])
     completion = bg_client.chat.completions.create(
-        model="Qwen/Qwen2.5-3B-Instruct-AWQ",
+        model=get_bg_model_name(),
         messages=[
             {"role": "system", "content": "You are a thematic motif detector. Output only JSON."},
-            {"role": "user", "content": f"{MOTIF_PROMPT}\n\n{text}"}
+            {"role": "user", "content": f"{MOTIF_PROMPT}\n\n{txt}"}
         ],
         temperature=0.0, max_tokens=150, timeout=30.0
     )

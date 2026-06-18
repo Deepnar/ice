@@ -15,6 +15,6 @@ def get_bg_model_name() -> str:
     """Return the model name appropriate for the current background mode."""
     if settings.background_model_mode == "shared":
         # Must be a model that exists in Ollama, e.g. a 3B quant
-        return "qwen2.5:3b"   # ← adjust if you have a different Ollama‑friendly 3B model
+        return "qwen2.5:7b"   # ← adjust if you have a different Ollama‑friendly 3B model
     else:
         return "Qwen/Qwen2.5-3B-Instruct-AWQ"

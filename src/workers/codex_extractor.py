@@ -236,11 +236,16 @@ def extract_codex(self, batch_id: str, model_used: str = ""):
 
         triplets = extract_triplets(turn.raw_text, model_used)
         for triplet in triplets:
-            s = triplet.get("subject", "").strip()
-            r = triplet.get("relation", "").strip()
-            o = triplet.get("object", "").strip()
-            if s and r and o:
-                handle_triplet(db, s, r, o, batch_id)
+            if isinstance(triplet, dict):
+                s_raw = triplet.get("subject")
+                r_raw = triplet.get("relation")
+                o_raw = triplet.get("object")
+                if isinstance(s_raw, str) and isinstance(r_raw, str) and isinstance(o_raw, str):
+                    s = s_raw.strip()
+                    r = r_raw.strip()
+                    o = o_raw.strip()
+                    if s and r and o:
+                        handle_triplet(db, s, r, o, batch_id)
 
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()

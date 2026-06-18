@@ -47,19 +47,22 @@ def is_lossless(text: str) -> bool:
 
 
 def generate_summary(prompt: str, response: str, model_used: str = "") -> str:
-    """Invokes the background 3B model to produce a tight, fact‑dense summary."""
+    model_name = model_used if model_used else get_bg_model_name()
     try:
         completion = bg_client.chat.completions.create(
-            model = model_used if model_used else get_bg_model_name(),
+            model=model_name,
             messages=[
                 {
                     "role": "system",
                     "content": (
                         "You are a precise summarisation engine. "
                         "Summarize the following user/assistant exchange in 2‑3 sentences. "
-                        "Focus ONLY on concrete facts, decisions, code snippets, or named entities. "
-                        "Do NOT include pleasantries, speculation, or meta‑commentary. "
-                        "If the exchange contains code, describe what the code does."
+                        "RULES:\n"
+                        "- Preserve ALL named entities (people, characters, places, tools, project names).\n"
+                        "- Preserve ALL numbers, lists, categories, and their specific assignments "
+                        "- Preserve ALL specific facts, decisions, and code snippets.\n"
+                        "- Do NOT include pleasantries, speculation, or meta‑commentary.\n"
+                        "- If the exchange contains code, describe what the code does."
                     )
                 },
                 {"role": "user", "content": f"User: {prompt}\nAssistant: {response}"},
@@ -105,26 +108,38 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
         # 4. Text Ingestion & Processing
                 # 4. Text Ingestion & Processing
         lossless = is_lossless(response)
-        full_text = f"User: {prompt}\nAssistant: {response}"
-        word_count = len(full_text.split())
-        has_code = "```" in response
 
-        # By default, inject raw text
-        inject_raw = True
+        # Force lossless + raw injection for personal/creative content
+        force_lossless = (
+            turn.topic_tags and
+            ("Creative_&_Media" in turn.topic_tags or "Emotional_Processing" in turn.intent_tags)
+        )
+        if force_lossless:
+            lossless = True
+            inject_raw = True          # keep full raw text
+            summary = None             # don't generate a summary
+        else:
+            full_text = f"User: {prompt}\nAssistant: {response}"
+            word_count = len(full_text.split())
+            has_code = "```" in response
+            is_lore = "Creative_&_Media" in (turn.topic_tags or [])
 
-        if lossless and word_count > 500 and not has_code:
-            # Long lossless turn without code → summarise and mark for summary injection
-            summary = generate_summary(prompt, response, model_used)
-            turn.summary_text = summary
-            inject_raw = False
-        elif not lossless:
-            # Non‑lossless turn → summarise normally
-            summary = generate_summary(prompt, response, model_used)
-            turn.summary_text = summary
-            inject_raw = False
+            # By default, inject raw text
+            inject_raw = True
 
-        # 5. Core Write-Once Persistence
+            if lossless and word_count > 500 and not has_code and not is_lore:
+                summary = generate_summary(prompt, response)
+                turn.summary_text = summary
+                inject_raw = False
+            elif not lossless:
+                summary = generate_summary(prompt, response, model_used)
+                turn.summary_text = summary
+                inject_raw = False
+            else:
+                summary = None
+
         turn.lossless_flag = lossless
+        turn.summary_text = summary
         turn.inject_raw = inject_raw
         
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
