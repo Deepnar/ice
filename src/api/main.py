@@ -319,7 +319,8 @@ async def chat_completions(
 
         messages = assemble_prompt(memory_slots_list, fragments, user_message,
                                    db_session=db, conversation_id=str(conversation_id),
-                                   bookmarked_texts=bookmarked_texts)
+                                   bookmarked_texts=bookmarked_texts,
+                                   classification=result)
 
         # Token budget check (crude: words * 1.33 ≈ tokens, aim for 90% of 4096)
         def word_count(text: str) -> int:

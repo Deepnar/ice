@@ -9,7 +9,8 @@ from src.memory.models import MemorySlot, EpisodicMemory
 SYSTEM_RULES = (
     "You are an AI assistant with access to a personal memory system (ICE).\n"
     "The following context has been automatically retrieved from past conversations and knowledge.\n"
-    "Use it to answer the user's question accurately. If the context is irrelevant, ignore it."
+    "Use it to answer the user's question accurately. If the context is irrelevant, ignore it.\n"
+    "Give detailed, thorough answers. Don't be overly brief."
 )
 
 
@@ -41,8 +42,39 @@ def assemble_prompt(
     db_session: Optional[Session] = None,
     conversation_id: Optional[str] = None,
     bookmarked_texts: Optional[List[str]] = None,
+    classification=None,                          # NEW parameter
 ) -> List[dict]:
     """Assemble the final prompt in stable‑prefix order."""
+
+    # ── Emotional / personal queries: bypass structured prompt, inject raw context ──
+    if classification and (
+        "Emotional_Processing" in classification.intent_tags
+        or "Social_&_Relationships" in classification.topic_tags
+        or "Creative_&_Media" in classification.topic_tags
+    ):
+        context_texts = [f.text for f in retrieved_fragments]
+        plain_context = "\n\n".join(context_texts)
+
+        # Choose the right voice: exhaustive for factual queries, warm for the rest
+        if "Factual_Retrieval" in classification.intent_tags:
+            system_message = (
+                "You are an assistant with access to past conversations. "
+                "Answer the following question as thoroughly and completely as possible. "
+                "List all relevant details, names, and items. Do not summarise – be exhaustive."
+            )
+        else:
+            system_message = (
+                "You are a deeply personal AI assistant who has been talking with this user "
+                "for a long time. Answer warmly, specifically, and with emotional depth. "
+                "Use the provided context as if you genuinely remember these moments. "
+                "Give thorough, detailed answers — don’t be too brief."
+            )
+
+        return [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": f"Context:\n{plain_context}\n\nQuestion: {user_message}"}
+    ]
+
     system_content = SYSTEM_RULES
 
     # 0. Bookmarked memories (explicit user reinforcements)
