@@ -536,17 +536,340 @@ The goal of these improvements is to make the classifier smarter, more accurate,
 *   **Strategy**: Long conversations receive more context (up to 10,000 tokens), while short conversations (< 60 turns) receive less (3,000 tokens). This improves the TUR for short conversations and ensures that critical information in long conversations is not truncated.
 3.  **Implementation Location**: Add the `set_budget_from_turn_count` method to the retriever and call it from the API layer and experiment scripts.
 
-#### **CL6 – Hybrid Rule Engine (ML Classifier Pre-processing)**
+Below is the complete implementation specification for **DI3 (Dynamic Intent Inferencer)**, presented in a structured format suitable for handing off to another AI for coding.
 
-1.  **Problem**: ML classifiers may still make errors on prompts containing obvious signals (such as code blocks) or require unnecessary computation.
-2.  **Solution**: Execute a set of deterministic rules before invoking the ML classifier. If a rule matches, return a predefined `ClassificationResult` directly, **completely bypassing** ML inference.
+---
 
-| Rule | Condition | Output |
-| :--- | :--- | :--- |
-| **Code Block** | Prompt contains ` ``` ` | topic=`Software_&_Tech`, intent=`Generation`, context=depends on conversation status (set to `Long_Term_Memory` if in a conversation) |
-| **Emotional** | Prompt starts with "I feel", "I'm feeling", "I am", etc. | intent=`Emotional_Processing` |
-| **Null/Noise** | Prompt length < 5 characters, or contains only punctuation | topic=`Null_Noise`, intent=`Casual_Banter`, context=`Zero_Shot` |
-| **Meta-AI** | Prompt contains patterns (regex) like "how do I prompt you", "what model are you" | topic=`Meta_AI`, intent=`Factual_Retrieval`, context=`Zero_Shot` |
+## 📋 DI3 (Dynamic Intent Inferencer) – Complete Implementation Specification
+
+### 1. Overview
+
+| Attribute | Value |
+|------|------|
+| **Component Name** | DI3 – Dynamic Intent Inferencer |
+| **File Location** | `src/classifier/di3.py` |
+| **Responsibility** | Acts as a fast, signal-based pre-classifier before invoking the ML classifier |
+| **Input** | `prompt: str`, `conversation_history: List[str]`, `conversation_length: int` |
+| **Output** | `ClassificationResult` or `None` (if DI3 cannot make a determination) |
+| **Priority** | P1 |
+| **Status** | Pending Implementation |
+
+---
+
+### 2. Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         classify(prompt)                        │
+│                              │                                  │
+│                              ▼                                  │
+│                  ┌─────────────────────┐                        │
+│                  │   DI3 (Pre‑flight)   │                        │
+│                  │  Signal Extraction   │                        │
+│                  │  & Density Analysis  │                        │
+│                  └──────────┬──────────┘                        │
+│                             │                                   │
+│              ┌──────────────┴──────────────┐                    │
+│              │                             │                    │
+│              ▼                             ▼                    │
+│       High Confidence                  Low Confidence           │
+│              │                             │                    │
+│              ▼                             ▼                    │
+│   Return ClassificationResult      Pass to ML Classifier        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 3. Signal Extraction and Density Calculation
+
+DI3 scans the prompt and calculates five independent density signals.
+
+#### 3.1 Code Density
+
+**Purpose**: Detects whether the prompt contains code or code-related content. **Implementation Method**:
+
+| Feature | Weight |
+|------|------|
+| Contains ` ``` ` | +0.4 |
+| Contains `=`, `==`, `!=`, `>`, `<` | +0.1 |
+| Contains `def`, `class`, `function`, `import` | +0.1 |
+| Contains `{` or `}` | +0.1 |
+| Contains `;` | +0.1 |
+| Contains `print`, `return`, `if`, `else`, `for`, `while` | +0.05 |
+
+**Code Density Threshold**: `0.3`
+
+#### 3.2 Sentiment Density
+
+**Purpose**: To detect whether the prompt expresses an emotional state.
+
+**Implementation Method**: Scan a predefined list of sentiment-related words.
+
+- **Sentiment Word List**: `feel`, `felt`, `feeling`, `frustrated`, `upset`, `angry`, `happy`, `sad`, `love`, `hate`, `excited`, `worried`, `scared`, `tired`, `overwhelmed`, `depressed`, `anxious`
+
+| Feature | Weight |
+|------|------|
+| Contains any sentiment word | +0.1 per word |
+| Contains "I feel" | +0.2 |
+| Contains "I’m" + sentiment word | +0.15 |
+
+**Sentiment Density Threshold**: `0.4`
+
+#### 3.3 Meta-Density
+
+**Purpose**: To detect whether the prompt asks questions about the AI ​​itself. **Implementation Method**:
+
+| Feature | Weight |
+|------|------|
+| Contains `you`, `your`, `model` | +0.1 |
+| Contains `prompt`, `prompting` | +0.15 |
+| Contains `how do I` + `prompt`/`use` | +0.2 |
+| Contains `what model`, `which model` | +0.2 |
+
+**Meta-density Threshold**: `0.2`
+
+#### 3.4 Noise Density
+
+**Purpose**: To detect whether the prompt is disorganized or constitutes a "test" message.
+
+**Implementation Method**:
+
+| Feature | Weight |
+|------|------|
+| Contains only punctuation marks | +0.6 |
+| Contains repeated characters (`aaaa`, `bbbb`) | +0.2 |
+| Length < 5 characters | +0.2 |
+| Contains random key sequences (`asdf`, `qwerty`) | +0.3 |
+
+**Noise Density Threshold**: `0.8`
+
+#### 3.5 Reference Density
+
+**Purpose**: To detect whether the prompt contains references to the subject currently under discussion (which increases the need for memory retrieval). **Implementation Method**:
+
+| Feature | Weight |
+|------|------|
+| Contains `this` | +0.15 |
+| Contains `that` | +0.1 |
+| Contains `it` | +0.05 |
+| Contains `these`, `those` | +0.1 |
+| Contains `the` (if conversational context is clear) | +0.05 |
+
+**Reference Density Threshold**: `0.2` (in long conversations, this threshold drops to `0.1`, and LTM is enforced)
+
+---
+
+### 4. Decision Logic
+
+Once signals are extracted, DI3 executes the following decision process:
+
+```python
+def infer(prompt: str, conversation_length: int, history: List[str]) -> Optional[ClassificationResult]:
+signals = extract_signals(prompt)
+
+# Signal 1: Meaningless/Noise
+if signals['noise_density'] > 0.8:
+return ClassificationResult(
+topic_tags=["Null_Noise"],
+intent_tags=["Casual_Banter"],
+context_reliance="Zero_Shot",
+confidence=0.95
+)
+
+# Signal 2: Code (returns classification result if code density is high)
+if signals['code_density'] > 0.3:
+return ClassificationResult(
+topic_tags=["Software_&_Tech"],
+intent_tags=["Generation"],
+context_reliance="Long_Term_Memory" if conversation_length > 0 else "Zero_Shot",
+confidence=0.9
+)
+
+# Signal 3: Sentiment (returns classification result if sentiment density is high)
+if signals['sentiment_density'] > 0.4:
+return ClassificationResult(
+topic_tags=["Lifestyle_&_Health", "Social_&_Relationships"],
+intent_tags=["Emotional_Processing"],
+context_reliance="Long_Term_Memory" if conversation_length > 5 else "Zero_Shot",
+confidence=0.85
+)
+
+# Signal
+4: Meta (if meta density is high, return classification result)
+if signals['meta_density'] > 0.2:
+return ClassificationResult(
+topic_tags=["Meta_AI"],
+intent_tags=["Factual_Retrieval"],
+context_reliance="Zero_Shot",
+confidence=0.9
+)
+
+# Signal 5: Reference (if reference density is high, force LTM)
+if signals['reference_density'] > 0.2:
+return ClassificationResult(
+topic_tags=[],  # Let the ML classifier determine the topic, but force LTM
+intent_tags=[],
+context_reliance="Long_Term_Memory",
+confidence=0.7  # Low confidence, but force LTM
+)
+
+# No decisive signal detected → Pass to ML classifier
+return None
+```
+
+---
+
+### 5. Integration with the Classifier
+
+In `src/classifier/classifier.py`:
+
+```python
+def classify(self, prompt: str, conversation_history: List[str] = None, conversation_length: int = 0) -> ClassificationResult:
+# Step 1: Run DI3 pre-classifier
+di3_result = run_di3(prompt, conversation_length, conversation_history)
+
+if di3_result is not None:
+# DI3 made a decision → return immediately
+return di3_result
+
+# Step 2: DI3 undecided → run ML classifier
+return self._run_ml_classifier(prompt)
+```
+
+---
+
+### 6. Configuration File (`config.py`)
+
+Add the following configuration items:
+
+```python
+# DI3 Configuration
+DI3_ENABLED = True                # Enable/Disable DI3
+DI3_CODE_DENSITY_THRESHOLD = 0.3
+DI3_SENTIMENT_DENSITY_THRESHOLD = 0.4
+DI3_META_DENSITY_THRESHOLD = 0.2
+DI3_NOISE_DENSITY_THRESHOLD = 0.8
+DI3_REFERENCE_DENSITY_THRESHOLD = 0.2
+DI3_LTM_REFERENCE_DENSITY_THRESHOLD = 0.1
+```
+
+---
+
+### 7. Logging
+
+DI3 should log the following for debugging and analysis:
+
+- `{"event": "di3_decided", "signal": "code", "confidence": 0.9}`
+- `{"event": "di3_passed_to_ml", "signal_scores": {...}}`
+
+---
+
+### 8. Test Cases
+
+| Prompt | Expected Behavior |
+|--------|----------|
+| `def hello():\n    print("world")` | DI3 → `Software_&_Tech`, `Generation` |
+| `I feel really frustrated and overwhelmed.` | DI3 → `Emotional_Processing` |
+| `How do I prompt you better?` | DI3 → `Meta_AI` |
+| `asdfghjkl` | DI3 → `Null_Noise` |
+| `What is that?` | DI3 → Fallback (Force ML) | LTM, passed to ML classifier |
+| `Can you fix this code?` | DI3 → Undecided, passed to ML classifier |
+
+---
+
+### 9. File Structure
+
+```
+src/
+└── classifier/
+├── classifier.py      # Modified: DI3 integration
+├── di3.py             # New: DI3 implementation
+├── di3_signals.py     # New: Signal extractor
+├── di3_config.py      # New: Configuration loader
+└── di3_logger.py      # New: DI3 event logger
+```
+
+---
+
+### 10. Implementation Order
+
+| Step | File | Content |
+|------|------|------|
+| 1 | `di3_signals.py` | Implement signal extraction functions (code, sentiment, meta, noise, anaphora) |
+| 2 | `di3.py` | Implement decision tree logic |
+| 3 | `di3_config.py` | Load configuration from `config.py` |
+| 4 | `di3_logger.py` | Set up structured logging |
+| 5 | `classifier.py` | Integrate DI3 into `classify()` |
+| 6 | `test_di3.py` | Run unit tests |
+
+---
+
+### 11. Considerations
+
+1.  **DI3 is a pre-classifier, not a replacement.** When uncertain, it should hand over control to the ML classifier rather than forcing an incorrect result.
+2.  **Signal density is a continuous value, not binary.** Signal density should be calculated as a value between 0 and 1 and evaluated against thresholds.
+3.  **Contextual thresholds may vary:** Adjust signal thresholds based on conversation length (e.g., "I feel" carries more contextual significance in long conversations).
+4.  **Use a feedback loop:** Track DI3's decisions versus the ML classifier's decisions. Periodically review instances where DI3's decisions proved incorrect and adjust signal thresholds accordingly. ---
+
+### 12. Sample Code (AI-Generated Template)
+
+```python
+
+# src/classifier/di3_signals.py
+
+def compute_code_density(text: str) -> float:
+
+""Returns a score between 0.0 and 1.0, representing the similarity between the text and the code."""
+
+features = {
+
+'```': 0.4,
+
+'=': 0.05,
+
+'def': 0.1,
+
+'class': 0.1,
+
+'function': 0.1,
+
+'import': 0.1,
+
+'if': 0.05,
+
+'else': 0.05,
+
+'for': 0.05,
+
+'while': 0.05,
+
+'return': 0.05,
+
+'{': 0.1,
+
+'}': 0.1,
+
+';': 0.1,
+
+}
+score = 0.0
+
+for token, weight in features.items():
+
+if token in text:
+
+score += weight
+
+return min(score, 1.0)
+
+# Similarly, implement compute_sentiment_density, compute_meta_density, compute_noise_density, compute_reference_density
+
+```
+
+---
+
+**Please let me know if you need to adjust any thresholds or add new signals to DI3.**
 
 #### **CL7 – Context-Aware Classification (Last 3 Turns)**
 

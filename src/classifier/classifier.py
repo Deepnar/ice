@@ -1,8 +1,9 @@
 import torch
 from sentence_transformers import SentenceTransformer
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 from .model import ICEClassifier
+from .di3 import run_di3
 
 @dataclass
 class ClassificationResult:
@@ -45,16 +46,30 @@ class PyTorchClassifier:
             device="cpu",
             truncate_dim=384
         )
-    def classify(self, prompt: str, context_turns: list[str] | None = None) -> ClassificationResult:
+    def classify(
+        self,
+        prompt: str,
+        conversation_history: Optional[List[str]] = None,
+        conversation_length: int = 0,
+    ) -> ClassificationResult:
+        """Public entry point.  Runs DI3 first, falls back to ML."""
+        # Step 1: DI3 pre‑classifier
+        if conversation_history is None:
+            conversation_history = []
+        di3_result = run_di3(prompt, conversation_length, conversation_history)
+        if di3_result is not None:
+            # Copy the safety overrides from _run_ml_classifier
+            di3_result = self._apply_hard_overrides(di3_result, prompt)
+            return di3_result
+
+        # Step 2: Full ML classification
+        return self._run_ml_classifier(prompt)
+
+    def _run_ml_classifier(self, prompt: str) -> ClassificationResult:
+        """Original ML classification path (now private)."""
         with torch.no_grad():
-            # Build instruction‑prefixed prompt (Qwen3‑Embedding requires instruction format)
-            prefixed = (
-                "Classify the following user prompt into topic labels, intent labels, "
-                "and determine whether it requires long-term memory, web search, or is self-contained:\n"
-                f"{prompt}"
-            )            
-            # Encode and add batch dimension
-            embedding = self.embedder.encode(prefixed, convert_to_tensor=True).unsqueeze(0).float()
+            prefixed_prompt = f"Given a user prompt, classify its intent: {prompt}"
+            embedding = self.embedder.encode(prefixed_prompt, convert_to_tensor=True).unsqueeze(0).float()
             outputs = self.model(embedding)                     # (1, 25)
 
             topic_out = outputs[:, :11]                         # (1, 11)
@@ -79,19 +94,37 @@ class PyTorchClassifier:
         # Combine probabilities
         raw_probs = topic_probs.tolist() + intent_probs.tolist() + ctx_probs.tolist()
         max_confidence = max(raw_probs)
-        # Safety net: story/lore questions always need long‑term memory
-        if "Creative_&_Media" in topic_tags:
-            context_reliance = "Long_Term_Memory"
-            # Re‑compute max confidence from the raw probs (unchanged)
-        if "Software_&_Tech" in topic_tags:
-            referential_words = ["my", "our", "mine", "ours", "we", "us",
+
+        result = ClassificationResult(
+            topic_tags=topic_tags,
+            intent_tags=intent_tags,
+            context_reliance=context_reliance,
+            raw_probs=raw_probs,
+            max_confidence=max_confidence,
+            prompt=prompt,
+        )
+        return self._apply_hard_overrides(result, prompt)
+
+    def _apply_hard_overrides(
+        self, result: ClassificationResult, prompt: str
+    ) -> ClassificationResult:
+        """Apply the creative/software LTM overrides to any classification result."""
+        if "Creative_&_Media" in result.topic_tags:
+            result.context_reliance = "Long_Term_Memory"
+
+        if "Software_&_Tech" in result.topic_tags:
+            referential_words = [
+                "my", "our", "mine", "ours", "we", "us",
                 "this", "that", "these", "those", "the",
                 "it", "they", "them", "their",
                 "previous", "last", "before", "yesterday", "earlier",
-                "again", "still", "same"]
+                "again", "still", "same",
+            ]
             prompt_lower = prompt.lower()
             if any(word in prompt_lower for word in referential_words):
-                context_reliance = "Long_Term_Memory"
+                result.context_reliance = "Long_Term_Memory"
+
+        return result
 
         return ClassificationResult(
             topic_tags=topic_tags,
