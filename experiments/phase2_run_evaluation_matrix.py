@@ -254,6 +254,10 @@ def main():
 
                 classification = classifier.classify(prompt)
                 embedding = embedder.encode(prompt, convert_to_tensor=False).tolist()
+                # CL2: LTM Bias – force memory retrieval for long conversations or uncertain classification
+                if classification.context_reliance == "Zero_Shot":
+                    if split_n > 10 or classification.max_confidence < 0.95:
+                        classification.context_reliance = "Long_Term_Memory"
 
                 # ---- Retrieve once for full ICE (standard) ----
                 orchestrator = HybridRetrievalOrchestrator(SessionLocal(), embedder)

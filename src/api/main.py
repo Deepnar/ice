@@ -273,6 +273,18 @@ async def chat_completions(
     memory_slots_list = []
     bookmarked_texts = []
     hyde_used = False
+    # CL2: LTM Bias – force memory retrieval for long conversations or uncertain classification
+    if result.context_reliance == "Zero_Shot":
+        turn_count = db.query(EpisodicMemory).filter_by(
+            conversation_id=conversation_id
+        ).count()
+        if turn_count > 10 or result.max_confidence < 0.95:
+            result.context_reliance = "Long_Term_Memory"
+            log.info(
+                "ltm_bias_override",
+                turn_count=turn_count,
+                max_confidence=result.max_confidence,
+            )
 
     if (result.context_reliance == "Long_Term_Memory" or
         result.max_confidence < settings.confidence_fallback_threshold):
