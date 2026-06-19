@@ -108,7 +108,13 @@ class PyTorchClassifier:
     def _apply_hard_overrides(
         self, result: ClassificationResult, prompt: str
     ) -> ClassificationResult:
-        """Apply the creative/software LTM overrides to any classification result."""
+        """Apply creative/software LTM overrides, but never downgrade an
+        existing Long_Term_Memory decision (e.g. from DI3 or LTM bias)."""
+
+        # If LTM has already been enforced (by DI3 or API‑level bias), keep it
+        if result.context_reliance == "Long_Term_Memory":
+            return result
+
         if "Creative_&_Media" in result.topic_tags:
             result.context_reliance = "Long_Term_Memory"
 
@@ -125,13 +131,3 @@ class PyTorchClassifier:
                 result.context_reliance = "Long_Term_Memory"
 
         return result
-
-        return ClassificationResult(
-            topic_tags=topic_tags,
-            intent_tags=intent_tags,
-            context_reliance=context_reliance,
-            raw_probs=raw_probs,
-            max_confidence=max_confidence,
-            prompt=prompt,
-            
-        )

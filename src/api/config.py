@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     label_schema_path: str = "data/labeled/label_schema.json"
     default_fallback_model: str = "qwen2.5:7b"
     background_model_mode: str = "dedicated"   # "dedicated" or "shared"          # ← new
-    # DI3 Configuration
+        # DI3 Configuration
     DI3_ENABLED: bool = True
     DI3_CODE_DENSITY_THRESHOLD: float = 0.3
     DI3_SENTIMENT_DENSITY_THRESHOLD: float = 0.4

@@ -8,7 +8,8 @@ from typing import Dict, List
 SENTIMENT_WORDS = {
     "feel", "felt", "feeling", "frustrated", "upset", "angry", "happy",
     "sad", "love", "hate", "excited", "worried", "scared", "tired",
-    "overwhelmed", "depressed", "anxious",
+    "overwhelmed", "depressed", "anxious", "stressed", "hopeless",
+    "grateful", "thankful", "annoyed", "irritated", "confused", "lost",
 }
 
 I_FEEL_PATTERNS = {"i feel", "i'm feeling"}
