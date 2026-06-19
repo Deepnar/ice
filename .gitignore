@@ -28,3 +28,4 @@ experiments/results_phase2/evaluation_raw.json
 experiments/results_phase2/ground_truth_progress.json
 experiments/results_phase2/master_results.json
 experiments/results_phase2/vector_contexts.json
+data/ner

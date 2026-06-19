@@ -1,7 +1,9 @@
 """Hybrid Retrieval Orchestrator – Phase A hardened: decay filtering, access-weighting,
-wide‑net full‑vector, Codex/Procedural scoping, HyDE rewriting, procedural trigger matching."""
+wide‑net full‑vector, Codex/Procedural scoping, HyDE rewriting, procedural trigger matching,
+micro‑NER integration, and dynamic token budget."""
 
 import hashlib
+import os
 import re
 import uuid
 from typing import List, Optional, Dict
@@ -11,6 +13,9 @@ import structlog
 from sqlalchemy.orm import Session
 from sqlalchemy import bindparam, text
 from pgvector.sqlalchemy import Vector as PgVector
+from transformers import AutoTokenizer
+import torch
+
 from src.api.config import settings
 from src.memory.models import (
     EpisodicMemory,
@@ -19,8 +24,7 @@ from src.memory.models import (
     ProceduralMemory,
     MemorySlot,
 )
-from src.classifier.classifier import ClassificationResult
-
+from src.classifier.schemas import ClassificationResult
 logger = structlog.get_logger("ice.retrieval")
 
 
@@ -40,12 +44,107 @@ class HybridRetrievalOrchestrator:
         self.embedder = embedder
         self.bg_client = OpenAI(base_url="http://localhost:8002/v1", api_key="dummy")
         self.max_retrieval_tokens = 5000
+
+        # Load micro‑NER model (fallback to None if not available)
+        self.ner_model = self._load_ner_model()
+        self.ner_tokenizer = self._load_ner_tokenizer()
+
+    def _load_ner_model(self):
+        from src.classifier.ner_model import MicroNER
+        model = MicroNER()
+        path = "models/ner/ner_model.pt"
+        if os.path.exists(path):
+            model.load_state_dict(torch.load(path, map_location="cpu"))
+            model.eval()
+            return model
+        return None
+
+    def _load_ner_tokenizer(self):
+        try:
+            return AutoTokenizer.from_pretrained("Qwen/Qwen3-Embedding-0.6B")
+        except Exception:
+            return None
+
+    def _extract_entities_with_ner(self, text: str) -> List[str]:
+        # Fallback to regex if NER not ready
+        if self.ner_model is None or self.ner_tokenizer is None:
+            return list(set(re.findall(r'\b[A-Z][a-zA-Z0-9_]+\b', text)))
+
+        encoding = self.ner_tokenizer(text, return_offsets_mapping=True, add_special_tokens=False)
+        token_ids = encoding["input_ids"]
+        if not token_ids:
+            return []
+        token_strs = self.ner_tokenizer.convert_ids_to_tokens(token_ids)
+        offsets = encoding["offset_mapping"]
+
+        embeddings = self.embedder.encode(token_strs, convert_to_tensor=True, show_progress_bar=False)
+        model_device = next(self.ner_model.parameters()).device
+        if embeddings.device != model_device:
+            embeddings = embeddings.to(model_device)
+        if embeddings.dtype != torch.float32:
+            embeddings = embeddings.float()
+
+        with torch.no_grad():
+            logits = self.ner_model(embeddings.unsqueeze(0))  # (1, T, 3)
+            preds = torch.argmax(logits, dim=-1).squeeze(0)   # (T,)
+
+        # ---- Step 1: standard BIO merging ----
+        entities = []          # list of (start_char, end_char, entity_string)
+        current_start = None
+        current_end = None
+        current_tokens = []
+
+        for i, p in enumerate(preds.tolist()):
+            tok_start, tok_end = offsets[i]
+            if p == 0:  # B-ENT
+                if current_start is not None:
+                    # save previous entity using original character span
+                    entities.append((current_start, current_end,
+                                     text[current_start:current_end].strip()))
+                    current_tokens = []
+                current_start = tok_start
+                current_end = tok_end
+                current_tokens.append(token_strs[i])
+            elif p == 1 and current_start is not None:  # I-ENT
+                current_end = tok_end
+                current_tokens.append(token_strs[i])
+            else:
+                if current_start is not None:
+                    entities.append((current_start, current_end,
+                                     text[current_start:current_end].strip()))
+                    current_tokens = []
+                    current_start = None
+        if current_start is not None:
+            entities.append((current_start, current_end,
+                             text[current_start:current_end].strip()))
+
+        # ---- Step 2: glue consecutive entities that are adjacent in the text ----
+        if len(entities) >= 2:
+            glued = []
+            prev_start, prev_end, prev_str = entities[0]
+            for i in range(1, len(entities)):
+                curr_start, curr_end, curr_str = entities[i]
+                # If there is only whitespace between the two entities, merge them
+                if text[prev_end:curr_start].strip() == "":
+                    # Merge: extend the previous entity
+                    prev_end = curr_end
+                    prev_str = text[prev_start:prev_end].strip()
+                else:
+                    glued.append((prev_start, prev_end, prev_str))
+                    prev_start, prev_end, prev_str = curr_start, curr_end, curr_str
+            glued.append((prev_start, prev_end, prev_str))
+            entities = glued
+
+        # Return only the entity strings, discarding empty ones
+        return [e[2] for e in entities if len(e[2]) > 0]
+
     def set_budget_from_turn_count(self, turn_count: int):
         """CL4: Dynamic token budget based on conversation depth.
         Short conversations (<60 turns) get 3,000 tokens;
-        longer ones scale linearly with turns, up to 10,000 tokens.
+        longer ones scale linearly with turns, up to 15,000 tokens.
         """
         self.max_retrieval_tokens = min(15000, max(2000, turn_count * 50))
+
     # ------------------------------------------------------------------
     # Main entry point
     # ------------------------------------------------------------------
@@ -221,7 +320,6 @@ class HybridRetrievalOrchestrator:
         search_words = [w for w in clean_prompt.split() if w][:30]
         search_terms = " & ".join(search_words) if search_words else "ice"
 
-        # topic_filter = "AND topic_tags && :topics" if classification.topic_tags else ""
         topic_filter = ""
         conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
 
@@ -257,7 +355,6 @@ class HybridRetrievalOrchestrator:
     # Vector episodic (pgvector cosine similarity)
     # ------------------------------------------------------------------
     def _vector_episodic(self, prompt_embedding, classification, scope, conv_id: Optional[str] = None) -> List[ContextFragment]:
-        # topic_filter = "AND topic_tags && :topics" if classification.topic_tags else ""
         topic_filter = ""
         conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
 
@@ -286,15 +383,16 @@ class HybridRetrievalOrchestrator:
             return []
 
     # ------------------------------------------------------------------
-    # Codex graph traversal (conversation‑scoped)
+    # Codex graph traversal (conversation‑scoped, NER‑powered)
     # ------------------------------------------------------------------
     def _codex_graph(self, classification, scope: Optional[dict] = None) -> List[ContextFragment]:
         prompt = classification.prompt
-        candidates = set(re.findall(r'\b[A-Z][a-zA-Z0-9_]+\b', prompt))
-        if not candidates:
+        # Use micro‑NER model (falls back to regex if model not available)
+        entities = self._extract_entities_with_ner(prompt)
+        if not entities:
             return []
 
-        normalized = [c.lower().strip() for c in candidates]
+        normalized = [e.lower().strip() for e in entities]
         from sqlalchemy import or_
         alias_conditions = [CodexEntity.aliases.any(name) for name in normalized]
 
@@ -366,7 +464,6 @@ class HybridRetrievalOrchestrator:
         if not any(i in classification.intent_tags for i in activating):
             return []
 
-        # Scoping: collect batch_ids for the target conversation
         allowed_batch_ids = None
         if scope and "conversation_id" in scope:
             conv_id = scope["conversation_id"]
@@ -394,11 +491,9 @@ class HybridRetrievalOrchestrator:
                 pattern = self.db.query(ProceduralMemory).get(r.id)
                 if not pattern:
                     continue
-                # Scope filter
                 if allowed_batch_ids is not None:
                     if not any(bid in allowed_batch_ids for bid in (pattern.source_batch_ids or [])):
                         continue
-                # Trigger condition match
                 if not self._procedural_trigger_match(pattern, classification):
                     continue
                 fragments.append(ContextFragment(
@@ -425,7 +520,7 @@ class HybridRetrievalOrchestrator:
         return True
 
     # ------------------------------------------------------------------
-    # RAG lookup (unchanged)
+    # RAG lookup
     # ------------------------------------------------------------------
     def _rag_lookup(self, prompt_embedding, classification) -> List[ContextFragment]:
         if classification.context_reliance != "Long_Term_Memory":
@@ -459,7 +554,6 @@ class HybridRetrievalOrchestrator:
     # RRF fusion, diversification, dedup, token budget
     # ------------------------------------------------------------------
     def _apply_rrf(self, legs: Dict[str, List[ContextFragment]], alpha_map: Dict[str, float] = None, k: int = 60) -> List[ContextFragment]:
-        """Weighted RRF: rank each leg independently, then sum weighted 1/(k + rank)."""
         from dataclasses import replace
         if alpha_map is None:
             alpha_map = {}
@@ -468,7 +562,7 @@ class HybridRetrievalOrchestrator:
         fragment_registry: Dict[str, ContextFragment] = {}
 
         for leg_name, fragments in legs.items():
-            weight = alpha_map.get(leg_name, 1.0)   # default weight = 1.0 if not specified
+            weight = alpha_map.get(leg_name, 1.0)
             fragments.sort(key=lambda x: x.score, reverse=True)
             for rank, frag in enumerate(fragments, start=1):
                 frag_hash = hashlib.sha256(frag.text.encode('utf-8')).hexdigest()
@@ -564,7 +658,6 @@ class HybridRetrievalOrchestrator:
         fragments.extend(self._codex_graph(classification))
         fragments.extend(self._rag_lookup(prompt_embedding, classification))
 
-        # Use the same dynamic weighting for the fallback leg
         fused = self._apply_rrf({"fallback": fragments}, alpha_map={"fallback": 1.0})
         diversified = self._session_diversify(fused, conversation_id, max_per_conversation=3)
         return self._enforce_token_budget(self._deduplicate(diversified), max_tokens=2000)
@@ -575,7 +668,6 @@ class HybridRetrievalOrchestrator:
     def _rows_to_fragments(self, rows, source_type):
         fragments = []
         for row in rows:
-            # Decide which text to inject based on inject_raw flag
             if row.inject_raw and row.raw_text:
                 text = row.raw_text
             elif row.summary_text:
@@ -585,7 +677,6 @@ class HybridRetrievalOrchestrator:
             else:
                 continue
 
-            # Apply the 500‑word cap to all injected fragments
             words = text.split()
             if len(words) > 500:
                 text = ' '.join(words[:500]) + '…'

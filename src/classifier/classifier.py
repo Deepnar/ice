@@ -1,19 +1,11 @@
 import torch
 from sentence_transformers import SentenceTransformer
-from dataclasses import dataclass
 from typing import List, Optional
 from .model import ICEClassifier
 from .di3 import run_di3
+from .schemas import ClassificationResult
 from sqlalchemy.orm import Session
 
-@dataclass
-class ClassificationResult:
-    topic_tags: List[str]
-    intent_tags: List[str]
-    context_reliance: str
-    raw_probs: List[float]        # 25 probabilities
-    max_confidence: float
-    prompt: str = ""
 
 class PyTorchClassifier:
     def __init__(self, model_path="models/classifier/ice_classifier.pt",

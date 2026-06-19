@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from src.classifier.classifier import ClassificationResult
+from src.classifier.schemas import ClassificationResult
 from src.classifier.di3_signals import extract_signals
 from src.classifier.di3_config import (
     DI3_ENABLED,

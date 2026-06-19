@@ -894,6 +894,285 @@ These improvements aim to fix two fundamental flaws in the Codex Knowledge Graph
 *   **Integration**: Replace regex matching with NER model inference results within `HybridRetrievalOrchestrator._codex_graph`.
 3.  **Validation**: Test using prompts containing lowercase, multi-word, or misspelled entities (e.g., "What is a goo blade?"). Ensure the NER system extracts them correctly.
 
+
+## ✅ Revised Data Pipeline
+
+```
+simulation_full.jsonl
+│
+▼
+┌───────────────────────────────────────────────────────┐
+│  Step 1: Extract Full Dialogue Turns                  │
+│  - Combine `prompt` + `response` → full `raw_text`    │
+│  - Matches the data format used by the Codex extractor│
+│  - Filter out content that is too short (< 50 chars)  │
+└───────────────────────────────────────────────────────┘
+│
+▼
+┌───────────────────────────────────────────────────────┐
+│  Step 2: Invoke Gemma‑4‑12B‑AWQ for Entity Extraction │
+│  - Input full `raw_text` (user + AI)                  │
+│  - Extract all named entities appearing in the dialogue│
+│  - Support reasoning/thinking mode                    │
+└───────────────────────────────────────────────────────┘
+│
+▼
+┌───────────────────────────────────────────────────────┐
+│  Step 3: Parsing & Validation                         │
+│  - Extract entity list                                │
+│  - Filter low-quality/low-confidence entities         │
+└───────────────────────────────────────────────────────┘
+│
+▼
+┌───────────────────────────────────────────────────────┐
+│  Step 4: Alignment to Original Positions              │
+│  - Determine where the entity appears: user prompt or AI response │
+│  - Separately in...
+``` `prompt` and `response`                                 │
+│  - Merge BIO tags, indicating entity source                   │
+└───────────────────────────────────────────────────────┘
+│
+▼
+┌───────────────────────────────────────────────────────┐
+│  Step 5: Generate BIO tags (User part + AI response part) │
+│  - Generate corresponding BIO tag sequences for the full conversation │
+│  - Label each token as B-ENT/I-ENT/O                    │
+└───────────────────────────────────────────────────────┘
+│
+▼
+┌───────────────────────────────────────────────────────┐
+│  Step 6: Export as training data                      │
+│  - Save as `data/ner/training_data.jsonl`             │
+│  - Include `tokens` and `labels`                      │
+│  - Optional: Record entity source (User/AI)           │
+└───────────────────────────────────────────────────────┘
+│
+▼
+┌───────────────────────────────────────────────────────┐
+│  Step 7: Train NER MLP                                │
+│  - Use Qwen3‑Embedding‑0.6B as frozen encoder         │
+│  - Linear layer: 384 → 3 (B, I, O)                     │
+│  - Train for 5‑10 epochs                              │
+└───────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🔧 Step 1: Extract full conversation turns (Revised)
+
+**Input**: `data/simulation/simulation_full.jsonl`
+
+**Output**: `data/ner/raw_turns.jsonl`
+
+**Instructions**:
+
+1. Read `simulation_full.jsonl`; each line is a JSON object.
+2. Combine the `prompt` and `response` fields to generate the full `raw_text`:
+```python
+raw_text = f"User: {prompt}\n\nAssistant: {response}"
+```
+3. Retain `conversation_id`, `timestamp`, and the original `prompt`/`response` for subsequent alignment. 4. Filtering:
+- Empty content (`len(raw_text.strip()) == 0`)
+- Content that is too short (`len(raw_text.strip()) < 50`)
+- Records missing a `prompt` or `response`
+5. Generate a unique ID for each record (e.g., `ner_{index}`). 6. Save as `data/ner/raw_turns.jsonl`, with each line formatted as follows:
+```json
+{
+"id": "ner_0001",
+"raw_text": "User: What is the goo blade?\n\nAssistant: The goo blade is a weapon used by Kael.",
+"prompt": "What is the goo blade?",
+"response": "The goo blade is a weapon used by Kael.",
+"conversation_id": "...",
+"timestamp": "..."
+}
+```
+
+---
+
+## 🔧 Step 2: Invoke Gemma‑4‑12B‑AWQ for Entity Extraction (Revised)
+
+**Service**: SGLang running `mattbucci/gemma-4-12B-AWQ`, port `8003`
+
+**System Prompt** (Revised):
+
+```
+You are an entity extraction system. Your task is to extract all named entities from the conversation turn below.
+
+RULES:
+- Extract entities of type: PERSON, LOCATION, ORGANIZATION, OBJECT, CONCEPT, EVENT.
+- Include multi-word entities (e.g., "the goo blade", "Binary Universe Theory").
+- Include entities from BOTH the user's message AND the assistant's response.
+- If an entity is misspelled, extract it as-is.
+- Output ONLY a JSON array of strings. Do NOT include reasoning or explanation.
+- If no entities are found, output an empty array [].
+
+Example:
+Conversation:
+User: "Kael and Lethe are fighting."
+Assistant: "Yes, Kael is using the goo blade."
+
+Output: ["Kael", "Lethe", "goo blade"]
+```
+
+**User Prompt**:
+```
+Extract all named entities from the following conversation turn:
+
+{raw_text}
+```
+
+---
+
+## 🔧 Step 4: Align to Original Positions (New Critical Step)
+
+**Goal**: Determine the specific location of each entity within the full conversation.
+
+**Instructions**:
+
+1. **Match entities within `prompt` and `response` separately**:
+- For each extracted entity, first search for a match within the `prompt`. - If found, record its location as belonging to the "user section." 
+- If not found, search for a match in the `response`. 
+- If found, record its location as belonging to the "AI response section." 
+- If found in neither, attempt fuzzy matching; if that also fails, discard the entity.
+
+2. **Preserving Source Information**:
+- Within BIO tagging, different tag types can be used to distinguish the entity source (optional):
+- `B-USER-ENT` / `I-USER-ENT` (entities mentioned by the user)
+- `B-ASSISTANT-ENT` / `I-ASSISTANT-ENT` (entities mentioned by the AI)
+Alternatively, use a unified `B-ENT` / `I-ENT` (without distinguishing the source).
+
+3. **Recommended Approach**: Use unified `B-ENT` / `I-ENT` tags without distinguishing the source. This is because:
+- The Codex extractor processes the complete `raw_text` during actual inference, and does notDistinguish sources. 
+- Unified labeling simplifies model training and inference. 
+- Entity location information (user vs. AI response) is preserved, allowing the model to learn it autonomously during inference.
+
+---
+
+## 🔧 Step 5: Generate BIO Tags (Revised)
+
+**Goal**: Generate a corresponding BIO tag sequence for the complete conversation.
+
+**Instructions**:
+
+1. **Tokenization**: Tokenize the complete `raw_text` using the Qwen3‑Embedding‑0.6B tokenizer.
+2. **Entity Matching**: Perform fuzzy matching for each extracted entity within the complete `raw_text`.
+3. **BIO Tagging**: Assign B-ENT, I-ENT, or O tags to each token.
+4. **Handling Overlapping Entities**: If two entities overlap, retain the longer one. **Output Format**:
+```json
+{
+"tokens": ["User", ":", "What", "is", "the", "goo", "blade", "?", "Assistant", ":", "The", "goo", "blade", "is", "a", "weapon", "used", "by", "Kael", "."],
+"labels": ["O", "O", "O", "O", "O", "B-ENT", "I-ENT", "O", "O", "O", "O", "B-ENT", "I-ENT", "O", "O", "O", "O", "O", "B-ENT", "O"]
+}
+```
+
+---
+
+## 🧠 Additional Considerations
+
+| Aspect | Handling Method |
+|------|----------|
+| **Over-extraction** | If the model extracts too many entities (> 20), keep only the top 20 with the highest confidence |
+| **Noisy Entities** | Exclude common non-entity words (e.g., "User", "Assistant", "question", "answer") |
+| **Entity Length** | Exclude entities with a length < 2 characters |
+| **Duplicate Entities** | Merge overlapping entity matches across the full conversation |
+| **Typos** | Keep as-is; allow the NER model to learn to handle typos |
+
+---
+
+## 📊 Data Scale Estimation
+
+| Parameter | Estimate |
+|------|------|
+| Total records in `simulation_full.jsonl` | Approx. 5,000–10,000 |
+| Tokens per record | Approx. 50–200 |
+| Total training tokens | Approx. 250k–2M |
+| Recommended number of records | 3,000–5,000 |
+| Training data file size | Approx. 10–50 MB |
+
+---
+
+## ✅ Revised Validation Test Cases
+
+| Full Conversation | Expected Extracted Entities |
+|----------|----------------|
+| User: "What is the goo blade?" Assistant: "The goo blade is a weapon." | ["goo blade"] |
+| User: "Tell me about Kael." Assistant: "Kael is the main character." | ["Kael"] |
+| User: "Explain the Binary Universe Theory." Assistant: "The Binary Universe Theory was created by Orien." | ["Binary Universe Theory", "Orien"] |
+| User: "Who is fighting?" Assistant: "Kael and Lethe are fighting." | ["Kael", "Lethe"] |
+
+---
+
+## 🚀 Summary
+
+| Your Concern | Revised Approach |
+|--------------|------------------|
+| Should use the full conversation, not just the `prompt` | ✅ Now using the full `raw_text` (User + Assistant) |
+| Entities may appear in the AI ​​response | ✅ Extraction scope covers both user prompts and AI responses |
+| Training data should match inference scenarios | ✅ NER training data format aligns with the Codex extractor's data format |
+| Is it necessary to distinguish entity sources? | ✅ Source labeling is optional, but a unified `B-ENT` / `I-ENT` scheme is recommended |
+
+This revision ensures the NER model can handle entities within the full conversation, perfectly matching the actual operational context of the Codex extractor.
+
+### 🔧 Additional "Engineering Implementation Details"
+
+These are areas where implementation might be ambiguous; I have explicitly added the following details to the blueprint:
+
+---
+
+#### Detail 1: Handling Token Labeling for `User:` / `Assistant:` Prefixes
+
+- The `raw_text` contains `User:` and `Assistant:` prefixes.
+- These **should not be labeled as entities**; they must be uniformly labeled as `O`. - Example:
+```json
+{"tokens": ["User", ":", "What", "is", "the", "goo", "blade", "?", "Assistant", ":", "The", "goo", "blade", "..."],
+"labels": ["O", "O", "O", "O", "O", "B-ENT", "I-ENT", "O", "O", "O", "O", "B-ENT", "I-ENT", "..."]}
+```
+
+---
+
+#### Detail 2: Handling samples with "no entities"
+
+- If Gemma‑4‑12B‑AWQ returns an empty list `[]`, the sample is retained, and all tokens are labeled as `O`.
+- This helps the model learn from "negative samples" and reduces overfitting.
+
+---
+
+#### Detail 3: Output format extension: Including a `source` field (optional)
+
+- To facilitate debugging, the `source` can be additionally recorded in the training data:
+```json
+{"tokens": [...], "labels": [...], "source": "gemma-4-12b-awq", "conversation_id": "..."}
+```
+
+---
+
+#### Detail 4: NER model input format
+
+- During NER model inference, the input is the **complete `raw_text`** (consistent with the training data).
+- The output consists of BIO tags for each token.
+- Entity extraction: Merge consecutive B‑ENT / I‑ENT tokens into a complete entity.
+
+---
+
+#### Detail 5: Token alignment (Tokenizer consistency)
+
+- NER training and inference **must use the same tokenizer** (`Qwen/Qwen3-Embedding-0.6B`).
+- Different tokenizers may result in inconsistent token boundaries, leading to misaligned BIO tags. ---
+
+### 📋 Final Confirmation: Complete Step-by-Step Checklist
+
+| # | Step | Input | Output |
+|---|------|------|------|
+| 1 | Extract full conversation turns | `simulation_full.jsonl` | `raw_turns.jsonl` |
+| 2 | Invoke Gemma‑4‑12B‑AWQ | `raw_turns.jsonl` | Entity list (JSON response) |
+| 3 | Parse and validate | JSON response | `extracted_entities.jsonl` |
+| 4 | Align to original positions | `extracted_entities.jsonl` | Entities with position info |
+| 5 | Generate BIO tags | Entities with position info | `training_data.jsonl` |
+| 6 | Export training data | `training_data.jsonl` | Fixed-format JSONL |
+| 7 | Train NER MLP | `training_data.jsonl` | `ner_model.pt` |
+| 8 | Integrate into Codex retriever | `ner_model.pt` | Replace regex in `_codex_graph` |
+
+
 #### **CX2 – Vector-based Fuzzy Matching for Codex Entities**
 
 1.  **Problem**: Even if the NER system extracts "Keal," a lookup in `codex_entities` fails to find "Kael."
