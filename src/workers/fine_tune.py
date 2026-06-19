@@ -38,7 +38,7 @@ def fine_tune_classifier(self):
             return "No curated labels found – skipping fine‑tuning."
 
         # 1. Encode with frozen encoder
-        embedder = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+        embedder = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B", device="cuda")
         prompts = [row.prompt for row in rows]
         embeddings = embedder.encode(prompts, convert_to_tensor=True, show_progress_bar=False)
 

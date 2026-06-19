@@ -24,8 +24,8 @@ class ICEClassifierDataset(Dataset):
         self.labels = torch.tensor(labels_list, dtype=torch.float32)
 
         # Pre-compute embeddings with the frozen sentence transformer
-        model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
-        self.embeddings = model.encode(prompts, convert_to_tensor=True, show_progress_bar=True)
+        model = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B", device="cpu",truncate_dim=384)
+        self.embeddings = model.encode(prompts, convert_to_tensor=True, show_progress_bar=True).float()
 
     def __len__(self):
         return len(self.data)

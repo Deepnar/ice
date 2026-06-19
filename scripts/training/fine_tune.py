@@ -15,8 +15,8 @@ from classifier.model import ICEClassifier
 # ────────────── CLI arguments ──────────────
 parser = argparse.ArgumentParser(description="Fine‑tune ICE classifier on curated fixes.")
 parser.add_argument("--curated-path", type=str, default="data/curated_fixes.jsonl")
-parser.add_argument("--checkpoint", type=str, default="models/classifier/ice_classifier_v2.pt")
-parser.add_argument("--output", type=str, default="models/classifier/ice_classifier_v2_ft.pt")
+parser.add_argument("--checkpoint", type=str, default="models/classifier/ice_classifier_v3_qwen.pt")
+parser.add_argument("--output", type=str, default="models/classifier/ice_classifier_v3_qwen_ft.pt")
 parser.add_argument("--epochs", type=int, default=10)
 parser.add_argument("--lr", type=float, default=5e-5)
 parser.add_argument("--curated-repeat", type=int, default=50,
@@ -39,8 +39,11 @@ curated_labels = []
 
 # We need a sentence transformer for encoding the curated prompts (on CPU)
 from sentence_transformers import SentenceTransformer
-embedder = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
-
+embedder = SentenceTransformer(
+        "Qwen/Qwen3-Embedding-0.6B",
+        device="cpu",
+        truncate_dim=384
+    )
 with open(args.curated_path, "r") as f:
     for line in f:
         item = json.loads(line)
@@ -70,7 +73,7 @@ with open(args.curated_path, "r") as f:
         label_vector = topic_vec + intent_vec + ctx_vec
 
         # Encode prompt
-        embedding = embedder.encode(prompt, convert_to_tensor=True)  # shape (384,)
+        embedding = embedder.encode(prompt, convert_to_tensor=True).float()  # shape (384,)
         curated_embeddings.append(embedding)
         curated_labels.append(torch.tensor(label_vector, dtype=torch.float32))
 

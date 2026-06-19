@@ -114,7 +114,7 @@ HARD_TEST_PROMPTS = [
     "what is the capital of france", # Zero_Shot, General_Reference_&_Trivia, Factual_Retrieval (trivia, but casual enough)
 ]
 
-classifier = PyTorchClassifier(model_path="models/classifier/ice_classifier_v2_final.pt")
+classifier = PyTorchClassifier(model_path="models/classifier/ice_classifier_v3_qwen_ft3.pt")
 for prompt in HARD_TEST_PROMPTS:
     result = classifier.classify(prompt)
     print(f"Prompt: {prompt}")

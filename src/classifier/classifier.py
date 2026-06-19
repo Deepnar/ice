@@ -39,12 +39,22 @@ class PyTorchClassifier:
         self.model.eval()
 
         # Embedder also on CPU
-        self.embedder = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
-
-    def classify(self, prompt: str) -> ClassificationResult:
+        # Embedder also on CPU – Qwen3-Embedding truncated to 384 dim for compatibility
+        self.embedder = SentenceTransformer(
+            "Qwen/Qwen3-Embedding-0.6B",
+            device="cpu",
+            truncate_dim=384
+        )
+    def classify(self, prompt: str, context_turns: list[str] | None = None) -> ClassificationResult:
         with torch.no_grad():
+            # Build instruction‑prefixed prompt (Qwen3‑Embedding requires instruction format)
+            prefixed = (
+                "Classify the following user prompt into topic labels, intent labels, "
+                "and determine whether it requires long-term memory, web search, or is self-contained:\n"
+                f"{prompt}"
+            )            
             # Encode and add batch dimension
-            embedding = self.embedder.encode(prompt, convert_to_tensor=True).unsqueeze(0)
+            embedding = self.embedder.encode(prefixed, convert_to_tensor=True).unsqueeze(0).float()
             outputs = self.model(embedding)                     # (1, 25)
 
             topic_out = outputs[:, :11]                         # (1, 11)
