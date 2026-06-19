@@ -381,26 +381,69 @@ class HybridRetrievalOrchestrator:
             logger.error("vector_retrieval_failed", error=str(err))
             self.db.rollback()
             return []
+        
+    
+    def _match_entities_by_similarity(self, entity_strings: List[str], threshold: float = 0.85) -> List:
+        """Match extracted entity strings to CodexEntity rows using vector similarity.
+        Falls back to canonical name / alias exact match when embeddings are unavailable."""
+        if not entity_strings:
+            return []
+
+        # Embed all candidate strings
+        candidate_embeddings = self.embedder.encode(entity_strings, convert_to_tensor=False, show_progress_bar=False)
+        # Fetch all entities that have embeddings
+        all_entities = self.db.query(CodexEntity).filter(CodexEntity.embedding != None).all()
+
+        matched = []
+        seen_ids = set()
+        for candidate_str, candidate_emb in zip(entity_strings, candidate_embeddings):
+            # 1) Vector similarity
+            best_score = 0.0
+            best_entity = None
+            for ent in all_entities:
+                if ent.id in seen_ids:
+                    continue
+                emb = ent.embedding
+                if emb is None:
+                    continue
+                # cosine similarity = dot product of normalized vectors
+                dot = sum(a * b for a, b in zip(candidate_emb, emb))
+                score = dot  # embeddings are already normalised by SentenceTransformer
+                if score > best_score and score >= threshold:
+                    best_score = score
+                    best_entity = ent
+            if best_entity is not None:
+                matched.append(best_entity)
+                seen_ids.add(best_entity.id)
+                continue
+
+            # 2) Fallback: exact canonical name / alias match
+            from sqlalchemy import or_
+            norm = candidate_str.lower().strip()
+            fallback = self.db.query(CodexEntity).filter(
+                or_(CodexEntity.canonical_name == norm, CodexEntity.aliases.any(norm))
+            ).first()
+            if fallback and fallback.id not in seen_ids:
+                matched.append(fallback)
+                seen_ids.add(fallback.id)
+
+        return matched
 
     # ------------------------------------------------------------------
     # Codex graph traversal (conversation‑scoped, NER‑powered)
     # ------------------------------------------------------------------
     def _codex_graph(self, classification, scope: Optional[dict] = None) -> List[ContextFragment]:
         prompt = classification.prompt
-        # Use micro‑NER model (falls back to regex if model not available)
-        entities = self._extract_entities_with_ner(prompt)
-        if not entities:
+        entity_strings = self._extract_entities_with_ner(prompt)
+        if not entity_strings:
             return []
 
-        normalized = [e.lower().strip() for e in entities]
-        from sqlalchemy import or_
-        alias_conditions = [CodexEntity.aliases.any(name) for name in normalized]
+        # Vector similarity search with fallback to alias/exact match
+        matched_entities = self._match_entities_by_similarity(entity_strings)
+        if not matched_entities:
+            return []
 
         try:
-            entities = self.db.query(CodexEntity).filter(
-                or_(CodexEntity.canonical_name.in_(normalized), *alias_conditions)
-            ).all()
-
             # Scoping: restrict to entities that appear in the target conversation
             allowed_entity_ids = None
             if scope and "conversation_id" in scope:
@@ -422,7 +465,7 @@ class HybridRetrievalOrchestrator:
 
             visited = set()
             context_texts = []
-            for entity in entities:
+            for entity in matched_entities:
                 if allowed_entity_ids is not None and entity.id not in allowed_entity_ids:
                     continue
                 self._traverse_graph(entity, 0, 2, visited, context_texts)

@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from openai import OpenAI
 import structlog
-
+from sentence_transformers import SentenceTransformer
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import (
@@ -15,6 +15,13 @@ from src.memory.models import (
 )
 from src.workers.celery_app import app
 from src.workers.gpu_check import is_gpu_busy, is_user_active
+
+# Module‑level embedder for new entity embeddings
+embedder = SentenceTransformer(
+    "Qwen/Qwen3-Embedding-0.6B",
+    device="cpu",
+    truncate_dim=384
+)
 
 logger = structlog.get_logger("ice.workers.codex")
 # Dedicated extraction client (port 8003)
@@ -115,6 +122,7 @@ def get_or_create_entity(db, name: str) -> CodexEntity:
         tags=[],
         properties={},
         context_payload="",
+        embedding=embedder.encode(canonical, convert_to_tensor=False).tolist(),
         last_updated=datetime.now(timezone.utc)
     )
     db.add(new_entity)

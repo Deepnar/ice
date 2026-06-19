@@ -87,6 +87,7 @@ class CodexEntity(Base):
     tags = Column(ARRAY(Text), default=[])
     properties = Column(JSONB, default={})
     context_payload = Column(Text, default="")
+    embedding = Column(Vector(384), nullable=True)
     last_updated = Column(DateTime(timezone=True), default=utcnow)
 
 

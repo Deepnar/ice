@@ -1358,5 +1358,5 @@ This constitutes the finalized design document.
 
 
 
-lets do this, with making sure doing all the above. and any other changes that is to be done in the files if not mentioned above, and also changes which are wrong and needs to be corrected
+lets do this, with making sure doing all the above. and any other changes that is to be done in the files if not mentioned above, and also changes which are wrong and needs to be corrected and also keeping in mind and writing code wrt to the things we have already added
 FOR THE ABOVE I WANT YOU TO DIRTECR ME EXTREMELY PRECISELY WITH WHAT TO WRITE, WHERE TO WRTIE, AND HOW TO WRITE, LIKE FOR NEW FILES JUST GIVE ME THE FILE PATH AS WELL AS THE ENTIRE CODE, BUT FOR PARTS WHERE WE HAVE TO CHANGE EXSISTING CODE, WHAT I WANT YOU TO DO IS GIVE ME DIRECTIONS LIKE THIS, EXAMPLE MENTION WHICH FILE THE CHANGE IT, MENTION ITS PATH, ALSO THE WHICH FUNCTION THE CHANGE IS IN, AND LIKE LETS SAY WE ARE CHANGING OR ADDING CODE TO LINE 10-12, WHAT I WANT YOU TO DO IS GIVE ME A BEFORE AND AFTER, THE BEFORE WILL HAVE WHAT THE CODE CURRENTLY LOOKS LIKE, WITH LIKE N-2 AND N+2 FROM THE AREA OR PLACE WE ARE CHANGING LIKE IF CHANGE AT 10 THE BEFORE CODE BLOCK YOU SHOWCASE WILL BE FROM 8 AND GO TILL 12, AND THEN YOU SHOW ME AN AFTER HOW THE CODE WILL LOOK AFTER DOING THE CHANGES. ALSO AFTER ALL THE STEPS OF THIS GIVE ME A GIT COMMIT MSG
