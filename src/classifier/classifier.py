@@ -83,6 +83,15 @@ class PyTorchClassifier:
         if "Creative_&_Media" in topic_tags:
             context_reliance = "Long_Term_Memory"
             # Re‑compute max confidence from the raw probs (unchanged)
+        if "Software_&_Tech" in topic_tags:
+            referential_words = ["my", "our", "mine", "ours", "we", "us",
+                "this", "that", "these", "those", "the",
+                "it", "they", "them", "their",
+                "previous", "last", "before", "yesterday", "earlier",
+                "again", "still", "same"]
+            prompt_lower = prompt.lower()
+            if any(word in prompt_lower for word in referential_words):
+                context_reliance = "Long_Term_Memory"
 
         return ClassificationResult(
             topic_tags=topic_tags,
