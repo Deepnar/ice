@@ -435,16 +435,21 @@ class HybridRetrievalOrchestrator:
     def _codex_graph(self, classification, scope: Optional[dict] = None) -> List[ContextFragment]:
         prompt = classification.prompt
         entity_strings = self._extract_entities_with_ner(prompt)
-        if not entity_strings:
-            return []
 
-        # Vector similarity search with fallback to alias/exact match
-        matched_entities = self._match_entities_by_similarity(entity_strings)
-        if not matched_entities:
+        if entity_strings:
+            matched = self._match_entities_by_similarity(entity_strings)
+        else:
+            from src.retrieval.mera import is_mera_candidate, map_category_to_filters, enumerate_entities
+            if is_mera_candidate(prompt):
+                filters = map_category_to_filters(self.db, prompt)
+                matched = enumerate_entities(self.db, filters.get("tags", []), filters.get("relations", []))
+            else:
+                return []
+
+        if not matched:
             return []
 
         try:
-            # Scoping: restrict to entities that appear in the target conversation
             allowed_entity_ids = None
             if scope and "conversation_id" in scope:
                 conv_id = scope["conversation_id"]
@@ -465,17 +470,26 @@ class HybridRetrievalOrchestrator:
 
             visited = set()
             context_texts = []
-            for entity in matched_entities:
+            for entity in matched:
                 if allowed_entity_ids is not None and entity.id not in allowed_entity_ids:
                     continue
-                self._traverse_graph(entity, 0, 2, visited, context_texts)
+                self._traverse_graph(entity, 0, 3, visited, context_texts)   # depth 3
 
             if context_texts:
                 combined = "\n\n".join(context_texts)
+                score = 1.0
+                # Score boost for active/high‑strength edges
+                if any(e.confidence == "active" and e.strength >= 2.0 for e in
+                    self.db.query(CodexEdge).filter(
+                        CodexEdge.source_id.in_([e.id for e in matched]),
+                        CodexEdge.valid_until == None
+                    ).all()):
+                    score *= 1.5
+
                 return [ContextFragment(
                     text=combined,
                     source_type="codex",
-                    score=1.0,
+                    score=score,
                     token_count=int(len(combined.split()) * 1.33)
                 )]
             return []
