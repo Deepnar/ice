@@ -206,8 +206,11 @@ async def chat_completions(
             content={"error": "No user message found in the request."},
         )
 
-    # Stateless pre‑flight classification
-    result = classifier.classify(user_message)
+    # CL7: classifier will fetch & truncate the last 3 turns internally
+    result = classifier.classify(
+        user_message,
+        conversation_id=str(conversation_id),
+    ) 
     # ── Session stickiness: prevent model switching on a single off‑topic turn ──
     global SESSION_STATE
     conv_state = SESSION_STATE.get(str(conversation_id), {

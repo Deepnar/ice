@@ -252,7 +252,13 @@ def main():
                 if expected == "ENTER_EXPECTED_ANSWER_OR_BLANK":
                     expected = ""
 
-                classification = classifier.classify(prompt)
+                # CL7: build context from the last 3 turns of the conversation
+                # CL7: classifier will fetch & truncate the last 3 turns internally
+                classification = classifier.classify(
+                    prompt,
+                    conversation_id=conv_id,
+                )
+
                 embedding = embedder.encode(prompt, convert_to_tensor=False).tolist()
                 # CL2: LTM Bias – force memory retrieval for long conversations or uncertain classification
                 if classification.context_reliance == "Zero_Shot":

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 from .model import ICEClassifier
 from .di3 import run_di3
+from sqlalchemy.orm import Session
 
 @dataclass
 class ClassificationResult:
@@ -46,29 +47,98 @@ class PyTorchClassifier:
             device="cpu",
             truncate_dim=384
         )
+
+    def _get_context_turns(self, conversation_id: str, n: int = 3, max_total_words: int = 500) -> str:
+        """Return a truncated, summary‑preferring context string from the last *n* turns."""
+        # Local import to avoid circular dependency at module level
+        from src.api.db import SessionLocal
+        db = SessionLocal()
+        try:
+            from src.memory.models import EpisodicMemory
+            turns = (
+                db.query(EpisodicMemory)
+                .filter_by(conversation_id=conversation_id)
+                .order_by(EpisodicMemory.timestamp.desc())
+                .limit(n)
+                .all()
+            )
+            turns.reverse()
+            parts = []
+            total_words = 0
+            for t in turns:
+                # Prefer summary, fall back to raw text (truncated)
+                text = t.summary_text or ""
+                if not text and t.raw_text:
+                    words = t.raw_text.split()
+                    text = " ".join(words[:150]) + "…" if len(words) > 150 else t.raw_text
+                if not text:
+                    continue
+                word_count = len(text.split())
+                if total_words + word_count > max_total_words:
+                    remaining = max_total_words - total_words
+                    if remaining > 20:
+                        w = text.split()
+                        text = " ".join(w[:remaining]) + "…"
+                        parts.append(text)
+                    break
+                parts.append(text)
+                total_words += word_count
+            return "\n".join(parts)
+        finally:
+            db.close()
+
+    # ------------------------------------------------------------------
+    # Main entry point
+    # ------------------------------------------------------------------
     def classify(
         self,
         prompt: str,
         conversation_history: Optional[List[str]] = None,
         conversation_length: int = 0,
+        conversation_id: Optional[str] = None,
     ) -> ClassificationResult:
-        """Public entry point.  Runs DI3 first, falls back to ML."""
-        # Step 1: DI3 pre‑classifier
+        """Public entry point.  Runs DI3 first, falls back to ML.
+        When *conversation_id* is given, the last 3 turns are used as context
+        (auto‑truncated) to improve the ML classifier's accuracy.
+        """
         if conversation_history is None:
             conversation_history = []
         di3_result = run_di3(prompt, conversation_length, conversation_history)
         if di3_result is not None:
-            # Copy the safety overrides from _run_ml_classifier
             di3_result = self._apply_hard_overrides(di3_result, prompt)
             return di3_result
 
-        # Step 2: Full ML classification
-        return self._run_ml_classifier(prompt)
+        return self._run_ml_classifier(prompt, conversation_id)
 
-    def _run_ml_classifier(self, prompt: str) -> ClassificationResult:
+    def _run_ml_classifier(self, prompt: str, conversation_id: Optional[str] = None) -> ClassificationResult:
         """Original ML classification path (now private)."""
         with torch.no_grad():
-            prefixed_prompt = f"Given a user prompt, classify its intent: {prompt}"
+            # Build context text if conversation_id is available
+            context_text = None
+            if conversation_id:
+                try:
+                    context_text = self._get_context_turns(conversation_id)
+                except Exception:
+                    context_text = None
+
+            if context_text:
+                prefixed_prompt = (
+                    f"Conversation context (summarized):\n{context_text}\n\n"
+                    f"Given the above conversation and the user's latest prompt, "
+                    f"predict:\n"
+                    f"1. TOPIC: what is the subject (Software_&_Tech, Creative_&_Media, etc.)\n"
+                    f"2. INTENT: what is the user trying to do (Factual_Retrieval, Troubleshooting, etc.)\n"
+                    f"3. CONTEXT RELIANCE: does the user need memory (Zero_Shot, Long_Term_Memory, Real_Time_Search)\n\n"
+                    f"User prompt: {prompt}"
+                )
+            else:
+                prefixed_prompt = (
+                    f"Given a user prompt, predict:\n"
+                    f"1. TOPIC: what is the subject (Software_&_Tech, Creative_&_Media, etc.)\n"
+                    f"2. INTENT: what is the user trying to do (Factual_Retrieval, Troubleshooting, etc.)\n"
+                    f"3. CONTEXT RELIANCE: does the user need memory (Zero_Shot, Long_Term_Memory, Real_Time_Search)\n\n"
+                    f"User prompt: {prompt}"
+                )
             embedding = self.embedder.encode(prefixed_prompt, convert_to_tensor=True).unsqueeze(0).float()
             outputs = self.model(embedding)                     # (1, 25)
 
