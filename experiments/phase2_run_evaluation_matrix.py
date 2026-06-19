@@ -261,7 +261,7 @@ def main():
 
                 # ---- Retrieve once for full ICE (standard) ----
                 orchestrator = HybridRetrievalOrchestrator(SessionLocal(), embedder)
-                orchestrator.max_retrieval_tokens = 5000
+                orchestrator.set_budget_from_turn_count(split_n)
                 scope = {"conversation_id": conv_id} if conv_id else None
                 full_ice_fragments = orchestrator.retrieve(
                     classification=classification,

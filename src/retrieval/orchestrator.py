@@ -40,7 +40,12 @@ class HybridRetrievalOrchestrator:
         self.embedder = embedder
         self.bg_client = OpenAI(base_url="http://localhost:8002/v1", api_key="dummy")
         self.max_retrieval_tokens = 5000
-
+    def set_budget_from_turn_count(self, turn_count: int):
+        """CL4: Dynamic token budget based on conversation depth.
+        Short conversations (<60 turns) get 3,000 tokens;
+        longer ones scale linearly with turns, up to 10,000 tokens.
+        """
+        self.max_retrieval_tokens = min(15000, max(2000, turn_count * 50))
     # ------------------------------------------------------------------
     # Main entry point
     # ------------------------------------------------------------------

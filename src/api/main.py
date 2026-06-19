@@ -295,6 +295,11 @@ async def chat_completions(
         prompt_embedding = embedding_tensor.tolist() if hasattr(embedding_tensor, "tolist") else list(embedding_tensor)
 
         orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
+        # CL4: dynamic token budget from conversation length
+        turn_count = db.query(EpisodicMemory).filter_by(
+            conversation_id=conversation_id
+        ).count()
+        orchestrator.set_budget_from_turn_count(turn_count)
 
         fragments = await asyncio.to_thread(
             orchestrator.retrieve,
