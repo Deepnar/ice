@@ -194,6 +194,7 @@ class HybridRetrievalOrchestrator:
             "codex": self._codex_graph(classification, scope),
             "procedural": self._procedural_lookup(prompt_embedding, classification, scope),
             "rag": self._rag_lookup(prompt_embedding, classification),
+            "batch_summary": self._batch_summary_lookup(prompt_embedding, conv_id),
         }
 
         # ── Dynamic leg weighting (blended over all active intents) ──
@@ -606,7 +607,30 @@ class HybridRetrievalOrchestrator:
         except Exception:
             self.db.rollback()
             return []
-
+    def _batch_summary_lookup(self, prompt_embedding, conv_id: Optional[str] = None) -> List[ContextFragment]:
+        if not conv_id:
+            return []
+        try:
+            from src.memory.models import BatchSummary
+            query = text("""
+                SELECT summary_text,
+                       1 - (embedding <=> :prompt_embedding) as score
+                FROM batch_summaries
+                WHERE conversation_id = :conv_id
+                  AND embedding IS NOT NULL
+                ORDER BY score DESC
+                LIMIT 3
+            """).bindparams(bindparam("prompt_embedding", type_=PgVector))
+            rows = self.db.execute(query, {"prompt_embedding": prompt_embedding, "conv_id": conv_id}).fetchall()
+            return [ContextFragment(
+                text=r.summary_text,
+                source_type="batch_summary",
+                score=r.score,
+                token_count=int(len(r.summary_text.split()) * 1.33)
+            ) for r in rows]
+        except Exception:
+            self.db.rollback()
+            return []
     # ------------------------------------------------------------------
     # RRF fusion, diversification, dedup, token budget
     # ------------------------------------------------------------------
@@ -733,10 +757,12 @@ class HybridRetrievalOrchestrator:
                 text = row.raw_text[:300]
             else:
                 continue
-
-            words = text.split()
-            if len(words) > 500:
-                text = ' '.join(words[:500]) + '…'
+            # Apply the 500‑word cap, but bypass for document turns
+            is_doc = getattr(row, "is_document", False)
+            if not is_doc:
+                words = text.split()
+                if len(words) > 500:
+                    text = ' '.join(words[:500]) + '…'
 
             if not text:
                 continue

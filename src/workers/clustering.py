@@ -1,5 +1,6 @@
 """Clustering Worker – groups unassigned episodic turns into named clusters."""
 
+from sentence_transformers import SentenceTransformer
 import structlog
 import json
 import re
@@ -27,7 +28,7 @@ def cluster_turns(self):
     db = SessionLocal()
     try:
         # Find turns with no cluster assigned
-        unassigned = db.query(EpisodicMemory).filter_by(cluster_id=None).limit(30).all()
+        unassigned = db.query(EpisodicMemory).filter_by(cluster_id=None).limit(50).all()
         if not unassigned:
             return
 
@@ -102,7 +103,13 @@ def cluster_turns(self):
             chunk = unassigned[start:start + chunk_size]
             cluster = db.query(ContextCluster).filter_by(name=name).first()
             if not cluster:
-                cluster = ContextCluster(name=name, description="", created_at=datetime.now(timezone.utc))
+                embedder = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B", device="cpu", truncate_dim=384)
+                emb = embedder.encode(name, convert_to_tensor=False).tolist()
+                cluster = ContextCluster(
+                    name=name, description="",
+                    embedding=emb,
+                    created_at=datetime.now(timezone.utc)
+                )
                 db.add(cluster)
                 db.flush()
             for turn in chunk:

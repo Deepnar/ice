@@ -138,6 +138,13 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
             else:
                 summary = None
 
+        # ML4: detect document turns (long, low conversational density)
+        raw_words = len(turn.raw_text.split())
+        assistant_count = turn.raw_text.count("Assistant:")
+        if raw_words > 2000 and assistant_count < 3:
+            turn.is_document = True
+            turn.inject_raw = True   # always inject full text for documents
+
         turn.lossless_flag = lossless
         turn.summary_text = summary
         turn.inject_raw = inject_raw

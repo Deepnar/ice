@@ -439,14 +439,15 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
 
 
 @app.task(bind=True, max_retries=3, default_retry_delay=30)
-def extract_codex(self, batch_id: str, model_used: str = ""):
+def extract_codex(self, batch_id: str, model_used: str = "", priority: bool = False):
     """Executes background semantic link mutations across target graph states."""
     log = logger.bind(batch_id=batch_id)
 
-    if is_gpu_busy():
-        raise self.retry(countdown=30)
-    if settings.background_model_mode == "shared" and is_user_active():
-        raise self.retry(countdown=30)
+    if not priority:
+        if is_gpu_busy():
+            raise self.retry(countdown=30)
+        if settings.background_model_mode == "shared" and is_user_active():
+            raise self.retry(countdown=30)
     idempotency_key = hashlib.sha256(f"codex:{batch_id}".encode()).hexdigest()
     db = SessionLocal()
     

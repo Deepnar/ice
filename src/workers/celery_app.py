@@ -18,6 +18,8 @@ app = Celery(
         "src.workers.fine_tune",
         "src.workers.codex_decay",
         "src.workers.procedural_decay",
+        "src.workers.batch_summarizer",
+        "src.workers.cluster_merge",
     ],
 )
 
@@ -54,5 +56,14 @@ app.conf.beat_schedule = {
     'fine-tune-weekly': {
         'task': 'src.workers.fine_tune.fine_tune_classifier',
         'schedule': crontab(hour=4, minute=0, day_of_week=1),
+    },    
+    'batch-summarize-daily': {
+        'task': 'src.workers.batch_summarizer.batch_summarize',
+        'schedule': crontab(hour=2, minute=0),
+    },    
+    'merge-similar-clusters-daily': {
+        'task': 'src.workers.cluster_merge.merge_similar_clusters',
+        'schedule': crontab(hour=4, minute=30),
     },
+    
 }

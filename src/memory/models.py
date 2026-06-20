@@ -50,6 +50,7 @@ class EpisodicMemory(Base):
     is_bookmarked = Column(Boolean, default=False)
     decay_immune = Column(Boolean, default=False)
     inject_raw = Column(Boolean, default=True)
+    is_document = Column(Boolean, default=False)
     idempotency_key = Column(Text, unique=True, nullable=False)
 
     conversation = relationship("Conversation", back_populates="episodic_turns")
@@ -76,6 +77,7 @@ class ContextCluster(Base):
     description = Column(Text, default="")
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow)
+    embedding = Column(Vector(384), nullable=True)
 
 
 class CodexEntity(Base):
@@ -249,4 +251,15 @@ class ReviewQueue(Base):
     item_type = Column(Text, nullable=False)
     item_content = Column(JSONB, default={})
     status = Column(Text, default="pending")  # pending, approved, rejected
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+class BatchSummary(Base):
+    __tablename__ = "batch_summaries"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
+    start_turn_index = Column(Integer, nullable=False)
+    end_turn_index = Column(Integer, nullable=False)
+    summary_text = Column(Text, nullable=False)
+    embedding = Column(Vector(384), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)

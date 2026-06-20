@@ -68,7 +68,7 @@ def bookmark_turn(turn_id: str, db: Session = Depends(get_db)):
     turn.lossless_flag = True
     turn.decay_immune = True
     db.commit()
-    extract_codex.delay(batch_id=str(turn.batch_id))
+    extract_codex.apply_async(kwargs={"batch_id": str(turn.batch_id), "priority": True})
     return BookmarkOut(
         id=str(turn.id),
         timestamp=turn.timestamp.isoformat() if turn.timestamp else "",
