@@ -1378,12 +1378,93 @@ With Codex 2.0:
 
 This will be a **night‑and‑day difference** from Experiment 1, and you can honestly claim that Codex was intentionally disabled in the first experiment to isolate the classifier/retrieval contributions.  Now you’re enabling the full knowledge‑graph layer.
 
+
 ---
 
-Shall I proceed with step‑by‑step implementation in the same precise before/after format as before?  I’ll start with the `handle_triplet` rewrite, then move to MERA and the others.
+## Codex 2.0 — Complete Change Documentation
 
+### Overview
 
+The Codex was rebuilt from a free‑form triplet accumulator into a controlled, evolving knowledge graph.  Every relation now comes from a fixed vocabulary; the graph automatically expires outdated facts; entity metadata is stored as properties; and the system can answer category‑based queries (“list all characters”) that were impossible before.
 
+---
+
+### 1. Extraction Pipeline (`src/workers/codex_extractor.py`)
+
+| Aspect | Before (Codex 1.0) | After (Codex 2.0) |
+|--------|--------------------|--------------------|
+| Relation vocabulary | Free‑form — the model could return `"gives access to"`, `"stands for"`, `"ranks higher than"`, etc. (thousands of unique strings) | Controlled set of 50+ allowed relations across three categories: `PROPERTY_RELATIONS`, `MULTI_VALUED_RELATIONS`, `SINGLE_VALUED_RELATIONS`. The model must choose from this list. |
+| Entity naming | Whatever the model returned (e.g., `"PostgreSQL"`, `"the goo blade"`) | Canonicalised: lowercase, singular, no punctuation (`"postgresql"`, `"goo blade"`) |
+| Prompt structure | Generic “extract subject‑relation‑object triplets” with one example | Detailed rules with the full relation list in‑prompt, multiple examples, explicit “skip if no matching relation” instruction |
+| Code‑specific extraction | None — same prompt for all conversations | Conditional `Software_&_Tech` section adds relations like `"extends"`, `"implements"`, `"calls"`, `"returns"` with code‑specific examples |
+
+---
+
+### 2. Graph Logic (`handle_triplet`)
+
+| Scenario | Before | After |
+|----------|--------|-------|
+| Property relation (`name`, `role`, `profession`, etc.) | Treated like any other edge — no special behaviour. The entity itself never changed. | Updates the source entity’s `properties` JSONB immediately. Expires any previous active edge of the same relation type. Creates a new active edge (strength 3.0). Regenerates the entity’s `context_payload`. |
+| Rename (e.g., “Kael” → “Aroh”) | Both name edges stayed active. Retrieval could return the old name. | Old name edge is expired. Entity property `name` is updated to “Aroh”. New edge is active. Only the current name is used. |
+| Single‑valued contradiction (e.g., `works_at` changes) | Old edge stayed active; new edge created as `pending`. Both facts visible. | Old edge expired immediately. New edge created as `active` with strength 3.0 — takes effect instantly. |
+| Multi‑valued relation (`uses`, `friend`, `imports`) | Treated the same as single‑valued — could accidentally expire previous edges. | Explicitly preserved: multiple active edges are allowed. No auto‑expiry for multi‑valued relations. |
+| Same source‑target pair, different relation | Old edge expired, new edge created as `pending` (waited for corroboration). | Old edge expired, new edge created as `active` with strength 3.0 — immediate activation. |
+| Corroboration (same fact seen again) | Strength increased by 1.0; promoted to `active` at strength ≥ 2.0. | Unchanged — still works the same way. |
+| New fact, no contradiction | Created as `pending` (strength 1.0), waits for corroboration. | Unchanged — still works the same way. |
+
+---
+
+### 3. Entity Metadata and Context
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Entity properties | `properties` JSONB existed but was never populated by the extractor. Always empty. | Populated automatically by property‑type relations (`name`, `role`, `description`, etc.). Updated on every change. |
+| Entity context_payload | Manually edited or enriched by Reflection Worker only. Often empty. | Automatically regenerated after every property update. Contains a summary of properties and active edges. |
+| Entity embeddings | None — fuzzy matching was impossible. | New `embedding` column (`vector(384)`). Populated on entity creation. Used by `_match_entities_by_similarity` for cosine‑similarity lookup. |
+
+---
+
+### 4. Retrieval (`src/retrieval/orchestrator.py`)
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Entity extraction in `_codex_graph` | Regex only: `[A-Z][a-zA-Z0-9_]+` — missed lowercase, multi‑word, and misspelled entities. | NER model (MicroNER) extracts entities; falls back to regex if model unavailable. Multi‑word entities are glued together from BIO tags. |
+| Fuzzy matching | Canonical name or alias exact match only. | Vector‑similarity search using entity embeddings (threshold 0.85). Falls back to exact match if embeddings unavailable. |
+| Category queries (“list all characters”) | Impossible — returned nothing because no entities were in the prompt. | MERA (Meta‑Enumeration Retrieval Agent) detects enumeration prompts, maps category words to tags/relations using the background model, and returns ranked entities. |
+| Graph traversal depth | 2 hops. | 3 hops (configurable). |
+| Score boost | All Codex fragments scored at 1.0. | Fragments from active, high‑strength edges get a 1.5× score multiplier, prioritising fresh facts. |
+
+---
+
+### 5. New Files
+
+| File | Purpose |
+|------|---------|
+| `src/retrieval/mera.py` | MERA enumeration agent: detects category queries, maps them to tags/relations, ranks entities by recency and mention count. |
+| `src/classifier/schemas.py` | Shared `ClassificationResult` dataclass — extracted from `classifier.py` to break a circular import between `classifier.py`, `di3.py`, and `orchestrator.py`. |
+| `tests/test_codex_2_0.py` | Comprehensive integration test covering extraction, property updates, contradiction, multi‑valued handling, NER, vector matching, graph traversal, and MERA. |
+
+---
+
+### 6. Supporting Changes
+
+| File | Change |
+|------|--------|
+| `src/memory/models.py` | Added `embedding = Column(Vector(384))` to `CodexEntity`. |
+| `src/classifier/ner_model.py` | Deeper architecture: `384→128→64→3` instead of single linear layer. |
+| `src/workers/procedural_extractor.py` | Switched embedder to `Qwen/Qwen3-Embedding-0.6B` with `truncate_dim=384`. |
+| `src/workers/codex_extractor.py` | Added module‑level embedder for entity embeddings. Added `_regenerate_context_payload` helper. Added `Optional[List[str]]` to `extract_triplets` signature. |
+| `src/classifier/classifier.py` | Imports `ClassificationResult` from `schemas.py` instead of defining it locally. |
+| `src/classifier/di3.py` | Imports `ClassificationResult` from `schemas.py`. |
+
+---
+
+### 7. What Did Not Change
+
+- The database schema is backward‑compatible (only one column added: `embedding` on `codex_entities`).
+- The Celery task structure (`extract_codex`, `post_flight`) is unchanged.
+- The event log and snapshot system remains intact.
+- The Reflection Worker still enriches context payloads on its own schedule.
 
 
 ---
@@ -1405,7 +1486,10 @@ These improvements aim to ensure the system can extract, retain, and prioritize 
 1.  **ML2 – Bookmark Enhancement**: Verify that retrieval scores for bookmarked turns are boosted (`score_val *= 1.5`), as implemented in `_rows_to_fragments`.
 2.  **ML3 – Bookmark-Triggered Immediate Codex Extraction**:
 *   **Issue**: Bookmarked turns require high-priority processing, but current Codex extraction may be delayed if the GPU is busy. 
-*   **Solution**: In the `bookmark_turn` endpoint, call `extract_codex.delay(batch_id=...)`. Modify the `extract_codex` task to **skip** the `is_gpu_busy()` check when processing bookmarks, ensuring immediate extraction. #### **ML1 – Decay Stress Test Cycle**
+*   **Solution**: In the `bookmark_turn` endpoint, call `extract_codex.delay(batch_id=...)`. Modify the `extract_codex` task to **skip** the `is_gpu_busy()` check when processing bookmarks, ensuring immediate extraction. 
+
+
+#### **ML1 – Decay Stress Test Cycle**
 
 1.  **Problem**: Initial experiments performed only three decay cycles, failing to realistically simulate a multi-month timeframe; consequently, the impact of decay on long-term memory could not be effectively tested.
 2.  **Solution**: In Experiment 2, after injecting history and running background workers at each checkpoint, execute a **decay stress cycle**:

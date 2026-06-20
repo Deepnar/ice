@@ -33,43 +33,100 @@ from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 CODEX_NAMESPACE = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
 
-# -----------------------------------------------------------------
-# Controlled relation vocabulary for Codex 2.0
-# -----------------------------------------------------------------
+# --- Controlled relation vocabulary for Codex 2.0 ---
+
 PROPERTY_RELATIONS = {
-    "name", "age", "description", "species", "home", "role", "profession",
-    "title", "status", "type"
+    # Identity & description
+    "name", "alias", "title", "description",
+    # Demographics
+    "age", "gender", "species", "language",
+    # Professional / academic
+    "role", "profession", "status", "version",
+    # Contact & location
+    "email", "url", "home",
+    # Metadata
+    "type", "genre", "format", "license",
+    "difficulty", "priority", "deadline",
+    "budget", "duration", "author",
 }
 """Relations that update the source entity's properties JSONB and expire previous edges."""
 
 MULTI_VALUED_RELATIONS = {
-    "uses", "imports", "includes", "member_of", "depends_on",
-    "friend", "ally", "enemy", "colleague", "tag", "category",
-    "works_with", "collaborates_with", "attended", "participated_in",
-    "studied", "taught", "wrote", "published", "released",
-    "features", "contains"
+    # Technical
+    "uses", "imports", "includes", "depends_on", "supports",
+    "integrates_with", "calls", "returns", "references", "cites",
+    # Social / organisational
+    "member_of", "friend", "ally", "enemy", "colleague",
+    "knows", "follows", "subscribes_to", "partners_with",
+    "competes_with", "contributes_to",
+    # Possession / activity
+    "owns", "writes", "reads", "maintains", "teaches",
+    "enrolled_in", "attends", "participated_in", "features",
+    "contains", "includes",
+    # Categorisation
+    "tag", "category",
 }
 """Relations that allow multiple active edges simultaneously (no auto‑expiry)."""
 
 SINGLE_VALUED_RELATIONS = {
-    "part_of", "works_on", "created", "located_in", "has", "is",
-    "offers", "requires", "provides", "ranks", "connects_to",
-    "employs", "studies", "applies_to", "extends", "implements",
-    "calls", "returns", "founded", "founded_by", "works_at",
-    "studies_at", "lives_in", "born_in", "died_in", "married_to",
-    "parent_of", "child_of", "sibling_of", "mentor_of",
-    "supervised_by", "owned_by", "operated_by", "manufactured_by",
-    "sold_by", "purchased_from"
+    # Organisational
+    "part_of", "works_on", "works_at", "reports_to",
+    "managed_by", "assigned_to", "supervised_by",
+    # Educational
+    "studies", "studies_at", "graduated_from",
+    "mentor_of", "student_of", "taught",
+    # Creative / production
+    "created", "founded_by", "acquired_by",
+    "published", "released", "manufactured_by",
+    "sold_by", "purchased_from",
+    # Personal
+    "lives_in", "born_in", "died_in",
+    "married_to", "parent_of", "child_of", "sibling_of",
+    # Technical / deployment
+    "hosted_on", "deployed_to", "owned_by", "operated_by",
+    "extends", "implements", "applies_to",
+    # Generic
+    "is", "has", "offers", "requires", "provides",
+    "ranks", "connects_to", "employs",
 }
-"""Single‑valued relations: a new edge auto‑expires any previous active edge with the same source and relation."""
+"""Single‑valued relations: a new edge auto‑expires any previous active edge
+with the same source and relation."""
 
 ALLOWED_RELATIONS = PROPERTY_RELATIONS | MULTI_VALUED_RELATIONS | SINGLE_VALUED_RELATIONS
-
 
 def generate_uuid5(canonical_name: str) -> uuid.UUID:
     """Derive deterministic UUIDv5 identifier for a canonical entity node."""
     return uuid.uuid5(CODEX_NAMESPACE, canonical_name.strip().lower())
 
+# -----------------------------------------------------------------
+# Extraction safety: chunk long turns to fit the background model
+# -----------------------------------------------------------------
+MAX_EXTRACTION_TOKENS = 6000          # leave room for the prompt + response
+OVERLAP_WORDS = 200                   # overlap between chunks (avoids cutting facts)
+
+def _estimate_tokens(text: str) -> int:
+    """Rough token estimate (words * 1.33)."""
+    return int(len(text.split()) * 1.33)
+
+def _chunk_text(text: str, max_tokens: int, overlap_words: int = OVERLAP_WORDS) -> list:
+    """Split *text* into overlapping word‑chunks that stay under *max_tokens*."""
+    words = text.split()
+    if not words:
+        return []
+    max_words = int(max_tokens / 1.33)
+    if len(words) <= max_words:
+        return [text]
+
+    chunks = []
+    start = 0
+    while start < len(words):
+        end = min(start + max_words, len(words))
+        chunk = " ".join(words[start:end])
+        chunks.append(chunk)
+        start += max_words - overlap_words
+        if start >= len(words):
+            break
+    return chunks
 
 def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[List[str]] = None) -> list:
     """Extract structured triplets using a controlled relation vocabulary."""
@@ -113,55 +170,75 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
             "Text: \"Class DataLoader extends Dataset.\"\n"
             "Output: [{\"subject\":\"dataloader\",\"relation\":\"extends\",\"object\":\"dataset\"}]\n"
         )
-    full_prompt = prompt + code_prompt + "\nNow process this text:"
 
     try:
         model_name = model_override if model_override else get_bg_model_name()
-        completion = bg_client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": "You are a JSON-only fact extraction tool. Never output anything but JSON."},
-                {"role": "user", "content": f"Text:\n{text}\n\n{full_prompt}"}
-            ],
-            temperature=0.0,
-            max_tokens=500,
-            timeout=30.0
-        )
-        raw = completion.choices[0].message.content.strip()
-        logger.debug("extraction_raw_response", raw=raw)
 
-        # Strip markdown fences
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
+        # --- Chunking: split long text into overlapping chunks ---
+        estimated_tokens = _estimate_tokens(text)
+        if estimated_tokens > MAX_EXTRACTION_TOKENS:
+            logger.info("extraction_chunking", estimated_tokens=estimated_tokens, max=MAX_EXTRACTION_TOKENS)
+            chunks = _chunk_text(text, MAX_EXTRACTION_TOKENS)
+        else:
+            chunks = [text]
 
-        # Parse JSON
-        decoder = json.JSONDecoder()
-        try:
-            parsed, _ = decoder.raw_decode(raw)
-        except json.JSONDecodeError:
-            # Fallback regex for individual triplet objects
-            triplet_pattern = re.compile(
-                r'\{\s*"subject"\s*:\s*"([^"]+)"\s*,\s*"relation"\s*:\s*"([^"]+)"\s*,\s*"object"\s*:\s*"([^"]+)"\s*\}',
-                re.DOTALL
+        all_triplets = []
+        for chunk in chunks:
+            chunk_prompt = prompt + code_prompt + "\nNow process this text:"
+            completion = bg_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": "You are a JSON-only fact extraction tool. Never output anything but JSON."},
+                    {"role": "user", "content": f"Text:\n{chunk}\n\n{chunk_prompt}"}
+                ],
+                temperature=0.0,
+                max_tokens=500,
+                timeout=30.0
             )
-            matches = triplet_pattern.findall(raw)
-            if matches:
-                return [{"subject": s, "relation": r, "object": o} for s, r, o in matches]
-            return []
+            raw = completion.choices[0].message.content.strip()
+            logger.debug("extraction_raw_response", raw=raw[:200])
 
-        if isinstance(parsed, list):
-            valid = []
-            for item in parsed:
-                if isinstance(item, dict) and all(k in item for k in ("subject","relation","object")):
-                    # Filter out relations not in our vocabulary (just in case)
-                    if item["relation"] in ALLOWED_RELATIONS:
-                        valid.append(item)
-            return valid
+            # Strip markdown fences
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+                raw = raw.strip()
 
-        return []
+            # Parse JSON
+            decoder = json.JSONDecoder()
+            try:
+                parsed, _ = decoder.raw_decode(raw)
+            except json.JSONDecodeError:
+                # Fallback regex for individual triplet objects
+                triplet_pattern = re.compile(
+                    r'\{\s*"subject"\s*:\s*"([^"]+)"\s*,\s*"relation"\s*:\s*"([^"]+)"\s*,\s*"object"\s*:\s*"([^"]+)"\s*\}',
+                    re.DOTALL
+                )
+                matches = triplet_pattern.findall(raw)
+                if matches:
+                    chunk_triplets = [{"subject": s, "relation": r, "object": o} for s, r, o in matches]
+                else:
+                    chunk_triplets = []
+            else:
+                if isinstance(parsed, list):
+                    chunk_triplets = [item for item in parsed if isinstance(item, dict) and all(k in item for k in ("subject","relation","object"))]
+                else:
+                    chunk_triplets = []
+
+            # Keep only triplets with allowed relations
+            chunk_triplets = [t for t in chunk_triplets if t.get("relation") in ALLOWED_RELATIONS]
+            all_triplets.extend(chunk_triplets)
+
+        # Deduplicate by (subject, relation, object) tuple
+        seen = set()
+        unique_triplets = []
+        for t in all_triplets:
+            key = (t["subject"].strip().lower(), t["relation"], t["object"].strip().lower())
+            if key not in seen:
+                seen.add(key)
+                unique_triplets.append(t)
+        return unique_triplets
 
     except Exception as err:
         logger.error("triplet_parsing_failed", error=str(err))
