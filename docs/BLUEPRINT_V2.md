@@ -153,31 +153,31 @@ This proves the mechanism exists. The automated user‑in‑the‑loop system ca
 
 ---
 
-a complte thought out version to be able to utilize thing like our simulation harness as a feature so that user can import chat from cloud ai into our system
+- a complte thought out version to be able to utilize thing like our simulation harness as a feature so that user can import chat from cloud ai into our system
 
-a rigrous way to apply the document side of things like pdf, csv and all so that they can utilize our system to the fullest. like if they upload a doc in one of the convos, and we do our thing of dividing and putting in a way our system can utilize it, and they reliase that in thsi other chat they also need info, so they can just thru a side bar add that document to the scope of thing and the system will now search in that too, if they allow it
+- a rigrous way to apply the document side of things like pdf, csv and all so that they can utilize our system to the fullest. like if they upload a doc in one of the convos, and we do our thing of dividing and putting in a way our system can utilize it, and they reliase that in thsi other chat they also need info, so they can just thru a side bar add that document to the scope of thing and the system will now search in that too, if they allow it
 
-ability to change setting about the modle thru the front end like openwebui, like how currently we have limited things like the toekn input and putput and all, so if someone wants they can make changes thru the frontend itself too
+- ability to change setting about the modle thru the front end like openwebui, like how currently we have limited things like the toekn input and putput and all, so if someone wants they can make changes thru the frontend itself too
 
-adding agentic support, by make it in a thought full version of the mcp, as just wrapping the current into mcp doesnt work we have to think about it a lot.
+- adding agentic support, by make it in a thought full version of the mcp, as just wrapping the current into mcp doesnt work we have to think about it a lot.
 
-a script that we are able to run or a command or just typing ice so that we can run all the bg service and the entire system start and we open to the frontend app, or similarly for the mcp part.
+- a script that we are able to run or a command or just typing ice so that we can run all the bg service and the entire system start and we open to the frontend app, or similarly for the mcp part.
 
-a graph view in the frontend and being able to edit the codex thru it. 
+- a graph view in the frontend and being able to edit the codex thru it. 
 
-currently if the user starts in shared mode and has to switch in the middle to the divided model they will have to close it all to make it work, so fixing it so the that we are able to switch real time between the bg worker 3b model and the shared version
+- currently if the user starts in shared mode and has to switch in the middle to the divided model they will have to close it all to make it work, so fixing it so the that we are able to switch real time between the bg worker 3b model and the shared version
 
-adding the real time search capabilities to the frontend or even the mcp by extention so that the rtm tag inthe context reliance can be used
+- adding the real time search capabilities to the frontend or even the mcp by extention so that the rtm tag inthe context reliance can be used
 
-adding deep research to the frontend and adpating the result so that we can utilise the whole infa of our system to the fullest.
+- adding deep research to the frontend and adpating the result so that we can utilise the whole infa of our system to the fullest.
 
-the frontend should give user all the part they need to edit thing and not having to to use api or go to files or anything
+- the frontend should give user all the part they need to edit thing and not having to to use api or go to files or anything, like the dynamic budget max, the max input output token max output, temp, max p max k ALL of it
 
-the baility to select text of the output in the frontend and it comes as add to context for the exactly next promt the user gives
+- the baility to select text of the output in the frontend and it comes as add to context for the exactly next promt the user gives
 
-the sse telemetry, be more dynamic, with real time info of what is exactly happening, and the thinking of the model be also visible to the user if they want it
+- the sse telemetry, be more dynamic, with real time info of what is exactly happening, and the thinking of the model be also visible to the user if they want it
 
-the user can by someway in the side of the screen if they want can see kinda like telemetry or something creativly that hte bg workers are working or something like that.
+- the user can by someway in the side of the screen if they want can see kinda like telemetry or something creativly that hte bg workers are working or something like that.
 ---
 
 **The system you designed is fully prepared for this evolution.**  
@@ -813,3 +813,24 @@ I GENUINELY NEED A WAY FOR THE USER TO CONTROL THE MEMORY BY THE CHAT ITSELF, FO
 6. **Phase F → after paper submission** – remaining polish.
 
 We can start with A1 tomorrow and work straight through. Each item is self‑contained, so you’ll see steady progress. After Phase A is done, we can re‑run the automatic evaluation and you’ll see the precision number climb. Then we’ll keep building.
+
+
+2. What happens when a user deletes a conversation?
+Memory store	What should happen
+Episodic	Rows are deleted (or soft‑deleted). Currently there is no deletion endpoint, but it’s architecturally simple: DELETE FROM episodic_memory WHERE conversation_id = ?.
+Codex	Edges extracted from that conversation should be demoted (confidence = pending) or expired (valid_until = now) if they were only supported by that conversation. Edges corroborated by other conversations remain untouched.
+Procedural	Patterns from that conversation have their source_batch_ids updated; if that was the only source, the pattern is deactivated.
+Batch summaries	Summaries for that conversation are deleted.
+Session replays	Deleted alongside the conversation.
+
+None of this is implemented yet. For Experiment 2, deletion is not part of the protocol, so it’s safe to defer. We can add a /conversations/{id}/delete endpoint later that cascades correctly.
+
+3. Can the user manually edit Codex entries?
+
+Yes, and it’s already partially built. The codex_inject_watcher (src/workers/codex_inject_watcher.py) watches a directory for YAML/JSON files and inserts them directly as Codex entities and edges with confidence = active and strength = 2.0, bypassing LLM extraction entirely. This is the highest‑authority write path.
+
+Additionally, the REST API (user_control.py) has some cluster management endpoints, but there is no direct endpoint yet for editing entity properties or deleting edges. Adding those would be straightforward:
+
+    PUT /user-control/codex/entities/{id} → update properties, context_payload, tags
+
+    DELETE /user-control/codex/edges/{id} → expire an edge (set valid_until = now)
