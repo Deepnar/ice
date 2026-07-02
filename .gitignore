@@ -29,3 +29,16 @@ experiments/results_phase2/ground_truth_progress.json
 experiments/results_phase2/master_results.json
 experiments/results_phase2/vector_contexts.json
 data/ner
+experiments/unmature/results_phase2
+experiments/flaw_ablation/buildup/_completed.txt
+experiments/flaw_ablation/buildup/evaluation_raw.json
+experiments/flaw_ablation/buildup/fragments.jsonl
+experiments/flaw_ablation/buildup/ground_truths_for_review.jsonl
+experiments/flaw_ablation/buildup/master_results.json
+experiments/flaw_ablation/buildup/metrics_report.json
+experiments/mature/generated_probes.json
+experiments/mature/_completed.txt
+experiments/mature/_corrected_gt_progress.txt
+experiments/mature/_last_turn.txt
+experiments/flaw_ablation/buildup/paper_summary.md
+experiments/mature/results
