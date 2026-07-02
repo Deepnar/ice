@@ -25,7 +25,8 @@ import statistics
 # CONFIG
 # ---------------------------------------------------------------------------
 EVAL_RAW = "experiments/results_phase2/evaluation_raw.json"
-MASTER_RESULTS = "experiments/results_phase2/master_results.json"
+# MASTER_RESULTS = "experiments/results_phase2/master_results.json"
+MASTER_RESULTS = "experiments/results_phase2/master_results_corrected.json"
 OUTPUT_FILE = "experiments/results_phase2/metrics_complete_report.json"
 
 NAIVE_MAX_TOKENS = 4000   # cap for control_ conditions
