@@ -11,9 +11,10 @@ from src.api.config import settings
 # Create the engine using the DATABASE_URL from config
 engine = create_engine(
     settings.database_url,
-    pool_size=20,            # small pool – single‑user system
-    max_overflow=0,
-    pool_pre_ping=True,     # verify connections before using them
+    pool_size=50,
+    max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=3600,
 )
 
 # Session factory – call SessionLocal() to get a new session
