@@ -33,66 +33,242 @@ from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 CODEX_NAMESPACE = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
 
-# --- Controlled relation vocabulary for Codex 2.0 ---
+# ===================================================================
+# Controlled relation vocabulary for Codex 2.0 — v2 (redesigned)
+#
+# Design rules:
+# 1. One canonical relation per *meaning*. Near-synonyms that described
+#    the exact same fact (is_married_to/married_to, duplicate reports_to,
+#    duplicate follows/subscribes_to, etc.) were collapsed to a single
+#    relation. Relations that *look* similar but describe genuinely
+#    different facts (knows vs friend vs colleague) were kept distinct.
+# 2. Generic dumping-ground relations ("is", "has", "applies_to",
+#    "connects_to") were removed. Every fact they could have carried has
+#    a more specific relation below — forcing specificity at extraction
+#    time is what keeps the graph queryable later. If the LLM has
+#    nowhere specific to put a fact, it now correctly skips it instead
+#    of burying it under "is".
+# 3. Relations are grouped into categories (dicts, not just comments).
+#    The prompt below renders these grouped, instead of one flat sorted
+#    list of 150+ strings. This is the main lever against synonym
+#    fragmentation: an LLM choosing within a labeled 5-item group is far
+#    more consistent than choosing within one flat 150-item list.
+# 4. Single vs multi-valued reassigned by real-world cardinality:
+#    works_on, founded_by, created, manufactured_by, sold_by,
+#    published_by, produced_by, distributed_by moved from single->multi
+#    because real entities can have multiple of each simultaneously.
+# ===================================================================
 
-PROPERTY_RELATIONS = {
-    # Identity & description
-    "name", "alias", "title", "description",
-    # Demographics
-    "age", "gender", "species", "language",
-    # Professional / academic
-    "role", "profession", "status", "version",
-    # Contact & location
-    "email", "url", "home",
-    # Metadata
-    "type", "genre", "format", "license",
-    "difficulty", "priority", "deadline",
-    "budget", "duration", "author",
+# --- PROPERTY_RELATIONS ---
+# Facts about the SUBJECT itself. Written to properties JSONB.
+# Each must hold "at most one current value" semantics.
+
+PROPERTY_RELATIONS_BY_CATEGORY = {
+    "identity": {
+        "name", "alias", "nickname", "full_name", "title", "description",
+    },
+    "demographics": {
+        "age", "gender", "species", "nationality", "religion",
+        "birthday", "blood_type",
+    },
+    "appearance": {
+        "height", "weight", "eye_color", "hair_color",
+    },
+    "professional": {
+        "role", "occupation", "profession", "affiliation", "status",
+    },
+    "contact_location": {
+        "email", "url", "home", "phone",
+    },
+    "metadata_generic": {
+        "type", "genre", "format", "license", "version", "language",
+    },
+    "task_management": {
+        "difficulty", "priority", "deadline", "budget", "duration",
+    },
+    "attribution": {
+        "author",
+    },
+    "technical_specs": {
+        # performance/measurement facts about a model, pipeline, script,
+        # or system — distinct from "metadata_generic" because these are
+        # numeric/measured facts, not descriptive labels
+        "accuracy", "throughput", "runtime", "latency", "size",
+        "resolution", "capacity",
+    },
+    "narrative_metadata": {
+        # facts about a fictional entity (FLAW characters, sagas, systems)
+        # that don't fit the person-demographic categories above
+        "power_system", "universe", "timeline_position",
+    },
+    "abstract_metadata": {
+        # facts about a concept / theory / taxonomy entity
+        "definition", "scope", "unit",
+    },
 }
+PROPERTY_RELATIONS = set().union(*PROPERTY_RELATIONS_BY_CATEGORY.values())
 """Relations that update the source entity's properties JSONB and expire previous edges."""
 
-MULTI_VALUED_RELATIONS = {
-    # Technical
-    "uses", "imports", "includes", "depends_on", "supports",
-    "integrates_with", "calls", "returns", "references", "cites",
-    # Social / organisational
-    "member_of", "friend", "ally", "enemy", "colleague",
-    "knows", "follows", "subscribes_to", "partners_with",
-    "competes_with", "contributes_to",
-    # Possession / activity
-    "owns", "writes", "reads", "maintains", "teaches",
-    "enrolled_in", "attends", "participated_in", "features",
-    "contains", "includes",
-    # Categorisation
-    "tag", "category",
+# --- MULTI_VALUED_RELATIONS ---
+# Many active edges of this relation can coexist from the same source.
+
+MULTI_VALUED_RELATIONS_BY_CATEGORY = {
+    "technical_dependency": {
+        "uses", "imports", "depends_on", "supports", "integrates_with",
+        "calls", "returns", "references", "cites", "extends", "implements",
+    },
+    "technical_distribution": {
+        "manufactured_by", "sold_by", "published_by", "produced_by",
+        "distributed_by", "purchased_from",
+    },
+    "structural_containment": {
+        "contains", "features",
+    },
+    "social_relationship": {
+        "friend", "ally", "enemy", "colleague", "knows",
+    },
+    "social_action": {
+        "follows", "subscribes_to", "watches", "listens_to", "reads",
+        "comments_on", "reacts_to", "reviews", "shares",
+    },
+    "organisational_collab": {
+        "member_of", "partners_with", "competes_with", "contributes_to",
+        "works_with", "collaborates_on", "co_authors", "edits",
+        "moderates", "administers", "contributes_code_to",
+    },
+    "support_endorsement": {
+        "funds", "sponsors", "endorses", "criticises",
+    },
+    "activity_participation": {
+        "owns", "writes", "maintains", "teaches", "enrolled_in",
+        "attends", "participated_in", "participates_in",
+        "competes_in", "volunteers_for",
+    },
+    "categorisation": {
+        "tag", "category",
+    },
+    "works_on_projects": {
+        "works_on",
+    },
+    "founding_creation_multi": {
+        "founded_by", "created",
+    },
+    "data_lineage": {
+        # ML/data-pipeline lineage facts — directly relevant to ICE's
+        # dataset combiner/dedup/classifier-training pipeline
+        "derived_from", "trained_on", "configured_with",
+        "evaluated_on", "benchmarks_against",
+    },
+    "code_structure": {
+        # where code/artifacts live and how they're verified
+        "defined_in", "located_in", "tested_by", "documents",
+    },
+    "research_relations": {
+        # for the ICE research papers — distinct from "cites" (a citation
+        # can be incidental; these describe an actual methodological or
+        # evidentiary relationship between findings/papers)
+        "builds_on", "validates", "contradicts", "replicates",
+        "extends_findings_of",
+    },
+    "narrative_structure": {
+        # FLAW-specific: character/saga/system relationships that aren't
+        # personal relationships (married_to etc.) or generic containment
+        "appears_in", "wields", "possesses", "mirrors",
+        "foreshadows", "inspired_by",
+    },
+    "conceptual": {
+        # for abstract entities: theories, taxonomies, cosmological layers
+        "derived_from_theory", "complements", "opposes",
+        "exemplifies", "measures",
+    },
 }
+MULTI_VALUED_RELATIONS = set().union(*MULTI_VALUED_RELATIONS_BY_CATEGORY.values())
 """Relations that allow multiple active edges simultaneously (no auto‑expiry)."""
 
-SINGLE_VALUED_RELATIONS = {
-    # Organisational
-    "part_of", "works_on", "works_at", "reports_to",
-    "managed_by", "assigned_to", "supervised_by",
-    # Educational
-    "studies", "studies_at", "graduated_from",
-    "mentor_of", "student_of", "taught",
-    # Creative / production
-    "created", "founded_by", "acquired_by",
-    "published", "released", "manufactured_by",
-    "sold_by", "purchased_from",
-    # Personal
-    "lives_in", "born_in", "died_in",
-    "married_to", "parent_of", "child_of", "sibling_of",
-    # Technical / deployment
-    "hosted_on", "deployed_to", "owned_by", "operated_by",
-    "extends", "implements", "applies_to",
-    # Generic
-    "is", "has", "offers", "requires", "provides",
-    "ranks", "connects_to", "employs",
+# --- SINGLE_VALUED_RELATIONS ---
+# A new edge of the same relation from the same source auto-expires any
+# previous active edge of that relation (regardless of target).
+
+SINGLE_VALUED_RELATIONS_BY_CATEGORY = {
+    "organisational_position": {
+        "part_of", "works_at", "reports_to", "managed_by", "assigned_to",
+        "supervised_by", "supervises", "manages", "directs",
+        "employs", "is_employed_by", "is_contracted_by",
+    },
+    "executive_role": {
+        "is_ceo_of", "is_founder_of", "is_president_of",
+        "represents", "acts_on_behalf_of", "is_delegated_by",
+    },
+    "succession": {
+        "succeeds", "precedes", "replaces", "supersedes",
+    },
+    "education": {
+        "studies", "studies_at", "graduated_from", "is_educated_in",
+        "mentor_of", "student_of", "taught",
+    },
+    "production_singular": {
+        "released", "published", "acquired_by",
+    },
+    "personal_relationship": {
+        "married_to", "is_engaged_to", "is_dating",
+        "is_divorced_from", "is_separated_from",
+        "parent_of", "child_of", "sibling_of",
+    },
+    "biography_location": {
+        "lives_in", "born_in", "died_in", "is_based_in", "operates_in",
+        "is_raised_in",
+    },
+    "deployment_ownership": {
+        "hosted_on", "deployed_to", "owned_by", "operated_by",
+    },
+    "logical_requirement": {
+        "offers", "requires", "provides", "ranks",
+    },
+    "narrative_singular": {
+        # a saga/arc has one primary setting; an entity has one current
+        # transformation state at a time (binary-universe/three-phase
+        # entities like Orien fit this — only one active phase at once)
+        "set_in", "transforms_into",
+    },
+    "conceptual_singular": {
+        # taxonomy/classification facts — an entity is one specific
+        # instance/subtype at a time
+        "instance_of", "subtype_of",
+    },
 }
+SINGLE_VALUED_RELATIONS = set().union(*SINGLE_VALUED_RELATIONS_BY_CATEGORY.values())
 """Single‑valued relations: a new edge auto‑expires any previous active edge
 with the same source and relation."""
 
+# --- Sanity check at import time: catch accidental re-overlap early ---
+_overlap = (
+    (PROPERTY_RELATIONS & MULTI_VALUED_RELATIONS)
+    | (PROPERTY_RELATIONS & SINGLE_VALUED_RELATIONS)
+    | (MULTI_VALUED_RELATIONS & SINGLE_VALUED_RELATIONS)
+)
+assert not _overlap, f"Relation(s) appear in more than one bucket: {_overlap}"
+
 ALLOWED_RELATIONS = PROPERTY_RELATIONS | MULTI_VALUED_RELATIONS | SINGLE_VALUED_RELATIONS
+
+# Grouped view used by the prompt builder below — category label -> sorted relations
+_ALL_CATEGORIES_GROUPED = {
+    **{f"property: {k}": sorted(v) for k, v in PROPERTY_RELATIONS_BY_CATEGORY.items()},
+    **{f"multi-valued: {k}": sorted(v) for k, v in MULTI_VALUED_RELATIONS_BY_CATEGORY.items()},
+    **{f"single-valued: {k}": sorted(v) for k, v in SINGLE_VALUED_RELATIONS_BY_CATEGORY.items()},
+}
+
+# Raw category keys (e.g. "social_relationship", without the "multi-valued:"
+# prefix) — used only to DETECT when the model has mistakenly output a
+# category header instead of an actual relation, so it can be logged
+# clearly instead of silently vanishing. We deliberately do NOT auto-remap
+# these to a specific child relation (e.g. defaulting "social_relationship"
+# to "friend") because guessing wrong would silently write an incorrect
+# fact (e.g. recording an enemy as a friend) — worse than dropping it.
+_CATEGORY_KEYS_ONLY = {
+    k.split(": ", 1)[1] if ": " in k else k
+    for k in _ALL_CATEGORIES_GROUPED
+}
+
 
 def generate_uuid5(canonical_name: str) -> uuid.UUID:
     """Derive deterministic UUIDv5 identifier for a canonical entity node."""
@@ -128,23 +304,58 @@ def _chunk_text(text: str, max_tokens: int, overlap_words: int = OVERLAP_WORDS) 
             break
     return chunks
 
+
+def _build_grouped_relation_block() -> str:
+    """Render ALLOWED_RELATIONS as labeled groups instead of one flat list.
+
+    This is the main lever against synonym fragmentation (e.g. the model
+    picking "knows" vs "friend" vs "follows" inconsistently for the same
+    kind of fact): choosing within a small labeled group is far more
+    consistent than choosing within one 150-item flat list.
+
+    IMPORTANT: the "# category:" line is a section header for human/LLM
+    readability ONLY. It is never itself a valid relation value — only the
+    individual words listed under each header are valid. This is rendered
+    as a comment-style header (not bracketed inline) specifically so it
+    cannot be mistaken for an item in the list that follows.
+    """
+    lines = []
+    for label, relations in _ALL_CATEGORIES_GROUPED.items():
+        lines.append(f"   # category: {label} (the category name itself is NOT a relation)")
+        lines.append(f"   {', '.join(relations)}")
+    return "\n".join(lines)
+
+
 def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[List[str]] = None) -> list:
     """Extract structured triplets using a controlled relation vocabulary."""
-    relation_list = ", ".join(sorted(ALLOWED_RELATIONS))
-    
+    grouped_relations = _build_grouped_relation_block()
+
     prompt = (
         "You are a precise fact extractor. Convert the given text into a JSON array of "
         "subject‑relation‑object triplets.\n\n"
         "STRICT RULES:\n"
-        "1. Use ONLY these relations:\n"
-        f"   {relation_list}\n"
-        "   If a fact does not fit any of these relations, SKIP IT – never invent a new relation.\n"
+        "1. Use ONLY the individual relation words listed below (e.g. uses, friend, lives_in). "
+        "Relations are grouped under '# category: ...' comment headers purely to help you pick "
+        "the most precise word when several similar relations exist — the category header itself "
+        "is NEVER a valid relation value. Pick one specific word from inside a group, never the "
+        "header text above it.\n"
+        f"{grouped_relations}\n"
+        "   If a fact does not naturally and clearly fit any of these individual relation words, "
+        "SKIP IT – never invent a new relation, never output a category name, and never force a "
+        "fact into a relation that doesn't truly describe it.\n"
         "2. Canonicalise subjects and objects: lowercase, singular, no punctuation, concise.\n"
         "   Example: \"PostgreSQL\" → \"postgresql\", \"the goo blade\" → \"goo blade\".\n"
         "3. For facts that describe a property of something (e.g., name, age, role, profession, description), "
         "use the property relation itself as the relation. Example:\n"
         "   \"Kael is a fire mage\" → {\"subject\":\"kael\",\"relation\":\"role\",\"object\":\"fire mage\"}\n"
-        "4. Output ONLY a JSON array. No markdown, no explanation.\n\n"
+        "4. A relation must make logical sense. If the subject and object could not appear in a "
+        "real‑world sentence using that relation, do NOT output it.\n"
+        "   BAD:  {\"subject\":\"shinchan\",\"relation\":\"makes\",\"object\":\"shinchan blush\"}\n"
+        "   GOOD: {\"subject\":\"shinchan\",\"relation\":\"competes_with\",\"object\":\"rika miyamoto\"}\n"
+        "5. NEVER output a category header as a relation. Example:\n"
+        "   BAD:  {\"subject\":\"shinchan\",\"relation\":\"social_relationship\",\"object\":\"kazama\"}\n"
+        "   GOOD: {\"subject\":\"shinchan\",\"relation\":\"friend\",\"object\":\"kazama\"}\n"
+        "6. Output ONLY a JSON array. No markdown, no explanation.\n\n"
         "EXAMPLES:\n"
         "Text: \"ICE uses PostgreSQL for memory and Redis for tasks.\"\n"
         "Output: [{\"subject\":\"ice\",\"relation\":\"uses\",\"object\":\"postgresql\"},"
@@ -228,6 +439,11 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
 
             # Keep only triplets with allowed relations
             chunk_triplets = [t for t in chunk_triplets if t.get("relation") in ALLOWED_RELATIONS]
+
+            # Sanity filter: remove triplets where object is clearly a verb phrase
+            suspicious_objects = {"blush", "laugh", "cry", "smile", "angry", "sad", "happy", "mad"}
+            chunk_triplets = [t for t in chunk_triplets
+                              if t.get("object", "").strip().lower() not in suspicious_objects]
             all_triplets.extend(chunk_triplets)
 
         # Deduplicate by (subject, relation, object) tuple
@@ -367,8 +583,25 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
                 batch_source=batch_id
             ))
         else:
-            # Same pair, different relation → expire old, create new active
-            existing_active.valid_until = datetime.now(timezone.utc)
+            # Same pair, different relation.
+            # FIX: only expire the old edge if the OLD relation is single-valued.
+            # Previously this branch expired the old edge unconditionally, which
+            # silently broke multi-valued semantics — e.g. if "knows" (multi-valued)
+            # was active between two entities and a later turn asserted "friend"
+            # (also multi-valued) between the same pair, the old "knows" edge was
+            # deleted even though both relations are supposed to coexist.
+            # Multi-valued relations between the same pair should simply add a
+            # second, independent edge instead of replacing the first.
+            if existing_active.relation not in MULTI_VALUED_RELATIONS:
+                existing_active.valid_until = datetime.now(timezone.utc)
+                db.add(CodexEvent(
+                    entity_id=subj.id,
+                    event_type="edge_expired",
+                    payload={"edge_id": str(existing_active.id), "relation": existing_active.relation},
+                    timestamp=datetime.now(timezone.utc),
+                    batch_source=batch_id
+                ))
+
             new_edge_id = uuid.uuid4()
             db.add(CodexEdge(
                 id=new_edge_id,
@@ -379,13 +612,6 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
                 source_batch=batch_id,
                 confidence="active",
                 valid_from=datetime.now(timezone.utc)
-            ))
-            db.add(CodexEvent(
-                entity_id=subj.id,
-                event_type="edge_expired",
-                payload={"edge_id": str(existing_active.id), "relation": existing_active.relation},
-                timestamp=datetime.now(timezone.utc),
-                batch_source=batch_id
             ))
             db.add(CodexEvent(
                 entity_id=subj.id,

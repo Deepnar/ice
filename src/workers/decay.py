@@ -10,8 +10,14 @@ from src.workers.celery_app import app
 from src.workers.gpu_check import is_gpu_busy
 
 logger = structlog.get_logger("ice.workers.decay")
-DECAY_RATE_UNACCESSED = 0.95   # 5% decay per day for never‑accessed turns
-DECAY_RATE_ACCESSED = 0.98     # 2% decay for turns that have been accessed
+# Effective daily decay targets: 0.95 (unaccessed), 0.98 (accessed)
+# Cycles per day (from beat schedule): 24h / 1.5h = 16
+CYCLES_PER_DAY = 16.0
+DECAY_RATE_UNACCESSED = 0.95 ** (1.0 / CYCLES_PER_DAY)   # ≈0.9968
+DECAY_RATE_ACCESSED   = 0.98 ** (1.0 / CYCLES_PER_DAY)   # ≈0.9987
+
+# Creative slow decay (1% per day effective)
+CREATIVE_DECAY_RATE = 0.99 ** (1.0 / CYCLES_PER_DAY)     # ≈0.9994
 STRENGTHEN_AMOUNT = 0.15
 ARCHIVE_THRESHOLD = 0.1
 COLD_THRESHOLD = 0.05
@@ -27,7 +33,7 @@ def apply_decay(self):
     try:
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
 
-        # Access‑weighted decay: unaccessed turns decay faster
+        # Access‑weighted decay: unaccessed non‑creative turns
         db.execute(text("""
             UPDATE episodic_memory
             SET decay_score = decay_score * :rate
@@ -36,8 +42,10 @@ def apply_decay(self):
               AND is_bookmarked = FALSE
               AND is_archived = FALSE
               AND access_count = 0
+              AND NOT ('Creative_&_Media' = ANY(topic_tags))
         """), {"rate": DECAY_RATE_UNACCESSED, "cutoff": cutoff})
 
+        # Access‑weighted decay: previously‑accessed non‑creative turns
         db.execute(text("""
             UPDATE episodic_memory
             SET decay_score = decay_score * :rate
@@ -46,7 +54,27 @@ def apply_decay(self):
               AND is_bookmarked = FALSE
               AND is_archived = FALSE
               AND access_count > 0
+              AND NOT ('Creative_&_Media' = ANY(topic_tags))
         """), {"rate": DECAY_RATE_ACCESSED, "cutoff": cutoff})
+
+        # Slow decay for creative turns (1% per day)
+        db.execute(text("""
+            UPDATE episodic_memory
+            SET decay_score = decay_score * :rate
+            WHERE timestamp < :cutoff
+              AND decay_immune = FALSE
+              AND is_bookmarked = FALSE
+              AND is_archived = FALSE
+              AND 'Creative_&_Media' = ANY(topic_tags)
+        """), {"rate": CREATIVE_DECAY_RATE, "cutoff": cutoff})
+
+        # Creative floor: never drop below 0.3
+        db.execute(text("""
+            UPDATE episodic_memory
+            SET decay_score = 0.3
+            WHERE 'Creative_&_Media' = ANY(topic_tags)
+              AND decay_score < 0.3
+        """))
 
         # Archive turns below threshold
         db.execute(text("""

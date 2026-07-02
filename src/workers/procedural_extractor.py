@@ -18,8 +18,11 @@ logger = structlog.get_logger("ice.workers.procedural")
 from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 # Load the embedding model once globally – prevents disk I/O starvation
-pattern_embedder = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
-
+pattern_embedder = SentenceTransformer(
+    "Qwen/Qwen3-Embedding-0.6B",
+    device="cpu",
+    truncate_dim=384
+)
 
 def encode_pattern(text: str):
     return pattern_embedder.encode(text, convert_to_tensor=False).tolist()

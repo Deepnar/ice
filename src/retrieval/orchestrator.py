@@ -2,19 +2,20 @@
 wide‑net full‑vector, Codex/Procedural scoping, HyDE rewriting, procedural trigger matching,
 micro‑NER integration, and dynamic token budget."""
 
+from datetime import datetime, timezone
 import hashlib
 import os
 import re
 import uuid
 from typing import List, Optional, Dict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from openai import OpenAI
 import structlog
 from sqlalchemy.orm import Session
 from sqlalchemy import bindparam, text
 from pgvector.sqlalchemy import Vector as PgVector
-from transformers import AutoTokenizer
-import torch
+from src.retrieval.ner_utils import extract_entities
+from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 
 from src.api.config import settings
 from src.memory.models import (
@@ -37,113 +38,234 @@ class ContextFragment:
     source_batch_id: Optional[str] = None
     conversation_id: Optional[str] = None
 
+# ---------------------------------------------------------------------------
+# Scoring constants – single source for all additive bonuses
+# ---------------------------------------------------------------------------
+BONUS_BOOKMARKED = 0.5            # +50% of base score
+BONUS_RECENT_TOP_10PCT = 1.0      # +100% if in the most recent 10% of the conversation
+BONUS_RECENT_TOP_30PCT = 0.5      # +50% if in the most recent 30%
+BONUS_LONG_NARRATIVE = 1.5        # +150% if >800 words (likely a full chapter)
+BONUS_SUBSTANTIAL = 0.5           # +50% if >400 words
+PENALTY_SHORT = -0.7              # −70% if <80 words
+BONUS_KEYWORD_MATCH = 1.0         # +100% if fragment contains a prompt keyword
+MAX_TOTAL_BONUS_MULTIPLIER = 4.0  # maximum bonus sum (score can be multiplied by up to 5.0)
+
+# Soft meta‑discussion downweight – classifier‑driven, not string‑matching
+NARRATIVE_FACT_INTENTS = {"Factual_Retrieval", "Decision_Making"}
+META_LEANING_INTENTS = {"Analysis_&_Summarization"}
+META_DOWNWEIGHT_FACTOR = 0.55     # multiply score by this if source turn leans meta
 
 class HybridRetrievalOrchestrator:
     def __init__(self, db: Session, embedder):
         self.db = db
         self.embedder = embedder
-        self.bg_client = OpenAI(base_url="http://localhost:8002/v1", api_key="dummy")
+        self.bg_client = get_bg_client()
         self.max_retrieval_tokens = 5000
+        self._force_hyde = False
 
         # Load micro‑NER model (fallback to None if not available)
-        self.ner_model = self._load_ner_model()
-        self.ner_tokenizer = self._load_ner_tokenizer()
-
-    def _load_ner_model(self):
-        from src.classifier.ner_model import MicroNER
-        model = MicroNER()
-        path = "models/ner/ner_model.pt"
-        if os.path.exists(path):
-            model.load_state_dict(torch.load(path, map_location="cpu"))
-            model.eval()
-            return model
-        return None
-
-    def _load_ner_tokenizer(self):
-        try:
-            return AutoTokenizer.from_pretrained("Qwen/Qwen3-Embedding-0.6B")
-        except Exception:
-            return None
-
-    def _extract_entities_with_ner(self, text: str) -> List[str]:
-        # Fallback to regex if NER not ready
-        if self.ner_model is None or self.ner_tokenizer is None:
-            return list(set(re.findall(r'\b[A-Z][a-zA-Z0-9_]+\b', text)))
-
-        encoding = self.ner_tokenizer(text, return_offsets_mapping=True, add_special_tokens=False)
-        token_ids = encoding["input_ids"]
-        if not token_ids:
-            return []
-        token_strs = self.ner_tokenizer.convert_ids_to_tokens(token_ids)
-        offsets = encoding["offset_mapping"]
-
-        embeddings = self.embedder.encode(token_strs, convert_to_tensor=True, show_progress_bar=False)
-        model_device = next(self.ner_model.parameters()).device
-        if embeddings.device != model_device:
-            embeddings = embeddings.to(model_device)
-        if embeddings.dtype != torch.float32:
-            embeddings = embeddings.float()
-
-        with torch.no_grad():
-            logits = self.ner_model(embeddings.unsqueeze(0))  # (1, T, 3)
-            preds = torch.argmax(logits, dim=-1).squeeze(0)   # (T,)
-
-        # ---- Step 1: standard BIO merging ----
-        entities = []          # list of (start_char, end_char, entity_string)
-        current_start = None
-        current_end = None
-        current_tokens = []
-
-        for i, p in enumerate(preds.tolist()):
-            tok_start, tok_end = offsets[i]
-            if p == 0:  # B-ENT
-                if current_start is not None:
-                    # save previous entity using original character span
-                    entities.append((current_start, current_end,
-                                     text[current_start:current_end].strip()))
-                    current_tokens = []
-                current_start = tok_start
-                current_end = tok_end
-                current_tokens.append(token_strs[i])
-            elif p == 1 and current_start is not None:  # I-ENT
-                current_end = tok_end
-                current_tokens.append(token_strs[i])
-            else:
-                if current_start is not None:
-                    entities.append((current_start, current_end,
-                                     text[current_start:current_end].strip()))
-                    current_tokens = []
-                    current_start = None
-        if current_start is not None:
-            entities.append((current_start, current_end,
-                             text[current_start:current_end].strip()))
-
-        # ---- Step 2: glue consecutive entities that are adjacent in the text ----
-        if len(entities) >= 2:
-            glued = []
-            prev_start, prev_end, prev_str = entities[0]
-            for i in range(1, len(entities)):
-                curr_start, curr_end, curr_str = entities[i]
-                # If there is only whitespace between the two entities, merge them
-                if text[prev_end:curr_start].strip() == "":
-                    # Merge: extend the previous entity
-                    prev_end = curr_end
-                    prev_str = text[prev_start:prev_end].strip()
-                else:
-                    glued.append((prev_start, prev_end, prev_str))
-                    prev_start, prev_end, prev_str = curr_start, curr_end, curr_str
-            glued.append((prev_start, prev_end, prev_str))
-            entities = glued
-
-        # Return only the entity strings, discarding empty ones
-        return [e[2] for e in entities if len(e[2]) > 0]
-
-    def set_budget_from_turn_count(self, turn_count: int):
-        """CL4: Dynamic token budget based on conversation depth.
-        Short conversations (<60 turns) get 3,000 tokens;
-        longer ones scale linearly with turns, up to 15,000 tokens.
+    def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=10):
+        """Return a list of cluster_id strings for the clusters most
+        relevant to the prompt, using both embedding similarity and
+        topic‑tag overlap with the current classification.
         """
-        self.max_retrieval_tokens = min(15000, max(2000, turn_count * 50))
+        try:
+            conv_filter = "AND conversation_id = :conv_id" if conversation_id else ""
+            query = text(f"""
+                SELECT id, 1 - (embedding <=> :emb) AS sim, tags, name, description
+                FROM context_clusters
+                WHERE embedding IS NOT NULL
+                {conv_filter}
+                ORDER BY sim DESC
+                LIMIT :limit
+            """).bindparams(bindparam("emb", type_=PgVector))
+            params = {"emb": prompt_embedding, "limit": top_k * 3}
+            if conversation_id:
+                params["conv_id"] = conversation_id
+            rows = self.db.execute(query, params).fetchall()
+        except Exception:
+            return []
+
+        if not rows:
+            return []
+
+        # Boost clusters whose tags overlap with the current topic tags
+        topic_tags = set(classification.topic_tags) if classification else set()
+        scored = []
+        for row in rows:
+            cluster_tags = set(row.tags or [])
+            tag_overlap = len(topic_tags & cluster_tags) if topic_tags else 0
+
+            # Name/description similarity (small weight – secondary signal)
+            name_desc_text = (row.name + " " + (row.description or "")).strip()
+            name_sim = 0.0
+            if name_desc_text:
+                name_desc_emb = self.embedder.encode(name_desc_text, convert_to_tensor=False)
+                name_sim = sum(a * b for a, b in zip(prompt_embedding, name_desc_emb))
+
+            combined = row.sim + (0.3 * tag_overlap) + (0.15 * name_sim)
+            scored.append((combined, str(row.id)))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        if not scored or scored[0][0] < 0.50:
+            # No cluster is confidently relevant – fall back to full conversation search
+            return []
+        return [cid for _, cid in scored[:top_k]]
+    
+    def _apply_bonuses(self, fragments, classification, conv_id, prompt_keywords):
+        creative = bool({"Creative_&_Media"} & set(classification.topic_tags))
+        wants_narrative_fact = bool(NARRATIVE_FACT_INTENTS & set(classification.intent_tags))
+
+        out = []
+        for f in fragments:
+            bonus = 0.0
+            text_lower = f.text.lower()
+            word_count = len(f.text.split())
+
+            # Keyword match
+            if prompt_keywords and any(
+                kw in text_lower or kw.rstrip('s') in text_lower for kw in prompt_keywords
+            ):
+                bonus += BONUS_KEYWORD_MATCH
+
+            # Length
+            if word_count > 800:
+                bonus += BONUS_LONG_NARRATIVE
+            elif word_count > 400:
+                bonus += BONUS_SUBSTANTIAL
+            elif word_count < 80:
+                bonus += PENALTY_SHORT
+
+            # Recency (skip for creative – recent meta turns are noise)
+            if f.source_type == "episodic" and not creative and conv_id:
+                bonus += self._recency_bonus(f, conv_id)
+
+            # Soft meta downweight
+            if wants_narrative_fact and f.source_type == "episodic" and f.source_batch_id:
+                if self._turn_leans_meta(f.source_batch_id):
+                    bonus -= (1.0 - META_DOWNWEIGHT_FACTOR)
+
+            bonus = max(-0.9, min(MAX_TOTAL_BONUS_MULTIPLIER, bonus))
+            new_score = f.score * (1.0 + bonus)
+            out.append(replace(f, score=new_score))
+        return out
+
+    def _recency_bonus(self, fragment, conv_id):
+        try:
+            turn = self.db.query(EpisodicMemory).get(uuid.UUID(fragment.source_batch_id)) \
+                if fragment.source_batch_id else None
+            if not turn:
+                return 0.0
+            total = self.db.query(EpisodicMemory).filter_by(conversation_id=conv_id).count()
+            if total <= 20:
+                return 0.0
+            newer_count = self.db.query(EpisodicMemory).filter(
+                EpisodicMemory.conversation_id == conv_id,
+                EpisodicMemory.timestamp > turn.timestamp
+            ).count()
+            recency_pct = newer_count / total
+            if recency_pct < 0.10:
+                return BONUS_RECENT_TOP_10PCT
+            elif recency_pct < 0.30:
+                return BONUS_RECENT_TOP_30PCT
+            return 0.0
+        except Exception:
+            return 0.0
+
+    def _turn_leans_meta(self, source_batch_id):
+        """Check the source turn's intent_tags for meta/analytical leaning."""
+        try:
+            turn = self.db.query(EpisodicMemory).get(uuid.UUID(source_batch_id))
+            if not turn or not turn.intent_tags:
+                return False
+            return bool(META_LEANING_INTENTS & set(turn.intent_tags))
+        except Exception:
+            return False
+    def _extract_prompt_keywords(self, prompt_text):
+        words = set(re.sub(r'[^\w\s]', ' ', prompt_text).lower().split())
+        common = {"the","is","of","and","a","to","in","that","it","for","was","on","are",
+                  "with","what","when","where","who","how","i","you","me","my","we","our",
+                  "so","be","do","did","does","get","got","very","too","now","this","that",
+                  "these","those","some","many","each","every","other","more","gonna","wanna"}
+        return words - common
+
+
+
+    TOTAL_CONTEXT_BUDGET = 23_000          # hard ceiling for all context
+    OVERHEAD_RESERVE = 1_800               # system message + slots + question
+
+
+    def set_budget_from_turn_count(
+        self, turn_count: int, total_tokens: int = 0, classification=None
+    ):
+        available = self.TOTAL_CONTEXT_BUDGET - self.OVERHEAD_RESERVE
+        fraction = self._compute_recent_fraction(turn_count, total_tokens, classification)
+        recent_budget = int(available * fraction)
+        raw_retrieval = available - recent_budget
+
+        # Growth-based retrieval cap (same as before)
+        if turn_count < 30:
+            growth_cap = 2_000 + turn_count * 150
+        elif turn_count < 100:
+            growth_cap = 5_000 + (turn_count - 30) * 100
+        elif turn_count < 500:
+            growth_cap = 10_000 + (turn_count - 100) * 30
+        else:
+            growth_cap = raw_retrieval
+
+        retrieval_budget = min(raw_retrieval, growth_cap)
+
+        # NO reallocation — leftover stays unused. This is what makes ICE
+        # token-efficient compared to the vector baseline.
+
+        self.recent_token_budget = recent_budget
+        self.max_retrieval_tokens = retrieval_budget
+
+        # Remove the assertion — the sum is intentionally less than 'available'
+
+
+    def _compute_recent_fraction(self, turn_count: int, total_tokens: int = 0, classification=None) -> float:
+        """Return 0.0‑1.0 – how much of the context budget goes to recent turns."""
+        # Base – conversation length
+        if turn_count < 10:
+            base = 0.3
+        elif turn_count < 50:
+            base = 0.2
+        elif turn_count < 200:
+            base = 0.2
+        elif turn_count < 500:
+            base = 0.15
+        else:
+            base = 0.15
+
+        # Token‑density adjustment: if average tokens/turn is huge, shift some
+        # budget toward retrieval to avoid recent‑only context dominated by a
+        # couple of very long turns.
+        if turn_count > 0 and total_tokens > 0:
+            avg_tokens_per_turn = total_tokens / turn_count
+            if avg_tokens_per_turn > 3000:
+                base -= 0.15
+            elif avg_tokens_per_turn > 1500:
+                base -= 0.10
+            elif avg_tokens_per_turn > 800:
+                base -= 0.05
+
+        modifier = 0.0
+        if classification is not None:
+            intents = set(classification.intent_tags)
+            if intents & {"Factual_Retrieval", "Troubleshooting", "Analysis_&_Summarization"}:
+                modifier -= 0.10
+            if intents & {"Emotional_Processing", "Casual_Banter"}:
+                modifier += 0.10
+            topics = set(classification.topic_tags)
+            if "Creative_&_Media" in topics:
+                modifier += 0.05
+            if "Software_&_Tech" in topics:
+                modifier -= 0.05
+            if topics & {"Social_&_Relationships", "Lifestyle_&_Health"}:
+                modifier += 0.05
+
+        return max(0.05, min(0.85, base + modifier))
 
     # ------------------------------------------------------------------
     # Main entry point
@@ -162,7 +284,9 @@ class HybridRetrievalOrchestrator:
         # Keep the explicit creative/lore guard (belt and suspenders)
         if "Creative_&_Media" in classification.topic_tags:
             classification.context_reliance = "Long_Term_Memory"
-
+        # Reset HyDE tracking flags for this retrieval call
+        self._hyde_used = False
+        self._last_hyde_query = None
         if classification.context_reliance == "Zero_Shot":
             return []
         if classification.context_reliance == "Real_Time_Search":
@@ -173,20 +297,31 @@ class HybridRetrievalOrchestrator:
             return self._wide_net_fallback(classification, prompt_embedding, conversation_id, scope)
 
         # Conversation scope filter for episodic legs
+        # Conversation scope filter for episodic legs
         conv_id = None
         if scope and "conversation_id" in scope:
             conv_id = scope["conversation_id"]
 
+        # ── Cluster‑scoped retrieval: find the most relevant clusters
+        #     and add them to the scope so the episodic legs only search
+        #     those clusters.  Falls back gracefully if no clusters exist.
+        cluster_ids = self._relevant_cluster_ids(prompt_embedding, classification=classification, conversation_id=conv_id, top_k=10)
+        if cluster_ids and scope is not None:
+            scope["cluster_ids"] = cluster_ids
+
         # HyDE query rewriting
-        hyde_prompt = None
-        if classification.context_reliance == "Long_Term_Memory":
-            hyde_prompt = self._hyde_rewrite(classification.prompt, conversation_id)
-            search_prompt = hyde_prompt if hyde_prompt else classification.prompt
+        # hyde_prompt = None
+        # if self._force_hyde or classification.context_reliance == "Long_Term_Memory":
+        #     hyde_prompt = self._hyde_rewrite(classification.prompt, conversation_id)
+        #     search_prompt = hyde_prompt if hyde_prompt else classification.prompt
+        #     if self._force_hyde:
+        #         self._hyde_used = hyde_prompt is not None
+        #         self._last_hyde_query = hyde_prompt
 
-        # Re‑compute embedding if the search prompt changed
-        if hyde_prompt:
-            prompt_embedding = self.embedder.encode(search_prompt, convert_to_tensor=False).tolist()
-
+        # # Re‑compute embedding if the search prompt changed
+        # if hyde_prompt:
+        #     prompt_embedding = self.embedder.encode(search_prompt, convert_to_tensor=False).tolist()
+        search_prompt = classification.prompt
         # Execute all retrieval legs
         legs: Dict[str, List[ContextFragment]] = {
             "bm25": self._bm25_episodic(classification, scope, conv_id, search_prompt),
@@ -211,13 +346,13 @@ class HybridRetrievalOrchestrator:
         # Profile definitions: each profile → (intents, weight_override)
         PROFILES = [
             ({"Factual_Retrieval", "Utility_Formatting"},
-            {"vector": 1.2, "bm25": 1.0, "codex": 0.1, "procedural": 0.1}),
+            {"vector": 1.2, "bm25": 0.8, "codex": 0.1, "procedural": 0.1}),
             ({"Troubleshooting", "Strategic_Planning"},
             {"vector": 1.0, "bm25": 0.8, "codex": 0.3, "procedural": 1.2}),
             ({"Generation", "Ideation", "Open_Exploration"},
-            {"vector": 0.6, "bm25": 0.4, "codex": 1.2, "procedural": 0.1}),
+            {"vector": 0.6, "bm25": 0.6, "codex": 1.2, "procedural": 0.1}),
             ({"Emotional_Processing", "Analysis_&_Summarization", "Decision_Making"},
-            {"vector": 1.1, "bm25": 0.5, "codex": 0.9, "procedural": 0.0}),
+            {"vector": 1.1, "bm25": 0.6, "codex": 0.9, "procedural": 0.0}),
             ({"Casual_Banter", "Null_Noise"},
             {"vector": 0.5, "bm25": 0.2, "codex": 0.0, "procedural": 0.0}),
         ]
@@ -259,6 +394,18 @@ class HybridRetrievalOrchestrator:
 
         # Fuse, diversify, deduplicate, trim
         fused = self._apply_rrf(legs, alpha_map=blend_weights)
+                # Compute prompt keywords once for the bonus pass
+        prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
+        fused = self._apply_bonuses(fused, classification, conv_id, prompt_keywords)
+        fused.sort(key=lambda x: x.score, reverse=True)
+                # ── Leg diversity guarantee: always include the top‑ranked fragment
+        #     from each leg, even if RRF would have dropped it.
+
+        # ── Keyword‑aware re‑ranking: fragments containing probe keywords
+        #     get a massive score boost so they survive token‑budget enforcement.
+
+
+        # (delete the old leg‑diversity block entirely)
         diversified = self._session_diversify(fused, conversation_id, max_per_conversation=3)
         deduped = self._deduplicate(diversified)
         final = self._enforce_token_budget(deduped)
@@ -294,7 +441,7 @@ class HybridRetrievalOrchestrator:
 
         try:
             resp = self.bg_client.chat.completions.create(
-                model="Qwen/Qwen2.5-3B-Instruct-AWQ",
+                model=get_bg_model_name(),
                 messages=[
                     {"role": "system", "content": (
                         "You are a query rewriting engine. Take the user's question and rewrite it "
@@ -315,14 +462,52 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # BM25 episodic (full‑text search)
     # ------------------------------------------------------------------
-    def _bm25_episodic(self, classification, scope, conv_id: Optional[str] = None, search_prompt: Optional[str] = None) -> List[ContextFragment]:
+    def _bm25_episodic(self, classification, scope, conv_id=None, search_prompt=None):
         prompt_text = search_prompt if search_prompt else classification.prompt
-        clean_prompt = re.sub(r'[^\w\s]', ' ', prompt_text)
-        search_words = [w for w in clean_prompt.split() if w][:30]
-        search_terms = " & ".join(search_words) if search_words else "ice"
+        # Remove all non‑alpha characters and split into words
+        clean_prompt = re.sub(r'[^a-zA-Z]', ' ', prompt_text)
+        words = [w.strip().lower() for w in clean_prompt.split() if len(w.strip()) > 2]
+        # Keep only words that look like real English tokens
+        stop_words = {"the","and","for","you","that","this","with","from","have","are","was","were",
+                      "will","would","could","should","about","also","just","like","then","than","over",
+                      "into","only","more","some","such","each","every","other","many","most","its",
+                      "our","his","her","they","them","these","those","not","but","can","all","been",
+                      "had","has","did","does","get","got","very","too","now","how"}
+        valid_words = [w for w in words[:30] if w not in stop_words]
+        # Build individual to_tsquery tokens and join with OR
+        try:
+            tokens = []
+            for w in valid_words:
+                try:
+                    tokens.append(w)
+                except Exception:
+                    continue
+            if tokens:
+                search_terms = " | ".join(tokens)
+            else:
+                search_terms = prompt_text
+        except Exception:
+            search_terms = prompt_text
 
         topic_filter = ""
         conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
+
+        # ── Cluster filter (new) ──
+        cluster_filter = ""
+        if scope and scope.get("cluster_ids"):
+            cluster_filter = """
+                AND (
+                    EXISTS (
+                        SELECT 1 FROM episodic_cluster_links l
+                        WHERE l.episodic_id = episodic_memory.id
+                          AND l.cluster_id = ANY(:cluster_ids)
+                    )
+                    OR NOT EXISTS (
+                        SELECT 1 FROM episodic_cluster_links l
+                        WHERE l.episodic_id = episodic_memory.id
+                    )
+                )
+            """
 
         query = text(f"""
             SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
@@ -330,27 +515,64 @@ class HybridRetrievalOrchestrator:
                        to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                        query
                    ) as score
-            FROM episodic_memory, to_tsquery('english', :search_terms) query
+            FROM episodic_memory,
+                 LATERAL (SELECT 
+                     CASE WHEN length(:search_terms) > 0
+                          THEN to_tsquery('english', :search_terms)
+                          ELSE plainto_tsquery('english', :prompt_text)
+                     END AS query) AS q
             WHERE to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')) @@ query
               {topic_filter}
               {conv_filter}
+              {cluster_filter}
               AND decay_score > :min_decay
               AND is_archived = false
             ORDER BY score DESC
-            LIMIT 20
+            LIMIT 100
         """)
-
-        params = {"search_terms": search_terms, "min_decay": 0.2}
+        params = {
+            "search_terms": search_terms,
+            "prompt_text": prompt_text,
+            "min_decay": 0.2
+        }
         if conv_id:
             params["conv_id"] = conv_id
+        if scope and scope.get("cluster_ids"):
+            params["cluster_ids"] = scope["cluster_ids"]
 
         try:
             rows = self.db.execute(query, params).fetchall()
-            return self._rows_to_fragments(rows, "episodic")
+            return self._rows_to_fragments(rows, "episodic", prompt_text=search_prompt or classification.prompt)
         except Exception as err:
             logger.error("bm25_retrieval_failed", error=str(err))
             self.db.rollback()
-            return []
+            # Final fallback: use plainto_tsquery (AND) if everything fails
+            try:
+                query2 = text(f"""
+                    SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
+                           ts_rank(
+                               to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
+                               plainto_tsquery('english', :prompt_text)
+                           ) as score
+                    FROM episodic_memory
+                    WHERE to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, ''))
+                          @@ plainto_tsquery('english', :prompt_text)
+                      {conv_filter}
+                      {cluster_filter}
+                      AND decay_score > :min_decay
+                      AND is_archived = false
+                    ORDER BY score DESC
+                    LIMIT 100
+                """)
+                p = {"prompt_text": prompt_text, "min_decay": 0.2}
+                if conv_id:
+                    p["conv_id"] = conv_id
+                if scope and scope.get("cluster_ids"):
+                    p["cluster_ids"] = scope["cluster_ids"]
+                rows = self.db.execute(query2, p).fetchall()
+                return self._rows_to_fragments(rows, "episodic", prompt_text=search_prompt or classification.prompt)        
+            except Exception:
+                return []
 
     # ------------------------------------------------------------------
     # Vector episodic (pgvector cosine similarity)
@@ -359,6 +581,23 @@ class HybridRetrievalOrchestrator:
         topic_filter = ""
         conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
 
+        # ── Cluster filter (new) ──
+        cluster_filter = ""
+        if scope and scope.get("cluster_ids"):
+            cluster_filter = """
+                AND (
+                    EXISTS (
+                        SELECT 1 FROM episodic_cluster_links l
+                        WHERE l.episodic_id = episodic_memory.id
+                          AND l.cluster_id = ANY(:cluster_ids)
+                    )
+                    OR NOT EXISTS (
+                        SELECT 1 FROM episodic_cluster_links l
+                        WHERE l.episodic_id = episodic_memory.id
+                    )
+                )
+            """
+
         query = text(f"""
             SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
                 (1 - (embedding <=> :prompt_embedding)) * COALESCE(decay_score, 1.0) as score
@@ -366,18 +605,21 @@ class HybridRetrievalOrchestrator:
             WHERE embedding IS NOT NULL
             {topic_filter}
             {conv_filter}
+            {cluster_filter}
             AND decay_score > :min_decay
             AND is_archived = false
             ORDER BY score DESC
-            LIMIT 20
+            LIMIT 100
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
         params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2}
         if conv_id:
             params["conv_id"] = conv_id
+        if scope and scope.get("cluster_ids"):
+            params["cluster_ids"] = scope["cluster_ids"]
 
         try:
             rows = self.db.execute(query, params).fetchall()
-            return self._rows_to_fragments(rows, "episodic")
+            return self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt)
         except Exception as err:
             logger.error("vector_retrieval_failed", error=str(err))
             self.db.rollback()
@@ -435,8 +677,7 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     def _codex_graph(self, classification, scope: Optional[dict] = None) -> List[ContextFragment]:
         prompt = classification.prompt
-        entity_strings = self._extract_entities_with_ner(prompt)
-
+        entity_strings = extract_entities(prompt, self.embedder)
         if entity_strings:
             matched = self._match_entities_by_similarity(entity_strings)
         else:
@@ -688,14 +929,32 @@ class HybridRetrievalOrchestrator:
     def _enforce_token_budget(self, fragments, max_tokens=None):
         if max_tokens is None:
             max_tokens = self.max_retrieval_tokens
+
+        # Step 1 – guarantee each leg that produced results gets its best fragment in
+        best_per_leg = {}
+        for f in fragments:
+            leg = f.source_type
+            if leg not in best_per_leg or f.score > best_per_leg[leg].score:
+                best_per_leg[leg] = f
+
+        guaranteed = list(best_per_leg.values())
+        guaranteed.sort(key=lambda x: x.score, reverse=True)
+
         total = 0
         result = []
-        for f in fragments:
+        for f in guaranteed:
             if total + f.token_count <= max_tokens:
                 result.append(f)
                 total += f.token_count
-        return result
 
+        # Step 2 – greedily fill the rest of the budget with remaining fragments
+        remaining = [f for f in fragments if f not in guaranteed]
+        for f in remaining:
+            if total + f.token_count <= max_tokens:
+                result.append(f)
+                total += f.token_count
+
+        return result
     # ------------------------------------------------------------------
     # Strengthening (access count + decay boost)
     # ------------------------------------------------------------------
@@ -725,13 +984,13 @@ class HybridRetrievalOrchestrator:
                   AND is_archived = false
                   AND decay_score > :min_decay
                 ORDER BY score DESC
-                LIMIT 10
+                LIMIT 100
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
             rows = self.db.execute(query, {
                 "prompt_embedding": prompt_embedding,
                 "min_decay": 0.2
             }).fetchall()
-            fragments = self._rows_to_fragments(rows, "episodic")
+            fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt)
         except Exception:
             self.db.rollback()
             fragments = []
@@ -740,14 +999,19 @@ class HybridRetrievalOrchestrator:
         fragments.extend(self._rag_lookup(prompt_embedding, classification))
 
         fused = self._apply_rrf({"fallback": fragments}, alpha_map={"fallback": 1.0})
+        prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
+        fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)
+        fused.sort(key=lambda x: x.score, reverse=True)
         diversified = self._session_diversify(fused, conversation_id, max_per_conversation=3)
         return self._enforce_token_budget(self._deduplicate(diversified), max_tokens=2000)
 
     # ------------------------------------------------------------------
     # Helper: convert raw DB rows to ContextFragment list
     # ------------------------------------------------------------------
-    def _rows_to_fragments(self, rows, source_type):
+    def _rows_to_fragments(self, rows, source_type, prompt_text: Optional[str] = None):
         fragments = []
+        prompt_keywords = self._extract_prompt_keywords(prompt_text) if prompt_text else set()
+
         for row in rows:
             if row.inject_raw and row.raw_text:
                 text = row.raw_text
@@ -757,24 +1021,48 @@ class HybridRetrievalOrchestrator:
                 text = row.raw_text[:300]
             else:
                 continue
-            # Apply the 500‑word cap, but bypass for document turns
+
+            # Word cap (document override / keyword-aware cap)
             is_doc = getattr(row, "is_document", False)
-            if not is_doc:
-                words = text.split()
-                if len(words) > 500:
-                    text = ' '.join(words[:500]) + '…'
+            word_cap = 500
+            if is_doc:
+                word_cap = 999999
+            elif prompt_keywords:
+                text_lower = text.lower()
+                if any(kw in text_lower or kw.rstrip('s') in text_lower for kw in prompt_keywords):
+                    word_cap = 1500
+
+            words = text.split()
+            if len(words) > word_cap:
+                text = ' '.join(words[:word_cap]) + '…'
 
             if not text:
                 continue
 
-            score_val = getattr(row, "score", 1.0)
+            score_val = float(getattr(row, "score", 1.0))
             if getattr(row, "is_bookmarked", False):
-                score_val *= 1.5
-
+                score_val *= (1.0 + BONUS_BOOKMARKED)
+            if hasattr(row, "timestamp") and row.timestamp:
+                age_hours = (datetime.now(timezone.utc) - row.timestamp).total_seconds() / 3600.0
+                recency_tiebreaker = max(0.0, 0.25 * (1.0 - age_hours / (30 * 24)))
+                score_val += recency_tiebreaker
+            
+                        # Turn‑based recency tiebreaker (max +0.1 for the most recent turn)
+            if hasattr(row, "timestamp") and row.timestamp and row.conversation_id:
+                turn_count = self.db.query(EpisodicMemory).filter_by(
+                    conversation_id=row.conversation_id
+                ).count()
+                if turn_count > 1:
+                    newer_count = self.db.query(EpisodicMemory).filter(
+                        EpisodicMemory.conversation_id == row.conversation_id,
+                        EpisodicMemory.timestamp > row.timestamp
+                    ).count()
+                    recency_frac = 1.0 - (newer_count / turn_count)
+                    score_val += recency_frac * 0.1
             fragments.append(ContextFragment(
                 text=text,
                 source_type=source_type,
-                score=float(score_val),
+                score=score_val,
                 token_count=int(len(text.split()) * 1.33),
                 source_batch_id=str(row.id),
                 conversation_id=str(row.conversation_id) if row.conversation_id else None

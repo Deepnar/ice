@@ -110,6 +110,3 @@ def enumerate_entities(
 
     entities.sort(key=lambda e: (mention_score(e), e.last_updated or datetime.min), reverse=True)
     return entities[:limit]
-
-    entities.sort(key=lambda e: (mention_score(e), e.last_updated or datetime.min), reverse=True)
-    return entities[:limit]

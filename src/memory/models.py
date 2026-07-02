@@ -54,7 +54,11 @@ class EpisodicMemory(Base):
     idempotency_key = Column(Text, unique=True, nullable=False)
 
     conversation = relationship("Conversation", back_populates="episodic_turns")
+class EpisodicClusterLink(Base):
+    __tablename__ = "episodic_cluster_links"
 
+    episodic_id = Column(UUID(as_uuid=True), ForeignKey("episodic_memory.id"), primary_key=True)
+    cluster_id = Column(UUID(as_uuid=True), ForeignKey("context_clusters.id"), primary_key=True)
 
 class MemorySlot(Base):
     __tablename__ = "memory_slots"
@@ -68,18 +72,18 @@ class MemorySlot(Base):
     updated_by = Column(Text, nullable=False)  # user | reflection_worker
     is_active = Column(Boolean, default=True)
 
-
 class ContextCluster(Base):
     __tablename__ = "context_clusters"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(Text, nullable=False)
     description = Column(Text, default="")
+    tags = Column(ARRAY(Text), default=[])
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow)
     embedding = Column(Vector(384), nullable=True)
-
-
+    
 class CodexEntity(Base):
     __tablename__ = "codex_entities"
 

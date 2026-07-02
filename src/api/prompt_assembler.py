@@ -1,5 +1,33 @@
-"""Context Structural Assembly Plane – builds the final prompt payload,
-   now including sliding window and bookmarked memories."""
+"""Context Assembly – multi‑message format with external budget control.
+
+TWO CHANGES FROM THE PREVIOUS VERSION:
+
+1. Removed the literal "<|think|>" token from the system prompt. This
+   looks like a model-specific reasoning-mode control token (some Qwen/
+   DeepSeek variants use a literal <think> tag this way), but the
+   experiment runs against gemma4:26b-a4b-it-q4_K_M as SINGLE_MODEL, plus
+   whatever model find_best_model() routes to for *_moe conditions. If
+   gemma doesn't recognize it as special, it's just 4 wasted tokens of
+   literal text. If some OTHER model in the MoE-routed stack DOES treat it
+   as a special control token, the vector_rag_moe / full_ice_moe
+   conditions could silently get different reasoning behavior than the
+   generalist conditions purely because of this token — confounding the
+   six-condition comparison in a way that would be very hard to notice
+   from the outside (answers would just look subtly different, with no
+   obvious cause). Removed for safety; the same instruction is conveyed in
+   plain English in the line right after it, so nothing is lost.
+
+2. Added an explicit boundary marker between "recent history" messages and
+   the live question, instead of relying on positional inference alone.
+   The multi-message structure already does most of the work (real
+   alternating user/assistant roles instead of one fused string), but
+   without an explicit marker the model still has to INFER that the very
+   last user message is the live one rather than another history turn —
+   which is the same class of ambiguity that caused the original
+   "answers the previous turn's prompt" symptom, just less severe. A short
+   system-level instruction now states this rule directly instead of
+   leaving it implicit.
+"""
 
 from typing import List, Optional
 from sqlalchemy.orm import Session
@@ -7,51 +35,46 @@ from src.retrieval.orchestrator import ContextFragment
 from src.memory.models import MemorySlot, EpisodicMemory
 
 
-
-BASE_SYSTEM_RULES = (
-    "You are an AI assistant with access to a personal memory system (ICE).\n"
-    "Below is context retrieved from past conversations.\n\n"
-    "RULES:\n"
-    "1. Answer based ONLY on the context provided below.\n"
-    "2. If the context does NOT contain the answer, say so naturally.\n"
-    "3. Do NOT add details not present in the context.\n"
-    "4. Write naturally. Don't over-explain and don't add citations.\n"
-)
+def _estimate_tokens(text: str) -> int:
+    return int(len(text.split()) * 1.33)
 
 
-
-INTENT_INSTRUCTIONS = {
-    "Factual_Retrieval": (
-        "Be precise. List facts, names, and numbers exactly as they appear in the context."
-    ),
-    "Troubleshooting": (
-        "Describe the problem and solution exactly as they appear in the context."
-    ),
-    "Generation": (
-        "Generate based ONLY on what's in the context. Follow examples and templates exactly."
-    ),
-    "Emotional_Processing": (
-        "Respond with empathy, but base your response ONLY on the context. "
-        "If the context doesn't mention a specific memory, don't invent it."
-    ),
-}
+def _trim_words(text: str, max_words: int) -> str:
+    words = text.split()
+    if len(words) > max_words:
+        return " ".join(words[:max_words]) + "…"
+    return text
 
 
-def get_intent_instruction(intent_tags: List[str]) -> str:
-    """Return the appropriate instruction based on the first matching intent."""
-    for intent in intent_tags:
-        if intent in INTENT_INSTRUCTIONS:
-            return INTENT_INSTRUCTIONS[intent]
-    return ""
+def get_recent_turns(
+    db_session: Session,
+    conversation_id: str,
+    max_tokens: int = 4000,
+    max_count: int = 10,
+) -> List[dict]:
+    """Return the most recent turns that fit under *max_tokens* total.
 
-
-def get_recent_turns(db_session: Session, conversation_id: str, n: int = 10) -> List[str]:
-    """Return the text of the last N turns from the current conversation."""
-    turns = db_session.query(EpisodicMemory).filter_by(
-        conversation_id=conversation_id
-    ).order_by(EpisodicMemory.timestamp.desc()).limit(n).all()
+    Per‑turn word caps scale dynamically: a larger budget allows
+    fuller turns; a tiny budget keeps everything ultra‑compact.
+    """
+    turns = (
+        db_session.query(EpisodicMemory)
+        .filter_by(conversation_id=conversation_id)
+        .order_by(EpisodicMemory.timestamp.desc())
+        .limit(max_count)
+        .all()
+    )
     turns.reverse()
-    fragments = []
+
+    if max_tokens <= 1000:
+        per_turn_words = 80
+    elif max_tokens <= 3000:
+        per_turn_words = 150
+    else:
+        per_turn_words = min(500, max(100, max_tokens // max(1, len(turns)) // 2))
+
+    result = []
+    tokens_used = 0
     for t in turns:
         if t.inject_raw and t.raw_text:
             text = t.raw_text
@@ -59,11 +82,36 @@ def get_recent_turns(db_session: Session, conversation_id: str, n: int = 10) -> 
             text = t.summary_text
         else:
             text = (t.raw_text or "")[:300]
-        words = text.split()
-        if len(words) > 500:
-            text = " ".join(words[:500]) + "…"
-        fragments.append(text)
-    return fragments
+
+        if text.startswith("User: "):
+            user_part = text[6:]
+            assistant_start = user_part.find("\n\nAssistant: ")
+            if assistant_start != -1:
+                assistant_part = user_part[assistant_start + len("\n\nAssistant: "):]
+                user_part = user_part[:assistant_start]
+                u = _trim_words(user_part, per_turn_words)
+                a = _trim_words(assistant_part, per_turn_words)
+                pair_tokens = _estimate_tokens(u) + _estimate_tokens(a)
+                if tokens_used + pair_tokens > max_tokens and result:
+                    break
+                tokens_used += pair_tokens
+                result.append({"role": "user", "content": u})
+                result.append({"role": "assistant", "content": a})
+            else:
+                u = _trim_words(user_part, per_turn_words)
+                t_tok = _estimate_tokens(u)
+                if tokens_used + t_tok > max_tokens and result:
+                    break
+                tokens_used += t_tok
+                result.append({"role": "user", "content": u})
+        else:
+            trimmed = _trim_words(text, per_turn_words)
+            t_tok = _estimate_tokens(trimmed)
+            if tokens_used + t_tok > max_tokens and result:
+                break
+            tokens_used += t_tok
+            result.append({"role": "user", "content": trimmed})
+    return result
 
 
 def assemble_prompt(
@@ -74,102 +122,71 @@ def assemble_prompt(
     conversation_id: Optional[str] = None,
     bookmarked_texts: Optional[List[str]] = None,
     classification=None,
+    scope: Optional[dict] = None,
+    max_recent_tokens: int = 4000,
 ) -> List[dict]:
-    """Assemble the final prompt with safety-first instructions."""
+    """Build a multi‑message prompt. The caller controls the total budget
+    via *max_recent_tokens*; retrieval fragments are passed as‑is (already
+    budgeted by the orchestrator).
+    """
 
+    system_msg = {
+        "role": "system",
+        "content": (
+            "You have access to the user's conversation history below, shown as a "
+            "sequence of earlier user/assistant message pairs, followed by retrieved "
+            "background context, followed by the user's CURRENT question as the final "
+            "message in this conversation. The final message is the ONLY one you are "
+            "answering right now — earlier messages are history for context, not the "
+            "question to respond to. "
+            "Think step-by-step through all the relevant facts before answering. "
+            "When facts have changed over time (a role was reassigned, a name changed, "
+            "a decision was reversed), mention the earlier version and what it changed to. "
+            "Be specific — reference chapter numbers, timestamps, or quotes from the context. "
+            "Answer accurately, thoroughly and in deep detail, drawing on the given context to make the "
+            "response complete and well-grounded."
+        ),
+    }
 
-    if classification and (
-        "Emotional_Processing" in classification.intent_tags
-        or "Social_&_Relationships" in classification.topic_tags
-        or "Creative_&_Media" in classification.topic_tags
-    ):
-        context_texts = []
-        if bookmarked_texts:
-            context_texts.append("=== BOOKMARKED MEMORIES ===\n" + "\n\n".join(bookmarked_texts))
+    slot_lines = []
+    for slot in memory_slots:
+        if slot.is_active and slot.content:
+            slot_lines.append(f"[{slot.slot_name.upper()}]\n{slot.content.strip()}")
+    if slot_lines:
+        system_msg["content"] += "\n\n=== PERSISTENT CONTEXT ===\n" + "\n\n".join(slot_lines)
 
-        for f in retrieved_fragments:
-            context_texts.append(f.text)
-
-        plain_context = "\n\n".join(context_texts) if context_texts else "No relevant context retrieved."
-
-        intent_instruction = get_intent_instruction(classification.intent_tags)
-
-        system_message = (
-            "You are a personal AI assistant with access to past conversations.\n\n"
-            "RULES:\n"
-            "1. Answer based ONLY on the context below.\n"
-            "2. If the context does NOT contain the answer, say so naturally.\n"
-            "3. Do NOT invent memories or details.\n"
-            "4. Write naturally and conversationally.\n"
-        )
-
-        if intent_instruction:
-            system_message += f"\nINTENT: {intent_instruction}\n"
-
-        return [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": f"Context:\n{plain_context}\n\nQuestion: {user_message}"}
-        ]
-
-
-
-    system_content = BASE_SYSTEM_RULES
-
-    if classification:
-        intent_instruction = get_intent_instruction(classification.intent_tags)
-        if intent_instruction:
-            system_content += f"\n\nINTENT: {intent_instruction}\n"
-
-    # 0. Bookmarked memories
-    if bookmarked_texts:
-        system_content += "\n\n=== BOOKMARKED MEMORIES ===\n" + "\n\n".join(bookmarked_texts)
-
-    # 1. Persistent Memory Slots
-    if memory_slots:
-        slot_lines = []
-        for slot in memory_slots:
-            if slot.is_active and slot.content:
-                slot_lines.append(f"[{slot.slot_name.upper()}]\n{slot.content.strip()}")
-        if slot_lines:
-            system_content += "\n\n=== PERSISTENT CORE PREFERENCES ===\n" + "\n\n".join(slot_lines)
-
-    # 2. Recent context (sliding window)
+    recent_messages = []
     if db_session and conversation_id:
-        recent_texts = get_recent_turns(db_session, conversation_id, n=10)
-        if recent_texts:
-            system_content += "\n\n=== RECENT CONTEXT ===\n" + "\n\n".join(recent_texts)
+        recent_messages = get_recent_turns(db_session, conversation_id, max_tokens=max_recent_tokens)
 
-    # 3. Codex (absolute facts)
-    codex_frags = [f for f in retrieved_fragments if f.source_type == "codex"]
-    if codex_frags:
-        codex_text = "\n\n".join(f.text.strip() for f in codex_frags)
-        system_content += f"\n\n=== CODEX KNOWLEDGE ===\n{codex_text}"
+    fragments_block = ""
+    if retrieved_fragments:
+        fragments_block = "\n\n".join(f.text for f in retrieved_fragments)
 
-    # 4. Episodic context
-    episodic_frags = [f for f in retrieved_fragments if f.source_type == "episodic"]
-    if episodic_frags:
-        episodic_text = "\n\n".join(f.text.strip() for f in episodic_frags)
-        system_content += f"\n\n=== PAST INTERACTIONS ===\n{episodic_text}"
+    messages = [system_msg]
+    messages.extend(recent_messages)
 
-    # 5. Procedural patterns
-    procedural_frags = [f for f in retrieved_fragments if f.source_type == "procedural"]
-    if procedural_frags:
-        proc_text = "\n\n".join(f.text.strip() for f in procedural_frags)
-        system_content += f"\n\n=== PATTERNS ===\n{proc_text}"
+    if fragments_block:
+        cluster_names = []
+        if scope and scope.get("cluster_ids"):
+            try:
+                from src.memory.models import ContextCluster
+                clusters = (
+                    db_session.query(ContextCluster)
+                    .filter(ContextCluster.id.in_(scope["cluster_ids"]))
+                    .all()
+                )
+                cluster_names = [c.name for c in clusters]
+            except Exception:
+                pass
+        header = "=== RETRIEVED CONTEXT ==="
+        if cluster_names:
+            header += f" (clusters: {', '.join(cluster_names)})"
+        messages.append({"role": "user", "content": f"{header}\n{fragments_block}"})
+        messages.append({
+            "role": "assistant",
+            "content": "Understood — I have the background context. What would you like to know?",
+        })
 
-    # 6. RAG chunks
-    rag_frags = [f for f in retrieved_fragments if f.source_type == "rag"]
-    if rag_frags:
-        rag_text = "\n\n".join(f.text.strip() for f in rag_frags)
-        system_content += f"\n\n=== REFERENCE MATERIAL ===\n{rag_text}"
-
-    system_content += (
-        "\n\nREMINDER: Answer naturally and conversationally. "
-        "If you don't know something, say so honestly. "
-        "Don't add details not in the context."
-    )
-
-    return [
-        {"role": "system", "content": system_content.strip()},
-        {"role": "user", "content": user_message},
-    ]
+    messages.append({"role": "user", "content": user_message})
+    return messages

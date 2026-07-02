@@ -10,7 +10,8 @@ from src.workers.celery_app import app
 from src.workers.gpu_check import is_gpu_busy
 
 logger = structlog.get_logger("ice.workers.codex_decay")
-DECAY_RATE = 0.99          # 1% decay per run
+CYCLES_PER_DAY = 16.0
+DECAY_RATE = 0.99 ** (1.0 / CYCLES_PER_DAY)   # ≈0.9994  (same effective daily rate)
 DEMOTION_THRESHOLD = 0.3   # strength below this -> pending
 
 
@@ -27,13 +28,15 @@ def decay_codex_edges(self):
             UPDATE codex_edges
             SET strength = strength * :rate
             WHERE confidence = 'active'
+              AND valid_until IS NULL
         """), {"rate": DECAY_RATE})
-
         # 2. Demote edges that fell below threshold
         db.execute(text("""
             UPDATE codex_edges
             SET confidence = 'pending'
-            WHERE confidence = 'active' AND strength < :thresh
+            WHERE confidence = 'active'
+              AND valid_until IS NULL
+              AND strength < :thresh
         """), {"thresh": DEMOTION_THRESHOLD})
 
         db.commit()

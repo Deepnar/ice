@@ -93,28 +93,27 @@ def run_reflection(self):
         raise self.retry(countdown=30)
     db = SessionLocal()
     try:
-        # 1. Load recent turns (last 200 across all conversations, for breadth)
-        recent = db.query(EpisodicMemory).order_by(
-            EpisodicMemory.timestamp.desc()
-        ).limit(200).all()
-        if not recent:
-            return
-        recent.reverse()  # chronological
+        # Get distinct conversation IDs from the last 200 turns
+        conv_ids = [row[0] for row in db.execute(text(
+            "SELECT conversation_id FROM ("
+            "  SELECT DISTINCT ON (conversation_id) conversation_id, timestamp "
+            "  FROM episodic_memory ORDER BY conversation_id, timestamp DESC"
+            ") sub ORDER BY timestamp DESC LIMIT 200"
+        )).fetchall()]
+        for conv_id in conv_ids:
+            recent = db.query(EpisodicMemory).filter_by(
+                conversation_id=conv_id
+            ).order_by(EpisodicMemory.timestamp.desc()).limit(200).all()
+            if len(recent) < 10:
+                continue
+            recent.reverse()
+            _synthesize_session(db, recent)
+            _crystallize_patterns(db, recent)
+            _evolve_memory_slots(db, recent)
+            _detect_motifs(db, recent)
 
-        # ---- Session Synthesis ----
-        _synthesize_session(db, recent)
-
-        # ---- Pattern Crystallization ----
-        _crystallize_patterns(db, recent)
-
-        # ---- Memory Slot Evolution ----
-        _evolve_memory_slots(db, recent)
-
-        # ---- Codex Enrichment ----
+        # Codex enrichment is global — it works on thin entities regardless of conversation
         _enrich_codex_entities(db)
-
-        # ---- Motif Detection ----
-        _detect_motifs(db, recent)
 
         db.commit()
         logger.info("reflection_full_pass_complete")

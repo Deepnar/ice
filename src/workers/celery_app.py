@@ -29,41 +29,43 @@ app.conf.accept_content = ["json"]
 app.conf.timezone = "UTC"
 
 app.conf.beat_schedule = {
-    'apply-decay-daily': {
-        'task': 'src.workers.decay.apply_decay',
-        'schedule': crontab(hour=3, minute=0),
-    },
-    'codex-decay-daily': {
-        'task': 'src.workers.codex_decay.decay_codex_edges',
-        'schedule': crontab(hour=3, minute=30),
-    },
-    'procedural-decay-daily': {
-        'task': 'src.workers.procedural_decay.decay_procedural_patterns',
-        'schedule': crontab(hour=4, minute=30),
-    },
-    'cluster-turns-daily': {
+    # ── Lightweight, no GPU, frequent ──
+    'cluster-turns': {
         'task': 'src.workers.clustering.cluster_turns',
-        'schedule': crontab(hour=4, minute=0),
+        'schedule': 1800.0,          # every 30 min
     },
     'monitor-sentinels': {
         'task': 'src.workers.sentinel_monitor.monitor_sentinels',
-        'schedule': crontab(minute='*/30'),
+        'schedule': 1800.0,
     },
-    'reflection-daily': {
+
+    # ── Lightweight decay (tiny multipliers, harmless to run often) ──
+    'decay-episodic': {
+        'task': 'src.workers.decay.apply_decay',
+        'schedule': 5400.0,          # every 1.5 hours
+    },
+    'decay-codex': {
+        'task': 'src.workers.codex_decay.decay_codex_edges',
+        'schedule': 5400.0,
+    },
+    'decay-procedural': {
+        'task': 'src.workers.procedural_decay.decay_procedural_patterns',
+        'schedule': 5400.0,
+    },
+
+    # ── GPU‑heavy, moderate frequency ──
+    'reflection': {
         'task': 'src.workers.reflection.run_reflection',
-        'schedule': crontab(hour=5, minute=0),
+        'schedule': 7200.0,          # every 2 hours
     },
+    'batch-summarize': {
+        'task': 'src.workers.batch_summarizer.batch_summarize',
+        'schedule': 7200.0,
+    },
+
+    # ── Extremely rare ──
     'fine-tune-weekly': {
         'task': 'src.workers.fine_tune.fine_tune_classifier',
         'schedule': crontab(hour=4, minute=0, day_of_week=1),
-    },    
-    'batch-summarize-daily': {
-        'task': 'src.workers.batch_summarizer.batch_summarize',
-        'schedule': crontab(hour=2, minute=0),
-    },    
-    'merge-similar-clusters-daily': {
-        'task': 'src.workers.cluster_merge.merge_similar_clusters',
-        'schedule': crontab(hour=4, minute=30),
     },
-    
 }

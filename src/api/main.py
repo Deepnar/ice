@@ -302,8 +302,7 @@ async def chat_completions(
         turn_count = db.query(EpisodicMemory).filter_by(
             conversation_id=conversation_id
         ).count()
-        orchestrator.set_budget_from_turn_count(turn_count)
-
+        orchestrator.set_budget_from_turn_count(turn_count, classification=result)
         fragments = await asyncio.to_thread(
             orchestrator.retrieve,
             classification=result,
@@ -337,10 +336,13 @@ async def chat_completions(
         episodic_frags = [f for f in fragments if f.source_type == "episodic"]
         procedural_frags = [f for f in fragments if f.source_type == "procedural"]
 
-        messages = assemble_prompt(memory_slots_list, fragments, user_message,
-                                   db_session=db, conversation_id=str(conversation_id),
-                                   bookmarked_texts=bookmarked_texts,
-                                   classification=result)
+        messages = assemble_prompt(
+            memory_slots_list, fragments, user_message,
+            db_session=db, conversation_id=str(conversation_id),
+            bookmarked_texts=bookmarked_texts,
+            classification=result,
+            max_recent_tokens=getattr(orchestrator, 'recent_token_budget', 4000),
+        )
 
         # Token budget check (crude: words * 1.33 ≈ tokens, aim for 90% of 4096)
         def word_count(text: str) -> int:

@@ -97,8 +97,15 @@ class PyTorchClassifier:
             conversation_history = []
         di3_result = run_di3(prompt, conversation_length, conversation_history)
         if di3_result is not None:
-            di3_result = self._apply_hard_overrides(di3_result, prompt)
-            return di3_result
+            # If DI3 forced LTM but left topic/intent blank, let the ML
+            # classifier provide the actual tags while keeping the LTM decision.
+            if not di3_result.topic_tags or not di3_result.intent_tags:
+                ml_result = self._run_ml_classifier(prompt, conversation_id)
+                if di3_result.context_reliance == "Long_Term_Memory":
+                    ml_result.context_reliance = "Long_Term_Memory"
+                return self._apply_hard_overrides(ml_result, prompt)
+            else:
+                return self._apply_hard_overrides(di3_result, prompt)
 
         return self._run_ml_classifier(prompt, conversation_id)
 
