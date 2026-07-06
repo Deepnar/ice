@@ -42,3 +42,5 @@ experiments/mature/_corrected_gt_progress.txt
 experiments/mature/_last_turn.txt
 experiments/flaw_ablation/buildup/paper_summary.md
 experiments/mature/results
+docs/RAW_SRC.md
+.aider.env
