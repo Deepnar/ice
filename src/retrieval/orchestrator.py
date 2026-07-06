@@ -68,6 +68,12 @@ class HybridRetrievalOrchestrator:
         # can still enable it via its own `mera` flag. See ROADMAP.md P0.2.
         self.enable_mera = False
 
+        # A3 — edge confidence/strength as a live retrieval signal.
+        self.CODEX_MAX_DEPTH = 3                 # traversal ceiling (gated below)
+        self.CODEX_DEEP_STRENGTH_FLOOR = 1.0     # deep hops require this much strength
+        self.CODEX_REINFORCE_INCREMENT = 0.15    # per-retrieval boost on anchor edges (episodic analog)
+        self.CODEX_STRENGTH_CAP = 10.0           # soft ceiling so retrieval can't inflate forever
+
         # Load micro‑NER model (fallback to None if not available)
     def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=10):
         """Return a list of cluster_id strings for the clusters most
@@ -719,21 +725,29 @@ class HybridRetrievalOrchestrator:
 
             visited = set()
             context_texts = []
+            anchor_edges = []   # A3: direct edges of matched entities → reinforced on retrieval
             for entity in matched:
                 if allowed_entity_ids is not None and entity.id not in allowed_entity_ids:
                     continue
-                self._traverse_graph(entity, 0, 3, visited, context_texts)   # depth 3
+                self._traverse_graph(entity, 0, self.CODEX_MAX_DEPTH, visited,
+                                     context_texts, anchor_edges)
 
             if context_texts:
                 combined = "\n\n".join(context_texts)
-                score = 1.0
-                # Score boost for active/high‑strength edges
-                if any(e.confidence == "active" and e.strength >= 2.0 for e in
-                    self.db.query(CodexEdge).filter(
-                        CodexEdge.source_id.in_([e.id for e in matched]),
-                        CodexEdge.valid_until == None
-                    ).all()):
-                    score *= 1.5
+                # A3: graded score from matched entities' edge strength, replacing
+                # the coarse binary 1.5x. Bounded to 1.0–1.5 so codex doesn't
+                # dominate fusion on strength alone.
+                matched_edges = self.db.query(CodexEdge).filter(
+                    CodexEdge.source_id.in_([e.id for e in matched]),
+                    CodexEdge.valid_until == None
+                ).all()
+                mean_strength = (sum((e.strength or 0.0) for e in matched_edges) / len(matched_edges)
+                                 if matched_edges else 0.0)
+                score = 1.0 + min(0.5, 0.25 * mean_strength)
+
+                # A3: retrieval-reinforcement — the codex analog of episodic
+                # access_count/decay_score strengthening (only the anchor edges).
+                self._reinforce_codex_edges(anchor_edges)
 
                 return [ContextFragment(
                     text=combined,
@@ -747,7 +761,7 @@ class HybridRetrievalOrchestrator:
             self.db.rollback()
             return []
 
-    def _traverse_graph(self, entity, depth, max_depth, visited, context_texts):
+    def _traverse_graph(self, entity, depth, max_depth, visited, context_texts, anchor_edges=None):
         if entity.id in visited or depth > max_depth:
             return
         visited.add(entity.id)
@@ -758,9 +772,38 @@ class HybridRetrievalOrchestrator:
             CodexEdge.valid_until == None
         ).all()
         for edge in edges:
+            # A3: direct edges of a matched (depth-0) entity are the query anchors.
+            if depth == 0 and anchor_edges is not None:
+                anchor_edges.append(edge)
+            # A3: strength-gate deep hops — weak/decayed edges don't expand the
+            # frontier, cutting the depth-3 pollution. Direct edges always expand.
+            elif depth >= 1 and (edge.strength or 0.0) < self.CODEX_DEEP_STRENGTH_FLOOR:
+                continue
             target = self.db.query(CodexEntity).get(edge.target_id)
             if target:
-                self._traverse_graph(target, depth + 1, max_depth, visited, context_texts)
+                self._traverse_graph(target, depth + 1, max_depth, visited,
+                                     context_texts, anchor_edges)
+
+    def _reinforce_codex_edges(self, edges):
+        """A3 retrieval-reinforcement (episodic analog): the anchor edges of the
+        matched query entities gain a little strength each time they're surfaced,
+        so repeatedly-useful facts self-promote through use — balanced by the
+        codex_decay worker. Scoped to anchor edges only to avoid diluting the
+        signal across the whole traversed neighborhood. Write-on-read, like
+        _strengthen_retrieved does for episodic turns."""
+        if not edges:
+            return
+        try:
+            seen = set()
+            for e in edges:
+                if e.id in seen:
+                    continue
+                seen.add(e.id)
+                e.strength = min((e.strength or 0.0) + self.CODEX_REINFORCE_INCREMENT,
+                                 self.CODEX_STRENGTH_CAP)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
 
     # ------------------------------------------------------------------
     # Procedural lookup (scoped + trigger‑condition evaluation)
