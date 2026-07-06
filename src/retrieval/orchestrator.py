@@ -928,7 +928,10 @@ class HybridRetrievalOrchestrator:
             return []
         tokens = {w.strip(".,!?'s\"") for w in pl.split()}
         candidate_tags = {t for w in tokens if len(w) >= 4 for t in (w, w.rstrip("s"))}
-        lines, seen_entities = [], set()
+        # A10: enumeration also emits per-entity fragments (+ one facts fragment)
+        # so each competes on its own in fusion/budget rather than as one blob.
+        fragments: List[ContextFragment] = []
+        seen_entities = set()
         try:
             # (a) tag-matched entities: "characters" → tag 'character'
             if candidate_tags:
@@ -940,8 +943,12 @@ class HybridRetrievalOrchestrator:
                         continue
                     if ent.id not in seen_entities and ent.context_payload:
                         seen_entities.add(ent.id)
-                        lines.append(f"[Entity: {ent.canonical_name}]\n{ent.context_payload}")
-            # (b) relation-driven facts: "who inspired ..." → inspired_by edges
+                        t = f"[Entity: {ent.canonical_name}]\n{ent.context_payload}"
+                        fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
+                                                         token_count=int(len(t.split()) * 1.33)))
+            # (b) relation-driven facts: "who inspired ..." → inspired_by edges,
+            #     grouped into a single facts fragment (they're a list answer).
+            fact_lines = []
             if relations:
                 q = self.db.query(CodexEdge).filter(
                     CodexEdge.valid_until == None,
@@ -954,14 +961,15 @@ class HybridRetrievalOrchestrator:
                     src = self.db.query(CodexEntity).get(edge.source_id)
                     tgt = self.db.query(CodexEntity).get(edge.target_id)
                     if src and tgt:
-                        lines.append(f"[Fact: {src.canonical_name} --{edge.relation}--> {tgt.canonical_name}]")
-            if not lines:
-                return []
-            combined = "\n\n".join(lines)
-            logger.info("codex_enumeration", entities=len(seen_entities),
-                        facts=len(lines) - len(seen_entities), relations=relations)
-            return [ContextFragment(text=combined, source_type="codex", score=1.0,
-                                    token_count=int(len(combined.split()) * 1.33))]
+                        fact_lines.append(f"[Fact: {src.canonical_name} --{edge.relation}--> {tgt.canonical_name}]")
+            if fact_lines:
+                t = "\n".join(fact_lines)
+                fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
+                                                 token_count=int(len(t.split()) * 1.33)))
+            if fragments:
+                logger.info("codex_enumeration", entities=len(seen_entities),
+                            facts=len(fact_lines), relations=relations)
+            return fragments
         except Exception as err:
             logger.error("codex_enumeration_failed", error=str(err))
             self.db.rollback()
@@ -1018,53 +1026,49 @@ class HybridRetrievalOrchestrator:
         self._last_matched_entities = matched   # grounded query expansion (BM25)
 
         try:
+            # A10: emit ONE fragment per anchor entity (its payload + trust-gated
+            # neighborhood + its relation facts), scored by that anchor's own edge
+            # trust — instead of concatenating everything into a single blob that
+            # could only ever claim one budget slot. `visited` is shared so an
+            # entity reachable from two anchors is rendered once (first claims it).
+            fragments: List[ContextFragment] = []
             visited = set()
-            context_texts = []
-            anchor_edges = []   # A3: direct edges of matched entities → reinforced on retrieval
-            for entity in matched:
-                if allowed_entity_ids is not None and entity.id not in allowed_entity_ids:
+            all_anchor_edges = []   # A3: reinforced across all anchors at the end
+            any_relation_hit = False
+            for anchor in matched:
+                if allowed_entity_ids is not None and anchor.id not in allowed_entity_ids:
                     continue
-                self._traverse_graph(entity, 0, self.CODEX_MAX_DEPTH, visited,
-                                     context_texts, anchor_edges,
+                local_texts, direct_edges = [], []
+                self._traverse_graph(anchor, 0, self.CODEX_MAX_DEPTH, visited,
+                                     local_texts, direct_edges,
                                      allowed_entity_ids, allowed_batch_ids)
+                if not local_texts:
+                    continue
+                # Per-anchor score from THIS anchor's direct-edge trust (A3).
+                mean_trust = (sum(self._edge_trust(e) for e in direct_edges) / len(direct_edges)
+                              if direct_edges else 0.0)
+                score = 1.0 + min(0.5, 0.25 * mean_trust)
+                # A4: relation-aware facts for this anchor → boost just this fragment.
+                if detected_relations:
+                    fact_lines, fact_edges = self._relation_facts(
+                        [anchor], detected_relations, allowed_batch_ids)
+                    if fact_lines:
+                        local_texts.extend(fact_lines)
+                        direct_edges.extend(fact_edges)
+                        score += self.RELATION_OVERLAP_BOOST
+                        any_relation_hit = True
+                text = "\n\n".join(local_texts)
+                fragments.append(ContextFragment(
+                    text=text, source_type="codex", score=score,
+                    token_count=int(len(text.split()) * 1.33)))
+                all_anchor_edges.extend(direct_edges)
 
-            # A4: relation-aware fact surfacing — edges where a matched entity
-            # participates in a detected relation, in either direction.
-            relation_boost = 0.0
-            if detected_relations and context_texts:
-                fact_lines, fact_edges = self._relation_facts(
-                    matched, detected_relations, allowed_batch_ids)
-                if fact_lines:
-                    context_texts.extend(fact_lines)
-                    anchor_edges.extend(fact_edges)
-                    relation_boost = self.RELATION_OVERLAP_BOOST
-                    logger.info("codex_relation_overlap",
-                                relations=detected_relations, facts=len(fact_lines))
-
-            if context_texts:
-                combined = "\n\n".join(context_texts)
-                # A3: graded score from matched entities' edge trust, replacing
-                # the coarse binary 1.5x; A4 adds the entity∩relation overlap
-                # boost on top. Bounded so codex doesn't dominate fusion.
-                matched_edges = self.db.query(CodexEdge).filter(
-                    CodexEdge.source_id.in_([e.id for e in matched]),
-                    CodexEdge.valid_until == None
-                ).all()
-                mean_trust = (sum(self._edge_trust(e) for e in matched_edges) / len(matched_edges)
-                              if matched_edges else 0.0)
-                score = 1.0 + min(0.5, 0.25 * mean_trust) + relation_boost
-
-                # A3: retrieval-reinforcement — the codex analog of episodic
-                # access_count/decay_score strengthening (only the anchor edges).
-                self._reinforce_codex_edges(anchor_edges)
-
-                return [ContextFragment(
-                    text=combined,
-                    source_type="codex",
-                    score=score,
-                    token_count=int(len(combined.split()) * 1.33)
-                )]
-            return []
+            if any_relation_hit:
+                logger.info("codex_relation_overlap", relations=detected_relations,
+                            fragments=len(fragments))
+            # A3: retrieval-reinforcement across every anchor's edges.
+            self._reinforce_codex_edges(all_anchor_edges)
+            return fragments
         except Exception as err:
             logger.error("codex_retrieval_failed", error=str(err))
             self.db.rollback()
@@ -1338,31 +1342,48 @@ class HybridRetrievalOrchestrator:
     def _enforce_token_budget(self, fragments, max_tokens=None):
         if max_tokens is None:
             max_tokens = self.max_retrieval_tokens
+        from collections import deque
 
-        # Step 1 – guarantee each leg that produced results gets its best fragment in
+        # Phase 1 – leg-diversity guarantee: each leg's single best fragment first.
         best_per_leg = {}
         for f in fragments:
             leg = f.source_type
             if leg not in best_per_leg or f.score > best_per_leg[leg].score:
                 best_per_leg[leg] = f
+        guaranteed = sorted(best_per_leg.values(), key=lambda x: x.score, reverse=True)
 
-        guaranteed = list(best_per_leg.values())
-        guaranteed.sort(key=lambda x: x.score, reverse=True)
-
-        total = 0
-        result = []
+        total, result, used = 0, [], set()
         for f in guaranteed:
             if total + f.token_count <= max_tokens:
-                result.append(f)
-                total += f.token_count
+                result.append(f); total += f.token_count; used.add(id(f))
 
-        # Step 2 – greedily fill the rest of the budget with remaining fragments
-        remaining = [f for f in fragments if f not in guaranteed]
-        for f in remaining:
-            if total + f.token_count <= max_tokens:
-                result.append(f)
-                total += f.token_count
+        # Phase 2 – round-robin-with-slack across legs (A10 budget fairness).
+        # Each round, every leg contributes its next-best fragment (highest-scoring
+        # leg first). This stops episodic — which emits dozens of fragments — from
+        # soaking the whole remainder, while still filling fully when other legs
+        # are sparse (exhausted legs drop out and their share goes to the rest).
+        queues = {}
+        for f in fragments:
+            if id(f) not in used:
+                queues.setdefault(f.source_type, []).append(f)
+        for leg in queues:
+            queues[leg].sort(key=lambda x: x.score, reverse=True)
+        queues = {leg: deque(q) for leg, q in queues.items() if q}
 
+        active = list(queues.keys())
+        while active and total < max_tokens:
+            active.sort(key=lambda leg: queues[leg][0].score, reverse=True)
+            progressed = False
+            for leg in list(active):
+                q = queues[leg]
+                f = q.popleft()
+                if total + f.token_count <= max_tokens:
+                    result.append(f); total += f.token_count; progressed = True
+                # else: fragment too big — skip it, try this leg's next one next round
+                if not q:
+                    active.remove(leg)
+            if not progressed:
+                break
         return result
     # ------------------------------------------------------------------
     # Strengthening (access count + decay boost)
