@@ -14,7 +14,7 @@ from src.api.db import SessionLocal
 from sqlalchemy.orm.attributes import flag_modified
 
 from src.memory.models import (
-    CodexEntity, CodexEdge, CodexEvent, IdempotencyKey, EpisodicMemory
+    CodexEntity, CodexEdge, CodexEvent, IdempotencyKey, EpisodicMemory, ReviewQueue
 )
 from src.workers.celery_app import app
 from src.workers.gpu_check import is_gpu_busy, is_user_active
@@ -667,13 +667,162 @@ def _regenerate_context_payload(entity: CodexEntity, db) -> None:
         parts.append(f"{edge.relation} → {target_name}")
     entity.context_payload = "; ".join(parts) if parts else ""
 
+# ===================================================================
+# A6 — Self-correcting graph (bounded reconciliation loop)
+# ===================================================================
+# Fixed rules can't catch cross-turn contradictions ("uses postgres" then
+# "migrated off postgres") or relationship reversals (friend -> enemy). A6
+# adds a CHEAP deterministic conflict check before the fixed rules run;
+# antonym reversals resolve deterministically (newer state supersedes), and
+# only genuinely ambiguous supersessions touch the LLM (or go to review) —
+# so a small model never gets blanket delete/merge authority over the graph.
+SUPERSESSION_CUES = (
+    "migrated off", "moved off", "no longer", "stopped using", "switched from",
+    "switched to", "replaced", "instead of", "deprecated", "abandoned",
+    "dropped", "gave up on", "used to", "moved away from", "ditched",
+)
+_ANTONYM_PAIRS = [
+    ("friend", "enemy"), ("ally", "enemy"),
+    ("married_to", "is_divorced_from"), ("is_dating", "is_separated_from"),
+    ("endorses", "criticises"), ("trusts", "distrusts"),  # distrusts is A8-future; harmless if absent
+]
+ANTONYM_OF: dict = {}
+for _a, _b in _ANTONYM_PAIRS:
+    ANTONYM_OF.setdefault(_a, set()).add(_b)
+    ANTONYM_OF.setdefault(_b, set()).add(_a)
+
+
+def _entity_name(db, entity_id) -> str:
+    if entity_id is None:
+        return "?"
+    e = db.query(CodexEntity).get(entity_id)
+    return e.canonical_name if e else "?"
+
+
+def check_conflict(db, subj_id, relation: str, obj_id, turn_text: Optional[str]):
+    """A6 deterministic conflict pre-filter. Returns a conflict dict or None.
+    Runs a DB query only when the relation has a known antonym, or when a
+    multi-valued relation coincides with a supersession cue in the turn — so
+    the ~95% of triplets with neither take a dict-lookup fast path."""
+    antonyms = ANTONYM_OF.get(relation)
+    if antonyms:
+        old = db.query(CodexEdge).filter(
+            CodexEdge.source_id == subj_id,
+            CodexEdge.target_id == obj_id,
+            CodexEdge.relation.in_(list(antonyms)),
+            CodexEdge.valid_until == None,
+        ).first()
+        if old:
+            return {"type": "antonym", "old_edge_id": old.id, "old_relation": old.relation,
+                    "old_target_id": old.target_id}
+
+    if relation in MULTI_VALUED_RELATIONS and turn_text:
+        tl = turn_text.lower()
+        if any(cue in tl for cue in SUPERSESSION_CUES):
+            old = db.query(CodexEdge).filter(
+                CodexEdge.source_id == subj_id,
+                CodexEdge.relation == relation,
+                CodexEdge.target_id != obj_id,
+                CodexEdge.valid_until == None,
+            ).first()
+            if old:
+                return {"type": "supersession", "old_edge_id": old.id,
+                        "old_relation": old.relation, "old_target_id": old.target_id}
+    return None
+
+
+def _expire_edge(db, edge_id, batch_id, reason: str):
+    edge = db.query(CodexEdge).get(edge_id)
+    if edge and edge.valid_until is None:
+        edge.valid_until = datetime.now(timezone.utc)
+        db.add(CodexEvent(entity_id=edge.source_id, event_type="edge_expired",
+                          payload={"edge_id": str(edge_id), "reason": reason},
+                          timestamp=datetime.now(timezone.utc), batch_source=batch_id))
+
+
+def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
+                       turn_text: Optional[str], reconciler) -> bool:
+    """Resolve a detected conflict. Antonym reversals are deterministic (the
+    newly-asserted state supersedes its opposite — no LLM). Ambiguous
+    supersessions go to *reconciler* (the bounded LLM) if provided, else to
+    human review — never auto-expire on a guess. Returns True if the new edge
+    should still be written. Callable as a unit so Track D's agent can drive
+    it with its own reconciler."""
+    if conflict["type"] == "antonym":
+        _expire_edge(db, conflict["old_edge_id"], batch_id, "antonym_superseded")
+        logger.info("codex_reconcile", type="antonym", decision="expire_old",
+                    relation=relation, old_relation=conflict["old_relation"])
+        return True
+
+    # supersession — genuinely ambiguous ("migrated off X" vs "considered it").
+    decision = "review"
+    if reconciler is not None:
+        try:
+            decision = reconciler({
+                "subject": subj.canonical_name, "relation": relation,
+                "object": obj.canonical_name, "old_relation": conflict["old_relation"],
+                "old_object": _entity_name(db, conflict.get("old_target_id")),
+                "turn": turn_text or "",
+            }) or "review"
+        except Exception as err:
+            logger.error("codex_reconcile_llm_failed", error=str(err))
+            decision = "review"
+
+    if decision == "expire_old":
+        _expire_edge(db, conflict["old_edge_id"], batch_id, "supersession")
+    elif decision == "reject_new":
+        logger.info("codex_reconcile", type="supersession", decision="reject_new")
+        return False
+    elif decision != "keep_both":  # review / unknown → keep both, flag human
+        db.add(ReviewQueue(item_type="codex_reconciliation", item_content={
+            "new": {"subject": subj.canonical_name, "relation": relation, "object": obj.canonical_name},
+            "conflict_type": "supersession", "old_edge_id": str(conflict["old_edge_id"]),
+            "old_relation": conflict["old_relation"],
+            "old_object": _entity_name(db, conflict.get("old_target_id")),
+            "turn_excerpt": (turn_text or "")[:300],
+        }))
+        decision = "review"
+    logger.info("codex_reconcile", type="supersession", decision=decision)
+    return True
+
+
+def make_llm_reconciler():
+    """A bounded reconciler backed by the background model: one word out, five
+    tokens max. Returned as a callable so it can be swapped/stubbed."""
+    def _reconcile(ctx: dict) -> str:
+        prompt = (
+            "Two facts about the same subject may conflict. Using ONLY the conversation "
+            "text, decide how to reconcile them.\n"
+            f"Existing fact: {ctx['subject']} {ctx['old_relation']} {ctx['old_object']}\n"
+            f"New fact: {ctx['subject']} {ctx['relation']} {ctx['object']}\n"
+            f"Conversation text: {ctx['turn'][:600]}\n\n"
+            "Reply with exactly ONE word:\n"
+            "expire_old  — the new fact replaces/supersedes the old one\n"
+            "keep_both   — both are true at the same time\n"
+            "reject_new  — the new fact is wrong or not actually asserted"
+        )
+        resp = bg_client.chat.completions.create(
+            model=get_bg_model_name(),
+            messages=[{"role": "system", "content": "You output exactly one word."},
+                      {"role": "user", "content": prompt}],
+            temperature=0.0, max_tokens=5, timeout=20.0)
+        out = (resp.choices[0].message.content or "").strip().lower()
+        for d in ("expire_old", "keep_both", "reject_new"):
+            if d in out:
+                return d
+        return "review"
+    return _reconcile
+
+
 def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch_id: str,
-                   extraction_confidence: float = 1.0):
+                   extraction_confidence: float = 1.0, turn_text: Optional[str] = None,
+                   reconciler=None):
     """Integrates extraction assertions into the transaction context,
     with property‑aware updates, auto‑expiry, multi‑valued support,
     and immediate contradiction activation. *extraction_confidence* (A3)
     is the grounding-seeded trust stored on new edges; on reinforcement the
-    edge keeps the highest confidence seen (corroboration raises trust)."""
+    edge keeps the highest confidence seen (corroboration raises trust).
+    *turn_text* / *reconciler* drive the A6 reconciliation loop (below)."""
 
     subj = get_or_create_entity(db, subject_name)
     obj  = get_or_create_entity(db, object_name)
@@ -730,6 +879,14 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
         return        
 
     # ── 2. Non‑property relations ──
+    # A6: reconcile cross-turn conflicts before the fixed rules apply. Cheap
+    # unless a real conflict is detected; may expire a superseded edge, or
+    # reject this assertion entirely (reject_new → don't write).
+    conflict = check_conflict(db, subj.id, relation, obj.id, turn_text)
+    if conflict and not reconcile_conflict(db, conflict, subj, relation, obj,
+                                           batch_id, turn_text, reconciler):
+        return
+
     existing_active = db.query(CodexEdge).filter(
         CodexEdge.source_id == subj.id,
         CodexEdge.target_id == obj.id,
@@ -858,6 +1015,7 @@ def extract_codex(self, batch_id: str, model_used: str = "", priority: bool = Fa
             return
 
         triplets = extract_triplets(turn.raw_text, model_used, topic_tags=turn.topic_tags)
+        reconciler = make_llm_reconciler()   # A6: bounded LLM for ambiguous supersessions
         for triplet in triplets:
             if isinstance(triplet, dict):
                 s_raw = triplet.get("subject")
@@ -869,7 +1027,8 @@ def extract_codex(self, batch_id: str, model_used: str = "", priority: bool = Fa
                     o = o_raw.strip()
                     if s and r and o:
                         handle_triplet(db, s, r, o, batch_id,
-                                       extraction_confidence=float(triplet.get("confidence", 1.0)))
+                                       extraction_confidence=float(triplet.get("confidence", 1.0)),
+                                       turn_text=turn.raw_text, reconciler=reconciler)
 
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()
