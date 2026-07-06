@@ -715,7 +715,7 @@ reflection.run\_reflection (beat every 2 h, max\_retries=2, default\_retry\_dela
 
 31. **\`\_detect\_motifs\`** (MOTIF\_PROMPT) — inserts review\_queue rows with item\_type='new\_cluster\_proposal'. There is no numeric motif threshold; motif identification is entirely model-driven, and cluster creation requires human approval.
 
-32. **\`\_enrich\_codex\_entities\`** (ENRICHMENT\_PROMPT, global pass after all conversations) — selects up to 10 CodexEntity rows with thin context\_payload, summarises the originating episodic passages, overwrites context\_payload, and emits a CodexEvent(event\_type="context\_appended"). Reflection **does not add edges** — it only enriches entity descriptions.
+32. **\`\_enrich\_codex\_entities\`** (ENRICHMENT\_PROMPT, global pass; A7.3) — fills each entity's **description** (the rich "note body"). It selects up to 25/run — entities with an *empty* description ranked by mention count first, then stale well-mentioned notes (>14 days) for refresh — summarises the originating episodic passages with the background model into a concise domain-general note, writes it to **description** (NOT context\_payload, which is auto-assembled and would be overwritten), then calls \_regenerate\_context\_payload so the note becomes description + properties + links + backlinks, and emits a CodexEvent(event\_type="context\_appended"). Reflection **does not add edges** — it only enriches entity descriptions. This is the engine that turns codex nodes from label strings into real Obsidian-style notes.
 
 ### **8.7 Clustering Worker**
 

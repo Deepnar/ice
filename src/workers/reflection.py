@@ -52,9 +52,12 @@ SLOT_EVOLUTION_PROMPT = (
 )
 
 ENRICHMENT_PROMPT = (
-    "The following is a context payload for a knowledge graph entity. It is currently very thin. "
-    "Given additional conversation passages, write an enriched, factual description of the entity. "
-    "Output ONLY the enriched description, no markdown."
+    "Write a concise, factual encyclopedia-style note describing the entity named below, "
+    "using ONLY the information in the passages. Cover what it is and its most important "
+    "facts, role, and relationships. Be domain-agnostic — it may be a person, place, "
+    "software component, function, concept, organization, event, product, dataset, or a "
+    "fictional entity. No preamble, no speculation, no meta-commentary, no markdown — just "
+    "the description, under ~120 words."
 )
 
 MOTIF_PROMPT = (
@@ -249,46 +252,89 @@ def _evolve_memory_slots(db, turns):
 # ------------------------------------------------------------------
 # Codex Enrichment
 # ------------------------------------------------------------------
+ENRICH_LIMIT = 25            # entities enriched per reflection run (was 10)
+ENRICH_REFRESH_DAYS = 14     # re-enrich an entity if its note is this old and it grew
+
+
 def _enrich_codex_entities(db):
-    # Find entities with short context_payload (less than 100 chars)
-    thin_entities = db.query(CodexEntity).filter(
-        CodexEntity.context_payload == None
-    ).all()[:10]  # limit to 10 per run
-    for entity in thin_entities:
-        if entity.context_payload and len(entity.context_payload) > 100:
+    """A7.3: fill each entity's `description` (the rich 'note body') by
+    summarising the conversation passages that mention it, then reassemble
+    context_payload so the note = description + properties + links + backlinks.
+    Writes to `description`, NOT context_payload (which is auto-generated and
+    would otherwise be overwritten on the next edge). Priority: entities with
+    an EMPTY description first (the big win), then a few stale ones to refresh.
+    Domain-general — works for code, research, business, people, or lore."""
+    from src.workers.codex_extractor import _regenerate_context_payload
+
+    # Priority 1: no description yet — richest-mentioned first.
+    to_enrich = db.execute(text("""
+        SELECT e.id
+        FROM codex_entities e
+        JOIN codex_events ev ON ev.entity_id = e.id
+        WHERE COALESCE(e.description, '') = ''
+        GROUP BY e.id
+        ORDER BY COUNT(ev.id) DESC
+        LIMIT :lim
+    """), {"lim": ENRICH_LIMIT}).fetchall()
+    ids = [r[0] for r in to_enrich]
+
+    # Priority 2: fill remaining budget by refreshing stale, well-mentioned notes.
+    if len(ids) < ENRICH_LIMIT:
+        stale = db.execute(text("""
+            SELECT e.id
+            FROM codex_entities e
+            JOIN codex_events ev ON ev.entity_id = e.id
+            WHERE COALESCE(e.description, '') <> ''
+              AND e.last_updated < NOW() - (:days || ' days')::interval
+            GROUP BY e.id
+            HAVING COUNT(ev.id) >= 3
+            ORDER BY COUNT(ev.id) DESC
+            LIMIT :lim
+        """), {"days": ENRICH_REFRESH_DAYS, "lim": ENRICH_LIMIT - len(ids)}).fetchall()
+        ids.extend(r[0] for r in stale)
+
+    for eid in ids:
+        entity = db.query(CodexEntity).get(eid)
+        if not entity:
             continue
-        # Find episodic turns that mention this entity
-        batch_ids = db.execute(
-            text("SELECT batch_source FROM codex_events WHERE entity_id = :eid"),
+        rows = db.execute(
+            text("SELECT DISTINCT batch_source FROM codex_events WHERE entity_id = :eid"),
             {"eid": entity.id}
         ).fetchall()
-        if not batch_ids:
-            continue
         passages = []
-        for (bid,) in batch_ids:
+        for (bid,) in rows:
             turn = db.query(EpisodicMemory).filter_by(batch_id=bid).first()
-            if turn:
-                passages.append(turn.raw_text[:500])
+            if turn and turn.raw_text:
+                passages.append(turn.raw_text[:600])
+            if len(passages) >= 8:
+                break
         if not passages:
             continue
-        combined = "\n".join(passages)
-        completion = bg_client.chat.completions.create(
-            model=get_bg_model_name(),
-            messages=[
-                {"role": "system", "content": "You are a knowledge graph enricher. Write a factual description."},
-                {"role": "user", "content": f"{ENRICHMENT_PROMPT}\nCurrent payload: {entity.context_payload or ''}\nRelevant passages:\n{combined[:2000]}"}
-            ],
-            temperature=0.0, max_tokens=300, timeout=30.0
-        )
-        enriched = completion.choices[0].message.content.strip()
-        entity.context_payload = enriched
+        try:
+            completion = bg_client.chat.completions.create(
+                model=get_bg_model_name(),
+                messages=[
+                    {"role": "system", "content": "You write concise factual knowledge-graph entity notes."},
+                    {"role": "user", "content": f"{ENRICHMENT_PROMPT}\n\nEntity: {entity.canonical_name}\n\nPassages:\n" + "\n---\n".join(passages)[:2500]}
+                ],
+                temperature=0.0, max_tokens=200, timeout=30.0
+            )
+        except Exception as exc:
+            logger.error("codex_enrich_failed", entity=entity.canonical_name, error=str(exc))
+            continue
+        note = (completion.choices[0].message.content or "").strip()
+        if not note:
+            continue
+        entity.description = note
+        _regenerate_context_payload(entity, db)   # note = description + props + links + backlinks
         entity.last_updated = datetime.now(timezone.utc)
         db.add(CodexEvent(
             entity_id=entity.id,
             event_type="context_appended",
-            payload={"enriched_from_reflection": True},
+            payload={"enriched_from_reflection": True, "chars": len(note)},
             batch_source=uuid.uuid4()
         ))
+    logger.info("codex_enrichment_done", enriched=len(ids))
 
 
 # ------------------------------------------------------------------
