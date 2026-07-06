@@ -478,12 +478,14 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
         "5. NEVER output a category header as a relation. Example:\n"
         "   BAD:  {\"subject\":\"shinchan\",\"relation\":\"social_relationship\",\"object\":\"kazama\"}\n"
         "   GOOD: {\"subject\":\"shinchan\",\"relation\":\"friend\",\"object\":\"kazama\"}\n"
-        "6. NEGATION: if the text says a relationship does NOT hold or is explicitly "
-        "negative (e.g. \"X no longer uses Y\", \"X distrusts Y\", \"X is not allied with Z\"), "
-        "keep the positive relation word but add \"negated\": true to that triplet. "
-        "Pick the closest positive relation and negate it (distrusts → relation \"trusts\" "
-        "negated; former ally → relation \"ally\" negated). Example:\n"
-        "   \"Kael no longer trusts Orien\" → {\"subject\":\"kael\",\"relation\":\"trusts\","
+        "6. NEGATION: if the text says a relationship does NOT hold or stopped holding "
+        "(e.g. \"X no longer uses Y\", \"X is not allied with Z\", \"they are no longer friends\"), "
+        "use the SAME positive relation word from the list above and add \"negated\": true to that "
+        "triplet. Only negate a relation that exists in the list; if the negative idea has no "
+        "matching relation word, SKIP it. Examples:\n"
+        "   \"ICE no longer uses PostgreSQL\" → {\"subject\":\"ice\",\"relation\":\"uses\","
+        "\"object\":\"postgresql\",\"negated\":true}\n"
+        "   \"Kael and Orien are no longer allies\" → {\"subject\":\"kael\",\"relation\":\"ally\","
         "\"object\":\"orien\",\"negated\":true}\n"
         "7. Output ONLY a JSON array. No markdown, no explanation.\n\n"
         "EXAMPLES:\n"
@@ -780,8 +782,8 @@ SUPERSESSION_CUES = (
 _ANTONYM_PAIRS = [
     ("friend", "enemy"), ("ally", "enemy"),
     ("married_to", "is_divorced_from"), ("is_dating", "is_separated_from"),
-    ("endorses", "criticises"), ("trusts", "distrusts"),  # distrusts is A8-future; harmless if absent
-]
+    ("endorses", "criticises"),
+]  # all in the controlled vocabulary (verified); add new pairs only for real relations
 ANTONYM_OF: dict = {}
 for _a, _b in _ANTONYM_PAIRS:
     ANTONYM_OF.setdefault(_a, set()).add(_b)
@@ -901,8 +903,8 @@ def make_llm_reconciler():
             model=get_bg_model_name(),
             messages=[{"role": "system", "content": "You output exactly one word."},
                       {"role": "user", "content": prompt}],
-            temperature=0.0, max_tokens=5, timeout=20.0)
-        out = (resp.choices[0].message.content or "").strip().lower()
+            temperature=0.0, max_tokens=10, timeout=20.0)  # >5 so 'expire_old' can't truncate
+        out = (resp.choices[0].message.content or "").strip().lower().replace(" ", "_").replace("-", "_")
         for d in ("expire_old", "keep_both", "reject_new"):
             if d in out:
                 return d
