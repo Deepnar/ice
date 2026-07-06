@@ -1026,22 +1026,25 @@ class HybridRetrievalOrchestrator:
         self._last_matched_entities = matched   # grounded query expansion (BM25)
 
         try:
-            # A10: emit ONE fragment per anchor entity (its payload + trust-gated
-            # neighborhood + its relation facts), scored by that anchor's own edge
-            # trust — instead of concatenating everything into a single blob that
-            # could only ever claim one budget slot. `visited` is shared so an
-            # entity reachable from two anchors is rendered once (first claims it).
+            # A10: emit ONE fragment per anchor entity (its full note + trust-gated
+            # neighbor previews + its relation facts), scored by that anchor's own
+            # edge trust. Each anchor gets its OWN visited set so a shared neighbor
+            # appears (as a preview) in each anchor's self-contained fragment; the
+            # OTHER anchors are excluded from being absorbed as neighbors, so every
+            # matched entity keeps its own fragment (A7.2 bidirectional traversal
+            # would otherwise merge connected anchors via a shared visited set).
             fragments: List[ContextFragment] = []
-            visited = set()
             all_anchor_edges = []   # A3: reinforced across all anchors at the end
             any_relation_hit = False
+            anchor_ids = {a.id for a in matched}
             for anchor in matched:
                 if allowed_entity_ids is not None and anchor.id not in allowed_entity_ids:
                     continue
                 local_texts, direct_edges = [], []
-                self._traverse_graph(anchor, 0, self.CODEX_MAX_DEPTH, visited,
+                self._traverse_graph(anchor, 0, self.CODEX_MAX_DEPTH, set(),
                                      local_texts, direct_edges,
-                                     allowed_entity_ids, allowed_batch_ids)
+                                     allowed_entity_ids, allowed_batch_ids,
+                                     exclude_ids=anchor_ids - {anchor.id})
                 if not local_texts:
                     continue
                 # Per-anchor score from THIS anchor's direct-edge trust (A3).
@@ -1082,60 +1085,89 @@ class HybridRetrievalOrchestrator:
         conf = edge.extraction_confidence if edge.extraction_confidence is not None else 1.0
         return (edge.strength or 0.0) * conf
 
+    def _render_codex_entity(self, entity, depth, out_edges, in_edges,
+                             allowed_batch_ids, context_texts):
+        """A7.2 depth-graded rendering (Obsidian reading model): the anchor
+        (depth 0) injects its FULL rich note; deeper neighbors inject a compact
+        one-line preview (name + type + a snippet), so navigation is rich but
+        token-efficient."""
+        if depth == 0:
+            if allowed_batch_ids is None:
+                # unscoped: the stored rich note (description + props + links + backlinks).
+                if entity.context_payload:
+                    context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
+            else:
+                # A5 scoped: rebuild from this conversation's edges only (both
+                # directions), no global description — it would leak other convos.
+                lines = []
+                for e in out_edges[:10]:
+                    t = self.db.query(CodexEntity).get(e.target_id)
+                    if t:
+                        lines.append(f"{e.relation} → {t.canonical_name}")
+                for e in in_edges[:10]:
+                    s = self.db.query(CodexEntity).get(e.source_id)
+                    if s:
+                        lines.append(f"{s.canonical_name} --{e.relation}→")
+                if lines:
+                    context_texts.append(f"[Entity: {entity.canonical_name}]\n" + "; ".join(lines))
+        else:
+            etype = getattr(entity, "entity_type", None) or "entity"
+            preview = f"[{entity.canonical_name} ({etype})]"
+            if allowed_batch_ids is None:  # description is global → only show unscoped
+                desc = (entity.description or "").strip()
+                if desc:
+                    preview += ": " + " ".join(desc.split()[:20])
+            context_texts.append(preview)
+
     def _traverse_graph(self, entity, depth, max_depth, visited, context_texts, anchor_edges=None,
-                        allowed_entity_ids=None, allowed_batch_ids=None):
+                        allowed_entity_ids=None, allowed_batch_ids=None, exclude_ids=None):
         if entity.id in visited or depth > max_depth:
             return
         visited.add(entity.id)
 
-        edges = self.db.query(CodexEdge).filter(
-            CodexEdge.source_id == entity.id,
-            CodexEdge.valid_until == None
+        # A7.2: fetch BOTH directions — outgoing links and incoming backlinks —
+        # so the graph is navigable both ways (Obsidian backlinks).
+        out_edges = self.db.query(CodexEdge).filter(
+            CodexEdge.source_id == entity.id, CodexEdge.valid_until == None
         ).order_by(CodexEdge.strength.desc()).all()
-        # A5: under project scope, only edges asserted by this conversation's
-        # batches exist for traversal AND payload rendering — a shared entity
-        # ("ice") no longer leaks facts from other conversations.
+        in_edges = self.db.query(CodexEdge).filter(
+            CodexEdge.target_id == entity.id, CodexEdge.valid_until == None
+        ).order_by(CodexEdge.strength.desc()).all()
+        # A5: scope filter (both directions) — no cross-conversation leakage.
         if allowed_batch_ids is not None:
-            edges = [e for e in edges if e.source_batch in allowed_batch_ids]
+            out_edges = [e for e in out_edges if e.source_batch in allowed_batch_ids]
+            in_edges = [e for e in in_edges if e.source_batch in allowed_batch_ids]
 
-        # Payload: unscoped uses the stored (global) context_payload; scoped
-        # renders one on the fly from the conversation's own edges so the
-        # injected text is as scoped as the traversal (A5).
-        if allowed_batch_ids is None:
-            if entity.context_payload:
-                context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
-        else:
-            parts = []
-            for edge in edges[:10]:
-                tgt = self.db.query(CodexEntity).get(edge.target_id)
-                if tgt:
-                    parts.append(f"{edge.relation} → {tgt.canonical_name}")
-            if parts:
-                context_texts.append(f"[Entity: {entity.canonical_name}]\n" + "; ".join(parts))
+        self._render_codex_entity(entity, depth, out_edges, in_edges,
+                                  allowed_batch_ids, context_texts)
 
-        for edge in edges:
+        # A7.2: traverse both directions (into the target of outgoing edges and
+        # the source of incoming ones), trust-gated and scope-bounded as before.
+        for edge, other_id in ([(e, e.target_id) for e in out_edges] +
+                               [(e, e.source_id) for e in in_edges]):
             trust = self._edge_trust(edge)
             if depth == 0:
                 # A3 dynamic threshold: a matched entity's edge expands (and is
-                # reinforced as a query anchor) only above the direct floor —
-                # grounding-rejected low-confidence edges sit in the graph but
-                # don't reach context or gain strength until corroborated.
+                # reinforced as a query anchor) only above the direct floor.
                 if trust < self.CODEX_DIRECT_TRUST_FLOOR:
                     continue
                 if anchor_edges is not None:
                     anchor_edges.append(edge)
-            # A3: trust-gate deep hops — weak/decayed/low-confidence edges don't
-            # expand the frontier, cutting the depth-3 pollution.
+            # A3: trust-gate deep hops — weak/decayed edges don't expand the frontier.
             elif trust < self.CODEX_DEEP_STRENGTH_FLOOR:
                 continue
             # A5: traversal never leaves the conversation's entity set under scope.
-            if allowed_entity_ids is not None and edge.target_id not in allowed_entity_ids:
+            if allowed_entity_ids is not None and other_id not in allowed_entity_ids:
                 continue
-            target = self.db.query(CodexEntity).get(edge.target_id)
-            if target:
-                self._traverse_graph(target, depth + 1, max_depth, visited,
+            # A10/A7.2: don't absorb another matched anchor as a neighbor — it has
+            # its own fragment.
+            if exclude_ids and other_id in exclude_ids:
+                continue
+            other = self.db.query(CodexEntity).get(other_id)
+            if other:
+                self._traverse_graph(other, depth + 1, max_depth, visited,
                                      context_texts, anchor_edges,
-                                     allowed_entity_ids, allowed_batch_ids)
+                                     allowed_entity_ids, allowed_batch_ids, exclude_ids)
 
     def _reinforce_codex_edges(self, edges):
         """A3 retrieval-reinforcement (episodic analog): the anchor edges of the
