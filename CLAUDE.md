@@ -24,6 +24,8 @@ Raw metrics JSON sits alongside each report. `docs/paper_rough_notes.md` and `do
 
 The queue of upcoming work is **[docs/ROADMAP.md](docs/ROADMAP.md)** — a living checklist distilled from `docs/rough_post_paper_work.md` (planned-but-never-built features, reworks where the current version underperformed in the experiments, known bugs, and open questions with no settled solution).
 
+**Starting a session:** read this file and `docs/ROADMAP.md`, find the next unchecked item, and continue from there. Completed items carry detailed notes (what shipped, why, validation) so you can pick up cold. Discuss the concrete design with the user before implementing (never build straight from a roadmap entry).
+
 Rules for working it:
 
 - **Roadmap entries are intent + rationale, not specs.** When a feature's turn comes, discuss the concrete implementation with the user first — never build straight from the entry.

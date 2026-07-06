@@ -4,6 +4,7 @@ micro‑NER integration, and dynamic token budget."""
 
 from datetime import datetime, timezone
 import hashlib
+import math
 import os
 import re
 import uuid
@@ -102,6 +103,11 @@ class HybridRetrievalOrchestrator:
         self.CODEX_STRENGTH_CAP = 10.0           # soft ceiling so retrieval can't inflate forever
         self.CODEX_PROMOTE_STRENGTH = 2.0        # reinforced pending edge promotes to active (enters decay cycle)
         self.CODEX_PROMOTE_MIN_CONFIDENCE = 0.5  # ...but never on low-trust extractions (needs corroboration first)
+        # A11: mild recency boost on edge trust — a recently-asserted fact
+        # outranks a stale one of equal strength. Rewards recent assertion
+        # (valid_from); never penalises age (decay already handles that).
+        self.CODEX_RECENCY_BOOST = 0.3           # max multiplier bump for a just-asserted edge
+        self.CODEX_RECENCY_TAU_DAYS = 30.0       # e-folding time of the boost
 
         # Load micro‑NER model (fallback to None if not available)
     def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=10):
@@ -1077,13 +1083,21 @@ class HybridRetrievalOrchestrator:
             self.db.rollback()
             return []
 
-    @staticmethod
-    def _edge_trust(edge) -> float:
-        """A3: effective trust = strength (usage dynamics) x extraction_confidence
-        (grounding/corroboration trust). Legacy edges with NULL confidence count
-        as fully trusted (they predate grounding)."""
+    def _edge_trust(self, edge) -> float:
+        """Effective trust = strength (A3 usage dynamics) x extraction_confidence
+        (A3 grounding/corroboration) x recency (A11). Legacy edges with NULL
+        confidence count as fully trusted (they predate grounding)."""
         conf = edge.extraction_confidence if edge.extraction_confidence is not None else 1.0
-        return (edge.strength or 0.0) * conf
+        base = (edge.strength or 0.0) * conf
+        # A11: reward recently-asserted facts; old edges tend to 1.0 (no penalty).
+        vf = getattr(edge, "valid_from", None)
+        if vf is not None:
+            try:
+                age_days = max(0.0, (datetime.now(timezone.utc) - vf).total_seconds() / 86400.0)
+                base *= 1.0 + self.CODEX_RECENCY_BOOST * math.exp(-age_days / self.CODEX_RECENCY_TAU_DAYS)
+            except Exception:
+                pass
+        return base
 
     def _render_codex_entity(self, entity, depth, out_edges, in_edges,
                              allowed_batch_ids, context_texts):
