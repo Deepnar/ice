@@ -55,6 +55,10 @@ NARRATIVE_FACT_INTENTS = {"Factual_Retrieval", "Decision_Making"}
 META_LEANING_INTENTS = {"Analysis_&_Summarization"}
 META_DOWNWEIGHT_FACTOR = 0.55     # multiply score by this if source turn leans meta
 
+# A4: process-wide cache of (relation_names, gloss_embeddings) for relation
+# detection — built lazily on first use by _relation_gloss_cache().
+_RELATION_GLOSSES = None
+
 class HybridRetrievalOrchestrator:
     def __init__(self, db: Session, embedder):
         self.db = db
@@ -62,11 +66,30 @@ class HybridRetrievalOrchestrator:
         self.bg_client = get_bg_client()
         self.max_retrieval_tokens = 5000
         self._force_hyde = False
-        # MERA (category/enumeration fallback) is disabled by default: it scored
-        # −0.21 in the buildup ablation and its capability is being re-homed into
-        # relation-aware retrieval (roadmap A4). The ablation ConfigurableOrchestrator
-        # can still enable it via its own `mera` flag. See ROADMAP.md P0.2.
-        self.enable_mera = False
+        # A4: entity resolution mode (ablation `fuzzy_match` flag maps here).
+        self.use_fuzzy_match = True
+        # A4: relation/tag-driven enumeration for entity-less category queries
+        # ("list all the characters"). Replaces MERA (−0.21 in the ablation):
+        # same capability, but grounded in the controlled vocabulary + entity
+        # tags via embedding similarity — no LLM call in the hot path.
+        # The ablation `mera` flag maps onto this.
+        self.enable_enumeration = True
+
+        # A4 — relation detection. Empirical note: prompt↔gloss similarity is
+        # only reliable as a *joint* signal (top-3 accuracy is good, but neutral
+        # prompts score ~0.69 absolute), so detected relations are never a
+        # trigger on their own — they only boost/annotate edges of matched
+        # entities, or drive enumeration when explicit cue words are present.
+        # Top-k is recall-only: a detected relation surfaces facts only when a
+        # matched entity actually has such an edge (the join is the precision),
+        # so k=5 is safe — feasibility probe: top-3 11/12, top-5 12/12.
+        self.RELATION_TOP_K = 5
+        self.RELATION_SIM_FLOOR = 0.45           # below this a gloss match is noise
+        self.RELATION_OVERLAP_BOOST = 0.25       # entity-hit ∩ relation-hit fragment boost
+        self.EXPANSION_MAX_TERMS = 8             # grounded query expansion cap (BM25)
+        self.ENUM_EDGE_LIMIT = 15                # enumeration: max fact edges surfaced
+        self.ENUM_ENTITY_LIMIT = 8               # enumeration: max entities surfaced
+        self._last_matched_entities = []         # per-call: for grounded expansion
 
         # A3 — edge confidence/strength as a live retrieval signal.
         # An edge's effective trust is strength * extraction_confidence:
@@ -338,12 +361,26 @@ class HybridRetrievalOrchestrator:
         # # Re‑compute embedding if the search prompt changed
         # if hyde_prompt:
         #     prompt_embedding = self.embedder.encode(search_prompt, convert_to_tensor=False).tolist()
+        # A4: run the codex leg first — the entities it resolves ground the
+        # query expansion for the lexical leg below.
+        codex_fragments = self._codex_graph(classification, scope,
+                                            prompt_embedding=prompt_embedding)
+
+        # A4 grounded query expansion (the sane replacement for HyDE): append
+        # matched entities' canonical names + aliases to the BM25 search prompt
+        # so lexical search hits turns that use the full/other name. Nothing is
+        # generated — expansion terms come from the graph, not a model.
         search_prompt = classification.prompt
-        # Execute all retrieval legs
+        expansion = self._expansion_terms()
+        if expansion:
+            search_prompt = f"{classification.prompt} {' '.join(expansion)}"
+            logger.info("grounded_query_expansion", terms=expansion)
+
+        # Execute the remaining retrieval legs
         legs: Dict[str, List[ContextFragment]] = {
             "bm25": self._bm25_episodic(classification, scope, conv_id, search_prompt),
             "vector": self._vector_episodic(prompt_embedding, classification, scope, conv_id),
-            "codex": self._codex_graph(classification, scope),
+            "codex": codex_fragments,
             "procedural": self._procedural_lookup(prompt_embedding, classification, scope),
             "rag": self._rag_lookup(prompt_embedding, classification),
             "batch_summary": self._batch_summary_lookup(prompt_embedding, conv_id),
@@ -690,45 +727,273 @@ class HybridRetrievalOrchestrator:
         return matched
 
     # ------------------------------------------------------------------
+    # A4: relation detection + enumeration + grounded expansion helpers
+    # ------------------------------------------------------------------
+    _ENUM_CUES = ("list", "all", "who are", "what are", "every", "each",
+                  "which", "name the", "tell me about", "enumerate")
+
+    @staticmethod
+    def _unit(vec):
+        """L2-normalise a vector. Needed because truncate_dim=384 slices a
+        longer normalised embedding, breaking unit norm — raw dot products
+        would sit well below any cosine threshold."""
+        norm = sum(a * a for a in vec) ** 0.5
+        return [a / norm for a in vec] if norm > 0 else list(vec)
+
+    def _relation_gloss_cache(self):
+        """Lazily embed the controlled relation vocabulary (as 'inspired by'
+        style glosses) once per process, unit-normalised. ~200 relations ×
+        384 dims — trivial to hold and scan."""
+        global _RELATION_GLOSSES
+        if _RELATION_GLOSSES is None:
+            from src.workers.codex_extractor import ALLOWED_RELATIONS
+            rels = sorted(ALLOWED_RELATIONS)
+            embs = self.embedder.encode([r.replace("_", " ") for r in rels],
+                                        convert_to_tensor=False, show_progress_bar=False)
+            _RELATION_GLOSSES = (rels, [self._unit(list(e)) for e in embs])
+        return _RELATION_GLOSSES
+
+    @staticmethod
+    def _stem(word: str) -> str:
+        """Crude suffix-stripper so 'inspired'/'inspires'/'inspiring' all meet
+        the relation lexeme 'inspired'. Both sides are stemmed identically, so
+        crudeness cancels out."""
+        w = word.lower()
+        for suf in ("ing", "ed", "es", "s"):
+            if len(w) > 4 and w.endswith(suf):
+                return w[: -len(suf)]
+        return w
+
+    def _detect_relations(self, prompt: str, prompt_embedding) -> List[str]:
+        """Controlled-vocabulary relations relevant to the prompt, from two
+        channels: (1) lexical — a relation's own content word appears in the
+        prompt ('who inspired X' → inspired_by), which is a direct grounded
+        hit; (2) embedding — top-k gloss cosine for paraphrases ('who is X's
+        wife' → married_to). Joint-signal only (see __init__ note): callers
+        must pair the result with matched entities or enumeration cues, never
+        use it alone."""
+        try:
+            rels, gloss_embs = self._relation_gloss_cache()
+            detected: List[str] = []
+
+            # Channel 1 — lexical hit on relation content words.
+            func_words = {"by", "of", "in", "to", "at", "on", "from", "is", "the", "with", "for"}
+            prompt_stems = {self._stem(w.strip(".,!?'\"")) for w in prompt.lower().split()}
+            for rel in rels:
+                lexemes = {self._stem(w) for w in rel.split("_") if w not in func_words}
+                if not lexemes:
+                    continue
+                # Single-word relations hit on that word; multi-word relations
+                # require all content words (one common word alone is too loose).
+                hit = (lexemes <= prompt_stems) if len(lexemes) > 1 else bool(lexemes & prompt_stems)
+                if hit:
+                    detected.append(rel)
+
+            # Channel 2 — embedding paraphrase channel (true cosine).
+            if prompt_embedding is not None:
+                p = self._unit(prompt_embedding)
+                scored = []
+                for rel, emb in zip(rels, gloss_embs):
+                    if rel in detected:
+                        continue
+                    sim = sum(a * b for a, b in zip(p, emb))
+                    if sim >= self.RELATION_SIM_FLOOR:
+                        scored.append((sim, rel))
+                scored.sort(reverse=True)
+                detected.extend(rel for _, rel in scored[:self.RELATION_TOP_K])
+            return detected
+        except Exception as err:
+            logger.error("relation_detection_failed", error=str(err))
+            return []
+
+    def _codex_scope_sets(self, scope: Optional[dict]):
+        """A5: resolve a project scope into (allowed_entity_ids, allowed_batch_ids).
+        Both None when unscoped (auto/none conversations search the graph globally)."""
+        if not scope or "conversation_id" not in scope:
+            return None, None
+        try:
+            batch_rows = self.db.execute(
+                text("SELECT DISTINCT batch_id FROM episodic_memory WHERE conversation_id = :cid"),
+                {"cid": scope["conversation_id"]}
+            ).fetchall()
+            batch_ids = {row.batch_id for row in batch_rows}
+            if not batch_ids:
+                return None, None
+            event_rows = self.db.execute(
+                text("SELECT DISTINCT entity_id FROM codex_events WHERE batch_source = ANY(:bids)"),
+                {"bids": list(batch_ids)}
+            ).fetchall()
+            return {row.entity_id for row in event_rows}, batch_ids
+        except Exception:
+            self.db.rollback()
+            return None, None
+
+    def _match_entities_exact(self, entity_strings: List[str]) -> List:
+        """Entity resolution by exact canonical name / alias only (no vectors).
+        Production fallback stage and the ablation `fuzzy_match=False` path."""
+        from sqlalchemy import or_
+        matched, seen = [], set()
+        for candidate_str in entity_strings:
+            norm = candidate_str.lower().strip()
+            ent = self.db.query(CodexEntity).filter(
+                or_(CodexEntity.canonical_name == norm, CodexEntity.aliases.any(norm))
+            ).first()
+            if ent and ent.id not in seen:
+                matched.append(ent)
+                seen.add(ent.id)
+        return matched
+
+    def _match_entities_by_payload(self, entity_strings: List[str]) -> List:
+        """A4 descriptor fallback: when name/alias/vector matching fails, look
+        for the *descriptor* inside entity payloads — 'main fortress' matches
+        the entity whose context_payload mentions 'fortress'. Closes part of
+        the semantic-vs-lexical gap without a schema change."""
+        stop = {"main", "this", "that", "what", "where", "when", "primary", "the"}
+        words = {w.lower() for s in entity_strings for w in s.split()
+                 if len(w) >= 4 and w.lower() not in stop}
+        if not words:
+            return []
+        try:
+            scored = {}
+            for w in words:
+                rows = self.db.query(CodexEntity).filter(
+                    CodexEntity.context_payload.ilike(f"%{w}%")
+                ).limit(20).all()
+                for ent in rows:
+                    scored[ent.id] = (scored.get(ent.id, (0, ent))[0] + 1, ent)
+            ranked = sorted(scored.values(), key=lambda t: t[0], reverse=True)
+            return [ent for hits, ent in ranked[:2] if hits >= 1]
+        except Exception:
+            self.db.rollback()
+            return []
+
+    def _relation_facts(self, matched, relations: List[str], allowed_batch_ids):
+        """A4: surface explicit edge facts where a matched entity participates
+        in a detected relation (either direction). The entity∩relation joint
+        hit is the precision anchor; these edges also join the reinforcement
+        anchors because they directly answered the query."""
+        if not matched or not relations:
+            return [], []
+        matched_ids = [e.id for e in matched]
+        q = self.db.query(CodexEdge).filter(
+            CodexEdge.valid_until == None,
+            CodexEdge.relation.in_(relations),
+            ((CodexEdge.source_id.in_(matched_ids)) | (CodexEdge.target_id.in_(matched_ids)))
+        )
+        if allowed_batch_ids is not None:
+            q = q.filter(CodexEdge.source_batch.in_(allowed_batch_ids))
+        lines, fact_edges = [], []
+        for edge in q.order_by(CodexEdge.strength.desc()).limit(10).all():
+            if self._edge_trust(edge) < self.CODEX_DIRECT_TRUST_FLOOR:
+                continue
+            src = self.db.query(CodexEntity).get(edge.source_id)
+            tgt = self.db.query(CodexEntity).get(edge.target_id)
+            if src and tgt:
+                lines.append(f"[Fact: {src.canonical_name} --{edge.relation}--> {tgt.canonical_name}]")
+                fact_edges.append(edge)
+        return lines, fact_edges
+
+    def _codex_enumeration(self, prompt: str, relations: List[str],
+                           allowed_entity_ids, allowed_batch_ids) -> List[ContextFragment]:
+        """A4: re-homed MERA. Entity-less category/enumeration queries ('list
+        all the characters') answered from the graph itself. Joint gate:
+        an explicit enumeration cue AND a grounded signal (a tag matching a
+        prompt token, or a detected relation) — no LLM, no loose triggers."""
+        pl = prompt.lower()
+        if not any(cue in pl for cue in self._ENUM_CUES):
+            return []
+        tokens = {w.strip(".,!?'s\"") for w in pl.split()}
+        candidate_tags = {t for w in tokens if len(w) >= 4 for t in (w, w.rstrip("s"))}
+        lines, seen_entities = [], set()
+        try:
+            # (a) tag-matched entities: "characters" → tag 'character'
+            if candidate_tags:
+                from sqlalchemy import or_
+                q = self.db.query(CodexEntity).filter(
+                    or_(*[CodexEntity.tags.any(t) for t in candidate_tags]))
+                for ent in q.limit(self.ENUM_ENTITY_LIMIT).all():
+                    if allowed_entity_ids is not None and ent.id not in allowed_entity_ids:
+                        continue
+                    if ent.id not in seen_entities and ent.context_payload:
+                        seen_entities.add(ent.id)
+                        lines.append(f"[Entity: {ent.canonical_name}]\n{ent.context_payload}")
+            # (b) relation-driven facts: "who inspired ..." → inspired_by edges
+            if relations:
+                q = self.db.query(CodexEdge).filter(
+                    CodexEdge.valid_until == None,
+                    CodexEdge.relation.in_(relations))
+                if allowed_batch_ids is not None:
+                    q = q.filter(CodexEdge.source_batch.in_(allowed_batch_ids))
+                for edge in q.order_by(CodexEdge.strength.desc()).limit(self.ENUM_EDGE_LIMIT).all():
+                    if self._edge_trust(edge) < self.CODEX_DIRECT_TRUST_FLOOR:
+                        continue
+                    src = self.db.query(CodexEntity).get(edge.source_id)
+                    tgt = self.db.query(CodexEntity).get(edge.target_id)
+                    if src and tgt:
+                        lines.append(f"[Fact: {src.canonical_name} --{edge.relation}--> {tgt.canonical_name}]")
+            if not lines:
+                return []
+            combined = "\n\n".join(lines)
+            logger.info("codex_enumeration", entities=len(seen_entities),
+                        facts=len(lines) - len(seen_entities), relations=relations)
+            return [ContextFragment(text=combined, source_type="codex", score=1.0,
+                                    token_count=int(len(combined.split()) * 1.33))]
+        except Exception as err:
+            logger.error("codex_enumeration_failed", error=str(err))
+            self.db.rollback()
+            return []
+
+    def _expansion_terms(self) -> List[str]:
+        """A4 grounded query expansion (the sane replacement for HyDE): expand
+        the BM25 search prompt with the *canonical names and aliases* of the
+        entities the prompt actually matched — 'citadel' pulls in 'the obsidian
+        citadel' so lexical search hits turns using the full name. Grounded
+        only: nothing is generated, so nothing can be hallucinated."""
+        terms, seen = [], set()
+        for ent in self._last_matched_entities:
+            for term in [ent.canonical_name] + list(ent.aliases or []):
+                t = (term or "").strip().lower()
+                if t and t not in seen:
+                    seen.add(t)
+                    terms.append(t)
+                if len(terms) >= self.EXPANSION_MAX_TERMS:
+                    return terms
+        return terms
+
+    # ------------------------------------------------------------------
     # Codex graph traversal (conversation‑scoped, NER‑powered)
     # ------------------------------------------------------------------
-    def _codex_graph(self, classification, scope: Optional[dict] = None) -> List[ContextFragment]:
+    def _codex_graph(self, classification, scope: Optional[dict] = None,
+                     prompt_embedding=None) -> List[ContextFragment]:
         prompt = classification.prompt
+        self._last_matched_entities = []
         entity_strings = extract_entities(prompt, self.embedder)
+
+        matched = []
         if entity_strings:
-            matched = self._match_entities_by_similarity(entity_strings)
-        elif self.enable_mera:
-            from src.retrieval.mera import is_mera_candidate, map_category_to_filters, enumerate_entities
-            if is_mera_candidate(prompt):
-                filters = map_category_to_filters(self.db, prompt)
-                matched = enumerate_entities(self.db, filters.get("tags", []), filters.get("relations", []))
-            else:
-                return []
-        else:
-            return []
+            matched = (self._match_entities_by_similarity(entity_strings)
+                       if self.use_fuzzy_match
+                       else self._match_entities_exact(entity_strings))
+            if not matched:
+                # A4 descriptor fallback: 'main fortress' → payload mentions 'fortress'
+                matched = self._match_entities_by_payload(entity_strings)
+
+        # A4: relations relevant to the prompt — lexical + embedding channels
+        # (joint signal only).
+        detected_relations = self._detect_relations(prompt, prompt_embedding)
+        # A5: project-scope sets (both None when unscoped).
+        allowed_entity_ids, allowed_batch_ids = self._codex_scope_sets(scope)
 
         if not matched:
+            # A4: re-homed MERA — entity-less enumeration ("list all the characters").
+            if self.enable_enumeration:
+                return self._codex_enumeration(prompt, detected_relations,
+                                               allowed_entity_ids, allowed_batch_ids)
             return []
 
-        try:
-            allowed_entity_ids = None
-            if scope and "conversation_id" in scope:
-                conv_id = scope["conversation_id"]
-                try:
-                    batch_rows = self.db.execute(
-                        text("SELECT DISTINCT batch_id FROM episodic_memory WHERE conversation_id = :cid"),
-                        {"cid": conv_id}
-                    ).fetchall()
-                    batch_ids = [row.batch_id for row in batch_rows]
-                    if batch_ids:
-                        event_rows = self.db.execute(
-                            text("SELECT DISTINCT entity_id FROM codex_events WHERE batch_source = ANY(:bids)"),
-                            {"bids": batch_ids}
-                        ).fetchall()
-                        allowed_entity_ids = {row.entity_id for row in event_rows}
-                except Exception:
-                    self.db.rollback()
+        self._last_matched_entities = matched   # grounded query expansion (BM25)
 
+        try:
             visited = set()
             context_texts = []
             anchor_edges = []   # A3: direct edges of matched entities → reinforced on retrieval
@@ -736,20 +1001,34 @@ class HybridRetrievalOrchestrator:
                 if allowed_entity_ids is not None and entity.id not in allowed_entity_ids:
                     continue
                 self._traverse_graph(entity, 0, self.CODEX_MAX_DEPTH, visited,
-                                     context_texts, anchor_edges)
+                                     context_texts, anchor_edges,
+                                     allowed_entity_ids, allowed_batch_ids)
+
+            # A4: relation-aware fact surfacing — edges where a matched entity
+            # participates in a detected relation, in either direction.
+            relation_boost = 0.0
+            if detected_relations and context_texts:
+                fact_lines, fact_edges = self._relation_facts(
+                    matched, detected_relations, allowed_batch_ids)
+                if fact_lines:
+                    context_texts.extend(fact_lines)
+                    anchor_edges.extend(fact_edges)
+                    relation_boost = self.RELATION_OVERLAP_BOOST
+                    logger.info("codex_relation_overlap",
+                                relations=detected_relations, facts=len(fact_lines))
 
             if context_texts:
                 combined = "\n\n".join(context_texts)
-                # A3: graded score from matched entities' edge strength, replacing
-                # the coarse binary 1.5x. Bounded to 1.0–1.5 so codex doesn't
-                # dominate fusion on strength alone.
+                # A3: graded score from matched entities' edge trust, replacing
+                # the coarse binary 1.5x; A4 adds the entity∩relation overlap
+                # boost on top. Bounded so codex doesn't dominate fusion.
                 matched_edges = self.db.query(CodexEdge).filter(
                     CodexEdge.source_id.in_([e.id for e in matched]),
                     CodexEdge.valid_until == None
                 ).all()
                 mean_trust = (sum(self._edge_trust(e) for e in matched_edges) / len(matched_edges)
                               if matched_edges else 0.0)
-                score = 1.0 + min(0.5, 0.25 * mean_trust)
+                score = 1.0 + min(0.5, 0.25 * mean_trust) + relation_boost
 
                 # A3: retrieval-reinforcement — the codex analog of episodic
                 # access_count/decay_score strengthening (only the anchor edges).
@@ -775,16 +1054,37 @@ class HybridRetrievalOrchestrator:
         conf = edge.extraction_confidence if edge.extraction_confidence is not None else 1.0
         return (edge.strength or 0.0) * conf
 
-    def _traverse_graph(self, entity, depth, max_depth, visited, context_texts, anchor_edges=None):
+    def _traverse_graph(self, entity, depth, max_depth, visited, context_texts, anchor_edges=None,
+                        allowed_entity_ids=None, allowed_batch_ids=None):
         if entity.id in visited or depth > max_depth:
             return
         visited.add(entity.id)
-        if entity.context_payload:
-            context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
+
         edges = self.db.query(CodexEdge).filter(
             CodexEdge.source_id == entity.id,
             CodexEdge.valid_until == None
-        ).all()
+        ).order_by(CodexEdge.strength.desc()).all()
+        # A5: under project scope, only edges asserted by this conversation's
+        # batches exist for traversal AND payload rendering — a shared entity
+        # ("ice") no longer leaks facts from other conversations.
+        if allowed_batch_ids is not None:
+            edges = [e for e in edges if e.source_batch in allowed_batch_ids]
+
+        # Payload: unscoped uses the stored (global) context_payload; scoped
+        # renders one on the fly from the conversation's own edges so the
+        # injected text is as scoped as the traversal (A5).
+        if allowed_batch_ids is None:
+            if entity.context_payload:
+                context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
+        else:
+            parts = []
+            for edge in edges[:10]:
+                tgt = self.db.query(CodexEntity).get(edge.target_id)
+                if tgt:
+                    parts.append(f"{edge.relation} → {tgt.canonical_name}")
+            if parts:
+                context_texts.append(f"[Entity: {entity.canonical_name}]\n" + "; ".join(parts))
+
         for edge in edges:
             trust = self._edge_trust(edge)
             if depth == 0:
@@ -800,10 +1100,14 @@ class HybridRetrievalOrchestrator:
             # expand the frontier, cutting the depth-3 pollution.
             elif trust < self.CODEX_DEEP_STRENGTH_FLOOR:
                 continue
+            # A5: traversal never leaves the conversation's entity set under scope.
+            if allowed_entity_ids is not None and edge.target_id not in allowed_entity_ids:
+                continue
             target = self.db.query(CodexEntity).get(edge.target_id)
             if target:
                 self._traverse_graph(target, depth + 1, max_depth, visited,
-                                     context_texts, anchor_edges)
+                                     context_texts, anchor_edges,
+                                     allowed_entity_ids, allowed_batch_ids)
 
     def _reinforce_codex_edges(self, edges):
         """A3 retrieval-reinforcement (episodic analog): the anchor edges of the
@@ -1076,7 +1380,7 @@ class HybridRetrievalOrchestrator:
             self.db.rollback()
             fragments = []
 
-        fragments.extend(self._codex_graph(classification))
+        fragments.extend(self._codex_graph(classification, prompt_embedding=prompt_embedding))
         fragments.extend(self._rag_lookup(prompt_embedding, classification))
 
         fused = self._apply_rrf({"fallback": fragments}, alpha_map={"fallback": 1.0})

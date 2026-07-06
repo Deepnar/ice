@@ -188,7 +188,12 @@ def test_mera():
     print("\n" + "=" * 60)
     print("4. MERA ENUMERATION")
 
-    from src.retrieval.mera import is_mera_candidate, map_category_to_filters, enumerate_entities
+    try:
+        from src.retrieval.mera import is_mera_candidate, map_category_to_filters, enumerate_entities
+    except ImportError:
+        print("SKIP: MERA was removed (roadmap A4) — enumeration now lives in "
+              "HybridRetrievalOrchestrator._codex_enumeration.")
+        return
     db = SessionLocal()
 
     prompts = [

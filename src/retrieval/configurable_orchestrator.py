@@ -16,8 +16,6 @@ from sqlalchemy.orm import Session
 import structlog
 
 from src.classifier.schemas import ClassificationResult
-from src.memory.models import CodexEntity
-from src.retrieval.ner_utils import extract_entities   # ← ADD THIS LINE
 from src.retrieval.orchestrator import (
     HybridRetrievalOrchestrator, ContextFragment,
     BONUS_RECENT_TOP_10PCT, BONUS_RECENT_TOP_30PCT,
@@ -77,98 +75,19 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
             return []
         return super()._rag_lookup(prompt_embedding, classification)
 
-    # ── Codex graph — fully overridden to support mera / fuzzy_match flags ──
+    # ── Codex graph — flag mapping over the base implementation ──────────
+    # The base leg (A3/A4) natively supports exact-vs-fuzzy matching and the
+    # relation/tag enumeration that replaced MERA, so this override just maps
+    # ablation flags onto base-class switches. The `mera` flag now toggles the
+    # re-homed enumeration capability (capability-level ablation continuity).
 
-    def _codex_graph(self, classification, scope: Optional[dict] = None) -> List[ContextFragment]:
-        """Codex graph traversal with optional MERA and fuzzy‑match toggles."""
+    def _codex_graph(self, classification, scope: Optional[dict] = None,
+                     prompt_embedding=None) -> List[ContextFragment]:
         if self._off("codex"):
             return []
-
-        prompt = classification.prompt
-        entity_strings = extract_entities(prompt, self.embedder)
-        if entity_strings:
-            if self._off("fuzzy_match"):
-                matched = self._match_entities_exact(entity_strings)
-            else:
-                matched = self._match_entities_by_similarity(entity_strings)
-        else:
-            if self._off("mera"):
-                return []
-            from src.retrieval.mera import is_mera_candidate, map_category_to_filters, enumerate_entities
-            if is_mera_candidate(prompt):
-                filters = map_category_to_filters(self.db, prompt)
-                matched = enumerate_entities(self.db, filters.get("tags", []), filters.get("relations", []))
-            else:
-                return []
-
-        if not matched:
-            return []
-
-        try:
-            allowed_entity_ids = None
-            if scope and "conversation_id" in scope:
-                conv_id = scope["conversation_id"]
-                try:
-                    from sqlalchemy import text
-                    batch_rows = self.db.execute(
-                        text("SELECT DISTINCT batch_id FROM episodic_memory WHERE conversation_id = :cid"),
-                        {"cid": conv_id}
-                    ).fetchall()
-                    batch_ids = [row.batch_id for row in batch_rows]
-                    if batch_ids:
-                        event_rows = self.db.execute(
-                            text("SELECT DISTINCT entity_id FROM codex_events WHERE batch_source = ANY(:bids)"),
-                            {"bids": batch_ids}
-                        ).fetchall()
-                        allowed_entity_ids = {row.entity_id for row in event_rows}
-                except Exception:
-                    self.db.rollback()
-
-            visited = set()
-            context_texts = []
-            for entity in matched:
-                if allowed_entity_ids is not None and entity.id not in allowed_entity_ids:
-                    continue
-                self._traverse_graph(entity, 0, 3, visited, context_texts)
-
-            if context_texts:
-                combined = "\n\n".join(context_texts)
-                score = 1.0
-                from src.memory.models import CodexEdge
-                if any(e.confidence == "active" and e.strength >= 2.0 for e in
-                    self.db.query(CodexEdge).filter(
-                        CodexEdge.source_id.in_([e.id for e in matched]),
-                        CodexEdge.valid_until == None
-                    ).all()):
-                    score *= 1.5
-                return [ContextFragment(
-                    text=combined,
-                    source_type="codex",
-                    score=score,
-                    token_count=int(len(combined.split()) * 1.33)
-                )]
-            return []
-        except Exception as err:
-            logger.error("codex_retrieval_failed", error=str(err))
-            self.db.rollback()
-            return []
-
-    def _match_entities_exact(self, entity_strings: List[str]) -> List:
-        """Match entity strings using ONLY exact canonical name or alias match (no vector similarity)."""
-        from sqlalchemy import or_
-        matched = []
-        seen = set()
-        for candidate_str in entity_strings:
-            norm = candidate_str.lower().strip()
-            if norm in seen:
-                continue
-            ent = self.db.query(CodexEntity).filter(
-                or_(CodexEntity.canonical_name == norm, CodexEntity.aliases.any(norm))
-            ).first()
-            if ent and ent.id not in seen:
-                matched.append(ent)
-                seen.add(ent.id)
-        return matched
+        self.use_fuzzy_match = self._on("fuzzy_match")
+        self.enable_enumeration = self._on("mera")
+        return super()._codex_graph(classification, scope, prompt_embedding)
 
     # ── Override post‑processing ─────────────────────────────────────────
 
