@@ -27,6 +27,8 @@ The queue of upcoming work is **[docs/ROADMAP.md](docs/ROADMAP.md)** — a livin
 Rules for working it:
 
 - **Roadmap entries are intent + rationale, not specs.** When a feature's turn comes, discuss the concrete implementation with the user first — never build straight from the entry.
+- **Look ahead before building.** Before implementing any item, scan the roadmap for later items in the same subsystem. Design the current work to be forward-compatible with where those are heading (build on the primitive they'll need), or if they genuinely conflict, decide explicitly (do the later one first, or record the exact seam). Don't implement anything a known-future item will have to tear out; note the look-ahead result in the completion entry.
+- **Earn the checkmark.** Only mark an item done after its full original scope is implemented *and* behaviorally validated (a real run/test, not just a syntax check) — audit against the entry text, not memory of it. Always before implementaions check what how it actually is in realtion to what we want to do and roughly check thru the previous implemented if they are actually done or not.
 - **It doubles as the progress tracker.** Check items off in `docs/ROADMAP.md` as they're completed.
 - **Keep the architecture doc in sync.** When a brand-new system/feature is finished, add a section for it to `docs/ICE_Architecture.md`; when an existing subsystem is reworked, search out its existing section there and update it to match the new behavior. The architecture doc must keep reflecting the system as built.
 

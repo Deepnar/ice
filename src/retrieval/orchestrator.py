@@ -807,16 +807,40 @@ class HybridRetrievalOrchestrator:
             return []
 
     def _codex_scope_sets(self, scope: Optional[dict]):
-        """A5: resolve a project scope into (allowed_entity_ids, allowed_batch_ids).
-        Both None when unscoped (auto/none conversations search the graph globally)."""
-        if not scope or "conversation_id" not in scope:
+        """A5: resolve a scope into (allowed_entity_ids, allowed_batch_ids).
+        Both None means UNSCOPED — search the whole graph (auto).
+
+        The scope is resolved down to a **set of batch_ids**, which is the
+        forward-compatible primitive for the C6 scoping rework: today only a
+        single `conversation_id` is populated (project scope), but any future
+        scoping — several ticked conversations (cross-chat), a session_id, an
+        @-mentioned conversation/turn — is just a different way of computing
+        this same batch set, and the traversal filters downstream never change.
+        C6 will populate one of:
+          scope["batch_ids"]         — pre-resolved (session / @-mention)
+          scope["conversation_ids"]  — several conversations (cross-chat)
+          scope["conversation_id"]   — one conversation (today's project scope)
+          scope["isolated"] = True   — incognito / none: empty set, matches nothing
+        """
+        if not scope:
             return None, None
+        if scope.get("isolated"):                 # C6 'none' = true incognito
+            return set(), set()
         try:
-            batch_rows = self.db.execute(
-                text("SELECT DISTINCT batch_id FROM episodic_memory WHERE conversation_id = :cid"),
-                {"cid": scope["conversation_id"]}
-            ).fetchall()
-            batch_ids = {row.batch_id for row in batch_rows}
+            batch_ids = set()
+            if scope.get("batch_ids"):
+                batch_ids = {b if not isinstance(b, str) else b for b in scope["batch_ids"]}
+            else:
+                conv_ids = scope.get("conversation_ids")
+                if not conv_ids and scope.get("conversation_id"):
+                    conv_ids = [scope["conversation_id"]]
+                if conv_ids:
+                    rows = self.db.execute(
+                        text("SELECT DISTINCT batch_id FROM episodic_memory "
+                             "WHERE conversation_id = ANY(:cids)"),
+                        {"cids": list(conv_ids)}
+                    ).fetchall()
+                    batch_ids = {row.batch_id for row in rows}
             if not batch_ids:
                 return None, None
             event_rows = self.db.execute(
