@@ -73,6 +73,47 @@ def _ensure_loaded():
     _ner_tokenizer = _load_tokenizer()
 
 
+# Pronouns / articles / conversational boilerplate that the context-free NER
+# sometimes tags as entities — dropped from output to improve precision (the
+# same junk the regex-fallback stoplist guards against, applied to model output).
+_NER_STOP = {
+    "the", "a", "an", "he", "she", "it", "they", "them", "his", "her", "its",
+    "their", "this", "that", "these", "those", "i", "we", "you", "me", "us",
+    "user", "assistant", "chapter",
+}
+
+
+def _snap_to_words(text: str, start: int, end: int):
+    """Expand a char span to whole-word boundaries. The per-subword tagger can
+    stop mid-word (e.g. 'Pyd' inside 'Pydantic'); snapping recovers the full
+    word so downstream entity matching (and A2 grounding) sees 'pydantic'."""
+    while start > 0 and (text[start - 1].isalnum() or text[start - 1] == "_"):
+        start -= 1
+    while end < len(text) and (text[end].isalnum() or text[end] == "_"):
+        end += 1
+    return start, end
+
+
+# Function words that are never the head/tail of a real entity — trimmed from
+# both ends to clean the context-free tagger's boundary bleed ('on Pydantic'
+# -> 'Pydantic'). Verb-led bleed ('uses PostgreSQL') is NOT handled here; that
+# needs a context-aware model (roadmap A9).
+_EDGE_TRIM = {
+    "the", "a", "an", "and", "or", "of", "in", "on", "to", "with", "for",
+    "at", "by", "from", "over", "under", "as", "that", "this", "into", "onto",
+}
+
+
+def _clean_entity(s: str) -> str:
+    """Trim leading/trailing function words from an entity span."""
+    parts = s.strip().split()
+    while parts and parts[0].lower() in _EDGE_TRIM:
+        parts.pop(0)
+    while parts and parts[-1].lower() in _EDGE_TRIM:
+        parts.pop()
+    return " ".join(parts).strip()
+
+
 def extract_entities(text: str, embedder, max_chars: Optional[int] = None) -> List[str]:
     """Extract entity strings from *text* using the real MicroNER model.
 
@@ -165,4 +206,15 @@ def extract_entities(text: str, embedder, max_chars: Optional[int] = None) -> Li
         glued.append((prev_start, prev_end, prev_str))
         entities = glued
 
-    return [e[2] for e in entities if len(e[2]) > 0]
+    # Per-entity cleanup (applied after gluing so it can't trigger new merges):
+    # snap partial-word spans to whole words (fixes 'Pyd' -> 'Pydantic'), strip
+    # leading articles, drop pronoun/boilerplate junk, dedup.
+    cleaned, seen = [], set()
+    for s, e, _ in entities:
+        s, e = _snap_to_words(text, s, e)
+        c = _clean_entity(text[s:e].strip())
+        cl = c.lower()
+        if c and cl not in _NER_STOP and cl not in seen:
+            seen.add(cl)
+            cleaned.append(c)
+    return cleaned

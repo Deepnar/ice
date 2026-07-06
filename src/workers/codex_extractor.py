@@ -18,6 +18,7 @@ from src.memory.models import (
 )
 from src.workers.celery_app import app
 from src.workers.gpu_check import is_gpu_busy, is_user_active
+from src.retrieval.ner_utils import extract_entities
 
 # Module‑level embedder for new entity embeddings
 embedder = SentenceTransformer(
@@ -370,6 +371,58 @@ def _chunk_text(text: str, max_tokens: int = CHUNK_TOKENS, overlap_words: int = 
     return chunks
 
 
+# -----------------------------------------------------------------
+# NER grounding (roadmap A2)
+# -----------------------------------------------------------------
+# The CPU micro-NER model is the trusted anchor for *which entities exist*.
+# The extraction LLM's only job is to relate them — so a triplet naming an
+# entity NER never confirmed is treated as a hallucination and dropped.
+# This is the seam for A3: instead of dropping `rejected`, A3 will keep them
+# as low-confidence edges. Property relations are special: their object is a
+# value/descriptor (e.g. role="fire mage"), so only the subject is grounded.
+def _normalize_term(s: str) -> str:
+    """Lowercase, drop a leading article, strip punctuation, collapse spaces —
+    so NER's verbatim strings and the LLM's canonicalised output compare fairly."""
+    s = s.strip().lower()
+    s = re.sub(r"^(the|a|an)\s+", "", s)
+    s = re.sub(r"[^a-z0-9 ]+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _ground_triplets(triplets: list, ner_entities: List[str]):
+    """Split *triplets* into (grounded, rejected) against the NER-confirmed
+    entity list. A term is grounded if its normalised form equals a confirmed
+    entity or its token set is a subset (either direction) of one — so
+    shortened ('citadel' ⊂ 'obsidian citadel') and qualified mentions still
+    ground, while invented entities with no token overlap are rejected."""
+    norm_entities = set()
+    entity_token_sets = []
+    for e in ner_entities:
+        ne = _normalize_term(e)
+        if ne:
+            norm_entities.add(ne)
+            entity_token_sets.append(frozenset(ne.split()))
+
+    def _grounded(term: str) -> bool:
+        nt = _normalize_term(term)
+        if not nt:
+            return False
+        if nt in norm_entities:
+            return True
+        t_tokens = frozenset(nt.split())
+        if not t_tokens:
+            return False
+        return any(t_tokens <= e or e <= t_tokens for e in entity_token_sets)
+
+    keep, drop = [], []
+    for t in triplets:
+        subj_ok = _grounded(t.get("subject", ""))
+        # Property relations carry a value object, not an entity — ground subject only.
+        obj_ok = True if t.get("relation") in PROPERTY_RELATIONS else _grounded(t.get("object", ""))
+        (keep if (subj_ok and obj_ok) else drop).append(t)
+    return keep, drop
+
+
 def _build_grouped_relation_block() -> str:
     """Render ALLOWED_RELATIONS as labeled groups instead of one flat list.
 
@@ -459,12 +512,24 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
 
         all_triplets = []
         for chunk in chunks:
+            # NER grounding (roadmap A2): confirm entities on the CPU first, then
+            # constrain the LLM to relate only those. Reuses A1's chunk.
+            ner_entities = extract_entities(chunk, embedder)
+            entity_block = ""
+            if ner_entities:
+                confirmed = ", ".join(dict.fromkeys(ner_entities))  # dedup, keep order
+                entity_block = (
+                    "\n\nCONFIRMED ENTITIES (use ONLY these as subjects, and as objects "
+                    "for relations between two entities; do NOT introduce named entities "
+                    f"not in this list):\n{confirmed}"
+                )
+
             chunk_prompt = prompt + code_prompt + "\nNow process this text:"
             completion = bg_client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {"role": "system", "content": "You are a JSON-only fact extraction tool. Never output anything but JSON."},
-                    {"role": "user", "content": f"Text:\n{chunk}\n\n{chunk_prompt}"}
+                    {"role": "user", "content": f"Text:\n{chunk}{entity_block}\n\n{chunk_prompt}"}
                 ],
                 temperature=0.0,
                 max_tokens=500,
@@ -508,6 +573,24 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
             suspicious_objects = {"blush", "laugh", "cry", "smile", "angry", "sad", "happy", "mad"}
             chunk_triplets = [t for t in chunk_triplets
                               if t.get("object", "").strip().lower() not in suspicious_objects]
+
+            # Drop self-referential triplets ("fastapi uses fastapi") — an
+            # attention-dilution artifact the A1/A2 work targets; grounding
+            # alone can't catch it since both terms are confirmed entities.
+            chunk_triplets = [t for t in chunk_triplets
+                              if _normalize_term(t.get("subject", "")) != _normalize_term(t.get("object", ""))]
+
+            # NER grounding: drop triplets whose entities NER didn't confirm.
+            # Skipped when NER found nothing for this chunk (no anchor to trust).
+            # A3 seam: keep `rejected` at low confidence instead of dropping.
+            if ner_entities:
+                chunk_triplets, rejected = _ground_triplets(chunk_triplets, ner_entities)
+                if rejected:
+                    logger.info("codex_grounding",
+                                kept=len(chunk_triplets), rejected=len(rejected),
+                                samples=[f'{t.get("subject")}|{t.get("relation")}|{t.get("object")}'
+                                         for t in rejected[:8]])
+
             all_triplets.extend(chunk_triplets)
 
         # Deduplicate by (subject, relation, object) tuple
