@@ -91,6 +91,13 @@ class CodexEntity(Base):
     canonical_name = Column(Text, nullable=False, unique=True)
     aliases = Column(ARRAY(Text), default=[])
     tags = Column(ARRAY(Text), default=[])
+    # A7: entity_type is the structural node type (person/place/software/concept/
+    # organization/entity), inferred from an entity's relations; the code graph
+    # (E1b) sets it deterministically. description is the enriched "note body"
+    # (Obsidian-style) written by the reflection enrichment worker; context_payload
+    # is assembled from description + properties + links (both directions).
+    entity_type = Column(Text, default="entity")
+    description = Column(Text, default="")
     properties = Column(JSONB, default={})
     context_payload = Column(Text, default="")
     embedding = Column(Vector(384), nullable=True)

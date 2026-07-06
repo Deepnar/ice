@@ -650,22 +650,98 @@ def get_or_create_entity(db, name: str) -> CodexEntity:
     db.flush()
     return new_entity
 
+# A7: relation → likely type of the relation's SOURCE entity. Used to infer a
+# structural entity_type from how an entity is talked about. Deterministic code
+# types (function/class/file/module) are set directly by the code graph (E1b).
+_TYPE_HINTS = {
+    "person": {"role", "occupation", "profession", "married_to", "is_dating",
+               "is_divorced_from", "is_separated_from", "parent_of", "child_of",
+               "sibling_of", "friend", "enemy", "ally", "colleague", "knows",
+               "mentor_of", "student_of", "reports_to", "works_at", "born_in",
+               "lives_in", "died_in", "wields", "possesses", "age", "gender"},
+    "software": {"uses", "imports", "depends_on", "extends", "implements", "calls",
+                 "returns", "integrates_with", "supports", "hosted_on", "deployed_to",
+                 "references", "cites", "trained_on", "evaluated_on", "configured_with",
+                 "defined_in", "tested_by", "derived_from"},
+    "place": {"located_in", "contains", "set_in", "operates_in", "is_based_in", "capital_of"},
+    "organization": {"founded_by", "member_of", "employs", "acquired_by", "partners_with",
+                     "is_ceo_of", "is_founder_of"},
+    "concept": {"instance_of", "subtype_of", "exemplifies", "derived_from_theory",
+                "complements", "opposes", "measures"},
+}
+# Tags we accept directly as a structural type. ICE is a general-purpose memory
+# for ALL domains — coding, research, academic, business, personal, creative —
+# so the vocabulary spans them; a normaliser folds common synonyms onto a
+# canonical type. entity_type is open: any tag can be a type, these are just the
+# recognised ones with inference support.
+_TYPE_SYNONYMS = {"location": "place", "org": "organization", "company": "organization",
+                  "tool": "software", "library": "software", "framework": "software",
+                  "app": "software", "npc": "character", "char": "character",
+                  "paper": "document", "article": "document", "metric": "concept",
+                  "theory": "concept", "topic": "concept"}
+_KNOWN_TYPES = set(_TYPE_HINTS.keys()) | {
+    "person", "place", "organization", "event", "concept", "object",    # universal
+    "software", "function", "class", "file", "module", "dataset",       # coding / research
+    "document", "product",                                              # academic / business
+    "character", "location", "item", "creature", "faction",             # creative / narrative
+}
+
+
+def _infer_entity_type(relations, tags, current: str) -> str:
+    """Infer a structural type: an explicit known type-tag wins; else vote by the
+    entity's outgoing relations; else keep the current value."""
+    for t in (tags or []):
+        tl = t.lower()
+        tl = _TYPE_SYNONYMS.get(tl, tl)
+        if tl in _KNOWN_TYPES:
+            return tl
+    votes = {}
+    for rel in relations:
+        for etype, rels in _TYPE_HINTS.items():
+            if rel in rels:
+                votes[etype] = votes.get(etype, 0) + 1
+    if votes:
+        return max(votes, key=votes.get)
+    return current or "entity"
+
+
 def _regenerate_context_payload(entity: CodexEntity, db) -> None:
-    """Rebuild context_payload from current properties and active edges."""
-    parts = []
-    if entity.properties:
-        for k, v in entity.properties.items():
-            parts.append(f"{k}: {v}")
-    # Add a one‑line summary of active edges (using the same db session)
-    active_edges = db.query(CodexEdge).filter(
+    """A7: rebuild context_payload as a rich, bidirectional 'note': the enriched
+    description (note body), then properties, then outgoing links AND incoming
+    backlinks (Obsidian-style). Also infers entity_type from the relations."""
+    out_edges = db.query(CodexEdge).filter(
         CodexEdge.source_id == entity.id,
         CodexEdge.valid_until == None
-    ).order_by(CodexEdge.strength.desc()).limit(10).all()  # A3: strongest first
-    for edge in active_edges:
-        target = db.query(CodexEntity).get(edge.target_id)
-        target_name = target.canonical_name if target else "?"
-        parts.append(f"{edge.relation} → {target_name}")
-    entity.context_payload = "; ".join(parts) if parts else ""
+    ).order_by(CodexEdge.strength.desc()).limit(10).all()
+    in_edges = db.query(CodexEdge).filter(
+        CodexEdge.target_id == entity.id,
+        CodexEdge.valid_until == None
+    ).order_by(CodexEdge.strength.desc()).limit(10).all()
+
+    entity.entity_type = _infer_entity_type(
+        [e.relation for e in out_edges] + [e.relation for e in in_edges],
+        entity.tags, entity.entity_type)
+
+    parts = []
+    if entity.description:
+        parts.append(entity.description.strip())
+    if entity.properties:
+        props = "; ".join(f"{k}: {v}" for k, v in entity.properties.items())
+        if props:
+            parts.append(f"Properties: {props}")
+    out_lines = []
+    for edge in out_edges:
+        tgt = db.query(CodexEntity).get(edge.target_id)
+        out_lines.append(f"{edge.relation} → {tgt.canonical_name if tgt else '?'}")
+    if out_lines:
+        parts.append("Links: " + "; ".join(out_lines))
+    back_lines = []
+    for edge in in_edges:
+        src = db.query(CodexEntity).get(edge.source_id)
+        back_lines.append(f"{src.canonical_name if src else '?'} --{edge.relation}→")
+    if back_lines:
+        parts.append("Backlinks: " + "; ".join(back_lines))
+    entity.context_payload = "\n".join(parts)
 
 # ===================================================================
 # A6 — Self-correcting graph (bounded reconciliation loop)
