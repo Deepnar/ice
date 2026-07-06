@@ -275,33 +275,98 @@ def generate_uuid5(canonical_name: str) -> uuid.UUID:
     return uuid.uuid5(CODEX_NAMESPACE, canonical_name.strip().lower())
 
 # -----------------------------------------------------------------
-# Extraction safety: chunk long turns to fit the background model
+# Extraction chunking (roadmap A1)
 # -----------------------------------------------------------------
-MAX_EXTRACTION_TOKENS = 6000          # leave room for the prompt + response
-OVERLAP_WORDS = 200                   # overlap between chunks (avoids cutting facts)
+# WHY SMALL CHUNKS: a 3–4B extractor's attention dilutes past ~1k tokens,
+# so oversized chunks drop mid-passage entities and confuse subject/object
+# (the `fastapi uses fastapi` failure). We target ~550 tokens so the same
+# chunks can also feed the NER-grounding step (roadmap A2) in one pass.
+# WHY SENTENCE/CODE-AWARE BOUNDARIES: raw word windows cut facts in half;
+# packing whole sentences (prose) and whole lines (code) keeps each fact
+# intact, which is the bigger quality lever than size alone.
+CHUNK_TOKENS = 550                    # target tokens per extraction chunk (shared with A2 NER)
+OVERLAP_WORDS = 50                    # word overlap carried into the next chunk
+MAX_EXTRACTION_TOKENS = 6000          # legacy constant; retained for import compatibility
 
-def _estimate_tokens(text: str) -> int:
-    """Rough token estimate (words * 1.33)."""
-    return int(len(text.split()) * 1.33)
+_CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 
-def _chunk_text(text: str, max_tokens: int, overlap_words: int = OVERLAP_WORDS) -> list:
-    """Split *text* into overlapping word‑chunks that stay under *max_tokens*."""
-    words = text.split()
-    if not words:
-        return []
-    max_words = int(max_tokens / 1.33)
-    if len(words) <= max_words:
-        return [text]
+
+def _estimate_tokens(text: str, is_code: bool = False) -> int:
+    """Rough token estimate. Code tokenizes far heavier than prose (symbols,
+    no word spacing), so for code we take the larger of a word- and a
+    char-based estimate rather than the prose words*1.33 heuristic."""
+    word_est = len(text.split()) * 1.33
+    if is_code:
+        return int(max(word_est, len(text) / 3.0))
+    return int(word_est)
+
+
+def _split_segments(text: str):
+    """Split *text* into ordered (segment, is_code) pairs, isolating fenced
+    code blocks from surrounding prose so each gets its own unit strategy."""
+    segments = []
+    idx = 0
+    for m in _CODE_FENCE_RE.finditer(text):
+        if m.start() > idx:
+            segments.append((text[idx:m.start()], False))
+        segments.append((m.group(0), True))
+        idx = m.end()
+    if idx < len(text):
+        segments.append((text[idx:], False))
+    return segments
+
+
+def _atomic_units(text: str):
+    """Break *text* into atomic units that must never be split across chunks:
+    sentences for prose, non-blank lines for code. Each unit is (unit, is_code)."""
+    units = []
+    for seg, is_code in _split_segments(text):
+        if is_code:
+            units.extend((ln, True) for ln in seg.splitlines() if ln.strip())
+        else:
+            units.extend((s, False) for s in _SENTENCE_SPLIT_RE.split(seg.strip()) if s.strip())
+    return units
+
+
+def _chunk_text(text: str, max_tokens: int = CHUNK_TOKENS, overlap_words: int = OVERLAP_WORDS) -> list:
+    """Split *text* into ~max_tokens chunks on sentence/code-line boundaries,
+    carrying overlap_words of context into each subsequent chunk. A single
+    unit larger than the budget is hard word-split as a last resort."""
+    units = _atomic_units(text)
+    if not units:
+        return [text] if text.strip() else []
 
     chunks = []
-    start = 0
-    while start < len(words):
-        end = min(start + max_words, len(words))
-        chunk = " ".join(words[start:end])
-        chunks.append(chunk)
-        start += max_words - overlap_words
-        if start >= len(words):
-            break
+    current = []          # list of unit strings in the chunk being built
+    current_tokens = 0
+
+    def flush():
+        nonlocal current, current_tokens
+        if current:
+            chunks.append("\n".join(current))
+            current, current_tokens = [], 0
+
+    for unit_text, is_code in units:
+        ut = _estimate_tokens(unit_text, is_code)
+        if ut > max_tokens:
+            # Oversized single unit (e.g. a minified line): flush, then hard-split.
+            flush()
+            words = unit_text.split()
+            step = max(1, int(max_tokens / 1.33))
+            for i in range(0, len(words), step):
+                chunks.append(" ".join(words[i:i + step]))
+            continue
+        if current and current_tokens + ut > max_tokens:
+            prev = "\n".join(current)
+            flush()
+            overlap = " ".join(prev.split()[-overlap_words:]) if overlap_words else ""
+            if overlap:
+                current = [overlap]
+                current_tokens = _estimate_tokens(overlap)
+        current.append(unit_text)
+        current_tokens += ut
+    flush()
     return chunks
 
 
@@ -385,13 +450,12 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
     try:
         model_name = model_override if model_override else get_bg_model_name()
 
-        # --- Chunking: split long text into overlapping chunks ---
-        estimated_tokens = _estimate_tokens(text)
-        if estimated_tokens > MAX_EXTRACTION_TOKENS:
-            logger.info("extraction_chunking", estimated_tokens=estimated_tokens, max=MAX_EXTRACTION_TOKENS)
-            chunks = _chunk_text(text, MAX_EXTRACTION_TOKENS)
-        else:
-            chunks = [text]
+        # --- Chunking: sentence/code-aware ~CHUNK_TOKENS windows (roadmap A1).
+        # Short turns come back as a single chunk; the chunker decides.
+        chunks = _chunk_text(text)
+        if len(chunks) > 1:
+            logger.info("extraction_chunking", n_chunks=len(chunks),
+                        estimated_tokens=_estimate_tokens(text))
 
         all_triplets = []
         for chunk in chunks:
