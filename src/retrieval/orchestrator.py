@@ -62,6 +62,11 @@ class HybridRetrievalOrchestrator:
         self.bg_client = get_bg_client()
         self.max_retrieval_tokens = 5000
         self._force_hyde = False
+        # MERA (category/enumeration fallback) is disabled by default: it scored
+        # −0.21 in the buildup ablation and its capability is being re-homed into
+        # relation-aware retrieval (roadmap A4). The ablation ConfigurableOrchestrator
+        # can still enable it via its own `mera` flag. See ROADMAP.md P0.2.
+        self.enable_mera = False
 
         # Load micro‑NER model (fallback to None if not available)
     def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=10):
@@ -680,13 +685,15 @@ class HybridRetrievalOrchestrator:
         entity_strings = extract_entities(prompt, self.embedder)
         if entity_strings:
             matched = self._match_entities_by_similarity(entity_strings)
-        else:
+        elif self.enable_mera:
             from src.retrieval.mera import is_mera_candidate, map_category_to_filters, enumerate_entities
             if is_mera_candidate(prompt):
                 filters = map_category_to_filters(self.db, prompt)
                 matched = enumerate_entities(self.db, filters.get("tags", []), filters.get("relations", []))
             else:
                 return []
+        else:
+            return []
 
         if not matched:
             return []
