@@ -289,6 +289,11 @@ CHUNK_TOKENS = 550                    # target tokens per extraction chunk (shar
 OVERLAP_WORDS = 50                    # word overlap carried into the next chunk
 MAX_EXTRACTION_TOKENS = 6000          # legacy constant; retained for import compatibility
 
+# A3 — extraction-confidence seeding (stored on codex_edges.extraction_confidence).
+CONF_GROUNDED = 0.9     # both terms confirmed by NER grounding
+CONF_UNGROUNDED = 0.7   # NER found no entities in the chunk; nothing to ground against
+CONF_REJECTED = 0.35    # failed grounding — stored anyway, gated out of retrieval until corroborated
+
 _CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 
@@ -580,28 +585,39 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
             chunk_triplets = [t for t in chunk_triplets
                               if _normalize_term(t.get("subject", "")) != _normalize_term(t.get("object", ""))]
 
-            # NER grounding: drop triplets whose entities NER didn't confirm.
-            # Skipped when NER found nothing for this chunk (no anchor to trust).
-            # A3 seam: keep `rejected` at low confidence instead of dropping.
+            # NER grounding → extraction confidence (A3, completing the A2 seam):
+            # grounded triplets are trusted high; grounding-REJECTED triplets are
+            # no longer dropped — they enter the graph at low confidence, where
+            # retrieval's dynamic thresholds keep them out of context until
+            # corroborated (or they decay out). No-NER chunks get mid confidence
+            # (nothing to ground against).
             if ner_entities:
-                chunk_triplets, rejected = _ground_triplets(chunk_triplets, ner_entities)
+                grounded, rejected = _ground_triplets(chunk_triplets, ner_entities)
+                for t in grounded:
+                    t["confidence"] = CONF_GROUNDED
+                for t in rejected:
+                    t["confidence"] = CONF_REJECTED
                 if rejected:
                     logger.info("codex_grounding",
-                                kept=len(chunk_triplets), rejected=len(rejected),
+                                kept=len(grounded), rejected=len(rejected),
                                 samples=[f'{t.get("subject")}|{t.get("relation")}|{t.get("object")}'
                                          for t in rejected[:8]])
+                chunk_triplets = grounded + rejected
+            else:
+                for t in chunk_triplets:
+                    t["confidence"] = CONF_UNGROUNDED
 
             all_triplets.extend(chunk_triplets)
 
-        # Deduplicate by (subject, relation, object) tuple
-        seen = set()
-        unique_triplets = []
+        # Deduplicate by (subject, relation, object) tuple, keeping the highest
+        # confidence seen (overlap repeats aren't independent corroboration).
+        by_key = {}
         for t in all_triplets:
             key = (t["subject"].strip().lower(), t["relation"], t["object"].strip().lower())
-            if key not in seen:
-                seen.add(key)
-                unique_triplets.append(t)
-        return unique_triplets
+            prev = by_key.get(key)
+            if prev is None or t.get("confidence", 0) > prev.get("confidence", 0):
+                by_key[key] = t
+        return list(by_key.values())
 
     except Exception as err:
         logger.error("triplet_parsing_failed", error=str(err))
@@ -644,17 +660,20 @@ def _regenerate_context_payload(entity: CodexEntity, db) -> None:
     active_edges = db.query(CodexEdge).filter(
         CodexEdge.source_id == entity.id,
         CodexEdge.valid_until == None
-    ).limit(10).all()
+    ).order_by(CodexEdge.strength.desc()).limit(10).all()  # A3: strongest first
     for edge in active_edges:
         target = db.query(CodexEntity).get(edge.target_id)
         target_name = target.canonical_name if target else "?"
         parts.append(f"{edge.relation} → {target_name}")
     entity.context_payload = "; ".join(parts) if parts else ""
 
-def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch_id: str):
+def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch_id: str,
+                   extraction_confidence: float = 1.0):
     """Integrates extraction assertions into the transaction context,
     with property‑aware updates, auto‑expiry, multi‑valued support,
-    and immediate contradiction activation."""
+    and immediate contradiction activation. *extraction_confidence* (A3)
+    is the grounding-seeded trust stored on new edges; on reinforcement the
+    edge keeps the highest confidence seen (corroboration raises trust)."""
 
     subj = get_or_create_entity(db, subject_name)
     obj  = get_or_create_entity(db, object_name)
@@ -686,6 +705,7 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
             strength=3.0,
             source_batch=batch_id,
             confidence="active",
+            extraction_confidence=extraction_confidence,
             valid_from=datetime.now(timezone.utc)
         ))
         db.add(CodexEvent(
@@ -720,6 +740,9 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
         # Same source‑target pair, same relation → reinforcement
         if existing_active.relation == relation:
             existing_active.strength += 1.0
+            # A3: corroborating re-extraction raises trust to the best seen.
+            existing_active.extraction_confidence = max(
+                existing_active.extraction_confidence or 1.0, extraction_confidence)
             if existing_active.strength >= 2.0 and existing_active.confidence == "pending":
                 existing_active.confidence = "active"
             db.add(CodexEvent(
@@ -758,6 +781,7 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
                 strength=3.0,
                 source_batch=batch_id,
                 confidence="active",
+                extraction_confidence=extraction_confidence,
                 valid_from=datetime.now(timezone.utc)
             ))
             db.add(CodexEvent(
@@ -800,6 +824,7 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
             strength=new_strength,
             source_batch=batch_id,
             confidence=new_confidence,
+            extraction_confidence=extraction_confidence,
             valid_from=datetime.now(timezone.utc)
         ))
         db.add(CodexEvent(
@@ -843,7 +868,8 @@ def extract_codex(self, batch_id: str, model_used: str = "", priority: bool = Fa
                     r = r_raw.strip()
                     o = o_raw.strip()
                     if s and r and o:
-                        handle_triplet(db, s, r, o, batch_id)
+                        handle_triplet(db, s, r, o, batch_id,
+                                       extraction_confidence=float(triplet.get("confidence", 1.0)))
 
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()

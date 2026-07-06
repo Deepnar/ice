@@ -69,10 +69,16 @@ class HybridRetrievalOrchestrator:
         self.enable_mera = False
 
         # A3 — edge confidence/strength as a live retrieval signal.
+        # An edge's effective trust is strength * extraction_confidence:
+        # strength carries usage dynamics (reinforcement/decay), confidence
+        # carries extraction trust (NER grounding, corroboration).
         self.CODEX_MAX_DEPTH = 3                 # traversal ceiling (gated below)
-        self.CODEX_DEEP_STRENGTH_FLOOR = 1.0     # deep hops require this much strength
+        self.CODEX_DIRECT_TRUST_FLOOR = 0.5      # matched-entity edge must clear this to expand/reinforce
+        self.CODEX_DEEP_STRENGTH_FLOOR = 1.0     # deep hops require this much effective trust
         self.CODEX_REINFORCE_INCREMENT = 0.15    # per-retrieval boost on anchor edges (episodic analog)
         self.CODEX_STRENGTH_CAP = 10.0           # soft ceiling so retrieval can't inflate forever
+        self.CODEX_PROMOTE_STRENGTH = 2.0        # reinforced pending edge promotes to active (enters decay cycle)
+        self.CODEX_PROMOTE_MIN_CONFIDENCE = 0.5  # ...but never on low-trust extractions (needs corroboration first)
 
         # Load micro‑NER model (fallback to None if not available)
     def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=10):
@@ -741,9 +747,9 @@ class HybridRetrievalOrchestrator:
                     CodexEdge.source_id.in_([e.id for e in matched]),
                     CodexEdge.valid_until == None
                 ).all()
-                mean_strength = (sum((e.strength or 0.0) for e in matched_edges) / len(matched_edges)
-                                 if matched_edges else 0.0)
-                score = 1.0 + min(0.5, 0.25 * mean_strength)
+                mean_trust = (sum(self._edge_trust(e) for e in matched_edges) / len(matched_edges)
+                              if matched_edges else 0.0)
+                score = 1.0 + min(0.5, 0.25 * mean_trust)
 
                 # A3: retrieval-reinforcement — the codex analog of episodic
                 # access_count/decay_score strengthening (only the anchor edges).
@@ -761,6 +767,14 @@ class HybridRetrievalOrchestrator:
             self.db.rollback()
             return []
 
+    @staticmethod
+    def _edge_trust(edge) -> float:
+        """A3: effective trust = strength (usage dynamics) x extraction_confidence
+        (grounding/corroboration trust). Legacy edges with NULL confidence count
+        as fully trusted (they predate grounding)."""
+        conf = edge.extraction_confidence if edge.extraction_confidence is not None else 1.0
+        return (edge.strength or 0.0) * conf
+
     def _traverse_graph(self, entity, depth, max_depth, visited, context_texts, anchor_edges=None):
         if entity.id in visited or depth > max_depth:
             return
@@ -772,12 +786,19 @@ class HybridRetrievalOrchestrator:
             CodexEdge.valid_until == None
         ).all()
         for edge in edges:
-            # A3: direct edges of a matched (depth-0) entity are the query anchors.
-            if depth == 0 and anchor_edges is not None:
-                anchor_edges.append(edge)
-            # A3: strength-gate deep hops — weak/decayed edges don't expand the
-            # frontier, cutting the depth-3 pollution. Direct edges always expand.
-            elif depth >= 1 and (edge.strength or 0.0) < self.CODEX_DEEP_STRENGTH_FLOOR:
+            trust = self._edge_trust(edge)
+            if depth == 0:
+                # A3 dynamic threshold: a matched entity's edge expands (and is
+                # reinforced as a query anchor) only above the direct floor —
+                # grounding-rejected low-confidence edges sit in the graph but
+                # don't reach context or gain strength until corroborated.
+                if trust < self.CODEX_DIRECT_TRUST_FLOOR:
+                    continue
+                if anchor_edges is not None:
+                    anchor_edges.append(edge)
+            # A3: trust-gate deep hops — weak/decayed/low-confidence edges don't
+            # expand the frontier, cutting the depth-3 pollution.
+            elif trust < self.CODEX_DEEP_STRENGTH_FLOOR:
                 continue
             target = self.db.query(CodexEntity).get(edge.target_id)
             if target:
@@ -788,9 +809,14 @@ class HybridRetrievalOrchestrator:
         """A3 retrieval-reinforcement (episodic analog): the anchor edges of the
         matched query entities gain a little strength each time they're surfaced,
         so repeatedly-useful facts self-promote through use — balanced by the
-        codex_decay worker. Scoped to anchor edges only to avoid diluting the
-        signal across the whole traversed neighborhood. Write-on-read, like
-        _strengthen_retrieved does for episodic turns."""
+        codex_decay worker (which decays ALL live edges, so this loop is closed).
+        A reinforced pending edge is promoted to active once it crosses
+        CODEX_PROMOTE_STRENGTH — but only if its extraction_confidence clears
+        CODEX_PROMOTE_MIN_CONFIDENCE, so a low-trust extraction cannot promote
+        through retrieval popularity alone; it needs corroboration first.
+        Scoped to anchor edges only to avoid diluting the signal across the
+        whole traversed neighborhood. Write-on-read, like _strengthen_retrieved
+        does for episodic turns."""
         if not edges:
             return
         try:
@@ -801,6 +827,11 @@ class HybridRetrievalOrchestrator:
                 seen.add(e.id)
                 e.strength = min((e.strength or 0.0) + self.CODEX_REINFORCE_INCREMENT,
                                  self.CODEX_STRENGTH_CAP)
+                conf = e.extraction_confidence if e.extraction_confidence is not None else 1.0
+                if (e.confidence == "pending"
+                        and e.strength >= self.CODEX_PROMOTE_STRENGTH
+                        and conf >= self.CODEX_PROMOTE_MIN_CONFIDENCE):
+                    e.confidence = "active"
             self.db.commit()
         except Exception:
             self.db.rollback()

@@ -107,6 +107,10 @@ class CodexEdge(Base):
     strength = Column(Float, default=1.0)
     source_batch = Column(UUID(as_uuid=True), nullable=False)
     confidence = Column(Text, default="pending")  # pending | active
+    # A3: how much the extraction itself is trusted (0-1). Seeded by NER
+    # grounding at write time (grounded high, grounding-rejected low), raised
+    # by corroborating re-extractions. Orthogonal to strength (usage dynamics).
+    extraction_confidence = Column(Float, default=1.0)
     valid_from = Column(DateTime(timezone=True), default=utcnow)
     valid_until = Column(DateTime(timezone=True), nullable=True)  # NULL = currently true
 
