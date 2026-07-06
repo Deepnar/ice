@@ -35,12 +35,19 @@ class CodexInjectHandler(FileSystemEventHandler):
         db = SessionLocal()
         try:
             # Expected format: list of objects with keys: canonical_name, aliases?, tags?,
-            #   context_payload?, relations? (list of {target, relation})
+            #   type?, description? (or legacy context_payload), properties?,
+            #   relations? (list of {target, relation, negated?})
+            from src.workers.codex_extractor import _regenerate_context_payload  # A7: rich note assembly
             entities = data if isinstance(data, list) else [data]
+            touched = set()   # entity ids whose note must be regenerated
             for ent in entities:
                 name = ent.get("canonical_name")
                 if not name:
                     continue
+                # A7.1: manual descriptive text is the note BODY (description),
+                # since context_payload is now auto-assembled. Accept legacy
+                # `context_payload` as description for backward compatibility.
+                desc = ent.get("description") or ent.get("context_payload", "")
                 entity = db.query(CodexEntity).filter_by(canonical_name=name.lower().strip()).first()
                 if not entity:
                     entity = CodexEntity(
@@ -48,12 +55,21 @@ class CodexInjectHandler(FileSystemEventHandler):
                         canonical_name=name.lower().strip(),
                         aliases=ent.get("aliases", []),
                         tags=ent.get("tags", []),
+                        entity_type=(ent.get("type") or ent.get("entity_type") or "entity"),
+                        description=desc,
                         properties=ent.get("properties", {}),
-                        context_payload=ent.get("context_payload", ""),
                         last_updated=datetime.now(timezone.utc)
                     )
                     db.add(entity)
                     db.flush()
+                else:
+                    if desc:
+                        entity.description = desc
+                    if ent.get("type") or ent.get("entity_type"):
+                        entity.entity_type = ent.get("type") or ent.get("entity_type")
+                    if ent.get("properties"):
+                        entity.properties = {**(entity.properties or {}), **ent["properties"]}
+                touched.add(entity.id)
                 # Process relations
                 relations = ent.get("relations", [])
                 for rel in relations:
@@ -61,6 +77,7 @@ class CodexInjectHandler(FileSystemEventHandler):
                     relation = rel.get("relation")
                     if not target_name or not relation:
                         continue
+                    negated = bool(rel.get("negated", False))
                     target_entity = db.query(CodexEntity).filter_by(
                         canonical_name=target_name.lower().strip()
                     ).first()
@@ -72,11 +89,13 @@ class CodexInjectHandler(FileSystemEventHandler):
                         )
                         db.add(target_entity)
                         db.flush()
-                    # Check for existing edge
+                    touched.add(target_entity.id)   # so backlinks render on the target too
+                    # Check for existing edge (same polarity)
                     existing = db.query(CodexEdge).filter_by(
                         source_id=entity.id,
                         target_id=target_entity.id,
                         relation=relation,
+                        negated=negated,
                         valid_until=None
                     ).first()
                     if not existing:
@@ -88,15 +107,25 @@ class CodexInjectHandler(FileSystemEventHandler):
                             strength=2.0,    # manual injection gives high confidence
                             source_batch=uuid.uuid4(),
                             confidence="active",
+                            extraction_confidence=1.0,   # A3: manual = fully trusted
+                            negated=negated,             # A8: polarity
                             valid_from=datetime.now(timezone.utc)
                         )
                         db.add(new_edge)
                         db.add(CodexEvent(
                             entity_id=entity.id,
                             event_type="edge_added",
-                            payload={"manual_injection": True, "relation": relation, "target": target_name},
+                            payload={"manual_injection": True, "relation": relation,
+                                     "target": target_name, "negated": negated},
                             batch_source=uuid.uuid4()
                         ))
+            # A7.1: assemble the rich note (description + links + backlinks) and
+            # infer entity_type for every entity touched, now that edges exist.
+            db.flush()
+            for eid in touched:
+                e = db.query(CodexEntity).get(eid)
+                if e:
+                    _regenerate_context_payload(e, db)
             db.commit()
             print(f"Injected {filepath}")
         except Exception as e:
