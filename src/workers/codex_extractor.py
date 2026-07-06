@@ -478,7 +478,14 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
         "5. NEVER output a category header as a relation. Example:\n"
         "   BAD:  {\"subject\":\"shinchan\",\"relation\":\"social_relationship\",\"object\":\"kazama\"}\n"
         "   GOOD: {\"subject\":\"shinchan\",\"relation\":\"friend\",\"object\":\"kazama\"}\n"
-        "6. Output ONLY a JSON array. No markdown, no explanation.\n\n"
+        "6. NEGATION: if the text says a relationship does NOT hold or is explicitly "
+        "negative (e.g. \"X no longer uses Y\", \"X distrusts Y\", \"X is not allied with Z\"), "
+        "keep the positive relation word but add \"negated\": true to that triplet. "
+        "Pick the closest positive relation and negate it (distrusts → relation \"trusts\" "
+        "negated; former ally → relation \"ally\" negated). Example:\n"
+        "   \"Kael no longer trusts Orien\" → {\"subject\":\"kael\",\"relation\":\"trusts\","
+        "\"object\":\"orien\",\"negated\":true}\n"
+        "7. Output ONLY a JSON array. No markdown, no explanation.\n\n"
         "EXAMPLES:\n"
         "Text: \"ICE uses PostgreSQL for memory and Redis for tasks.\"\n"
         "Output: [{\"subject\":\"ice\",\"relation\":\"uses\",\"object\":\"postgresql\"},"
@@ -609,11 +616,13 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
 
             all_triplets.extend(chunk_triplets)
 
-        # Deduplicate by (subject, relation, object) tuple, keeping the highest
-        # confidence seen (overlap repeats aren't independent corroboration).
+        # Deduplicate by (subject, relation, object, negated), keeping the highest
+        # confidence seen. Polarity is part of the key: "uses" and "NOT uses" of
+        # the same pair are distinct facts (A8).
         by_key = {}
         for t in all_triplets:
-            key = (t["subject"].strip().lower(), t["relation"], t["object"].strip().lower())
+            key = (t["subject"].strip().lower(), t["relation"],
+                   t["object"].strip().lower(), bool(t.get("negated", False)))
             prev = by_key.get(key)
             if prev is None or t.get("confidence", 0) > prev.get("confidence", 0):
                 by_key[key] = t
@@ -705,6 +714,10 @@ def _infer_entity_type(relations, tags, current: str) -> str:
     return current or "entity"
 
 
+class _N:  # sentinel: a missing target/source entity renders as "?"
+    canonical_name = "?"
+
+
 def _regenerate_context_payload(entity: CodexEntity, db) -> None:
     """A7: rebuild context_payload as a rich, bidirectional 'note': the enriched
     description (note body), then properties, then outgoing links AND incoming
@@ -712,11 +725,11 @@ def _regenerate_context_payload(entity: CodexEntity, db) -> None:
     out_edges = db.query(CodexEdge).filter(
         CodexEdge.source_id == entity.id,
         CodexEdge.valid_until == None
-    ).order_by(CodexEdge.strength.desc()).limit(10).all()
+    ).order_by(CodexEdge.strength.desc()).limit(20).all()
     in_edges = db.query(CodexEdge).filter(
         CodexEdge.target_id == entity.id,
         CodexEdge.valid_until == None
-    ).order_by(CodexEdge.strength.desc()).limit(10).all()
+    ).order_by(CodexEdge.strength.desc()).limit(20).all()
 
     entity.entity_type = _infer_entity_type(
         [e.relation for e in out_edges] + [e.relation for e in in_edges],
@@ -729,18 +742,25 @@ def _regenerate_context_payload(entity: CodexEntity, db) -> None:
         props = "; ".join(f"{k}: {v}" for k, v in entity.properties.items())
         if props:
             parts.append(f"Properties: {props}")
-    out_lines = []
-    for edge in out_edges:
-        tgt = db.query(CodexEntity).get(edge.target_id)
-        out_lines.append(f"{edge.relation} → {tgt.canonical_name if tgt else '?'}")
-    if out_lines:
-        parts.append("Links: " + "; ".join(out_lines))
-    back_lines = []
-    for edge in in_edges:
-        src = db.query(CodexEntity).get(edge.source_id)
-        back_lines.append(f"{src.canonical_name if src else '?'} --{edge.relation}→")
-    if back_lines:
-        parts.append("Backlinks: " + "; ".join(back_lines))
+    # A8: positive edges → Links/Backlinks; negated edges → a Negations section.
+    out_pos = [e for e in out_edges if not e.negated][:10]
+    out_neg = [e for e in out_edges if e.negated][:6]
+    in_pos = [e for e in in_edges if not e.negated][:10]
+    in_neg = [e for e in in_edges if e.negated][:6]
+    if out_pos:
+        parts.append("Links: " + "; ".join(
+            f"{e.relation} → {(db.query(CodexEntity).get(e.target_id) or _N).canonical_name}"
+            for e in out_pos))
+    if in_pos:
+        parts.append("Backlinks: " + "; ".join(
+            f"{(db.query(CodexEntity).get(e.source_id) or _N).canonical_name} --{e.relation}→"
+            for e in in_pos))
+    neg_lines = [f"NOT {e.relation} → {(db.query(CodexEntity).get(e.target_id) or _N).canonical_name}"
+                 for e in out_neg]
+    neg_lines += [f"{(db.query(CodexEntity).get(e.source_id) or _N).canonical_name} --NOT {e.relation}→"
+                  for e in in_neg]
+    if neg_lines:
+        parts.append("Negations: " + "; ".join(neg_lines))
     entity.context_payload = "\n".join(parts)
 
 # ===================================================================
@@ -892,16 +912,55 @@ def make_llm_reconciler():
 
 def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch_id: str,
                    extraction_confidence: float = 1.0, turn_text: Optional[str] = None,
-                   reconciler=None):
+                   reconciler=None, negated: bool = False):
     """Integrates extraction assertions into the transaction context,
     with property‑aware updates, auto‑expiry, multi‑valued support,
     and immediate contradiction activation. *extraction_confidence* (A3)
     is the grounding-seeded trust stored on new edges; on reinforcement the
     edge keeps the highest confidence seen (corroboration raises trust).
-    *turn_text* / *reconciler* drive the A6 reconciliation loop (below)."""
+    *turn_text* / *reconciler* drive the A6 reconciliation loop (below).
+    *negated* (A8) stores the relation's negative polarity."""
 
     subj = get_or_create_entity(db, subject_name)
     obj  = get_or_create_entity(db, object_name)
+
+    # ── A8: negated assertion ("X no longer uses Y", "X distrusts Y") ──
+    # A negation retracts the matching POSITIVE edge (the fact stopped being
+    # true), and is itself stored as a negative fact so retrieval can surface
+    # "X does NOT relate to Y". Handled up front, separate from the positive
+    # write rules below.
+    if negated:
+        for pos in db.query(CodexEdge).filter(
+            CodexEdge.source_id == subj.id, CodexEdge.target_id == obj.id,
+            CodexEdge.relation == relation, CodexEdge.negated == False,
+            CodexEdge.valid_until == None,
+        ).all():
+            pos.valid_until = datetime.now(timezone.utc)
+            db.add(CodexEvent(entity_id=subj.id, event_type="edge_expired",
+                              payload={"edge_id": str(pos.id), "relation": relation,
+                                       "reason": "negated"},
+                              timestamp=datetime.now(timezone.utc), batch_source=batch_id))
+        existing_neg = db.query(CodexEdge).filter(
+            CodexEdge.source_id == subj.id, CodexEdge.target_id == obj.id,
+            CodexEdge.relation == relation, CodexEdge.negated == True,
+            CodexEdge.valid_until == None,
+        ).first()
+        if existing_neg:
+            existing_neg.strength += 1.0
+            existing_neg.extraction_confidence = max(
+                existing_neg.extraction_confidence or 1.0, extraction_confidence)
+        else:
+            neg_id = uuid.uuid4()
+            db.add(CodexEdge(id=neg_id, source_id=subj.id, target_id=obj.id, relation=relation,
+                             strength=1.0, source_batch=batch_id, confidence="active",
+                             extraction_confidence=extraction_confidence, negated=True,
+                             valid_from=datetime.now(timezone.utc)))
+            db.add(CodexEvent(entity_id=subj.id, event_type="edge_added",
+                              payload={"edge_id": str(neg_id), "relation": relation,
+                                       "target_id": str(obj.id), "negated": True},
+                              timestamp=datetime.now(timezone.utc), batch_source=batch_id))
+        _regenerate_context_payload(subj, db)
+        return
 
     # ── 1. Property relations: update entity properties, expire previous edges ──
     if relation in PROPERTY_RELATIONS:
@@ -1104,7 +1163,8 @@ def extract_codex(self, batch_id: str, model_used: str = "", priority: bool = Fa
                     if s and r and o:
                         handle_triplet(db, s, r, o, batch_id,
                                        extraction_confidence=float(triplet.get("confidence", 1.0)),
-                                       turn_text=turn.raw_text, reconciler=reconciler)
+                                       turn_text=turn.raw_text, reconciler=reconciler,
+                                       negated=bool(triplet.get("negated", False)))
 
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()

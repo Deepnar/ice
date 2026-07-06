@@ -1103,11 +1103,13 @@ class HybridRetrievalOrchestrator:
                 for e in out_edges[:10]:
                     t = self.db.query(CodexEntity).get(e.target_id)
                     if t:
-                        lines.append(f"{e.relation} → {t.canonical_name}")
+                        rel = f"NOT {e.relation}" if getattr(e, "negated", False) else e.relation
+                        lines.append(f"{rel} → {t.canonical_name}")
                 for e in in_edges[:10]:
                     s = self.db.query(CodexEntity).get(e.source_id)
                     if s:
-                        lines.append(f"{s.canonical_name} --{e.relation}→")
+                        rel = f"NOT {e.relation}" if getattr(e, "negated", False) else e.relation
+                        lines.append(f"{s.canonical_name} --{rel}→")
                 if lines:
                     context_texts.append(f"[Entity: {entity.canonical_name}]\n" + "; ".join(lines))
         else:
@@ -1145,6 +1147,11 @@ class HybridRetrievalOrchestrator:
         # the source of incoming ones), trust-gated and scope-bounded as before.
         for edge, other_id in ([(e, e.target_id) for e in out_edges] +
                                [(e, e.source_id) for e in in_edges]):
+            # A8: a negated edge ("X does NOT use Y") is a stored fact, not a
+            # navigable link — it's rendered in the note (Negations section) but
+            # we don't walk into it as if the relationship held.
+            if getattr(edge, "negated", False):
+                continue
             trust = self._edge_trust(edge)
             if depth == 0:
                 # A3 dynamic threshold: a matched entity's edge expands (and is

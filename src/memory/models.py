@@ -118,6 +118,11 @@ class CodexEdge(Base):
     # grounding at write time (grounded high, grounding-rejected low), raised
     # by corroborating re-extractions. Orthogonal to strength (usage dynamics).
     extraction_confidence = Column(Float, default=1.0)
+    # A8: polarity. False = the relation holds (X uses Y); True = it is negated /
+    # absent (X does NOT use Y, X distrusts Y). Lets the graph store the negative
+    # of any relation without doubling the controlled vocabulary. A negated edge
+    # is a stored fact, not a navigable link.
+    negated = Column(Boolean, default=False)
     valid_from = Column(DateTime(timezone=True), default=utcnow)
     valid_until = Column(DateTime(timezone=True), nullable=True)  # NULL = currently true
 
