@@ -18,10 +18,12 @@ import structlog
 import redis.asyncio as aioredis
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
 from src.api.db import SessionLocal, get_db
+from src.api.memory_decision import decide_memory_retrieval, estimate_recent_window_tokens
 from src.api.prompt_assembler import assemble_prompt
 from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
@@ -276,21 +278,31 @@ async def chat_completions(
     memory_slots_list = []
     bookmarked_texts = []
     hyde_used = False
-    # CL2: LTM Bias – force memory retrieval for long conversations or uncertain classification
-    if result.context_reliance == "Zero_Shot":
-        turn_count = db.query(EpisodicMemory).filter_by(
-            conversation_id=conversation_id
-        ).count()
-        if turn_count > 10 or result.max_confidence < 0.95:
-            result.context_reliance = "Long_Term_Memory"
-            log.info(
-                "ltm_bias_override",
-                turn_count=turn_count,
-                max_confidence=result.max_confidence,
-            )
 
-    if (result.context_reliance == "Long_Term_Memory" or
-        result.max_confidence < settings.confidence_fallback_threshold):
+    # B2: one principled, classifier-trusting decision replaces the old hard
+    # overrides (turn_count>10 / conf<0.95 / creative / referential). Prefers
+    # memory, never forces it. Weights are settings (re-tuned after B1).
+    turn_count = db.query(EpisodicMemory).filter_by(
+        conversation_id=conversation_id
+    ).count()
+    total_chars = db.query(
+        func.coalesce(func.sum(func.length(EpisodicMemory.raw_text)), 0)
+    ).filter_by(conversation_id=conversation_id).scalar() or 0
+    total_tokens = int(total_chars) / 4.0  # rough chars→tokens estimate
+
+    mem_decision = decide_memory_retrieval(
+        result, turn_count=turn_count, total_tokens=total_tokens, settings=settings,
+    )
+    log.info("memory_decision", retrieve=mem_decision.retrieve, **mem_decision.breakdown)
+    # Recent-turn budget for prompt assembly — principled default that also
+    # applies when we don't retrieve (a long convo we chose not to search still
+    # deserves a scaled recent window).
+    recent_budget = estimate_recent_window_tokens(turn_count)
+
+    if mem_decision.retrieve:
+        # Downstream (orchestrator gates, episodic storage, telemetry) still
+        # keys off the label, so reflect the decision there.
+        result.context_reliance = "Long_Term_Memory"
 
         embedding_tensor = await asyncio.to_thread(
             classifier.embedder.encode, user_message, convert_to_tensor=False
@@ -299,10 +311,9 @@ async def chat_completions(
 
         orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
         # CL4: dynamic token budget from conversation length
-        turn_count = db.query(EpisodicMemory).filter_by(
-            conversation_id=conversation_id
-        ).count()
-        orchestrator.set_budget_from_turn_count(turn_count, classification=result)
+        orchestrator.set_budget_from_turn_count(
+            turn_count, total_tokens=total_tokens, classification=result
+        )
         fragments = await asyncio.to_thread(
             orchestrator.retrieve,
             classification=result,
@@ -313,63 +324,69 @@ async def chat_completions(
 
         # HyDE usage detection (the orchestrator sets a flag internally; we approximate)
         hyde_used = getattr(orchestrator, "_hyde_used", False)
+        recent_budget = getattr(orchestrator, "recent_token_budget", recent_budget)
 
-        # Bookmarked turns
-        bookmarked_turns = await asyncio.to_thread(
-            lambda: db.query(EpisodicMemory).filter_by(
-                is_bookmarked=True, conversation_id=conversation_id
-            ).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
-        )
-        for bt in bookmarked_turns:
-            text = bt.raw_text if bt.inject_raw else (bt.summary_text or bt.raw_text[:300])
-            words = text.split()
-            if len(words) > 500:
-                text = " ".join(words[:500]) + "…"
-            bookmarked_texts.append(text)
+    # ── Persistent memory + assembly run on EVERY turn ──
+    # Memory slots (standing user memory) and bookmarks are user-level context,
+    # not retrieval results — they must be injected even when B2 decides a
+    # confident standalone turn needs no long-term retrieval. Only the retrieval
+    # `fragments` are conditional (empty here when we didn't retrieve).
+    bookmarked_turns = await asyncio.to_thread(
+        lambda: db.query(EpisodicMemory).filter_by(
+            is_bookmarked=True, conversation_id=conversation_id
+        ).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
+    )
+    for bt in bookmarked_turns:
+        text = bt.raw_text if bt.inject_raw else (bt.summary_text or bt.raw_text[:300])
+        words = text.split()
+        if len(words) > 500:
+            text = " ".join(words[:500]) + "…"
+        bookmarked_texts.append(text)
 
-        # Memory slots
-        memory_slots_list = await asyncio.to_thread(
-            lambda: db.query(MemorySlot).filter_by(is_active=True).all()
-        )
+    memory_slots_list = await asyncio.to_thread(
+        lambda: db.query(MemorySlot).filter_by(is_active=True).all()
+    )
 
-        # Separate fragments by type for token trimming
-        episodic_frags = [f for f in fragments if f.source_type == "episodic"]
-        procedural_frags = [f for f in fragments if f.source_type == "procedural"]
+    # Separate fragments by type for token trimming (both empty when not retrieving)
+    episodic_frags = [f for f in fragments if f.source_type == "episodic"]
+    procedural_frags = [f for f in fragments if f.source_type == "procedural"]
 
-        messages = assemble_prompt(
-            memory_slots_list, fragments, user_message,
-            db_session=db, conversation_id=str(conversation_id),
-            bookmarked_texts=bookmarked_texts,
-            classification=result,
-            max_recent_tokens=getattr(orchestrator, 'recent_token_budget', 4000),
-        )
+    messages = assemble_prompt(
+        memory_slots_list, fragments, user_message,
+        db_session=db, conversation_id=str(conversation_id),
+        bookmarked_texts=bookmarked_texts,
+        classification=result,
+        max_recent_tokens=recent_budget,
+    )
 
-        # Token budget check (crude: words * 1.33 ≈ tokens, aim for 90% of 4096)
-        def word_count(text: str) -> int:
-            return len(text.split()) if text else 0
+    # Token budget check (crude: words * 1.33 ≈ tokens, aim for 90% of 4096)
+    def word_count(text: str) -> int:
+        return len(text.split()) if text else 0
 
+    total_words = word_count(messages[0]["content"]) + word_count(user_message)
+    max_words = int(0.9 * 4096 / 1.33)
+
+    while total_words > max_words and (episodic_frags or procedural_frags):
+        if procedural_frags:
+            procedural_frags.pop()
+        elif episodic_frags:
+            episodic_frags.pop()
+        # Reassemble with the reduced fragment list
+        reduced = [f for f in fragments if f not in (set(episodic_frags) | set(procedural_frags))]
+        messages = assemble_prompt(memory_slots_list, reduced, user_message,
+                                   db_session=db, conversation_id=str(conversation_id),
+                                   bookmarked_texts=bookmarked_texts,
+                                   max_recent_tokens=recent_budget)
         total_words = word_count(messages[0]["content"]) + word_count(user_message)
-        max_words = int(0.9 * 4096 / 1.33)
 
-        while total_words > max_words and (episodic_frags or procedural_frags):
-            if procedural_frags:
-                procedural_frags.pop()
-            elif episodic_frags:
-                episodic_frags.pop()
-            # Reassemble with the reduced fragment list
-            reduced = [f for f in fragments if f not in (set(episodic_frags) | set(procedural_frags))]
-            messages = assemble_prompt(memory_slots_list, reduced, user_message,
-                                       db_session=db, conversation_id=str(conversation_id),
-                                       bookmarked_texts=bookmarked_texts)
-            total_words = word_count(messages[0]["content"]) + word_count(user_message)
-
-        log.info(
-            "context_injection_complete",
-            injected_fragments=len(fragments),
-            active_slots=len(memory_slots_list),
-            bookmarked_count=len(bookmarked_texts),
-            hyde_used=hyde_used,
-        )
+    log.info(
+        "context_injection_complete",
+        retrieved=mem_decision.retrieve,
+        injected_fragments=len(fragments),
+        active_slots=len(memory_slots_list),
+        bookmarked_count=len(bookmarked_texts),
+        hyde_used=hyde_used,
+    )
 
     # ── Model selection via registry (with stickiness) ──────────────────────────
     if body.get("model", "default") == "ice-proxy":

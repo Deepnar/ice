@@ -97,15 +97,18 @@ class PyTorchClassifier:
             conversation_history = []
         di3_result = run_di3(prompt, conversation_length, conversation_history)
         if di3_result is not None:
-            # If DI3 forced LTM but left topic/intent blank, let the ML
-            # classifier provide the actual tags while keeping the LTM decision.
+            # DI3 fired its reference/anaphora rule (blank topic/intent, ctx=LTM):
+            # get the *real* tags + ctx probabilities from the ML head and carry
+            # the anaphora as a signal for B2's combination — NOT a forced LTM.
             if not di3_result.topic_tags or not di3_result.intent_tags:
                 ml_result = self._run_ml_classifier(prompt, conversation_id)
                 if di3_result.context_reliance == "Long_Term_Memory":
-                    ml_result.context_reliance = "Long_Term_Memory"
-                return self._apply_hard_overrides(ml_result, prompt)
-            else:
-                return self._apply_hard_overrides(di3_result, prompt)
+                    ml_result.reference_signal = True
+                return ml_result
+            # DI3 fast-path (noise/code/sentiment/meta): keep its decision, but
+            # derive a p_ltm scalar so B2 can still combine it.
+            self._finalize_confidence(di3_result)
+            return di3_result
 
         return self._run_ml_classifier(prompt, conversation_id)
 
@@ -172,31 +175,33 @@ class PyTorchClassifier:
             max_confidence=max_confidence,
             prompt=prompt,
         )
-        return self._apply_hard_overrides(result, prompt)
-
-    def _apply_hard_overrides(
-        self, result: ClassificationResult, prompt: str
-    ) -> ClassificationResult:
-        """Apply creative/software LTM overrides, but never downgrade an
-        existing Long_Term_Memory decision (e.g. from DI3 or LTM bias)."""
-
-        # If LTM has already been enforced (by DI3 or API‑level bias), keep it
-        if result.context_reliance == "Long_Term_Memory":
-            return result
-
-        if "Creative_&_Media" in result.topic_tags:
-            result.context_reliance = "Long_Term_Memory"
-
-        if "Software_&_Tech" in result.topic_tags:
-            referential_words = [
-                "my", "our", "mine", "ours", "we", "us",
-                "this", "that", "these", "those", "the",
-                "it", "they", "them", "their",
-                "previous", "last", "before", "yesterday", "earlier",
-                "again", "still", "same",
-            ]
-            prompt_lower = prompt.lower()
-            if any(word in prompt_lower for word in referential_words):
-                result.context_reliance = "Long_Term_Memory"
-
+        self._finalize_confidence(result)
         return result
+
+    def _finalize_confidence(self, result: ClassificationResult) -> None:
+        """Populate the B2 context-reliance confidence scalars (p_ltm / p_rts /
+        ctx_confidence) on *result*.
+
+        The classifier no longer *forces* Long_Term_Memory — the old
+        creative/software hard overrides are gone; those signals are now bumps
+        in ``src.api.memory_decision``. This just exposes an honest, per-head
+        confidence for that decision to combine.
+        """
+        probs = result.raw_probs or []
+        ctx = probs[22:25] if len(probs) >= 25 else []
+        if ctx and any(v > 0.0 for v in ctx):
+            # ML head — order is [Zero_Shot, Long_Term_Memory, Real_Time_Search].
+            result.p_ltm = float(ctx[1])
+            result.p_rts = float(ctx[2])
+            ordered = sorted(ctx, reverse=True)
+            result.ctx_confidence = float(ordered[0] - ordered[1])
+        else:
+            # DI3 fast-path (raw_probs all zero): derive a prior from the label
+            # DI3 chose so B2 still has a scalar to combine.
+            prior = {
+                "Long_Term_Memory": (0.85, 0.05),
+                "Zero_Shot": (0.12, 0.05),
+                "Real_Time_Search": (0.15, 0.70),
+            }.get(result.context_reliance, (0.30, 0.05))
+            result.p_ltm, result.p_rts = prior
+            result.ctx_confidence = float(result.max_confidence)

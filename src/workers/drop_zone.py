@@ -12,6 +12,7 @@ from watchdog.events import FileSystemEventHandler
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import RAGDocument, RAGChunk
 from src.classifier.classifier import PyTorchClassifier
@@ -19,9 +20,10 @@ from src.classifier.classifier import PyTorchClassifier
 WATCH_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../ingest_inbox'))
 PROCESSED_DIR = os.path.join(WATCH_DIR, 'processed')
 
+# G1: single source of truth for the classifier path (was hardcoded v2_final).
 classifier = PyTorchClassifier(
-    model_path="models/classifier/ice_classifier_v2_final.pt",
-    schema_path="data/labeled/label_schema.json"
+    model_path=settings.classifier_model_path,
+    schema_path=settings.label_schema_path,
 )
 
 

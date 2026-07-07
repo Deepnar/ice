@@ -323,14 +323,12 @@ class HybridRetrievalOrchestrator:
         prompt_embedding: list[float],
         scope: Optional[dict] = None,
     ) -> List[ContextFragment]:
-        # ── Safety override: if we have a conversation scope, always check memory ──
-        if classification.context_reliance == "Zero_Shot" and conversation_id:
-            classification.context_reliance = "Long_Term_Memory"
-
-        # Keep the explicit creative/lore guard (belt and suspenders)
-        if "Creative_&_Media" in classification.topic_tags:
-            classification.context_reliance = "Long_Term_Memory"
-        # Reset HyDE tracking flags for this retrieval call
+        # The retrieve/no-retrieve decision is now made upstream in one place
+        # (B2, src/api/memory_decision.py) — retrieve() is only called when that
+        # decision says so, and main.py sets context_reliance accordingly. The
+        # old Zero_Shot+conversation and Creative belt-and-suspenders forces
+        # (which silently overrode that decision) are gone. These early returns
+        # stay purely as a defensive guard if retrieve() is ever called directly.
         self._hyde_used = False
         self._last_hyde_query = None
         if classification.context_reliance == "Zero_Shot":

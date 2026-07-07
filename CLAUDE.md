@@ -73,7 +73,7 @@ They require the docker services (postgres/redis) up and, for pipeline tests, Ol
 
 **Pre-flight (synchronous, latency-sensitive):**
 1. Extract latest user message → **DI3** (`src/classifier/di3.py`), a heuristic "Dynamic Intent Inferencer" that tries to classify from signals and returns `None` to fall back to the ML model.
-2. **PyTorch classifier** (`src/classifier/classifier.py`) — an MLP head over a frozen `all-MiniLM-L6-v2` encoder. Outputs 25 logits → 11 topic + 11 intent (multi-label sigmoid) + 3 context-reliance (softmax) labels. Schema in `data/labeled/label_schema.json`.
+2. **PyTorch classifier** (`src/classifier/classifier.py`) — an MLP head over a frozen `Qwen/Qwen3-Embedding-0.6B` encoder (truncated to 384 dim; live checkpoint `models/classifier/ice_classifier_v3_qwen_ft3.pt`). Outputs 25 logits → 11 topic + 11 intent (multi-label sigmoid) + 3 context-reliance (softmax) labels. Schema in `data/labeled/label_schema.json`.
 3. If context reliance is `Long_Term_Memory` (or confidence < fallback threshold), invoke the **Hybrid Retrieval Orchestrator** (`src/retrieval/orchestrator.py`), which blends BM25 + vector + codex-graph + procedural sources with **intent-dependent weights** (see the weight tables around `orchestrator.py:339`).
 4. **Prompt Assembler** (`src/api/prompt_assembler.py`) builds the system prompt from retrieved `ContextFragment`s.
 5. **Model Registry** (`src/model_registry/registry.py`, `find_best_model`) picks the Ollama model from tags, with session stickiness in `SESSION_STATE`.
