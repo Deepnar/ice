@@ -19,7 +19,9 @@ app = Celery(
         "src.workers.codex_decay",
         "src.workers.procedural_decay",
         "src.workers.batch_summarizer",
-        "src.workers.cluster_merge",
+        # NOTE: "src.workers.cluster_merge" was listed here but the module never
+        # existed (the merge task is clustering.merge_similar_clusters) — the
+        # bogus include crashed worker boot with ModuleNotFoundError (G21).
     ],
 )
 

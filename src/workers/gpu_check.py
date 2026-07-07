@@ -39,12 +39,15 @@ def is_gpu_busy() -> bool:
 def is_user_active(idle_threshold_seconds: int = 10) -> bool:
     """Return True if the user has chatted recently (shared mode should yield)."""
     try:
-        r = redis.from_url(settings.redis_url)
+        # decode_responses=True: r.get() otherwise returns bytes, and
+        # datetime.fromisoformat(bytes) raises TypeError — which the bare except
+        # swallowed, making this silently always-False (G21 audit fix).
+        r = redis.from_url(settings.redis_url, decode_responses=True)
         last = r.get("ice:last_chat_completed")
         r.close()
         if last:
             last_time = datetime.fromisoformat(last)
             return (datetime.now(timezone.utc) - last_time).total_seconds() < idle_threshold_seconds
-    except Exception:
-        pass
+    except Exception as err:
+        logger.debug("is_user_active check failed", error=str(err))
     return False
