@@ -60,12 +60,18 @@ def run_chunk_turn(db, turn) -> int:
 
 
 def run_pending_documents(db, limit: int = CATCHUP_DOCS_PER_RUN) -> int:
-    """Catch-up callable: chunk is_document turns that have no chunks yet
-    (legacy pre-C2 docs, or docs whose event-driven dispatch was lost)."""
+    """Catch-up callable: chunk turns that should have chunks but don't —
+    is_document pastes (C2) and all long turns (C3, > ~LONG_TURN_CHUNK_WORDS,
+    approximated in SQL by char length since word count isn't stored). Heals
+    legacy pre-C2/C3 turns and lost dispatches."""
+    from sqlalchemy import func, or_
     pending = (
         db.query(EpisodicMemory)
         .filter(
-            EpisodicMemory.is_document == True,  # noqa: E712
+            or_(
+                EpisodicMemory.is_document == True,  # noqa: E712
+                func.length(EpisodicMemory.raw_text) > 4200,  # ≈600+ words
+            ),
             ~EpisodicMemory.id.in_(
                 db.query(EpisodicChunk.turn_id).distinct()
             ),

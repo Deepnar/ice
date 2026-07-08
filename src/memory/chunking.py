@@ -21,6 +21,8 @@ OVERLAP_WORDS = 50                    # word overlap carried into the next chunk
 
 _CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+# C3: markdown headings are hard section boundaries — a chunk never spans one.
+_HEADING_RE = re.compile(r"(?m)^(#{1,6}\s.*)$")
 
 
 def estimate_tokens(text: str, is_code: bool = False) -> int:
@@ -50,13 +52,26 @@ def split_segments(text: str):
 
 def atomic_units(text: str):
     """Break *text* into atomic units that must never be split across chunks:
-    sentences for prose, non-blank lines for code. Each unit is (unit, is_code)."""
+    sentences for prose, non-blank lines for code. Each unit is
+    ``(unit, is_code, is_boundary)`` — C3: markdown headings are boundary
+    units (section starts), and the packer flushes before them so a chunk
+    never spans a section break."""
     units = []
     for seg, is_code in split_segments(text):
         if is_code:
-            units.extend((ln, True) for ln in seg.splitlines() if ln.strip())
+            units.extend((ln, True, False) for ln in seg.splitlines() if ln.strip())
         else:
-            units.extend((s, False) for s in _SENTENCE_SPLIT_RE.split(seg.strip()) if s.strip())
+            # Split the prose segment on heading lines first (section-level
+            # decomposition), then sentences within each block.
+            parts = _HEADING_RE.split(seg)
+            for part in parts:
+                if not part.strip():
+                    continue
+                if _HEADING_RE.fullmatch(part.strip()):
+                    units.append((part.strip(), False, True))
+                else:
+                    units.extend((s, False, False)
+                                 for s in _SENTENCE_SPLIT_RE.split(part.strip()) if s.strip())
     return units
 
 
@@ -78,8 +93,13 @@ def chunk_text(text: str, max_tokens: int = CHUNK_TOKENS, overlap_words: int = O
             chunks.append("\n".join(current))
             current, current_tokens = [], 0
 
-    for unit_text, is_code in units:
+    for unit_text, is_code, is_boundary in units:
         ut = estimate_tokens(unit_text, is_code)
+        if is_boundary and current:
+            # C3: a heading starts a new section — never let a chunk span it.
+            # (No overlap carried across a section boundary either: the
+            # previous section's tail isn't context for the new one.)
+            flush()
         if ut > max_tokens:
             # Oversized single unit (e.g. a minified line): flush, then hard-split.
             flush()

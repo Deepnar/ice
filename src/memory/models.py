@@ -58,6 +58,10 @@ class EpisodicMemory(Base):
     # choice and budget degradation never trust a summary below threshold.
     # NULL = no summary or legacy pre-C1 summary.
     summary_coverage = Column(Float, nullable=True)
+    # C3: one-line abstract (generated in the same LLM call as the summary) —
+    # the third level of the raw → summary → abstract hierarchy. Used only by
+    # budget degradation (never *preferred* by the read-time chooser).
+    abstract_text = Column(Text, nullable=True)
     embedding = Column(Vector(384), nullable=True)
     decay_score = Column(Float, default=1.0)
     access_count = Column(Integer, default=0)

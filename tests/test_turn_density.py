@@ -104,7 +104,7 @@ class _FakeCompletions:
 
 
 pf.bg_client = SimpleNamespace(chat=SimpleNamespace(completions=_FakeCompletions()))
-summ, cov = pf.generate_summary("q", "a", kt, "test-model")
+summ, cov, _ab = pf.generate_summary("q", "a", kt, "test-model")
 check("retry fired when first summary dropped terms", _calls["n"] == 2)
 check(f"retry recovered coverage ({cov})", cov >= 0.7 and "Orien" in summ)
 
@@ -123,22 +123,22 @@ clf_exact = SimpleNamespace(intent_tags=["Factual_Retrieval"])
 clf_broad = SimpleNamespace(intent_tags=["Analysis_&_Summarization"])
 clf_neutral = SimpleNamespace(intent_tags=["Casual_Banter"])
 
-t, dg = orch._choose_representation(row(summ=None), clf_neutral, set())
+t, dg, ab = orch._choose_representation(row(summ=None), clf_neutral, set())
 check("no summary → raw", t.startswith("raw"))
-t, dg = orch._choose_representation(row(cov=0.3, inject_raw=False), clf_broad, set())
+t, dg, ab = orch._choose_representation(row(cov=0.3, inject_raw=False), clf_broad, set())
 check("untrusted summary (cov 0.3) → raw even when hint says summary", t.startswith("raw") and dg is None)
-t, dg = orch._choose_representation(row(cov=None, inject_raw=False), clf_neutral, set())
+t, dg, ab = orch._choose_representation(row(cov=None, inject_raw=False), clf_neutral, set())
 check("legacy summary (cov NULL) + summary hint → summary (status quo)", t.startswith("summary"))
-t, dg = orch._choose_representation(row(), clf_neutral, {"zephyr"})
+t, dg, ab = orch._choose_representation(row(), clf_neutral, {"zephyr"})
 check("keyword only in raw → raw, NOT degradable", t.startswith("raw") and dg is None)
-t, dg = orch._choose_representation(row(summ="summary of zephyr protocol"), clf_exact, {"zephyr"})
+t, dg, ab = orch._choose_representation(row(summ="summary of zephyr protocol"), clf_exact, {"zephyr"})
 check("exactness intent → raw, degradable (keyword survives in summary)",
       t.startswith("raw") and dg is not None)
-t, dg = orch._choose_representation(row(), clf_broad, set())
+t, dg, ab = orch._choose_representation(row(), clf_broad, set())
 check("compression-tolerant intent → trusted summary", t.startswith("summary"))
-t, dg = orch._choose_representation(row(), clf_neutral, set())
+t, dg, ab = orch._choose_representation(row(), clf_neutral, set())
 check("neutral intent → default hint (raw), degradable", t.startswith("raw") and dg is not None)
-t, dg = orch._choose_representation(row(inject_raw=False), clf_neutral, set())
+t, dg, ab = orch._choose_representation(row(inject_raw=False), clf_neutral, set())
 check("neutral intent + summary hint → summary", t.startswith("summary"))
 
 print("── budget: degrade-before-drop ──")
@@ -161,7 +161,7 @@ from src.memory.models import Conversation, EpisodicMemory, IdempotencyKey
 pf.is_gpu_busy = lambda: False
 pf.is_user_active = lambda: False
 pf.generate_summary = lambda p, r, kt, mu="": (
-    "Grounded summary. Key terms: " + ", ".join(must_terms(kt)[:25]), 0.95)
+    "Grounded summary. Key terms: " + ", ".join(must_terms(kt)[:25]), 0.95, "one line abstract")
 
 db = SessionLocal()
 conv = Conversation(memory_scope_type="none")   # private → no queue side-effects

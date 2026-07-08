@@ -44,6 +44,26 @@ class ContextFragment:
     # when text already is the summary, no trusted summary exists, or the
     # keyword that matched lives only in the raw.
     degrade_text: Optional[str] = None
+    # C3: the one-line abstract — the LAST degradation step (raw → summary →
+    # abstract); attached whenever the turn's summary is trusted, never
+    # preferred by the chooser.
+    abstract_text: Optional[str] = None
+
+def _truncate_at_sentence(text: str, word_cap: int) -> str:
+    """C3 smarter truncation: cap at *word_cap* words but cut on the last
+    sentence boundary inside the cap (when one exists past 60% of it), so
+    fragments stop mid-thought less often. Falls back to the hard word cut."""
+    words = text.split()
+    if len(words) <= word_cap:
+        return text
+    hard = ' '.join(words[:word_cap])
+    best = -1
+    for m in re.finditer(r'[.!?](?:\s|$)', hard):
+        best = m.end()
+    if best > len(hard) * 0.6:
+        return hard[:best].rstrip() + ' …'
+    return hard + '…'
+
 
 # ---------------------------------------------------------------------------
 # Scoring constants – single source for all additive bonuses
@@ -590,7 +610,7 @@ class HybridRetrievalOrchestrator:
             """
 
         query = text(f"""
-            SELECT id, raw_text, summary_text, summary_coverage, lossless_flag, inject_raw, conversation_id, is_bookmarked,
+            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
                    ts_rank(
                        to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                        query
@@ -630,7 +650,7 @@ class HybridRetrievalOrchestrator:
             # Final fallback: use plainto_tsquery (AND) if everything fails
             try:
                 query2 = text(f"""
-                    SELECT id, raw_text, summary_text, summary_coverage, lossless_flag, inject_raw, conversation_id, is_bookmarked,
+                    SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
                            ts_rank(
                                to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                                plainto_tsquery('english', :prompt_text)
@@ -687,7 +707,7 @@ class HybridRetrievalOrchestrator:
         # embedding over thousands of words is semantic mush (the C3 ceiling).
         # Their chunks compete instead, via _vector_chunks below.
         query = text(f"""
-            SELECT id, raw_text, summary_text, summary_coverage, lossless_flag, inject_raw, conversation_id, is_bookmarked,
+            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
                 (1 - (embedding <=> :prompt_embedding)) * COALESCE(decay_score, 1.0) as score
             FROM episodic_memory
             WHERE embedding IS NOT NULL
@@ -710,7 +730,12 @@ class HybridRetrievalOrchestrator:
         try:
             rows = self.db.execute(query, params).fetchall()
             fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt, classification=classification)
-            fragments.extend(self._vector_chunks(prompt_embedding, scope, conv_id))
+            # C3 dedupe: a chunk drops out when its parent turn is already in
+            # the turn-level results (the parent covers the content); doc
+            # parents are excluded above, so document chunks always compete.
+            parent_ids = {str(r.id) for r in rows}
+            fragments.extend(f for f in self._vector_chunks(prompt_embedding, scope, conv_id)
+                             if f.source_batch_id not in parent_ids)
             return fragments
         except Exception as err:
             logger.error("vector_retrieval_failed", error=str(err))
@@ -1505,25 +1530,27 @@ class HybridRetrievalOrchestrator:
                 best_per_leg[leg] = f
         guaranteed = sorted(best_per_leg.values(), key=lambda x: x.score, reverse=True)
 
-        def _degraded(f):
-            """C1 degrade-before-drop: swap a too-big raw fragment for its
-            trusted grounded summary instead of losing it entirely."""
-            if not f.degrade_text:
-                return None
+        def _degraded(f, budget_left):
+            """C1/C3 degrade-before-drop chain: swap a too-big fragment for
+            its trusted summary, or failing that its one-line abstract,
+            instead of losing it entirely. Returns the first level that fits."""
             from dataclasses import replace as dc_replace
-            return dc_replace(
-                f, text=f.degrade_text,
-                token_count=int(len(f.degrade_text.split()) * 1.33),
-                degrade_text=None,
-            )
+            for alt in (f.degrade_text, f.abstract_text):
+                if not alt or alt == f.text:
+                    continue
+                tokens = int(len(alt.split()) * 1.33)
+                if tokens <= budget_left:
+                    return dc_replace(f, text=alt, token_count=tokens,
+                                      degrade_text=None, abstract_text=None)
+            return None
 
         total, result, used = 0, [], set()
         for f in guaranteed:
             if total + f.token_count <= max_tokens:
                 result.append(f); total += f.token_count; used.add(id(f))
             else:
-                d = _degraded(f)
-                if d and total + d.token_count <= max_tokens:
+                d = _degraded(f, max_tokens - total)
+                if d:
                     result.append(d); total += d.token_count; used.add(id(f))
 
         # Phase 2 – round-robin-with-slack across legs (A10 budget fairness).
@@ -1549,11 +1576,11 @@ class HybridRetrievalOrchestrator:
                 if total + f.token_count <= max_tokens:
                     result.append(f); total += f.token_count; progressed = True
                 else:
-                    # C1: fragment too big — degrade to its trusted summary
-                    # before giving up on it (else skip; the leg's next
-                    # fragment gets its chance next round).
-                    d = _degraded(f)
-                    if d and total + d.token_count <= max_tokens:
+                    # C1/C3: fragment too big — degrade (summary, then
+                    # abstract) before giving up on it (else skip; the leg's
+                    # next fragment gets its chance next round).
+                    d = _degraded(f, max_tokens - total)
+                    if d:
                         result.append(d); total += d.token_count; progressed = True
                 if not q:
                     active.remove(leg)
@@ -1590,7 +1617,7 @@ class HybridRetrievalOrchestrator:
         privacy_filter = "" if scope_conv else "AND is_private = FALSE"
         try:
             query = text(f"""
-                SELECT id, raw_text, summary_text, summary_coverage, lossless_flag, inject_raw, conversation_id,
+                SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_document,
                        1 - (embedding <=> :prompt_embedding) as score
                 FROM episodic_memory
                 WHERE embedding IS NOT NULL
@@ -1644,36 +1671,41 @@ class HybridRetrievalOrchestrator:
              compression-tolerant intents prefer the trusted summary;
           4. otherwise the storage-side default hint (inject_raw), with raw
              degradable to the trusted summary under budget pressure.
+
+        Returns ``(text, degrade_text, abstract_text)`` — the abstract (C3,
+        the last degradation level) rides along under the same trust and
+        keyword-protection rules; the chooser never *prefers* it.
         """
         raw = row.raw_text
         summ = row.summary_text
+        abstract = getattr(row, "abstract_text", None)
         if not raw:
-            return (summ, None) if summ else (None, None)
+            return (summ, None, abstract) if summ else (None, None, None)
         if not summ:
-            return raw if row.inject_raw else raw[:300], None
+            return (raw if row.inject_raw else raw[:300]), None, None
         cov = getattr(row, "summary_coverage", None)
         # NULL coverage = legacy pre-C1 summary → keep status-quo trust
         trusted = cov is None or cov >= 0.7
         if not trusted:
-            return raw, None
+            return raw, None, None
 
         if prompt_keywords:
             raw_l, summ_l = raw.lower(), summ.lower()
             kw_raw = any(kw in raw_l or kw.rstrip('s') in raw_l for kw in prompt_keywords)
             kw_summ = any(kw in summ_l or kw.rstrip('s') in summ_l for kw in prompt_keywords)
             if kw_raw and not kw_summ:
-                return raw, None
+                return raw, None, None
 
         if classification is not None:
             intents = set(classification.intent_tags or [])
             if intents & self.INTENTS_PREFER_SUMMARY and not intents & self.INTENTS_PREFER_RAW:
-                return summ, None
+                return summ, None, abstract
             if intents & self.INTENTS_PREFER_RAW:
-                return raw, summ
+                return raw, summ, abstract
 
         if row.inject_raw:
-            return raw, summ
-        return summ, None
+            return raw, summ, abstract
+        return summ, None, abstract
 
     def _relevant_doc_chunks(self, turn_id, prompt_keywords, limit: int = 2):
         """C2: pick a document's most query-relevant chunks (keyword-hit count,
@@ -1707,7 +1739,7 @@ class HybridRetrievalOrchestrator:
         prompt_keywords = self._extract_prompt_keywords(prompt_text) if prompt_text else set()
 
         for row in rows:
-            text, degrade_text = self._choose_representation(row, classification, prompt_keywords)
+            text, degrade_text, abstract_text = self._choose_representation(row, classification, prompt_keywords)
             if not text:
                 continue
 
@@ -1730,9 +1762,7 @@ class HybridRetrievalOrchestrator:
                 if any(kw in text_lower or kw.rstrip('s') in text_lower for kw in prompt_keywords):
                     word_cap = 1500
 
-            words = text.split()
-            if len(words) > word_cap:
-                text = ' '.join(words[:word_cap]) + '…'
+            text = _truncate_at_sentence(text, word_cap)
 
             if not text:
                 continue
@@ -1765,5 +1795,6 @@ class HybridRetrievalOrchestrator:
                 source_batch_id=str(row.id),
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
                 degrade_text=degrade_text,
+                abstract_text=abstract_text,
             ))
         return fragments

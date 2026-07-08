@@ -53,6 +53,8 @@ import re
 
 # ── Thresholds (module constants; G9 sweeps tunables into settings later) ──
 RAW_KEEP_MAX_WORDS = 350        # at/below: raw only, no summary generated
+LONG_TURN_CHUNK_WORDS = 600     # C3: turns longer than this get chunk-level embeddings
+                                # (document_chunker), not just is_document pastes
 DENSITY_LOSSLESS_THRESHOLD = 0.35  # entropy at/above ⇒ lossless_flag (codex-extraction gate);
                                    # deliberately generous — codex was historically starved
 SUMMARY_COVERAGE_THRESHOLD = 0.7   # must-term fraction a summary must retain to be trusted

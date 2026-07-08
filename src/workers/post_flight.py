@@ -19,7 +19,7 @@ from src.workers.document_chunker import chunk_document
 from src.workers.turn_density import (
     extract_key_terms, compute_entropy, decide_representation,
     summary_coverage, must_terms,
-    DENSITY_LOSSLESS_THRESHOLD, SUMMARY_COVERAGE_THRESHOLD,
+    DENSITY_LOSSLESS_THRESHOLD, SUMMARY_COVERAGE_THRESHOLD, LONG_TURN_CHUNK_WORDS,
 )
 
 
@@ -55,9 +55,11 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
         "- Do NOT include pleasantries, speculation, or meta-commentary.\n"
         "- If the exchange contains code, describe what the code does.\n"
         f"{must_block}{retry_block}"
-        "- End with one final line formatted exactly as:\n"
+        "- End with two final lines formatted exactly as:\n"
         "  Key terms: <comma-separated list of the named entities, figures, and "
-        "identifiers that appear in the exchange>"
+        "identifiers that appear in the exchange>\n"
+        "  Abstract: <ONE sentence, max ~20 words, stating what this exchange "
+        "was about>"
     )
     completion = bg_client.chat.completions.create(
         model=model_name,
@@ -72,13 +74,24 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
     return completion.choices[0].message.content.strip()
 
 
+def _split_abstract(summary: str):
+    """C3: pull the trailing 'Abstract:' line out of the generated summary.
+    Returns (summary_without_abstract, abstract_or_None)."""
+    m = re.search(r"(?im)^\s*abstract:\s*(.+)\s*$", summary or "")
+    if not m:
+        return summary, None
+    body = (summary[:m.start()] + summary[m.end():]).strip()
+    return body, m.group(1).strip()
+
+
 def generate_summary(prompt: str, response: str, key_terms: dict,
                      model_used: str = ""):
-    """C1 grounded summarisation: MUST-PRESERVE terms are injected into the
+    """C1/C3 grounded summarisation: MUST-PRESERVE terms are injected into the
     prompt (ground-then-generate, like Codex A2), the result is *measured*
-    (``summary_coverage``), and one retry names any dropped terms. Returns
-    ``(summary_text, coverage)`` — ("", 0.0) on failure so the caller's
-    raw-wins fallback engages."""
+    (``summary_coverage``), one retry names any dropped terms, and the one-line
+    abstract (hierarchy level 3) rides in the same call. Returns
+    ``(summary_text, coverage, abstract)`` — ("", 0.0, None) on failure so the
+    caller's raw-wins fallback engages."""
     model_name = model_used if model_used else get_bg_model_name()
     terms = must_terms(key_terms)
     try:
@@ -91,10 +104,14 @@ def generate_summary(prompt: str, response: str, key_terms: dict,
             retry_cov = summary_coverage(retry, key_terms)
             if retry_cov > coverage:
                 summary, coverage = retry, retry_cov
-        return summary, coverage
+        summary, abstract = _split_abstract(summary)
+        # coverage was measured on the full text incl. the Key-terms line;
+        # re-measure on the stored body so the gate reflects what's injected.
+        coverage = summary_coverage(summary, key_terms)
+        return summary, coverage, abstract
     except Exception as exc:
         logger.error("background_summarization_failed", error=str(exc))
-        return "", 0.0
+        return "", 0.0, None
 
 
 @app.task(bind=True, max_retries=5, default_retry_delay=15)
@@ -155,9 +172,9 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
             is_creative=is_creative, is_document=is_document,
         )
         inject_raw = decision["inject_raw"]
-        summary, coverage = None, None
+        summary, coverage, abstract = None, None, None
         if decision["want_summary"]:
-            summary, coverage = generate_summary(prompt, response, key_terms, model_used)
+            summary, coverage, abstract = generate_summary(prompt, response, key_terms, model_used)
             summary = summary or None
             if decision["summary_decides"]:
                 # The retrievability gate: inject the summary only if it
@@ -177,6 +194,7 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
         turn.lossless_flag = lossless
         turn.summary_text = summary
         turn.summary_coverage = coverage if summary else None
+        turn.abstract_text = abstract if summary else None
         turn.inject_raw = inject_raw
         log.info(
             "representation_decided",
@@ -188,10 +206,11 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
         db.commit()
         log.info("post_flight_evaluation_complete", lossless=lossless)
 
-        # C2: document turns get chunked for chunk-level retrieval (also for
-        # private docs — chunks are turn-local and inherit visibility through
-        # the parent join, and the conversation needs them for self-retrieval).
-        if is_document:
+        # C2/C3: documents AND all long turns get chunked for chunk-level
+        # retrieval (also for private turns — chunks are turn-local and
+        # inherit visibility through the parent join, and the conversation
+        # needs them for self-retrieval).
+        if is_document or word_count > LONG_TURN_CHUNK_WORDS:
             chunk_document.delay(batch_id=batch_id)
 
         # G16 incognito: private turns keep their per-turn evaluation (summary/
