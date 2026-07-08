@@ -12,7 +12,7 @@ from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
 from src.api.memory_decision import (
     decide_memory_retrieval, memory_pressure, estimate_recent_window_tokens,
-    _sigmoid, _logit,
+    derive_total_budget, _sigmoid, _logit,
 )
 from src.classifier.classifier import PyTorchClassifier
 
@@ -118,6 +118,19 @@ check("DI3 zero-shot prior p_ltm low", r2.p_ltm < 0.2)
 r3 = ClassificationResult([], [], "Long_Term_Memory", [0.0] * 25, 0.7, "it")
 fin(None, r3)
 check("DI3 LTM prior p_ltm high", r3.p_ltm > 0.8)
+
+print("── C16: model-aware total budget ──")
+check("8k model → 6k budget (0.75×)", derive_total_budget(8192, settings) == int(8192 * 0.75))
+check("32k model → 24k budget", derive_total_budget(32768, settings) == int(32768 * 0.75))
+check("128k model → clamped to max guardrail", derive_total_budget(131072, settings) == settings.context_budget_max)
+check("tiny 2k model → clamped to min floor", derive_total_budget(2048, settings) == settings.context_budget_min)
+check("unknown model (None) → fallback 23k", derive_total_budget(None, settings) == settings.context_budget_fallback)
+check("unknown model (0) → fallback 23k", derive_total_budget(0, settings) == settings.context_budget_fallback)
+check("recent window scales with model budget",
+      estimate_recent_window_tokens(3, derive_total_budget(8192, settings))
+      < estimate_recent_window_tokens(3, derive_total_budget(32768, settings)))
+check("recent window default = legacy 23k mirror",
+      abs(estimate_recent_window_tokens(3) - 0.3 * (23_000 - 1_800)) < 1e-6)
 
 print(f"\n{_passed} passed, {_failed} failed")
 sys.exit(1 if _failed else 0)

@@ -142,12 +142,14 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
 
     # ── Budget overrides ─────────────────────────────────────────────────
 
-    def set_budget_from_turn_count(self, turn_count, total_tokens=0, classification=None):
+    def set_budget_from_turn_count(self, turn_count, total_tokens=0, classification=None,
+                                   total_budget=None):
         if self._off("dynamic_budget"):
             self.max_retrieval_tokens = 8000
             self.recent_token_budget = 4000
         else:
-            super().set_budget_from_turn_count(turn_count, total_tokens, classification)
+            super().set_budget_from_turn_count(turn_count, total_tokens, classification,
+                                               total_budget=total_budget)
 
     # ── Cluster restriction override ─────────────────────────────────────
 

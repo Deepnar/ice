@@ -275,6 +275,16 @@ def find_best_model(topic_tags, intent_tags, required_tokens: int = 0):
     return best_model, best_url
 
 
+def get_model_context_window(model_name: str):
+    """Return the registry's context_window for *model_name*, or None if the
+    model is unknown (C16: the budget derives from this instead of a constant)."""
+    reg = load_registry()
+    entry = reg["models"].get(model_name)
+    if entry:
+        return entry.get("context_window")
+    return None
+
+
 def get_fallback_model():
     """Return the first confirmed model name, or the configured default."""
     reg = load_registry()

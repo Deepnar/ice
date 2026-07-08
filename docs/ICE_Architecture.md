@@ -601,9 +601,9 @@ Before the legs run, \_relevant\_cluster\_ids(prompt\_embedding, classification,
 
 ### **6.7 Dynamic token budget**
 
-set\_budget\_from\_turn\_count(turn\_count, total\_tokens, classification) computes the split between the recent-turns window and the retrieval budget:
+set\_budget\_from\_turn\_count(turn\_count, total\_tokens, classification, total\_budget) computes the split between the recent-turns window and the retrieval budget:
 
-- TOTAL\_CONTEXT\_BUDGET = 23\_000, OVERHEAD\_RESERVE = 1\_800, so available = 21\_200.
+- **Model-aware total (C16, 2026-07):** the total is no longer a hardcoded 23k. main.py resolves the model **before** budgeting (§9.3) and derives `total_budget = clamp(context_window × context_input_fraction, [context_budget_min, context_budget_max])` via `derive_total_budget` (api/memory_decision.py), reading the window from the registry (`get_model_context_window`); an unknown model falls back to `context_budget_fallback` (23\_000). All four knobs are settings. So an 8k model assembles ~6k of context, a 32k model ~24k, and a 128k model is held at the max guardrail until C16's need-based filling makes larger budgets safe. `TOTAL_CONTEXT_BUDGET = 23_000` remains only as the class-level fallback for legacy/direct callers; OVERHEAD\_RESERVE = 1\_800 as before.
 
 - The **recent-window fraction** starts from a length-based base (0.3 \<10 turns, 0.2 \<50/\<200, 0.15 \<500/else), is reduced by token-density (-0.15 if avg\_tokens\_per\_turn \> 3000, -0.10 if \> 1500, -0.05 if \> 800), shifted by intent (-0.10 for Factual\_Retrieval/Troubleshooting/Analysis\_&\_Summarization; +0.10 for Emotional\_Processing/Casual\_Banter), shifted by topic (+0.05 Creative\_&\_Media; -0.05 Software\_&\_Tech; +0.05 Social\_&\_Relationships/Lifestyle\_&\_Health), and clamped to \[0.05, 0.85\].
 
@@ -770,7 +770,7 @@ Ties resolve to first-seen in JSON dict order. If no model qualifies, get\_fallb
 
 ### **9.3 Session stickiness**
 
-Stickiness is in-process (SESSION\_STATE dict keyed by conversation\_id, **not** persisted to Redis or the DB — it resets on API restart and is not shared across replicas). After each classification, topic and intent overlap with the previous turn is computed; overlap ⇒ consecutive\_shifts = 0, no overlap ⇒ consecutive\_shifts += 1. The routing decision (only when the client requested model == "ice-proxy"): if a sticky model is set **and** consecutive\_shifts \< 3, keep it; else call find\_best\_model and reset consecutive\_shifts. The conversation key comes from the X-ICE-Conversation-ID header (or a fresh uuid.uuid4()). required\_tokens = int((system\_words + user\_words) \* 1.33) is computed from the assembled messages and passed to find\_best\_model so the chosen model's context window can accommodate the prompt.
+Stickiness is in-process (SESSION\_STATE dict keyed by conversation\_id, **not** persisted to Redis or the DB — it resets on API restart and is not shared across replicas). After each classification, topic and intent overlap with the previous turn is computed; overlap ⇒ consecutive\_shifts = 0, no overlap ⇒ consecutive\_shifts += 1. The routing decision (only when the client requested model == "ice-proxy"): if a sticky model is set **and** consecutive\_shifts \< 3, keep it; else call find\_best\_model and reset consecutive\_shifts. The conversation key comes from the X-ICE-Conversation-ID header (or a fresh uuid.uuid4()). **Ordering reworked with C16 (2026-07):** selection now happens **before** budgeting and retrieval, so the context budget can derive from the chosen model's context window — the budget conforms to the model rather than the model being re-picked to fit the assembled prompt (the old post-assembly `required_tokens` re-selection is gone; it was one of two duplicated selection blocks, the first of which was dead code, and a third stray `ollama_url` assignment silently disabled registry `base_url` routing — all removed).
 
 
 ## **10. Operational Infrastructure**

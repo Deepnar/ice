@@ -78,17 +78,32 @@ def _logit(p: float, eps: float = 1e-6) -> float:
     return math.log(p / (1.0 - p))
 
 
-def estimate_recent_window_tokens(turn_count: int) -> float:
+def derive_total_budget(context_window, settings) -> int:
+    """C16 (model-aware half): total context budget derived from the routed
+    model's context window — ``fraction × window``, clamped to [min, max] —
+    instead of a hardcoded 23k. Unknown model (None/0) → configured fallback.
+    The max guardrail stays until C16's need-based filling makes huge budgets
+    safe; all knobs live in settings."""
+    if not context_window:
+        return settings.context_budget_fallback
+    budget = int(context_window * settings.context_input_fraction)
+    return max(settings.context_budget_min,
+               min(settings.context_budget_max, budget))
+
+
+def estimate_recent_window_tokens(turn_count: int, total_budget: float = None) -> float:
     """Token budget the orchestrator reserves for recent turns (the sliding
     window), estimated from conversation length. Mirrors the base fraction in
-    ``HybridRetrievalOrchestrator._compute_recent_fraction``."""
+    ``HybridRetrievalOrchestrator._compute_recent_fraction``. ``total_budget``
+    is the model-derived total (C16); defaults to the legacy 23k mirror."""
+    total = total_budget if total_budget else _TOTAL_CONTEXT_BUDGET
     if turn_count < 10:
         frac = 0.3
     elif turn_count < 200:
         frac = 0.2
     else:
         frac = 0.15
-    return frac * (_TOTAL_CONTEXT_BUDGET - _OVERHEAD_RESERVE)
+    return frac * (total - _OVERHEAD_RESERVE)
 
 
 def memory_pressure(total_tokens: float, window_tokens: float,

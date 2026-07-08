@@ -13,6 +13,17 @@ class Settings(BaseSettings):
     default_fallback_model: str = "qwen2.5:7b"
     background_model_mode: str = "dedicated"   # "dedicated" or "shared"          # ← new
 
+    # ── C16 (model-aware half): total context budget derived from the routed
+    # model's context window instead of a hardcoded 23k. fraction reserves the
+    # rest of the window for the model's output + safety margin; min/max are
+    # guardrails (max keeps huge-window models from drowning in noisy context
+    # until C16's need-based filling lands); fallback applies when the model
+    # is unknown to the registry.
+    context_input_fraction: float = 0.75
+    context_budget_min: int = 4_000
+    context_budget_max: int = 40_000
+    context_budget_fallback: int = 23_000
+
     # ── B2: principled memory-retrieval decision (log-odds combination) ──
     # These REPLACE the scattered hard LTM overrides. Every weight lives here
     # (not in code) because B2 sits on top of the current classifier, which B1

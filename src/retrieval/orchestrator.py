@@ -237,14 +237,19 @@ class HybridRetrievalOrchestrator:
 
 
 
-    TOTAL_CONTEXT_BUDGET = 23_000          # hard ceiling for all context
+    TOTAL_CONTEXT_BUDGET = 23_000          # fallback ceiling when no model-derived budget is passed (C16)
     OVERHEAD_RESERVE = 1_800               # system message + slots + question
 
 
     def set_budget_from_turn_count(
-        self, turn_count: int, total_tokens: int = 0, classification=None
+        self, turn_count: int, total_tokens: int = 0, classification=None,
+        total_budget: int = None,
     ):
-        available = self.TOTAL_CONTEXT_BUDGET - self.OVERHEAD_RESERVE
+        # C16 (model-aware half): the caller derives total_budget from the routed
+        # model's context window (derive_total_budget); the class constant is
+        # only the fallback for legacy/direct callers.
+        total = total_budget if total_budget else self.TOTAL_CONTEXT_BUDGET
+        available = total - self.OVERHEAD_RESERVE
         fraction = self._compute_recent_fraction(turn_count, total_tokens, classification)
         recent_budget = int(available * fraction)
         raw_retrieval = available - recent_budget

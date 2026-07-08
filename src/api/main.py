@@ -23,14 +23,18 @@ from sqlalchemy.orm import Session
 
 from src.api.config import settings
 from src.api.db import SessionLocal, get_db
-from src.api.memory_decision import decide_memory_retrieval, estimate_recent_window_tokens
+from src.api.memory_decision import (
+    decide_memory_retrieval, derive_total_budget, estimate_recent_window_tokens,
+)
 from src.api.prompt_assembler import assemble_prompt
 from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
 from src.memory.models import Conversation, EpisodicMemory, MemorySlot
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.workers.post_flight import evaluate_turn
-from src.model_registry.registry import find_best_model, get_fallback_model
+from src.model_registry.registry import (
+    find_best_model, get_fallback_model, get_model_context_window,
+)
 SESSION_STATE: dict = {}
 logger = structlog.get_logger("ice.api")
 classifier: Optional[PyTorchClassifier] = None
@@ -272,6 +276,35 @@ async def chat_completions(
             scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
     # For "auto" or "none", scope stays empty → retrieval searches globally
 
+    # ── Model selection via registry (with stickiness) ──
+    # C16: selection happens BEFORE budgeting/retrieval so the context budget
+    # can derive from the routed model's actual context window (the old design
+    # assembled first and selected after — with two duplicated selection blocks,
+    # the first silently overwritten, and a stray ollama_url override that
+    # killed registry base_url routing entirely; all removed, G20).
+    if body.get("model", "default") == "ice-proxy":
+        if conv_state["model"] and conv_state["consecutive_shifts"] < 3:
+            model_name = conv_state["model"]
+            model_base_url = None
+            log.info("mini_moe_sticky", model=model_name, shifts=conv_state["consecutive_shifts"])
+        else:
+            model_name, model_base_url = find_best_model(result.topic_tags, result.intent_tags)
+            conv_state["model"] = model_name
+            conv_state["consecutive_shifts"] = 0
+            log.info("mini_moe_routing", selected_model=model_name,
+                     topic_tags=result.topic_tags, intent_tags=result.intent_tags)
+        ollama_url = f"{model_base_url or settings.ollama_base_url}/v1/chat/completions"
+    else:
+        model_name = body.get("model", get_fallback_model())
+        ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
+
+    # C16: total context budget from the routed model's context window
+    # (fraction × window, clamped), not a hardcoded 23k.
+    model_ctx_window = get_model_context_window(model_name)
+    total_budget = derive_total_budget(model_ctx_window, settings)
+    log.info("context_budget", model=model_name,
+             context_window=model_ctx_window, total_budget=total_budget)
+
     # ── Retrieval & prompt assembly ──
     result.prompt = user_message
     fragments = []
@@ -292,12 +325,13 @@ async def chat_completions(
 
     mem_decision = decide_memory_retrieval(
         result, turn_count=turn_count, total_tokens=total_tokens, settings=settings,
+        recent_window_tokens=estimate_recent_window_tokens(turn_count, total_budget),
     )
     log.info("memory_decision", retrieve=mem_decision.retrieve, **mem_decision.breakdown)
     # Recent-turn budget for prompt assembly — principled default that also
     # applies when we don't retrieve (a long convo we chose not to search still
     # deserves a scaled recent window).
-    recent_budget = estimate_recent_window_tokens(turn_count)
+    recent_budget = estimate_recent_window_tokens(turn_count, total_budget)
 
     if mem_decision.retrieve:
         # Downstream (orchestrator gates, episodic storage, telemetry) still
@@ -310,9 +344,11 @@ async def chat_completions(
         prompt_embedding = embedding_tensor.tolist() if hasattr(embedding_tensor, "tolist") else list(embedding_tensor)
 
         orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
-        # CL4: dynamic token budget from conversation length
+        # CL4: dynamic token budget from conversation length, ceiling from the
+        # routed model's context window (C16).
         orchestrator.set_budget_from_turn_count(
-            turn_count, total_tokens=total_tokens, classification=result
+            turn_count, total_tokens=total_tokens, classification=result,
+            total_budget=total_budget,
         )
         fragments = await asyncio.to_thread(
             orchestrator.retrieve,
@@ -388,52 +424,7 @@ async def chat_completions(
         hyde_used=hyde_used,
     )
 
-    # ── Model selection via registry (with stickiness) ──────────────────────────
-    if body.get("model", "default") == "ice-proxy":
-        if conv_state["model"] and conv_state["consecutive_shifts"] < 3:
-            model_name = conv_state["model"]
-            model_base_url = None
-            log.info("mini_moe_sticky", model=model_name, shifts=conv_state["consecutive_shifts"])
-        else:
-            model_name, model_base_url = find_best_model(result.topic_tags, result.intent_tags)
-            conv_state["model"] = model_name
-            conv_state["consecutive_shifts"] = 0
-            log.info("mini_moe_routing", selected_model=model_name,
-                     topic_tags=result.topic_tags, intent_tags=result.intent_tags)
-        ollama_url = f"{model_base_url or settings.ollama_base_url}/v1/chat/completions"
-    else:
-        model_name = body.get("model", get_fallback_model())
-        ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
-
-    # ── Model selection (moved here so we can use assembled token count) ──
-    # Estimate token count of the assembled prompt
-    def _word_count(text: str) -> int:
-        return len(text.split()) if text else 0
-    system_words = _word_count(messages[0]["content"]) if messages else 0
-    user_words = _word_count(user_message)
-    required_tokens = int((system_words + user_words) * 1.33)
-
-    if body.get("model", "default") == "ice-proxy":
-        if conv_state["model"] and conv_state["consecutive_shifts"] < 3:
-            model_name = conv_state["model"]
-            model_base_url = None
-            log.info("mini_moe_sticky", model=model_name, shifts=conv_state["consecutive_shifts"])
-        else:
-            model_name, model_base_url = find_best_model(
-                result.topic_tags, result.intent_tags, required_tokens
-            )
-            conv_state["model"] = model_name
-            conv_state["consecutive_shifts"] = 0
-            log.info("mini_moe_routing", selected_model=model_name,
-                     topic_tags=result.topic_tags, intent_tags=result.intent_tags)
-        ollama_url = f"{model_base_url or settings.ollama_base_url}/v1/chat/completions"
-    else:
-        model_name = body.get("model", get_fallback_model())
-        ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
-
-    # ── Streaming generation with fallback model ──
-    ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"   # keep or remove? we'll keep
-    # ... (the existing ollama_url line can be removed since we already set it above)
+    # (Model selection happens above, before budgeting/retrieval — C16.)
 
     # ── Streaming generation with fallback model ──
     accumulated_raw_chunks = []
