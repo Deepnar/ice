@@ -15,6 +15,7 @@ from src.workers.celery_app import app
 from src.workers.gpu_check import is_gpu_busy, is_user_active
 from src.workers.codex_extractor import extract_codex, embedder as shared_embedder
 from src.workers.procedural_extractor import extract_procedural
+from src.workers.document_chunker import chunk_document
 from src.workers.turn_density import (
     extract_key_terms, compute_entropy, decide_representation,
     summary_coverage, must_terms,
@@ -186,6 +187,12 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()
         log.info("post_flight_evaluation_complete", lossless=lossless)
+
+        # C2: document turns get chunked for chunk-level retrieval (also for
+        # private docs — chunks are turn-local and inherit visibility through
+        # the parent join, and the conversation needs them for self-retrieval).
+        if is_document:
+            chunk_document.delay(batch_id=batch_id)
 
         # G16 incognito: private turns keep their per-turn evaluation (summary/
         # lossless are internal to the row) but never feed the shared stores —

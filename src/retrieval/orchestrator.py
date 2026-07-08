@@ -683,11 +683,15 @@ class HybridRetrievalOrchestrator:
                 )
             """
 
+        # C2: document turns are EXCLUDED from turn-level vector search — one
+        # embedding over thousands of words is semantic mush (the C3 ceiling).
+        # Their chunks compete instead, via _vector_chunks below.
         query = text(f"""
             SELECT id, raw_text, summary_text, summary_coverage, lossless_flag, inject_raw, conversation_id, is_bookmarked,
                 (1 - (embedding <=> :prompt_embedding)) * COALESCE(decay_score, 1.0) as score
             FROM episodic_memory
             WHERE embedding IS NOT NULL
+            AND is_document = false
             {topic_filter}
             {conv_filter}
             {privacy_filter}
@@ -705,11 +709,81 @@ class HybridRetrievalOrchestrator:
 
         try:
             rows = self.db.execute(query, params).fetchall()
-            return self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt, classification=classification)
+            fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt, classification=classification)
+            fragments.extend(self._vector_chunks(prompt_embedding, scope, conv_id))
+            return fragments
         except Exception as err:
             logger.error("vector_retrieval_failed", error=str(err))
             self.db.rollback()
             return []
+
+    def _vector_chunks(self, prompt_embedding, scope, conv_id=None) -> List[ContextFragment]:
+        """C2: chunk-level vector search over document turns. Visibility
+        (decay, archive, privacy, conversation, cluster scope) is enforced
+        through the parent turn; provenance points at the parent so
+        strengthening/decay land on the turn. Max 3 chunks per document."""
+        conv_filter = "AND e.conversation_id = :conv_id" if conv_id else ""
+        privacy_filter = "" if conv_id else "AND e.is_private = FALSE"
+        cluster_filter = ""
+        if scope and scope.get("cluster_ids"):
+            cluster_filter = """
+                AND (
+                    EXISTS (
+                        SELECT 1 FROM episodic_cluster_links l
+                        WHERE l.episodic_id = e.id
+                          AND l.cluster_id = ANY(:cluster_ids)
+                    )
+                    OR NOT EXISTS (
+                        SELECT 1 FROM episodic_cluster_links l
+                        WHERE l.episodic_id = e.id
+                    )
+                )
+            """
+        query = text(f"""
+            SELECT c.chunk_text, c.chunk_index, e.id AS parent_id,
+                   e.conversation_id, e.is_bookmarked, e.timestamp,
+                   (1 - (c.embedding <=> :prompt_embedding)) * COALESCE(e.decay_score, 1.0) AS score
+            FROM episodic_chunks c
+            JOIN episodic_memory e ON e.id = c.turn_id
+            WHERE c.embedding IS NOT NULL
+              AND e.is_archived = false
+              AND e.decay_score > :min_decay
+              {conv_filter}
+              {privacy_filter}
+              {cluster_filter}
+            ORDER BY score DESC
+            LIMIT 30
+        """).bindparams(bindparam("prompt_embedding", type_=PgVector))
+        params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2}
+        if conv_id:
+            params["conv_id"] = conv_id
+        if scope and scope.get("cluster_ids"):
+            params["cluster_ids"] = scope["cluster_ids"]
+        try:
+            rows = self.db.execute(query, params).fetchall()
+        except Exception as err:
+            logger.error("chunk_vector_retrieval_failed", error=str(err))
+            self.db.rollback()
+            return []
+
+        fragments, per_parent = [], {}
+        for row in rows:
+            pid = str(row.parent_id)
+            if per_parent.get(pid, 0) >= 3:
+                continue
+            per_parent[pid] = per_parent.get(pid, 0) + 1
+            score_val = float(row.score)
+            if row.is_bookmarked:
+                score_val *= (1.0 + BONUS_BOOKMARKED)
+            fragments.append(ContextFragment(
+                text=row.chunk_text,
+                source_type="episodic",
+                score=score_val,
+                token_count=int(len(row.chunk_text.split()) * 1.33),
+                source_batch_id=pid,
+                conversation_id=str(row.conversation_id) if row.conversation_id else None,
+            ))
+        return fragments
         
     
     def _match_entities_by_similarity(self, entity_strings: List[str], threshold: float = 0.85) -> List:
@@ -1601,6 +1675,32 @@ class HybridRetrievalOrchestrator:
             return raw, summ
         return summ, None
 
+    def _relevant_doc_chunks(self, turn_id, prompt_keywords, limit: int = 2):
+        """C2: pick a document's most query-relevant chunks (keyword-hit count,
+        earliest-first tiebreak; the opening chunk as fallback — it usually
+        identifies the document). Returns joined text or None when the doc has
+        no chunks yet (legacy pre-C2; the catch-up worker heals those)."""
+        try:
+            rows = self.db.execute(text("""
+                SELECT chunk_text, chunk_index FROM episodic_chunks
+                WHERE turn_id = :tid ORDER BY chunk_index ASC
+            """), {"tid": turn_id}).fetchall()
+        except Exception:
+            self.db.rollback()
+            return None
+        if not rows:
+            return None
+        if prompt_keywords:
+            def hits(txt):
+                low = txt.lower()
+                return sum(1 for kw in prompt_keywords
+                           if kw in low or kw.rstrip('s') in low)
+            scored = sorted(rows, key=lambda r: (-hits(r.chunk_text), r.chunk_index))
+            if hits(scored[0].chunk_text) > 0:
+                chosen = sorted(scored[:limit], key=lambda r: r.chunk_index)
+                return "\n[…]\n".join(r.chunk_text for r in chosen)
+        return rows[0].chunk_text
+
     def _rows_to_fragments(self, rows, source_type, prompt_text: Optional[str] = None,
                            classification=None):
         fragments = []
@@ -1611,11 +1711,20 @@ class HybridRetrievalOrchestrator:
             if not text:
                 continue
 
-            # Word cap (document override / keyword-aware cap)
+            # Word cap (keyword-aware). C2: documents are NEVER injected whole
+            # anymore (the old word_cap=999999 bypass) — a doc row found by
+            # BM25/text search injects only its keyword-relevant chunks.
             is_doc = getattr(row, "is_document", False)
             word_cap = 500
             if is_doc:
-                word_cap = 999999
+                chunk_text_ = self._relevant_doc_chunks(row.id, prompt_keywords)
+                if chunk_text_:
+                    text = chunk_text_
+                    degrade_text = None
+                    word_cap = 999999   # already a bounded selection (≤2 chunks)
+                # else: legacy doc without chunks (pre-C2, catch-up worker will
+                # heal it) — falls through to the normal 500-word cap instead
+                # of dumping the whole document.
             elif prompt_keywords:
                 text_lower = text.lower()
                 if any(kw in text_lower or kw.rstrip('s') in text_lower for kw in prompt_keywords):

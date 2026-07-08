@@ -69,6 +69,28 @@ class EpisodicMemory(Base):
     idempotency_key = Column(Text, unique=True, nullable=False)
 
     conversation = relationship("Conversation", back_populates="episodic_turns")
+
+
+class EpisodicChunk(Base):
+    """C2: retrieval-grade chunks of document turns (is_document pastes),
+    produced by workers/document_chunker.py with the shared chunker
+    (src/memory/chunking.py). Documents are never injected whole anymore —
+    the vector leg searches these embeddings directly, and BM25-found doc
+    rows inject their keyword-relevant chunks. Visibility (decay, archive,
+    privacy, scope) is enforced through the parent turn at query time.
+    C3 extends this store to chunk-aware retrieval for ALL turns; C17
+    re-embeds it at 1024 along with everything else."""
+    __tablename__ = "episodic_chunks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    turn_id = Column(UUID(as_uuid=True),
+                     ForeignKey("episodic_memory.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    chunk_index = Column(Integer, nullable=False)
+    chunk_text = Column(Text, nullable=False)
+    embedding = Column(Vector(384), nullable=True)
+
+
 class EpisodicClusterLink(Base):
     __tablename__ = "episodic_cluster_links"
 

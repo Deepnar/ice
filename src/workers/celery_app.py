@@ -19,6 +19,7 @@ app = Celery(
         "src.workers.codex_decay",
         "src.workers.procedural_decay",
         "src.workers.batch_summarizer",
+        "src.workers.document_chunker",
         # NOTE: "src.workers.cluster_merge" was listed here but the module never
         # existed (the merge task is clustering.merge_similar_clusters) — the
         # bogus include crashed worker boot with ModuleNotFoundError (G21).
@@ -45,6 +46,12 @@ app.conf.beat_schedule = {
     'merge-clusters': {
         'task': 'src.workers.clustering.merge_similar_clusters',
         'schedule': 10800.0,         # every 3 hours
+    },
+    # C2: catch-up chunking for documents that predate C2 or whose
+    # event-driven dispatch was lost. Embedding-only, no LLM call.
+    'chunk-pending-documents': {
+        'task': 'src.workers.document_chunker.chunk_pending_documents',
+        'schedule': 7200.0,          # every 2 hours
     },
 
     # ── Lightweight decay (tiny multipliers, harmless to run often) ──

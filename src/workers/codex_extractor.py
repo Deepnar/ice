@@ -285,96 +285,23 @@ def generate_uuid5(canonical_name: str) -> uuid.UUID:
 # WHY SENTENCE/CODE-AWARE BOUNDARIES: raw word windows cut facts in half;
 # packing whole sentences (prose) and whole lines (code) keeps each fact
 # intact, which is the bigger quality lever than size alone.
-CHUNK_TOKENS = 550                    # target tokens per extraction chunk (shared with A2 NER)
-OVERLAP_WORDS = 50                    # word overlap carried into the next chunk
+# C2: the chunker moved to src/memory/chunking.py (the shared primitive for
+# extraction windows, document chunks, and future C3/C12). Old underscore
+# names kept as aliases so this module's callers/tests are unchanged.
+from src.memory.chunking import (
+    CHUNK_TOKENS, OVERLAP_WORDS,
+    estimate_tokens as _estimate_tokens,
+    split_segments as _split_segments,
+    atomic_units as _atomic_units,
+    chunk_text as _chunk_text,
+)
+
 MAX_EXTRACTION_TOKENS = 6000          # legacy constant; retained for import compatibility
 
 # A3 — extraction-confidence seeding (stored on codex_edges.extraction_confidence).
 CONF_GROUNDED = 0.9     # both terms confirmed by NER grounding
 CONF_UNGROUNDED = 0.7   # NER found no entities in the chunk; nothing to ground against
 CONF_REJECTED = 0.35    # failed grounding — stored anyway, gated out of retrieval until corroborated
-
-_CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
-
-
-def _estimate_tokens(text: str, is_code: bool = False) -> int:
-    """Rough token estimate. Code tokenizes far heavier than prose (symbols,
-    no word spacing), so for code we take the larger of a word- and a
-    char-based estimate rather than the prose words*1.33 heuristic."""
-    word_est = len(text.split()) * 1.33
-    if is_code:
-        return int(max(word_est, len(text) / 3.0))
-    return int(word_est)
-
-
-def _split_segments(text: str):
-    """Split *text* into ordered (segment, is_code) pairs, isolating fenced
-    code blocks from surrounding prose so each gets its own unit strategy."""
-    segments = []
-    idx = 0
-    for m in _CODE_FENCE_RE.finditer(text):
-        if m.start() > idx:
-            segments.append((text[idx:m.start()], False))
-        segments.append((m.group(0), True))
-        idx = m.end()
-    if idx < len(text):
-        segments.append((text[idx:], False))
-    return segments
-
-
-def _atomic_units(text: str):
-    """Break *text* into atomic units that must never be split across chunks:
-    sentences for prose, non-blank lines for code. Each unit is (unit, is_code)."""
-    units = []
-    for seg, is_code in _split_segments(text):
-        if is_code:
-            units.extend((ln, True) for ln in seg.splitlines() if ln.strip())
-        else:
-            units.extend((s, False) for s in _SENTENCE_SPLIT_RE.split(seg.strip()) if s.strip())
-    return units
-
-
-def _chunk_text(text: str, max_tokens: int = CHUNK_TOKENS, overlap_words: int = OVERLAP_WORDS) -> list:
-    """Split *text* into ~max_tokens chunks on sentence/code-line boundaries,
-    carrying overlap_words of context into each subsequent chunk. A single
-    unit larger than the budget is hard word-split as a last resort."""
-    units = _atomic_units(text)
-    if not units:
-        return [text] if text.strip() else []
-
-    chunks = []
-    current = []          # list of unit strings in the chunk being built
-    current_tokens = 0
-
-    def flush():
-        nonlocal current, current_tokens
-        if current:
-            chunks.append("\n".join(current))
-            current, current_tokens = [], 0
-
-    for unit_text, is_code in units:
-        ut = _estimate_tokens(unit_text, is_code)
-        if ut > max_tokens:
-            # Oversized single unit (e.g. a minified line): flush, then hard-split.
-            flush()
-            words = unit_text.split()
-            step = max(1, int(max_tokens / 1.33))
-            for i in range(0, len(words), step):
-                chunks.append(" ".join(words[i:i + step]))
-            continue
-        if current and current_tokens + ut > max_tokens:
-            prev = "\n".join(current)
-            flush()
-            overlap = " ".join(prev.split()[-overlap_words:]) if overlap_words else ""
-            if overlap:
-                current = [overlap]
-                current_tokens = _estimate_tokens(overlap)
-        current.append(unit_text)
-        current_tokens += ut
-    flush()
-    return chunks
-
 
 # -----------------------------------------------------------------
 # NER grounding (roadmap A2)

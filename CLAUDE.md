@@ -41,7 +41,7 @@ Rules for working it:
 Package/deps are managed with **uv** (Python 3.11.9, pinned in `.python-version`). Always run project code through `uv run`.
 
 ```bash
-./ice          # start everything: docker (postgres+redis), vLLM bg model, celery worker+beat, uvicorn proxy; tails logs, BUT only when testing the whole service, but even this has to change later
+./ice          # start everything: docker (postgres+redis), vLLM bg model, celery worker+beat, uvicorn proxy; tails logs — use only when testing the whole service. NOTE: ./ice/stop_ice/setup.sh are dev scaffolding with a decided fate (ROADMAP Track-F end-state): replaced by one packaged app, PLUS a separate headless boot path for ICE-as-MCP (E7); the vLLM bg server also leaves the default stack (shared-first decision, C7). Keep changes to these scripts thin.
 ./stop_ice     # stop all services
 ./setup.sh     # first-time install (Arch/CachyOS): pacman deps, pyenv, uv sync, docker up, alembic upgrade, model pull
 
