@@ -135,28 +135,31 @@ class HybridRetrievalOrchestrator:
         if not rows:
             return []
 
-        # Boost clusters whose tags overlap with the current topic tags
+        # Boost clusters whose tags overlap with the current topic tags.
+        # C5: the per-row name/description embedder.encode is GONE — it cost
+        # up to top_k*3 model forward passes in the synchronous hot path for
+        # a signal redundant with the centroid (the description text ≈ the
+        # cluster content ≈ what the centroid already encodes).
         topic_tags = set(classification.topic_tags) if classification else set()
         scored = []
         for row in rows:
             cluster_tags = set(row.tags or [])
             tag_overlap = len(topic_tags & cluster_tags) if topic_tags else 0
-
-            # Name/description similarity (small weight – secondary signal)
-            name_desc_text = (row.name + " " + (row.description or "")).strip()
-            name_sim = 0.0
-            if name_desc_text:
-                name_desc_emb = self.embedder.encode(name_desc_text, convert_to_tensor=False)
-                name_sim = sum(a * b for a, b in zip(prompt_embedding, name_desc_emb))
-
-            combined = row.sim + (0.3 * tag_overlap) + (0.15 * name_sim)
+            combined = row.sim + (0.3 * tag_overlap)
             scored.append((combined, str(row.id)))
 
         scored.sort(key=lambda x: x[0], reverse=True)
         if not scored or scored[0][0] < 0.50:
             # No cluster is confidently relevant – fall back to full conversation search
             return []
-        return [cid for _, cid in scored[:top_k]]
+        # C5: adaptive band instead of a flat top-10 — keep clusters whose
+        # score is within 80% of the best match (capped at top_k). A single
+        # dominant cluster scopes tightly; several comparably-relevant
+        # clusters all stay in; weak tails drop out instead of padding the
+        # scope to a fixed count.
+        best = scored[0][0]
+        band = [cid for s, cid in scored if s >= 0.8 * best]
+        return band[:top_k]
     
     def _apply_bonuses(self, fragments, classification, conv_id, prompt_keywords):
         creative = bool({"Creative_&_Media"} & set(classification.topic_tags))

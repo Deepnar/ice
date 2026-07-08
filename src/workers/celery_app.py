@@ -40,6 +40,12 @@ app.conf.beat_schedule = {
         'task': 'src.workers.sentinel_monitor.monitor_sentinels',
         'schedule': 1800.0,
     },
+    # C5: was never scheduled (half of bug G10) — singleton re-absorption +
+    # conservative pairwise merge. Pure DB math + NER, no LLM call.
+    'merge-clusters': {
+        'task': 'src.workers.clustering.merge_similar_clusters',
+        'schedule': 10800.0,         # every 3 hours
+    },
 
     # ── Lightweight decay (tiny multipliers, harmless to run often) ──
     'decay-episodic': {
