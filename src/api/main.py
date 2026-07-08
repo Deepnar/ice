@@ -30,6 +30,7 @@ from src.api.prompt_assembler import assemble_prompt
 from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
 from src.memory.models import Conversation, EpisodicMemory, MemorySlot
+from src.memory.session import resolve_session_id
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.workers.post_flight import evaluate_turn
 from src.model_registry.registry import (
@@ -78,6 +79,7 @@ async def store_turn_async(
     context_reliance: str,
     raw_stream_chunks: list[str],
     model_used: str = "",
+    is_private: bool = False,
 ):
     """Async post-flight task.
 
@@ -120,10 +122,23 @@ async def store_turn_async(
 
     write_db = SessionLocal()
     try:
+        # C6: session identity — same sitting while the silence stays within
+        # session_gap_minutes; a longer gap opens a new session.
+        now = datetime.now(timezone.utc)
+        session_id, session_started = resolve_session_id(
+            write_db, conversation_id, now, settings.session_gap_minutes
+        )
+        if session_started:
+            # C7 seam: the "new sitting" signal maintenance catch-up hangs off.
+            log.info("session_started", session_id=str(session_id),
+                     conversation_id=str(conversation_id))
+
         turn = EpisodicMemory(
             conversation_id=conversation_id,
             batch_id=uuid.uuid4(),
-            timestamp=datetime.now(timezone.utc),
+            session_id=session_id,
+            is_private=is_private,
+            timestamp=now,
             topic_tags=topic_tags,
             intent_tags=intent_tags,
             context_reliance=context_reliance,
@@ -137,7 +152,7 @@ async def store_turn_async(
         )
         write_db.add(turn)
         write_db.commit()
-        log.info("turn_stored", episodic_id=str(turn.id))
+        log.info("turn_stored", episodic_id=str(turn.id), session_id=str(session_id))
 
         # Enqueue post‑flight evaluation (with graceful fallback to local buffer)
         try:
@@ -274,7 +289,18 @@ async def chat_completions(
         scope["conversation_id"] = str(conversation_id)
         if conv_row.cluster_ids:
             scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
-    # For "auto" or "none", scope stays empty → retrieval searches globally
+    elif conv_row and conv_row.memory_scope_type == "none":
+        # G16 incognito ("store private + read nothing"): episodic legs search
+        # only this conversation; codex resolves an empty scope set (A5
+        # `isolated`); rag/procedural legs are skipped by the orchestrator; the
+        # turn is stored is_private so no other scope ever retrieves it and the
+        # derivative pipelines (codex/procedural/clustering/summaries) skip it.
+        scope["conversation_id"] = str(conversation_id)
+        scope["isolated"] = True
+        scope["incognito"] = True
+    # For "auto", scope stays empty → retrieval searches globally (private
+    # turns excluded by the legs' is_private = FALSE visibility invariant)
+    is_private_conversation = bool(conv_row and conv_row.memory_scope_type == "none")
 
     # ── Model selection via registry (with stickiness) ──
     # C16: selection happens BEFORE budgeting/retrieval so the context budget
@@ -501,7 +527,8 @@ async def chat_completions(
         intent_tags=result.intent_tags,
         context_reliance=result.context_reliance,
         raw_stream_chunks=accumulated_raw_chunks,
-        model_used=model_to_use, 
+        model_used=model_to_use,
+        is_private=is_private_conversation,
     )
 
     return StreamingResponse(

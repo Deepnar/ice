@@ -27,6 +27,7 @@ def batch_summarize(self):
     try:
         # Find conversations with old, non‑lossless turns that haven't been batch‑summarised
         stale_turns = db.query(EpisodicMemory).filter(
+            EpisodicMemory.is_private == False,   # G16: incognito never summarised into shared stores
             EpisodicMemory.decay_score < 0.3,
             EpisodicMemory.lossless_flag == False,
             EpisodicMemory.is_document == False

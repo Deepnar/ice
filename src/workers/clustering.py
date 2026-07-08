@@ -340,7 +340,8 @@ def cluster_turns(self):
         unassigned_rows = db.execute(text("""
             SELECT e.id, e.topic_tags, e.embedding, e.conversation_id
             FROM episodic_memory e
-            WHERE NOT EXISTS (
+            WHERE e.is_private = FALSE
+              AND NOT EXISTS (
                 SELECT 1 FROM episodic_cluster_links l WHERE l.episodic_id = e.id
             )
             LIMIT :limit

@@ -100,12 +100,12 @@ def run_reflection(self):
         conv_ids = [row[0] for row in db.execute(text(
             "SELECT conversation_id FROM ("
             "  SELECT DISTINCT ON (conversation_id) conversation_id, timestamp "
-            "  FROM episodic_memory ORDER BY conversation_id, timestamp DESC"
+            "  FROM episodic_memory WHERE is_private = FALSE ORDER BY conversation_id, timestamp DESC"
             ") sub ORDER BY timestamp DESC LIMIT 200"
         )).fetchall()]
         for conv_id in conv_ids:
             recent = db.query(EpisodicMemory).filter_by(
-                conversation_id=conv_id
+                conversation_id=conv_id, is_private=False
             ).order_by(EpisodicMemory.timestamp.desc()).limit(200).all()
             if len(recent) < 10:
                 continue

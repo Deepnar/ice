@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # guardrails (max keeps huge-window models from drowning in noisy context
     # until C16's need-based filling lands); fallback applies when the model
     # is unknown to the registry.
+    # C6: silence longer than this within a conversation opens a new session
+    # (a "sitting") — the boundary clustering/C7 maintenance key off.
+    session_gap_minutes: int = 30
+
     context_input_fraction: float = 0.75
     context_budget_min: int = 4_000
     context_budget_max: int = 40_000

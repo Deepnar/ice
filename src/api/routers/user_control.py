@@ -123,9 +123,18 @@ def set_conversation_scope(conv_id: str, scope: ScopeUpdate, db: Session = Depen
     conv = db.query(Conversation).filter_by(id=uuid.UUID(conv_id)).first()
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    was_private = conv.memory_scope_type == "none"
     conv.memory_scope_type = scope.memory_scope_type
     conv.cluster_ids = [uuid.UUID(cid) for cid in (scope.cluster_ids or [])]
     conv.custom_filter = scope.custom_filter
+    # G16: privacy is denormalised onto episodic rows for the retrieval-time
+    # visibility invariant — keep it in sync when the scope crosses the
+    # none-boundary in either direction.
+    now_private = scope.memory_scope_type == "none"
+    if was_private != now_private:
+        db.query(EpisodicMemory).filter_by(conversation_id=conv.id).update(
+            {"is_private": now_private}
+        )
     db.commit()
     return {"status": "ok", "conversation_id": str(conv.id), "memory_scope_type": conv.memory_scope_type}
 

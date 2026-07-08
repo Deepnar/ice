@@ -35,6 +35,16 @@ class EpisodicMemory(Base):
     cluster_id = Column(UUID(as_uuid=True), ForeignKey("context_clusters.id"), nullable=True)
     parent_message_id = Column(UUID(as_uuid=True), ForeignKey("episodic_memory.id"), nullable=True)
     batch_id = Column(UUID(as_uuid=True), nullable=False)
+    # C6: one sitting = one session; a >session_gap_minutes silence opens a new
+    # one (resolved at write time in src/memory/session.py). NULL on rows that
+    # predate the migration. Feeds session-aware clustering (C5) and the
+    # session-gap maintenance trigger (C7).
+    session_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    # G16: turns of none-scoped ("incognito") conversations — invisible to every
+    # other scope's retrieval, skipped by the derivative pipelines
+    # (codex/procedural/clustering/batch-summary/reflection), readable only when
+    # retrieval is explicitly scoped to their own conversation.
+    is_private = Column(Boolean, default=False, nullable=False, index=True)
     timestamp = Column(DateTime(timezone=True), default=utcnow)
     topic_tags = Column(ARRAY(Text), default=[])
     intent_tags = Column(ARRAY(Text), default=[])

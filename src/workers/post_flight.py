@@ -152,10 +152,17 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()
         log.info("post_flight_evaluation_complete", lossless=lossless)
-        if lossless:
-            extract_codex.delay(batch_id=batch_id, model_used=model_used)
-        
-        extract_procedural.delay(batch_id=batch_id, model_used=model_used)
+
+        # G16 incognito: private turns keep their per-turn evaluation (summary/
+        # lossless are internal to the row) but never feed the shared stores —
+        # no codex entities, no procedural patterns (clustering/batch-summary/
+        # reflection skip them on their own side).
+        if turn.is_private:
+            log.info("private_turn_pipelines_skipped")
+        else:
+            if lossless:
+                extract_codex.delay(batch_id=batch_id, model_used=model_used)
+            extract_procedural.delay(batch_id=batch_id, model_used=model_used)
 
     except Exception as exc:
         db.rollback()

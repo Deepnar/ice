@@ -385,13 +385,18 @@ class HybridRetrievalOrchestrator:
             search_prompt = f"{classification.prompt} {' '.join(expansion)}"
             logger.info("grounded_query_expansion", terms=expansion)
 
+        # G16 incognito: episodic legs are conversation-scoped via conv_id;
+        # codex resolves an empty scope set (A5 `isolated`); the user-global
+        # legs (procedural patterns, RAG documents) read nothing at all.
+        incognito = bool(scope and scope.get("incognito"))
+
         # Execute the remaining retrieval legs
         legs: Dict[str, List[ContextFragment]] = {
             "bm25": self._bm25_episodic(classification, scope, conv_id, search_prompt),
             "vector": self._vector_episodic(prompt_embedding, classification, scope, conv_id),
             "codex": codex_fragments,
-            "procedural": self._procedural_lookup(prompt_embedding, classification, scope),
-            "rag": self._rag_lookup(prompt_embedding, classification),
+            "procedural": [] if incognito else self._procedural_lookup(prompt_embedding, classification, scope),
+            "rag": [] if incognito else self._rag_lookup(prompt_embedding, classification),
             "batch_summary": self._batch_summary_lookup(prompt_embedding, conv_id),
         }
 
@@ -554,6 +559,9 @@ class HybridRetrievalOrchestrator:
 
         topic_filter = ""
         conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
+        # G16 visibility invariant: global search never sees private (incognito)
+        # turns; explicit conversation scoping is the only door to them.
+        privacy_filter = "" if conv_id else "AND is_private = FALSE"
 
         # ── Cluster filter (new) ──
         cluster_filter = ""
@@ -587,6 +595,7 @@ class HybridRetrievalOrchestrator:
             WHERE to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')) @@ query
               {topic_filter}
               {conv_filter}
+              {privacy_filter}
               {cluster_filter}
               AND decay_score > :min_decay
               AND is_archived = false
@@ -621,6 +630,7 @@ class HybridRetrievalOrchestrator:
                     WHERE to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, ''))
                           @@ plainto_tsquery('english', :prompt_text)
                       {conv_filter}
+                      {privacy_filter}
                       {cluster_filter}
                       AND decay_score > :min_decay
                       AND is_archived = false
@@ -643,6 +653,9 @@ class HybridRetrievalOrchestrator:
     def _vector_episodic(self, prompt_embedding, classification, scope, conv_id: Optional[str] = None) -> List[ContextFragment]:
         topic_filter = ""
         conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
+        # G16 visibility invariant: global search never sees private (incognito)
+        # turns; explicit conversation scoping is the only door to them.
+        privacy_filter = "" if conv_id else "AND is_private = FALSE"
 
         # ── Cluster filter (new) ──
         cluster_filter = ""
@@ -668,6 +681,7 @@ class HybridRetrievalOrchestrator:
             WHERE embedding IS NOT NULL
             {topic_filter}
             {conv_filter}
+            {privacy_filter}
             {cluster_filter}
             AND decay_score > :min_decay
             AND is_archived = false
@@ -1461,28 +1475,40 @@ class HybridRetrievalOrchestrator:
     # Wide‑net fallback (now uses full vector search)
     # ------------------------------------------------------------------
     def _wide_net_fallback(self, classification, prompt_embedding, conversation_id, scope):
+        # C6/G16: the wide net widens *ranking*, not *visibility* — it must
+        # honor the same scope rules as the normal legs. Previously it ignored
+        # scope entirely (searched every conversation, codex unscoped, RAG
+        # always on), which leaked project- and incognito-scoped memory.
+        scope_conv = scope.get("conversation_id") if scope else None
+        incognito = bool(scope and scope.get("incognito"))
+        conv_filter = "AND conversation_id = :conv_id" if scope_conv else ""
+        privacy_filter = "" if scope_conv else "AND is_private = FALSE"
         try:
-            query = text("""
+            query = text(f"""
                 SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id,
                        1 - (embedding <=> :prompt_embedding) as score
                 FROM episodic_memory
                 WHERE embedding IS NOT NULL
                   AND is_archived = false
                   AND decay_score > :min_decay
+                  {conv_filter}
+                  {privacy_filter}
                 ORDER BY score DESC
                 LIMIT 100
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
-            rows = self.db.execute(query, {
-                "prompt_embedding": prompt_embedding,
-                "min_decay": 0.2
-            }).fetchall()
+            params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2}
+            if scope_conv:
+                params["conv_id"] = scope_conv
+            rows = self.db.execute(query, params).fetchall()
             fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt)
         except Exception:
             self.db.rollback()
             fragments = []
 
-        fragments.extend(self._codex_graph(classification, prompt_embedding=prompt_embedding))
-        fragments.extend(self._rag_lookup(prompt_embedding, classification))
+        fragments.extend(self._codex_graph(classification, scope,
+                                           prompt_embedding=prompt_embedding))
+        if not incognito:
+            fragments.extend(self._rag_lookup(prompt_embedding, classification))
 
         fused = self._apply_rrf({"fallback": fragments}, alpha_map={"fallback": 1.0})
         prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
