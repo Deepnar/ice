@@ -53,6 +53,11 @@ class EpisodicMemory(Base):
     lossless_flag = Column(Boolean, nullable=True)  # NULL = not yet evaluated
     raw_text = Column(Text, nullable=False)
     summary_text = Column(Text, nullable=True)
+    # C1: measured fraction of the turn's must-preserve terms (NER entities +
+    # figures + identifiers) retained by summary_text. Read-time representation
+    # choice and budget degradation never trust a summary below threshold.
+    # NULL = no summary or legacy pre-C1 summary.
+    summary_coverage = Column(Float, nullable=True)
     embedding = Column(Vector(384), nullable=True)
     decay_score = Column(Float, default=1.0)
     access_count = Column(Integer, default=0)

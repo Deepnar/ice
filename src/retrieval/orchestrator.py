@@ -38,6 +38,12 @@ class ContextFragment:
     token_count: int
     source_batch_id: Optional[str] = None
     conversation_id: Optional[str] = None
+    # C1: the *trusted* compact form (grounded summary with passing coverage)
+    # when text is the raw representation — lets the token budget degrade a
+    # too-big fragment to its summary instead of dropping it entirely. None
+    # when text already is the summary, no trusted summary exists, or the
+    # keyword that matched lives only in the raw.
+    degrade_text: Optional[str] = None
 
 # ---------------------------------------------------------------------------
 # Scoring constants – single source for all additive bonuses
@@ -584,7 +590,7 @@ class HybridRetrievalOrchestrator:
             """
 
         query = text(f"""
-            SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
+            SELECT id, raw_text, summary_text, summary_coverage, lossless_flag, inject_raw, conversation_id, is_bookmarked,
                    ts_rank(
                        to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                        query
@@ -617,14 +623,14 @@ class HybridRetrievalOrchestrator:
 
         try:
             rows = self.db.execute(query, params).fetchall()
-            return self._rows_to_fragments(rows, "episodic", prompt_text=search_prompt or classification.prompt)
+            return self._rows_to_fragments(rows, "episodic", prompt_text=search_prompt or classification.prompt, classification=classification)
         except Exception as err:
             logger.error("bm25_retrieval_failed", error=str(err))
             self.db.rollback()
             # Final fallback: use plainto_tsquery (AND) if everything fails
             try:
                 query2 = text(f"""
-                    SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
+                    SELECT id, raw_text, summary_text, summary_coverage, lossless_flag, inject_raw, conversation_id, is_bookmarked,
                            ts_rank(
                                to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                                plainto_tsquery('english', :prompt_text)
@@ -646,7 +652,7 @@ class HybridRetrievalOrchestrator:
                 if scope and scope.get("cluster_ids"):
                     p["cluster_ids"] = scope["cluster_ids"]
                 rows = self.db.execute(query2, p).fetchall()
-                return self._rows_to_fragments(rows, "episodic", prompt_text=search_prompt or classification.prompt)        
+                return self._rows_to_fragments(rows, "episodic", prompt_text=search_prompt or classification.prompt, classification=classification)        
             except Exception:
                 return []
 
@@ -678,7 +684,7 @@ class HybridRetrievalOrchestrator:
             """
 
         query = text(f"""
-            SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
+            SELECT id, raw_text, summary_text, summary_coverage, lossless_flag, inject_raw, conversation_id, is_bookmarked,
                 (1 - (embedding <=> :prompt_embedding)) * COALESCE(decay_score, 1.0) as score
             FROM episodic_memory
             WHERE embedding IS NOT NULL
@@ -699,7 +705,7 @@ class HybridRetrievalOrchestrator:
 
         try:
             rows = self.db.execute(query, params).fetchall()
-            return self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt)
+            return self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt, classification=classification)
         except Exception as err:
             logger.error("vector_retrieval_failed", error=str(err))
             self.db.rollback()
@@ -1425,10 +1431,26 @@ class HybridRetrievalOrchestrator:
                 best_per_leg[leg] = f
         guaranteed = sorted(best_per_leg.values(), key=lambda x: x.score, reverse=True)
 
+        def _degraded(f):
+            """C1 degrade-before-drop: swap a too-big raw fragment for its
+            trusted grounded summary instead of losing it entirely."""
+            if not f.degrade_text:
+                return None
+            from dataclasses import replace as dc_replace
+            return dc_replace(
+                f, text=f.degrade_text,
+                token_count=int(len(f.degrade_text.split()) * 1.33),
+                degrade_text=None,
+            )
+
         total, result, used = 0, [], set()
         for f in guaranteed:
             if total + f.token_count <= max_tokens:
                 result.append(f); total += f.token_count; used.add(id(f))
+            else:
+                d = _degraded(f)
+                if d and total + d.token_count <= max_tokens:
+                    result.append(d); total += d.token_count; used.add(id(f))
 
         # Phase 2 – round-robin-with-slack across legs (A10 budget fairness).
         # Each round, every leg contributes its next-best fragment (highest-scoring
@@ -1452,7 +1474,13 @@ class HybridRetrievalOrchestrator:
                 f = q.popleft()
                 if total + f.token_count <= max_tokens:
                     result.append(f); total += f.token_count; progressed = True
-                # else: fragment too big — skip it, try this leg's next one next round
+                else:
+                    # C1: fragment too big — degrade to its trusted summary
+                    # before giving up on it (else skip; the leg's next
+                    # fragment gets its chance next round).
+                    d = _degraded(f)
+                    if d and total + d.token_count <= max_tokens:
+                        result.append(d); total += d.token_count; progressed = True
                 if not q:
                     active.remove(leg)
             if not progressed:
@@ -1488,7 +1516,7 @@ class HybridRetrievalOrchestrator:
         privacy_filter = "" if scope_conv else "AND is_private = FALSE"
         try:
             query = text(f"""
-                SELECT id, raw_text, summary_text, lossless_flag, inject_raw, conversation_id,
+                SELECT id, raw_text, summary_text, summary_coverage, lossless_flag, inject_raw, conversation_id,
                        1 - (embedding <=> :prompt_embedding) as score
                 FROM episodic_memory
                 WHERE embedding IS NOT NULL
@@ -1503,7 +1531,7 @@ class HybridRetrievalOrchestrator:
             if scope_conv:
                 params["conv_id"] = scope_conv
             rows = self.db.execute(query, params).fetchall()
-            fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt)
+            fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt, classification=classification)
         except Exception:
             self.db.rollback()
             fragments = []
@@ -1523,18 +1551,64 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # Helper: convert raw DB rows to ContextFragment list
     # ------------------------------------------------------------------
-    def _rows_to_fragments(self, rows, source_type, prompt_text: Optional[str] = None):
+    INTENTS_PREFER_RAW = {"Factual_Retrieval", "Troubleshooting"}
+    INTENTS_PREFER_SUMMARY = {"Analysis_&_Summarization", "Strategic_Planning",
+                              "Ideation", "Open_Exploration"}
+
+    def _choose_representation(self, row, classification, prompt_keywords):
+        """C1 read-time representation choice (user design: both forms are
+        stored; NOTHING is permanently raw or permanently summary — the query
+        context decides). Returns ``(text, degrade_text)``.
+
+        Order of authority:
+          1. availability/trust — no summary, or coverage below threshold
+             (a summary that dropped must-terms is never used) → raw;
+          2. keyword protection — the matched keyword lives in raw but not in
+             the summary → raw, and NOT degradable (degrading would remove
+             the very term that made this fragment relevant);
+          3. intent preference — exactness intents prefer raw (degradable);
+             compression-tolerant intents prefer the trusted summary;
+          4. otherwise the storage-side default hint (inject_raw), with raw
+             degradable to the trusted summary under budget pressure.
+        """
+        raw = row.raw_text
+        summ = row.summary_text
+        if not raw:
+            return (summ, None) if summ else (None, None)
+        if not summ:
+            return raw if row.inject_raw else raw[:300], None
+        cov = getattr(row, "summary_coverage", None)
+        # NULL coverage = legacy pre-C1 summary → keep status-quo trust
+        trusted = cov is None or cov >= 0.7
+        if not trusted:
+            return raw, None
+
+        if prompt_keywords:
+            raw_l, summ_l = raw.lower(), summ.lower()
+            kw_raw = any(kw in raw_l or kw.rstrip('s') in raw_l for kw in prompt_keywords)
+            kw_summ = any(kw in summ_l or kw.rstrip('s') in summ_l for kw in prompt_keywords)
+            if kw_raw and not kw_summ:
+                return raw, None
+
+        if classification is not None:
+            intents = set(classification.intent_tags or [])
+            if intents & self.INTENTS_PREFER_SUMMARY and not intents & self.INTENTS_PREFER_RAW:
+                return summ, None
+            if intents & self.INTENTS_PREFER_RAW:
+                return raw, summ
+
+        if row.inject_raw:
+            return raw, summ
+        return summ, None
+
+    def _rows_to_fragments(self, rows, source_type, prompt_text: Optional[str] = None,
+                           classification=None):
         fragments = []
         prompt_keywords = self._extract_prompt_keywords(prompt_text) if prompt_text else set()
 
         for row in rows:
-            if row.inject_raw and row.raw_text:
-                text = row.raw_text
-            elif row.summary_text:
-                text = row.summary_text
-            elif row.raw_text:
-                text = row.raw_text[:300]
-            else:
+            text, degrade_text = self._choose_representation(row, classification, prompt_keywords)
+            if not text:
                 continue
 
             # Word cap (document override / keyword-aware cap)
@@ -1580,6 +1654,7 @@ class HybridRetrievalOrchestrator:
                 score=score_val,
                 token_count=int(len(text.split()) * 1.33),
                 source_batch_id=str(row.id),
-                conversation_id=str(row.conversation_id) if row.conversation_id else None
+                conversation_id=str(row.conversation_id) if row.conversation_id else None,
+                degrade_text=degrade_text,
             ))
         return fragments

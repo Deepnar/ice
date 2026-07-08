@@ -339,10 +339,11 @@ The episodic\_memory table is the system's primary store of conversational turns
 | **timestamp** | DateTime(tz) | utcnow |
 | **topic\_tags / intent\_tags** | ARRAY(Text) | classifier output; Creative\_&\_Media triggers the decay floor |
 | **context\_reliance** | Text | classifier label |
-| **entropy\_score** | Float |  |
+| **entropy\_score** | Float | C1: facts-per-token density (entity/figure/code/diversity blend) — written by the Post-Flight Evaluator (was NULL-forever until the 2026-07 rework) |
 | **lossless\_flag** | Boolean (nullable) | NULL = not yet evaluated; True exempts from batch summarisation and gates Codex extraction |
 | **raw\_text** | Text | full turn text |
-| **summary\_text** | Text | post-flight or compaction summary |
+| **summary\_text** | Text | grounded post-flight summary (stored ALONGSIDE raw — read time chooses, §6.1a) or compaction summary |
+| **summary\_coverage** | Float (nullable) | C1: measured must-term retention of summary_text; below 0.7 the summary is never preferred or degraded to; NULL = no/legacy summary |
 | **embedding** | Vector(384) |  |
 | **decay\_score** | Float default 1.0 | multiplied each decay cycle |
 | **access\_count** | Integer default 0 | incremented on retrieval |
@@ -691,15 +692,19 @@ GPU gating (workers/gpu\_check.py) polls nvidia-smi --query-gpu=utilization.gpu 
 
 ### **8.2 Post-Flight Evaluator**
 
-post\_flight.evaluate\_turn(batch\_id, prompt, response, conversation\_id, model\_used) is event-driven, enqueued from store\_turn\_async after each turn commit (max\_retries=5, default\_retry\_delay=15, idempotency key sha256(batch\_id)). It runs three analyses:
+post\_flight.evaluate\_turn(batch\_id, prompt, response, conversation\_id, model\_used) is event-driven, enqueued from store\_turn\_async after each turn commit (max\_retries=5, default\_retry\_delay=15, idempotency key sha256(batch\_id)). **Reworked 2026-07 (roadmap C1).** The old is\_lossless heuristic (code fence / \>500 words / ≥3 capitalized words — which fired on nearly everything) and the backwards branch that summarised the *densest* long turns into 2–3 sentences are replaced by the density pipeline in workers/turn\_density.py:
 
-- **Lossless detection** (is\_lossless) — resolves the "Asymmetrical Value Problem" of which turns are worth preserving verbatim: returns True if the text contains a code fence, exceeds 500 words, or contains ≥3 proper nouns after stripping sentence-start capitals. A **force-lossless override** sets lossless=True, inject\_raw=True, summary=None when topic\_tags contains Creative\_&\_Media or intent\_tags contains Emotional\_Processing.
+- **Key-term extraction** (extract\_key\_terms) — the turn's MUST-PRESERVE vocabulary: named entities via the shared MicroNER (reusing the worker's already-loaded embedder — no extra model copy), figures (numbers/dates/units), identifiers (snake\_case, CamelCase, dotted paths, acronyms).
 
-- **Document detection** — raw\_words \> 2000 AND assistant\_count \< 3 ⇒ is\_document = True, inject\_raw = True.
+- **Density** (compute\_entropy) — facts-per-token ∈ \[0,1\] from entity density, figure/identifier density, code presence, and lexical diversity — finally written to **entropy\_score** (NULL since v2). lossless\_flag = code ∨ creative/emotional ∨ entropy ≥ 0.35 (generous — it gates Codex extraction, which was historically starved) and still exempts from batch summarisation.
 
-- **Summary generation** — background client, temperature=0.0, max\_tokens=200, timeout=30.0, under a preservation-prompt system message (named entities, numbers/lists/categories, code-snippet descriptions; no pleasantries, no speculation, no meta-commentary).
+- **STORE BOTH, CHOOSE AT READ TIME (user design decision).** Every non-document turn \> 350 words gets a **grounded summary** stored *alongside* raw — the storage layer never permanently forces one representation. The summary prompt receives the must-preserve terms (ground-then-generate, as Codex A2 / clustering v5), asks for 4–6 sentences plus a trailing `Key terms:` line, and the result is **measured**: summary\_coverage = fraction of must-terms retained; one retry names any dropped terms; the score is stored in **summary\_coverage**. inject\_raw is demoted to a *default hint*: raw for documents/code/creative (continuity) and for short turns; for long dense/diffuse turns the coverage gate sets it (summary-by-default only when it provably kept the key terms). The actual per-query choice happens at retrieval (§6.1a). Emits `summary_quality` + `representation_decided` log events (F5 candidates).
 
-After commit, it dispatches extract\_codex.delay(...) (only if lossless) and extract\_procedural.delay(...) (always). If the Celery enqueue itself fails (broker down), store\_turn\_async appends a JSONL entry to data/post\_flight\_buffer.jsonl as a write-ahead log for later replay.
+- **Document detection** — raw\_words \> 2000 AND assistant\_count \< 3 ⇒ is\_document = True with raw injection — folded into the decision matrix, which also fixed the old **clobber bug** (the document branch's inject\_raw=True was previously overwritten by the general assignment two lines later, so documents silently *lost* raw injection).
+
+After commit, it dispatches extract\_codex.delay(...) (only if lossless) and extract\_procedural.delay(...) (always) — skipped entirely for private turns (§6.10). If the Celery enqueue itself fails (broker down), store\_turn\_async appends a JSONL entry to data/post\_flight\_buffer.jsonl as a write-ahead log for later replay.
+
+**§6.1a Read-time representation choice (C1).** \_rows\_to\_fragments no longer follows inject\_raw blindly; \_choose\_representation picks per query, in order of authority: (1) *trust* — no summary, or summary\_coverage below 0.7, ⇒ raw (a summary that dropped must-terms is never used; NULL coverage = legacy summary, status-quo trust); (2) *keyword protection* — if the matched prompt keyword lives in raw but not in the summary ⇒ raw, and not degradable (degrading would remove the very term that made the fragment relevant); (3) *intent preference* — Factual\_Retrieval/Troubleshooting prefer raw (degradable), Analysis/Strategic\_Planning/Ideation/Open\_Exploration prefer the trusted summary; (4) otherwise the storage-side hint. Fragments carry **degrade\_text** (the trusted summary when raw was chosen), and \_enforce\_token\_budget performs **degrade-before-drop** in both phases: a fragment that doesn't fit the remaining budget is swapped to its trusted summary instead of being lost — summarisation as "more knowledge with fewer tokens" exactly where the budget bites.
 
 ### **8.3 Codex Extractor**
 
