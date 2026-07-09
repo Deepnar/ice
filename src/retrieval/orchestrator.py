@@ -49,6 +49,31 @@ class ContextFragment:
     # preferred by the chooser.
     abstract_text: Optional[str] = None
 
+# C8: recency INSIDE the vector score (the candidate set is LIMIT 100 by
+# score — post-fusion bonuses can't rescue a recent turn that never made the
+# cut). Mirrors A11's codex formula, gentler because episodic already has
+# post-hoc recency bonuses; skipped for creative (recent meta turns are noise,
+# same rule as _apply_bonuses).
+EPISODIC_RECENCY_BOOST = 0.25
+EPISODIC_RECENCY_TAU_DAYS = 30.0
+
+# C15: wide-net budget derives from the model-aware retrieval budget instead
+# of a hardcoded 2,000 tokens.
+WIDE_NET_BUDGET_FRACTION = 0.3
+WIDE_NET_BUDGET_FLOOR = 1500
+
+
+def _head_confidences(classification):
+    """C15: honest per-head (topic, intent) confidences from the raw probs.
+    DI3 fast-path results carry all-zero raw_probs — fall back to their
+    explicitly set max_confidence (DI3 only fires when confident)."""
+    probs = getattr(classification, "raw_probs", None) or []
+    if len(probs) >= 22 and any(p > 0.0 for p in probs[:22]):
+        return max(probs[:11]), max(probs[11:22])
+    mc = getattr(classification, "max_confidence", 1.0)
+    return mc, mc
+
+
 def _truncate_at_sentence(text: str, word_cap: int) -> str:
     """C3 smarter truncation: cap at *word_cap* words but cut on the last
     sentence boundary inside the cap (when one exists past 60% of it), so
@@ -370,8 +395,18 @@ class HybridRetrievalOrchestrator:
         if classification.context_reliance == "Real_Time_Search":
             return []
 
-        if classification.max_confidence < settings.confidence_fallback_threshold:
-            logger.info("wide_net_fallback_triggered", confidence=classification.max_confidence)
+        # C15: the wide net fires on HONEST per-head uncertainty (topic AND
+        # intent both weak), not the legacy max-over-all-25-probs — which was
+        # dominated by whichever head happened to be peaked (the same broken
+        # measure B2 replaced for the LTM decision). Wide net is a degraded
+        # single-leg mode, so it fires only when the classifier is genuinely
+        # lost about WHAT the user wants.
+        topic_conf, intent_conf = _head_confidences(classification)
+        if (topic_conf < settings.confidence_fallback_threshold
+                and intent_conf < settings.confidence_fallback_threshold):
+            logger.info("wide_net_fallback_triggered",
+                        topic_confidence=round(topic_conf, 3),
+                        intent_confidence=round(intent_conf, 3))
             return self._wide_net_fallback(classification, prompt_embedding, conversation_id, scope)
 
         # Conversation scope filter for episodic legs
@@ -708,7 +743,8 @@ class HybridRetrievalOrchestrator:
         # Their chunks compete instead, via _vector_chunks below.
         query = text(f"""
             SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
-                (1 - (embedding <=> :prompt_embedding)) * COALESCE(decay_score, 1.0) as score
+                (1 - (embedding <=> :prompt_embedding)) * COALESCE(decay_score, 1.0)
+                  * (1 + :recency_boost * EXP(-GREATEST(EXTRACT(EPOCH FROM (NOW() - timestamp)), 0) / 86400.0 / :recency_tau)) as score
             FROM episodic_memory
             WHERE embedding IS NOT NULL
             AND is_document = false
@@ -721,7 +757,12 @@ class HybridRetrievalOrchestrator:
             ORDER BY score DESC
             LIMIT 100
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
-        params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2}
+        # C8: creative skips the in-score recency weight (same rule as the
+        # post-fusion bonuses — recent meta turns are noise for narrative).
+        creative = "Creative_&_Media" in (classification.topic_tags or [])
+        rec_boost = 0.0 if creative else EPISODIC_RECENCY_BOOST
+        params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2,
+                  "recency_boost": rec_boost, "recency_tau": EPISODIC_RECENCY_TAU_DAYS}
         if conv_id:
             params["conv_id"] = conv_id
         if scope and scope.get("cluster_ids"):
@@ -734,7 +775,8 @@ class HybridRetrievalOrchestrator:
             # the turn-level results (the parent covers the content); doc
             # parents are excluded above, so document chunks always compete.
             parent_ids = {str(r.id) for r in rows}
-            fragments.extend(f for f in self._vector_chunks(prompt_embedding, scope, conv_id)
+            fragments.extend(f for f in self._vector_chunks(prompt_embedding, scope, conv_id,
+                                                            recency_boost=rec_boost)
                              if f.source_batch_id not in parent_ids)
             return fragments
         except Exception as err:
@@ -742,7 +784,8 @@ class HybridRetrievalOrchestrator:
             self.db.rollback()
             return []
 
-    def _vector_chunks(self, prompt_embedding, scope, conv_id=None) -> List[ContextFragment]:
+    def _vector_chunks(self, prompt_embedding, scope, conv_id=None,
+                       recency_boost=EPISODIC_RECENCY_BOOST) -> List[ContextFragment]:
         """C2: chunk-level vector search over document turns. Visibility
         (decay, archive, privacy, conversation, cluster scope) is enforced
         through the parent turn; provenance points at the parent so
@@ -767,7 +810,8 @@ class HybridRetrievalOrchestrator:
         query = text(f"""
             SELECT c.chunk_text, c.chunk_index, e.id AS parent_id,
                    e.conversation_id, e.is_bookmarked, e.timestamp,
-                   (1 - (c.embedding <=> :prompt_embedding)) * COALESCE(e.decay_score, 1.0) AS score
+                   (1 - (c.embedding <=> :prompt_embedding)) * COALESCE(e.decay_score, 1.0)
+                     * (1 + :recency_boost * EXP(-GREATEST(EXTRACT(EPOCH FROM (NOW() - e.timestamp)), 0) / 86400.0 / :recency_tau)) AS score
             FROM episodic_chunks c
             JOIN episodic_memory e ON e.id = c.turn_id
             WHERE c.embedding IS NOT NULL
@@ -779,7 +823,8 @@ class HybridRetrievalOrchestrator:
             ORDER BY score DESC
             LIMIT 30
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
-        params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2}
+        params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2,
+                  "recency_boost": recency_boost, "recency_tau": EPISODIC_RECENCY_TAU_DAYS}
         if conv_id:
             params["conv_id"] = conv_id
         if scope and scope.get("cluster_ids"):
@@ -1618,7 +1663,8 @@ class HybridRetrievalOrchestrator:
         try:
             query = text(f"""
                 SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_document,
-                       1 - (embedding <=> :prompt_embedding) as score
+                       (1 - (embedding <=> :prompt_embedding))
+                         * (1 + :recency_boost * EXP(-GREATEST(EXTRACT(EPOCH FROM (NOW() - timestamp)), 0) / 86400.0 / :recency_tau)) as score
                 FROM episodic_memory
                 WHERE embedding IS NOT NULL
                   AND is_archived = false
@@ -1628,7 +1674,10 @@ class HybridRetrievalOrchestrator:
                 ORDER BY score DESC
                 LIMIT 100
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
-            params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2}
+            creative = "Creative_&_Media" in (classification.topic_tags or [])
+            params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2,
+                      "recency_boost": 0.0 if creative else EPISODIC_RECENCY_BOOST,
+                      "recency_tau": EPISODIC_RECENCY_TAU_DAYS}
             if scope_conv:
                 params["conv_id"] = scope_conv
             rows = self.db.execute(query, params).fetchall()
@@ -1647,7 +1696,11 @@ class HybridRetrievalOrchestrator:
         fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
         diversified = self._session_diversify(fused, conversation_id, max_per_conversation=3)
-        return self._enforce_token_budget(self._deduplicate(diversified), max_tokens=2000)
+        # C15: dynamic ceiling — a fraction of the (model-aware, C16) retrieval
+        # budget with a floor, replacing the hardcoded 2,000 tokens.
+        wide_budget = max(WIDE_NET_BUDGET_FLOOR,
+                          int(self.max_retrieval_tokens * WIDE_NET_BUDGET_FRACTION))
+        return self._enforce_token_budget(self._deduplicate(diversified), max_tokens=wide_budget)
 
     # ------------------------------------------------------------------
     # Helper: convert raw DB rows to ContextFragment list
