@@ -15,6 +15,7 @@ for items implemented after the window closes.
 
 ```markdown
 # <ITEM-ID> — <title>
+Assumes decided specs: <list of earlier specs whose decisions this one builds on, or "none">
 
 ## 1. Decisions
 Settled calls WITH the reasoning. Nothing left as "option A or B" unless it is
@@ -49,24 +50,55 @@ version" and why it was rejected.
 
 ## Working rules for the spec-writing session(s)
 
+0. **Set the thinking/effort slider to MAXIMUM for the whole day.** This is a
+   pure-reasoning workload — exactly where maximum effort pays; there is no
+   implementation churn to save budget for. (Not to be confused with
+   `/code-review ultra`, which is unrelated.)
 1. **Verify the model first.** These specs are the point of the Fable window —
    if the session is not running Fable 5, stop and switch before writing any.
-2. **Ground every spec in the code, not memory.** Read the item's roadmap
-   entry, the completion notes of everything it builds on, and the actual
-   current source of every file it touches — the audit found stale claims in
-   the roadmap itself more than once (G2); code is authoritative.
-3. **Priority order** (from S1): FINAL → C7 → D1/D2 → E0+E7 → E1/E1b/E8/E9/E10
+2. **DECIDE EVERYTHING — a spec that defers a decision is a FAILED spec.**
+   Every "decide when built", "open question", "revisit later", and
+   "options: A or B" inside an item's scope gets decided *in the spec*, with
+   reasoning. The only permitted exceptions: (a) decisions that genuinely
+   belong to the user (see rule 4), and (b) decisions that *require empirical
+   data that does not exist yet* — and then the spec must name the exact
+   measurement, where it comes from (usually Z1/FINAL), and the decision rule
+   to apply to it ("if over-rejection > X% → do Y, else Z"), so the executor
+   still never has to design anything.
+3. **World-state grounding — code for the first spec, code+decisions after.**
+   Specs are written strictly in priority order, and each spec is grounded in
+   (a) the actual current source of everything it touches (read it — the
+   audit found stale claims in the roadmap itself more than once, G2) **and**
+   (b) the *decided state* of every earlier spec. Code that exists today but
+   is scheduled to change by an earlier spec must NOT be treated as ground
+   truth (e.g. once the C7 spec settles the Celery question, every later spec
+   that touches workers is written against C7's decided world, not today's
+   celery_app.py). Declare this in the spec's `Assumes decided specs:` header.
+   If a later spec turns out to need an earlier decision changed: STOP, update
+   the earlier spec explicitly, note the revision in both — never fork
+   reality between specs.
+4. **Interaction model: autonomous with BATCHED user checkpoints — not
+   continuous hovering.** Settle everything settleable alone. When an item
+   contains a genuinely user-owned fork (product-flavored calls — scope
+   semantics, UX behavior, what the product should *feel* like — the kind the
+   user has always decided: "store both choose at read time", "30-min gap",
+   "incognito = store private + read nothing"), ask those as ONE batched
+   question set at the START of that spec, then write it fully settled. The
+   user should be reachable during the day but expect only a handful of short
+   question batches, not a running dialogue.
+5. **Priority order** (from S1): FINAL → C7 → D1/D2 → E0+E7 → E1/E1b/E8/E9/E10
    → B1 → C4/C9/C10/C11 → G23+C17 → B3 → F10/F14 → C13/C14 → F-track design
    brief. Mechanical G fixes: one line each in `G_mechanical.md`.
-4. **One spec, one commit** — a partial pass that runs out of time still
+6. **One spec, one commit** — a partial pass that runs out of time still
    leaves whole usable specs.
-5. **Budget by regret:** FINAL (the experiment redesign) is the single most
+7. **Budget by regret:** FINAL (the experiment redesign) is the single most
    reasoning-heavy item — give it the largest share of the day; its raw
    material is the FINAL section of the roadmap (the reviewer criticisms),
    `experiments/*/results*`, and the H-track items.
-6. **Link back:** when a spec lands, edit its roadmap entry to link it
+8. **Link back:** when a spec lands, edit its roadmap entry to link it
    (`→ spec: docs/specs/<item>.md`).
-7. **S1 is done when** every item in the priority list has either a spec or an
+9. **S1 is done when** every item in the priority list has either a spec or an
    explicit one-line "no spec needed because …" note in the roadmap.
-8. **Specs rot.** If an implemented item changes something a spec assumed,
-   updating the spec is part of that item's propagate-on-completion pass.
+10. **Specs rot.** If an implemented item changes something a spec assumed,
+    updating the spec is part of that item's propagate-on-completion pass —
+    and that includes earlier specs revised by later ones (rule 3).
