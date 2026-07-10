@@ -87,8 +87,9 @@ version" and why it was rejected.
    user should be reachable during the day but expect only a handful of short
    question batches, not a running dialogue.
 5. **Priority order** (from S1): FINAL → Track T (T2–T4 — added 2026-07-10, written first in its origin session) → C7 → D1/D2 → E0+E7 → E1/E1b/E8/E9/E10
-   → B1 → C4/C9/C10/C11 → G23+C17 → B3 → F10/F14 → C13/C14 → F-track design
-   brief. Mechanical G fixes: one line each in `G_mechanical.md`.
+   → B1 → C4/C9/C10/C11 → G23+C17 → B3 → F10/F14 → C13/C14 → Z1-prep (tuning
+   protocol + coverage matrix, added 2026-07-10) → F-track design brief.
+   Mechanical G fixes: one line each in `G_mechanical.md`.
 6. **One spec, one commit** — a partial pass that runs out of time still
    leaves whole usable specs.
 7. **Budget by regret:** FINAL (the experiment redesign) is the single most
@@ -98,7 +99,22 @@ version" and why it was rejected.
 8. **Link back:** when a spec lands, edit its roadmap entry to link it
    (`→ spec: docs/specs/<item>.md`).
 9. **S1 is done when** every item in the priority list has either a spec or an
-   explicit one-line "no spec needed because …" note in the roadmap.
+   explicit one-line "no spec needed because …" note in the roadmap — AND the
+   close-out deliverables have run (see the S1 roadmap entry): roadmap cleanup +
+   top-of-file execution flow, USER-REQUIRED consolidation, recovery note.
 10. **Specs rot.** If an implemented item changes something a spec assumed,
     updating the spec is part of that item's propagate-on-completion pass —
     and that includes earlier specs revised by later ones (rule 3).
+11. **USER-REQUIRED steps are first-class.** Any step only the human can do
+    (labeling data, exporting chat logs, creating accounts/API keys, reviewing
+    proposals, keeping the machine on for a long run) is written inside the spec
+    as a `**USER-REQUIRED:**` block with exact instructions: what to do, roughly
+    how long it takes, and what "done" looks like. The S1 close-out consolidates
+    every such block into the roadmap-top execution flow (the user's to-do list).
+12. **Divergence protocol (for the implementing session).** If the code disagrees
+    with a spec's assumptions: STOP implementing that item; re-ground in the
+    current source; update the spec (and any later specs whose `Assumes` header
+    names it) FIRST; record the divergence + resolution in the roadmap entry;
+    only then code. Never implement against a spec known to be stale, and never
+    improvise past a mismatch — improvisation by a weaker executor is exactly
+    what these specs exist to prevent.
