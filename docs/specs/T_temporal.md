@@ -66,7 +66,9 @@ Design decisions (with the why):
   WITH a matching `edge_expired` event = a semantic supersession (A6 reconciliation,
   A8 negation, property/conflict update) → belongs in timelines. An expired edge
   WITHOUT one = `codex_decay` forgetting/garbage-collection (codex_decay writes no
-  events — verified) → excluded. A faded idea is not a revised idea.
+  events — verified) → excluded. A faded idea is not a revised idea. *(C10
+  revision 2026-07-10: event-backed expiries with reason `source_deleted` are
+  excluded too — deletion is not evolution.)*
 - **D7: timelines are a first-class fragment type** (`source_type="timeline"`),
   hard-capped (`timeline_max_tokens=300`, ≤2 per query, ≤4 in evolution mode), riding
   A10's round-robin budget fairness like any other leg. A life story must not eat
