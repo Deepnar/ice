@@ -14,7 +14,7 @@ design requirements:**
 
 | # | criticism / gap | design answer (section) |
 |---|---|---|
-| 1 | Straw-man baseline (no frontier comparison) | `cloud_longctx` condition via Ollama Cloud free tier + LongMemEval external anchor (§2.3, §2.8, §2.9) |
+| 1 | Straw-man baseline (no frontier comparison) | `cloud_longctx` (frontier model on the $20/month tier — the exact product the criticism names) + `full_ice_cloud` (the same model WITH ICE) + LongMemEval external anchor (§2.3, §2.8, §2.9) |
 | 2 | Terrible ROI (4.26 vs 4.25 excl. ice_dev) | budget-parity conditions + per-dataset CIs — measure the post-rework system honestly; if the delta is still ≈0, the paper says so (§2.6) |
 | 3 | Misleading token-efficiency claim (22,411 vs 21,025) | identical context budget for ICE and baseline by construction; efficiency reported as quality-at-equal-budget (§2.6) |
 | 4 | Half-baked ablation (1 dataset, weaker judge) | subtraction ablation on ≥2 datasets with the SAME judge as the main runs (§2.7) |
@@ -58,24 +58,32 @@ the user gets access — seam only, no dependency); **better ground truth is man
   generated probes including every temporal class, and the whole thing (generator +
   seed + transcripts + ledger + probes) ships in the repo. Private sets stay as
   ecological-validity evidence; the synthetic set is what reviewers replicate.
-- **D6 (revised 2026-07-10 late — user has Claude Pro): Claude API preferred;
-  Ollama free tier is the zero-cost fallback.** Clarification recorded: a Pro
-  *subscription* is NOT API access — scripts need a separate pay-as-you-go key
-  (console.anthropic.com; ~$25 of credit covers the whole redo at Haiku prices,
-  §2.10). **Lanes are separated by design so nothing clashes: Pro/Claude Code =
-  the user's interactive coding lane; the API key = the harness's programmatic
-  lane; Ollama free tier = fallback if no key.** One cloud-client adapter seam
-  serves all (base_url + auth + pacing). **Prompt caching is REQUIRED in the
-  Anthropic adapter** for `cloud_longctx`: the stuffed history is identical
-  across a conversation's probes — cache it once per conversation, pay
-  cache-read rates per probe (~10× cheaper). Rate limits absorbed by D2's
-  resume + the pacer (429 → exponential backoff, budget in settings). Personal
-  datasets still require the explicit per-run `--allow-personal-cloud` flag
-  (default off) regardless of provider.
-- **USER-REQUIRED (rule 11):** (a) create an Anthropic API key + load ~$25
-  credit (~15 min; done = key present in the env var named in settings) — or
-  skip it and the harness runs on the Ollama free tier; (b) laptop-on nights
-  (~a week, fully resumable); (c) the `--allow-personal-cloud` decision per run.
+- **D6 (FINAL revision 2026-07-10 — user cost-comfort decides): the cloud lane
+  is one Ollama Cloud PAID MONTH (~$20 flat), bought when FINAL starts; metered
+  APIs are an optional appendix, default off.** Reasoning: for a student, flat
+  and predictable beats metered foreign-currency billing — and the design keeps
+  the cheaper lane rigorous anyway: the judge is **calibration-gated** (D8:
+  κ vs the human-audited set + agreement vs the ledger auto-scorer — judge
+  trust is *measured*, never assumed), and the frontier baseline stays credible
+  because the paid tier serves frontier-class open models (DeepSeek-V3.1-class,
+  100B+). Rhetorically this is exactly right: criticism #1 literally says
+  "just pay $20/month for an off-the-shelf product" — that product is now the
+  baseline. Scattered earlier cloud needs (B1's two-labeler pass, synth
+  generation if not adjacent to the FINAL month) ride the FREE tier with
+  resumable pacing; if that proves too slow, a second paid month is a bounded
+  +$20 (worst case $40 total, ever). **The Anthropic/OpenAI adapter seam stays
+  built and OFF** — if ever funded (~$5–10 suffices), it runs a ~100-probe
+  prestige appendix (Claude judge + Claude longctx) with prompt caching
+  required; skippable forever without touching any conclusion. Pro/Claude Code
+  remains the user's interactive coding lane only — never the harness's, so
+  nothing clashes. Personal datasets still require the explicit per-run
+  `--allow-personal-cloud` flag (default off) regardless of provider.
+- **USER-REQUIRED (rule 11):** (a) subscribe one Ollama Cloud paid month when
+  FINAL begins + set a cancel reminder (effectively one-time ~$20); (b)
+  laptop-on nights (~a week, fully resumable); (c) the `--allow-personal-cloud`
+  decision per run; (d) OPTIONAL and freely skippable: a small Anthropic API
+  key (~$5–10) for the prestige appendix (**a Pro subscription is not API
+  access** — it stays your coding lane).
 - **D7: MoE runs only if it earns its slot.** Pilot gate: 50 stratified probes,
   specialist pool vs generalist; run the full `*_moe` conditions only if the pilot
   shows ≥ +0.15 mean score. Otherwise the redo drops MoE and the paper reports the
@@ -163,7 +171,8 @@ The reproducibility artifact. Design:
 | `vector_rag` | tuned single-leg vector baseline at ICE's budget (D3) | all |
 | `full_ice` | post-rework ICE via public `retrieve()` | all |
 | `full_ice_moe` | + registry routing | D7 pilot gate first |
-| `cloud_longctx` | Ollama-cloud long-context model, full-history stuffing (as much as fits its window, newest-first) | synth, lme (+personal only with `--allow-personal-cloud`) |
+| `cloud_longctx` | the cloud lane's frontier model, full-history stuffing (as much as fits its window, newest-first) — the "just pay $20/month" baseline | synth, lme (+personal only with `--allow-personal-cloud`) |
+| `full_ice_cloud` | **ICE's retrieval/assembly (identical to `full_ice`) with the SAME cloud model answering** — the memory-system head-to-head at equal answerer strength: ICE's ~20k curated context vs the stuffed window, same brain (new condition, user 2026-07-10; also pre-validates F11's cloud-models-in-ICE path) | synth, lme |
 
 Answer model for local conditions: the same generalist for all (whatever Z1
 promoted; record in manifest). MoE uses the registry. One answer per probe
@@ -186,15 +195,17 @@ ready evolution material). `lme` keeps its own question set/types unchanged.
   the cited turns contain the claim's key strings (NER-normalized); failures go to a
   fix queue before any judging. (This is the "SOO many errors" fix — GT that can't
   cite its source doesn't enter the benchmark.)
-- **Judge (revised with D6):** primary = **claude-haiku-4-5 via the Anthropic
-  API**, temperature 0, fixed rubric prompt (1–5 + per-dimension flags:
-  correctness-vs-GT, era-correctness for temporal probes, unsupported-claims
-  list); **claude-sonnet-4-5 re-scores the 5% human-spot-check stratum** as a
-  second opinion (three-way agreement: human/Sonnet/Haiku). No-key fallback =
-  largest Ollama-cloud instruct model, same rubric. Fact/negative probes on
-  synth are ALSO auto-scored from the ledger (exact/normalized match) — the
-  judge's agreement with auto-scores is the calibration statistic (D8), gating
-  whichever judge runs.
+- **Judge (final, per D6):** primary = the **strongest instruct model on the
+  Ollama paid month that passes D8's calibration gates** (try largest first —
+  DeepSeek-V3.1-class), temperature 0, fixed rubric prompt (1–5 +
+  per-dimension flags: correctness-vs-GT, era-correctness for temporal probes,
+  unsupported-claims list). The 5% human-spot-check stratum is the standing
+  second opinion; the optional Claude appendix (D6) adds a third if ever
+  funded. Fact/negative probes on synth are ALSO auto-scored from the ledger
+  (exact/normalized match) — the judge's agreement with auto-scores is the
+  calibration statistic (D8), gating whichever judge runs: **a judge that
+  fails the gates gets swapped for a bigger one, so the cheap lane can never
+  silently cost rigor.**
 - **Score of record:** auto-score where it exists (synth fact/negative), judge
   elsewhere; human spot-check 5% stratified (existing `manual_evaluate.py` flow).
 
@@ -252,11 +263,12 @@ or vice versa beyond the public API + configurable orchestrator.
 Main runs: ~1,450 probes (synth 400, flaw 250, masters 200, shinchan 200, lme 150,
 control extras 250) × ~4 local condition-passes ≈ 5,000 local generations ≈ 40–55
 GPU-hours → 5–6 nights. Ablation ≈ +2–3 nights. Judging rides the cloud lane
-(paced, resumable, zero GPU). **Cost estimate at Haiku 4.5 prices:** ~4,000–4,500
-judge calls × ~4k tokens ≈ **$15–25**; `cloud_longctx` with mandatory prompt
-caching ≈ **$10–30** (plus an optional ~100-probe Sonnet headline subset,
-~$15–25). Total ≈ **$30–60 on ~$25–60 of credit** — order of one month of the
-Pro subscription, for the lane that answers criticism #1 with Claude itself. Replay happens once per dataset (snapshots reused).
+(paced, resumable, zero GPU). **Cost (plan of record): one Ollama Cloud paid month ≈ $20 flat** — covers
+judging (~4,500 calls), `cloud_longctx`, AND `full_ice_cloud` (~550 ICE-context
+calls); worst case +$20 if B1's labeling can't ride the free tier. Optional
+Claude prestige appendix: ~$5–10 of API credit for a ~100-probe subset. (The
+metered-API estimate — $30–60 — stays recorded for comparison; the flat lane
+won on predictability, and the calibration gates keep it equally rigorous.) Replay happens once per dataset (snapshots reused).
 If the week overruns: the priority drop order is fixed — ablation flaw-subset first,
 then `control` on flaw, then lme to 100 instances. Never drop: synth main runs,
 budget parity, temporal probes, judge calibration.
