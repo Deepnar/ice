@@ -24,7 +24,7 @@ Raw metrics JSON sits alongside each report. `docs/paper_rough_notes.md` and `do
 
 The queue of upcoming work is **[docs/ROADMAP.md](docs/ROADMAP.md)** — a living checklist distilled from `docs/rough_post_paper_work.md` (planned-but-never-built features, reworks where the current version underperformed in the experiments, known bugs, and open questions with no settled solution).
 
-**Starting a session:** read this file and `docs/ROADMAP.md`, find the next unchecked item, and continue from there. Completed items carry detailed notes (what shipped, why, validation) so you can pick up cold. Discuss the concrete design with the user before implementing (never build straight from a roadmap entry).
+**Starting a session:** read this file and `docs/ROADMAP.md` — its **top section ("HOW TO EXECUTE THIS ROADMAP") is the implementation order**; follow it. **Since S1 (2026-07-10), every design-heavy item has a decision-complete spec in `docs/specs/`** — read the item's spec AND its `Assumes decided specs:` chain before coding, and obey `docs/specs/README.md` rules 11–12 (USER-REQUIRED steps; the divergence protocol: code↔spec mismatch ⇒ stop, re-ground, fix the spec first, never improvise past it). Items without a spec carry an explicit no-spec note. Completed items carry detailed notes (what shipped, why, validation) so you can pick up cold.
 
 Rules for working it:
 
@@ -35,6 +35,10 @@ Rules for working it:
 - **Propagate on completion — refresh downstream stale references.** The mirror of look-ahead, done *after* finishing an item: scan the still-unchecked roadmap items for any that describe the *old* behavior of what you just changed, and update them to the new reality (and the new dependency). A shipped feature that leaves later items describing the pre-change world silently misleads the next session. Do this pass before checking the item off.
 - **It doubles as the progress tracker.** Check items off in `docs/ROADMAP.md` as they're completed.
 - **Keep the architecture doc in sync.** When a brand-new system/feature is finished, add a section for it to `docs/ICE_Architecture.md`; when an existing subsystem is reworked, search out its existing section there and update it to match the new behavior. The architecture doc must keep reflecting the system as built.
+
+## Boy-scout cleanup (standing rule, 2026-07-10)
+
+Every implementation session leaves the files it touches cleaner than found: imports sorted/grouped + unused dropped (`ruff` on touched files only — never a repo-wide reformat), dead code and lying comments fixed in place, one-off scripts moved (never deleted) to `scripts/oneoff/` with their paths fixed. **No barrel re-exports in `__init__.py`** (import-time side effects, hidden provenance, heavy transitive imports; the lazy in-function imports that break circular deps stay, commented). The pre-FINAL `experiments/*` folders are a **frozen historical record** — never reorganize them. Log every move/rename in [docs/CLEANUP.md](docs/CLEANUP.md).
 
 ## Commands
 

@@ -42,7 +42,7 @@
 11. **FINAL** — the experiment redo, strictly last. [FINAL_experiments.md](specs/FINAL_experiments.md)
 12. Post-FINAL: **B3** (only if its gates pass — [B3_routing.md](specs/B3_routing.md)), **F-track** (design conversation from [F_design_brief.md](specs/F_design_brief.md); F2 first), C13/C14 per the Z1 profile ([C13_C14](specs/C13_C14_caching.md)).
 
-Mechanical G items: opportunistic per [G_mechanical.md](specs/G_mechanical.md), each inside the phase that touches its file. Architecture-doc upkeep per CLAUDE.md applies at every phase.
+Mechanical G items: opportunistic per [G_mechanical.md](specs/G_mechanical.md), each inside the phase that touches its file. Architecture-doc upkeep per CLAUDE.md applies at every phase. **Boy-scout cleanup applies at every phase too** (CLAUDE.md standing rule → ledger in [docs/CLEANUP.md](CLEANUP.md)): touched files leave cleaner, one-offs → `scripts/oneoff/`, pre-FINAL experiment folders stay frozen.
 
 **USER-REQUIRED duties (consolidated from the specs — the human's own to-do list):**
 
