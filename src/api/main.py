@@ -227,6 +227,44 @@ async def chat_completions(
             content={"error": "No user message found in the request."},
         )
 
+    # G26: conversation + scope must resolve BEFORE classification —
+    # classify() reads conversation_id for its CL7 context prefix (this block
+    # previously sat ~40 lines below the classify call, a C16-reorder
+    # casualty: UnboundLocalError on every request).
+    conversation_id_str = request.headers.get("X-ICE-Conversation-ID")
+    if conversation_id_str:
+        conversation_id = uuid.UUID(conversation_id_str)
+        conversation = db.query(Conversation).filter_by(id=conversation_id).first()
+        if not conversation:
+            conversation = Conversation(id=conversation_id)
+            db.add(conversation)
+            db.commit()
+    else:
+        conversation = Conversation()
+        db.add(conversation)
+        db.commit()
+        conversation_id = conversation.id
+
+    # ── Scope from conversation metadata ──
+    scope = {}
+    conv_row = db.query(Conversation).filter_by(id=conversation_id).first()
+    if conv_row and conv_row.memory_scope_type == "project":
+        scope["conversation_id"] = str(conversation_id)
+        if conv_row.cluster_ids:
+            scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
+    elif conv_row and conv_row.memory_scope_type == "none":
+        # G16 incognito ("store private + read nothing"): episodic legs search
+        # only this conversation; codex resolves an empty scope set (A5
+        # `isolated`); rag/procedural legs are skipped by the orchestrator; the
+        # turn is stored is_private so no other scope ever retrieves it and the
+        # derivative pipelines (codex/procedural/clustering/summaries) skip it.
+        scope["conversation_id"] = str(conversation_id)
+        scope["isolated"] = True
+        scope["incognito"] = True
+    # For "auto", scope stays empty → retrieval searches globally (private
+    # turns excluded by the legs' is_private = FALSE visibility invariant)
+    is_private_conversation = bool(conv_row and conv_row.memory_scope_type == "none")
+
     # CL7: classifier will fetch & truncate the last 3 turns internally
     result = classifier.classify(
         user_message,
@@ -266,41 +304,6 @@ async def chat_completions(
             max_confidence=result.max_confidence,
             threshold=settings.confidence_fallback_threshold,
         )
-
-    # State tracking boundary
-    conversation_id_str = request.headers.get("X-ICE-Conversation-ID")
-    if conversation_id_str:
-        conversation_id = uuid.UUID(conversation_id_str)
-        conversation = db.query(Conversation).filter_by(id=conversation_id).first()
-        if not conversation:
-            conversation = Conversation(id=conversation_id)
-            db.add(conversation)
-            db.commit()
-    else:
-        conversation = Conversation()
-        db.add(conversation)
-        db.commit()
-        conversation_id = conversation.id
-
-    # ── Scope from conversation metadata ──
-    scope = {}
-    conv_row = db.query(Conversation).filter_by(id=conversation_id).first()
-    if conv_row and conv_row.memory_scope_type == "project":
-        scope["conversation_id"] = str(conversation_id)
-        if conv_row.cluster_ids:
-            scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
-    elif conv_row and conv_row.memory_scope_type == "none":
-        # G16 incognito ("store private + read nothing"): episodic legs search
-        # only this conversation; codex resolves an empty scope set (A5
-        # `isolated`); rag/procedural legs are skipped by the orchestrator; the
-        # turn is stored is_private so no other scope ever retrieves it and the
-        # derivative pipelines (codex/procedural/clustering/summaries) skip it.
-        scope["conversation_id"] = str(conversation_id)
-        scope["isolated"] = True
-        scope["incognito"] = True
-    # For "auto", scope stays empty → retrieval searches globally (private
-    # turns excluded by the legs' is_private = FALSE visibility invariant)
-    is_private_conversation = bool(conv_row and conv_row.memory_scope_type == "none")
 
     # ── Model selection via registry (with stickiness) ──
     # C16: selection happens BEFORE budgeting/retrieval so the context budget
