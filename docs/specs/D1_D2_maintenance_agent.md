@@ -60,12 +60,12 @@ pileup; one real absence check: stale `pending_items` slot; the rest stubs).
   keep the longer description (journaled), move codex_events entity_id, regenerate
   `context_payload`, expire the absorbed entity (row kept with alias marker — no
   hard delete; T-track history must survive). Approval-applied for Tier 2.
-- **D6: review-queue approval must APPLY, not just flip status.** Extend the
-  user_control approve endpoint with a dispatch table by `item_type`
-  (`entity_merge` → `merge_entities`, `memory_slot_update` → slot write,
-  `codex_reconciliation` → the chosen expire action). Verify current behavior at
-  implementation (reads as status-flip-only today) — F2's panel then gets working
-  buttons for free (E0 will later lift this dispatch into the service layer).
+- **D6: review-queue approval must APPLY, not just flip status.** The approve
+  endpoint already applies `memory_slot_update` and `new_cluster_proposal`
+  (user_control.py:198–213) — extend its dispatch table with the agent's types:
+  `entity_merge` → `merge_entities`, `codex_reconciliation` → the chosen expire
+  action. F2's panel then gets working buttons for free (E0 lifts this dispatch
+  into the review service).
 - **D7 (=roadmap D2): the Sentinel dies here.** Delete `sentinel_monitor.py`, the
   `SentinelRule`/`SentinelEvent` models + tables (alembic drop), its runtime
   interval entry (C7 ported it as-is until now), and stray imports. Its two real
