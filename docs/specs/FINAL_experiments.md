@@ -58,13 +58,24 @@ the user gets access — seam only, no dependency); **better ground truth is man
   generated probes including every temporal class, and the whole thing (generator +
   seed + transcripts + ledger + probes) ships in the repo. Private sets stay as
   ecological-validity evidence; the synthetic set is what reviewers replicate.
-- **D6: Cloud = Ollama Cloud free tier** for both the `cloud_longctx` condition and
-  the primary judge. Rate limits are absorbed by D2's resume + a client-side pacer
-  (429 → exponential backoff, hourly call budget in settings). Personal datasets may
-  be sent through it only with an explicit per-run `--allow-personal-cloud` flag
-  (default off; the user proposed the tier themselves but the default stays
-  conservative). Anthropic/OpenAI adapters: same client seam, disabled by default
-  (the "if I get a plus" lane).
+- **D6 (revised 2026-07-10 late — user has Claude Pro): Claude API preferred;
+  Ollama free tier is the zero-cost fallback.** Clarification recorded: a Pro
+  *subscription* is NOT API access — scripts need a separate pay-as-you-go key
+  (console.anthropic.com; ~$25 of credit covers the whole redo at Haiku prices,
+  §2.10). **Lanes are separated by design so nothing clashes: Pro/Claude Code =
+  the user's interactive coding lane; the API key = the harness's programmatic
+  lane; Ollama free tier = fallback if no key.** One cloud-client adapter seam
+  serves all (base_url + auth + pacing). **Prompt caching is REQUIRED in the
+  Anthropic adapter** for `cloud_longctx`: the stuffed history is identical
+  across a conversation's probes — cache it once per conversation, pay
+  cache-read rates per probe (~10× cheaper). Rate limits absorbed by D2's
+  resume + the pacer (429 → exponential backoff, budget in settings). Personal
+  datasets still require the explicit per-run `--allow-personal-cloud` flag
+  (default off) regardless of provider.
+- **USER-REQUIRED (rule 11):** (a) create an Anthropic API key + load ~$25
+  credit (~15 min; done = key present in the env var named in settings) — or
+  skip it and the harness runs on the Ollama free tier; (b) laptop-on nights
+  (~a week, fully resumable); (c) the `--allow-personal-cloud` decision per run.
 - **D7: MoE runs only if it earns its slot.** Pilot gate: 50 stratified probes,
   specialist pool vs generalist; run the full `*_moe` conditions only if the pilot
   shows ≥ +0.15 mean score. Otherwise the redo drops MoE and the paper reports the
@@ -175,11 +186,15 @@ ready evolution material). `lme` keeps its own question set/types unchanged.
   the cited turns contain the claim's key strings (NER-normalized); failures go to a
   fix queue before any judging. (This is the "SOO many errors" fix — GT that can't
   cite its source doesn't enter the benchmark.)
-- **Judge:** primary = largest Ollama-cloud instruct model, temperature 0, fixed
-  rubric prompt (1–5 + per-dimension flags: correctness-vs-GT, era-correctness for
-  temporal probes, unsupported-claims list). Fact/negative probes on synth are ALSO
-  auto-scored from the ledger (exact/normalized match) — the judge's agreement with
-  auto-scores is the calibration statistic (D8).
+- **Judge (revised with D6):** primary = **claude-haiku-4-5 via the Anthropic
+  API**, temperature 0, fixed rubric prompt (1–5 + per-dimension flags:
+  correctness-vs-GT, era-correctness for temporal probes, unsupported-claims
+  list); **claude-sonnet-4-5 re-scores the 5% human-spot-check stratum** as a
+  second opinion (three-way agreement: human/Sonnet/Haiku). No-key fallback =
+  largest Ollama-cloud instruct model, same rubric. Fact/negative probes on
+  synth are ALSO auto-scored from the ledger (exact/normalized match) — the
+  judge's agreement with auto-scores is the calibration statistic (D8), gating
+  whichever judge runs.
 - **Score of record:** auto-score where it exists (synth fact/negative), judge
   elsewhere; human spot-check 5% stratified (existing `manual_evaluate.py` flow).
 
@@ -236,8 +251,12 @@ or vice versa beyond the public API + configurable orchestrator.
 
 Main runs: ~1,450 probes (synth 400, flaw 250, masters 200, shinchan 200, lme 150,
 control extras 250) × ~4 local condition-passes ≈ 5,000 local generations ≈ 40–55
-GPU-hours → 5–6 nights. Ablation ≈ +2–3 nights. Judging rides the cloud tier
-(paced, resumable, zero GPU). Replay happens once per dataset (snapshots reused).
+GPU-hours → 5–6 nights. Ablation ≈ +2–3 nights. Judging rides the cloud lane
+(paced, resumable, zero GPU). **Cost estimate at Haiku 4.5 prices:** ~4,000–4,500
+judge calls × ~4k tokens ≈ **$15–25**; `cloud_longctx` with mandatory prompt
+caching ≈ **$10–30** (plus an optional ~100-probe Sonnet headline subset,
+~$15–25). Total ≈ **$30–60 on ~$25–60 of credit** — order of one month of the
+Pro subscription, for the lane that answers criticism #1 with Claude itself. Replay happens once per dataset (snapshots reused).
 If the week overruns: the priority drop order is fixed — ablation flaw-subset first,
 then `control` on flaw, then lme to 100 instances. Never drop: synth main runs,
 budget parity, temporal probes, judge calibration.

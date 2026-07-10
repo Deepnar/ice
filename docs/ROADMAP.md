@@ -54,7 +54,7 @@ Mechanical G items: opportunistic per [G_mechanical.md](specs/G_mechanical.md), 
 | 8 (F10) | export chat history from providers (ChatGPT/Claude settings → export); pick a decay policy; machine on for big imports | ~10 min + wait |
 | 9 (B1) | one-time training-data consent · review labeler disagreements (~200–400 rows) · 5% audit · run + approve promotion | ~2–3 h total |
 | 10 (Z1) | machine on for ≤4 sweep nights · read the tuning report's load-bearing table | ~30 min + nights |
-| 11 (FINAL) | Ollama cloud account/key · laptop-on nights (~a week, resumable) · decide `--allow-personal-cloud` | setup ~15 min + nights |
+| 11 (FINAL) | Anthropic API key + ~$25 credit (**Pro ≠ API** — separate pay-as-you-go account) or Ollama free tier fallback · laptop-on nights (~a week, resumable) · decide `--allow-personal-cloud` | setup ~15 min + nights |
 | post (B3) | confirm registry tags (~1 min/model) · cloud toggle choice | minutes |
 | standing | review-queue passes once F2 exists (agent + reflection proposals) | occasional |
 
@@ -310,7 +310,7 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 
 ## FINAL — Redo the entire experiments
 
-> → spec: [docs/specs/FINAL_experiments.md](specs/FINAL_experiments.md) (S1, 2026-07-10 — decision-complete. User forks settled: Ollama-cloud free tier for the frontier condition + judge; a **synthetic publishable dataset** with a planted-fact ledger (reviewers can't replicate private sets — and ledger GT kills the GT-error class); **LongMemEval** external anchor; **per-condition modular resumable runs** (no mega-script; laptop-intermittent); budget-parity conditions; per-dataset stats only; MoE runs behind a pilot gate; judge calibrated against the human-audited 1,211 + ledger auto-scores.)
+> → spec: [docs/specs/FINAL_experiments.md](specs/FINAL_experiments.md) (S1, 2026-07-10 — decision-complete. User forks settled (judge/frontier lane revised same day — user has Claude Pro; Pro ≠ API, so a small pay-as-you-go Anthropic key (~$25) becomes the preferred judge (Haiku 4.5) + frontier lane with mandatory prompt caching, Ollama free tier the zero-cost fallback; lanes deliberately separated from Claude-Code work); a **synthetic publishable dataset** with a planted-fact ledger (reviewers can't replicate private sets — and ledger GT kills the GT-error class); **LongMemEval** external anchor; **per-condition modular resumable runs** (no mega-script; laptop-intermittent); budget-parity conditions; per-dataset stats only; MoE runs behind a pilot gate; judge calibrated against the human-audited 1,211 + ledger auto-scores.)
 
 - [ ] **IMPORTANT** - 
 1. This is important as this isnt just a coding thing, it has a redesign of the exp so we dont run in to problems and limitations like before paper.
