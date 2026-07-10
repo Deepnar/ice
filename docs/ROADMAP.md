@@ -270,6 +270,8 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 
 ## FINAL — Redo the entire experiments
 
+> → spec: [docs/specs/FINAL_experiments.md](specs/FINAL_experiments.md) (S1, 2026-07-10 — decision-complete. User forks settled: Ollama-cloud free tier for the frontier condition + judge; a **synthetic publishable dataset** with a planted-fact ledger (reviewers can't replicate private sets — and ledger GT kills the GT-error class); **LongMemEval** external anchor; **per-condition modular resumable runs** (no mega-script; laptop-intermittent); budget-parity conditions; per-dataset stats only; MoE runs behind a pilot gate; judge calibrated against the human-audited 1,211 + ledger auto-scores.)
+
 - [ ] **IMPORTANT** - 
 1. This is important as this isnt just a coding thing, it has a redesign of the exp so we dont run in to problems and limitations like before paper.
 2. We need better moe model that as so damn specialised that they being called is actually helpfull.[this might depend upon the classifer too as if it just gives it all to general or a selected model it will be bad and also the diversification of the test convos]
