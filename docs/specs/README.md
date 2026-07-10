@@ -86,7 +86,7 @@ version" and why it was rejected.
    question set at the START of that spec, then write it fully settled. The
    user should be reachable during the day but expect only a handful of short
    question batches, not a running dialogue.
-5. **Priority order** (from S1): FINAL → C7 → D1/D2 → E0+E7 → E1/E1b/E8/E9/E10
+5. **Priority order** (from S1): FINAL → Track T (T2–T4 — added 2026-07-10, written first in its origin session) → C7 → D1/D2 → E0+E7 → E1/E1b/E8/E9/E10
    → B1 → C4/C9/C10/C11 → G23+C17 → B3 → F10/F14 → C13/C14 → F-track design
    brief. Mechanical G fixes: one line each in `G_mechanical.md`.
 6. **One spec, one commit** — a partial pass that runs out of time still
