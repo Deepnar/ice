@@ -8,7 +8,8 @@ extension lives in the review service), `T_temporal.md` (`build_entity_timeline`
 at commit `79f9687`: [user_control.py](../../src/api/routers/user_control.py)
 (bookmarks, label override, scoping incl. G16 privacy sync, clusters, review queue
 with partial apply-dispatch, TUI helper, model-registry CRUD; note
-`bookmark_turn` calls `extract_codex.apply_async` — a Celery call C7 kills),
+`bookmark_turn` calls `extract_codex.apply_async` — killed by C7 2026-07-11:
+it now enqueues the "codex_extract" job on the maintenance runtime),
 [memory_slots.py](../../src/api/routers/memory_slots.py) (7 fixed slots, CRUD +
 initialize), `model_registry/registry.py` (file-backed load/save/populate).
 
