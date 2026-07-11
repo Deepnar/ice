@@ -14,8 +14,8 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
-import structlog
 import redis.asyncio as aioredis
+import structlog
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import func
@@ -24,18 +24,23 @@ from sqlalchemy.orm import Session
 from src.api.config import settings
 from src.api.db import SessionLocal, get_db
 from src.api.memory_decision import (
-    decide_memory_retrieval, derive_total_budget, estimate_recent_window_tokens,
+    decide_memory_retrieval,
+    derive_total_budget,
+    estimate_recent_window_tokens,
 )
 from src.api.prompt_assembler import assemble_prompt
 from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
 from src.memory.models import Conversation, EpisodicMemory, MemorySlot
 from src.memory.session import resolve_session_id
+from src.model_registry.registry import (
+    find_best_model,
+    get_fallback_model,
+    get_model_context_window,
+)
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.workers.post_flight import evaluate_turn
-from src.model_registry.registry import (
-    find_best_model, get_fallback_model, get_model_context_window,
-)
+
 SESSION_STATE: dict = {}
 logger = structlog.get_logger("ice.api")
 classifier: Optional[PyTorchClassifier] = None

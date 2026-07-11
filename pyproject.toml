@@ -38,3 +38,14 @@ dependencies = [
     "vllm>=0.22.0",
     "watchdog>=6.0.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.15.21",
+]
+
+[tool.ruff.lint.isort]
+# src/ is first-party (namespace packages, no __init__.py) — keeps import
+# grouping deterministic for the boy-scout cleanup rule (docs/CLEANUP.md).
+known-first-party = ["src"]
