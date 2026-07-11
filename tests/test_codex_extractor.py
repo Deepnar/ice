@@ -74,13 +74,13 @@ db.close()
 print(f"✅ Inserted test turn with batch_id {batch_id}")
 
 # 2. Fire the Post‑Flight Evaluator (will trigger Codex Extractor if lossless)
-evaluate_turn.delay(
+evaluate_turn(
     batch_id=str(batch_id),
     prompt=user_prompt,
     response=assistant_response,
     conversation_id=str(conv_id)
 )
-print("✅ Enqueued evaluate_turn – will run Post‑Flight then Codex Extractor")
+print("✅ Ran evaluate_turn – Post‑Flight then Codex Extractor (direct call, C7)")
 
 # 3. Wait for Celery to process
 time.sleep(10)

@@ -1,24 +1,24 @@
-"""Procedural Memory Decay – deactivates stale, low‑confidence patterns."""
+"""Procedural Memory Decay – deactivates stale, low-confidence patterns."""
+
+from datetime import datetime, timedelta, timezone
 
 import structlog
-from datetime import datetime, timezone, timedelta
 from sqlalchemy import text
 
 from src.api.db import SessionLocal
-from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy
 
 logger = structlog.get_logger("ice.workers.procedural_decay")
 STALE_DAYS = 180
 MIN_REINFORCEMENT = 3
 
 
-@app.task(bind=True, max_retries=2, default_retry_delay=60)
-def decay_procedural_patterns(self):
-    """Periodic task: deactivate procedural patterns that are stale and weak."""
-    if is_gpu_busy():
-        raise self.retry(countdown=60)
+def decay_procedural_patterns(cycles: int = 1):
+    """Deactivate procedural patterns that are stale and weak.
 
+    ``cycles`` exists for interface uniformity with the other decay jobs
+    (C7 D5) but is a no-op here: staleness is an absolute-age cutoff, not a
+    multiplicative score, so catch-up needs no compression.
+    """
     db = SessionLocal()
     try:
         cutoff = datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)
@@ -34,6 +34,6 @@ def decay_procedural_patterns(self):
     except Exception as exc:
         db.rollback()
         logger.error("procedural_decay_failed", error=str(exc))
-        raise self.retry(exc=exc)
+        raise
     finally:
         db.close()

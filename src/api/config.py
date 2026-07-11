@@ -1,17 +1,61 @@
 """Configuration for the ICE FastAPI proxy."""
+from typing import Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://ice:ice_local_dev@localhost:5432/ice_db"
-    redis_url: str = "redis://localhost:6379/0"
     ollama_base_url: str = "http://localhost:11434"
     classifier_threshold: float = 0.3
     confidence_fallback_threshold: float = 0.75
     classifier_model_path: str = "models/classifier/ice_classifier_v3_qwen_ft3.pt"
     label_schema_path: str = "data/labeled/label_schema.json"
     default_fallback_model: str = "qwen2.5:7b"
-    background_model_mode: str = "dedicated"   # "dedicated" or "shared"          # ← new
+
+    # ── C7 D7: shared-first background model ──
+    # "shared" reuses the main Ollama LLM for background work (the default —
+    # the maintenance runtime's gpu lane + idle gating make this safe);
+    # "dedicated" is the power-user config: a separate OpenAI-compatible
+    # server on port 8002 (started manually — ./ice no longer launches it).
+    background_model_mode: str = "shared"
+    # None ⇒ resolve the chat model (registry get_fallback_model) in shared
+    # mode / the vLLM default in dedicated mode. Pin a specific model here to
+    # override — e.g. a small always-available Ollama model (BACKGROUND_MODEL_
+    # NAME=qwen3:4b-instruct) gives you a "dedicated" bg model with no second
+    # server: Ollama spins it up on demand, the runtime's idle gating hides
+    # the model swap. That replaces the old vLLM side-server for most setups.
+    background_model_name: Optional[str] = None
+    # G12: bg-client calls scale their timeout with the requested output size:
+    # timeout = bg_timeout_base_seconds × clamp(max_tokens / 500, 1, 6).
+    bg_timeout_base_seconds: float = 30.0
+
+    # ── C7: in-process maintenance runtime (replaces Celery beat + Redis) ──
+    # is_idle() gate for overdue-job dispatch: user quiet this long + no
+    # generation in flight (today's 10s redis check was uselessly tight).
+    user_active_threshold_seconds: int = 90
+    # queued gpu-lane *event* jobs (post-flight backlog) start draining after
+    # this much quiet. Both knobs re-measured at Z1 (ledger vs chat log).
+    idle_burst_seconds: int = 120
+    # D6/H5: fine-tune never runs unattended. Enough curated labels + a
+    # session end → run only if auto_finetune, else one pending review-queue
+    # proposal. Threshold aligned with fine_tune.MIN_ROWS_TO_PROMOTE.
+    auto_finetune: bool = False
+    finetune_min_curated: int = 20
+    # Per-job cadences in seconds (G9-aligned: today's beat schedule, plus
+    # compaction which beat never scheduled — G10). Keys = runtime job names.
+    maintenance_intervals: dict[str, int] = {
+        "cluster_assignment": 1800,
+        "sentinel_monitor": 1800,
+        "cluster_merge": 10800,
+        "chunk_pending_documents": 7200,
+        "decay_episodic": 5400,
+        "decay_codex": 5400,
+        "decay_procedural": 5400,
+        "reflection": 7200,
+        "batch_summarize": 7200,
+        "compaction": 86400,
+    }
 
     # ── C16 (model-aware half): total context budget derived from the routed
     # model's context window instead of a hardcoded 23k. fraction reserves the

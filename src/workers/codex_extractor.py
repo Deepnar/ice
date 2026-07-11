@@ -6,18 +6,14 @@ import re
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
-from openai import OpenAI
 import structlog
 from sentence_transformers import SentenceTransformer
-from src.api.config import settings
 from src.api.db import SessionLocal
 from sqlalchemy.orm.attributes import flag_modified
 
 from src.memory.models import (
     CodexEntity, CodexEdge, CodexEvent, IdempotencyKey, EpisodicMemory, ReviewQueue
 )
-from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy, is_user_active
 from src.retrieval.ner_utils import extract_entities
 
 # Module‑level embedder for new entity embeddings
@@ -29,8 +25,7 @@ embedder = SentenceTransformer(
 
 logger = structlog.get_logger("ice.workers.codex")
 
-# Dedicated extraction client (port 8003)
-from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
+from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 CODEX_NAMESPACE = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
 
@@ -474,7 +469,7 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
                 ],
                 temperature=0.0,
                 max_tokens=500,
-                timeout=30.0
+                timeout=bg_timeout(500)
             )
             raw = completion.choices[0].message.content.strip()
             logger.debug("extraction_raw_response", raw=raw[:200])
@@ -830,7 +825,7 @@ def make_llm_reconciler():
             model=get_bg_model_name(),
             messages=[{"role": "system", "content": "You output exactly one word."},
                       {"role": "user", "content": prompt}],
-            temperature=0.0, max_tokens=10, timeout=20.0)  # >5 so 'expire_old' can't truncate
+            temperature=0.0, max_tokens=10, timeout=bg_timeout(10))  # >5 so 'expire_old' can't truncate
         out = (resp.choices[0].message.content or "").strip().lower().replace(" ", "_").replace("-", "_")
         for d in ("expire_old", "keep_both", "reject_new"):
             if d in out:
@@ -1057,16 +1052,15 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
         ))
 
 
-@app.task(bind=True, max_retries=3, default_retry_delay=30)
-def extract_codex(self, batch_id: str, model_used: str = "", priority: bool = False):
-    """Executes background semantic link mutations across target graph states."""
+def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
+    """Executes background semantic link mutations across target graph states.
+
+    Plain callable since C7 — the maintenance runtime's gpu lane + idle gating
+    replace the old per-task GPU/user-activity checks (``priority`` is kept
+    for signature stability; gating now lives outside the callable).
+    """
     log = logger.bind(batch_id=batch_id)
 
-    if not priority:
-        if is_gpu_busy():
-            raise self.retry(countdown=30)
-        if settings.background_model_mode == "shared" and is_user_active():
-            raise self.retry(countdown=30)
     idempotency_key = hashlib.sha256(f"codex:{batch_id}".encode()).hexdigest()
     db = SessionLocal()
     
@@ -1102,6 +1096,6 @@ def extract_codex(self, batch_id: str, model_used: str = "", priority: bool = Fa
     except Exception as exc:
         db.rollback()
         log.error("codex_extraction_aborted", error=str(exc))
-        raise self.retry(exc=exc)
+        raise
     finally:
         db.close()

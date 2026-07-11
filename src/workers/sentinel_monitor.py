@@ -1,25 +1,20 @@
 """Sentinel Monitor – evaluates declarative rules and fires actions."""
 
 import json
+from datetime import datetime, timedelta, timezone
 
 import structlog
-from datetime import datetime, timezone, timedelta
 from sqlalchemy import text
 
 from src.api.db import SessionLocal
-from src.memory.models import SentinelRule, SentinelEvent
-from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy
+from src.memory.models import SentinelEvent, SentinelRule
 
 logger = structlog.get_logger("ice.workers.sentinel")
 
 
-@app.task(bind=True, max_retries=2, default_retry_delay=60)
-def monitor_sentinels(self):
-    """Periodic task: evaluate all active sentinel rules."""
-    if is_gpu_busy():
-        raise self.retry(countdown=60)
-
+def monitor_sentinels():
+    """Evaluate all active sentinel rules (ported as-is to the maintenance
+    runtime — D1/D2 later folds sentinels into the maintenance agent)."""
     db = SessionLocal()
     try:
         now = datetime.now(timezone.utc)
@@ -45,7 +40,7 @@ def monitor_sentinels(self):
     except Exception as exc:
         db.rollback()
         logger.error("sentinel_monitor_failed", error=str(exc))
-        raise self.retry(exc=exc)
+        raise
     finally:
         db.close()
 
@@ -61,7 +56,7 @@ def _evaluate_rule(rule, db) -> bool:
         # Generic threshold check: if cond has keys like min_pending_edges, evaluate
         if "consecutive_zero_retrieval" in cond:
             # check recent turns for zero retrieval
-            limit = cond["consecutive_zero_retrieval"]
+            # cond["consecutive_zero_retrieval"] would set the look-back limit
             # Query the most recent episodic turns where context_reliance = 'Long_Term_Memory'
             # and check if any retrieval happened (we don't log retrieval per turn, so approximate)
             # For now, placeholder – would need retrieval logging.
@@ -114,12 +109,22 @@ def _execute_action(rule, db):
     elif action == "schedule_worker":
         worker = payload.get("worker")
         if worker:
-            # Dynamically call the Celery task (lazy import)
+            # Enqueue through the maintenance runtime when the dotted path
+            # matches a registered job; else call the plain callable inline.
+            # (Imports stay function-local — only this rare action path
+            # needs them.)
             import importlib
-            module_name, task_name = worker.rsplit(".", 1)
-            mod = importlib.import_module(module_name)
-            task = getattr(mod, task_name)
-            task.delay()
+
+            from src.workers.runtime import JOBS, get_runtime
+            module_name, func_name = worker.rsplit(".", 1)
+            job_path = f"{module_name}:{func_name}"
+            runtime = get_runtime()
+            job_name = next((n for n, s in JOBS.items() if s.path == job_path), None)
+            if runtime is not None and job_name is not None:
+                runtime.enqueue(job_name)
+            else:
+                fn = getattr(importlib.import_module(module_name), func_name)
+                fn()
     elif action == "create_review_item":
         db.execute(
             text("INSERT INTO review_queue (item_type, item_content) VALUES ('sentinel_review', :payload)"),

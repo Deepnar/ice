@@ -27,5 +27,5 @@ db.close()
 print(f"Inserted {count} curated labels.")
 
 # Trigger fine‑tuning
-fine_tune_classifier.delay()
-print("Fine‑tuning task enqueued. Run Celery worker to process.")
+fine_tune_classifier()
+print("Fine‑tuning ran inline (direct call, C7).")

@@ -62,9 +62,9 @@ WHAT v5 CHANGES AND WHY
      (raw-sim floor 0.82, adjusted 0.90, tight entity cap) — with the
      convergence loop gone (#1), merge pressure is honest again.
 
-  Tasks are thin Celery wrappers around plain callables
-  (run_cluster_assignment / run_cluster_merge) so C7's session-triggered
-  scheduling and Track D's maintenance agent can drive them directly.
+  Plain callables (run_cluster_assignment / run_cluster_merge) driven by the
+  C7 maintenance runtime (cadence + session-gap freshening) and, later,
+  Track D's maintenance agent.
 
 CARRIED OVER FROM v4 (still correct):
   - Entity overlap as the continuity signal bridging low bulk-text cosine
@@ -82,16 +82,12 @@ import re
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import text
 from typing import Optional
-from src.api.config import settings
-from src.api.db import SessionLocal
 from src.memory.models import (
     EpisodicMemory,
     ContextCluster,
     EpisodicClusterLink,
 )
-from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy, is_user_active
-from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
+from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 from sentence_transformers import SentenceTransformer
 
 logger = structlog.get_logger("ice.workers.clustering")
@@ -199,7 +195,7 @@ def _generate_cluster_description(turns, recurring_entities=None):
             ],
             temperature=0.0,
             max_tokens=200,
-            timeout=30.0,
+            timeout=bg_timeout(200),
         )
         return completion.choices[0].message.content.strip()
     except Exception as e:
@@ -708,39 +704,3 @@ def run_cluster_merge(db, conversation_ids=None) -> dict:
     return stats
 
 
-@app.task(bind=True, max_retries=2, default_retry_delay=60)
-def cluster_turns(self):
-    """Beat task: assign unassigned turns (thin wrapper over
-    run_cluster_assignment — C7/D1 drive the callable directly)."""
-    if is_gpu_busy():
-        raise self.retry(countdown=60)
-    if settings.background_model_mode == "shared" and is_user_active():
-        raise self.retry(countdown=30)
-    db = SessionLocal()
-    try:
-        run_cluster_assignment(db)
-    except Exception as exc:
-        db.rollback()
-        logger.error("clustering_failed", error=str(exc))
-        raise self.retry(exc=exc)
-    finally:
-        db.close()
-
-
-@app.task(bind=True, max_retries=2, default_retry_delay=120)
-def merge_similar_clusters(self):
-    """Beat task: singleton re-absorption + conservative pairwise merge
-    (thin wrapper over run_cluster_merge)."""
-    if is_gpu_busy():
-        raise self.retry(countdown=120)
-    if settings.background_model_mode == "shared" and is_user_active():
-        raise self.retry(countdown=60)
-    db = SessionLocal()
-    try:
-        run_cluster_merge(db)
-    except Exception as exc:
-        db.rollback()
-        logger.error("cluster_merge_failed", error=str(exc))
-        raise self.retry(exc=exc)
-    finally:
-        db.close()

@@ -1,13 +1,15 @@
-"""Codex Edge Decay – periodically reduces strength of unreinforced edges."""
+"""Codex Edge Decay – periodically reduces strength of unreinforced edges.
+
+Runs on the maintenance runtime's cadence; ``cycles`` compresses missed runs
+closed-form (C7 D5), with demotion/expiry thresholds applied once at the end —
+identical to N sequential runs.
+"""
 
 import structlog
-from datetime import datetime, timezone, timedelta
 from sqlalchemy import text
 
 from src.api.db import SessionLocal
-from src.memory.models import CodexEdge
-from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy
+from src.workers.runtime import CYCLES_CAP
 
 logger = structlog.get_logger("ice.workers.codex_decay")
 CYCLES_PER_DAY = 16.0
@@ -16,12 +18,9 @@ DEMOTION_THRESHOLD = 0.3   # strength below this -> pending
 EXPIRY_THRESHOLD = 0.1     # pending edges below this are expired (A3 garbage collection)
 
 
-@app.task(bind=True, max_retries=2, default_retry_delay=60)
-def decay_codex_edges(self):
-    """Daily task: decay strength of live Codex edges, demote weak ones."""
-    if is_gpu_busy():
-        raise self.retry(countdown=60)
-
+def decay_codex_edges(cycles: int = 1):
+    """Decay strength of live Codex edges, demote weak ones."""
+    cycles = max(1, min(int(cycles), CYCLES_CAP))
     db = SessionLocal()
     try:
         # 1. Decay ALL live edges — pending included (A3). Previously only
@@ -29,9 +28,9 @@ def decay_codex_edges(self):
         #    could inflate forever without ever entering the decay cycle.
         db.execute(text("""
             UPDATE codex_edges
-            SET strength = strength * :rate
+            SET strength = strength * POWER(:rate, :cycles)
             WHERE valid_until IS NULL
-        """), {"rate": DECAY_RATE})
+        """), {"rate": DECAY_RATE, "cycles": cycles})
         # 2. Demote active edges that fell below threshold
         db.execute(text("""
             UPDATE codex_edges
@@ -53,10 +52,10 @@ def decay_codex_edges(self):
         """), {"expiry": EXPIRY_THRESHOLD})
 
         db.commit()
-        logger.info("codex_decay_cycle_complete")
+        logger.info("codex_decay_cycle_complete", cycles=cycles)
     except Exception as exc:
         db.rollback()
         logger.error("codex_decay_failed", error=str(exc))
-        raise self.retry(exc=exc)
+        raise
     finally:
         db.close()

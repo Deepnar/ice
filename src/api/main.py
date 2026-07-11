@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
-import redis.asyncio as aioredis
 import structlog
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -22,6 +21,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
+from src.api.core import ICECore, create_core
 from src.api.db import SessionLocal, get_db
 from src.api.memory_decision import (
     decide_memory_retrieval,
@@ -39,24 +39,25 @@ from src.model_registry.registry import (
     get_model_context_window,
 )
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
-from src.workers.post_flight import evaluate_turn
 
-SESSION_STATE: dict = {}
 logger = structlog.get_logger("ice.api")
 classifier: Optional[PyTorchClassifier] = None
+core: Optional[ICECore] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifecycle manager – initialises the classifier at startup."""
-    global classifier
+    """Lifecycle manager – classifier + the maintenance core (C7)."""
+    global classifier, core
     logger.info("Loading classifier...")
     classifier = PyTorchClassifier(
         model_path=settings.classifier_model_path,
         schema_path=settings.label_schema_path,
     )
+    core = create_core()
     logger.info("Classifier loaded. ICE Proxy ready.")
     yield
+    await core.stop()
 
 
 app = FastAPI(
@@ -130,11 +131,10 @@ async def store_turn_async(
         # C6: session identity — same sitting while the silence stays within
         # session_gap_minutes; a longer gap opens a new session.
         now = datetime.now(timezone.utc)
-        session_id, session_started = resolve_session_id(
+        session_id, session_started, gap_seconds = resolve_session_id(
             write_db, conversation_id, now, settings.session_gap_minutes
         )
         if session_started:
-            # C7 seam: the "new sitting" signal maintenance catch-up hangs off.
             log.info("session_started", session_id=str(session_id),
                      conversation_id=str(conversation_id))
 
@@ -159,40 +159,33 @@ async def store_turn_async(
         write_db.commit()
         log.info("turn_stored", episodic_id=str(turn.id), session_id=str(session_id))
 
-        # Enqueue post‑flight evaluation (with graceful fallback to local buffer)
-        try:
-            evaluate_turn.delay(
+        # C7: in-process dispatch (the celery .delay + jsonl-buffer fallback
+        # and the redis publish died with the broker — an in-process enqueue's
+        # only failure mode is the app being down, in which case the turn
+        # wasn't stored either; idempotency keys remain the at-least-once
+        # guard).
+        if core is not None:
+            core.runtime.enqueue(
+                "post_flight",
                 batch_id=str(turn.batch_id),
                 prompt=user_message,
                 response=full_assistant_text,
                 conversation_id=str(conversation_id),
                 model_used=model_used,
             )
-        except Exception as celery_err:
-            log.error("celery_enqueue_failed", error=str(celery_err))
-            buffer_entry = {
-                "batch_id": str(turn.batch_id),
-                "prompt": user_message,
-                "response": full_assistant_text,
-                "conversation_id": str(conversation_id),
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
-            with open("data/post_flight_buffer.jsonl", "a") as buf:
-                buf.write(json.dumps(buffer_entry) + "\n")
-
-        # Emit CHAT_COMPLETED event to Redis + update last‑chat timestamp
-        try:
-            r = aioredis.from_url(settings.redis_url)
-            await r.publish("chat:completed", json.dumps({
-                "correlation_id": correlation_id,
-                "conversation_id": str(conversation_id),
-                "batch_id": str(turn.batch_id),
-                "idempotency_key": idempotency_key
-            }))
-            await r.set("ice:last_chat_completed", datetime.now(timezone.utc).isoformat())  # ← new line
-            await r.close()
-        except Exception as redis_err:
-            log.error("redis_publish_failed", error=str(redis_err))
+            if session_started:
+                # The "new sitting" work-unit: cluster freshening + an
+                # immediate overdue pass (decay catch-up rides the ledger).
+                core.runtime.notify_work_unit(
+                    "session_gap",
+                    conversation_id=str(conversation_id),
+                    gap_seconds=gap_seconds,
+                )
+        else:
+            # Only reachable when store_turn_async is driven outside the app
+            # lifespan (standalone tests) — surface it, never swallow it.
+            log.error("maintenance_core_not_started_post_flight_skipped",
+                      batch_id=str(turn.batch_id))
 
     except Exception as exc:
         write_db.rollback()
@@ -218,6 +211,11 @@ async def chat_completions(
 
     correlation_id = str(uuid.uuid4())
     log = logger.bind(correlation_id=correlation_id)
+
+    # C7 D7: in-process activity signal — the runtime's idle gating for
+    # background work keys off this (replaces the redis last-chat flag).
+    if core is not None:
+        core.runtime.note_user_activity()
 
     user_message = ""
     for msg in reversed(messages):
@@ -274,27 +272,23 @@ async def chat_completions(
     result = classifier.classify(
         user_message,
         conversation_id=str(conversation_id),
-    ) 
-    # ── Session stickiness: prevent model switching on a single off‑topic turn ──
-    global SESSION_STATE
-    conv_state = SESSION_STATE.get(str(conversation_id), {
-        "model": None,
-        "consecutive_shifts": 0,
-        "last_topic_tags": [],
-        "last_intent_tags": [],
-    })
+    )
+    # ── Session stickiness: prevent model switching on a single off-topic turn ──
+    # C7 D9 (G8): state lives on the conversation row (sticky_model /
+    # consecutive_shifts), not an in-memory dict; the previous turn's tags for
+    # the shift-overlap check come from the latest episodic row (written
+    # post-stream, so a rapid-fire message may compare against the turn
+    # before — same fallback as a fresh dict entry had).
+    prev_tags = db.query(EpisodicMemory.topic_tags, EpisodicMemory.intent_tags).filter_by(
+        conversation_id=conversation_id
+    ).order_by(EpisodicMemory.timestamp.desc()).first()
 
-    # Determine if a hard topic shift occurred (no overlap with previous turn's tags)
-    topic_overlap = set(result.topic_tags) & set(conv_state["last_topic_tags"])
-    intent_overlap = set(result.intent_tags) & set(conv_state["last_intent_tags"])
+    topic_overlap = set(result.topic_tags) & set(prev_tags.topic_tags or [] if prev_tags else [])
+    intent_overlap = set(result.intent_tags) & set(prev_tags.intent_tags or [] if prev_tags else [])
     if topic_overlap or intent_overlap:
-        conv_state["consecutive_shifts"] = 0
+        conv_row.consecutive_shifts = 0
     else:
-        conv_state["consecutive_shifts"] += 1
-
-    conv_state["last_topic_tags"] = result.topic_tags
-    conv_state["last_intent_tags"] = result.intent_tags
-    SESSION_STATE[str(conversation_id)] = conv_state
+        conv_row.consecutive_shifts = (conv_row.consecutive_shifts or 0) + 1
     log.info(
         "classified",
         topic_tags=result.topic_tags,
@@ -317,20 +311,21 @@ async def chat_completions(
     # the first silently overwritten, and a stray ollama_url override that
     # killed registry base_url routing entirely; all removed, G20).
     if body.get("model", "default") == "ice-proxy":
-        if conv_state["model"] and conv_state["consecutive_shifts"] < 3:
-            model_name = conv_state["model"]
+        if conv_row.sticky_model and conv_row.consecutive_shifts < 3:
+            model_name = conv_row.sticky_model
             model_base_url = None
-            log.info("mini_moe_sticky", model=model_name, shifts=conv_state["consecutive_shifts"])
+            log.info("mini_moe_sticky", model=model_name, shifts=conv_row.consecutive_shifts)
         else:
             model_name, model_base_url = find_best_model(result.topic_tags, result.intent_tags)
-            conv_state["model"] = model_name
-            conv_state["consecutive_shifts"] = 0
+            conv_row.sticky_model = model_name
+            conv_row.consecutive_shifts = 0
             log.info("mini_moe_routing", selected_model=model_name,
                      topic_tags=result.topic_tags, intent_tags=result.intent_tags)
         ollama_url = f"{model_base_url or settings.ollama_base_url}/v1/chat/completions"
     else:
         model_name = body.get("model", get_fallback_model())
         ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
+    db.commit()  # persist the stickiness state (shift counter + sticky model)
 
     # C16: total context budget from the routed model's context window
     # (fraction × window, clamped), not a hardcoded 23k.
@@ -467,6 +462,11 @@ async def chat_completions(
     async def generate():
         nonlocal model_to_use
 
+        # C7 D7: the in-flight flag is the shared-mode contention gate — no
+        # background gpu job dispatches while a generation streams.
+        if core is not None:
+            core.runtime.generation_started()
+
         # SSE: classified
         yield sse_event("classified", {
             "topic_tags": result.topic_tags,
@@ -497,33 +497,38 @@ async def chat_completions(
         # SSE: generating
         yield sse_event("generating", {"model": model_to_use})
 
-        # Primary request with tight timeout
+        # Primary request with tight timeout. The outer try/finally guarantees
+        # generation_finished fires even on a client disconnect mid-stream.
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                async with client.stream(
-                    "POST",
-                    ollama_url,
-                    json={"model": model_to_use, "messages": messages, "stream": True},
-                ) as response:
-                    async for chunk in response.aiter_text():
-                        accumulated_raw_chunks.append(chunk)
-                        yield chunk
-        except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError) as e:
-            log.warning("primary_model_timeout", model=model_to_use, error=str(e))
-            yield sse_event("degraded", {"reason": "primary_model_timeout", "fallback": get_fallback_model()})
-            model_to_use = get_fallback_model()
-            yield sse_event("generating", {"model": model_to_use})
-            async with httpx.AsyncClient(timeout=30.0) as client2:
-                async with client2.stream(
-                    "POST",
-                    ollama_url,
-                    json={"model": model_to_use, "messages": messages, "stream": True},
-                ) as response2:
-                    async for chunk in response2.aiter_text():
-                        accumulated_raw_chunks.append(chunk)
-                        yield chunk
-        except Exception as e:
-            yield sse_event("degraded", {"reason": "streaming_error", "error": str(e)})
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    async with client.stream(
+                        "POST",
+                        ollama_url,
+                        json={"model": model_to_use, "messages": messages, "stream": True},
+                    ) as response:
+                        async for chunk in response.aiter_text():
+                            accumulated_raw_chunks.append(chunk)
+                            yield chunk
+            except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError) as e:
+                log.warning("primary_model_timeout", model=model_to_use, error=str(e))
+                yield sse_event("degraded", {"reason": "primary_model_timeout", "fallback": get_fallback_model()})
+                model_to_use = get_fallback_model()
+                yield sse_event("generating", {"model": model_to_use})
+                async with httpx.AsyncClient(timeout=30.0) as client2:
+                    async with client2.stream(
+                        "POST",
+                        ollama_url,
+                        json={"model": model_to_use, "messages": messages, "stream": True},
+                    ) as response2:
+                        async for chunk in response2.aiter_text():
+                            accumulated_raw_chunks.append(chunk)
+                            yield chunk
+            except Exception as e:
+                yield sse_event("degraded", {"reason": "streaming_error", "error": str(e)})
+        finally:
+            if core is not None:
+                core.runtime.generation_finished()
 
     # Enqueue post‑flight storage (via BackgroundTasks, which runs after response)
     background_tasks.add_task(

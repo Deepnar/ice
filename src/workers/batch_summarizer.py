@@ -1,28 +1,19 @@
 """Batch Summarization Worker – coalesces decayed turns into high‑level summaries."""
 
 import structlog
-from datetime import datetime, timezone
-from sqlalchemy import text
 from sentence_transformers import SentenceTransformer
 
 from src.api.db import SessionLocal
-from src.memory.models import EpisodicMemory, BatchSummary
-from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy, is_user_active
-from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
+from src.memory.models import BatchSummary, EpisodicMemory
+from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 
 logger = structlog.get_logger("ice.workers.batch_summarizer")
 bg_client = get_bg_client()
 embedder = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B", device="cpu", truncate_dim=384)
 
-@app.task(bind=True, max_retries=2, default_retry_delay=120)
-def batch_summarize(self):
-    """Summarize old, decayed turns grouped by conversation."""
-    if is_gpu_busy():
-        raise self.retry(countdown=60)
-    if is_user_active():
-        raise self.retry(countdown=30)
-
+def batch_summarize():
+    """Summarize old, decayed turns grouped by conversation. Plain callable
+    since C7 — gating/retries live in the maintenance runtime."""
     db = SessionLocal()
     try:
         # Find conversations with old, non‑lossless turns that haven't been batch‑summarised
@@ -59,7 +50,9 @@ def batch_summarize(self):
                     ],
                     temperature=0.0,
                     max_tokens=500,
-                    timeout=60.0
+                    # prefill-heavy (up to 50 turns in the prompt): keep the
+                    # old 60s floor — G12's formula scales with output only.
+                    timeout=max(60.0, bg_timeout(500))
                 )
                 summary_text = completion.choices[0].message.content.strip()
                 if not summary_text:
@@ -80,6 +73,6 @@ def batch_summarize(self):
     except Exception as exc:
         db.rollback()
         logger.error("batch_summarization_failed", error=str(exc))
-        raise self.retry(exc=exc)
+        raise
     finally:
         db.close()

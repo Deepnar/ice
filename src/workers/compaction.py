@@ -1,25 +1,22 @@
 """Compaction Engine Subsystem – Ledger Compression Plane."""
 
-import uuid
 from datetime import datetime, timezone
+
 import structlog
 from sqlalchemy import func, select
 
 from src.api.db import SessionLocal
 from src.memory.models import CodexEntity, CodexEvent, CodexSnapshot
-from src.workers.gpu_check import is_gpu_busy
-from src.workers.celery_app import app
 
 logger = structlog.get_logger("ice.workers.compaction")
 EVENT_THRESHOLD = 100
 
 
-@app.task(bind=True, max_retries=3, default_retry_delay=60)
-def compact_entities(self):
-    """Compresses append-only transaction logs into fast entity state snapshots."""
-    if is_gpu_busy():
-        raise self.retry(countdown=60)
-
+def compact_entities():
+    """Compresses append-only transaction logs into fast entity state
+    snapshots. Scheduled by the maintenance runtime at 24h (G10 — beat never
+    scheduled it); lossless per the Track-T constraint (events are marked
+    compacted, never deleted — the journal stays readable history)."""
     db = SessionLocal()
     try:
         subq = (
@@ -83,6 +80,6 @@ def compact_entities(self):
     except Exception as exc:
         db.rollback()
         logger.error("compaction_pass_failed", error=str(exc))
-        raise self.retry(exc=exc)
+        raise
     finally:
         db.close()

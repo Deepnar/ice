@@ -3,19 +3,15 @@
 import hashlib
 import uuid
 from datetime import datetime, timezone
-from openai import OpenAI
 import structlog
 from sqlalchemy import text
 from sentence_transformers import SentenceTransformer
 
-from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, ProceduralMemory, IdempotencyKey
-from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy, is_user_active
 
 logger = structlog.get_logger("ice.workers.procedural")
-from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
+from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 # Load the embedding model once globally – prevents disk I/O starvation
 pattern_embedder = SentenceTransformer(
@@ -28,15 +24,11 @@ def encode_pattern(text: str):
     return pattern_embedder.encode(text, convert_to_tensor=False).tolist()
 
 
-@app.task(bind=True, max_retries=3, default_retry_delay=30)
-def extract_procedural(self, batch_id: str, model_used: str = ""):
-    """Scan the exchange for recurring workflows or habits."""
+def extract_procedural(batch_id: str, model_used: str = ""):
+    """Scan the exchange for recurring workflows or habits. Plain callable
+    since C7 — gating/retries live in the maintenance runtime."""
     log = logger.bind(batch_id=batch_id)
 
-    if is_gpu_busy():
-        raise self.retry(countdown=30)
-    if settings.background_model_mode == "shared" and is_user_active():
-        raise self.retry(countdown=30)
     idempotency_key = hashlib.sha256(f"procedural:{batch_id}".encode()).hexdigest()
     db = SessionLocal()
     try:
@@ -65,7 +57,7 @@ def extract_procedural(self, batch_id: str, model_used: str = ""):
             ],
             temperature=0.0,
             max_tokens=80,
-            timeout=30.0
+            timeout=bg_timeout(80)
         )
         pattern_text = completion.choices[0].message.content.strip()
         if pattern_text.upper() == "NONE" or not pattern_text:
@@ -115,6 +107,6 @@ def extract_procedural(self, batch_id: str, model_used: str = ""):
     except Exception as exc:
         db.rollback()
         log.error("procedural_extraction_failed", error=str(exc))
-        raise self.retry(exc=exc)
+        raise
     finally:
         db.close()

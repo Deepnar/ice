@@ -1,32 +1,38 @@
-"""Post-Flight Evaluation Celery Worker Node."""
+"""Post-flight evaluation — density qualification + representation decision.
+
+Runs as the maintenance runtime's "post_flight" event job (gpu lane) whenever
+a turn is stored, and chains codex + procedural extraction as direct calls in
+the same job (C7). Retries/backoff and idle gating live in the runtime, not
+here.
+"""
 
 import hashlib
-import json
 import re
 import uuid
 from datetime import datetime, timezone
-from openai import OpenAI
+
 import structlog
 
-from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, IdempotencyKey
-from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy, is_user_active
-from src.workers.codex_extractor import extract_codex, embedder as shared_embedder
+from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+from src.workers.codex_extractor import embedder as shared_embedder
+from src.workers.codex_extractor import extract_codex
+from src.workers.document_chunker import run_chunk_turn
 from src.workers.procedural_extractor import extract_procedural
-from src.workers.document_chunker import chunk_document
 from src.workers.turn_density import (
-    extract_key_terms, compute_entropy, decide_representation,
-    summary_coverage, must_terms,
-    DENSITY_LOSSLESS_THRESHOLD, SUMMARY_COVERAGE_THRESHOLD, LONG_TURN_CHUNK_WORDS,
+    DENSITY_LOSSLESS_THRESHOLD,
+    LONG_TURN_CHUNK_WORDS,
+    SUMMARY_COVERAGE_THRESHOLD,
+    compute_entropy,
+    decide_representation,
+    extract_key_terms,
+    must_terms,
+    summary_coverage,
 )
-
 
 logger = structlog.get_logger("ice.workers.post_flight")
 
-# Dedicated backend inference client targeting isolated LLM instance
-from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 
 def _summary_llm_call(prompt: str, response: str, model_name: str,
@@ -69,7 +75,7 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
         ],
         temperature=0.0,
         max_tokens=300,
-        timeout=30.0,
+        timeout=bg_timeout(300),
     )
     return completion.choices[0].message.content.strip()
 
@@ -114,104 +120,110 @@ def generate_summary(prompt: str, response: str, key_terms: dict,
         return "", 0.0, None
 
 
-@app.task(bind=True, max_retries=5, default_retry_delay=15)
-def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_id: str, model_used: str = ""):
-    """Executes structural density qualification and data post-processing routines."""
+def evaluate_turn(batch_id: str, prompt: str, response: str,
+                  conversation_id: str, model_used: str = ""):
+    """Density qualification + representation decision, then the derivative
+    pipelines (chunking, codex, procedural) as direct calls.
+
+    Idempotency layout (C7 rev 2026-07-11): the density/summary stage is
+    guarded by this job's own key, but the chained stages run on every entry —
+    each is self-idempotent (codex + procedural keep their own keys, the
+    chunker checks for existing chunks), so a retry after a partial chain
+    failure completes the missing stages instead of hitting an early return.
+    Raising here is deliberate: the maintenance runtime owns backoff retries.
+    """
     log = logger.bind(batch_id=batch_id, conversation_id=conversation_id)
 
-    # 1. Active GPU Resource Gate (INV-5)
-    if is_gpu_busy():
-        log.info("gpu_saturation_yielding", message="Rescheduling worker target thread.")
-        raise self.retry(countdown=15)
-    if settings.background_model_mode == "shared" and is_user_active():
-        raise self.retry(countdown=30)
-
-    # 2. Border Idempotency Verification (INV-6)
     idempotency_key = hashlib.sha256(batch_id.encode()).hexdigest()
     db = SessionLocal()
-    
-    try:
-        existing = db.query(IdempotencyKey).filter_by(key=idempotency_key).first()
-        if existing:
-            log.info("task_execution_skipped_idempotent")
-            return
 
-        # 3. Defensive Record Fetching (Mitigates DB Commit Race Condition)
+    try:
+        # Defensive record fetch (the enqueue happens after the storing
+        # commit, so visibility lag is near-impossible now; a raise lets the
+        # runtime's backoff handle the freak case).
         turn = db.query(EpisodicMemory).filter_by(batch_id=uuid.UUID(batch_id)).first()
         if not turn:
-            log.warn("record_visibility_lag_retry")
-            raise self.retry(countdown=5)  # Back off briefly to let the API commit finish
+            raise RuntimeError(f"turn for batch {batch_id} not visible yet")
 
-        # 4. Density evaluation + representation decision (C1).
-        # Replaces the crude is_lossless heuristic (≥3 capitalized words fired
-        # on nearly everything) and the backwards branch that summarised the
-        # DENSEST long turns into 2-3 sentences while leaving banter raw.
-        full_text = f"User: {prompt}\nAssistant: {response}"
-        word_count = len(full_text.split())
-        has_code = "```" in response
-        is_creative = bool(
-            (turn.topic_tags and "Creative_&_Media" in turn.topic_tags) or
-            (turn.intent_tags and "Emotional_Processing" in turn.intent_tags)
-        )
-        # ML4: document turns (long, low conversational density). Folded into
-        # the decision matrix — the old code set turn.inject_raw here and then
-        # overwrote it two lines later (documents silently lost raw injection).
-        raw_words = len(turn.raw_text.split())
-        assistant_count = turn.raw_text.count("Assistant:")
-        is_document = raw_words > 2000 and assistant_count < 3
+        already_evaluated = db.query(IdempotencyKey).filter_by(
+            key=idempotency_key).first() is not None
 
-        key_terms = extract_key_terms(full_text, shared_embedder)
-        entropy = compute_entropy(full_text, key_terms, has_code)
-        # lossless = "valuable enough for lossless treatment" — gates codex
-        # extraction below and exempts from batch summarisation. Generous by
-        # design (codex was historically starved).
-        lossless = has_code or is_creative or entropy >= DENSITY_LOSSLESS_THRESHOLD
+        if already_evaluated:
+            log.info("task_execution_skipped_idempotent")
+        else:
+            # Density evaluation + representation decision (C1). Replaces the
+            # crude is_lossless heuristic (≥3 capitalized words fired on
+            # nearly everything) and the backwards branch that summarised the
+            # DENSEST long turns into 2-3 sentences while leaving banter raw.
+            full_text = f"User: {prompt}\nAssistant: {response}"
+            word_count = len(full_text.split())
+            has_code = "```" in response
+            is_creative = bool(
+                (turn.topic_tags and "Creative_&_Media" in turn.topic_tags) or
+                (turn.intent_tags and "Emotional_Processing" in turn.intent_tags)
+            )
+            # ML4: document turns (long, low conversational density). Folded
+            # into the decision matrix — the old code set turn.inject_raw here
+            # and then overwrote it two lines later (documents silently lost
+            # raw injection).
+            raw_words = len(turn.raw_text.split())
+            assistant_count = turn.raw_text.count("Assistant:")
+            is_document = raw_words > 2000 and assistant_count < 3
 
-        decision = decide_representation(
-            word_count=word_count, entropy=entropy, has_code=has_code,
-            is_creative=is_creative, is_document=is_document,
-        )
-        inject_raw = decision["inject_raw"]
-        summary, coverage, abstract = None, None, None
-        if decision["want_summary"]:
-            summary, coverage, abstract = generate_summary(prompt, response, key_terms, model_used)
-            summary = summary or None
-            if decision["summary_decides"]:
-                # The retrievability gate: inject the summary only if it
-                # measurably preserved the key terms — else raw wins and the
-                # summary remains as metadata.
-                inject_raw = not (summary and coverage >= SUMMARY_COVERAGE_THRESHOLD)
+            key_terms = extract_key_terms(full_text, shared_embedder)
+            entropy = compute_entropy(full_text, key_terms, has_code)
+            # lossless = "valuable enough for lossless treatment" — gates codex
+            # extraction below and exempts from batch summarisation. Generous
+            # by design (codex was historically starved).
+            lossless = has_code or is_creative or entropy >= DENSITY_LOSSLESS_THRESHOLD
+
+            decision = decide_representation(
+                word_count=word_count, entropy=entropy, has_code=has_code,
+                is_creative=is_creative, is_document=is_document,
+            )
+            inject_raw = decision["inject_raw"]
+            summary, coverage, abstract = None, None, None
+            if decision["want_summary"]:
+                summary, coverage, abstract = generate_summary(prompt, response, key_terms, model_used)
+                summary = summary or None
+                if decision["summary_decides"]:
+                    # The retrievability gate: inject the summary only if it
+                    # measurably preserved the key terms — else raw wins and
+                    # the summary remains as metadata.
+                    inject_raw = not (summary and coverage >= SUMMARY_COVERAGE_THRESHOLD)
+                log.info(
+                    "summary_quality",
+                    coverage=coverage,
+                    injected="summary" if not inject_raw else "raw",
+                    reason=decision["reason"],
+                    must_terms=len(must_terms(key_terms)),
+                )
+
+            turn.entropy_score = entropy
+            turn.is_document = is_document
+            turn.lossless_flag = lossless
+            turn.summary_text = summary
+            turn.summary_coverage = coverage if summary else None
+            turn.abstract_text = abstract if summary else None
+            turn.inject_raw = inject_raw
             log.info(
-                "summary_quality",
-                coverage=coverage,
-                injected="summary" if not inject_raw else "raw",
-                reason=decision["reason"],
-                must_terms=len(must_terms(key_terms)),
+                "representation_decided",
+                entropy=entropy, lossless=lossless, inject_raw=inject_raw,
+                reason=decision["reason"], words=word_count,
             )
 
-        turn.entropy_score = entropy
-        turn.is_document = is_document
-        turn.lossless_flag = lossless
-        turn.summary_text = summary
-        turn.summary_coverage = coverage if summary else None
-        turn.abstract_text = abstract if summary else None
-        turn.inject_raw = inject_raw
-        log.info(
-            "representation_decided",
-            entropy=entropy, lossless=lossless, inject_raw=inject_raw,
-            reason=decision["reason"], words=word_count,
-        )
-        
-        db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
-        db.commit()
-        log.info("post_flight_evaluation_complete", lossless=lossless)
+            db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
+            db.commit()
+            log.info("post_flight_evaluation_complete", lossless=lossless)
 
+        # ── Chained stages (direct calls, one job — C7) ──
         # C2/C3: documents AND all long turns get chunked for chunk-level
         # retrieval (also for private turns — chunks are turn-local and
         # inherit visibility through the parent join, and the conversation
-        # needs them for self-retrieval).
-        if is_document or word_count > LONG_TURN_CHUNK_WORDS:
-            chunk_document.delay(batch_id=batch_id)
+        # needs them for self-retrieval). run_chunk_turn is a no-op when
+        # chunks already exist.
+        if turn.is_document or len((turn.raw_text or "").split()) > LONG_TURN_CHUNK_WORDS:
+            run_chunk_turn(db, turn)
 
         # G16 incognito: private turns keep their per-turn evaluation (summary/
         # lossless are internal to the row) but never feed the shared stores —
@@ -220,16 +232,13 @@ def evaluate_turn(self, batch_id: str, prompt: str, response: str, conversation_
         if turn.is_private:
             log.info("private_turn_pipelines_skipped")
         else:
-            if lossless:
-                extract_codex.delay(batch_id=batch_id, model_used=model_used)
-            extract_procedural.delay(batch_id=batch_id, model_used=model_used)
+            if turn.lossless_flag:
+                extract_codex(batch_id=batch_id, model_used=model_used)
+            extract_procedural(batch_id=batch_id, model_used=model_used)
 
     except Exception as exc:
         db.rollback()
         log.error("worker_transaction_execution_failure", error=str(exc))
-        raise self.retry(exc=exc)
+        raise
     finally:
         db.close()
-
-    # Pipeline Trigger Event Stub
-    print(f"BATCH_PROCESSED: {batch_id}")

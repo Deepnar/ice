@@ -20,10 +20,10 @@ from src.memory.models import (
     RAGDocument, RAGChunk
 )
 from src.classifier.classifier import PyTorchClassifier
-from src.workers.post_flight import evaluate_turn, is_lossless
+from src.workers.post_flight import evaluate_turn
 from src.workers.decay import apply_decay
 from src.workers.reflection import run_reflection
-from src.workers.clustering import cluster_turns
+from src.workers.clustering import run_cluster_assignment
 
 classifier_model_path = "models/classifier/ice_classifier_v2_final.pt"
 schema_path = "data/labeled/label_schema.json"
@@ -80,7 +80,7 @@ def test_live_pipeline():
     db.close()
 
     print("⏳ Enqueuing post‑flight task …")
-    evaluate_turn.delay(
+    evaluate_turn(
         batch_id=str(batch_id), prompt=user_prompt,
         response=assistant_response, conversation_id=str(conversation_id)
     )
@@ -116,7 +116,7 @@ def test_live_pipeline():
 # ----- Test 2: Decay --------------------------------------------------------
 def test_decay():
     print_section("2. DECAY WORKER")
-    apply_decay.delay()
+    apply_decay()
     time.sleep(3)
     db = SessionLocal()
     for t in db.query(EpisodicMemory).all():
@@ -127,7 +127,7 @@ def test_decay():
 # ----- Test 3: Reflection ---------------------------------------------------
 def test_reflection():
     print_section("3. REFLECTION WORKER")
-    run_reflection.delay()
+    run_reflection()
     time.sleep(15)   # model call takes a few seconds
     db = SessionLocal()
     summaries = db.query(SessionSummary).all()
@@ -141,7 +141,7 @@ def test_reflection():
 # ----- Test 4: Clustering ---------------------------------------------------
 def test_clustering():
     print_section("4. CLUSTERING WORKER")
-    cluster_turns.delay()
+    _db = SessionLocal(); run_cluster_assignment(_db); _db.close()
     print("   Waiting for cluster assignment (up to 90 sec) …", end="", flush=True)
     db = SessionLocal()
     clusters = []

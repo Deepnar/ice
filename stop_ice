@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 echo "Stopping ICE services..."
-pkill -f "celery"           2>/dev/null || true
 pkill -f "uvicorn"         2>/dev/null || true
 pkill -f "vllm serve"      2>/dev/null || true
 docker compose -f "$(dirname "$0")/docker/docker-compose.yml" down  2>/dev/null || true

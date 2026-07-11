@@ -5,7 +5,7 @@ echo "===== ICE Installer ====="
 
 # Prerequisites (assumes Arch/CachyOS)
 echo "Installing system packages..."
-sudo pacman -S --needed docker docker-compose postgresql redis python pyenv cmake
+sudo pacman -S --needed docker docker-compose postgresql python pyenv cmake
 
 # Python environment
 pyenv install 3.11.9 --skip-existing
@@ -24,8 +24,8 @@ docker compose -f docker/docker-compose.yml up -d
 echo "Running migrations..."
 uv run alembic upgrade head
 
-# Pull background model
-echo "Pulling background model..."
-huggingface-cli download Qwen/Qwen2.5-3B-Instruct-AWQ
+# Background model (C7 shared-first): the default shared mode reuses the main
+# Ollama model — nothing to pull. Dedicated mode only:
+#   huggingface-cli download Qwen/Qwen2.5-3B-Instruct-AWQ
 
 echo "===== ICE installed! Start with: ./ice ====="

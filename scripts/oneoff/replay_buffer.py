@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""Replay buffered post‑flight events from local JSONL file when Redis is back."""
+"""Replay buffered post-flight events from the local JSONL file.
+
+DEAD SINCE C7 (2026-07-11): the jsonl buffer fallback was deleted with the
+Celery broker (spec D8 — an in-process enqueue's only failure mode is the app
+being down, in which case the turn wasn't stored either), so nothing writes
+data/post_flight_buffer.jsonl anymore and this replayer has nothing to replay.
+Kept per the never-delete-scripts rule; `.delay` below is the old Celery API.
+"""
 
 import json, os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from src.workers.post_flight import evaluate_turn
 

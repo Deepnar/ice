@@ -13,12 +13,17 @@ from datetime import timedelta
 
 
 def resolve_session_id(db, conversation_id, now, gap_minutes: int):
-    """Return ``(session_id, session_started)`` for a turn written at *now*.
+    """Return ``(session_id, session_started, gap_seconds)`` for a turn
+    written at *now*.
 
     Reuses the conversation's last session when the gap since its latest turn
     is within *gap_minutes*; otherwise mints a new session. Rows that predate
     the C6 migration have NULL session_id — a new session starts after them
     rather than guessing a backfill.
+
+    ``gap_seconds`` is the silence since the conversation's previous turn
+    (None when there is no previous turn) — the C7 session-gap work-unit
+    carries it for telemetry.
     """
     from src.memory.models import EpisodicMemory
 
@@ -28,11 +33,14 @@ def resolve_session_id(db, conversation_id, now, gap_minutes: int):
         .order_by(EpisodicMemory.timestamp.desc())
         .first()
     )
+    gap_seconds = None
+    if last is not None and last.timestamp is not None:
+        gap_seconds = (now - last.timestamp).total_seconds()
     if (
         last is not None
         and last.session_id is not None
         and last.timestamp is not None
         and (now - last.timestamp) <= timedelta(minutes=gap_minutes)
     ):
-        return last.session_id, False
-    return uuid.uuid4(), True
+        return last.session_id, False, gap_seconds
+    return uuid.uuid4(), True, gap_seconds

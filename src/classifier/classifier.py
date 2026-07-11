@@ -1,10 +1,13 @@
 import torch
+import structlog
 from sentence_transformers import SentenceTransformer
 from typing import List, Optional
 from .model import ICEClassifier
 from .di3 import run_di3
 from .schemas import ClassificationResult
 from sqlalchemy.orm import Session
+
+logger = structlog.get_logger("ice.classifier")
 
 
 class PyTorchClassifier:
@@ -124,6 +127,8 @@ class PyTorchClassifier:
                     context_text = None
 
             if context_text:
+                # G26 validation: surface that CL7's prior-turn prefix is live.
+                logger.info("cl7_context_prefix", words=len(context_text.split()))
                 prefixed_prompt = (
                     f"Conversation context (summarized):\n{context_text}\n\n"
                     f"Given the above conversation and the user's latest prompt, "

@@ -2,21 +2,17 @@
    memory slot evolution, Codex enrichment, motif detection."""
 
 import structlog, json, re, uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from sqlalchemy import text
-from openai import OpenAI
 
-from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import (
     EpisodicMemory, SessionSummary, MemorySlot, CodexEntity, CodexEvent,
-    ProceduralMemory, ContextCluster
+    ProceduralMemory
 )
-from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy, is_user_active
 
 logger = structlog.get_logger("ice.workers.reflection")
-from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
+from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 bg_client = get_bg_client()
 # ------------------------------------------------------------------
 # Prompts
@@ -87,13 +83,9 @@ def _robust_list(raw: str) -> list:
 # ------------------------------------------------------------------
 # Main task
 # ------------------------------------------------------------------
-@app.task(bind=True, max_retries=2, default_retry_delay=60)
-def run_reflection(self):
-    """Execute a full reflection pass: synthesis, patterns, slots, enrichment, motifs."""
-    if is_gpu_busy():
-        raise self.retry(countdown=60)
-    if settings.background_model_mode == "shared" and is_user_active():
-        raise self.retry(countdown=30)
+def run_reflection():
+    """Execute a full reflection pass: synthesis, patterns, slots, enrichment,
+    motifs. Plain callable since C7 — gating/retries live in the runtime."""
     db = SessionLocal()
     try:
         # Get distinct conversation IDs from the last 200 turns
@@ -124,7 +116,7 @@ def run_reflection(self):
     except Exception as exc:
         db.rollback()
         logger.error("reflection_failed", error=str(exc))
-        raise self.retry(exc=exc)
+        raise
     finally:
         db.close()
 
@@ -143,7 +135,7 @@ def _synthesize_session(db, turns):
             {"role": "system", "content": "You are a session analysis engine. Output only JSON."},
             {"role": "user", "content": f"{SUMMARY_PROMPT}\n\n{full_text}"}
         ],
-        temperature=0.0, max_tokens=400, timeout=30.0
+        temperature=0.0, max_tokens=400, timeout=bg_timeout(400)
     )
     raw = completion.choices[0].message.content.strip()
     data = _robust_json(raw)
@@ -182,7 +174,7 @@ def _crystallize_patterns(db, turns):
             {"role": "system", "content": "You are a behavioural pattern detector."},
             {"role": "user", "content": f"{CRYSTALLIZATION_PROMPT}\n\n{txt}"}
         ],
-        temperature=0.0, max_tokens=200, timeout=30.0
+        temperature=0.0, max_tokens=200, timeout=bg_timeout(200)
     )
     raw = completion.choices[0].message.content.strip()
     patterns = _robust_list(raw)
@@ -236,7 +228,7 @@ def _evolve_memory_slots(db, turns):
             {"role": "system", "content": "You are a memory slot analyst. Output only JSON."},
             {"role": "user", "content": f"{SLOT_EVOLUTION_PROMPT}\n\n{txt}"}
         ],
-        temperature=0.0, max_tokens=300, timeout=30.0
+        temperature=0.0, max_tokens=300, timeout=bg_timeout(300)
     )
     raw = completion.choices[0].message.content.strip()
     proposals = _robust_json(raw)
@@ -317,7 +309,7 @@ def _enrich_codex_entities(db):
                     {"role": "system", "content": "You write concise factual knowledge-graph entity notes."},
                     {"role": "user", "content": f"{ENRICHMENT_PROMPT}\n\nEntity: {entity.canonical_name}\n\nPassages:\n" + "\n---\n".join(passages)[:2500]}
                 ],
-                temperature=0.0, max_tokens=200, timeout=30.0
+                temperature=0.0, max_tokens=200, timeout=bg_timeout(200)
             )
         except Exception as exc:
             logger.error("codex_enrich_failed", entity=entity.canonical_name, error=str(exc))
@@ -350,7 +342,7 @@ def _detect_motifs(db, turns):
             {"role": "system", "content": "You are a thematic motif detector. Output only JSON."},
             {"role": "user", "content": f"{MOTIF_PROMPT}\n\n{txt}"}
         ],
-        temperature=0.0, max_tokens=150, timeout=30.0
+        temperature=0.0, max_tokens=150, timeout=bg_timeout(150)
     )
     raw = completion.choices[0].message.content.strip()
     motifs = _robust_list(raw)

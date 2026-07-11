@@ -8,11 +8,11 @@ works at chunk granularity: the vector leg searches chunk embeddings directly
 (a whole-doc embedding is semantic mush — the C3 ceiling), and BM25-found doc
 rows inject only their keyword-relevant chunks.
 
-Two entry points, both thin wrappers over plain callables (the C5/C7
-composability pattern):
-  * chunk_document(batch_id)   — event-driven from post_flight per new doc;
-  * chunk_pending_documents()  — beat catch-up that heals legacy documents
-    ingested before C2 (and any dispatch that failed), a few per run.
+Two plain callables (the C5/C7 composability pattern):
+  * run_chunk_turn(db, turn)      — direct call from post_flight per new doc;
+  * run_pending_documents(db)     — the maintenance runtime's 2h catch-up that
+    heals legacy documents ingested before C2 (and any dispatch that failed),
+    a few per run.
 
 Chunking runs for private (incognito) documents too — chunks are turn-local
 and inherit visibility through the parent-turn join at query time, so nothing
@@ -20,15 +20,13 @@ leaks; the conversation needs its own chunks for self-retrieval.
 """
 
 import uuid
+
 import structlog
 
-from src.api.config import settings
-from src.api.db import SessionLocal
-from src.memory.models import EpisodicMemory, EpisodicChunk
-from src.memory.chunking import chunk_text, CHUNK_TOKENS, OVERLAP_WORDS
-from src.workers.celery_app import app
-from src.workers.gpu_check import is_gpu_busy, is_user_active
-# Reuse the worker process's already-loaded embedder (no extra model copy, G13).
+from src.memory.chunking import CHUNK_TOKENS, OVERLAP_WORDS, chunk_text
+from src.memory.models import EpisodicChunk, EpisodicMemory
+
+# Reuse the process's already-loaded embedder (no extra model copy, G13).
 from src.workers.codex_extractor import embedder as shared_embedder
 
 logger = structlog.get_logger("ice.workers.document_chunker")
@@ -86,40 +84,3 @@ def run_pending_documents(db, limit: int = CATCHUP_DOCS_PER_RUN) -> int:
     return done
 
 
-@app.task(bind=True, max_retries=3, default_retry_delay=30)
-def chunk_document(self, batch_id: str):
-    """Event-driven from post_flight when a turn is flagged is_document."""
-    if is_gpu_busy():
-        raise self.retry(countdown=30)
-    db = SessionLocal()
-    try:
-        turn = db.query(EpisodicMemory).filter_by(batch_id=uuid.UUID(batch_id)).first()
-        if not turn:
-            raise self.retry(countdown=10)
-        run_chunk_turn(db, turn)
-    except Exception as exc:
-        db.rollback()
-        logger.error("document_chunking_failed", error=str(exc))
-        raise self.retry(exc=exc)
-    finally:
-        db.close()
-
-
-@app.task(bind=True, max_retries=1, default_retry_delay=120)
-def chunk_pending_documents(self):
-    """Beat catch-up: heal unchunked documents a few at a time."""
-    if is_gpu_busy():
-        raise self.retry(countdown=120)
-    if settings.background_model_mode == "shared" and is_user_active():
-        raise self.retry(countdown=60)
-    db = SessionLocal()
-    try:
-        n = run_pending_documents(db)
-        if n:
-            logger.info("pending_documents_chunked", count=n)
-    except Exception as exc:
-        db.rollback()
-        logger.error("pending_document_chunking_failed", error=str(exc))
-        raise self.retry(exc=exc)
-    finally:
-        db.close()

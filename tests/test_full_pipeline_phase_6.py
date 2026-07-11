@@ -100,13 +100,13 @@ print(f"   lossless_flag initially: NULL (will be set by Post‑Flight Evaluator
 # ---------------------------------------------------------------------
 # 5. Fire the Post‑Flight Evaluator (simulating the proxy's background call)
 # ---------------------------------------------------------------------
-evaluate_turn.delay(
+evaluate_turn(
     batch_id=str(batch_id),
     prompt=user_prompt,
     response=assistant_response,
     conversation_id=str(conv_id)
 )
-print("✅ Enqueued evaluate_turn – waiting for Celery to process…")
+print("✅ Ran evaluate_turn (direct call, C7)")
 time.sleep(10)
 
 # ---------------------------------------------------------------------

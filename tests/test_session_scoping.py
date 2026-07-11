@@ -61,18 +61,18 @@ def mk_turn(conv, text, ts, session_id=None, is_private=False):
 try:
     print("── session_id assignment (30-min gap) ──")
     t0 = now - timedelta(hours=3)
-    sid1, new1 = resolve_session_id(db, conv_sess.id, t0, settings.session_gap_minutes)
-    check("empty conversation → new session", new1 is True)
+    sid1, new1, gap1 = resolve_session_id(db, conv_sess.id, t0, settings.session_gap_minutes)
+    check("empty conversation → new session", new1 is True and gap1 is None)
     mk_turn(conv_sess, "session turn one", t0, session_id=sid1)
 
-    sid2, new2 = resolve_session_id(db, conv_sess.id, t0 + timedelta(minutes=5),
+    sid2, new2, gap2 = resolve_session_id(db, conv_sess.id, t0 + timedelta(minutes=5),
                                     settings.session_gap_minutes)
-    check("5-min gap → same session", sid2 == sid1 and new2 is False)
+    check("5-min gap → same session", sid2 == sid1 and new2 is False and gap2 is not None)
     mk_turn(conv_sess, "session turn two", t0 + timedelta(minutes=5), session_id=sid2)
 
-    sid3, new3 = resolve_session_id(db, conv_sess.id, t0 + timedelta(minutes=55),
+    sid3, new3, gap3 = resolve_session_id(db, conv_sess.id, t0 + timedelta(minutes=55),
                                     settings.session_gap_minutes)
-    check("50-min gap → NEW session", sid3 != sid1 and new3 is True)
+    check("50-min gap → NEW session", sid3 != sid1 and new3 is True and round(gap3 / 60) == 50)
 
     print("── privacy invariant on the episodic legs ──")
     mk_turn(conv_pub, f"User: tell me about {MARK_PUB}\n\nAssistant: sure", now)

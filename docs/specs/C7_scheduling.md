@@ -7,6 +7,16 @@ Celery tasks). Grounded at commit `b91232e`: `celery_app.py` (13 includes, 11 be
 entries), `gpu_check.py`, `memory/session.py`, `main.py::store_turn_async`
 (dispatch + buffer fallback + redis publish), `bg_client_factory.py`, `./ice`.
 
+> **Re-grounded at `7ad2f8f` (implementation session, 2026-07-11):** the G26 fix
+> (8d52b15) moved conversation resolution above classification, so main.py line
+> numbers below have drifted (~131→137, 157–176→162–181, 178–190→183–195); every
+> named seam is intact. Four spec corrections were made per README rule 12 —
+> marked **[rev 2026-07-11]** inline: D5/§2.3 (ledger-based decay cycles, fixing a
+> latent double-decay), D7 (`idle_burst_seconds` semantics pinned), D9 (overlap
+> tags come from the previous episodic row), §2.2 (chain idempotency restructure).
+> Also folded in from `G_mechanical.md`: G12 (bg-client timeout scaling), which
+> that file records as "folded into C7 D7" though this spec didn't mention it.
+
 ## 1. Decisions
 
 - **D1: Celery + Redis DO NOT survive. Replaced by an in-process maintenance
@@ -39,9 +49,18 @@ entries), `gpu_check.py`, `memory/session.py`, `main.py::store_turn_async`
   and `kind="commit"|"task_done"` reserved for E3/E4 (Track E decision 5: one
   concept, two signals). Session-gap catch-up + session-end burst are both this.
 - **D5: decay catch-up is closed-form, not a loop.** Decay callables gain
-  `cycles: int = 1`; missed cycles = `clamp(floor(gap/interval), 1, 96)`; the decay
-  UPDATE applies `rate ** cycles` (the multipliers are exponential — one UPDATE
-  covers any gap). Same param on codex/procedural decay.
+  `cycles: int = 1`; the decay UPDATE applies `rate ** cycles` (the multipliers are
+  exponential — one UPDATE covers any gap). Same param on codex/procedural decay.
+  **[rev 2026-07-11]** Missed cycles are computed from the decay job's own ledger
+  row — `clamp(floor((now − last_finished)/interval), 1, 96)` — NOT from the chat
+  gap. The original `floor(gap/interval)` formula double-decays whenever the app
+  stayed open through the gap (the overdue tick kept decay on cadence during it;
+  gap-based cycles would re-apply those same cycles — exactly the "double
+  exponential decay = silent memory destruction" this spec's Traps section warns
+  about). Ledger-based elapsed reduces to the original formula when the app was
+  closed for the whole gap (last_finished ≈ gap ago) and to `cycles=1` when decay
+  is on cadence. The runtime computes `cycles` at dispatch for every decay run
+  (overdue and session-gap alike), so catch-up is one uniform mechanism.
 - **D6: fine-tune is consent-gated, never unattended (settles H5).** No cron. When
   `curated_labels ≥ finetune_min_curated` AND a session ends AND
   `settings.auto_finetune` (default **False**) → run in the gpu lane; otherwise
@@ -55,6 +74,15 @@ entries), `gpu_check.py`, `memory/session.py`, `main.py::store_turn_async`
   around the Ollama stream) + `last_activity` recency (`user_active_threshold_
   seconds = 90`; today's 10s redis check is uselessly tight). `nvidia-smi` polling
   survives ONLY for dedicated mode: threshold 20 → **70**, result cached 10s (G4).
+  **[rev 2026-07-11, semantics pinned]** two idle knobs, both Z1-tunable:
+  `user_active_threshold_seconds` (90) is the `is_idle()` component gating
+  *overdue* dispatch and the next-job-yields behavior; `idle_burst_seconds` (120)
+  gates when queued **gpu-lane event jobs** (the post-flight backlog) start
+  draining after the user goes quiet (cpu-lane events dispatch on the next tick
+  regardless — they don't contend). **[G12, folded in per G_mechanical]** bg
+  client calls scale their timeout as `bg_timeout_base_seconds × clamp(
+  max_tokens/500, 1, 6)` (base 30); retries ride the runtime's backoff, not
+  per-call loops.
   Dedicated stays a power-user config behind the same `bg_client_factory` seam;
   `./ice` stops launching vLLM by default.
 - **D8: the jsonl buffer fallback is deleted with the broker** (settles G20.7's
@@ -64,6 +92,13 @@ entries), `gpu_check.py`, `memory/session.py`, `main.py::store_turn_async`
 - **D9: G8 folds in without Redis:** sticky-model state moves from the in-memory
   `SESSION_STATE` dict to two columns on `conversations` (`sticky_model TEXT NULL`,
   `consecutive_shifts INT DEFAULT 0`), read/written where the dict is today.
+  **[rev 2026-07-11]** the dict also held `last_topic_tags`/`last_intent_tags`
+  for the shift-overlap check; those need no columns — the previous turn's tags
+  already live on the latest `episodic_memory` row for the conversation (read
+  them there; one light query alongside the existing turn-count query). Slight
+  semantic shift, accepted: the previous turn's row is written post-stream, so a
+  rapid-fire second message may compare against the turn before it — same
+  fallback behavior as a fresh dict entry today.
 - **D10: core/app split for E7 (look-ahead, not full E7 work):** the runtime lives
   in `src/workers/runtime.py` with **zero FastAPI imports**, started from a
   `create_core()` factory that the FastAPI lifespan calls — the same factory E7's
@@ -101,7 +136,7 @@ status=error (tick retries next interval anyway). Job errors never propagate.
 
 | callable (kept, `@app.task` wrapper deleted) | trigger | lane |
 |---|---|---|
-| `post_flight.evaluate_turn` → chains `codex_extractor.extract_codex` → `procedural_extractor` **as direct calls in one job** | event (turn stored) | gpu |
+| `post_flight.evaluate_turn` → chains `codex_extractor.extract_codex` → `procedural_extractor` **as direct calls in one job** (**[rev 2026-07-11]** the density stage's early-return on its own idempotency key must NOT skip the chained stages — a retry after a partial chain failure re-enters the job; each stage is self-idempotent: codex + procedural have their own keys, the chunker checks existing chunks. Restructure: density stage guarded by its key, chain stages always attempted. The `is_document`/long-turn chunk dispatch becomes a direct `run_chunk_turn(db, turn)` call in the same job — the "document stored" event needs no queue hop when the discoverer already holds the turn.) | event (turn stored) | gpu |
 | `document_chunker.chunk_turn` / `run_pending_documents` | event + overdue 2h | cpu |
 | `clustering.run_cluster_assignment` | overdue 30m + session-gap | cpu |
 | `clustering.run_cluster_merge` | overdue 3h | cpu |
@@ -120,11 +155,14 @@ defaults (G9-aligned).
 `notify_work_unit("session_gap", conversation_id=..., gap_seconds=...)` — called
 from `store_turn_async` where `session_started` is logged today (main.py:131; pass
 `gap_seconds = now - last.timestamp` from `resolve_session_id`, which returns it —
-extend its return to `(session_id, session_started, gap_seconds)`). Handler:
-1. decay catch-up: `cycles = clamp(floor(gap/5400s), 1, 96)` → the three decay jobs
-   with `cycles`;
-2. per-conversation freshening: `run_cluster_assignment(db, [conversation_id])`;
-3. anything overdue per ledger (the gap usually means the app was closed).
+extend its return to `(session_id, session_started, gap_seconds)`;
+`gap_seconds=None` for a brand-new conversation). Handler **[rev 2026-07-11]**:
+1. per-conversation freshening: `run_cluster_assignment(db, [conversation_id])`;
+2. an immediate overdue pass (don't wait for the next tick) — this subsumes decay
+   catch-up, because the runtime computes decay `cycles` from the ledger at every
+   dispatch (D5 rev); gpu-lane jobs it surfaces still wait for idle.
+   (The original step-1 "cycles from gap_seconds" was removed with D5's revision —
+   gap-based cycles double-decay when the app stayed open through the gap.)
 
 **Session-end burst:** when a tick finds `now - last_activity > session_gap_minutes`
 AND the last burst ledger stamp predates last_activity → run the heavy pair

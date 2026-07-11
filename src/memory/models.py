@@ -23,6 +23,12 @@ class Conversation(Base):
     memory_scope_type = Column(Text, nullable=False, default="auto")  # none, auto, project, manual
     cluster_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
     custom_filter = Column(Text, nullable=True)
+    # C7 D9 (G8): session-stickiness state, formerly the in-memory
+    # SESSION_STATE dict in main.py. The topic-shift overlap check reads the
+    # previous turn's tags straight off the latest episodic row — no columns
+    # needed for those.
+    sticky_model = Column(Text, nullable=True)
+    consecutive_shifts = Column(Integer, nullable=False, default=0, server_default="0")
 
     episodic_turns = relationship("EpisodicMemory", back_populates="conversation")
 
@@ -281,6 +287,21 @@ class IdempotencyKey(Base):
 
     key = Column(Text, primary_key=True)
     processed_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class MaintenanceLedger(Base):
+    """C7 D3: per-job schedule state for the in-process maintenance runtime.
+    Survives restarts (feeds the overdue catch-up), doubles as the optimistic
+    claim lock against a duplicate app instance, and is the surface Track D's
+    maintenance agent reads."""
+    __tablename__ = "maintenance_ledger"
+
+    job_name = Column(Text, primary_key=True)
+    last_started = Column(DateTime(timezone=True), nullable=True)
+    last_finished = Column(DateTime(timezone=True), nullable=True)
+    last_status = Column(Text, nullable=True)   # running, ok, retrying, error
+    last_error = Column(Text, nullable=True)
+    runs = Column(Integer, nullable=False, default=0, server_default="0")
 
 
 class ColdStorage(Base):

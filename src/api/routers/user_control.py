@@ -1,21 +1,22 @@
 """User‑guided memory control endpoints (Phase C + model registry)."""
 
-import uuid, json
+import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from src.api.db import get_db
 from src.memory.models import (
-    EpisodicMemory, CodexEntity, CodexEdge, CodexEvent,
-    CuratedLabel, Conversation, ContextCluster, MemorySlot, ReviewQueue
+    EpisodicMemory, CuratedLabel, Conversation, ContextCluster, MemorySlot, ReviewQueue
 )
-from src.workers.codex_extractor import extract_codex
+from src.workers.runtime import get_runtime
 from src.model_registry.registry import load_registry, save_registry, populate_from_ollama
 
+logger = structlog.get_logger("ice.api.user_control")
 router = APIRouter(prefix="/user-control", tags=["user-control"])
 
 
@@ -68,7 +69,15 @@ def bookmark_turn(turn_id: str, db: Session = Depends(get_db)):
     turn.lossless_flag = True
     turn.decay_immune = True
     db.commit()
-    extract_codex.apply_async(kwargs={"batch_id": str(turn.batch_id), "priority": True})
+    # C7: bookmarking promotes the turn to lossless, so make sure codex
+    # extraction runs for it — enqueued on the maintenance runtime's gpu lane
+    # (extract_codex's own idempotency key makes a re-run a no-op).
+    runtime = get_runtime()
+    if runtime is not None:
+        runtime.enqueue("codex_extract", batch_id=str(turn.batch_id), priority=True)
+    else:
+        logger.error("maintenance_core_not_started_codex_extract_skipped",
+                     batch_id=str(turn.batch_id))
     return BookmarkOut(
         id=str(turn.id),
         timestamp=turn.timestamp.isoformat() if turn.timestamp else "",

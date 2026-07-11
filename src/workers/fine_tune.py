@@ -22,7 +22,6 @@ import torch
 from datetime import datetime, timezone
 from sentence_transformers import SentenceTransformer
 
-from src.workers.celery_app import app
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import CuratedLabel
@@ -96,8 +95,10 @@ def _promote(candidate_state, live_path: str) -> str:
     return live_path
 
 
-@app.task(bind=True, max_retries=1)
-def fine_tune_classifier(self):
+def fine_tune_classifier():
+    """Consent-gated (C7 D6/H5): the maintenance runtime enqueues this only
+    when settings.auto_finetune is on — otherwise it lands as a review-queue
+    proposal. Never cadence-run; the weekly crontab died with beat."""
     db = SessionLocal()
     try:
         rows = db.query(CuratedLabel).all()
@@ -177,8 +178,8 @@ def fine_tune_classifier(self):
             f"(val loss {cand_loss:.4f} > live {live_loss:.4f} — live model kept)."
         )
 
-    except Exception as exc:
+    except Exception:
         db.rollback()
-        raise self.retry(exc=exc)
+        raise
     finally:
         db.close()

@@ -1,23 +1,42 @@
-"""GPU utilization tracking subsystem for the ICE worker cluster."""
+"""GPU utilization gate — dedicated mode only (C7 D7/G4).
+
+In shared mode the background model IS the chat model, so hardware polling is
+meaningless there: idleness is in-process truth (the maintenance runtime's
+generation-inflight flag + last-activity recency, see runtime.is_idle()).
+nvidia-smi survives solely for dedicated mode, where a separate bg server
+shares the card with the chat model: threshold 70 (20 stalled bg work whenever
+the desktop compositor blipped), result cached 10s.
+
+The old is_user_active() redis check died with the broker — its semantics
+live in MaintenanceRuntime (user_active_threshold_seconds = 90; the 10s
+window it hardcoded was uselessly tight).
+"""
 
 import subprocess
+import time
+
 import structlog
+
 from src.api.config import settings
-import redis
-from datetime import datetime, timezone, timedelta
 
 logger = structlog.get_logger("ice.workers.gpu")
-GPU_UTIL_THRESHOLD = 20
+GPU_UTIL_THRESHOLD = 70
+CACHE_SECONDS = 10.0
+
+_cache: tuple = (0.0, False)   # (monotonic_stamp, busy)
 
 
 def is_gpu_busy() -> bool:
-    """Queries all active NVIDIA devices for compute utilization.
-
-    Returns True if any single GPU exceeds the configured threshold.
-    In shared mode, always returns False (background workers yield manually).
-    """
+    """Dedicated mode: True when any NVIDIA device exceeds the threshold
+    (cached 10s). Shared mode: always False — the runtime gates instead."""
+    global _cache
     if settings.background_model_mode == "shared":
         return False
+
+    stamp, busy = _cache
+    now = time.monotonic()
+    if now - stamp < CACHE_SECONDS:
+        return busy
 
     try:
         result = subprocess.run(
@@ -28,26 +47,10 @@ def is_gpu_busy() -> bool:
             check=True,
         )
         lines = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
-        if not lines:
-            return False
-        max_utilization = max(int(util) for util in lines)
-        return max_utilization > GPU_UTIL_THRESHOLD
+        busy = bool(lines) and max(int(util) for util in lines) > GPU_UTIL_THRESHOLD
     except (subprocess.SubprocessError, ValueError, FileNotFoundError) as err:
         logger.debug("Nvidia-smi query skipped or unavailable", error=str(err))
-        return False
-    
-def is_user_active(idle_threshold_seconds: int = 10) -> bool:
-    """Return True if the user has chatted recently (shared mode should yield)."""
-    try:
-        # decode_responses=True: r.get() otherwise returns bytes, and
-        # datetime.fromisoformat(bytes) raises TypeError — which the bare except
-        # swallowed, making this silently always-False (G21 audit fix).
-        r = redis.from_url(settings.redis_url, decode_responses=True)
-        last = r.get("ice:last_chat_completed")
-        r.close()
-        if last:
-            last_time = datetime.fromisoformat(last)
-            return (datetime.now(timezone.utc) - last_time).total_seconds() < idle_threshold_seconds
-    except Exception as err:
-        logger.debug("is_user_active check failed", error=str(err))
-    return False
+        busy = False
+
+    _cache = (now, busy)
+    return busy
