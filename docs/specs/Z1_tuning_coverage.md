@@ -55,7 +55,10 @@ shipped. Z1 = the tuning gate + the coverage gate, strictly before FINAL.
   one-line written verdict each (ok / bug filed / dead code → G20 list).
   Expected untouched candidates (verify, don't trust): `drop_zone.py`,
   `ner_utils` beyond A2's fixes, `db.py`, SSE streaming internals (G5 pending),
-  `dataset.py`, registry internals pre-B3.
+  `dataset.py`, registry internals pre-B3. *(ner_utils note: if the A2
+  over-rejection data collected here shows under-coverage, the decided remedy
+  is A9's GLiNER swap on the background tier — pre-flight keeps the micro-NER;
+  see the A9 roadmap entry, 2026-07-11.)*
 - **D7: the "pending live validation" ledger is Z1's entry checklist.** Collect
   every completion-note caveat into `docs/coverage_matrix.md` §pending (A2
   over-rejection rate, A6 real-LLM reconciliation, A7.3 enrichment backlog

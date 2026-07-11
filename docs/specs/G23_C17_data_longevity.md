@@ -62,7 +62,11 @@ workaround exists because truncated prefixes break unit norm.
   `slice384(vec)` (first 384 dims — mathematically identical to today's
   truncation) **with re-normalization kept for the sliced consumers only**,
   until B1 (classifier @1024) and A9-if-ungated (NER) retrain. One encode call
-  serves both widths.
+  serves both widths. *(A9 revision 2026-07-11: A9's decided successor is a
+  GLiNER-class model on the background NER tier, which doesn't consume the
+  shared embedding at all — so if A9 lands before C17, only the pre-flight
+  micro-NER remains a slice384 consumer; if after, nothing changes here. See
+  the A9 roadmap entry for the two-tier split.)*
 - **USER-REQUIRED (rule 11):** (a) run `ice_backup.sh` before the C17 migration
   (one command; done = archive file exists + logged size); (b) keep the machine
   on for the re-embed (estimate printed up-front: rows × ~20 ms CPU — the dev
