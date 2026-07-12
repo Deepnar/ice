@@ -5,17 +5,16 @@ micro‑NER integration, and dynamic token budget."""
 from datetime import datetime, timezone
 import hashlib
 import math
-import os
 import re
 import uuid
 from typing import List, Optional, Dict
 from dataclasses import dataclass, replace
-from openai import OpenAI
 import structlog
 from sqlalchemy.orm import Session
-from sqlalchemy import bindparam, text
+from sqlalchemy import bindparam, or_, text
 from pgvector.sqlalchemy import Vector as PgVector
 from src.retrieval.ner_utils import extract_entities
+from src.retrieval.timescope import CURRENT, from_scope
 from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 
 from src.api.config import settings
@@ -24,7 +23,6 @@ from src.memory.models import (
     CodexEntity,
     CodexEdge,
     ProceduralMemory,
-    MemorySlot,
 )
 from src.classifier.schemas import ClassificationResult
 logger = structlog.get_logger("ice.retrieval")
@@ -160,6 +158,15 @@ class HybridRetrievalOrchestrator:
         self.CODEX_RECENCY_BOOST = 0.3           # max multiplier bump for a just-asserted edge
         self.CODEX_RECENCY_TAU_DAYS = 30.0       # e-folding time of the boost
 
+        # T2/T3: the request's TimeScope (set from scope["timescope"] at the
+        # top of retrieve()/_wide_net_fallback(); one orchestrator instance
+        # per request, so an instance attr is safe). timescope_allowed is the
+        # ablation seam — the configurable subclass sets it False to force
+        # CURRENT regardless of scope.
+        self._active_timescope = CURRENT
+        self.timescope_allowed = True
+        self._cold_hits = {}
+
         # Load micro‑NER model (fallback to None if not available)
     def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=10):
         """Return a list of cluster_id strings for the clusters most
@@ -236,8 +243,10 @@ class HybridRetrievalOrchestrator:
             elif word_count < 80:
                 bonus += PENALTY_SHORT
 
-            # Recency (skip for creative – recent meta turns are noise)
-            if f.source_type == "episodic" and not creative and conv_id:
+            # Recency (skip for creative – recent meta turns are noise;
+            # T3: skipped under any non-current mode — this bonus points at now)
+            if (f.source_type == "episodic" and not creative and conv_id
+                    and self._active_timescope.mode == "current"):
                 bonus += self._recency_bonus(f, conv_id)
 
             # Soft meta downweight
@@ -390,6 +399,9 @@ class HybridRetrievalOrchestrator:
         # stay purely as a defensive guard if retrieve() is ever called directly.
         self._hyde_used = False
         self._last_hyde_query = None
+        # T2: resolve the request's TimeScope once; every leg below reads it.
+        self._active_timescope = self._resolve_timescope(scope)
+        self._cold_hits = {}
         if classification.context_reliance == "Zero_Shot":
             return []
         if classification.context_reliance == "Real_Time_Search":
@@ -454,6 +466,10 @@ class HybridRetrievalOrchestrator:
         # legs (procedural patterns, RAG documents) read nothing at all.
         incognito = bool(scope and scope.get("incognito"))
 
+        # Prompt keywords: used by the cold leg's ILIKE patterns and the
+        # post-fusion bonus pass.
+        prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
+
         # Execute the remaining retrieval legs
         legs: Dict[str, List[ContextFragment]] = {
             "bm25": self._bm25_episodic(classification, scope, conv_id, search_prompt),
@@ -462,6 +478,10 @@ class HybridRetrievalOrchestrator:
             "procedural": [] if incognito else self._procedural_lookup(prompt_embedding, classification, scope),
             "rag": [] if incognito else self._rag_lookup(prompt_embedding, classification),
             "batch_summary": self._batch_summary_lookup(prompt_embedding, conv_id),
+            # T3: cold storage joins time-scoped queries only (no-op leg
+            # otherwise); fragments are episodic-typed, so budget fairness
+            # treats them as memories — the leg name only affects RRF weight.
+            "cold": self._cold_lookup(prompt_keywords, conv_id),
         }
 
         # ── Dynamic leg weighting (blended over all active intents) ──
@@ -526,8 +546,6 @@ class HybridRetrievalOrchestrator:
 
         # Fuse, diversify, deduplicate, trim
         fused = self._apply_rrf(legs, alpha_map=blend_weights)
-                # Compute prompt keywords once for the bonus pass
-        prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
         fused = self._apply_bonuses(fused, classification, conv_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
                 # ── Leg diversity guarantee: always include the top‑ranked fragment
@@ -542,10 +560,64 @@ class HybridRetrievalOrchestrator:
         deduped = self._deduplicate(diversified)
         final = self._enforce_token_budget(deduped)
 
+        # T3 honest emptiness: a windowed query with nothing in the window
+        # says so — never silently widens.
+        final = self._append_empty_window_note(final, prompt_embedding, conv_id)
+
         # Strengthen retrieved turns (access count + decay boost)
         self._strengthen_retrieved(final)
 
+        # T3 (D-U1): budget-surviving cold hits get their probation
+        # resurrection (after strengthening — probation starts exactly at
+        # the configured score, not score+0.15).
+        self._resurrect_cold_hits(final)
+
         return final
+
+    def _resolve_timescope(self, scope):
+        """T2: the request's TimeScope from scope["timescope"], forced to
+        CURRENT when the kill-switch (settings) or the ablation seam
+        (timescope_allowed) is off."""
+        if not settings.timescope_enabled or not getattr(self, "timescope_allowed", True):
+            return CURRENT
+        return from_scope(scope)
+
+    def _timescope_leg_filters(self, prefix=""):
+        """T3: param-driven filter snippets for the episodic legs — one query
+        text per leg, never a timescoped twin (G19). current: archived hidden,
+        decay floor 0.2, no window (today's behavior). Non-current: window
+        predicate (as_of/range only), archived visible (D10 — "archived" means
+        not-relevant-to-*now*, which a time query is not asking), and the
+        decay floor dropped (archived rows sit below 0.1 by construction —
+        spec rev note 3)."""
+        ts = self._active_timescope
+        params = {}
+        time_filter = ""
+        if ts.mode in ("as_of", "range") and ts.t0 and ts.t1:
+            time_filter = (f"AND {prefix}timestamp >= :ts_t0 "
+                           f"AND {prefix}timestamp < :ts_t1")
+            params["ts_t0"], params["ts_t1"] = ts.t0, ts.t1
+        archived_filter = f"AND {prefix}is_archived = false" if ts.mode == "current" else ""
+        min_decay = 0.2 if ts.mode == "current" else 0.0
+        return time_filter, archived_filter, params, min_decay
+
+    def _recency_params(self, creative: bool):
+        """T3 (D9): mode-aware recency — the same exponential with a movable
+        origin, returned as (center, boost, tau_days). current: center=now,
+        boost as today (0 for creative) — numerically identical to the old
+        NOW()-based formula for past rows. as_of: center = window midpoint,
+        boost applies even for creative (this is target-proximity relevance,
+        not freshness), tau widens with the window. range/evolution: flat —
+        the user asked for a period, not proximity to its midpoint."""
+        ts = self._active_timescope
+        now = datetime.now(timezone.utc)
+        if ts.mode == "as_of" and ts.t0 and ts.t1:
+            center = ts.t0 + (ts.t1 - ts.t0) / 2
+            window_days = (ts.t1 - ts.t0).total_seconds() / 86400.0
+            return center, EPISODIC_RECENCY_BOOST, max(EPISODIC_RECENCY_TAU_DAYS, window_days / 2)
+        if ts.mode in ("range", "evolution"):
+            return now, 0.0, EPISODIC_RECENCY_TAU_DAYS
+        return now, (0.0 if creative else EPISODIC_RECENCY_BOOST), EPISODIC_RECENCY_TAU_DAYS
 
     # ------------------------------------------------------------------
     # HyDE rewriting
@@ -626,6 +698,8 @@ class HybridRetrievalOrchestrator:
         # G16 visibility invariant: global search never sees private (incognito)
         # turns; explicit conversation scoping is the only door to them.
         privacy_filter = "" if conv_id else "AND is_private = FALSE"
+        # T3: window / archived-visibility / decay-floor, driven by the mode.
+        time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
 
         # ── Cluster filter (new) ──
         cluster_filter = ""
@@ -645,13 +719,13 @@ class HybridRetrievalOrchestrator:
             """
 
         query = text(f"""
-            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
+            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp,
                    ts_rank(
                        to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                        query
                    ) as score
             FROM episodic_memory,
-                 LATERAL (SELECT 
+                 LATERAL (SELECT
                      CASE WHEN length(:search_terms) > 0
                           THEN to_tsquery('english', :search_terms)
                           ELSE plainto_tsquery('english', :prompt_text)
@@ -661,15 +735,17 @@ class HybridRetrievalOrchestrator:
               {conv_filter}
               {privacy_filter}
               {cluster_filter}
+              {time_filter}
               AND decay_score > :min_decay
-              AND is_archived = false
+              {archived_filter}
             ORDER BY score DESC
             LIMIT 100
         """)
         params = {
             "search_terms": search_terms,
             "prompt_text": prompt_text,
-            "min_decay": 0.2
+            "min_decay": min_decay,
+            **ts_params,
         }
         if conv_id:
             params["conv_id"] = conv_id
@@ -685,7 +761,7 @@ class HybridRetrievalOrchestrator:
             # Final fallback: use plainto_tsquery (AND) if everything fails
             try:
                 query2 = text(f"""
-                    SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
+                    SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp,
                            ts_rank(
                                to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                                plainto_tsquery('english', :prompt_text)
@@ -696,12 +772,13 @@ class HybridRetrievalOrchestrator:
                       {conv_filter}
                       {privacy_filter}
                       {cluster_filter}
+                      {time_filter}
                       AND decay_score > :min_decay
-                      AND is_archived = false
+                      {archived_filter}
                     ORDER BY score DESC
                     LIMIT 100
                 """)
-                p = {"prompt_text": prompt_text, "min_decay": 0.2}
+                p = {"prompt_text": prompt_text, "min_decay": min_decay, **ts_params}
                 if conv_id:
                     p["conv_id"] = conv_id
                 if scope and scope.get("cluster_ids"):
@@ -720,6 +797,8 @@ class HybridRetrievalOrchestrator:
         # G16 visibility invariant: global search never sees private (incognito)
         # turns; explicit conversation scoping is the only door to them.
         privacy_filter = "" if conv_id else "AND is_private = FALSE"
+        # T3: window / archived-visibility / decay-floor, driven by the mode.
+        time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
 
         # ── Cluster filter (new) ──
         cluster_filter = ""
@@ -741,10 +820,14 @@ class HybridRetrievalOrchestrator:
         # C2: document turns are EXCLUDED from turn-level vector search — one
         # embedding over thousands of words is semantic mush (the C3 ceiling).
         # Their chunks compete instead, via _vector_chunks below.
+        # C8 recency, T3/D9 origin-parameterized: ABS(timestamp - :ts_center)
+        # with center=now is numerically identical to the old NOW()-based
+        # GREATEST form for past rows; as_of re-anchors center to the window
+        # midpoint. One formula, mode-driven params — never fork the leg SQL.
         query = text(f"""
-            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked,
+            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp,
                 (1 - (embedding <=> :prompt_embedding)) * COALESCE(decay_score, 1.0)
-                  * (1 + :recency_boost * EXP(-GREATEST(EXTRACT(EPOCH FROM (NOW() - timestamp)), 0) / 86400.0 / :recency_tau)) as score
+                  * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (timestamp - :ts_center))) / 86400.0 / :recency_tau)) as score
             FROM episodic_memory
             WHERE embedding IS NOT NULL
             AND is_document = false
@@ -752,17 +835,20 @@ class HybridRetrievalOrchestrator:
             {conv_filter}
             {privacy_filter}
             {cluster_filter}
+            {time_filter}
             AND decay_score > :min_decay
-            AND is_archived = false
+            {archived_filter}
             ORDER BY score DESC
             LIMIT 100
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
         # C8: creative skips the in-score recency weight (same rule as the
-        # post-fusion bonuses — recent meta turns are noise for narrative).
+        # post-fusion bonuses — recent meta turns are noise for narrative);
+        # T3: except in as_of mode, where the boost is target-proximity.
         creative = "Creative_&_Media" in (classification.topic_tags or [])
-        rec_boost = 0.0 if creative else EPISODIC_RECENCY_BOOST
-        params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2,
-                  "recency_boost": rec_boost, "recency_tau": EPISODIC_RECENCY_TAU_DAYS}
+        ts_center, rec_boost, rec_tau = self._recency_params(creative)
+        params = {"prompt_embedding": prompt_embedding, "min_decay": min_decay,
+                  "recency_boost": rec_boost, "recency_tau": rec_tau,
+                  "ts_center": ts_center, **ts_params}
         if conv_id:
             params["conv_id"] = conv_id
         if scope and scope.get("cluster_ids"):
@@ -792,6 +878,10 @@ class HybridRetrievalOrchestrator:
         strengthening/decay land on the turn. Max 3 chunks per document."""
         conv_filter = "AND e.conversation_id = :conv_id" if conv_id else ""
         privacy_filter = "" if conv_id else "AND e.is_private = FALSE"
+        # T3: visibility rides the parent turn — window on e.timestamp,
+        # archived/decay-floor on the parent's flags.
+        time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters(prefix="e.")
+        ts_center, _, rec_tau = self._recency_params(creative=False)  # boost passed in by caller
         cluster_filter = ""
         if scope and scope.get("cluster_ids"):
             cluster_filter = """
@@ -811,20 +901,22 @@ class HybridRetrievalOrchestrator:
             SELECT c.chunk_text, c.chunk_index, e.id AS parent_id,
                    e.conversation_id, e.is_bookmarked, e.timestamp,
                    (1 - (c.embedding <=> :prompt_embedding)) * COALESCE(e.decay_score, 1.0)
-                     * (1 + :recency_boost * EXP(-GREATEST(EXTRACT(EPOCH FROM (NOW() - e.timestamp)), 0) / 86400.0 / :recency_tau)) AS score
+                     * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (e.timestamp - :ts_center))) / 86400.0 / :recency_tau)) AS score
             FROM episodic_chunks c
             JOIN episodic_memory e ON e.id = c.turn_id
             WHERE c.embedding IS NOT NULL
-              AND e.is_archived = false
               AND e.decay_score > :min_decay
+              {archived_filter}
+              {time_filter}
               {conv_filter}
               {privacy_filter}
               {cluster_filter}
             ORDER BY score DESC
             LIMIT 30
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
-        params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2,
-                  "recency_boost": recency_boost, "recency_tau": EPISODIC_RECENCY_TAU_DAYS}
+        params = {"prompt_embedding": prompt_embedding, "min_decay": min_decay,
+                  "recency_boost": recency_boost, "recency_tau": rec_tau,
+                  "ts_center": ts_center, **ts_params}
         if conv_id:
             params["conv_id"] = conv_id
         if scope and scope.get("cluster_ids"):
@@ -845,11 +937,15 @@ class HybridRetrievalOrchestrator:
             score_val = float(row.score)
             if row.is_bookmarked:
                 score_val *= (1.0 + BONUS_BOOKMARKED)
+            # T1: chunks are episodic fragments too — date them from the parent turn.
+            chunk_text = row.chunk_text
+            if row.timestamp:
+                chunk_text = row.timestamp.strftime("[%Y-%m-%d] ") + chunk_text
             fragments.append(ContextFragment(
-                text=row.chunk_text,
+                text=chunk_text,
                 source_type="episodic",
                 score=score_val,
-                token_count=int(len(row.chunk_text.split()) * 1.33),
+                token_count=int(len(chunk_text.split()) * 1.33),
                 source_batch_id=pid,
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
             ))
@@ -1067,6 +1163,30 @@ class HybridRetrievalOrchestrator:
             self.db.rollback()
             return []
 
+    def _edge_valid_filters(self):
+        """T3 (D4): the bi-temporal valid_at(T) read the schema was built for.
+        as_of/range: an edge counts if established by T = window end and not
+        yet expired at T ("state as of then" = everything established *by*
+        then). Legacy NULL valid_from = -infinity (passes). current keeps the
+        exact old predicate (valid_until IS NULL ≡ valid_at(now), since
+        expiries are stamped at write time). Used by every codex read —
+        traversal (both directions), relation facts, enumeration."""
+        ts = getattr(self, "_active_timescope", CURRENT)
+        if ts.mode in ("as_of", "range") and ts.t1:
+            return [or_(CodexEdge.valid_from.is_(None), CodexEdge.valid_from <= ts.t1),
+                    or_(CodexEdge.valid_until.is_(None), CodexEdge.valid_until > ts.t1)]
+        return [CodexEdge.valid_until.is_(None)]
+
+    def _fact_line(self, src, edge, tgt) -> str:
+        """Render one codex fact. T1: dated with the edge's valid_from at month
+        precision (day precision would imply false exactness); legacy NULL
+        valid_from renders undated. Negated edges render as NOT (the note
+        renderer already did this; fact lines previously lied by omission)."""
+        rel = f"NOT {edge.relation}" if getattr(edge, "negated", False) else edge.relation
+        vf = getattr(edge, "valid_from", None)
+        since = f" (since {vf.strftime('%Y-%m')})" if vf else ""
+        return f"[Fact: {src.canonical_name} --{rel}--> {tgt.canonical_name}{since}]"
+
     def _relation_facts(self, matched, relations: List[str], allowed_batch_ids):
         """A4: surface explicit edge facts where a matched entity participates
         in a detected relation (either direction). The entity∩relation joint
@@ -1076,7 +1196,7 @@ class HybridRetrievalOrchestrator:
             return [], []
         matched_ids = [e.id for e in matched]
         q = self.db.query(CodexEdge).filter(
-            CodexEdge.valid_until == None,
+            *self._edge_valid_filters(),
             CodexEdge.relation.in_(relations),
             ((CodexEdge.source_id.in_(matched_ids)) | (CodexEdge.target_id.in_(matched_ids)))
         )
@@ -1089,7 +1209,7 @@ class HybridRetrievalOrchestrator:
             src = self.db.query(CodexEntity).get(edge.source_id)
             tgt = self.db.query(CodexEntity).get(edge.target_id)
             if src and tgt:
-                lines.append(f"[Fact: {src.canonical_name} --{edge.relation}--> {tgt.canonical_name}]")
+                lines.append(self._fact_line(src, edge, tgt))
                 fact_edges.append(edge)
         return lines, fact_edges
 
@@ -1127,7 +1247,7 @@ class HybridRetrievalOrchestrator:
             fact_lines = []
             if relations:
                 q = self.db.query(CodexEdge).filter(
-                    CodexEdge.valid_until == None,
+                    *self._edge_valid_filters(),
                     CodexEdge.relation.in_(relations))
                 if allowed_batch_ids is not None:
                     q = q.filter(CodexEdge.source_batch.in_(allowed_batch_ids))
@@ -1137,7 +1257,7 @@ class HybridRetrievalOrchestrator:
                     src = self.db.query(CodexEntity).get(edge.source_id)
                     tgt = self.db.query(CodexEntity).get(edge.target_id)
                     if src and tgt:
-                        fact_lines.append(f"[Fact: {src.canonical_name} --{edge.relation}--> {tgt.canonical_name}]")
+                        fact_lines.append(self._fact_line(src, edge, tgt))
             if fact_lines:
                 t = "\n".join(fact_lines)
                 fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
@@ -1260,10 +1380,17 @@ class HybridRetrievalOrchestrator:
         conf = edge.extraction_confidence if edge.extraction_confidence is not None else 1.0
         base = (edge.strength or 0.0) * conf
         # A11: reward recently-asserted facts; old edges tend to 1.0 (no penalty).
+        # T3 (D9): under a window, "recent" means near the window end — the
+        # multiplier stays >= 1.0, so A11's never-penalize-age invariant
+        # survives the re-anchoring.
         vf = getattr(edge, "valid_from", None)
         if vf is not None:
             try:
-                age_days = max(0.0, (datetime.now(timezone.utc) - vf).total_seconds() / 86400.0)
+                ts = getattr(self, "_active_timescope", CURRENT)
+                if ts.mode in ("as_of", "range") and ts.t1:
+                    age_days = abs((ts.t1 - vf).total_seconds()) / 86400.0
+                else:
+                    age_days = max(0.0, (datetime.now(timezone.utc) - vf).total_seconds() / 86400.0)
                 base *= 1.0 + self.CODEX_RECENCY_BOOST * math.exp(-age_days / self.CODEX_RECENCY_TAU_DAYS)
             except Exception:
                 pass
@@ -1312,12 +1439,17 @@ class HybridRetrievalOrchestrator:
         visited.add(entity.id)
 
         # A7.2: fetch BOTH directions — outgoing links and incoming backlinks —
-        # so the graph is navigable both ways (Obsidian backlinks).
+        # so the graph is navigable both ways (Obsidian backlinks). T3: the
+        # validity predicate is valid_at(T) under a window (D4); evolution
+        # mode deliberately navigates the CURRENT graph (D5 — history is the
+        # T4 timeline builder's job, dead-edge walking makes incoherent
+        # neighborhoods).
+        valid = self._edge_valid_filters()
         out_edges = self.db.query(CodexEdge).filter(
-            CodexEdge.source_id == entity.id, CodexEdge.valid_until == None
+            CodexEdge.source_id == entity.id, *valid
         ).order_by(CodexEdge.strength.desc()).all()
         in_edges = self.db.query(CodexEdge).filter(
-            CodexEdge.target_id == entity.id, CodexEdge.valid_until == None
+            CodexEdge.target_id == entity.id, *valid
         ).order_by(CodexEdge.strength.desc()).all()
         # A5: scope filter (both directions) — no cross-conversation leakage.
         if allowed_batch_ids is not None:
@@ -1411,16 +1543,25 @@ class HybridRetrievalOrchestrator:
             except Exception:
                 self.db.rollback()
 
-        query = text("""
+        # T3: under a window, a pattern is relevant only if its observation
+        # span overlaps it (a habit first seen after the window didn't exist
+        # then).
+        ts = self._active_timescope
+        time_filter, params = "", {"prompt_embedding": prompt_embedding}
+        if ts.mode in ("as_of", "range") and ts.t0 and ts.t1:
+            time_filter = "AND first_observed <= :ts_t1 AND last_observed >= :ts_t0"
+            params["ts_t0"], params["ts_t1"] = ts.t0, ts.t1
+        query = text(f"""
             SELECT id, pattern_description,
                    1 - (embedding <=> :prompt_embedding) as score
             FROM procedural_memory
             WHERE embedding IS NOT NULL AND is_active = true
+            {time_filter}
             ORDER BY score DESC
             LIMIT 5
         """)
         try:
-            rows = self.db.execute(query, {"prompt_embedding": prompt_embedding}).fetchall()
+            rows = self.db.execute(query, params).fetchall()
             fragments = []
             for r in rows:
                 pattern = self.db.query(ProceduralMemory).get(r.id)
@@ -1487,10 +1628,14 @@ class HybridRetrievalOrchestrator:
     def _batch_summary_lookup(self, prompt_embedding, conv_id: Optional[str] = None) -> List[ContextFragment]:
         if not conv_id:
             return []
+        # T3 (D14): skipped under any non-current mode — a summary's created_at
+        # is long after its content's period, which is underivable without a
+        # turn-index→timestamp join; serving it under a window would mislead.
+        if self._active_timescope.mode != "current":
+            return []
         try:
-            from src.memory.models import BatchSummary
             query = text("""
-                SELECT summary_text,
+                SELECT summary_text, created_at,
                        1 - (embedding <=> :prompt_embedding) as score
                 FROM batch_summaries
                 WHERE conversation_id = :conv_id
@@ -1499,8 +1644,10 @@ class HybridRetrievalOrchestrator:
                 LIMIT 3
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
             rows = self.db.execute(query, {"prompt_embedding": prompt_embedding, "conv_id": conv_id}).fetchall()
+            # T1: summaries are written long after the turns they compress, so
+            # they get a "[summary, <created>]" prefix, not a turn date.
             return [ContextFragment(
-                text=r.summary_text,
+                text=(f"[summary, {r.created_at.strftime('%Y-%m-%d')}] " if r.created_at else "") + r.summary_text,
                 source_type="batch_summary",
                 score=r.score,
                 token_count=int(len(r.summary_text.split()) * 1.33)
@@ -1508,6 +1655,166 @@ class HybridRetrievalOrchestrator:
         except Exception:
             self.db.rollback()
             return []
+    # ------------------------------------------------------------------
+    # T3: cold-storage leg + resurrection (D-U1) + honest emptiness
+    # ------------------------------------------------------------------
+    def _cold_lookup(self, prompt_keywords, conv_id: Optional[str] = None) -> List[ContextFragment]:
+        """Cold storage joins time-scoped queries ONLY (never normal ones, and
+        never the wide net). Requires a window — the window is what bounds the
+        search when there are no keywords (a pure "what was I thinking about
+        in march" browse); evolution without a window skips cold (unbounded
+        browse is noise). Scoping mirrors the live legs' invariant:
+        conversation-scoped when conv_id is set, else public rows only."""
+        ts = self._active_timescope
+        if ts.mode not in ("as_of", "range", "evolution") or not ts.t0:
+            return []
+        t1 = ts.t1 or datetime.now(timezone.utc)
+
+        # Up to 6 %kw% patterns from prompt keywords + grounded expansion
+        # terms (codex leg runs first, so _last_matched_entities is set).
+        terms, seen = [], set()
+        for term in self._expansion_terms() + sorted(
+                (k for k in prompt_keywords if len(k) >= 3),
+                key=lambda k: (-len(k), k)):
+            if term not in seen:
+                seen.add(term)
+                terms.append(term)
+            if len(terms) >= 6:
+                break
+        pats = [f"%{t}%" for t in terms]
+
+        conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
+        privacy_filter = "" if conv_id else "AND is_private = FALSE"
+        query = text(f"""
+            SELECT id, conversation_id, batch_id, raw_text, summary_text,
+                   topic_tags, timestamp, is_private
+            FROM cold_storage
+            WHERE timestamp >= :t0 AND timestamp < :t1
+              {conv_filter}
+              {privacy_filter}
+              AND (:no_kw OR raw_text ILIKE ANY(:pats) OR summary_text ILIKE ANY(:pats))
+            ORDER BY timestamp DESC
+            LIMIT :cold_limit
+        """)
+        params = {"t0": ts.t0, "t1": t1, "no_kw": not pats, "pats": pats or ["%"],
+                  "cold_limit": settings.timescope_cold_limit}
+        if conv_id:
+            params["conv_id"] = conv_id
+        try:
+            rows = self.db.execute(query, params).fetchall()
+        except Exception as err:
+            logger.error("cold_lookup_failed", error=str(err))
+            self.db.rollback()
+            return []
+
+        fragments = []
+        for row in rows:
+            body = _truncate_at_sentence(row.summary_text or row.raw_text, 300)
+            stamp = row.timestamp.strftime("[%Y-%m-%d] ") if row.timestamp else ""
+            text_ = stamp + body
+            fragments.append(ContextFragment(
+                text=text_, source_type="episodic", score=0.6,
+                token_count=int(len(text_.split()) * 1.33),
+                source_batch_id=str(row.id),
+                conversation_id=str(row.conversation_id) if row.conversation_id else None,
+            ))
+            self._cold_hits[str(row.id)] = row
+        if fragments:
+            logger.info("cold_leg_hits", count=len(fragments), mode=ts.mode)
+        return fragments
+
+    def _resurrect_cold_hits(self, final: List[ContextFragment]):
+        """D-U1 second chance: a cold memory that was actually *injected*
+        (survived the budget — never mere candidacy) moves back into
+        episodic_memory on probation: ORIGINAL timestamp (it's an old memory),
+        decay just above the archive line — unengaged, normal decay re-archives
+        it within days; engaged, write-on-read strengthening saves it. Never
+        restored at full strength. Legacy rows (NULL conversation_id) are
+        cite-only. Runs AFTER _strengthen_retrieved (the row isn't episodic
+        yet during that pass), so probation starts exactly at 0.12."""
+        if not self._cold_hits:
+            return
+        for f in final:
+            row = self._cold_hits.get(f.source_batch_id) if f.source_batch_id else None
+            if row is None:
+                continue
+            if row.conversation_id is None:
+                logger.info("cold_cited_only", cold_id=str(row.id))
+                continue
+            try:
+                emb = self.embedder.encode((row.summary_text or row.raw_text)[:2000],
+                                           convert_to_tensor=False)
+                emb = emb.tolist() if hasattr(emb, "tolist") else list(emb)
+                res = self.db.execute(text("""
+                    INSERT INTO episodic_memory
+                        (id, conversation_id, batch_id, timestamp, topic_tags,
+                         intent_tags, context_reliance, raw_text, summary_text,
+                         embedding, decay_score, access_count, is_archived,
+                         is_private, inject_raw, idempotency_key)
+                    VALUES (:id, :conv, :batch, :ts, :tags, :itags,
+                            'Long_Term_Memory', :raw, :summary, :emb, :score,
+                            1, FALSE, :priv, TRUE, :ikey)
+                    ON CONFLICT (id) DO NOTHING
+                """).bindparams(bindparam("emb", type_=PgVector)), {
+                    "id": row.id, "conv": row.conversation_id,
+                    "batch": row.batch_id or uuid.uuid4(), "ts": row.timestamp,
+                    "tags": list(row.topic_tags or []), "itags": [],
+                    "raw": row.raw_text, "summary": row.summary_text,
+                    "emb": emb, "score": settings.timescope_probation_score,
+                    "priv": row.is_private,
+                    "ikey": f"cold-resurrect-{row.id}",
+                })
+                if res.rowcount == 0:
+                    # id somehow still live in episodic — keep the cold row.
+                    logger.info("cold_resurrect_conflict", cold_id=str(row.id))
+                else:
+                    self.db.execute(text("DELETE FROM cold_storage WHERE id = :id"),
+                                    {"id": row.id})
+                    logger.info("cold_resurrected", episodic_id=str(row.id),
+                                decay_score=settings.timescope_probation_score)
+                self.db.commit()
+            except Exception as err:
+                logger.error("cold_resurrect_failed", cold_id=str(row.id), error=str(err))
+                self.db.rollback()
+
+    def _append_empty_window_note(self, final, prompt_embedding, conv_id):
+        """T3 honest emptiness (§2.6): a windowed query with no episodic
+        matches says so explicitly — naming the window and, when an unwindowed
+        probe finds anything, the nearest eras — instead of silently widening
+        (codex/timeline fragments may still be present and still answer)."""
+        ts = self._active_timescope
+        if ts.mode not in ("as_of", "range") or not (ts.t0 and ts.t1):
+            return final
+        if any(f.source_type == "episodic" for f in final):
+            return final
+        note = (f"[Memory note] No stored memories match this query between "
+                f"{ts.t0.date()} and {ts.t1.date()}.")
+        try:
+            conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
+            privacy_filter = "" if conv_id else "AND is_private = FALSE"
+            probe = text(f"""
+                SELECT timestamp FROM episodic_memory
+                WHERE embedding IS NOT NULL {conv_filter} {privacy_filter}
+                ORDER BY embedding <=> :emb
+                LIMIT 3
+            """).bindparams(bindparam("emb", type_=PgVector))
+            params = {"emb": prompt_embedding}
+            if conv_id:
+                params["conv_id"] = conv_id
+            eras = sorted({r.timestamp.strftime("%Y-%m")
+                           for r in self.db.execute(probe, params).fetchall()
+                           if r.timestamp})
+            if eras:
+                note += (" Closest matches outside that window are from "
+                         + ", ".join(eras) + ".")
+        except Exception:
+            self.db.rollback()
+        logger.info("timescope_empty_window", t0=str(ts.t0.date()), t1=str(ts.t1.date()))
+        final.append(ContextFragment(
+            text=note, source_type="episodic", score=5.0,
+            token_count=int(len(note.split()) * 1.33)))
+        return final
+
     # ------------------------------------------------------------------
     # RRF fusion, diversification, dedup, token budget
     # ------------------------------------------------------------------
@@ -1656,18 +1963,25 @@ class HybridRetrievalOrchestrator:
         # honor the same scope rules as the normal legs. Previously it ignored
         # scope entirely (searched every conversation, codex unscoped, RAG
         # always on), which leaked project- and incognito-scoped memory.
+        # T2: set here too — the wide net is also a public entry point (tests,
+        # direct calls); idempotent when reached via retrieve().
+        self._active_timescope = self._resolve_timescope(scope)
         scope_conv = scope.get("conversation_id") if scope else None
         incognito = bool(scope and scope.get("incognito"))
         conv_filter = "AND conversation_id = :conv_id" if scope_conv else ""
         privacy_filter = "" if scope_conv else "AND is_private = FALSE"
+        # T3: same window/archived/floor rules as the normal legs (the wide
+        # net widens ranking, not visibility — and not time either).
+        time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
         try:
             query = text(f"""
-                SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_document,
+                SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_document, timestamp,
                        (1 - (embedding <=> :prompt_embedding))
-                         * (1 + :recency_boost * EXP(-GREATEST(EXTRACT(EPOCH FROM (NOW() - timestamp)), 0) / 86400.0 / :recency_tau)) as score
+                         * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (timestamp - :ts_center))) / 86400.0 / :recency_tau)) as score
                 FROM episodic_memory
                 WHERE embedding IS NOT NULL
-                  AND is_archived = false
+                  {archived_filter}
+                  {time_filter}
                   AND decay_score > :min_decay
                   {conv_filter}
                   {privacy_filter}
@@ -1675,9 +1989,10 @@ class HybridRetrievalOrchestrator:
                 LIMIT 100
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
             creative = "Creative_&_Media" in (classification.topic_tags or [])
-            params = {"prompt_embedding": prompt_embedding, "min_decay": 0.2,
-                      "recency_boost": 0.0 if creative else EPISODIC_RECENCY_BOOST,
-                      "recency_tau": EPISODIC_RECENCY_TAU_DAYS}
+            ts_center, rec_boost, rec_tau = self._recency_params(creative)
+            params = {"prompt_embedding": prompt_embedding, "min_decay": min_decay,
+                      "recency_boost": rec_boost, "recency_tau": rec_tau,
+                      "ts_center": ts_center, **ts_params}
             if scope_conv:
                 params["conv_id"] = scope_conv
             rows = self.db.execute(query, params).fetchall()
@@ -1823,23 +2138,20 @@ class HybridRetrievalOrchestrator:
             score_val = float(getattr(row, "score", 1.0))
             if getattr(row, "is_bookmarked", False):
                 score_val *= (1.0 + BONUS_BOOKMARKED)
-            if hasattr(row, "timestamp") and row.timestamp:
-                age_hours = (datetime.now(timezone.utc) - row.timestamp).total_seconds() / 3600.0
-                recency_tiebreaker = max(0.0, 0.25 * (1.0 - age_hours / (30 * 24)))
-                score_val += recency_tiebreaker
-            
-                        # Turn‑based recency tiebreaker (max +0.1 for the most recent turn)
-            if hasattr(row, "timestamp") and row.timestamp and row.conversation_id:
-                turn_count = self.db.query(EpisodicMemory).filter_by(
-                    conversation_id=row.conversation_id
-                ).count()
-                if turn_count > 1:
-                    newer_count = self.db.query(EpisodicMemory).filter(
-                        EpisodicMemory.conversation_id == row.conversation_id,
-                        EpisodicMemory.timestamp > row.timestamp
-                    ).count()
-                    recency_frac = 1.0 - (newer_count / turn_count)
-                    score_val += recency_frac * 0.1
+
+            # T1 date-grounding: every episodic fragment carries the date its
+            # turn was written, so the model can order events against the
+            # "Today's date" anchor in the system prompt. Dates only, never
+            # clock times; degraded forms keep the stamp (degradation must not
+            # lose the date).
+            if getattr(row, "timestamp", None):
+                stamp = row.timestamp.strftime("[%Y-%m-%d] ")
+                text = stamp + text
+                if degrade_text:
+                    degrade_text = stamp + degrade_text
+                if abstract_text:
+                    abstract_text = stamp + abstract_text
+
             fragments.append(ContextFragment(
                 text=text,
                 source_type=source_type,

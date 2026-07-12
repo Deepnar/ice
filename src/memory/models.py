@@ -313,6 +313,12 @@ class ColdStorage(Base):
     summary_text = Column(Text, nullable=True)
     topic_tags = Column(ARRAY(Text), default=[])
     timestamp = Column(DateTime(timezone=True), nullable=False)
+    # T3 (D12): carried from the episodic row so time-scoped retrieval can
+    # honor privacy and resurrection can re-attach the turn. NULL
+    # conversation_id = legacy pre-migration row → cite-only, never resurrected.
+    conversation_id = Column(UUID(as_uuid=True), nullable=True)
+    is_private = Column(Boolean, default=False, nullable=False)
+    batch_id = Column(UUID(as_uuid=True), nullable=True)
 
 
 class CuratedLabel(Base):

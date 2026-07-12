@@ -41,6 +41,13 @@ def apply_decay(cycles: int = 1):
     try:
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
 
+        # T3 (D11) freeze fix: the three decay UPDATEs no longer filter
+        # is_archived = FALSE — an archived row's score used to freeze at
+        # ~0.1 forever, so nothing could ever cross the cold line and
+        # cold_storage was unreachable. Archived rows now keep decaying at
+        # their access-class rate (onward to cold), and the symmetric
+        # un-archive clause below restores strengthen-driven recoveries.
+
         # Access-weighted decay: unaccessed non-creative turns
         db.execute(text("""
             UPDATE episodic_memory
@@ -48,7 +55,6 @@ def apply_decay(cycles: int = 1):
             WHERE timestamp < :cutoff
               AND decay_immune = FALSE
               AND is_bookmarked = FALSE
-              AND is_archived = FALSE
               AND access_count = 0
               AND NOT ('Creative_&_Media' = ANY(topic_tags))
         """), {"rate": DECAY_RATE_UNACCESSED, "cutoff": cutoff, "cycles": cycles})
@@ -60,7 +66,6 @@ def apply_decay(cycles: int = 1):
             WHERE timestamp < :cutoff
               AND decay_immune = FALSE
               AND is_bookmarked = FALSE
-              AND is_archived = FALSE
               AND access_count > 0
               AND NOT ('Creative_&_Media' = ANY(topic_tags))
         """), {"rate": DECAY_RATE_ACCESSED, "cutoff": cutoff, "cycles": cycles})
@@ -72,7 +77,6 @@ def apply_decay(cycles: int = 1):
             WHERE timestamp < :cutoff
               AND decay_immune = FALSE
               AND is_bookmarked = FALSE
-              AND is_archived = FALSE
               AND 'Creative_&_Media' = ANY(topic_tags)
         """), {"rate": CREATIVE_DECAY_RATE, "cutoff": cutoff, "cycles": cycles})
 
@@ -84,6 +88,16 @@ def apply_decay(cycles: int = 1):
               AND decay_score < 0.3
         """))
 
+        # T3 (D11) un-archive: a row whose score recovered above the archive
+        # line (write-on-read strengthening — retrieval under a time window
+        # reaches archived rows now) comes back. Symmetric with the archive
+        # step; also the automatic probation reversal for resurrected rows.
+        db.execute(text("""
+            UPDATE episodic_memory
+            SET is_archived = FALSE
+            WHERE is_archived = TRUE AND decay_score >= :archive_threshold
+        """), {"archive_threshold": ARCHIVE_THRESHOLD})
+
         # Archive turns below threshold
         db.execute(text("""
             UPDATE episodic_memory
@@ -91,17 +105,23 @@ def apply_decay(cycles: int = 1):
             WHERE decay_score < :archive_threshold AND is_archived = FALSE
         """), {"archive_threshold": ARCHIVE_THRESHOLD})
 
-        # Move extremely stale archived turns to cold_storage
+        # Move extremely stale archived turns to cold_storage. T3 (D12): the
+        # cold row carries conversation_id / is_private / batch_id so
+        # time-scoped retrieval can honor privacy and resurrection can
+        # re-attach the turn.
         cold_rows = db.execute(text("""
-            SELECT id, raw_text, summary_text, topic_tags, timestamp
+            SELECT id, raw_text, summary_text, topic_tags, timestamp,
+                   conversation_id, is_private, batch_id
             FROM episodic_memory
             WHERE is_archived = TRUE AND decay_score < :cold_threshold
         """), {"cold_threshold": COLD_THRESHOLD}).fetchall()
 
         for row in cold_rows:
             db.execute(text("""
-                INSERT INTO cold_storage (id, archived_at, raw_text, summary_text, topic_tags, timestamp)
-                VALUES (:id, :now, :raw, :summary, :tags, :ts)
+                INSERT INTO cold_storage (id, archived_at, raw_text, summary_text,
+                                          topic_tags, timestamp, conversation_id,
+                                          is_private, batch_id)
+                VALUES (:id, :now, :raw, :summary, :tags, :ts, :conv, :priv, :batch)
                 ON CONFLICT (id) DO NOTHING
             """), {
                 "id": row.id,
@@ -109,7 +129,10 @@ def apply_decay(cycles: int = 1):
                 "raw": row.raw_text,
                 "summary": row.summary_text,
                 "tags": row.topic_tags,
-                "ts": row.timestamp
+                "ts": row.timestamp,
+                "conv": row.conversation_id,
+                "priv": bool(row.is_private),
+                "batch": row.batch_id,
             })
             db.execute(text("DELETE FROM episodic_memory WHERE id = :id"), {"id": row.id})
 

@@ -29,10 +29,13 @@ TWO CHANGES FROM THE PREVIOUS VERSION:
    leaving it implicit.
 """
 
+from datetime import datetime, timezone
 from typing import List, Optional
+
 from sqlalchemy.orm import Session
+
+from src.memory.models import EpisodicMemory, MemorySlot
 from src.retrieval.orchestrator import ContextFragment
-from src.memory.models import MemorySlot, EpisodicMemory
 
 
 def _estimate_tokens(text: str) -> int:
@@ -130,9 +133,14 @@ def assemble_prompt(
     budgeted by the orchestrator).
     """
 
+    # T1 date-grounding: without a today-anchor, even dated fragments can't
+    # resolve relative time ("two years ago"); with it, the [YYYY-MM-DD]
+    # fragment stamps become usable for ordering and era-telling.
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     system_msg = {
         "role": "system",
         "content": (
+            f"Today's date: {today}. "
             "You have access to the user's conversation history below, shown as a "
             "sequence of earlier user/assistant message pairs, followed by retrieved "
             "background context, followed by the user's CURRENT question as the final "
@@ -142,6 +150,10 @@ def assemble_prompt(
             "Think step-by-step through all the relevant facts before answering. "
             "When facts have changed over time (a role was reassigned, a name changed, "
             "a decision was reversed), mention the earlier version and what it changed to. "
+            "Retrieved memory fragments are prefixed with the date they were written, "
+            "like [2025-11-04]; facts may show (since YYYY-MM) or a [Timeline: …] "
+            "history. Use these dates to order events and to tell earlier versions "
+            "from the current one. "
             "Be specific — reference chapter numbers, timestamps, or quotes from the context. "
             "Answer accurately, thoroughly and in deep detail, drawing on the given context to make the "
             "response complete and well-grounded."

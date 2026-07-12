@@ -6,7 +6,7 @@ and post‑processing steps to be toggled on/off via an `overrides` dict.
 Flags (all default ON unless noted):
     vector, bm25, rrf, hyde (default OFF), cluster_restrict, session_diversify,
     codex, mera, fuzzy_match, procedural, batch_summary,
-    dynamic_budget, sliding_window, keyword_boost, recency_boost
+    dynamic_budget, sliding_window, keyword_boost, recency_boost, timescope
 """
 
 from typing import List, Optional, Dict
@@ -36,6 +36,11 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
         """
         super().__init__(db, embedder)
         self.overrides = overrides or {}
+        # T2/T3 ablation seam: timescope=False forces CURRENT in the parent's
+        # _resolve_timescope — every temporal branch collapses to pre-T
+        # behavior. The legs themselves are untouched (timescope travels
+        # inside `scope`, so every overridden super() call keeps working).
+        self.timescope_allowed = self._on("timescope")
 
     # ── Convenience helpers ──────────────────────────────────────────────
 

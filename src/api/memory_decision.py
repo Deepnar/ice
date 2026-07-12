@@ -141,13 +141,18 @@ def decide_memory_retrieval(
     total_tokens: float,
     settings,
     recent_window_tokens: Optional[float] = None,
+    timescope_mode: Optional[str] = None,
 ) -> MemoryDecision:
     """Decide whether to run long-term-memory retrieval for this turn.
 
     Pure function of the classification + cheap conversation stats + settings.
     ``total_tokens`` is the estimated size of the whole conversation so far
     (chars/4 is fine); ``recent_window_tokens`` defaults to the orchestrator's
-    reserved recent-turn budget.
+    reserved recent-turn budget. ``timescope_mode`` (T2) is a kwarg, not a
+    ClassificationResult field — keeps this pure and leaves the label question
+    to B1; a non-current mode is a large bump, never a hard override (an
+    explicit "what did I think in 2025" is definitionally a memory query, but
+    the posterior still decides).
     """
     if recent_window_tokens is None:
         recent_window_tokens = estimate_recent_window_tokens(turn_count)
@@ -174,6 +179,8 @@ def decide_memory_retrieval(
         lo += settings.ltm_bump_referential
     if low_conf:
         lo += settings.ltm_bump_low_confidence
+    if timescope_mode and timescope_mode != "current":
+        lo += settings.ltm_bump_timescope
 
     p_need = _sigmoid(lo)
     retrieve = p_need > settings.ltm_decision_threshold
@@ -191,6 +198,7 @@ def decide_memory_retrieval(
             "reference_signal": result.reference_signal,
             "referential": referential,
             "low_confidence": low_conf,
+            "timescope": timescope_mode,
             "logit": round(lo, 4),
             "p_need_mem": round(p_need, 4),
         },

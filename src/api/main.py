@@ -39,6 +39,7 @@ from src.model_registry.registry import (
     get_model_context_window,
 )
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+from src.retrieval.timescope import detect_timescope, to_scope_dict
 
 logger = structlog.get_logger("ice.api")
 classifier: Optional[PyTorchClassifier] = None
@@ -273,6 +274,27 @@ async def chat_completions(
         user_message,
         conversation_id=str(conversation_id),
     )
+
+    # T2: deterministic temporal-intent detection (joint-gated on the
+    # classification signals). A non-current TimeScope rides inside the scope
+    # dict; every retrieval leg reads it from there.
+    tscope = detect_timescope(
+        user_message,
+        intent_tags=result.intent_tags,
+        p_ltm=getattr(result, "p_ltm", 0.0),
+        reference_signal=getattr(result, "reference_signal", False),
+    )
+    if tscope.mode != "current":
+        log.info(
+            "timescope_detected",
+            mode=tscope.mode,
+            t0=tscope.t0.isoformat() if tscope.t0 else None,
+            t1=tscope.t1.isoformat() if tscope.t1 else None,
+            matched=tscope.matched_text,
+        )
+    ts_dict = to_scope_dict(tscope)
+    if ts_dict:
+        scope["timescope"] = ts_dict
     # ── Session stickiness: prevent model switching on a single off-topic turn ──
     # C7 D9 (G8): state lives on the conversation row (sticky_model /
     # consecutive_shifts), not an in-memory dict; the previous turn's tags for
@@ -355,6 +377,7 @@ async def chat_completions(
     mem_decision = decide_memory_retrieval(
         result, turn_count=turn_count, total_tokens=total_tokens, settings=settings,
         recent_window_tokens=estimate_recent_window_tokens(turn_count, total_budget),
+        timescope_mode=tscope.mode,
     )
     log.info("memory_decision", retrieve=mem_decision.retrieve, **mem_decision.breakdown)
     # Recent-turn budget for prompt assembly — principled default that also

@@ -86,6 +86,32 @@ class Settings(BaseSettings):
     ltm_bump_referential: float = 0.5          # lighter referential-word presence → bump
     ltm_bump_low_confidence: float = 0.8       # topic/intent uncertainty safety net → bump
 
+    # ── Track T: temporal retrieval & idea evolution ──
+    # timescope_enabled is the kill-switch (False ⇒ every query behaves as
+    # "current", byte-identical to pre-T behavior). Pads/fractions shape the
+    # detector's windows (specs/T_temporal.md §2.1 table); probation is D-U1's
+    # cold-resurrection score, just above decay.ARCHIVE_THRESHOLD (0.1).
+    # timeline_*/evolution_* are consumed by T4 (timeline builder — next
+    # session); declared here so the settings block ships once.
+    timescope_enabled: bool = True
+    ltm_bump_timescope: float = 3.0
+    timescope_pad_min_days: int = 3
+    timescope_pad_month_days: int = 14
+    timescope_pad_span_days: int = 21
+    timescope_pad_year_days: int = 30
+    timescope_rel_short_frac: float = 0.4    # ≤ week-granularity relatives
+    timescope_rel_short_cap_days: int = 45
+    timescope_rel_long_frac: float = 0.15    # month/year-granularity relatives
+    timescope_rel_long_cap_days: int = 120
+    timescope_probation_score: float = 0.12
+    timescope_cold_limit: int = 5
+    timeline_max_tokens: int = 300
+    timeline_max_transitions: int = 8
+    timeline_max_fragments: int = 2
+    timeline_max_fragments_evolution: int = 4
+    evolution_era_buckets: int = 4
+    evolution_per_era: int = 3
+
         # DI3 Configuration
     DI3_ENABLED: bool = True
     DI3_CODE_DENSITY_THRESHOLD: float = 0.3

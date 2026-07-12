@@ -2,6 +2,35 @@
 
 Assumes decided specs: none (first S1 spec; grounded in source at commit `ef6f735`, 2026-07-10).
 
+> **[rev 2026-07-12 — implementation-session grounding corrections (rule 12); recorded before coding T1–T3]**
+> 1. **§2.9 now lands on C7's cycles-parameterized decay.py** (C7 shipped 2026-07-11,
+>    after this spec was written): the three decay UPDATEs use `POWER(:rate, :cycles)`
+>    with per-cycle rates (16 cycles/day) and a `CYCLES_CAP` clamp. §2.9's changes
+>    apply on top without touching that math — drop the `is_archived = FALSE` filter
+>    from the three UPDATEs, insert the un-archive clause between the creative-floor
+>    and archive steps, extend the cold INSERT. The §4 "~2 days back under 0.1" prose
+>    estimate was wrong even for the old decay (resurrected rows carry
+>    `access_count=1` → accessed rate 0.98/day → ~9 days unengaged); the mechanic is
+>    unchanged, only the estimate corrected.
+> 2. **The §2.3 post-fusion "now-bonus tiebreakers" (~1826/~1832) were already
+>    dormant at this spec's grounding commit** — no episodic leg SELECT has carried
+>    `timestamp` since pre-experiment commit `616d770`, so `hasattr(row, "timestamp")`
+>    was always False and the experiments ran without them. T1 adds `timestamp` to the
+>    four episodic SELECTs (needed for the date stamps), which would silently *awaken*
+>    them — an untuned scoring change violating the §4/check-30 regression guarantee.
+>    Resolution: the two tiebreakers are **removed as dead code** (boy-scout, logged in
+>    CLEANUP.md), not gated. `_apply_bonuses`' `_recency_bonus` (which is live — it
+>    queries by `source_batch_id`) keeps the §2.3 mode gate as written.
+> 3. **§2.3 decay-floor inconsistency resolved toward D10:** archived rows sit below
+>    `ARCHIVE_THRESHOLD = 0.1` by construction, so keeping `decay_score > 0.2` in the
+>    main legs would make D10 ("archived rows become visible") and checks 12/13
+>    unreachable outside the wide net. The main episodic legs (BM25/vector/chunks)
+>    pass `min_decay = 0.0` under non-current modes — param-driven, same query text
+>    (no SQL fork, G19 intact); the wide net drops its floor as already written.
+> 4. **§3's G26 warning is resolved** — G26 shipped in the C7 cycle; main.py resolves
+>    conversation + scope before classification, and T2's detector call sits after
+>    classification as planned.
+
 Scope: the whole track in one spec — the four items share one data model (`TimeScope`)
 and one lifecycle, and splitting them would fragment a single design. Item boundaries
 are marked so they can be implemented and validated as separate passes (T1 → T2+T3 →
@@ -246,9 +275,10 @@ with params per mode:
 
 **Post-fusion now-bonuses are gated off under non-current modes** (they all point at
 now): in `_apply_bonuses`, skip the `_recency_bonus` add when
-`self._active_timescope.mode != "current"`; in `_rows_to_fragments`, skip both
-tiebreakers (the age-hours bonus at ~1826 and the newer-count bonus at ~1832) under
-the same condition.
+`self._active_timescope.mode != "current"`. *[rev 2026-07-12: the two
+`_rows_to_fragments` tiebreakers this paragraph also gated (~1826/~1832) turned out
+to be dormant dead code — removed instead of gated; see revision note 2 at the top.
+The main legs also pass `min_decay = 0.0` under non-current modes — revision note 3.]*
 
 ### 2.4 Codex (T3)
 
@@ -430,6 +460,8 @@ calls `log_description_update(db, entity, old, new, source)` →
   dates to order events and to tell earlier versions from the current one."*
 
 ### 2.9 Decay rework (T3, D11/D12) — `src/workers/decay.py`
+
+*[rev 2026-07-12: applies on top of C7's cycles-parameterized decay — see the revision block at the top; the `POWER(:rate, :cycles)` math is untouched.]*
 
 1. Remove `AND is_archived = FALSE` from the three decay UPDATEs (archived rows keep
    decaying at their access-class rate).
