@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The **Infinite Context Engine (ICE)** is a local-first AI memory middleware. It runs as a **FastAPI proxy** (`src/api/main.py`) that sits between a chat frontend (Open WebUI) and a local inference backend (**Ollama**, port 11434). Every OpenAI-compatible `POST /v1/chat/completions` passes through ICE, which classifies the prompt, retrieves relevant memory, assembles a context-enriched prompt, routes to a model, streams the response, and asynchronously processes the completed turn into a structured memory store.
 
-The authoritative design reference is [docs/ICE_Architecture.md](docs/ICE_Architecture.md) (July 2026, derived from the source tree — where any doc conflicts with code, **code is authoritative**). `docs/ARCHITECTURE.md` (v1) and `docs/ARCHITECTURE_V2.md` are legacy versions kept for history. `docs/VISION.md` explains intent — conversational ICE is memory for human–AI thinking sessions; a separate Coding Mode is planned post-paper (see the roadmap). The `docs/` folder in general holds most project knowledge, and code comments throughout `src/` often explain *why* something is the way it is — but neither is guaranteed current; verify against the code.
+The authoritative design reference is [docs/ICE_Architecture.md](docs/ICE_Architecture.md) (July 2026, derived from the source tree — where any doc conflicts with code, **code is authoritative**). `docs/ICE_Architecture[real_v2].md` is the frozen technical report for the system **as evaluated in the paper** (git tag `v2-paper-eval`) — the paper cites it; never update it to match current code (it has minor known inaccuracies, e.g. its NER framing, accepted as part of the historical record). Superseded docs live in `docs/outdated/` (v1/intermediate architecture docs, paper-era notes) — kept to show what the system was, never edited. `docs/VISION.md` explains intent — conversational ICE is memory for human–AI thinking sessions; a separate Coding Mode is planned post-paper (see the roadmap). The `docs/` folder in general holds most project knowledge, and code comments throughout `src/` often explain *why* something is the way it is — but neither is guaranteed current; verify against the code.
 
 ## Project status and research context
 
@@ -18,7 +18,7 @@ Experiment results live in `experiments/`, each with a results folder containing
 - `experiments/unmature/results_phase2/paper_summary.md` — Experiment 1, unmature-memory phase
 - `experiments/flaw_ablation/buildup/paper_summary.md` — Experiment 3, cumulative feature build-up ablation (plus `subtraction/`)
 
-Raw metrics JSON sits alongside each report. `docs/paper_rough_notes.md` and `docs/related_work_notes.md` are paper supporting material.
+Raw metrics JSON sits alongside each report. Paper supporting notes (`paper_rough_notes.md`, `related_work_notes.md`) now live in `docs/outdated/`.
 
 ## Post-paper workflow (current phase)
 
