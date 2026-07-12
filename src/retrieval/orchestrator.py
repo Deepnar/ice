@@ -2,36 +2,39 @@
 wide‑net full‑vector, Codex/Procedural scoping, HyDE rewriting, procedural trigger matching,
 micro‑NER integration, and dynamic token budget."""
 
-from datetime import datetime, timezone
 import hashlib
 import math
 import re
 import uuid
-from typing import List, Optional, Dict
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
+
 import structlog
-from sqlalchemy.orm import Session
-from sqlalchemy import bindparam, or_, text
 from pgvector.sqlalchemy import Vector as PgVector
+from sqlalchemy import bindparam, or_, text
+from sqlalchemy.orm import Session
+
+from src.api.config import settings
+from src.classifier.schemas import ClassificationResult
+from src.memory.models import (
+    CodexEdge,
+    CodexEntity,
+    EpisodicMemory,
+    ProceduralMemory,
+)
+from src.retrieval.evolution import build_entity_timeline, history_exists
 from src.retrieval.ner_utils import extract_entities
 from src.retrieval.timescope import CURRENT, from_scope
 from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 
-from src.api.config import settings
-from src.memory.models import (
-    EpisodicMemory,
-    CodexEntity,
-    CodexEdge,
-    ProceduralMemory,
-)
-from src.classifier.schemas import ClassificationResult
 logger = structlog.get_logger("ice.retrieval")
 
 
 @dataclass(frozen=True)
 class ContextFragment:
     text: str
-    source_type: str          # "episodic", "codex", "procedural", "rag"
+    source_type: str          # "episodic", "codex", "procedural", "rag", "timeline"
     score: float              # RRF fused score
     token_count: int
     source_batch_id: Optional[str] = None
@@ -450,6 +453,11 @@ class HybridRetrievalOrchestrator:
         # query expansion for the lexical leg below.
         codex_fragments = self._codex_graph(classification, scope,
                                             prompt_embedding=prompt_embedding)
+        # T4: timelines ride back with the codex fragments but fuse and
+        # budget as their own leg — RRF weight is keyed by legs-dict entry,
+        # the budget's round-robin lane by source_type.
+        timeline_fragments = [f for f in codex_fragments if f.source_type == "timeline"]
+        codex_fragments = [f for f in codex_fragments if f.source_type != "timeline"]
 
         # A4 grounded query expansion (the sane replacement for HyDE): append
         # matched entities' canonical names + aliases to the BM25 search prompt
@@ -482,6 +490,7 @@ class HybridRetrievalOrchestrator:
             # otherwise); fragments are episodic-typed, so budget fairness
             # treats them as memories — the leg name only affects RRF weight.
             "cold": self._cold_lookup(prompt_keywords, conv_id),
+            "timeline": timeline_fragments,
         }
 
         # ── Dynamic leg weighting (blended over all active intents) ──
@@ -493,6 +502,7 @@ class HybridRetrievalOrchestrator:
             "codex": 0.5,
             "procedural": 0.2,
             "rag": 1.0,
+            "timeline": 0.6,   # T4: pinned below — constant across profiles
         }
 
         # Profile definitions: each profile → (intents, weight_override)
@@ -539,6 +549,11 @@ class HybridRetrievalOrchestrator:
             blend_weights["codex"] = blend_weights.get("codex", 0.5) + 0.3
         if "Software_&_Tech" in set(classification.topic_tags):
             blend_weights["procedural"] = blend_weights.get("procedural", 0.2) + 0.4
+
+        # T4: the timeline weight is constant across intent profiles — its
+        # firing condition (history_exists on a matched anchor) is the gate,
+        # not the intent. The profile dicts don't carry it, so pin it here.
+        blend_weights["timeline"] = base_weights["timeline"]
 
         # Clamp to zero (no negative weights)
         for leg in blend_weights:
@@ -839,16 +854,22 @@ class HybridRetrievalOrchestrator:
             AND decay_score > :min_decay
             {archived_filter}
             ORDER BY score DESC
-            LIMIT 100
+            LIMIT :cand_limit
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
         # C8: creative skips the in-score recency weight (same rule as the
         # post-fusion bonuses — recent meta turns are noise for narrative);
         # T3: except in as_of mode, where the boost is target-proximity.
         creative = "Creative_&_Media" in (classification.topic_tags or [])
         ts_center, rec_boost, rec_tau = self._recency_params(creative)
+        # T4: evolution mode widens the candidate pool (no window, flat
+        # recency already via _timescope_leg_filters/_recency_params) so the
+        # era stratifier below has the idea's whole lifespan to sample from.
+        ts = self._active_timescope
         params = {"prompt_embedding": prompt_embedding, "min_decay": min_decay,
                   "recency_boost": rec_boost, "recency_tau": rec_tau,
-                  "ts_center": ts_center, **ts_params}
+                  "ts_center": ts_center,
+                  "cand_limit": 300 if ts.mode == "evolution" else 100,
+                  **ts_params}
         if conv_id:
             params["conv_id"] = conv_id
         if scope and scope.get("cluster_ids"):
@@ -856,6 +877,8 @@ class HybridRetrievalOrchestrator:
 
         try:
             rows = self.db.execute(query, params).fetchall()
+            if ts.mode == "evolution":
+                rows = self._stratify_by_era(rows)
             fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt, classification=classification)
             # C3 dedupe: a chunk drops out when its parent turn is already in
             # the turn-level results (the parent covers the content); doc
@@ -869,6 +892,25 @@ class HybridRetrievalOrchestrator:
             logger.error("vector_retrieval_failed", error=str(err))
             self.db.rollback()
             return []
+
+    def _stratify_by_era(self, rows):
+        """T4: era-stratified sampling for evolution mode — sort candidates
+        by timestamp, cut into equal-count buckets, keep each bucket's top
+        scorers. Similarity alone lets one era (usually the recent, densest
+        one) soak the whole result; an evolution answer needs the idea's
+        early life represented too. Python-side on purpose (executor-proof,
+        no SQL fork) and row-shape-agnostic — needs only .timestamp and
+        .score, so C4's era digests can join the same candidate list later."""
+        if not rows:
+            return rows
+        by_time = sorted(rows, key=lambda r: r.timestamp)
+        bucket_size = math.ceil(len(by_time) / settings.evolution_era_buckets)
+        kept = []
+        for i in range(0, len(by_time), bucket_size):
+            bucket = by_time[i:i + bucket_size]
+            kept.extend(sorted(bucket, key=lambda r: r.score, reverse=True)
+                        [:settings.evolution_per_era])
+        return kept
 
     def _vector_chunks(self, prompt_embedding, scope, conv_id=None,
                        recency_boost=EPISODIC_RECENCY_BOOST) -> List[ContextFragment]:
@@ -1330,9 +1372,14 @@ class HybridRetrievalOrchestrator:
             # matched entity keeps its own fragment (A7.2 bidirectional traversal
             # would otherwise merge connected anchors via a shared visited set).
             fragments: List[ContextFragment] = []
+            timeline_frags: List[ContextFragment] = []   # T4: own leg (RRF weight + budget lane)
             all_anchor_edges = []   # A3: reinforced across all anchors at the end
             any_relation_hit = False
             anchor_ids = {a.id for a in matched}
+            ts = self._active_timescope
+            timeline_cap = (settings.timeline_max_fragments_evolution
+                            if ts.mode == "evolution"
+                            else settings.timeline_max_fragments)
             for anchor in matched:
                 if allowed_entity_ids is not None and anchor.id not in allowed_entity_ids:
                     continue
@@ -1362,12 +1409,28 @@ class HybridRetrievalOrchestrator:
                     token_count=int(len(text.split()) * 1.33)))
                 all_anchor_edges.extend(direct_edges)
 
+                # T4: attach the anchor's evolution timeline whenever it
+                # carries real supersession history (D-U2: provided in any
+                # mode — including current, the saga case — never forced;
+                # the model decides how much to narrate). 0.9× the anchor's
+                # own score; capped per D7 so a life story can't eat the
+                # window.
+                if len(timeline_frags) < timeline_cap and history_exists(self.db, anchor.id):
+                    tl = build_entity_timeline(
+                        self.db, anchor, allowed_batch_ids,
+                        t0=ts.t0, t1=ts.t1,
+                        max_transitions=settings.timeline_max_transitions)
+                    if tl:
+                        timeline_frags.append(ContextFragment(
+                            text=tl, source_type="timeline", score=0.9 * score,
+                            token_count=int(len(tl.split()) * 1.33)))
+
             if any_relation_hit:
                 logger.info("codex_relation_overlap", relations=detected_relations,
                             fragments=len(fragments))
             # A3: retrieval-reinforcement across every anchor's edges.
             self._reinforce_codex_edges(all_anchor_edges)
-            return fragments
+            return fragments + timeline_frags
         except Exception as err:
             logger.error("codex_retrieval_failed", error=str(err))
             self.db.rollback()

@@ -2,16 +2,23 @@
 """Watch /codex_inject directory for YAML/JSON entity definition files
    and insert them directly as Codex events (bypassing LLM extraction)."""
 
-import os, time, json, uuid, yaml, shutil
-from datetime import datetime, timezone
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-
+import json
+import os
+import shutil
 import sys
+import time
+import uuid
+from datetime import datetime, timezone
+
+import yaml
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from src.api.db import SessionLocal
-from src.memory.models import CodexEntity, CodexEdge, CodexEvent
+from src.memory.models import CodexEdge, CodexEntity, CodexEvent
+from src.retrieval.evolution import log_description_update
 
 WATCH_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../codex_inject'))
 PROCESSED_DIR = os.path.join(WATCH_DIR, "processed")
@@ -37,7 +44,9 @@ class CodexInjectHandler(FileSystemEventHandler):
             # Expected format: list of objects with keys: canonical_name, aliases?, tags?,
             #   type?, description? (or legacy context_payload), properties?,
             #   relations? (list of {target, relation, negated?})
-            from src.workers.codex_extractor import _regenerate_context_payload  # A7: rich note assembly
+            from src.workers.codex_extractor import (
+                _regenerate_context_payload,  # A7: rich note assembly
+            )
             entities = data if isinstance(data, list) else [data]
             touched = set()   # entity ids whose note must be regenerated
             for ent in entities:
@@ -64,6 +73,11 @@ class CodexInjectHandler(FileSystemEventHandler):
                     db.flush()
                 else:
                     if desc:
+                        # T4 (D13): an inject-file update overwrites the note
+                        # body — journal it (creation above is not an overwrite).
+                        if desc != (entity.description or ""):
+                            log_description_update(db, entity, entity.description,
+                                                   desc, source="codex_inject")
                         entity.description = desc
                     if ent.get("type") or ent.get("entity_type"):
                         entity.entity_type = ent.get("type") or ent.get("entity_type")

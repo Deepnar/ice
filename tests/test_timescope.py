@@ -1,8 +1,9 @@
-"""Track T (T1–T3) behavioral test: date-grounding, TimeScope detection,
-time-scoped retrieval, cold-storage second chance, decay freeze fix.
+"""Track T (T1–T4) behavioral test: date-grounding, TimeScope detection,
+time-scoped retrieval, timeline builder / evolution surfacing, cold-storage
+second chance, decay freeze fix.
 
-Covers specs/T_temporal.md §5 checks 1–19 and 25–30. Checks 20–24 are the T4
-timeline builder — next session's work, deliberately absent here.
+Covers specs/T_temporal.md §5 checks 1–30 (20–24 are the T4 timeline/diff/
+journaling slice).
 
 Runs against the live Postgres (docker up). Inserts its own uniquely-marked
 rows and deletes them afterwards — never truncates (the dev DB holds real
@@ -28,11 +29,19 @@ from src.classifier.schemas import ClassificationResult
 from src.memory.models import (
     CodexEdge,
     CodexEntity,
+    CodexEvent,
     ColdStorage,
     Conversation,
     EpisodicMemory,
 )
-from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+import src.retrieval.orchestrator as orch_mod
+from src.retrieval.evolution import (
+    build_entity_timeline,
+    entity_diff,
+    history_exists,
+    log_description_update,
+)
+from src.retrieval.orchestrator import ContextFragment, HybridRetrievalOrchestrator
 from src.retrieval.timescope import (
     CURRENT,
     TimeScope,
@@ -154,7 +163,8 @@ orch = HybridRetrievalOrchestrator(db, StubEmbedder())
 real_now = datetime.now(timezone.utc)
 
 conv = Conversation(memory_scope_type="auto")
-db.add(conv)
+conv2 = Conversation(memory_scope_type="auto")   # era-stratification sandbox (check 22)
+db.add_all([conv, conv2])
 db.commit()
 
 created_episodic = []
@@ -164,9 +174,9 @@ created_codex_edges = []
 
 
 def mk_turn(ts_, text_, decay=1.0, archived=False, summary=None, coverage=None,
-            abstract=None, is_private=False, access=0):
+            abstract=None, is_private=False, access=0, conversation=None):
     t = EpisodicMemory(
-        conversation_id=conv.id, batch_id=uuid.uuid4(), timestamp=ts_,
+        conversation_id=(conversation or conv).id, batch_id=uuid.uuid4(), timestamp=ts_,
         topic_tags=["Software_&_Tech"], intent_tags=["Factual_Retrieval"],
         context_reliance="Long_Term_Memory", raw_text=text_,
         summary_text=summary, summary_coverage=coverage, abstract_text=abstract,
@@ -318,6 +328,183 @@ try:
     settings.timescope_enabled = True
 
     # ═══════════════════════════════════════════════════════════════════════
+    print("── Timeline / evolution (checks 20–24) ──")
+
+    # Fixture (spec check 20): entity "saga" with a supersession chain —
+    # edge A (expired WITH an edge_expired event, reason antonym_superseded)
+    # → successor edge B (live) — plus edge C (expired, NO event: decay
+    # death) and a live negated edge N. "lone" carries only a decay-died
+    # edge; "deleted" only a source_deleted-event expiry (C10: not history).
+    # "saga2" is a second history-carrying anchor for the cap check.
+    TZ = timezone.utc
+    e_saga = CodexEntity(canonical_name=f"{MARK}-saga", tags=["idea"],
+                         context_payload=f"{MARK}-saga payload")
+    e_mv = CodexEntity(canonical_name=f"{MARK}-multiverse", tags=["idea"],
+                       context_payload=f"{MARK}-multiverse payload")
+    e_mercy = CodexEntity(canonical_name=f"{MARK}-mercy", tags=["idea"],
+                          context_payload=f"{MARK}-mercy payload")
+    e_old2 = CodexEntity(canonical_name=f"{MARK}-oldtool", tags=["tool"],
+                         context_payload=f"{MARK}-oldtool payload")
+    e_lone = CodexEntity(canonical_name=f"{MARK}-lone", tags=["idea"],
+                         context_payload=f"{MARK}-lone payload")
+    e_del = CodexEntity(canonical_name=f"{MARK}-deleted", tags=["idea"],
+                        context_payload=f"{MARK}-deleted payload")
+    e_saga2 = CodexEntity(canonical_name=f"{MARK}-saga2", tags=["idea"],
+                          context_payload=f"{MARK}-saga2 payload")
+    db.add_all([e_saga, e_mv, e_mercy, e_old2, e_lone, e_del, e_saga2])
+    db.commit()
+    created_codex_entities += [e_saga.id, e_mv.id, e_mercy.id, e_old2.id,
+                               e_lone.id, e_del.id, e_saga2.id]
+    saga_id, lone_id, del_id = e_saga.id, e_lone.id, e_del.id   # plain-value capture
+
+    batch2 = uuid.uuid4()
+    T_A0 = datetime(2025, 11, 5, tzinfo=TZ)
+    T_A1 = datetime(2026, 2, 10, tzinfo=TZ)
+
+    def mk_edge(src, tgt, rel, vf, vu, negated=False):
+        e = CodexEdge(source_id=src.id, target_id=tgt.id, relation=rel,
+                      strength=5.0, extraction_confidence=1.0,
+                      source_batch=batch2, negated=negated,
+                      valid_from=vf, valid_until=vu)
+        db.add(e)
+        return e
+
+    edge_A = mk_edge(e_saga, e_mv, "planned_as", T_A0, T_A1)
+    edge_B = mk_edge(e_saga, e_mercy, "planned_as", T_A1, None)
+    edge_C = mk_edge(e_saga, e_old2, "uses",
+                     datetime(2025, 1, 1, tzinfo=TZ), datetime(2025, 6, 1, tzinfo=TZ))
+    edge_N = mk_edge(e_saga, e_mv, "trusts",
+                     datetime(2026, 2, 15, tzinfo=TZ), None, negated=True)
+    edge_L = mk_edge(e_lone, e_old2, "uses",
+                     datetime(2025, 1, 1, tzinfo=TZ), datetime(2025, 6, 1, tzinfo=TZ))
+    edge_E = mk_edge(e_del, e_old2, "uses",
+                     datetime(2025, 1, 1, tzinfo=TZ), datetime(2025, 6, 1, tzinfo=TZ))
+    edge_D = mk_edge(e_saga2, e_mv, "planned_as", T_A0, T_A1)
+    edge_B2 = mk_edge(e_saga2, e_mercy, "planned_as", T_A1, None)
+    db.commit()
+    created_codex_edges += [edge_A.id, edge_B.id, edge_C.id, edge_N.id,
+                            edge_L.id, edge_E.id, edge_D.id, edge_B2.id]
+
+    db.add_all([
+        CodexEvent(entity_id=saga_id, event_type="edge_expired",
+                   payload={"edge_id": str(edge_A.id), "reason": "antonym_superseded"},
+                   timestamp=T_A1, batch_source=batch2),
+        CodexEvent(entity_id=e_saga2.id, event_type="edge_expired",
+                   payload={"edge_id": str(edge_D.id), "reason": "antonym_superseded"},
+                   timestamp=T_A1, batch_source=batch2),
+        CodexEvent(entity_id=del_id, event_type="edge_expired",
+                   payload={"edge_id": str(edge_E.id), "reason": "source_deleted"},
+                   timestamp=datetime(2025, 6, 1, tzinfo=TZ), batch_source=batch2),
+    ])
+    db.commit()
+
+    # 20: timeline content + D6 discriminator + gate
+    tl = build_entity_timeline(db, e_saga)
+    check("20 timeline: superseded A (span + reason) and live successor B",
+          tl is not None and tl.startswith(f"[Timeline: {MARK}-saga]")
+          and f"2025-11 – 2026-02: {MARK}-saga --planned_as--> {MARK}-multiverse  (superseded: antonym_superseded)" in tl
+          and f"2026-02 – now: {MARK}-saga --planned_as--> {MARK}-mercy" in tl)
+    check("20 decay-died edge C excluded (D6); negated edge renders NOT",
+          f"{MARK}-oldtool" not in tl and f"--NOT trusts--> {MARK}-multiverse" in tl)
+    check("20 history_exists: saga True; decay-only False; source_deleted-only False",
+          history_exists(db, saga_id)
+          and not history_exists(db, lone_id)
+          and not history_exists(db, del_id))
+    check("20 no-history entity yields no timeline",
+          build_entity_timeline(db, e_lone) is None)
+
+    # 21: _codex_graph wiring — always-on enrichment under CURRENT mode.
+    # NER won't recognise the synthetic marker names, so patch the module-
+    # level extract_entities and use exact matching; restore afterwards.
+    c_saga = clf(prompt=f"how did the {MARK}-saga ending evolve?")
+    saved_extract = orch_mod.extract_entities
+    saved_fuzzy = orch.use_fuzzy_match
+    orch._active_timescope = CURRENT
+    try:
+        orch_mod.extract_entities = lambda prompt, embedder: [f"{MARK}-saga", f"{MARK}-lone"]
+        orch.use_fuzzy_match = False
+        cg = orch._codex_graph(c_saga, None, prompt_embedding=EMB)
+    finally:
+        orch_mod.extract_entities = saved_extract
+        orch.use_fuzzy_match = saved_fuzzy
+    tl_frags = [f for f in cg if f.source_type == "timeline"]
+    check("21 timeline fragment emitted under current mode, history anchors only",
+          len(tl_frags) == 1 and f"[Timeline: {MARK}-saga]" in tl_frags[0].text)
+    saga_frag = next((f for f in cg if f.source_type == "codex"
+                      and f"{MARK}-saga payload" in f.text), None)
+    check("21 timeline scored 0.9× its anchor",
+          saga_frag is not None
+          and abs(tl_frags[0].score - 0.9 * saga_frag.score) < 1e-9)
+
+    saved_cap = settings.timeline_max_fragments
+    try:
+        settings.timeline_max_fragments = 1
+        orch_mod.extract_entities = lambda prompt, embedder: [f"{MARK}-saga", f"{MARK}-saga2"]
+        orch.use_fuzzy_match = False
+        cg2 = orch._codex_graph(c_saga, None, prompt_embedding=EMB)
+    finally:
+        settings.timeline_max_fragments = saved_cap
+        orch_mod.extract_entities = saved_extract
+        orch.use_fuzzy_match = saved_fuzzy
+    check("21 capped at timeline_max_fragments",
+          sum(1 for f in cg2 if f.source_type == "timeline") == 1)
+
+    # budget: timeline is its own round-robin lane (source_type keying), so
+    # a wall of higher-scoring episodic fragments can't squeeze it out
+    filler = [ContextFragment(text=f"{MARK} filler {i} " + "pad " * 60,
+                              source_type="episodic", score=50.0 + i,
+                              token_count=80) for i in range(20)]
+    kept = orch._enforce_token_budget(filler + [tl_frags[0]], max_tokens=250)
+    check("21 budget keeps the timeline (own lane)",
+          any(f.source_type == "timeline" for f in kept))
+
+    # 22: era-stratified episodic sampling under evolution mode (own
+    # conversation so the candidate set is exactly the fixture)
+    era_starts = [datetime(2023, 3, 1, tzinfo=TZ), datetime(2024, 3, 1, tzinfo=TZ),
+                  datetime(2025, 3, 1, tzinfo=TZ), real_now - D * 10]
+    for i, base_t in enumerate(era_starts, 1):
+        for j in range(5):
+            mk_turn(base_t + timedelta(days=j),
+                    f"User: {MARK} era{i} note {j}\n\nAssistant: ok",
+                    conversation=conv2)
+    orch._active_timescope = TimeScope(mode="evolution")
+    ev_frags = orch._vector_episodic(EMB, c, None, str(conv2.id))
+    orch._active_timescope = CURRENT
+    joined = " ".join(f.text for f in ev_frags)
+    check("22 evolution: every era represented in stratified output",
+          all(f"{MARK} era{k}" in joined for k in (1, 2, 3, 4)))
+    check("22 stratifier selects (≤ buckets × per_era of 20 candidates)",
+          len(ev_frags) <= settings.evolution_era_buckets * settings.evolution_per_era)
+
+    # 23: entity_diff over a window bracketing the supersession
+    dd = entity_diff(db, e_saga,
+                     datetime(2026, 1, 1, tzinfo=TZ), datetime(2026, 3, 1, tzinfo=TZ))
+    check("23 diff: A in expired (event-backed, with reason)",
+          any(x["relation"] == "planned_as" and x["other"] == f"{MARK}-multiverse"
+              and x["reason"] == "antonym_superseded" for x in dd["expired"]))
+    check("23 diff: B in added; negated N in retracted",
+          any(x["other"] == f"{MARK}-mercy" for x in dd["added"])
+          and any(x["relation"] == "trusts" for x in dd["retracted"]))
+    check("23 diff: decay-died C absent everywhere",
+          all(x["other"] != f"{MARK}-oldtool"
+              for x in dd["added"] + dd["expired"] + dd["retracted"]))
+
+    # 24: D13 journaling helper (the write sites call exactly this)
+    e_saga_fresh = db.get(CodexEntity, saga_id)
+    log_description_update(db, e_saga_fresh, e_saga_fresh.description,
+                           f"{MARK} new enriched note body", "reflection_enrichment")
+    db.commit()
+    ev_row = db.execute(text(
+        "SELECT payload FROM codex_events "
+        "WHERE event_type = 'description_updated' AND entity_id = :e"),
+        {"e": str(saga_id)}).fetchone()
+    check("24 description_updated event carries old/new snippets + source",
+          ev_row is not None
+          and ev_row.payload["new"].startswith(f"{MARK} new enriched")
+          and ev_row.payload["source"] == "reflection_enrichment"
+          and "old" in ev_row.payload)
+
+    # ═══════════════════════════════════════════════════════════════════════
     print("── Cold & decay (checks 25–29) ──")
 
     # 25: migration columns present
@@ -447,13 +634,17 @@ finally:
         ("cold", text("DELETE FROM cold_storage WHERE raw_text LIKE :m"), {"m": f"%{MARK}%"}),
         ("episodic", text("DELETE FROM episodic_memory WHERE raw_text LIKE :m OR conversation_id = :c"),
          {"m": f"%{MARK}%", "c": conv.id}),
+        ("codex_events", text("DELETE FROM codex_events WHERE entity_id IN "
+                              "(SELECT id FROM codex_entities WHERE canonical_name LIKE :m)"),
+         {"m": f"{MARK}%"}),
         ("codex_edges", text("DELETE FROM codex_edges WHERE source_id IN "
                              "(SELECT id FROM codex_entities WHERE canonical_name LIKE :m) "
                              "OR target_id IN (SELECT id FROM codex_entities WHERE canonical_name LIKE :m)"),
          {"m": f"{MARK}%"}),
         ("codex_entities", text("DELETE FROM codex_entities WHERE canonical_name LIKE :m"),
          {"m": f"{MARK}%"}),
-        ("conversation", text("DELETE FROM conversations WHERE id = :c"), {"c": conv.id}),
+        ("conversation", text("DELETE FROM conversations WHERE id IN (:c, :c2)"),
+         {"c": conv.id, "c2": conv2.id}),
     ]:
         try:
             db.execute(stmt, params)

@@ -1,18 +1,26 @@
 """Reflection Worker – full implementation: session synthesis, pattern crystallization,
    memory slot evolution, Codex enrichment, motif detection."""
 
-import structlog, json, re, uuid
+import json
+import re
 from datetime import datetime, timezone
+
+import structlog
 from sqlalchemy import text
 
 from src.api.db import SessionLocal
 from src.memory.models import (
-    EpisodicMemory, SessionSummary, MemorySlot, CodexEntity, CodexEvent,
-    ProceduralMemory
+    CodexEntity,
+    EpisodicMemory,
+    MemorySlot,
+    ProceduralMemory,
+    SessionSummary,
 )
+from src.retrieval.evolution import log_description_update
 
 logger = structlog.get_logger("ice.workers.reflection")
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+
 bg_client = get_bg_client()
 # ------------------------------------------------------------------
 # Prompts
@@ -317,15 +325,16 @@ def _enrich_codex_entities(db):
         note = (completion.choices[0].message.content or "").strip()
         if not note:
             continue
+        # T4 (D13): journal the overwrite — description is the one
+        # mutable-in-place field, so every write leaves a description_updated
+        # event (replaces the old opaque context_appended emit; those stay in
+        # the journal as readable history).
+        old_desc = entity.description
         entity.description = note
         _regenerate_context_payload(entity, db)   # note = description + props + links + backlinks
         entity.last_updated = datetime.now(timezone.utc)
-        db.add(CodexEvent(
-            entity_id=entity.id,
-            event_type="context_appended",
-            payload={"enriched_from_reflection": True, "chars": len(note)},
-            batch_source=uuid.uuid4()
-        ))
+        log_description_update(db, entity, old_desc, note,
+                               source="reflection_enrichment")
     logger.info("codex_enrichment_done", enriched=len(ids))
 
 

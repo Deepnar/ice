@@ -30,6 +30,14 @@ Assumes decided specs: none (first S1 spec; grounded in source at commit `ef6f73
 > 4. **§3's G26 warning is resolved** — G26 shipped in the C7 cycle; main.py resolves
 >    conversation + scope before classification, and T2's detector call sits after
 >    classification as planned.
+> 5. **[T4 session, 2026-07-12] §2.7/§3's D13 sweep list corrected:** user_control.py
+>    has **no entity-edit endpoint** at HEAD — its only `description` writes are the
+>    ContextCluster create body (cluster descriptions are not entity note bodies;
+>    outside D13). The real `entity.description` write sites are reflection.py's
+>    enrichment overwrite and codex_inject_watcher.py's update path (entity *creation*
+>    sets an initial description — not an overwrite, not journaled). When the F-track
+>    UI adds a manual entity editor, it must call
+>    `log_description_update(..., source="manual_edit")`.
 
 Scope: the whole track in one spec — the four items share one data model (`TimeScope`)
 and one lifecycle, and splitting them would fragment a single design. Item boundaries
