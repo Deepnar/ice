@@ -1,10 +1,9 @@
-
-
-
-
-
-
-
+> **[Frozen record — 2026-07-12].** This is the technical report for ICE **v2 as
+> evaluated in the paper** (git tag `v2-paper-eval`). It is preserved unedited:
+> known minor inaccuracies (e.g., the NER-availability framing) are part of the
+> record, and the paper's Limitations section carries the corrections. Do NOT
+> update this file to match current code — [ICE_Architecture.md](ICE_Architecture.md)
+> is the living reference.
 
 **SYSTEMS ARCHITECTURE  ·  TECHNICAL REPORT**
 
