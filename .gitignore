@@ -44,3 +44,24 @@ experiments/flaw_ablation/buildup/paper_summary.md
 experiments/mature/results
 docs/RAW_SRC.md
 .aider.env
+# Personal / private (not part of the project)
+PERSONAL_ROADMAP.md
+
+# Runtime logs (contain raw prompts/responses — personal content)
+logs/
+
+# LaTeX build artifacts
+*.aux
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+experiments/paper/*.log
+experiments/paper/*.out
+
+# DB / memory backups (personal, potentially large)
+backups/
+*.dump
+*.sql
+*.sql.gz
+
+.DS_Store
