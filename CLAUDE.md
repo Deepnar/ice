@@ -42,6 +42,10 @@ Rules for working it:
 
 Every implementation session leaves the files it touches cleaner than found: imports sorted/grouped + unused dropped (`ruff` on touched files only — never a repo-wide reformat), dead code and lying comments fixed in place, one-off scripts moved (never deleted) to `scripts/oneoff/` with their paths fixed. **No barrel re-exports in `__init__.py`** (import-time side effects, hidden provenance, heavy transitive imports; the lazy in-function imports that break circular deps stay, commented). The pre-FINAL `experiments/*` folders are a **frozen historical record** — never reorganize them. Log every move/rename in [docs/CLEANUP.md](docs/CLEANUP.md).
 
+## Git & pushing (standing rule, 2026-07-14)
+
+The repo has a **private** GitHub remote (`origin` → `github.com/Deepnar/ice`). **Pushing during normal development is pre-authorized and encouraged** — it's a private backup, so push your work at natural points (end of a session, after a meaningful milestone); you do **not** need to ask each time. Commit habits are unchanged (plain messages, **no AI attribution**; branch off `main` first if the default-branch rule applies). **Exception — freeze at the experiment phase:** once **SEMIFINAL (Z1)** or **FINAL** begins (the last / second-last roadmap phases — they generate personal data/results and are the pre-public-release cutoff), **stop pushing** until the user explicitly says otherwise. Until then, pushing is not a problem.
+
 ## Commands
 
 Package/deps are managed with **uv** (Python 3.11.9, pinned in `.python-version`). Always run project code through `uv run`.
