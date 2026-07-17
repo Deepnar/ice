@@ -93,6 +93,37 @@ JOBS: dict[str, JobSpec] = {
 # Ledger pseudo-job recording the last session-end burst (§2.3).
 BURST_STAMP = "session_end_burst"
 
+# E7 (D6): ledger pseudo-row marking which process owns maintenance. The
+# owning runtime's tick stamps it; a fresh stamp makes any other core boot
+# (app or ice-mcp — same check both directions) start its runtime in STANDBY:
+# event jobs for that process's own work units still run (idempotency keys +
+# per-job ledger claims make cross-process duplication safe), but periodic /
+# overdue dispatch, the session-end burst, and lease stamping stay exclusive
+# to the owner. A standby runtime promotes itself when the lease goes stale.
+RUNTIME_LEASE = "runtime_lease"
+RUNTIME_LEASE_TTL = 180.0   # ≈ 3 ticks
+
+
+def runtime_lease_fresh(db_factory, ttl: float = RUNTIME_LEASE_TTL) -> bool:
+    """Is another process's maintenance runtime alive (lease stamped within
+    *ttl*)? Errors and absence both read as stale — the caller then owns
+    maintenance, which is also the right call when the ledger is unreachable
+    (the runtime can't run without the DB anyway)."""
+    db = db_factory()
+    try:
+        row = db.execute(text(
+            "SELECT last_started FROM maintenance_ledger "
+            "WHERE job_name = :name"), {"name": RUNTIME_LEASE}).first()
+        if row is None or row.last_started is None:
+            return False
+        age = (datetime.now(timezone.utc) - row.last_started).total_seconds()
+        return age < ttl
+    except Exception as exc:
+        logger.warning("runtime_lease_check_failed", error=str(exc))
+        return False
+    finally:
+        db.close()
+
 
 # ── Pure helpers (unit-testable without a runtime) ──────────────────────────
 
@@ -147,6 +178,7 @@ class MaintenanceRuntime:
         self._db_factory: Optional[Callable] = None
         self.tick_base = 60.0
         self.tick_jitter = 15.0
+        self.standby = False   # E7 D6: deferred to another process's runtime
 
         self._gpu_lane = asyncio.Semaphore(1)
         self._cpu_lane = asyncio.Semaphore(2)
@@ -172,17 +204,27 @@ class MaintenanceRuntime:
 
     # ── Lifecycle ────────────────────────────────────────────────────────
 
-    def start(self, db_factory) -> None:
+    def start(self, db_factory, standby: bool = False) -> None:
         """Spawn the tick task. Requires a running event loop (FastAPI
-        lifespan, or E7's headless asyncio context)."""
+        lifespan, or E7's headless asyncio context). *standby* (E7 D6):
+        another process's lease is fresh — run event jobs only, never stamp
+        the lease, self-promote when the owner's lease goes stale."""
         global _active_runtime
         self._db_factory = db_factory
         self._started_at = datetime.now(timezone.utc)
         self._stopping = False
-        self._tick_task = asyncio.get_running_loop().create_task(
+        self.standby = standby
+        loop = asyncio.get_running_loop()
+        self._tick_task = loop.create_task(
             self._tick_loop(), name="maintenance-tick")
+        if not standby:
+            # Claim the lease immediately (not on the first ~60s tick) so a
+            # concurrently-booting second core sees it; off-loop per G24.
+            stamp = loop.create_task(asyncio.to_thread(self._lease_stamp))
+            self._tasks.add(stamp)
+            stamp.add_done_callback(self._tasks.discard)
         _active_runtime = self
-        logger.info("maintenance_runtime_started",
+        logger.info("maintenance_runtime_started", standby=standby,
                     jobs=len(self._jobs), intervals=len(self._intervals))
 
     async def stop(self, drain_timeout: float = 60.0) -> None:
@@ -201,6 +243,10 @@ class MaintenanceRuntime:
             done, still = await asyncio.wait(pending, timeout=drain_timeout)
             if still:
                 logger.warning("maintenance_stop_jobs_unfinished", count=len(still))
+        if not self.standby and self._db_factory is not None:
+            # Release the lease so the next core boot owns maintenance
+            # immediately instead of waiting out the TTL.
+            await asyncio.to_thread(self._lease_release)
         if _active_runtime is self:
             _active_runtime = None
         logger.info("maintenance_runtime_stopped")
@@ -300,6 +346,14 @@ class MaintenanceRuntime:
         while not self._stopping:
             await asyncio.sleep(tick_delay(self.tick_base, self.tick_jitter))
             try:
+                if self.standby:
+                    # Owner gone? (exited/crashed — its lease went stale)
+                    if not await asyncio.to_thread(
+                            runtime_lease_fresh, self._db_factory):
+                        self.standby = False
+                        logger.info("maintenance_runtime_promoted")
+                if not self.standby:
+                    await asyncio.to_thread(self._lease_stamp)
                 await self._pump()
             except Exception as exc:
                 # The tick must never die (job errors are contained in
@@ -309,6 +363,8 @@ class MaintenanceRuntime:
     async def _pump(self, force_overdue: bool = False) -> None:
         self._drain_due_retries()
         self._dispatch_events()
+        if self.standby:
+            return  # periodic dispatch + burst belong to the lease owner
         if force_overdue or self.is_idle():
             # Ledger reads happen in a thread (G24: no sync DB on the loop);
             # task spawning stays on the loop.
@@ -502,6 +558,38 @@ class MaintenanceRuntime:
             db.rollback()
             logger.error("finetune_check_failed", error=str(exc))
             return None
+        finally:
+            db.close()
+
+    # ── Runtime lease (E7 D6) ────────────────────────────────────────────
+
+    def _lease_stamp(self) -> None:
+        db = self._db_factory()
+        try:
+            db.execute(text(
+                "INSERT INTO maintenance_ledger (job_name, last_started, last_status, runs) "
+                "VALUES (:name, :now, 'running', 0) "
+                "ON CONFLICT (job_name) DO UPDATE "
+                "SET last_started = :now, last_status = 'running'"),
+                {"name": RUNTIME_LEASE, "now": datetime.now(timezone.utc)})
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            logger.warning("runtime_lease_stamp_failed", error=str(exc))
+        finally:
+            db.close()
+
+    def _lease_release(self) -> None:
+        db = self._db_factory()
+        try:
+            db.execute(text(
+                "UPDATE maintenance_ledger "
+                "SET last_started = NULL, last_status = 'stopped' "
+                "WHERE job_name = :name"), {"name": RUNTIME_LEASE})
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            logger.warning("runtime_lease_release_failed", error=str(exc))
         finally:
             db.close()
 

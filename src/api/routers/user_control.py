@@ -1,22 +1,23 @@
-"""User‑guided memory control endpoints (Phase C + model registry)."""
+"""User-guided memory control endpoints (Phase C + model registry) — thin
+REST adapter over the E0 services (bookmarks / scoping / clusters / review /
+registry_svc). Parse → service → format; all operation logic lives in
+src/services/ (ice-mcp and C11's chat commands are adapters two and three
+over the same functions)."""
 
-import uuid
-from datetime import datetime, timezone
 from typing import List, Optional
 
-import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from src.api.db import get_db
-from src.memory.models import (
-    EpisodicMemory, CuratedLabel, Conversation, ContextCluster, MemorySlot, ReviewQueue
-)
-from src.workers.runtime import get_runtime
-from src.model_registry.registry import load_registry, save_registry, populate_from_ollama
+from src.api.routers.adapter import service_errors
+from src.services import bookmarks as bookmarks_svc
+from src.services import clusters as clusters_svc
+from src.services import registry_svc
+from src.services import review as review_svc
+from src.services import scoping as scoping_svc
 
-logger = structlog.get_logger("ice.api.user_control")
 router = APIRouter(prefix="/user-control", tags=["user-control"])
 
 
@@ -62,48 +63,12 @@ class ReviewApprove(BaseModel):
 # ------------------------------------------------------------------
 @router.post("/turns/{turn_id}/bookmark", response_model=BookmarkOut)
 def bookmark_turn(turn_id: str, db: Session = Depends(get_db)):
-    turn = db.query(EpisodicMemory).filter_by(id=uuid.UUID(turn_id)).first()
-    if not turn:
-        raise HTTPException(status_code=404, detail="Turn not found")
-    turn.is_bookmarked = True
-    turn.lossless_flag = True
-    turn.decay_immune = True
-    db.commit()
-    # C7: bookmarking promotes the turn to lossless, so make sure codex
-    # extraction runs for it — enqueued on the maintenance runtime's gpu lane
-    # (extract_codex's own idempotency key makes a re-run a no-op).
-    runtime = get_runtime()
-    if runtime is not None:
-        runtime.enqueue("codex_extract", batch_id=str(turn.batch_id), priority=True)
-    else:
-        logger.error("maintenance_core_not_started_codex_extract_skipped",
-                     batch_id=str(turn.batch_id))
-    return BookmarkOut(
-        id=str(turn.id),
-        timestamp=turn.timestamp.isoformat() if turn.timestamp else "",
-        raw_text=turn.raw_text[:200] + "…" if len(turn.raw_text) > 200 else turn.raw_text,
-        summary_text=turn.summary_text,
-        is_bookmarked=turn.is_bookmarked,
-        decay_immune=turn.decay_immune,
-    )
+    with service_errors():
+        return bookmarks_svc.bookmark_turn(db, turn_id)
 
 @router.get("/bookmarks", response_model=List[BookmarkOut])
 def list_bookmarks(conversation_id: Optional[str] = None, db: Session = Depends(get_db)):
-    query = db.query(EpisodicMemory).filter_by(is_bookmarked=True)
-    if conversation_id:
-        query = query.filter_by(conversation_id=uuid.UUID(conversation_id))
-    turns = query.order_by(EpisodicMemory.timestamp.desc()).all()
-    return [
-        BookmarkOut(
-            id=str(t.id),
-            timestamp=t.timestamp.isoformat() if t.timestamp else "",
-            raw_text=t.raw_text[:200] + "…" if len(t.raw_text) > 200 else t.raw_text,
-            summary_text=t.summary_text,
-            is_bookmarked=t.is_bookmarked,
-            decay_immune=t.decay_immune,
-        )
-        for t in turns
-    ]
+    return bookmarks_svc.list_bookmarks(db, conversation_id)
 
 
 # ------------------------------------------------------------------
@@ -111,17 +76,10 @@ def list_bookmarks(conversation_id: Optional[str] = None, db: Session = Depends(
 # ------------------------------------------------------------------
 @router.post("/batch/override-tags")
 def override_tags(override: LabelOverride, db: Session = Depends(get_db)):
-    entry = CuratedLabel(
-        batch_id=uuid.UUID(override.batch_id),
-        prompt="",
-        corrected_topic_labels=override.topic_labels,
-        corrected_intent_labels=override.intent_labels,
-        corrected_context_reliance=override.context_reliance,
-        created_at=datetime.now(timezone.utc)
-    )
-    db.add(entry)
-    db.commit()
-    return {"status": "ok", "id": str(entry.id)}
+    with service_errors():
+        return scoping_svc.override_tags(
+            db, override.batch_id, override.topic_labels,
+            override.intent_labels, override.context_reliance)
 
 
 # ------------------------------------------------------------------
@@ -129,35 +87,14 @@ def override_tags(override: LabelOverride, db: Session = Depends(get_db)):
 # ------------------------------------------------------------------
 @router.put("/conversations/{conv_id}/scope")
 def set_conversation_scope(conv_id: str, scope: ScopeUpdate, db: Session = Depends(get_db)):
-    conv = db.query(Conversation).filter_by(id=uuid.UUID(conv_id)).first()
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    was_private = conv.memory_scope_type == "none"
-    conv.memory_scope_type = scope.memory_scope_type
-    conv.cluster_ids = [uuid.UUID(cid) for cid in (scope.cluster_ids or [])]
-    conv.custom_filter = scope.custom_filter
-    # G16: privacy is denormalised onto episodic rows for the retrieval-time
-    # visibility invariant — keep it in sync when the scope crosses the
-    # none-boundary in either direction.
-    now_private = scope.memory_scope_type == "none"
-    if was_private != now_private:
-        db.query(EpisodicMemory).filter_by(conversation_id=conv.id).update(
-            {"is_private": now_private}
-        )
-    db.commit()
-    return {"status": "ok", "conversation_id": str(conv.id), "memory_scope_type": conv.memory_scope_type}
+    with service_errors():
+        return scoping_svc.set_scope(db, conv_id, scope.memory_scope_type,
+                                     scope.cluster_ids, scope.custom_filter)
 
 @router.get("/conversations/{conv_id}/scope")
 def get_conversation_scope(conv_id: str, db: Session = Depends(get_db)):
-    conv = db.query(Conversation).filter_by(id=uuid.UUID(conv_id)).first()
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    return {
-        "conversation_id": str(conv.id),
-        "memory_scope_type": conv.memory_scope_type,
-        "cluster_ids": [str(cid) for cid in (conv.cluster_ids or [])],
-        "custom_filter": conv.custom_filter,
-    }
+    with service_errors():
+        return scoping_svc.get_scope(db, conv_id)
 
 
 # ------------------------------------------------------------------
@@ -165,24 +102,12 @@ def get_conversation_scope(conv_id: str, db: Session = Depends(get_db)):
 # ------------------------------------------------------------------
 @router.post("/clusters", response_model=dict)
 def create_cluster(body: ClusterCreate, db: Session = Depends(get_db)):
-    cluster = ContextCluster(name=body.name, description=body.description,
-                             created_at=datetime.now(timezone.utc))
-    db.add(cluster)
-    db.commit()
-    db.refresh(cluster)
-    return {"id": str(cluster.id), "name": cluster.name}
+    return clusters_svc.create_cluster(db, body.name, body.description)
 
 @router.put("/clusters/{cluster_id}/assign")
 def assign_turns_to_cluster(cluster_id: str, body: ClusterAssign, db: Session = Depends(get_db)):
-    cluster = db.query(ContextCluster).filter_by(id=uuid.UUID(cluster_id)).first()
-    if not cluster:
-        raise HTTPException(status_code=404, detail="Cluster not found")
-    for tid in body.turn_ids:
-        turn = db.query(EpisodicMemory).filter_by(id=uuid.UUID(tid)).first()
-        if turn:
-            turn.cluster_id = cluster.id
-    db.commit()
-    return {"assigned": len(body.turn_ids)}
+    with service_errors():
+        return clusters_svc.assign_turns(db, cluster_id, body.turn_ids)
 
 
 # ------------------------------------------------------------------
@@ -190,42 +115,12 @@ def assign_turns_to_cluster(cluster_id: str, body: ClusterAssign, db: Session = 
 # ------------------------------------------------------------------
 @router.get("/review-queue", response_model=List[dict])
 def get_review_queue(status: Optional[str] = "pending", db: Session = Depends(get_db)):
-    items = db.query(ReviewQueue).filter_by(status=status).all()
-    return [
-        {"id": str(i.id), "item_type": i.item_type, "item_content": i.item_content,
-         "status": i.status, "created_at": i.created_at.isoformat() if i.created_at else ""}
-        for i in items
-    ]
+    return review_svc.list_items(db, status)
 
 @router.post("/review-queue/{item_id}/approve")
 def approve_review_item(item_id: str, body: ReviewApprove = None, db: Session = Depends(get_db)):
-    item = db.query(ReviewQueue).filter_by(id=uuid.UUID(item_id)).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
-    item.status = "approved"
-
-    if item.item_type == "memory_slot_update":
-        slot_name = item.item_content.get("slot_name")
-        content = item.item_content.get("proposed_content")
-        if slot_name and content:
-            slot = db.query(MemorySlot).filter_by(slot_name=slot_name).first()
-            if slot:
-                slot.content = content
-                slot.version += 1
-                slot.last_updated = datetime.now(timezone.utc)
-                slot.updated_by = "user"
-
-    elif item.item_type == "new_cluster_proposal":
-        name = item.item_content.get("cluster_name")
-        if name:
-            cluster = ContextCluster(name=name, created_at=datetime.now(timezone.utc))
-            db.add(cluster)
-
-    elif item.item_type == "sentinel_review":
-        pass
-
-    db.commit()
-    return {"status": "approved"}
+    with service_errors():
+        return review_svc.approve(db, item_id)
 
 
 # ------------------------------------------------------------------
@@ -233,12 +128,8 @@ def approve_review_item(item_id: str, body: ReviewApprove = None, db: Session = 
 # ------------------------------------------------------------------
 @router.get("/conversations/{conv_id}/latest-turn")
 def get_latest_turn(conv_id: str, db: Session = Depends(get_db)):
-    turn = db.query(EpisodicMemory).filter_by(
-        conversation_id=uuid.UUID(conv_id)
-    ).order_by(EpisodicMemory.timestamp.desc()).first()
-    if not turn:
-        raise HTTPException(status_code=404, detail="No turns found")
-    return {"turn_id": str(turn.id)}
+    with service_errors():
+        return bookmarks_svc.latest_turn(db, conv_id)
 
 
 # ------------------------------------------------------------------
@@ -246,34 +137,18 @@ def get_latest_turn(conv_id: str, db: Session = Depends(get_db)):
 # ------------------------------------------------------------------
 @router.get("/model-registry")
 def get_model_registry():
-    return load_registry()
+    return registry_svc.get_registry()
 
 @router.post("/model-registry/refresh")
 def refresh_model_registry():
-    return populate_from_ollama()
+    return registry_svc.refresh_registry()
 
 @router.put("/model-registry/{model_name}")
 def update_model_entry(model_name: str, data: dict):
-    reg = load_registry()
-    if model_name not in reg["models"]:
-        raise HTTPException(status_code=404, detail="Model not found")
-    entry = reg["models"][model_name]
-    if "topic_tags" in data:
-        entry["topic_tags"] = data["topic_tags"]
-    if "intent_tags" in data:
-        entry["intent_tags"] = data["intent_tags"]
-    if "confirmed" in data:
-        entry["confirmed"] = data["confirmed"]
-    if "base_url" in data:
-        entry["base_url"] = data["base_url"]
-    save_registry(reg)
-    return {"status": "updated"}
+    with service_errors():
+        return registry_svc.update_model(model_name, data)
 
 @router.delete("/model-registry/{model_name}")
 def delete_model(model_name: str):
-    reg = load_registry()
-    if model_name in reg["models"]:
-        del reg["models"][model_name]
-        save_registry(reg)
-        return {"status": "deleted"}
-    raise HTTPException(status_code=404, detail="Model not found")
+    with service_errors():
+        return registry_svc.delete_model(model_name)

@@ -17,6 +17,74 @@ User decisions (2026-07-10): **headless boot = attach-if-running, else boot core
 with linger**; **write tools apply immediately + journal everything** (chat has
 the same authority as the frontend edit button).
 
+> **[rev 2026-07-16 — implementation-session grounding corrections (README rule 12), recorded before coding]**
+> 1. **D2(a) already shipped with C7 (2026-07-11):** `bookmark_turn` at HEAD calls
+>    `runtime.enqueue("codex_extract", batch_id=..., priority=True)` — so the
+>    bookmark extraction is now verbatim, and D2's only *intentional* change left
+>    is (b), the review-approve dispatch arms.
+> 2. **D5 packaging enabler:** `pyproject.toml` had no `[build-system]`, and uv
+>    treats a build-system-less project as *virtual* — `[project.scripts]` entry
+>    points are never installed. Added `[build-system]` (hatchling) +
+>    `[tool.hatch.build.targets.wheel] packages = ["src"]` so `ice-mcp` exists.
+>    Mechanical enabler of the decided script entry, not a design change; `src.*`
+>    import paths are unchanged (editable install points at the repo root).
+> 3. **D6's "C7 runtime lease" made concrete:** C7 shipped *per-job* optimistic
+>    ledger claims, not a runtime-level lease. E7 adds a `runtime_lease`
+>    pseudo-row (same pattern as C7's `BURST_STAMP`) that the tick loop stamps
+>    every pass; "fresh" = stamped within `RUNTIME_LEASE_TTL` (180s ≈ 3 ticks).
+>    `create_core(start_runtime: bool | None = None)` — None ⇒ start iff the
+>    lease is stale/absent (the same check both directions, per §4); the FastAPI
+>    lifespan keeps calling `create_core()` and so also defers when ice-mcp's
+>    runtime holds the lease. `ICECore.runtime` becomes Optional; main.py call
+>    sites guard for it.
+> 4. **G13 concretely:** the live classifier moves behind a lazy accessor on
+>    `ICECore` (`core.classifier`); main.py's lifespan touches it eagerly
+>    (boot-time load, unchanged behavior), `retrieval_svc`/ice-mcp load it on
+>    first use. One process = one model load, HTTP or not.
+> 5. **D4 refinement:** `context_for` runs the full chain (classify →
+>    memory-decision → orchestrate) but an explicit pull always orchestrates —
+>    the B2 decision is *reported* in the result (`memory_decision` key), never
+>    used to return empty-handed. A tool the harness called deliberately that
+>    answers "I decided you don't need memory" would poison the E5
+>    pull-discipline measurement and the tool's usefulness.
+> 6. **`ice_remember(text, slot|bookmark)` bookmark-branch mechanics (was
+>    unspecified):** creates a bookmarked, decay-immune, lossless episodic note
+>    row in a dedicated `ice-mcp-notes` conversation (deterministic uuid5 id),
+>    embeds via the core embedder, and enqueues `codex_extract` for it — the
+>    same promotion the bookmark endpoint performs. The slot branch *appends*
+>    (newline-joined) through the same versioned slot-update path.
+> 7. **Review-approve's `codex_reconciliation` arm concretized from the live
+>    writer** (codex_extractor.py:797): approving applies the supersession —
+>    `_expire_edge(db, old_edge_id, batch_id=uuid4(), reason="supersession")`.
+>    The `entity_merge` arm dispatches to `src/workers/codex_ops.py::
+>    merge_entities` (new module per D1/D2 spec D5), which is a
+>    NotImplementedError stub until D1 builds the real merge — loud, not silent,
+>    and no `entity_merge` items exist before D1's agent anyway.
+> 8. **T-spec rev note 5 honored:** `graph.py::entity_edit` is where manual
+>    description editing is BORN (user_control has no entity-edit endpoint at
+>    HEAD). It takes `source` ("mcp_edit" from the MCP adapter, "manual_edit"
+>    for future UI/REST adapters), journals via `log_description_update`, and
+>    regenerates `context_payload` via codex_extractor's `_regenerate_context_
+>    payload` — never writing the payload directly.
+> 9. **Scope note:** `review.py` gains `reject(db, item_id)` (needed by
+>    `ice_control review_reject`; D1's "rejected pairs never re-proposed"
+>    queries it) — but NO new REST endpoint is added for it (E0 extracts, F1
+>    builds new REST surface later).
+> 10. **"Defer" = STANDBY runtime, not no-runtime.** Two silent-data-loss states
+>    hide in a literal "do NOT start a second runtime": (a) an app that boots
+>    while ice-mcp holds the lease would have `runtime=None` forever — every
+>    chat turn's post-flight chain (an *event* job, no overdue cadence) silently
+>    skipped; (b) same for ice-mcp's own bookmark/remember extractions in the
+>    reverse direction. So a lease-deferred `create_core()` starts the runtime
+>    in **standby**: event jobs for this process's own work units still run
+>    (idempotency keys + C7's per-job ledger claims already make cross-process
+>    duplication safe); periodic/overdue dispatch, the session-end burst, and
+>    lease *stamping* remain exclusive to the lease owner; a standby runtime
+>    promotes itself when the foreign lease goes stale (owner exited). "At most
+>    one maintenance dispatcher" — the thing the C7 trap actually protects — is
+>    preserved, with no dead states. Check 9 asserts standby vs owner, and that
+>    a standby runtime never stamps the lease.
+
 ## 1. Decisions
 
 - **D1: services are plain modules under `src/services/`, one per domain, zero

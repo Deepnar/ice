@@ -48,14 +48,14 @@ core: Optional[ICECore] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifecycle manager – classifier + the maintenance core (C7)."""
+    """Lifecycle manager – the maintenance core (C7) + its classifier."""
     global classifier, core
     logger.info("Loading classifier...")
-    classifier = PyTorchClassifier(
-        model_path=settings.classifier_model_path,
-        schema_path=settings.label_schema_path,
-    )
     core = create_core()
+    # E0/G13: the classifier lives on the core (one process, one model load —
+    # retrieval_svc reaches it via get_core()); touch it eagerly so the load
+    # still happens at boot, not on the first request.
+    classifier = core.classifier
     logger.info("Classifier loaded. ICE Proxy ready.")
     yield
     await core.stop()
@@ -164,8 +164,10 @@ async def store_turn_async(
         # and the redis publish died with the broker — an in-process enqueue's
         # only failure mode is the app being down, in which case the turn
         # wasn't stored either; idempotency keys remain the at-least-once
-        # guard).
-        if core is not None:
+        # guard). E7: runtime may be absent (create_core(start_runtime=False)
+        # in tests) — a lease-deferred core still has a standby runtime that
+        # runs this process's event jobs.
+        if core is not None and core.runtime is not None:
             core.runtime.enqueue(
                 "post_flight",
                 batch_id=str(turn.batch_id),
@@ -215,7 +217,7 @@ async def chat_completions(
 
     # C7 D7: in-process activity signal — the runtime's idle gating for
     # background work keys off this (replaces the redis last-chat flag).
-    if core is not None:
+    if core is not None and core.runtime is not None:
         core.runtime.note_user_activity()
 
     user_message = ""
@@ -487,7 +489,7 @@ async def chat_completions(
 
         # C7 D7: the in-flight flag is the shared-mode contention gate — no
         # background gpu job dispatches while a generation streams.
-        if core is not None:
+        if core is not None and core.runtime is not None:
             core.runtime.generation_started()
 
         # SSE: classified
@@ -550,7 +552,7 @@ async def chat_completions(
             except Exception as e:
                 yield sse_event("degraded", {"reason": "streaming_error", "error": str(e)})
         finally:
-            if core is not None:
+            if core is not None and core.runtime is not None:
                 core.runtime.generation_finished()
 
     # Enqueue post‑flight storage (via BackgroundTasks, which runs after response)

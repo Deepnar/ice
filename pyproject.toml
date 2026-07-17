@@ -12,6 +12,7 @@ dependencies = [
     "huggingface-hub>=1.17.0",
     "instructor>=1.15.1",
     "matplotlib>=3.11.0",
+    "mcp>=1.27",
     "ollama>=0.6.2",
     "openai>=2.40.0",
     "pandas>=3.0.3",
@@ -36,6 +37,21 @@ dependencies = [
     "vllm>=0.22.0",
     "watchdog>=6.0.0",
 ]
+
+[project.scripts]
+# E7: the headless MCP entrypoint — `claude mcp add ice -- uv run --directory
+# <repo> ice-mcp`. Needs the build-system below (uv installs no entry points
+# for build-system-less "virtual" projects).
+ice-mcp = "src.mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# src IS the top-level (namespace) package — imports are `src.api...`; the
+# editable install just points at the repo root.
+packages = ["src"]
 
 [dependency-groups]
 dev = [

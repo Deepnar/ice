@@ -1879,7 +1879,7 @@ cu13 = [
 [[package]]
 name = "ice"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "alembic" },
     { name = "datasets" },
@@ -1888,6 +1888,7 @@ dependencies = [
     { name = "huggingface-hub" },
     { name = "instructor" },
     { name = "matplotlib" },
+    { name = "mcp" },
     { name = "ollama" },
     { name = "openai" },
     { name = "pandas" },
@@ -1928,6 +1929,7 @@ requires-dist = [
     { name = "huggingface-hub", specifier = ">=1.17.0" },
     { name = "instructor", specifier = ">=1.15.1" },
     { name = "matplotlib", specifier = ">=3.11.0" },
+    { name = "mcp", specifier = ">=1.27" },
     { name = "ollama", specifier = ">=0.6.2" },
     { name = "openai", specifier = ">=2.40.0" },
     { name = "pandas", specifier = ">=3.0.3" },
