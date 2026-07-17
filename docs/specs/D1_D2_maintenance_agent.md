@@ -10,6 +10,23 @@ turn_text, reconciler)` / `make_llm_reconciler`, codex_extractor.py:727–840),
 reader (user_control:183–200), sentinel_monitor.py (one real query: pending-edge
 pileup; one real absence check: stale `pending_items` slot; the rest stubs).
 
+> **[rev 2026-07-17 — E0/E7 shipped (commit `f43feeb`); grounding updates for the
+> implementing session]** (a) **D6 is DONE**: the approve-dispatch now lives in
+> `src/services/review.py::approve` (not user_control.py — E0 lifted it), and the
+> `entity_merge` + `codex_reconciliation` arms are already wired: `entity_merge`
+> dispatches to `src/workers/codex_ops.py::merge_entities` — created as a **loud
+> NotImplementedError stub**; D1's job is to REPLACE that stub with D5's real
+> merge (same module, same signature `merge_entities(db, keep_id, absorb_id,
+> agent_run_id=None)`); `codex_reconciliation` approval applies the supersession
+> (`_expire_edge`, reason "supersession"). `review.reject(db, item_id)` exists
+> for detector 1's "rejected pairs never re-proposed" query. (b) §3's file list:
+> read `src/services/review.py` where it says user_control.py. (c) C7's runtime
+> gained a `runtime_lease` pseudo-row + standby mode with E7 — irrelevant to the
+> agent job itself (it's a normal gpu-lane runtime job) but visible in the
+> ledger. (d) The G17 source-tag vocabulary is live: `mcp_edit`/`manual_edit`
+> already journal from `services/graph.py::entity_edit`; the agent's writes owe
+> `source: "maintenance_agent"` per D4.
+
 ## 1. Decisions
 
 - **D1: the "agent" is a deterministic worklist + bounded LLM decisions — not a
