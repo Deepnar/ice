@@ -27,6 +27,42 @@ pileup; one real absence check: stale `pending_items` slot; the rest stubs).
 > already journal from `services/graph.py::entity_edit`; the agent's writes owe
 > `source: "maintenance_agent"` per D4.
 
+> **[rev 2026-07-17b — implementing-session re-grounding at `126db2d` (rule 12);
+> all seams verified, six refinements recorded before coding]**
+> 1. **`_expire_edge` carries no `source`** in its event payload; it (and
+>    `reconcile_conflict`) gain an optional `source=None` kwarg passed through to
+>    the payload — existing call sites unchanged, D4's annotation satisfied.
+> 2. **Default-decider semantics pinned:** the runtime dispatches `fn(db)` with no
+>    kwargs, so `run_maintenance_agent`'s decider default is a sentinel that
+>    builds `make_llm_decider()` (bg model, JSON mode); passing `llm_decider=None`
+>    EXPLICITLY skips Tier-1/2 LLM decisions (§4's graceful degradation + the
+>    test stub path). A decider call that errors/unparses ⇒ `unsure` ⇒ no write.
+> 3. **Agent-resolved queue items get `status="resolved"`** (new value beside
+>    pending/approved/rejected — the column is free Text): detector 1's
+>    re-reconcile must close items it settles, and "approved" would lie about who
+>    decided. `item_content` records `decision` + `agent_run_id` (F2-readable).
+> 4. **Husk collision (D5 detail):** `CodexEntity` has no liveness column and
+>    `get_or_create_entity` resolves `canonical_name` BEFORE aliases — so the
+>    absorbed row's canonical_name must be renamed (` [merged:<id8>]` suffix,
+>    unique, casefold-safe) or future extractions re-attach to the husk. Marker =
+>    renamed canonical + `properties.merged_into/merged_at` + emptied aliases +
+>    `context_payload = "[merged into <keep>]"`. Retrieval matches entities by
+>    exact normalized name (orchestrator 1035/1177) so the husk becomes
+>    unmatchable; detectors filter `properties->>'merged_into' IS NULL`.
+> 5. **Detector 2's "verbatim" port keeps the JOIN/HAVING shape but not LIMIT 1**
+>    (the sentinel only needed existence; the agent needs the entity list, capped).
+>    Thresholds come from the seed rule it replaces: pending > 3, active > 2. One
+>    added clause: `pe.valid_until IS NULL` — the sentinel counted already-expired
+>    pending edges, which would re-detect every already-fixed entity forever
+>    (idempotent runs require the detector to see only live work).
+> 6. **Sentinel residue beyond §3's list:** `review.py`'s no-op `sentinel_review`
+>    arm dies with D7 (behavior identical — unmatched types already just flip
+>    status); `tests/test_full_pipeline_phase_9.py` TRUNCATEs `sentinel_events`
+>    (table list updated with the drop); `scripts/seed_sentinel_rules.py` →
+>    `scripts/oneoff/` (dead once the table drops; boy-scout move, CLEANUP.md).
+> Mention count for merge keep-ordering = `COUNT(codex_events)` per entity
+> (reflection's A7.3 definition), tie-break older `MIN(ev.timestamp)`.
+
 ## 1. Decisions
 
 - **D1: the "agent" is a deterministic worklist + bounded LLM decisions — not a

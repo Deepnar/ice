@@ -3,16 +3,22 @@
 import hashlib
 import json
 import re
-from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
+from typing import List, Optional
+
 import structlog
 from sentence_transformers import SentenceTransformer
-from src.api.db import SessionLocal
 from sqlalchemy.orm.attributes import flag_modified
 
+from src.api.db import SessionLocal
 from src.memory.models import (
-    CodexEntity, CodexEdge, CodexEvent, IdempotencyKey, EpisodicMemory, ReviewQueue
+    CodexEdge,
+    CodexEntity,
+    CodexEvent,
+    EpisodicMemory,
+    IdempotencyKey,
+    ReviewQueue,
 )
 from src.retrieval.ner_utils import extract_entities
 
@@ -26,6 +32,7 @@ embedder = SentenceTransformer(
 logger = structlog.get_logger("ice.workers.codex")
 
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+
 bg_client = get_bg_client()
 CODEX_NAMESPACE = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
 
@@ -284,11 +291,10 @@ def generate_uuid5(canonical_name: str) -> uuid.UUID:
 # extraction windows, document chunks, and future C3/C12). Old underscore
 # names kept as aliases so this module's callers/tests are unchanged.
 from src.memory.chunking import (
-    CHUNK_TOKENS, OVERLAP_WORDS,
-    estimate_tokens as _estimate_tokens,
-    split_segments as _split_segments,
-    atomic_units as _atomic_units,
     chunk_text as _chunk_text,
+)
+from src.memory.chunking import (
+    estimate_tokens as _estimate_tokens,
 )
 
 MAX_EXTRACTION_TOKENS = 6000          # legacy constant; retained for import compatibility
@@ -751,25 +757,32 @@ def check_conflict(db, subj_id, relation: str, obj_id, turn_text: Optional[str])
     return None
 
 
-def _expire_edge(db, edge_id, batch_id, reason: str):
+def _expire_edge(db, edge_id, batch_id, reason: str, source: Optional[str] = None):
+    """*source* (G17/D4): who caused the expiry ("maintenance_agent", ...);
+    omitted for the in-line extraction path, whose provenance is the batch."""
     edge = db.query(CodexEdge).get(edge_id)
     if edge and edge.valid_until is None:
         edge.valid_until = datetime.now(timezone.utc)
+        payload = {"edge_id": str(edge_id), "reason": reason}
+        if source:
+            payload["source"] = source
         db.add(CodexEvent(entity_id=edge.source_id, event_type="edge_expired",
-                          payload={"edge_id": str(edge_id), "reason": reason},
+                          payload=payload,
                           timestamp=datetime.now(timezone.utc), batch_source=batch_id))
 
 
 def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
-                       turn_text: Optional[str], reconciler) -> bool:
+                       turn_text: Optional[str], reconciler,
+                       source: Optional[str] = None) -> bool:
     """Resolve a detected conflict. Antonym reversals are deterministic (the
     newly-asserted state supersedes its opposite — no LLM). Ambiguous
     supersessions go to *reconciler* (the bounded LLM) if provided, else to
     human review — never auto-expire on a guess. Returns True if the new edge
     should still be written. Callable as a unit so Track D's agent can drive
-    it with its own reconciler."""
+    it with its own reconciler. *source* rides into the expiry events (D4)."""
     if conflict["type"] == "antonym":
-        _expire_edge(db, conflict["old_edge_id"], batch_id, "antonym_superseded")
+        _expire_edge(db, conflict["old_edge_id"], batch_id, "antonym_superseded",
+                     source=source)
         logger.info("codex_reconcile", type="antonym", decision="expire_old",
                     relation=relation, old_relation=conflict["old_relation"])
         return True
@@ -789,7 +802,8 @@ def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
             decision = "review"
 
     if decision == "expire_old":
-        _expire_edge(db, conflict["old_edge_id"], batch_id, "supersession")
+        _expire_edge(db, conflict["old_edge_id"], batch_id, "supersession",
+                     source=source)
     elif decision == "reject_new":
         logger.info("codex_reconcile", type="supersession", decision="reject_new")
         return False

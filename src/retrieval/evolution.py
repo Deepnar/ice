@@ -190,15 +190,18 @@ def entity_diff(db: Session, entity, t0, t1) -> dict:
     return {"added": added, "expired": expired, "retracted": retracted}
 
 
-def log_description_update(db: Session, entity, old, new, source) -> None:
+def log_description_update(db: Session, entity, old, new, source,
+                           batch_source=None) -> None:
     """D13 never-overwrite: every `entity.description` write site calls this
     so the one mutable-in-place field joins the journal. Truncated snippets
-    keep the event small; the caller owns the commit."""
+    keep the event small; the caller owns the commit. *batch_source* lets
+    agent writes stamp their agent_run_id (D1/D2 D4); default stays a fresh
+    batch for standalone edits."""
     db.add(CodexEvent(
         entity_id=entity.id,
         event_type="description_updated",
         payload={"old": (old or "")[:300], "new": (new or "")[:300],
                  "source": source},
-        batch_source=uuid.uuid4(),
+        batch_source=batch_source or uuid.uuid4(),
     ))
     logger.info("description_updated", entity=entity.canonical_name, source=source)

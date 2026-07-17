@@ -86,7 +86,9 @@ JOBS: dict[str, JobSpec] = {
     "decay_procedural":        JobSpec("src.workers.procedural_decay:decay_procedural_patterns", "cpu", pass_cycles=True),
     "reflection":              JobSpec("src.workers.reflection:run_reflection", "gpu"),
     "batch_summarize":         JobSpec("src.workers.batch_summarizer:batch_summarize", "gpu"),
-    "sentinel_monitor":        JobSpec("src.workers.sentinel_monitor:monitor_sentinels", "cpu"),
+    # D1/D2: the maintenance agent replaced the sentinel monitor (its two real
+    # checks live on as agent detectors 2 and 5).
+    "maintenance_agent":       JobSpec("src.workers.maintenance_agent:run_maintenance_agent", "gpu", needs_db=True),
     "fine_tune":               JobSpec("src.workers.fine_tune:fine_tune_classifier", "gpu"),
 }
 
@@ -518,7 +520,9 @@ class MaintenanceRuntime:
         self._ledger_claim(BURST_STAMP, None)
         self._ledger_finish(BURST_STAMP, "ok", None)
         logger.info("session_end_burst")
-        for job in ("reflection", "batch_summarize"):
+        # D8: the maintenance agent rides the burst with the heavy pair —
+        # "reconcile when the sitting ends".
+        for job in ("reflection", "batch_summarize", "maintenance_agent"):
             row = rows.get(job)
             if row and row["last_finished"] and \
                     row["last_finished"] > self._last_activity:
@@ -677,8 +681,8 @@ class MaintenanceRuntime:
             db.close()
 
 
-# Module-level handle so worker-side dispatchers (sentinel's schedule_worker
-# action) can reach the process's runtime without importing the API app.
+# Module-level handle so worker-side dispatchers can reach the process's
+# runtime without importing the API app.
 _active_runtime: Optional[MaintenanceRuntime] = None
 
 

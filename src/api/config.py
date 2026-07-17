@@ -46,7 +46,6 @@ class Settings(BaseSettings):
     # compaction which beat never scheduled — G10). Keys = runtime job names.
     maintenance_intervals: dict[str, int] = {
         "cluster_assignment": 1800,
-        "sentinel_monitor": 1800,
         "cluster_merge": 10800,
         "chunk_pending_documents": 7200,
         "decay_episodic": 5400,
@@ -55,6 +54,9 @@ class Settings(BaseSettings):
         "reflection": 7200,
         "batch_summarize": 7200,
         "compaction": 86400,
+        # D1/D2: the maintenance agent (worklist + bounded LLM decisions);
+        # also runs in the session-end burst.
+        "maintenance_agent": 43200,
     }
 
     # ── C16 (model-aware half): total context budget derived from the routed

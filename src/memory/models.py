@@ -1,13 +1,20 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import (
-    Column, String, Integer, Float, Boolean, DateTime, Date, Text,
-    ForeignKey, ARRAY, UniqueConstraint
-)
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import declarative_base, relationship
 from pgvector.sqlalchemy import Vector
+from sqlalchemy import (
+    ARRAY,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
@@ -231,32 +238,6 @@ class RAGChunk(Base):
     chunk_index = Column(Integer, nullable=False)
     chunk_text = Column(Text, nullable=False)
     embedding = Column(Vector(384), nullable=False)
-
-
-class SentinelRule(Base):
-    __tablename__ = "sentinel_rules"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(Text, nullable=False)
-    description = Column(Text, default="")
-    is_active = Column(Boolean, default=True)
-    trigger_type = Column(Text, nullable=False)  # threshold, frequency, absence, contradiction, composite
-    trigger_conditions = Column(JSONB, default={})
-    action_type = Column(Text, nullable=False)   # notify, schedule_worker, create_review_item, log_event, propose_memory_update
-    action_payload = Column(JSONB, default={})
-    cooldown_seconds = Column(Integer, default=0)
-    last_fired_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=utcnow)
-
-
-class SentinelEvent(Base):
-    __tablename__ = "sentinel_events"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    rule_id = Column(UUID(as_uuid=True), ForeignKey("sentinel_rules.id"), nullable=False)
-    fired_at = Column(DateTime(timezone=True), default=utcnow)
-    trigger_state = Column(JSONB, default={})
-    action_taken = Column(Text, nullable=False)
 
 
 class SessionReplay(Base):

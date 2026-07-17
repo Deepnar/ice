@@ -35,7 +35,7 @@ def truncate_all():
     db = SessionLocal()
     db.execute(text("TRUNCATE episodic_memory, conversations, codex_entities, codex_edges, "
                     "codex_events, codex_snapshots, procedural_memory, session_summaries, "
-                    "context_clusters, sentinel_events, cold_storage, idempotency_keys, "
+                    "context_clusters, cold_storage, idempotency_keys, "
                     "rag_documents, rag_chunks RESTART IDENTITY CASCADE"))
     db.commit()
     db.close()

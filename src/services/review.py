@@ -1,18 +1,19 @@
 """Review-queue service (E0): list / approve / reject.
 
-Approval APPLIES the item, not just flips status (D1/D2 spec D6). The
-dispatch table carries the two agent-era arms from day one:
+Approval APPLIES the item, not just flips status (D1/D2 spec D6). The two
+agent arms are live:
 
-  * ``entity_merge``         → ``codex_ops.merge_entities`` (a loud stub until
-                               D1 builds the real merge — no such items exist
-                               before the agent writes them)
+  * ``entity_merge``         → ``codex_ops.merge_entities`` (D5's real merge —
+                               the maintenance agent's Tier-2 proposals land
+                               here and merge on approval)
   * ``codex_reconciliation`` → apply the supersession the in-line reconciler
                                refused to guess at: expire the old edge
                                (journaled ``edge_expired``, reason
                                "supersession")
 
 The queue holds *agent/worker proposals only* (D8): chat/MCP writes apply
-immediately and never detour through here.
+immediately and never detour through here. Besides pending/approved/rejected,
+items the maintenance agent settles itself carry ``status="resolved"``.
 """
 import uuid
 from datetime import datetime, timezone
@@ -77,9 +78,6 @@ def approve(db: Session, item_id: str) -> dict:
         logger.info("codex_reconcile", type="supersession",
                     decision="expire_old_approved",
                     old_edge_id=item.item_content["old_edge_id"])
-
-    elif item.item_type == "sentinel_review":
-        pass
 
     db.commit()
     return {"status": "approved"}

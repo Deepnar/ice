@@ -5,8 +5,9 @@ Runs against the live Postgres (docker up). Inserts its own uniquely-marked
 rows and deletes them afterwards — never truncates (the dev DB holds real
 data). The one real slot it touches (session_patterns) is snapshot-and-
 restored. No LLM; the embedder is a stub; the maintenance runtime is a stub
-recorder for enqueue assertions; merge_entities is monkeypatched (the real
-one is a D1 stub by design).
+recorder for enqueue assertions; merge_entities is monkeypatched to assert
+the dispatch in isolation (the real D5 merge is validated end-to-end in
+tests/test_maintenance_agent.py).
 
 Run: uv run python tests/test_services.py
 """
@@ -218,6 +219,8 @@ try:
 
     merge_calls = []
     import src.workers.codex_ops as codex_ops
+    # Stub-injected here to assert the DISPATCH in isolation; the real D5
+    # merge is exercised end-to-end in tests/test_maintenance_agent.py.
     codex_ops.merge_entities = lambda db, keep_id, absorb_id, agent_run_id=None: \
         merge_calls.append((keep_id, absorb_id, agent_run_id))
     keep_u, absorb_u = uuid.uuid4(), uuid.uuid4()
