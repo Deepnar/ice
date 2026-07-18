@@ -1,5 +1,8 @@
-"""E3 — reconcile-on-commit (spec D5). Commit is the semantic signal; polling
-is the fallback, never the design.
+"""E3 — reconcile-on-commit (spec D5) + E11 — reconcile-on-read. Commit is
+the semantic signal; polling is the fallback, never the design; the read-path
+freshener (``freshen_working_tree``) covers what neither can: large in-session
+work with no commits, where HEAD never moves and the graph would silently
+drift from the working tree.
 
 Trigger paths into ``reconcile_project`` (a cpu-lane runtime job — pure
 git+DB, no LLM):
@@ -20,7 +23,9 @@ to the gpu-lane ``decision_extract`` job) → advance the state row. Stale-work
 detection is NOT here — it's the maintenance agent's ``stale_work`` detector
 (the worklist re-derives staleness itself; no parallel notifier).
 """
+import hashlib
 import subprocess
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,6 +37,12 @@ from src.memory.models import Project, ProjectState, ProjectTask
 logger = structlog.get_logger("ice.coding.reconciler")
 
 MAX_COMMITS_SCANNED = 20    # decision extraction per reconcile, newest first
+LARGE_DIRTY_SET = 50        # E11 D5: warn past this, never cap (a Z1 signal)
+
+# E11 throttle state, per process: project_id -> {"t": monotonic of the last
+# git-status run, "sig": (path, mtime, size) digest of the last dirty set}.
+# Per-process is enough — the cross-process race is the advisory lock's job.
+_freshen_cache: dict = {}
 
 
 def _git(root, *args, strip: bool = True):
@@ -226,3 +237,85 @@ def poll_projects(db) -> dict:
     if out["reconciled"]:
         logger.info("project_poll", **out)
     return out
+
+
+# ── E11: reconcile-on-read (working-tree freshness) ─────────────────────────
+
+def _dirty_python_files(root, ignores):
+    """Ignore-filtered changed/added/deleted/untracked .py files from
+    ``git status --porcelain``; None when git itself fails (not a repo).
+    A rename line contributes both sides — old path deletes, new creates."""
+    out = _git(root, "status", "--porcelain", strip=False)
+    if out is None:
+        return None
+    files = set()
+    for line in out.splitlines():
+        if len(line) < 4:
+            continue
+        path_part = line[3:]
+        sides = path_part.split(" -> ") if " -> " in path_part else [path_part]
+        for side in sides:
+            rel = side.strip().strip('"')
+            if not rel.endswith(".py"):
+                continue
+            if any(part in ignores for part in Path(rel).parts):
+                continue
+            files.add(rel)
+    return sorted(files)
+
+
+def _dirty_signature(root, files) -> str:
+    """Stable digest over (path, mtime, size) — unchanged digest ⇒ the same
+    edits are already in the graph, skip the reparse."""
+    parts = []
+    for rel in sorted(files):
+        try:
+            st = (root / rel).stat()
+            parts.append((rel, st.st_mtime_ns, st.st_size))
+        except OSError:                       # deleted file: presence is enough
+            parts.append((rel, -1, -1))
+    return hashlib.sha1(repr(parts).encode()).hexdigest()
+
+
+def freshen_working_tree(db, project) -> dict:
+    """E11: make the code graph match the working tree at the moment it is
+    queried. Called by the SERVICE layer only (graph.where_symbol,
+    retrieval's context_for under a project scope, the arch-doc render) so
+    every adapter inherits it; episodic reads never trigger it.
+
+    Cheap gate → throttle → the existing incremental ``sync_files``. MUST NOT
+    advance ``project_state.last_reconciled_commit``: that stays a commit
+    concept — the next real commit's ``reconcile_project`` re-runs over the
+    same files idempotently."""
+    from src.api.config import settings
+    from src.coding.code_graph import CodeExtractor
+
+    if not settings.reconcile_on_read:
+        return {"status": "disabled"}
+    entry = _freshen_cache.get(project.id)
+    now = time.monotonic()
+    if entry is not None and (
+            now - entry["t"] < settings.reconcile_on_read_min_interval_seconds):
+        return {"status": "throttled"}
+    root = Path(project.roots[0]) if project.roots else None
+    if root is None or not root.is_dir():
+        return {"status": "unreachable"}
+    extractor = CodeExtractor(project)
+    dirty = _dirty_python_files(root, extractor.ignores)
+    if dirty is None:
+        return {"status": "no_git"}
+    if not dirty:                       # clean/just-committed: one git status
+        _freshen_cache[project.id] = {"t": now, "sig": ""}
+        return {"status": "clean"}
+    sig = _dirty_signature(root, dirty)
+    if entry is not None and entry["sig"] == sig:
+        _freshen_cache[project.id] = {"t": now, "sig": sig}
+        return {"status": "unchanged", "dirty": len(dirty)}
+    if len(dirty) > LARGE_DIRTY_SET:
+        logger.warning("freshen_large_dirty_set", project=project.slug,
+                       files=len(dirty))
+    stats = extractor.sync_files(db, dirty)   # advisory-locked inside (D4)
+    _freshen_cache[project.id] = {"t": time.monotonic(), "sig": sig}
+    logger.info("working_tree_freshened", project=project.slug,
+                dirty=len(dirty), **stats)
+    return {"status": "freshened", "dirty": len(dirty), **stats}

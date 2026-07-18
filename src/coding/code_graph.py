@@ -324,6 +324,13 @@ class CodeExtractor:
         stay stable. Entities flush BEFORE edges (FK ordering)."""
         stats = {"files": 0, "created": 0, "updated": 0, "deleted": 0,
                  "edges": 0, "resolved": 0, "heuristic": 0, "parse_errors": 0}
+        # E11 D4: at most one reparse of a project at a time, cross-process
+        # (app + ice-mcp) — a read-freshen racing a commit-reconcile would
+        # collide on the deterministic entity ids. Every writer path (freshen,
+        # incremental reconcile, bootstrap full_sync) funnels through here;
+        # the xact lock releases at this method's commit.
+        db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:pid))"),
+                   {"pid": str(self.project.id)})
         parsed: list = []
         for rel in dict.fromkeys(rel_paths):        # de-dupe, keep order
             existing = self._file_entities(db, rel)

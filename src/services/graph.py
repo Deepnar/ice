@@ -143,12 +143,54 @@ def entity_diff(db: Session, name_or_id: str, t0, t1) -> dict:
     }}
 
 
-def where_symbol(db: Session, symbol: str) -> dict:
+def _freshen_target(db: Session, symbol: str, project_ref):
+    """E11 D3: which project to freshen for a symbol read — explicit ref →
+    the symbol's ``slug:`` prefix → the sole registered project → None (a
+    bare cross-project lookup stays commit-fresh, documented)."""
+    from src.memory.models import Project
+    from src.services.projects import resolve_project
+    if project_ref:
+        try:
+            return resolve_project(db, project_ref)
+        except NotFoundError:
+            logger.warning("freshen_unknown_project", project=str(project_ref))
+            return None
+    sym = (symbol or "").strip()
+    if ":" in sym:
+        proj = db.query(Project).filter_by(
+            slug=sym.split(":", 1)[0].strip().casefold()).first()
+        if proj is not None:
+            return proj
+    projects = db.query(Project).limit(2).all()
+    return projects[0] if len(projects) == 1 else None
+
+
+def _freshen(db: Session, project) -> None:
+    """Best-effort E11 gate: a freshen failure must never break the read —
+    the caller proceeds commit-fresh (loudly, not silently)."""
+    from src.coding.reconciler import freshen_working_tree
+    slug = project.slug                    # capture before any rollback expiry
+    try:
+        freshen_working_tree(db, project)
+    except Exception as exc:
+        db.rollback()
+        logger.warning("freshen_failed_read_stays_commit_fresh",
+                       project=slug, error=str(exc))
+
+
+def where_symbol(db: Session, symbol: str,
+                 project: Optional[str] = None) -> dict:
     """ice_where's engine (E1b swap-in-place): the code graph first —
     definitions with file:line pointers — falling back to codex name/alias
-    resolution for non-code names. Results carry project + path."""
+    resolution for non-code names. Results carry project + path. E11: the
+    resolved project's working tree is freshened before the lookup, so the
+    answer matches the tree as it is now, not as of the last commit."""
     from src.coding.code_graph import where_symbol_rows
-    matches = where_symbol_rows(db, symbol)
+    target = _freshen_target(db, symbol, project)
+    target_id = target.id if target is not None else None
+    if target is not None:
+        _freshen(db, target)
+    matches = where_symbol_rows(db, symbol, project_id=target_id)
     if matches:
         return {"resolved": True, "engine": "code_graph", "matches": matches}
     try:
@@ -172,6 +214,7 @@ def render_architecture_doc(db: Session, project_ref) -> str:
     from src.services.projects import resolve_project
 
     project = resolve_project(db, project_ref)
+    _freshen(db, project)                  # E11: render over the live tree
     lines = [f"# {project.name} — architecture (rendered "
              f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC)", ""]
     if (project.settings or {}).get("unreachable"):

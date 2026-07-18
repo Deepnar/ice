@@ -204,14 +204,16 @@ def ice_conventions() -> list:
 
 
 @mcp.tool()
-def ice_where(symbol: str) -> dict:
+def ice_where(symbol: str, project: Optional[str] = None) -> dict:
     """Locate a code symbol (function/class/module) in a registered project —
     definition file:line, signature, and docstring summary from the code
     graph; falls back to resolving memory entities by canonical name/alias
-    for non-code names. Results carry project + path."""
-    _journal("ice_where", symbol=symbol)
+    for non-code names. Results carry project + path. Pass project
+    (slug/name/id) when you know it: that project's uncommitted working-tree
+    edits are reconciled into the graph before the lookup (E11)."""
+    _journal("ice_where", symbol=symbol, project=project)
     with _session() as db:
-        return graph_svc.where_symbol(db, symbol)
+        return graph_svc.where_symbol(db, symbol, project=project)
 
 
 @mcp.tool()

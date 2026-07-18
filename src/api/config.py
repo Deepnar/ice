@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     # ≥ conflict threshold, no file overlap ⇒ review-queue proposal (Tier 2).
     decision_conflict_threshold: float = 0.85
     decision_duplicate_threshold: float = 0.95
+    # E11: pull-based working-tree freshness on code-graph reads. The kill
+    # switch restores commit-fresh behavior; the min interval bounds git-status
+    # frequency under a burst of agent reads (at most one check per window).
+    reconcile_on_read: bool = True
+    reconcile_on_read_min_interval_seconds: float = 2.0
 
     # ── C16 (model-aware half): total context budget derived from the routed
     # model's context window instead of a hardcoded 23k. fraction reserves the

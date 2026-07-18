@@ -111,6 +111,35 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
     if ts_dict:
         scope["timescope"] = ts_dict
 
+    # E1 (D11) parity with the chat path: a conversation attached to a
+    # project pulls project scope (code-graph allowance + the project's
+    # conversations) — without this, ice_context under a coding conversation
+    # would retrieve as if unattached.
+    if scope.get("conversation_id") and not scope.get("project_id"):
+        from src.memory.models import Conversation
+        conv_row = db.query(Conversation).filter_by(
+            id=uuid.UUID(str(scope["conversation_id"]))).first()
+        if conv_row is not None and conv_row.project_id is not None \
+                and conv_row.memory_scope_type != "none":
+            scope["project_id"] = str(conv_row.project_id)
+            proj_convs = db.query(Conversation.id).filter(
+                Conversation.project_id == conv_row.project_id,
+                Conversation.memory_scope_type != "none").all()
+            scope["conversation_ids"] = [str(c.id) for c in proj_convs]
+
+    # E11: a project-scoped pull freshens that project's working tree first,
+    # so retrieved code pointers match the tree being edited right now.
+    if scope.get("project_id"):
+        from src.coding.reconciler import freshen_working_tree
+        from src.services.projects import resolve_project
+        try:
+            freshen_working_tree(
+                db, resolve_project(db, scope["project_id"]))
+        except Exception as exc:
+            db.rollback()
+            logger.warning("freshen_failed_read_stays_commit_fresh",
+                           project=str(scope["project_id"]), error=str(exc))
+
     vec = classifier.embedder.encode(task_text, convert_to_tensor=False)
     prompt_embedding = vec.tolist() if hasattr(vec, "tolist") else list(vec)
 
