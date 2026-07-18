@@ -38,6 +38,11 @@ def extract_procedural(batch_id: str, model_used: str = ""):
         turn = db.query(EpisodicMemory).filter_by(batch_id=uuid.UUID(batch_id)).first()
         if not turn:
             return
+        # E1 (D1): a pattern observed inside a project-attached conversation
+        # is a project convention — scoped by project_id, not a fourth store.
+        project_id = db.execute(
+            text("SELECT project_id FROM conversations WHERE id = :cid"),
+            {"cid": turn.conversation_id}).scalar()
 
         prompt = (
             "Analyze the following conversation exchange and identify any recurring workflow or behavioural pattern "
@@ -96,7 +101,8 @@ def extract_procedural(batch_id: str, model_used: str = ""):
                 last_observed=datetime.now(timezone.utc),
                 is_active=False,
                 source_batch_ids=[uuid.UUID(batch_id)],
-                embedding=embedding
+                embedding=embedding,
+                project_id=project_id,
             )
             db.add(new_pattern)
 

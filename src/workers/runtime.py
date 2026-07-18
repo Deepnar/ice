@@ -90,6 +90,13 @@ JOBS: dict[str, JobSpec] = {
     # checks live on as agent detectors 2 and 5).
     "maintenance_agent":       JobSpec("src.workers.maintenance_agent:run_maintenance_agent", "gpu", needs_db=True),
     "fine_tune":               JobSpec("src.workers.fine_tune:fine_tune_classifier", "gpu"),
+    # E3/E8 (coding core): reconcile-on-commit (event, via the "commit"
+    # work-unit handler), the polling fallback, and the cue-gated decision
+    # extractor (the only LLM-touching stage — gpu lane; reconcile is pure
+    # git+DB).
+    "project_reconcile":       JobSpec("src.coding.reconciler:reconcile_project", "cpu", needs_db=True),
+    "project_poll":            JobSpec("src.coding.reconciler:poll_projects", "cpu", needs_db=True),
+    "decision_extract":        JobSpec("src.workers.decision_extractor:run_decision_extraction", "gpu", needs_db=True),
 }
 
 # Ledger pseudo-job recording the last session-end burst (§2.3).

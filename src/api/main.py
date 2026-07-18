@@ -10,7 +10,7 @@ import hashlib
 import json
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
@@ -254,19 +254,35 @@ async def chat_completions(
     # ── Scope from conversation metadata ──
     scope = {}
     conv_row = db.query(Conversation).filter_by(id=conversation_id).first()
-    if conv_row and conv_row.memory_scope_type == "project":
-        scope["conversation_id"] = str(conversation_id)
-        if conv_row.cluster_ids:
-            scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
-    elif conv_row and conv_row.memory_scope_type == "none":
+    if conv_row and conv_row.memory_scope_type == "none":
         # G16 incognito ("store private + read nothing"): episodic legs search
         # only this conversation; codex resolves an empty scope set (A5
         # `isolated`); rag/procedural legs are skipped by the orchestrator; the
         # turn is stored is_private so no other scope ever retrieves it and the
         # derivative pipelines (codex/procedural/clustering/summaries) skip it.
+        # Incognito wins over any project attachment (scoping refuses to
+        # attach 'none' conversations, but the order here is the backstop).
         scope["conversation_id"] = str(conversation_id)
         scope["isolated"] = True
         scope["incognito"] = True
+    elif conv_row and conv_row.project_id:
+        # E1 (D11): coding scope — the project's conversations' batch-set ∪
+        # its code-graph allowance (resolved downstream by _conv_scope_filter
+        # / _codex_scope_sets from these two keys). Attachment supersedes the
+        # single-conversation 'project' scope type: it is the more explicit
+        # act, and the project's own conversations are exactly its context.
+        scope["project_id"] = str(conv_row.project_id)
+        proj_convs = db.query(Conversation.id).filter(
+            Conversation.project_id == conv_row.project_id,
+            Conversation.memory_scope_type != "none",
+        ).all()
+        scope["conversation_ids"] = [str(c.id) for c in proj_convs]
+        if conv_row.cluster_ids:
+            scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
+    elif conv_row and conv_row.memory_scope_type == "project":
+        scope["conversation_id"] = str(conversation_id)
+        if conv_row.cluster_ids:
+            scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
     # For "auto", scope stays empty → retrieval searches globally (private
     # turns excluded by the legs' is_private = FALSE visibility invariant)
     is_private_conversation = bool(conv_row and conv_row.memory_scope_type == "none")
@@ -303,7 +319,10 @@ async def chat_completions(
     # the shift-overlap check come from the latest episodic row (written
     # post-stream, so a rapid-fire message may compare against the turn
     # before — same fallback as a fresh dict entry had).
-    prev_tags = db.query(EpisodicMemory.topic_tags, EpisodicMemory.intent_tags).filter_by(
+    prev_tags = db.query(
+        EpisodicMemory.topic_tags, EpisodicMemory.intent_tags,
+        EpisodicMemory.timestamp,
+    ).filter_by(
         conversation_id=conversation_id
     ).order_by(EpisodicMemory.timestamp.desc()).first()
 
@@ -380,6 +399,7 @@ async def chat_completions(
         result, turn_count=turn_count, total_tokens=total_tokens, settings=settings,
         recent_window_tokens=estimate_recent_window_tokens(turn_count, total_budget),
         timescope_mode=tscope.mode,
+        coding_scope=bool(scope.get("project_id")),
     )
     log.info("memory_decision", retrieve=mem_decision.retrieve, **mem_decision.breakdown)
     # Recent-turn budget for prompt assembly — principled default that also
@@ -437,6 +457,23 @@ async def chat_completions(
         lambda: db.query(MemorySlot).filter_by(is_active=True).all()
     )
 
+    # E4 (D6): coding-scoped conversations get the project session-start
+    # block, rendered only when this turn OPENS a sitting (rev 8: the latest
+    # stored turn is older than the session gap, or absent).
+    session_start_text = None
+    if scope.get("project_id"):
+        last_ts = prev_tags.timestamp if prev_tags else None
+        new_sitting = last_ts is None or (
+            datetime.now(timezone.utc) - last_ts
+            > timedelta(minutes=settings.session_gap_minutes))
+        if new_sitting:
+            from src.services import projects as projects_svc
+            session_start_text = await asyncio.to_thread(
+                projects_svc.chat_session_start, db, scope["project_id"])
+            log.info("project_session_start",
+                     project_id=scope["project_id"],
+                     rendered=bool(session_start_text))
+
     # Separate fragments by type for token trimming (both empty when not retrieving)
     episodic_frags = [f for f in fragments if f.source_type == "episodic"]
     procedural_frags = [f for f in fragments if f.source_type == "procedural"]
@@ -447,6 +484,7 @@ async def chat_completions(
         bookmarked_texts=bookmarked_texts,
         classification=result,
         max_recent_tokens=recent_budget,
+        session_start_text=session_start_text,
     )
 
     # Token budget check (crude: words * 1.33 ≈ tokens, aim for 90% of 4096)
@@ -466,7 +504,8 @@ async def chat_completions(
         messages = assemble_prompt(memory_slots_list, reduced, user_message,
                                    db_session=db, conversation_id=str(conversation_id),
                                    bookmarked_texts=bookmarked_texts,
-                                   max_recent_tokens=recent_budget)
+                                   max_recent_tokens=recent_budget,
+                                   session_start_text=session_start_text)
         total_words = word_count(messages[0]["content"]) + word_count(user_message)
 
     log.info(

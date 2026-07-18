@@ -9,6 +9,84 @@ memory). Grounded at commit `94b84ca` in: `codex_entities`/`codex_edges` schema
 (A7 typed rich notes), A5's batch-set scoping, `procedural_memory`, the Track-E
 decisions 1–7 in the roadmap (which this spec turns into DDL and code).
 
+> **[rev 2026-07-17 — implementing-session re-grounding at `14bd4dc` (rule 12).**
+> The spec was grounded at `94b84ca`, which predates C7, Track T, E0/E7 AND
+> D1/D2 — all seams verified against HEAD, thirteen refinements recorded
+> before coding:]
+> 1. **Agent-worklist seam concrete (D5 step 4):** "become D1-agent worklist
+>    items" = a `stale_work` detector registered in
+>    `maintenance_agent.DETECTORS` (the registry shipped with D1/D2). The
+>    detector re-derives staleness from the `tasks` table itself (idempotent,
+>    agent-cadence); the reconciler never writes worklist items. Items are
+>    Tier-2 review-queue proposals (`item_type='stale_work'`, no LLM needed —
+>    detection is deterministic), skipped while one is pending or rejected
+>    since the task last moved (detector-5's blocker pattern).
+> 2. **Commit seam concrete:** `runtime.register_work_unit_handler("commit",
+>    …)` (reserved since C7), registered from `create_core()` (the composition
+>    root both boot paths share). The handler enqueues a `project_reconcile`
+>    runtime job (cpu lane — immediate dispatch, no idle wait). New JOBS
+>    entries: `project_reconcile` (cpu), `project_poll` (cpu, interval 600s),
+>    `decision_extract` (gpu). The reconcile job never calls the LLM: cue
+>    checks are deterministic; commit-message extraction rides the separate
+>    gpu-lane `decision_extract` event job. Post-flight's coding-turn
+>    extraction is a direct call inside the post_flight gpu job (C7 chain
+>    style).
+> 3. **codex_edges has NO properties column** — the "tagged resolved vs
+>    heuristic in edge properties" wording can't land as written. Encoding:
+>    `extraction_confidence` 1.0 (resolved) vs 0.6 (heuristic) — A3-compatible
+>    (a heuristic extraction IS less trusted); the bootstrap logs the ratio
+>    for the empirical deferral. No new column.
+> 4. **Hook transport:** the post-commit hook curl-POSTs to one new thin
+>    endpoint `POST /user-control/projects/{id}/commit` (adapter over
+>    `services/projects.notify_commit`), falling back to a marker file
+>    `$GIT_DIR/ice_pending_commit` when the app is down; `project_poll` checks
+>    marker files AND `git rev-parse HEAD` drift, so a missed POST degrades to
+>    poll lag (≤10 min — same as declining the hook). An existing non-ICE
+>    post-commit hook is never overwritten (registration reports it).
+> 5. **Static-graph edges need a NOT NULL `source_batch`:** the deterministic
+>    per-project batch id `uuid5(NAMESPACE_URL, "ice:code-graph:<project_id>")`
+>    — which is also the "code-graph allowance" concretely: `_codex_scope_sets`
+>    adds it to the allowed batch set for project-scoped queries.
+> 6. **Source-visibility mechanics:** `_codex_scope_sets` keeps its
+>    (entity_ids, batch_ids) contract. The D3 exclusion lands as (a)
+>    `self._scope_project_id` set at `retrieve()`/`_wide_net_fallback` entry
+>    (the `_active_timescope` pattern), (b) an `_entity_source_filters()`
+>    clause in the entity-matching/enumeration queries + a python predicate at
+>    traversal expansion, (c) project-scoped queries return union sets (never
+>    `(None, None)`). `_render_codex_entity` renders the full payload for
+>    non-conversation entities even under scope — the "leaks other convos"
+>    rationale doesn't apply to entities derived from the project itself.
+> 7. **Episodic project scope (D11):** main.py populates
+>    `scope["conversation_ids"]` (the project's non-incognito conversations) +
+>    `scope["project_id"]`; the episodic legs' conversation filter becomes
+>    list-capable (`= ANY(:conv_ids)`) — the C6 seam, param-driven, no SQL
+>    fork. Single-conversation behavior byte-identical.
+> 8. **Session-start trigger is preflight:** the block prepends when the
+>    conversation's latest turn is older than `session_gap_minutes` (or
+>    absent); `project_state.last_session_at` advances only when itself stale
+>    beyond the gap, so repeated renders inside one sitting don't move it.
+> 9. **Schema details pinned:** `tasks.updated_at` drives staleness;
+>    `decisions.embedding` written at insert via the shared embedder;
+>    `daily_checklist` ships as a plain SQL VIEW over tasks (+staleness flag)
+>    in the same migration. Code entities do NOT get embeddings (NULL —
+>    name/scope-resolved; the agent's cosine channel excludes them via the
+>    source filter anyway) and get `aliases = []` so conversational
+>    `get_or_create_entity` can never re-attach to them.
+> 10. **Attach path:** `scoping.set_scope` gains an optional `project` kwarg
+>    (slug/id; empty string detaches); `ice_control scope_set` passes it
+>    through; incognito ('none') conversations refuse attachment.
+> 11. **Merged-entity husks + derived rows:** detector 3 already filters
+>    `properties->>'merged_into' IS NULL`; it additionally gains
+>    `source = 'conversation'` (merging regenerable derived entities is
+>    wrong). Same filter on both the name and cosine channels.
+> 12. **Syntax-error handling refined:** on a parse error the file's existing
+>    entities are kept (last good map, stale-but-useful) and the module unit
+>    is marked `properties.parse_error` — "skipped with a parse_error unit"
+>    without destroying the map mid-edit.
+> 13. **USER-REQUIRED surface:** registration = `scripts/register_project.py`
+>    (CLI) or `ice_control action=project_register` (MCP); hook consent is the
+>    `--hook/--no-hook` flag / `install_hook` param on either.
+
 Covers the priority items E1, E1b, E8, E9, E10 **and folds E2/E3/E4/E6** (they are
 inseparable halves of the same build: routing, reconcilers, session-start, and the
 storage format). E5 remains resolved (no harness; contingency gated on E7's

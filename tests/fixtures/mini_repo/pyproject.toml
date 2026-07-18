@@ -1,0 +1,12 @@
+[project]
+name = "mini-repo"
+version = "0.1.0"
+description = "Tiny fixture package for ICE coding-core tests."
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "structlog>=24.0",
+]
+
+[project.scripts]
+mini-cli = "minipkg.core:greet"

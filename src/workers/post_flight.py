@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime, timezone
 
 import structlog
+from sqlalchemy import text
 
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, IdempotencyKey
@@ -235,6 +236,19 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             if turn.lossless_flag:
                 extract_codex(batch_id=batch_id, model_used=model_used)
             extract_procedural(batch_id=batch_id, model_used=model_used)
+            # E8: project-attached turns also run cue-gated decision
+            # extraction — a direct call in this gpu job (C7 chain style);
+            # the cue check inside is deterministic, so no-cue turns cost
+            # nothing (A6: no cue, no LLM).
+            project_id = db.execute(
+                text("SELECT project_id FROM conversations WHERE id = :cid"),
+                {"cid": turn.conversation_id}).scalar()
+            if project_id:
+                from src.workers.decision_extractor import run_decision_extraction
+                run_decision_extraction(db, project_id=project_id,
+                                        text_content=turn.raw_text,
+                                        source_batch=turn.batch_id,
+                                        origin="turn")
 
     except Exception as exc:
         db.rollback()

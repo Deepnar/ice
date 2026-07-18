@@ -127,6 +127,7 @@ def assemble_prompt(
     classification=None,
     scope: Optional[dict] = None,
     max_recent_tokens: int = 4000,
+    session_start_text: Optional[str] = None,
 ) -> List[dict]:
     """Build a multi‑message prompt. The caller controls the total budget
     via *max_recent_tokens*; retrieval fragments are passed as‑is (already
@@ -166,6 +167,12 @@ def assemble_prompt(
             slot_lines.append(f"[{slot.slot_name.upper()}]\n{slot.content.strip()}")
     if slot_lines:
         system_msg["content"] += "\n\n=== PERSISTENT CONTEXT ===\n" + "\n\n".join(slot_lines)
+
+    # E4 (D6): coding-scoped conversations open a sitting with the project's
+    # where-was-I block (state + diffstat + constraints + tasks + decisions).
+    # The caller renders it only at session start — not every turn.
+    if session_start_text:
+        system_msg["content"] += "\n\n=== PROJECT SESSION START ===\n" + session_start_text
 
     recent_messages = []
     if db_session and conversation_id:

@@ -141,3 +141,98 @@ def entity_diff(db: Session, name_or_id: str, t0, t1) -> dict:
         kind: [{**item, "date": item["date"].isoformat()} for item in items]
         for kind, items in diff.items()
     }}
+
+
+def where_symbol(db: Session, symbol: str) -> dict:
+    """ice_where's engine (E1b swap-in-place): the code graph first —
+    definitions with file:line pointers — falling back to codex name/alias
+    resolution for non-code names. Results carry project + path."""
+    from src.coding.code_graph import where_symbol_rows
+    matches = where_symbol_rows(db, symbol)
+    if matches:
+        return {"resolved": True, "engine": "code_graph", "matches": matches}
+    try:
+        return {"resolved": True, "engine": "codex name/alias resolution",
+                **entity_view(db, symbol)}
+    except NotFoundError:
+        return {"resolved": False, "engine": "code_graph + codex",
+                "note": f"no code symbol or memory entity matches {symbol!r}"}
+
+
+def render_architecture_doc(db: Session, project_ref) -> str:
+    """E8 (D8): the architecture doc is a RENDER over the stores, never a
+    hand-maintained file — module tree with docstring one-liners, key
+    decisions with rationale, constraints, conventions (procedural rows),
+    and the recent git timeline read LIVE (git IS the timeline; commits are
+    never re-stored). If a section looks wrong, fix the underlying store."""
+    import subprocess
+    from pathlib import Path
+
+    from src.memory.models import Decision, ProceduralMemory
+    from src.services.projects import resolve_project
+
+    project = resolve_project(db, project_ref)
+    lines = [f"# {project.name} — architecture (rendered "
+             f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC)", ""]
+    if (project.settings or {}).get("unreachable"):
+        lines += ["> ⚠ project root currently unreachable — this render may be stale", ""]
+
+    # 1. Module tree with per-module one-liners.
+    modules = db.query(CodexEntity).filter_by(
+        project_id=project.id, source="static_analysis",
+        entity_type="module").order_by(CodexEntity.canonical_name).all()
+    lines.append("## Modules")
+    if modules:
+        for m in modules:
+            props = m.properties or {}
+            doc = props.get("docstring_summary") or ""
+            lines.append(f"- `{props.get('display_name', m.canonical_name)}`"
+                         + (f" — {doc}" if doc else "")
+                         + f"  ({props.get('file_path')})")
+    else:
+        lines.append("(no code graph yet — register/reconcile the project)")
+    lines.append("")
+
+    # 2. Key decisions (active, by recency) + constraints.
+    decisions = db.query(Decision).filter(
+        Decision.project_id == project.id, Decision.valid_until.is_(None),
+        Decision.decision_type != "constraint",
+    ).order_by(Decision.valid_from.desc()).limit(10).all()
+    lines.append("## Key decisions")
+    lines += [f"- {d.decision}" + (f" — *{d.rationale}*" if d.rationale else "")
+              for d in decisions] or ["(none recorded)"]
+    lines.append("")
+    constraints = db.query(Decision).filter(
+        Decision.project_id == project.id, Decision.valid_until.is_(None),
+        Decision.decision_type == "constraint",
+    ).order_by(Decision.valid_from.desc()).limit(10).all()
+    lines.append("## Constraints")
+    lines += [f"- {c.decision}"
+              + (f" (files: {', '.join(c.files_affected or [])})"
+                 if c.files_affected else "")
+              for c in constraints] or ["(none recorded)"]
+    lines.append("")
+
+    # 3. Conventions — project-scoped procedural rows.
+    conventions = db.query(ProceduralMemory).filter_by(
+        project_id=project.id, is_active=True).order_by(
+        ProceduralMemory.confidence_score.desc()).limit(10).all()
+    lines.append("## Conventions")
+    lines += [f"- {p.pattern_description or p.pattern_name}"
+              for p in conventions] or ["(none observed yet)"]
+    lines.append("")
+
+    # 4. Recent git timeline — read live.
+    lines.append("## Recent commits")
+    root = Path(project.roots[0]) if project.roots else None
+    log_out = None
+    if root and root.is_dir():
+        try:
+            proc = subprocess.run(
+                ["git", "log", "--oneline", "-15"], cwd=str(root),
+                capture_output=True, text=True, timeout=15)
+            log_out = proc.stdout.strip() if proc.returncode == 0 else None
+        except (OSError, subprocess.TimeoutExpired):
+            log_out = None
+    lines.append(log_out if log_out else "(git log unavailable)")
+    return "\n".join(lines)

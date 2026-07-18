@@ -36,6 +36,10 @@ class Conversation(Base):
     # needed for those.
     sticky_model = Column(Text, nullable=True)
     consecutive_shifts = Column(Integer, nullable=False, default=0, server_default="0")
+    # E1 (D11): attaching a conversation to a project gives it coding scope —
+    # retrieval resolves to the project's conversations' batch-set ∪ its
+    # code-graph allowance. Incognito ('none') conversations refuse attachment.
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
 
     episodic_turns = relationship("EpisodicMemory", back_populates="conversation")
 
@@ -156,6 +160,13 @@ class CodexEntity(Base):
     context_payload = Column(Text, default="")
     embedding = Column(Vector(384), nullable=True)
     last_updated = Column(DateTime(timezone=True), default=utcnow)
+    # E1b (D3): one codex, namespaced. source ∈ conversation | static_analysis
+    # | derived. Non-conversation rows are DERIVED memory: decay-exempt,
+    # regenerable (bulk-rebuild safe, no CodexEvents), and excluded from
+    # conversational retrieval unless the query's project matches.
+    project_id = Column(UUID(as_uuid=True), nullable=True)
+    source = Column(Text, nullable=False, default="conversation",
+                    server_default="conversation")
 
 
 class CodexEdge(Base):
@@ -179,6 +190,10 @@ class CodexEdge(Base):
     negated = Column(Boolean, default=False)
     valid_from = Column(DateTime(timezone=True), default=utcnow)
     valid_until = Column(DateTime(timezone=True), nullable=True)  # NULL = currently true
+    # E1b (D3): mirrors codex_entities.source — static-analysis edges are
+    # derived memory (decay-exempt, journal-free, regenerable).
+    source = Column(Text, nullable=False, default="conversation",
+                    server_default="conversation")
 
 
 class CodexEvent(Base):
@@ -218,6 +233,75 @@ class ProceduralMemory(Base):
     is_active = Column(Boolean, default=True)
     source_batch_ids = Column(ARRAY(UUID(as_uuid=True)), default=[])
     embedding = Column(Vector(384), nullable=True)
+    # E1 (D1): coding conventions are procedural rows scoped to a project —
+    # not a fourth pattern store. NULL = user-global pattern (today's rows).
+    project_id = Column(UUID(as_uuid=True), nullable=True)
+
+
+class Project(Base):
+    """E1: projects are first-class. A registered repo root (or several —
+    monorepo) whose code graph, facts, decisions, and tasks hang off this row.
+    settings carries per-project knobs (ignore globs, hook_installed,
+    unreachable flag)."""
+    __tablename__ = "projects"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(Text, nullable=False, unique=True)
+    slug = Column(Text, nullable=False, unique=True)
+    roots = Column(ARRAY(Text), nullable=False)
+    settings = Column(JSONB, default={})
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class ProjectState(Base):
+    """E1/E4: the living "where was I" row — goal, branch, last task, and the
+    reconcile/session anchors the session-start block renders from."""
+    __tablename__ = "project_state"
+
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), primary_key=True)
+    goal = Column(Text, nullable=True)
+    current_branch = Column(Text, nullable=True)
+    last_task_id = Column(UUID(as_uuid=True), nullable=True)
+    last_session_at = Column(DateTime(timezone=True), nullable=True)
+    last_reconciled_commit = Column(Text, nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class Decision(Base):
+    """E1/E8: bi-temporal decision memory (mirrors codex_edges' valid_from/
+    valid_until; supersession is first-class via superseded_by — no event
+    journal needed). decision_type ∈ decision | constraint | incident."""
+    __tablename__ = "decisions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    decision = Column(Text, nullable=False)
+    rationale = Column(Text, nullable=True)
+    alternatives_rejected = Column(JSONB, default=[])
+    files_affected = Column(ARRAY(Text), default=[])
+    decision_type = Column(Text, nullable=False, default="decision")
+    source_batch = Column(UUID(as_uuid=True), nullable=True)   # G17 provenance
+    embedding = Column(Vector(384), nullable=True)
+    valid_from = Column(DateTime(timezone=True), default=utcnow)
+    valid_until = Column(DateTime(timezone=True), nullable=True)
+    superseded_by = Column(UUID(as_uuid=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class ProjectTask(Base):
+    """E1: lightweight task rows; commits link in via the reconciler (D5
+    step 3), staleness (updated_at) feeds the agent's stale_work detector.
+    daily_checklist is a VIEW over this table, not a table of its own."""
+    __tablename__ = "tasks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    title = Column(Text, nullable=False)
+    status = Column(Text, nullable=False, default="pending")  # pending|active|done|dropped
+    commit_hashes = Column(ARRAY(Text), default=[])
+    files_changed = Column(ARRAY(Text), default=[])
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow)
 
 
 class RAGDocument(Base):

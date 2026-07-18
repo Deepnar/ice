@@ -45,6 +45,12 @@ class ScopeUpdate(BaseModel):
     memory_scope_type: str
     cluster_ids: Optional[List[str]] = None
     custom_filter: Optional[str] = None
+    # E1 (D11): slug/name/id attaches to a project; "" detaches; None = leave.
+    project: Optional[str] = None
+
+
+class CommitNotice(BaseModel):
+    commit: Optional[str] = None
 
 class ClusterCreate(BaseModel):
     name: str
@@ -89,7 +95,20 @@ def override_tags(override: LabelOverride, db: Session = Depends(get_db)):
 def set_conversation_scope(conv_id: str, scope: ScopeUpdate, db: Session = Depends(get_db)):
     with service_errors():
         return scoping_svc.set_scope(db, conv_id, scope.memory_scope_type,
-                                     scope.cluster_ids, scope.custom_filter)
+                                     scope.cluster_ids, scope.custom_filter,
+                                     project=scope.project)
+
+
+# ------------------------------------------------------------------
+# E3 — commit notification (the post-commit hook's target; spec rev 4)
+# ------------------------------------------------------------------
+@router.post("/projects/{project_ref}/commit")
+def notify_project_commit(project_ref: str, body: CommitNotice = None,
+                          db: Session = Depends(get_db)):
+    with service_errors():
+        from src.services import projects as projects_svc
+        return projects_svc.notify_commit(
+            db, project_ref, body.commit if body else None)
 
 @router.get("/conversations/{conv_id}/scope")
 def get_conversation_scope(conv_id: str, db: Session = Depends(get_db)):

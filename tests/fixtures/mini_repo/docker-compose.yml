@@ -1,0 +1,11 @@
+services:
+  db:
+    image: postgres:16
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: mini
+  cache:
+    image: redis:7
+    ports:
+      - "6380:6379"

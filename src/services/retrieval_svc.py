@@ -9,17 +9,65 @@ load, G13). It returns STRUCTURED fragments, never a rendered prompt:
 rendering belongs to each adapter (the assembler for chat, markdown for MCP,
 JSON for REST).
 """
+import re
 import uuid
+from pathlib import PurePosixPath
 from typing import Optional
 
 import structlog
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
-from src.memory.models import EpisodicMemory, ProceduralMemory, SessionSummary
+from src.memory.models import (
+    Decision,
+    EpisodicMemory,
+    ProceduralMemory,
+    SessionSummary,
+)
 from src.services import slots as slots_svc
 
 logger = structlog.get_logger("ice.services.retrieval")
+
+# path-ish tokens in a task ("src/api/main.py", "config.py", "docker-compose.yml")
+_PATHISH = re.compile(r"[\w./-]*\w\.\w{1,5}\b|[\w-]+/[\w./-]+")
+
+
+def constraints_for_task(db: Session, task_text: str,
+                         project_id: Optional[str] = None, cap: int = 5) -> list[dict]:
+    """E8 (D7): active `constraint` decisions whose files the task mentions —
+    the do-not-touch payoff. A constraint hits when one of its files_affected
+    appears in the task text, or its basename matches a mentioned path's
+    basename. Surfaced FIRST by context_for."""
+    mentioned = {m.group(0).strip(".,;:") for m in _PATHISH.finditer(task_text or "")}
+    if not mentioned:
+        return []
+    mentioned_low = {m.lower() for m in mentioned}
+    mentioned_base = {PurePosixPath(m).name for m in mentioned_low}
+    task_low = (task_text or "").lower()
+    q = db.query(Decision).filter(
+        Decision.decision_type == "constraint",
+        Decision.valid_until.is_(None))
+    if project_id:
+        q = q.filter(Decision.project_id == uuid.UUID(str(project_id)))
+    hits = []
+    for c in q.limit(200).all():
+        for f in c.files_affected or []:
+            fl = f.lower()
+            if fl in task_low or PurePosixPath(fl).name in mentioned_base:
+                hits.append({
+                    "text": f"[Constraint] {c.decision}"
+                            + (f" — {c.rationale}" if c.rationale else "")
+                            + f" (files: {', '.join(c.files_affected or [])})",
+                    "source_type": "constraint",
+                    "score": 10.0,
+                    "token_count": int(len(c.decision.split()) * 1.33),
+                    "source_batch_id": str(c.id),
+                    "conversation_id": None,
+                })
+                break
+        if len(hits) >= cap:
+            break
+    return hits
 
 
 def _get_classifier():
@@ -77,8 +125,13 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
         prompt_embedding=prompt_embedding,
         scope=scope,
     )
+    # E8: constraints FIRST whenever the task mentions their files — a
+    # do-not-touch rule outranks every retrieved fragment by construction.
+    constraint_frags = constraints_for_task(
+        db, task_text, project_id=(scope or {}).get("project_id"))
     logger.info("context_for", query_words=len(task_text.split()),
-                fragments=len(fragments), timescope=tscope.mode)
+                fragments=len(fragments), constraints=len(constraint_frags),
+                timescope=tscope.mode)
     return {
         "query": task_text,
         "topic_tags": result.topic_tags,
@@ -86,7 +139,7 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
         "timescope": tscope.mode,
         "memory_decision": {"retrieve": decision.retrieve,
                             "p_need_mem": round(decision.p_need_mem, 4)},
-        "fragments": [
+        "fragments": constraint_frags + [
             {
                 "text": f.text,
                 "source_type": f.source_type,
@@ -101,13 +154,23 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
 
 
 def recent_turns(db: Session, conversation_id: Optional[str] = None,
-                 limit: int = 10) -> list[dict]:
+                 limit: int = 10, project: Optional[str] = None) -> list[dict]:
     """Most recent stored turns. Unscoped calls honor the G16 visibility
     invariant (private turns are readable only when explicitly scoped to
-    their own conversation)."""
+    their own conversation). *project* (E1): all of that project's
+    conversations — never private ones (incognito can't attach, and the
+    filter is the backstop)."""
     q = db.query(EpisodicMemory)
     if conversation_id:
         q = q.filter_by(conversation_id=uuid.UUID(conversation_id))
+    elif project:
+        from src.memory.models import Conversation
+        from src.services.projects import resolve_project
+        proj = resolve_project(db, project)
+        conv_ids = [c.id for c in db.query(Conversation.id).filter(
+            Conversation.project_id == proj.id).all()]
+        q = q.filter(EpisodicMemory.conversation_id.in_(conv_ids),
+                     EpisodicMemory.is_private.is_(False))
     else:
         q = q.filter_by(is_private=False)
     rows = q.order_by(EpisodicMemory.timestamp.desc()).limit(limit).all()

@@ -169,6 +169,10 @@ class HybridRetrievalOrchestrator:
         self._active_timescope = CURRENT
         self.timescope_allowed = True
         self._cold_hits = {}
+        # E1b (D3): the request's attached project (scope["project_id"]) —
+        # source-visibility for derived code/fact entities keys off this,
+        # same instance-attr pattern as _active_timescope.
+        self._scope_project_id = None
 
         # Load micro‑NER model (fallback to None if not available)
     def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=10):
@@ -404,6 +408,8 @@ class HybridRetrievalOrchestrator:
         self._last_hyde_query = None
         # T2: resolve the request's TimeScope once; every leg below reads it.
         self._active_timescope = self._resolve_timescope(scope)
+        # E1b (D3): attached project — gates derived-entity visibility.
+        self._scope_project_id = self._resolve_project_scope(scope)
         self._cold_hits = {}
         if classification.context_reliance == "Zero_Shot":
             return []
@@ -597,6 +603,51 @@ class HybridRetrievalOrchestrator:
             return CURRENT
         return from_scope(scope)
 
+    def _resolve_project_scope(self, scope):
+        """E1b (D3/D11): the attached project's id (UUID) from
+        scope["project_id"], or None. Tolerant of garbage — no project."""
+        if not scope or not scope.get("project_id"):
+            return None
+        try:
+            return uuid.UUID(str(scope["project_id"]))
+        except (ValueError, AttributeError, TypeError):
+            return None
+
+    def _entity_source_filters(self):
+        """D3 derived-memory visibility, as SQLAlchemy clauses for the entity
+        matching/enumeration queries: conversation entities always; derived
+        (static_analysis / project-fact) entities only when the query's
+        attached project matches. Extend-don't-fork — the same clause list is
+        appended wherever entities are resolved (G16 invariant style)."""
+        base = or_(CodexEntity.source.is_(None),
+                   CodexEntity.source == "conversation")
+        if self._scope_project_id is not None:
+            return [or_(base, CodexEntity.project_id == self._scope_project_id)]
+        return [base]
+
+    def _entity_visible(self, entity) -> bool:
+        """Python-side twin of _entity_source_filters for traversal expansion
+        (neighbors arrive via edges, not the filtered queries)."""
+        source = getattr(entity, "source", None)
+        if source is None or source == "conversation":
+            return True
+        return (self._scope_project_id is not None
+                and entity.project_id == self._scope_project_id)
+
+    def _conv_scope_filter(self, scope, conv_id, column="conversation_id"):
+        """D11/C6 seam: the episodic legs' conversation filter — a single
+        conversation (today's behavior, byte-identical) or a conversation-id
+        list (project scope resolves to the project's conversations). Returns
+        (sql_snippet, params, scoped) — *scoped* drives the privacy filter
+        (explicit scoping is the only door to private turns, G16)."""
+        conv_ids = scope.get("conversation_ids") if scope else None
+        if conv_ids:
+            return (f"AND {column} = ANY(:conv_ids)",
+                    {"conv_ids": [str(c) for c in conv_ids]}, True)
+        if conv_id:
+            return f"AND {column} = :conv_id", {"conv_id": conv_id}, True
+        return "", {}, False
+
     def _timescope_leg_filters(self, prefix=""):
         """T3: param-driven filter snippets for the episodic legs — one query
         text per leg, never a timescoped twin (G19). current: archived hidden,
@@ -709,10 +760,11 @@ class HybridRetrievalOrchestrator:
             search_terms = prompt_text
 
         topic_filter = ""
-        conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
+        # D11: single conversation OR the project's conversation list.
+        conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
         # G16 visibility invariant: global search never sees private (incognito)
         # turns; explicit conversation scoping is the only door to them.
-        privacy_filter = "" if conv_id else "AND is_private = FALSE"
+        privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
         # T3: window / archived-visibility / decay-floor, driven by the mode.
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
 
@@ -761,9 +813,8 @@ class HybridRetrievalOrchestrator:
             "prompt_text": prompt_text,
             "min_decay": min_decay,
             **ts_params,
+            **conv_params,
         }
-        if conv_id:
-            params["conv_id"] = conv_id
         if scope and scope.get("cluster_ids"):
             params["cluster_ids"] = scope["cluster_ids"]
 
@@ -793,9 +844,8 @@ class HybridRetrievalOrchestrator:
                     ORDER BY score DESC
                     LIMIT 100
                 """)
-                p = {"prompt_text": prompt_text, "min_decay": min_decay, **ts_params}
-                if conv_id:
-                    p["conv_id"] = conv_id
+                p = {"prompt_text": prompt_text, "min_decay": min_decay,
+                     **ts_params, **conv_params}
                 if scope and scope.get("cluster_ids"):
                     p["cluster_ids"] = scope["cluster_ids"]
                 rows = self.db.execute(query2, p).fetchall()
@@ -808,10 +858,11 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     def _vector_episodic(self, prompt_embedding, classification, scope, conv_id: Optional[str] = None) -> List[ContextFragment]:
         topic_filter = ""
-        conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
+        # D11: single conversation OR the project's conversation list.
+        conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
         # G16 visibility invariant: global search never sees private (incognito)
         # turns; explicit conversation scoping is the only door to them.
-        privacy_filter = "" if conv_id else "AND is_private = FALSE"
+        privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
         # T3: window / archived-visibility / decay-floor, driven by the mode.
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
 
@@ -869,9 +920,7 @@ class HybridRetrievalOrchestrator:
                   "recency_boost": rec_boost, "recency_tau": rec_tau,
                   "ts_center": ts_center,
                   "cand_limit": 300 if ts.mode == "evolution" else 100,
-                  **ts_params}
-        if conv_id:
-            params["conv_id"] = conv_id
+                  **ts_params, **conv_params}
         if scope and scope.get("cluster_ids"):
             params["cluster_ids"] = scope["cluster_ids"]
 
@@ -918,8 +967,9 @@ class HybridRetrievalOrchestrator:
         (decay, archive, privacy, conversation, cluster scope) is enforced
         through the parent turn; provenance points at the parent so
         strengthening/decay land on the turn. Max 3 chunks per document."""
-        conv_filter = "AND e.conversation_id = :conv_id" if conv_id else ""
-        privacy_filter = "" if conv_id else "AND e.is_private = FALSE"
+        conv_filter, conv_params, conv_scoped = self._conv_scope_filter(
+            scope, conv_id, column="e.conversation_id")
+        privacy_filter = "" if conv_scoped else "AND e.is_private = FALSE"
         # T3: visibility rides the parent turn — window on e.timestamp,
         # archived/decay-floor on the parent's flags.
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters(prefix="e.")
@@ -958,9 +1008,7 @@ class HybridRetrievalOrchestrator:
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
         params = {"prompt_embedding": prompt_embedding, "min_decay": min_decay,
                   "recency_boost": recency_boost, "recency_tau": rec_tau,
-                  "ts_center": ts_center, **ts_params}
-        if conv_id:
-            params["conv_id"] = conv_id
+                  "ts_center": ts_center, **ts_params, **conv_params}
         if scope and scope.get("cluster_ids"):
             params["cluster_ids"] = scope["cluster_ids"]
         try:
@@ -1032,7 +1080,8 @@ class HybridRetrievalOrchestrator:
             from sqlalchemy import or_
             norm = candidate_str.lower().strip()
             fallback = self.db.query(CodexEntity).filter(
-                or_(CodexEntity.canonical_name == norm, CodexEntity.aliases.any(norm))
+                or_(CodexEntity.canonical_name == norm, CodexEntity.aliases.any(norm)),
+                *self._entity_source_filters(),
             ).first()
             if fallback and fallback.id not in seen_ids:
                 matched.append(fallback)
@@ -1155,13 +1204,31 @@ class HybridRetrievalOrchestrator:
                         {"cids": list(conv_ids)}
                     ).fetchall()
                     batch_ids = {row.batch_id for row in rows}
-            if not batch_ids:
+            # E1b (D11): the code-graph allowance — an attached project adds
+            # its derived entities + the deterministic static-edge batch to
+            # the allowed sets, and a project scope NEVER falls back to
+            # unscoped (a fresh project conversation with zero turns still
+            # reads only its own graph).
+            pid = self._scope_project_id
+            if pid is None and not batch_ids:
                 return None, None
-            event_rows = self.db.execute(
-                text("SELECT DISTINCT entity_id FROM codex_events WHERE batch_source = ANY(:bids)"),
-                {"bids": list(batch_ids)}
-            ).fetchall()
-            return {row.entity_id for row in event_rows}, batch_ids
+            entity_ids = set()
+            if batch_ids:
+                event_rows = self.db.execute(
+                    text("SELECT DISTINCT entity_id FROM codex_events "
+                         "WHERE batch_source = ANY(:bids)"),
+                    {"bids": list(batch_ids)}
+                ).fetchall()
+                entity_ids = {row.entity_id for row in event_rows}
+            if pid is not None:
+                from src.coding.code_graph import code_graph_batch_id
+                derived = self.db.execute(
+                    text("SELECT id FROM codex_entities "
+                         "WHERE project_id = :pid AND source != 'conversation'"),
+                    {"pid": pid}).fetchall()
+                entity_ids |= {row.id for row in derived}
+                batch_ids.add(code_graph_batch_id(pid))
+            return entity_ids, batch_ids
         except Exception:
             self.db.rollback()
             return None, None
@@ -1174,7 +1241,8 @@ class HybridRetrievalOrchestrator:
         for candidate_str in entity_strings:
             norm = candidate_str.lower().strip()
             ent = self.db.query(CodexEntity).filter(
-                or_(CodexEntity.canonical_name == norm, CodexEntity.aliases.any(norm))
+                or_(CodexEntity.canonical_name == norm, CodexEntity.aliases.any(norm)),
+                *self._entity_source_filters(),
             ).first()
             if ent and ent.id not in seen:
                 matched.append(ent)
@@ -1195,7 +1263,8 @@ class HybridRetrievalOrchestrator:
             scored = {}
             for w in words:
                 rows = self.db.query(CodexEntity).filter(
-                    CodexEntity.context_payload.ilike(f"%{w}%")
+                    CodexEntity.context_payload.ilike(f"%{w}%"),
+                    *self._entity_source_filters(),
                 ).limit(20).all()
                 for ent in rows:
                     scored[ent.id] = (scored.get(ent.id, (0, ent))[0] + 1, ent)
@@ -1275,7 +1344,8 @@ class HybridRetrievalOrchestrator:
             if candidate_tags:
                 from sqlalchemy import or_
                 q = self.db.query(CodexEntity).filter(
-                    or_(*[CodexEntity.tags.any(t) for t in candidate_tags]))
+                    or_(*[CodexEntity.tags.any(t) for t in candidate_tags]),
+                    *self._entity_source_filters())
                 for ent in q.limit(self.ENUM_ENTITY_LIMIT).all():
                     if allowed_entity_ids is not None and ent.id not in allowed_entity_ids:
                         continue
@@ -1465,8 +1535,12 @@ class HybridRetrievalOrchestrator:
         (depth 0) injects its FULL rich note; deeper neighbors inject a compact
         one-line preview (name + type + a snippet), so navigation is rich but
         token-efficient."""
+        # E1b: derived entities (code graph / project facts) render their full
+        # pointer payload even under scope — it's built from the project
+        # itself, so the "leaks other conversations" rationale doesn't apply.
+        derived = getattr(entity, "source", None) not in (None, "conversation")
         if depth == 0:
-            if allowed_batch_ids is None:
+            if allowed_batch_ids is None or derived:
                 # unscoped: the stored rich note (description + props + links + backlinks).
                 if entity.context_payload:
                     context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
@@ -1550,7 +1624,9 @@ class HybridRetrievalOrchestrator:
             if exclude_ids and other_id in exclude_ids:
                 continue
             other = self.db.query(CodexEntity).get(other_id)
-            if other:
+            # E1b (D3): derived entities stay invisible outside their project
+            # even when reachable through a conversation edge.
+            if other and self._entity_visible(other):
                 self._traverse_graph(other, depth + 1, max_depth, visited,
                                      context_texts, anchor_edges,
                                      allowed_entity_ids, allowed_batch_ids, exclude_ids)
@@ -1626,11 +1702,18 @@ class HybridRetrievalOrchestrator:
         try:
             rows = self.db.execute(query, params).fetchall()
             fragments = []
+            pid = self._scope_project_id
             for r in rows:
                 pattern = self.db.query(ProceduralMemory).get(r.id)
                 if not pattern:
                     continue
-                if allowed_batch_ids is not None:
+                # E1 (D1): project-scoped conventions are invisible outside
+                # their project; inside it they pass regardless of batch scope
+                # (they belong to the project, not to one conversation).
+                in_project = pid is not None and pattern.project_id == pid
+                if pattern.project_id is not None and not in_project:
+                    continue
+                if allowed_batch_ids is not None and not in_project:
                     if not any(bid in allowed_batch_ids for bid in (pattern.source_batch_ids or [])):
                         continue
                 if not self._procedural_trigger_match(pattern, classification):
@@ -2029,10 +2112,11 @@ class HybridRetrievalOrchestrator:
         # T2: set here too — the wide net is also a public entry point (tests,
         # direct calls); idempotent when reached via retrieve().
         self._active_timescope = self._resolve_timescope(scope)
+        self._scope_project_id = self._resolve_project_scope(scope)
         scope_conv = scope.get("conversation_id") if scope else None
         incognito = bool(scope and scope.get("incognito"))
-        conv_filter = "AND conversation_id = :conv_id" if scope_conv else ""
-        privacy_filter = "" if scope_conv else "AND is_private = FALSE"
+        conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, scope_conv)
+        privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
         # T3: same window/archived/floor rules as the normal legs (the wide
         # net widens ranking, not visibility — and not time either).
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
@@ -2055,9 +2139,7 @@ class HybridRetrievalOrchestrator:
             ts_center, rec_boost, rec_tau = self._recency_params(creative)
             params = {"prompt_embedding": prompt_embedding, "min_decay": min_decay,
                       "recency_boost": rec_boost, "recency_tau": rec_tau,
-                      "ts_center": ts_center, **ts_params}
-            if scope_conv:
-                params["conv_id"] = scope_conv
+                      "ts_center": ts_center, **ts_params, **conv_params}
             rows = self.db.execute(query, params).fetchall()
             fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt, classification=classification)
         except Exception:

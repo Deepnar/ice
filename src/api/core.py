@@ -75,6 +75,11 @@ def create_core(start_runtime: Optional[bool] = None) -> ICECore:
         standby = (start_runtime is None) and runtime_lease_fresh(SessionLocal)
         runtime = MaintenanceRuntime()
         runtime.start(SessionLocal, standby=standby)
+        # E3: the "commit" work-unit (reserved since C7) — coding-side
+        # handler registered here at the composition root, so both boot
+        # paths (app + headless ice-mcp) get reconcile-on-commit.
+        from src.coding.reconciler import make_commit_handler
+        runtime.register_work_unit_handler("commit", make_commit_handler(runtime))
     core = ICECore(db_factory=SessionLocal, runtime=runtime)
     _active_core = core
     return core

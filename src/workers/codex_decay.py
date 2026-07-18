@@ -23,13 +23,18 @@ def decay_codex_edges(cycles: int = 1):
     cycles = max(1, min(int(cycles), CYCLES_CAP))
     db = SessionLocal()
     try:
-        # 1. Decay ALL live edges — pending included (A3). Previously only
-        #    active edges decayed, so a retrieval-reinforced pending edge
-        #    could inflate forever without ever entering the decay cycle.
+        # 1. Decay ALL live conversation edges — pending included (A3).
+        #    Previously only active edges decayed, so a retrieval-reinforced
+        #    pending edge could inflate forever without ever entering the
+        #    decay cycle. E1b (D3): derived memory (static_analysis/derived
+        #    sources) is decay-EXEMPT — the code graph is regenerated from
+        #    source, not earned through use; forgetting it would just desync
+        #    the map from the repo.
         db.execute(text("""
             UPDATE codex_edges
             SET strength = strength * POWER(:rate, :cycles)
             WHERE valid_until IS NULL
+              AND source = 'conversation'
         """), {"rate": DECAY_RATE, "cycles": cycles})
         # 2. Demote active edges that fell below threshold
         db.execute(text("""
@@ -37,6 +42,7 @@ def decay_codex_edges(cycles: int = 1):
             SET confidence = 'pending'
             WHERE confidence = 'active'
               AND valid_until IS NULL
+              AND source = 'conversation'
               AND strength < :thresh
         """), {"thresh": DEMOTION_THRESHOLD})
         # 3. A3 garbage collection: pending edges that decayed to near-zero
@@ -48,6 +54,7 @@ def decay_codex_edges(cycles: int = 1):
             SET valid_until = NOW()
             WHERE confidence = 'pending'
               AND valid_until IS NULL
+              AND source = 'conversation'
               AND strength < :expiry
         """), {"expiry": EXPIRY_THRESHOLD})
 

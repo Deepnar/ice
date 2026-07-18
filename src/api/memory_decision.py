@@ -142,6 +142,7 @@ def decide_memory_retrieval(
     settings,
     recent_window_tokens: Optional[float] = None,
     timescope_mode: Optional[str] = None,
+    coding_scope: bool = False,
 ) -> MemoryDecision:
     """Decide whether to run long-term-memory retrieval for this turn.
 
@@ -181,6 +182,10 @@ def decide_memory_retrieval(
         lo += settings.ltm_bump_low_confidence
     if timescope_mode and timescope_mode != "current":
         lo += settings.ltm_bump_timescope
+    # E1 (D11): a project-attached conversation almost always wants context —
+    # pointers are cheap. A bump, not a force (B2 idiom).
+    if coding_scope:
+        lo += settings.ltm_bump_coding
 
     p_need = _sigmoid(lo)
     retrieve = p_need > settings.ltm_decision_threshold
@@ -199,6 +204,7 @@ def decide_memory_retrieval(
             "referential": referential,
             "low_confidence": low_conf,
             "timescope": timescope_mode,
+            "coding_scope": coding_scope,
             "logit": round(lo, 4),
             "p_need_mem": round(p_need, 4),
         },

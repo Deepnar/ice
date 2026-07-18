@@ -57,7 +57,22 @@ class Settings(BaseSettings):
         # D1/D2: the maintenance agent (worklist + bounded LLM decisions);
         # also runs in the session-end burst.
         "maintenance_agent": 43200,
+        # E3: reconcile-on-commit fallback — polls registered projects for
+        # HEAD drift + hook marker files. The hook is the design; this is the
+        # ≤10-min lag path when the hook is declined or the app was down.
+        "project_poll": 600,
     }
+
+    # ── Track E: coding-ICE core ──
+    # D11: a project-attached conversation almost always wants context —
+    # pointers are cheap (bump, not force; B2 idiom).
+    ltm_bump_coding: float = 0.7
+    # E8 (D7): new-decision vs active-decision embedding similarity gates.
+    # ≥ dedupe threshold + same type + same files ⇒ silent duplicate (skip);
+    # ≥ conflict threshold + overlapping files ⇒ auto-supersede (Tier 1);
+    # ≥ conflict threshold, no file overlap ⇒ review-queue proposal (Tier 2).
+    decision_conflict_threshold: float = 0.85
+    decision_duplicate_threshold: float = 0.95
 
     # ── C16 (model-aware half): total context budget derived from the routed
     # model's context window instead of a hardcoded 23k. fraction reserves the

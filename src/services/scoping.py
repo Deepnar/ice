@@ -11,12 +11,17 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from src.memory.models import Conversation, CuratedLabel, EpisodicMemory
-from src.services.errors import NotFoundError
+from src.services.errors import NotFoundError, ValidationError
 
 
 def set_scope(db: Session, conv_id: str, memory_scope_type: str,
               cluster_ids: Optional[List[str]] = None,
-              custom_filter: Optional[str] = None) -> dict:
+              custom_filter: Optional[str] = None,
+              project: Optional[str] = None) -> dict:
+    """*project* (E1 D11): slug/name/id attaches the conversation to a
+    project (coding scope); empty string detaches; None leaves it unchanged.
+    Incognito ('none') conversations refuse attachment — private turns must
+    never feed a project's shared context."""
     conv = db.query(Conversation).filter_by(id=uuid.UUID(conv_id)).first()
     if not conv:
         raise NotFoundError("Conversation not found")
@@ -24,6 +29,15 @@ def set_scope(db: Session, conv_id: str, memory_scope_type: str,
     conv.memory_scope_type = memory_scope_type
     conv.cluster_ids = [uuid.UUID(cid) for cid in (cluster_ids or [])]
     conv.custom_filter = custom_filter
+    if project is not None:
+        if project == "":
+            conv.project_id = None
+        else:
+            from src.services.projects import resolve_project
+            if memory_scope_type == "none":
+                raise ValidationError(
+                    "an incognito ('none') conversation cannot attach to a project")
+            conv.project_id = resolve_project(db, project).id
     # G16: privacy is denormalised onto episodic rows for the retrieval-time
     # visibility invariant — keep it in sync when the scope crosses the
     # none-boundary in either direction.
@@ -33,7 +47,8 @@ def set_scope(db: Session, conv_id: str, memory_scope_type: str,
             {"is_private": now_private}
         )
     out = {"status": "ok", "conversation_id": str(conv.id),
-           "memory_scope_type": conv.memory_scope_type}
+           "memory_scope_type": conv.memory_scope_type,
+           "project_id": str(conv.project_id) if conv.project_id else None}
     db.commit()
     return out
 
@@ -47,6 +62,7 @@ def get_scope(db: Session, conv_id: str) -> dict:
         "memory_scope_type": conv.memory_scope_type,
         "cluster_ids": [str(cid) for cid in (conv.cluster_ids or [])],
         "custom_filter": conv.custom_filter,
+        "project_id": str(conv.project_id) if conv.project_id else None,
     }
 
 

@@ -31,12 +31,11 @@ from mcp.server.fastmcp import FastMCP
 
 from src.services import bookmarks as bookmarks_svc
 from src.services import graph as graph_svc
-from src.services import registry_svc
-from src.services import retrieval_svc
+from src.services import projects as projects_svc
+from src.services import registry_svc, retrieval_svc
 from src.services import review as review_svc
 from src.services import scoping as scoping_svc
 from src.services import slots as slots_svc
-from src.services.errors import NotFoundError
 
 logger = structlog.get_logger("ice.mcp")
 
@@ -183,13 +182,16 @@ def ice_why(name: str) -> dict:
 
 
 @mcp.tool()
-def ice_recent(conversation_id: Optional[str] = None, limit: int = 10) -> list:
+def ice_recent(conversation_id: Optional[str] = None, limit: int = 10,
+               project: Optional[str] = None) -> list:
     """The most recent stored turns — what the user and ICE did last.
-    Optionally scoped to one conversation id. (Project-level scoping lands
-    with E1's project registry.)"""
-    _journal("ice_recent", conversation_id=conversation_id, limit=limit)
+    Optionally scoped to one conversation id, or to a project (slug/name/id —
+    all of that project's conversations)."""
+    _journal("ice_recent", conversation_id=conversation_id, limit=limit,
+             project=project)
     with _session() as db:
-        return retrieval_svc.recent_turns(db, conversation_id, limit)
+        return retrieval_svc.recent_turns(db, conversation_id, limit,
+                                          project=project)
 
 
 @mcp.tool()
@@ -203,19 +205,13 @@ def ice_conventions() -> list:
 
 @mcp.tool()
 def ice_where(symbol: str) -> dict:
-    """Resolve a name/symbol against ICE's memory graph (entities by
-    canonical name or alias). HONEST LIMIT: code-graph-aware symbol location
-    (definitions, usages, files) lands with E1b — until then this resolves
-    memory entities only."""
+    """Locate a code symbol (function/class/module) in a registered project —
+    definition file:line, signature, and docstring summary from the code
+    graph; falls back to resolving memory entities by canonical name/alias
+    for non-code names. Results carry project + path."""
     _journal("ice_where", symbol=symbol)
-    engine = "codex name/alias resolution (code graph lands with E1b)"
     with _session() as db:
-        try:
-            return {"resolved": True, "engine": engine,
-                    **graph_svc.entity_view(db, symbol)}
-        except NotFoundError:
-            return {"resolved": False, "engine": engine,
-                    "note": f"no memory entity matches {symbol!r}"}
+        return graph_svc.where_symbol(db, symbol)
 
 
 @mcp.tool()
@@ -282,20 +278,30 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
                 memory_scope_type: Optional[str] = None,
                 cluster_ids: Optional[list] = None,
                 item_id: Optional[str] = None, status: str = "pending",
-                model: Optional[str] = None, data: Optional[dict] = None):
+                model: Optional[str] = None, project: Optional[str] = None,
+                data: Optional[dict] = None):
     """ICE control plane. action="scope_get"/"scope_set" → a conversation's
     memory scope (scope_set: conversation_id + memory_scope_type auto|project|
-    none [+ cluster_ids]); "review_list" → pending agent proposals (status
-    filter); "review_approve"/"review_reject" → item_id; "registry_view" →
-    the model registry; "registry_edit" → model + data (topic_tags/
-    intent_tags/confirmed/base_url). (decisions_* actions land with E1.)"""
+    none [+ cluster_ids, + project slug to attach / "" to detach]);
+    "review_list"/"review_approve"/"review_reject" → agent proposals;
+    "registry_view"/"registry_edit" → the model registry.
+    Coding core (E1): "project_register" (data: name, root, install_git_hook
+    — ASK THE USER before installing the git hook), "project_list",
+    "project_status"/"project_reconcile"/"project_goal" (project [+ data:
+    goal]), "arch_doc" (project → rendered architecture markdown),
+    "decisions_list"/"decisions_add" (project [+ data: decision, rationale,
+    type decision|constraint|incident, files]), "task_add" (project + data:
+    title), "task_list" (project), "task_status" (item_id=task id + data:
+    status pending|active|done|dropped)."""
     _journal("ice_control", action=action)
+    d = data or {}
     with _session() as db:
         if action == "scope_get":
             return scoping_svc.get_scope(db, conversation_id)
         if action == "scope_set":
             return scoping_svc.set_scope(db, conversation_id,
-                                         memory_scope_type, cluster_ids)
+                                         memory_scope_type, cluster_ids,
+                                         project=project)
         if action == "review_list":
             return review_svc.list_items(db, status)
         if action == "review_approve":
@@ -306,10 +312,47 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
             return registry_svc.get_registry()
         if action == "registry_edit":
             return registry_svc.update_model(model, data or {})
+        if action == "project_register":
+            return projects_svc.register_project(
+                db, d.get("name", ""), d.get("root", ""),
+                slug=d.get("slug"),
+                install_git_hook=bool(d.get("install_git_hook")),
+                replay_git_log=bool(d.get("replay_git_log")))
+        if action == "project_list":
+            return projects_svc.list_projects(db)
+        if action == "project_status":
+            return projects_svc.project_status(db, project)
+        if action == "project_goal":
+            return projects_svc.set_goal(db, project, d.get("goal", ""))
+        if action == "project_reconcile":
+            from src.coding.reconciler import reconcile_project
+            proj = projects_svc.resolve_project(db, project)
+            return reconcile_project(db, project_id=proj.id)
+        if action == "arch_doc":
+            return {"markdown": graph_svc.render_architecture_doc(db, project)}
+        if action == "decisions_list":
+            return projects_svc.decisions_list(
+                db, project, decision_type=d.get("type"),
+                include_superseded=bool(d.get("include_superseded")))
+        if action == "decisions_add":
+            return projects_svc.decision_add(
+                db, project, d.get("decision", ""),
+                rationale=d.get("rationale", ""),
+                decision_type=d.get("type", "decision"),
+                files=d.get("files"))
+        if action == "task_add":
+            return projects_svc.task_add(db, project, d.get("title", ""))
+        if action == "task_list":
+            return projects_svc.task_list(db, project, status=d.get("status"))
+        if action == "task_status":
+            return projects_svc.task_set_status(db, item_id, d.get("status", ""))
     raise _bad_action("ice_control", action,
                       ("scope_get", "scope_set", "review_list",
                        "review_approve", "review_reject", "registry_view",
-                       "registry_edit"))
+                       "registry_edit", "project_register", "project_list",
+                       "project_status", "project_goal", "project_reconcile",
+                       "arch_doc", "decisions_list", "decisions_add",
+                       "task_add", "task_list", "task_status"))
 
 
 @mcp.tool()
@@ -353,10 +396,21 @@ def _render_session_start(block: dict) -> str:
 
 @mcp.resource("ice://session-start")
 def session_start() -> str:
-    """Welcome-back block: active memory slots + the last session's summary
-    (E4 enriches this resource in place; the URI is stable)."""
+    """Welcome-back block: active memory slots + the last session's summary +
+    every registered project's where-was-I block (E4 — state, diffstat since
+    the last sitting, constraints, open tasks, fresh decisions)."""
     with _session() as db:
-        return _render_session_start(retrieval_svc.session_start_block(db))
+        base = _render_session_start(retrieval_svc.session_start_block(db))
+        from src.memory.models import Project
+        blocks = []
+        for project in db.query(Project).order_by(Project.created_at).limit(5).all():
+            try:
+                blocks.append(projects_svc.render_session_start(
+                    projects_svc.session_start_data(db, project)))
+            except Exception as exc:   # a broken repo must not kill the resource
+                logger.warning("session_start_project_failed",
+                               project=project.slug, error=str(exc))
+        return base + ("\n\n" + "\n\n".join(blocks) if blocks else "")
 
 
 # ── Entrypoint ───────────────────────────────────────────────────────────────

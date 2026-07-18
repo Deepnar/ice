@@ -1,0 +1,8 @@
+{
+  "name": "mini_labels",
+  "fields": {
+    "id": "int",
+    "label": "str",
+    "confidence": "float"
+  }
+}

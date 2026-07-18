@@ -204,10 +204,12 @@ try:
             check("ice_why merges view + timeline",
                   "timeline" in _payload(r)
                   and _payload(r)["canonical_name"] == f"{MARK}_entity")
+            # E1b shipped: the code graph is the primary engine; a non-code
+            # name falls back to codex name/alias resolution (engine named).
             r = await client.call_tool("ice_where", {"symbol": f"{MARK}_alias"})
             check("ice_where resolves by alias and names its engine",
                   _payload(r)["resolved"] is True
-                  and "E1b" in _payload(r)["engine"])
+                  and "codex" in _payload(r)["engine"])
             r = await client.call_tool("ice_where", {"symbol": f"{MARK}_nope"})
             check("ice_where miss is honest, not an error",
                   not r.isError and _payload(r)["resolved"] is False)

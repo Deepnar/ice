@@ -135,10 +135,13 @@ def _detect_duplicate_entities(db, cap: int) -> list:
     # Name-overlap channel (Tier 0 candidates). Canonical names are stored
     # casefolded, but aliases keep original case — normalize in Python; the
     # entity table is personal-scale (thousands, not millions).
+    # E1b: derived entities (code graph / project facts) are regenerable —
+    # merging them is wrong and the next re-parse would undo it anyway.
     ents = db.execute(text("""
         SELECT id, canonical_name, aliases, entity_type
         FROM codex_entities
         WHERE (properties->>'merged_into') IS NULL
+          AND source = 'conversation'
     """)).fetchall()
     by_name: dict = {}
     for e in ents:
@@ -161,6 +164,7 @@ def _detect_duplicate_entities(db, cap: int) -> list:
         JOIN codex_entities b ON a.id < b.id
          AND COALESCE(a.entity_type, 'entity') = COALESCE(b.entity_type, 'entity')
         WHERE a.embedding IS NOT NULL AND b.embedding IS NOT NULL
+          AND a.source = 'conversation' AND b.source = 'conversation'
           AND (a.properties->>'merged_into') IS NULL
           AND (b.properties->>'merged_into') IS NULL
           AND 1 - (a.embedding <=> b.embedding) >= :thresh
@@ -297,6 +301,53 @@ def _detect_stale_slot(db, cap: int) -> list:
         "last_updated": row.last_updated.isoformat() if row.last_updated else None})]
 
 
+STALE_TASK_DAYS = 14
+
+
+def _detect_stale_work(db, cap: int) -> list:
+    """E3 (coding-core D5 step 4): project tasks untouched > STALE_TASK_DAYS
+    become Tier-2 proposals — detection is deterministic (no LLM), the review
+    queue is the notifier (no parallel notification system). Skipped while a
+    proposal for the task is pending, or rejected since the task last moved
+    (the user's "no" stands until the task moves). Payload carries branch +
+    goal so drift is visible to the reviewer."""
+    if cap <= 0:
+        return []
+    cutoff = datetime.now(timezone.utc) - timedelta(days=STALE_TASK_DAYS)
+    try:
+        rows = db.execute(text("""
+            SELECT t.id, t.title, t.status, t.updated_at, t.project_id,
+                   p.slug, ps.current_branch, ps.goal
+            FROM tasks t
+            JOIN projects p ON p.id = t.project_id
+            LEFT JOIN project_state ps ON ps.project_id = t.project_id
+            WHERE t.status IN ('pending', 'active')
+              AND t.updated_at < :cutoff
+              AND NOT EXISTS (
+                  SELECT 1 FROM review_queue rq
+                  WHERE rq.item_type = 'stale_work'
+                    AND rq.item_content->>'task_id' = t.id::text
+                    AND (rq.status = 'pending'
+                         OR (rq.status = 'rejected' AND rq.created_at > t.updated_at))
+              )
+            ORDER BY t.updated_at ASC
+            LIMIT :cap
+        """), {"cutoff": cutoff, "cap": cap}).fetchall()
+    except Exception:
+        db.rollback()
+        return []
+    now = datetime.now(timezone.utc)
+    return [WorkItem("stale_work", 2, {
+        "task_id": str(r.id), "title": r.title, "status": r.status,
+        "project": r.slug, "project_id": str(r.project_id),
+        "days_stale": int((now - r.updated_at).total_seconds() // 86400)
+        if r.updated_at else None,
+        "current_branch": r.current_branch, "goal": r.goal,
+        "suggested_action": f'review stale task "{r.title}" '
+                            f"({r.slug}) — finish, re-scope, or drop it",
+    }) for r in rows]
+
+
 # Registry (E1 look-ahead: item types are pluggable; spec order = priority).
 DETECTORS: dict = {
     "reconciliation_leftover": _detect_reconciliation_leftovers,
@@ -304,6 +355,8 @@ DETECTORS: dict = {
     "duplicate_entities": _detect_duplicate_entities,
     "contradiction": _detect_contradictions,
     "stale_slot": _detect_stale_slot,
+    # E3: stale project work (coding core) — deterministic, Tier-2.
+    "stale_work": _detect_stale_work,
 }
 
 
@@ -762,6 +815,21 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
             return "skipped_cap"
         counters["proposals"] += 1
         return _propose_slot(db, item, suggestion, run_id)
+
+    if item.item_type == "stale_work":
+        # E3: deterministic Tier-2 — the item payload IS the proposal
+        # (self-describing for F2); no LLM decision needed.
+        if counters["proposals"] >= MAX_TIER2_PROPOSALS:
+            return "skipped_cap"
+        from src.memory.models import ReviewQueue
+        db.add(ReviewQueue(item_type="stale_work", item_content={
+            **item.payload, "agent_run_id": str(run_id)}))
+        db.commit()
+        counters["proposals"] += 1
+        logger.info("agent_action", action="stale_work", outcome="proposed",
+                    task_id=item.payload.get("task_id"),
+                    agent_run_id=str(run_id))
+        return "proposed"
 
     logger.warning("agent_unknown_item_type", item_type=item.item_type)
     return "unknown"
