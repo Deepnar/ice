@@ -11,6 +11,61 @@ then embedding-ranks with `_procedural_trigger_match`; `memory_slots.py` has the
 fixed 7-slot list + versioned upserts; `prompt_assembler` injects all active
 slots flat.
 
+> **[rev 2026-07-19 — re-grounding at implementation time (`cd5c1b4` HEAD; the
+> b8c2122 grounding predates Track T, E0/E7, D1/D2, the E-core AND E11). Ten
+> refinements, none changing a decision:**
+> 1. `VALID_SLOTS` + all slot helpers live in `src/services/slots.py` (E0);
+>    `memory_slots.py` is a thin REST adapter. D5's dict lands in the service;
+>    the router/MCP/`session_start_block` all inherit. Callers audited: only
+>    `retrieval_svc.session_start_block`, `mcp/server.py` (`ice_slots`,
+>    `ice_remember`), the router, and `test_services` — all keyword-safe.
+> 2. `memory_slots` has **no unique constraint on slot_name today** (only the
+>    id pkey; the `initialize_slots` docstring claims one — a lying comment).
+>    The migration adds D5's composite uniqueness as a **`NULLS NOT DISTINCT`
+>    unique index** (pg16) so `(name, 'global', NULL, NULL)` can't duplicate.
+> 3. `_procedural_lookup` is at orchestrator.py:1668 (not 1398), takes `scope`,
+>    and since E1 carries project logic (project-scoped patterns invisible
+>    outside their project, batch-exempt inside) + T3's timescope span filter.
+>    D4 extends the SQL with the confidence floor and deletes ONLY the
+>    3-intent early-return; everything else stays.
+> 4. **Extraction side of D4: nothing to kill.** Post-C7, `post_flight`
+>    chains `extract_procedural` for every non-private turn — no intent
+>    whitelist exists at dispatch anymore; the LLM's NONE output is the cue
+>    filter. Audit result recorded, no change.
+> 5. C4's job joins the session-end burst in `runtime._maybe_session_end_burst`
+>    (the D1/D2 trio becomes a quartet) + the `JOBS` dict + a
+>    `maintenance_intervals` entry (7200, aligned with `batch_summarize` —
+>    burst-members are also cadence-run; the job is idempotent per
+>    `covers_through`, so cadence passes on quiet conversations are no-ops).
+> 6. D3a's injection condition compares main.py's existing `total_tokens`
+>    against `estimate_recent_window_tokens(turn_count, total_budget)` (B2's
+>    window estimate, C16-aware). The summary JOB gates row creation on the
+>    same condition with the legacy default budget (the job doesn't know the
+>    routed model; the assembler re-checks at injection, so a mismatch only
+>    costs an early/late row, never a wrong injection).
+> 7. The assembler grew `session_start_text` (E4) since grounding: system-msg
+>    block order is PERSISTENT CONTEXT (tiered slots) → PROJECT SESSION START
+>    → CONVERSATION SUMMARY (still before the retrieved-context message).
+> 8. D3b: `_batch_summary_lookup`'s batch half stays conversation-scoped
+>    (as built); the `conversation_summaries` half searches cross-conversation,
+>    **excludes the active conversation** (its summary arrives via the
+>    assembler — the double-inject trap) and excludes `memory_scope_type =
+>    'none'` conversations via the join. Both halves keep the T3 non-current
+>    skip and the `batch_summary` source_type (leg weights unchanged).
+> 9. D7 rides what D1/D2 built: `review.py::approve`'s `memory_slot_update`
+>    arm re-routes through the slots service (tier params + G14 cap enforced
+>    there); proposal payloads (reflection + agent stale_slot) gain
+>    `proposed_by`, and `updated_by` on application records the proposer
+>    (`reflection`/`agent`), not `"user"`.
+> 10. C4 summaries include a conversation's own private turns (incognito gets
+>    its own context; the retrieval consumer's join is the shield), matching
+>    the edge-case note; `covers_through`/`covers_turns` advance only on
+>    successful LLM output — failure keeps the old row (retry next burst).
+> **The C1 machinery reused by D2 is `turn_density.extract_key_terms` /
+> `must_terms` / `summary_coverage` + the post_flight retry idiom; the job
+> takes an injectable `llm=` + `embedder=` (house test pattern) and lazy-loads
+> the shared embedder (no import-time model load).]**
+
 ## 1. Decisions
 
 ### C4 — conversation summary object
