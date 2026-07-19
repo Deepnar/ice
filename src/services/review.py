@@ -11,9 +11,13 @@ agent arms are live:
                                (journaled ``edge_expired``, reason
                                "supersession")
 
-The queue holds *agent/worker proposals only* (D8): chat/MCP writes apply
-immediately and never detour through here. Besides pending/approved/rejected,
-items the maintenance agent settles itself carry ``status="resolved"``.
+The queue holds *agent/worker proposals only* (D8), plus the ONE deliberate
+exception: ``forget_request`` (C10/C11) — /forget is fuzzy AND destructive,
+so it queues here and applies only on approval (D1-tier consistency: precise
+writes apply, fuzzy destructive ops queue). Besides pending/approved/
+rejected, items the maintenance agent settles itself carry
+``status="resolved"``, and C10's conversation deletion marks pending items
+that referenced the deleted conversation's batches ``status="stale"``.
 """
 import uuid
 from datetime import datetime, timezone
@@ -82,6 +86,12 @@ def approve(db: Session, item_id: str) -> dict:
         logger.info("codex_reconcile", type="supersession",
                     decision="expire_old_approved",
                     old_edge_id=item.item_content["old_edge_id"])
+
+    elif item.item_type == "forget_request":
+        # C10/C11 arm: /forget queues, approval applies — turn deletes +
+        # journaled edge expiries live in the conversations service.
+        from src.services import conversations as conversations_svc
+        conversations_svc.apply_forget(db, item.item_content or {})
 
     db.commit()
     return {"status": "approved"}

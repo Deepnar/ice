@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from src.api.chat_commands import command_sse_stream, try_handle
 from src.api.config import settings
 from src.api.core import ICECore, create_core
 from src.api.db import SessionLocal, get_db
@@ -286,6 +287,29 @@ async def chat_completions(
     # For "auto", scope stays empty → retrieval searches globally (private
     # turns excluded by the legs' is_private = FALSE visibility invariant)
     is_private_conversation = bool(conv_row and conv_row.memory_scope_type == "none")
+
+    # C11: deterministic slash commands — parsed AFTER conversation/scope
+    # resolution (they need the conv row) and BEFORE classification (a
+    # command must never burn pre-flight latency or reach the model as a
+    # prompt; unknown /x gets a help hint, never silent fallthrough). Handled
+    # commands stream a normal SSE completion and skip storage/post-flight
+    # entirely — the chat_command journal is the record.
+    if user_message.split("\n", 1)[0].lstrip().startswith("/"):
+        cmd_result = await asyncio.to_thread(
+            try_handle, db,
+            core.runtime if core is not None else None,
+            conv_row, user_message, scope,
+        )
+        if cmd_result is not None:
+            return StreamingResponse(
+                command_sse_stream(cmd_result["text"]),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-ICE-Conversation-ID": str(conversation_id),
+                },
+            )
 
     # CL7: classifier will fetch & truncate the last 3 turns internally
     result = classifier.classify(

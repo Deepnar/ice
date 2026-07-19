@@ -30,6 +30,7 @@ import structlog
 from mcp.server.fastmcp import FastMCP
 
 from src.services import bookmarks as bookmarks_svc
+from src.services import conversations as conversations_svc
 from src.services import graph as graph_svc
 from src.services import projects as projects_svc
 from src.services import registry_svc, retrieval_svc
@@ -310,7 +311,13 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
     "decisions_list"/"decisions_add" (project [+ data: decision, rationale,
     type decision|constraint|incident, files]), "task_add" (project + data:
     title), "task_list" (project), "task_status" (item_id=task id + data:
-    status pending|active|done|dropped)."""
+    status pending|active|done|dropped).
+    Deletion control (C10): "delete_conversation" (conversation_id [+ data:
+    dry_run true — ALWAYS preview first and show the user the manifest; the
+    real run needs their explicit go-ahead]) → per-store manifest;
+    "forget_propose" (conversation_id + data: text) → queues a forget_request
+    review proposal listing the matching turns/edges — nothing is deleted
+    until it is approved (review_approve)."""
     _journal("ice_control", action=action)
     d = data or {}
     with _session() as db:
@@ -364,13 +371,21 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
             return projects_svc.task_list(db, project, status=d.get("status"))
         if action == "task_status":
             return projects_svc.task_set_status(db, item_id, d.get("status", ""))
+        if action == "delete_conversation":
+            return conversations_svc.delete_conversation(
+                db, conversation_id, dry_run=bool(d.get("dry_run")))
+        if action == "forget_propose":
+            return conversations_svc.propose_forget(
+                db, conversation_id, d.get("text", ""),
+                embedder=_embedder(), proposed_by="mcp")
     raise _bad_action("ice_control", action,
                       ("scope_get", "scope_set", "review_list",
                        "review_approve", "review_reject", "registry_view",
                        "registry_edit", "project_register", "project_list",
                        "project_status", "project_goal", "project_reconcile",
                        "arch_doc", "decisions_list", "decisions_add",
-                       "task_add", "task_list", "task_status"))
+                       "task_add", "task_list", "task_status",
+                       "delete_conversation", "forget_propose"))
 
 
 @mcp.tool()

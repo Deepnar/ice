@@ -410,7 +410,9 @@ class ReviewQueue(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     item_type = Column(Text, nullable=False)
     item_content = Column(JSONB, default={})
-    status = Column(Text, default="pending")  # pending, approved, rejected
+    # pending | approved | rejected | resolved (agent-settled, D1/D2)
+    # | stale (referenced conversation deleted, C10)
+    status = Column(Text, default="pending")
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 class BatchSummary(Base):

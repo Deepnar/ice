@@ -14,6 +14,7 @@ from src.api.db import get_db
 from src.api.routers.adapter import service_errors
 from src.services import bookmarks as bookmarks_svc
 from src.services import clusters as clusters_svc
+from src.services import conversations as conversations_svc
 from src.services import registry_svc
 from src.services import review as review_svc
 from src.services import scoping as scoping_svc
@@ -86,6 +87,17 @@ def override_tags(override: LabelOverride, db: Session = Depends(get_db)):
         return scoping_svc.override_tags(
             db, override.batch_id, override.topic_labels,
             override.intent_labels, override.context_reliance)
+
+
+# ------------------------------------------------------------------
+# C10 — Conversation deletion (manifest-first; ?dry_run=true previews)
+# ------------------------------------------------------------------
+@router.delete("/conversations/{conv_id}")
+def delete_conversation(conv_id: str, dry_run: bool = False,
+                        db: Session = Depends(get_db)):
+    with service_errors():
+        return conversations_svc.delete_conversation(db, conv_id,
+                                                     dry_run=dry_run)
 
 
 # ------------------------------------------------------------------

@@ -276,6 +276,13 @@ class MaintenanceRuntime:
         self._generation_inflight = max(0, self._generation_inflight - 1)
         self._last_activity = datetime.now(timezone.utc)
 
+    @property
+    def generation_in_flight(self) -> bool:
+        """C10: destructive ops (conversation deletion) refuse to run while a
+        chat stream is live — the stream's post-flight would FK-fail into a
+        just-deleted conversation."""
+        return self._generation_inflight > 0
+
     def _idle_seconds(self, now: Optional[datetime] = None) -> float:
         now = now or datetime.now(timezone.utc)
         anchor = self._last_activity or self._started_at or now
