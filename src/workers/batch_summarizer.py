@@ -1,15 +1,16 @@
 """Batch Summarization Worker – coalesces decayed turns into high‑level summaries."""
 
 import structlog
-from sentence_transformers import SentenceTransformer
 
 from src.api.db import SessionLocal
+from src.memory.embedder import get_embedder
 from src.memory.models import BatchSummary, EpisodicMemory
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 
 logger = structlog.get_logger("ice.workers.batch_summarizer")
 bg_client = get_bg_client()
-embedder = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B", device="cpu", truncate_dim=384)
+# The process-shared native-width embedder (G13/G23).
+embedder = get_embedder()
 
 def batch_summarize():
     """Summarize old, decayed turns grouped by conversation. Plain callable

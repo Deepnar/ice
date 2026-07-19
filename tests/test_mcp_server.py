@@ -54,7 +54,7 @@ def check(name, cond):
 
 
 MARK = f"mcpe7{uuid.uuid4().hex[:6]}"
-EMB = [0.05] * 384
+EMB = [0.05] * 1024
 NOW = datetime.now(timezone.utc)
 
 EXPECTED_TOOLS = {

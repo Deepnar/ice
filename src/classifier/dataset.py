@@ -3,6 +3,9 @@ import torch
 from torch.utils.data import Dataset
 from sentence_transformers import SentenceTransformer
 
+from src.api.config import settings
+from src.memory.embedder import slice384
+
 
 class ICEClassifierDataset(Dataset):
     def __init__(self, training_data_path):
@@ -23,9 +26,13 @@ class ICEClassifierDataset(Dataset):
         # Convert labels to tensor once
         self.labels = torch.tensor(labels_list, dtype=torch.float32)
 
-        # Pre-compute embeddings with the frozen sentence transformer
-        model = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B", device="cpu",truncate_dim=384)
-        self.embeddings = model.encode(prompts, convert_to_tensor=True, show_progress_bar=True).float()
+        # Pre-compute embeddings with the frozen sentence transformer.
+        # Native encode + slice384 (bit-identical to the old truncate_dim
+        # output): features must match the live classifier's input until B1
+        # retrains at native width.
+        model = SentenceTransformer(settings.embedding_model_name, device="cpu")
+        self.embeddings = slice384(
+            model.encode(prompts, convert_to_tensor=True, show_progress_bar=True)).float()
 
     def __len__(self):
         return len(self.data)

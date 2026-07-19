@@ -7,6 +7,8 @@ class MicroNER(nn.Module):
     def __init__(self):
         super().__init__()
         self.net = nn.Sequential(
+            # 384 = the slice384 MRL prefix of the native embedding (C17) —
+            # an A9-gated retrain (or GLiNER swap) retires the slice.
             nn.Linear(384, 128),
             nn.ReLU(),
             nn.Dropout(0.2),

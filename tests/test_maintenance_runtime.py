@@ -320,7 +320,7 @@ async def test_post_flight_chain():
         topic_tags=["Software_&_Tech"], intent_tags=["Troubleshooting"],
         context_reliance="Zero_Shot",
         raw_text="User: c7 runtime chain marker\n\nAssistant: ```print('ok')```",
-        embedding=[0.05] * 384, decay_score=1.0,
+        embedding=[0.05] * 1024, decay_score=1.0,
         idempotency_key=f"c7test-{batch_id}",
     )
     db.add(turn)
@@ -384,7 +384,7 @@ async def test_decay_cycles():
         timestamp=NOW - timedelta(days=30),
         topic_tags=["Software_&_Tech"], intent_tags=[],
         context_reliance="Zero_Shot", raw_text="c7 decay marker",
-        embedding=[0.05] * 384, decay_score=1.0, access_count=0,
+        embedding=[0.05] * 1024, decay_score=1.0, access_count=0,
         idempotency_key=f"c7decay-{uuid.uuid4()}",
     )
     tdb.add(marker)

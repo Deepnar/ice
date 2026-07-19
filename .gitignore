@@ -67,3 +67,5 @@ backups/
 .DS_Store
 # G23: local backup archives (full DB dumps + config — private, never commit)
 backups/
+# G23: portable memory exports (personal data — private)
+exports/

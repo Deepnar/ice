@@ -1,11 +1,10 @@
 import torch
 import structlog
-from sentence_transformers import SentenceTransformer
 from typing import List, Optional
 from .model import ICEClassifier
 from .di3 import run_di3
 from .schemas import ClassificationResult
-from sqlalchemy.orm import Session
+from src.memory.embedder import get_embedder, slice384
 
 logger = structlog.get_logger("ice.classifier")
 
@@ -35,13 +34,12 @@ class PyTorchClassifier:
         self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
         self.model.eval()
 
-        # Embedder also on CPU
-        # Embedder also on CPU – Qwen3-Embedding truncated to 384 dim for compatibility
-        self.embedder = SentenceTransformer(
-            "Qwen/Qwen3-Embedding-0.6B",
-            device="cpu",
-            truncate_dim=384
-        )
+        # G23/C17: the process-shared native-width embedder
+        # (src/memory/embedder.py) — retrieval and every store writer reach
+        # this same instance via `classifier.embedder`. The MLP head below
+        # still consumes the 384-dim MRL prefix (slice384) of the same
+        # encode until B1 retrains it at native width.
+        self.embedder = get_embedder()
 
     def _get_context_turns(self, conversation_id: str, n: int = 3, max_total_words: int = 500) -> str:
         """Return a truncated, summary‑preferring context string from the last *n* turns."""
@@ -146,7 +144,9 @@ class PyTorchClassifier:
                     f"3. CONTEXT RELIANCE: does the user need memory (Zero_Shot, Long_Term_Memory, Real_Time_Search)\n\n"
                     f"User prompt: {prompt}"
                 )
-            embedding = self.embedder.encode(prefixed_prompt, convert_to_tensor=True).unsqueeze(0).float()
+            embedding = slice384(
+                self.embedder.encode(prefixed_prompt, convert_to_tensor=True)
+            ).unsqueeze(0).float()
             outputs = self.model(embedding)                     # (1, 25)
 
             topic_out = outputs[:, :11]                         # (1, 11)

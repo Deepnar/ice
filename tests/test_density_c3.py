@@ -100,7 +100,7 @@ long_turn = EpisodicMemory(
     topic_tags=["Creative_&_Media"], intent_tags=["Generation"],
     context_reliance="Long_Term_Memory",
     raw_text="User: continue\n\nAssistant: " + ("The chapter unfolds with new events. " * 200),
-    decay_score=1.0, embedding=[0.02] * 384,
+    decay_score=1.0, embedding=[0.02] * 1024,
     idempotency_key=f"test-c3-{uuid.uuid4()}",
 )
 db.add(long_turn)

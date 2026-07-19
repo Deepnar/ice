@@ -1069,9 +1069,12 @@ class HybridRetrievalOrchestrator:
                 emb = ent.embedding
                 if emb is None:
                     continue
-                # cosine similarity = dot product of normalized vectors
+                # cosine similarity = dot product of unit vectors. True since
+                # C17: native-width encode IS unit-norm (the old truncate_dim
+                # prefixes were NOT — this comparison ran deflated for the
+                # whole 384 era).
                 dot = sum(a * b for a, b in zip(candidate_emb, emb))
-                score = dot  # embeddings are already normalised by SentenceTransformer
+                score = dot
                 if score > best_score and score >= threshold:
                     best_score = score
                     best_entity = ent
@@ -1099,25 +1102,18 @@ class HybridRetrievalOrchestrator:
     _ENUM_CUES = ("list", "all", "who are", "what are", "every", "each",
                   "which", "name the", "tell me about", "enumerate")
 
-    @staticmethod
-    def _unit(vec):
-        """L2-normalise a vector. Needed because truncate_dim=384 slices a
-        longer normalised embedding, breaking unit norm — raw dot products
-        would sit well below any cosine threshold."""
-        norm = sum(a * a for a in vec) ** 0.5
-        return [a / norm for a in vec] if norm > 0 else list(vec)
-
     def _relation_gloss_cache(self):
         """Lazily embed the controlled relation vocabulary (as 'inspired by'
-        style glosses) once per process, unit-normalised. ~200 relations ×
-        384 dims — trivial to hold and scan."""
+        style glosses) once per process. ~200 relations × native dims —
+        trivial to hold and scan. (A4's per-vector re-normalization died with
+        C17: native-width encode is already unit-norm.)"""
         global _RELATION_GLOSSES
         if _RELATION_GLOSSES is None:
             from src.workers.codex_extractor import ALLOWED_RELATIONS
             rels = sorted(ALLOWED_RELATIONS)
             embs = self.embedder.encode([r.replace("_", " ") for r in rels],
                                         convert_to_tensor=False, show_progress_bar=False)
-            _RELATION_GLOSSES = (rels, [self._unit(list(e)) for e in embs])
+            _RELATION_GLOSSES = (rels, [list(e) for e in embs])
         return _RELATION_GLOSSES
 
     @staticmethod
@@ -1156,9 +1152,10 @@ class HybridRetrievalOrchestrator:
                 if hit:
                     detected.append(rel)
 
-            # Channel 2 — embedding paraphrase channel (true cosine).
+            # Channel 2 — embedding paraphrase channel (true cosine — both
+            # sides unit-norm natively since C17).
             if prompt_embedding is not None:
-                p = self._unit(prompt_embedding)
+                p = prompt_embedding
                 scored = []
                 for rel, emb in zip(rels, gloss_embs):
                     if rel in detected:

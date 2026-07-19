@@ -64,7 +64,7 @@ def check(name, cond):
 
 # lowercase: entity canonical_names are stored casefolded (graph._resolve)
 MARK = f"svce0{uuid.uuid4().hex[:6]}"
-EMB = [0.05] * 384
+EMB = [0.05] * 1024
 NOW = datetime.now(timezone.utc)
 
 

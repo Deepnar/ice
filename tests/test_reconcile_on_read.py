@@ -231,9 +231,9 @@ try:
         def encode(self, texts, convert_to_tensor=False, **kwargs):
             import torch
             if isinstance(texts, (list, tuple)):
-                vecs = torch.zeros((len(texts), 384))
+                vecs = torch.zeros((len(texts), 1024))
                 return vecs if convert_to_tensor else vecs.numpy()
-            vec = [1.0] + [0.0] * 383
+            vec = [1.0] + [0.0] * 1023
             return torch.tensor(vec) if convert_to_tensor else vec
 
     class StubClassifier:

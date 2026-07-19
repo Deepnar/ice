@@ -69,6 +69,19 @@ def create_core(start_runtime: Optional[bool] = None) -> ICECore:
     test fixtures).
     """
     global _active_core
+    # G23 D1: fail-loud embedding-identity guard — the ONE home for it; both
+    # boot paths (app lifespan + headless ice-mcp) pass through this factory.
+    # A settings↔store_meta mismatch refuses to boot rather than silently
+    # cosine-comparing wrong-width/wrong-model vectors; a matching stamp with
+    # pending re-embed tables boots with a loud warning (legs filter
+    # embedding IS NOT NULL, so recall degrades — nothing crashes).
+    from src.memory.store_meta import check_embedding_stamp
+    guard_db = SessionLocal()
+    try:
+        check_embedding_stamp(guard_db)
+    finally:
+        guard_db.close()
+
     if start_runtime is False:
         runtime = None
     else:

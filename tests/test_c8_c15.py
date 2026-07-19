@@ -67,7 +67,7 @@ db = SessionLocal()
 conv = Conversation(memory_scope_type="auto")
 db.add(conv)
 db.commit()
-EMB = [0.03] * 384
+EMB = [0.03] * 1024
 NOW = datetime.now(timezone.utc)
 
 

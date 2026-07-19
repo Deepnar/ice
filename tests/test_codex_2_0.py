@@ -17,7 +17,7 @@ from src.workers.codex_extractor import (
 )
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.classifier.schemas import ClassificationResult
-from sentence_transformers import SentenceTransformer
+from src.memory.embedder import get_embedder
 
 # ---------------------------------------------------------------------------
 def truncate_db():
@@ -151,7 +151,7 @@ def test_ner_and_graph():
     print("\n" + "=" * 60)
     print("3. NER + VECTOR MATCHING + GRAPH TRAVERSAL")
 
-    embedder = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B", device="cpu", truncate_dim=384)
+    embedder = get_embedder()
     orchestrator = HybridRetrievalOrchestrator.__new__(HybridRetrievalOrchestrator)
     orchestrator.embedder = embedder
     orchestrator.db = SessionLocal()

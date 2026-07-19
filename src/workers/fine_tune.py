@@ -24,6 +24,7 @@ from sentence_transformers import SentenceTransformer
 
 from src.api.config import settings
 from src.api.db import SessionLocal
+from src.memory.embedder import slice384
 from src.memory.models import CuratedLabel
 from src.classifier.model import ICEClassifier
 
@@ -109,10 +110,15 @@ def fine_tune_classifier():
         if not os.path.exists(live_path):
             return f"Live classifier checkpoint missing at {live_path} – aborting."
 
-        # 1. Encode with the frozen encoder (same as the live classifier).
-        embedder = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B", device="cuda", truncate_dim=384)
+        # 1. Encode with the frozen encoder. Native encode + slice384:
+        # training features must keep matching what the live classifier
+        # consumes (the 384-dim MRL prefix) until B1 retrains at native
+        # width. CUDA instance is training-only — not the shared CPU
+        # singleton.
+        embedder = SentenceTransformer(settings.embedding_model_name, device="cuda")
         prompts = [row.prompt for row in rows]
-        embeddings = embedder.encode(prompts, convert_to_tensor=True, show_progress_bar=False)
+        embeddings = slice384(
+            embedder.encode(prompts, convert_to_tensor=True, show_progress_bar=False))
         embeddings = embeddings.clone().detach().float().requires_grad_(False)
 
         labels = _build_labels(rows)

@@ -88,7 +88,7 @@ turn = EpisodicMemory(
     context_reliance=result.context_reliance,
     raw_text=f"User: {user_prompt}\n\nAssistant: {assistant_response}",
     idempotency_key=str(uuid.uuid4()),
-    embedding=[0.0] * 384
+    embedding=[0.0] * 1024
 )
 db.add(turn)
 db.commit()

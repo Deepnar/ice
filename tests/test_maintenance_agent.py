@@ -53,10 +53,10 @@ ETYPE = f"t{MARK}"          # unique type: cosine channel can't cross into real 
 NOW = datetime.now(timezone.utc)
 
 # near-identical unit vectors (cos ≈ 0.99) orthogonal to each other's pair
-V1 = [1.0] + [0.0] * 383
-V2 = [0.99, 0.14] + [0.0] * 382
-V3 = [0.0, 0.0, 1.0] + [0.0] * 381
-V4 = [0.0, 0.0, 0.99, 0.14] + [0.0] * 380
+V1 = [1.0] + [0.0] * 1023
+V2 = [0.99, 0.14] + [0.0] * 1022
+V3 = [0.0, 0.0, 1.0] + [0.0] * 1021
+V4 = [0.0, 0.0, 0.99, 0.14] + [0.0] * 1020
 
 db = SessionLocal()
 

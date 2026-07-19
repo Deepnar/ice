@@ -53,7 +53,7 @@ def check(name, cond):
 HEX = uuid.uuid4().hex[:6]
 # letters-only marker (BM25 legs strip non-alpha)
 MARK = "cfourmark" + HEX.translate(str.maketrans("0123456789", "abcdefghij"))
-V1 = [1.0] + [0.0] * 383
+V1 = [1.0] + [0.0] * 1023
 
 db = SessionLocal()
 conv_ids: list = []
@@ -70,7 +70,7 @@ class StubEmbedder:
     def encode(self, texts, convert_to_tensor=False, **kwargs):
         import torch
         if isinstance(texts, (list, tuple)):
-            vecs = torch.zeros((len(texts), 384))
+            vecs = torch.zeros((len(texts), 1024))
             return vecs if convert_to_tensor else vecs.numpy()
         return torch.tensor(V1) if convert_to_tensor else list(V1)
 

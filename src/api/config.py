@@ -13,6 +13,17 @@ class Settings(BaseSettings):
     label_schema_path: str = "data/labeled/label_schema.json"
     default_fallback_model: str = "qwen2.5:7b"
 
+    # ── G23/C17: store-level embedding identity (fail-loud) ──
+    # The ONE embedder every writer and retrieval path shares
+    # (src/memory/embedder.py). store_meta's 'embedding' row must agree with
+    # these at boot — create_core() refuses to start on a mismatch, because
+    # silently cosine-comparing mixed-width/mixed-model vectors is the
+    # existential failure G23 exists to prevent. Changing either value
+    # requires a migration + scripts/ice_reembed.py run. The classifier and
+    # micro-NER consume slice384() of the same encode until B1/A9 retrain.
+    embedding_model_name: str = "Qwen/Qwen3-Embedding-0.6B"
+    embedding_dim: int = 1024
+
     # ── C7 D7: shared-first background model ──
     # "shared" reuses the main Ollama LLM for background work (the default —
     # the maintenance runtime's gpu lane + idle gating make this safe);

@@ -65,7 +65,7 @@ def check(name, cond):
 
 
 NOW = datetime(2026, 7, 10, 12, 0, tzinfo=timezone.utc)  # detector anchor (spec dates)
-EMB = [0.05] * 384
+EMB = [0.05] * 1024
 MARK = f"zephyrglass{uuid.uuid4().hex[:6]}"   # unique lexical marker per run
 D = timedelta(days=1)
 

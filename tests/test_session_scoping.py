@@ -34,7 +34,7 @@ def check(name, cond):
 
 MARK_PUB = "zanzibar quokka microfiche public"
 MARK_PRIV = "xylophone begonia stratagem private"
-EMB = [0.05] * 384
+EMB = [0.05] * 1024
 
 db = SessionLocal()
 conv_pub = Conversation(memory_scope_type="auto")
@@ -79,9 +79,9 @@ try:
     mk_turn(conv_priv, f"User: tell me about {MARK_PRIV}\n\nAssistant: sure", now,
             is_private=True)
 
-    from sentence_transformers import SentenceTransformer
+    from src.memory.embedder import get_embedder
     from src.retrieval.orchestrator import HybridRetrievalOrchestrator
-    embedder = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B", device="cpu", truncate_dim=384)
+    embedder = get_embedder()
     orch = HybridRetrievalOrchestrator(db, embedder)
 
     def clf(prompt):

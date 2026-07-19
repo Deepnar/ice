@@ -41,6 +41,8 @@ from typing import List, Optional
 import torch
 from transformers import AutoTokenizer
 
+from src.memory.embedder import slice384
+
 _ner_model = None
 _ner_tokenizer = None
 _load_attempted = False
@@ -158,6 +160,10 @@ def extract_entities(text: str, embedder, max_chars: Optional[int] = None) -> Li
     offsets = encoding["offset_mapping"]
 
     embeddings = embedder.encode(token_strs, convert_to_tensor=True, show_progress_bar=False)
+    # C17: micro-NER consumes the 384-dim MRL prefix of the native embedding
+    # until its (A9-gated) retrain — bit-identical to the old truncate_dim
+    # input, so the checkpoint keeps working unchanged.
+    embeddings = slice384(embeddings)
     model_device = next(_ner_model.parameters()).device
     if embeddings.device != model_device:
         embeddings = embeddings.to(model_device)

@@ -65,7 +65,7 @@ def check(name, cond):
 
 HEX = uuid.uuid4().hex[:6].translate(str.maketrans("0123456789", "abcdefghij"))
 MARK = "ctenmark" + HEX          # letters-only (BM25 legs strip non-alpha)
-EMB = [0.05] * 384
+EMB = [0.05] * 1024
 NOW = datetime.now(timezone.utc)
 
 

@@ -8,10 +8,10 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 import structlog
-from sentence_transformers import SentenceTransformer
 from sqlalchemy.orm.attributes import flag_modified
 
 from src.api.db import SessionLocal
+from src.memory.embedder import get_embedder
 from src.memory.models import (
     CodexEdge,
     CodexEntity,
@@ -22,12 +22,10 @@ from src.memory.models import (
 )
 from src.retrieval.ner_utils import extract_entities
 
-# Module‑level embedder for new entity embeddings
-embedder = SentenceTransformer(
-    "Qwen/Qwen3-Embedding-0.6B",
-    device="cpu",
-    truncate_dim=384
-)
+# The process-shared native-width embedder (G13/G23) — document_chunker,
+# decision_extractor and conversation_summary reach the SAME instance
+# through this module's name.
+embedder = get_embedder()
 
 logger = structlog.get_logger("ice.workers.codex")
 

@@ -79,7 +79,7 @@ class EpisodicMemory(Base):
     # the third level of the raw → summary → abstract hierarchy. Used only by
     # budget degradation (never *preferred* by the read-time chooser).
     abstract_text = Column(Text, nullable=True)
-    embedding = Column(Vector(384), nullable=True)
+    embedding = Column(Vector(1024), nullable=True)
     decay_score = Column(Float, default=1.0)
     access_count = Column(Integer, default=0)
     is_archived = Column(Boolean, default=False)
@@ -109,7 +109,7 @@ class EpisodicChunk(Base):
                      nullable=False, index=True)
     chunk_index = Column(Integer, nullable=False)
     chunk_text = Column(Text, nullable=False)
-    embedding = Column(Vector(384), nullable=True)
+    embedding = Column(Vector(1024), nullable=True)
 
 
 class EpisodicClusterLink(Base):
@@ -147,7 +147,7 @@ class ContextCluster(Base):
     conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow)
-    embedding = Column(Vector(384), nullable=True)
+    embedding = Column(Vector(1024), nullable=True)
     
 class CodexEntity(Base):
     __tablename__ = "codex_entities"
@@ -165,7 +165,7 @@ class CodexEntity(Base):
     description = Column(Text, default="")
     properties = Column(JSONB, default={})
     context_payload = Column(Text, default="")
-    embedding = Column(Vector(384), nullable=True)
+    embedding = Column(Vector(1024), nullable=True)
     last_updated = Column(DateTime(timezone=True), default=utcnow)
     # E1b (D3): one codex, namespaced. source ∈ conversation | static_analysis
     # | derived. Non-conversation rows are DERIVED memory: decay-exempt,
@@ -239,7 +239,7 @@ class ProceduralMemory(Base):
     last_observed = Column(DateTime(timezone=True), default=utcnow)
     is_active = Column(Boolean, default=True)
     source_batch_ids = Column(ARRAY(UUID(as_uuid=True)), default=[])
-    embedding = Column(Vector(384), nullable=True)
+    embedding = Column(Vector(1024), nullable=True)
     # E1 (D1): coding conventions are procedural rows scoped to a project —
     # not a fourth pattern store. NULL = user-global pattern (today's rows).
     project_id = Column(UUID(as_uuid=True), nullable=True)
@@ -288,7 +288,7 @@ class Decision(Base):
     files_affected = Column(ARRAY(Text), default=[])
     decision_type = Column(Text, nullable=False, default="decision")
     source_batch = Column(UUID(as_uuid=True), nullable=True)   # G17 provenance
-    embedding = Column(Vector(384), nullable=True)
+    embedding = Column(Vector(1024), nullable=True)
     valid_from = Column(DateTime(timezone=True), default=utcnow)
     valid_until = Column(DateTime(timezone=True), nullable=True)
     superseded_by = Column(UUID(as_uuid=True), nullable=True)
@@ -328,7 +328,7 @@ class RAGChunk(Base):
     document_id = Column(UUID(as_uuid=True), ForeignKey("rag_documents.id"), nullable=False)
     chunk_index = Column(Integer, nullable=False)
     chunk_text = Column(Text, nullable=False)
-    embedding = Column(Vector(384), nullable=False)
+    embedding = Column(Vector(1024), nullable=False)
 
 
 class SessionReplay(Base):
@@ -359,6 +359,19 @@ class IdempotencyKey(Base):
 
     key = Column(Text, primary_key=True)
     processed_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class StoreMeta(Base):
+    """G23 D1: store-level metadata, one row per key. Key 'embedding' holds
+    the store's embedding identity {model, dim, stamped_at} — create_core()
+    refuses to boot when settings disagree with it (src/memory/store_meta.py).
+    Keys 'reembed:<table>' hold the re-embed runner's per-table progress
+    stamps (kill-safe resume, src/memory/reembed.py)."""
+    __tablename__ = "store_meta"
+
+    key = Column(Text, primary_key=True)
+    value = Column(JSONB, default={})
+    updated_at = Column(DateTime(timezone=True), default=utcnow)
 
 
 class MaintenanceLedger(Base):
@@ -423,7 +436,7 @@ class BatchSummary(Base):
     start_turn_index = Column(Integer, nullable=False)
     end_turn_index = Column(Integer, nullable=False)
     summary_text = Column(Text, nullable=False)
-    embedding = Column(Vector(384), nullable=True)
+    embedding = Column(Vector(1024), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
@@ -442,5 +455,5 @@ class ConversationSummary(Base):
     summary_text = Column(Text, nullable=False)
     covers_through = Column(DateTime(timezone=True), nullable=True)
     covers_turns = Column(Integer, nullable=False, default=0)
-    embedding = Column(Vector(384), nullable=True)
+    embedding = Column(Vector(1024), nullable=True)
     updated_at = Column(DateTime(timezone=True), default=utcnow)

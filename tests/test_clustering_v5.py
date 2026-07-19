@@ -43,8 +43,8 @@ def check(name, cond):
 
 
 def unit(theta_deg):
-    """384-dim unit vector at angle theta from e1 in the (e1,e2) plane."""
-    v = [0.0] * 384
+    """1024-dim unit vector at angle theta from e1 in the (e1,e2) plane."""
+    v = [0.0] * 1024
     v[0] = math.cos(math.radians(theta_deg))
     v[1] = math.sin(math.radians(theta_deg))
     return v

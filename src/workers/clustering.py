@@ -88,16 +88,13 @@ from src.memory.models import (
     EpisodicClusterLink,
 )
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
-from sentence_transformers import SentenceTransformer
+from src.memory.embedder import get_embedder
 
 logger = structlog.get_logger("ice.workers.clustering")
 bg_client = get_bg_client()
 
-cluster_embedder = SentenceTransformer(
-    "Qwen/Qwen3-Embedding-0.6B",
-    device="cpu",
-    truncate_dim=384
-)
+# The process-shared native-width embedder (G13/G23).
+cluster_embedder = get_embedder()
 
 SIMILARITY_THRESHOLD = 0.6              # assignment bar (adjusted score)
 MERGE_SIMILARITY_THRESHOLD = 0.90       # adjusted bar for merging two clusters

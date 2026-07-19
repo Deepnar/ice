@@ -52,14 +52,14 @@ turn = EpisodicMemory(
     conversation_id=conv.id, batch_id=uuid.uuid4(), timestamp=datetime.now(timezone.utc),
     topic_tags=["Software_&_Tech"], intent_tags=["Factual_Retrieval"],
     context_reliance="Long_Term_Memory", raw_text=doc_text, is_document=True,
-    inject_raw=True, decay_score=1.0, embedding=[0.01] * 384,
+    inject_raw=True, decay_score=1.0, embedding=[0.01] * 1024,
     idempotency_key=f"test-c2-{uuid.uuid4()}",
 )
 legacy = EpisodicMemory(  # is_document but never chunked (pre-C2)
     conversation_id=conv.id, batch_id=uuid.uuid4(), timestamp=datetime.now(timezone.utc),
     topic_tags=["Software_&_Tech"], intent_tags=["Factual_Retrieval"],
     context_reliance="Long_Term_Memory", raw_text="User: x\n\nAssistant: y\n\n" + ("legacy words " * 1500),
-    is_document=True, inject_raw=True, decay_score=1.0, embedding=[0.01] * 384,
+    is_document=True, inject_raw=True, decay_score=1.0, embedding=[0.01] * 1024,
     idempotency_key=f"test-c2-{uuid.uuid4()}",
 )
 priv_doc = EpisodicMemory(
@@ -67,7 +67,7 @@ priv_doc = EpisodicMemory(
     topic_tags=["Software_&_Tech"], intent_tags=["Factual_Retrieval"],
     context_reliance="Long_Term_Memory", is_private=True,
     raw_text="User: p\n\nAssistant: q\n\n" + ("the secret incognito ledger entry " * 300),
-    is_document=True, inject_raw=True, decay_score=1.0, embedding=[0.01] * 384,
+    is_document=True, inject_raw=True, decay_score=1.0, embedding=[0.01] * 1024,
     idempotency_key=f"test-c2-{uuid.uuid4()}",
 )
 db.add_all([turn, legacy, priv_doc])

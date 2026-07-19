@@ -66,9 +66,9 @@ REPO = os.path.join(tempfile.gettempdir(), f"ice_coding_core_{HEX}")
 # letters-only: BM25 strips non-alpha, a digit-bearing marker never matches
 MARK = "codemark" + HEX.translate(str.maketrans("0123456789", "abcdefghij"))
 
-V1 = [1.0] + [0.0] * 383               # fixed decision embeddings
-V2 = [0.9, 0.4359] + [0.0] * 382       # cos(V1,V2) ≈ 0.90 — the conflict band
-V3 = [0.0, 0.0, 1.0] + [0.0] * 381     # (0.85 ≤ sim < 0.95 ⇒ supersede)
+V1 = [1.0] + [0.0] * 1023               # fixed decision embeddings
+V2 = [0.9, 0.4359] + [0.0] * 1022       # cos(V1,V2) ≈ 0.90 — the conflict band
+V3 = [0.0, 0.0, 1.0] + [0.0] * 1021     # (0.85 ≤ sim < 0.95 ⇒ supersede)
 
 shutil.copytree(FIXTURE, REPO)
 git(REPO, "init", "-b", "main")
@@ -302,7 +302,7 @@ try:
           constraints_for_task(db, "write a poem about autumn") == [])
 
     de._embed = _orig_embed
-    de._embed = lambda text_content: [0.0] * 383 + [1.0]
+    de._embed = lambda text_content: [0.0] * 1023 + [1.0]
     r4 = de.run_decision_extraction(
         db, project_id=project_id,
         text_content="hit a KeyError traceback in util; fixed by guarding the "
