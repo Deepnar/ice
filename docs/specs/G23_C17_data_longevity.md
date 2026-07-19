@@ -38,6 +38,20 @@ workaround exists because truncated prefixes break unit norm.
   (pg_dump -Fc + `models/` + `model_registry.json` + config snapshot) with
   `scripts/ice_backup.sh` / restore instructions; FINAL's per-checkpoint
   snapshots call the same module.
+> **[cross-ref from the C10/C11 session, 2026-07-19 — for the implementing
+> session's re-grounding]** Since this spec's grounding (`90710bd`), the vector
+> column set grew to NINE (+`conversation_summaries.embedding` (C4) →
+> summary_text; +`decisions.embedding` (E-core) → the decision text — D4's
+> introspection will catch them, the source-rule registry needs their entries),
+> and D2's export list must be re-derived from models.py (now also:
+> `conversations` itself — episodic imports FK it — plus projects/project_state/
+> decisions/tasks, three-tier slot anchors, `store_meta` once born). **Husk
+> trap:** D1/D2 merge husks (`properties.merged_into`) and C10 deletion husks
+> (`properties.deleted_reason`) carry `embedding=NULL` *deliberately* — they are
+> expired-but-kept audit rows made unmatchable. The re-embed runner's
+> codex_entities source rule MUST skip them (re-encoding a husk's renamed
+> canonical text would silently resurrect it into vector matching).
+
 - **D4: the re-embed runner is introspective and resumable.**
   `src/memory/reembed.py::run(db, embedder, tables="all", batch=256)`:
   discovers vector columns from `information_schema` (never a hardcoded list —
