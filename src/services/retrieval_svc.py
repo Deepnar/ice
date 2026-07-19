@@ -239,7 +239,9 @@ def session_start_block(db: Session) -> dict:
     summary = db.query(SessionSummary).order_by(
         SessionSummary.session_date.desc()).first()
     return {
-        "slots": slots_svc.list_slots(db),
+        # C9: global tier only — project slots belong to the per-project
+        # where-was-I blocks, conversation slots to their conversation.
+        "slots": slots_svc.list_slots(db, scope_tier="global"),
         "last_session": None if summary is None else {
             "date": summary.session_date.isoformat() if summary.session_date else None,
             "topics_covered": summary.topics_covered or [],

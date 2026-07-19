@@ -29,17 +29,41 @@ TWO CHANGES FROM THE PREVIOUS VERSION:
    leaving it implicit.
 """
 
+import uuid as _uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from src.memory.models import EpisodicMemory, MemorySlot
+from src.memory.models import ConversationSummary, EpisodicMemory, MemorySlot
 from src.retrieval.orchestrator import ContextFragment
 
 
 def _estimate_tokens(text: str) -> int:
     return int(len(text.split()) * 1.33)
+
+
+def conversation_summary_block(
+    db_session: Session,
+    conversation_id: str,
+    turn_count: int,
+    total_tokens: float,
+    recent_window_tokens: float,
+) -> Optional[str]:
+    """C4 (D3a): the active conversation's evolving summary, injected only
+    once the conversation outgrew the sliding window (B2's memory-pressure
+    condition — the window's reach is `recent_window_tokens`). A summary the
+    burst hasn't caught up with is still injected, stamped with how far
+    behind it runs. Returns the block text or None."""
+    if not conversation_id or total_tokens <= recent_window_tokens:
+        return None
+    row = db_session.query(ConversationSummary).filter_by(
+        conversation_id=_uuid.UUID(str(conversation_id))).first()
+    if row is None or not row.summary_text:
+        return None
+    behind = max(0, int(turn_count) - int(row.covers_turns or 0))
+    stamp = f"(as of {behind} turns ago) " if behind > 0 else ""
+    return f"{stamp}{row.summary_text}"
 
 
 def _trim_words(text: str, max_words: int) -> str:
@@ -128,6 +152,7 @@ def assemble_prompt(
     scope: Optional[dict] = None,
     max_recent_tokens: int = 4000,
     session_start_text: Optional[str] = None,
+    conversation_summary_text: Optional[str] = None,
 ) -> List[dict]:
     """Build a multi‑message prompt. The caller controls the total budget
     via *max_recent_tokens*; retrieval fragments are passed as‑is (already
@@ -161,10 +186,26 @@ def assemble_prompt(
         ),
     }
 
-    slot_lines = []
-    for slot in memory_slots:
-        if slot.is_active and slot.content:
-            slot_lines.append(f"[{slot.slot_name.upper()}]\n{slot.content.strip()}")
+    # C9 (D6): three slot tiers under one PERSISTENT CONTEXT header, in
+    # order global → project → conversation. Project slots render only for
+    # the attached project (scope["project_id"] — the E1 payoff: coding
+    # conversations inherit them automatically); conversation slots only for
+    # this conversation.
+    project_id = str((scope or {}).get("project_id") or "") or None
+    conv_id_str = str(conversation_id) if conversation_id else None
+
+    def _tier(slot) -> str:
+        return getattr(slot, "scope_tier", None) or "global"
+
+    active = [s for s in memory_slots if s.is_active and s.content]
+    slot_lines = [f"[{s.slot_name.upper()}]\n{s.content.strip()}"
+                  for s in active if _tier(s) == "global"]
+    slot_lines += [f"[PROJECT · {s.slot_name.upper()}]\n{s.content.strip()}"
+                   for s in active if _tier(s) == "project"
+                   and project_id and str(s.project_id) == project_id]
+    slot_lines += [f"[CONVERSATION · {s.slot_name.upper()}]\n{s.content.strip()}"
+                   for s in active if _tier(s) == "conversation"
+                   and conv_id_str and str(s.conversation_id) == conv_id_str]
     if slot_lines:
         system_msg["content"] += "\n\n=== PERSISTENT CONTEXT ===\n" + "\n\n".join(slot_lines)
 
@@ -173,6 +214,12 @@ def assemble_prompt(
     # The caller renders it only at session start — not every turn.
     if session_start_text:
         system_msg["content"] += "\n\n=== PROJECT SESSION START ===\n" + session_start_text
+
+    # C4 (D3a): global conversation shape once the window can't hold it all —
+    # orientation, not evidence (retrieval fragments stay the evidence).
+    if conversation_summary_text:
+        system_msg["content"] += ("\n\n=== CONVERSATION SUMMARY ===\n"
+                                  + conversation_summary_text)
 
     recent_messages = []
     if db_session and conversation_id:

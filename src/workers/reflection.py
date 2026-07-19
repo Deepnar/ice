@@ -245,7 +245,8 @@ def _evolve_memory_slots(db, turns):
             # Insert into review_queue for user confirmation (Phase C)
             db.execute(
                 text("INSERT INTO review_queue (item_type, item_content) VALUES ('memory_slot_update', :payload)"),
-                {"payload": json.dumps({"slot_name": slot_name, "proposed_content": content})}
+                {"payload": json.dumps({"slot_name": slot_name, "proposed_content": content,
+                                        "proposed_by": "reflection"})}
             )
 
 

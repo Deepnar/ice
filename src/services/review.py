@@ -22,7 +22,7 @@ from typing import Optional
 import structlog
 from sqlalchemy.orm import Session
 
-from src.memory.models import ContextCluster, MemorySlot, ReviewQueue
+from src.memory.models import ContextCluster, ReviewQueue
 from src.services.errors import NotFoundError
 
 logger = structlog.get_logger("ice.services.review")
@@ -44,15 +44,19 @@ def approve(db: Session, item_id: str) -> dict:
     item.status = "approved"
 
     if item.item_type == "memory_slot_update":
+        # C9 (D7): apply through the slots service — tier validation + the
+        # G14 cap live there; updated_by records the PROPOSER (the human
+        # approving is the gate, not the author).
+        from src.services import slots as slots_svc
         slot_name = item.item_content.get("slot_name")
         content = item.item_content.get("proposed_content")
         if slot_name and content:
-            slot = db.query(MemorySlot).filter_by(slot_name=slot_name).first()
-            if slot:
-                slot.content = content
-                slot.version += 1
-                slot.last_updated = datetime.now(timezone.utc)
-                slot.updated_by = "user"
+            slots_svc.update_slot(
+                db, slot_name, content,
+                updated_by=item.item_content.get("proposed_by", "agent"),
+                scope_tier=item.item_content.get("scope_tier", "global"),
+                project_id=item.item_content.get("project_id"),
+                conversation_id=item.item_content.get("conversation_id"))
 
     elif item.item_type == "new_cluster_proposal":
         name = item.item_content.get("cluster_name")

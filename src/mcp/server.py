@@ -234,19 +234,35 @@ def ice_remember(text: str, target: str = "bookmark") -> dict:
 
 @mcp.tool()
 def ice_slots(action: str, name: Optional[str] = None,
-              content: Optional[str] = None):
-    """Memory-slot control. action="list" → all active slots; "get" →
-    one slot by name; "set" → replace a slot's content (versioned;
-    name + content required)."""
-    _journal("ice_slots", action=action, name=name)
+              content: Optional[str] = None, tier: str = "global",
+              project: Optional[str] = None,
+              conversation_id: Optional[str] = None):
+    """Memory-slot control across the three tiers (C9). action="list" → all
+    active slots (every tier, tier fields included); "get" → one slot by
+    name; "set" → replace a slot's content (versioned; 300-token cap —
+    the response says when it truncated). tier="global" (default; names:
+    persona, user_preferences, tool_guidelines, project_context, guidance,
+    pending_items, session_patterns), "project" (+ project slug/name/id;
+    names: project_context, conventions, pending_items, guidance), or
+    "conversation" (+ conversation_id; names: conversation_focus,
+    pending_items)."""
+    _journal("ice_slots", action=action, name=name, tier=tier)
     with _session() as db:
+        project_id = None
+        if tier == "project" and project:
+            project_id = str(projects_svc.resolve_project(db, project).id)
         if action == "list":
             return slots_svc.list_slots(db)
         if action == "get":
-            return slots_svc.get_slot(db, name)
+            return slots_svc.get_slot(db, name, scope_tier=tier,
+                                      project_id=project_id,
+                                      conversation_id=conversation_id)
         if action == "set":
             return slots_svc.update_slot(db, name, content or "",
-                                         updated_by="mcp_edit")
+                                         updated_by="mcp_edit",
+                                         scope_tier=tier,
+                                         project_id=project_id,
+                                         conversation_id=conversation_id)
     raise _bad_action("ice_slots", action, ("list", "get", "set"))
 
 

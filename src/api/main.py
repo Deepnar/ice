@@ -28,7 +28,7 @@ from src.api.memory_decision import (
     derive_total_budget,
     estimate_recent_window_tokens,
 )
-from src.api.prompt_assembler import assemble_prompt
+from src.api.prompt_assembler import assemble_prompt, conversation_summary_block
 from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
 from src.memory.models import Conversation, EpisodicMemory, MemorySlot
@@ -474,6 +474,12 @@ async def chat_completions(
                      project_id=scope["project_id"],
                      rendered=bool(session_start_text))
 
+    # C4 (D3a): once the conversation outgrew the sliding window, its evolving
+    # summary gives the model global shape (stamped when the burst is behind).
+    conversation_summary_text = await asyncio.to_thread(
+        conversation_summary_block, db, str(conversation_id),
+        turn_count, total_tokens, recent_budget)
+
     # Separate fragments by type for token trimming (both empty when not retrieving)
     episodic_frags = [f for f in fragments if f.source_type == "episodic"]
     procedural_frags = [f for f in fragments if f.source_type == "procedural"]
@@ -483,8 +489,10 @@ async def chat_completions(
         db_session=db, conversation_id=str(conversation_id),
         bookmarked_texts=bookmarked_texts,
         classification=result,
+        scope=scope,
         max_recent_tokens=recent_budget,
         session_start_text=session_start_text,
+        conversation_summary_text=conversation_summary_text,
     )
 
     # Token budget check (crude: words * 1.33 ≈ tokens, aim for 90% of 4096)
@@ -504,8 +512,10 @@ async def chat_completions(
         messages = assemble_prompt(memory_slots_list, reduced, user_message,
                                    db_session=db, conversation_id=str(conversation_id),
                                    bookmarked_texts=bookmarked_texts,
+                                   scope=scope,
                                    max_recent_tokens=recent_budget,
-                                   session_start_text=session_start_text)
+                                   session_start_text=session_start_text,
+                                   conversation_summary_text=conversation_summary_text)
         total_words = word_count(messages[0]["content"]) + word_count(user_message)
 
     log.info(

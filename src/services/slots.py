@@ -1,10 +1,19 @@
-"""Memory-slot service (E0) — ICE's persistent working memory.
+"""Memory-slot service (E0/C9) — ICE's persistent working memory.
 
-The seven fixed slot names live HERE (single constant; C9's tier rework
-widens this list in one place). All adapters — the REST router, ice-mcp's
-`ice_slots`/`ice_remember`, C11's chat commands — call these functions.
+The valid slot names PER TIER live HERE (single constant — the C9 tier dict;
+the pre-C9 seven-name list is the 'global' tier). All adapters — the REST
+router, ice-mcp's `ice_slots`/`ice_remember`, C11's chat commands, the review
+queue's slot-proposal arm — call these functions.
+
+C9 (D5–D7): three tiers (global / project / conversation). Global rows keep
+NULL anchors; project rows require a project_id; conversation rows require a
+conversation_id (ValidationError names the missing attachment). G14 lives
+here too: content is hard-capped at SLOT_TOKEN_CAP tokens on every write
+(truncated + flagged in the response — never silently).
 """
+import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 import structlog
 from sqlalchemy.exc import IntegrityError
@@ -15,16 +24,31 @@ from src.services.errors import ConflictError, NotFoundError, ValidationError
 
 logger = structlog.get_logger("ice.services.slots")
 
-# Allowed slot names – must match the architecture (§2.1). C9 seam: widen here.
-VALID_SLOTS = [
-    "persona",
-    "user_preferences",
-    "tool_guidelines",
-    "project_context",
-    "guidance",
-    "pending_items",
-    "session_patterns",
-]
+# Valid slot names per tier (C9 D5). ONE constant — routers/MCP/C11 inherit.
+VALID_SLOTS = {
+    "global": [
+        "persona",
+        "user_preferences",
+        "tool_guidelines",
+        "project_context",
+        "guidance",
+        "pending_items",
+        "session_patterns",
+    ],
+    "project": [
+        "project_context",
+        "conventions",
+        "pending_items",
+        "guidance",
+    ],
+    "conversation": [
+        "conversation_focus",
+        "pending_items",
+    ],
+}
+
+# G14 (folded into C9): hard per-slot content cap.
+SLOT_TOKEN_CAP = 300
 
 
 def _estimate_tokens(text: str) -> int:
@@ -32,9 +56,17 @@ def _estimate_tokens(text: str) -> int:
     return int(len(text.split()) * 1.33)
 
 
-def _format_slot(slot: MemorySlot) -> dict:
+def _cap_content(content: str) -> tuple[str, bool]:
+    """Enforce the G14 cap: hard-truncate past SLOT_TOKEN_CAP tokens."""
+    if _estimate_tokens(content) <= SLOT_TOKEN_CAP:
+        return content, False
+    max_words = int(SLOT_TOKEN_CAP / 1.33)
+    return " ".join(content.split()[:max_words]), True
+
+
+def _format_slot(slot: MemorySlot, truncated: bool = False) -> dict:
     """Return a JSON-safe dict for a MemorySlot row."""
-    return {
+    out = {
         "id": str(slot.id),
         "slot_name": slot.slot_name,
         "content": slot.content or "",
@@ -43,34 +75,86 @@ def _format_slot(slot: MemorySlot) -> dict:
         "last_updated": slot.last_updated.isoformat() if slot.last_updated else "",
         "updated_by": slot.updated_by,
         "is_active": slot.is_active,
+        "scope_tier": slot.scope_tier or "global",
+        "project_id": str(slot.project_id) if slot.project_id else None,
+        "conversation_id": str(slot.conversation_id) if slot.conversation_id else None,
+    }
+    if truncated:
+        out["truncated"] = True
+        out["warning"] = (f"content exceeded the {SLOT_TOKEN_CAP}-token slot "
+                          "cap and was hard-truncated")
+    return out
+
+
+def _validate_tier(slot_name: str, scope_tier: str,
+                   project_id, conversation_id) -> None:
+    if scope_tier not in VALID_SLOTS:
+        raise ValidationError(
+            f"Invalid scope_tier {scope_tier!r}. Must be one of "
+            f"{sorted(VALID_SLOTS)}")
+    if slot_name not in VALID_SLOTS[scope_tier]:
+        raise ValidationError(
+            f"Invalid slot name for the {scope_tier} tier. Must be one of "
+            f"{VALID_SLOTS[scope_tier]}")
+    if scope_tier == "project" and not project_id:
+        raise ValidationError(
+            "a project-tier slot requires project_id — attach the "
+            "conversation to a project or pass the project explicitly")
+    if scope_tier == "conversation" and not conversation_id:
+        raise ValidationError("a conversation-tier slot requires conversation_id")
+    if scope_tier == "global" and (project_id or conversation_id):
+        raise ValidationError("a global slot takes no project/conversation anchor")
+
+
+def _tier_anchor(scope_tier: str, project_id, conversation_id) -> dict:
+    """Filter kwargs pinning one slot row within its tier."""
+    return {
+        "scope_tier": scope_tier,
+        "project_id": uuid.UUID(str(project_id)) if (
+            scope_tier == "project" and project_id) else None,
+        "conversation_id": uuid.UUID(str(conversation_id)) if (
+            scope_tier == "conversation" and conversation_id) else None,
     }
 
 
-def _require_valid_name(slot_name: str) -> None:
-    if slot_name not in VALID_SLOTS:
-        raise ValidationError(f"Invalid slot name. Must be one of {VALID_SLOTS}")
+def list_slots(db: Session, scope_tier: Optional[str] = None,
+               project_id=None, conversation_id=None) -> list[dict]:
+    """Active memory slots. No filters → every tier (adapters that only want
+    one tier pass scope_tier [+ its anchor])."""
+    q = db.query(MemorySlot).filter_by(is_active=True)
+    if scope_tier:
+        q = q.filter_by(scope_tier=scope_tier)
+        if scope_tier == "project" and project_id:
+            q = q.filter_by(project_id=uuid.UUID(str(project_id)))
+        if scope_tier == "conversation" and conversation_id:
+            q = q.filter_by(conversation_id=uuid.UUID(str(conversation_id)))
+    return [_format_slot(s) for s in q.all()]
 
 
-def list_slots(db: Session) -> list[dict]:
-    """All currently active memory slots."""
-    return [_format_slot(s) for s in
-            db.query(MemorySlot).filter_by(is_active=True).all()]
-
-
-def get_slot(db: Session, slot_name: str) -> dict:
-    """A single memory slot by name."""
-    _require_valid_name(slot_name)
-    slot = db.query(MemorySlot).filter_by(slot_name=slot_name, is_active=True).first()
+def get_slot(db: Session, slot_name: str, scope_tier: str = "global",
+             project_id=None, conversation_id=None) -> dict:
+    """A single memory slot by name (+ tier anchor for non-global tiers)."""
+    _validate_tier(slot_name, scope_tier, project_id, conversation_id)
+    slot = db.query(MemorySlot).filter_by(
+        slot_name=slot_name, is_active=True,
+        **_tier_anchor(scope_tier, project_id, conversation_id)).first()
     if not slot:
         raise NotFoundError("Slot not found or inactive")
     return _format_slot(slot)
 
 
 def update_slot(db: Session, slot_name: str, content: str,
-                updated_by: str = "user") -> dict:
-    """Update a slot's content (created with version 1 if it doesn't exist)."""
-    _require_valid_name(slot_name)
-    slot = db.query(MemorySlot).filter_by(slot_name=slot_name).first()
+                updated_by: str = "user", scope_tier: str = "global",
+                project_id=None, conversation_id=None) -> dict:
+    """Update a slot's content (created with version 1 if it doesn't exist).
+    Content is G14-capped; the response carries `truncated` when it was."""
+    _validate_tier(slot_name, scope_tier, project_id, conversation_id)
+    content, truncated = _cap_content(content)
+    if truncated:
+        logger.warning("slot_content_truncated", slot=slot_name,
+                       tier=scope_tier, cap=SLOT_TOKEN_CAP)
+    anchor = _tier_anchor(scope_tier, project_id, conversation_id)
+    slot = db.query(MemorySlot).filter_by(slot_name=slot_name, **anchor).first()
     if not slot:
         slot = MemorySlot(
             slot_name=slot_name,
@@ -80,6 +164,7 @@ def update_slot(db: Session, slot_name: str, content: str,
             last_updated=datetime.now(timezone.utc),
             updated_by=updated_by,
             is_active=True,
+            **anchor,
         )
         db.add(slot)
     else:
@@ -92,27 +177,35 @@ def update_slot(db: Session, slot_name: str, content: str,
             slot.is_active = True
     db.commit()
     db.refresh(slot)
-    return _format_slot(slot)
+    return _format_slot(slot, truncated=truncated)
 
 
 def append_to_slot(db: Session, slot_name: str, text: str,
-                   updated_by: str = "user") -> dict:
+                   updated_by: str = "user", scope_tier: str = "global",
+                   project_id=None, conversation_id=None) -> dict:
     """ice_remember's slot branch: newline-append through the same versioned
     update path (never a silent overwrite)."""
-    _require_valid_name(slot_name)
-    slot = db.query(MemorySlot).filter_by(slot_name=slot_name).first()
+    _validate_tier(slot_name, scope_tier, project_id, conversation_id)
+    slot = db.query(MemorySlot).filter_by(
+        slot_name=slot_name,
+        **_tier_anchor(scope_tier, project_id, conversation_id)).first()
     existing = (slot.content or "") if slot else ""
     content = f"{existing}\n{text}" if existing else text
-    return update_slot(db, slot_name, content, updated_by=updated_by)
+    return update_slot(db, slot_name, content, updated_by=updated_by,
+                       scope_tier=scope_tier, project_id=project_id,
+                       conversation_id=conversation_id)
 
 
 def initialize_slots(db: Session) -> dict:
-    """Create the seven default memory slots with empty content. Skips any
-    slot that already exists; the unique constraint guards the concurrent-
+    """Create the seven default GLOBAL memory slots with empty content
+    (project/conversation slots are created on first write). Skips any slot
+    that already exists; the unique index guards the concurrent-
     initialization race."""
     created = []
-    for name in VALID_SLOTS:
-        existing = db.query(MemorySlot).filter_by(slot_name=name).first()
+    for name in VALID_SLOTS["global"]:
+        existing = db.query(MemorySlot).filter_by(
+            slot_name=name, scope_tier="global",
+            project_id=None, conversation_id=None).first()
         if not existing:
             db.add(MemorySlot(
                 slot_name=name,
@@ -122,6 +215,7 @@ def initialize_slots(db: Session) -> dict:
                 last_updated=datetime.now(timezone.utc),
                 updated_by="system",
                 is_active=True,
+                scope_tier="global",
             ))
             created.append(name)
     try:
@@ -133,5 +227,5 @@ def initialize_slots(db: Session) -> dict:
     return {
         "status": "ok",
         "created": created,
-        "skipped": [n for n in VALID_SLOTS if n not in created],
+        "skipped": [n for n in VALID_SLOTS["global"] if n not in created],
     }

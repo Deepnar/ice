@@ -36,8 +36,16 @@ from src.memory.models import (
     ProceduralMemory,
     ReviewQueue,
 )
-from src.services import bookmarks, clusters, graph, registry_svc
-from src.services import retrieval_svc, review, scoping, slots
+from src.services import (
+    bookmarks,
+    clusters,
+    graph,
+    registry_svc,
+    retrieval_svc,
+    review,
+    scoping,
+    slots,
+)
 from src.services.errors import NotFoundError, ValidationError
 
 _passed = 0
@@ -204,18 +212,28 @@ try:
 
     # ═══ 5. Review: slot apply + D1/D2 arms + reject ═════════════════════
     print("── review ──")
-    marker_slot = MemorySlot(slot_name=f"{MARK}_slot", content="old",
+    # C9 (D7): approve now applies through the slots service (tier-validated,
+    # G14-capped, updated_by = proposer). A conversation-tier slot anchored
+    # to this test's own conversation keeps the check off the live global
+    # slots (the old marker-named direct-row write is exactly what D7 killed).
+    marker_slot = MemorySlot(slot_name="conversation_focus", content="old",
                              token_count=1, version=1, last_updated=NOW,
-                             updated_by="user", is_active=False)
+                             updated_by="user", is_active=True,
+                             scope_tier="conversation",
+                             conversation_id=conv.id)
     rq1 = ReviewQueue(item_type="memory_slot_update", item_content={
-        "slot_name": f"{MARK}_slot", "proposed_content": f"{MARK} approved"})
+        "slot_name": "conversation_focus", "proposed_content": f"{MARK} approved",
+        "proposed_by": "reflection", "scope_tier": "conversation",
+        "conversation_id": str(conv.id)})
     db.add_all([marker_slot, rq1])
     db.commit()
     rq1_id = str(rq1.id)
     review.approve(db, rq1_id)
-    ms = db.query(MemorySlot).filter_by(slot_name=f"{MARK}_slot").first()
-    check("approve applies memory_slot_update (content + version bump)",
-          ms.content == f"{MARK} approved" and ms.version == 2)
+    ms = db.query(MemorySlot).filter_by(slot_name="conversation_focus",
+                                        conversation_id=conv.id).first()
+    check("approve applies memory_slot_update (content + version bump + proposer)",
+          ms.content == f"{MARK} approved" and ms.version == 2
+          and ms.updated_by == "reflection")
 
     merge_calls = []
     import src.workers.codex_ops as codex_ops
@@ -487,8 +505,9 @@ finally:
             id=bookmarks.NOTES_CONVERSATION_ID).delete(synchronize_session=False)
     db.query(ContextCluster).filter_by(name=f"{MARK}_cluster").delete(
         synchronize_session=False)
-    db.query(MemorySlot).filter_by(slot_name=f"{MARK}_slot").delete(
-        synchronize_session=False)
+    db.query(MemorySlot).filter_by(
+        slot_name="conversation_focus",
+        conversation_id=uuid.UUID(conv_id)).delete(synchronize_session=False)
     db.query(ProceduralMemory).filter_by(pattern_name=f"{MARK}_pattern").delete(
         synchronize_session=False)
     db.query(Conversation).filter_by(id=uuid.UUID(conv_id)).delete(

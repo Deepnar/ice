@@ -491,7 +491,11 @@ class HybridRetrievalOrchestrator:
             "codex": codex_fragments,
             "procedural": [] if incognito else self._procedural_lookup(prompt_embedding, classification, scope),
             "rag": [] if incognito else self._rag_lookup(prompt_embedding, classification),
-            "batch_summary": self._batch_summary_lookup(prompt_embedding, conv_id),
+            # C4: the cross-conversation summary half is a user-global read —
+            # gated off under incognito like procedural/rag; the conv-scoped
+            # batch half (own context) still runs.
+            "batch_summary": self._batch_summary_lookup(
+                prompt_embedding, conv_id, include_cross=not incognito),
             # T3: cold storage joins time-scoped queries only (no-op leg
             # otherwise); fragments are episodic-typed, so budget fairness
             # treats them as memories — the leg name only affects RRF weight.
@@ -1666,10 +1670,11 @@ class HybridRetrievalOrchestrator:
     # Procedural lookup (scoped + trigger‑condition evaluation)
     # ------------------------------------------------------------------
     def _procedural_lookup(self, prompt_embedding, classification, scope: Optional[dict] = None) -> List[ContextFragment]:
-        activating = {"Strategic_Planning", "Generation", "Open_Exploration"}
-        if not any(i in classification.intent_tags for i in activating):
-            return []
-
+        # C9 (D4): the leg always runs — the old 3-intent whitelist
+        # ({Strategic_Planning, Generation, Open_Exploration}) is why nobody
+        # ever *felt* procedural memory. Precision comes from the three
+        # signals that remain: embedding rank (LIMIT 5), the confidence floor
+        # in the SQL, and _procedural_trigger_match.
         allowed_batch_ids = None
         if scope and "conversation_id" in scope:
             conv_id = scope["conversation_id"]
@@ -1686,19 +1691,27 @@ class HybridRetrievalOrchestrator:
         # span overlaps it (a habit first seen after the window didn't exist
         # then).
         ts = self._active_timescope
-        time_filter, params = "", {"prompt_embedding": prompt_embedding}
+        time_filter, params = "", {
+            "prompt_embedding": prompt_embedding,
+            "min_conf": settings.procedural_min_conf,
+        }
         if ts.mode in ("as_of", "range") and ts.t0 and ts.t1:
             time_filter = "AND first_observed <= :ts_t1 AND last_observed >= :ts_t0"
             params["ts_t0"], params["ts_t1"] = ts.t0, ts.t1
+        # C9: the PgVector bindparam is load-bearing — the plain-list bind
+        # raised `vector <=> double precision[]` on every call, so this leg
+        # silently returned [] (rollback + empty) since the psycopg3 move.
+        # The intent whitelist hid the crash; killing the gate exposed it.
         query = text(f"""
             SELECT id, pattern_description,
                    1 - (embedding <=> :prompt_embedding) as score
             FROM procedural_memory
             WHERE embedding IS NOT NULL AND is_active = true
+              AND confidence_score >= :min_conf
             {time_filter}
             ORDER BY score DESC
             LIMIT 5
-        """)
+        """).bindparams(bindparam("prompt_embedding", type_=PgVector))
         try:
             rows = self.db.execute(query, params).fetchall()
             fragments = []
@@ -1753,13 +1766,16 @@ class HybridRetrievalOrchestrator:
         if not any(w in classification.prompt.lower() for w in ["document", "pdf", "reference", "manual", "guide"]):
             return []
 
+        # Same latent plain-list bind crash as the procedural leg (fixed in
+        # passing, C9 session): without the PgVector type this leg always
+        # rolled back empty under psycopg3.
         query = text("""
             SELECT chunk_text,
                    1 - (embedding <=> :prompt_embedding) as score
             FROM rag_chunks
             ORDER BY score DESC
             LIMIT 5
-        """)
+        """).bindparams(bindparam("prompt_embedding", type_=PgVector))
         try:
             rows = self.db.execute(query, {"prompt_embedding": prompt_embedding}).fetchall()
             return [ContextFragment(
@@ -1771,36 +1787,72 @@ class HybridRetrievalOrchestrator:
         except Exception:
             self.db.rollback()
             return []
-    def _batch_summary_lookup(self, prompt_embedding, conv_id: Optional[str] = None) -> List[ContextFragment]:
-        if not conv_id:
-            return []
+    def _batch_summary_lookup(self, prompt_embedding, conv_id: Optional[str] = None,
+                              include_cross: bool = True) -> List[ContextFragment]:
         # T3 (D14): skipped under any non-current mode — a summary's created_at
         # is long after its content's period, which is underivable without a
         # turn-index→timestamp join; serving it under a window would mislead.
         if self._active_timescope.mode != "current":
             return []
+        fragments: List[ContextFragment] = []
+        # Half 1 (as built): this conversation's batch summaries.
+        if conv_id:
+            try:
+                query = text("""
+                    SELECT summary_text, created_at,
+                           1 - (embedding <=> :prompt_embedding) as score
+                    FROM batch_summaries
+                    WHERE conversation_id = :conv_id
+                      AND embedding IS NOT NULL
+                    ORDER BY score DESC
+                    LIMIT 3
+                """).bindparams(bindparam("prompt_embedding", type_=PgVector))
+                rows = self.db.execute(query, {"prompt_embedding": prompt_embedding, "conv_id": conv_id}).fetchall()
+                # T1: summaries are written long after the turns they compress,
+                # so they get a "[summary, <created>]" prefix, not a turn date.
+                fragments += [ContextFragment(
+                    text=(f"[summary, {r.created_at.strftime('%Y-%m-%d')}] " if r.created_at else "") + r.summary_text,
+                    source_type="batch_summary",
+                    score=r.score,
+                    token_count=int(len(r.summary_text.split()) * 1.33)
+                ) for r in rows]
+            except Exception:
+                self.db.rollback()
+        # Half 2 (C4 D3b): OTHER conversations' evolving whole-conversation
+        # summaries — cross-conversation overview hits. The active
+        # conversation's own summary is excluded (the assembler injects it —
+        # double-inject trap) and private conversations never leave their
+        # scope (memory_scope_type join). Skipped entirely under incognito
+        # (a user-global read — G16 "read nothing").
+        if not include_cross:
+            return fragments
         try:
             query = text("""
-                SELECT summary_text, created_at,
-                       1 - (embedding <=> :prompt_embedding) as score
-                FROM batch_summaries
-                WHERE conversation_id = :conv_id
-                  AND embedding IS NOT NULL
+                SELECT s.summary_text, s.updated_at,
+                       1 - (s.embedding <=> :prompt_embedding) as score
+                FROM conversation_summaries s
+                JOIN conversations c ON c.id = s.conversation_id
+                WHERE s.embedding IS NOT NULL
+                  AND c.memory_scope_type != 'none'
+                  AND (CAST(:conv_id AS uuid) IS NULL
+                       OR s.conversation_id != CAST(:conv_id AS uuid))
                 ORDER BY score DESC
-                LIMIT 3
+                LIMIT 2
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
-            rows = self.db.execute(query, {"prompt_embedding": prompt_embedding, "conv_id": conv_id}).fetchall()
-            # T1: summaries are written long after the turns they compress, so
-            # they get a "[summary, <created>]" prefix, not a turn date.
-            return [ContextFragment(
-                text=(f"[summary, {r.created_at.strftime('%Y-%m-%d')}] " if r.created_at else "") + r.summary_text,
+            rows = self.db.execute(query, {
+                "prompt_embedding": prompt_embedding,
+                "conv_id": conv_id,
+            }).fetchall()
+            fragments += [ContextFragment(
+                text=(f"[conversation summary, {r.updated_at.strftime('%Y-%m-%d')}] "
+                      if r.updated_at else "[conversation summary] ") + r.summary_text,
                 source_type="batch_summary",
                 score=r.score,
                 token_count=int(len(r.summary_text.split()) * 1.33)
             ) for r in rows]
         except Exception:
             self.db.rollback()
-            return []
+        return fragments
     # ------------------------------------------------------------------
     # T3: cold-storage leg + resurrection (D-U1) + honest emptiness
     # ------------------------------------------------------------------

@@ -53,6 +53,9 @@ class Settings(BaseSettings):
         "decay_procedural": 5400,
         "reflection": 7200,
         "batch_summarize": 7200,
+        # C4: evolving whole-conversation summaries (also a session-end burst
+        # member; the cadence pass is a no-op for quiet conversations).
+        "conversation_summary": 7200,
         "compaction": 86400,
         # D1/D2: the maintenance agent (worklist + bounded LLM decisions);
         # also runs in the session-end burst.
@@ -78,6 +81,11 @@ class Settings(BaseSettings):
     # frequency under a burst of agent reads (at most one check per window).
     reconcile_on_read: bool = True
     reconcile_on_read_min_interval_seconds: float = 2.0
+
+    # ── C9 (D4): procedural leg confidence floor — REPLACES the old 3-intent
+    # whitelist as the precision mechanism (embedding rank + trigger match +
+    # this floor). Z1 rule: >30 active patterns with <5% injection rate ⇒ 0.5.
+    procedural_min_conf: float = 0.3
 
     # ── C16 (model-aware half): total context budget derived from the routed
     # model's context window instead of a hardcoded 23k. fraction reserves the

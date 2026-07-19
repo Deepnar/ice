@@ -86,6 +86,9 @@ JOBS: dict[str, JobSpec] = {
     "decay_procedural":        JobSpec("src.workers.procedural_decay:decay_procedural_patterns", "cpu", pass_cycles=True),
     "reflection":              JobSpec("src.workers.reflection:run_reflection", "gpu"),
     "batch_summarize":         JobSpec("src.workers.batch_summarizer:batch_summarize", "gpu"),
+    # C4: the evolving whole-conversation summary — burst member + cadence
+    # (idempotent per covers_through; quiet conversations are no-ops).
+    "conversation_summary":    JobSpec("src.workers.conversation_summary:run_conversation_summaries", "gpu", needs_db=True),
     # D1/D2: the maintenance agent replaced the sentinel monitor (its two real
     # checks live on as agent detectors 2 and 5).
     "maintenance_agent":       JobSpec("src.workers.maintenance_agent:run_maintenance_agent", "gpu", needs_db=True),
@@ -528,8 +531,11 @@ class MaintenanceRuntime:
         self._ledger_finish(BURST_STAMP, "ok", None)
         logger.info("session_end_burst")
         # D8: the maintenance agent rides the burst with the heavy pair —
-        # "reconcile when the sitting ends".
-        for job in ("reflection", "batch_summarize", "maintenance_agent"):
+        # "reconcile when the sitting ends" — and C4's conversation summary
+        # joins them (the quartet): the evolving summary is a session-end
+        # artifact, never per-turn.
+        for job in ("reflection", "batch_summarize", "maintenance_agent",
+                    "conversation_summary"):
             row = rows.get(job)
             if row and row["last_finished"] and \
                     row["last_finished"] > self._last_activity:

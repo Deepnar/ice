@@ -122,13 +122,20 @@ class MemorySlot(Base):
     __tablename__ = "memory_slots"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    slot_name = Column(Text, nullable=False)  # one of the seven predefined names
+    slot_name = Column(Text, nullable=False)  # valid names per tier: services/slots.py
     content = Column(Text, default="")
     token_count = Column(Integer, default=0)
     version = Column(Integer, default=1)
     last_updated = Column(DateTime(timezone=True), default=utcnow)
-    updated_by = Column(Text, nullable=False)  # user | reflection_worker
+    updated_by = Column(Text, nullable=False)  # user | agent | reflection | chat_command | mcp_edit | system
     is_active = Column(Boolean, default=True)
+    # C9 (D5): three-tier slots. 'global' rows keep NULL anchors; 'project'
+    # rows carry project_id; 'conversation' rows carry conversation_id.
+    # Uniqueness = NULLS NOT DISTINCT index on (slot_name, scope_tier,
+    # project_id, conversation_id) — the migration owns it.
+    scope_tier = Column(Text, nullable=False, default="global", server_default="global")
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=True)
 
 class ContextCluster(Base):
     __tablename__ = "context_clusters"
@@ -416,3 +423,22 @@ class BatchSummary(Base):
     summary_text = Column(Text, nullable=False)
     embedding = Column(Vector(384), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class ConversationSummary(Base):
+    """C4: ONE evolving summary per conversation — "the whole conversation so
+    far, current" (never a batch_summaries range row). Maintained incrementally
+    by the conversation_summary burst job; consumed by the assembler (active
+    conversation, past the window condition) and the batch-summary retrieval
+    leg (cross-conversation hits). T-track era digests read this shape as-is.
+    Cascade delete = C10's conversation deletion takes the summary with it."""
+    __tablename__ = "conversation_summaries"
+
+    conversation_id = Column(UUID(as_uuid=True),
+                             ForeignKey("conversations.id", ondelete="CASCADE"),
+                             primary_key=True)
+    summary_text = Column(Text, nullable=False)
+    covers_through = Column(DateTime(timezone=True), nullable=True)
+    covers_turns = Column(Integer, nullable=False, default=0)
+    embedding = Column(Vector(384), nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=utcnow)

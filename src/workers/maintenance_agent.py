@@ -702,6 +702,7 @@ def _propose_slot(db, item: WorkItem, suggestion: str, run_id) -> str:
     db.add(ReviewQueue(item_type="memory_slot_update", item_content={
         "slot_name": item.payload["slot_name"],
         "proposed_content": suggestion,
+        "proposed_by": "agent",       # C9 D7: recorded as updated_by on apply
         "reason": f"slot untouched > {STALE_SLOT_DAYS}d (maintenance agent)",
         "agent_run_id": str(run_id)}))
     db.commit()
