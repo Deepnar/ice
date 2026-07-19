@@ -334,7 +334,7 @@ Dry-run gate on a 10-turn mini-dataset committed as a fixture:
 - **F10:** the lme/synth replay adapters are F10's ingestion path exercised at
   scale — anything built here (format adapters, fast-forward decay policy handling)
   lands as reusable F10 machinery, not experiment-only code.
-- **G23:** pg_dump snapshotting built here is G23's backup mechanism in embryo —
+- **G23:** SHIPPED first (2026-07-19) — call `src/memory/backup.py::snapshot_db(out_path)` for per-checkpoint snapshots (pg_dump -Fc, host-else-container); do NOT rebuild the wrapper here. Original note: pg_dump snapshotting built here is G23's backup mechanism in embryo —
   share the wrapper.
 - **Paper corrections block (roadmap intro):** the NER and corroboration-trap
   corrections must land in the paper text alongside the new results.
