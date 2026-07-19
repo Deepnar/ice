@@ -10,6 +10,88 @@ anywhere). Grounded at commit `b8c2122`: episodic_chunks CASCADE from parent
 evidence = distinct `batch_source` count on an edge's `edge_added` events,
 CuratedLabel carries batch_id, EpisodicClusterLink composite-PK link rows.
 
+> **[rev 2026-07-19 — implementation-session re-grounding at `e02b21b` (rule 12);
+> the `b8c2122` grounding predates E0/E7, D1/D2, the E-core, E11 AND C4/C9.
+> Fifteen refinements, none reversing a decision:**
+> 1. **Cascade members the grounding commit couldn't see:** `session_summaries`
+>    (conversation FK, would block the row delete) and conversation-tier
+>    `memory_slots` (C9's `conversation_id` FK) are deleted with the
+>    conversation; live `decisions` rows with `source_batch ∈ batches` (E-core)
+>    are **expired** (`valid_until = now` — the table's own bi-temporal model,
+>    no event journal by design). `conversation_summaries` now CASCADEs at the
+>    DB level (C4) — the manifest counts it and the service still deletes it
+>    explicitly so the count is collected before the FK fires.
+> 2. **Corroboration = external evidence, not raw event count.** "≥2 distinct
+>    `batch_source`" read literally would keep an edge double-extracted inside
+>    the *deleted* conversation. The decision's own rationale ("the fact stands
+>    on other conversations") is the rule: keep iff an `edge_added` event exists
+>    with `batch_source ∉ batches`; otherwise expire. Verified payload shape:
+>    `edge_added` events carry `payload->>'edge_id'`, provenance in the event's
+>    `batch_source` column.
+> 3. **Entity "expiry" mechanics pinned** (CodexEntity has no liveness column —
+>    D1/D2 rev 4): mirror the merge-husk pattern — canonical_name +
+>    ` [deleted:<id8>]`, aliases emptied, `properties.deleted_reason=
+>    'source_deleted'`, `context_payload = "[deleted]"`, embedding NULLed,
+>    journaled `entity_expired` event. "User-authored description" = a
+>    `description_updated` event with `payload->>'source'` ∈
+>    {mcp_edit, manual_edit}.
+> 4. **`_expire_edge` already takes `source=`** (D1/D2 rev 1); deletion expiries
+>    pass `reason="source_deleted"`, `source="user_deletion"`, one fresh
+>    deletion batch id per run. Surviving entities touched by expired edges get
+>    `_regenerate_context_payload` (their notes must not list dead links).
+> 5. **The T-amendment is already implemented** — evolution.py's
+>    `_expiry_events`/`history_exists` drop `reason='source_deleted'` (shipped
+>    with T4). C10 owes no evolution.py change; §4 check 4 validates it.
+> 6. **Step-7 'stale' concretized:** only two pending item types can reference a
+>    conversation's batches — `codex_reconciliation` (via `old_edge_id` →
+>    edge.source_batch) and `decision_supersession` (via new_id/old_id →
+>    decision.source_batch) — plus this spec's own `forget_request` (stale when
+>    its originating conversation is the deleted one, or a listed turn id is;
+>    approval of a survivor tolerates vanished rows either way). Status
+>    vocabulary is now pending/approved/rejected/resolved(+stale); Text
+>    column, **no migration**.
+> 7. **Empty-cluster rule covers both membership mechanisms** — link rows AND
+>    the legacy `episodic_memory.cluster_id` FK; surviving clusters born from
+>    the conversation (`context_clusters.conversation_id` FK) get the anchor
+>    NULLed (else the row delete FK-fails). Both counted in the manifest.
+> 8. **Mid-generation refusal is in-process:** `runtime.generation_in_flight`
+>    (new public property over C7's `_generation_inflight`). The MCP process
+>    cannot see the app's stream — accepted single-user reality; the realistic
+>    mid-stream deletion path (the app's own REST/frontend) is covered.
+> 9. **`try_handle` gains `scope`:** `try_handle(db, runtime, conv, text,
+>    scope)` — main.py has already built the scope dict (incognito/project
+>    keys) at the insertion point (after the G26 conversation-resolution +
+>    scope block, before `classifier.classify`); `/search` passes it to
+>    `context_for` verbatim (chat-path parity incl. the E11 freshen; auto
+>    scope stays {} = global, exactly like `ice_context` without a
+>    conversation).
+> 10. **Handled commands skip episodic storage AND post-flight entirely** — a
+>    stored "/slots" turn would pollute retrieval; the `chat_command` journal
+>    + `updated_by` tags are the record. The confirmation streams as OpenAI
+>    `chat.completion.chunk` SSE (`model="ice-commands"`, one content chunk +
+>    finish + `[DONE]`) so any OpenAI-compatible frontend renders it.
+> 11. **`/delete-conversation` confirm state is process-local** (pending map,
+>    10-min TTL; a restart clears it = safe refusal). "confirm" with nothing
+>    pending → the idempotent hint; after deletion the entry is popped, so a
+>    double confirm hits the same hint (and the service raises NotFound).
+> 12. **`/forget` arm naming:** `item_type="forget_request"`; the review-approve
+>    arm dispatches to the conversations service's `apply_forget` (turn deletes
+>    + edge expiries `reason="user_forget"`, `source=` the proposer). A /forget
+>    with zero matches queues nothing and says so. Matching: episodic top-5 by
+>    embedding (visibility-guarded, **PgVector bindparam** — the C9 lesson) +
+>    live conversation-source edges whose entity names (≥3 chars) appear in the
+>    text.
+> 13. **`/scope` passes through existing cluster_ids/custom_filter** —
+>    `set_scope` overwrites them otherwise (a bare `/scope auto` must not wipe
+>    cluster assignments); `project=None` leaves attachment untouched.
+> 14. **`/bookmark` = `latest_turn` + `bookmark_turn`** (the stored-turn
+>    reality: the just-streamed reply isn't stored until post-flight; a fresh
+>    conversation gets a clear "nothing stored yet" instead of NotFound).
+> 15. **REST adapters here are sync `def` + `service_errors()`** (house
+>    pattern) — the DELETE endpoint follows; G24's to_thread applies only to
+>    the async `chat_completions` caller, which wraps `try_handle` in
+>    `asyncio.to_thread`.]**
+
 ## 1. Decisions
 
 ### C10 — deletion with correct cascade semantics
