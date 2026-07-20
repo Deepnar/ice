@@ -104,6 +104,128 @@ FINAL's adapters are consumers #2/#3 — if FINAL is implemented first, the engi
 is built THERE and this spec's D1 relocates it under `src/ingestion/` (either
 order works; the close-out flow fixes the sequence). B6 owns branch import.
 
+## [rev 2026-07-20] Re-grounding notes (pre-implementation, rule 12)
+
+Grounded against HEAD `2cebde4` (post G23/C17). Sixteen refinements; where
+they contradict §1–§6 above, THESE win:
+
+1. **`apply_decay(cycles)` cannot be D3's fast-forward mechanism.** The live
+   function (src/workers/decay.py) clamps cycles to [1, 96] (≈6 days) and
+   applies ONE uniform rate to every eligible row — per-turn ages are
+   impossible through it. The importer instead computes each turn's score
+   closed-form at insert, **deriving daily rates from decay.py's own
+   constants** (`DECAY_RATE_UNACCESSED ** CYCLES_PER_DAY` ⇒ 0.95/day;
+   creative 0.99/day with the 0.3 floor), then applies `is_archived` when
+   score < ARCHIVE_THRESHOLD. `apply_decay` itself is untouched except for
+   refinement 2.
+2. **`decay_immune` is a permanent boolean owned by bookmarks** — no window
+   semantics exist. New nullable column `episodic_memory.decay_immune_until`
+   (TIMESTAMPTZ); decay.py's three decay UPDATEs additionally filter
+   `(decay_immune_until IS NULL OR decay_immune_until < :now)` — the window
+   self-expires, no sweeper job. Bookmarks keep the boolean.
+3. **NEW default policy `hybrid` (USER decision, 2026-07-19):** per-turn age
+   threshold RECENT_DAYS=30. Turns ≤30d old at import → preserve semantics
+   (score 1.0 + 14-day `decay_immune_until`); older turns → fast-forward with
+   the aging counted from the threshold (`age_days − 30`), giving a smooth
+   ramp instead of a cliff at day 30. A month-old chat arrives fresh, a
+   year-old one arrives aged, a long-running one gets an aged head + fresh
+   tail. The D3 trio stays selectable; `preserve` is no longer the default.
+4. **Import never cold-moves.** Fast-forwarded scores floor at
+   COLD_THRESHOLD (0.05): the importer must not delete rows it just created
+   (idempotency + T3 own cold transitions; the next natural decay cycle takes
+   truly-dead rows cold through the normal machinery).
+5. **DeepSeek is a fourth adapter** (user has a real DeepSeek export).
+   Format: ChatGPT-style mapping tree (`{id, inserted_at, mapping, title,
+   updated_at}`, node `{id, parent, children, message}`) but **no
+   `current_node`** and message content in `fragments[]` with types
+   REQUEST/RESPONSE/THINK/SEARCH/TOOL_OPEN/TOOL_SEARCH. Role from fragment
+   type (REQUEST=user, RESPONSE=assistant); THINK/SEARCH/TOOL_* dropped.
+   Path selection at branches: follow the child whose subtree has the latest
+   `inserted_at` (latest-edit-wins); skipped branch messages counted.
+6. **Claude exports also branch.** `chat_messages` is ALL messages incl.
+   abandoned edit-branches (18/68 real conversations); current path = walk
+   `parent_message_uuid` up from the latest-created leaf. 430/1472 real
+   messages have empty `text` (tool/attachment-only) — fall back to joined
+   `content[]` text blocks (skip thinking/tool blocks), drop if still empty.
+   Non-empty `text` is authoritative (it renders fuller than block joins).
+7. **Real exports in `data/simulation/raw_chats/` are format reference
+   ONLY** (user 2026-07-19): never real-imported this session, never
+   committed as fixtures — fixtures are tiny synthetic files mimicking each
+   shape. ChatGPT JSON adapter is built from documented shape (mapping +
+   `current_node`, unix-float `create_time`, `author.role`,
+   `content.parts`); the user's proper ChatGPT export arrives later — their
+   existing gpt*.txt dumps are F14 material at best.
+8. **Per-turn idempotency_key excludes the run id:**
+   `sha256("ice-import:{conversation_id}:{turn_index}:{pair_hash16}")`.
+   A per-run component would break D4's cross-run resume (new run ⇒ new keys
+   ⇒ duplicates). The conversation_id itself is deterministic:
+   `uuid5(NS_ICE_IMPORT, "{provider}:{source_conversation_id}")`.
+9. **"Runs in the gpu lane" is realized as a self-re-enqueueing sliced job**
+   `import_replay` (JOBS entry, gpu lane, kwargs `{import_id, seq}`): each
+   dispatch processes conversations until a ~10-min slice budget expires or
+   a live generation appears, then re-enqueues `seq+1` and returns — the
+   lane frees between slices so live post_flight never starves behind an
+   hours-long import, and `_gpu_ready(for_event=True)` gates every
+   resumption (the C7 yield). Mid-slice, the engine additionally pauses
+   between turns while `generation_in_flight`. Inner stages are DIRECT
+   calls: `evaluate_turn` (which itself chains chunking/codex/procedural per
+   C7), `run_cluster_assignment(db, conversation_ids=[cid])` per finished
+   conversation, `batch_summarize()` + `run_conversation_summaries(db,
+   conversation_ids=…)` at finalize.
+10. **Persistent state = two new tables.** `import_runs` (id, source_path,
+    source_format, policy, kind='replay', status running|completed|failed|
+    aborted, totals/counters, timestamps, error, report JSONB) and
+    `import_conversations` (content_hash PK, import_id, conversation_id,
+    title, n_turns, imported_at) — the hash-skip ledger written only after a
+    conversation fully replays; a mid-conversation kill re-runs it and the
+    per-turn keys dedupe. One import at a time (a fresh `running` row
+    blocks; stale >10 min heartbeat ⇒ auto-mark aborted and proceed).
+    C10 note: deleting an imported conversation leaves its hash tombstone —
+    re-imports do NOT resurrect it; that is the honest reading of a
+    user-initiated forget.
+11. **Provenance column, not codex vocabulary:** new
+    `episodic_memory.ts_provenance` TEXT NOT NULL DEFAULT 'original'
+    ('original' | 'synthetic_raw_import'). F10 turns keep 'original' (their
+    timestamps are real); F14 turns get 'synthetic_raw_import'. Codex
+    `source` vocabulary (G17/E1b) untouched — T-timelines caveat via the
+    batch→turn join.
+12. **F14 mechanics pinned:** slices via the shared `chunk_text` (C2 greedy
+    packer) with max_tokens ≈ 2,667 (≈2,000 prose words) and
+    overlap_words=200; per-slice turn extraction (bg LLM, JSON) then ONE
+    seam call per adjacent pair (model sees A's tail turns + B's head turns
+    + the raw overlap once, returns the corrected boundary turns);
+    normalized-alnum-hash dedup at the end; synthetic timestamps END at file
+    mtime spaced 1/min backwards (a file's mtime marks when its conversation
+    ended); title = filename. `.txt`/unparseable inputs route to this path.
+13. **Message pairing:** consecutive same-role messages merge (`\n\n`);
+    pairs are (user → assistant); a trailing user message stores with an
+    empty assistant half; leading orphan assistant messages are skipped and
+    counted in the report.
+14. **Adapters land in the E0 world:** engine under `src/ingestion/`
+    (importer.py, formats.py, raw_slicer.py) + a thin service
+    `src/services/ingestion.py` (`start_import`, `import_status`) that REST
+    (`POST /user-control/import`, `GET /user-control/import[/{id}]`) and
+    `ice_control action="import_status"` both adapt — parity per E0.
+    `start_import` supports dry_run (parse + count + estimate only; the D5
+    cost note uses ~6 s/turn).
+15. **Stored-turn parity with `store_turn_async`:** raw_text exactly
+    `"User: {u}\n\nAssistant: {a}"` (reembed RULES' `_episodic_source`
+    parses that shape), embedding = user half only via
+    `src/memory/embedder.py::get_embedder()`, tags/context_reliance from the
+    live classifier when available (engine takes injectable classifier/
+    embedder/llm à la `run_conversation_summaries`; stub default reliance =
+    `Zero_Shot`), sessions via `resolve_session_id(db, cid, turn_ts,
+    settings.session_gap_minutes)` — original timestamps make gap-derived
+    historical sessions come out free, in replay order.
+16. **Validation adaptation:** check 4's fast_forward assertion becomes
+    `score == 0.95**(age_days)` (per-day closed form, refinement 1) with the
+    COLD floor case checked separately; a hybrid case (45d ⇒
+    `0.95**15`) and a decay.py immunity-window regression (immune row
+    survives `apply_decay`, expired window decays) are added; check 2 runs
+    the REAL `evaluate_turn` with module-attr LLM stubs (house pattern:
+    `codex_extractor.extract_triplets = …`), `batch_summarize` skipped via
+    flag (global-sweep machinery, tested elsewhere).
+
 ## 6. Traps
 
 - Don't import as an archive (bulk-insert without the pipeline) — the entire

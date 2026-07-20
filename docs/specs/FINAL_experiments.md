@@ -331,9 +331,18 @@ Dry-run gate on a 10-turn mini-dataset committed as a fixture:
   months-scale; note it as future work in the paper.
 - **B3/F15:** the MoE pilot consumes their pool; keep `find_best_model` untouched by
   experiment code.
-- **F10:** the lme/synth replay adapters are F10's ingestion path exercised at
-  scale — anything built here (format adapters, fast-forward decay policy handling)
-  lands as reusable F10 machinery, not experiment-only code.
+- **F10:** SHIPPED first (2026-07-20, commit `316e11f`) — the ingestion engine is
+  live at `src/ingestion/importer.py::import_conversations(db, runtime, source,
+  policy, *, run_id, classifier, embedder, llm, deadline, progress_cb)`, consuming
+  an iterable of `NormalizedConversation`. FINAL's lme/synth adapters are consumers
+  #2/#3: write them as new functions in `src/ingestion/` that yield
+  `NormalizedConversation`s (dataset session timestamps as the turn `ts`, so the
+  replay's sessions come out gap-derived), then call `import_conversations` — do
+  NOT rebuild the replay loop, decay handling, or idempotency here. `fast_forward`
+  is a settled policy string; `formats.py` is the pattern for a new adapter.
+  Original note: the lme/synth replay adapters are F10's ingestion path exercised
+  at scale — anything built here lands as reusable F10 machinery, not
+  experiment-only code.
 - **G23:** SHIPPED first (2026-07-19) — call `src/memory/backup.py::snapshot_db(out_path)` for per-checkpoint snapshots (pg_dump -Fc, host-else-container); do NOT rebuild the wrapper here. Original note: pg_dump snapshotting built here is G23's backup mechanism in embryo —
   share the wrapper.
 - **Paper corrections block (roadmap intro):** the NER and corroboration-trap
