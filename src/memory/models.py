@@ -63,6 +63,11 @@ class EpisodicMemory(Base):
     # retrieval is explicitly scoped to their own conversation.
     is_private = Column(Boolean, default=False, nullable=False, index=True)
     timestamp = Column(DateTime(timezone=True), default=utcnow)
+    # F14: 'original' = the timestamp came from the source (live turn or
+    # provider export); 'synthetic_raw_import' = synthesized from file mtime
+    # for a raw text dump — T-timelines caveat those dates.
+    ts_provenance = Column(Text, nullable=False, default="original",
+                           server_default="original")
     topic_tags = Column(ARRAY(Text), default=[])
     intent_tags = Column(ARRAY(Text), default=[])
     context_reliance = Column(Text, nullable=False)
@@ -85,6 +90,10 @@ class EpisodicMemory(Base):
     is_archived = Column(Boolean, default=False)
     is_bookmarked = Column(Boolean, default=False)
     decay_immune = Column(Boolean, default=False)
+    # F10 preserve/hybrid: temporary decay immunity that self-expires — the
+    # decay UPDATEs skip rows whose window is still open. NULL = no window.
+    # (decay_immune stays the permanent flag bookmarks own.)
+    decay_immune_until = Column(DateTime(timezone=True), nullable=True)
     inject_raw = Column(Boolean, default=True)
     is_document = Column(Boolean, default=False)
     idempotency_key = Column(Text, unique=True, nullable=False)
@@ -457,3 +466,55 @@ class ConversationSummary(Base):
     covers_turns = Column(Integer, nullable=False, default=0)
     embedding = Column(Vector(1024), nullable=True)
     updated_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class ImportRun(Base):
+    """F10: one replay import of a provider export (or F14 raw dump).
+
+    kind mirrors G23's manifest vocabulary: this is the REPLAY path (turns
+    re-live the pipeline); scripts/ice_import.py's state-copy is the sibling.
+    Progress counters heartbeat via updated_at; a `running` row older than
+    the staleness window is treated as crashed and auto-aborted on the next
+    start_import (resume rides the import_conversations hash ledger)."""
+    __tablename__ = "import_runs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_path = Column(Text, nullable=False)
+    source_format = Column(Text, nullable=False)   # chatgpt|claude|deepseek|jsonl|raw
+    policy = Column(Text, nullable=False)          # hybrid|preserve|fast_forward|fresh
+    kind = Column(Text, nullable=False, default="replay", server_default="replay")
+    status = Column(Text, nullable=False, default="running",
+                    server_default="running")      # running|completed|failed|aborted
+    total_conversations = Column(Integer, nullable=False, default=0)
+    total_turns = Column(Integer, nullable=False, default=0)
+    done_conversations = Column(Integer, nullable=False, default=0)
+    done_turns = Column(Integer, nullable=False, default=0)
+    skipped_conversations = Column(Integer, nullable=False, default=0)
+    failed_turns = Column(Integer, nullable=False, default=0)
+    started_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    error = Column(Text, nullable=True)
+    report = Column(JSONB, nullable=True)
+
+
+class ImportConversation(Base):
+    """F10 D4: the hash-skip ledger — one row per FULLY replayed conversation
+    (written after its last turn + clustering), keyed by the normalized-
+    content hash. Re-running an export skips hashes present here; a
+    mid-conversation kill leaves no row, so that conversation re-runs and
+    its per-turn idempotency keys dedupe. conversation_id is deliberately
+    NOT a FK: C10 deletion of an imported conversation keeps this row as a
+    tombstone — re-imports do not resurrect what the user chose to forget."""
+    __tablename__ = "import_conversations"
+
+    content_hash = Column(Text, primary_key=True)
+    # Nullable: the engine (import_conversations) can replay a source with no
+    # ImportRun row (direct/headless calls, spec D1's signature); the REST/CLI
+    # path always supplies one.
+    import_id = Column(UUID(as_uuid=True), ForeignKey("import_runs.id"),
+                       nullable=True, index=True)
+    conversation_id = Column(UUID(as_uuid=True), nullable=False)
+    title = Column(Text, nullable=True)
+    n_turns = Column(Integer, nullable=False, default=0)
+    imported_at = Column(DateTime(timezone=True), default=utcnow)

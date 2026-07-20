@@ -39,7 +39,8 @@ def apply_decay(cycles: int = 1):
     cycles = max(1, min(int(cycles), CYCLES_CAP))
     db = SessionLocal()
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(days=7)
 
         # T3 (D11) freeze fix: the three decay UPDATEs no longer filter
         # is_archived = FALSE — an archived row's score used to freeze at
@@ -48,16 +49,21 @@ def apply_decay(cycles: int = 1):
         # their access-class rate (onward to cold), and the symmetric
         # un-archive clause below restores strengthen-driven recoveries.
 
+        # F10: decay_immune_until is the self-expiring immunity window
+        # (preserve/hybrid imports) — an open window skips decay, an expired
+        # one needs no sweeper because the filter re-admits the row here.
         # Access-weighted decay: unaccessed non-creative turns
         db.execute(text("""
             UPDATE episodic_memory
             SET decay_score = decay_score * POWER(:rate, :cycles)
             WHERE timestamp < :cutoff
               AND decay_immune = FALSE
+              AND (decay_immune_until IS NULL OR decay_immune_until < :now)
               AND is_bookmarked = FALSE
               AND access_count = 0
               AND NOT ('Creative_&_Media' = ANY(topic_tags))
-        """), {"rate": DECAY_RATE_UNACCESSED, "cutoff": cutoff, "cycles": cycles})
+        """), {"rate": DECAY_RATE_UNACCESSED, "cutoff": cutoff,
+               "cycles": cycles, "now": now})
 
         # Access-weighted decay: previously-accessed non-creative turns
         db.execute(text("""
@@ -65,10 +71,12 @@ def apply_decay(cycles: int = 1):
             SET decay_score = decay_score * POWER(:rate, :cycles)
             WHERE timestamp < :cutoff
               AND decay_immune = FALSE
+              AND (decay_immune_until IS NULL OR decay_immune_until < :now)
               AND is_bookmarked = FALSE
               AND access_count > 0
               AND NOT ('Creative_&_Media' = ANY(topic_tags))
-        """), {"rate": DECAY_RATE_ACCESSED, "cutoff": cutoff, "cycles": cycles})
+        """), {"rate": DECAY_RATE_ACCESSED, "cutoff": cutoff,
+               "cycles": cycles, "now": now})
 
         # Slow decay for creative turns (1% per day)
         db.execute(text("""
@@ -76,9 +84,11 @@ def apply_decay(cycles: int = 1):
             SET decay_score = decay_score * POWER(:rate, :cycles)
             WHERE timestamp < :cutoff
               AND decay_immune = FALSE
+              AND (decay_immune_until IS NULL OR decay_immune_until < :now)
               AND is_bookmarked = FALSE
               AND 'Creative_&_Media' = ANY(topic_tags)
-        """), {"rate": CREATIVE_DECAY_RATE, "cutoff": cutoff, "cycles": cycles})
+        """), {"rate": CREATIVE_DECAY_RATE, "cutoff": cutoff,
+               "cycles": cycles, "now": now})
 
         # Creative floor: never drop below 0.3
         db.execute(text("""

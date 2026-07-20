@@ -100,6 +100,12 @@ JOBS: dict[str, JobSpec] = {
     "project_reconcile":       JobSpec("src.coding.reconciler:reconcile_project", "cpu", needs_db=True),
     "project_poll":            JobSpec("src.coding.reconciler:poll_projects", "cpu", needs_db=True),
     "decision_extract":        JobSpec("src.workers.decision_extractor:run_decision_extraction", "gpu", needs_db=True),
+    # F10/F14: conversation import replay — a self-re-enqueueing sliced job
+    # (event-only, no cadence). Each dispatch replays one ~10-min slice in the
+    # gpu lane and re-enqueues the next, so an hours-long import never starves
+    # live chat's post_flight; resume rides the import_conversations hash
+    # ledger + per-turn idempotency keys.
+    "import_replay":           JobSpec("src.ingestion.importer:run_import_replay", "gpu", needs_db=True),
 }
 
 # Ledger pseudo-job recording the last session-end burst (§2.3).

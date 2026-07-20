@@ -15,6 +15,7 @@ from src.api.routers.adapter import service_errors
 from src.services import bookmarks as bookmarks_svc
 from src.services import clusters as clusters_svc
 from src.services import conversations as conversations_svc
+from src.services import ingestion as ingestion_svc
 from src.services import registry_svc
 from src.services import review as review_svc
 from src.services import scoping as scoping_svc
@@ -52,6 +53,12 @@ class ScopeUpdate(BaseModel):
 
 class CommitNotice(BaseModel):
     commit: Optional[str] = None
+
+
+class ImportRequest(BaseModel):
+    source_path: str
+    policy: str = "hybrid"
+    dry_run: bool = False
 
 class ClusterCreate(BaseModel):
     name: str
@@ -152,6 +159,33 @@ def get_review_queue(status: Optional[str] = "pending", db: Session = Depends(ge
 def approve_review_item(item_id: str, body: ReviewApprove = None, db: Session = Depends(get_db)):
     with service_errors():
         return review_svc.approve(db, item_id)
+
+
+# ------------------------------------------------------------------
+# F10/F14 — Conversation import (replay). The drag-drop UI is F's (ledger);
+# this endpoint takes a server-side file path + decay policy.
+# ------------------------------------------------------------------
+@router.post("/import")
+def start_import(body: ImportRequest, db: Session = Depends(get_db)):
+    with service_errors():
+        from src.api.core import get_core
+        core = get_core()
+        runtime = core.runtime if core is not None else None
+        classifier = core.classifier if core is not None else None
+        return ingestion_svc.start_import(
+            db, body.source_path, body.policy, dry_run=body.dry_run,
+            runtime=runtime, classifier=classifier)
+
+
+@router.get("/import")
+def latest_import(db: Session = Depends(get_db)):
+    return ingestion_svc.import_status(db)
+
+
+@router.get("/import/{import_id}")
+def import_status(import_id: str, db: Session = Depends(get_db)):
+    with service_errors():
+        return ingestion_svc.import_status(db, import_id)
 
 
 # ------------------------------------------------------------------

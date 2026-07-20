@@ -1,0 +1,15 @@
+[
+  {
+    "id": "d-conv-1",
+    "title": "lambdaconv",
+    "inserted_at": "2026-04-01T08:00:00+08:00",
+    "updated_at": "2026-04-01T08:10:00+08:00",
+    "mapping": {
+      "root": {"id": "root", "parent": null, "children": ["d1"], "message": null},
+      "d1": {"id": "d1", "parent": "root", "children": ["d2"], "message": {"inserted_at": "2026-04-01T08:00:00+08:00", "model": "deepseek-chat", "fragments": [{"type": "REQUEST", "content": "mumsg query here"}]}},
+      "d2": {"id": "d2", "parent": "d1", "children": ["d3", "d3b"], "message": {"inserted_at": "2026-04-01T08:01:00+08:00", "model": "deepseek-chat", "fragments": [{"type": "THINK", "content": "reasoning hidden away"}, {"type": "RESPONSE", "content": "nureply the answer"}]}},
+      "d3": {"id": "d3", "parent": "d2", "children": [], "message": {"inserted_at": "2026-04-01T08:05:00+08:00", "model": "deepseek-chat", "fragments": [{"type": "REQUEST", "content": "ximsg the followup"}]}},
+      "d3b": {"id": "d3b", "parent": "d2", "children": [], "message": {"inserted_at": "2026-04-01T08:02:00+08:00", "model": "deepseek-chat", "fragments": [{"type": "REQUEST", "content": "omicronbranch stale question"}]}}
+    }
+  }
+]

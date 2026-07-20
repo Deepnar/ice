@@ -317,7 +317,10 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
     real run needs their explicit go-ahead]) → per-store manifest;
     "forget_propose" (conversation_id + data: text) → queues a forget_request
     review proposal listing the matching turns/edges — nothing is deleted
-    until it is approved (review_approve)."""
+    until it is approved (review_approve).
+    Import (F10/F14): "import_status" ([item_id = a run id] → that run, else
+    the latest run + recent list) reports conversation-import replay progress;
+    starting an import is a REST/CLI action (POST /user-control/import)."""
     _journal("ice_control", action=action)
     d = data or {}
     with _session() as db:
@@ -378,6 +381,9 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
             return conversations_svc.propose_forget(
                 db, conversation_id, d.get("text", ""),
                 embedder=_embedder(), proposed_by="mcp")
+        if action == "import_status":
+            from src.services import ingestion as ingestion_svc
+            return ingestion_svc.import_status(db, item_id)
     raise _bad_action("ice_control", action,
                       ("scope_get", "scope_set", "review_list",
                        "review_approve", "review_reject", "registry_view",
@@ -385,7 +391,8 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
                        "project_status", "project_goal", "project_reconcile",
                        "arch_doc", "decisions_list", "decisions_add",
                        "task_add", "task_list", "task_status",
-                       "delete_conversation", "forget_propose"))
+                       "delete_conversation", "forget_propose",
+                       "import_status"))
 
 
 @mcp.tool()

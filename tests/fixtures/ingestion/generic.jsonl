@@ -1,0 +1,5 @@
+{"role": "user", "content": "pimsg first question", "timestamp": "2026-06-01T09:00:00Z", "conversation": "convA", "title": "rhoconv"}
+{"role": "assistant", "content": "sigmareply first answer", "timestamp": "2026-06-01T09:01:00Z", "conversation": "convA"}
+{"role": "user", "content": "taumsg second question", "timestamp": "2026-06-01T09:02:00Z", "conversation": "convA"}
+{"role": "user", "content": "upsilonmsg other opener", "timestamp": "2026-06-02T10:00:00Z", "conversation": "convB", "title": "phiconv"}
+{"role": "assistant", "content": "chireply other answer", "timestamp": "2026-06-02T10:01:00Z", "conversation": "convB"}
