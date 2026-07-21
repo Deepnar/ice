@@ -69,3 +69,6 @@ backups/
 backups/
 # G23: portable memory exports (personal data — private)
 exports/
+
+# 2026-07-21 pre-B1 cleanup: archived historical/regenerable classifier+NER data (local-only)
+data/archive/
