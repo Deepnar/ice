@@ -115,3 +115,15 @@ relocations don't touch the paper build. Gitignored data files moved with plain 
 | 2026-07-21 | **paper/** → tex+pdf+sty+bst + `notes/` only | `exp2_bootstrap.py`, `manual_eval_table.py` → `mature/`; `exp3_bootstrap.py` → `flaw_ablation/buildup/`, `exp3_bootstrap_report.{json,md}` → `flaw_ablation/buildup/results/`; `FIDELITY_AUDIT.md`, `REVISION_PLAN_v2.md` → `paper/notes/`; `sync_tmlr.py` → `scripts/oneoff/` (its `HERE` repointed to `experiments/paper`) | maintainer: paper folder holds only the paper; bootstrap scripts+reports live with their experiment (exp2=mature, exp3=ablation). Gitignored LaTeX build artifacts (`*.aux/.log/.out/…`) left in place (regenerate via latexmk) |
 | 2026-07-21 | `scripts/citation_check/` → `experiments/citation_check/` (git mv) | whole dir (`verify_citations.py`, `references.json`, `RELATED_WORK.md`, `report.md`, `VERIFICATION_MEMO.md`) | maintainer: citation tooling belongs with the paper/experiments. `--refs` default in `verify_citations.py` and the ref in `docs/PUBLISHING.md` updated `scripts/`→`experiments/` |
 | 2026-07-21 | **cross-experiment path fix** | `buildup_runner.py` + `subtraction_runner.py`: `experiments/mature/generated_probes.json` → `.../intermediates/…`; `experiments/mature/results/corrected_ground_truths.json` → `.../intermediates/…` | both runners read mature's probe/GT files, which moved to `mature/intermediates/` this session |
+
+### C. `tests/` — retired dead/scratch tests → `tests/archive/`
+
+10 broken/superseded test scripts moved to `tests/archive/` (git mv → recoverable;
+`tests/archive/README.md` records each file's reason + live replacement). Deep-checked
+by evidence, not date: verified imports, referenced files, and spec/roadmap citations.
+The 22 spec-tied behavioral tests in `tests/` root + `tests/smoke/*` were left untouched.
+Smoke's import-sweep walks `src/` only, so none of these were ever in a live suite.
+
+| date | what | from → to | why |
+|---|---|---|---|
+| 2026-07-21 | retired tests → `tests/archive/` (git mv) | `test_post_flight.py`, `test_full_pipeline_phase_{6,7,9}.py`, `test_direct_codex.py`, `test_triplet.py`, `quick_probe_test.py`, `test_bg_json.py`, `test_bg_non_thinking.py`, `test_judge.py` | broken (`is_lossless` gone C1; phase_9 reads missing `data/simulation_input.jsonl` + gone `scripts/simulation/run_simulation.py` + Celery) or scratch eyeball tools (old `v2_final` checkpoint, hardcoded ids/ports, no assertions), all superseded by the behavioral suite — see `tests/archive/README.md` |
