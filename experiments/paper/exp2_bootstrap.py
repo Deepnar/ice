@@ -11,7 +11,7 @@ the paper on ICE-Dev (the 141 failed vector answers are imputed as score 1 in
 the published pipeline, not dropped) — hence the faithful replication.
 
 Read-only over the frozen results folder; writes nothing.
-Run: uv run python scripts/oneoff/paper_bootstrap_cis.py
+Run: uv run python experiments/paper/exp2_bootstrap.py  (from repo root)
 """
 import json
 import os
