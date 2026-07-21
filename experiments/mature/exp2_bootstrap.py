@@ -11,7 +11,7 @@ the paper on ICE-Dev (the 141 failed vector answers are imputed as score 1 in
 the published pipeline, not dropped) — hence the faithful replication.
 
 Read-only over the frozen results folder; writes nothing.
-Run: uv run python experiments/paper/exp2_bootstrap.py  (from repo root)
+Run: uv run python experiments/mature/exp2_bootstrap.py  (from repo root)
 """
 import json
 import os
@@ -21,7 +21,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-RESULTS = "experiments/mature/results"
+RESULTS = "experiments/mature/intermediates"
 CONDS = ["vector_rag_baseline_generalist", "vector_rag_moe",
          "full_ice_generalist", "full_ice_moe"]
 PAIRED = {

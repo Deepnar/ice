@@ -11,8 +11,8 @@ import json, os, re, statistics
 from collections import defaultdict
 
 MATURE_DIR = "experiments/mature"
-MASTER_FILE = os.path.join(MATURE_DIR, "results", "master_results.json")
-EVAL_FILE   = os.path.join(MATURE_DIR, "results", "evaluation_raw.json")
+MASTER_FILE = os.path.join(MATURE_DIR, "intermediates", "master_results.json")
+EVAL_FILE   = os.path.join(MATURE_DIR, "intermediates", "evaluation_raw.json")
 
 FLAW_CID    = "bb558b5f-5365-5bac-9ed0-07219025b5f2"
 FINAL_TURN  = 1119

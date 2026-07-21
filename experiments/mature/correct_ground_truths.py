@@ -6,10 +6,10 @@ For each probe, regenerate the ground truth at its origin split with a
 forensic‑quality prompt, then walk forward through subsequent splits,
 asking the judge whether new turns have changed the answer.
 
-Output: experiments/mature/results/corrected_ground_truths.json
+Output: experiments/mature/intermediates/corrected_ground_truths.json
   (conversation_id, probe_id, checkpoint_id) → corrected ground truth
 
-Resume‑safe via experiments/mature/_corrected_gt_progress.txt
+Resume‑safe via experiments/mature/intermediates/_corrected_gt_progress.txt
 """
 
 import json, os, sys, time, re, random
@@ -32,10 +32,10 @@ SAMPLING_LAST_N = 10
 SAMPLING_RANDOM_N = 15
 
 MATURE_DIR = Path(__file__).parent
-GENERATED_PROBES_FILE = MATURE_DIR / "generated_probes.json"
+GENERATED_PROBES_FILE = MATURE_DIR / "intermediates" / "generated_probes.json"
 SIMULATION_INPUT = Path("data/simulation/simulation_full.jsonl")
-OUTPUT_FILE = MATURE_DIR / "results" / "corrected_ground_truths.json"
-PROGRESS_FILE = MATURE_DIR / "_corrected_gt_progress.txt"
+OUTPUT_FILE = MATURE_DIR / "intermediates" / "corrected_ground_truths.json"
+PROGRESS_FILE = MATURE_DIR / "intermediates" / "_corrected_gt_progress.txt"
 
 # ---------- Prompts ----------
 # REGENERATION_PROMPT now asks the judge to extract/confirm a temporal_anchor
@@ -440,7 +440,7 @@ def filter_relevant_sentences(turns, old_gt):
 
 # ---------- Main ----------
 def main():
-    os.makedirs(MATURE_DIR / "results", exist_ok=True)
+    os.makedirs(MATURE_DIR / "intermediates", exist_ok=True)
     client = OpenAI(base_url=SGLANG_URL, api_key="dummy")
 
     generated = load_generated_probes()

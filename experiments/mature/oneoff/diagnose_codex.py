@@ -2,7 +2,7 @@
 """Quick Codex diagnostic – run while the experiment is running."""
 
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from sentence_transformers import SentenceTransformer
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator

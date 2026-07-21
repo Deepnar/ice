@@ -9,8 +9,8 @@ near‑identical blocks are collapsed to a single occurrence.
 import json, re
 from pathlib import Path
 
-MATURE_DIR = Path(__file__).parent
-CORRECTED_IN = MATURE_DIR / "results" / "corrected_ground_truths.json"
+MATURE_DIR = Path(__file__).parent.parent  # -> mature/ (script now in mature/oneoff/)
+CORRECTED_IN = MATURE_DIR / "intermediates" / "corrected_ground_truths.json"
 CORRECTED_OUT = CORRECTED_IN
 
 # ── helpers ──────────────────────────────────────────────────────────────────

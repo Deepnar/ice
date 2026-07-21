@@ -12,7 +12,7 @@ Idempotent: running it when already in sync changes nothing.
 """
 import pathlib
 
-HERE = pathlib.Path(__file__).parent
+HERE = pathlib.Path("experiments/paper")  # tex lives here; script moved to scripts/oneoff/
 SRC = HERE / "ICE_paper.tex"
 TMLR = HERE / "ICE_paper_tmlr.tex"
 MARK = r"\begin{abstract}"

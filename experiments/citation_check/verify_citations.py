@@ -96,7 +96,7 @@ def check_url_liveness(url: str):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--refs", default="scripts/citation_check/references.json")
+    parser.add_argument("--refs", default="experiments/citation_check/references.json")
     parser.add_argument("--only-flagged", action="store_true",
                          help="Only re-check entries that already carry a 'flag' field")
     parser.add_argument("--out", default=None, help="Write a markdown report to this path")

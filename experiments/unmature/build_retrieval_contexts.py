@@ -12,8 +12,8 @@ from tqdm import tqdm
 # ---------------------------------------------------------------------------
 SIMULATION_INPUT = "data/simulation/simulation_full.jsonl"
 CURATION_DIR = "experiments/curation_files"
-MASTER_RESULTS = "experiments/results_phase2/master_results.json"
-OUTPUT_FILE = "experiments/results_phase2/vector_contexts.json"
+MASTER_RESULTS = "experiments/unmature/intermediates/master_results.json"
+OUTPUT_FILE = "experiments/unmature/intermediates/vector_contexts.json"
 
 MAX_TOKENS = 30_000                  # hard cap on combined retrieved context
 TOP_K_SMALL = 20

@@ -30,18 +30,18 @@ experiments/results_phase2/master_results.json
 experiments/results_phase2/vector_contexts.json
 data/ner
 experiments/unmature/results_phase2
-experiments/flaw_ablation/buildup/_completed.txt
-experiments/flaw_ablation/buildup/evaluation_raw.json
-experiments/flaw_ablation/buildup/fragments.jsonl
-experiments/flaw_ablation/buildup/ground_truths_for_review.jsonl
-experiments/flaw_ablation/buildup/master_results.json
-experiments/flaw_ablation/buildup/metrics_report.json
-experiments/mature/generated_probes.json
-experiments/mature/_completed.txt
-experiments/mature/_corrected_gt_progress.txt
-experiments/mature/_last_turn.txt
-experiments/flaw_ablation/buildup/paper_summary.md
+# 2026-07-21 declutter: per-experiment intermediates/ + results split (local-only data).
+# Old per-file entries (buildup/*.json, mature/generated_probes.json, mature/_*.txt) were
+# consolidated here after those files moved into intermediates//results/ subfolders.
+experiments/mature/intermediates/
 experiments/mature/results
+experiments/unmature/intermediates/
+experiments/flaw_ablation/buildup/intermediates/
+# buildup/results/ holds TRACKED exp3_bootstrap_report.{json,md} — ignore only the local files:
+experiments/flaw_ablation/buildup/results/metrics_report.json
+experiments/flaw_ablation/buildup/results/paper_summary.md
+experiments/flaw_ablation/subtraction/intermediates/
+experiments/flaw_ablation/subtraction/results/
 docs/RAW_SRC.md
 .aider.env
 # Personal / private (not part of the project)

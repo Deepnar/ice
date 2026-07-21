@@ -63,10 +63,10 @@ FLAW_LABEL = "Flaw"
 
 ABLATION_DIR = Path("experiments/flaw_ablation")
 SUBDIR = ABLATION_DIR / "subtraction"
-RESULTS_DIR = SUBDIR
-MASTER_RESULTS_FILE = RESULTS_DIR / "master_results.json"
-FRAGMENTS_FILE = RESULTS_DIR / "fragments.jsonl"
-COMPLETED_FILE = SUBDIR / "_completed.txt"
+INTERMEDIATES_DIR = SUBDIR / "intermediates"
+MASTER_RESULTS_FILE = INTERMEDIATES_DIR / "master_results.json"
+FRAGMENTS_FILE = INTERMEDIATES_DIR / "fragments.jsonl"
+COMPLETED_FILE = INTERMEDIATES_DIR / "_completed.txt"
 LAST_TURN_FILE = SUBDIR / "_last_turn.txt"
 
 # Kept checkpoints: every other from generated_probes.json plus final
@@ -74,14 +74,14 @@ LAST_TURN_FILE = SUBDIR / "_last_turn.txt"
 KEPT_CHECKPOINTS = [51, 170, 285, 397, 492, 604, 735, 834, 959, 1053, 1119]
 
 # Load generated probes (for all conversations)
-GENERATED_PROBES_FILE = Path("experiments/mature/generated_probes.json")
+GENERATED_PROBES_FILE = Path("experiments/mature/intermediates/generated_probes.json")
 generated_probes = {}
 if GENERATED_PROBES_FILE.exists():
     with open(GENERATED_PROBES_FILE) as f:
         generated_probes = json.load(f)
 
 # Load corrected ground truths
-CORRECTED_GT_FILE = Path("experiments/mature/results/corrected_ground_truths.json")
+CORRECTED_GT_FILE = Path("experiments/mature/intermediates/corrected_ground_truths.json")
 corrected_ground_truths = {}
 if CORRECTED_GT_FILE.exists():
     with open(CORRECTED_GT_FILE) as f:
@@ -264,7 +264,7 @@ def main():
     args = parser.parse_args()
 
     os.makedirs(SUBDIR, exist_ok=True)
-    os.makedirs(RESULTS_DIR, exist_ok=True)
+    os.makedirs(INTERMEDIATES_DIR, exist_ok=True)
 
     # Conditional one‑time database reset
     # Conditional one‑time database reset

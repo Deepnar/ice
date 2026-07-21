@@ -9,9 +9,9 @@ from tqdm.asyncio import tqdm
 # ---------------------------------------------------------------------------
 # CONFIG
 # ---------------------------------------------------------------------------
-VECTOR_CONTEXTS = "experiments/results_phase2/vector_contexts.json"
+VECTOR_CONTEXTS = "experiments/unmature/intermediates/vector_contexts.json"
 CURATION_DIR = "experiments/curation_files"
-PROGRESS_FILE = "experiments/results_phase2/ground_truth_progress.json"
+PROGRESS_FILE = "experiments/unmature/intermediates/ground_truth_progress.json"
 
 SGLANG_URL = "http://localhost:8003/v1/chat/completions"# rename variable to VLLM_URL or keep OLLAMA_URL – up to you
 MODEL_NAME = "gemma4:12b-256k"

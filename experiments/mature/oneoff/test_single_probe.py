@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """End-to-end test of ICE Generalist on a single probe."""
 import sys, os, time, uuid
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from openai import OpenAI
 from src.api.db import SessionLocal

@@ -6,12 +6,12 @@ tournament ranking), independent of the LLM judge. This computes mean score,
 win rate, and paired bootstrap CIs so the human slice can sit in the paper as
 its own table alongside the automated Experiment-2 results.
 
-Read-only over the frozen results; run: uv run python experiments/paper/manual_eval_table.py
+Read-only over the frozen results; run: uv run python experiments/mature/manual_eval_table.py
 """
 import json
 import numpy as np
 
-SRC = "experiments/mature/results/manual_evaluation.json"
+SRC = "experiments/mature/intermediates/manual_evaluation.json"
 CONDS = ["vector_rag_baseline_generalist", "vector_rag_moe",
          "full_ice_generalist", "full_ice_moe"]
 LABEL = {"vector_rag_baseline_generalist": "Vector RAG (Gen)",

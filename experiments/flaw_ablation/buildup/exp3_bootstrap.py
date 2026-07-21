@@ -17,7 +17,8 @@ condition, so within-probe step deltas are well defined. This script:
   * paired-bootstraps full_ice vs the single-leg vector_baseline reference,
 and flags which intervals exclude zero.
 
-Reads the FROZEN buildup record read-only; writes only under experiments/paper/.
+Reads the FROZEN buildup record read-only; writes only its report under
+experiments/flaw_ablation/buildup/results/.
 """
 
 import json
@@ -25,9 +26,9 @@ import os
 
 import numpy as np
 
-EVAL_FILE = "experiments/flaw_ablation/buildup/evaluation_raw.json"
-OUT_JSON = "experiments/paper/exp3_bootstrap_report.json"
-OUT_MD = "experiments/paper/exp3_bootstrap_report.md"
+EVAL_FILE = "experiments/flaw_ablation/buildup/intermediates/evaluation_raw.json"
+OUT_JSON = "experiments/flaw_ablation/buildup/results/exp3_bootstrap_report.json"
+OUT_MD = "experiments/flaw_ablation/buildup/results/exp3_bootstrap_report.md"
 
 # Canonical buildup order (buildup_runner.py:72). vector_baseline is a reference
 # point, not a step in the chain, so it is handled separately.

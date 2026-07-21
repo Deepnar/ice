@@ -19,10 +19,11 @@ from datetime import datetime, timezone
 # ---------------------------------------------------------------------------
 MATURE_DIR = "experiments/mature"
 RESULTS_DIR = os.path.join(MATURE_DIR, "results")
-MASTER_RESULTS = os.path.join(RESULTS_DIR, "master_results.json")
-EVAL_RAW       = os.path.join(RESULTS_DIR, "evaluation_raw.json")
+INTERMEDIATES_DIR = os.path.join(MATURE_DIR, "intermediates")
+MASTER_RESULTS = os.path.join(INTERMEDIATES_DIR, "master_results.json")
+EVAL_RAW       = os.path.join(INTERMEDIATES_DIR, "evaluation_raw.json")
 OUTPUT_FILE = os.path.join(RESULTS_DIR, "metrics_complete_report_ice_dev_only.json")
-MANUAL_EVAL_FILE = os.path.join(RESULTS_DIR, "manual_evaluation.json")
+MANUAL_EVAL_FILE = os.path.join(INTERMEDIATES_DIR, "manual_evaluation.json")
 
 CORE_CONDITIONS = [
     "vector_rag_baseline_generalist",
@@ -371,7 +372,7 @@ def compute_metrics(master_entries, eval_dict):
         }
 
     # Leg‑level contribution analysis
-    fragments_path = os.path.join(RESULTS_DIR, "fragments.jsonl")
+    fragments_path = os.path.join(INTERMEDIATES_DIR, "fragments.jsonl")
     frag_sources_lookup = load_fragment_sources(fragments_path)
     leg_conv = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     leg_global = defaultdict(lambda: defaultdict(list))

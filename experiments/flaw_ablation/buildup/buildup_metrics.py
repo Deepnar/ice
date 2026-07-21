@@ -10,9 +10,9 @@ Output: experiments/flaw_ablation/buildup/metrics_report.json
 import json, os, statistics
 from collections import defaultdict
 
-MASTER_FILE = "experiments/flaw_ablation/buildup/master_results.json"
-EVAL_FILE   = "experiments/flaw_ablation/buildup/evaluation_raw.json"
-OUTPUT_FILE = "experiments/flaw_ablation/buildup/metrics_report.json"
+MASTER_FILE = "experiments/flaw_ablation/buildup/intermediates/master_results.json"
+EVAL_FILE   = "experiments/flaw_ablation/buildup/intermediates/evaluation_raw.json"
+OUTPUT_FILE = "experiments/flaw_ablation/buildup/results/metrics_report.json"
 
 ALL_CONDITIONS = [
     "bare_vector", "add_bm25", "add_rrf", "add_hyde",

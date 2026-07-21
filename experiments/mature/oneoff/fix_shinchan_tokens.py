@@ -12,11 +12,11 @@ import json
 from pathlib import Path
 from collections import defaultdict
 
-MATURE_DIR = Path(__file__).parent
-RESULTS_DIR = MATURE_DIR / "results"
-MASTER_FILE = RESULTS_DIR / "master_results.json"
-FRAGMENTS_FILE = RESULTS_DIR / "fragments.jsonl"
-OUTPUT_TMP = RESULTS_DIR / "master_results_corrected.json"
+MATURE_DIR = Path(__file__).parent.parent  # -> mature/ (script now in mature/oneoff/)
+INTERMEDIATES_DIR = MATURE_DIR / "intermediates"
+MASTER_FILE = INTERMEDIATES_DIR / "master_results.json"
+FRAGMENTS_FILE = INTERMEDIATES_DIR / "fragments.jsonl"
+OUTPUT_TMP = INTERMEDIATES_DIR / "master_results_corrected.json"
 
 SHINCHAN_CID = "633e26f8-5889-5c21-8c70-f4d7ab22cb00"
 

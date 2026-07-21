@@ -4,9 +4,9 @@
 import json
 from pathlib import Path
 
-MATURE_DIR = Path(__file__).parent
-GENERATED_FILE = MATURE_DIR / "generated_probes.json"
-PROGRESS_FILE = MATURE_DIR / "_corrected_gt_progress.txt"
+MATURE_DIR = Path(__file__).parent.parent  # -> mature/ (script now in mature/oneoff/)
+GENERATED_FILE = MATURE_DIR / "intermediates" / "generated_probes.json"
+PROGRESS_FILE = MATURE_DIR / "intermediates" / "_corrected_gt_progress.txt"
 
 FLAW_ID = "bb558b5f-5365-5bac-9ed0-07219025b5f2"
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test retrieval for FACT-01 exactly as the experiment does."""
 import sys, os, uuid
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from src.api.db import SessionLocal
 from src.classifier.classifier import PyTorchClassifier

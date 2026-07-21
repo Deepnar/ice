@@ -8,8 +8,8 @@ Reads the new metrics_report.json and produces a complete Markdown summary.
 import json, os
 from datetime import datetime
 
-METRICS_FILE = "experiments/flaw_ablation/buildup/metrics_report.json"
-OUTPUT_FILE  = "experiments/flaw_ablation/buildup/paper_summary.md"
+METRICS_FILE = "experiments/flaw_ablation/buildup/results/metrics_report.json"
+OUTPUT_FILE  = "experiments/flaw_ablation/buildup/results/paper_summary.md"
 
 STEPS = [
     "bare_vector", "add_bm25", "add_rrf", "add_hyde",

@@ -17,9 +17,9 @@ from collections import defaultdict
 # ---------------------------------------------------------------------------
 # CONFIG
 # ---------------------------------------------------------------------------
-MASTER_RESULTS = "experiments/results_phase2/master_results.json"
+MASTER_RESULTS = "experiments/unmature/intermediates/master_results.json"
 SIMULATION_INPUT = "data/simulation/simulation_full.jsonl"
-OUTPUT_CORRECTED = "experiments/results_phase2/master_results_corrected.json"
+OUTPUT_CORRECTED = "experiments/unmature/intermediates/master_results_corrected.json"
 
 # Experiment 1 sliding‑window constants (from the old prompt_assembler.py)
 SLIDING_WINDOW_N = 10

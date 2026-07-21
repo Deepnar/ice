@@ -14,8 +14,8 @@ import os
 from pathlib import Path
 
 MATURE_DIR = Path(__file__).parent
-MASTER_FILE = MATURE_DIR / "results" / "master_results.json"
-OUTPUT_FILE = MATURE_DIR / "results" / "manual_evaluation.json"
+MASTER_FILE = MATURE_DIR / "intermediates" / "master_results.json"
+OUTPUT_FILE = MATURE_DIR / "intermediates" / "manual_evaluation.json"
 
 
 def load_json(path):

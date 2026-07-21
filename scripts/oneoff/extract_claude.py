@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Extract Claude conversations with conversation_id."""
 
+# NOTE (2026-07-21 declutter): moved from scripts/data/. One-off sim-corpus prep —
+# parses the real chat exports in data/simulation/raw_chats/ into per-source jsonl;
+# merge.py then fuses gpt/claude/deepseek.jsonl -> data/simulation/simulation_full.jsonl
+# (the frozen Exp-1/2/3 evaluation input). SUPERSEDED for go-forward parsing by
+# src/ingestion/formats.py (F10); kept as the paper corpus's reproduction path.
+# Paths are CWD-relative — run from the repo root.
+
 import json, os
 
 INPUT = "data/simulation/raw_chats/claude.json"

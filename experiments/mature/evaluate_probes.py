@@ -27,8 +27,8 @@ from tqdm.asyncio import tqdm
 # CONFIG
 # ---------------------------------------------------------------------------
 MATURE_DIR = Path(__file__).parent
-MASTER_RESULTS = MATURE_DIR / "results" / "master_results.json"
-OUTPUT_FILE = MATURE_DIR / "results" / "evaluation_raw.json"
+MASTER_RESULTS = MATURE_DIR / "intermediates" / "master_results.json"
+OUTPUT_FILE = MATURE_DIR / "intermediates" / "evaluation_raw.json"
 
 JUDGE_URL = "http://localhost:8003/v1/chat/completions"
 JUDGE_MODEL = "mattbucci/gemma-4-12B-AWQ"
@@ -402,7 +402,7 @@ async def evaluate_probe(session: aiohttp.ClientSession, entry: dict,
     #    load fragments.jsonl and match.  We'll add a basic implementation.)
     #    Since the fragment texts are not in the master_results (only IDs), we
     #    load them from fragments.jsonl.
-    frag_file = MATURE_DIR / "results" / "fragments.jsonl"
+    frag_file = MATURE_DIR / "intermediates" / "fragments.jsonl"
     if frag_file.exists():
         # Build lookup: (conv_id, probe_id, checkpoint_id, condition) → [texts]
         frag_lookup = {}

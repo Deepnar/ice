@@ -55,17 +55,17 @@ FLAW_CID = "bb558b5f-5365-5bac-9ed0-07219025b5f2"
 
 ABLATION_DIR = Path("experiments/flaw_ablation")
 SUBDIR = ABLATION_DIR / "buildup"
-RESULTS_DIR = SUBDIR
-MASTER_RESULTS_FILE = RESULTS_DIR / "master_results.json"
-FRAGMENTS_FILE = RESULTS_DIR / "fragments.jsonl"
-COMPLETED_FILE = SUBDIR / "_completed.txt"
+INTERMEDIATES_DIR = SUBDIR / "intermediates"
+MASTER_RESULTS_FILE = INTERMEDIATES_DIR / "master_results.json"
+FRAGMENTS_FILE = INTERMEDIATES_DIR / "fragments.jsonl"
+COMPLETED_FILE = INTERMEDIATES_DIR / "_completed.txt"
 
 KEPT_CHECKPOINTS = [51, 170, 285, 397, 492, 604, 735, 834, 959, 1053, 1119]
 VECTOR_BASELINE_NAME = "vector_baseline"
 FINAL_TURN = 1119
 
-GENERATED_PROBES_FILE = Path("experiments/mature/generated_probes.json")
-CORRECTED_GT_FILE = Path("experiments/mature/results/corrected_ground_truths.json")
+GENERATED_PROBES_FILE = Path("experiments/mature/intermediates/generated_probes.json")
+CORRECTED_GT_FILE = Path("experiments/mature/intermediates/corrected_ground_truths.json")
 CURATION_PATH = Path("experiments/curation_files/EC-961862eb-FULL.json")
 
 # ── Cumulative condition definitions ─────────────────────────────────
@@ -287,7 +287,7 @@ def load_stored_classifications(path):
 # ---------------------------------------------------------------------------
 def main():
     os.makedirs(SUBDIR, exist_ok=True)
-    os.makedirs(RESULTS_DIR, exist_ok=True)
+    os.makedirs(INTERMEDIATES_DIR, exist_ok=True)
 
     # Verify database has data
     db_check = SessionLocal()

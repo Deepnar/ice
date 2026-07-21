@@ -15,8 +15,8 @@ from datetime import datetime
 # ---------------------------------------------------------------------------
 # CONFIG
 # ---------------------------------------------------------------------------
-METRICS_FILE = "experiments/flaw_ablation/subtraction/metrics_report.json"
-OUTPUT_FILE  = "experiments/flaw_ablation/subtraction/paper_summary.md"
+METRICS_FILE = "experiments/flaw_ablation/subtraction/results/metrics_report.json"
+OUTPUT_FILE  = "experiments/flaw_ablation/subtraction/results/paper_summary.md"
 
 FEATURE_CATEGORIES = {
     "Retrieval Legs": ["no_vector", "no_bm25"],

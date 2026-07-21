@@ -2,6 +2,12 @@
 """Merge multiple JSONL sources into one chronologically sorted, deduplicated file,
    preserving the conversation_id field."""
 
+# NOTE (2026-07-21 declutter): moved from scripts/data/. Final step of the one-off
+# sim-corpus prep — fuses gpt/claude/deepseek.jsonl (produced by the extract_*.py
+# siblings) -> data/simulation/simulation_full.jsonl (the frozen Exp-1/2/3 input).
+# SUPERSEDED for go-forward parsing by src/ingestion/formats.py (F10); kept as the
+# paper corpus's reproduction path. Paths are CWD-relative — run from the repo root.
+
 import json, os
 
 FILES = [

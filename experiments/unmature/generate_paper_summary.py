@@ -10,8 +10,8 @@ import json
 import sys
 from datetime import datetime
 
-INPUT_FILE = "experiments/results_phase2/metrics_complete_report.json"
-OUTPUT_FILE = "experiments/results_phase2/paper_summary.md"
+INPUT_FILE = "experiments/unmature/results_phase2/metrics_complete_report.json"
+OUTPUT_FILE = "experiments/unmature/results_phase2/paper_summary.md"
 
 def load_json(path):
     with open(path, 'r') as f:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test the claw‑machine probe at turn 55 with the current DB state."""
 import sys, os, time
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from openai import OpenAI
 from src.api.db import SessionLocal

@@ -17,8 +17,8 @@ from tqdm.asyncio import tqdm as async_tqdm
 # ---------------------------------------------------------------------------
 # CONFIG
 # ---------------------------------------------------------------------------
-MASTER_RESULTS = "experiments/flaw_ablation/buildup/master_results.json"
-OUTPUT_FILE    = "experiments/flaw_ablation/buildup/evaluation_raw.json"
+MASTER_RESULTS = "experiments/flaw_ablation/buildup/intermediates/master_results.json"
+OUTPUT_FILE    = "experiments/flaw_ablation/buildup/intermediates/evaluation_raw.json"
 JUDGE_URL      = "http://localhost:8003/v1/chat/completions"
 JUDGE_MODEL    = "mattbucci/gemma-4-12B-AWQ"
 JUDGE_TEMP     = 0.0
@@ -210,7 +210,7 @@ async def call_judge(session, messages, sem, max_tokens=2048):
     return None
 
 def _load_fragment_texts(probe_result, cond_name):
-    fragments_file = "experiments/flaw_ablation/buildup/fragments.jsonl"
+    fragments_file = "experiments/flaw_ablation/buildup/intermediates/fragments.jsonl"
     if not os.path.exists(fragments_file): return []
     pid = probe_result["probe_id"]
     texts = []

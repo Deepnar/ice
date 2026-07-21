@@ -5,7 +5,7 @@ exactly as run_mature_experiment.py does it.
 """
 
 import sys, os, time, json, re
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
 
 from openai import OpenAI
 from sqlalchemy import bindparam, text

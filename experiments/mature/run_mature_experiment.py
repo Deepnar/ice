@@ -48,15 +48,15 @@ SEED = 42
 OLLAMA_URL = "http://localhost:11434/v1"
 SINGLE_MODEL = "gemma4:26b-a4b-it-q4_K_M"
 MATURE_DIR = Path(__file__).parent
-RESULTS_DIR = MATURE_DIR / "results"
-MASTER_RESULTS_FILE = RESULTS_DIR / "master_results.json"
-FRAGMENTS_FILE = RESULTS_DIR / "fragments.jsonl"
-COMPLETED_FILE = MATURE_DIR / "_completed.txt"
-LAST_TURN_FILE = MATURE_DIR / "_last_turn.txt"
-LOG_FILE = MATURE_DIR / "run.log"
+INTERMEDIATES_DIR = MATURE_DIR / "intermediates"
+MASTER_RESULTS_FILE = INTERMEDIATES_DIR / "master_results.json"
+FRAGMENTS_FILE = INTERMEDIATES_DIR / "fragments.jsonl"
+COMPLETED_FILE = INTERMEDIATES_DIR / "_completed.txt"
+LAST_TURN_FILE = INTERMEDIATES_DIR / "_last_turn.txt"
+LOG_FILE = INTERMEDIATES_DIR / "run.log"
 
 # Load generated probes
-GENERATED_PROBES_FILE = MATURE_DIR / "generated_probes.json"
+GENERATED_PROBES_FILE = INTERMEDIATES_DIR / "generated_probes.json"
 generated_probes = {}
 if GENERATED_PROBES_FILE.exists():
     with open(GENERATED_PROBES_FILE) as f:
@@ -69,7 +69,7 @@ if GENERATED_PROBES_FILE.exists():
 # ground_truth was pulled straight from the ORIGINAL, static expected_answer
 # in generated_probes.json regardless of checkpoint, which made all forensic
 # ground-truth correction work have zero effect on the actual experiment.
-CORRECTED_GT_FILE = RESULTS_DIR / "corrected_ground_truths.json"
+CORRECTED_GT_FILE = INTERMEDIATES_DIR / "corrected_ground_truths.json"
 corrected_ground_truths = {}
 if CORRECTED_GT_FILE.exists():
     with open(CORRECTED_GT_FILE) as f:
@@ -319,7 +319,7 @@ def main():
     args = parser.parse_args()
 
     os.makedirs(MATURE_DIR, exist_ok=True)
-    os.makedirs(RESULTS_DIR, exist_ok=True)
+    os.makedirs(INTERMEDIATES_DIR, exist_ok=True)
 
     # ── Conditional one‑time database reset ──
     if args.fresh or not COMPLETED_FILE.exists():

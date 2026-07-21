@@ -22,8 +22,8 @@ from tqdm.asyncio import tqdm as async_tqdm
 # ---------------------------------------------------------------------------
 # CONFIG
 # ---------------------------------------------------------------------------
-MASTER_RESULTS = "experiments/flaw_ablation/subtraction/master_results.json"
-OUTPUT_FILE   = "experiments/flaw_ablation/subtraction/evaluation_raw.json"
+MASTER_RESULTS = "experiments/flaw_ablation/subtraction/intermediates/master_results.json"
+OUTPUT_FILE   = "experiments/flaw_ablation/subtraction/intermediates/evaluation_raw.json"
 
 JUDGE_URL      = "http://localhost:8003/v1/chat/completions"
 JUDGE_MODEL    = "mattbucci/gemma-4-12B-AWQ"
@@ -354,7 +354,7 @@ async def evaluate_probe(session: aiohttp.ClientSession, probe_result: dict,
 
 def _load_fragment_texts(probe_result: dict, cond_name: str) -> list:
     """Load fragment texts from fragments.jsonl for a given probe+condition."""
-    fragments_file = "experiments/flaw_ablation/subtraction/fragments.jsonl"
+    fragments_file = "experiments/flaw_ablation/subtraction/intermediates/fragments.jsonl"
     if not os.path.exists(fragments_file):
         return []
     cid = probe_result["checkpoint_id"]

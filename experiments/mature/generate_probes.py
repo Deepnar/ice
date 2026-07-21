@@ -31,7 +31,7 @@ SAMPLING_RANDOM_N = 15               # include random 15 turns from the middle
 
 SIMULATION_INPUT = Path("data/simulation/simulation_full.jsonl")
 MATURE_DIR = Path("experiments/mature")
-OUTPUT_FILE = MATURE_DIR / "generated_probes.json"
+OUTPUT_FILE = MATURE_DIR / "intermediates" / "generated_probes.json"
 
 TARGET_CONVERSATIONS = [
     {
@@ -276,7 +276,7 @@ MAX_LEGS_PER_SPLIT = 4
 
 # ---------- Main ----------
 def main():
-    os.makedirs(MATURE_DIR, exist_ok=True)
+    os.makedirs(MATURE_DIR / "intermediates", exist_ok=True)
     client = OpenAI(base_url=SGLANG_URL, api_key="dummy")
 
     # Load simulation data

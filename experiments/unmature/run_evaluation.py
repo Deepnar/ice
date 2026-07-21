@@ -15,9 +15,9 @@ from tqdm.asyncio import tqdm
 # ---------------------------------------------------------------------------
 # CONFIGURATION
 # ---------------------------------------------------------------------------
-MASTER_RESULTS = "experiments/results_phase2/master_results.json"
+MASTER_RESULTS = "experiments/unmature/intermediates/master_results.json"
 CURATION_DIR = "experiments/curation_files"
-OUTPUT_FILE = "experiments/results_phase2/evaluation_raw.json"
+OUTPUT_FILE = "experiments/unmature/intermediates/evaluation_raw.json"
 
 JUDGE_URL = "http://localhost:8003/v1/chat/completions"  # SGLang Gemma 12B
 JUDGE_MODEL = "mattbucci/gemma-4-12B-AWQ"

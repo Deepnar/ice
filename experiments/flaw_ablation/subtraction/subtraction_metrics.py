@@ -18,9 +18,9 @@ from collections import defaultdict
 # ---------------------------------------------------------------------------
 # CONFIG
 # ---------------------------------------------------------------------------
-MASTER_FILE = "experiments/flaw_ablation/subtraction/master_results.json"
-EVAL_FILE   = "experiments/flaw_ablation/subtraction/evaluation_raw.json"
-OUTPUT_FILE = "experiments/flaw_ablation/subtraction/metrics_report.json"
+MASTER_FILE = "experiments/flaw_ablation/subtraction/intermediates/master_results.json"
+EVAL_FILE   = "experiments/flaw_ablation/subtraction/intermediates/evaluation_raw.json"
+OUTPUT_FILE = "experiments/flaw_ablation/subtraction/results/metrics_report.json"
 
 ALL_CONDITIONS = [
     "baseline_all_on",

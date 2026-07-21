@@ -33,12 +33,12 @@ from src.api.prompt_assembler import assemble_prompt
 from src.model_registry.registry import find_best_model
 
 CURATION_DIR = "experiments/curation_files"
-RESULTS_DIR = "experiments/results_phase2"
+INTERMEDIATES_DIR = "experiments/unmature/intermediates"
 OLLAMA_URL = "http://localhost:11434/v1"
 SINGLE_MODEL = "gemma4:26b-a4b-it-q4_K_M"
 JUDGE_MODEL = "gemma4:26b-a4b-it-q4_K_M"
 SEED = 42
-CHECKPOINT_FILE = os.path.join(RESULTS_DIR, "_completed.txt")
+CHECKPOINT_FILE = os.path.join(INTERMEDIATES_DIR, "_completed.txt")
 
 # ── Optional extra experiments (set to True to enable) ──
 RUN_SCOPE_EXPERIMENT      = True
@@ -58,12 +58,12 @@ def load_completed():
         return set(line.strip() for line in f if line.strip())
 
 def save_completed(checkpoint_id, probe_id):
-    os.makedirs(RESULTS_DIR, exist_ok=True)
+    os.makedirs(INTERMEDIATES_DIR, exist_ok=True)
     with open(CHECKPOINT_FILE, "a") as f:
         f.write(f"{checkpoint_id}|{probe_id}\n")
 
 def load_existing_results():
-    results_path = os.path.join(RESULTS_DIR, "master_results.json")
+    results_path = os.path.join(INTERMEDIATES_DIR, "master_results.json")
     if os.path.exists(results_path):
         with open(results_path, "r") as f:
             data = json.load(f)
@@ -164,7 +164,7 @@ def main():
     random.seed(SEED)
     torch.manual_seed(SEED)
     np.random.seed(SEED)
-    os.makedirs(RESULTS_DIR, exist_ok=True)
+    os.makedirs(INTERMEDIATES_DIR, exist_ok=True)
 
     completed = load_completed()
     client = OpenAI(base_url=OLLAMA_URL, api_key="dummy")
@@ -504,13 +504,13 @@ def main():
                     "experiment_session_timestamp": datetime.now(timezone.utc).isoformat(),
                     "evaluation_run_results": all_results,
                 }
-                with open(os.path.join(RESULTS_DIR, "master_results.json"), "w") as f:
+                with open(os.path.join(INTERMEDIATES_DIR, "master_results.json"), "w") as f:
                     json.dump(master, f, indent=2)
 
             # Update the counter for the next split
             previous_n = split_n
 
-    print(f"Phase 2 complete. Results saved to {RESULTS_DIR}/master_results.json")
+    print(f"Phase 2 complete. Results saved to {INTERMEDIATES_DIR}/master_results.json")
 
 if __name__ == "__main__":
     main()
