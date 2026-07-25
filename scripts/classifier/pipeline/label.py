@@ -60,6 +60,10 @@ AUDIT_FRACTION = 0.05
 GATE_SAMPLE = 15
 GATE_MAX_DEGENERATE = 0.3
 
+# Room for the rubric's Q1–Q5 reasoning plus the label JSON. Models that think
+# before answering need more (see serving.PROFILES["gpt-oss-20b"]["request"]).
+DEFAULT_MAX_TOKENS = 700
+
 # Three DIFFERENT families — mistral / gemma / qwen. The family split is the
 # methodology, not a preference: agreement between two members of one family
 # measures a model against itself, and the agreement rate is the number the whole
@@ -106,21 +110,29 @@ def load_corpus(paths, limit: int = 0, stratified: bool = True) -> list:
 # ── one labeling pass ───────────────────────────────────────────────────────
 
 async def _label_row(client, model_id, system_prompt, schema_json, row,
-                     response_mode, semaphore, out, failed, progress):
+                     response_mode, semaphore, out, failed, progress,
+                     request_overrides=None):
     from openai import APIError
 
     async with semaphore:
         messages = [{"role": "system", "content": system_prompt},
                     {"role": "user", "content": rubric.build_user_message(row)}]
+        overrides = dict(request_overrides or {})
+        extra_body = dict(overrides.pop("extra_body", {}) or {})
         kwargs = {"model": model_id, "messages": messages, "temperature": 0.0,
-                  "max_tokens": 700, "seed": SEED}
+                  "max_tokens": DEFAULT_MAX_TOKENS, "seed": SEED}
+        kwargs.update(overrides)
         if response_mode == "response_format":
             kwargs["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {"name": "labels", "schema": schema_json},
             }
         else:
-            kwargs["extra_body"] = {"guided_json": schema_json}
+            # Merge, don't clobber: guided_json shares extra_body with any
+            # per-model settings the profile supplied.
+            extra_body["guided_json"] = schema_json
+        if extra_body:
+            kwargs["extra_body"] = extra_body
 
         try:
             resp = await client.chat.completions.create(**kwargs)
@@ -207,7 +219,8 @@ async def _detect_response_mode(client, model_id, schema_json) -> str:
                        "constrained decoding is required (it replaces the v1 retry loop)")
 
 
-async def run_labeler(rows, out_path, base_url, model_id, concurrency):
+async def run_labeler(rows, out_path, base_url, model_id, concurrency,
+                      request_overrides=None):
     from openai import AsyncOpenAI
 
     schema = load_schema()
@@ -252,7 +265,7 @@ async def run_labeler(rows, out_path, base_url, model_id, concurrency):
     with JsonlAppender(out_path) as out, JsonlAppender(failed_path) as failed:
         tasks = [asyncio.create_task(
             _label_row(client, model_id, system_prompt, schema_json, row, mode,
-                       semaphore, out, failed, progress))
+                       semaphore, out, failed, progress, request_overrides))
             for row in todo]
         watcher = asyncio.create_task(aborted.wait())
         done_tasks, pending = await asyncio.wait(
@@ -520,12 +533,14 @@ def main():
         if not is_up(server.base_url):
             raise SystemExit(f"nothing serving at {server.base_url}")
         model_id = served_model(server.base_url) or server.model
-        asyncio.run(run_labeler(rows, out_path, server.base_url, model_id, concurrency))
+        asyncio.run(run_labeler(rows, out_path, server.base_url, model_id,
+                                concurrency, server.request))
         return
 
     with server:
         model_id = served_model(server.base_url) or server.model
-        asyncio.run(run_labeler(rows, out_path, server.base_url, model_id, concurrency))
+        asyncio.run(run_labeler(rows, out_path, server.base_url, model_id,
+                                concurrency, server.request))
 
 
 if __name__ == "__main__":

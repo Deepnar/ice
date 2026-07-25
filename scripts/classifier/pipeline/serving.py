@@ -90,6 +90,16 @@ PROFILES = {
         "mem_fraction": 0.90,
         "max_running": 48,
         "quantization": None,
+        # This model reasons before answering, and by default it reasons a LOT:
+        # at max_tokens=700 it spent the budget on hidden chain-of-thought and
+        # got truncated mid-JSON on 38% of rows ("Unterminated string"), while
+        # running at 0.68 rows/s. The labeling rubric already forces explicit
+        # Q1–Q5 reasoning INSIDE the schema, so the internal CoT is duplicated
+        # work — turn it down and give the visible answer room to finish.
+        "request": {
+            "max_tokens": 1400,
+            "extra_body": {"chat_template_kwargs": {"reasoning_effort": "low"}},
+        },
     },
     # tiebreak C — the third family, text-only (no vision tower to misquantize),
     # and only ~200–400 rows ever go through it.
@@ -134,7 +144,8 @@ def resolve(name_or_path: str) -> dict:
     if name_or_path in PROFILES:
         return {"key": name_or_path, **PROFILES[name_or_path]}
     return {"key": name_or_path, "model": name_or_path, "family": "unknown",
-            "mem_fraction": 0.88, "max_running": 24, "quantization": None}
+            "mem_fraction": 0.88, "max_running": 24, "quantization": None,
+            "request": {}}
 
 
 def is_up(base_url: str, timeout: float = 2.0) -> bool:
@@ -172,6 +183,9 @@ class LocalServer:
         self.mem_fraction = mem_fraction or profile["mem_fraction"]
         self.max_running = max_running or profile["max_running"]
         self.quantization = quantization or profile.get("quantization")
+        # Per-model request overrides (max_tokens, extra_body) — some models need
+        # their sampling shaped, and that belongs with the model, not at the call site.
+        self.request = dict(profile.get("request") or {})
         # Repo-root anchored: these stages are run from their own directory, and
         # a relative path would scatter server logs wherever the shell happened
         # to be.
