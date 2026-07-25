@@ -55,14 +55,23 @@
 >   signals clear the 300 floor (High_Complexity 9,141 — the spec's likeliest casualty
 >   SURVIVES; Needs_Memory 8,072; Needs_Live_Info 1,716; Temporal_Recall 1,363 before the T2
 >   detector adds any). 4,763 rows (12.2%) carry >1 context signal — states v1 could not represent.
-> - **NEXT:** labeler A over the same corpus (`label.py --labeler A`, resumable). Candidate
->   `gpt-oss-20b` (fast MoE, third family) downloading — **vet it** with `--limit 200` +
->   `compare.py` against `labels_b.jsonl` before a full pass; fall back to `qwen3-14b` (verified
->   clean, ~1 row/s). Then `--merge` → tiebreak → synth (measured gaps only; currently just
->   `Codebase_Query` at 221, provisional) → build → train → evaluate → promote.
-> - **⚠ Labeler C UNRESOLVED** — the Mistral requant is broken (token soup behind schema-valid
->   JSON). Needs a working third family, or disagreements go straight to human review.
-> - **⚠ Two requants are broken and marked in `serving.PROFILES`** — don't re-pick them.
+> - **Labeler roster SETTLED** (vetted on real rows, `6b275e8`): **A = `Qwen/Qwen3-14B-AWQ`**
+>   (1.77 rows/s, ~6.2 h) · **B = `gemma-4-26B-A4B`** (2.34 rows/s, DONE) · **C tiebreak =
+>   `openai/gpt-oss-20b`** (1.20 rows/s). Three lineages. gpt-oss lost the A slot on speed with
+>   equivalent agreement, which is what makes it the right tiebreaker.
+> - **Agreement measured** (n=184 and n=142, two independent pairs): memory signals
+>   **90.8–98.6%** · High_Complexity 83–84% · topic 78–80% · intent 64–66%. All-three-heads is
+>   only 36–38%, which is a property of the GATE (it compounds topic/intent noise onto context),
+>   not of the data — so the tiebreak is ~24k rows ≈ 4 h local, not the spec's "~200–400".
+> - **`High_Complexity` no longer blocks settlement** (`SOFT_CTX_LABELS`): majority vote, 1-1
+>   split ⇒ absent. Decided on its error asymmetry across the three F11 deployments (see that
+>   entry) — in mixed local+cloud a false positive spends real credits.
+> - **NEXT:** `label.py --labeler A` (resumable, ~6.2 h) → `--merge` → `--labeler C
+>   --tiebreak-only` → `--merge` → **synth** (measured gaps only; from Gemma alone only
+>   `Codebase_Query` was short at 221 — provisional until the merge) → re-label the synth rows
+>   with A and B → `--merge` → build → train → evaluate → promote.
+> - **⚠ Two requants are broken and marked in `serving.PROFILES`** — Qwen3.6-27B-AWQ (won't
+>   load) and Mistral-Small-3.2-24B-awq-sym (token soup behind valid JSON). Don't re-pick them.
 > - **USER-REQUIRED still open:** the disagreement queue, the 5% audit, approving promotion.
 >   **D8 (DI3 slice eval + deletion) comes AFTER promotion** — order is promote → measure →
 >   delete. **A9's classifier-side slice384 retirement also waits on promotion.**
