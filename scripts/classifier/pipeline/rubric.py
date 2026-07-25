@@ -317,6 +317,17 @@ present in the shown context does NOT need long-term memory to be understood.
 """
 
 
+# Hard cap on the prompt text shown to a labeler. The rubric alone is ~3.2k
+# tokens and the context block adds ~700, so an unbounded prompt overruns an 8k
+# server window — 116 rows failed exactly this way on the first Gemma pass
+# ("maximum context length is 8192 tokens... your prompt contains at least
+# 7493"). Code- and CJK-heavy text tokenizes at ~3 chars/token, well below the
+# 4 you'd assume from English. Topic/intent/reliance are all judgeable from the
+# opening of a long prompt; the tail is almost always pasted material, which the
+# immunity traps tell the labeler to ignore anyway.
+PROMPT_CHAR_CAP = 6000
+
+
 def build_user_message(row: dict) -> str:
     """The per-row message. Kept SHORT and placed after the shared rubric so the
     cached prefix stays maximal."""
@@ -328,8 +339,11 @@ def build_user_message(row: dict) -> str:
     if context:
         parts += ["Conversation context (the turns immediately before this prompt):",
                   '"""' + context + '"""', ""]
+    text = row.get("text", "")
+    if len(text) > PROMPT_CHAR_CAP:
+        text = text[:PROMPT_CHAR_CAP] + "\n…[prompt truncated for length]"
     parts += ["Answer Q1–Q5 in your reasoning field before writing labels.", "",
-              "User prompt to classify:", '"""' + row.get("text", "") + '"""']
+              "User prompt to classify:", '"""' + text + '"""']
     return "\n".join(parts)
 
 

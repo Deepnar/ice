@@ -37,12 +37,26 @@ if command -v ollama >/dev/null 2>&1; then
   done
 fi
 
-step synth    synth.py --per-label 300
 step label_a  label.py --labeler A
 step label_b  label.py --labeler B
 step merge_1  label.py --merge
 step label_c  label.py --labeler C --tiebreak-only
 step merge_2  label.py --merge
+
+# Synth runs HERE, not earlier. A gap measured from one labeler's pass is a
+# guess: agreement keeps the intersection, so a single pass OVERSTATES every
+# count, and the tiebreak can move them again. Generating against a provisional
+# number produces the wrong amount of the wrong thing.
+#
+# The cost of waiting is small — both labelers resume by id, so the two re-label
+# steps below only touch the newly generated rows (minutes, not another pass).
+# If `gaps: {}` prints, real data already cleared every floor and the three
+# steps are no-ops.
+step synth      synth.py --per-label 300
+step relabel_a  label.py --labeler A
+step relabel_b  label.py --labeler B
+step merge_3    label.py --merge
+
 step build    build.py
 step train    train.py
 step evaluate evaluate.py --candidate "$ROOT/models/classifier/ice_classifier_v4_schema2.pt"

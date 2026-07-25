@@ -101,6 +101,68 @@ design requirements:**
 > Unchanged by this rev: which work is local vs cloud (the roadmap's AI-usage map),
 > D8's anchors themselves, budget parity, the synthetic/LME datasets.
 
+> **[rev 2026-07-25b] — EXPERIMENT-DESIGN NOTES CARRIED OVER FROM THE B1 SESSION
+> (user, recorded for when FINAL's turn comes; nothing here is built yet).** These came
+> out of reviewing why the previous experiments under-measured, plus a costing argument
+> about who generates what. Four items:
+>
+> 1. **Probe diversity has a definition now, and the old probes failed it.** The user's
+>    critique of the previous runs: *every probe was retrieval-shaped* ("what did I say
+>    about X"), and the four seed conversations weren't diverse either. Two consequences.
+>    (a) **Gating failure was unmeasurable.** If every probe needs memory, retrieving is
+>    always right, so "retrieved when it shouldn't have" cannot be scored — and that is
+>    precisely what B2's posterior and B1's 4-signal head changed. FINAL needs
+>    **Zero_Shot control probes that must NOT trigger retrieval**, or the headline
+>    improvement is invisible. (b) **Diversity becomes a coverage matrix, not a vibe:**
+>    schema v2 gives 13 intents × 4 context signals; enumerate the *valid* cells
+>    (Casual_Banter × Needs_Memory is real, Null_Noise × High_Complexity is not), quota
+>    each, and audit coverage. This is the same artifact Z1-prep's coverage-matrix stage
+>    wants, so build it once. Probe families beyond retrieval: **synthesis** (facts from
+>    two distant turns), **temporal** (as-of / evolution — now a first-class label),
+>    **absence** ("did I ever mention X" where X never occurred — catches false-positive
+>    retrieval), **preference application** (procedural memory), **contradiction/update**
+>    (what is current after a revision), and the **Zero_Shot controls**. The seed
+>    conversations must span the intent space too, not just the topic space.
+>
+> 2. **Synthetic conversations: script the ground truth FIRST, then generate the
+>    dialogue from it.** The user's objection to two-model roleplay is correct — "the ai
+>    in that, it itself might not remember correctly", so a transcript generated freely
+>    and *then* read for ground truth inherits every drift the generator introduced. The
+>    fix inverts the order: (i) author a structured **fact ledger** — entities,
+>    decisions, preferences, each with a timestamp *and a revision history* ("chose
+>    Postgres in March → switched to SQLite in May because X"); (ii) generate each turn
+>    feeding the generator only the facts legal at that point in the timeline; (iii) GT
+>    is then **known by construction**, never recovered by re-reading. **Evolving GT
+>    falls out for free** — the revision was scripted, so the correct answer at any point
+>    is a lookup, not an inference. Two-model roleplay still helps naturalness (one
+>    plays human, one the assistant) but neither model is the source of truth, which
+>    also kills the failure mode where the "human" invents a fact the ledger never had.
+>
+> 3. **Who generates what — decided on the user's LIMITS argument, not on quality.**
+>    Claude subagents (spawnable on the user's plan, isolated cold context, background,
+>    model selectable haiku/sonnet) are genuinely usable for *small, judgment-heavy*
+>    work. But: **plan usage is a shared resource with the user's own working sessions.**
+>    Their words: if GT or judging eats the daily/weekly limit, "then i cant really work
+>    with you right", and hitting the cap mid-run loses the rest of the week for both the
+>    experiment *and* development. That is a scheduling constraint no quality argument
+>    overrides. Therefore: **probe generation → subagents are plausible** (low volume,
+>    high judgment, restartable, no deadline coupling). **GT / evolving GT → OpenRouter
+>    credits**, because the 4-conversation evolving/corrected-GT script plus its JSON
+>    output is high-volume model usage and must not compete with the user's ability to
+>    work. **Judging → OpenRouter credits**, and the user notes the judging script has
+>    historically finished in **under ~10 h running LOCALLY**, so on cloud it is neither
+>    slow nor expensive — it is a smaller job than its prominence suggests. This
+>    *narrows* rev 2026-07-25's "cloud is exclusive to FINAL": the exclusivity holds, and
+>    within FINAL the split above is now explicit.
+>
+> 4. **Shared asset already built (B1, 2026-07-25):** `scripts/classifier/pipeline/
+>    stitch_icedev.py` produces `data/labeled/v2/icedev_stitched_dialogue.jsonl` — the
+>    six ICE-N DeepSeek chats merged into ONE chronological conversation (3,473 turns,
+>    2026-06-04 → 07-03), written in the JSONL dialogue shape `formats.parse_jsonl`
+>    already accepts, so FINAL can feed it straight through the F10 import engine. It is
+>    a **real** long-project memory test — months of continuous work with genuine
+>    callbacks across chat boundaries — and needs no synthetic generation at all.
+
 User decisions (2026-07-10; **cloud-provider + judge-tier clauses SUPERSEDED by the rev
 above**): cloud via **Ollama Cloud free tier** (rate-limited, fine —
 the runner is resumable by design); **synthetic publishable dataset required** (private

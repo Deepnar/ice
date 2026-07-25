@@ -15,6 +15,13 @@ Two deliberate differences from v1:
    four that start at zero positives (the coding intents, High_Complexity, and
    Temporal_Recall's non-detectable half).
 
+   **Run this AFTER the merge and tiebreak, not before.** A count from a single
+   labeler's pass is provisional in a specific direction: agreement keeps the
+   *intersection*, so one pass always overstates, and the tiebreak moves the
+   number again. Generating against that produces the wrong amount. Waiting is
+   cheap — the labelers resume by id, so re-labeling the newly generated rows
+   touches only those rows.
+
 2. **Synthetic rows carry NO labels.** v1 stamped the intended label onto the
    generated row. That is fabrication: the model was asked for a Code_Change
    prompt, so the row is *assumed* to be one. Here the intended label is recorded
@@ -34,11 +41,13 @@ Usage:
 import argparse
 import asyncio
 import json
+import os
 import random
 from collections import Counter
 
-from common import (CORPUS_SYNTH, LABELS_FINAL, JsonlAppender, completed_ids,
-                    ensure_data_dir, is_usable_prompt, read_jsonl, stable_id)
+from common import (CORPUS_SYNTH, LABELS_A, LABELS_B, LABELS_FINAL,
+                    JsonlAppender, completed_ids, ensure_data_dir,
+                    is_usable_prompt, read_jsonl, stable_id)
 from serving import LocalServer, is_up, served_model
 
 from src.classifier.schema import (CONTEXT_RELIANCE, HIGH_COMPLEXITY, INTENT,
@@ -98,10 +107,25 @@ BRIEFS = {
 
 
 def measure_gaps(schema, floor: int) -> dict:
-    """Which labels are short, and by how much."""
+    """Which labels are short, and by how much.
+
+    Reads settled labels when they exist, otherwise the most complete single
+    labeler pass. Measuring from one pass is approximate — agreement will only
+    ever *reduce* these counts — but it beats the alternative: synth has to run
+    BEFORE the second labeler, or the rows it generates get only one opinion and
+    can never reach two-labeler agreement.
+    """
     counts = Counter()
     total = 0
-    for entry in read_jsonl(LABELS_FINAL):
+    source = LABELS_FINAL
+    if not os.path.exists(LABELS_FINAL):
+        passes = [(sum(1 for _ in read_jsonl(p)), p) for p in (LABELS_A, LABELS_B)]
+        n, best = max(passes)
+        if n:
+            source = best
+            print(f"[synth] no settled labels yet — measuring from {os.path.basename(best)} "
+                  f"({n} rows, counts are provisional)")
+    for entry in read_jsonl(source):
         total += 1
         for head_name in (INTENT, CONTEXT_RELIANCE):
             for label in entry.get("labels", {}).get(head_name, []):
