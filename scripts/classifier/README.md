@@ -25,8 +25,8 @@ legacy/     ← FROZEN. The v1 scripts that built the current 25k corpus + v3 ch
 |---|---|---|---|
 | 1 | `extract.py` | pull online sources (LMSYS/ShareGPT/WildChat, **more + diverse**) + parse the `data/simulation/` exports (via `src/ingestion/formats.py`) → prompt rows with context | `legacy/promt_extraction/*` |
 | 2 | `stitch_icedev.py` | stitch the DeepSeek ice-dev chats into one chronological mega-conversation (shared asset with FINAL) | new |
-| 3 | `synth.py` | schema-v2 synthetic generation (**cloud model**) to fill measured gaps | `legacy/promt_labeling/synthetic_data.py` |
-| 4 | `label.py` | **two independent cloud labelers** + agreement/tiebreak/human-queue | `legacy/promt_labeling/VLLM_label_dataset.py` + `compare_labeling.py` |
+| 3 | `synth.py` | schema-v2 synthetic generation (**local model**) to fill measured gaps | `legacy/promt_labeling/synthetic_data.py` |
+| 4 | `label.py` | **two independent LOCAL labelers, different families** + agreement/tiebreak/human-queue | `legacy/promt_labeling/VLLM_label_dataset.py` + `compare_labeling.py` |
 | 5 | `build.py` | render templates, ≥40% context-prefixed rows, ≥1k hard-negative context pairs, per-label floors, train/val/test split | `legacy/training/build_training_data.py` |
 | 6 | `train.py` | trunk + 3-heads (1024-dim), per-head BCE | `legacy/training/train_classifier.py` |
 | 7 | `evaluate.py` | per-head macro-F1 + the D5 non-regression gate vs the old model | `legacy/training/test_classifier.py` |

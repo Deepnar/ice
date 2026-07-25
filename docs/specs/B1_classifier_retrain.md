@@ -100,6 +100,53 @@ mechanical whenever that moment comes.
 > rev: D1's label set, D2's architecture, D3's template discipline, D5's non-regression
 > gate, D6's derivation layer, D7, D8's DI3 deletion rule, D9, and every trap in §7.
 
+> **[rev 2026-07-25b] — DIVERGENCES FOUND WHILE BUILDING (recorded per README rule 12).**
+> Seven deviations from the text above, each with what forced it. None change a
+> decision; they change how a decision is realised.
+>
+> 1. **Serving backend: SGLang → vLLM.** Rev 6b picked SGLang on the merits (RadixAttention
+>    over an identical ~4k rubric; FSM-constrained JSON). The pinned `sglang 0.3.6.post2`
+>    cannot import against this environment's Triton (`ImportError: cannot import name
+>    'default_cache_dir' from 'triton.runtime.cache'`), and unpinning it would drag the
+>    repo's torch stack — a far larger intervention than the spec's own sanctioned fallback.
+>    **vLLM 0.22.0 with `--enable-prefix-caching`** runs and keeps the property that
+>    mattered (shared-prefix reuse). `serving.py` keeps `--backend sglang` wired; it becomes
+>    correct again the day SGLang is upgraded. *The reasoning in 6b was right; the
+>    environment just isn't ready for it.*
+> 2. **Labeler A's model must be re-picked.** `mattbucci/Qwen3.6-27B-AWQ` (the on-disk
+>    requant) fails to load: `ValueError: The input size is not aligned with the quantized
+>    weight shape` on `visual.blocks.0.mlp.*` — its **vision tower** is misquantized. This is
+>    a property of that repo, not of Qwen3.6-27B. Also: never pass `--quantization`
+>    explicitly; community requants disagree about their own format (one ships AWQ, another
+>    compressed-tensors) and each config.json already declares it.
+> 3. **Templates are VERSIONED, not merely "lifted verbatim".** `templates.py` holds the v1
+>    strings frozen AND a v2 pair naming the real v2 categories, and the checkpoint records
+>    its `template_version`. Reason: D5's gate must render the OLD model's input the way that
+>    model actually saw it, or the comparison is rigged against the baseline. Verbatim
+>    extraction alone couldn't express that.
+> 4. **The D6 derivation lives in `schema.py`, not on the classifier class.** It is pure label
+>    logic; keeping it as a method forced tests to fake a loaded checkpoint (the existing
+>    suite called `PyTorchClassifier._finalize_confidence` unbound with `self=None`, which
+>    the schema-driven version broke). `finalize_context_scalars(result, schema)` is now
+>    testable without torch state, and covers both generations.
+> 5. **F10's `parse_jsonl` learned the `{prompt, response, timestamp, conversation_id}` pair
+>    shape.** Three of the user's own exports (`claude.jsonl`, `gpt.jsonl`,
+>    `simulation_full.jsonl` — ~5k real multi-turn rows, the scarce context layer) use it and
+>    were silently yielding zero conversations. Extending the shared adapter beats a private
+>    parser in `extract.py`: a real F10 import would hit the same wall. `normalize_file` stays
+>    fail-loud on malformed JSON; `extract.py` salvages line-by-line for corpus building only.
+> 6. **Hard-negative pairs (D4.4) need no second labeling pass.** Construction: take a row the
+>    labelers saw WITH context and judged NOT to need memory, whose text is referentially
+>    ambiguous alone; strip the context and the referent is definitionally gone, so the twin
+>    needs memory. The flip is *entailed*, not guessed. Referential detection reuses
+>    `memory_decision.REFERENTIAL_WORDS` rather than a second private list.
+> 7. **Synthetic rows carry no labels.** v1 stamped the intended label onto each generated
+>    row; that is self-certification. `synth.py` records `meta.target_label` as provenance and
+>    the row goes through the same two-labeler pass as everything else — which matters most
+>    for exactly the labels synth exists to seed, since they are the ones near the §4 drop
+>    floor. Also: `curated_labels` gained `schema_version` + `corrected_context_labels`
+>    (migration `c4d7e91a2b58`) so §6's F9 look-ahead is satisfied now rather than later.
+
 ## 1. Decisions
 
 - **D1: label schema v2 — heads become schema-driven, no magic numbers anywhere.**

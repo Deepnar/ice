@@ -358,11 +358,28 @@ def parse_deepseek(data: list) -> list:
 # ── Generic JSONL ───────────────────────────────────────────────────────────
 
 def parse_jsonl(lines, default_title: str = "Imported log") -> list:
-    """Escape hatch: ``{"role", "content", "timestamp"[, "conversation",
-    "title"]}`` per line. Lines group by their ``conversation`` value when
-    present (in first-seen order); otherwise the file is one conversation."""
+    """Escape hatch, two accepted line shapes:
+
+    * **message** — ``{"role", "content", "timestamp"[, "conversation", "title"]}``
+    * **pair** — ``{"prompt", "response", "timestamp"[, "conversation_id"]}``,
+      one exchange per line, expanded into a user turn and an assistant turn.
+      This is the shape ICE's own historical exports use, and a common shape for
+      hand-rolled chat logs.
+
+    Lines group by their ``conversation`` / ``conversation_id`` value when present
+    (in first-seen order); otherwise the file is one conversation.
+    """
     groups: dict = {}
     order: list = []
+
+    def _bucket(key, title=None):
+        if key not in groups:
+            groups[key] = {"title": title, "turns": []}
+            order.append(key)
+        if title and not groups[key]["title"]:
+            groups[key]["title"] = title
+        return groups[key]
+
     for i, line in enumerate(lines):
         line = line.strip()
         if not line:
@@ -371,19 +388,27 @@ def parse_jsonl(lines, default_title: str = "Imported log") -> list:
             obj = json.loads(line)
         except json.JSONDecodeError as exc:
             raise ValueError(f"JSONL line {i + 1} is not valid JSON: {exc}")
+
+        # Pair shape: one line is a whole exchange.
+        if "role" not in obj and ("prompt" in obj or "response" in obj):
+            ts = _parse_ts(obj.get("timestamp"))
+            group = _bucket(str(obj.get("conversation_id")
+                                or obj.get("conversation") or ""),
+                            obj.get("title"))
+            for role, field in (("user", "prompt"), ("assistant", "response")):
+                text = (obj.get(field) or "").strip()
+                if text:
+                    group["turns"].append(NormalizedTurn(role=role, text=text, ts=ts))
+            continue
+
         role = (obj.get("role") or "").lower()
         if role not in ("user", "assistant"):
             continue    # system/tool lines are not dialogue
         text = (obj.get("content") or "").strip()
         if not text:
             continue
-        key = str(obj.get("conversation") or "")
-        if key not in groups:
-            groups[key] = {"title": obj.get("title"), "turns": []}
-            order.append(key)
-        if obj.get("title") and not groups[key]["title"]:
-            groups[key]["title"] = obj.get("title")
-        groups[key]["turns"].append(NormalizedTurn(
+        group = _bucket(str(obj.get("conversation") or ""), obj.get("title"))
+        group["turns"].append(NormalizedTurn(
             role=role, text=text, ts=_parse_ts(obj.get("timestamp"))))
 
     out = []

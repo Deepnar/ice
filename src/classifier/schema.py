@@ -184,8 +184,24 @@ def _parse_v1(raw: dict, path: str) -> LabelSchema:
     )
 
 
+# Repo root — src/classifier/schema.py → parents[2].
+_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _resolve(path: str) -> str:
+    """Anchor a relative schema path to the repo root.
+
+    ``settings.label_schema_path`` is repo-relative, but the pipeline stages run
+    from their own directory. Resolving here means every caller gets the same
+    schema regardless of where it was invoked from.
+    """
+    p = Path(path)
+    return str(p if p.is_absolute() else _ROOT / p)
+
+
 @lru_cache(maxsize=8)
 def _load(path_str: str) -> LabelSchema:
+    path_str = _resolve(path_str)
     raw = json.loads(Path(path_str).read_text())
     if "schema_version" in raw:
         return _parse_v2(raw, path_str)
