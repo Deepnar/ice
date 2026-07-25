@@ -1,47 +1,65 @@
-import torch
 import structlog
+import torch
 from typing import List, Optional
-from .model import ICEClassifier
-from .di3 import run_di3
-from .schemas import ClassificationResult
+
 from src.memory.embedder import get_embedder, slice384
+
+from . import templates
+from .di3 import run_di3
+from .model import load_checkpoint
+from .schema import (CONTEXT_RELIANCE, INTENT, LONG_TERM_MEMORY, TOPIC,
+                     ZERO_SHOT, finalize_context_scalars, load_schema)
+from .schemas import ClassificationResult
 
 logger = structlog.get_logger("ice.classifier")
 
 
 class PyTorchClassifier:
+    """The pre-flight prompt classifier.
+
+    B1 made this schema-driven end to end: the label lists, the head widths and
+    the slice offsets all come from ``label_schema.json`` via ``schema.py``, and
+    the encoder input comes from ``templates.py`` — the same renderer the
+    training pipeline uses, which is what closes the train/inference mismatch.
+
+    It serves **either** checkpoint generation. Until B1's promotion runs, the
+    live path is still a v1 checkpoint (25 logits, softmax ctx head, 384-dim
+    input); a v2 checkpoint is 28 logits, all-sigmoid, native 1024. The loaded
+    checkpoint declares which it is and this class adapts — callers see the same
+    ``ClassificationResult`` either way.
+    """
+
     def __init__(self, model_path="models/classifier/ice_classifier.pt",
                  schema_path="data/labeled/label_schema.json"):
-        # These lists are fixed – the order must match training
-        self.TOPIC_LABELS = [
-            "Software_&_Tech", "STEM_&_Academics", "Business_&_Finance",
-            "Creative_&_Media", "Admin_&_Productivity", "Lifestyle_&_Health",
-            "Social_&_Relationships", "World_&_Current_Events", "Meta_AI",
-            "Null_Noise", "General_Reference_&_Trivia"
-        ]
-        self.INTENT_LABELS = [
-            "Factual_Retrieval", "Troubleshooting", "Generation", "Ideation",
-            "Analysis_&_Summarization", "Strategic_Planning", "Decision_Making",
-            "Emotional_Processing", "Utility_Formatting", "Casual_Banter",
-            "Open_Exploration"
-        ]
-        self.CONTEXT_RELIANCE_LABELS = [
-            "Zero_Shot", "Long_Term_Memory", "Real_Time_Search"
-        ]
+        self.schema = load_schema(schema_path)
+        self.model, self.meta = load_checkpoint(model_path, schema=self.schema)
 
-        # Load model on CPU
-        self.model = ICEClassifier()
-        self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
-        self.model.eval()
+        # A v1 checkpoint brings its own (frozen) schema — the live schema file
+        # describes v2 heads the old weights don't have.
+        self.active_schema = getattr(self.model, "schema", self.schema)
+        self.schema_version = int(self.meta.get("schema_version", 1))
+        self.template_version = int(self.meta.get("template_version",
+                                                  self.active_schema.template_version))
+        self.input_dim = int(self.meta.get("input_dim", self.active_schema.input_dim))
+
+        self.TOPIC_LABELS = list(self.active_schema.labels(TOPIC))
+        self.INTENT_LABELS = list(self.active_schema.labels(INTENT))
+        self.CONTEXT_RELIANCE_LABELS = list(self.active_schema.labels(CONTEXT_RELIANCE))
 
         # G23/C17: the process-shared native-width embedder
-        # (src/memory/embedder.py) — retrieval and every store writer reach
-        # this same instance via `classifier.embedder`. The MLP head below
-        # still consumes the 384-dim MRL prefix (slice384) of the same
-        # encode until B1 retrains it at native width.
+        # (src/memory/embedder.py) — retrieval and every store writer reach this
+        # same instance via `classifier.embedder`. A v1 head still consumes the
+        # 384-dim MRL prefix (slice384) of that same encode; v2 heads take the
+        # native width, which is what retires the slice (A9).
         self.embedder = get_embedder()
 
-    def _get_context_turns(self, conversation_id: str, n: int = 3, max_total_words: int = 500) -> str:
+        logger.info("classifier_loaded", schema_version=self.schema_version,
+                    template_version=self.template_version,
+                    input_dim=self.input_dim, heads=self.active_schema.head_widths,
+                    path=model_path)
+
+    def _get_context_turns(self, conversation_id: str, n: int = templates.CONTEXT_TURNS,
+                           max_total_words: int = templates.CONTEXT_MAX_WORDS) -> str:
         """Return a truncated, summary‑preferring context string from the last *n* turns."""
         # Local import to avoid circular dependency at module level
         from src.api.db import SessionLocal
@@ -56,27 +74,17 @@ class PyTorchClassifier:
                 .all()
             )
             turns.reverse()
-            parts = []
-            total_words = 0
+            texts = []
             for t in turns:
                 # Prefer summary, fall back to raw text (truncated)
                 text = t.summary_text or ""
                 if not text and t.raw_text:
                     words = t.raw_text.split()
                     text = " ".join(words[:150]) + "…" if len(words) > 150 else t.raw_text
-                if not text:
-                    continue
-                word_count = len(text.split())
-                if total_words + word_count > max_total_words:
-                    remaining = max_total_words - total_words
-                    if remaining > 20:
-                        w = text.split()
-                        text = " ".join(w[:remaining]) + "…"
-                        parts.append(text)
-                    break
-                parts.append(text)
-                total_words += word_count
-            return "\n".join(parts)
+                if text:
+                    texts.append(text)
+            # Shared budget logic — the offline pipeline truncates identically.
+            return templates.truncate_context(texts, max_total_words=max_total_words)
         finally:
             db.close()
 
@@ -103,7 +111,7 @@ class PyTorchClassifier:
             # the anaphora as a signal for B2's combination — NOT a forced LTM.
             if not di3_result.topic_tags or not di3_result.intent_tags:
                 ml_result = self._run_ml_classifier(prompt, conversation_id)
-                if di3_result.context_reliance == "Long_Term_Memory":
+                if di3_result.context_reliance == LONG_TERM_MEMORY:
                     ml_result.reference_signal = True
                 return ml_result
             # DI3 fast-path (noise/code/sentiment/meta): keep its decision, but
@@ -112,6 +120,20 @@ class PyTorchClassifier:
             return di3_result
 
         return self._run_ml_classifier(prompt, conversation_id)
+
+    def _encode(self, text: str) -> torch.Tensor:
+        """Render → encode → match the head's expected width."""
+        vec = self.embedder.encode(text, convert_to_tensor=True)
+        if self.input_dim != vec.shape[-1]:
+            # Only legal narrowing is the v1 MRL prefix (bit-identical to the
+            # old truncate_dim=384 output — see embedder.slice384).
+            if self.input_dim == 384:
+                vec = slice384(vec)
+            else:
+                raise ValueError(
+                    f"classifier expects {self.input_dim}-dim input but the "
+                    f"embedder produced {vec.shape[-1]}")
+        return vec.unsqueeze(0).float()
 
     def _run_ml_classifier(self, prompt: str, conversation_id: Optional[str] = None) -> ClassificationResult:
         """Original ML classification path (now private)."""
@@ -127,86 +149,68 @@ class PyTorchClassifier:
             if context_text:
                 # G26 validation: surface that CL7's prior-turn prefix is live.
                 logger.info("cl7_context_prefix", words=len(context_text.split()))
-                prefixed_prompt = (
-                    f"Conversation context (summarized):\n{context_text}\n\n"
-                    f"Given the above conversation and the user's latest prompt, "
-                    f"predict:\n"
-                    f"1. TOPIC: what is the subject (Software_&_Tech, Creative_&_Media, etc.)\n"
-                    f"2. INTENT: what is the user trying to do (Factual_Retrieval, Troubleshooting, etc.)\n"
-                    f"3. CONTEXT RELIANCE: does the user need memory (Zero_Shot, Long_Term_Memory, Real_Time_Search)\n\n"
-                    f"User prompt: {prompt}"
-                )
-            else:
-                prefixed_prompt = (
-                    f"Given a user prompt, predict:\n"
-                    f"1. TOPIC: what is the subject (Software_&_Tech, Creative_&_Media, etc.)\n"
-                    f"2. INTENT: what is the user trying to do (Factual_Retrieval, Troubleshooting, etc.)\n"
-                    f"3. CONTEXT RELIANCE: does the user need memory (Zero_Shot, Long_Term_Memory, Real_Time_Search)\n\n"
-                    f"User prompt: {prompt}"
-                )
-            embedding = slice384(
-                self.embedder.encode(prefixed_prompt, convert_to_tensor=True)
-            ).unsqueeze(0).float()
-            outputs = self.model(embedding)                     # (1, 25)
 
-            topic_out = outputs[:, :11]                         # (1, 11)
-            intent_out = outputs[:, 11:22]                      # (1, 11)
-            ctx_out = outputs[:, 22:]                           # (1, 3)
+            rendered = templates.render(prompt, context_text,
+                                        version=self.template_version)
+            logits = self.model(self._encode(rendered))
 
-            topic_probs = torch.sigmoid(topic_out).squeeze(0)   # (11,)
-            intent_probs = torch.sigmoid(intent_out).squeeze(0) # (11,)
-            ctx_probs = torch.softmax(ctx_out, dim=1).squeeze(0) # (3,)
+            # Schema-driven: no head offsets appear in this file.
+            probs_by_head = {}
+            for head in self.active_schema.heads:
+                block = logits[:, head.slice]
+                if head.activation == "softmax":
+                    probs_by_head[head.name] = torch.softmax(block, dim=1).squeeze(0)
+                else:
+                    probs_by_head[head.name] = torch.sigmoid(block).squeeze(0)
 
-        # Build tag lists
-        topic_tags = [self.TOPIC_LABELS[i] for i in range(len(self.TOPIC_LABELS))
-                      if topic_probs[i] > 0.3]
-        intent_tags = [self.INTENT_LABELS[i] for i in range(len(self.INTENT_LABELS))
-                       if intent_probs[i] > 0.3]
-        if not topic_tags:
-            topic_tags = [self.TOPIC_LABELS[torch.argmax(topic_probs).item()]]
-        if not intent_tags:
-            intent_tags = [self.INTENT_LABELS[torch.argmax(intent_probs).item()]]
-        context_reliance = self.CONTEXT_RELIANCE_LABELS[torch.argmax(ctx_probs).item()]
+        # Context-reliance probabilities aren't thresholded into tags — they are
+        # read off raw_probs by the derivation layer below (D6).
+        topic_tags = self._tags_above(TOPIC, probs_by_head[TOPIC])
+        intent_tags = self._tags_above(INTENT, probs_by_head[INTENT])
 
-        # Combine probabilities
-        raw_probs = topic_probs.tolist() + intent_probs.tolist() + ctx_probs.tolist()
+        raw_probs = []
+        for head in self.active_schema.heads:
+            raw_probs.extend(probs_by_head[head.name].tolist())
         max_confidence = max(raw_probs)
 
         result = ClassificationResult(
             topic_tags=topic_tags,
             intent_tags=intent_tags,
-            context_reliance=context_reliance,
+            context_reliance=ZERO_SHOT,   # replaced by _finalize_confidence
             raw_probs=raw_probs,
             max_confidence=max_confidence,
             prompt=prompt,
         )
+        result.head_confidences = {name: float(p.max())
+                                   for name, p in probs_by_head.items()}
         self._finalize_confidence(result)
         return result
 
+    def _tags_above(self, head_name: str, probs) -> List[str]:
+        """Labels over the tag threshold, falling back to the single argmax.
+
+        Threshold is ``settings.classifier_threshold`` (0.3) — Z1-prep's
+        decision-threshold stage sweeps it, which is why it is a setting and not
+        a literal here.
+        """
+        from src.api.config import settings
+        threshold = settings.classifier_threshold
+        labels = self.active_schema.labels(head_name)
+        tags = [labels[i] for i in range(len(labels)) if probs[i] > threshold]
+        if not tags:
+            tags = [labels[int(torch.argmax(probs).item())]]
+        return tags
+
     def _finalize_confidence(self, result: ClassificationResult) -> None:
-        """Populate the B2 context-reliance confidence scalars (p_ltm / p_rts /
-        ctx_confidence) on *result*.
+        """Populate the B2 context-reliance scalars on *result*.
+
+        Delegates to ``schema.finalize_context_scalars`` — the derivation is pure
+        label logic and lives where the label layout does, so it can be tested
+        (and reasoned about) without loading a checkpoint.
 
         The classifier no longer *forces* Long_Term_Memory — the old
-        creative/software hard overrides are gone; those signals are now bumps
-        in ``src.api.memory_decision``. This just exposes an honest, per-head
+        creative/software hard overrides are gone; those signals are now bumps in
+        ``src.api.memory_decision``. This just exposes an honest, per-head
         confidence for that decision to combine.
         """
-        probs = result.raw_probs or []
-        ctx = probs[22:25] if len(probs) >= 25 else []
-        if ctx and any(v > 0.0 for v in ctx):
-            # ML head — order is [Zero_Shot, Long_Term_Memory, Real_Time_Search].
-            result.p_ltm = float(ctx[1])
-            result.p_rts = float(ctx[2])
-            ordered = sorted(ctx, reverse=True)
-            result.ctx_confidence = float(ordered[0] - ordered[1])
-        else:
-            # DI3 fast-path (raw_probs all zero): derive a prior from the label
-            # DI3 chose so B2 still has a scalar to combine.
-            prior = {
-                "Long_Term_Memory": (0.85, 0.05),
-                "Zero_Shot": (0.12, 0.05),
-                "Real_Time_Search": (0.15, 0.70),
-            }.get(result.context_reliance, (0.30, 0.05))
-            result.p_ltm, result.p_rts = prior
-            result.ctx_confidence = float(result.max_confidence)
+        finalize_context_scalars(result, self.active_schema)

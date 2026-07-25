@@ -423,7 +423,14 @@ class CuratedLabel(Base):
     prompt = Column(Text, nullable=False)
     corrected_topic_labels = Column(ARRAY(Text), default=[])
     corrected_intent_labels = Column(ARRAY(Text), default=[])
+    # v1: the single 3-way string (Zero_Shot | Long_Term_Memory | Real_Time_Search).
     corrected_context_reliance = Column(Text, nullable=False)
+    # B1 v2: context-reliance is four INDEPENDENT signals, so corrections are a
+    # set, not a choice. An empty list on a v2 row is meaningful ("none of the
+    # four" = the derived Zero_Shot state), which is why schema_version and not
+    # emptiness decides how a row is read. F9's feedback UI writes v2 rows.
+    corrected_context_labels = Column(ARRAY(Text), default=[])
+    schema_version = Column(Integer, nullable=False, default=1, server_default="1")
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 class ReviewQueue(Base):

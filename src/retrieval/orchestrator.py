@@ -65,12 +65,25 @@ WIDE_NET_BUDGET_FLOOR = 1500
 
 
 def _head_confidences(classification):
-    """C15: honest per-head (topic, intent) confidences from the raw probs.
-    DI3 fast-path results carry all-zero raw_probs — fall back to their
-    explicitly set max_confidence (DI3 only fires when confident)."""
+    """C15: honest per-head (topic, intent) confidences.
+
+    B1: the classifier publishes these directly now — it is the one component
+    that knows which schema its checkpoint was trained on. Two fallbacks behind
+    that: slice `raw_probs` using whichever schema matches their width (25 = a v1
+    checkpoint, 28 = v2), then DI3's explicitly set max_confidence (its fast-path
+    results carry all-zero raw_probs, and DI3 only fires when confident).
+    """
+    from src.classifier.schema import INTENT, TOPIC, resolve_by_width
+
+    heads = getattr(classification, "head_confidences", None) or {}
+    if heads.get(TOPIC) is not None and heads.get(INTENT) is not None:
+        return float(heads[TOPIC]), float(heads[INTENT])
+
     probs = getattr(classification, "raw_probs", None) or []
-    if len(probs) >= 22 and any(p > 0.0 for p in probs[:22]):
-        return max(probs[:11]), max(probs[11:22])
+    schema = resolve_by_width(len(probs)) if probs else None
+    if schema is not None and any(p > 0.0 for p in probs):
+        return (max(probs[schema.slice(TOPIC)]), max(probs[schema.slice(INTENT)]))
+
     mc = getattr(classification, "max_confidence", 1.0)
     return mc, mc
 
@@ -527,6 +540,16 @@ class HybridRetrievalOrchestrator:
             {"vector": 1.1, "bm25": 0.6, "codex": 0.9, "procedural": 0.0}),
             ({"Casual_Banter", "Null_Noise"},
             {"vector": 0.5, "bm25": 0.2, "codex": 0.0, "procedural": 0.0}),
+            # B1 D9: the two v2 coding intents. Codebase_Query is navigation —
+            # the code graph (codex) knows where things are, and identifier
+            # matching (bm25) beats semantic similarity on symbol names.
+            # Code_Change leans procedural: how this user/project does changes
+            # (conventions, past fixes) matters more than definitions.
+            # Starting values — Z1-prep's tuning pass owns the final numbers.
+            ({"Codebase_Query"},
+            {"codex": 1.3, "bm25": 0.9, "vector": 0.8, "procedural": 0.6}),
+            ({"Code_Change"},
+            {"procedural": 1.2, "codex": 1.0, "vector": 0.6, "bm25": 0.6}),
         ]
 
         # Build a mapping from intent label → its profile’s override

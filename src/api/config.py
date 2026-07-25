@@ -136,6 +136,9 @@ class Settings(BaseSettings):
     # session); declared here so the settings block ships once.
     timescope_enabled: bool = True
     ltm_bump_timescope: float = 3.0
+    # B1 D7: the Temporal_Recall sigmoid counts as the same evidence as a fired
+    # detector for the bump above (OR, never AND). Only the detector sets windows.
+    temporal_label_threshold: float = 0.6
     timescope_pad_min_days: int = 3
     timescope_pad_month_days: int = 14
     timescope_pad_span_days: int = 21

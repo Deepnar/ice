@@ -1,6 +1,5 @@
 """Micro NER model: 384‑dim input → 3‑class output with hidden layers."""
 
-import torch
 import torch.nn as nn
 
 class MicroNER(nn.Module):

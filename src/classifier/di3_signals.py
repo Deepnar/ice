@@ -1,6 +1,6 @@
 """DI3 Signal Extractors – lightweight, regex‑free density calculators."""
 
-from typing import Dict, List
+from typing import Dict
 
 # ---------------------------------------------------------------------------
 # Sentiment word lists

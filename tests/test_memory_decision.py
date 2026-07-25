@@ -14,7 +14,8 @@ from src.api.memory_decision import (
     decide_memory_retrieval, memory_pressure, estimate_recent_window_tokens,
     derive_total_budget, _sigmoid, _logit,
 )
-from src.classifier.classifier import PyTorchClassifier
+from src.classifier.schema import (finalize_context_scalars, load_schema,
+                                   load_v1_schema)
 
 _passed = 0
 _failed = 0
@@ -31,7 +32,7 @@ def check(name, cond):
 
 
 def mk(p_ltm=0.1, topics=None, intents=None, max_conf=0.99, ctx_conf=0.8,
-       reference=False, ctx="Zero_Shot", prompt="hello there"):
+       reference=False, ctx="Zero_Shot", prompt="hello there", p_temporal=0.0):
     r = ClassificationResult(
         topic_tags=topics or ["Software_&_Tech"],
         intent_tags=intents or ["Factual_Retrieval"],
@@ -43,11 +44,13 @@ def mk(p_ltm=0.1, topics=None, intents=None, max_conf=0.99, ctx_conf=0.8,
     r.p_ltm = p_ltm
     r.ctx_confidence = ctx_conf
     r.reference_signal = reference
+    r.p_temporal = p_temporal
     return r
 
 
-def decide(r, turns=1, tokens=200.0):
-    return decide_memory_retrieval(r, turn_count=turns, total_tokens=tokens, settings=settings)
+def decide(r, turns=1, tokens=200.0, timescope_mode=None):
+    return decide_memory_retrieval(r, turn_count=turns, total_tokens=tokens,
+                                   settings=settings, timescope_mode=timescope_mode)
 
 
 print("── math sanity ──")
@@ -101,23 +104,62 @@ d = decide(mk(p_ltm=0.02, topics=["Creative_&_Media"], max_conf=0.99), turns=1, 
 check("very confident zero-shot survives even a creative bump", d.retrieve is False)
 
 print("── classifier confidence finalization (ML head vs DI3 path) ──")
-fin = PyTorchClassifier._finalize_confidence
-# ML path: ctx probs at indices 22..24 = [Zero_Shot, LTM, RTS]
+# B1: the derivation is pure label logic (schema.finalize_context_scalars), so
+# it needs a schema but no checkpoint. Both generations are exercised.
+V1 = load_v1_schema()
+V2 = load_schema()
+
+# v1 ML path: softmax ctx probs at indices 22..24 = [Zero_Shot, LTM, RTS]
 r = ClassificationResult([], [], "Long_Term_Memory",
                          [0.0] * 22 + [0.1, 0.7, 0.2], 0.7, "x")
-fin(None, r)
-check("ML path p_ltm read from ctx[1]", abs(r.p_ltm - 0.7) < 1e-9)
-check("ML path p_rts read from ctx[2]", abs(r.p_rts - 0.2) < 1e-9)
-check("ML path ctx_confidence = top1-top2", abs(r.ctx_confidence - 0.5) < 1e-9)
+finalize_context_scalars(r, V1)
+check("v1 path p_ltm read from ctx[1]", abs(r.p_ltm - 0.7) < 1e-9)
+check("v1 path p_rts read from ctx[2]", abs(r.p_rts - 0.2) < 1e-9)
+check("v1 path ctx_confidence = top1-top2", abs(r.ctx_confidence - 0.5) < 1e-9)
 
 # DI3 path: raw_probs all zero → derive prior from the label.
 r2 = ClassificationResult(["Null_Noise"], ["Casual_Banter"], "Zero_Shot",
                           [0.0] * 25, 0.95, "asdf")
-fin(None, r2)
+finalize_context_scalars(r2, V1)
 check("DI3 zero-shot prior p_ltm low", r2.p_ltm < 0.2)
 r3 = ClassificationResult([], [], "Long_Term_Memory", [0.0] * 25, 0.7, "it")
-fin(None, r3)
+finalize_context_scalars(r3, V1)
 check("DI3 LTM prior p_ltm high", r3.p_ltm > 0.8)
+
+print("── B1 D6: v2's four sigmoids derive the same scalars B2 consumes ──")
+# ctx head order: [Needs_Memory, Temporal_Recall, Needs_Live_Info, High_Complexity]
+r4 = ClassificationResult([], [], "Zero_Shot",
+                          [0.0] * 24 + [0.9, 0.8, 0.1, 0.2], 0.9, "what did I say in March")
+finalize_context_scalars(r4, V2)
+check("v2 p_ltm = the Needs_Memory sigmoid", abs(r4.p_ltm - 0.9) < 1e-9)
+check("v2 derived context_reliance = Long_Term_Memory", r4.context_reliance == "Long_Term_Memory")
+check("v2 p_temporal surfaced", abs(r4.p_temporal - 0.8) < 1e-9)
+check("v2 p_complex surfaced", abs(r4.p_complex - 0.2) < 1e-9)
+
+# The orthogonality the 3-way could not express: memory AND live info together.
+r5 = ClassificationResult([], [], "Zero_Shot",
+                          [0.0] * 24 + [0.85, 0.1, 0.80, 0.3], 0.85, "is my usual broker still cheapest")
+finalize_context_scalars(r5, V2)
+check("v2 memory+live coexist (both high)", r5.p_ltm > 0.8 and r5.p_rts > 0.75)
+check("v2 low margin when both fire", r5.ctx_confidence < 0.1)
+
+# All-low reliance is the DERIVED Zero_Shot state (no such label exists in v2).
+r6 = ClassificationResult([], [], "Long_Term_Memory",
+                          [0.0] * 24 + [0.05, 0.02, 0.03, 0.1], 0.9, "write a haiku")
+finalize_context_scalars(r6, V2)
+check("v2 all-low reliance derives Zero_Shot", r6.context_reliance == "Zero_Shot")
+
+print("── B1 D7: Temporal_Recall label == detector evidence (OR, never twice) ──")
+d_label = decide(mk(p_ltm=0.3, p_temporal=0.8), turns=2, tokens=300)
+d_detector = decide(mk(p_ltm=0.3), turns=2, tokens=300, timescope_mode="range")
+d_both = decide(mk(p_ltm=0.3, p_temporal=0.8), turns=2, tokens=300, timescope_mode="range")
+check("temporal label alone fires the bump", d_label.breakdown["temporal_label"] is True)
+check("label-only == detector-only bump size",
+      abs(d_label.p_need_mem - d_detector.p_need_mem) < 1e-9)
+check("both together is not double-counted",
+      abs(d_both.p_need_mem - d_detector.p_need_mem) < 1e-9)
+d_quiet = decide(mk(p_ltm=0.3, p_temporal=0.4), turns=2, tokens=300)
+check("sub-threshold p_temporal does not bump", d_quiet.p_need_mem < d_label.p_need_mem)
 
 print("── C16: model-aware total budget ──")
 check("8k model → 6k budget (0.75×)", derive_total_budget(8192, settings) == int(8192 * 0.75))

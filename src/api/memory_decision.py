@@ -180,7 +180,16 @@ def decide_memory_retrieval(
         lo += settings.ltm_bump_referential
     if low_conf:
         lo += settings.ltm_bump_low_confidence
-    if timescope_mode and timescope_mode != "current":
+    # T2 + B1 D7: the detector and the Temporal_Recall label are EQUIVALENT
+    # evidence for the retrieval bump — OR, never AND, and never twice. A
+    # v2 classifier catches "what did I think about this back then" (no parseable
+    # date, detector silent); the detector catches "in March 2026" on a prompt the
+    # head reads as ordinary. Note what the label does NOT do: only the
+    # deterministic detector ever sets a time WINDOW. A sigmoid inventing
+    # "two years ago" would be a hallucinated filter.
+    detector_fired = bool(timescope_mode and timescope_mode != "current")
+    temporal_label = result.p_temporal >= settings.temporal_label_threshold
+    if detector_fired or temporal_label:
         lo += settings.ltm_bump_timescope
     # E1 (D11): a project-attached conversation almost always wants context —
     # pointers are cheap. A bump, not a force (B2 idiom).
@@ -204,6 +213,8 @@ def decide_memory_retrieval(
             "referential": referential,
             "low_confidence": low_conf,
             "timescope": timescope_mode,
+            "p_temporal": round(result.p_temporal, 4),
+            "temporal_label": temporal_label,
             "coding_scope": coding_scope,
             "logit": round(lo, 4),
             "p_need_mem": round(p_need, 4),
