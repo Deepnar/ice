@@ -21,7 +21,55 @@ design requirements:**
 | 5 | Time axis never measured (Track T) | temporal probe class on ≥2 datasets; auto-generated with perfect GT on synthetic (§2.4) |
 | 6 | GT errors + untrusted 70% hallucination metric | ledger-based GT by construction (synthetic), citation-verified GT (personal sets), negative probes replace the hallucination % (§2.5) |
 
-User decisions (2026-07-10): cloud via **Ollama Cloud free tier** (rate-limited, fine —
+> **[rev 2026-07-25] — CLOUD PROVIDER SWAP + PER-CONDITION RUN LAYOUT (user decision;
+> supersedes the Ollama-Cloud clauses in D6 and in the 2026-07-10 line below).**
+> Recorded BEFORE implementation per README rule 12. Six changes:
+>
+> 1. **Provider = OpenRouter (paid credits), not Ollama Cloud.** Reasons (user): any
+>    model reachable through one API; a **hard credit cap** (~₹5,000 ≈ $60 total)
+>    instead of a recurring subscription; no local VRAM contention; and **prompt
+>    caching** with OpenRouter *sticky routing* keeps caches warm across calls —
+>    decisive for the judge (one rubric × ~4,500 calls) and `cloud_longctx` (the same
+>    long history re-sent per probe). D6's "one Ollama Cloud paid month ≈ $20 flat" is
+>    **void**; the cost model is metered-per-token now (see 3).
+> 2. **Ollama Cloud free tier survives for ONE-OFF calls only** — B1's disagreement
+>    tiebreak, synth spot-fills, ad-hoc checks. NOT for FINAL runs: limits are
+>    unpublished and revisable, session quota resets ~5 h, weekly caps, **1 concurrent
+>    model**, metering is by **GPU-time not tokens**, and a shifting free tier cannot
+>    give the pinned, manifest-recorded model a paper requires (reproducibility).
+> 3. **Cost reality (grounded 2026-07-25): the budget is NOT the constraint.**
+>    DeepSeek-V4-Flash on OpenRouter ≈ **$0.09/M in, $0.18/M out, cache hits $0.0028/M
+>    (~98% off)**. Estimated FINAL total ≈ **$5–10** (judge <$1 with the rubric cached;
+>    `cloud_longctx` ~$2–5; `full_ice_cloud` ~$1; GT-gen ~$0.5) — ~6× headroom inside
+>    the ₹5,000 cap. Consequence: **do not reflexively pick the cheapest judge.** Run
+>    D8's calibration gate first; if the cheap judge clears κ, keep it; if not,
+>    escalating costs ~$10, not the budget. (Gemini-3.6-Flash at $1.50/$7.50 per M ≈
+>    $27 for judging alone — affordable but unjustified unless calibration demands it.)
+> 4. **Judge/longctx model roster stays deferred to run time** (empirical-deferral (a)
+>    holds, new provider): pick the strongest instruct model and the strongest
+>    long-context model available on OpenRouter *then*; record both + exact version
+>    strings in the run manifest.
+> 5. **Per-condition run layout (user): `experiments/final/<dataset>/<condition>/`,
+>    local and cloud lanes running in PARALLEL.** Exp-2 ran all conditions in one pass;
+>    separating them means (a) the GPU never idles while the cloud judges — different
+>    resources, (b) one condition's calls run contiguously, which is exactly what
+>    maximizes prompt-cache hits + sticky routing, (c) a single condition can be re-run
+>    or re-judged without disturbing the rest, (d) each condition carries its own
+>    manifest. §2.9's runner architecture and §2.3's "own artifact dir" already lean
+>    this way — this makes it the mandated shape, plus a **shared cloud pacer /
+>    budget-guard** across lanes (one hourly call budget + a hard credit ceiling).
+> 6. **Config seam:** §3's provider-agnostic knobs (`cloud_base_url`,
+>    `cloud_api_key_env`, `cloud_hourly_call_budget`, `allow_personal_cloud`) are
+>    already sufficient — OpenRouter is an OpenAI-compatible base_url + key. Add
+>    `cloud_model_judge`, `cloud_model_longctx`, `cloud_credit_ceiling_usd`.
+>    **`allow_personal_cloud` (default False) still gates every personal-memory byte** —
+>    the provider swap changes nothing about privacy.
+>
+> Unchanged by this rev: which work is local vs cloud (the roadmap's AI-usage map),
+> D8's calibration gating, budget parity, the synthetic/LME datasets.
+
+User decisions (2026-07-10; **cloud-provider + judge-tier clauses SUPERSEDED by the rev
+above**): cloud via **Ollama Cloud free tier** (rate-limited, fine —
 the runner is resumable by design); **synthetic publishable dataset required** (private
 sets can't be replicated by reviewers); **LongMemEval yes** ("would love that", spec
 provides the mechanical how); **compute = one laptop, intermittent, ~a week of nights

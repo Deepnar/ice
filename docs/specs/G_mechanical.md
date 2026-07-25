@@ -72,3 +72,23 @@ alongside the flow phases (top-of-roadmap section).
   `conversation_id` exists; keep classification before model selection (tags
   feed routing). Validate: one live request round-trips; CL7's context-prefix
   actually receives prior turns (log the prefix length).
+- **G27 (new 2026-07-25 — shared-mode bg model resolves to the WRONG model; VRAM
+  thrash on a 24 GB box):** `bg_client_factory.get_bg_model_name()` in shared mode
+  (no `background_model_name` pin) returns `registry.get_fallback_model()`, which is
+  *the first `confirmed: true` entry in `models/model_registry.json`* — today
+  `gemma4:26b-a4b-it-q4_K_M`. That is **not** "the chat model currently in use", which
+  is what shared mode is documented to mean (C7 D7) and what the user believes it
+  does. With MoE routing live, chat may route to `qwen3-coder:30b-a3b` while background
+  work fires on `gemma4:26b-a4b` ⇒ Ollama holds/swaps **two ~17 GB models on 24 GB
+  VRAM**, thrashing on every background task. (`settings.default_fallback_model` =
+  `qwen2.5:7b` applies only when NOTHING is confirmed, so it never rescues this case.)
+  **Fix — decide between:** (a) resolve the *session's* routed model (SESSION_STATE
+  stickiness), falling back to first-confirmed only when there is no session — true
+  "shared" semantics; or (b) keep it deterministic and pin a small always-resident bg
+  model (`BACKGROUND_MODEL_NAME=qwen2.5:7b`) so bg never competes with chat for VRAM.
+  (b) is the safer default for FINAL (the bg model must be manifest-recorded and must
+  not vary with routing); (a) is the better product behavior. They can coexist: (a) as
+  the default, (b) as the documented pin. **Resolve BEFORE FINAL** — a bg model that
+  silently varies with routing is a reproducibility hole in every run. Touches
+  `bg_client_factory.py` (+ a config comment); validate with a routed-chat-vs-bg
+  assertion.

@@ -17,6 +17,67 @@ slicing at lines ~146–152), `schemas.py` (B2 scalar seam already in place),
 consumers and E2/T2 need their labels — ONE bundled retrain. The spec makes it
 mechanical whenever that moment comes.
 
+> **[rev 2026-07-25] — RE-GROUNDING (session paused mid-B1; recorded BEFORE coding per
+> README rule 12).** The spec above was grounded at `0dc5d89` (S1, 2026-07-10) and
+> predates C7, Track T, E0/E7, D1/D2, E-core, C4/C9, C10/C11, G23/C17 and F10/F14.
+> Eight corrections, all verified in code on 2026-07-21/25:
+>
+> 1. **D4.1's "real usage from `episodic_memory`" is WRONG for today's world.** The
+>    store was EMPTIED at the C17 1024 cutover and F10 imported nothing for real.
+>    **B1 trains from FILES ON DISK, not the DB** — which is cleaner anyway (no
+>    import, no store pollution, no decay interaction). Corpus sources are (i)
+>    `data/labeled/labeled_prompts.jsonl`, (ii) fresh online pulls, (iii) the
+>    `data/simulation/` exports parsed by F10's adapters, (iv) synth. If the user
+>    ever does a real F10 import, episodic becomes an OPTIONAL extra source, not a
+>    dependency.
+> 2. **The 25k corpus, measured (not guessed):** 25,354 rows = lmsys 5,255 +
+>    wildchat 5,257 + sharegpt 5,159 (≈15.7k online breadth) + **personal 7,711** +
+>    synthetic 1,972. v1 context-reliance: Zero_Shot 18,844 / Long_Term_Memory 5,891 /
+>    Real_Time_Search 619. So B1 does NOT start from a data desert; "the user's chats"
+>    in the roadmap **means this corpus**, not an unbuilt personal-history set.
+> 3. **The real gaps are six specific label slices, not "not enough data":**
+>    `Needs_Memory` inherits 5,891 (healthy) · `Needs_Live_Info` inherits 619 (thin) ·
+>    `Temporal_Recall`, `High_Complexity`, `Codebase_Query`, `Code_Change` have **zero**
+>    existing positives. Diversity is the ONLINE layer's job (re-pull more, weighted to
+>    thin topics) — **not** the personal exports'. The exports' job is (a) real
+>    multi-turn CONTEXT rows (the 25k is mostly standalone; D3 wants ≥40% context-
+>    prefixed + ≥1k hard-negative pairs), (b) the coding/temporal labels, (c) personal
+>    calibration. Narrow-technical personal data is therefore FINE.
+> 4. **`Temporal_Recall` gets free weak supervision:** run T2's deterministic detector
+>    (`src/retrieval/timescope.py`, shipped) over the whole corpus — every hit is a
+>    positive. D7 still holds: labels gate, only the detector sets windows.
+> 5. **`High_Complexity` is the cut candidate.** Zero positives, no real-data
+>    definition, and its only consumer (the F11/B3 cloud toggle) does not exist yet.
+>    Seed it synthetically, but honour §4's rule: <150 real positives ⇒ drop the label
+>    rather than train a coin-flip head. Decide explicitly at build time.
+> 6. **Labeling is LOCAL-first (user, 2026-07-25).** D4.2's "two independent LLM
+>    labelers" = **two DIFFERENT LOCAL model families** (independence comes from
+>    distinct architectures, not from being cloud-hosted) — on the user's 24 GB box,
+>    `qwen3.6:27b` + `gemma4:26b-a4b` from the live registry. **Cloud is used ONLY for
+>    the disagreement tiebreak (~200–400 rows) and rare-label/hard synth** — the local
+>    pair auto-routes just the hard cases upward. For these one-off calls the **Ollama
+>    Cloud free tier suffices** (FINAL's paid OpenRouter lane is a separate concern; see
+>    FINAL rev 2026-07-25). Human review remains the final arbiter (D-USER b/c).
+> 7. **Tooling moved (2026-07-21 cleanup, commit `b0d3e5f`).** §2's paths are stale:
+>    `scripts/training/*` and `scripts/classifier/promt_*` now live under
+>    **`scripts/classifier/legacy/`** (frozen, provenance) and the v2 pipeline is built
+>    in **`scripts/classifier/pipeline/`** as named stages —
+>    `extract → stitch_icedev → synth → label → build → train → evaluate → promote`.
+>    See `scripts/classifier/README.md` for the old→new map. The strong v1 assets to
+>    REUSE (not rewrite from scratch): `legacy/promt_labeling/VLLM_label_dataset.py`
+>    (source-aware thresholds, 6 immunity traps, signals A–F, reasoning-first) → the
+>    base for `label.py`; `legacy/promt_labeling/synthetic_data.py` → the base for
+>    `synth.py`; `compare_labeling.py`'s diff logic → the agreement step. The 3 online
+>    extractors get rewritten for LARGER, topic-weighted pulls.
+> 8. **`stitch_icedev.py` is a new stage (user-requested):** the ice-dev conversation
+>    spans 6–7 separate DeepSeek chats; stitch them into ONE chronological mega-
+>    conversation. It is a **shared asset with FINAL** (a real long-project memory
+>    test), so build it properly once.
+>
+> Order of work: **schema v2 → the model → the pipeline scripts.** Unchanged by this
+> rev: D1's label set, D2's architecture, D3's template discipline, D5's non-regression
+> gate, D6's derivation layer, D7, D8's DI3 deletion rule, D9, and every trap in §7.
+
 ## 1. Decisions
 
 - **D1: label schema v2 — heads become schema-driven, no magic numbers anywhere.**
