@@ -93,3 +93,16 @@ against the environment's Triton. `--backend vllm` is the default for that reaso
 **The two labelers must be different families.** Two Qwen variants agreeing measures a model
 against itself, and the agreement rate — the number the whole methodology rests on — becomes
 meaningless. Same rule for the tiebreak model.
+
+## Settled labelers (vetted on real rows, 2026-07-25)
+
+| slot | model | family | speed | note |
+|---|---|---|---|---|
+| A | `Qwen/Qwen3-14B-AWQ` | qwen | 1.77 rows/s (~6.2 h) | won the slot on speed |
+| B | `cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit` | gemma | 2.34 rows/s (~4.7 h) | full pass DONE |
+| C | `openai/gpt-oss-20b` | openai | 1.20 rows/s | tiebreak only; needs `reasoning_effort=low` |
+
+Measured agreement against Gemma: the three memory signals **90.8-98.6%**, `High_Complexity`
+83-84%, topic 78-80%, intent 64-66%. All-three-heads agreement is only 36-38%, which is why
+`High_Complexity` is excluded from the agreement gate (`SOFT_CTX_LABELS`) and why the tiebreak
+is sized as a local pass (~24k rows, ~4 h) rather than a handful of rows.

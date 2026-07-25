@@ -37,10 +37,10 @@ if command -v ollama >/dev/null 2>&1; then
   done
 fi
 
-step label_a  label.py --labeler A
-step label_b  label.py --labeler B
+step label_a  label.py --labeler A     # qwen3-14b  (~6.2 h)
+step label_b  label.py --labeler B     # gemma-4-26b-a4b (~4.7 h)
 step merge_1  label.py --merge
-step label_c  label.py --labeler C --tiebreak-only
+step label_c  label.py --labeler C --tiebreak-only   # gpt-oss-20b (~4 h)
 step merge_2  label.py --merge
 
 # Synth runs HERE, not earlier. A gap measured from one labeler's pass is a

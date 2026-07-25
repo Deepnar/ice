@@ -49,8 +49,8 @@ from common import (AUDIT_SAMPLE, CORPUS_RAW, CORPUS_SYNTH, ICEDEV_STITCHED, LAB
                     write_jsonl)
 from serving import LocalServer, is_up, served_model
 
-from src.classifier.schema import (CONTEXT_RELIANCE, INTENT, TEMPORAL_RECALL,
-                                   TOPIC, load_schema)
+from src.classifier.schema import (CONTEXT_RELIANCE, HIGH_COMPLEXITY, INTENT,
+                                   TEMPORAL_RECALL, TOPIC, load_schema)
 
 SEED = 42
 AUDIT_FRACTION = 0.05
@@ -64,18 +64,19 @@ GATE_MAX_DEGENERATE = 0.3
 # before answering need more (see serving.PROFILES["gpt-oss-20b"]["request"]).
 DEFAULT_MAX_TOKENS = 700
 
-# Three DIFFERENT families — mistral / gemma / qwen. The family split is the
+# Three DIFFERENT families — qwen / gemma / openai. The family split is the
 # methodology, not a preference: agreement between two members of one family
 # measures a model against itself, and the agreement rate is the number the whole
 # labeling design rests on.
 LABELERS = {
     "A": {"model": "qwen3-14b", "out": LABELS_A},
     "B": {"model": "gemma-4-26b-a4b", "out": LABELS_B},
-    # ⚠ C is UNRESOLVED. The Mistral requant that was meant to fill it is broken
-    # (token soup behind valid JSON — see serving.PROFILES). Pick a working third
-    # family and vet it with `--limit 20` + compare.py before any tiebreak run;
-    # `--model <profile>` overrides this without editing code.
-    "C": {"model": "mistral-small-24b", "out": LABELS_TIEBREAK},
+    # C = a THIRD lineage (OpenAI), vetted 2026-07-25 on 142 rows: clean reasoning,
+    # and its agreement with Gemma (38.0%) matches qwen3-14b's (36.4%), so it is a
+    # peer of the other two rather than an outlier. It lost the labeler-A slot on
+    # speed alone (1.2 vs 1.77 rows/s), which makes it the natural tiebreaker --
+    # that job is a fraction of the corpus.
+    "C": {"model": "gpt-oss-20b", "out": LABELS_TIEBREAK},
 }
 
 
@@ -296,33 +297,75 @@ def _sets(entry):
             {c for c in labels.get(CONTEXT_RELIANCE, [])})
 
 
+# High_Complexity is resolved separately from the rest of the context head — it
+# never blocks a row from settling. Measured 2026-07-25 over two independent
+# labeler pairs: the three memory signals agree 90.8–98.6%, while High_Complexity
+# agrees only 83–84% and alone accounted for ~16% of all context disagreements.
+#
+# It is also the only context label with an ASYMMETRIC error cost, and only in
+# one of three deployments (see B1 spec D1 / ROADMAP F11):
+#   * local-only        — routing has one class; the signal changes nothing
+#   * cloud-only        — everything goes to cloud; the signal changes nothing
+#   * mixed local+cloud — the signal decides, and a FALSE POSITIVE spends the
+#                         user's real credits on a prompt that never needed it
+# A false negative costs answer quality on one turn; a false positive costs
+# money. So this label is resolved conservatively, and its consumer applies a
+# tunable threshold anyway (B3's `p_complex >= 0.6`, owned by Z1-prep): a precise
+# head can be made liberal by lowering that threshold, but a noisy head cannot be
+# made precise by raising it.
+SOFT_CTX_LABELS = {HIGH_COMPLEXITY}
+
+
+def _ctx_core(labels: set) -> set:
+    """The context signals that must match exactly for a row to settle."""
+    return labels - SOFT_CTX_LABELS
+
+
+def _resolve_soft_ctx(votes) -> set:
+    """Majority vote over the soft labels; a 1-1 split resolves to NO.
+
+    With a third labeler present this is a real majority. With only two votes
+    that disagree, defaulting to absent is the cheap-error direction.
+    """
+    out = set()
+    for label in SOFT_CTX_LABELS:
+        if sum(1 for v in votes if label in v) * 2 > len(votes):
+            out.add(label)
+    return out
+
+
 def _agreement(a, b):
     """Per-head agreement between two labelers.
 
-    Context reliance demands an EXACT match: four binary signals, and they are
-    the labels this whole retrain exists to get right. Topic and intent are
-    inherently fuzzy multi-label sets where two competent labelers routinely
-    pick 2-of-3 the same, so requiring exact equality there would bury the user
-    under thousands of reviews that don't change the trained model.
+    Context reliance demands an EXACT match on the three memory signals — they
+    are the labels this whole retrain exists to get right, and two independent
+    labelers agree on them 90%+ of the time, so the bar is affordable.
+    High_Complexity is excluded (see SOFT_CTX_LABELS).
+
+    Topic and intent are inherently fuzzy multi-label sets where two competent
+    labelers routinely pick 2-of-3 the same, so requiring exact equality there
+    would bury the user under thousands of reviews that don't change the model.
     """
     ta, ia, ca = _sets(a)
     tb, ib, cb = _sets(b)
     return {
         TOPIC: bool(ta & tb),
         INTENT: bool(ia & ib),
-        CONTEXT_RELIANCE: ca == cb,
+        CONTEXT_RELIANCE: _ctx_core(ca) == _ctx_core(cb),
     }
 
 
-def _merge_agreeing(a, b):
+def _merge_agreeing(a, b, extra_votes=()):
     ta, ia, ca = _sets(a)
     tb, ib, cb = _sets(b)
+    votes = [ca, cb] + [_sets(v)[2] for v in extra_votes]
     return {
         # Intersection, not union: a label both models saw is a label worth
         # training on. Union imports each model's false positives into the target.
         TOPIC: sorted(ta & tb) or sorted(ta),
         INTENT: sorted(ia & ib) or sorted(ia),
-        CONTEXT_RELIANCE: sorted(ca),
+        # Core signals agreed by construction; soft ones settled by majority.
+        CONTEXT_RELIANCE: sorted(_ctx_core(ca) | _resolve_soft_ctx(votes)),
     }
 
 
@@ -331,8 +374,13 @@ def _majority(head, a, b, c):
     idx = {TOPIC: 0, INTENT: 1, CONTEXT_RELIANCE: 2}[head]
     sa, sb, sc = _sets(a)[idx], _sets(b)[idx], _sets(c)[idx]
     if head == CONTEXT_RELIANCE:
-        if sc == sa or sc == sb:
-            return sorted(sc)
+        # Only the core signals need to match; the soft ones ride along on a
+        # real three-way majority, which is the best vote we will ever have.
+        soft = _resolve_soft_ctx([sa, sb, sc])
+        for candidate in (sc, sa, sb):
+            others = [s for s in (sa, sb, sc) if s is not candidate]
+            if any(_ctx_core(candidate) == _ctx_core(o) for o in others):
+                return sorted(_ctx_core(candidate) | soft)
         return None
     for x, y in ((sa, sc), (sb, sc), (sa, sb)):
         if x & y:

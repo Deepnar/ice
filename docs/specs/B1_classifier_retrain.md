@@ -147,6 +147,50 @@ mechanical whenever that moment comes.
 >    floor. Also: `curated_labels` gained `schema_version` + `corrected_context_labels`
 >    (migration `c4d7e91a2b58`) so §6's F9 look-ahead is satisfied now rather than later.
 
+> **[rev 2026-07-25c] — MEASURED RESULTS FROM THE LABELING RUN (these change D4, not just its
+> implementation).** Everything below is data, not estimate.
+>
+> 1. **Labelers, final: A = `Qwen/Qwen3-14B-AWQ` · B = `cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit`
+>    · C (tiebreak) = `openai/gpt-oss-20b`.** Three distinct lineages (Qwen / Gemma / OpenAI),
+>    all vetted on real rows. Speed decided A: 1.77 vs 1.20 rows/s, ~6.2 h vs ~8.7 h for a full
+>    pass, with equivalent agreement — so gpt-oss takes the tiebreak slot, which is a fraction of
+>    the corpus. **Two candidate requants are BROKEN and marked in `serving.PROFILES`:**
+>    Qwen3.6-27B-AWQ (misquantized vision tower, won't load) and Mistral-Small-3.2-24B-awq-sym
+>    (loads, serves, and emits token soup behind schema-valid JSON — the reason
+>    `label.is_degenerate` and its abort gate exist).
+> 2. **Agreement, measured over two independent labeler pairs (n=184 / n=142):** the three
+>    memory signals agree **90.8–98.6%** (`Needs_Memory` 90.8/94.4, `Temporal_Recall` 96.7/98.6,
+>    `Needs_Live_Info` 97.3/95.1). **The methodology works.** Topic agrees 78–80%, intent 64–66%
+>    — both fuzzy multi-label heads, as expected.
+> 3. **D4.2's "disagreement → tiebreak" was costed wrong by two orders of magnitude.** Requiring
+>    all three heads to align simultaneously compounds topic/intent noise onto a context head
+>    that was never the problem: only **36–38%** of rows settle, so ~24k rows reach the tiebreak,
+>    not the "~200–400" the spec assumed. That is a COMPUTE question, not a quality one — a local
+>    third pass is ~4 h of GPU. What must stay small is the HUMAN queue, i.e. rows where the
+>    tiebreak *also* fails.
+> 4. **`High_Complexity` is resolved separately and never blocks settlement** (`SOFT_CTX_LABELS`
+>    in `label.py`). It is the weakest-agreeing context label (83–84%) and alone caused ~16% of
+>    context disagreements. **Decided on its error asymmetry (user, 2026-07-25), which depends
+>    on which of three deployments the user is in — recorded here because it was nowhere:**
+>    - **local-only** — routing has a single class; the signal changes nothing.
+>    - **cloud-only** — every turn goes to cloud; the signal changes nothing.
+>    - **mixed local + cloud** — the signal decides, and a **false positive spends the user's
+>      real credits** on a prompt that never needed the strong model. A false negative costs
+>      answer quality on one turn.
+>    Money is the harder error to undo, so the label resolves conservatively: majority vote when
+>    a third labeler exists, and a 1-1 split resolves to ABSENT. This is also the right shape for
+>    a threshold consumer — B3 reads `p_complex >= 0.6` and Z1-prep owns that number, so a
+>    precise head can be made liberal by lowering the threshold, while a noisy head cannot be
+>    made precise by raising it.
+> 5. **Prompt cap:** the labeler sees at most 6,000 chars of a prompt. 116 rows overran an 8k
+>    context window on the first pass (rubric ~3.2k tokens + context + prompt); code/CJK text
+>    tokenizes near 3 chars/token, well under the 4 English suggests.
+> 6. **Synth moved AFTER merge+tiebreak.** A gap measured from one pass is provisional in a known
+>    direction — agreement keeps the intersection, so a single pass always overstates. Measured
+>    from Gemma alone, only `Codebase_Query` was short (221 vs the 300 floor); every other label
+>    cleared it, **including `High_Complexity` (9,141)**, so §4's "drop the label" rule does not
+>    fire and the cut candidate survives.
+
 ## 1. Decisions
 
 - **D1: label schema v2 — heads become schema-driven, no magic numbers anywhere.**
