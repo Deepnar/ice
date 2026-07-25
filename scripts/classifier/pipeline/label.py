@@ -67,6 +67,10 @@ GATE_MAX_DEGENERATE = 0.3
 LABELERS = {
     "A": {"model": "qwen3-14b", "out": LABELS_A},
     "B": {"model": "gemma-4-26b-a4b", "out": LABELS_B},
+    # ⚠ C is UNRESOLVED. The Mistral requant that was meant to fill it is broken
+    # (token soup behind valid JSON — see serving.PROFILES). Pick a working third
+    # family and vet it with `--limit 20` + compare.py before any tiebreak run;
+    # `--model <profile>` overrides this without editing code.
     "C": {"model": "mistral-small-24b", "out": LABELS_TIEBREAK},
 }
 

@@ -10,9 +10,15 @@ Every stage is a standalone script (house style), resumable by row id, and write
 ## Order
 
 ```
-extract  →  stitch_icedev  →  synth  →  label  →  build  →  train  →  evaluate  →  promote
-   1             2              3         4        5         6          7           8
+extract  →  stitch_icedev  →  label  →  merge/tiebreak  →  synth*  →  build  →  train  →  evaluate  →  promote
+   1             2             4          4                  3         5        6          7           8
 ```
+
+\* **synth runs after the merge, not before** (numbering kept for the file names). A gap
+measured from one labeler's pass is provisional in a known direction — agreement keeps the
+*intersection*, so a single pass always overstates, and the tiebreak moves it again.
+Generating against that number produces the wrong amount of the wrong thing. Waiting is
+cheap: labelers resume by id, so re-labeling the newly generated rows touches only those.
 
 | stage | what it does | output |
 |---|---|---|
@@ -27,7 +33,19 @@ extract  →  stitch_icedev  →  synth  →  label  →  build  →  train  →
 
 Support modules: `common.py` (paths, resumable JSONL, dedupe, diversity buckets),
 `rubric.py` (the ~400-line labeling prompt, rendered from `label_schema.json`),
-`serving.py` (local vLLM/SGLang lifecycle + per-model 24 GB profiles).
+`serving.py` (local vLLM/SGLang lifecycle + per-model 24 GB profiles),
+`compare.py` (agreement between any two passes — reuses the merge's own rule).
+
+**Vet a labeler before you spend hours on it.** Run the candidate over a few hundred rows
+another labeler already covered, then compare:
+
+```bash
+uv run python label.py --labeler A --model gpt-oss-20b --limit 200 --out ../../../data/labeled/v2/dryrun.jsonl
+uv run python compare.py labels_b.jsonl dryrun.jsonl
+```
+
+~90% agreement means interchangeable; ~50% means one of them is reading the rubric
+differently, and you want to know which *before* the five-hour pass, not after.
 
 ## Running it
 

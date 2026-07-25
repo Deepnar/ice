@@ -63,16 +63,32 @@ DEFAULT_PORT = 30000
 # compressed-tensors), and every checkpoint already declares its method in
 # config.json. Forcing a value here only creates a mismatch the server refuses.
 PROFILES = {
-    # labeler A — dense 24B, a third distinct family from B and C.
-    # NOT Qwen3.6-27B: the on-disk requant (mattbucci/Qwen3.6-27B-AWQ) fails to
-    # load in vLLM 0.22.0 — "input size is not aligned with the quantized weight
-    # shape" on visual.blocks.*, i.e. its VISION TOWER is misquantized. That is a
-    # property of that repo, not of the model; a different requant may work.
+    # ⚠ BROKEN — DO NOT USE. This requant loads and serves, but emits token soup
+    # ("ìľ¼ëĤĺ…jumjumjum…") for 18/18 rows while constrained decoding still forces
+    # schema-valid JSON with real enum values — so the output file looks perfectly
+    # fine and is worthless. This is why `label.is_degenerate` exists. Kept listed
+    # so the failure is documented rather than rediscovered; a DIFFERENT
+    # Mistral-Small requant may well be fine, but test it with --limit 20 and read
+    # the reasoning field before trusting it.
     "mistral-small-24b": {
         "model": "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym",
         "family": "mistral",
         "mem_fraction": 0.88,
         "max_running": 24,
+        "quantization": None,
+    },
+    # Fast MoE alternative for labeler A, and a THIRD lineage (OpenAI) — so it
+    # improves labeler independence rather than trading it for speed.
+    # 21B total / ~3.6B active, MXFP4 native (which the Blackwell 5090 runs on
+    # tensor cores directly), ~13.8 GB of weights. The smaller footprint is why
+    # concurrency goes up: ~9 GB is left for the KV pool instead of ~7.
+    # Checked 2026-07-25: every other MoE that would fit is too big at 4-bit —
+    # Qwen3.6-35B-A3B 25.0 GB, Mixtral-8x7B 24.7 GB, GLM-4.5-Air 63.4 GB.
+    "gpt-oss-20b": {
+        "model": "openai/gpt-oss-20b",
+        "family": "openai",
+        "mem_fraction": 0.90,
+        "max_running": 48,
         "quantization": None,
     },
     # tiebreak C — the third family, text-only (no vision tower to misquantize),
