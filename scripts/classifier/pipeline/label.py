@@ -268,17 +268,22 @@ async def run_labeler(rows, out_path, base_url, model_id, concurrency,
             _label_row(client, model_id, system_prompt, schema_json, row, mode,
                        semaphore, out, failed, progress, request_overrides))
             for row in todo]
+        # The abort watcher never resolves on a healthy run, so completion must be
+        # judged by the LABEL tasks alone — waiting on "nothing pending" would
+        # hang forever holding the GPU, right after the last row succeeded.
         watcher = asyncio.create_task(aborted.wait())
-        done_tasks, pending = await asyncio.wait(
-            [*tasks, watcher], return_when=asyncio.FIRST_COMPLETED)
-        while pending and not aborted.is_set():
-            done_tasks, pending = await asyncio.wait(
-                pending, return_when=asyncio.FIRST_COMPLETED)
-        if aborted.is_set():
-            for task in pending:
-                task.cancel()
-            await asyncio.gather(*pending, return_exceptions=True)
+        while not aborted.is_set():
+            remaining = [t for t in tasks if not t.done()]
+            if not remaining:
+                break
+            await asyncio.wait([*remaining, watcher],
+                               return_when=asyncio.FIRST_COMPLETED)
         watcher.cancel()
+        if aborted.is_set():
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+        await asyncio.gather(*tasks, watcher, return_exceptions=True)
 
     elapsed = time.time() - started
     print(f"[label] {counter['n']} rows in {elapsed / 60:.1f} min "
