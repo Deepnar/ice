@@ -76,17 +76,18 @@ Mechanical G items: opportunistic per [G_mechanical.md](specs/G_mechanical.md), 
 
 | work | volume | local | cloud | verdict |
 |---|---|---|---|---|
-| B1 labeling (25k+ rows, two-labeler) | huge | ✅ **two distinct local families** (`qwen3.6:27b` + `gemma4:26b-a4b`) — independence comes from different architectures | — | **LOCAL** |
-| B1 disagreement tiebreak | ~200–400 rows | — | ✅ | **CLOUD (tiny)** — the local pair auto-routes only hard cases up; **Ollama free tier suffices** |
-| B1 synth (bulk) / rare-label synth | large / small | ✅ | ✅ tiny | mostly **LOCAL** |
+| B1 labeling (25k+ rows, two-labeler) | huge | ✅ **two distinct local families** (Qwen3.6-27B + Gemma-4-26B-A4B) — independence comes from different architectures | — | **LOCAL**, served by **SGLang** (see below) |
+| B1 disagreement tiebreak | ~200–400 rows | ✅ a **third** local family | — | **LOCAL** (hardened 2026-07-25 — no cloud outside FINAL) |
+| B1 synth (bulk + rare-label) | large | ✅ | — | **LOCAL** |
 | NER retrain labeling (A9) | large | ✅ | — | **LOCAL** |
 | FINAL synthetic transcripts | large | ✅ | — | **LOCAL** |
 | FINAL **evolving GT generation** | medium | — | ✅ | **CLOUD** — GT errors were the #1 complaint |
-| FINAL **judge (~4,500 calls)** | medium | — | ✅ | **CLOUD** — judge validity is the paper's spine; κ-gated (D8); rubric prompt-cached |
+| FINAL **judge (~4,500 probes × 2)** | medium | — | ✅ | **CLOUD, DUAL JUDGE** — two DIFFERENT families score every probe, and **no judge may share a family with the answerer** (self-preference bias); inter-judge κ reported; never average the two — disagreements go to auto-score/human audit |
 | FINAL `cloud_longctx` / `full_ice_cloud` | ~550 each | — | ✅ | **CLOUD by definition** (frontier baseline + equal-answerer head-to-head) |
 | FINAL local conditions (`full_ice`, `vector_rag`) | the GPU nights | ✅ | — | **LOCAL** |
 
-- **Provider split:** **OpenRouter (paid credits) for FINAL** — any model via one API, hard credit cap, prompt caching + sticky routing (decisive: one judge rubric × 4,500 calls; the same long history per longctx probe). **Ollama Cloud free tier for genuine one-offs only** (B1 tiebreak, synth spot-fills) — its unpublished/revisable limits, ~5 h session quota, 1 concurrent model and GPU-time metering can't give a paper the pinned, manifest-recorded model it needs. Full rationale + cost model: **[FINAL_experiments.md](specs/FINAL_experiments.md) rev 2026-07-25**.
+- **CLOUD IS EXCLUSIVE TO FINAL** (user, hardened 2026-07-25): every other phase — B1 labeling *and* its tiebreak, NER, synth — is 100% local. FINAL is "the final shot"; the whole ₹5,000 cap backs the judged runs + the frontier baseline. Provider = **OpenRouter** (any model via one API, hard credit cap, prompt caching + sticky routing — decisive for a rubric reused across thousands of calls). Ollama Cloud free tier is *not* needed anywhere. Full rationale + cost model: **[FINAL_experiments.md](specs/FINAL_experiments.md) rev 2026-07-25**.
+- **⚡ LOCAL SERVING ENGINE for bulk jobs = SGLang (or vLLM), NEVER Ollama** (user: Ollama is unusably slow for bulk labeling). SGLang wins this workload specifically: **RadixAttention prefix caching** (the ~400-line labeling rubric is identical across all 25k rows — a maximally prefix-heavy workload, up to ~6.4× on such cases) + **first-class JSON-schema constrained decoding** (compressed FSM, ~3× faster than standard guided decoding; replaces retry-on-bad-JSON). Serve **AWQ/GPTQ HF weights, not GGUF**. Precedent exists: the v1 labeler already used vLLM at `localhost:8001/v1` (`scripts/classifier/legacy/promt_labeling/VLLM_label_dataset.py`) — OpenAI-compatible, so client code barely changes. Ollama stays the *runtime/chat* server; SGLang is spun up per bulk job.
 - **Cost reality: the budget is NOT the constraint.** DeepSeek-V4-Flash ≈ $0.09/M in, $0.18/M out, cache hits $0.0028/M (~98% off) ⇒ estimated FINAL total **$5–10** (~6× headroom). Consequence: **don't reflexively pick the cheapest judge** — run D8's calibration gate; escalating a failed judge costs ~$10, not the budget.
 - **FINAL run layout:** per-condition folders `experiments/final/<dataset>/<condition>/`, local + cloud lanes in PARALLEL (GPU never idles while the cloud judges; contiguous per-condition calls maximize cache hits; one condition re-runnable alone), with a shared cloud pacer/budget-guard.
 - **Privacy unchanged:** `allow_personal_cloud` (default False) gates every personal-memory byte regardless of provider; synthetic + LongMemEval data is freely cloud-able.

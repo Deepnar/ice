@@ -65,8 +65,41 @@ design requirements:**
 >    **`allow_personal_cloud` (default False) still gates every personal-memory byte** —
 >    the provider swap changes nothing about privacy.
 >
+> 7. **CLOUD IS EXCLUSIVE TO FINAL (user, hardened 2026-07-25).** Every other phase —
+>    B1's labeling AND its tiebreak, NER, synth generation — is **100% local** (see B1
+>    rev 2026-07-25). FINAL is "the final shot": the entire ₹5,000 cap backs the judged
+>    runs and the frontier baseline, nothing else.
+> 8. **DUAL JUDGE — every probe is judged TWICE by two DIFFERENT model families
+>    (user, 2026-07-25).** Single-judge scoring carries two documented biases this
+>    kills: (i) **self-preference** — a judge systematically favours text from its own
+>    family, which is fatal here because `cloud_longctx` and `full_ice_cloud` are
+>    *answered by* a cloud model; (ii) idiosyncratic rubric drift. Rules:
+>    - **The judge must never share a family with the answerer.** If DeepSeek-V4-Flash
+>      answers `cloud_longctx`/`full_ice_cloud`, DeepSeek must NOT be a judge of those
+>      conditions. Record the answerer↔judge family matrix in the manifest and assert
+>      disjointness at run start (fail loud, don't warn).
+>    - **Two judges of different families score every probe** (e.g. a Gemini-class and
+>      a Qwen/Llama-class model on OpenRouter — exact roster deferred to run time per
+>      empirical-deferral (a)).
+>    - **Inter-judge agreement (κ) becomes a REPORTED statistic**, alongside D8's
+>      existing anchors (auto-score agreement, κ vs the human-audited set, the 5% audit).
+>      D8's calibration gate now applies **per judge**: a judge failing κ is replaced,
+>      not averaged in.
+>    - **Score of record:** where the two judges agree, that score stands; where they
+>      disagree, the auto-score decides if one exists (synth fact/negative probes),
+>      else the disagreement is surfaced for the human audit sample and reported as a
+>      disagreement rate. **Never silently average two judges into a mean** — that
+>      hides exactly the disagreement the second judge was added to expose.
+>    - Cost impact is negligible (judging ≈ 2 × <$1 with the rubric cached); this is
+>      the single cheapest credibility upgrade available and it directly answers
+>      criticism #4 ("weaker judge").
+>    - **Same anti-bias logic applies to any other generative role** where one model
+>      could grade or generate for itself — notably **evolving-GT generation must not
+>      use a judge family** (GT-generator, judge A, judge B = three distinct families
+>      where reachable).
+>
 > Unchanged by this rev: which work is local vs cloud (the roadmap's AI-usage map),
-> D8's calibration gating, budget parity, the synthetic/LME datasets.
+> D8's anchors themselves, budget parity, the synthetic/LME datasets.
 
 User decisions (2026-07-10; **cloud-provider + judge-tier clauses SUPERSEDED by the rev
 above**): cloud via **Ollama Cloud free tier** (rate-limited, fine —

@@ -50,14 +50,36 @@ mechanical whenever that moment comes.
 >    definition, and its only consumer (the F11/B3 cloud toggle) does not exist yet.
 >    Seed it synthetically, but honour §4's rule: <150 real positives ⇒ drop the label
 >    rather than train a coin-flip head. Decide explicitly at build time.
-> 6. **Labeling is LOCAL-first (user, 2026-07-25).** D4.2's "two independent LLM
->    labelers" = **two DIFFERENT LOCAL model families** (independence comes from
->    distinct architectures, not from being cloud-hosted) — on the user's 24 GB box,
->    `qwen3.6:27b` + `gemma4:26b-a4b` from the live registry. **Cloud is used ONLY for
->    the disagreement tiebreak (~200–400 rows) and rare-label/hard synth** — the local
->    pair auto-routes just the hard cases upward. For these one-off calls the **Ollama
->    Cloud free tier suffices** (FINAL's paid OpenRouter lane is a separate concern; see
->    FINAL rev 2026-07-25). Human review remains the final arbiter (D-USER b/c).
+> 6. **B1 IS 100% LOCAL — zero cloud calls (user, 2026-07-25, hardened).** D4.2's "two
+>    independent LLM labelers" = **two DIFFERENT LOCAL model families** (independence
+>    comes from distinct architectures, not from being cloud-hosted). The **third-model
+>    tiebreak is ALSO local** (a third distinct family), and rare-label synth is local.
+>    Cloud is reserved *entirely* for FINAL ("the final shot") — see FINAL rev
+>    2026-07-25. Rationale: the whole ₹5,000 cap should back the paper's judged runs,
+>    and labeling volume (25k+ rows × 2 labelers) is exactly the workload that must not
+>    be metered. Human review remains the final arbiter (D-USER b/c).
+> 6b. **Labeling runs on SGLang (or vLLM), NOT Ollama (user, 2026-07-25).** Ollama is
+>    unusably slow for bulk labeling. **SGLang is the recommendation** for this exact
+>    job, on two grounds verified 2026-07-25: (i) **RadixAttention prefix caching** —
+>    the labeler's system prompt is ~400 lines (the traps/signals rubric) and is
+>    IDENTICAL across all 25k rows, i.e. a maximally prefix-heavy workload (reported up
+>    to ~6.4× on such workloads; on all-unique prompts the edge over vLLM is minimal —
+>    ours is the opposite case); (ii) **first-class constrained decoding** (JSON-schema
+>    guided via a compressed FSM, ~3× faster than standard guided decoding), which
+>    replaces `instructor`'s retry-on-invalid-JSON loop with schema-guaranteed output.
+>    vLLM is an acceptable fallback (the v1 script already used it — precedent:
+>    `legacy/promt_labeling/VLLM_label_dataset.py` served `Qwen/Qwen2.5-7B-Instruct-AWQ`
+>    at `localhost:8001/v1`, an OpenAI-compatible base_url, so the client code barely
+>    changes). **Serve AWQ/GPTQ HF weights, not Ollama GGUF.**
+>    **Model picks for 24 GB (grounded 2026-07-25; re-verify availability at build
+>    time):** labeler A = **Qwen3.6-27B** (strongest single 24 GB default, ~16 GB at
+>    4-bit, best instruction-following); labeler B = a **different family** —
+>    Gemma-4-26B-A4B (the registry's long-context champion) — never two Qwen variants,
+>    or "agreement" is measuring one model against itself; tiebreak C = a third family
+>    (Mistral/DeepSeek-distill class). If throughput dominates, **Qwen3.6-35B-A3B (MoE,
+>    ~3B active, ~20 GB at 4-bit)** decodes far faster than a dense 27B — a legitimate
+>    swap for labeler A *if* a quality spot-check on ~200 rows holds up. Run labelers
+>    **sequentially** (24 GB holds one at a time), each as a full pass over the corpus.
 > 7. **Tooling moved (2026-07-21 cleanup, commit `b0d3e5f`).** §2's paths are stale:
 >    `scripts/training/*` and `scripts/classifier/promt_*` now live under
 >    **`scripts/classifier/legacy/`** (frozen, provenance) and the v2 pipeline is built
