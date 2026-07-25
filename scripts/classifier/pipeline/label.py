@@ -43,7 +43,7 @@ import time
 from collections import Counter
 
 import rubric
-from common import (AUDIT_SAMPLE, CORPUS_RAW, ICEDEV_STITCHED, LABELS_A,
+from common import (AUDIT_SAMPLE, CORPUS_RAW, CORPUS_SYNTH, ICEDEV_STITCHED, LABELS_A,
                     LABELS_B, LABELS_FINAL, LABELS_TIEBREAK, REVIEW_QUEUE,
                     JsonlAppender, completed_ids, ensure_data_dir, read_jsonl,
                     write_jsonl)
@@ -55,8 +55,17 @@ from src.classifier.schema import (CONTEXT_RELIANCE, INTENT, TEMPORAL_RECALL,
 SEED = 42
 AUDIT_FRACTION = 0.05
 
+# Degenerate-output gate (see is_degenerate): after this many rows, abort if more
+# than this fraction look like token soup.
+GATE_SAMPLE = 15
+GATE_MAX_DEGENERATE = 0.3
+
+# Three DIFFERENT families — mistral / gemma / qwen. The family split is the
+# methodology, not a preference: agreement between two members of one family
+# measures a model against itself, and the agreement rate is the number the whole
+# labeling design rests on.
 LABELERS = {
-    "A": {"model": "qwen3.6-27b", "out": LABELS_A},
+    "A": {"model": "qwen3-14b", "out": LABELS_A},
     "B": {"model": "gemma-4-26b-a4b", "out": LABELS_B},
     "C": {"model": "mistral-small-24b", "out": LABELS_TIEBREAK},
 }
@@ -117,18 +126,59 @@ async def _label_row(client, model_id, system_prompt, schema_json, row,
             progress()
             return
 
+        reasoning = payload.get("reasoning", "")
         out.write({
             "id": row["id"],
             "source": row.get("source"),
+            # The prompt travels WITH its labels. Costs ~40 MB over the corpus and
+            # makes every output file reviewable on its own — spot-checking a
+            # labeler shouldn't require re-joining against corpus_raw by id.
+            "text": row.get("text", ""),
+            "context_text": row.get("context_text"),
             "labels": {
-                TOPIC: payload.get("topic", []),
-                INTENT: payload.get("intent", []),
-                CONTEXT_RELIANCE: payload.get("context_reliance", []),
+                # Constrained decoding can emit the same enum value twice; dedupe
+                # while preserving schema order.
+                TOPIC: list(dict.fromkeys(payload.get("topic", []))),
+                INTENT: list(dict.fromkeys(payload.get("intent", []))),
+                CONTEXT_RELIANCE: list(dict.fromkeys(payload.get("context_reliance", []))),
             },
-            "reasoning": payload.get("reasoning", "")[:1500],
+            "reasoning": reasoning[:1500],
             "labeler": model_id,
         })
-        progress()
+        progress(degenerate=is_degenerate(reasoning))
+
+
+def is_degenerate(reasoning: str) -> bool:
+    """Does this reasoning look like token soup rather than an argument?
+
+    Constrained decoding guarantees *parseable* output, not *correct* output. A
+    broken quantization happily emits schema-valid JSON with real enum values and
+    a reasoning field of `ìľ¼ëĤĺ...jumjumjum...` — which looks completely fine in
+    the output file and is worthless as a label. (Observed: one Mistral requant
+    did exactly this for 18/18 rows.) Two cheap signals catch it:
+
+      * heavy non-ASCII content in what should be English reasoning
+      * a token repeated many times in a row (the classic degenerate-decode loop)
+    """
+    if not reasoning or len(reasoning) < 40:
+        return True
+    non_ascii = sum(1 for ch in reasoning if ord(ch) > 127)
+    if non_ascii / len(reasoning) > 0.08:
+        return True
+    words = reasoning.split()
+    # A degenerate decode often drops spaces entirely and returns one long blob.
+    if words and max(len(w) for w in words) > 60:
+        return True
+    if len(words) >= 12:
+        run = best = 1
+        for a, b in zip(words, words[1:]):
+            run = run + 1 if a == b else 1
+            best = max(best, run)
+        if best >= 4:
+            return True
+        if len(set(words)) / len(words) < 0.35:
+            return True
+    return False
 
 
 async def _detect_response_mode(client, model_id, schema_json) -> str:
@@ -171,27 +221,53 @@ async def run_labeler(rows, out_path, base_url, model_id, concurrency):
 
     mode = await _detect_response_mode(client, model_id, schema_json)
     semaphore = asyncio.Semaphore(concurrency)
-    started, counter = time.time(), {"n": 0}
+    started, counter = time.time(), {"n": 0, "degenerate": 0}
+    aborted = asyncio.Event()
 
-    def progress():
+    def progress(degenerate: bool = False):
         counter["n"] += 1
-        n = counter["n"]
+        counter["degenerate"] += int(degenerate)
+        n, bad = counter["n"], counter["degenerate"]
+        # Sanity gate: a broken quantization emits schema-valid JSON with
+        # gibberish reasoning, which is invisible in the output file and useless
+        # as a label. Catch it in the first minute, not after five hours.
+        if n >= GATE_SAMPLE and bad / n > GATE_MAX_DEGENERATE and not aborted.is_set():
+            aborted.set()
+            print(f"\n!!! [label] ABORTING: {bad}/{n} rows have degenerate "
+                  f"reasoning — this model is producing token soup behind valid "
+                  f"JSON. Constrained decoding guarantees parseable output, not "
+                  f"correct output. Pick a different quantization.\n", flush=True)
         if n % 25 == 0 or n == len(todo):
             rate = n / max(1e-9, time.time() - started)
             eta = (len(todo) - n) / max(rate, 1e-9)
-            print(f"  {n}/{len(todo)}  {rate:.2f} rows/s  ETA {eta / 60:.0f} min",
+            suffix = f"  [{bad} degenerate]" if bad else ""
+            print(f"  {n}/{len(todo)}  {rate:.2f} rows/s  ETA {eta / 60:.0f} min{suffix}",
                   flush=True)
 
     failed_path = out_path.replace(".jsonl", "_failed.jsonl")
     with JsonlAppender(out_path) as out, JsonlAppender(failed_path) as failed:
-        await asyncio.gather(*[
+        tasks = [asyncio.create_task(
             _label_row(client, model_id, system_prompt, schema_json, row, mode,
-                       semaphore, out, failed, progress)
-            for row in todo])
+                       semaphore, out, failed, progress))
+            for row in todo]
+        watcher = asyncio.create_task(aborted.wait())
+        done_tasks, pending = await asyncio.wait(
+            [*tasks, watcher], return_when=asyncio.FIRST_COMPLETED)
+        while pending and not aborted.is_set():
+            done_tasks, pending = await asyncio.wait(
+                pending, return_when=asyncio.FIRST_COMPLETED)
+        if aborted.is_set():
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+        watcher.cancel()
 
     elapsed = time.time() - started
     print(f"[label] {counter['n']} rows in {elapsed / 60:.1f} min "
           f"({counter['n'] / max(elapsed, 1e-9):.2f} rows/s)")
+    if aborted.is_set():
+        raise SystemExit(f"labeling aborted — {counter['degenerate']}/{counter['n']} "
+                         f"degenerate rows from {model_id}")
 
 
 # ── reconciliation ──────────────────────────────────────────────────────────
@@ -397,7 +473,8 @@ def merge(corpus_paths, verbose=True):
 def main():
     ap = argparse.ArgumentParser(description="B1 stage 4: two-labeler labeling + reconcile")
     ap.add_argument("--labeler", choices=list(LABELERS))
-    ap.add_argument("--corpus", nargs="*", default=[CORPUS_RAW, ICEDEV_STITCHED])
+    ap.add_argument("--corpus", nargs="*",
+                    default=[CORPUS_RAW, ICEDEV_STITCHED, CORPUS_SYNTH])
     ap.add_argument("--backend", default="vllm", choices=["sglang", "vllm"])
     ap.add_argument("--model", default=None, help="override the profile's model")
     ap.add_argument("--port", type=int, default=30000)

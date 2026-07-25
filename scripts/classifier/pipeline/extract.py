@@ -60,12 +60,15 @@ def _text_key(text: str) -> str:
     return hashlib.sha256(norm.encode()).hexdigest()[:20]
 
 
-def _context_from(turns, upto: int) -> str:
-    """Prior-turn block for the user turn at *upto*, truncated exactly the way
-    the live classifier truncates it (shared helper — a context prefix that is
-    longer here than at inference is the mismatch all over again)."""
-    prior = turns[max(0, upto - templates.CONTEXT_TURNS):upto]
-    return templates.truncate_context([t for t in prior if t])
+def _context_from(messages, upto: int) -> str:
+    """Prior-context block for the message at *upto*.
+
+    Delegates to the shared builder so the prefix is byte-comparable with what
+    the live classifier constructs: user→assistant EXCHANGES (the unit the
+    runtime stores), each capped at 150 words, last three, under a 500-word
+    budget. *messages* is ``[(role, text), …]`` in order.
+    """
+    return templates.context_from_messages(messages[:upto])
 
 
 # ── online datasets ─────────────────────────────────────────────────────────
@@ -132,7 +135,7 @@ def extract_online(target: int, seen: set) -> list:
         for conv_id, turns in stream:
             if kept >= per_source:
                 break
-            texts = [text for _, text in turns]
+            messages = [(role, text) for role, text in turns]
             for idx, (role, text) in enumerate(turns):
                 if kept >= per_source:
                     break
@@ -146,7 +149,7 @@ def extract_online(target: int, seen: set) -> list:
                     continue
                 # Prefer context-bearing rows until the quota is met; a turn at
                 # index 0 has no prior turns to attach.
-                context = _context_from(texts, idx) if idx > 0 else ""
+                context = _context_from(messages, idx) if idx > 0 else ""
                 if not context and have_context < want_context and idx == 0:
                     # Still take some standalone rows — real traffic has them.
                     if random.random() < 0.5:
@@ -241,7 +244,7 @@ def extract_personal(seen: set, per_file_cap: int = 4000) -> list:
         for conv in convs:
             if kept >= per_file_cap:
                 break
-            texts = [t.text for t in conv.turns]
+            messages = [(t.role, t.text) for t in conv.turns]
             for idx, turn in enumerate(conv.turns):
                 if kept >= per_file_cap:
                     break
@@ -257,7 +260,7 @@ def extract_personal(seen: set, per_file_cap: int = 4000) -> list:
                     "source": "personal",
                     "provider": conv.provider,
                     "text": turn.text.strip(),
-                    "context_text": _context_from(texts, idx) or None,
+                    "context_text": _context_from(messages, idx) or None,
                     "conversation_id": conv.source_id,
                     "turn_index": idx,
                     # Real timestamps matter here: temporal weak supervision and

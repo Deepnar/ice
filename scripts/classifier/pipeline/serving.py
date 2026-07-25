@@ -63,7 +63,28 @@ DEFAULT_PORT = 30000
 # compressed-tensors), and every checkpoint already declares its method in
 # config.json. Forcing a value here only creates a mismatch the server refuses.
 PROFILES = {
-    # labeler A — dense, strongest instruction-following at this size
+    # labeler A — dense 24B, a third distinct family from B and C.
+    # NOT Qwen3.6-27B: the on-disk requant (mattbucci/Qwen3.6-27B-AWQ) fails to
+    # load in vLLM 0.22.0 — "input size is not aligned with the quantized weight
+    # shape" on visual.blocks.*, i.e. its VISION TOWER is misquantized. That is a
+    # property of that repo, not of the model; a different requant may work.
+    "mistral-small-24b": {
+        "model": "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym",
+        "family": "mistral",
+        "mem_fraction": 0.88,
+        "max_running": 24,
+        "quantization": None,
+    },
+    # tiebreak C — the third family, text-only (no vision tower to misquantize),
+    # and only ~200–400 rows ever go through it.
+    "qwen3-14b": {
+        "model": "Qwen/Qwen3-14B-AWQ",
+        "family": "qwen",
+        "mem_fraction": 0.85,
+        "max_running": 32,
+        "quantization": None,
+    },
+    # known-broken; kept so nobody re-picks it without reading why
     "qwen3.6-27b": {
         "model": "mattbucci/Qwen3.6-27B-AWQ",
         "family": "qwen",
@@ -78,14 +99,6 @@ PROFILES = {
         "family": "gemma",
         "mem_fraction": 0.88,
         "max_running": 32,
-        "quantization": None,
-    },
-    # tiebreak C — a third family again, only ~200–400 rows
-    "mistral-small-24b": {
-        "model": "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym",
-        "family": "mistral",
-        "mem_fraction": 0.88,
-        "max_running": 24,
         "quantization": None,
     },
     # throughput swap for A (MoE, ~3B active) — legitimate only after a ~200-row

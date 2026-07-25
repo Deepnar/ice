@@ -75,11 +75,19 @@ _TEMPLATES = {
 
 DEFAULT_VERSION = 2
 
-# The context builder's caps (``classifier._get_context_turns``). Named here so
-# the offline renderer in build.py truncates prior turns exactly the way the
-# live path does — same 3 turns, same 500-word budget.
+# The context builder's shape (``classifier._get_context_turns``). Named here so
+# the offline pipeline reproduces the live prefix EXACTLY — same unit, same
+# per-turn cap, same total budget.
+#
+# The unit is an EXCHANGE, not a message: `main.py` stores one episodic row per
+# turn as "User: …\n\nAssistant: …", and the live context block is the last three
+# of those. An offline builder that took the last three *messages* would show the
+# model roughly half the history it sees in production, in a different surface
+# form — the exact train/inference drift this module exists to prevent.
 CONTEXT_TURNS = 3
 CONTEXT_MAX_WORDS = 500
+TURN_WORD_CAP = 150            # per exchange, before the total budget applies
+EXCHANGE_FORMAT = "User: {user}\n\nAssistant: {assistant}"
 
 
 def render(prompt: str, context_text: Optional[str] = None,
@@ -97,6 +105,47 @@ def render(prompt: str, context_text: Optional[str] = None,
     if context_text:
         return with_ctx.format(context_text=context_text, prompt=prompt)
     return no_ctx.format(prompt=prompt)
+
+
+def cap_turn(text: str, max_words: int = TURN_WORD_CAP) -> str:
+    """Trim ONE exchange to the live per-turn cap (mirrors `_get_context_turns`)."""
+    if not text:
+        return ""
+    words = text.split()
+    return " ".join(words[:max_words]) + "…" if len(words) > max_words else text
+
+
+def context_from_messages(messages, n_turns: int = CONTEXT_TURNS,
+                          max_total_words: int = CONTEXT_MAX_WORDS) -> str:
+    """Build the live-shaped context prefix from an ordered message list.
+
+    *messages* is ``[(role, text), …]`` in chronological order, ending just
+    before the prompt being classified. Messages are paired into user→assistant
+    exchanges the way the runtime stores them, each exchange is capped, and the
+    last *n_turns* are joined under the total budget.
+
+    This is the offline twin of ``classifier._get_context_turns``. The one thing
+    it cannot reproduce is that the live path prefers a turn's `summary_text`
+    when the background summarizer has written one; raw text is the fallback in
+    both, and a fresh conversation has no summaries either way.
+    """
+    exchanges, pending_user = [], None
+    for role, text in messages:
+        text = (text or "").strip()
+        if not text:
+            continue
+        if role == "user":
+            if pending_user is not None:
+                exchanges.append(EXCHANGE_FORMAT.format(user=pending_user, assistant=""))
+            pending_user = text
+        else:
+            exchanges.append(EXCHANGE_FORMAT.format(user=pending_user or "", assistant=text))
+            pending_user = None
+    if pending_user is not None:
+        exchanges.append(EXCHANGE_FORMAT.format(user=pending_user, assistant=""))
+
+    recent = [cap_turn(e) for e in exchanges[-n_turns:]]
+    return truncate_context(recent, max_total_words=max_total_words)
 
 
 def truncate_context(turn_texts, max_total_words: int = CONTEXT_MAX_WORDS) -> str:

@@ -77,10 +77,7 @@ class PyTorchClassifier:
             texts = []
             for t in turns:
                 # Prefer summary, fall back to raw text (truncated)
-                text = t.summary_text or ""
-                if not text and t.raw_text:
-                    words = t.raw_text.split()
-                    text = " ".join(words[:150]) + "…" if len(words) > 150 else t.raw_text
+                text = t.summary_text or templates.cap_turn(t.raw_text or "")
                 if text:
                     texts.append(text)
             # Shared budget logic — the offline pipeline truncates identically.

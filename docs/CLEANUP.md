@@ -127,3 +127,19 @@ Smoke's import-sweep walks `src/` only, so none of these were ever in a live sui
 | date | what | from → to | why |
 |---|---|---|---|
 | 2026-07-21 | retired tests → `tests/archive/` (git mv) | `test_post_flight.py`, `test_full_pipeline_phase_{6,7,9}.py`, `test_direct_codex.py`, `test_triplet.py`, `quick_probe_test.py`, `test_bg_json.py`, `test_bg_non_thinking.py`, `test_judge.py` | broken (`is_lossless` gone C1; phase_9 reads missing `data/simulation_input.jsonl` + gone `scripts/simulation/run_simulation.py` + Celery) or scratch eyeball tools (old `v2_final` checkpoint, hardcoded ids/ports, no assertions), all superseded by the behavioral suite — see `tests/archive/README.md` |
+
+## B1 session — schema v2 classifier (2026-07-25)
+
+No file moves or deletions. New modules, one frozen copy, and small in-place hygiene
+on the files this session touched.
+
+| date | what | from → to / change | why |
+|---|---|---|---|
+| 2026-07-25 | `data/labeled/label_schema.json` **v1 copy frozen** | copied → `data/labeled/label_schema_v1.json` | the v1 head layout (11/11/3, softmax ctx) must stay loadable: D5's non-regression gate has to RUN the old model to compare against it, and the live checkpoint is v1 until promotion. `schema.load_v1_schema()` reads it |
+| 2026-07-25 | `label_schema.json` rewritten to schema v2 | flat label lists → `schema_version` + explicit `heads` with per-label `definition` strings | head widths/offsets become data (one loader, `src/classifier/schema.py`); the definitions also render the labeling rubric, so a label can't mean one thing to the labeler and another to the head |
+| 2026-07-25 | **new** `src/classifier/{schema,templates,promotion}.py` | — | schema loader (stdlib-only, importable from scripts); the two encoder-input templates shared by training and inference (D3); one backup+atomic-swap shared by `workers/fine_tune.py` and `pipeline/promote.py` |
+| 2026-07-25 | **new** `scripts/classifier/pipeline/*` | 8 stages + `common.py`, `rubric.py`, `serving.py`, `run_all.sh` | the B1 flow; `pipeline/README.md` carries the stage table and the traps |
+| 2026-07-25 | `src/classifier/dataset.py` rewritten | v1 `{prompt, labels[]}` + `slice384` → v2 row shape, template-rendered, native 1024, cached embeddings | the v1 trainer is frozen under `legacy/` and is not run; caching exists because Z1-prep sweeps trunk width and re-encoding 25k rows per sweep point is wasted GPU time |
+| 2026-07-25 | dead imports dropped (touched files only) | `ner_model.py`: unused `torch`; `di3_signals.py`: unused `typing.List` | boy-scout on files opened this session; `ruff check src/classifier/` clean |
+| 2026-07-25 | `src/ingestion/formats.py::parse_jsonl` extended | + `{prompt, response, timestamp, conversation_id}` pair shape | three local exports (~5k real multi-turn rows) were silently parsing to zero conversations; a real F10 import would hit the same wall, so the shared adapter learns it rather than `extract.py` growing a private parser. `normalize_file` stays fail-loud; corpus building salvages malformed lines itself |
+| 2026-07-25 | schema paths anchored to the repo root | `schema._resolve()`; `pipeline/common.py` chdirs to ROOT | stages run from their own directory, so `settings.label_schema_path` (repo-relative) resolved against the wrong place — and would have failed hours into a run when a late stage first read it |

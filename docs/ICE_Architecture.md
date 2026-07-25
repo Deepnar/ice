@@ -237,29 +237,46 @@ The system decomposes into the following components, each described in the corre
 
 ## **2. Classification Engine**
 
-The classification engine produces, for each user turn, a triple of outputs: a set of **topic tags**, a set of **intent tags**, and a single **context-reliance** label. These three outputs drive every downstream decision — which retrieval legs are weighted, how the token budget is split, whether the wide-net fallback fires, and which model the MoE router selects. The engine is deliberately a two-stage cascade: a cheap rule-based pre-classifier (DI3) resolves obvious cases in microseconds, and a small PyTorch MLP resolves everything else with sub-millisecond CPU inference.
+The classification engine produces, for each user turn, a set of **topic tags**, a set of **intent tags**, and — since B1 (2026-07-25) — **four independent context-reliance signals** from which the legacy single context-reliance string is *derived*. These outputs drive every downstream decision — which retrieval legs are weighted, how the token budget is split, whether the wide-net fallback fires, and which model the MoE router selects. The engine is deliberately a two-stage cascade: a cheap rule-based pre-classifier (DI3) resolves obvious cases in microseconds, and a small PyTorch MLP resolves everything else with sub-millisecond CPU inference.
 
-### **2.1 The PyTorch MLP classifier**
+**The head layout is data, not code.** data/labeled/label\_schema.json declares each head's labels, activation and decision rule; src/classifier/schema.py loads it and every consumer asks it for widths and offsets. Before B1 the layout lived as magic numbers scattered across classifier.py, orchestrator.py and fine\_tune.py (outputs\[:, 11:22\], probs\[22:\], torch.zeros(n, 25)), so adding one label meant hunting slices and hoping none were missed. A grep-gate (`\[:11\]|11:22|22:\]|== 25`) keeps src/ and scripts/ clean of them.
 
-The model is a deliberately tiny MLP (classifier/model.py):
+### **2.1 The PyTorch classifier (schema v2)**
 
-class ICEClassifier(nn.Module):  
-    def \_\_init\_\_(self):  
-        super().\_\_init\_\_()  
-        self.fc1 = nn.Linear(384, 128)  
-        self.relu = nn.ReLU()  
-        self.dropout = nn.Dropout(0.3)  
-        self.fc2 = nn.Linear(128, 25)
+The model is a small trunk with one head per label group (classifier/model.py), ~663k parameters:
 
-The input is a single **384-dimensional embedding** — since C17 (2026-07-19) the **slice384 MRL prefix** of the process-shared native-width embedder (src/memory/embedder.py::get\_embedder(), settings-driven, 1024 native dims): the raw first 384 dims of the native encode, **bit-identical** to the old truncate\_dim=384 output (verified in tests/test\_longevity.py check 7), so the frozen checkpoint keeps working until B1 retrains at native width. The single hidden layer (384 → 128 with ReLU and Dropout(0.3)) feeds a **shared linear head** fc2: 128 → 25 whose 25 logits are sliced at inference time into three blocks rather than being produced by three separate heads:
+```
+Linear(1024→512) → GELU → Dropout(0.2) → Linear(512→256) → GELU → Dropout(0.2)
+  ├── Linear(256→11)   topic
+  ├── Linear(256→13)   intent
+  └── Linear(256→ 4)   context_reliance
+```
 
-- logits \[0:11\] — **topic** block, decoded with torch.sigmoid; a label is selected when prob \> classifier\_threshold (default 0.3), with argmax fallback if no label clears the threshold (multi-label).
+The input is the **native 1024-dim embedding** from the process-shared embedder (src/memory/embedder.py::get\_embedder()). C17 (2026-07-19) staged the classifier on the **slice384 MRL prefix** so the frozen v1 checkpoint kept working; B1 retrains at native width and retires that staging for this consumer (the micro-NER remains on slice384 until A9).
 
-- logits \[11:22\] — **intent** block, decoded identically (multi-label, max 3 retained downstream).
+`forward()` returns the heads concatenated in schema order (28 logits), so every consumer slices with `schema.slice(head)`; `forward_heads()` returns them separately for per-head losses. All three heads are **sigmoid**; each head's loss is BCE-with-logits with per-label positive weights (neg/pos, capped at 20 — uncapped, a 12-positive label gets weight ~2000 and the head trains on nothing else).
 
-- logits \[22:25\] — **context-reliance** block, decoded with torch.softmax and argmax (single-label).
+- **topic** — 11 labels, unchanged: Software\_&\_Tech, STEM\_&\_Academics, Business\_&\_Finance, Creative\_&\_Media, Admin\_&\_Productivity, Lifestyle\_&\_Health, Social\_&\_Relationships, World\_&\_Current\_Events, Meta\_AI, Null\_Noise, General\_Reference\_&\_Trivia. A label is selected when prob > classifier\_threshold (default 0.3), with argmax fallback.
+- **intent** — 13 labels: the original eleven (Factual\_Retrieval, Troubleshooting, Generation, Ideation, Analysis\_&\_Summarization, Strategic\_Planning, Decision\_Making, Emotional\_Processing, Utility\_Formatting, Casual\_Banter, Open\_Exploration) plus **Codebase\_Query** (read-only comprehension of existing code) and **Code\_Change** (the codebase should differ afterwards). The two new labels are appended **last** so v1 indices survive, which is what makes the D5 gate's shared-subset comparison possible.
+- **context\_reliance** — 4 **independent** sigmoids: **Needs\_Memory**, **Temporal\_Recall**, **Needs\_Live\_Info**, **High\_Complexity**. Any combination is legal.
 
-The eleven topic labels are Software\_&\_Tech, STEM\_&\_Academics, Business\_&\_Finance, Creative\_&\_Media, Admin\_&\_Productivity, Lifestyle\_&\_Health, Social\_&\_Relationships, World\_&\_Current\_Events, Meta\_AI, Null\_Noise, and General\_Reference\_&\_Trivia. The eleven intent labels are Factual\_Retrieval, Troubleshooting, Generation, Ideation, Analysis\_&\_Summarization, Strategic\_Planning, Decision\_Making, Emotional\_Processing, Utility\_Formatting, Casual\_Banter, and Open\_Exploration. The three context-reliance labels are Zero\_Shot, Long\_Term\_Memory, and Real\_Time\_Search. The output is wrapped in a ClassificationResult dataclass (topic\_tags, intent\_tags, context\_reliance, raw\_probs (length 25), max\_confidence, prompt).
+**Why the context head changed shape.** v1 decoded this block with softmax over {Zero\_Shot, Long\_Term\_Memory, Real\_Time\_Search}, forcing every prompt to be exactly one. "What's the current price of the GPU I told you I was saving for" is both — it needs live data *and* memory — and the single-label head had to discard one. Real\_Time\_Search being orthogonal to memory is the original B1 observation; Temporal\_Recall and High\_Complexity join as signals the 3-way could never express.
+
+**Zero\_Shot is no longer a label.** It is the derived state "all reliance signals low".
+
+The output is wrapped in a ClassificationResult dataclass (topic\_tags, intent\_tags, context\_reliance, raw\_probs (schema-wide: 28 under v2, 25 under a v1 checkpoint), max\_confidence, prompt, plus the B2 scalars p\_ltm / p\_rts / ctx\_confidence / reference\_signal, B1's p\_temporal / p\_complex, and head\_confidences).
+
+**Both checkpoint generations load.** A checkpoint records its own schema\_version, template\_version, input\_dim and label names; `load_checkpoint` dispatches on them, returning the v2 network or LegacyICEClassifierV1. This is not politeness — D5's non-regression gate has to *run* the old model to compare against it, and the live path serves a v1 checkpoint until promotion.
+
+**The derivation layer (D6)** lives in schema.py as pure label logic (`finalize_context_scalars`), not on the classifier class, so it is testable without a loaded model:
+
+```
+zero  = 1 − max(p_mem, p_live)
+context_reliance = argmax{Zero_Shot: zero, Long_Term_Memory: p_mem, Real_Time_Search: p_live}
+p_ltm = p_mem ;  ctx_confidence = top1 − top2 of that derived three-way
+```
+
+Every pre-B1 consumer keeps reading `context_reliance` / `p_ltm` / `ctx_confidence` and never learns the head changed shape underneath it. B2's scalar seam was designed for exactly this swap (§2.4) and needed no change.
 
 ### **2.2 DI3 — Dynamic Intent Inferencer**
 
@@ -292,6 +309,10 @@ The reference rule is special: it returns empty topic\_tags and intent\_tags. cl
 
 When a conversation\_id is supplied, the MLP path queries the **last three \`episodic\_memory\` turns** for that conversation (\_get\_context\_turns, n=3, max\_total\_words=500), preferring summary\_text and falling back to the first 150 words of raw\_text with an ellipsis. The context is prepended to the prompt as natural-language text under a fixed template ("Conversation context (summarized):\\n\{context\}\\n\\n… User prompt: \{prompt\}") before embedding — there is no separate context vector or pooling. The same embedder is used with or without context.
 
+**B1 (2026-07-25) made the templates shared and versioned.** They live in src/classifier/templates.py and are imported by *both* the inference path and the training pipeline. Before this, inference rendered the template inline while the trainer embedded bare prompt text — the model was trained on one distribution and served another, which was the single biggest known defect in the v1 classifier. Now the mismatch is impossible by construction: if training stops calling `templates.render`, nothing silently drifts because there is only one renderer. The `truncate_context` budget helper is shared the same way, so an offline context prefix can't be longer than the live one.
+
+Templates are versioned alongside the schema — the v1 strings are frozen verbatim (D5's gate must render the *old* model's input the way that model actually saw it, or the comparison is rigged against the baseline), and v2 names the real v2 categories. A checkpoint records its `template_version`, so a loaded model always knows how its input must be rendered.
+
 ### **2.4 The memory-retrieval decision (B2)**
 
 **Reworked 2026-07 (roadmap B2).** The old design forced Long\_Term\_Memory from four scattered places — `_apply_hard_overrides` (Creative ⇒ LTM; Software+referential ⇒ LTM), DI3's reference rule, an api/main.py bias (`turn_count>10 or max_confidence<0.95 ⇒ LTM`), and an orchestrator safety override (`Zero_Shot+conversation_id ⇒ LTM`). Together they made retrieval fire for almost every turn regardless of the classifier — "safe, not smart." All four are removed. In their place, `api/memory_decision.py::decide_memory_retrieval` makes **one** decision, in log-odds space, that *prefers* memory but never *forces* it:
@@ -306,13 +327,36 @@ retrieve  ⇔  P_need_mem > ltm_decision_threshold
 - **`P_ltm`** is read directly from the context-reliance softmax mass (not the old `max(all 25 probs)`, which measured topic peakedness, not reliance), along with a `ctx_confidence` = top1−top2 margin. Both are populated by `classifier._finalize_confidence`; for DI3 fast-path results (no ML probs) a prior is derived from the label DI3 chose.
 - **`P_len` (memory pressure)** is a *one-sided* logistic in how much conversation history sits **beyond the sliding window** (the recent-turn token budget, §6.3) — neutral while the window still covers the conversation, rising only as unseen history accumulates. This is the "sliding window + total turns + total context" signal: no `turn_count>10` cliff.
 - **Bumps** are the old hard signals, demoted to additive nudges: Creative topic, DI3 anaphora (`reference_signal`), referential-word presence, and a low topic/intent-confidence safety net. **T2 adds `ltm_bump_timescope` (+3.0)** when a non-current TimeScope was detected (passed as a kwarg, not a ClassificationResult field — an explicit "what did I think in 2025" is definitionally a memory query, but it stays a log-odds term with breakdown telemetry, never an early-return override).
+- **B1 D7 — the detector and the `Temporal_Recall` label are equivalent evidence for that bump: OR, never AND, never counted twice.** Either a fired detector or `p_temporal ≥ settings.temporal_label_threshold` (0.6) adds `ltm_bump_timescope` exactly once. They catch different things: the classifier catches "what was I leaning towards back then" (no parseable date, detector silent), the detector catches "in March 2026" on a prompt the head reads as ordinary. Note what the label explicitly does *not* do: **only the deterministic detector ever sets a time window.** A sigmoid inventing "two years ago" would be a hallucinated filter, so the label gates and boosts while the parser resolves.
 - **All weights are settings** (`ltm_decision_threshold`, `ltm_prior_bias`, `ltm_length_weight`, `ltm_pressure_midpoint_tokens`, `ltm_pressure_scale_tokens`, `ltm_bump_*`). This is deliberate: B2 sits on top of the *current* classifier, which roadmap B1 will retrain — so `P_ltm` is consumed as a scalar (surviving a softmax-3 → multi-label-sigmoid change) and the decision is re-tuned, not rewritten. The full `breakdown` dict is logged (`memory_decision` event) and is a candidate for the F5 SSE attribution layer.
 
 When the decision is to retrieve, main.py sets `context_reliance = "Long_Term_Memory"` so downstream gates/storage/telemetry still key off the label. **Persistent memory is not gated by this decision:** memory slots and bookmarks are user-level standing context, so they (and prompt assembly generally) run on *every* turn — only the retrieval `fragments` are conditional. This matters because B2 genuinely skips retrieval on confident standalone turns, where the old design (which forced retrieval on nearly every turn) had incidentally always injected slots too.
 
-### **2.5 Training pipeline**
+### **2.5 Training pipeline (v2, B1 — `scripts/classifier/pipeline/`)**
 
-The classifier is trained offline through a five-stage pipeline.
+Eight standalone stages, each resumable by row id, writing into data/labeled/v2/. Each rewrites its v1 predecessor, now frozen under scripts/classifier/legacy/ for provenance.
+
+**Stage 1 — extract.** Three sources, deduplicated by normalised content hash: (i) the public datasets (LMSYS / WildChat / ShareGPT), pulled **larger and bucket-weighted** — a cheap keyword bucketer caps how much of the pull any one theme may occupy, because an unweighted pull is dominated by coding help and roleplay while thin topics stay thin; (ii) the user's own exports in data/simulation/, parsed through **F10's ingestion adapters** (src/ingestion/formats.py) rather than a bespoke parser; (iii) the v1 25k corpus — its **text is reused, its labels are discarded**. Unlike v1, which took only each conversation's first user turn, any turn *k* can be emitted with its prior turns attached.
+
+**Stage 2 — stitch\_icedev.** ICE was designed across a series of separate DeepSeek chats (ICE-1, ICE-2, …), a new one each time the previous hit its context limit. They are one continuous project conversation that a UI boundary cut into pieces, and a decision made in ICE-2 is referenced in ICE-5 — exactly the beyond-the-window case ICE exists to serve. This stage stitches them chronologically into one conversation (3,473 turns, 2026-06-04 → 07-03) and writes it in the dialogue shape F10 can re-import. It is a **shared asset with FINAL**, where it serves as a real long-project memory test.
+
+**Stage 3 — synth.** Casual-voice prompt generation for **measured** gaps: the stage reads actual per-label counts and generates only for labels under the floor. Rows carry `meta.target_label` as a generation *hint* and are then labeled like every other row — v1 stamped the intended label onto the row, which is self-certification, and it matters most for exactly the labels synth exists to seed.
+
+**Stage 4 — label.** **Two labelers from different model families**, run sequentially (24 GB holds one at a time), each labeling from scratch, blind to each other and to the v1 labels. Independence is the whole quality signal: two variants of one family agreeing measures a model against itself. Agreement is kept; disagreement goes to a **third-family tiebreak**; a genuine three-way split goes to the **human review queue**, which concentrates the user's limited review time on exactly the rows where competent models disagree. Context reliance requires an *exact* set match to count as agreement (four binary signals, and they are what this retrain exists to fix); topic and intent require a non-empty intersection, since two competent labelers routinely pick 2-of-3 the same and demanding equality there would bury the user in reviews that don't change the model. The v1 rubric — source-aware evidence thresholds, six immunity traps, signals A–F, reasoning-before-labels — is reused nearly verbatim, but its decision *tree* is gone: v1 stopped at the first hit ("if real-time signals → Real\_Time\_Search. STOP."), while v2 asks four independent questions and answers all four. Label definitions are rendered **from label\_schema.json**, so a label cannot mean one thing to the labeler and another to the trained head. **Temporal\_Recall gets free weak supervision**: T2's deterministic detector (src/retrieval/timescope.py) runs over the corpus and every hit is a positive — the only label starting from zero positives that can be seeded without fabrication. Output is JSON-schema constrained at the server, which replaces v1's `instructor` retry-on-invalid-JSON loop.
+
+**Stage 5 — build.** Joins labels to text (human decisions override models), down-samples *standalone* rows until context-prefixed rows reach **≥40%** (never the reverse — context rows are the scarce ones), synthesises **hard-negative context pairs**, reports per-label floors, and splits **grouped by conversation** so two turns of one conversation cannot straddle train and test.
+
+The hard-negative pairs are the payoff of the context-aware exercise, and need no second labeling call: take a row the labelers saw *with* context and judged not to need memory — the context supplied the referent — whose text is referentially ambiguous alone ("so which of those should I pick?"); strip the context and the referent is definitionally gone, so the twin *does* need memory. Identical text, opposite answer, and the only difference is whether history was attached. Referential detection reuses `memory_decision.REFERENTIAL_WORDS` rather than a second private list.
+
+**Stage 6 — train.** Trunk + three heads (§2.1) on the native 1024 embedding, per-head BCE with capped per-label pos-weights, AdamW(lr 1e-3), early stopping on held-out loss. Every row is rendered through the shared templates (§2.3). Trunk width and the 0.3 tag threshold are deferred to Z1-prep's sweep.
+
+**Stage 7 — evaluate.** Per-label and per-head macro-F1, plus **D5's non-regression gate**: both models scored on *identical* rows, each rendered as it was trained (the baseline through the frozen v1 template and slice384, the candidate through v2 at 1024), compared only on labels both can express — 11 topic, the first 11 intent, and the derived three-way. The roadmap's "we cannot know whether the retrain lands better or worse" made operational. Stated caveat: gold labels are v2 labels, so the baseline is graded on a rubric it never saw; the gate is a floor ("not worse at the old job"), not proof of improvement.
+
+**Stage 8 — promote.** Re-runs the gate (rather than trusting a possibly-stale report), then backup + atomic replace of settings.classifier\_model\_path via src/classifier/promotion.py — **one** implementation, shared with the B4 curated-label fine-tune worker.
+
+### **2.5.1 Training pipeline (v1, historical)**
+
+The v1 classifier was trained offline through a five-stage pipeline. Kept here because the current checkpoint was produced by it, and because the labeling rubric it developed is the basis of the v2 one.
 
 **Stage 1 — Amnesia Method data harvesting.** Personal conversational archives are mined by scripts/classifier/promt\_extraction/extract\_promts.py, which uses qwen3-coder:30b-a3b-q4\_K\_M on Ollama to extract user-authored prompts from a raw chat corpus under a \*precision-over-recall\* contract: chunks of 12000 characters with 1000-character overlap, temperature=0.0, a confidence floor of 0.85, and 21 hard regex filters that reject AI openers ("sure,", "here is", "good catch", …), mid-sentence fragments, and structural markers. The same stage harvests 5 000 prompts each from three public datasets — lmsys/chatbot\_arena\_conversations, ShareGPT\_Vicuna\_unfiltered, and allenai/WildChat-1M — filtered to English first-turns. All sources are deduplicated by SHA-256 of the normalised text and shuffled under RANDOM\_SEED = 42 by combine\_dataset.py.
 

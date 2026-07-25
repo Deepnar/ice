@@ -91,17 +91,16 @@ def stitch(picked) -> list:
 def to_pipeline_rows(turns: list) -> list:
     """User turns + their prior-turn context, in the shape stage 3+ consume."""
     rows = []
-    texts = [t["content"] for t in turns]
+    messages = [(t["role"], t["content"]) for t in turns]
     for idx, turn in enumerate(turns):
         if turn["role"] != "user" or not is_usable_prompt(turn["content"]):
             continue
-        prior = texts[max(0, idx - templates.CONTEXT_TURNS):idx]
         rows.append({
             "id": stable_id("icedev", turn["content"], str(idx)),
             "source": "icedev",
             "provider": "deepseek",
             "text": turn["content"].strip(),
-            "context_text": templates.truncate_context(prior) or None,
+            "context_text": templates.context_from_messages(messages[:idx]) or None,
             "conversation_id": STITCHED_ID,
             "turn_index": idx,
             "ts": turn["timestamp"],
