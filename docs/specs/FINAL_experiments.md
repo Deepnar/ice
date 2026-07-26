@@ -150,6 +150,23 @@ design requirements:**
 >    plays human, one the assistant) but neither model is the source of truth, which
 >    also kills the failure mode where the "human" invents a fact the ledger never had.
 >
+> 2b. **THE USER-ROLE MODEL GETS A DIFFERENT PERSONA PER CONVERSATION (user, 2026-07-26).**
+>    In the two-model generation loop, the model playing the *human* must be given a fresh
+>    persona each time — age, occupation, temperament, writing habits (an older man who types
+>    in full sentences and over-explains; a hurried student who sends three fragments in a row;
+>    someone who never capitalises and abbreviates everything). **Reason, in the user's words:
+>    it relieves the straw-man problem of single-authored conversations.** A generation loop
+>    without this produces N conversations in ONE voice, so the evaluation only ever measures
+>    the system against a single writing style, and any result generalises no further than that
+>    style. That is the same criticism levelled at the straw-man baseline (§ criticism 1), just
+>    pointed at the dataset instead of the comparison.
+>    Practical requirements: persona is sampled per conversation and RECORDED in the manifest
+>    (so a per-persona score breakdown is possible — if ICE only works for one voice, that must
+>    be visible, not averaged away); personas vary **typing behaviour**, not just biography,
+>    since the classifier and retrieval see surface form; the persona is given ONLY to the
+>    user-role model, never to the assistant-role model or the judge, or the assistant is
+>    effectively told the answer. The same reasoning applies to the hand-authored probe sets —
+>    prompts written entirely in one register test one register.
 > 3. **Who generates what — decided on the user's LIMITS argument, not on quality.**
 >    Claude subagents (spawnable on the user's plan, isolated cold context, background,
 >    model selectable haiku/sonnet) are genuinely usable for *small, judgment-heavy*

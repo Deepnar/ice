@@ -9,7 +9,8 @@ way.
 Written as a human types: lowercase starts, typos left in, no trailing
 punctuation half the time, lengths from three words to a rambling sentence.
 """
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..",
                                 "Programs", "ice", "scripts", "classifier", "pipeline"))
 sys.path.insert(0, "/home/deepnar/Programs/ice/scripts/classifier/pipeline")

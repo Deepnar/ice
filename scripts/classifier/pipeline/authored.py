@@ -40,7 +40,6 @@ real chat traffic, and a block of tidy sentences would be trivially separable.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 from collections import Counter
 
@@ -52,22 +51,51 @@ CORPUS_AUTHORED = os.path.join(DATA_DIR, "corpus_authored.jsonl")
 
 
 def make_row(text: str, topic, intent, ctx, note: str = "", context_text=None) -> dict:
-    """One authored row. `ctx` is the FULL context-reliance set — an empty list is
-    meaningful (the derived Zero_Shot state), not missing data."""
+    """One authored row, with every field populated rather than left null.
+
+    Two fields deserve explanation because "empty" is a real value for them, not
+    missing data:
+
+    * ``labels.context_reliance = []`` is the **derived Zero_Shot state** — the
+      prompt needs no memory, no live info, no time dimension, and no strong
+      model. v2 deleted Zero_Shot as a label precisely so it would be expressed
+      this way. ``meta.derived_zero_shot`` records that the emptiness was
+      intended, so nobody later reads it as an unlabelled row.
+    * ``context_text = None`` means the prompt stands alone. For the
+      cross-conversation memory rows this is **load-bearing**: the referent must
+      NOT be visible, or the row stops being an example of needing memory.
+      ``meta.context = "none"|"attached"`` states which case it is.
+
+    Everything else is filled: authored rows are their own single-turn
+    conversation, so ``conversation_id`` is the row id (which also keeps
+    ``build.py``'s conversation-grouped split from lumping them together) and
+    ``turn_index`` is 0 for a standalone prompt, 1 when context is attached.
+    ``ts`` stays null on purpose — an authored row has no real point in time, and
+    inventing one would let synthetic timestamps leak into anything that later
+    reasons about when something was said.
+    """
+    row_id = stable_id("authored", text)
+    ctx = list(ctx)
     return {
-        "id": stable_id("authored", text),
+        "id": row_id,
         "source": "authored",
-        "provider": None,
+        "provider": "authored",
         "text": text,
         "context_text": context_text,
-        "conversation_id": None,
-        "turn_index": None,
+        "conversation_id": row_id,
+        "turn_index": 1 if context_text else 0,
         "ts": None,
         # Labels live IN the row — this is what separates Pile B from Pile A.
         "labels": {TOPIC: list(topic), INTENT: list(intent),
-                   CONTEXT_RELIANCE: list(ctx)},
+                   CONTEXT_RELIANCE: ctx},
         "authored_by": "assistant",
-        "meta": {"pile": "B", "note": note},
+        "meta": {
+            "pile": "B",
+            "note": note,
+            "derived_zero_shot": not ctx,
+            "context": "attached" if context_text else "none",
+            "signals": len(ctx),
+        },
     }
 
 
