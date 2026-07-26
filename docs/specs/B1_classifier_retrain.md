@@ -191,6 +191,46 @@ mechanical whenever that moment comes.
 >    cleared it, **including `High_Complexity` (9,141)**, so §4's "drop the label" rule does not
 >    fire and the cut candidate survives.
 
+> **[rev 2026-07-25d] — "DON'T USE THE SYSTEM TO VALIDATE THE SYSTEM" (user principle, and it
+> adds a gate this spec was missing).** The user's objection, recorded because it corrects a
+> habit visible throughout this spec: pointing at B4's fine-tune and F9's thumbs as the path
+> that fixes label mistakes later. **The shipped model must be good on its own**, and the
+> feedback machinery is not the mechanism for getting it there. Verified 2026-07-25 — that
+> machinery is triply inert today: `settings.auto_finetune` defaults **False**;
+> `MIN_ROWS_TO_PROMOTE = 20`; and `CuratedLabel` has exactly ONE writer (the manual
+> tag-override endpoint in `services/scoping.py`) because F9's thumbs UI does not exist.
+>
+> Three reasons it is the wrong mechanism *for this component specifically*, beyond being unbuilt:
+>
+> 1. **The held-out split shares the labelers' bias.** train/val/test all come from the same two
+>    labelers under the same rubric, and those labelers agree 90–98% on the context signals —
+>    i.e. they share a lot, including their mistakes. A held-out split encodes the same
+>    misconception, so §5's per-label F1 table can look excellent while the head is confidently
+>    wrong exactly where both labelers were. **No quantity of held-out data from the same
+>    process can detect this.** Only independently-authored probes can.
+> 2. **This classifier's failures are invisible to the user.** A wrong derived-Zero_Shot means
+>    retrieval silently does not run and the answer is quietly worse; nothing signals it. A
+>    thumbs-down loop therefore under-samples precisely the errors that matter most. Feedback is
+>    a fine quality signal for an *answer*; it cannot be the primary one for a *silent gate*.
+> 3. **Corrections are drawn only from what the system surfaced**, so regions where it is
+>    confidently wrong never enter the curated set. Bootstrapping converges toward the blind
+>    spot, not away from it.
+>
+> **Consequence — a SECOND promotion gate, beside D5's.** A hand-authored adversarial probe set,
+> independent of the labelers, stratified over the *valid* intent × context cells (~40–60 cells,
+> 5–10 probes each), deliberately targeting: context/no-context twins, memory+live combinations,
+> temporal reference without a parseable date, the Codebase_Query vs Code_Change boundary, and
+> **Zero_Shot controls that must NOT trigger retrieval**. Strictly EVAL — never trained on (house
+> rule). D5 asks "is it worse than before?"; this asks "is it actually right?" — different
+> questions, and a model must pass both. The 708 v1 probes in `data/labeled/probes_*.jsonl` are
+> reusable as TEXT only; their labels come from the v1 process and carry its bias.
+>
+> Authorship note: probes drafted by the assistant are independent of Gemma/Qwen (the
+> contamination being guarded against) but not of "written by an LLM" — so the intended shape is
+> assistant-drafted for matrix coverage, then adversarially edited by the user, who knows their
+> own phrasing habits. Weight/threshold sensitivity sweeps (pos-weights, the 0.3 tag threshold)
+> belong with Z1-prep's tuning stage.
+
 ## 1. Decisions
 
 - **D1: label schema v2 — heads become schema-driven, no magic numbers anywhere.**
