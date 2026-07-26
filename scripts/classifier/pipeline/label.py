@@ -113,7 +113,6 @@ def load_corpus(paths, limit: int = 0, stratified: bool = True) -> list:
 async def _label_row(client, model_id, system_prompt, schema_json, row,
                      response_mode, semaphore, out, failed, progress,
                      request_overrides=None):
-    from openai import APIError
 
     async with semaphore:
         messages = [{"role": "system", "content": system_prompt},
@@ -135,11 +134,25 @@ async def _label_row(client, model_id, system_prompt, schema_json, row,
         if extra_body:
             kwargs["extra_body"] = extra_body
 
+        # Catch EVERYTHING. A narrow except tuple silently lost 503 rows on the
+        # gpt-oss tiebreak pass: when that model answers entirely in its reasoning
+        # channel, `message.content` is None, `json.loads(None)` raises TypeError,
+        # which was not in the tuple — so the task died before calling progress(),
+        # wrote no failure record, and asyncio.gather(return_exceptions=True)
+        # swallowed it. The run then reported success 503 rows short. Every row
+        # must leave a trace in exactly one of the two output files.
         try:
             resp = await client.chat.completions.create(**kwargs)
-            payload = json.loads(resp.choices[0].message.content)
-        except (APIError, json.JSONDecodeError, KeyError, IndexError) as exc:
-            failed.write({"id": row["id"], "error": str(exc)[:300]})
+            content = resp.choices[0].message.content
+            if not content:
+                raise ValueError("empty message.content (model answered in a "
+                                 "reasoning channel, or output was cut off)")
+            payload = json.loads(content)
+            if not isinstance(payload, dict):
+                raise ValueError(f"expected a JSON object, got {type(payload).__name__}")
+        except Exception as exc:
+            failed.write({"id": row["id"],
+                          "error": f"{type(exc).__name__}: {exc}"[:300]})
             progress()
             return
 
@@ -288,6 +301,17 @@ async def run_labeler(rows, out_path, base_url, model_id, concurrency,
     elapsed = time.time() - started
     print(f"[label] {counter['n']} rows in {elapsed / 60:.1f} min "
           f"({counter['n'] / max(elapsed, 1e-9):.2f} rows/s)")
+
+    # Reconcile, loudly. Every queued row must have produced either an output row
+    # or a failure record; anything else means rows were dropped on the floor and
+    # the pass only LOOKS finished. Re-running picks them up (resume is by id),
+    # but you have to know to re-run.
+    if not aborted.is_set() and counter["n"] != len(todo):
+        missing = len(todo) - counter["n"]
+        print(f"\n!!! [label] {missing} of {len(todo)} rows produced NO result and "
+              f"no error — they were dropped, not labeled. Re-run this command to "
+              f"retry them.\n", flush=True)
+
     if aborted.is_set():
         raise SystemExit(f"labeling aborted — {counter['degenerate']}/{counter['n']} "
                          f"degenerate rows from {model_id}")
