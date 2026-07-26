@@ -96,8 +96,14 @@ PROFILES = {
         # running at 0.68 rows/s. The labeling rubric already forces explicit
         # Q1–Q5 reasoning INSIDE the schema, so the internal CoT is duplicated
         # work — turn it down and give the visible answer room to finish.
+        # 1400 was still not enough: the tiebreak pass truncated 12.7% of rows
+        # (2,003 "Unterminated string"). vLLM neither rejected nor visibly honoured
+        # the reasoning_effort kwarg — an unknown chat_template_kwarg is silently
+        # dropped if the template ignores it — so do not rely on it. The schema
+        # already caps the visible answer (reasoning maxLength 2000 ≈ 600 tokens,
+        # labels ≈ 60), so 2400 leaves ~1700 tokens of headroom for thinking.
         "request": {
-            "max_tokens": 1400,
+            "max_tokens": 2400,
             "extra_body": {"chat_template_kwargs": {"reasoning_effort": "low"}},
         },
     },
@@ -109,6 +115,16 @@ PROFILES = {
         "mem_fraction": 0.85,
         "max_running": 32,
         "quantization": None,
+        # Qwen3 thinks before answering unless told not to, and at max_tokens=700
+        # that cost ~10% of rows to truncated JSON on the first full pass (2,541
+        # failures by row 25k, 94% of them "Expecting ',' delimiter" /
+        # "Unterminated string"). Same failure gpt-oss had, same reasoning: the
+        # rubric already forces explicit Q1–Q5 reasoning inside the schema, so the
+        # model's own thinking pass is duplicated work that only steals budget.
+        "request": {
+            "max_tokens": 1400,
+            "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
+        },
     },
     # known-broken; kept so nobody re-picks it without reading why
     "qwen3.6-27b": {

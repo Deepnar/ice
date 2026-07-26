@@ -45,6 +45,18 @@ design requirements:**
 >    D8's calibration gate first; if the cheap judge clears κ, keep it; if not,
 >    escalating costs ~$10, not the budget. (Gemini-3.6-Flash at $1.50/$7.50 per M ≈
 >    $27 for judging alone — affordable but unjustified unless calibration demands it.)
+> 3c. **PIN REVISIONS, NOT NAMES, IN EVERY MANIFEST (2026-07-26).** "exact version strings" in
+>    (4) below means the **revision SHA**, for local weights as much as cloud models. A community
+>    quantization can be re-uploaded, silently revised, or deleted, so `cyankiwi/gemma-4-26B-A4B-
+>    it-AWQ-4bit` is not a reproducible reference — that repo *at revision `0ef577a5…`* is. HF
+>    already stores it as the `snapshots/<sha>` directory name, so it is free to capture. The
+>    manifest records: repo + revision, quantization method, serving engine + version, and the
+>    sampling parameters. Same for the embedder, whose identity silently defines every stored
+>    vector. Running ledger with the values captured so far: **[docs/PROVENANCE.md](../PROVENANCE.md)**.
+>    Note this does NOT touch scored results — FINAL's judge and GT generation are cloud
+>    full-precision — but it does cover the local answerer conditions, where the rule is to serve
+>    the SAME model across conditions so quantization stays a constant in the ICE-vs-baseline
+>    delta rather than a confound.
 > 4. **Judge/longctx model roster stays deferred to run time** (empirical-deferral (a)
 >    holds, new provider): pick the strongest instruct model and the strongest
 >    long-context model available on OpenRouter *then*; record both + exact version
