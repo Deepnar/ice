@@ -44,39 +44,38 @@
 
 > **📌 (previous) DOCS-IN-SYNC note from the E0+E7 session, 2026-07-17.** Every doc this session touched was updated in the same session, so a new session can trust them: (a) **this roadmap** — E0 and E7 checked off with completion notes; the top position/Next lines point at D1/D2; propagation sweep updated the ⚑ end-state note + Track-F's headless-boot addendum (the E7 boot story is now DECIDED AND SHIPPED: attach-else-boot + lease/standby + linger) and G20 (E0 preserved the router surface byte-identically, so its sweep items 2/3 remain open, re-homed to C6/F5). (b) **[ICE_Architecture.md](ICE_Architecture.md)** — new **§11 Service Layer & ICE-as-MCP** (services, tool surface, boot/lease/standby, validation); §8 intro + §8.1 gained the runtime-lease/standby paragraph; §10.1 now describes the routers as thin adapters over `src/services/` with the parity-harness guarantee. (c) **[docs/specs/E0_E7_services_mcp.md](specs/E0_E7_services_mcp.md)** — rev notes 1–10 recorded BEFORE coding (rule 12): D2(a) had already shipped with C7; pyproject needed a build-system for the `ice-mcp` entry point; "the C7 lease" was made concrete as the `runtime_lease` ledger pseudo-row; defer = STANDBY runtime (not no-runtime — two silent-data-loss states otherwise); context_for always orchestrates on explicit pull; ice_remember's bookmark mechanics; the codex_reconciliation approve action; entity_edit as the birthplace of manual description editing; review.reject added with no new REST endpoint. (d) **[docs/specs/D1_D2_maintenance_agent.md](specs/D1_D2_maintenance_agent.md)** — rev note added: the D6 approve-dispatch now lives in `src/services/review.py` (E0 lifted it, both agent arms pre-wired; `codex_ops.merge_entities` is the loud stub D1 replaces). (e) **[CLEANUP.md](CLEANUP.md)** — VALID_SLOTS constant move + this session's hygiene logged. The T-track notes (2026-07-12) and the C7 note (2026-07-11) remain true underneath this one. **If you (next session) touch a subsystem, keep this discipline: update its ICE_Architecture.md section + any stale spec/roadmap references in the same session, then note it here.**
 
-> **⏳ B1 LIVE STATUS (2026-07-25, mid-item — read this before touching anything classifier-shaped).**
-> **Code is DONE and committed; the RUN is partly done.** Commits: core `1f834f1` (schema v2,
-> trunk+3-heads, templates, ripple, migration `c4d7e91a2b58`) · pipeline `48e65cd` (8 stages) ·
-> context fix `0e3c684` · prompt cap + synth reorder `04990b7` · profiles + comparator `b534863`.
-> - **Corpus built:** 39,289 rows (`data/labeled/v2/`) — personal 11,009 · lmsys 8,570 ·
->   wildchat 8,479 · sharegpt 8,465 · synthetic 1,468 · icedev 1,298. 34% context-prefixed,
->   in the live exchange format (verified byte-identical to `_get_context_turns`).
-> - **Labeler B (gemma-4-26B-A4B) COMPLETE:** 39,173 rows, 0.01% degenerate. All four context
->   signals clear the 300 floor (High_Complexity 9,141 — the spec's likeliest casualty
->   SURVIVES; Needs_Memory 8,072; Needs_Live_Info 1,716; Temporal_Recall 1,363 before the T2
->   detector adds any). 4,763 rows (12.2%) carry >1 context signal — states v1 could not represent.
-> - **Labeler roster SETTLED** (vetted on real rows, `6b275e8`): **A = `Qwen/Qwen3-14B-AWQ`**
->   (1.77 rows/s, ~6.2 h) · **B = `gemma-4-26B-A4B`** (2.34 rows/s, DONE) · **C tiebreak =
->   `openai/gpt-oss-20b`** (1.20 rows/s). Three lineages. gpt-oss lost the A slot on speed with
->   equivalent agreement, which is what makes it the right tiebreaker.
-> - **Agreement measured** (n=184 and n=142, two independent pairs): memory signals
->   **90.8–98.6%** · High_Complexity 83–84% · topic 78–80% · intent 64–66%. All-three-heads is
->   only 36–38%, which is a property of the GATE (it compounds topic/intent noise onto context),
->   not of the data — so the tiebreak is ~24k rows ≈ 4 h local, not the spec's "~200–400".
-> - **`High_Complexity` no longer blocks settlement** (`SOFT_CTX_LABELS`): majority vote, 1-1
->   split ⇒ absent. Decided on its error asymmetry across the three F11 deployments (see that
->   entry) — in mixed local+cloud a false positive spends real credits.
-> - **NEXT:** `label.py --labeler A` (resumable, ~6.2 h) → `--merge` → `--labeler C
->   --tiebreak-only` → `--merge` → **synth** (measured gaps only; from Gemma alone only
->   `Codebase_Query` was short at 221 — provisional until the merge) → re-label the synth rows
->   with A and B → `--merge` → build → train → evaluate → promote.
-> - **⚠ Two requants are broken and marked in `serving.PROFILES`** — Qwen3.6-27B-AWQ (won't
->   load) and Mistral-Small-3.2-24B-awq-sym (token soup behind valid JSON). Don't re-pick them.
-> - **USER-REQUIRED still open:** the disagreement queue, the 5% audit, approving promotion.
->   **D8 (DI3 slice eval + deletion) comes AFTER promotion** — order is promote → measure →
->   delete. **A9's classifier-side slice384 retirement also waits on promotion.**
-> - Backend reality: **vLLM, not SGLang** (pinned sglang can't import against this Triton) —
->   spec rev 2026-07-25b records this and six other divergences.
+> **⏳ B1 LIVE STATUS (2026-07-26 — data assembly COMPLETE, training running).**
+> Commits: core `1f834f1` · pipeline `48e65cd` · context fix `0e3c684` · prompt cap + synth
+> reorder `04990b7` · gpt-oss profile + comparator `b534863` · request overrides `7c7aeed` ·
+> labeler roster + High_Complexity rule `6b275e8` · hang fix `07e1f0c` · validation principle
+> `5ed75ff` · two piles + curation dedup `83f435a` · provenance ledger `fb0254b` · silent-drop
+> fix `aad5b43` · Pile B `3009a04`/`b3798fb` · eval probes + union + splits `cb8ca36` ·
+> architecture `a98d404`. Migration `c4d7e91a2b58`.
+> - **Corpus 39,289 rows**, 34% context-prefixed in the live exchange format (asserted
+>   byte-identical to `_get_context_turns`). Full composition + revision SHAs in
+>   **[PROVENANCE.md](PROVENANCE.md)**.
+> - **All three labeling passes DONE:** A qwen3-14b 39,203 · B gemma-4-26b-a4b 39,173 ·
+>   C gpt-oss-20b tiebreak 19,214. Three distinct lineages, all vetted on real rows.
+> - **Merge: 98.8% settled.** Human queue **544 rows, all context-reliance** (topic/intent
+>   three-way splits resolve by union — 4,657 of 5,201 were fuzzy-head-only). **Every label
+>   clears the 300 floor; nothing dropped**, including High_Complexity (2,520) and
+>   Codebase_Query (316 after Pile B). Temporal_Recall 2,297 from a v1 baseline of ZERO.
+> - **Pile A (bulk synth) correctly SKIPPED** — `measure_gaps` returns `{}`; Pile B closed the
+>   only gap. Do not run it "for completeness": it would cost two more full labeling passes.
+> - **Pile B = 289 hand-authored rows** (`authored.py`, batches in `scripts/oneoff/b1_authored/`),
+>   labels ship WITH the prompt and never reach the labelers. Written because of **capability
+>   censoring** — `Needs_Memory` ACROSS conversations was **0 of 6,806**, since referring to
+>   another chat is futile when the assistant cannot see it.
+> - **Independent eval set: 207 probes** (`eval_probes_independent.jsonl`) from the user's own
+>   Experiment-1 curation probes, **NEVER trained on**. Needed because train/val/test all
+>   descend from the same two labelers and Pile B is trained on, so neither can be the exam.
+> - **Splits built:** 33,197 rows → train 23,756 / val 4,386 / test 5,055, 38.8%
+>   context-prefixed, 1,000 hard-negative pairs, render check 100%.
+> - **NEXT:** `train.py` (running) → `evaluate.py` (D5 non-regression gate + the independent
+>   probe gate) → **promotion, which is USER-APPROVED, not automatic**. After promotion only:
+>   D8 (DI3 slice eval + deletion) and A9 (slice384 retirement).
+> - ⚠ 909 corpus rows (2.3%) never settled — accepted as loss (user). Two broken requants are
+>   marked in `serving.PROFILES`; don't re-pick them.
 
 **Next: B1 classifier retrain — IN PROGRESS (code complete, labeling half-run).** ([B1_classifier_retrain.md](specs/B1_classifier_retrain.md) — **read its [rev 2026-07-25] re-grounding FIRST**: the store-is-empty correction (B1 trains from FILES, not `episodic_memory`), the measured 25k composition, the six real label gaps, local-two-labeler + cloud-tiebreak, and the moved tooling paths.) Build order: **schema v2 (`label_schema.json` + `src/classifier/schema.py`) → the trunk+3-heads model + `templates.py` → the `scripts/classifier/pipeline/` stages**. The single **USER-HEAVIEST** item. ⚠ **Surface the human budget UP FRONT (~2–3 h of the user's own time):** one-time training-data consent, ~200–400 labeler-disagreement reviews, a 5% audit, running the retrain, and approving promotion of the new checkpoint. It also RETIRES the slice384 staging (A9): once the classifier + micro-NER retrain at native 1024, `embedder.slice384()`'s call sites are deleted. Primitives now live: the ingestion engine (F10, `316e11f`) fills the store — B1's retrain can draw on imported history as label material; the store is no longer empty (though the 'ice' project stays unregistered per the user's decision). G22 habit stands: `uv run pytest tests/smoke -q` before every commit.
 >
