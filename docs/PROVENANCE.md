@@ -129,3 +129,71 @@ context_reliance 5,512. T2's deterministic detector contributed 288
 
 ⚠ Label counts from this merge are **half-counts** over the settled subset —
 `Codebase_Query` at 24 is not a drop signal until the tiebreak completes.
+
+### Run 2 merge — after tiebreak, union rule, and Pile B (2026-07-26)
+
+**38,669 settled of 39,154 (98.8%).** gpt-oss tiebreak resolved 19,214 rows; the
+union rule auto-settled the fuzzy heads (intent 3,263 · topic 1,740); Pile B added
+289 hand-authored rows. **Human review queue: 544, all of them context-reliance
+disputes** — the fuzzy-head arguments never reach a person. T2's detector
+contributed 612 `Temporal_Recall` positives.
+
+**Every label clears the 300 floor. Nothing is dropped**, including the spec's
+predicted casualty:
+
+| context signal | settled |
+|---|---|
+| (derived Zero_Shot) | 28,242 |
+| Needs_Memory | 7,997 |
+| High_Complexity | 2,520 |
+| Temporal_Recall | 2,297 |
+| Needs_Live_Info | 1,262 |
+
+`Codebase_Query` 316 · `Code_Change` 1,567 · every other intent ≥ 873.
+
+**909 corpus rows (2.3%) never settled** — 230 short of the tiebreak queue, 67
+never labeled by either A or B, the rest labeled by only one so there was nothing
+to compare. Accepted as loss (user).
+
+### Pile B — hand-authored rows (289)
+
+Written because the corpus **could not contain** these classes, not because they
+are rare. A label gated on a capability the collection environment lacked stays
+rare however much data you gather:
+
+| class | organic | why censored |
+|---|---|---|
+| Needs_Memory across conversations | **0** of 6,806 | assistant couldn't see other chats, so nobody phrased it that way |
+| Codebase_Query | 65 | no repo access — "where is X in my project" was pointless |
+| Memory + Live_Info | ~137 | no web search to make it worth asking |
+| Meta_AI about ICE's own memory | ~0 | no system with memory to interrogate |
+
+Labels ship WITH the prompt and never reach the labelers (`scripts/classifier/
+pipeline/authored.py`); batch scripts under `scripts/oneoff/b1_authored/`.
+
+### Independent evaluation set — 207 probes (NEVER trained on)
+
+`data/labeled/v2/eval_probes_independent.jsonl`, built from the user's own
+`data/labeled/probes_labeled_ltm.jsonl` (708 rows → 238 unique prompts; 42 dropped
+as already present in the training corpus).
+
+This exists because train/val/test all descend from the same two labelers and
+therefore inherit their shared blind spots — a split cannot detect the bias of the
+process that produced it. Pile B cannot serve as the exam either, since it is
+trained on. These probes were written by the **user**, months earlier, for
+Experiment-1 curation, and no labeler in this pipeline has touched them.
+
+Asserts **one** label, `Needs_Memory`, which is true by construction (a curation
+probe is asked to test recall). The v1 topic/intent labels came from a weak 7B
+model and are carried as an unscored hint. 64 of the rows carry model reasoning
+concluding `Zero_Shot` against a stored label of `Long_Term_Memory` — the user's
+override, and correct.
+
+### Training splits (2026-07-26)
+
+**33,197 rows → train 23,756 / val 4,386 / test 5,055.** 38.8% context-prefixed
+(v1: ~0%), 1,000 hard-negative context pairs, template render 100%.
+Conversation-grouped split so turns of one conversation cannot straddle train and
+test. Hand-authored rows are **exempt from the standalone down-sampling** — the
+first build discarded 32 of them to hit the context ratio, which throws away the
+only examples of the censored classes.

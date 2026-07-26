@@ -35,6 +35,7 @@ import json
 import random
 from collections import Counter, defaultdict
 
+from authored import CORPUS_AUTHORED
 from common import (CORPUS_RAW, CORPUS_SYNTH, ICEDEV_STITCHED, LABELS_FINAL,
                     REVIEW_QUEUE, TEST_SPLIT, TRAIN_SPLIT, VAL_SPLIT,
                     ensure_data_dir, read_jsonl, write_jsonl)
@@ -163,10 +164,18 @@ def compose(rows, labels, context_target=CONTEXT_TARGET):
         if keep < len(without):
             rng = random.Random(SEED)
             rng.shuffle(without)
-            dropped = len(without) - keep
-            without = without[:keep]
+            # Hand-authored rows are exempt. They exist because organic data
+            # COULD NOT contain them (no repo access, no cross-session memory),
+            # so discarding them to hit a ratio throws away the only examples of
+            # those classes — the first run cost Codebase_Query 32 of its 316.
+            protected = [r for r in without if r.get("source") == "authored"]
+            droppable = [r for r in without if r.get("source") != "authored"]
+            keep_droppable = max(0, keep - len(protected))
+            dropped = len(droppable) - keep_droppable
+            without = protected + droppable[:keep_droppable]
             print(f"[build] dropped {dropped} standalone rows to reach "
-                  f"{context_target:.0%} context-prefixed")
+                  f"{context_target:.0%} context-prefixed "
+                  f"({len(protected)} authored rows protected)")
     return with_ctx + without
 
 
@@ -241,7 +250,8 @@ def label_report(rows, schema):
 def main():
     ap = argparse.ArgumentParser(description="B1 stage 5: build train/val/test splits")
     ap.add_argument("--corpus", nargs="*",
-                    default=[CORPUS_RAW, ICEDEV_STITCHED, CORPUS_SYNTH])
+                    default=[CORPUS_RAW, ICEDEV_STITCHED, CORPUS_SYNTH,
+                             CORPUS_AUTHORED])
     ap.add_argument("--dry-run", action="store_true",
                     help="report composition without writing splits")
     ap.add_argument("--limit", type=int, default=0)

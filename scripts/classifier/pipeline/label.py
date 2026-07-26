@@ -344,6 +344,11 @@ def _sets(entry):
 # made precise by raising it.
 SOFT_CTX_LABELS = {HIGH_COMPLEXITY}
 
+# Heads whose three-way splits resolve by union instead of by a human. Topic and
+# intent are fuzzy multi-label sets; context reliance is the decision the retrain
+# exists to get right and always goes to a person.
+FUZZY_HEADS = {TOPIC, INTENT}
+
 
 def _ctx_core(labels: set) -> set:
     """The context signals that must match exactly for a row to settle."""
@@ -458,6 +463,7 @@ def merge(corpus_paths, verbose=True):
 
     final, needs_tiebreak, needs_human = [], [], []
     head_disagreements = Counter()
+    unioned = Counter()
 
     for row_id in both:
         a, b = a_by_id[row_id], b_by_id[row_id]
@@ -487,6 +493,26 @@ def merge(corpus_paths, verbose=True):
                     unresolved.append(head)
                 else:
                     resolved[head] = won
+        # Where all three labelers split on a FUZZY head, take the union rather
+        # than spending a human on it. Measured: 4,657 of 5,201 queued rows were
+        # topic/intent-only disputes — reviewing them at ~10s each is 14 hours to
+        # adjudicate multi-label tags that nudge retrieval leg weights, while the
+        # 544 context disputes decide whether memory is consulted at all.
+        #
+        # Union is the defensible reading for a multi-label head: three competent
+        # labelers each named something, so the prompt plausibly carries all of
+        # them. It imports some false positives, but a slightly generous intent
+        # set costs a weight tweak while a wrong context signal costs the whole
+        # retrieval decision. Context reliance is NEVER unioned — it stays with
+        # the human.
+        auto = [h for h in unresolved if h in FUZZY_HEADS]
+        for head in auto:
+            idx = {TOPIC: 0, INTENT: 1, CONTEXT_RELIANCE: 2}[head]
+            merged_set = _sets(a)[idx] | _sets(b)[idx] | _sets(c)[idx]
+            resolved[head] = sorted(merged_set)
+            unioned[head] += 1
+        unresolved = [h for h in unresolved if h not in FUZZY_HEADS]
+
         if unresolved:
             needs_human.append({
                 "id": row_id,
@@ -505,6 +531,19 @@ def merge(corpus_paths, verbose=True):
                           "labels": resolved, "agreement": "tiebreak"})
 
     added = temporal_weak_supervision(rows_by_id, final)
+
+    # Pile B (hand-authored) joins the settled set directly — its labels were
+    # authored, never inferred, so there is nothing to reconcile. Kept out of the
+    # labeling corpus entirely so no labeler can overrule a human ground truth.
+    from authored import CORPUS_AUTHORED
+    authored = 0
+    for row in read_jsonl(CORPUS_AUTHORED):
+        final.append({"id": row["id"], "source": row["source"],
+                      "labels": row["labels"], "agreement": "authored"})
+        rows_by_id.setdefault(row["id"], row)
+        authored += 1
+    if authored:
+        print(f"[merge] + {authored} hand-authored rows (Pile B, labels not inferred)")
 
     ensure_data_dir()
     write_jsonl(LABELS_FINAL, final)
@@ -547,6 +586,7 @@ def merge(corpus_paths, verbose=True):
         print(f"[merge] settled {len(final)}/{len(both)} ({rate:.1%})")
         print(f"[merge] per-head disagreement: {dict(head_disagreements)}")
         print(f"[merge] awaiting tiebreak: {len(needs_tiebreak)}")
+        print(f"[merge] auto-resolved by union (fuzzy heads): {dict(unioned)}")
         print(f"[merge] HUMAN REVIEW QUEUE: {len(needs_human)} → {REVIEW_QUEUE}")
         print(f"[merge] temporal detector added {added} Temporal_Recall positives")
         print(f"[merge] audit sample: {len(audit)} → {AUDIT_SAMPLE}")

@@ -109,7 +109,11 @@ def validate(rows, schema=None) -> list:
     problems, seen = [], set()
     for i, row in enumerate(rows):
         text = (row.get("text") or "").strip()
-        if len(text) < 5:
+        # Null_Noise is *defined* by being contentless ("ok", "...", keyboard
+        # mash), so the length floor cannot apply to it — the floor exists to
+        # catch a truncated row, not to reject the one label that looks like one.
+        floor = 1 if "Null_Noise" in row["labels"][TOPIC] else 5
+        if len(text) < floor:
             problems.append(f"row {i}: text too short")
         key = text.lower()
         if key in seen:
