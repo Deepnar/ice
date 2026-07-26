@@ -155,6 +155,14 @@ design requirements:**
 >    *narrows* rev 2026-07-25's "cloud is exclusive to FINAL": the exclusivity holds, and
 >    within FINAL the split above is now explicit.
 >
+> 3b. **`experiments/curation_files/` — hand-written probes, reusable, do NOT ask the user to
+>    rewrite them.** 58 files = 19 conversations x 3 checkpoints (`EC-<hash>-TURN<n>.json`; same
+>    hash = same conversation, `<n>` = split turn), 649 probes raw. Probes repeat across a
+>    conversation's checkpoints, so dedupe **by probe TEXT** -> **252 unique**. Do not dedupe by
+>    "keep the largest-suffix file", which drops 32 unique probes (the biggest checkpoint is not
+>    always the one with the most probes: EC-cca73c87 has 27 at TURN29 and 5 at TURN61). Each
+>    probe carries `user_injected_prompt` + `expected_answer` against a `historical_context_block`
+>    — i.e. they already have the shape FINAL's evolving-GT design wants, authored by hand.
 > 4. **Shared asset already built (B1, 2026-07-25):** `scripts/classifier/pipeline/
 >    stitch_icedev.py` produces `data/labeled/v2/icedev_stitched_dialogue.jsonl` — the
 >    six ICE-N DeepSeek chats merged into ONE chronological conversation (3,473 turns,

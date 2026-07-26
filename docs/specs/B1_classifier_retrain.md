@@ -230,6 +230,35 @@ mechanical whenever that moment comes.
 > assistant-drafted for matrix coverage, then adversarially edited by the user, who knows their
 > own phrasing habits. Weight/threshold sensitivity sweeps (pos-weights, the 0.3 tag threshold)
 > belong with Z1-prep's tuning stage.
+>
+> **TWO PILES OF SYNTHETIC DATA — keep them separate (user, 2026-07-25).** `synth.py` currently
+> treats every generated row the same way: strip the intended label, send it through the
+> two-labeler pass. That is right for one pile and WRONG for the other.
+>
+> * **Pile A — bulk filler.** Hundreds of rows a local model generates to pad a thin label.
+>   Generation drift is real (ask for `Codebase_Query`, receive a `Code_Change`), so the label
+>   must be earned through the normal labeling path. This is what `synth.py` does today; keep it.
+> * **Pile B — hand-authored.** A small set written deliberately, one at a time, by the user or
+>   the assistant, *for a specific label combination*. **The label ships WITH the prompt and is
+>   never sent to the labelers.** Running Pile B through Qwen/Gemma lets two local models
+>   overrule a human-authored ground truth, which makes the data worse, not better. Pile B feeds
+>   the adversarial gate above and any manual fine-tune. **Pile B does not exist yet** — that is
+>   a missing component, not a disagreement. If a label needs more rows than are worth
+>   hand-writing, the assistant contributes a labelled batch alongside Pile A's generated batch,
+>   and the two are merged only at the end.
+>
+> **EXISTING HAND-WRITTEN ASSET: `experiments/curation_files/` (user, do not ask them to
+> rewrite these).** 58 JSON files = **19 conversations × 3 checkpoints**, named
+> `EC-<conv-hash>-TURN<n>.json`; the same hash means the same conversation and `<n>` is the split
+> turn, so probes repeat across a conversation's three checkpoints. Raw total 649 probes.
+> ⚠ **The user's stated rule — "keep only the largest-suffix file per prefix" — loses data:**
+> it yields 220 unique probes and DROPS 32, because the largest checkpoint does not always carry
+> the most probes (`EC-cca73c87` has 27 probes at TURN29 but only 5 at TURN61). **Correct rule:
+> deduplicate by probe TEXT across each conversation's files → 252 unique probes.** Note these
+> were written to test whether the SYSTEM remembered (`user_injected_prompt` +
+> `expected_answer`), not whether the classifier labelled correctly — so they are reusable as
+> prompt text and as a rich source of genuine `Needs_Memory` positives, with classifier labels
+> to be authored by hand (Pile B).
 
 ## 1. Decisions
 
