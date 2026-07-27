@@ -84,10 +84,9 @@ def main():
     print(f"[promote] promoted → {result['live_path']}")
     print(f"[promote] previous checkpoint backed up → {result['backup']}")
     print("[promote] restart/reload the proxy to serve the new head.")
-    print("[promote] NOTE: the live filename still reads v3_qwen_ft3 while holding a "
-          "schema-v2 model. Rename it and update CLASSIFIER_MODEL_PATH in .env when "
-          "convenient — the checkpoint itself declares its own schema_version, so "
-          "nothing breaks either way.")
+    print(f"[promote] rollback: cp {result['backup']} {result['live_path']} "
+          "(a checkpoint declares its own schema_version, so a rollback is a file "
+          "swap — no code change).")
 
 
 if __name__ == "__main__":

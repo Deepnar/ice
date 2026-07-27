@@ -29,7 +29,12 @@ from src.classifier.model import (DEFAULT_POS_WEIGHT_CAP, ICEClassifier,
 from src.classifier.schema import load_schema
 
 SEED = 42
-DEFAULT_OUT = "models/classifier/ice_classifier_v4_schema2.pt"
+# Staging path, deliberately NOT the live path. Since 2026-07-27 the live
+# checkpoint IS models/classifier/ice_classifier_v4_schema2.pt, so defaulting
+# --out there would let a no-argument `python train.py` overwrite the serving
+# model with an untrained-and-ungated one. Promotion is the only thing allowed
+# to write the live path, and it backs the old file up first.
+DEFAULT_OUT = "models/classifier/candidate.pt"
 
 
 def per_label_f1(probs, targets, schema, threshold: float):

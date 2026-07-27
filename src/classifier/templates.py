@@ -11,7 +11,8 @@ defect B1 fixes, and it is fixed *by construction*: both sides import from here.
 Templates are VERSIONED alongside the schema:
 
 * ``V1_*`` — lifted verbatim from the pre-B1 ``classifier.py`` (the exact
-  strings the live ``ice_classifier_v3_qwen_ft3.pt`` checkpoint was served with).
+  strings the pre-B1 ``ice_classifier_v3_qwen_ft3.pt`` checkpoint was served with —
+  still the rollback artifact, no longer the live path).
   Frozen forever: D5's non-regression gate must render the OLD model's input the
   way that model actually saw it, or the comparison is rigged against it.
 * ``V2_*`` — names the real v2 categories (the four independent reliance

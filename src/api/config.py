@@ -9,7 +9,13 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     classifier_threshold: float = 0.3
     confidence_fallback_threshold: float = 0.75
-    classifier_model_path: str = "models/classifier/ice_classifier_v3_qwen_ft3.pt"
+    # The LIVE checkpoint. Renamed 2026-07-27: this path held a file called
+    # ice_classifier_v3_qwen_ft3.pt that had contained a schema-v2 model since
+    # B1's promotion — a name asserting "v3, qwen, fine-tune 3" while holding a
+    # from-scratch v2 retrain. Harmless to the code (a checkpoint declares its
+    # own schema_version) and actively misleading to a reader. The v1 model kept
+    # its own honest name and is the rollback artifact.
+    classifier_model_path: str = "models/classifier/ice_classifier_v4_schema2.pt"
     label_schema_path: str = "data/labeled/label_schema.json"
     default_fallback_model: str = "qwen2.5:7b"
 

@@ -141,9 +141,9 @@ class LegacyICEClassifierV1(nn.Module):
          as the new one — you cannot gate against a model you cannot run, and
          every future candidate is still gated against the pre-B1 baseline.
       2. ~~``settings.classifier_model_path`` points at a v1 checkpoint~~ — it
-         holds v2 now. The v1 file survives as
-         ``ice_classifier_v3_qwen_ft3_prev_20260727_142648.pt``, which is the
-         rollback path, and a rollback must not require restoring this class.
+         points at ``ice_classifier_v4_schema2.pt`` now. The v1 model keeps its
+         own honest name, ``ice_classifier_v3_qwen_ft3.pt``, and is the rollback
+         artifact — a rollback must not require restoring this class.
 
     So this is NOT deletable yet: it is what makes both the gate and the rollback
     work. ``embedder.slice384``'s **classifier** call sites, however, are now dead

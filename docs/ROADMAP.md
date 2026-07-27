@@ -54,9 +54,13 @@
 >   12 intent / 4 context), cap 5, `tag_threshold` **0.65 stamped inside the checkpoint**.
 >   **PROMOTED 2026-07-27** — `settings.classifier_model_path` now holds the v2 model
 >   (verified live: schema_version 2, input_dim 1024, tag_threshold 0.65, heads 11/12/4).
->   Previous v1 checkpoint backed up to `ice_classifier_v3_qwen_ft3_prev_20260727_142648.pt`.
->   ⚠ The live FILENAME still reads `v3_qwen_ft3` while holding a v2 model — harmless (the
->   checkpoint declares its own version) but rename it + `CLASSIFIER_MODEL_PATH` when convenient.
+>   **The live path was RENAMED** to `models/classifier/ice_classifier_v4_schema2.pt` in the
+>   same session — it had been `ice_classifier_v3_qwen_ft3.pt`, a name asserting "v3, qwen,
+>   fine-tune 3" while holding a from-scratch v2 retrain. The v1 model keeps that honest name
+>   and **is the rollback**: `cp models/classifier/ice_classifier_v3_qwen_ft3.pt
+>   models/classifier/ice_classifier_v4_schema2.pt` — no code change, because a checkpoint
+>   declares its own `schema_version`. `train.py --out` now defaults to `candidate.pt` so a
+>   no-arg train cannot overwrite the serving model.
 > - **Both gates pass.** D5 non-regression +0.196 overall. Independent probes: retrieval
 >   fires 0.705 → **0.831** while false-fires drop 0.238 → **0.118**. On 104 new
 >   hand-authored adversarial probes the retrieval decision is **84% accurate vs v1's 78%**,
