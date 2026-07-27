@@ -466,8 +466,17 @@ try:
                             schema_path=settings.label_schema_path)
     result = clf._run_ml_classifier(
         "what did we decide about the postgres migration last week")
-    check("classifier runs end-to-end on the sliced input",
-          len(result.raw_probs) == 25 and result.context_reliance
+    # Generation-agnostic on purpose. The bit-identity proof above is the C17
+    # claim and it stands whatever is installed; THIS check only says the live
+    # classifier runs end-to-end at its own declared width. Since B1's promotion
+    # (2026-07-27) the live checkpoint is v2 and reads the native 1024, so the
+    # slice is no longer on the classifier's path at all — that is A9's retirement
+    # arriving, not a regression. The micro-NER keeps consuming slice384, which is
+    # why the equivalence proof above still matters.
+    check("classifier runs end-to-end at its checkpoint's width",
+          len(result.raw_probs) == clf.active_schema.total_width
+          and clf.input_dim in (384, 1024)
+          and result.context_reliance
           in ("Zero_Shot", "Long_Term_Memory", "Real_Time_Search"))
     check("classifier shares the process embedder (G13)",
           clf.embedder is embedder)

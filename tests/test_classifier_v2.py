@@ -222,15 +222,26 @@ check("v2 classify publishes head confidences",
 check("v2 tags come from the v2 label space",
       all(t in V2.labels(TOPIC) for t in out.topic_tags))
 
+# The live path is GENERATION-AGNOSTIC by design. It held a v1 checkpoint through
+# B1's development and holds the v2 one after promotion (2026-07-27), and a
+# rollback would put v1 back — so asserting a specific width here would make this
+# test a tripwire on which checkpoint happens to be installed rather than on the
+# behaviour every consumer depends on. What must hold in EITHER direction: the
+# live checkpoint loads, declares its own width, and populates B2's scalar seam.
 if os.path.exists(settings.classifier_model_path):
     c1 = PyTorchClassifier(model_path=settings.classifier_model_path)
     live_out = c1.classify("what did we decide about the retrieval weights last week?")
-    check("the LIVE v1 checkpoint still serves unchanged", len(live_out.raw_probs) == 25)
-    check("live v1 still routes a memory question to LTM",
+    live_schema = c1.active_schema
+    check("the LIVE checkpoint serves at its own declared width",
+          len(live_out.raw_probs) == live_schema.total_width
+          and c1.schema_version in (1, 2))
+    check("live checkpoint routes a memory question to LTM",
           live_out.context_reliance == "Long_Term_Memory")
-    check("live v1 still populates B2's p_ltm seam", live_out.p_ltm > 0.5)
+    check("live checkpoint populates B2's p_ltm seam", live_out.p_ltm > 0.5)
+    check("live checkpoint carries a calibrated tag_threshold",
+          0.0 < c1.tag_threshold <= 1.0)
 else:
-    print("  SKIP  live v1 checkpoint not present")
+    print("  SKIP  live checkpoint not present")
 
 print(f"\n{_passed} passed, {_failed} failed")
 sys.exit(1 if _failed else 0)

@@ -24,9 +24,32 @@ from __future__ import annotations
 import os
 import shutil
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional, Union
 
 import torch
+
+# src/classifier/promotion.py → repo root
+_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _resolve(path: str) -> str:
+    """Anchor a relative checkpoint path to the repo root.
+
+    ``settings.classifier_model_path`` is repo-relative, but callers do not all
+    run from the repo root: the pipeline stages run from their own directory
+    (they import ``common``, which chdirs — ``promote.py`` did not), and a worker
+    inherits whatever cwd the process was started with.
+
+    Without this, promotion resolved the live path against the caller's cwd and
+    **silently did the wrong thing twice over**: it wrote the new checkpoint to a
+    fabricated `<cwd>/models/classifier/...` and, finding nothing at that path to
+    displace, reported `backup → None` and skipped the backup. The live model was
+    never replaced, the gate had already printed PASS, and every log line looked
+    like success. Mirrors ``schema._resolve`` — same convention, same reason.
+    """
+    p = Path(path)
+    return str(p if p.is_absolute() else _ROOT / p)
 
 
 def promote_checkpoint(candidate: Union[dict, str], live_path: str,
@@ -39,6 +62,9 @@ def promote_checkpoint(candidate: Union[dict, str], live_path: str,
     Returns ``{"live_path", "backup", "promoted_at"}`` — the backup path is None
     only when there was no live checkpoint to displace.
     """
+    live_path = _resolve(live_path)
+    if isinstance(candidate, str):
+        candidate = _resolve(candidate)
     os.makedirs(os.path.dirname(live_path) or ".", exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
