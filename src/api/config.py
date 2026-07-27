@@ -25,8 +25,9 @@ class Settings(BaseSettings):
     # these at boot — create_core() refuses to start on a mismatch, because
     # silently cosine-comparing mixed-width/mixed-model vectors is the
     # existential failure G23 exists to prevent. Changing either value
-    # requires a migration + scripts/ice_reembed.py run. The classifier and
-    # micro-NER consume slice384() of the same encode until B1/A9 retrain.
+    # requires a migration + scripts/ice_reembed.py run. The classifier serves
+    # at native width since B1; the micro-NER still consumes slice384() of the
+    # same encode, as would a rolled-back v1 checkpoint (embedder.fit_width).
     embedding_model_name: str = "Qwen/Qwen3-Embedding-0.6B"
     embedding_dim: int = 1024
 

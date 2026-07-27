@@ -77,10 +77,9 @@ def main():
 
     rendered = [templates.render(p["text"], p.get("context_text"), version=tmpl)
                 for p in probes]
-    emb = encode_rendered(rendered, device=args.device, show_progress=False)
-    if input_dim == 384 and emb.shape[1] != 384:
-        from src.memory.embedder import slice384
-        emb = slice384(emb)
+    from src.memory.embedder import fit_width
+    emb = fit_width(encode_rendered(rendered, device=args.device,
+                                    show_progress=False), input_dim)
     with torch.no_grad():
         logits = model(emb)
 

@@ -43,7 +43,7 @@ from src.classifier.model import (compute_pos_weights, head_losses,
                                   load_checkpoint)
 from src.classifier.promotion import promote_checkpoint
 from src.classifier.schema import CONTEXT_RELIANCE, INTENT, TOPIC
-from src.memory.embedder import slice384
+from src.memory.embedder import fit_width
 from src.memory.models import CuratedLabel
 
 # Promotion guardrails.
@@ -98,9 +98,7 @@ def _encode(prompts, meta, device="cuda"):
     rendered = [templates.render(p, None, version=int(meta.get("template_version", 1)))
                 for p in prompts]
     emb = embedder.encode(rendered, convert_to_tensor=True, show_progress_bar=False)
-    if int(meta.get("input_dim", emb.shape[-1])) == 384 and emb.shape[-1] != 384:
-        # v1 heads consume the MRL prefix of the same native encode.
-        emb = slice384(emb)
+    emb = fit_width(emb, int(meta.get("input_dim", emb.shape[-1])))
     return emb.clone().detach().float().requires_grad_(False)
 
 

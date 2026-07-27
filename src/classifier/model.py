@@ -145,9 +145,12 @@ class LegacyICEClassifierV1(nn.Module):
          own honest name, ``ice_classifier_v3_qwen_ft3.pt``, and is the rollback
          artifact — a rollback must not require restoring this class.
 
-    So this is NOT deletable yet: it is what makes both the gate and the rollback
-    work. ``embedder.slice384``'s **classifier** call sites, however, are now dead
-    for the live path (A9) — but keep ``slice384`` itself, the micro-NER uses it.
+    So this is NOT deletable: it is what makes both the gate and the rollback
+    work. **The same argument covers the 384-narrowing** — A9a proposed deleting
+    it as dead code, and it is not dead for the same reason this class is not:
+    a rollback that needs a code change is not a rollback. A9a therefore
+    consolidated the six scattered copies into ``embedder.fit_width`` instead of
+    removing them (2026-07-27).
     """
 
     def __init__(self, input_dim: int = 384, hidden: int = 128, out_dim: int = 25,

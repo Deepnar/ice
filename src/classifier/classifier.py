@@ -2,7 +2,7 @@ import structlog
 import torch
 from typing import List, Optional
 
-from src.memory.embedder import get_embedder, slice384
+from src.memory.embedder import fit_width, get_embedder
 
 from . import templates
 from .model import load_checkpoint
@@ -61,9 +61,9 @@ class PyTorchClassifier:
 
         # G23/C17: the process-shared native-width embedder
         # (src/memory/embedder.py) — retrieval and every store writer reach this
-        # same instance via `classifier.embedder`. A v1 head still consumes the
-        # 384-dim MRL prefix (slice384) of that same encode; v2 heads take the
-        # native width, which is what retires the slice (A9).
+        # same instance via `classifier.embedder`. v2 heads take the native
+        # width; a rolled-back v1 head takes the 384-dim MRL prefix of the same
+        # encode, and `_encode` asks embedder.fit_width which one applies (A9a).
         self.embedder = get_embedder()
 
         logger.info("classifier_loaded", schema_version=self.schema_version,
@@ -109,16 +109,8 @@ class PyTorchClassifier:
 
     def _encode(self, text: str) -> torch.Tensor:
         """Render → encode → match the head's expected width."""
-        vec = self.embedder.encode(text, convert_to_tensor=True)
-        if self.input_dim != vec.shape[-1]:
-            # Only legal narrowing is the v1 MRL prefix (bit-identical to the
-            # old truncate_dim=384 output — see embedder.slice384).
-            if self.input_dim == 384:
-                vec = slice384(vec)
-            else:
-                raise ValueError(
-                    f"classifier expects {self.input_dim}-dim input but the "
-                    f"embedder produced {vec.shape[-1]}")
+        vec = fit_width(self.embedder.encode(text, convert_to_tensor=True),
+                        self.input_dim)
         return vec.unsqueeze(0).float()
 
     def _run_ml_classifier(self, prompt: str, conversation_id: Optional[str] = None) -> ClassificationResult:

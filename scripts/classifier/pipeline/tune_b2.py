@@ -100,10 +100,9 @@ def _classify_all(rows, ckpt, device):
 
     rendered = [templates.render(r["text"], r.get("context_text"), version=tmpl)
                 for r in rows]
-    emb = encode_rendered(rendered, device=device, show_progress=False)
-    if dim == 384 and emb.shape[1] != 384:
-        from src.memory.embedder import slice384
-        emb = slice384(emb)
+    from src.memory.embedder import fit_width
+    emb = fit_width(encode_rendered(rendered, device=device,
+                                    show_progress=False), dim)
     with torch.no_grad():
         logits = model(emb)
 

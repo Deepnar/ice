@@ -56,13 +56,11 @@ SHARED_INTENTS = len(load_v1_schema().labels(INTENT))
 
 def _encode(rows, template_version, input_dim, device):
     """Render + encode a row list the way ONE model expects to see it."""
-    from src.memory.embedder import slice384
+    from src.memory.embedder import fit_width
     rendered = [templates.render(r["text"], r.get("context_text"),
                                  version=template_version) for r in rows]
     emb = encode_rendered(rendered, device=device, show_progress=False)
-    if input_dim == 384 and emb.shape[1] != 384:
-        emb = slice384(emb)
-    return emb
+    return fit_width(emb, input_dim)
 
 
 def _model_threshold(meta, override=None):
