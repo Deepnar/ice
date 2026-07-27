@@ -317,6 +317,51 @@ mechanical whenever that moment comes.
 >    `promotion.promote_checkpoint` (`_resolve`, mirroring `schema._resolve`) so
 >    `workers/fine_tune.py` is covered too.
 
+> **[rev 2026-07-28] — D8 EXECUTED. DI3 is deleted; the model won every slice.**
+> D8 fixed the order as promote → measure → delete. Promotion happened 2026-07-27;
+> this rev records the measuring half and its outcome. Reproduce with
+> `scripts/classifier/pipeline/eval_di3.py` (which carries a FROZEN copy of DI3, so
+> the measurement outlives the code it judged — the same trick `templates.py` uses
+> for v1's prompts).
+>
+> **Slices are the rows DI3 actually intercepts** (first-match rule order), over
+> test+val = 9,441 held-out rows. Model wins every one:
+>
+> | slice | rows | topic F1 | intent F1 | retrieval acc |
+> |---|---|---|---|---|
+> | code | 675 | .878 → **.928** | .191 → **.515** | .692 → **.803** |
+> | sentiment | 92 | .238 → **.791** | .246 → **.622** | .707 → **.772** |
+> | meta | 149 | .248 → **.790** | .156 → **.594** | .745 → **.805** |
+> | noise | **0** | — never fires — | | |
+> | reference | 1,694 | (emits no tags) | | .852 → **.777 WITH the bump** |
+>
+> 1. **The expected fallback did not materialise.** D8 predicted keeping "a trivial
+>    inline length/noise guard IF the noise slice is DI3's lone win". The noise rule
+>    fired on **zero** of 9,441 rows: it needs a pure-punctuation string of ≤3
+>    distinct characters, so it misses every keyboard-mash entry it names (`asdf`
+>    0.5, `zzzzzzzz` 0.5, `asdfghjkl` 0.3, against a 0.8 threshold). Nothing to keep.
+> 2. **The reference rule was net-NEGATIVE, and this was its first real measurement.**
+>    `tune_b2.py` had swept `ltm_bump_reference` over [0.0, 0.6, 1.2] but never set
+>    `reference_signal`, so it was measuring a constant — one of that sweep's three
+>    inert knobs. Measured properly it buys recall .979 → .994 (six rows) for
+>    precision .738 → .643 (sixty-five spurious retrievals). Knob and flag both deleted.
+> 3. **A dead parameter falsified three documented behaviours.** `conversation_length`
+>    is passed by **no caller** (`main.py`, `retrieval_svc.py`, `ingestion/importer.py`
+>    all omit it), so it was always 0: the code and sentiment rules' `Long_Term_Memory`
+>    branches were unreachable, and the two-tier reference threshold (0.2 → 0.1 past
+>    ten turns) documented in ICE_Architecture §2.2 never once used its second tier.
+> 4. **DI3 had a tentacle in Track T.** T2's joint gate read `reference_signal` as one
+>    of four arms. Removing it deletes **49** non-current TimeScopes, every one a false
+>    positive — long pasted documents (`p_ltm` 0.00–0.16) whose *length* accumulated
+>    enough instances of "the" to clear a density threshold. Substituting
+>    `REFERENTIAL_WORDS` measures worse still (527 vs 416 non-current).
+> 5. **⚠ Neither promotion gate can see a D8-class change.** `score_hard_probes.py` and
+>    `eval_probes.py` both call `load_checkpoint` directly and never go through
+>    `classify()`, so DI3 was invisible to both. The gate that works is the end-to-end
+>    retrieve decision on the 311 independent probes: acc .884 → **.897**, recall
+>    .906 → **.922**. Silent misses 8 → **7** on the adversarial set, 16 → **13** on the
+>    user set. **Any future change to the pre-classifier path must be scored this way.**
+
 ## 1. Decisions
 
 - **D1: label schema v2 — heads become schema-driven, no magic numbers anywhere.**

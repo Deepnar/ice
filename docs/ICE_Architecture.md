@@ -39,15 +39,17 @@ Table of Contents	i
 
 2.1 The PyTorch MLP classifier	3
 
-2.2 DI3 — Dynamic Intent Inferencer	4
+2.2 DI3 — Dynamic Intent Inferencer (DELETED, D8)	4
 
 2.3 Context-aware classification	5
 
-2.4 Override rules	6
+2.4 The memory-retrieval decision (B2)	6
 
 2.5 Training pipeline	6
 
-2.6 Experimental / partial features	7
+2.6 The temporal joint gate & style-dependent rules	7
+
+2.7 Experimental / partial features	7
 
 3. Memory Architecture	8
 
@@ -284,32 +286,15 @@ p_ltm = p_mem ;  ctx_confidence = top1 − top2 of that derived three-way
 
 Every pre-B1 consumer keeps reading `context_reliance` / `p_ltm` / `ctx_confidence` and never learns the head changed shape underneath it. B2's scalar seam was designed for exactly this swap (§2.4) and needed no change.
 
-### **2.2 DI3 — Dynamic Intent Inferencer**
+### **2.2 DI3 — Dynamic Intent Inferencer (DELETED, D8, 2026-07-27)**
 
-DI3 (classifier/di3.py, gated by settings.DI3\_ENABLED) is a rule-based pre-classifier that catches obvious cases before the MLP runs. It computes five density signals ∈ \[0,1\] from the raw prompt (classifier/di3\_signals.py):
+For most of ICE's life a rule-based pre-classifier ran *before* the MLP and could answer without it. It computed five density signals from the raw prompt (code / sentiment / meta / noise / reference) and returned the first of five thresholded rules that fired. **D8 deleted it in full** — `di3.py`, `di3_signals.py`, `di3_config.py`, `di3_logger.py`, the seven `DI3_*` settings, `settings.ltm_bump_reference` and `ClassificationResult.reference_signal`.
 
-- **\`code\_density\`** — token-weighted sum over CODE\_FEATURES (e.g. \`\`\`  :0.4, def/class/function/import/==/!=/\{/\}:0.1 each, if/else/for/while/return/print\`:0.05), capped at 1.0.
+The rule was promote → measure → delete: on the rows each path *actually intercepted* (first-match order, 9,441 held-out rows), the v2 head had to tie or win. It won every slice on every metric — code (675 rows) topic F1 .878 → .928 and intent .191 → .515; sentiment (92) .238 → .791 / .246 → .622; meta (149) .248 → .790 / .156 → .594 — and the retrieval decision improved on all three. Two paths deserve their own note. The **noise** rule fired on **zero** rows: it requires a pure-punctuation string of ≤3 distinct characters, so it never matched the keyboard-mash strings it explicitly listed (`asdf` scores 0.5, `zzzzzzzz` 0.5, against a 0.8 threshold) — the anticipated "keep a small noise guard" fallback had no population to justify it. The **reference** rule, which alone deferred to the MLP for tags and contributed only an anaphora flag, made B2's decision measurably *worse*: accuracy .852 → .777, buying six extra correct retrievals for sixty-five spurious ones. That knob had never actually been measured — `tune_b2.py` swept it but never set the flag it depended on, so it was one of that sweep's inert knobs.
 
-- **\`sentiment\_density\`** — +0.1 per word in a 25-word sentiment lexicon, +0.2 for the patterns "i feel" / "i'm feeling", +0.15 per sentiment word when "i'm"/"im" is present, capped at 1.0.
+Two findings outlived the deletion. `conversation_length` was passed by **no caller**, so three of the five rules' `Long_Term_Memory` branches were unreachable and the documented two-tier reference threshold never used its second tier — a documented behaviour that had never once executed. And DI3 reached into Track T: T2's joint gate consumed `reference_signal` as one of four arms, where it was admitting 49 false time-windows on long pasted documents whose *length* had accumulated enough instances of "the" to cross a density threshold (§2.6).
 
-- **\`meta\_density\`** — +0.1 per META\_KEYWORDS = \{"you","your","model"\}, +0.15 per META\_PHRASES = \{"prompt","prompting"\}, +0.2 per META\_PATTERNS ("how do i prompt", "what model", "which model", "how should i prompt").
-
-- **\`noise\_density\`** — +0.2 if len \< 5, +0.6 if no alphabetic characters, +0.3 on a KEYBOARD\_MASH substring, +0.2 if the alphabet of the string has ≤3 distinct characters, capped at 1.0.
-
-- **\`reference\_density\`** — per-word weights on anaphoric terms (this:0.15, that/these/those:0.10, it/the:0.05).
-
-DI3 evaluates five rules **in order**, returning the first that fires (or None, in which case the MLP runs):
-
-| **Rule** | **Threshold (default)** | **Output** | **Confidence** |
-| - | - | - | - |
-| **Noise** | noise\_density \> 0.8 | topic=\[Null\_Noise\], intent=\[Casual\_Banter\], ctx=Zero\_Shot | 0.95 |
-| **Code** | code\_density \> 0.3 | topic=\[Software\_&\_Tech\], intent=\[Generation\], ctx=Long\_Term\_Memory if conversation\_length\>0 else Zero\_Shot | 0.90 |
-| **Sentiment** | sentiment\_density \> 0.4 | topic=\[Lifestyle\_&\_Health, Social\_&\_Relationships\], intent=\[Emotional\_Processing\], ctx=Long\_Term\_Memory if length\>5 else Zero\_Shot | 0.85 |
-| **Meta-AI** | meta\_density \> 0.2 | topic=\[Meta\_AI\], intent=\[Factual\_Retrieval\], ctx=Zero\_Shot | 0.90 |
-| **Reference** | reference\_density \> 0.2 (or \> 0.1 when length \> 10) | topic=\[\], intent=\[\], ctx=Long\_Term\_Memory | 0.70 |
-
-
-The reference rule is special: it returns empty topic\_tags and intent\_tags. classifier.classify() detects this empty‑tag condition and runs the MLP to supply the topic and intent labels. **(B2, 2026-07)** The MLP's context\_reliance is **no longer overwritten** with Long\_Term\_Memory here; instead the anaphora is carried as a `reference_signal=True` flag on the result, and the actual retrieve/no-retrieve call is made by the single memory-retrieval decision (§2.4) that treats the flag as one *bump*, not a forced label. This keeps the low-latency anaphora path while letting a confident classifier still win. The two‑tier reference threshold (0.2 → 0.1 once a conversation exceeds ten turns) now feeds that decision as a strong signal rather than being a hard LTM force.
+The measurement is preserved in `scripts/classifier/pipeline/eval_di3.py`, which carries a **frozen copy** of DI3's signal functions and thresholds so the finding stays re-runnable after the code it judged is gone — the same discipline `templates.py` applies to v1's prompt strings.
 
 ### **2.3 Context-aware classification**
 
@@ -334,6 +319,7 @@ retrieve  ⇔  P_need_mem > ltm_decision_threshold
 - **`P_len` (memory pressure)** is a *one-sided* logistic in how much conversation history sits **beyond the sliding window** (the recent-turn token budget, §6.3) — neutral while the window still covers the conversation, rising only as unseen history accumulates. This is the "sliding window + total turns + total context" signal: no `turn_count>10` cliff.
 - **Bumps** are the old hard signals, demoted to additive nudges: Creative topic, DI3 anaphora (`reference_signal`), referential-word presence, and a low topic/intent-confidence safety net. **T2 adds `ltm_bump_timescope` (+3.0)** when a non-current TimeScope was detected (passed as a kwarg, not a ClassificationResult field — an explicit "what did I think in 2025" is definitionally a memory query, but it stays a log-odds term with breakdown telemetry, never an early-return override).
 - **B1 D7 — the detector and the `Temporal_Recall` label are equivalent evidence for that bump: OR, never AND, never counted twice.** Either a fired detector or `p_temporal ≥ settings.temporal_label_threshold` (**0.85** since 2026-07-27, raised from 0.6) adds `ltm_bump_timescope` exactly once. The raise is measured, not cosmetic: the v2 `Temporal_Recall` head does not fire as an independent time signal but as a **shadow of `Needs_Memory`**, with which it co-occurs in 79% of its training positives — mean p_temporal 0.87 across hand-authored memory-needing prompts carrying no temporal content at all. Because the two evidences are OR'd, a low threshold makes the deterministic parser redundant and drags the decision toward always-retrieve, which is the failure B2 exists to prevent. They catch different things: the classifier catches "what was I leaning towards back then" (no parseable date, detector silent), the detector catches "in March 2026" on a prompt the head reads as ordinary. Note what the label explicitly does *not* do: **only the deterministic detector ever sets a time window.** A sigmoid inventing "two years ago" would be a hallucinated filter, so the label gates and boosts while the parser resolves.
+- **⚠ E12 (2026-07-27) measured that temporal arm and it is inert.** Over 9,441 held-out rows the label fires without the detector on 175 and is right about them (85% genuinely need memory, against the detector's own 52%) — but those rows carry mean `p_ltm` **0.931**, so 172 of 175 already retrieve, and disabling the arm moves **one decision in 9,441**. The cause is structural rather than a threshold: measured on gold labels, **78.1%** of `Temporal_Recall` rows are also `Needs_Memory`, because a question about the past needs memory by definition. **A signal that is a subset of another cannot improve that signal's own decision**, so no value of `temporal_label_threshold` rescues this and Z1-prep should not sweep it expecting movement. The label is not wasted — only **20.3%** of memory queries are time-shaped, so it is the only "is this about the past" signal ICE has — but its earned consumers are both in Track T and both unwired: tightening §2.6's joint gate (precision 84% → 93%) and flattening the ranker's recency preference for the 250-of-557 time questions carrying no parseable date. Roadmap **T5**, scheduled post-Z1.
 - **All weights are settings** (`ltm_decision_threshold`, `ltm_prior_bias`, `ltm_length_weight`, `ltm_pressure_midpoint_tokens`, `ltm_pressure_scale_tokens`, `ltm_bump_*`). This is deliberate: B2 sits on top of the *current* classifier, which roadmap B1 will retrain — so `P_ltm` is consumed as a scalar (surviving a softmax-3 → multi-label-sigmoid change) and the decision is re-tuned, not rewritten. The full `breakdown` dict is logged (`memory_decision` event) and is a candidate for the F5 SSE attribution layer.
 
 When the decision is to retrieve, main.py sets `context_reliance = "Long_Term_Memory"` so downstream gates/storage/telemetry still key off the label. **Persistent memory is not gated by this decision:** memory slots and bookmarks are user-level standing context, so they (and prompt assembly generally) run on *every* turn — only the retrieval `fragments` are conditional. This matters because B2 genuinely skips retrieval on confident standalone turns, where the old design (which forced retrieval on nearly every turn) had incidentally always injected slots too.
@@ -374,6 +360,8 @@ The hard-negative pairs are the payoff of the context-aware exercise, and need n
 
 A second measured caution about the labels themselves: the intent head's disagreements are **90–100% one-directional** rather than mutual (labeler A said `Factual_Retrieval` where B said `Open_Exploration` 1,030 times, and the reverse 8 times; B uses `Open_Exploration` 4.1× and `Ideation` 2.4× more often than A overall). That is a *calibration* difference between two models, not evidence that the two labels overlap — so collapsing confused labels would destroy real distinctions to paper over one labeler's bias. Any future taxonomy rework must separate these two causes before merging anything.
 
+**Stage 7c — `eval_di3.py` and `audit_labels.py`, the consumer audits.** Both exist because of a failure mode B1 kept surfacing: a signal can be trained, accurate, stored on every result, and still change nothing. `eval_di3.py` scored DI3 against the head on the rows DI3 intercepted (§2.2). `audit_labels.py` does the same for labels rather than components — it measures how much of an intent profile survives the orchestrator's `len(active_intents)` division, and whether a context signal moves the decision it is wired to. **Neither `evaluate.py` nor `eval_probes.py` can do this job:** both call `load_checkpoint` directly and never run `classify()`, so anything in the *pipeline* around the head is invisible to them. Changes to the pre-classification path are scored end-to-end on the independent probes instead.
+
 **Stage 8 — promote.** Re-runs the gate (rather than trusting a possibly-stale report), then backup + atomic replace of settings.classifier\_model\_path via src/classifier/promotion.py — **one** implementation, shared with the B4 curated-label fine-tune worker.
 
 ### **2.5.1 Training pipeline (v1, historical)**
@@ -390,7 +378,17 @@ The v1 classifier was trained offline through a five-stage pipeline. Kept here b
 
 **Stage 5 — Iterative fine-tuning.** fine\_tune.py loads a checkpoint, **freezes \`fc1\`** so only the fc2 head is trainable, and trains for 10 epochs at lr=5e-5 with plain BCEWithLogitsLoss (no pos\_weight). Hand-curated corrections in data/curated\_fixes.jsonl are pre-encoded, repeated 50×, and interleaved into every training batch via itertools.cycle, weighted 10× in the loss — the human-in-the-loop correction mechanism. The output is ice\_classifier\_v3\_qwen\_ft.pt. The active inference path loads ice\_classifier\_v3\_qwen\_ft3.pt (set by settings.classifier\_model\_path).
 
-### **2.6 Experimental / partial features**
+### **2.6 The temporal joint gate, and what it revealed about style-dependent rules**
+
+`retrieval/timescope.py::detect_timescope` decides whether a parsed time expression means "search that period". Detection is deliberately two-layered, and the layers are not equally sound.
+
+**The parser is regex and that is correct.** `_scan_expressions` matches about twelve date shapes (ISO, `march 2025`, `5th of march`, quarters, `early/mid/late 2025`, seasons, anchored bare years, `two years ago`) and resolves each into a UTC window. This *converts* rather than *guesses*, and a model would be strictly worse: an invented window silently hides every memory outside it, which is why Track T's standing invariant is that **only the deterministic parser may ever set a window** — a sigmoid may gate and may rank, never resolve. Its ceiling is real but belongs elsewhere: 250 of 557 gold-temporal rows ("back when we started", "before the rewrite") match no shape it knows, and that half is T5(b)'s to handle by flattening recency, not the parser's to guess at.
+
+**The gate above it infers intent from typography, and that is a defect.** A resolved expression flips the mode only if the prompt also looks like a recall question: `"?" in text`, else `first_word in _INTERROGATIVES` (a twelve-word list), else `p_ltm ≥ 0.5`. Two of those three arms read surface form. A fourth arm, DI3's reference density, was deleted in D8 after it was found admitting 49 false windows on long pasted documents.
+
+**The measurement that makes this a standing lesson (2026-07-28).** The first-word interrogative test fires on 13–25% of the public corpora — and on **2%** of the user's own writing. The signal is not missing: an interrogative sits in the first eight words of **23%** of their rows. The rule reads *position 0*, and they write `"so what about comparision to the ground truth"`. It discards **21%** of their rows against 10% of the corpus's, i.e. it loses twice as much signal on the actual user as on the data ICE was evaluated against. A rule keyed on punctuation or word order is a bet on writing style, and evaluating it on LMSYS/ShareGPT-shaped text hides the bet. Roadmap **G28** sweeps the whole class at Z1; the standing rule is in CLAUDE.md, and its operational half is: **score every heuristic split by `source` (personal vs online), because a pooled average conceals exactly this.**
+
+### **2.7 Experimental / partial features**
 
 A ConfigurableOrchestrator subclass exists for ablation studies; it does not redefine the classification logic but exposes flags that toggle retrieval legs on and off (bm25, vector, codex, procedural, rag, cluster\_restrict, hyde, dynamic\_budget). The hyde flag is the only path that enables HyDE query rewriting — in the production orchestrator the HyDE call is commented out (see §6.2).
 

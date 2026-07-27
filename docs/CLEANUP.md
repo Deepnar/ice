@@ -167,3 +167,57 @@ No file moves or deletions. One real de-duplication, plus new eval assets.
 | 2026-07-27 | live checkpoint renamed to what it holds | `ice_classifier_v3_qwen_ft3.pt` (holding a v2 model) → **`ice_classifier_v4_schema2.pt`**; the displaced v1 file took back its own honest name `ice_classifier_v3_qwen_ft3.pt` instead of promotion's `_prev_<ts>` suffix | the old name asserted "v3, qwen, fine-tune 3" while holding a from-scratch schema-v2 retrain — invisible to code (which reads `schema_version` from the file) and misleading to a reader, who would reasonably conclude the classifier is a qwen fine-tune. Naming the v1 file honestly also makes the rollback self-documenting: `cp .../ice_classifier_v3_qwen_ft3.pt .../ice_classifier_v4_schema2.pt` |
 | 2026-07-27 | `train.py --out` default moved off the live path | `ice_classifier_v4_schema2.pt` → `candidate.pt` | the rename made the training default and the live path the same file, so a no-argument `python train.py` would have overwritten the serving model with an untrained, ungated one. Promotion is the only writer of the live path |
 | 2026-07-27 | sweep artifacts deleted | `models/classifier/sweep_cap{3,5,10,20}.pt` | 2.7 MB each, fully reproducible (`train.py --pos-weight-cap N`, seed 42, cached embeddings) and the numbers they produced are recorded in PROVENANCE. `models/` is gitignored, so these were local clutter only |
+
+## 2026-07-28 — D8 / A9a / E12 session
+
+**Deleted (D8, commit `ba791db`).** Recoverable from git at `d981ca9`, the last
+commit before the deletion; the measurement that justified it is frozen inside
+`scripts/classifier/pipeline/eval_di3.py`, which carries a verbatim copy of the
+signal functions and thresholds so the finding stays re-runnable.
+
+| path | what it was |
+|---|---|
+| `src/classifier/di3.py` | the five-rule pre-classifier |
+| `src/classifier/di3_signals.py` | the five density functions |
+| `src/classifier/di3_config.py` | the seven `DI3_*` threshold reads |
+| `src/classifier/di3_logger.py` | two structlog wrappers |
+
+Also removed, all downstream of the same flag: `settings.ltm_bump_reference` and
+the seven `DI3_*` settings (`src/api/config.py`); `reference_signal` on
+`ClassificationResult`; the `reference_signal` arm of T2's joint gate plus its
+kwarg and both call sites; `classify()`'s now-unreachable `conversation_history`
+and `conversation_length` parameters (no caller ever passed either).
+
+**Renamed, not deleted.** `schema._DI3_PRIORS` → `_LABEL_ONLY_PRIORS`. The table
+was DI3-specific but the guard around it is not: `finalize_context_scalars` and
+`orchestrator._head_confidences` both branch on all-zero `raw_probs`, and a
+hand-built result reaching them without that branch would silently score
+`p_ltm = 0` — "never retrieve" — which is the failure class this project refuses
+to ship. Guard kept, DI3 vocabulary removed, both docstrings corrected.
+
+**Consolidated (A9a, commit `c3a0f04`).** Six hand-rolled copies of the 384
+narrowing → one `embedder.fit_width(vec, target_dim)`: `classifier._encode`,
+`workers/fine_tune._encode`, and `pipeline/{evaluate,eval_probes,score_hard_probes,tune_b2}.py`.
+Nothing deleted — A9a's "delete it, it's dead" premise was checked and is false
+(it is the rollback path; see the roadmap entry's divergence note). `slice384`
+and `test_longevity`'s bit-identity check untouched, as instructed.
+
+**Added.** `scripts/classifier/pipeline/eval_di3.py` (D8's measurement + frozen
+DI3) and `scripts/classifier/pipeline/audit_labels.py` (E12's consumer audit).
+Both are stages, not one-offs — Z1's G28 sweep re-runs the second one.
+
+**Stale things fixed in passing.** `ClassificationResult.raw_probs` said "28
+under v2" (it is 27); `orchestrator._head_confidences` said the same; the smoke
+suite's settings stub still carried `temporal_label_threshold=0.6` after B1
+raised the live default to 0.85; `scripts/classifier/README.md` still listed
+`di3*` as runtime code; `src/classifier/model.py` and `src/api/config.py`
+described the slice384 call sites as dead. `tune_b2.py`'s `GRID` lost its
+`ltm_bump_reference` row (the setting no longer exists) with a note recording
+that the knob was inert in that sweep because nothing there ever set the flag.
+
+**Not reformatted.** `ruff --select F` only, on touched files. The `I001`
+import-order warnings in `scripts/classifier/pipeline/*` are **load-bearing and
+must not be "fixed"**: importing `common` first is what runs the `sys.path.insert`
++ `chdir(ROOT)` that every subsequent `src.` import depends on. A note saying so
+now sits in `eval_di3.py`.
+

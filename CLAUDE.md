@@ -38,6 +38,54 @@ Rules for working it:
 - **It doubles as the progress tracker.** Check items off in `docs/ROADMAP.md` as they're completed.
 - **Keep the architecture doc in sync.** When a brand-new system/feature is finished, add a section for it to `docs/ICE_Architecture.md`; when an existing subsystem is reworked, search out its existing section there and update it to match the new behavior. The architecture doc must keep reflecting the system as built.
 
+## Check where a signal LANDS, not just that it exists (standing rule, 2026-07-27)
+
+ICE computes a lot of signals. A signal can be trained, accurate, stored on every
+result — and still change nothing, because it is wired to a decision that was
+already made. Three were found in this state on the same day (`p_complex`: zero
+readers; `Codebase_Query`: dropped; `Temporal_Recall`: see below). **When a new
+classifier label or score is added, trace it to the decision it changes and
+measure the delta with it on vs off.** "It's wired up" is not the test; "turning
+it off changes N decisions" is.
+
+The worked example, because it generalises. `Temporal_Recall` was wired to the
+retrieve-or-not gate — and a question about the past *needs memory by
+definition*, so 78% of its rows were already `Needs_Memory`, sitting at mean
+`p_ltm` 0.931. Turning the whole arm off moved **1 decision in 9,441**. The label
+was fine; it was answering a question something else had already answered. Its
+real information — *only 20% of memory queries are time-shaped* — belongs where
+time matters (ranking old-vs-recent, gating a time window), which is roadmap
+**T5**. Beware this shape generally: **a signal that is a subset of another
+signal cannot improve that signal's own decision.**
+
+Corollary on deletions: when a measurement says a designed hook or seam is not
+paying off, **that is evidence, not permission — ask the user first.** A null
+result on one wiring does not mean the signal is homeless, and the seam records
+design intent the measurement does not contain.
+
+## Never let a decision ride on HOW the user types (standing rule, 2026-07-28)
+
+The user's diagnosis, and the measured reason Codex underperformed across a month
+of experiments: a rule keyed on punctuation, word order, or a fixed vocabulary is
+a **bet on writing style**, and ICE was validated on LMSYS/ShareGPT-shaped text
+where those bets pay off. They never looked broken because they were never
+measured on the person using the system.
+
+The proof, on 9,441 held-out rows. T2's joint gate accepts a time expression if
+the prompt *starts with* one of twelve interrogatives. Public corpora: fires
+13–25%. **The user's own writing: 2%** — not because the signal is missing (an
+interrogative sits in the first eight words of 23% of their rows) but because
+they write `"so what about the ground truth"` and the rule reads position 0.
+It discards 21% of their rows against 10% of the corpus's.
+
+So: **when scoring any heuristic, split the result by `source` — personal vs
+online.** A pooled average hides exactly this. And the design test is: take a
+prompt the rule fires on, rewrite it informally — no question mark, prefixed with
+"ok so" / "like" — and see if the decision survives. If it flips, the rule is
+measuring typography, not intent. Parsers that RESOLVE a value (a date → a
+datetime) may stay; lexicons that INFER INTENT must beat the trained head or go.
+Roadmap **G28** is the systematic sweep; D8 is the worked protocol.
+
 ## Boy-scout cleanup (standing rule, 2026-07-10)
 
 Every implementation session leaves the files it touches cleaner than found: imports sorted/grouped + unused dropped (`ruff` on touched files only — never a repo-wide reformat), dead code and lying comments fixed in place, one-off scripts moved (never deleted) to `scripts/oneoff/` with their paths fixed. **No barrel re-exports in `__init__.py`** (import-time side effects, hidden provenance, heavy transitive imports; the lazy in-function imports that break circular deps stay, commented). The pre-FINAL `experiments/*` folders are a **frozen historical record** — never reorganize them. Log every move/rename in [docs/CLEANUP.md](docs/CLEANUP.md).

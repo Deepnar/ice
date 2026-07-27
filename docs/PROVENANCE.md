@@ -343,3 +343,99 @@ p_temporal 0.87 on hand-authored memory prompts with no temporal content), and i
 is OR'd with T2's deterministic detector, so a low threshold makes the parser
 redundant and biases toward always-retrieve. Z1-prep owns the final value and must
 sweep it against the **independent** probe sets, never the held-out split.
+
+---
+
+## D8 / A9a / E12 — the post-promotion audits, 2026-07-27/28
+
+No model was trained and no artifact re-generated; these runs *measured* the
+promoted checkpoint against the code around it. Recorded because three deletions
+and one roadmap item (T5) rest on the numbers, and because two of the findings
+contradict what the specs predicted.
+
+**Inputs, common to all three.** Checkpoint
+`models/classifier/ice_classifier_v4_schema2.pt` (schema_version 2,
+template_version 2, input_dim 1024, tag_threshold 0.65). Rows: `test.jsonl`
+5,055 + `val.jsonl` 4,386 = **9,441** held-out, read through
+`ICEClassifierDataset` so the cached `.emb_*.pt` embeddings are reused — the
+inference input is byte-identical to training. Device CPU; no GPU needed.
+Probe sets: `hard_probes_authored.jsonl` (104) + `eval_probes_independent.jsonl`
+(207). Reproduce: `scripts/classifier/pipeline/eval_di3.py --splits test val`
+and `scripts/classifier/pipeline/audit_labels.py`.
+
+### D8 — DI3 vs the v2 head, on the rows DI3 intercepts
+
+Slices are first-match rule order, i.e. the population each path was responsible
+for. `conversation_length` is 0 because no caller passes it.
+
+| slice | rows | share | topic F1 DI3→model | intent F1 DI3→model | retrieval acc DI3→model |
+|---|---|---|---|---|---|
+| code | 675 | 7.1% | .878 → .928 | .191 → .515 | .692 → .803 |
+| sentiment | 92 | 1.0% | .238 → .791 | .246 → .622 | .707 → .772 |
+| meta | 149 | 1.6% | .248 → .790 | .156 → .594 | .745 → .805 |
+| noise | 0 | 0.0% | — never fires — | | |
+| reference | 1,694 | 17.9% | (emits no tags) | | .852 → .777 **with** the bump |
+| passed to ML | 6,831 | 72.4% | | | |
+
+Decisions taken: all five paths deleted; no inline noise guard (zero population);
+`ltm_bump_reference` and `ClassificationResult.reference_signal` deleted with them.
+
+End-to-end gate on the 311 independent probes — **the only instrument that can
+see this change**, because `score_hard_probes.py` and `eval_probes.py` both load
+the checkpoint directly and never call `classify()`:
+
+| | accuracy | precision | recall | silent misses (hard / user) |
+|---|---|---|---|---|
+| pre-D8 | .884 | .951 | .906 | 8/49 · 16/207 |
+| post-D8 | **.897** | .952 | **.922** | **7/49 · 13/207** |
+
+T2 side-effect: non-current TimeScopes 465 → 416; all 49 removed were false
+positives (long pasted documents, p_ltm 0.00–0.16). `REFERENTIAL_WORDS` as a
+substitute measures worse (527).
+
+### A9a — the rollback contract, verified before touching it
+
+`ice_classifier_v3_qwen_ft3.pt` carries **no metadata dict** (bare state_dict);
+`load_checkpoint` infers schema_version 1 / input_dim 384 / heads (11,11,3) from
+the weight shapes. Loading it through the live `PyTorchClassifier` returns
+`Long_Term_Memory p_ltm=0.987` — and does so *only* because of the narrowing
+branch A9a proposed deleting. Six copies of that branch consolidated into
+`embedder.fit_width`; post-change both generations serve (v1 0.987, v2 0.993),
+an illegal 512 narrowing raises, and `eval_probes` reproduces B1's recorded gate
+off the v1 arm exactly (retrieval .705 → .831, false-fire .238 → .118).
+
+### E12 — do B1's labels reach a decision?
+
+`Code_Change`: head fires on 543/9,441 (5.75%), precision 0.42 / recall 0.50
+against gold; mean **1.79** intents when it fires (alone on 148 = 27.3%), so it
+delivers ~56% of its profile weight and shifts the largest leg by **0.291**
+(base weights 0.2–1.2). Companions: Troubleshooting ×269, Generation ×105.
+Against the B1 label-ceiling table its 0.48 sits under a 0.55 labeler ceiling —
+**5× more learnable than the dropped `Codebase_Query` (0.10)**. Kept.
+
+`Temporal_Recall`: gold co-occurrence **P(Needs_Memory | Temporal) = 78.1%**
+(557 temporal rows, 2,140 memory rows, 122 temporal-without-memory), and
+**P(Temporal | Needs_Memory) = 20.3%**. Label fires ≥0.85 on 310 rows, T2
+detector on 416, overlap 135; the 175 label-only rows carry mean p_ltm **0.931**
+and 172 (98.3%) already retrieve, so disabling the whole arm moves **1 decision
+in 9,441**. As a *filter* on T2's gate instead: precision 84% (416 rows) → 89%
+(≥0.5, 259) → **93% (≥0.7, 187)** → 94% (≥0.85, 135). As an extra OR-arm: admits
+2 of 116 refused rows, both wrong. 250 of 557 gold-temporal rows carry no
+parseable date; 206 never reach the gate at all. → roadmap **T5**, post-Z1.
+
+### The style-dependence measurement (feeds G28)
+
+Per-source firing of T2's gate arms, the finding that reframed G28:
+
+| source | n | has `?` | starts with an interrogative | interrogative in first 8 words | signal discarded by the first-word rule |
+|---|---|---|---|---|---|
+| **personal** | 2,859 | 40% | **2%** | 23% | **21%** |
+| lmsys | 2,084 | 45% | 25% | 35% | 10% |
+| wildchat | 2,060 | 31% | 14% | — | — |
+| sharegpt | 2,042 | 30% | 13% | 22% | 10% |
+
+The rule reads word position 0; the user writes `"so what about comparision to
+the ground truth"`. It loses twice as much signal on the actual user as on the
+corpora ICE was evaluated against. **Standing consequence: score heuristics split
+by `source`, never pooled.**
+
