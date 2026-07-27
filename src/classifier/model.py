@@ -235,14 +235,24 @@ def head_losses(logits_by_head: Dict[str, torch.Tensor],
     return out
 
 
+DEFAULT_POS_WEIGHT_CAP = 3.0
+
+
 def compute_pos_weights(targets: torch.Tensor, schema: LabelSchema,
-                        cap: float = 20.0) -> Dict[str, torch.Tensor]:
+                        cap: float = DEFAULT_POS_WEIGHT_CAP) -> Dict[str, torch.Tensor]:
     """Per-label ``neg/pos`` ratios, capped.
 
     Uncapped, a label with 12 positives in 25k rows gets weight ~2000 and the
     head trains on nothing else. The cap keeps rare labels *heard* without
     letting them shout — labels too rare even for this get dropped from the
     schema instead (the <150-positive rule, §4).
+
+    **The cap is the calibration knob, and 20 was too high.** Run 1 of the B1
+    retrain used it and every one of the 28 labels came out with recall
+    0.87–0.97 and precision 0.04–0.81: at ~1% prevalence the ratio saturates the
+    cap, so the loss pays 20× more for a miss than for a false alarm and the
+    cheapest policy each head can learn is "say yes". The default below is the
+    winner of a 3/5/10/20 sweep — see the sweep note recorded with run 2.
     """
     weights: Dict[str, torch.Tensor] = {}
     for head in schema.heads:

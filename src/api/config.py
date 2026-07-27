@@ -138,7 +138,20 @@ class Settings(BaseSettings):
     ltm_bump_timescope: float = 3.0
     # B1 D7: the Temporal_Recall sigmoid counts as the same evidence as a fired
     # detector for the bump above (OR, never AND). Only the detector sets windows.
-    temporal_label_threshold: float = 0.6
+    #
+    # Raised 0.6 → 0.85 (2026-07-27, B1 run-2 probe audit). The v2 head does not
+    # fire as an independent time signal — it fires as a SHADOW of Needs_Memory,
+    # with which it co-occurs in 79% of its training positives. Measured on
+    # hand-authored probes: mean p_temporal 0.87 across a cell of memory-needing
+    # prompts carrying no temporal content whatsoever, 0.82 on "is the migration
+    # plan still consistent with the deadline I'm working to". Because this is
+    # OR'd with the detector, a low threshold makes the deterministic parser
+    # redundant and drags the retrieval decision toward always-retrieve — the
+    # exact failure B2 exists to prevent. 0.85 keeps the genuine no-parseable-date
+    # catches (which score 0.93+) while cutting the shadow.
+    # Z1-prep owns the final value; sweep it against the INDEPENDENT probe sets,
+    # never the held-out split (that split shares the labelers' bias).
+    temporal_label_threshold: float = 0.85
     timescope_pad_min_days: int = 3
     timescope_pad_month_days: int = 14
     timescope_pad_span_days: int = 21

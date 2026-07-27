@@ -14,8 +14,8 @@ from src.api.memory_decision import (
     decide_memory_retrieval, memory_pressure, estimate_recent_window_tokens,
     derive_total_budget, _sigmoid, _logit,
 )
-from src.classifier.schema import (finalize_context_scalars, load_schema,
-                                   load_v1_schema)
+from src.classifier.schema import (CONTEXT_RELIANCE, finalize_context_scalars,
+                                   load_schema, load_v1_schema)
 
 _passed = 0
 _failed = 0
@@ -127,9 +127,13 @@ finalize_context_scalars(r3, V1)
 check("DI3 LTM prior p_ltm high", r3.p_ltm > 0.8)
 
 print("── B1 D6: v2's four sigmoids derive the same scalars B2 consumes ──")
-# ctx head order: [Needs_Memory, Temporal_Recall, Needs_Live_Info, High_Complexity]
+# ctx head order: [Needs_Memory, Temporal_Recall, Needs_Live_Info, High_Complexity].
+# The pad is the context head's OFFSET, read from the schema rather than written
+# out: it moved 24 -> 23 when Codebase_Query was dropped, and a literal here just
+# silently mis-slices into the intent head.
+CTX0 = V2.head(CONTEXT_RELIANCE).offset
 r4 = ClassificationResult([], [], "Zero_Shot",
-                          [0.0] * 24 + [0.9, 0.8, 0.1, 0.2], 0.9, "what did I say in March")
+                          [0.0] * CTX0 + [0.9, 0.8, 0.1, 0.2], 0.9, "what did I say in March")
 finalize_context_scalars(r4, V2)
 check("v2 p_ltm = the Needs_Memory sigmoid", abs(r4.p_ltm - 0.9) < 1e-9)
 check("v2 derived context_reliance = Long_Term_Memory", r4.context_reliance == "Long_Term_Memory")
@@ -138,27 +142,33 @@ check("v2 p_complex surfaced", abs(r4.p_complex - 0.2) < 1e-9)
 
 # The orthogonality the 3-way could not express: memory AND live info together.
 r5 = ClassificationResult([], [], "Zero_Shot",
-                          [0.0] * 24 + [0.85, 0.1, 0.80, 0.3], 0.85, "is my usual broker still cheapest")
+                          [0.0] * CTX0 + [0.85, 0.1, 0.80, 0.3], 0.85, "is my usual broker still cheapest")
 finalize_context_scalars(r5, V2)
 check("v2 memory+live coexist (both high)", r5.p_ltm > 0.8 and r5.p_rts > 0.75)
 check("v2 low margin when both fire", r5.ctx_confidence < 0.1)
 
 # All-low reliance is the DERIVED Zero_Shot state (no such label exists in v2).
 r6 = ClassificationResult([], [], "Long_Term_Memory",
-                          [0.0] * 24 + [0.05, 0.02, 0.03, 0.1], 0.9, "write a haiku")
+                          [0.0] * CTX0 + [0.05, 0.02, 0.03, 0.1], 0.9, "write a haiku")
 finalize_context_scalars(r6, V2)
 check("v2 all-low reliance derives Zero_Shot", r6.context_reliance == "Zero_Shot")
 
 print("── B1 D7: Temporal_Recall label == detector evidence (OR, never twice) ──")
-d_label = decide(mk(p_ltm=0.3, p_temporal=0.8), turns=2, tokens=300)
+# Straddle the LIVE threshold rather than hardcoding a probability. The value is
+# Z1-prep's to tune and was already raised 0.6 → 0.85 once (the head fires as a
+# shadow of Needs_Memory); what D7 asserts is the OR mechanism, which must hold at
+# whatever threshold is configured.
+_t = settings.temporal_label_threshold
+_hot, _cold = min(1.0, _t + 0.1), max(0.0, _t - 0.1)
+d_label = decide(mk(p_ltm=0.3, p_temporal=_hot), turns=2, tokens=300)
 d_detector = decide(mk(p_ltm=0.3), turns=2, tokens=300, timescope_mode="range")
-d_both = decide(mk(p_ltm=0.3, p_temporal=0.8), turns=2, tokens=300, timescope_mode="range")
+d_both = decide(mk(p_ltm=0.3, p_temporal=_hot), turns=2, tokens=300, timescope_mode="range")
 check("temporal label alone fires the bump", d_label.breakdown["temporal_label"] is True)
 check("label-only == detector-only bump size",
       abs(d_label.p_need_mem - d_detector.p_need_mem) < 1e-9)
 check("both together is not double-counted",
       abs(d_both.p_need_mem - d_detector.p_need_mem) < 1e-9)
-d_quiet = decide(mk(p_ltm=0.3, p_temporal=0.4), turns=2, tokens=300)
+d_quiet = decide(mk(p_ltm=0.3, p_temporal=_cold), turns=2, tokens=300)
 check("sub-threshold p_temporal does not bump", d_quiet.p_need_mem < d_label.p_need_mem)
 
 print("── C16: model-aware total budget ──")

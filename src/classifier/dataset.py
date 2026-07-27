@@ -45,6 +45,54 @@ def _row_labels(row, head):
     return list(value or [])
 
 
+def encode_rendered(rendered, device="cpu", batch_size: int = 128,
+                    show_progress: bool = True):
+    """Encode already-rendered rows in chunks, backing off on CUDA OOM.
+
+    Rows carry up to 500 words of context plus a prompt of up to 8,000
+    characters, so a padded batch of 256 long sequences exceeded 24 GB. Batch
+    size is the right lever because it is **semantically neutral** — the
+    embeddings are identical either way. Capping ``max_seq_length`` would also
+    fix the memory, but it would make training truncate where inference does
+    not, which is precisely the train/inference mismatch this retrain exists to
+    remove.
+
+    Results are moved to CPU per chunk; keeping 33k × 1024 floats on the GPU
+    alongside the encoder is what turns a tight fit into a failure.
+
+    Module-level because ``evaluate.py`` needs the identical treatment when it
+    re-encodes the held-out rows through the *baseline's* template — it had its
+    own one-shot ``model.encode(...)`` and duly OOM'd on the 5k-row test split.
+    One encoder, one backoff policy.
+    """
+    import torch
+    from sentence_transformers import SentenceTransformer
+
+    from src.api.config import settings
+    model = SentenceTransformer(settings.embedding_model_name, device=device)
+
+    chunks, size = [], max(1, batch_size)
+    i = 0
+    while i < len(rendered):
+        batch = rendered[i:i + size]
+        try:
+            out = model.encode(batch, convert_to_tensor=True,
+                               batch_size=min(size, 32),
+                               show_progress_bar=False)
+        except torch.cuda.OutOfMemoryError:
+            torch.cuda.empty_cache()
+            if size == 1:
+                raise
+            size = max(1, size // 2)
+            print(f"  [dataset] OOM — retrying at batch {size}", flush=True)
+            continue
+        chunks.append(out.detach().cpu().float())
+        i += len(batch)
+        if show_progress and (i // max(size, 1)) % 20 == 0:
+            print(f"  [dataset] encoded {i}/{len(rendered)}", flush=True)
+    return torch.cat(chunks) if chunks else torch.empty(0)
+
+
 class ICEClassifierDataset(Dataset):
     def __init__(self, training_data_path, schema=None, device="cpu",
                  batch_size: int = 128, cache: bool = True,
@@ -91,45 +139,7 @@ class ICEClassifierDataset(Dataset):
         return f"{data_path}.emb_{digest.hexdigest()[:12]}.pt"
 
     def _encode(self, rendered, device, batch_size, show_progress):
-        """Encode in chunks, backing off on CUDA OOM.
-
-        Rows carry up to 500 words of context plus a prompt of up to 8,000
-        characters, so a padded batch of 256 long sequences exceeded 24 GB.
-        Batch size is the right lever because it is **semantically neutral** —
-        the embeddings are identical either way. Capping ``max_seq_length`` would
-        also fix the memory, but it would make training truncate where inference
-        does not, which is precisely the train/inference mismatch this retrain
-        exists to remove.
-
-        Results are moved to CPU per chunk; keeping 33k × 1024 floats on the GPU
-        alongside the encoder is what turns a tight fit into a failure.
-        """
-        import torch
-        from sentence_transformers import SentenceTransformer
-
-        from src.api.config import settings
-        model = SentenceTransformer(settings.embedding_model_name, device=device)
-
-        chunks, size = [], max(1, batch_size)
-        i = 0
-        while i < len(rendered):
-            batch = rendered[i:i + size]
-            try:
-                out = model.encode(batch, convert_to_tensor=True,
-                                   batch_size=min(size, 32),
-                                   show_progress_bar=False)
-            except torch.cuda.OutOfMemoryError:
-                torch.cuda.empty_cache()
-                if size == 1:
-                    raise
-                size = max(1, size // 2)
-                print(f"  [dataset] OOM — retrying at batch {size}", flush=True)
-                continue
-            chunks.append(out.detach().cpu().float())
-            i += len(batch)
-            if show_progress and (i // max(size, 1)) % 20 == 0:
-                print(f"  [dataset] encoded {i}/{len(rendered)}", flush=True)
-        return torch.cat(chunks) if chunks else torch.empty(0)
+        return encode_rendered(rendered, device, batch_size, show_progress)
 
     def __len__(self):
         return len(self.data)

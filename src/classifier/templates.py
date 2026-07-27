@@ -49,6 +49,16 @@ V1_NO_CONTEXT = (
 )
 
 # ── v2 (B1) ──────────────────────────────────────────────────────────────────
+#
+# These two strings are FROZEN, exactly like the v1 pair above, and that is why
+# they still name ``Codebase_Query`` after B1's run 2 dropped that label. The
+# preamble is a constant prefix — identical on every training row and every live
+# prompt — so it carries no information about which labels exist; it is prompt
+# scaffolding for the encoder, not a binding to the schema. Editing it would
+# change what ``template_version: 2`` means, invalidate every cached embedding,
+# and force a re-encode of the whole corpus to buy nothing. A real change here
+# earns a version 3, so a checkpoint's recorded template_version keeps rendering
+# its input the way that checkpoint was trained to see it.
 
 V2_WITH_CONTEXT = (
     "Conversation context (summarized):\n{context_text}\n\n"

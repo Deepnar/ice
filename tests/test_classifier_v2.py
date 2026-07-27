@@ -5,7 +5,7 @@ Run: uv run python tests/test_classifier_v2.py
 Covers the parts of the B1 spec's §5 checklist that don't need a trained
 checkpoint: the schema loader, template discipline (D3), the trunk+3-heads model
 and its dual-generation checkpoint dispatch (§4), the derived context-reliance
-layer (D6), C15's wide-net trigger on 28-wide probs, and the promotion
+layer (D6), C15's wide-net trigger on 27-wide probs, and the promotion
 round-trip. Needs no DB and no GPU; loads the frozen encoder only for the two
 end-to-end classify checks.
 """
@@ -20,9 +20,9 @@ import torch
 from src.api.config import settings
 from src.classifier import templates
 from src.classifier.classifier import PyTorchClassifier
-from src.classifier.model import (ICEClassifier, LegacyICEClassifierV1,
-                                  compute_pos_weights, head_losses,
-                                  load_checkpoint)
+from src.classifier.model import (DEFAULT_POS_WEIGHT_CAP, ICEClassifier,
+                                  LegacyICEClassifierV1, compute_pos_weights,
+                                  head_losses, load_checkpoint)
 from src.classifier.promotion import promote_checkpoint
 from src.classifier.schema import (CONTEXT_RELIANCE, INTENT, TOPIC, load_schema,
                                    load_v1_schema, resolve_by_width)
@@ -49,23 +49,29 @@ V1 = load_v1_schema()
 print("── D1: schema v2 is the single source of head layout ──")
 check("schema_version 2", V2.version == 2)
 check("topic head still 11", V2.head(TOPIC).width == 11)
-check("intent head 11 → 13", V2.head(INTENT).width == 13)
+# Codebase_Query was appended alongside Code_Change and dropped again before
+# training run 2 (test F1 0.10 — label_schema.json's dropped_labels records why),
+# so the intent head is 12 wide, not 13. The append-at-the-end discipline is what
+# makes that survivable: indices 0..10 are still v1's, so D5's shared-subset gate
+# and any warm-start keep lining up.
+check("intent head 11 → 12", V2.head(INTENT).width == 12)
 check("context head 3 → 4", V2.head(CONTEXT_RELIANCE).width == 4)
-check("total width 28", V2.total_width == 28)
-check("v1 indices preserved (Codebase_Query/Code_Change appended last)",
+check("total width 27", V2.total_width == 27)
+check("v1 indices preserved (Code_Change appended last)",
       V2.labels(INTENT)[:11] == V1.labels(INTENT))
+check("Codebase_Query is dropped", "Codebase_Query" not in V2.labels(INTENT))
 check("Zero_Shot is NOT a v2 label", "Zero_Shot" not in V2.labels(CONTEXT_RELIANCE))
 check("context head is independent sigmoids",
       V2.head(CONTEXT_RELIANCE).activation == "sigmoid"
       and V2.head(CONTEXT_RELIANCE).decision == "independent")
 check("v1 context head stayed softmax", V1.head(CONTEXT_RELIANCE).activation == "softmax")
 check("offsets are contiguous",
-      [ (h.offset, h.width) for h in V2.heads ] == [(0, 11), (11, 13), (24, 4)])
+      [ (h.offset, h.width) for h in V2.heads ] == [(0, 11), (11, 12), (23, 4)])
 check("index() is absolute, not head-local",
-      V2.head(CONTEXT_RELIANCE).index("Needs_Memory") == 24)
+      V2.head(CONTEXT_RELIANCE).index("Needs_Memory") == 23)
 check("every label carries a definition (the labeling rubric reads these)",
       all(all(d.strip() for d in h.definitions) for h in V2.heads))
-check("resolve_by_width(28) → v2", resolve_by_width(28).version == 2)
+check("resolve_by_width(27) → v2", resolve_by_width(27).version == 2)
 check("resolve_by_width(25) → v1", resolve_by_width(25).version == 1)
 check("resolve_by_width(99) → None", resolve_by_width(99) is None)
 check("train-time input width is native 1024", V2.input_dim == 1024)
@@ -87,7 +93,12 @@ check("v1 context template keeps its prefix",
 check("v2 names the four reliance signals",
       "Needs_Memory" in templates.render("hi", None, version=2)
       and "High_Complexity" in templates.render("hi", None, version=2))
-check("v2 names the coding intents", "Codebase_Query" in templates.render("hi", None, version=2))
+# The v2 preamble still names Codebase_Query even though the label is gone: these
+# strings are frozen, and a constant prefix identical on every row and every live
+# prompt binds to nothing in the schema. See the note in templates.py.
+check("v2 template is frozen, mentions included",
+      "Codebase_Query" in templates.render("hi", None, version=2)
+      and "Code_Change" in templates.render("hi", None, version=2))
 check("context and no-context templates differ",
       templates.render("hi", "ctx") != templates.render("hi", None))
 check("empty context falls back to the standalone template",
@@ -107,15 +118,15 @@ m.eval()   # dropout off: forward() and forward_heads() must agree deterministic
 n_params = sum(p.numel() for p in m.parameters())
 check(f"~700k params (got {n_params:,})", 600_000 < n_params < 800_000)
 x = torch.randn(4, 1024)
-check("forward returns concatenated 28 logits", tuple(m(x).shape) == (4, 28))
+check("forward returns concatenated 27 logits", tuple(m(x).shape) == (4, 27))
 heads = m.forward_heads(x)
 check("forward_heads splits per head",
       {k: tuple(v.shape) for k, v in heads.items()}
-      == {TOPIC: (4, 11), INTENT: (4, 13), CONTEXT_RELIANCE: (4, 4)})
+      == {TOPIC: (4, 11), INTENT: (4, 12), CONTEXT_RELIANCE: (4, 4)})
 check("concat order matches schema head order",
       torch.allclose(m(x)[:, V2.slice(INTENT)], heads[INTENT]))
 
-targets = torch.zeros(4, 28)
+targets = torch.zeros(4, 27)
 targets[0, V2.head(CONTEXT_RELIANCE).index("Needs_Memory")] = 1.0
 targets[:, V2.head(TOPIC).index("Software_&_Tech")] = 1.0
 pw = compute_pos_weights(targets, V2)
@@ -123,7 +134,9 @@ check("pos-weights computed per sigmoid head", set(pw) == {TOPIC, INTENT, CONTEX
 check("a 1-in-4 label outweighs a 4-in-4 label",
       pw[CONTEXT_RELIANCE][0] > pw[TOPIC][0])
 check("pos-weights are capped (no 2000× rare-label shouting)",
-      float(pw[CONTEXT_RELIANCE].max()) <= 20.0)
+      float(pw[CONTEXT_RELIANCE].max()) <= DEFAULT_POS_WEIGHT_CAP)
+check("the default cap is the calibration-swept value, not run 1's 20",
+      DEFAULT_POS_WEIGHT_CAP <= 5.0)
 losses = head_losses(heads, targets, V2, pw)
 check("per-head losses returned", set(losses) == {TOPIC, INTENT, CONTEXT_RELIANCE})
 check("all losses finite", all(torch.isfinite(v) for v in losses.values()))
@@ -156,16 +169,16 @@ try:
 except ValueError:
     check("verify_against catches a width mismatch", True)
 
-print("── C15: wide-net trigger reads per-head confidence at 28 wide ──")
+print("── C15: wide-net trigger reads per-head confidence at 27 wide ──")
 
-peaked_topic_fuzzy_intent = [0.0] * 28
+peaked_topic_fuzzy_intent = [0.0] * 27
 peaked_topic_fuzzy_intent[V2.head(TOPIC).index("Software_&_Tech")] = 0.93
 for i in range(V2.head(INTENT).offset, V2.head(INTENT).offset + 3):
     peaked_topic_fuzzy_intent[i] = 0.31
 r = ClassificationResult([], [], "Zero_Shot", peaked_topic_fuzzy_intent, 0.93, "x")
 t_conf, i_conf = _head_confidences(r)
-check("28-wide probs slice correctly (topic peaked)", abs(t_conf - 0.93) < 1e-9)
-check("28-wide probs slice correctly (intent fuzzy)", abs(i_conf - 0.31) < 1e-9)
+check("27-wide probs slice correctly (topic peaked)", abs(t_conf - 0.93) < 1e-9)
+check("27-wide probs slice correctly (intent fuzzy)", abs(i_conf - 0.31) < 1e-9)
 
 r.head_confidences = {TOPIC: 0.11, INTENT: 0.12}
 check("published head_confidences win over re-slicing",
@@ -178,7 +191,7 @@ check("25-wide (v1 checkpoint) probs still slice correctly",
 
 di3 = ClassificationResult(["Null_Noise"], ["Casual_Banter"], "Zero_Shot",
                            V2.empty_probs(), 0.95, "asdf")
-check("DI3 all-zero convention is schema-wide (28)", len(di3.raw_probs) == 28)
+check("DI3 all-zero convention is schema-wide (27)", len(di3.raw_probs) == 27)
 check("all-zero probs fall back to max_confidence", _head_confidences(di3) == (0.95, 0.95))
 
 print("── promotion: backup + atomic swap, shared by B4 and the pipeline ──")
@@ -199,7 +212,7 @@ print("── end-to-end: both generations serve through PyTorchClassifier ─�
 
 c2 = PyTorchClassifier(model_path=v2_path)
 out = c2.classify("what did we decide about the retrieval weights last week?")
-check("v2 classify returns 28 probs", len(out.raw_probs) == 28)
+check("v2 classify returns 27 probs", len(out.raw_probs) == 27)
 check("v2 classify populates p_temporal/p_complex",
       out.p_temporal > 0.0 and out.p_complex > 0.0)
 check("v2 classify derives a legacy 3-way string",

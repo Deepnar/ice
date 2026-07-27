@@ -540,14 +540,17 @@ class HybridRetrievalOrchestrator:
             {"vector": 1.1, "bm25": 0.6, "codex": 0.9, "procedural": 0.0}),
             ({"Casual_Banter", "Null_Noise"},
             {"vector": 0.5, "bm25": 0.2, "codex": 0.0, "procedural": 0.0}),
-            # B1 D9: the two v2 coding intents. Codebase_Query is navigation —
-            # the code graph (codex) knows where things are, and identifier
-            # matching (bm25) beats semantic similarity on symbol names.
-            # Code_Change leans procedural: how this user/project does changes
-            # (conventions, past fixes) matters more than definitions.
+            # B1 D9: the v2 coding intent. Code_Change leans procedural — how
+            # this user/project does changes (conventions, past fixes) matters
+            # more than definitions.
             # Starting values — Z1-prep's tuning pass owns the final numbers.
-            ({"Codebase_Query"},
-            {"codex": 1.3, "bm25": 0.9, "vector": 0.8, "procedural": 0.6}),
+            #
+            # D9's second row, Codebase_Query → {codex 1.3, bm25 0.9,
+            # vector 0.8, procedural 0.6}, is deliberately absent: the label was
+            # dropped from label_schema.json in B1's run 2 (test F1 0.10 — see
+            # dropped_labels there). It cannot appear in intent_tags, so a
+            # profile for it would be unreachable. Those weights are the tuned
+            # starting point if E7's MCP traffic earns the label back.
             ({"Code_Change"},
             {"procedural": 1.2, "codex": 1.0, "vector": 0.6, "bm25": 0.6}),
         ]

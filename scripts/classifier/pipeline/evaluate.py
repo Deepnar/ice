@@ -11,8 +11,8 @@ the candidate through the v2 template at native 1024), and compares them ONLY on
 the labels both can express:
 
 * topic — all 11, unchanged between generations
-* intent — the first 11; v2's two coding intents have no v1 counterpart and are
-  excluded from the comparison (this is why they were appended last)
+* intent — the first 11; v2's coding intent (Code_Change) has no v1 counterpart
+  and is excluded from the comparison (this is why it was appended last)
 * context reliance — the DERIVED three-way, which is the interface every existing
   consumer actually reads. The candidate's four sigmoids collapse through the
   same derivation the runtime uses; the old model's softmax argmax is already
@@ -38,29 +38,46 @@ from train import per_label_f1
 
 from src.api.config import settings
 from src.classifier import templates
-from src.classifier.dataset import ICEClassifierDataset
+from src.classifier.dataset import ICEClassifierDataset, encode_rendered
 from src.classifier.model import load_checkpoint
 from src.classifier.schema import (CONTEXT_RELIANCE, INTENT, LONG_TERM_MEMORY,
                                    NEEDS_LIVE_INFO, NEEDS_MEMORY,
                                    REAL_TIME_SEARCH, TOPIC, ZERO_SHOT,
-                                   derive_context_reliance, load_schema)
+                                   derive_context_reliance, load_schema,
+                                   load_v1_schema)
 
 THREE_WAY = [ZERO_SHOT, LONG_TERM_MEMORY, REAL_TIME_SEARCH]
+
+# The shared intent subset is however many intents v1 had — read from the frozen
+# v1 schema, not written as 11. v2 appended its coding intent after these, which
+# is what makes the projection a prefix at all.
+SHARED_INTENTS = len(load_v1_schema().labels(INTENT))
 
 
 def _encode(rows, template_version, input_dim, device):
     """Render + encode a row list the way ONE model expects to see it."""
-    from sentence_transformers import SentenceTransformer
-
     from src.memory.embedder import slice384
-    model = SentenceTransformer(settings.embedding_model_name, device=device)
     rendered = [templates.render(r["text"], r.get("context_text"),
                                  version=template_version) for r in rows]
-    emb = model.encode(rendered, convert_to_tensor=True, batch_size=256,
-                       show_progress_bar=False).detach().cpu().float()
+    emb = encode_rendered(rendered, device=device, show_progress=False)
     if input_dim == 384 and emb.shape[1] != 384:
         emb = slice384(emb)
     return emb
+
+
+def _model_threshold(meta, override=None):
+    """The decision threshold THIS model was calibrated at.
+
+    Scoring both generations at one number would decide the gate by whose
+    calibration the number happened to match: v1 was fitted at 0.3, and the v2
+    head's sweep puts its optimum at 0.65. Holding the threshold fixed measures
+    the calibration gap, not the model. Each therefore runs at its own stamped
+    ``tag_threshold`` (``sweep_threshold.py --write``), falling back to the
+    settings default for checkpoints from before the stamp existed.
+    """
+    if override is not None:
+        return override
+    return float(meta.get("tag_threshold") or settings.classifier_threshold)
 
 
 def _gold_three_way(rows):
@@ -89,7 +106,7 @@ def _shared_matrix(probs, schema, is_legacy):
     Columns: 11 topic + 11 intent + 3 derived context = 25.
     """
     topic = probs[:, schema.slice(TOPIC)]
-    intent = probs[:, schema.slice(INTENT)][:, :11]
+    intent = probs[:, schema.slice(INTENT)][:, :SHARED_INTENTS]
     ctx = probs[:, schema.slice(CONTEXT_RELIANCE)]
 
     if is_legacy:
@@ -113,7 +130,8 @@ class _SharedSchema:
         from src.classifier.schema import Head
         self.heads = (
             Head(TOPIC, v2.labels(TOPIC), ("",) * 11, "sigmoid", "multi_label", 0, 11),
-            Head(INTENT, v2.labels(INTENT)[:11], ("",) * 11, "sigmoid", "multi_label", 11, 11),
+            Head(INTENT, v2.labels(INTENT)[:SHARED_INTENTS],
+                 ("",) * SHARED_INTENTS, "sigmoid", "multi_label", 11, SHARED_INTENTS),
             Head(CONTEXT_RELIANCE, tuple(THREE_WAY), ("",) * 3, "sigmoid", "single_label", 22, 3),
         )
 
@@ -123,7 +141,10 @@ def main():
     ap.add_argument("--candidate", required=True)
     ap.add_argument("--baseline", default=settings.classifier_model_path)
     ap.add_argument("--test", default=TEST_SPLIT)
-    ap.add_argument("--threshold", type=float, default=settings.classifier_threshold)
+    ap.add_argument("--threshold", type=float, default=None,
+                    help="force ONE threshold on both models. Default (unset) "
+                         "scores each at its own calibrated tag_threshold, "
+                         "which is the fair comparison — see _model_threshold.")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
@@ -135,11 +156,12 @@ def main():
 
     # ── candidate, on its own full label space ──
     candidate, cand_meta = load_checkpoint(args.candidate, schema=schema)
+    cand_thr = _model_threshold(cand_meta, args.threshold)
     x_cand = test_ds.embeddings
     with torch.no_grad():
         cand_probs = torch.sigmoid(candidate(x_cand))
-    report, macro = per_label_f1(cand_probs, targets, schema, args.threshold)
-    print(f"\n[eval] candidate macro-F1 by head: {macro}")
+    report, macro = per_label_f1(cand_probs, targets, schema, cand_thr)
+    print(f"\n[eval] candidate @ threshold {cand_thr} — macro-F1 by head: {macro}")
     for head in schema.heads:
         print(f"  {head.name}:")
         for label in head.labels:
@@ -150,7 +172,9 @@ def main():
     # ── D5 gate: same rows, each model rendered as it was trained ──
     print(f"\n[eval] D5 non-regression gate vs {args.baseline}")
     baseline, base_meta = load_checkpoint(args.baseline)
+    base_thr = _model_threshold(base_meta, args.threshold)
     base_schema = baseline.schema
+    print(f"[eval] thresholds — baseline {base_thr}, candidate {cand_thr}")
     x_base = _encode(rows, base_meta.get("template_version", 1),
                      base_meta.get("input_dim", 384), args.device)
     with torch.no_grad():
@@ -162,14 +186,14 @@ def main():
 
     shared = _SharedSchema(schema)
     gold = torch.cat([targets[:, schema.slice(TOPIC)],
-                      targets[:, schema.slice(INTENT)][:, :11],
+                      targets[:, schema.slice(INTENT)][:, :SHARED_INTENTS],
                       _gold_three_way(rows)], dim=1)
 
     cand_shared = _shared_matrix(cand_probs, schema, is_legacy=False)
     base_shared = _shared_matrix(base_probs, base_schema, is_legacy=True)
 
-    cand_report, cand_macro = per_label_f1(cand_shared, gold, shared, args.threshold)
-    base_report, base_macro = per_label_f1(base_shared, gold, shared, args.threshold)
+    cand_report, cand_macro = per_label_f1(cand_shared, gold, shared, cand_thr)
+    base_report, base_macro = per_label_f1(base_shared, gold, shared, base_thr)
 
     print(f"{'head':<20} {'baseline':>10} {'candidate':>10} {'delta':>8}")
     passed = True
@@ -201,7 +225,9 @@ def main():
     with open(out_path, "w") as fh:
         json.dump({
             "candidate": args.candidate, "baseline": args.baseline,
-            "rows": len(rows), "threshold": args.threshold,
+            "rows": len(rows),
+            "threshold": {"baseline": base_thr, "candidate": cand_thr,
+                          "forced": args.threshold},
             "candidate_macro_f1": macro, "candidate_per_label": report,
             "gate": {"verdict": verdict,
                      "baseline_macro": base_macro, "candidate_macro": cand_macro,

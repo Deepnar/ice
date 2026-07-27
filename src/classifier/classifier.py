@@ -42,6 +42,11 @@ class PyTorchClassifier:
                                                   self.active_schema.template_version))
         self.input_dim = int(self.meta.get("input_dim", self.active_schema.input_dim))
 
+        # Calibration rides with the weights — see _tags_above.
+        from src.api.config import settings as _settings
+        self.tag_threshold = float(self.meta.get("tag_threshold")
+                                   or _settings.classifier_threshold)
+
         self.TOPIC_LABELS = list(self.active_schema.labels(TOPIC))
         self.INTENT_LABELS = list(self.active_schema.labels(INTENT))
         self.CONTEXT_RELIANCE_LABELS = list(self.active_schema.labels(CONTEXT_RELIANCE))
@@ -56,7 +61,7 @@ class PyTorchClassifier:
         logger.info("classifier_loaded", schema_version=self.schema_version,
                     template_version=self.template_version,
                     input_dim=self.input_dim, heads=self.active_schema.head_widths,
-                    path=model_path)
+                    tag_threshold=self.tag_threshold, path=model_path)
 
     def _get_context_turns(self, conversation_id: str, n: int = templates.CONTEXT_TURNS,
                            max_total_words: int = templates.CONTEXT_MAX_WORDS) -> str:
@@ -186,12 +191,21 @@ class PyTorchClassifier:
     def _tags_above(self, head_name: str, probs) -> List[str]:
         """Labels over the tag threshold, falling back to the single argmax.
 
-        Threshold is ``settings.classifier_threshold`` (0.3) — Z1-prep's
-        decision-threshold stage sweeps it, which is why it is a setting and not
-        a literal here.
+        **The threshold travels with the checkpoint.** A decision threshold is a
+        property of the trained weights, not of the installation: v1 was
+        calibrated at 0.3, and the v2 head's own sweep puts its optimum at 0.65
+        (fitted on val, B1 run 2). One global setting cannot be right for both,
+        and the two coexist — the live path serves v1 until B1's promotion runs.
+        So ``tag_threshold`` is stamped into the checkpoint by
+        ``sweep_threshold.py`` and read here, with
+        ``settings.classifier_threshold`` as the fallback for checkpoints that
+        predate the stamp. Promoting a model therefore promotes its calibration
+        with it, and no .env edit has to be remembered.
+
+        Z1-prep's decision-threshold stage re-sweeps this; it writes the same
+        field.
         """
-        from src.api.config import settings
-        threshold = settings.classifier_threshold
+        threshold = self.tag_threshold
         labels = self.active_schema.labels(head_name)
         tags = [labels[i] for i in range(len(labels)) if probs[i] > threshold]
         if not tags:

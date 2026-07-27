@@ -24,7 +24,8 @@ import torch
 from common import TRAIN_SPLIT, VAL_SPLIT, ensure_data_dir
 
 from src.classifier.dataset import ICEClassifierDataset
-from src.classifier.model import ICEClassifier, compute_pos_weights, head_losses
+from src.classifier.model import (DEFAULT_POS_WEIGHT_CAP, ICEClassifier,
+                                  compute_pos_weights, head_losses)
 from src.classifier.schema import load_schema
 
 SEED = 42
@@ -77,6 +78,10 @@ def main():
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--trunk", type=int, nargs="*", default=None,
                     help="trunk widths (default 512 256; Z1-prep sweeps this)")
+    ap.add_argument("--pos-weight-cap", type=float, default=DEFAULT_POS_WEIGHT_CAP,
+                    help="ceiling on each label's neg/pos loss weight. THE "
+                         "calibration knob: too high and every head learns to "
+                         "say yes (run 1 at cap 20). Sweep with sweep_cap.sh.")
     args = ap.parse_args()
 
     torch.manual_seed(SEED)
@@ -92,7 +97,8 @@ def main():
     x_train, y_train = train_ds.embeddings, train_ds.labels
     x_val, y_val = val_ds.embeddings, val_ds.labels
 
-    pos_weights = compute_pos_weights(y_train, schema)
+    pos_weights = compute_pos_weights(y_train, schema, cap=args.pos_weight_cap)
+    print(f"[train] pos-weight cap {args.pos_weight_cap}")
     model = ICEClassifier(schema=schema, input_dim=x_train.shape[1],
                           trunk_dims=args.trunk or (512, 256))
     print(f"[train] {sum(p.numel() for p in model.parameters()):,} parameters")
@@ -155,6 +161,7 @@ def main():
         notes="B1 schema-v2 retrain",
         train_rows=len(train_ds), val_rows=len(val_ds),
         val_macro_f1=macro, best_val_loss=best_loss,
+        pos_weight_cap=args.pos_weight_cap,
         trained_at=datetime.now(timezone.utc).isoformat()), args.out)
     print(f"\n[train] checkpoint → {args.out}")
 
