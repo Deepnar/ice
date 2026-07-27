@@ -18,7 +18,8 @@ Two schema generations coexist on purpose:
 * **v1** (``label_schema_v1.json``, frozen) — the pre-B1 11/11/3 layout with a
   softmax context head. Kept loadable because D5's non-regression gate scores
   the OLD checkpoint on the same rows as the new one, and because the live
-  checkpoint is still v1 until promotion.
+  checkpoint was v1 until B1's promotion (2026-07-27); it is v2 now, and v1
+  stays loadable for D5's gate and rollback.
 """
 
 from __future__ import annotations

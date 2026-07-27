@@ -293,26 +293,47 @@ worth doing only once E7's MCP surface produces real navigation traffic. Roadmap
 **E12** owns the decision; `label_schema.json`'s `dropped_labels` block carries the
 definition and rationale.
 
-### ⚠ The classifier gain does not reach the user yet — B2 needs re-tuning
+### B2's weights after the v2 swap — predicted mistuned, measured fine
 
-Measured end-to-end on the 104 adversarial probes, running the real
-`decide_memory_retrieval`: **v2 80% (TP42/FP14/TN41/FN7), v1 80%
-(TP41/FP13/TN42/FN8)** — a tie, despite the v2 *head* winning 84% to 78% with
-half the false alarms. Cause: every `ltm_*` weight in `memory_decision.py` was
-tuned when `p_ltm` meant "one class's share of a 3-way softmax". Under v2 it is an
-independent sigmoid — type-compatible via B2's designed scalar seam, but a
-different distribution. The bumps that compensated for v1's weaker head now
-over-fire on a head that does not need them.
+**The prediction, and why it was reasonable.** B2 consumes the classifier as a
+scalar so a retrain would not force a rewrite; that seam held. But type
+compatibility is not distribution compatibility: v1's `p_ltm` was one class's share
+of a 3-way softmax (compressed, roughly ±2 in logit space) while v2's is an
+independent sigmoid that saturates (roughly ±4.6). Every additive bump was sized
+against the old range. Supporting evidence: on the 104 adversarial probes the v2
+*head* wins 84% vs 78% with half the false alarms, yet end-to-end through
+`decide_memory_retrieval` the two **tie at 80%** (v2 TP42/FP14/TN41/FN7, v1
+TP41/FP13/TN42/FN8).
 
-The seven end-to-end misses that survive B2's bumps are all terse and
-project-shaped: "Would my current stack handle ten thousand concurrent websocket
-connections?" (p_need 0.06), "does the schema I described handle nullable foreign
-keys" (0.29), "Am I contradicting myself?" (0.29), "Continue." (0.41). Note that
-several would be rescued in real use by `ltm_bump_coding` (+0.7) when the
-conversation is attached to a project — this measurement deliberately used no
-project scope, so it is the pessimistic case.
+**The measurement, which refuted it.** `scripts/classifier/pipeline/tune_b2.py`:
+coordinate descent over seven knobs, two passes, scored on 256 positives / 655
+negatives (207 user curation probes + 104 authored adversarial probes + 600
+held-out rows with no `Needs_Memory` gold). Under the correct objective the shipped
+defaults are already essentially optimal; the sole admissible change is
+`ltm_bump_creative` 0.7 → 0.35, worth **+0.005 specificity with 0.000 change on
+both probe families**. Noise. **Not applied — B2 ships unchanged.**
 
-Recorded as a Z1-prep item; likely its highest-value tuning target.
+Shipped operating point on that set: **balanced accuracy 0.865, recall 0.922,
+specificity 0.808** (TP236/FP126/TN529/FN20).
+
+**The objective is the finding worth keeping.** Plain balanced accuracy *does* find
++0.0105 — by zeroing four bumps and trading recall for specificity (0.922 → 0.871),
+and the user-probe family loses 0.058 doing it. For a silent gate that is the wrong
+direction: a false negative means retrieval never ran and nothing says so, while a
+false positive costs one round-trip the assembler's budget already bounds. So the
+objective is *maximise specificity subject to recall ≥ the shipped baseline*, and
+per-family accuracy is reported to catch precisely that overfit.
+
+Two mechanical traps recorded because they would fool a hand-tune:
+`ltm_bump_low_confidence`, `ltm_bump_reference` and `ltm_length_weight` are **inert
+on this data** — every grid value scores identically, so an argmax zeroes them by
+tie-breaking and it looks like a result; and `ltm_bump_reference` only fires through
+DI3's anaphora path, which a direct-model harness never exercises. The script keeps
+the current value on ties for this reason.
+
+So the end-to-end tie is **not** B2 miscalibration. B2's bumps deliberately spend
+specificity to buy recall, which is correct here, and that trade flattens the head's
+precision gain when measured by a symmetric metric.
 
 ### Live configuration changed this session
 

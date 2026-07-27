@@ -76,7 +76,11 @@ shipped. Z1 = the tuning gate + the coverage gate, strictly before FINAL.
   4. budget/representation: C16 fractions + brackets, C1 coverage threshold
      (0.7) + entropy gate (0.35), degrade behavior spot-checks, T timeline caps;
   5. decision thresholds: B2 τ/bias/bumps (incl. ltm_bump_timescope), B1 tag
-     threshold (0.3), C15 confidence_fallback_threshold, T2 joint-gate
+     threshold (**resolved by B1 2026-07-27 — fitted to 0.65 and stamped inside the
+     checkpoint, so Z1 re-sweeps it by re-running `sweep_threshold.py`, not by editing
+     `settings.classifier_threshold`; B2's `ltm_*` weights were also swept and left
+     unchanged — see `tune_b2.py` and keep its recall-first objective**), C15
+     confidence_fallback_threshold, T2 joint-gate
      strictness, codex trust floors (0.5/1.0);
   6. dynamics: D5's invariants (no sweeps).
 - **USER-REQUIRED (rule 11):** machine on for the sweep nights (≤4, resumable —

@@ -22,11 +22,13 @@ class PyTorchClassifier:
     the encoder input comes from ``templates.py`` — the same renderer the
     training pipeline uses, which is what closes the train/inference mismatch.
 
-    It serves **either** checkpoint generation. Until B1's promotion runs, the
-    live path is still a v1 checkpoint (25 logits, softmax ctx head, 384-dim
-    input); a v2 checkpoint is 28 logits, all-sigmoid, native 1024. The loaded
+    It serves **either** checkpoint generation. Since B1's promotion
+    (2026-07-27) the live path holds a **v2** checkpoint — 27 logits, all-sigmoid,
+    native 1024; a v1 checkpoint is 25 logits, softmax ctx head, 384-dim input and
+    survives as the rollback artifact and as D5's comparison baseline. The loaded
     checkpoint declares which it is and this class adapts — callers see the same
-    ``ClassificationResult`` either way.
+    ``ClassificationResult`` either way, which is what makes a rollback a file
+    swap rather than a code change.
     """
 
     def __init__(self, model_path="models/classifier/ice_classifier.pt",
@@ -195,7 +197,8 @@ class PyTorchClassifier:
         property of the trained weights, not of the installation: v1 was
         calibrated at 0.3, and the v2 head's own sweep puts its optimum at 0.65
         (fitted on val, B1 run 2). One global setting cannot be right for both,
-        and the two coexist — the live path serves v1 until B1's promotion runs.
+        and both remain in play — v2 is live since 2026-07-27 and the v1
+        checkpoint is still loadable for D5's gate and for rollback.
         So ``tag_threshold`` is stamped into the checkpoint by
         ``sweep_threshold.py`` and read here, with
         ``settings.classifier_threshold`` as the fallback for checkpoints that

@@ -7,7 +7,7 @@ output whose three label groups were carved out by hardcoded slices, fed by the
 
     Linear(1024→512) → GELU → Dropout(0.2) → Linear(512→256) → GELU → Dropout(0.2)
       ├── Linear(256→11)   topic
-      ├── Linear(256→13)   intent
+      ├── Linear(256→12)   intent
       └── Linear(256→ 4)   context_reliance
 
 ~700k params — still minutes to train on the laptop. Three changes carry weight:
@@ -22,9 +22,15 @@ output whose three label groups were carved out by hardcoded slices, fed by the
   claim a prompt was exactly one of Zero_Shot / LTM / Real_Time_Search. B1's
   whole point is that those aren't mutually exclusive.
 
+(The intent head is 12, not the 13 originally specced: ``Codebase_Query`` was
+appended and then dropped before the shipped run — its labelers overlapped on 33
+of 640 rows and the head scored exactly that supervision's F1. See
+``label_schema.json``'s ``dropped_labels``.)
+
 Both generations stay loadable: ``load_checkpoint`` dispatches on a
 ``schema_version`` recorded inside the checkpoint, so D5's non-regression gate can
-score the old model, and the live v1 checkpoint keeps serving until promotion.
+score the old model and a rollback is a file swap. The live path holds v2 since
+B1's promotion (2026-07-27).
 """
 
 from __future__ import annotations
@@ -130,14 +136,18 @@ class ICEClassifier(nn.Module):
 class LegacyICEClassifierV1(nn.Module):
     """The pre-B1 network, kept **only** so old checkpoints stay loadable.
 
-    Two live reasons, both temporary:
+    Reason 2 below expired when B1 promoted (2026-07-27); reason 1 did not.
       1. D5's non-regression gate scores the old model on the same held-out rows
-         as the new one — you cannot gate against a model you cannot run.
-      2. ``settings.classifier_model_path`` still points at a v1 checkpoint until
-         B1's promotion step swaps it.
+         as the new one — you cannot gate against a model you cannot run, and
+         every future candidate is still gated against the pre-B1 baseline.
+      2. ~~``settings.classifier_model_path`` points at a v1 checkpoint~~ — it
+         holds v2 now. The v1 file survives as
+         ``ice_classifier_v3_qwen_ft3_prev_20260727_142648.pt``, which is the
+         rollback path, and a rollback must not require restoring this class.
 
-    Delete once promotion has happened and no v1 checkpoint is referenced
-    (together with ``embedder.slice384``'s classifier call sites — A9).
+    So this is NOT deletable yet: it is what makes both the gate and the rollback
+    work. ``embedder.slice384``'s **classifier** call sites, however, are now dead
+    for the live path (A9) — but keep ``slice384`` itself, the micro-NER uses it.
     """
 
     def __init__(self, input_dim: int = 384, hidden: int = 128, out_dim: int = 25,

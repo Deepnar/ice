@@ -260,6 +260,63 @@ mechanical whenever that moment comes.
 > prompt text and as a rich source of genuine `Needs_Memory` positives, with classifier labels
 > to be authored by hand (Pile B).
 
+> **[rev 2026-07-27e] — SHIPPED. What the implementation settled, changed, or refuted.**
+> B1 is complete and PROMOTED. This rev exists so the spec stops describing a plan that
+> already happened, and so its two open deferrals are closed in writing.
+>
+> 1. **The 0.3 tag threshold is NOT Z1-prep's to defer any more (§D-deferral, §6).** It was
+>    fitted here, because leaving it would have shipped the single largest defect in the run:
+>    the inherited 0.3 scores mean macro-F1 **0.526** against **0.610** at the fitted 0.65 —
+>    a bigger delta than every architectural change in D2 combined. It is now **stamped inside
+>    the checkpoint** (`tag_threshold`, written by `sweep_threshold.py --write`, read by
+>    `classifier._tags_above`), because a threshold is a property of trained weights and v1
+>    (0.3) and v2 (0.65) must both keep working. Per-label thresholds were measured and
+>    **rejected**: 0.610 vs 0.609, and the head where they would earn their keep
+>    (context_reliance) never passes through `_tags_above`.
+> 2. **The pos-weight cap, not the architecture, was run 1's defect — and the cap was not the
+>    root cause either.** Run 1 (cap 20, threshold 0.3) gave recall 0.87–0.97 with precision
+>    0.04–0.81 on all 28 labels. A 3/5/10/20 sweep on identical splits lands within **0.017**
+>    of itself once thresholds are fitted. Shipped at cap 5; module default 3.
+> 3. **`Codebase_Query` is DROPPED (D1's intent list is 12, not 13).** 219 training positives —
+>    above §4's <150 floor — but test F1 **0.10**. Not scarcity: the labelers tagged 452 and
+>    221 rows and overlapped on **33**, so the head reproduced its supervision's ceiling
+>    exactly. §4's drop rule was written as a COUNT test; the real bar is **learnability**, and
+>    a count floor cannot detect an unlabelable class. Re-add is a schema edit + retrain with
+>    **no relabeling** (the annotations stay in the data) once E7's MCP traffic exists —
+>    roadmap **E12**.
+> 4. **`High_Complexity` survives but is explicitly untrusted (user).** §rev-c called it the cut
+>    candidate and it cleared the floor; measured, the head is a *verbosity* detector (0.98 on
+>    "walk me through…", 0.79 on a trivial one-line change, 0.20 on a genuinely hard prompt) and
+>    it has **zero consumers**. Kept so the signal keeps being recorded; F11/B3 must re-supervise
+>    or route on something observable instead.
+> 5. **D7's merge rule shipped, and its threshold was wrong.** `temporal_label_threshold`
+>    0.6 → **0.85**: `Temporal_Recall` fires as a shadow of `Needs_Memory` (79% co-occurrence in
+>    training positives; mean p_temporal 0.87 on authored memory prompts with no temporal
+>    content). Since it is OR'd with T2's detector, a low threshold makes the parser redundant.
+> 6. **D5's gate passed but is not the interesting gate.** §rev-d's demand for an independent
+>    probe set was honoured twice: the 207 user-written probes (`eval_probes_independent.jsonl`)
+>    and **104 new hand-authored adversarial probes** (`hard_probes.py`). Both are eval-only,
+>    forever. The 207 are all positives, so they are always scored beside a false-fire control.
+> 7. **⚠ THE FINDING THAT SUPERSEDES §5's F1 TABLE — the label ceiling.** Per-label labeler
+>    agreement vs model F1 correlates **0.90 with a −0.01 mean gap** (Needs_Memory 0.79/0.79,
+>    Generation 0.76/0.75, Codebase_Query 0.10/0.10). The model has extracted what its
+>    supervision contains. **§5's held-out F1 table can no longer distinguish a good model from
+>    a good-enough one, and no retrain, wider trunk, or fine-tune on this corpus can move it.**
+>    Only supervision from outside these labelers can. Also measured: intent disagreements are
+>    **90–100% one-directional** (labeler calibration, not label overlap), so collapsing
+>    "confused" labels would destroy real distinctions — do not do it on agreement numbers alone.
+> 8. **B2 was predicted mistuned for the new head and measured fine.** v1's `p_ltm` was a
+>    softmax share, v2's a saturating sigmoid, so `_logit()` spans a wider range and D6's scalar
+>    seam is type- but not distribution-compatible. Swept (`tune_b2.py`, 7 knobs, 256+/655− from
+>    the independent probes): the shipped weights are already near-optimal under a **recall-first**
+>    objective, and B2 ships unchanged. Balanced accuracy "finds" +0.0105 by trading recall for
+>    specificity — the wrong direction for a silent gate.
+> 9. **One real bug, worth remembering.** `promote.py` resolved the repo-relative live path
+>    against its own cwd, wrote the checkpoint to a fabricated directory, found nothing to
+>    displace, and **skipped the backup while printing success**. Fixed in
+>    `promotion.promote_checkpoint` (`_resolve`, mirroring `schema._resolve`) so
+>    `workers/fine_tune.py` is covered too.
+
 ## 1. Decisions
 
 - **D1: label schema v2 — heads become schema-driven, no magic numbers anywhere.**
