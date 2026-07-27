@@ -129,7 +129,10 @@ class Settings(BaseSettings):
     ltm_pressure_midpoint_tokens: int = 2000   # history-beyond-window at which P_len=0.5
     ltm_pressure_scale_tokens: int = 4000      # logistic steepness of the pressure prior
     ltm_bump_creative: float = 0.7             # Creative_&_Media topic → bump (not slam)
-    ltm_bump_reference: float = 1.2            # strong anaphora (DI3 reference rule) → bump
+    # (ltm_bump_reference died with DI3 — D8, 2026-07-27. It was the anaphora
+    #  rule's demoted bump, and nothing sets `reference_signal` any more. It also
+    #  measured net-negative on the rows it fired for; see memory_decision's
+    #  module docstring. ltm_bump_referential below is the surviving signal.)
     ltm_bump_referential: float = 0.5          # lighter referential-word presence → bump
     ltm_bump_low_confidence: float = 0.8       # topic/intent uncertainty safety net → bump
 
@@ -175,14 +178,10 @@ class Settings(BaseSettings):
     evolution_era_buckets: int = 4
     evolution_per_era: int = 3
 
-        # DI3 Configuration
-    DI3_ENABLED: bool = True
-    DI3_CODE_DENSITY_THRESHOLD: float = 0.3
-    DI3_SENTIMENT_DENSITY_THRESHOLD: float = 0.4
-    DI3_META_DENSITY_THRESHOLD: float = 0.2
-    DI3_NOISE_DENSITY_THRESHOLD: float = 0.8
-    DI3_REFERENCE_DENSITY_THRESHOLD: float = 0.2
-    DI3_LTM_REFERENCE_DENSITY_THRESHOLD: float = 0.1
+    # (The seven DI3_* knobs lived here until D8, 2026-07-27, and went with the
+    #  module. Note for anyone reading old configs: DI3_LTM_REFERENCE_DENSITY_
+    #  THRESHOLD never did anything — it was the "past ten turns" tier of the
+    #  reference rule, and no caller ever passed conversation_length.)
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

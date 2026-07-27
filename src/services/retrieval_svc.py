@@ -99,7 +99,6 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
         task_text,
         intent_tags=result.intent_tags,
         p_ltm=getattr(result, "p_ltm", 0.0),
-        reference_signal=getattr(result, "reference_signal", False),
     )
     decision = decide_memory_retrieval(
         result, turn_count=0, total_tokens=0.0, settings=settings,

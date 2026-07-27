@@ -47,9 +47,9 @@ clf2 = SimpleNamespace(raw_probs=probs2, max_confidence=0.5)
 tc2, ic2 = _head_confidences(clf2)
 check("both heads weak → wide net fires", tc2 < 0.75 and ic2 < 0.75)
 
-di3 = SimpleNamespace(raw_probs=[0.0] * 25, max_confidence=0.9)
-tc3, ic3 = _head_confidences(di3)
-check("DI3 fast-path (all-zero probs) → falls back to max_confidence",
+blank = SimpleNamespace(raw_probs=[0.0] * 25, max_confidence=0.9)
+tc3, ic3 = _head_confidences(blank)
+check("all-zero probs → falls back to max_confidence",
       tc3 == 0.9 and ic3 == 0.9)
 
 print("── C15: dynamic wide-net budget ──")

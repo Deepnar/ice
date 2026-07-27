@@ -6,7 +6,7 @@ context-reliance heads). Consolidated here in the **2026-07-21 pre-B1 cleanup** 
 `scripts/training/`, and loose `scripts/*.py` utilities.
 
 > Runtime inference code is **not** here — it lives in `src/classifier/` (imported by the API):
-> `model.py`, `classifier.py`, `schemas.py`, `dataset.py`, `di3*`, plus the B1 additions
+> `model.py`, `classifier.py`, `schemas.py`, `dataset.py`, plus the B1 additions
 > `schema.py` (schema loader) and `templates.py` (the two inference prompt templates).
 > The label taxonomy is `data/labeled/label_schema.json`. The corpus is `data/labeled/`.
 

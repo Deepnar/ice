@@ -125,9 +125,15 @@ class LabelSchema:
         return {h.name: vector[h.slice] for h in self.heads}
 
     def empty_probs(self) -> list:
-        """The all-zero convention for rows that never ran the model (DI3
-        fast-path). Width follows the schema — see orchestrator._head_confidences,
-        which treats all-zero as 'no ML probabilities here'."""
+        """The all-zero convention for a result that never ran the model.
+
+        DI3's fast path was the only producer of these until D8 (2026-07-27)
+        deleted it, so nothing in ``src/`` emits one now. The convention stays
+        because the consumers of it are *guards*: ``finalize_context_scalars``
+        and ``orchestrator._head_confidences`` both branch on all-zero, and a
+        hand-built ``ClassificationResult`` reaching them without that branch
+        would silently score p_ltm = 0 — i.e. "never retrieve" — which is the
+        exact class of silent failure this system refuses to ship."""
         return [0.0] * self.total_width
 
 
@@ -261,9 +267,10 @@ def derive_context_reliance(ctx_probs: Dict[str, float]) -> Tuple[str, float, fl
     return ordered[0][0], p_mem, p_live, float(ordered[0][1] - ordered[1][1])
 
 
-# DI3 fast-path priors: DI3 picks a three-way label without producing
-# probabilities, so B2's combination still needs a scalar to work with.
-_DI3_PRIORS = {
+# Fallback scalars for a result that carries a context-reliance LABEL but no
+# probabilities. DI3 was the only such producer and died with D8 (2026-07-27);
+# these survive as the guard's answer, not as a live path — see empty_probs().
+_LABEL_ONLY_PRIORS = {
     LONG_TERM_MEMORY: (0.85, 0.05),
     ZERO_SHOT: (0.12, 0.05),
     REAL_TIME_SEARCH: (0.15, 0.70),
@@ -287,8 +294,10 @@ def finalize_context_scalars(result, schema: LabelSchema) -> None:
     ctx = probs[schema.slice(CONTEXT_RELIANCE)] if len(probs) >= schema.total_width else []
 
     if not ctx or not any(v > 0.0 for v in ctx):
-        # DI3 fast-path: raw_probs all zero → prior from the label DI3 chose.
-        result.p_ltm, result.p_rts = _DI3_PRIORS.get(result.context_reliance, (0.30, 0.05))
+        # No probabilities to read — fall back to the label. Guard, not a path:
+        # since D8 nothing in src/ builds such a result (see empty_probs()).
+        result.p_ltm, result.p_rts = _LABEL_ONLY_PRIORS.get(result.context_reliance,
+                                                            (0.30, 0.05))
         result.ctx_confidence = float(result.max_confidence)
         return
 

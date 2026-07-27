@@ -324,7 +324,6 @@ async def chat_completions(
         user_message,
         intent_tags=result.intent_tags,
         p_ltm=getattr(result, "p_ltm", 0.0),
-        reference_signal=getattr(result, "reference_signal", False),
     )
     if tscope.mode != "current":
         log.info(

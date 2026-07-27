@@ -13,8 +13,19 @@ classifier ("safe, not smart"):
 
     logit(P_need_mem) = logit(P_ltm) + bias
                         + β · logit(P_len)              # memory pressure (see below)
-                        + Σ feature bumps               # reference / creative / referential / low-conf
+                        + Σ feature bumps               # creative / referential / low-conf
     retrieve  ⇔  P_need_mem > τ
+
+**The DI3 anaphora bump is gone (D8, 2026-07-27).** B2 kept the rule alive as a
+demoted ``ltm_bump_reference`` nudge rather than a forced label. Measured on the
+1,694 held-out rows DI3's reference rule claimed, that nudge made the decision
+*worse* — accuracy 0.852 → 0.777, buying recall 0.979 → 0.994 (six rows) for a
+precision collapse 0.738 → 0.643 (sixty-five spurious retrievals). It had never
+been measurable before: ``tune_b2.py`` swept the knob over [0.0, 0.6, 1.2] but
+never set ``reference_signal``, so it was one of that sweep's three inert knobs.
+``REFERENTIAL_WORDS`` below is the surviving, lighter anaphora signal — and it is
+a *word-presence* test on the prompt, not a density heuristic that grew with
+document length, which is what DI3's version had degenerated into.
 
 Design notes
 ------------
@@ -174,8 +185,6 @@ def decide_memory_retrieval(
     low_conf = result.max_confidence < settings.confidence_fallback_threshold
     if creative:
         lo += settings.ltm_bump_creative
-    if result.reference_signal:
-        lo += settings.ltm_bump_reference
     if referential:
         lo += settings.ltm_bump_referential
     if low_conf:
@@ -209,7 +218,6 @@ def decide_memory_retrieval(
             "total_tokens": int(total_tokens),
             "window_tokens": int(recent_window_tokens),
             "creative": creative,
-            "reference_signal": result.reference_signal,
             "referential": referential,
             "low_confidence": low_conf,
             "timescope": timescope_mode,

@@ -32,7 +32,7 @@ def check(name, cond):
 
 
 def mk(p_ltm=0.1, topics=None, intents=None, max_conf=0.99, ctx_conf=0.8,
-       reference=False, ctx="Zero_Shot", prompt="hello there", p_temporal=0.0):
+       ctx="Zero_Shot", prompt="hello there", p_temporal=0.0):
     r = ClassificationResult(
         topic_tags=topics or ["Software_&_Tech"],
         intent_tags=intents or ["Factual_Retrieval"],
@@ -43,7 +43,6 @@ def mk(p_ltm=0.1, topics=None, intents=None, max_conf=0.99, ctx_conf=0.8,
     )
     r.p_ltm = p_ltm
     r.ctx_confidence = ctx_conf
-    r.reference_signal = reference
     r.p_temporal = p_temporal
     return r
 
@@ -89,8 +88,10 @@ check("borderline non-creative → no retrieve", d_base.retrieve is False)
 check("creative bump flips borderline → retrieve", d_creative.retrieve is True)
 check("creative flagged in breakdown", d_creative.breakdown["creative"] is True)
 
-d_ref = decide(mk(p_ltm=0.28, reference=True, max_conf=0.99), turns=2, tokens=300)
-check("anaphora (reference_signal) bump → retrieve", d_ref.retrieve is True)
+# (The DI3 anaphora bump was here until D8, 2026-07-27. `reference_signal` and
+#  `ltm_bump_reference` are both gone: measured over the 1,694 held-out rows DI3's
+#  reference rule claimed, the bump cost 0.075 accuracy — see eval_di3.py.
+#  REFERENTIAL_WORDS, checked below, is the surviving anaphora signal.)
 
 d_word = decide(mk(p_ltm=0.30, max_conf=0.99, prompt="can you fix this again like before"), turns=2, tokens=300)
 check("referential words detected", d_word.breakdown["referential"] is True)
@@ -103,7 +104,7 @@ print("── nothing is *forced*: enough negative signal still says no ──")
 d = decide(mk(p_ltm=0.02, topics=["Creative_&_Media"], max_conf=0.99), turns=1, tokens=100)
 check("very confident zero-shot survives even a creative bump", d.retrieve is False)
 
-print("── classifier confidence finalization (ML head vs DI3 path) ──")
+print("── classifier confidence finalization (ML head vs label-only) ──")
 # B1: the derivation is pure label logic (schema.finalize_context_scalars), so
 # it needs a schema but no checkpoint. Both generations are exercised.
 V1 = load_v1_schema()
@@ -117,14 +118,15 @@ check("v1 path p_ltm read from ctx[1]", abs(r.p_ltm - 0.7) < 1e-9)
 check("v1 path p_rts read from ctx[2]", abs(r.p_rts - 0.2) < 1e-9)
 check("v1 path ctx_confidence = top1-top2", abs(r.ctx_confidence - 0.5) < 1e-9)
 
-# DI3 path: raw_probs all zero → derive prior from the label.
+# Label-only guard: raw_probs all zero → derive prior from the label.
+# (DI3 was the only producer of these until D8; the guard outlives it.)
 r2 = ClassificationResult(["Null_Noise"], ["Casual_Banter"], "Zero_Shot",
                           [0.0] * 25, 0.95, "asdf")
 finalize_context_scalars(r2, V1)
-check("DI3 zero-shot prior p_ltm low", r2.p_ltm < 0.2)
+check("label-only zero-shot prior p_ltm low", r2.p_ltm < 0.2)
 r3 = ClassificationResult([], [], "Long_Term_Memory", [0.0] * 25, 0.7, "it")
 finalize_context_scalars(r3, V1)
-check("DI3 LTM prior p_ltm high", r3.p_ltm > 0.8)
+check("label-only LTM prior p_ltm high", r3.p_ltm > 0.8)
 
 print("── B1 D6: v2's four sigmoids derive the same scalars B2 consumes ──")
 # ctx head order: [Needs_Memory, Temporal_Recall, Needs_Live_Info, High_Complexity].

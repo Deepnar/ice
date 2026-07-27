@@ -390,7 +390,6 @@ def detect_timescope(
     now: Optional[datetime] = None,
     intent_tags: Sequence[str] = (),
     p_ltm: float = 0.0,
-    reference_signal: bool = False,
 ) -> TimeScope:
     """Detect and resolve temporal intent. Pure (no DB, no LLM); ``now`` is
     injectable for tests. Returns CURRENT unless a resolvable expression or
@@ -417,12 +416,18 @@ def detect_timescope(
     stripped = text.strip().lower()
     first_word = stripped.split()[0] if stripped.split() else ""
     evidence: List[str] = [f"expr:{e.text}" for e in exprs] + [f"cue:{c}" for c in cue_texts]
+    # D8 (2026-07-27) removed a fourth arm, `reference_signal`, when DI3 died.
+    # It was not a loss: measured over 9,441 held-out rows it was carrying 49
+    # non-current TimeScopes that the p_ltm arm below correctly refused, and
+    # every one was a long pasted document ("Write a synopsis of the following
+    # text…", p_ltm 0.00–0.16) whose *length* had accumulated enough "the"s to
+    # clear DI3's reference density. Substituting memory_decision's
+    # REFERENTIAL_WORDS was measured too and is worse still (527 non-current vs
+    # 416), for the same reason — so the anaphora signal stays out of this gate.
     if "?" in text:
         evidence.append("gate:question_mark")
     elif first_word in _INTERROGATIVES:
         evidence.append("gate:interrogative")
-    elif reference_signal:
-        evidence.append("gate:reference_signal")
     elif p_ltm >= 0.5:
         evidence.append("gate:p_ltm")
     else:

@@ -70,8 +70,9 @@ def _head_confidences(classification):
     B1: the classifier publishes these directly now — it is the one component
     that knows which schema its checkpoint was trained on. Two fallbacks behind
     that: slice `raw_probs` using whichever schema matches their width (25 = a v1
-    checkpoint, 28 = v2), then DI3's explicitly set max_confidence (its fast-path
-    results carry all-zero raw_probs, and DI3 only fires when confident).
+    checkpoint, 27 = v2), then the result's own max_confidence for a result with
+    no probabilities at all. That last case had one producer, DI3, and D8 deleted
+    it — the branch stays as a guard (see schema.empty_probs).
     """
     from src.classifier.schema import INTENT, TOPIC, resolve_by_width
 

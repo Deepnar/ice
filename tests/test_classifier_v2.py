@@ -189,10 +189,10 @@ r25.raw_probs[V1.head(TOPIC).index("Meta_AI")] = 0.44
 check("25-wide (v1 checkpoint) probs still slice correctly",
       abs(_head_confidences(r25)[0] - 0.44) < 1e-9)
 
-di3 = ClassificationResult(["Null_Noise"], ["Casual_Banter"], "Zero_Shot",
+blank = ClassificationResult(["Null_Noise"], ["Casual_Banter"], "Zero_Shot",
                            V2.empty_probs(), 0.95, "asdf")
-check("DI3 all-zero convention is schema-wide (27)", len(di3.raw_probs) == 27)
-check("all-zero probs fall back to max_confidence", _head_confidences(di3) == (0.95, 0.95))
+check("all-zero convention is schema-wide (27)", len(blank.raw_probs) == 27)
+check("all-zero probs fall back to max_confidence", _head_confidences(blank) == (0.95, 0.95))
 
 print("── promotion: backup + atomic swap, shared by B4 and the pipeline ──")
 live = os.path.join(tmp, "live.pt")

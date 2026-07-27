@@ -76,7 +76,11 @@ GRID = {
     "ltm_bump_referential":     [0.0, 0.25, 0.5, 0.75],
     "ltm_bump_low_confidence":  [0.0, 0.4, 0.8, 1.2],
     "ltm_bump_creative":        [0.0, 0.35, 0.7],
-    "ltm_bump_reference":       [0.0, 0.6, 1.2],
+    # ``ltm_bump_reference`` was swept here and was one of the three knobs this
+    # set could not move, because nothing in the scoring rows ever set
+    # ``reference_signal`` — the sweep was measuring a constant. D8 measured it
+    # properly (on the rows DI3's reference rule actually claimed), found it
+    # net-negative, and deleted the knob along with DI3. 2026-07-27.
     "ltm_length_weight":        [0.0, 0.4, 0.8, 1.2],
 }
 

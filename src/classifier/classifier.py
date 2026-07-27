@@ -5,22 +5,28 @@ from typing import List, Optional
 from src.memory.embedder import get_embedder, slice384
 
 from . import templates
-from .di3 import run_di3
 from .model import load_checkpoint
-from .schema import (CONTEXT_RELIANCE, INTENT, LONG_TERM_MEMORY, TOPIC,
-                     ZERO_SHOT, finalize_context_scalars, load_schema)
+from .schema import (CONTEXT_RELIANCE, INTENT, TOPIC, ZERO_SHOT,
+                     finalize_context_scalars, load_schema)
 from .schemas import ClassificationResult
 
 logger = structlog.get_logger("ice.classifier")
 
 
 class PyTorchClassifier:
-    """The pre-flight prompt classifier.
+    """The pre-flight prompt classifier — since D8, the *only* one.
 
     B1 made this schema-driven end to end: the label lists, the head widths and
     the slice offsets all come from ``label_schema.json`` via ``schema.py``, and
     the encoder input comes from ``templates.py`` — the same renderer the
     training pipeline uses, which is what closes the train/inference mismatch.
+
+    **DI3 is gone (D8, 2026-07-27.)** A rule-based pre-classifier used to short-
+    circuit this one on five density heuristics. Measured against the promoted v2
+    head on the 9,441 held-out rows it would have intercepted, it lost every
+    slice on every metric, so keeping it would have meant two disagreeing
+    classifiers where the worse one wins by running first. `eval_di3.py` in the
+    pipeline holds the numbers.
 
     It serves **either** checkpoint generation. Since B1's promotion
     (2026-07-27) the live path holds a **v2** checkpoint — 27 logits, all-sigmoid,
@@ -95,34 +101,10 @@ class PyTorchClassifier:
     # ------------------------------------------------------------------
     # Main entry point
     # ------------------------------------------------------------------
-    def classify(
-        self,
-        prompt: str,
-        conversation_history: Optional[List[str]] = None,
-        conversation_length: int = 0,
-        conversation_id: Optional[str] = None,
-    ) -> ClassificationResult:
-        """Public entry point.  Runs DI3 first, falls back to ML.
-        When *conversation_id* is given, the last 3 turns are used as context
-        (auto‑truncated) to improve the ML classifier's accuracy.
-        """
-        if conversation_history is None:
-            conversation_history = []
-        di3_result = run_di3(prompt, conversation_length, conversation_history)
-        if di3_result is not None:
-            # DI3 fired its reference/anaphora rule (blank topic/intent, ctx=LTM):
-            # get the *real* tags + ctx probabilities from the ML head and carry
-            # the anaphora as a signal for B2's combination — NOT a forced LTM.
-            if not di3_result.topic_tags or not di3_result.intent_tags:
-                ml_result = self._run_ml_classifier(prompt, conversation_id)
-                if di3_result.context_reliance == LONG_TERM_MEMORY:
-                    ml_result.reference_signal = True
-                return ml_result
-            # DI3 fast-path (noise/code/sentiment/meta): keep its decision, but
-            # derive a p_ltm scalar so B2 can still combine it.
-            self._finalize_confidence(di3_result)
-            return di3_result
-
+    def classify(self, prompt: str,
+                 conversation_id: Optional[str] = None) -> ClassificationResult:
+        """Public entry point. When *conversation_id* is given, the last 3 turns
+        are used as context (auto-truncated) to improve accuracy."""
         return self._run_ml_classifier(prompt, conversation_id)
 
     def _encode(self, text: str) -> torch.Tensor:
