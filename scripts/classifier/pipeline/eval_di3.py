@@ -396,7 +396,6 @@ def main():
     # rescues most of what the reference arm was carrying — scoring this at
     # p_ltm=0 would overstate the loss.
     without = sum(detect_timescope(row.get("text", ""),
-                                   intent_tags=ml[i].intent_tags,
                                    p_ltm=ml[i].p_ltm).mode != "current"
                   for i, row in enumerate(rows))
     report["timescope"] = {"non_current_now": without,

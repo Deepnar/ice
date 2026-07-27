@@ -196,6 +196,27 @@ def decide_memory_retrieval(
     # head reads as ordinary. Note what the label does NOT do: only the
     # deterministic detector ever sets a time WINDOW. A sigmoid inventing
     # "two years ago" would be a hallucinated filter.
+    #
+    # ⚠ E12 (2026-07-27): this arm is inert, and that is a routing mistake, not a
+    # bad label. Over 9,441 held-out rows the label fires without the detector on
+    # 175 and is *right* about them (85% genuinely need memory, against the
+    # detector's own 52%) — but those rows carry a mean p_ltm of **0.931**, so 172
+    # of 175 (98.3%) already retrieve, and disabling the whole arm moves exactly
+    # ONE decision in 9,441. That is structural: measured on the gold labels,
+    # 78.1% of Temporal_Recall rows are also Needs_Memory, because a question
+    # about the past needs memory by definition. A subset signal cannot add to
+    # the superset's own decision, so no threshold makes this arm useful and
+    # Z1-prep should not spend a sweep here expecting movement.
+    #
+    # What the label uniquely knows is not *whether* to search but *which* end of
+    # history to search — and only 20.3% of memory queries are time-shaped, so it
+    # is real information, just not information THIS decision wants. Its two
+    # earned consumers are both in Track T, and both are unwired: tightening
+    # `timescope`'s joint gate (precision 84% → 93%) and flattening
+    # `orchestrator._recency_params` for the 206-of-557 time questions that carry
+    # no parseable date. See roadmap **T5** and timescope.py's module docstring.
+    # The arm stays until T5 re-homes it: it is correct, it costs one comparison,
+    # and deleting it now would strand the signal with no consumer at all.
     detector_fired = bool(timescope_mode and timescope_mode != "current")
     temporal_label = result.p_temporal >= settings.temporal_label_threshold
     if detector_fired or temporal_label:

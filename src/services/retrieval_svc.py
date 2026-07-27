@@ -97,8 +97,8 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
     result.prompt = task_text
     tscope = detect_timescope(
         task_text,
-        intent_tags=result.intent_tags,
         p_ltm=getattr(result, "p_ltm", 0.0),
+        p_temporal=getattr(result, "p_temporal", 0.0),
     )
     decision = decide_memory_retrieval(
         result, turn_count=0, total_tokens=0.0, settings=settings,

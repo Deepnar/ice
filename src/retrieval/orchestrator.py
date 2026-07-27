@@ -546,6 +546,17 @@ class HybridRetrievalOrchestrator:
             # more than definitions.
             # Starting values — Z1-prep's tuning pass owns the final numbers.
             #
+            # E12 (2026-07-27) measured whether this row is actually reached,
+            # because the blend below divides every profile by len(active_intents)
+            # and the roadmap's worry was that a 3-intent row leaves a third of a
+            # nudge. Over 9,441 held-out rows: the head fires Code_Change on
+            # 5.75%, carrying a mean of 1.79 intents (alone on 27%), so it lands
+            # ~56% of its intended weight and shifts the biggest leg by 0.291
+            # against base weights of 0.2–1.2. That is a real effect, so the row
+            # STAYS. Its usual companion is Troubleshooting (269 of 543 rows),
+            # which agrees on procedural 1.2 and disagrees on codex (0.3 vs 1.0)
+            # — so the dilution that does happen mostly costs codex weight.
+            #
             # D9's second row, Codebase_Query → {codex 1.3, bm25 0.9,
             # vector 0.8, procedural 0.6}, is deliberately absent: the label was
             # dropped from label_schema.json in B1's run 2 (test F1 0.10 — see

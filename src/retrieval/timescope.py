@@ -9,16 +9,47 @@ debuggable, and the lexicon is the extension point.
 
 Joint gate (A4's joint-signal lesson): a resolvable time expression alone
 never flips the mode — it must co-occur with a recall-shaped prompt
-(question mark / interrogative opener / reference signal / p_ltm ≥ 0.5).
+(question mark / interrogative opener / p_ltm ≥ 0.5; a fourth arm reading DI3's
+reference signal was deleted with DI3 in D8, 2026-07-27).
 A bare "yesterday" in a content clause stays ``current``; a false positive
 would inject stale context into a normal answer.
 
 Vague pasts ("a while back", "long ago") are deliberately NOT resolved into
 windows — an invented window silently hides the memories outside it.
 
-B1 seam: ``detect_timescope`` accepts ``intent_tags`` and returns
-``evidence`` so a future temporal-recall classifier label can join the same
-gate; window *resolution* stays deterministic regardless.
+B1 reserved a seam here — ``detect_timescope`` takes classifier arguments it does
+not yet read, so that "a future temporal-recall classifier label can join the
+same gate". B1 has now produced that label (``p_temporal``), and **E12
+(2026-07-27) measured where it belongs. The seam is VALIDATED, and it is still
+unwired — the connecting work is roadmap T5.**
+
+What the measurement found, over 9,441 held-out rows:
+
+* **The label belongs here as a FILTER, not as another way in.** The gate's
+  ``p_ltm >= 0.5`` arm is a *loose* proxy for "is this a time question": only
+  20% of memory-needing prompts are time-shaped, so p_ltm admits far more than
+  it should. Today the gate opens a window on 416 rows and **84%** of them are
+  really temporal; additionally requiring ``p_temporal >= 0.7`` gives **93%** on
+  187 rows, cutting false windows from 65 to 14. A false window is the expensive
+  error — it silently hides every memory outside it. The trade-off (it fires
+  less often) is a threshold question for Z1-prep, not a design question.
+  *Adding* it as a fifth OR-arm was measured too and is worthless — 2 rows
+  admitted of 116 refused, both wrong — which is the direction a first reading
+  of "join the gate" suggests, so it is recorded here to save the re-test.
+
+* **Well over a third of time questions never reach this gate at all.** 250 of
+  557 gold-temporal rows carry no parseable date, and **206** are missed by the
+  gate outright (the gap is rows an evolution cue rescues) — "do u remember when
+  we had that issue before?", "we discussed this in our last planning" — so the
+  early return above fires and the mode stays ``current``. For those the label
+  is the ONLY signal, and the consumer is not this gate but
+  ``orchestrator._recency_params``, which already has the right branch (flat
+  recency for ``range``/``evolution``) and cannot be reached without a parse.
+  Left alone they get the default +25% boost toward *now*, which is backwards
+  for a question about the past.
+
+Window *resolution* stays deterministic regardless — a sigmoid may gate and may
+rank, but it may never invent a date.
 """
 
 from __future__ import annotations
@@ -26,7 +57,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Tuple
 
 from src.api.config import settings
 
@@ -388,8 +419,8 @@ def detect_timescope(
     prompt: str,
     *,
     now: Optional[datetime] = None,
-    intent_tags: Sequence[str] = (),
     p_ltm: float = 0.0,
+    p_temporal: float = 0.0,   # B1's Temporal_Recall; reserved, see module docstring (T5)
 ) -> TimeScope:
     """Detect and resolve temporal intent. Pure (no DB, no LLM); ``now`` is
     injectable for tests. Returns CURRENT unless a resolvable expression or

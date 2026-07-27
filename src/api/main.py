@@ -322,8 +322,8 @@ async def chat_completions(
     # dict; every retrieval leg reads it from there.
     tscope = detect_timescope(
         user_message,
-        intent_tags=result.intent_tags,
         p_ltm=getattr(result, "p_ltm", 0.0),
+        p_temporal=getattr(result, "p_temporal", 0.0),
     )
     if tscope.mode != "current":
         log.info(
