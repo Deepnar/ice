@@ -63,28 +63,37 @@ paying off, **that is evidence, not permission — ask the user first.** A null
 result on one wiring does not mean the signal is homeless, and the seam records
 design intent the measurement does not contain.
 
-## Never let a decision ride on HOW the user types (standing rule, 2026-07-28)
+## No decision may depend on HOW a thing is written (standing rule, 2026-07-28)
 
 The user's diagnosis, and the measured reason Codex underperformed across a month
 of experiments: a rule keyed on punctuation, word order, or a fixed vocabulary is
-a **bet on writing style**, and ICE was validated on LMSYS/ShareGPT-shaped text
-where those bets pay off. They never looked broken because they were never
-measured on the person using the system.
+a **bet on writing convention**. ICE was validated on LMSYS/ShareGPT/WildChat —
+all "people typing at a chatbot", all sharing conventions — so the bets never
+looked broken.
 
-The proof, on 9,441 held-out rows. T2's joint gate accepts a time expression if
-the prompt *starts with* one of twelve interrogatives. Public corpora: fires
-13–25%. **The user's own writing: 2%** — not because the signal is missing (an
-interrogative sits in the first eight words of 23% of their rows) but because
-they write `"so what about the ground truth"` and the rule reads position 0.
-It discards 21% of their rows against 10% of the corpus's.
+**The goal is INVARIANCE, not personalization.** The maintainer writes
+out-of-convention and is a useful canary, but they are an *existence proof*, not
+a target: tuning toward their corpus is the same mistake with a different corpus.
+**We have no idea how any given user writes and no corpus can tell us** — a
+writing style is not a distribution you can sample your way out of. The
+requirement is that the same intent, written any way, yields the same decision.
 
-So: **when scoring any heuristic, split the result by `source` — personal vs
-online.** A pooled average hides exactly this. And the design test is: take a
-prompt the rule fires on, rewrite it informally — no question mark, prefixed with
-"ok so" / "like" — and see if the decision survives. If it flips, the rule is
-measuring typography, not intent. Parsers that RESOLVE a value (a date → a
-datetime) may stay; lexicons that INFER INTENT must beat the trained head or go.
-Roadmap **G28** is the systematic sweep; D8 is the worked protocol.
+Two measurements to keep in mind. (1) T2's gate accepts a time expression if the
+prompt *starts with* one of twelve interrogatives: lmsys 25%, wildchat 14%,
+sharegpt 13%, personal 2% — a 10× swing, and 2× **between the public corpora
+alone**. (2) **The trained head is not automatically the fix**: firing-rate spread
+across those sources is 1.5× for `has "?"` but 16.2× for `p_ltm ≥ 0.5`. That is
+confounded (personal rows genuinely need memory more), and *that confound is the
+lesson* — **firing-rate-by-source cannot separate "different people" from
+"different meanings", so it is a smell detector, never an acceptance test.**
+
+The test that works holds meaning fixed and varies only form: write one prompt
+several ways (± question mark, "ok so"/"like" prefixes, interrogative buried,
+lowercase, typos, terse vs rambling) and measure the **decision-flip rate**. A
+rule that flips is measuring typography. **Apply it to the replacement too.**
+Parsers that RESOLVE a value (a date → a datetime) may stay; lexicons that INFER
+INTENT must pass invariance. Roadmap **G28** is the systematic sweep and owns the
+style-variant probe set; D8 is the worked deletion protocol.
 
 ## Boy-scout cleanup (standing rule, 2026-07-10)
 

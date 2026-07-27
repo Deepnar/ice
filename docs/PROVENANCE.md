@@ -434,8 +434,17 @@ Per-source firing of T2's gate arms, the finding that reframed G28:
 | wildchat | 2,060 | 31% | 14% | — | — |
 | sharegpt | 2,042 | 30% | 13% | 22% | 10% |
 
-The rule reads word position 0; the user writes `"so what about comparision to
-the ground truth"`. It loses twice as much signal on the actual user as on the
-corpora ICE was evaluated against. **Standing consequence: score heuristics split
-by `source`, never pooled.**
+The rule reads word position 0; people write `"so what about comparision to the
+ground truth"`. Note the public corpora disagree with each other 2x as well (25% / 14% / 13%), so this
+is instability across populations, not one unusual user.
+
+**And the head is not automatically the fix.** Firing-rate spread across the same
+four sources: `has "?"` 1.5x, `interrogative-1st` 10x, `p_temporal>=.85` 8.2x,
+**`p_ltm>=.5` 16.2x** — the model's outputs swing more than the crudest
+heuristic. This is confounded (personal rows genuinely need memory more than
+one-shot public prompts) and **the confound is the finding**: firing-rate-by-source
+cannot separate different people from different meanings. Standing consequence:
+treat it as a smell detector, and use paraphrase invariance (same intent, N
+surface forms, measure the decision-flip rate) as the acceptance test — for the
+heuristic AND its replacement. Roadmap **G28** owns that probe set.
 
