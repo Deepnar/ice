@@ -293,6 +293,27 @@ worth doing only once E7's MCP surface produces real navigation traffic. Roadmap
 **E12** owns the decision; `label_schema.json`'s `dropped_labels` block carries the
 definition and rationale.
 
+### ⚠ The classifier gain does not reach the user yet — B2 needs re-tuning
+
+Measured end-to-end on the 104 adversarial probes, running the real
+`decide_memory_retrieval`: **v2 80% (TP42/FP14/TN41/FN7), v1 80%
+(TP41/FP13/TN42/FN8)** — a tie, despite the v2 *head* winning 84% to 78% with
+half the false alarms. Cause: every `ltm_*` weight in `memory_decision.py` was
+tuned when `p_ltm` meant "one class's share of a 3-way softmax". Under v2 it is an
+independent sigmoid — type-compatible via B2's designed scalar seam, but a
+different distribution. The bumps that compensated for v1's weaker head now
+over-fire on a head that does not need them.
+
+The seven end-to-end misses that survive B2's bumps are all terse and
+project-shaped: "Would my current stack handle ten thousand concurrent websocket
+connections?" (p_need 0.06), "does the schema I described handle nullable foreign
+keys" (0.29), "Am I contradicting myself?" (0.29), "Continue." (0.41). Note that
+several would be rescued in real use by `ltm_bump_coding` (+0.7) when the
+conversation is attached to a project — this measurement deliberately used no
+project scope, so it is the pessimistic case.
+
+Recorded as a Z1-prep item; likely its highest-value tuning target.
+
 ### Live configuration changed this session
 
 `temporal_label_threshold` **0.6 → 0.85** (`src/api/config.py`). `Temporal_Recall`
