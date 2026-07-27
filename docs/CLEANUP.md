@@ -146,3 +146,16 @@ on the files this session touched.
 
 | 2026-07-26 | **new** `scripts/oneoff/b1_authored/` | `batch01_needs_memory_cross.py`, `batch02_long_and_combinations.py`, `batch03_codebase_query.py`, `batch04_meta_and_gaps.py` | the Pile B authoring batches. Kept (not deleted) because they ARE the provenance of 289 hand-labeled training rows — the prompts and their labels only exist because these scripts wrote them, so the scripts are the record of what was authored and why |
 | 2026-07-26 | **new** `scripts/classifier/pipeline/{authored,compare,build_eval_probes}.py` | — | Pile B loader+validator; two-pass agreement comparator (reuses the merge's own rule); the independent eval-probe builder |
+
+## B1 run 2 — training, gating, and the label-quality diagnosis (2026-07-27)
+
+No file moves or deletions. One real de-duplication, plus new eval assets.
+
+| date | what | from → to / change | why |
+|---|---|---|---|
+| 2026-07-27 | **duplicated encoder consolidated** | `dataset.ICEClassifierDataset._encode` body → module-level `dataset.encode_rendered()`; `pipeline/evaluate.py::_encode` now calls it | `evaluate.py` had its own one-shot `model.encode(..., batch_size=256)` and **OOM'd on the 5,055-row test split**, while `dataset.py` already had the chunked, CPU-offloading, halving-backoff version. Two implementations of "encode a list of rendered rows", one of them wrong. Note the rule this preserves: batch size is the correct lever because it is semantically neutral — capping `max_seq_length` would fix the memory by making training truncate where inference does not, i.e. by reintroducing the exact train/inference mismatch B1 exists to remove |
+| 2026-07-27 | **new** `scripts/classifier/pipeline/hard_probes.py` | — | 104 hand-authored adversarial probes. Deliberately a **script that emits JSONL** rather than a data file: `data/labeled/` is gitignored, so probes written as data would be untracked, and an eval set that is not version-controlled is not an eval set. Each probe carries the boundary it tests and what a failure would prove |
+| 2026-07-27 | **new** `scripts/classifier/pipeline/{eval_probes,score_hard_probes,sweep_threshold}.py` | — | the two independent gates + the threshold fitter. `score_hard_probes.py` prints every miss with the model's probabilities, because a pass rate alone repeats the mistake the diagnosis exists to correct |
+| 2026-07-27 | `compute_pos_weights` cap parameterised | default `20.0` → `3.0`, exposed as `train.py --pos-weight-cap` | the cap was a hardcoded literal doing calibration work; it is now swept and recorded in the checkpoint (see PROVENANCE) |
+| 2026-07-27 | `evaluate.py` shared-subset width de-hardcoded | `[:11]` → `SHARED_INTENTS = len(load_v1_schema().labels(INTENT))` | the §3 grep-gate's last real hit; the v1 intent width is data, not a literal |
+| 2026-07-27 | test width constants updated | `tests/test_classifier_v2.py` (28→27, intent 13→12), `tests/test_memory_decision.py` (`[0.0]*24` → `[0.0]*CTX0` read from the schema) | `Codebase_Query`'s drop moved the context head's offset 24→23. The memory-decision test now reads the offset from the schema instead of hardcoding it — a literal there silently mis-slices into the intent head rather than failing loudly |

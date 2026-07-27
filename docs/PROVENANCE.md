@@ -197,3 +197,107 @@ Conversation-grouped split so turns of one conversation cannot straddle train an
 test. Hand-authored rows are **exempt from the standalone down-sampling** — the
 first build discarded 32 of them to hit the context ratio, which throws away the
 only examples of the censored classes.
+
+### Training run 1 (2026-07-26) — miscalibrated, superseded
+
+Cap 20, threshold 0.3. Recall 0.87–0.97 with precision 0.04–0.81 on **all 28
+labels** — a model that fires nearly everything. Kept in the record because the
+shape of that failure is the diagnosis: at ~1% prevalence the neg/pos ratio
+saturates a cap of 20, so a miss costs 20× a false alarm and "always yes" is the
+cheapest policy each head can learn.
+
+### Training run 2 (2026-07-27) — the shipped candidate
+
+`models/classifier/ice_classifier_v4_schema2.pt`. Seed 42, identical splits and
+cached embeddings, so every number below is reproducible by re-running `train.py`.
+
+| | |
+|---|---|
+| architecture | trunk 512→256, heads 11 / **12** / 4 = **27 logits**, 663,324 params |
+| pos-weight cap | **5** (module default 3) |
+| tag_threshold | **0.65**, fitted on val and stamped into the checkpoint |
+| early stop | epoch 55, best val loss 0.9078 |
+| schema change | **`Codebase_Query` dropped** — intent 13 → 12 |
+
+**pos-weight cap sweep** (identical splits/seed; mean macro-F1 on test at
+per-label fitted thresholds): cap 20 → 0.585 · cap 10 → 0.595 · cap 5 → **0.602**
+· cap 3 → 0.595. **The cap was not the root cause.** After fitting thresholds all
+four are within 0.017; the cap mainly moves *where* the optimum sits (0.55–0.65 at
+low caps vs 0.85–0.95 at cap 20). The threshold did the work: 0.526 at the
+inherited 0.3 vs **0.610** fitted — a bigger gain than any architectural change in
+B1. Per-label thresholds were measured and **rejected**: 0.610 vs 0.609 global,
+and the head where they would matter (context_reliance) never passes through
+`_tags_above`.
+
+**Test scores, per-label fitted thresholds** — topic 0.654 macro / 0.798 weighted ·
+intent 0.521 / 0.622 · context_reliance 0.654 / 0.708. Key labels: Needs_Memory
+**0.794** · Needs_Live_Info 0.685 · High_Complexity 0.572 · Temporal_Recall 0.567 ·
+Code_Change 0.481.
+
+**Gate 1 — D5 non-regression** vs the live v1 checkpoint, each model at its own
+threshold: topic +0.193, intent +0.227, context_reliance +0.169, overall
+0.453 → 0.649. **PASS** (a floor, not proof — the baseline is graded on a v2 rubric).
+
+**Gate 2 — 207 independent probes + a 3,774-row false-fire control.** Retrieval
+fires on real memory prompts **0.705 → 0.831**; false fires on no-memory rows
+**0.238 → 0.118**; separation +0.467 → **+0.713**.
+
+**Gate 3 — 104 hand-authored adversarial probes** (`hard_probes.py`, authored this
+session, never trained on). Full 3-head exact match 53/104. On the decision that
+matters — does retrieval fire — **accuracy 84%, precision 0.83, recall 0.82**
+against the live v1's 78% / 0.73 / 0.84: false alarms nearly halved (15 → 8) for
+one extra miss. The context-twin check confirms B1's central claim works: the same
+sentence scores p_mem 0.74 without context and 0.22 with it (also 0.88→0.75,
+0.64→0.40 — correct direction every time), which v1's 3-way softmax was
+structurally incapable of.
+
+### The label ceiling — the run's most important measurement
+
+Per-label inter-labeler agreement (A vs B, positive-class F1) placed beside the
+trained model's per-label F1: **correlation 0.90, mean gap −0.01.**
+
+| label | labelers agree | model scores |
+|---|---|---|
+| Codebase_Query | 0.10 | 0.10 |
+| Open_Exploration | 0.26 | 0.37 |
+| High_Complexity | 0.42 | 0.57 |
+| Code_Change | 0.55 | 0.48 |
+| Troubleshooting | 0.71 | 0.69 |
+| Generation | 0.76 | 0.75 |
+| Needs_Memory | 0.79 | 0.79 |
+
+The model has extracted what its supervision contains. **No amount of further
+training, tuning, or fine-tuning on this corpus can move these numbers** — only
+supervision from outside these labelers can. Record this before anyone plans
+another retrain.
+
+Two supporting measurements. (a) **Intent disagreements are 90–100%
+one-directional**, not mutual — A said `Factual_Retrieval` where B said
+`Open_Exploration` 1,030 times vs 8 the other way; B uses `Open_Exploration` 4.1×
+and `Ideation` 2.4× more than A. That is labeler calibration, *not* label overlap,
+so merging confused labels would delete real distinctions to hide one model's
+bias. (b) A **22-row random audit**, all heads judged by hand: context_reliance
+~5% wrong, topic ~10–15%, intent ~25–30%, with over-tagging the dominant error and
+almost all of it on rows where all three labelers split (8.4% of the corpus, left
+on the union rule by user decision).
+
+### Codebase_Query — dropped, and how to bring it back
+
+219 training positives (above §4's <150 floor) but test F1 **0.10**, precision
+0.16, recall 0.08. Not a scarcity failure: labeler A tagged 452 rows, B tagged
+221, and they **overlapped on 33**. The head reproduced its supervision exactly.
+The corpus is website chat with no repository access, so the class barely occurs.
+The annotations remain in the data and `dataset.py` ignores schema-absent tags, so
+re-adding the schema entry and retraining restores it **with no relabeling** —
+worth doing only once E7's MCP surface produces real navigation traffic. Roadmap
+**E12** owns the decision; `label_schema.json`'s `dropped_labels` block carries the
+definition and rationale.
+
+### Live configuration changed this session
+
+`temporal_label_threshold` **0.6 → 0.85** (`src/api/config.py`). `Temporal_Recall`
+fires as a shadow of `Needs_Memory` (79% co-occurrence in training positives; mean
+p_temporal 0.87 on hand-authored memory prompts with no temporal content), and it
+is OR'd with T2's deterministic detector, so a low threshold makes the parser
+redundant and biases toward always-retrieve. Z1-prep owns the final value and must
+sweep it against the **independent** probe sets, never the held-out split.
