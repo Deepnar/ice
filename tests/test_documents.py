@@ -497,6 +497,29 @@ try:
     check("build_sections respects block boundaries",
           len(ingest.build_sections(parsers.parse_file(md_path))) >= 2)
 
+    # ══ Check 17: a document that ingested NOTHING says so ═══════════════
+    print("── check 17: no silent failure ──")
+    # Found by driving the REST adapter by hand: every section failing left the
+    # document status='ready' with n_sections=0 — indistinguishable from a
+    # document that genuinely held nothing.
+    broken = os.path.join(tmpdir, "broken.md")
+    with open(broken, "w") as fh:
+        fh.write("# Broken\n\nthis document's sections will all fail to store.\n")
+    real_store = ingest._store_section
+    ingest._store_section = lambda *a, **k: (_ for _ in ()).throw(
+        RuntimeError("planted section failure"))
+    try:
+        res_broken = documents_svc.add_document(
+            db, conversation_id=str(conv_a.id), path=broken, classifier=None,
+            embedder=_emb_mod._embedder, llm=stub_summary_llm,
+            kind_llm=lambda p, s: "DOCUMENT")
+    finally:
+        ingest._store_section = real_store
+    check("a document whose every section failed is 'failed', not 'ready'",
+          res_broken["status"] == "failed")
+    check("...and the error names what happened",
+          "every section failed" in (res_broken.get("error") or ""))
+
 finally:
     db.rollback()
     # FK order (trap 6): links → chunks → turns → procedural/clusters →
@@ -504,7 +527,7 @@ finally:
     # on commit and leaves rows behind in a store that is supposed to be empty.
     doc_convs = [d.conversation_id for d in db.query(Document).all()
                  if d.filename in ("spec.md", "private_notes.md",
-                                   "metrics.csv")]
+                                   "metrics.csv", "broken.md")]
     convs = [c for c in (conv_a, conv_b, conv_incog) if c is not None]
     conv_ids = [c.id for c in convs] + doc_convs
     turn_ids = [t.id for t in db.query(EpisodicMemory).filter(

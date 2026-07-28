@@ -291,8 +291,28 @@ def _run_ingest(db, doc, parse, *, runtime, classifier, embedder, llm,
                      error=str(exc))
         raise
     doc = db.get(Document, doc.id)
-    doc.n_sections = report["sections"]
-    doc.status = "ready" if report["complete"] else "ingesting"
+    doc.n_sections = report["stored"]
+    if not report["complete"]:
+        doc.status = "ingesting"          # a slice ended; the job re-enqueues
+    elif report["stored"] == 0:
+        # "no silent failure": a document whose every section failed used to be
+        # reported READY with n_sections = 0 — indistinguishable, to anything
+        # downstream or to the user, from a document that genuinely held
+        # nothing. It is a failure and it says so.
+        doc.status = "failed"
+        doc.error = (f"every section failed to ingest "
+                     f"({report['failed']} of {report['failed']})")
+        logger.error("document_ingest_empty", document=str(doc.id),
+                     failed=report["failed"])
+    else:
+        doc.status = "ready"
+        if report["failed"]:
+            # Partial success is still success, but it must be visible.
+            doc.error = (f"{report['failed']} of "
+                         f"{report['failed'] + report['stored']} sections "
+                         "failed to ingest")
+            logger.warning("document_ingest_partial", document=str(doc.id),
+                           stored=report["stored"], failed=report["failed"])
     doc.updated_at = datetime.now(timezone.utc)
     db.commit()
     return report
