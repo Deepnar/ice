@@ -247,20 +247,26 @@ def _cmd_search(db, conv, args: str, body: str, scope: Optional[dict]):
 
 def _cmd_scope(db, conv, args: str):
     mode = args.split()[0].lower() if args else ""
-    if mode not in ("auto", "project", "none"):
-        raise ValidationError("usage: /scope auto|project|none")
-    # Pass current cluster/filter state through — set_scope overwrites them,
-    # and a bare /scope must not wipe cluster assignments (spec rev 13).
-    scoping_svc.set_scope(
-        db, str(conv.id), mode,
-        cluster_ids=[str(c) for c in (conv.cluster_ids or [])],
-        custom_filter=conv.custom_filter, project=None)
+    if mode not in scoping_svc.VALID_SCOPE_TYPES:
+        raise ValidationError(
+            "usage: /scope " + "|".join(scoping_svc.VALID_SCOPE_TYPES))
+    # C6: no cluster/filter passthrough any more — every id-set parameter is
+    # None = leave unchanged, so a bare /scope changes the mode and nothing
+    # else. (It used to overwrite on None, which is why this had to re-send
+    # the current value just to avoid destroying it — spec rev 13.)
+    scoping_svc.set_scope(db, str(conv.id), mode, project=None)
+    picked = len(conv.included_conversation_ids or [])
     detail = {
         "none": "incognito — this conversation stores privately and reads "
                 "only itself",
         "auto": "auto — global memory, private turns excluded",
         "project": "project — this conversation's own scope"
                    " (+ its clusters)",
+        "manual": (f"manual — reads only this conversation and the {picked} "
+                   f"you picked; your choice overrides ICE's automatic one"
+                   if picked else
+                   "manual — reads only this conversation; pick others to "
+                   "widen it (sidebar, or ice_control scope_set)"),
     }[mode]
     return f"Memory scope set: **{detail}**.", "applied"
 

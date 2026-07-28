@@ -575,7 +575,8 @@ try:
     # the deleted ORM instance itself would raise ObjectDeletedError.
     import types
     conv_C_shim = types.SimpleNamespace(id=conv_C_id, project_id=None,
-                                        cluster_ids=None, custom_filter=None)
+                                        cluster_ids=None,
+                                        included_conversation_ids=None)
     r = try_handle(db, None, conv_C_shim, "/delete-conversation confirm", {})
     check("double confirm is an idempotent refusal",
           "Nothing pending" in r["text"])

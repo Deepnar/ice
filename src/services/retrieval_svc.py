@@ -110,21 +110,22 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
     if ts_dict:
         scope["timescope"] = ts_dict
 
-    # E1 (D11) parity with the chat path: a conversation attached to a
-    # project pulls project scope (code-graph allowance + the project's
-    # conversations) — without this, ice_context under a coding conversation
-    # would retrieve as if unattached.
+    # C6: full parity with the chat path — the same resolver builds the scope
+    # from the conversation row. This block used to reproduce the project arm
+    # only, so an ice_context pull inside an incognito conversation missed the
+    # isolated/incognito flags and ran the RAG + procedural legs against
+    # global memory; a manual conversation retrieved as if it were auto.
     if scope.get("conversation_id") and not scope.get("project_id"):
         from src.memory.models import Conversation
+        from src.services.scoping import resolve_retrieval_scope
         conv_row = db.query(Conversation).filter_by(
             id=uuid.UUID(str(scope["conversation_id"]))).first()
-        if conv_row is not None and conv_row.project_id is not None \
-                and conv_row.memory_scope_type != "none":
-            scope["project_id"] = str(conv_row.project_id)
-            proj_convs = db.query(Conversation.id).filter(
-                Conversation.project_id == conv_row.project_id,
-                Conversation.memory_scope_type != "none").all()
-            scope["conversation_ids"] = [str(c.id) for c in proj_convs]
+        if conv_row is not None:
+            resolved = resolve_retrieval_scope(db, conv_row)
+            # Caller-supplied keys (e.g. an explicit timescope) win; the
+            # resolver fills in everything the conversation row implies.
+            for key, value in resolved.items():
+                scope.setdefault(key, value)
 
     # E11: a project-scoped pull freshens that project's working tree first,
     # so retrieved code pointers match the tree being edited right now.

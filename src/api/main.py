@@ -41,6 +41,7 @@ from src.model_registry.registry import (
 )
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.retrieval.timescope import detect_timescope, to_scope_dict
+from src.services.scoping import resolve_retrieval_scope
 
 logger = structlog.get_logger("ice.api")
 classifier: Optional[PyTorchClassifier] = None
@@ -253,39 +254,13 @@ async def chat_completions(
         conversation_id = conversation.id
 
     # ── Scope from conversation metadata ──
-    scope = {}
+    # C6: built by the shared resolver (services/scoping.py), which the MCP
+    # pull path uses too — this block and retrieval_svc's copy had already
+    # drifted apart. Modes, precedence and the exclusion sets are documented
+    # there; "auto" resolves to an empty dict → retrieval searches globally,
+    # private turns excluded by the legs' is_private = FALSE invariant.
     conv_row = db.query(Conversation).filter_by(id=conversation_id).first()
-    if conv_row and conv_row.memory_scope_type == "none":
-        # G16 incognito ("store private + read nothing"): episodic legs search
-        # only this conversation; codex resolves an empty scope set (A5
-        # `isolated`); rag/procedural legs are skipped by the orchestrator; the
-        # turn is stored is_private so no other scope ever retrieves it and the
-        # derivative pipelines (codex/procedural/clustering/summaries) skip it.
-        # Incognito wins over any project attachment (scoping refuses to
-        # attach 'none' conversations, but the order here is the backstop).
-        scope["conversation_id"] = str(conversation_id)
-        scope["isolated"] = True
-        scope["incognito"] = True
-    elif conv_row and conv_row.project_id:
-        # E1 (D11): coding scope — the project's conversations' batch-set ∪
-        # its code-graph allowance (resolved downstream by _conv_scope_filter
-        # / _codex_scope_sets from these two keys). Attachment supersedes the
-        # single-conversation 'project' scope type: it is the more explicit
-        # act, and the project's own conversations are exactly its context.
-        scope["project_id"] = str(conv_row.project_id)
-        proj_convs = db.query(Conversation.id).filter(
-            Conversation.project_id == conv_row.project_id,
-            Conversation.memory_scope_type != "none",
-        ).all()
-        scope["conversation_ids"] = [str(c.id) for c in proj_convs]
-        if conv_row.cluster_ids:
-            scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
-    elif conv_row and conv_row.memory_scope_type == "project":
-        scope["conversation_id"] = str(conversation_id)
-        if conv_row.cluster_ids:
-            scope["cluster_ids"] = [str(cid) for cid in conv_row.cluster_ids]
-    # For "auto", scope stays empty → retrieval searches globally (private
-    # turns excluded by the legs' is_private = FALSE visibility invariant)
+    scope = resolve_retrieval_scope(db, conv_row)
     is_private_conversation = bool(conv_row and conv_row.memory_scope_type == "none")
 
     # C11: deterministic slash commands — parsed AFTER conversation/scope

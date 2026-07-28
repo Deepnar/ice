@@ -44,11 +44,14 @@ class LabelOverride(BaseModel):
     context_reliance: str
 
 class ScopeUpdate(BaseModel):
-    memory_scope_type: str
+    memory_scope_type: str          # none | auto | project | manual
     cluster_ids: Optional[List[str]] = None
-    custom_filter: Optional[str] = None
     # E1 (D11): slug/name/id attaches to a project; "" detaches; None = leave.
     project: Optional[str] = None
+    # C6: every id set is None = leave unchanged, [] = clear.
+    included_conversation_ids: Optional[List[str]] = None
+    excluded_conversation_ids: Optional[List[str]] = None
+    excluded_cluster_ids: Optional[List[str]] = None
 
 
 class CommitNotice(BaseModel):
@@ -113,9 +116,12 @@ def delete_conversation(conv_id: str, dry_run: bool = False,
 @router.put("/conversations/{conv_id}/scope")
 def set_conversation_scope(conv_id: str, scope: ScopeUpdate, db: Session = Depends(get_db)):
     with service_errors():
-        return scoping_svc.set_scope(db, conv_id, scope.memory_scope_type,
-                                     scope.cluster_ids, scope.custom_filter,
-                                     project=scope.project)
+        return scoping_svc.set_scope(
+            db, conv_id, scope.memory_scope_type, scope.cluster_ids,
+            project=scope.project,
+            included_conversation_ids=scope.included_conversation_ids,
+            excluded_conversation_ids=scope.excluded_conversation_ids,
+            excluded_cluster_ids=scope.excluded_cluster_ids)
 
 
 # ------------------------------------------------------------------

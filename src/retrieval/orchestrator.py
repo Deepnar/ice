@@ -187,6 +187,10 @@ class HybridRetrievalOrchestrator:
         # source-visibility for derived code/fact entities keys off this,
         # same instance-attr pattern as _active_timescope.
         self._scope_project_id = None
+        # C6: the request's exclusion deny sets (same pattern). Empty means
+        # "nothing excluded", which is the default and the common case.
+        self._denied_batch_ids = set()
+        self._denied_entity_ids = set()
 
         # Load micro‑NER model (fallback to None if not available)
     def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=10, scope=None):
@@ -425,6 +429,8 @@ class HybridRetrievalOrchestrator:
         self._active_timescope = self._resolve_timescope(scope)
         # E1b (D3): attached project — gates derived-entity visibility.
         self._scope_project_id = self._resolve_project_scope(scope)
+        # C6: the exclusion deny sets, resolved once for every leg below.
+        self._resolve_exclusion_sets(scope)
         self._cold_hits = {}
         if classification.context_reliance == "Zero_Shot":
             return []
@@ -454,9 +460,18 @@ class HybridRetrievalOrchestrator:
         # ── Cluster‑scoped retrieval: find the most relevant clusters
         #     and add them to the scope so the episodic legs only search
         #     those clusters.  Falls back gracefully if no clusters exist.
-        cluster_ids = self._relevant_cluster_ids(prompt_embedding, classification=classification, conversation_id=conv_id, top_k=10, scope=scope)
-        if cluster_ids and scope is not None:
-            scope["cluster_ids"] = cluster_ids
+        # C6: an EXPLICIT cluster choice is not a suggestion. This used to
+        # overwrite scope["cluster_ids"] unconditionally, so a hand-picked set
+        # only survived when the automatic picker happened to return nothing
+        # (best combined score < 0.50) — the user's pick was, in effect, a
+        # fallback for the machine's. The user's choice now wins outright.
+        if scope and scope.get("cluster_ids_explicit"):
+            logger.debug("cluster_scope_explicit_kept",
+                         clusters=len(scope.get("cluster_ids") or []))
+        else:
+            cluster_ids = self._relevant_cluster_ids(prompt_embedding, classification=classification, conversation_id=conv_id, top_k=10, scope=scope)
+            if cluster_ids and scope is not None:
+                scope["cluster_ids"] = cluster_ids
 
         # HyDE query rewriting
         # hyde_prompt = None
@@ -682,14 +697,47 @@ class HybridRetrievalOrchestrator:
         conversation (today's behavior, byte-identical) or a conversation-id
         list (project scope resolves to the project's conversations). Returns
         (sql_snippet, params, scoped) — *scoped* drives the privacy filter
-        (explicit scoping is the only door to private turns, G16)."""
+        (explicit scoping is the only door to private turns, G16).
+
+        C6: the list is tested for PRESENCE, not truthiness. An exclusion set
+        can empty a closed conversation set, and an empty set must match
+        nothing — `= ANY('{}')` is false, which is exactly right. Under the
+        old truthiness test an emptied list fell through to "no filter at
+        all", i.e. a scoped query silently going global."""
         conv_ids = scope.get("conversation_ids") if scope else None
-        if conv_ids:
+        if conv_ids is not None:
             return (f"AND {column} = ANY(:conv_ids)",
                     {"conv_ids": [str(c) for c in conv_ids]}, True)
         if conv_id:
             return f"AND {column} = :conv_id", {"conv_id": conv_id}, True
         return "", {}, False
+
+    def _exclusion_filters(self, scope, conv_column="conversation_id",
+                           id_column="episodic_memory.id"):
+        """C6: the negated scope — "keep this memory, stop retrieving it".
+
+        The middle ground that never existed between C6's add-to-scope and
+        C10's delete-forever: an abandoned project you may come back to should
+        stop surfacing without being destroyed. Honored in EVERY scope mode
+        (user decision 2026-07-28), so an exclusion has no hidden precondition.
+
+        *id_column* None skips the cluster arm — cold_storage rows carry no
+        episodic_cluster_links. Returns (sql_snippet, params)."""
+        sql, params = "", {}
+        if not scope:
+            return sql, params
+        excluded_convs = scope.get("exclude_conversation_ids")
+        if excluded_convs:
+            sql += f"\n              AND {conv_column} <> ALL(:excl_conv_ids)"
+            params["excl_conv_ids"] = [str(c) for c in excluded_convs]
+        excluded_clusters = scope.get("exclude_cluster_ids")
+        if excluded_clusters and id_column:
+            sql += (f"\n              AND NOT EXISTS ("
+                    f"SELECT 1 FROM episodic_cluster_links xl "
+                    f"WHERE xl.episodic_id = {id_column} "
+                    f"AND xl.cluster_id = ANY(:excl_cluster_ids))")
+            params["excl_cluster_ids"] = [str(c) for c in excluded_clusters]
+        return sql, params
 
     def _timescope_leg_filters(self, prefix=""):
         """T3: param-driven filter snippets for the episodic legs — one query
@@ -805,6 +853,8 @@ class HybridRetrievalOrchestrator:
         topic_filter = ""
         # D11: single conversation OR the project's conversation list.
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
+        # C6: and the negated scope — excluded conversations/clusters.
+        excl_filter, excl_params = self._exclusion_filters(scope)
         # G16 visibility invariant: global search never sees private (incognito)
         # turns; explicit conversation scoping is the only door to them.
         privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
@@ -843,6 +893,7 @@ class HybridRetrievalOrchestrator:
             WHERE to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')) @@ query
               {topic_filter}
               {conv_filter}
+              {excl_filter}
               {privacy_filter}
               {cluster_filter}
               {time_filter}
@@ -857,6 +908,7 @@ class HybridRetrievalOrchestrator:
             "min_decay": min_decay,
             **ts_params,
             **conv_params,
+            **excl_params,
         }
         if scope and scope.get("cluster_ids"):
             params["cluster_ids"] = scope["cluster_ids"]
@@ -879,6 +931,7 @@ class HybridRetrievalOrchestrator:
                     WHERE to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, ''))
                           @@ plainto_tsquery('english', :prompt_text)
                       {conv_filter}
+                      {excl_filter}
                       {privacy_filter}
                       {cluster_filter}
                       {time_filter}
@@ -888,7 +941,7 @@ class HybridRetrievalOrchestrator:
                     LIMIT 100
                 """)
                 p = {"prompt_text": prompt_text, "min_decay": min_decay,
-                     **ts_params, **conv_params}
+                     **ts_params, **conv_params, **excl_params}
                 if scope and scope.get("cluster_ids"):
                     p["cluster_ids"] = scope["cluster_ids"]
                 rows = self.db.execute(query2, p).fetchall()
@@ -903,6 +956,8 @@ class HybridRetrievalOrchestrator:
         topic_filter = ""
         # D11: single conversation OR the project's conversation list.
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
+        # C6: and the negated scope — excluded conversations/clusters.
+        excl_filter, excl_params = self._exclusion_filters(scope)
         # G16 visibility invariant: global search never sees private (incognito)
         # turns; explicit conversation scoping is the only door to them.
         privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
@@ -942,6 +997,7 @@ class HybridRetrievalOrchestrator:
             AND is_document = false
             {topic_filter}
             {conv_filter}
+            {excl_filter}
             {privacy_filter}
             {cluster_filter}
             {time_filter}
@@ -963,7 +1019,7 @@ class HybridRetrievalOrchestrator:
                   "recency_boost": rec_boost, "recency_tau": rec_tau,
                   "ts_center": ts_center,
                   "cand_limit": 300 if ts.mode == "evolution" else 100,
-                  **ts_params, **conv_params}
+                  **ts_params, **conv_params, **excl_params}
         if scope and scope.get("cluster_ids"):
             params["cluster_ids"] = scope["cluster_ids"]
 
@@ -1012,6 +1068,9 @@ class HybridRetrievalOrchestrator:
         strengthening/decay land on the turn. Max 3 chunks per document."""
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(
             scope, conv_id, column="e.conversation_id")
+        # C6: exclusions ride the parent turn like every other visibility rule.
+        excl_filter, excl_params = self._exclusion_filters(
+            scope, conv_column="e.conversation_id", id_column="e.id")
         privacy_filter = "" if conv_scoped else "AND e.is_private = FALSE"
         # T3: visibility rides the parent turn — window on e.timestamp,
         # archived/decay-floor on the parent's flags.
@@ -1044,6 +1103,7 @@ class HybridRetrievalOrchestrator:
               {archived_filter}
               {time_filter}
               {conv_filter}
+              {excl_filter}
               {privacy_filter}
               {cluster_filter}
             ORDER BY score DESC
@@ -1051,7 +1111,8 @@ class HybridRetrievalOrchestrator:
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
         params = {"prompt_embedding": prompt_embedding, "min_decay": min_decay,
                   "recency_boost": recency_boost, "recency_tau": rec_tau,
-                  "ts_center": ts_center, **ts_params, **conv_params}
+                  "ts_center": ts_center, **ts_params, **conv_params,
+                  **excl_params}
         if scope and scope.get("cluster_ids"):
             params["cluster_ids"] = scope["cluster_ids"]
         try:
@@ -1268,10 +1329,55 @@ class HybridRetrievalOrchestrator:
                     {"pid": pid}).fetchall()
                 entity_ids |= {row.id for row in derived}
                 batch_ids.add(code_graph_batch_id(pid))
+            if self._denied_batch_ids:
+                batch_ids -= self._denied_batch_ids
+                entity_ids -= self._denied_entity_ids
             return entity_ids, batch_ids
         except Exception:
             self.db.rollback()
             return None, None
+
+    def _resolve_exclusion_sets(self, scope: Optional[dict]) -> None:
+        """C6: compute the codex/procedural DENY sets once per request.
+
+        An allowed-set cannot express exclusion under `auto`, where the graph
+        is deliberately unscoped (allowed = None = everything): "everything
+        except X" has no allow-list form short of enumerating the store. So
+        exclusion is carried as its own deny set and subtracted at each
+        admission point, which also keeps the `auto` case — the common one —
+        working without a scope.
+
+        An ENTITY is denied only when every codex_event that evidences it
+        comes from an excluded conversation. One first extracted in the
+        abandoned project but discussed in five live ones is not that
+        project's property, and must survive."""
+        self._denied_batch_ids = set()
+        self._denied_entity_ids = set()
+        excluded = (scope or {}).get("exclude_conversation_ids")
+        if not excluded:
+            return
+        try:
+            rows = self.db.execute(
+                text("SELECT DISTINCT batch_id FROM episodic_memory "
+                     "WHERE conversation_id = ANY(:cids)"),
+                {"cids": [str(c) for c in excluded]}).fetchall()
+            self._denied_batch_ids = {r.batch_id for r in rows if r.batch_id}
+            if not self._denied_batch_ids:
+                return
+            rows = self.db.execute(
+                # NULL batch_source counts as evidence from OUTSIDE the
+                # excluded set: unproven provenance keeps an entity visible
+                # rather than hiding memory the user never excluded.
+                text("SELECT entity_id FROM codex_events "
+                     "GROUP BY entity_id "
+                     "HAVING bool_and(batch_source IS NOT NULL "
+                     "                AND batch_source = ANY(:bids))"),
+                {"bids": list(self._denied_batch_ids)}).fetchall()
+            self._denied_entity_ids = {r.entity_id for r in rows}
+        except Exception:
+            self.db.rollback()
+            self._denied_batch_ids = set()
+            self._denied_entity_ids = set()
 
     def _match_entities_exact(self, entity_strings: List[str]) -> List:
         """Entity resolution by exact canonical name / alias only (no vectors).
@@ -1353,6 +1459,8 @@ class HybridRetrievalOrchestrator:
         )
         if allowed_batch_ids is not None:
             q = q.filter(CodexEdge.source_batch.in_(allowed_batch_ids))
+        if self._denied_batch_ids:   # C6 exclusion
+            q = q.filter(CodexEdge.source_batch.notin_(self._denied_batch_ids))
         lines, fact_edges = [], []
         for edge in q.order_by(CodexEdge.strength.desc()).limit(10).all():
             if self._edge_trust(edge) < self.CODEX_DIRECT_TRUST_FLOOR:
@@ -1389,6 +1497,8 @@ class HybridRetrievalOrchestrator:
                 for ent in q.limit(self.ENUM_ENTITY_LIMIT).all():
                     if allowed_entity_ids is not None and ent.id not in allowed_entity_ids:
                         continue
+                    if ent.id in self._denied_entity_ids:   # C6 exclusion
+                        continue
                     if ent.id not in seen_entities and ent.context_payload:
                         seen_entities.add(ent.id)
                         t = f"[Entity: {ent.canonical_name}]\n{ent.context_payload}"
@@ -1403,6 +1513,8 @@ class HybridRetrievalOrchestrator:
                     CodexEdge.relation.in_(relations))
                 if allowed_batch_ids is not None:
                     q = q.filter(CodexEdge.source_batch.in_(allowed_batch_ids))
+                if self._denied_batch_ids:   # C6 exclusion
+                    q = q.filter(CodexEdge.source_batch.notin_(self._denied_batch_ids))
                 for edge in q.order_by(CodexEdge.strength.desc()).limit(self.ENUM_EDGE_LIMIT).all():
                     if self._edge_trust(edge) < self.CODEX_DIRECT_TRUST_FLOOR:
                         continue
@@ -1492,6 +1604,8 @@ class HybridRetrievalOrchestrator:
                             else settings.timeline_max_fragments)
             for anchor in matched:
                 if allowed_entity_ids is not None and anchor.id not in allowed_entity_ids:
+                    continue
+                if anchor.id in self._denied_entity_ids:   # C6 exclusion
                     continue
                 local_texts, direct_edges = [], []
                 self._traverse_graph(anchor, 0, self.CODEX_MAX_DEPTH, set(),
@@ -1632,6 +1746,11 @@ class HybridRetrievalOrchestrator:
         if allowed_batch_ids is not None:
             out_edges = [e for e in out_edges if e.source_batch in allowed_batch_ids]
             in_edges = [e for e in in_edges if e.source_batch in allowed_batch_ids]
+        # C6: and the negated scope — an excluded conversation's edges never
+        # traverse, in any mode (the allowed set is None under `auto`).
+        if self._denied_batch_ids:
+            out_edges = [e for e in out_edges if e.source_batch not in self._denied_batch_ids]
+            in_edges = [e for e in in_edges if e.source_batch not in self._denied_batch_ids]
 
         self._render_codex_entity(entity, depth, out_edges, in_edges,
                                   allowed_batch_ids, context_texts)
@@ -1658,6 +1777,8 @@ class HybridRetrievalOrchestrator:
                 continue
             # A5: traversal never leaves the conversation's entity set under scope.
             if allowed_entity_ids is not None and other_id not in allowed_entity_ids:
+                continue
+            if other_id in self._denied_entity_ids:   # C6 exclusion
                 continue
             # A10/A7.2: don't absorb another matched anchor as a neighbor — it has
             # its own fragment.
@@ -1711,17 +1832,23 @@ class HybridRetrievalOrchestrator:
         # ever *felt* procedural memory. Precision comes from the three
         # signals that remain: embedding rank (LIMIT 5), the confidence floor
         # in the SQL, and _procedural_trigger_match.
-        allowed_batch_ids = None
-        if scope and "conversation_id" in scope:
-            conv_id = scope["conversation_id"]
-            try:
-                batch_rows = self.db.execute(
-                    text("SELECT DISTINCT batch_id FROM episodic_memory WHERE conversation_id = :cid"),
-                    {"cid": conv_id}
-                ).fetchall()
-                allowed_batch_ids = [row.batch_id for row in batch_rows]
-            except Exception:
-                self.db.rollback()
+        # G29 (4th leak site) / C6: this hand-rolled copy read
+        # scope["conversation_id"] ONLY, so under project or manual scope —
+        # where the ids live in scope["conversation_ids"] and there is no
+        # single conversation_id — it resolved no batch set at all and the leg
+        # ran against every pattern in the store. It never matched the grep
+        # that found the other three sites because it resolves a batch set
+        # instead of emitting SQL. Now the shared A5 resolver, which handles
+        # all four scope forms (batch_ids / conversation_ids / conversation_id
+        # / isolated) plus the project code-graph allowance.
+        # C6: patterns supported ONLY by excluded conversations drop out.
+        # Partial overlap does not — a habit seen in ten conversations is
+        # still evidenced by the nine you did not exclude. Resolved here too
+        # because this leg is also a direct entry point (tests, direct calls);
+        # idempotent and query-free when reached via retrieve().
+        self._resolve_exclusion_sets(scope)
+        _, allowed_batch_ids = self._codex_scope_sets(scope)
+        excluded_batch_ids = self._denied_batch_ids
 
         # T3: under a window, a pattern is relevant only if its observation
         # span overlaps it (a habit first seen after the window didn't exist
@@ -1765,6 +1892,10 @@ class HybridRetrievalOrchestrator:
                 if allowed_batch_ids is not None and not in_project:
                     if not any(bid in allowed_batch_ids for bid in (pattern.source_batch_ids or [])):
                         continue
+                source_batches = pattern.source_batch_ids or []
+                if (excluded_batch_ids and source_batches
+                        and all(bid in excluded_batch_ids for bid in source_batches)):
+                    continue
                 if not self._procedural_trigger_match(pattern, classification):
                     continue
                 fragments.append(ContextFragment(
@@ -1920,6 +2051,8 @@ class HybridRetrievalOrchestrator:
         pats = [f"%{t}%" for t in terms]
 
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
+        # C6: cold rows carry no cluster links — conversation exclusion only.
+        excl_filter, excl_params = self._exclusion_filters(scope, id_column=None)
         privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
         query = text(f"""
             SELECT id, conversation_id, batch_id, raw_text, summary_text,
@@ -1927,13 +2060,15 @@ class HybridRetrievalOrchestrator:
             FROM cold_storage
             WHERE timestamp >= :t0 AND timestamp < :t1
               {conv_filter}
+              {excl_filter}
               {privacy_filter}
               AND (:no_kw OR raw_text ILIKE ANY(:pats) OR summary_text ILIKE ANY(:pats))
             ORDER BY timestamp DESC
             LIMIT :cold_limit
         """)
         params = {"t0": ts.t0, "t1": t1, "no_kw": not pats, "pats": pats or ["%"],
-                  "cold_limit": settings.timescope_cold_limit, **conv_params}
+                  "cold_limit": settings.timescope_cold_limit, **conv_params,
+                  **excl_params}
         try:
             rows = self.db.execute(query, params).fetchall()
         except Exception as err:
@@ -2030,14 +2165,17 @@ class HybridRetrievalOrchestrator:
                 f"{ts.t0.date()} and {ts.t1.date()}.")
         try:
             conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
+            # C6: an excluded conversation must not be advertised as a
+            # "closest match" either — the note is a read of the same store.
+            excl_filter, excl_params = self._exclusion_filters(scope)
             privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
             probe = text(f"""
                 SELECT timestamp FROM episodic_memory
-                WHERE embedding IS NOT NULL {conv_filter} {privacy_filter}
+                WHERE embedding IS NOT NULL {conv_filter} {excl_filter} {privacy_filter}
                 ORDER BY embedding <=> :emb
                 LIMIT 3
             """).bindparams(bindparam("emb", type_=PgVector))
-            params = {"emb": prompt_embedding, **conv_params}
+            params = {"emb": prompt_embedding, **conv_params, **excl_params}
             eras = sorted({r.timestamp.strftime("%Y-%m")
                            for r in self.db.execute(probe, params).fetchall()
                            if r.timestamp})
@@ -2204,10 +2342,32 @@ class HybridRetrievalOrchestrator:
         # direct calls); idempotent when reached via retrieve().
         self._active_timescope = self._resolve_timescope(scope)
         self._scope_project_id = self._resolve_project_scope(scope)
+        self._resolve_exclusion_sets(scope)
         scope_conv = scope.get("conversation_id") if scope else None
         incognito = bool(scope and scope.get("incognito"))
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, scope_conv)
+        excl_filter, excl_params = self._exclusion_filters(scope)
         privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
+        # G29/C6: the cluster filter was silently absent here while all three
+        # normal episodic legs applied it — so a cluster-scoped conversation
+        # that tripped the wide net widened its VISIBILITY, not just its
+        # ranking, which is exactly what the comment above forbids. Same
+        # predicate as the other legs, unlinked turns still allowed through.
+        cluster_filter = ""
+        if scope and scope.get("cluster_ids"):
+            cluster_filter = """
+                  AND (
+                      EXISTS (
+                          SELECT 1 FROM episodic_cluster_links l
+                          WHERE l.episodic_id = episodic_memory.id
+                            AND l.cluster_id = ANY(:cluster_ids)
+                      )
+                      OR NOT EXISTS (
+                          SELECT 1 FROM episodic_cluster_links l
+                          WHERE l.episodic_id = episodic_memory.id
+                      )
+                  )
+            """
         # T3: same window/archived/floor rules as the normal legs (the wide
         # net widens ranking, not visibility — and not time either).
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
@@ -2222,7 +2382,9 @@ class HybridRetrievalOrchestrator:
                   {time_filter}
                   AND decay_score > :min_decay
                   {conv_filter}
+                  {excl_filter}
                   {privacy_filter}
+                  {cluster_filter}
                 ORDER BY score DESC
                 LIMIT 100
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
@@ -2230,7 +2392,10 @@ class HybridRetrievalOrchestrator:
             ts_center, rec_boost, rec_tau = self._recency_params(creative)
             params = {"prompt_embedding": prompt_embedding, "min_decay": min_decay,
                       "recency_boost": rec_boost, "recency_tau": rec_tau,
-                      "ts_center": ts_center, **ts_params, **conv_params}
+                      "ts_center": ts_center, **ts_params, **conv_params,
+                      **excl_params}
+            if scope and scope.get("cluster_ids"):
+                params["cluster_ids"] = scope["cluster_ids"]
             rows = self.db.execute(query, params).fetchall()
             fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt, classification=classification)
         except Exception:

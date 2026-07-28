@@ -301,7 +301,12 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
                 data: Optional[dict] = None):
     """ICE control plane. action="scope_get"/"scope_set" → a conversation's
     memory scope (scope_set: conversation_id + memory_scope_type auto|project|
-    none [+ cluster_ids, + project slug to attach / "" to detach]);
+    none|manual [+ cluster_ids, + project slug to attach / "" to detach];
+    C6 id sets go in data: "included_conversation_ids" — the extra
+    conversations a *manual* conversation reads (manual means the user's own
+    pick wins over ICE's automatic one); "excluded_conversation_ids" /
+    "excluded_cluster_ids" — never retrieve these, in any mode, without
+    deleting them. Each is None = leave unchanged, [] = clear);
     "review_list"/"review_approve"/"review_reject" → agent proposals;
     "registry_view"/"registry_edit" → the model registry.
     Coding core (E1): "project_register" (data: name, root, install_git_hook
@@ -327,9 +332,12 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
         if action == "scope_get":
             return scoping_svc.get_scope(db, conversation_id)
         if action == "scope_set":
-            return scoping_svc.set_scope(db, conversation_id,
-                                         memory_scope_type, cluster_ids,
-                                         project=project)
+            return scoping_svc.set_scope(
+                db, conversation_id, memory_scope_type, cluster_ids,
+                project=project,
+                included_conversation_ids=d.get("included_conversation_ids"),
+                excluded_conversation_ids=d.get("excluded_conversation_ids"),
+                excluded_cluster_ids=d.get("excluded_cluster_ids"))
         if action == "review_list":
             return review_svc.list_items(db, status)
         if action == "review_approve":

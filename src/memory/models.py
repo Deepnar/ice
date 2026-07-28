@@ -27,9 +27,19 @@ class Conversation(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     created_at = Column(DateTime(timezone=True), default=utcnow)
-    memory_scope_type = Column(Text, nullable=False, default="auto")  # none, auto, project, manual
+    # none | auto | project | manual — the vocabulary is enforced by
+    # services.scoping.VALID_SCOPE_TYPES; an unknown string used to be stored
+    # verbatim and degrade silently to 'auto' (C6).
+    memory_scope_type = Column(Text, nullable=False, default="auto")
     cluster_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
-    custom_filter = Column(Text, nullable=True)
+    # C6: the three id sets scope resolution reads. `included_*` is the
+    # cross-chat set a 'manual' conversation reads (own id implicit); the two
+    # `excluded_*` sets are honored in EVERY mode (user decision 2026-07-28) —
+    # "keep this memory, stop retrieving it", the missing middle between C6's
+    # add-to-scope and C10's delete-forever.
+    included_conversation_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
+    excluded_conversation_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
+    excluded_cluster_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
     # C7 D9 (G8): session-stickiness state, formerly the in-memory
     # SESSION_STATE dict in main.py. The topic-shift overlap check reads the
     # previous turn's tags straight off the latest episodic row — no columns
