@@ -221,3 +221,38 @@ must not be "fixed"**: importing `common` first is what runs the `sys.path.inser
 + `chdir(ROOT)` that every subsequent `src.` import depends on. A note saying so
 now sits in `eval_di3.py`.
 
+
+## 2026-07-28b — G29's two bugs (scope leak + `decision_add`)
+
+**Consolidated (commit `033b5b7`).** Three hand-rolled copies of the episodic
+conversation filter → the shared `_conv_scope_filter`:
+`orchestrator._cold_lookup`, `orchestrator._append_empty_window_note`'s
+nearest-era probe, and `orchestrator._relevant_cluster_ids`. All three gained a
+`scope` parameter; `configurable_orchestrator`'s `_relevant_cluster_ids`
+override was widened to match (it shadows the base signature positionally, so
+a new parameter there is not optional). Nothing deleted.
+
+**Extracted.** `decision_extractor.run_decision_extraction`'s inline
+dedupe/supersession block → `decision_extractor.reconcile_and_insert`, now the
+single path that writes a `decisions` row. `services.projects.decision_add`
+stopped calling `_insert` directly and calls it instead — the behavior its
+docstring had been claiming since E8. Its `from src.api.config import settings`
+moved with the block it serves.
+
+**Behavior change worth knowing.** `decision_add` (and therefore the MCP
+`decisions_add` action) no longer returns `{"status": "ok"}`; it returns E8's
+own vocabulary — `recorded` / `duplicate` / `superseded` / `conflict_queued`.
+No documented consumer depended on `"ok"` (grep: the MCP handler returns the
+dict verbatim, no test asserted on it).
+
+**Stale things fixed in passing.** `ICE_Architecture.md` §6.6 still described
+`_relevant_cluster_ids` as scoring `sim + 0.3 × tag_overlap + 0.15 × name_sim`
+and returning a flat top-10 — **C5 deleted the `name_sim` term** (it re-embedded
+each cluster's name + description on the synchronous hot path, up to 30 forward
+passes for a signal the centroid already carries) **and replaced the flat cut
+with the adaptive 80 %-of-best band**. Section rewritten to the shipped code.
+
+**Boy-scout.** Two unused imports dropped from
+`src/retrieval/configurable_orchestrator.py` (`dataclasses.replace`,
+`ClassificationResult`). `ruff --select F` clean on all five touched files. No
+moves, no deletions, no reformatting.

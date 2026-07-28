@@ -324,6 +324,15 @@ compose). **Procedural**: add overlap filter when scoped:
 New method `_cold_lookup(prompt_keywords)` — called from `retrieve()` (and NOT from
 the wide net) only when `ts.mode in ("as_of","range","evolution") and ts.t0`:
 
+> **[rev 2026-07-28 — G29]** Shipped signature is `_cold_lookup(prompt_keywords,
+> conv_id=None, scope=None)`, and the conversation/privacy filter below is NOT
+> hand-rolled from `conv_id`: it comes from the shared `_conv_scope_filter`.
+> The same correction applies to §2.6's honest-emptiness probe. Writing
+> `AND conversation_id = :conv_id if conv_id else ""` — which is what this spec's
+> SQL implies and what was built — silently disables the filter entirely under
+> **project scope**, where `conv_id` is None and the ids live in
+> `scope["conversation_ids"]`. Reproduced and fixed in `033b5b7`.
+
 ```sql
 SELECT id, conversation_id, raw_text, summary_text, topic_tags, timestamp, is_private
 FROM cold_storage
