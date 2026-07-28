@@ -120,6 +120,22 @@
 11. **FINAL** — the experiment redo, strictly last. [FINAL_experiments.md](specs/FINAL_experiments.md)
 12. Post-FINAL: **B3** (only if its gates pass — [B3_routing.md](specs/B3_routing.md)), **F-track** (design conversation from [F_design_brief.md](specs/F_design_brief.md); F2 first), C13/C14 per the Z1 profile ([C13_C14](specs/C13_C14_caching.md)).
 
+### ❓ "The database is empty — is that a problem?" NO. (Standing answer, 2026-07-28 — asked every few sessions)
+
+> The live store holds ~0 rows and **that is the correct state**, not damage to repair.
+> 1. **The old tagged DB could not be used even if we kept it.** C17 moved every vector to 1024, B1
+>    changed the classifier's label schema, and a dozen migrations changed columns since — those rows
+>    are unreadable by this system. It had also decayed. It is archived
+>    (`backups/ice_backup_20260719_115426_paper-era-pre-1024-wipe.tar.gz`, plus Exp2's mature store at
+>    `~/ice_exp2_mature_snapshot.sql`) as a historical record, not as a resource.
+> 2. **A mature store is not kept, it is BUILT.** Exp2 built one by replaying conversations through
+>    the live pipeline with the background workers running synchronously at checkpoints — that is what
+>    "mature memory" means. The filling procedure is the first half of the experiment
+>    (`experiments/mature/run_mature_experiment.py`), and it has to run anyway.
+> 3. **So an empty DB is the right starting line** for Z2 and FINAL both. Nothing is blocked on it and
+>    nothing needs restoring. Also standing: **no project is registered** either (the wipe removed it,
+>    the user declined to re-register) — `scripts/register_project.py` when wanted.
+
 ### 📋 WHAT IS ACTUALLY LEFT (inventory RE-TAKEN 2026-07-28c, after C6)
 
 > Built because the implementation-order list above reads as "B1 → Z1-prep → Z1 → FINAL" and that is
@@ -181,7 +197,8 @@ surfaces owed to other tracks) that it stays after FINAL.
 - **T5** (wire `Temporal_Recall` into Track T) — **explicitly post-Z1 by user decision.** Both halves
   are retrieval thresholds; landing them before Z1 would mean Z1 tuning a system that just moved.
 - **G28** (style invariance) — **runs inside Z1's coverage matrix**, not before it.
-- **Z2** (the read-the-output pass) — **between Z1 and FINAL.** After Z1 because reading an untuned
+- **Z2** (the read-the-output pass, **now also a scaled-down Exp2 re-run** — shape decided 2026-07-28,
+  see the entry; it is deliberately **NOT** a rehearsal of FINAL) — **between Z1 and FINAL.** After Z1 because reading an untuned
   system's output tells you about the tuning; before FINAL because everything it finds is a change
   and FINAL must measure a frozen system.
 
@@ -594,6 +611,65 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   **Shape (deliberately small):** take **one real multi-turn conversation** — the `icedev_stitched` corpus is the obvious candidate (3,473 turns of genuine long-project history, already assembled for B1 and shared with FINAL) — replay it through the live stack, and then **read**: for each of ~20 sampled turns, what was retrieved, what the assembled prompt actually looked like, what the model answered, what got stored, what the extractors made of it. **Judged by eye, not by metric.** Record every "that's wrong" as an issue with the turn that produced it. No scoring, no judge, no cloud.
   **Why it must come after Z1 and before FINAL:** after Z1 because reading the output of an untuned system tells you about the tuning, not the design; before FINAL because everything it finds is a change, and FINAL must measure a frozen system. **Exit condition:** the list of "that's wrong" items is triaged — each one either fixed, or explicitly accepted with a reason written down. Not "the list is empty".
   **Explicitly in scope for the eyeball pass** (the places the automated suite provably cannot see — see [G30](#g30)): *retrieval relevance* (did the right memory come back, or just some memory), *summary faithfulness* (did the summariser drop the sentence that mattered), *codex correctness* (is the extracted fact true and is the relation right), *prompt assembly* (does the assembled context read like something a model can use, or like concatenated fragments), and *the answer itself*. **Depends on:** Z1 (tuned system), G29 (don't audit output shaped by known drift), G30's LLM lane if built (it automates the cheap half of this). **Feeds:** FINAL, which should start from a system that has already had its obvious problems removed.
+
+  ### Z2's shape, decided with the user 2026-07-28: **a scaled-down re-run of Experiment 2 — on the system, not on the paper**
+
+  > **⚠ READ THE BOUNDARY FIRST. Z2 IS NOT A REHEARSAL OF FINAL.** An earlier draft of this section
+  > drifted into "build the whole harness, seal a held-out probe half, test crash-resume, freeze the
+  > serving engine" — **all of that was rejected by the user, and rightly.** Those are FINAL's problems
+  > and they belong in FINAL's phase. **FINAL authors its own probes at FINAL time**, from scratch.
+  > That single fact is what keeps Z2 clean: Z2's probes are *development* probes by construction, so
+  > there is nothing to contaminate and no held-out split to maintain. **Do not re-import FINAL's
+  > rigor into Z2.** "Some work here, some work then" is exactly the failure mode — FINAL is FINAL.
+
+  **What it is:** run Experiment 2 again, small, only to look at the system. Same four conversations
+  (`run_mature_experiment.py`'s `TARGET_CONVERSATIONS`: **Shinchan, Flaw, ICE-Dev, Masters**) — the
+  **original ICE-Dev, not `icedev_stitched`** (considered and reverted by the user: reuse what Exp2
+  used, don't introduce a second variable). Reduced scale, **roughly half the probes**, **plus a
+  handful of newly written ones** covering what shipped after Exp2 and therefore could not have been
+  probed then — Track T's temporal reads, the coding core, C4/C9's slots and summaries, C10/C11's
+  deletion and chat commands, and **C6's manual scope and exclusion**. **One condition: full ICE,
+  generalist.** No MoE arm, no vector-RAG arm, no six-condition matrix — that comparison is the
+  paper's question and the paper's cost.
+
+  **Why the store being EMPTY is fine — the answer to a question that keeps getting re-asked.** The
+  live store holds ~0 rows (G23 archived and emptied it, 2026-07-19). This is **not** a loss and
+  **not** a blocker: (a) the old tagged DB is *unusable by construction* — C17 moved every vector to
+  1024, B1 changed the classifier schema, and a dozen migrations changed the columns since, so those
+  rows cannot be read by this system; (b) it had decayed anyway; and (c) **a mature store was never
+  something you keep — it is something you BUILD.** Exp2 built it by replaying the conversations
+  through the live pipeline with the background workers running synchronously at checkpoints, which
+  is what "mature memory" *means*. The filling procedure IS the experiment's first half. An empty DB
+  is the correct starting state.
+
+  **How to run it without the store-progression trap (the user's question, and Exp2 already answered
+  it).** `run_mature_experiment.py` replays the conversations, pauses at random checkpoints, runs the
+  workers synchronously, and queries **every condition at each checkpoint in one pass**. Do not split
+  the run into one script per leg or per condition: rebuilding the store per arm means re-running
+  LLM-driven workers (codex extraction, summarisation, reflection), whose output is not
+  deterministic — you would be comparing *stores*, not systems. The rule:
+  - **Read-side arms share one store.** Which legs fire, fusion weights, budget, routing — none of
+    them change what is written. One build, all arms, queried at the same instant.
+  - **Only a WRITE-side ablation needs its own store build** (extraction, clustering, summarisation,
+    decay) — because there the store *is* what is being ablated. That list is short; keep it short.
+
+  **One cheap improvement Exp2 could not have:** G23 shipped `backup.snapshot_db()`. Snapshot at each
+  checkpoint, and the LLM-driven workers run **once, ever** — restore instead of rebuild. That also
+  makes an interrupted run resumable without re-deciding anything a model decided the first time.
+
+  **The ablation stays, but as a SEAM TEST, not a measurement.** At this N there is no statistical
+  power and any "+0.3 from feature X" would be noise worth believing by accident. The question this
+  scale answers perfectly is the one CLAUDE.md's standing rule already demands: **does turning each
+  flag off actually change the output?** "Disabling the codex leg moved 0 of 200 decisions" is a bug
+  report you need before FINAL, where an inert flag makes the whole ablation arm meaningless.
+
+  **Record what it ran on** (PROVENANCE standing rule): serving engine and version — vLLM or SGLang,
+  the user's call — model repo **and revision SHA**, quantization, and the probe counts. Not because
+  Z2's numbers get published (they do not), but because "which engine were we on when we saw that"
+  is exactly the detail that decays fastest.
+
+  **Exit condition is unchanged:** the list of "that's wrong" items is triaged — each one fixed, or
+  explicitly accepted with a reason written down. **Not** a score, and **not** an empty list.
 
 ## FINAL — Redo the entire experiments
 
