@@ -189,13 +189,16 @@ class HybridRetrievalOrchestrator:
         self._scope_project_id = None
 
         # Load micro‑NER model (fallback to None if not available)
-    def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=10):
+    def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=10, scope=None):
         """Return a list of cluster_id strings for the clusters most
         relevant to the prompt, using both embedding similarity and
         topic‑tag overlap with the current classification.
         """
         try:
-            conv_filter = "AND conversation_id = :conv_id" if conversation_id else ""
+            # G29: the shared scope filter — under project scope conv_id is
+            # None and the ids live in scope["conversation_ids"]; hand-rolling
+            # `if conversation_id` here searched every cluster in the store.
+            conv_filter, conv_params, _ = self._conv_scope_filter(scope, conversation_id)
             query = text(f"""
                 SELECT id, 1 - (embedding <=> :emb) AS sim, tags, name, description
                 FROM context_clusters
@@ -204,9 +207,7 @@ class HybridRetrievalOrchestrator:
                 ORDER BY sim DESC
                 LIMIT :limit
             """).bindparams(bindparam("emb", type_=PgVector))
-            params = {"emb": prompt_embedding, "limit": top_k * 3}
-            if conversation_id:
-                params["conv_id"] = conversation_id
+            params = {"emb": prompt_embedding, "limit": top_k * 3, **conv_params}
             rows = self.db.execute(query, params).fetchall()
         except Exception:
             return []
@@ -453,7 +454,7 @@ class HybridRetrievalOrchestrator:
         # ── Cluster‑scoped retrieval: find the most relevant clusters
         #     and add them to the scope so the episodic legs only search
         #     those clusters.  Falls back gracefully if no clusters exist.
-        cluster_ids = self._relevant_cluster_ids(prompt_embedding, classification=classification, conversation_id=conv_id, top_k=10)
+        cluster_ids = self._relevant_cluster_ids(prompt_embedding, classification=classification, conversation_id=conv_id, top_k=10, scope=scope)
         if cluster_ids and scope is not None:
             scope["cluster_ids"] = cluster_ids
 
@@ -513,7 +514,7 @@ class HybridRetrievalOrchestrator:
             # T3: cold storage joins time-scoped queries only (no-op leg
             # otherwise); fragments are episodic-typed, so budget fairness
             # treats them as memories — the leg name only affects RRF weight.
-            "cold": self._cold_lookup(prompt_keywords, conv_id),
+            "cold": self._cold_lookup(prompt_keywords, conv_id, scope),
             "timeline": timeline_fragments,
         }
 
@@ -625,7 +626,7 @@ class HybridRetrievalOrchestrator:
 
         # T3 honest emptiness: a windowed query with nothing in the window
         # says so — never silently widens.
-        final = self._append_empty_window_note(final, prompt_embedding, conv_id)
+        final = self._append_empty_window_note(final, prompt_embedding, conv_id, scope)
 
         # Strengthen retrieved turns (access count + decay boost)
         self._strengthen_retrieved(final)
@@ -1891,13 +1892,15 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # T3: cold-storage leg + resurrection (D-U1) + honest emptiness
     # ------------------------------------------------------------------
-    def _cold_lookup(self, prompt_keywords, conv_id: Optional[str] = None) -> List[ContextFragment]:
+    def _cold_lookup(self, prompt_keywords, conv_id: Optional[str] = None,
+                     scope: Optional[dict] = None) -> List[ContextFragment]:
         """Cold storage joins time-scoped queries ONLY (never normal ones, and
         never the wide net). Requires a window — the window is what bounds the
         search when there are no keywords (a pure "what was I thinking about
         in march" browse); evolution without a window skips cold (unbounded
-        browse is noise). Scoping mirrors the live legs' invariant:
-        conversation-scoped when conv_id is set, else public rows only."""
+        browse is noise). Scoping goes through the SAME _conv_scope_filter the
+        live episodic legs use (G29 — a hand-rolled `if conv_id` copy here let
+        project-scoped queries read the whole global cold store)."""
         ts = self._active_timescope
         if ts.mode not in ("as_of", "range", "evolution") or not ts.t0:
             return []
@@ -1916,8 +1919,8 @@ class HybridRetrievalOrchestrator:
                 break
         pats = [f"%{t}%" for t in terms]
 
-        conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
-        privacy_filter = "" if conv_id else "AND is_private = FALSE"
+        conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
+        privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
         query = text(f"""
             SELECT id, conversation_id, batch_id, raw_text, summary_text,
                    topic_tags, timestamp, is_private
@@ -1930,9 +1933,7 @@ class HybridRetrievalOrchestrator:
             LIMIT :cold_limit
         """)
         params = {"t0": ts.t0, "t1": t1, "no_kw": not pats, "pats": pats or ["%"],
-                  "cold_limit": settings.timescope_cold_limit}
-        if conv_id:
-            params["conv_id"] = conv_id
+                  "cold_limit": settings.timescope_cold_limit, **conv_params}
         try:
             rows = self.db.execute(query, params).fetchall()
         except Exception as err:
@@ -2010,11 +2011,16 @@ class HybridRetrievalOrchestrator:
                 logger.error("cold_resurrect_failed", cold_id=str(row.id), error=str(err))
                 self.db.rollback()
 
-    def _append_empty_window_note(self, final, prompt_embedding, conv_id):
+    def _append_empty_window_note(self, final, prompt_embedding, conv_id,
+                                  scope=None):
         """T3 honest emptiness (§2.6): a windowed query with no episodic
         matches says so explicitly — naming the window and, when an unwindowed
         probe finds anything, the nearest eras — instead of silently widening
-        (codex/timeline fragments may still be present and still answer)."""
+        (codex/timeline fragments may still be present and still answer).
+
+        The nearest-era probe is scoped through _conv_scope_filter like every
+        other episodic read (G29): it drops the window, never the scope, or a
+        project-scoped question gets told about another project's eras."""
         ts = self._active_timescope
         if ts.mode not in ("as_of", "range") or not (ts.t0 and ts.t1):
             return final
@@ -2023,17 +2029,15 @@ class HybridRetrievalOrchestrator:
         note = (f"[Memory note] No stored memories match this query between "
                 f"{ts.t0.date()} and {ts.t1.date()}.")
         try:
-            conv_filter = "AND conversation_id = :conv_id" if conv_id else ""
-            privacy_filter = "" if conv_id else "AND is_private = FALSE"
+            conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
+            privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
             probe = text(f"""
                 SELECT timestamp FROM episodic_memory
                 WHERE embedding IS NOT NULL {conv_filter} {privacy_filter}
                 ORDER BY embedding <=> :emb
                 LIMIT 3
             """).bindparams(bindparam("emb", type_=PgVector))
-            params = {"emb": prompt_embedding}
-            if conv_id:
-                params["conv_id"] = conv_id
+            params = {"emb": prompt_embedding, **conv_params}
             eras = sorted({r.timestamp.strftime("%Y-%m")
                            for r in self.db.execute(probe, params).fetchall()
                            if r.timestamp})

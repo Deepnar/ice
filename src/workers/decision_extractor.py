@@ -125,8 +125,6 @@ def run_decision_extraction(db, project_id=None, text_content: str = "",
     """The job callable. *llm* defaults to the bg model's JSON decider
     (maintenance_agent.make_llm_decider — same bounded contract); pass a stub
     in tests, or None to no-op the LLM stage entirely."""
-    from src.api.config import settings
-
     if not project_id or not text_content:
         return {"status": "noop"}
     cue = decision_cue(text_content)
@@ -145,6 +143,25 @@ def run_decision_extraction(db, project_id=None, text_content: str = "",
 
     pid = uuid.UUID(str(project_id))
     embedding = _embed(extracted["decision"])
+    return reconcile_and_insert(db, pid, extracted, embedding, source_batch,
+                                origin=origin)
+
+
+def reconcile_and_insert(db, pid, extracted: dict, embedding, source_batch=None,
+                         origin: str = "") -> dict:
+    """E8's dedupe/supersession machinery — the ONLY way a decision row is
+    written. Shared by the automatic extractor above and the manual
+    `projects.decision_add` path.
+
+    G29 (2026-07-28): this block used to live inline in
+    run_decision_extraction, and `decision_add` called `_insert` directly
+    while its docstring claimed to reuse it — so every manual `/decision` or
+    MCP `decisions_add` wrote an unconditional duplicate active row. Anything
+    that inserts a Decision goes through here.
+
+    Returns one of: duplicate (nothing written) | superseded (Tier 1) |
+    conflict_queued (Tier 2) | recorded (no similar active decision)."""
+    from src.api.config import settings
 
     # Dedupe/supersession against ACTIVE decisions of this project.
     sim_rows = db.execute(text("""

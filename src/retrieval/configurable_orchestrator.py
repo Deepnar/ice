@@ -11,11 +11,9 @@ Flags (all default ON unless noted):
 
 from typing import List, Optional, Dict
 import hashlib
-from dataclasses import replace
 from sqlalchemy.orm import Session
 import structlog
 
-from src.classifier.schemas import ClassificationResult
 from src.retrieval.orchestrator import (
     HybridRetrievalOrchestrator, ContextFragment,
     BONUS_RECENT_TOP_10PCT, BONUS_RECENT_TOP_30PCT,
@@ -158,7 +156,7 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
 
     # ── Cluster restriction override ─────────────────────────────────────
 
-    def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=3):
+    def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=3, scope=None):
         if self._off("cluster_restrict"):
             return []
-        return super()._relevant_cluster_ids(prompt_embedding, classification, conversation_id, top_k)
+        return super()._relevant_cluster_ids(prompt_embedding, classification, conversation_id, top_k, scope)

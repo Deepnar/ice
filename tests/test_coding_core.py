@@ -29,6 +29,8 @@ from src.classifier.schemas import ClassificationResult
 from src.memory.models import (
     CodexEdge,
     CodexEntity,
+    ColdStorage,
+    ContextCluster,
     Conversation,
     Decision,
     EpisodicMemory,
@@ -69,6 +71,11 @@ MARK = "codemark" + HEX.translate(str.maketrans("0123456789", "abcdefghij"))
 V1 = [1.0] + [0.0] * 1023               # fixed decision embeddings
 V2 = [0.9, 0.4359] + [0.0] * 1022       # cos(V1,V2) ≈ 0.90 — the conflict band
 V3 = [0.0, 0.0, 1.0] + [0.0] * 1021     # (0.85 ≤ sim < 0.95 ⇒ supersede)
+UNIT = [1.0] + [0.0] * 1023             # G29 scope checks: probe ≡ stored row
+# G29 manual-path decisions: same 0.90 construction on dimensions nothing
+# else uses, so they collide with each other and with NO earlier decision.
+M1 = [0.0] * 3 + [1.0] + [0.0] * 1020
+M2 = [0.0] * 3 + [0.9, 0.4359] + [0.0] * 1019
 
 shutil.copytree(FIXTURE, REPO)
 git(REPO, "init", "-b", "main")
@@ -79,6 +86,8 @@ db = SessionLocal()
 project_id = None
 conv_ids: list = []
 turn_ids: list = []
+cold_ids: list = []
+cluster_ids: list = []
 
 import src.workers.decision_extractor as de  # noqa: E402
 import src.workers.maintenance_agent as ma  # noqa: E402
@@ -243,6 +252,68 @@ try:
           any(f"{MARK} one" in f.text for f in frags)
           and any(f"{MARK} two" in f.text for f in frags)
           and not any(f"{MARK} three" in f.text for f in frags))
+
+    # ── G29 scope leak: the three legs that hand-rolled `if conv_id` ─────
+    # Under project scope conv_id is None (the ids live in
+    # scope["conversation_ids"]), so `if conv_id` emitted NO filter at all
+    # and each leg searched the whole store across the project boundary.
+    # All three now go through _conv_scope_filter like their four siblings.
+    print("── check 5b (G29): cold / empty-window / cluster legs honour scope ──")
+    from src.retrieval.timescope import TimeScope
+    now_ = datetime.now(timezone.utc)
+    orch._last_matched_entities = []            # no grounded expansion terms
+
+    # (a) cold leg — a cold row in conv_a (in scope) and conv_c (out).
+    for conv, tag in ((conv_a, "one"), (conv_c, "three")):
+        cid = uuid.uuid4()
+        db.add(ColdStorage(
+            id=cid, raw_text=f"cold {MARK} {tag}", timestamp=now_ - timedelta(days=200),
+            conversation_id=conv.id, is_private=False, topic_tags=[],
+            batch_id=uuid.uuid4()))
+        cold_ids.append(cid)
+    db.commit()
+    orch._active_timescope = TimeScope(mode="range", t0=now_ - timedelta(days=400),
+                                       t1=now_ - timedelta(days=100))
+    cold = orch._cold_lookup({MARK}, None, {"conversation_ids": [str(conv_a.id)]})
+    check("G29 cold leg: conversation-list scope (in: a, out: c)",
+          any(f"{MARK} one" in f.text for f in cold)
+          and not any(f"{MARK} three" in f.text for f in cold))
+
+    # (b) empty-window note — its nearest-era probe drops the WINDOW, never
+    # the scope. conv_c gets the only embedded row; two-sided so the check
+    # can't pass vacuously on an empty store.
+    ec = EpisodicMemory(
+        conversation_id=conv_c.id, batch_id=uuid.uuid4(),
+        timestamp=now_ - timedelta(days=800), context_reliance="Long_Term_Memory",
+        raw_text=f"User: era probe {MARK}\n\nAssistant: ok", embedding=UNIT,
+        decay_score=1.0, idempotency_key=f"coding-core-{uuid.uuid4()}")
+    db.add(ec)
+    db.commit()
+    turn_ids.append(ec.id)
+    orch._active_timescope = TimeScope(mode="as_of", t0=now_ - timedelta(days=400),
+                                       t1=now_ - timedelta(days=100))
+    note_ab = orch._append_empty_window_note(
+        [], UNIT, None, {"conversation_ids": [str(conv_a.id), str(conv_b.id)]})[-1].text
+    note_c = orch._append_empty_window_note(
+        [], UNIT, None, {"conversation_ids": [str(conv_c.id)]})[-1].text
+    check("G29 empty-window probe: era named only when it is IN scope",
+          "Closest matches" not in note_ab and "Closest matches" in note_c)
+
+    # (c) cluster relevance — a cluster on conv_a (in scope) and conv_c (out).
+    for conv, tag in ((conv_a, "one"), (conv_c, "three")):
+        cl = ContextCluster(name=f"{MARK}-{tag}", description="", tags=[],
+                            conversation_id=conv.id, embedding=UNIT)
+        db.add(cl)
+        db.flush()
+        cluster_ids.append(cl.id)
+    db.commit()
+    got = orch._relevant_cluster_ids(
+        UNIT, classification=None, conversation_id=None, top_k=10,
+        scope={"conversation_ids": [str(conv_a.id)]})
+    names = {r.name for r in db.query(ContextCluster).filter(
+        ContextCluster.id.in_([uuid.UUID(g) for g in got])).all()} if got else set()
+    check("G29 cluster leg: conversation-list scope (in: a, out: c)",
+          f"{MARK}-one" in names and f"{MARK}-three" not in names)
 
     # ── 6/7. decisions: supersession, constraint-first, incident ────────
     print("── checks 6+7: decisions bi-temporal + constraint-first + incident ──")
@@ -455,6 +526,36 @@ try:
           and "## Conventions" in doc
           and "## Recent commits" in doc and "late addition" in doc)
 
+    # ── G29: the MANUAL path goes through the same machinery ────────────
+    # decision_add's docstring claimed to reuse E8's dedupe/supersession and
+    # called _insert directly, so every MCP `decisions_add` wrote a duplicate
+    # active row. Same three outcomes as the extractor, from the manual path.
+    print("── check 7b (G29): manual decision_add dedupes and supersedes ──")
+    from src.services.projects import decision_add
+    de._embed = lambda text_content: M1
+    m1 = decision_add(db, str(project_id), f"{MARK}: pin the worker pool at 4",
+                      rationale="GPU lane serializes anyway",
+                      files=["minipkg/worker.py"])
+    m2 = decision_add(db, str(project_id), f"{MARK}: pin the worker pool at 4",
+                      rationale="GPU lane serializes anyway",
+                      files=["minipkg/worker.py"])
+    check("manual add: identical re-entry is a duplicate, not a second row",
+          m1["status"] == "recorded" and m2["status"] == "duplicate"
+          and m2["existing"] == m1["id"])
+    de._embed = lambda text_content: M2          # conflict band vs M1
+    m3 = decision_add(db, str(project_id), f"{MARK}: pin the worker pool at 8",
+                      rationale="two lanes now",
+                      files=["minipkg/worker.py", "minipkg/lane.py"])
+    m_old = db.query(Decision).filter_by(id=uuid.UUID(m1["id"])).first()
+    check("manual add: contradicting entry supersedes the active one",
+          m3["status"] == "superseded" and m_old.valid_until is not None
+          and str(m_old.superseded_by) == m3["id"])
+    check("manual add: exactly one active row survives the pair",
+          db.query(Decision).filter(
+              Decision.project_id == project_id,
+              Decision.valid_until.is_(None),
+              Decision.decision.like(f"{MARK}: pin the worker pool%")).count() == 1)
+
 finally:
     de._embed = _orig_embed
     ma.DETECTORS.clear()
@@ -487,6 +588,15 @@ finally:
                 {"pid": project_id})
             db.execute(text("DELETE FROM projects WHERE id = :pid"),
                        {"pid": project_id})
+        if cold_ids:
+            db.execute(text("DELETE FROM cold_storage WHERE id = ANY(:ids)"),
+                       {"ids": cold_ids})
+        if cluster_ids:
+            db.execute(text(
+                "DELETE FROM episodic_cluster_links WHERE cluster_id = ANY(:ids)"),
+                {"ids": cluster_ids})
+            db.execute(text("DELETE FROM context_clusters WHERE id = ANY(:ids)"),
+                       {"ids": cluster_ids})
         if turn_ids:
             db.execute(text("DELETE FROM episodic_memory WHERE id = ANY(:ids)"),
                        {"ids": turn_ids})

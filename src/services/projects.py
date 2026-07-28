@@ -277,24 +277,28 @@ def decisions_list(db: Session, ref, decision_type: Optional[str] = None,
 def decision_add(db: Session, ref, decision: str, rationale: str = "",
                  decision_type: str = "decision",
                  files: Optional[list] = None) -> dict:
-    """Manual decision entry (chat/MCP write path — applies immediately, D8).
-    Reuses E8's dedupe/supersession machinery so a manual entry supersedes
-    conflicting older decisions exactly like an extracted one."""
-    from src.workers.decision_extractor import _embed, _insert
+    """Manual decision entry (MCP `decisions_add` write path — applies
+    immediately, D8). Goes through E8's `reconcile_and_insert`, so a manual
+    entry dedupes and supersedes conflicting older decisions exactly like an
+    extracted one. Status is E8's vocabulary — `recorded` | `duplicate`
+    (nothing written, `existing` names the row) | `superseded` |
+    `conflict_queued` — never a bare "ok": a caller writing a decision that
+    silently collided with an active one needs to be told."""
+    from src.workers.decision_extractor import _embed, reconcile_and_insert
     project = resolve_project(db, ref)
     if not (decision or "").strip():
         raise ValidationError("decision text required")
     if decision_type not in ("decision", "constraint", "incident"):
         raise ValidationError(f"unknown decision_type: {decision_type}")
-    row = _insert(db, project.id, {
-        "decision": decision.strip()[:500],
+    text_ = decision.strip()[:500]
+    out = reconcile_and_insert(db, project.id, {
+        "decision": text_,
         "rationale": (rationale or "").strip()[:1000],
         "alternatives_rejected": [],
         "files_affected": [str(f)[:300] for f in (files or [])[:10]],
         "type": decision_type,
-    }, _embed(decision.strip()), None)
-    out = {"status": "ok", "id": str(row.id), "type": decision_type}
-    db.commit()
+    }, _embed(text_), None, origin="manual")
+    out["type"] = decision_type
     return out
 
 
