@@ -628,9 +628,19 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   used, don't introduce a second variable). Reduced scale, **roughly half the probes**, **plus a
   handful of newly written ones** covering what shipped after Exp2 and therefore could not have been
   probed then — Track T's temporal reads, the coding core, C4/C9's slots and summaries, C10/C11's
-  deletion and chat commands, and **C6's manual scope and exclusion**. **One condition: full ICE,
-  generalist.** No MoE arm, no vector-RAG arm, no six-condition matrix — that comparison is the
-  paper's question and the paper's cost.
+  deletion and chat commands, and **C6's manual scope and exclusion**. **Two conditions: full ICE
+  generalist + the vector-RAG generalist baseline.** No MoE arm, no six-condition matrix — routing is
+  the paper's question and the paper's cost. *(Revised 2026-07-28: this line first said ICE-only; the
+  user added the baseline when the judge was added, and the two decisions belong together — a judge
+  with nothing to compare against is the weakest version of both.)*
+
+  **⚠ Scope warning, stated plainly because it changed twice in one day.** Z2 began as "read one
+  conversation's output for an hour". It is now a build: probe set, store builder, runner, judge,
+  metrics, and a baseline arm. **Expect a multi-session phase, not an afternoon.** It is still worth
+  it, and the reason is specific: a month of shipping (Track T, the coding core, C4/C9, C10/C11, B1's
+  new classifier, C6) has had **zero end-to-end measurement of any of it**, so nobody can currently
+  say whether ICE is better or worse than the paper's version. Without a baseline and a judge, Z2
+  answers only "is anything obviously broken"; with them it also answers "did the month help".
 
   **Why the store being EMPTY is fine — the answer to a question that keeps getting re-asked.** The
   live store holds ~0 rows (G23 archived and emptied it, 2026-07-19). This is **not** a loss and
@@ -642,8 +652,36 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   is what "mature memory" *means*. The filling procedure IS the experiment's first half. An empty DB
   is the correct starting state.
 
-  **How to run it without the store-progression trap (the user's question, and Exp2 already answered
-  it).** `run_mature_experiment.py` replays the conversations, pauses at random checkpoints, runs the
+  **Z2 gets its OWN scripts, in its OWN folder — `experiments/z2/` (user decision 2026-07-28).**
+  **Do NOT reuse `experiments/mature/run_mature_experiment.py`.** This is not a preference, it is a
+  fact: that script imports `src.workers.sentinel_monitor` (**deleted by D1/D2**) and was written
+  against the Celery world (**deleted by C7**) — *it cannot be imported against this system, let
+  alone run*. Editing it is forbidden anyway (`experiments/*` is a frozen historical record). So Z2
+  writes fresh scripts against the **current** entry points: `create_core()`, the in-process
+  maintenance runtime, the 1024 embedder, the schema-v2 classifier, and the scope resolver.
+  **It is self-contained — "its own universe":** probe set, store builder, runner, **judge**,
+  metrics, results, and a README, all under `experiments/z2/`, depending on `src/` and nothing else
+  in `experiments/`.
+  - ⚠ **`experiments/z2/` is NOT part of the frozen record.** CLAUDE.md freezes the pre-FINAL
+    experiment folders *that already exist*; z2 is created now and stays editable. Say this out loud
+    or a later session will refuse to touch it.
+  - ⚠ **It is NOT FINAL's harness by default.** FINAL may adopt, extend, or discard it — as a
+    deliberate decision, not an inheritance. Otherwise "FINAL is FINAL" quietly stops being true.
+  - **Conditions: full ICE generalist + the vector-RAG generalist baseline** (user, 2026-07-28 —
+    revising the earlier ICE-only line). The baseline roughly doubles generation cost and earns it:
+    without something beside it, "is this fragment bad?" is unanswerable by eye on a hard probe.
+  - **The judge at this scale is a TRIAGE TOOL, NOT A VERDICT.** Its job is to rank outputs so the
+    twenty worst get read by a human — not to produce a number anyone acts on. N is far too small for
+    an effect size, and a score sitting in a results file gets believed six weeks later regardless.
+  - **With a baseline present, judge PAIRWISE, not on a 1–5 scale.** Exp2 scored absolutely and then
+    needed a four-step missing-score imputation chain (`exp2_bootstrap.py`; the first naive
+    re-analysis landed ~0.4 off the published number precisely because of it). "Which of these two is
+    better, or tie" is far more stable at small N and has no imputation problem. Z2's numbers are not
+    published, so it is free to use the better instrument.
+
+  **How to run it without the store-progression trap (the user's question — and Exp2's runner, though
+  dead, already contains the answer, so read it as a REFERENCE even though you cannot execute it).**
+  It replays the conversations, pauses at random checkpoints, runs the
   workers synchronously, and queries **every condition at each checkpoint in one pass**. Do not split
   the run into one script per leg or per condition: rebuilding the store per arm means re-running
   LLM-driven workers (codex extraction, summarisation, reflection), whose output is not
