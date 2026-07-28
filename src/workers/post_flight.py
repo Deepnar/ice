@@ -37,9 +37,14 @@ logger = structlog.get_logger("ice.workers.post_flight")
 bg_client = get_bg_client()
 
 def _summary_llm_call(prompt: str, response: str, model_name: str,
-                      terms: list, missing: list = None) -> str:
+                      terms: list, missing: list = None,
+                      source_kind: str = "chat", source_title: str = "") -> str:
     """One grounded summarisation call. *terms* is the MUST-PRESERVE list;
-    *missing* (retry only) names the terms the first attempt dropped."""
+    *missing* (retry only) names the terms the first attempt dropped.
+
+    C12: for a document section the instruction says so. Telling the model to
+    "summarize the following user/assistant exchange" when it is looking at a
+    page of a specification invites it to invent an exchange."""
     must_block = ""
     if terms:
         must_block = (
@@ -52,27 +57,34 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
             "\nYour previous summary DROPPED these required terms — include "
             f"each of them verbatim this time: {', '.join(missing)}\n"
         )
+    if source_kind == "document":
+        titled = f" from the document \"{source_title}\"" if source_title else ""
+        what = f"Summarize the following excerpt{titled} in 4-6 sentences. "
+        noun = "excerpt"
+    else:
+        what = "Summarize the following user/assistant exchange in 4-6 sentences. "
+        noun = "exchange"
     system = (
-        "You are a precise summarisation engine. "
-        "Summarize the following user/assistant exchange in 4-6 sentences. "
+        "You are a precise summarisation engine. " + what +
         "RULES:\n"
         "- Preserve ALL named entities (people, characters, places, tools, project names).\n"
         "- Preserve ALL numbers, dates, versions, and their specific assignments.\n"
         "- Preserve ALL specific facts, decisions, and their rationale.\n"
         "- Do NOT include pleasantries, speculation, or meta-commentary.\n"
-        "- If the exchange contains code, describe what the code does.\n"
+        f"- If the {noun} contains code, describe what the code does.\n"
         f"{must_block}{retry_block}"
         "- End with two final lines formatted exactly as:\n"
         "  Key terms: <comma-separated list of the named entities, figures, and "
-        "identifiers that appear in the exchange>\n"
-        "  Abstract: <ONE sentence, max ~20 words, stating what this exchange "
+        f"identifiers that appear in the {noun}>\n"
+        f"  Abstract: <ONE sentence, max ~20 words, stating what this {noun} "
         "was about>"
     )
+    body = prompt if source_kind == "document" else f"User: {prompt}\nAssistant: {response}"
     completion = bg_client.chat.completions.create(
         model=model_name,
         messages=[
             {"role": "system", "content": system},
-            {"role": "user", "content": f"User: {prompt}\nAssistant: {response}"},
+            {"role": "user", "content": body},
         ],
         temperature=0.0,
         max_tokens=300,
@@ -92,7 +104,8 @@ def _split_abstract(summary: str):
 
 
 def generate_summary(prompt: str, response: str, key_terms: dict,
-                     model_used: str = ""):
+                     model_used: str = "", source_kind: str = "chat",
+                     source_title: str = ""):
     """C1/C3 grounded summarisation: MUST-PRESERVE terms are injected into the
     prompt (ground-then-generate, like Codex A2), the result is *measured*
     (``summary_coverage``), one retry names any dropped terms, and the one-line
@@ -102,12 +115,16 @@ def generate_summary(prompt: str, response: str, key_terms: dict,
     model_name = model_used if model_used else get_bg_model_name()
     terms = must_terms(key_terms)
     try:
-        summary = _summary_llm_call(prompt, response, model_name, terms)
+        summary = _summary_llm_call(prompt, response, model_name, terms,
+                                    source_kind=source_kind,
+                                    source_title=source_title)
         coverage = summary_coverage(summary, key_terms)
         if coverage < SUMMARY_COVERAGE_THRESHOLD and terms:
             low = summary.lower()
             missing = [t for t in terms if t.lower() not in low]
-            retry = _summary_llm_call(prompt, response, model_name, terms, missing)
+            retry = _summary_llm_call(prompt, response, model_name, terms,
+                                      missing, source_kind=source_kind,
+                                      source_title=source_title)
             retry_cov = summary_coverage(retry, key_terms)
             if retry_cov > coverage:
                 summary, coverage = retry, retry_cov
@@ -122,9 +139,22 @@ def generate_summary(prompt: str, response: str, key_terms: dict,
 
 
 def evaluate_turn(batch_id: str, prompt: str, response: str,
-                  conversation_id: str, model_used: str = ""):
+                  conversation_id: str, model_used: str = "",
+                  source_kind: str = "chat", source_title: str = ""):
     """Density qualification + representation decision, then the derivative
     pipelines (chunking, codex, procedural) as direct calls.
+
+    C12: `source_kind="document"` marks a section of an ingested document
+    rather than a chat exchange. Two things change, both for the same reason —
+    the density machinery was built to protect the graph from conversational
+    chatter, and a document is not chatter:
+      * `lossless` is FORCED true, so the section reaches codex extraction. The
+        normal gate is `has_code or is_creative or entropy >= threshold`, and
+        `has_code` reads the ASSISTANT half, which a document does not have —
+        so a low-entropy page of a specification would silently never enter the
+        knowledge graph, which is precisely what C12 exists to fix;
+      * the summary prompt stops claiming the text is a user/assistant
+        exchange (`source_title` names the document instead).
 
     Idempotency layout (C7 rev 2026-07-11): the density/summary stage is
     guarded by this job's own key, but the chained stages run on every entry —
@@ -156,7 +186,9 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             # crude is_lossless heuristic (≥3 capitalized words fired on
             # nearly everything) and the backwards branch that summarised the
             # DENSEST long turns into 2-3 sentences while leaving banter raw.
-            full_text = f"User: {prompt}\nAssistant: {response}"
+            is_doc_source = source_kind == "document"
+            full_text = (prompt if is_doc_source
+                         else f"User: {prompt}\nAssistant: {response}")
             word_count = len(full_text.split())
             has_code = "```" in response
             is_creative = bool(
@@ -176,7 +208,8 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             # lossless = "valuable enough for lossless treatment" — gates codex
             # extraction below and exempts from batch summarisation. Generous
             # by design (codex was historically starved).
-            lossless = has_code or is_creative or entropy >= DENSITY_LOSSLESS_THRESHOLD
+            lossless = (is_doc_source or has_code or is_creative
+                        or entropy >= DENSITY_LOSSLESS_THRESHOLD)
 
             decision = decide_representation(
                 word_count=word_count, entropy=entropy, has_code=has_code,
@@ -185,7 +218,9 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             inject_raw = decision["inject_raw"]
             summary, coverage, abstract = None, None, None
             if decision["want_summary"]:
-                summary, coverage, abstract = generate_summary(prompt, response, key_terms, model_used)
+                summary, coverage, abstract = generate_summary(
+                    prompt, response, key_terms, model_used,
+                    source_kind=source_kind, source_title=source_title)
                 summary = summary or None
                 if decision["summary_decides"]:
                     # The retrievability gate: inject the summary only if it

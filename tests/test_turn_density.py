@@ -160,7 +160,9 @@ from src.memory.models import Conversation, EpisodicMemory, IdempotencyKey
 
 pf.is_gpu_busy = lambda: False
 pf.is_user_active = lambda: False
-pf.generate_summary = lambda p, r, kt, mu="": (
+# **kw absorbs C12's source_kind/source_title (a document section tells the
+# summariser it is not a user/assistant exchange).
+pf.generate_summary = lambda p, r, kt, mu="", **kw: (
     "Grounded summary. Key terms: " + ", ".join(must_terms(kt)[:25]), 0.95, "one line abstract")
 
 db = SessionLocal()

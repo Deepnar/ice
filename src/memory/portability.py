@@ -189,15 +189,11 @@ def import_store(db, in_dir, merge: bool = False, skip_reembed: bool = False,
                     "default import restores into an empty store; pass "
                     "--merge to skip existing ids instead.")
 
-    # rag_chunks may have NOT NULL armed (empty store post-migration);
-    # imported rows arrive vectorless, so disarm BEFORE inserting — the
-    # re-embed runner's post-step re-arms it once the refill completes.
-    rag_file = src / "rag_chunks.jsonl"
-    if (not vectors_carried and rag_file.is_file()
-            and rag_file.stat().st_size > 0):
-        db.execute(text(
-            "ALTER TABLE rag_chunks ALTER COLUMN embedding DROP NOT NULL"))
-        db.commit()
+    # (C12 dropped rag_chunks, the one NOT NULL vector column — the disarm
+    # step that used to run here has no target. Every remaining vector column
+    # is nullable, so vectorless rows insert and the re-embed runner refills
+    # them. If a future table arms NOT NULL on a vector, disarm it here and
+    # re-arm via that table's TableRule.post_sql.)
 
     report: dict = {"tables": {}}
     for table in tables:

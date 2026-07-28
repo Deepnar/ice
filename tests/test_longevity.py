@@ -57,8 +57,7 @@ from src.memory.models import (
     MemorySlot,
     ProceduralMemory,
     Project,
-    RAGChunk,
-    RAGDocument,
+    Document,
 )
 from src.memory import reembed
 from src.memory.backup import run_backup
@@ -125,8 +124,8 @@ edge_ids: list = []
 pattern_id = None
 project_id = None
 decision_id = None
-rag_doc_id = None
-rag_chunk_ids: list = []
+document_id = None
+doc_conv_id = None
 bs_id = None
 slot_id = None
 ikey = f"longevity-{HEX}"
@@ -234,19 +233,23 @@ try:
     db.flush()
     decision_id = dec.id
 
-    doc = RAGDocument(filename=f"{MARK}.md", file_type="md")
+    # C12: the rag_documents/rag_chunks fixture that used to sit here is gone
+    # with those tables. Its successor is a DOCUMENT — a registry row plus its
+    # own conversation — which exercises a stronger invariant: the portability
+    # walker builds its table list from Base.metadata.sorted_tables, so a new
+    # table that round-trips here proves it was declared correctly, and a
+    # document's section text re-embeds through the ordinary episodic rule.
+    doc_conv = Conversation(kind="document", memory_scope_type="auto")
+    db.add(doc_conv)
+    db.flush()
+    doc_conv_id = doc_conv.id
+    doc = Document(conversation_id=doc_conv_id, filename=f"{MARK}.md",
+                   file_type="md", kind="document", origin="upload",
+                   sha256=f"{MARK}-sha", byte_size=42, n_sections=1,
+                   status="ready")
     db.add(doc)
     db.flush()
-    rag_doc_id = doc.id
-    for j in range(2):
-        rc = RAGChunk(document_id=rag_doc_id, chunk_index=j,
-                      chunk_text=f"{MARK} rag {FIX_TEXTS[j]}",
-                      embedding=embedder.encode(
-                          f"{MARK} rag {FIX_TEXTS[j]}",
-                          convert_to_tensor=False).tolist())
-        db.add(rc)
-        db.flush()
-        rag_chunk_ids.append(rc.id)
+    document_id = doc.id
 
     bs = BatchSummary(conversation_id=conv_id, start_turn_index=0,
                       end_turn_index=1,
@@ -321,7 +324,7 @@ try:
     print("── check 2: re-embed coverage on the imported store ──")
     dims = set()
     for t in ("episodic_memory", "episodic_chunks", "codex_entities",
-              "procedural_memory", "decisions", "rag_chunks",
+              "procedural_memory", "decisions",
               "batch_summaries", "conversation_summaries",
               "context_clusters"):
         dims |= {r[0] for r in sdb.execute(text(
@@ -333,7 +336,7 @@ try:
               "SELECT count(*) FROM episodic_memory WHERE embedding IS NULL"
           )).scalar() == 0
           and sdb.execute(text(
-              "SELECT count(*) FROM rag_chunks WHERE embedding IS NULL"
+              "SELECT count(*) FROM episodic_chunks WHERE embedding IS NULL"
           )).scalar() == 0)
     husk_emb, static_emb = sdb.execute(text(
         "SELECT (SELECT embedding FROM codex_entities WHERE id = :h), "
@@ -355,11 +358,18 @@ try:
     actual = [float(x) for x in str(actual_raw).strip("[]").split(",")]
     check("centroid == normalized member mean (recomputed, not encoded)",
           np.allclose(expected, actual, atol=1e-4))
-    check("rag NOT NULL re-armed after refill",
+    # C12: the "rag NOT NULL re-armed" check died with rag_chunks, the only
+    # NOT NULL vector column (the TableRule.post_sql seam it exercised is kept
+    # for the next one). Its successor tests the invariant that actually
+    # protects a new store: the C12 tables round-tripped through the
+    # export/import walker, which builds its list from the ORM metadata.
+    check("C12 document tables round-trip through export/import",
           sdb.execute(text(
-              "SELECT is_nullable FROM information_schema.columns WHERE "
-              "table_name='rag_chunks' AND column_name='embedding'"
-          )).scalar() == "NO")
+              "SELECT count(*) FROM documents WHERE id = :i"),
+              {"i": document_id}).scalar() == 1
+          and sdb.execute(text(
+              "SELECT kind FROM conversations WHERE id = :i"),
+              {"i": doc_conv_id}).scalar() == "document")
 
     # ═══ check 3: retrieval parity 384 vs 1024 ═══════════════════════════
     print("── check 3: retrieval parity (384 reference vs native 1024) ──")
@@ -550,12 +560,9 @@ finally:
         if project_id is not None:
             db.execute(text("DELETE FROM projects WHERE id = :i"),
                        {"i": project_id})
-        if rag_chunk_ids:
-            db.execute(text("DELETE FROM rag_chunks WHERE id = ANY(:ids)"),
-                       {"ids": rag_chunk_ids})
-        if rag_doc_id is not None:
-            db.execute(text("DELETE FROM rag_documents WHERE id = :i"),
-                       {"i": rag_doc_id})
+        if document_id is not None:
+            db.execute(text("DELETE FROM documents WHERE id = :i"),
+                       {"i": document_id})
         if slot_id is not None:
             db.execute(text("DELETE FROM memory_slots WHERE id = :i"),
                        {"i": slot_id})

@@ -106,6 +106,13 @@ JOBS: dict[str, JobSpec] = {
     # live chat's post_flight; resume rides the import_conversations hash
     # ledger + per-turn idempotency keys.
     "import_replay":           JobSpec("src.ingestion.importer:run_import_replay", "gpu", needs_db=True),
+    # C12: document ingestion — event-only (an upload triggers it), gpu lane
+    # because every section runs the extraction chain. Kill-safe: per-section
+    # idempotency keys make a re-run skip what already landed.
+    "ingest_document":         JobSpec("src.services.documents:run_document_ingest", "gpu", needs_db=True),
+    # C12: the watch folder, the honest replacement for the v1 drop zone —
+    # a cadence scan instead of a watchdog thread nothing ever started.
+    "ingest_folder":           JobSpec("src.ingestion.documents.watch_folder:run_watch_folder", "cpu", needs_db=True),
 }
 
 # Ledger pseudo-job recording the last session-end burst (§2.3).

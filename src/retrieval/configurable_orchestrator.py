@@ -73,10 +73,10 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
             return []
         return super()._batch_summary_lookup(prompt_embedding, conv_id)
 
-    def _rag_lookup(self, prompt_embedding, classification):
-        if self._off("rag"):
-            return []
-        return super()._rag_lookup(prompt_embedding, classification)
+    # (C12: the `rag` flag and its override are gone with the leg itself.
+    # Document content is retrieved by the vector/bm25/codex legs, so ablating
+    # "documents" now means ablating those — there is no separate leg to
+    # switch off.)
 
     # ── Codex graph — flag mapping over the base implementation ──────────
     # The base leg (A3/A4) natively supports exact-vs-fuzzy matching and the

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     ARRAY,
+    BigInteger,
     Boolean,
     Column,
     Date,
@@ -27,6 +28,14 @@ class Conversation(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+    # C12: 'chat' (default) | 'document' | 'transcript'. An ingested document is
+    # its OWN conversation whose turns are its sections — that is what makes C6
+    # sharing, C4's conversation summary, C2/C3 chunk retrieval and C5
+    # clustering apply to it with no new machinery. The kind is also the
+    # visibility rule: non-'chat' conversations are OPT-IN everywhere (a doc is
+    # readable only where it is currently enabled), resolved in
+    # services/scoping.py and enforced by C6's existing exclusion filter.
+    kind = Column(Text, nullable=False, default="chat", server_default="chat")
     # none | auto | project | manual — the vocabulary is enforced by
     # services.scoping.VALID_SCOPE_TYPES; an unknown string used to be stored
     # verbatim and degrade silently to 'auto' (C6).
@@ -106,6 +115,12 @@ class EpisodicMemory(Base):
     decay_immune_until = Column(DateTime(timezone=True), nullable=True)
     inject_raw = Column(Boolean, default=True)
     is_document = Column(Boolean, default=False)
+    # C12 D7: this turn was a paste big enough to be promoted into its own
+    # document/transcript conversation. The turn itself is NEVER rewritten —
+    # what the user pasted stays verbatim — it is only skipped by the chunker
+    # and by retrieval, because the promoted conversation is the readable copy.
+    promoted_document_id = Column(UUID(as_uuid=True),
+                                  ForeignKey("documents.id"), nullable=True)
     idempotency_key = Column(Text, unique=True, nullable=False)
 
     conversation = relationship("Conversation", back_populates="episodic_turns")
@@ -330,24 +345,66 @@ class ProjectTask(Base):
     updated_at = Column(DateTime(timezone=True), default=utcnow)
 
 
-class RAGDocument(Base):
-    __tablename__ = "rag_documents"
+class Document(Base):
+    """C12: the document REGISTRY. The document's *content* does not live here —
+    it lives as an ordinary conversation (``conversation_id``, kind 'document'
+    or 'transcript') whose turns are its sections, so every existing leg,
+    summary, cluster and scope rule applies to it unchanged. This row is the
+    identity: de-dup by ``sha256``, provenance for citations, the enable/disable
+    toggles (``document_links``), and the knowledge-promotion latch.
+
+    Replaces the v1 rag_documents/rag_chunks pair, whose only writer was an
+    unstarted watchdog script and whose reader was a globally-unscoped lookup
+    gated on five English nouns."""
+    __tablename__ = "documents"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id = Column(UUID(as_uuid=True),
+                             ForeignKey("conversations.id", ondelete="CASCADE"),
+                             nullable=False, index=True)
     filename = Column(Text, nullable=False)
-    file_type = Column(Text, nullable=False)
-    uploaded_at = Column(DateTime(timezone=True), default=utcnow)
-    token_count = Column(Integer, default=0)
+    file_type = Column(Text, nullable=False)     # pdf | docx | csv | md | ...
+    kind = Column(Text, nullable=False, default="document")   # document|transcript
+    origin = Column(Text, nullable=False, default="upload")   # upload|paste|watch_folder|project
+    # Same bytes = same document, always. Re-upload enables the existing one
+    # in the requesting conversation instead of ingesting a second copy.
+    sha256 = Column(Text, nullable=False, unique=True)
+    byte_size = Column(BigInteger, nullable=False, default=0)
+    n_sections = Column(Integer, nullable=False, default=0)
+    page_count = Column(Integer, nullable=True)   # NULL where meaningless
+    source_path = Column(Text, nullable=True)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
+    # D4 latch: flips true the first time a SECOND distinct conversation enables
+    # this document, and never flips back. The document's TEXT stays opt-in
+    # forever; this governs only whether the codex/procedural knowledge derived
+    # from it is denied to conversations that have not enabled it.
+    knowledge_shared = Column(Boolean, nullable=False, default=False)
+    shared_at = Column(DateTime(timezone=True), nullable=True)
+    status = Column(Text, nullable=False, default="pending")  # pending|ingesting|ready|failed
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow)
 
 
-class RAGChunk(Base):
-    __tablename__ = "rag_chunks"
+class DocumentLink(Base):
+    """C12 D3: one row per (document, conversation) that has EVER enabled it.
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    document_id = Column(UUID(as_uuid=True), ForeignKey("rag_documents.id"), nullable=False)
-    chunk_index = Column(Integer, nullable=False)
-    chunk_text = Column(Text, nullable=False)
-    embedding = Column(Vector(1024), nullable=False)
+    ``enabled`` is a live toggle — flip it on for a few prompts, off when done;
+    the document's text visibility follows it on the next turn. The row itself
+    is never deleted on disable, because ``first_enabled_at`` is the evidence
+    the promotion latch reads (two rows = a second conversation reached for
+    this document = it is real working knowledge)."""
+    __tablename__ = "document_links"
+
+    document_id = Column(UUID(as_uuid=True),
+                         ForeignKey("documents.id", ondelete="CASCADE"),
+                         primary_key=True)
+    conversation_id = Column(UUID(as_uuid=True),
+                             ForeignKey("conversations.id", ondelete="CASCADE"),
+                             primary_key=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    first_enabled_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow)
 
 
 class SessionReplay(Base):

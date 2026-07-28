@@ -14,7 +14,7 @@ Every rule was verified against its writer (spec §1 rev note 2):
   * episodic_memory   → the user half of raw_text (store_turn embeds ONLY
                         user_message; full raw_text when the "User: …" format
                         is absent — which is exactly right for MCP notes).
-  * episodic_chunks   → chunk_text          * rag_chunks → chunk_text
+  * episodic_chunks   → chunk_text
   * codex_entities    → canonical_name — SKIPPING merge husks
                         (properties.merged_into), C10 deletion husks
                         (properties.deleted_reason) and non-conversation
@@ -52,17 +52,10 @@ logger = structlog.get_logger("ice.memory.reembed")
 SPEC = "docs/specs/G23_C17_data_longevity.md"
 PER_ROW_MS = 20  # CPU estimate for the up-front print only
 
-_RAG_NOT_NULL_RESTORE = """
-    DO $$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM rag_chunks WHERE embedding IS NULL)
-        THEN
-            ALTER TABLE rag_chunks ALTER COLUMN embedding SET NOT NULL;
-        END IF;
-    END $$
-"""
-
-
 def _episodic_source(raw: str) -> str:
+    """C12: a document section's raw_text has no "User: " prefix (it is a
+    section of a document, not an exchange), so it falls through to the whole
+    text — which is the correct source for it, same as for MCP notes."""
     raw = raw or ""
     if raw.startswith("User: "):
         head, sep, _ = raw.partition("\n\nAssistant:")
@@ -77,7 +70,11 @@ class TableRule:
     select_sql: str = ""                   # must yield columns (id, src)
     id_col: str = "id"
     transform: Optional[Callable[[str], str]] = None
-    post_sql: Optional[str] = None         # once, after the table completes
+    # Once, after the table completes. No rule uses it since C12 dropped
+    # rag_chunks (the only NOT NULL vector column, which had to be re-armed
+    # after a re-embed). Kept: the next NOT NULL vector column will need it,
+    # and the mechanism is two lines.
+    post_sql: Optional[str] = None
 
 
 # Insertion order is execution order; context_clusters MUST stay last (its
@@ -102,10 +99,6 @@ RULES: dict[str, TableRule] = {
     "decisions": TableRule(
         kind="text",
         select_sql="SELECT id, decision AS src FROM decisions"),
-    "rag_chunks": TableRule(
-        kind="text",
-        select_sql="SELECT id, chunk_text AS src FROM rag_chunks",
-        post_sql=_RAG_NOT_NULL_RESTORE),
     "batch_summaries": TableRule(
         kind="text",
         select_sql="SELECT id, summary_text AS src FROM batch_summaries"),

@@ -34,7 +34,7 @@ logger = structlog.get_logger("ice.retrieval")
 @dataclass(frozen=True)
 class ContextFragment:
     text: str
-    source_type: str          # "episodic", "codex", "procedural", "rag", "timeline"
+    source_type: str          # "episodic", "codex", "procedural", "timeline"
     score: float              # RRF fused score
     token_count: int
     source_batch_id: Optional[str] = None
@@ -507,7 +507,7 @@ class HybridRetrievalOrchestrator:
 
         # G16 incognito: episodic legs are conversation-scoped via conv_id;
         # codex resolves an empty scope set (A5 `isolated`); the user-global
-        # legs (procedural patterns, RAG documents) read nothing at all.
+        # user-global leg (procedural patterns) reads nothing at all.
         incognito = bool(scope and scope.get("incognito"))
 
         # Prompt keywords: used by the cold leg's ILIKE patterns and the
@@ -520,9 +520,8 @@ class HybridRetrievalOrchestrator:
             "vector": self._vector_episodic(prompt_embedding, classification, scope, conv_id),
             "codex": codex_fragments,
             "procedural": [] if incognito else self._procedural_lookup(prompt_embedding, classification, scope),
-            "rag": [] if incognito else self._rag_lookup(prompt_embedding, classification),
             # C4: the cross-conversation summary half is a user-global read —
-            # gated off under incognito like procedural/rag; the conv-scoped
+            # gated off under incognito like procedural; the conv-scoped
             # batch half (own context) still runs.
             "batch_summary": self._batch_summary_lookup(
                 prompt_embedding, conv_id, include_cross=not incognito),
@@ -541,7 +540,6 @@ class HybridRetrievalOrchestrator:
             "vector": 1.0,
             "codex": 0.5,
             "procedural": 0.2,
-            "rag": 1.0,
             "timeline": 0.6,   # T4: pinned below — constant across profiles
         }
 
@@ -1350,10 +1348,21 @@ class HybridRetrievalOrchestrator:
         An ENTITY is denied only when every codex_event that evidences it
         comes from an excluded conversation. One first extracted in the
         abandoned project but discussed in five live ones is not that
-        project's property, and must survive."""
+        project's property, and must survive.
+
+        C12: the deny set reads `exclude_knowledge_conversation_ids` WHEN
+        PRESENT, else falls back to `exclude_conversation_ids` (so every C6
+        path is byte-identical). The two diverge only for documents: a
+        document whose knowledge has been promoted (a second conversation
+        enabled it — D4) stays excluded from the TEXT everywhere it is
+        switched off, while the facts extracted from it remain in the graph.
+        Text visibility and knowledge visibility are different questions."""
         self._denied_batch_ids = set()
         self._denied_entity_ids = set()
-        excluded = (scope or {}).get("exclude_conversation_ids")
+        scope = scope or {}
+        excluded = scope.get("exclude_knowledge_conversation_ids")
+        if excluded is None:
+            excluded = scope.get("exclude_conversation_ids")
         if not excluded:
             return
         try:
@@ -1922,38 +1931,15 @@ class HybridRetrievalOrchestrator:
         return True
 
     # ------------------------------------------------------------------
-    # RAG lookup
+    # (C12: the RAG leg is GONE — see the entry. `_rag_lookup` read
+    # `rag_chunks` with no scope filter at all, behind a gate that required
+    # the prompt to contain one of five English nouns
+    # (document/pdf/reference/manual/guide), and its only writer was a
+    # watchdog script nothing started. Documents now enter as their own
+    # conversations and are retrieved by the ordinary episodic/codex/cluster
+    # legs, so there is no lexical trigger left to be style-dependent.)
     # ------------------------------------------------------------------
-    def _rag_lookup(self, prompt_embedding, classification) -> List[ContextFragment]:
-        if classification.context_reliance != "Long_Term_Memory":
-            return []
-        if not ("Factual_Retrieval" in classification.intent_tags or
-                "Analysis_&_Summarization" in classification.intent_tags):
-            return []
-        if not any(w in classification.prompt.lower() for w in ["document", "pdf", "reference", "manual", "guide"]):
-            return []
 
-        # Same latent plain-list bind crash as the procedural leg (fixed in
-        # passing, C9 session): without the PgVector type this leg always
-        # rolled back empty under psycopg3.
-        query = text("""
-            SELECT chunk_text,
-                   1 - (embedding <=> :prompt_embedding) as score
-            FROM rag_chunks
-            ORDER BY score DESC
-            LIMIT 5
-        """).bindparams(bindparam("prompt_embedding", type_=PgVector))
-        try:
-            rows = self.db.execute(query, {"prompt_embedding": prompt_embedding}).fetchall()
-            return [ContextFragment(
-                text=r.chunk_text,
-                source_type="rag",
-                score=r.score,
-                token_count=int(len(r.chunk_text.split()) * 1.33)
-            ) for r in rows]
-        except Exception:
-            self.db.rollback()
-            return []
     def _batch_summary_lookup(self, prompt_embedding, conv_id: Optional[str] = None,
                               include_cross: bool = True) -> List[ContextFragment]:
         # T3 (D14): skipped under any non-current mode — a summary's created_at
@@ -2344,7 +2330,9 @@ class HybridRetrievalOrchestrator:
         self._scope_project_id = self._resolve_project_scope(scope)
         self._resolve_exclusion_sets(scope)
         scope_conv = scope.get("conversation_id") if scope else None
-        incognito = bool(scope and scope.get("incognito"))
+        # (C12: `incognito` was read here only to gate the RAG leg, which is
+        # gone. The wide net's isolation now comes from _conv_scope_filter +
+        # the privacy filter below, like every other leg.)
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, scope_conv)
         excl_filter, excl_params = self._exclusion_filters(scope)
         privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
@@ -2404,8 +2392,6 @@ class HybridRetrievalOrchestrator:
 
         fragments.extend(self._codex_graph(classification, scope,
                                            prompt_embedding=prompt_embedding))
-        if not incognito:
-            fragments.extend(self._rag_lookup(prompt_embedding, classification))
 
         fused = self._apply_rrf({"fallback": fragments}, alpha_map={"fallback": 1.0})
         prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()

@@ -8,11 +8,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
+from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
 from src.memory.models import Conversation, CuratedLabel, EpisodicMemory
 from src.services.errors import NotFoundError, ValidationError
-
 
 #: C6: the scope vocabulary is CLOSED. `set_scope` used to accept any string
 #: and store it verbatim, and main.py only branched on 'none'/'project' — so a
@@ -186,7 +186,69 @@ def resolve_retrieval_scope(db: Session, conv: Optional[Conversation]) -> dict:
     if conv.excluded_cluster_ids:
         scope["exclude_cluster_ids"] = [
             str(cid) for cid in conv.excluded_cluster_ids]
+
+    _apply_document_visibility(db, conv, scope)
     return scope
+
+
+def _apply_document_visibility(db: Session, conv: Conversation,
+                               scope: dict) -> None:
+    """C12: documents are OPT-IN everywhere, expressed in C6's vocabulary.
+
+    A document is its own conversation (`conversations.kind <> 'chat'`), and
+    its TEXT is readable only where it is *currently* enabled — an upload is
+    enabled in the uploading conversation and nowhere else, and any
+    conversation may toggle it on for a few prompts and off again (D3). So:
+
+      * closed-set modes (manual / project / attached) — the enabled document
+        conversations are ADDED to `conversation_ids`, because a closed set
+        that does not name them would filter them straight back out;
+      * open mode (auto) — every document conversation that is NOT enabled
+        here is added to `exclude_conversation_ids`, which the legs' existing
+        `_exclusion_filter` already applies.
+
+    KNOWLEDGE is scoped separately (D4). A document whose `knowledge_shared`
+    latch has tripped — a second conversation has enabled it at some point,
+    which is the signal that it is real working knowledge rather than a
+    one-off dump — keeps its codex/procedural facts visible everywhere even
+    where its text is not. That is why the deny set gets its own key instead
+    of reusing the text exclusion.
+
+    Incognito returns before this runs (`none` reads only itself, D5).
+    """
+    rows = db.execute(sql_text(
+        "SELECT c.id, COALESCE(d.knowledge_shared, FALSE) AS shared, "
+        "       COALESCE(l.enabled, FALSE) AS enabled "
+        "FROM conversations c "
+        "LEFT JOIN documents d ON d.conversation_id = c.id "
+        "LEFT JOIN document_links l "
+        "       ON l.document_id = d.id AND l.conversation_id = :me "
+        "WHERE c.kind <> 'chat'"), {"me": conv.id}).fetchall()
+    if not rows:
+        return          # no documents in the store — nothing to add anywhere
+
+    enabled = {str(r.id) for r in rows if r.enabled}
+    hidden = {str(r.id) for r in rows if not r.enabled}
+    # Text the user excluded by hand stays excluded even if a document is
+    # enabled — C6's rule that an exclusion has no hidden precondition.
+    excluded = set(scope.get("exclude_conversation_ids") or ())
+    enabled -= excluded
+
+    if scope.get("conversation_ids") is not None:
+        present = set(scope["conversation_ids"])
+        scope["conversation_ids"] = scope["conversation_ids"] + sorted(
+            enabled - present)
+    elif hidden:
+        scope["exclude_conversation_ids"] = sorted(excluded | hidden)
+
+    # The deny set: hand-excluded conversations, plus hidden documents whose
+    # knowledge has NOT been promoted. Set only when it would differ from the
+    # text exclusion, so C6-only stores keep the shipped fallback path.
+    unpromoted_hidden = {str(r.id) for r in rows
+                         if not r.enabled and not r.shared}
+    knowledge_denied = excluded | unpromoted_hidden
+    if knowledge_denied != set(scope.get("exclude_conversation_ids") or ()):
+        scope["exclude_knowledge_conversation_ids"] = sorted(knowledge_denied)
 
 
 def override_tags(db: Session, batch_id: str, topic_labels: List[str],

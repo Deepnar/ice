@@ -325,7 +325,17 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
     until it is approved (review_approve).
     Import (F10/F14): "import_status" ([item_id = a run id] → that run, else
     the latest run + recent list) reports conversation-import replay progress;
-    starting an import is a REST/CLI action (POST /user-control/import)."""
+    starting an import is a REST/CLI action (POST /user-control/import).
+    Documents (C12): "document_list" ([conversation_id] → the library, each
+    with enabled_here), "document_status" (item_id = a document id),
+    "document_enable"/"document_disable" (item_id + conversation_id) — a LIVE
+    toggle: a document is readable only where it is currently enabled, so turn
+    it on while it is useful and off when it is not. ⚠ enabling a document in a
+    SECOND conversation permanently promotes the knowledge extracted from it to
+    the whole graph (its text stays opt-in) — say so before doing it.
+    "document_add" (data: path or blob [+ filename, kind document|transcript,
+    dry_run]) ingests one; ALWAYS dry_run first and show the user the section
+    count and time estimate."""
     _journal("ice_control", action=action)
     d = data or {}
     with _session() as db:
@@ -392,6 +402,26 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
         if action == "import_status":
             from src.services import ingestion as ingestion_svc
             return ingestion_svc.import_status(db, item_id)
+        if action in ("document_list", "document_status", "document_add",
+                      "document_enable", "document_disable"):
+            from src.services import documents as documents_svc
+            if action == "document_list":
+                return documents_svc.list_documents(db, conversation_id)
+            if action == "document_status":
+                return documents_svc.document_status(db, item_id,
+                                                     conversation_id)
+            if action == "document_add":
+                from src.api.core import get_core
+                core = get_core()
+                return documents_svc.add_document(
+                    db, conversation_id=conversation_id, path=d.get("path"),
+                    blob=d.get("blob"), filename=d.get("filename"),
+                    doc_kind=d.get("kind"), project_id=d.get("project_id"),
+                    dry_run=bool(d.get("dry_run")),
+                    runtime=core.runtime if core is not None else None,
+                    classifier=core.classifier if core is not None else None)
+            return documents_svc.set_document_enabled(
+                db, item_id, conversation_id, action == "document_enable")
     raise _bad_action("ice_control", action,
                       ("scope_get", "scope_set", "review_list",
                        "review_approve", "review_reject", "registry_view",
@@ -400,7 +430,8 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
                        "arch_doc", "decisions_list", "decisions_add",
                        "task_add", "task_list", "task_status",
                        "delete_conversation", "forget_propose",
-                       "import_status"))
+                       "import_status", "document_list", "document_status",
+                       "document_add", "document_enable", "document_disable"))
 
 
 @mcp.tool()

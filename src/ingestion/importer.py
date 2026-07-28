@@ -156,7 +156,8 @@ def import_conversations(db, runtime, source: Iterable, policy: str = "hybrid",
                          run_batch_summary: bool = True,
                          run_conversation_summary: bool = True,
                          deadline: Optional[float] = None,
-                         progress_cb=None) -> dict:
+                         progress_cb=None,
+                         conversation_id_override: Optional[uuid.UUID] = None) -> dict:
     """Replay ``source`` (iterable of NormalizedConversation) through the full
     pipeline. Idempotent + resumable: a fully-replayed conversation is
     recorded in import_conversations by content hash and skipped on re-run; a
@@ -167,6 +168,11 @@ def import_conversations(db, runtime, source: Iterable, policy: str = "hybrid",
     still un-hashed, so the caller re-enqueues. ``runtime`` (optional) gates
     on live generations: the engine pauses between turns while a chat stream
     is in flight (never store into the pipeline behind the user's back).
+
+    ``conversation_id_override`` (C12b) replays a single source into an
+    already-created conversation instead of the provider-derived uuid5 — how a
+    pasted chat log becomes a ghost conversation the document registry owns.
+    Single-source only; with several conversations they would collide.
     """
     from src.ingestion.formats import content_hash
     from src.workers.post_flight import evaluate_turn
@@ -198,7 +204,9 @@ def import_conversations(db, runtime, source: Iterable, policy: str = "hybrid",
             report["skipped_conversations"] += 1
             continue
 
-        conv_id = uuid.uuid5(NS_ICE_IMPORT, f"{conv.provider}:{conv.source_id}")
+        conv_id = (conversation_id_override if conversation_id_override
+                   else uuid.uuid5(NS_ICE_IMPORT,
+                                   f"{conv.provider}:{conv.source_id}"))
         pairs, skipped_leading = _merge_and_pair(conv.turns)
         report["leading_assistant_skipped"] += skipped_leading
         report["branch_messages_skipped"] += conv.branch_messages_skipped

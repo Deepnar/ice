@@ -15,6 +15,7 @@ from src.api.routers.adapter import service_errors
 from src.services import bookmarks as bookmarks_svc
 from src.services import clusters as clusters_svc
 from src.services import conversations as conversations_svc
+from src.services import documents as documents_svc
 from src.services import ingestion as ingestion_svc
 from src.services import registry_svc
 from src.services import review as review_svc
@@ -62,6 +63,21 @@ class ImportRequest(BaseModel):
     source_path: str
     policy: str = "hybrid"
     dry_run: bool = False
+
+class DocumentRequest(BaseModel):
+    # Exactly one of path / blob. `kind` is the user's explicit
+    # document-vs-transcript choice and always wins over detection (C12 D6).
+    path: Optional[str] = None
+    blob: Optional[str] = None
+    filename: Optional[str] = None
+    conversation_id: Optional[str] = None
+    kind: Optional[str] = None
+    project_id: Optional[str] = None
+    dry_run: bool = False
+
+class DocumentToggle(BaseModel):
+    conversation_id: str
+    enabled: bool = True
 
 class ClusterCreate(BaseModel):
     name: str
@@ -192,6 +208,50 @@ def latest_import(db: Session = Depends(get_db)):
 def import_status(import_id: str, db: Session = Depends(get_db)):
     with service_errors():
         return ingestion_svc.import_status(db, import_id)
+
+
+# ------------------------------------------------------------------
+# C12 — Documents. The upload widget and the library with its per-chat
+# enable toggles are F's (ledger); these are the operations underneath.
+# ------------------------------------------------------------------
+@router.post("/documents")
+def add_document(body: DocumentRequest, db: Session = Depends(get_db)):
+    with service_errors():
+        from src.api.core import get_core
+        core = get_core()
+        return documents_svc.add_document(
+            db, conversation_id=body.conversation_id, path=body.path,
+            blob=body.blob, filename=body.filename, doc_kind=body.kind,
+            project_id=body.project_id, dry_run=body.dry_run,
+            runtime=core.runtime if core is not None else None,
+            classifier=core.classifier if core is not None else None)
+
+
+@router.get("/documents")
+def list_documents(conversation_id: str = None, db: Session = Depends(get_db)):
+    return documents_svc.list_documents(db, conversation_id)
+
+
+@router.get("/documents/{document_id}")
+def document_status(document_id: str, conversation_id: str = None,
+                    db: Session = Depends(get_db)):
+    with service_errors():
+        return documents_svc.document_status(db, document_id, conversation_id)
+
+
+@router.put("/documents/{document_id}/enabled")
+def set_document_enabled(document_id: str, body: DocumentToggle,
+                         db: Session = Depends(get_db)):
+    with service_errors():
+        return documents_svc.set_document_enabled(
+            db, document_id, body.conversation_id, body.enabled)
+
+
+@router.delete("/documents/{document_id}")
+def delete_document(document_id: str, dry_run: bool = False,
+                    db: Session = Depends(get_db)):
+    with service_errors():
+        return documents_svc.delete_document(db, document_id, dry_run=dry_run)
 
 
 # ------------------------------------------------------------------

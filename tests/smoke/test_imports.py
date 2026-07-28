@@ -11,10 +11,12 @@ import pytest
 # retires the exclusion. Keep this list SHRINKING.
 # (src.api.main is NOT excluded: its classifier loads lazily in lifespan(),
 # so importing it is cheap and covers the app wiring.)
-EXCLUDED = {
-    # instantiates its own PyTorchClassifier at import (G13); retire with G13.
-    "src.workers.drop_zone",
-}
+# EMPTY as of C12 (2026-07-28): the last exclusion was `src.workers.drop_zone`,
+# which instantiated its own PyTorchClassifier at import (G13). It was deleted
+# with the v1 RAG store — the watch folder is now
+# `src.ingestion.documents.watch_folder`, an ordinary runtime job with no
+# import-time model. Every module under src/ is swept.
+EXCLUDED: set = set()
 
 
 def _modules():

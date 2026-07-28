@@ -82,6 +82,10 @@ class Settings(BaseSettings):
         # HEAD drift + hook marker files. The hook is the design; this is the
         # ≤10-min lag path when the hook is declined or the app was down.
         "project_poll": 600,
+        # C12: scan ingest_inbox/ for dropped files. A cadence scan, not a
+        # watchdog thread — the v1 drop zone WAS a watchdog and nothing ever
+        # started it, so the folder silently did nothing for a year.
+        "ingest_folder": 900,
     }
 
     # ── Track E: coding-ICE core ──
@@ -114,6 +118,13 @@ class Settings(BaseSettings):
     # C6: silence longer than this within a conversation opens a new session
     # (a "sitting") — the boundary clustering/C7 maintenance key off.
     session_gap_minutes: int = 30
+
+    # ── C12 D10: document text extraction. "builtin" = the pure-python parser
+    # set (embedded text only; scanned PDFs are refused, never silently
+    # ingested empty). "tika"/"docling" are reserved for the Track F OCR item —
+    # they run as their own containers, exactly as Open WebUI does it, so
+    # adding OCR never puts a system binary in setup.sh.
+    document_extraction_engine: str = "builtin"
 
     context_input_fraction: float = 0.75
     context_budget_min: int = 4_000
