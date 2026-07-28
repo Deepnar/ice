@@ -309,3 +309,71 @@ situation is written down here and in the C6 roadmap entry instead.
 findings in `tests/test_session_scoping.py` are its house pattern (imports
 inside the `try` block, next to the checks that use them) and were left. No
 moves, no reformatting.
+
+---
+
+## C12a — documents (2026-07-28, commit `27f64eb`)
+
+**Deleted: `src/workers/drop_zone.py`.** The v1 ingest path — a standalone
+`watchdog.Observer` process with its own `main()` and `while True` loop.
+Recoverable at `27f64eb^`. Three independent reasons, all of them measured
+rather than assumed:
+
+1. **Nothing started it.** `./ice` launches uvicorn; C7 deleted Celery and this
+   module was never moved into `runtime.JOBS`, so `ingest_inbox/` had been inert
+   for as long as C7 has been shipped.
+2. **It was the last module excluded from the smoke import sweep** (G13: it
+   instantiated a second `PyTorchClassifier` at import). `tests/smoke/
+   test_imports.py`'s `EXCLUDED` set is now **empty** — every module under
+   `src/` is swept, which is the first time that has been true.
+3. Its output went to `rag_chunks`, which is gone.
+
+Its replacement is `src/ingestion/documents/watch_folder.py`, an ordinary
+`ingest_folder` cadence job (900 s) that calls the document service. **G13 is
+closed by this deletion**, and G29's token-estimation cluster loses one of its
+22 sites (`drop_zone.py:81`'s inline `len(split()) * 1.33`).
+
+**Dropped: `rag_documents` + `rag_chunks` (migration `5fe5ad26480b`).** Their
+only writer was the module above; their only reader was `_rag_lookup`, deleted
+in the same commit. Recovery: the migration's `downgrade()` recreates both
+tables exactly, and the live store was empty (see the roadmap's standing answer
+on the empty DB), so nothing was lost. `rag_documents` is *succeeded* by
+`documents` — a registry, not a content store.
+
+**Deleted: `HybridRetrievalOrchestrator._rag_lookup` and every trace of the
+`rag` leg** — the leg dict entry, the 1.0 base weight, the `ContextFragment`
+source-type docstring, `ConfigurableOrchestrator._rag_lookup` and its ablation
+flag, the wide net's `incognito` local (read only to gate this leg), and the
+assembler-budget rule that preserved RAG fragments. Asked-and-recorded rather
+than assumed: the leg was **user-confirmed for deletion** during the C12 design
+session, on the evidence that it had no live writer, no scope filter, and a
+five-English-noun gate.
+
+**Two lint-adjacent fixes in passing.** `memory/reembed.py` lost the
+`rag_chunks` rule and its `_RAG_NOT_NULL_RESTORE`; the `TableRule.post_sql`
+seam that restore was the only user of is **kept**, with a comment saying so —
+the next NOT NULL vector column will want it, and deleting a two-line
+general mechanism to chase a zero-user count is the wrong trade.
+`memory/portability.py` lost the matching NOT-NULL disarm step.
+
+**Tests adapted, not deleted.** `tests/test_longevity.py` used
+`RAGDocument`/`RAGChunk` as its export/import fixture and asserted the NOT NULL
+re-arming. It now uses a **document + its conversation**, which tests a stronger
+invariant: the portability walker builds its table list from
+`Base.metadata.sorted_tables`, so a new table that round-trips proves it was
+declared correctly. 26/26 still. `tests/test_turn_density.py`'s
+`generate_summary` stub grew `**kw` for C12's `source_kind`/`source_title`.
+
+**Boy-scout.** `ruff --select F,I001` clean on all touched files. The one
+remaining `F401` in `src/model_registry/registry.py:5` is pre-existing and that
+file was not touched this session, so it was left for G20/G29's pass. No
+repo-wide reformat.
+
+**Residue cleaned, and worth recording as a repeat of trap 6.** The first run of
+`tests/test_documents.py` crashed in its own `finally` (it deleted
+`codex_entities` before the `codex_edges` referencing them), leaving 1 turn, 4
+conversations and 3 entities behind in a store that is supposed to be empty —
+the exact failure the C6 session recorded. The suite's cleanup now deletes
+edges and events before entities, and its final line prints **this run's**
+remaining rows (must be 0) separately from a store-wide count, so a later
+session is not misled into blaming this suite for another one's residue.

@@ -1,4 +1,26 @@
 # C12 — Documents: ingestion, isolation, and the death of the RAG leg
+
+> **STATUS: C12a SHIPPED 2026-07-28 (`27f64eb`, migration `5fe5ad26480b`, 46/46).**
+> C12b (in-chat paste promotion) remains open. **Two divergences recorded during
+> implementation (rule 12), both corrected in place below:**
+> 1. **§5 check 4** said "the doc's sections are linked to a cluster". They are
+>    not, and should not be: C5's wait-for-a-friend rule creates a cluster only
+>    from ≥2 *mutually similar* turns, and the suite's stub embedder is a
+>    per-text hash, so asserting a link would assert the stub's luck. The check
+>    now asserts the **wiring** (clustering processes a document's sections like
+>    any other turn). Whether real embeddings cluster them is C5's threshold
+>    question, measured at Z1.
+> 2. **§1 D12's split** put the transcript path in C12b. It shipped in C12a
+>    instead, because `add_document` must decide the destination *before* it
+>    writes anything — the fork cannot live downstream of ingestion. C12b is
+>    therefore only the **in-chat paste promotion** half.
+>
+> One thing §5 check 5 assumed and reality corrected: a document only gets a
+> conversation-summary row once it **outgrows the recent window**
+> (`0.3 × (23k − 1.8k)` ≈ 6,360 tokens), which is correct behavior — a
+> two-paragraph file needs no summary — so the test fixture is a real-sized
+> document rather than a toy.
+
 Assumes decided specs: [C6 (scope semantics — SHIPPED 2026-07-28, `a1f6b8d94c22`)](../ROADMAP.md), [F10_F14_import.md](F10_F14_import.md), [E_coding_core.md](E_coding_core.md) (D10/E10), [C4_C9_memory_quality.md](C4_C9_memory_quality.md), [C10_C11_deletion_chat_control.md](C10_C11_deletion_chat_control.md)
 
 > **Why this spec exists at all.** The roadmap's C12 entry carries an S1 note saying
@@ -433,8 +455,12 @@ row is NOT), and the negative side must not be vacuous — trap 5 from the C6 se
 3. Codex ran: entities extracted from the document exist with the doc's batch ids
    (stub LLM) — and would NOT have run under the old gate (assert `lossless_flag` is
    true on a low-entropy section, i.e. the forcing is load-bearing).
-4. Clustering ran: the doc's sections are linked to a cluster.
-5. A document-level summary row exists in `conversation_summaries`.
+4. Clustering **processes** the doc's sections like any other turn (`processed ==
+   len(sections)`) and they are eligible (not private). *Not* "a cluster formed" —
+   see the STATUS divergence at the top.
+5. A document-level summary row exists in `conversation_summaries` — the fixture must
+   be a REAL-sized document (>6,360 tokens), because the worker correctly declines to
+   summarise a conversation that still fits the recent window.
 6. **Isolation, two-sided:** conversation A (uploader) retrieves a doc-only fact;
    conversation B under `auto` does **not**; enable in B → B does; disable → B does not.
 7. **Closed-set mode:** the same, with B in `manual` scope (proves the
