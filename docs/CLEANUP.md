@@ -256,3 +256,56 @@ with the adaptive 80 %-of-best band**. Section rewritten to the shipped code.
 `src/retrieval/configurable_orchestrator.py` (`dataclasses.replace`,
 `ClassificationResult`). `ruff --select F` clean on all five touched files. No
 moves, no deletions, no reformatting.
+
+---
+
+## 2026-07-28c — C6: `custom_filter` dropped, the scope builder consolidated
+
+**One column DELETED: `conversations.custom_filter`** (migration
+`a1f6b8d94c22`, the new alembic head). Recovery: the column and its plumbing
+are in every commit up to `c46e5df`; the migration's `downgrade()` restores the
+column (empty — the data is not recoverable from the migration, but the live
+store held no non-NULL values, and the *code* to read one never existed).
+
+Why it went, recorded because "unused column" undersells it. `custom_filter`
+was **v1's definition of `manual` scope**: the user would hand-write a SQL
+`WHERE` fragment (`docs/outdated/ARCHITECTURE.md` §8.1 gives the example
+`topic_tags @> ARRAY['Software_&_Tech'] AND timestamp > '2025-01-01'`) and the
+orchestrator would append it to every episodic query, guarded by an allowlist
+validator. The validator was never written and no reader was ever added, so the
+value was set by `set_scope`, echoed by `get_scope`, plumbed through the REST
+body and the MCP action, and read by nothing. C6 gave `manual` the *other*
+meaning the user chose — tick the conversations you want — which the same mode
+cannot also carry. `specs/G_mechanical.md`'s G20 sweep had already recorded the
+DROP verdict; the user was asked anyway (standing rule: a measurement that
+something is unused is evidence, not permission) and confirmed on 2026-07-28.
+
+Removed with it: the `custom_filter` field on `ScopeUpdate`
+(`api/routers/user_control.py`), the parameter on `scoping.set_scope`, the key
+in `get_scope`'s response, and the passthrough in `chat_commands._cmd_scope`.
+
+**Duplication collapsed: the retrieval-scope builder.** `api/main.py` and
+`services/retrieval_svc.py` each built the scope dict from a conversation row.
+The copies had already drifted — the service copy reproduced only the *project*
+arm, so an MCP `ice_context` pull inside an incognito conversation missed the
+`isolated`/`incognito` flags and ran the RAG and procedural legs against global
+memory. Both now call `services/scoping.py::resolve_retrieval_scope`. Same
+shape as the G29 clusters; found by looking for it rather than by a grep.
+
+**Contract fixed, not just tidied.** Every id-set parameter on `set_scope` is
+now `None` = leave unchanged, `[]` = clear. `cluster_ids` used to overwrite with
+`[]` on `None`, which is the only reason `/scope` had to re-send the current
+value on every call just to avoid destroying it (C10/C11 spec rev 13). That
+passthrough is deleted; a bare `/scope` now changes the mode and nothing else.
+
+**Not re-recorded on purpose.** `logs/router_parity_baseline.json` (untracked,
+2026-07-17) now mismatches on 9 checks. Eight are stale — the baseline embeds
+the pre-wipe live store's slot content that G23 destroyed on 2026-07-19 — and
+the ninth (`scope_get.body`) is C6's intended change. Re-recording would erase
+E0's byte-identical-extraction evidence, so the file is left alone and the
+situation is written down here and in the C6 roadmap entry instead.
+
+**Boy-scout.** `ruff --select F` clean on all eleven touched files. The `I001`
+findings in `tests/test_session_scoping.py` are its house pattern (imports
+inside the `try` block, next to the checks that use them) and were left. No
+moves, no reformatting.

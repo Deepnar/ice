@@ -51,7 +51,9 @@ alongside the flow phases (top-of-roadmap section).
 - **G20 sweep verdicts:** `_hyde_used` flag → delete with the commented block
   (keep the relabeled `_hyde_rewrite` comment per P0.1); `conversations.
   custom_filter` → **DROP column** (C6's richer scope forms supersede it; never
-  read today); `session_replays` → F13 owns (keep, note); redis publish + jsonl
+  read today) — **EXECUTED by C6, 2026-07-28, migration `a1f6b8d94c22`**
+  (user-confirmed; it was v1's contradictory "user writes a SQL WHERE clause"
+  definition of `manual` scope); `session_replays` → F13 owns (keep, note); redis publish + jsonl
   buffer → already deleted by C7; `entropy_score` → done (C1). Validate: grep
   gate for the deleted names.
 - **G22 smoke suite (build FIRST in the flow):** pytest, seconds, no GPU/DB:

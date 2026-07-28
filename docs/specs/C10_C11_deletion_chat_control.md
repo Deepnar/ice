@@ -84,6 +84,11 @@ CuratedLabel carries batch_id, EpisodicClusterLink composite-PK link rows.
 > 13. **`/scope` passes through existing cluster_ids/custom_filter** —
 >    `set_scope` overwrites them otherwise (a bare `/scope auto` must not wipe
 >    cluster assignments); `project=None` leaves attachment untouched.
+>    **⚠ SUPERSEDED by C6 (2026-07-28).** The passthrough is deleted because
+>    the footgun it worked around is gone: every id-set parameter on
+>    `set_scope` is now `None` = leave unchanged, `[]` = clear, so a bare
+>    `/scope` cannot wipe anything. `custom_filter` no longer exists (dropped,
+>    migration `a1f6b8d94c22`), and `/scope` now also accepts `manual`.
 > 14. **`/bookmark` = `latest_turn` + `bookmark_turn`** (the stored-turn
 >    reality: the just-streamed reply isn't stored until post-flight; a fresh
 >    conversation gets a clear "nothing stored yet" instead of NotFound).
