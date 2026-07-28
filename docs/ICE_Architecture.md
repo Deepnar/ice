@@ -466,10 +466,12 @@ It is populated by the Procedural Extractor (§5.2) and the Reflection worker's 
 
 **A document's content is not stored here.** It is stored as an ordinary conversation whose turns are its sections (`conversations.kind = 'document' | 'transcript'`), which is what gives it scoping, clustering, chunk retrieval, summaries and codex extraction with no new machinery — see §14. These two tables are the *registry*:
 
-- **documents** (id, conversation\_id FK CASCADE, filename, file\_type, kind, origin, **sha256 UNIQUE**, byte\_size, n\_sections, page\_count, source\_path, project\_id, **knowledge\_shared** + shared\_at, status, error, timestamps) — identity, de-duplication (same bytes ⇒ same document, always), citation provenance, and the knowledge-promotion latch (§14.3).
+- **documents** (id, conversation\_id FK CASCADE, filename, file\_type, kind, origin, **sha256 UNIQUE**, byte\_size, n\_sections, page\_count, source\_path, **source\_text**, project\_id, **knowledge\_shared** + shared\_at, status, error, timestamps) — identity, de-duplication (same bytes ⇒ same document, always), citation provenance, and the knowledge-promotion latch (§14.3).
 - **document\_links** (document\_id, conversation\_id, **enabled**, first\_enabled\_at, updated\_at; PK on the pair) — one row per conversation that has *ever* enabled the document. `enabled` is a **live toggle**; the row is never deleted on disable, because `first_enabled_at` is the evidence the latch reads.
 
-`episodic_memory.promoted_document_id` points from an in-chat paste to what it became (C12b).
+Exactly one of `source_path` / `source_text` is set: a pasted blob has no file to re-read, and the enqueued ingest job — the path both live adapters take — re-reads its source before replaying. Without `source_text` every blob ingested through REST or MCP failed as *"source file is gone"* (fixed 2026-07-28, migration `7c4d19ab35e2`).
+
+`episodic_memory.promoted_document_id` is a **designed hook with no writer yet**. It points from an in-chat paste to what it became — but the in-chat *split* belongs to Track F, not the backend: the browser's `paste` event knows which characters came from the clipboard, and by the time the proxy sees `messages[-1].content` that fact is destroyed rather than hidden. See the roadmap's C12 entry.
 
 *(These replace v1's rag\_documents / rag\_chunks. Migration `5fe5ad26480b` drops those: their only writer was a watchdog script nothing started, and their only reader was a globally-unscoped lookup gated on five English nouns.)*
 
