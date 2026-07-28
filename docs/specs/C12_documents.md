@@ -20,6 +20,36 @@
 > (`0.3 × (23k − 1.8k)` ≈ 6,360 tokens), which is correct behavior — a
 > two-paragraph file needs no summary — so the test fixture is a real-sized
 > document rather than a toy.
+>
+> ---
+>
+> **[rev 2026-07-28b] — C12b re-grounding, recorded BEFORE any C12b code (rule 12).**
+> The C12b half of this spec was **not decision-complete**: §3 listed two files and
+> §1 D6/D7 settled the *destination* and the *don't-rewrite* rule, but nothing said
+> what **triggers** promotion, what **part** of the message becomes the document, or
+> what the chat turn still **contributes to retrieval** afterwards. Those are now
+> **D13–D18** below, decided with the user on 2026-07-28. Three divergences found
+> while grounding, all corrected here:
+>
+> 1. **The roadmap's C12a note overclaims.** It says `formats.detect_format` is "now
+>    routed through `detect_blob_kind`". It is **not** — [formats.py:436] still
+>    returns `"raw"` for every `.txt`, and `detect_blob_kind` has exactly two callers
+>    (`services/documents.py` and the test). This spec always filed it under C12b;
+>    the roadmap note is what is wrong, and D18 closes it for real.
+> 2. **A live C12a bug: `add_document(blob=…)` cannot succeed through any real
+>    surface.** Both adapters (`user_control.py:226`, `mcp/server.py:421`) pass
+>    `runtime`, so `add_document` enqueues `ingest_document`; `run_document_ingest`
+>    re-reads from `source_path`, which a blob has never had, and the document dies
+>    as `failed: "source file is gone — re-upload it"`. `tests/test_documents.py`
+>    passes `runtime=None` everywhere — **zero occurrences of the word** — so 48
+>    green checks never touched the path. This is trap 4 from the C12a session
+>    (*"a test suite passing is not the same as a surface working"*) repeating
+>    within one week. D17 fixes it, and it is a **prerequisite** for C12b rather
+>    than a side-quest: promotion's whole input is a blob.
+> 3. **D7's "excluded from retrieval as a duplicate" cannot mean the whole turn.**
+>    The assistant's *reply* to a paste is not a duplicate of anything, and dropping
+>    it makes "what did you say was wrong with my design doc?" unanswerable. D15
+>    replaces the wording with a stand-in representation.
 
 Assumes decided specs: [C6 (scope semantics — SHIPPED 2026-07-28, `a1f6b8d94c22`)](../ROADMAP.md), [F10_F14_import.md](F10_F14_import.md), [E_coding_core.md](E_coding_core.md) (D10/E10), [C4_C9_memory_quality.md](C4_C9_memory_quality.md), [C10_C11_deletion_chat_control.md](C10_C11_deletion_chat_control.md)
 
@@ -238,6 +268,149 @@ are in C12's original scope; neither is a throwaway. Precedent: A9 → A9a/A9b/A
 
 ---
 
+## 1b. C12b decisions (2026-07-28, with the user)
+
+### D13 — Promotion is a size pre-filter over a CONTENT judgment. (user, 2026-07-28)
+
+Two stages, both on the **user half of the turn only** — the paste lives there, and a
+long *assistant* answer is not a paste, it is an answer:
+
+1. **Cheap gate:** `len(user_message.split()) >= PROMOTE_MIN_WORDS` (**1,000**). Below
+   that a paste yields fewer than three sections at `CHUNK_TOKENS = 550`, so a document
+   conversation adds bookkeeping and no structure. A word count is a *magnitude*, not a
+   typography bet — it is the same number however the text is punctuated — so it passes
+   G28 as a pre-filter. It is a pre-filter and nothing more: it never *decides*.
+2. **The decision:** the background model reads a head+middle+tail sample and answers
+   one of three — **WRITTEN** (a person writing at length in their own voice),
+   **DOCUMENT**, **TRANSCRIPT**. Only the latter two promote. This is the same
+   content-not-typography move `detect_blob_kind` already makes, extended by the arm
+   C12b actually needs (`detect_blob_kind` answers doc-vs-transcript, which presumes
+   the answer to *is this a paste at all*).
+
+**This deletes `post_flight.py:204`'s `raw_words > 2000 and count("Assistant:") < 3`** —
+the G28 bet that C12 owns. Note the old rule measured *both* halves of the turn, so a
+2,001-word assistant answer to a one-line question was filed as a document.
+
+**Failure default: DO NOT PROMOTE.** On any model failure or unparseable answer the turn
+stays exactly as it is today. The asymmetry is deliberate and points the *opposite* way
+to `detect_blob_kind`'s (which defaults to DOCUMENT because mis-slicing *mangles*): here
+the destructive direction is promotion, because a promoted turn's text becomes **opt-in**
+(D2) and therefore invisible to every other conversation. Both defaults follow the same
+principle — take the option that cannot destroy — they just land on different answers
+because the destructive act differs.
+
+### D14 — ICE separates the paste from the typed prompt ITSELF. No frontend seam. (user, 2026-07-28)
+
+> *"if above a certain limit the text pasted becomes like a text file/blob how claude and
+> chatgpt do when we paste a massive text, it doesn't get written in the typing bar but
+> becomes blob"* — and, on the proposal to expose an optional request field for a client
+> to fill: *"dont make a seam man"*.
+
+Claude's and ChatGPT's composers split at paste time, which is why their typed prompt
+survives as a prompt. ICE is a proxy and reads `messages[-1].content` as one flat string
+([main.py:228]) — it cannot make a frontend do that. So **ICE does the split on the
+string it receives**, and does not ship a hook for a frontend that does not exist yet.
+
+**Mechanism — anchors, verified, never offsets.** When stage 2 says DOCUMENT/TRANSCRIPT,
+one further background call is given the head and tail of the message and asked to quote
+**verbatim** any short instruction the person wrote *before* the pasted material and any
+they wrote *after* it (either may be empty). Each quote is then **located with
+`str.find`** and accepted only if it really sits at that edge. What lies between the
+accepted anchors is the paste.
+
+* Not offsets/line numbers — a small model cannot count characters, and a wrong number
+  silently truncates the document.
+* Every anchor is **verified against the actual text**, so the worst failure is *no
+  split*, never a wrong one.
+* If neither anchor verifies, the **whole user message** is the paste. That is exactly
+  what the user chose when asked ("the whole msg … the current shit is being sent anyway"
+  — the live turn already carries the paste to the model, so promotion is about *later*
+  turns), so the fallback is not a degradation, it is the agreed baseline behavior.
+
+This is a *resolver* (it locates a value and checks it), not a lexicon inferring intent —
+the distinction CLAUDE.md's standing rule draws — so it is G28-legal. Its invariance
+evidence is §5b check 4.
+
+### D15 — `retrieval_text`: the stand-in every reader uses; `raw_text` stays verbatim.
+
+D7 stands — the stored turn is never rewritten. But "excluded from retrieval as a
+duplicate" (D7's original wording) would take the assistant's reply down with the paste,
+so it is replaced by: a promoted turn gains
+
+```sql
+ALTER TABLE episodic_memory ADD COLUMN retrieval_text TEXT;
+```
+
+meaning **"what stands in for this turn everywhere except the verbatim record"**. For a
+promoted turn it is `User: <the typed prompt, or a marker when there wasn't
+one>\n\nAssistant: <the reply>`. `raw_text` keeps the paste, byte for byte, for the
+record, for export, and for C10's deletion manifest.
+
+**Why a column and not `summary_text` + `inject_raw=False`.** That was tried on paper and
+is unsafe: `_choose_representation` has **four** paths that return `raw` unconditionally
+(untrusted coverage, keyword protection, exactness intents, the `inject_raw` hint), and
+the keyword path is the exact dangerous case — the user asks about something *in* the
+pasted document, the keyword is found in `raw`, and the whole paste is injected. The
+substitution has to happen *above* the chooser, not inside its matrix.
+
+**One helper, five call sites** (`src/memory/representation.py::retrieval_text(row)` →
+`row.retrieval_text or row.raw_text`): `orchestrator._choose_representation`,
+`prompt_assembler.py:106`, `main.py:448` (bookmarks), `conversation_summary.py:44`,
+`retrieval_svc.py:211`. Missing one leaks the paste into context, so the check for it is
+two-sided in §5b. The turn's **embedding and its chunks are recomputed from the
+retrieval text** as well — otherwise the row's vector is still the paste's mush and the
+chunker still stores the paste chunk-by-chunk under the turn.
+
+### D16 — `is_document` stops being a guess and becomes a FACT.
+
+After D13 the flag means one thing: **this turn contained a paste that was promoted**
+(`promoted_document_id IS NOT NULL`). No word counts, no label counts. Consequences,
+all of them improvements:
+
+* A long turn the model judged **WRITTEN** is now an ordinary turn — it stays in
+  turn-level vector search (today it is silently excluded above 2,000 words) and gets
+  C3 chunking through the existing `> LONG_TURN_CHUNK_WORDS` rule.
+* `decide_representation`'s `is_document` arm ("whole-doc raw, no summary") now fires
+  only for turns whose retrieval text is short, which is the right answer for them.
+* The column stays rather than being replaced by `promoted_document_id IS NOT NULL` in
+  five SQL predicates: it is a denormalized fact, written once, and the alternative is
+  five joins for nothing.
+
+### D17 — A pasted blob's bytes live in `documents.source_text`. (fixes the C12a bug)
+
+```sql
+ALTER TABLE documents ADD COLUMN source_text TEXT;   -- exactly one of source_path/source_text
+```
+
+`run_document_ingest` reads `source_text` when there is no `source_path`, so the
+enqueued path works for blobs — which is what makes promotion able to **enqueue** rather
+than run a 25-section ingest inline inside the chat turn's post-flight job. The same
+change repairs divergence 2: REST/MCP blob uploads have never been able to complete.
+
+The job is also unified across kinds — a transcript blob re-slices from `source_text`
+the same way — so `_ingest_transcript`'s body becomes callable from the job instead of
+only from `add_document`. Rejected: writing pastes to a managed directory on disk. It
+buys nothing here (the text is small, the DB already stores it as sections) and costs a
+new filesystem contract, a cleanup story on delete, and a second thing to back up.
+
+### D18 — `detect_format`'s `.txt` bet dies by REFUSING, not by re-routing.
+
+`detect_format` is the **chat-history import** entry; its job is conversations. When a
+`.txt` (or any non-JSON text file) reads as a DOCUMENT, the honest answer is not to
+quietly hand it to the document pipeline behind an API whose contract is "returns an
+ImportRun" — it is to refuse with the fix named:
+
+> `"this file reads as a document, not a chat log — ingest it with add_document (POST
+> /user-control/documents), or pass format='raw' to force the amnesia slicer"`
+
+An explicit `fmt` argument still wins outright (it always has). The detection is
+`detect_blob_kind` over the file's text, so the decision is content-based; the *cost* of
+being wrong is a clear error message rather than a mangled memory, which is why refusal
+beats re-routing here even though re-routing is what the paste path does. The import
+wizard (F10's F-ledger line) renders this as the doc-vs-transcript choice.
+
+---
+
 ## 2. Algorithm & data model
 
 ### 2.1 Schema (one migration, head after `a1f6b8d94c22`)
@@ -409,10 +582,32 @@ so every existing C6 path is unchanged.
 * `pyproject.toml` — `pypdf`, `python-docx`, `python-pptx`, `openpyxl`, `beautifulsoup4`.
 * `scripts/ice_add_document.py` — CLI.
 
-**C12b (second commit)**
-* `src/workers/post_flight.py` — promotion branch (D6/D7).
-* `src/ingestion/formats.py` — `detect_format`'s `.txt` assumption routed through
-  `detect_blob_kind`.
+**C12b (second commit)** — expanded by rev 2026-07-28b; D13–D18 are the reasoning.
+
+*New*
+* `src/memory/representation.py` — `retrieval_text(row)`, the one-line stand-in helper
+  (D15). Deliberately its own module: five unrelated callers already reach for it and a
+  sixth would otherwise re-derive it (G29's read-time-representation cluster).
+* migration on top of `5fe5ad26480b` — `episodic_memory.retrieval_text`,
+  `documents.source_text`.
+
+*Modified*
+* `src/ingestion/documents/kind.py` — `detect_paste_kind()` (WRITTEN/DOCUMENT/TRANSCRIPT,
+  D13) and `split_paste()` (verified anchors, D14) beside the existing
+  `detect_blob_kind`; `_sample` is shared.
+* `src/workers/post_flight.py` — the promotion branch at the TOP of `evaluate_turn`
+  (before density), the `is_document` heuristic **deleted** (D16), the turn re-embedded
+  from its retrieval text.
+* `src/workers/document_chunker.py` — chunks the retrieval text, not `raw_text`; its
+  module docstring's ">2000 words, <3 assistant markers" description dies with the rule.
+* `src/services/documents.py` — `source_text` written on blob ingest;
+  `run_document_ingest` handles both kinds from either source; `_ingest_transcript`'s
+  body split out so the job can call it (D17).
+* `src/retrieval/orchestrator.py` (`_choose_representation`), `src/api/prompt_assembler.py`,
+  `src/api/main.py` (bookmarks), `src/workers/conversation_summary.py`,
+  `src/services/retrieval_svc.py` — each reads through the D15 helper.
+* `src/memory/reembed.py` — re-embeds promoted turns from the retrieval text.
+* `src/ingestion/formats.py` — `detect_format` refuses a document-shaped `.txt` (D18).
 
 ---
 
@@ -489,6 +684,54 @@ row is NOT), and the negative side must not be vacuous — trap 5 from the C6 se
 → documents → conversations, then `SELECT count(*)` to prove the store is clean. Do not
 assume `finally` won.
 
+## 5b. C12b validation — `tests/test_paste_promotion.py`, same rules
+
+1. **A 1,500-word paste with a typed prompt around it is promoted and split.** The turn
+   keeps `raw_text` byte-identical to what was sent; `promoted_document_id` is set;
+   `is_document` is true; `retrieval_text` contains the typed prompt AND the assistant's
+   reply and does **NOT** contain any sentence that exists only in the paste. A
+   `kind='document'` conversation exists with the paste's sections.
+2. **A 1,500-word message the model calls WRITTEN is NOT promoted** — no document row,
+   `promoted_document_id` is NULL, `retrieval_text` is NULL, and (the C12b upgrade)
+   `is_document` is **false** where the old rule would have set it true. Two-sided
+   against check 1 with the *same length*, so length is provably not what decided.
+3. **Short pastes never reach the model at all** — a 300-word message makes zero
+   detector calls (assert on a counting stub, not on the outcome; the outcome would
+   pass vacuously).
+4. **Split invariance (G28).** The same paste + the same typed prompt, written four ways
+   (prompt before / prompt after / prompt both ends / no prompt at all, plus one with
+   the labels' casing and whitespace mangled) yields the same document text in all four.
+   A *mangled* anchor the model quotes wrongly is rejected by the `find` check and falls
+   back to whole-message — assert that path explicitly with a lying stub.
+5. **The paste never reaches context, all five readers.** For a promoted turn, each of
+   the five D15 call sites returns the retrieval text; the negative side asserts a
+   paste-only sentence is absent from what each returns. ⚠ Non-vacuous: assert the same
+   sentence IS present in `raw_text`, or the check passes on an empty string (trap 5).
+6. **The keyword trap specifically:** retrieve with a keyword that appears ONLY in the
+   paste. The promoted turn must not inject the paste (this is the case that defeats
+   `summary_text` + `inject_raw=False`, per D15). The document — enabled in this
+   conversation — is what answers.
+7. **Chunks are of the retrieval text**, not the paste: no `episodic_chunks` row for the
+   promoted turn contains a paste-only sentence.
+8. **The turn's embedding was recomputed** — it is not equal to the embedding of the
+   full `raw_text` (compare against a freshly encoded vector; the stub embedder varies
+   by text, as `test_documents.py`'s does).
+9. **Incognito:** a huge paste in a `none`-scoped conversation is NOT promoted (D5
+   refuses the document), the turn is untouched, and the refusal is logged, not raised.
+10. **D17, driven through the REST adapter by hand** (the C12a lesson): `POST
+    /user-control/documents` with a `blob` and a live runtime reaches `status='ready'`,
+    not `failed: source file is gone`. Same for a transcript blob. Assert the
+    pre-fix failure mode is gone, i.e. `documents.error IS NULL`.
+11. **D18:** `detect_format` on a document-shaped `.txt` raises with the message naming
+    `add_document`; on a transcript-shaped `.txt` returns `"raw"`; an explicit
+    `fmt="raw"` wins over both.
+12. **De-duplication across chats:** pasting the same blob into a second conversation
+    creates no second document and enables the existing one there (and therefore trips
+    the D4 knowledge latch) — the upload rule, reached by a different door.
+13. Full regression sweep at baseline, `test_documents.py` (48) and `test_turn_density.py`
+    (32) especially — the latter owns `decide_representation`, whose `is_document` input
+    changed meaning under D16.
+
 ---
 
 ## 6. Look-ahead constraints
@@ -537,3 +780,25 @@ assume `finally` won.
    typography bet (D6). The model reads the content or the user says so.
 8. **Do NOT skip the dry-run estimate.** A 300-page PDF is ~150 LLM extraction calls;
    users deserve the number before it starts, exactly as F10 gives it.
+
+### C12b traps (rev 2026-07-28b)
+
+9. **Do NOT put the paste's stand-in in `summary_text`.** It looks free — four readers
+   already fall back to it — and it is wrong: `_choose_representation` returns `raw`
+   on four separate paths, including precisely when the query keyword is in the paste.
+   D15 explains; §5b check 6 is the test that fails if someone tries it anyway.
+10. **Do NOT ask the model for character offsets or line numbers.** It cannot count, and
+    a wrong number truncates the document silently. Quote-then-`find` fails loudly into
+    the safe fallback (D14).
+11. **Do NOT promote inline inside the chat turn's post-flight job.** A 25-section
+    ingest is minutes of background model; enqueue it (which is why D17 exists) and set
+    the turn's `promoted_document_id`/`retrieval_text` synchronously so retrieval never
+    sees the paste in the window before ingestion finishes.
+12. **Do NOT keep the word-count arm as a second decider.** `PROMOTE_MIN_WORDS` is a
+    pre-filter that only ever says "don't bother asking". The moment it also *decides*,
+    the G28 bet is back wearing a number instead of a punctuation mark.
+13. **Do NOT let promotion run twice on a retry.** `evaluate_turn`'s chained stages run
+    on every entry by design (only the density block is idempotency-keyed), so the
+    promotion branch must short-circuit on `turn.promoted_document_id IS NOT NULL` —
+    `documents.sha256` would catch the duplicate document, but the second call would
+    still re-split and re-write `retrieval_text`.
