@@ -520,6 +520,51 @@ try:
     check("...and the error names what happened",
           "every section failed" in (res_broken.get("error") or ""))
 
+    # ══ Check 18: a BLOB ingests through the ENQUEUED path ════════════════
+    print("── check 18: blob ingest with a runtime ──")
+    # Every check above passes `runtime=None`, so all of them ingest inline —
+    # and both live adapters (user_control.py, mcp/server.py) pass the real
+    # runtime, which enqueues `ingest_document`, which re-read `source_path`.
+    # A blob has never had one, so every pasted document through REST or MCP
+    # died as "source file is gone". Same lesson as check 17: the suite proved
+    # the call connects, not that the surface works.
+    class _EnqueueRuntime:
+        """Records the enqueue instead of running it, so the check can then
+        run the job itself — which is what the real runtime does later."""
+        def __init__(self):
+            self.jobs = []
+
+        def enqueue(self, name, **kw):
+            self.jobs.append((name, kw))
+
+    rt = _EnqueueRuntime()
+    blob_body = ("# Pasted spec\n\n" +
+                 f"The {MARK} protocol negotiates a session key.\n\n"
+                 "## Second section\n\n" +
+                 "Rekeying happens every hour under the same protocol.\n")
+    res_blob = documents_svc.add_document(
+        db, conversation_id=str(conv_a.id), blob=blob_body,
+        filename="pasted.md", runtime=rt, classifier=None,
+        embedder=_emb_mod._embedder, llm=stub_summary_llm,
+        kind_llm=lambda p, s: "DOCUMENT")
+    blob_doc = db.get(Document, uuid.UUID(res_blob["id"]))
+    check("the blob's text is stored, not just its sha",
+          blob_doc.source_text == blob_body and blob_doc.source_path is None)
+    check("...and the ingest was ENQUEUED, not run inline",
+          rt.jobs and rt.jobs[0][0] == "ingest_document"
+          and res_blob["status"] == "ingesting")
+
+    documents_svc._get_runtime = lambda: None       # run this slice to the end
+    documents_svc.run_document_ingest(db, res_blob["id"])
+    db.refresh(blob_doc)
+    check("the enqueued job ingests the blob instead of failing",
+          blob_doc.status == "ready", )
+    check("...and does NOT report the source as gone (the pre-fix failure)",
+          "source file is gone" not in (blob_doc.error or ""))
+    check("its sections really landed",
+          blob_doc.n_sections >= 2 and db.query(EpisodicMemory).filter_by(
+              conversation_id=blob_doc.conversation_id).count() >= 2)
+
 finally:
     db.rollback()
     # FK order (trap 6): links → chunks → turns → procedural/clusters →
@@ -527,7 +572,7 @@ finally:
     # on commit and leaves rows behind in a store that is supposed to be empty.
     doc_convs = [d.conversation_id for d in db.query(Document).all()
                  if d.filename in ("spec.md", "private_notes.md",
-                                   "metrics.csv", "broken.md")]
+                                   "metrics.csv", "broken.md", "pasted.md")]
     convs = [c for c in (conv_a, conv_b, conv_incog) if c is not None]
     conv_ids = [c.id for c in convs] + doc_convs
     turn_ids = [t.id for t in db.query(EpisodicMemory).filter(

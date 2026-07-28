@@ -373,6 +373,12 @@ class Document(Base):
     n_sections = Column(Integer, nullable=False, default=0)
     page_count = Column(Integer, nullable=True)   # NULL where meaningless
     source_path = Column(Text, nullable=True)
+    # A pasted/blob document has no file to re-read, so its text lives here.
+    # Exactly one of source_path / source_text is set. Without it the ENQUEUED
+    # ingest — which is the path both live adapters take — failed every blob
+    # with "source file is gone", because run_document_ingest re-parses from
+    # source_path (found 2026-07-28; the suite only ever ran inline).
+    source_text = Column(Text, nullable=True)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
     # D4 latch: flips true the first time a SECOND distinct conversation enables
     # this document, and never flips back. The document's TEXT stays opt-in

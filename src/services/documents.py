@@ -176,7 +176,7 @@ def add_document(db: Session, *, conversation_id: Optional[str] = None,
         db, conv, filename=filename, file_type=file_type, kind=resolved_kind,
         origin=origin, sha=sha, byte_size=len(raw), path=path,
         project_id=project_id, page_count=parse.page_count,
-        n_sections=len(sections))
+        n_sections=len(sections), source_text=blob)
 
     if runtime is not None:
         doc.status = "ingesting"
@@ -239,7 +239,7 @@ def _ingest_transcript(db, conv, *, raw_text, filename, sha, origin,
 
 def _create_document(db, conv, *, filename, file_type, kind, origin, sha,
                      byte_size, path, project_id, page_count,
-                     n_sections) -> Document:
+                     n_sections, source_text=None) -> Document:
     """The document's own conversation + the registry row + the first link.
 
     The document conversation is `auto`-scoped, which sounds like it makes the
@@ -258,7 +258,7 @@ def _create_document(db, conv, *, filename, file_type, kind, origin, sha,
         id=uuid.uuid4(), conversation_id=doc_conv.id, filename=filename,
         file_type=file_type, kind=kind, origin=origin, sha256=sha,
         byte_size=byte_size, n_sections=n_sections, page_count=page_count,
-        source_path=path,
+        source_path=path, source_text=source_text,
         project_id=doc_conv.project_id, status="pending")
     db.add(doc)
     db.flush()
@@ -319,22 +319,31 @@ def _run_ingest(db, doc, parse, *, runtime, classifier, embedder, llm,
 
 
 def run_document_ingest(db: Session, document_id: str) -> None:
-    """The runtime job: re-parse from `source_path` and replay. Kill-safe —
-    per-section idempotency keys make a re-run skip what already landed."""
+    """The runtime job: re-read the source and replay. Kill-safe — per-section
+    idempotency keys make a re-run skip what already landed.
+
+    The source is a file OR the stored text. A blob has never had a file, so
+    reading `source_path` unconditionally is what made every blob ingested
+    through REST/MCP die as "source file is gone" — both adapters pass a
+    runtime, so both take this path, and the test suite never did.
+    """
     doc = db.get(Document, uuid.UUID(document_id))
     if doc is None:
         logger.error("document_missing", document_id=document_id)
         return
     if doc.status == "ready":
         return
-    if not doc.source_path or not os.path.exists(doc.source_path):
+    if doc.source_path and os.path.exists(doc.source_path):
+        parse = extract.extract(doc.source_path, doc.file_type)
+    elif doc.source_text:
+        parse = parsers.parse_blob(doc.source_text, doc.filename, doc.file_type)
+    else:
         doc.status, doc.error = "failed", (
             "source file is gone — re-upload it")
         db.commit()
         return
     from src.api.core import get_core
     core = get_core()
-    parse = extract.extract(doc.source_path, doc.file_type)
     _run_ingest(db, doc, parse, runtime=_get_runtime(),
                 classifier=core.classifier if core is not None else None,
                 embedder=None, llm=None)
