@@ -377,3 +377,50 @@ the exact failure the C6 session recorded. The suite's cleanup now deletes
 edges and events before entities, and its final line prints **this run's**
 remaining rows (must be 0) separately from a store-wide count, so a later
 session is not misled into blaming this suite for another one's residue.
+
+---
+
+## `test_codex_2_0.py` archived (2026-07-28)
+
+**Moved** `tests/test_codex_2_0.py` → `tests/archive/test_codex_2_0.py`
+(`git mv`, recoverable). Three disqualifications at once, each one already
+sufficient on its own by the 2026-07-21 sweep's own criteria:
+
+1. **Broken** — crashed at `orchestrator._load_ner_model()`, deleted when NER
+   moved to `src/retrieval/ner_utils.py`.
+2. **Destructive** — `TRUNCATE episodic_memory, conversations, codex_entities,
+   codex_edges, codex_events, codex_snapshots, idempotency_keys RESTART
+   IDENTITY CASCADE` at the top of `main()`. That is the same criterion that
+   retired `test_full_pipeline_phase_7.py`, and it ran **before** the crash —
+   so running this file wiped the store and then failed.
+3. **Half-dead** — extraction needs a live bg model (G30's standing gap), and
+   the MERA section had degraded to an `ImportError` skip after A4 deleted it.
+
+**It was rewritten house-style first, and the rewrite was reverted on the
+user's instruction.** The reasoning is worth keeping: the ground it covered
+(`handle_triplet`'s write rules; NER → match → graph) has no other coverage,
+but **A9b** replaces the background NER behind the `extract_entities()` seam
+and **A9c** may retrain the pre-flight micro-NER — so a test written today
+would pin behavior both scheduled items exist to change. Flagged under G30 with
+what the replacement owes, rather than written early.
+
+**Two corrections this forced:**
+
+- **`tests/archive/README.md` named this file the "live replacement" for three
+  retired tests.** It could not carry that promotion — it was already broken
+  when it was promoted. Those rows now say "none — flagged under G30". The
+  sweep's method judged tests by whether their **imports** resolved, and this
+  one fails at line 158 at *runtime*; the lesson (recorded in the archive
+  README) is to re-check retired tests by **running** them.
+- **The G23 entry and BRUTAL_ASSESSMENT's ⚡⚡ closure both said
+  `test_retrieval.py` was "the one TRUNCATE-on-run test".** There were two.
+  `test_retrieval.py`'s TRUNCATE is genuinely gone (only its docstring
+  mentions the pre-G23 version); this file's was live until today. The backup
+  half of that item stands; the "only one" claim is corrected in place.
+
+**Not fixed here, recorded instead:** an unverified observation from the
+aborted rewrite — after an A8 negation, an entity's `context_payload` still
+advertised the retracted fact as a positive link, which would mean retrieval
+keeps injecting it. The write side is correct and the renderer handles polarity,
+so the suspicion is a one-step-behind regeneration. **Unconfirmed**; the
+reproduction is written into G30's entry.
