@@ -29,7 +29,15 @@ a recommendation, and the exact questions. Written S1 2026-07-10.
 
 C6: sidebar scope toggles + @-mention + incognito indicator · C9: slot editing
 at three tiers · C11: command discoverability (/help, autocomplete) · C12:
-document upload + add-doc-to-scope · E1/E2: projects UI (register/attach/mode
+document upload + add-doc-to-scope — **expanded 2026-07-28, see the ROADMAP
+ledger**: a global document library with a per-conversation **live enable/
+disable toggle** (not an attachment), the **doc-vs-transcript choice** at
+upload/paste, a promotion indicator (2nd chat to enable a doc makes its
+knowledge global, one-way), and the incognito refusal · **F10/F14 import
+wizard** (export → adapter pick, or plain `.txt` → F14's amnesia slicer, both
+into LSREP replay; dry-run estimate + progress — backend fully shipped) ·
+**C12/D10 OCR engine** (backend: `settings.document_extraction_engine`
+dispatch, Tika/Docling as opt-in containers, no system binary) · E1/E2: projects UI (register/attach/mode
 toggle) · E4: welcome-back block render · E8: architecture-doc view (rendered
 `render_architecture_doc`) · G23: export/backup buttons · C10: delete-with-
 manifest confirm dialog · F2 review queue (approve/reject over the D6 dispatch)
