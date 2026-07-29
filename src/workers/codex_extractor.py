@@ -649,7 +649,23 @@ class _N:  # sentinel: a missing target/source entity renders as "?"
 def _regenerate_context_payload(entity: CodexEntity, db) -> None:
     """A7: rebuild context_payload as a rich, bidirectional 'note': the enriched
     description (note body), then properties, then outgoing links AND incoming
-    backlinks (Obsidian-style). Also infers entity_type from the relations."""
+    backlinks (Obsidian-style). Also infers entity_type from the relations.
+
+    ⚠ The `flush` is load-bearing, not hygiene. `SessionLocal` is built with
+    `autoflush=False` (api/db.py), so the two queries below see the graph **as
+    of the last commit** — not including the edge the caller just added or the
+    expiry it just set. Every one of this function's nine call sites writes
+    edges and then calls it, so every payload in the store was ONE WRITE
+    BEHIND.
+
+    Measured before the fix: assert "proj uses postgres" twice and the payload
+    is EMPTY both times (the insert had not flushed); then negate it, and the
+    payload becomes `Links: uses → postgres` — the retracted fact, rendered as
+    current, with no Negations section, because the expiry had not flushed
+    either. A fact the user explicitly took back was being injected as true,
+    and a freshly-extracted entity contributed nothing at all.
+    """
+    db.flush()
     out_edges = db.query(CodexEdge).filter(
         CodexEdge.source_id == entity.id,
         CodexEdge.valid_until == None
@@ -896,6 +912,7 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
                                        "target_id": str(obj.id), "negated": True},
                               timestamp=datetime.now(timezone.utc), batch_source=batch_id))
         _regenerate_context_payload(subj, db)
+        _regenerate_context_payload(obj, db)
         return
 
     # ── 1. Property relations: update entity properties, expire previous edges ──
@@ -1062,6 +1079,28 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
             timestamp=datetime.now(timezone.utc),
             batch_source=batch_id
         ))
+
+    # ⚠ This call was MISSING from the non-property branch — the main path, and
+    # the one every ordinary relation takes (`uses`, `knows`, `built`, …). Only
+    # the property branch and A8's negation branch regenerated, so an entity
+    # whose relations are all ordinary carried an EMPTY `context_payload`.
+    #
+    # That matters because `context_payload` is exactly what the codex leg
+    # injects (`orchestrator.py:1532` — `[Entity: name]\n{context_payload}`, and
+    # `:1530` skips the entity entirely when it is empty). So a freshly
+    # extracted entity contributed NOTHING to retrieval until the reflection
+    # worker happened to enrich it on its 2-hour cadence — and reflection only
+    # touches entities it selects, so the rest stayed empty indefinitely.
+    # Worth weighing against Exp 2's finding that Codex supplied 3.3% of
+    # fragments; this is not proof of the cause, but it is a mechanism that
+    # would produce exactly that symptom.
+    #
+    # BOTH ends, not just the subject: A7's payload has a `Backlinks:` section
+    # and it is what makes the note bidirectional, but only the subject was
+    # ever regenerated — so the target of every edge showed no backlink until
+    # reflection reached it. Same bug, other end of the arrow.
+    _regenerate_context_payload(subj, db)
+    _regenerate_context_payload(obj, db)
 
 
 def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
