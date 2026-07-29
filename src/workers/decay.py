@@ -121,7 +121,7 @@ def apply_decay(cycles: int = 1):
         # re-attach the turn.
         cold_rows = db.execute(text("""
             SELECT id, raw_text, summary_text, topic_tags, timestamp,
-                   conversation_id, is_private, batch_id
+                   conversation_id, is_private, batch_id, embedding
             FROM episodic_memory
             WHERE is_archived = TRUE AND decay_score < :cold_threshold
         """), {"cold_threshold": COLD_THRESHOLD}).fetchall()
@@ -130,8 +130,9 @@ def apply_decay(cycles: int = 1):
             db.execute(text("""
                 INSERT INTO cold_storage (id, archived_at, raw_text, summary_text,
                                           topic_tags, timestamp, conversation_id,
-                                          is_private, batch_id)
-                VALUES (:id, :now, :raw, :summary, :tags, :ts, :conv, :priv, :batch)
+                                          is_private, batch_id, embedding)
+                VALUES (:id, :now, :raw, :summary, :tags, :ts, :conv, :priv, :batch,
+                        :emb)
                 ON CONFLICT (id) DO NOTHING
             """), {
                 "id": row.id,
@@ -143,6 +144,10 @@ def apply_decay(cycles: int = 1):
                 "conv": row.conversation_id,
                 "priv": bool(row.is_private),
                 "batch": row.batch_id,
+                # C16: the vector rides along. Re-embedding on resurrect would
+                # need the model at decay time and would drift from what the
+                # live row was matched on.
+                "emb": row.embedding,
             })
             db.execute(text("DELETE FROM episodic_memory WHERE id = :id"), {"id": row.id})
 

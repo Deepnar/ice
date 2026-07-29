@@ -544,7 +544,8 @@ class HybridRetrievalOrchestrator:
             # T3: cold storage joins time-scoped queries only (no-op leg
             # otherwise); fragments are episodic-typed, so budget fairness
             # treats them as memories — the leg name only affects RRF weight.
-            "cold": self._cold_lookup(prompt_keywords, conv_id, scope),
+            "cold": self._cold_lookup(prompt_keywords, conv_id,
+                                      prompt_embedding, scope),
             "timeline": timeline_fragments,
         }
 
@@ -2028,6 +2029,7 @@ class HybridRetrievalOrchestrator:
     # T3: cold-storage leg + resurrection (D-U1) + honest emptiness
     # ------------------------------------------------------------------
     def _cold_lookup(self, prompt_keywords, conv_id: Optional[str] = None,
+                     prompt_embedding=None,
                      scope: Optional[dict] = None) -> List[ContextFragment]:
         """Cold storage joins time-scoped queries ONLY (never normal ones, and
         never the wide net). Requires a window — the window is what bounds the
@@ -2058,21 +2060,42 @@ class HybridRetrievalOrchestrator:
         # C6: cold rows carry no cluster links — conversation exclusion only.
         excl_filter, excl_params = self._exclusion_filters(scope, id_column=None)
         privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
+        # C16: rank by MEANING when the archived row carries a vector, and fall
+        # back to the keyword patterns only for rows that predate
+        # `cold_storage.embedding`. The ILIKE-over-a-40-word-English-stoplist
+        # form was the last purely lexical query left in retrieval — it could
+        # not find a paraphrase, and it fired on any fragment that happened to
+        # share vocabulary. Rows written from now on carry the same vector the
+        # live turn was matched on, so a cold hit means the same thing a warm
+        # one does.
+        vector_rank = ""
+        if prompt_embedding is not None:
+            vector_rank = ("CASE WHEN embedding IS NULL THEN 1 "
+                           "ELSE (embedding <=> :cold_probe) END ASC,")
         query = text(f"""
             SELECT id, conversation_id, batch_id, raw_text, summary_text,
-                   topic_tags, timestamp, is_private
+                   topic_tags, timestamp, is_private, embedding
             FROM cold_storage
             WHERE timestamp >= :t0 AND timestamp < :t1
               {conv_filter}
               {excl_filter}
               {privacy_filter}
-              AND (:no_kw OR raw_text ILIKE ANY(:pats) OR summary_text ILIKE ANY(:pats))
-            ORDER BY timestamp DESC
+              AND (
+                    embedding IS NOT NULL
+                    OR :no_kw
+                    OR raw_text ILIKE ANY(:pats)
+                    OR summary_text ILIKE ANY(:pats)
+              )
+            ORDER BY {vector_rank} timestamp DESC
             LIMIT :cold_limit
         """)
+        if prompt_embedding is not None:
+            query = query.bindparams(bindparam("cold_probe", type_=PgVector))
         params = {"t0": ts.t0, "t1": t1, "no_kw": not pats, "pats": pats or ["%"],
                   "cold_limit": settings.timescope_cold_limit, **conv_params,
                   **excl_params}
+        if prompt_embedding is not None:
+            params["cold_probe"] = prompt_embedding
         try:
             rows = self.db.execute(query, params).fetchall()
         except Exception as err:

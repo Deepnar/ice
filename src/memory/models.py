@@ -486,6 +486,12 @@ class ColdStorage(Base):
     conversation_id = Column(UUID(as_uuid=True), nullable=True)
     is_private = Column(Boolean, default=False, nullable=False)
     batch_id = Column(UUID(as_uuid=True), nullable=True)
+    # C16: carried across at archive time so a resurrected turn - and the T3
+    # cold leg itself - can be reached by MEANING. This is the one archive
+    # table C17 never gave a vector, which is why the cold leg was still
+    # querying `raw_text ILIKE ANY(%keyword%)` against a hardcoded English
+    # stoplist: the last purely lexical query in retrieval.
+    embedding = Column(Vector(1024), nullable=True)
 
 
 class CuratedLabel(Base):
