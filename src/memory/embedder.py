@@ -27,6 +27,10 @@ different reasons:
   one place it lives instead of the six copies it had grown into.
 """
 
+import structlog
+
+logger = structlog.get_logger("ice.memory.embedder")
+
 _embedder = None
 
 # The MRL prefix width the pre-B1 classifier / micro-NER checkpoints were
@@ -34,17 +38,56 @@ _embedder = None
 SLICE_DIM = 384
 
 
+def resolve_device(preference: str = "auto") -> str:
+    """Turn the `embedding_device` setting into a real torch device.
+
+    "auto" (default) = the GPU if there is one, else CPU. Explicit "cuda" or
+    "cpu" is honoured as written — with "cuda" falling back loudly rather than
+    crashing a boot on a machine that has no GPU, because a memory system that
+    refuses to start is worse than a slow one.
+    """
+    pref = (preference or "auto").lower()
+    if pref == "cpu":
+        return "cpu"
+    try:
+        import torch
+        has_cuda = torch.cuda.is_available()
+    except Exception:
+        has_cuda = False
+    if pref == "cuda":
+        if not has_cuda:
+            logger.warning("embedding_device_unavailable", requested="cuda",
+                           using="cpu")
+            return "cpu"
+        return "cuda"
+    return "cuda" if has_cuda else "cpu"
+
+
 def get_embedder():
     """Lazy process singleton. Torch/sentence-transformers imports are
     deferred so light callers (scripts, migrations, smoke) don't pay the
-    model load until someone actually encodes."""
+    model load until someone actually encodes.
+
+    C16: the device is a SETTING, defaulting to the GPU when one exists. It was
+    hardcoded to "cpu" — carried over, uncommented, when G23/C17 consolidated
+    five separate embedder copies into this one — and measured on this repo's
+    own model that cost **321 ms per encode against 21 ms on GPU**, 22.5 s
+    against 0.38 s for a batch of 100. Every chat turn encodes the user's
+    prompt on the latency-sensitive pre-flight path, so ~300 ms was being added
+    to every single request while the card sat idle. The embedder holds ~1.2 GB
+    of VRAM; `embedding_device="cpu"` gives it back on a machine where the
+    generation model needs every byte.
+    """
     global _embedder
     if _embedder is None:
         from sentence_transformers import SentenceTransformer
 
         from src.api.config import settings
+        device = resolve_device(getattr(settings, "embedding_device", "auto"))
         _embedder = SentenceTransformer(settings.embedding_model_name,
-                                        device="cpu")
+                                        device=device)
+        logger.info("embedder_loaded", model=settings.embedding_model_name,
+                    device=device)
     return _embedder
 
 

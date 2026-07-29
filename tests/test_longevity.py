@@ -374,8 +374,14 @@ try:
     # ═══ check 3: retrieval parity 384 vs 1024 ═══════════════════════════
     print("── check 3: retrieval parity (384 reference vs native 1024) ──")
     from sentence_transformers import SentenceTransformer
+    # C16: the reference MUST sit on the same device as the shared embedder.
+    # The claim under test is a property of sentence-transformers' truncation
+    # (it truncates after Normalize and does not re-normalize), NOT of the
+    # hardware — and CPU vs GPU kernels differ at ~2e-3 per component, so a
+    # cross-device comparison would fail this check for a reason that has
+    # nothing to do with what it is proving.
     ref384 = SentenceTransformer(settings.embedding_model_name,
-                                 device="cpu", truncate_dim=384)
+                                 device=str(embedder.device), truncate_dim=384)
     fix_texts_marked = [f"{MARK} {t}" for t in FIX_TEXTS]
     ref_docs = ref384.encode(fix_texts_marked, convert_to_tensor=False)
     ref_q = ref384.encode(QUERY, convert_to_tensor=False)
@@ -468,7 +474,7 @@ try:
         ref_vec = ref384.encode(p, convert_to_tensor=True).float()
         new_vec = slice384(embedder.encode(p, convert_to_tensor=True)).float()
         exact = exact and bool(
-            np.array_equal(ref_vec.numpy(), new_vec.numpy()))
+            np.array_equal(ref_vec.cpu().numpy(), new_vec.cpu().numpy()))
     check("slice384(native) == truncate_dim output, bit-identical", exact)
 
     from src.classifier.classifier import PyTorchClassifier

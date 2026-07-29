@@ -147,6 +147,13 @@ class Settings(BaseSettings):
     # so Z1/Z2 can set it from a distribution instead of one point. Under-
     # reading is the dangerous direction — it says a prompt fits when it does
     # not — so this errs high.
+    # Where the embedder runs. "auto" = the GPU when one exists, else CPU;
+    # "cuda"/"cpu" force it. Measured on this repo: 321 ms per encode on CPU
+    # against 21 ms on GPU (22.5 s vs 0.38 s for a batch of 100), for ~1.2 GB
+    # of VRAM. Every chat turn encodes the prompt, so CPU was adding ~300 ms
+    # to every request. Set "cpu" when the generation model needs the VRAM.
+    embedding_device: str = "auto"
+
     token_count_safety_margin: float = 1.20
     token_usage_reconciliation: bool = True
 

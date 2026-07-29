@@ -108,10 +108,20 @@ class PyTorchClassifier:
         return self._run_ml_classifier(prompt, conversation_id)
 
     def _encode(self, text: str) -> torch.Tensor:
-        """Render → encode → match the head's expected width."""
+        """Render → encode → match the head's expected width → the head's device.
+
+        C16: the embedder now runs on the GPU by default while the classifier
+        head is loaded with `map_location="cpu"`, so the encode comes back as a
+        cuda tensor and the head's first Linear raises "Expected all tensors to
+        be on the same device". Moving the vector rather than the head is
+        deliberate: the head is ~25k parameters and its forward pass is not
+        worth a device transfer of its own, while the 0.6B encoder genuinely
+        wants the GPU. One 1024-float copy per classification is free.
+        """
         vec = fit_width(self.embedder.encode(text, convert_to_tensor=True),
                         self.input_dim)
-        return vec.unsqueeze(0).float()
+        head_device = next(self.model.parameters()).device
+        return vec.unsqueeze(0).float().to(head_device)
 
     def _run_ml_classifier(self, prompt: str, conversation_id: Optional[str] = None) -> ClassificationResult:
         """Original ML classification path (now private)."""
