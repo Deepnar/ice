@@ -177,7 +177,14 @@ print("── C16: model-aware total budget ──")
 check("8k model → 6k budget (0.75×)", derive_total_budget(8192, settings) == int(8192 * 0.75))
 check("32k model → 24k budget", derive_total_budget(32768, settings) == int(32768 * 0.75))
 check("128k model → clamped to max guardrail", derive_total_budget(131072, settings) == settings.context_budget_max)
-check("tiny 2k model → clamped to min floor", derive_total_budget(2048, settings) == settings.context_budget_min)
+# C16: reality outranks the floor. This asserted the opposite until the
+# first live request showed tinyllama being handed a 4,000-token budget for
+# a 2,048-token window — a "minimum" that guarantees an overflow on any
+# model smaller than itself is not a guardrail.
+check("tiny 2k model → budget fits INSIDE the window, floor does not win",
+      derive_total_budget(2048, settings) < 2048)
+check("...and leaves room to answer",
+      derive_total_budget(8192, settings) + settings.context_generation_reserve <= 8192)
 check("unknown model (None) → fallback 23k", derive_total_budget(None, settings) == settings.context_budget_fallback)
 check("unknown model (0) → fallback 23k", derive_total_budget(0, settings) == settings.context_budget_fallback)
 check("recent window scales with model budget",

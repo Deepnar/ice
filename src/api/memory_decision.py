@@ -90,16 +90,33 @@ def _logit(p: float, eps: float = 1e-6) -> float:
 
 
 def derive_total_budget(context_window, settings) -> int:
-    """C16 (model-aware half): total context budget derived from the routed
-    model's context window — ``fraction × window``, clamped to [min, max] —
-    instead of a hardcoded 23k. Unknown model (None/0) → configured fallback.
-    The max guardrail stays until C16's need-based filling makes huge budgets
-    safe; all knobs live in settings."""
+    """C16: total context budget from the routed model's real window.
+
+    ``fraction × window``, clamped to [min, max], then — and this is the part
+    that was missing — clamped to what the window can actually hold once room
+    for the answer is reserved.
+
+    The floor used to win unconditionally, which meant a small model got a
+    budget larger than its entire context. Caught on the first live request
+    this shipped against: `tinyllama` serves a 2,048-token window and
+    `context_budget_min = 4,000` produced a 4,000-token budget for it — twice
+    the whole window, before a single token of output. A guardrail that
+    guarantees a minimum is guaranteeing an overflow on any model smaller than
+    itself, so reality wins over the floor.
+    """
     if not context_window:
         return settings.context_budget_fallback
     budget = int(context_window * settings.context_input_fraction)
-    return max(settings.context_budget_min,
-               min(settings.context_budget_max, budget))
+    budget = max(settings.context_budget_min,
+                 min(settings.context_budget_max, budget))
+    # Never promise more than the window minus room to answer in it.
+    usable = int(context_window) - settings.context_generation_reserve
+    if usable <= 0:
+        # A window smaller than the generation reserve: give the prompt the
+        # smaller half rather than zero, and let the ledger's pressure path
+        # report it honestly.
+        usable = max(1, int(context_window) // 2)
+    return min(budget, usable)
 
 
 def estimate_recent_window_tokens(turn_count: int, total_budget: float = None) -> float:

@@ -131,6 +131,77 @@ class Settings(BaseSettings):
     context_budget_max: int = 40_000
     context_budget_fallback: int = 23_000
 
+    # ── C16 (need-based half): the budget stops being fiction ──────────────
+    # Counting. The tokenizer is the EMBEDDER's (already loaded in process),
+    # not the generation model's; the margin covers the cross-family drift,
+    # which measured 0-3.5% on prose and ICE's own format and ~16% worst case
+    # on Python source. It is calibrated by `token_usage_reconciliation`
+    # below, which logs the prediction against the server's own
+    # `prompt_eval_count` on every turn — so this number is measured, not
+    # argued about. Set the reconciliation off only if a serving stack chokes
+    # on `stream_options`.
+    # MEASURED, not guessed: the first live reconciliation (tinyllama, a Llama
+    # tokenizer) predicted 283 against the server's 331 — ratio 0.855, so 1.10
+    # was NOT enough and the margin would have under-read the prompt. 1.20
+    # covers that case; the reconciliation log accumulates the ratio per model
+    # so Z1/Z2 can set it from a distribution instead of one point. Under-
+    # reading is the dangerous direction — it says a prompt fits when it does
+    # not — so this errs high.
+    token_count_safety_margin: float = 1.20
+    token_usage_reconciliation: bool = True
+
+    # Room for the ANSWER. Nothing reserved this before C16, which is how a
+    # 40,000-token budget could be derived for a runner that had allocated
+    # 32,768 — already negative before a word was generated.
+    context_generation_reserve: int = 2_048
+    # Never squeeze memory below this, however large the user's own message is.
+    context_budget_floor: int = 1_500
+    # Budget against the window the SERVER allocated (via /api/ps) rather than
+    # the registry's claim, which was measured 2x off on a live model.
+    context_use_serving_window: bool = True
+
+    # Coverage-based stopping (the "when is this enough" decision). The
+    # question is a vector, every candidate is a vector; selection subtracts
+    # what each pick covers and stops when nothing left adds anything. These
+    # are STARTING values behind named knobs — Z1 is the tuning gate, and Z2's
+    # mini-experiment is where they get moved.
+    retrieval_coverage_enabled: bool = False
+    coverage_alpha: float = 0.7            # coverage vs retrieval-confidence blend
+    coverage_min_gain: float = 0.02        # a pick must cover at least this much
+    coverage_min_keep: int = 2             # the knee may never cut below this
+    coverage_max_keep: int = 40            # hard rail on the greedy loop
+    coverage_knee_enabled: bool = True
+    coverage_knee_min_prominence: float = 0.08   # below this: no knee, no cut
+    # Set-level quality gate: if the BEST candidate is this far below what a
+    # real match looks like, inject nothing rather than the best of a bad set.
+    # Coverage measures direction, never quality — this is the only arm that
+    # can say "there is nothing here".
+    retrieval_set_floor_enabled: bool = False
+    retrieval_set_floor: float = 0.25
+    # A10's leg-diversity guarantee. Default ON = unchanged behaviour; it is a
+    # DESIGNED answer to measured leg under-representation, so it is retired
+    # only against a number, and with the user.
+    retrieval_leg_guarantee_enabled: bool = True
+    # Identity collapse: a chunk and its parent turn are the same memory.
+    retrieval_collapse_enabled: bool = True
+    retrieval_max_frags_per_turn: int = 2
+
+    # The recent-turns window is CONTINUITY, not evidence — it is never
+    # relevance-filtered. It is bounded by the sitting instead: this session's
+    # turns, plus the last turn of the previous one so a 31-minute break does
+    # not amputate the thread.
+    recent_window_scope: str = "session"   # "session" | "count"
+    recent_window_bridge_turns: int = 1
+    recent_window_max_turns: int = 40      # marathon-sitting rail
+    recent_window_max_turn_frac: float = 0.35   # one turn may not eat the window
+
+    # num_ctx. Telling the server the window we need costs KV-cache VRAM, so
+    # it is opt-in and clamped. "fit" asks for exactly what the assembled
+    # prompt needs plus the generation reserve.
+    ollama_send_num_ctx: bool = False
+    ollama_num_ctx_mode: str = "fit"
+    ollama_num_ctx_max: int = 32_768
+
     # ── B2: principled memory-retrieval decision (log-odds combination) ──
     # These REPLACE the scattered hard LTM overrides. Every weight lives here
     # (not in code) because B2 sits on top of the current classifier, which B1

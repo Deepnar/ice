@@ -24,6 +24,7 @@ SETTINGS = SimpleNamespace(
     temporal_label_threshold=0.85,  # B1 D7: label-or-detector, never both twice
     confidence_fallback_threshold=0.55,
     context_budget_fallback=18_000,
+    context_generation_reserve=2_048,
     context_input_fraction=0.75,
     context_budget_min=6_000,
     context_budget_max=24_000,
@@ -73,8 +74,16 @@ def test_memory_pressure_monotone_and_one_sided():
 
 def test_budget_clamps():
     assert derive_total_budget(None, SETTINGS) == 18_000  # unknown model
-    assert derive_total_budget(8_000, SETTINGS) == 6_000  # min clamp
+    # 0.75 x 8,000 = 6,000, but 6,000 + the 2,048 generation reserve is
+    # 8,048 — over the window. The reserve wins; the answer gets its room.
+    assert derive_total_budget(8_000, SETTINGS) == 8_000 - 2_048
     assert derive_total_budget(200_000, SETTINGS) == 24_000  # max guardrail
+    # C16: the window outranks the FLOOR. A model whose whole context is
+    # smaller than context_budget_min used to be handed a budget bigger than
+    # its window — measured live on tinyllama (2,048 window, 4,000 budget).
+    tiny = derive_total_budget(2_048, SETTINGS)
+    assert tiny < 2_048, tiny
+    assert tiny <= 2_048 - SETTINGS.context_generation_reserve or tiny == 1_024
 
 
 def test_chunker_bounds_and_overlap():

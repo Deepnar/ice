@@ -41,6 +41,7 @@ from src.model_registry.registry import (
     get_fallback_model,
     get_model_context_window,
 )
+from src.model_registry.runtime_probe import log_window_truth, serving_window
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.retrieval.timescope import detect_timescope, to_scope_dict
 from src.services.scoping import resolve_retrieval_scope
@@ -81,6 +82,41 @@ def health():
     return {"status": "ok"}
 
 
+def _ollama_body(model: str, messages: list) -> dict:
+    """The generation request body.
+
+    C16: `stream_options.include_usage` asks the server to append a final
+    chunk carrying `usage.prompt_eval_count` — the model server's OWN count of
+    the prompt it received. That is the only ground truth for how many tokens
+    ICE actually spends, and it is what calibrates the embedder-tokenizer
+    prediction (`memory/tokens.py`) against the generation model's vocabulary
+    instead of arguing about the difference. The chunk has no
+    `choices[0].delta`, so the storage parser already skips it.
+    """
+    body = {"model": model, "messages": messages, "stream": True}
+    if settings.token_usage_reconciliation:
+        body["stream_options"] = {"include_usage": True}
+    return body
+
+
+def _extract_usage(full_raw_stream: str) -> Optional[dict]:
+    """Pull the trailing usage chunk out of an SSE stream, if the server sent
+    one. Returns None when it did not — which is itself worth logging, because
+    a serving stack that ignores `stream_options` leaves the prediction
+    unverifiable and the safety margin is all that stands behind it."""
+    for line in reversed(full_raw_stream.split("\n")):
+        line = line.strip()
+        if not line.startswith("data:") or line == "data: [DONE]":
+            continue
+        try:
+            data = json.loads(line[5:].strip())
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data.get("usage"), dict):
+            return data["usage"]
+    return None
+
+
 async def store_turn_async(
     correlation_id: str,
     user_message: str,
@@ -91,6 +127,7 @@ async def store_turn_async(
     raw_stream_chunks: list[str],
     model_used: str = "",
     is_private: bool = False,
+    predicted_prompt_tokens: int = 0,
 ):
     """Async post-flight task.
 
@@ -101,6 +138,24 @@ async def store_turn_async(
 
     # 1. Join raw fragments FIRST to repair broken line boundaries from socket splits
     full_raw_stream = "".join(raw_stream_chunks)
+
+    # C16: reconcile the prediction against the server's own count. This is
+    # the only place ICE can learn whether its ruler is right — the embedder's
+    # tokenizer is not the generation model's, and the whole token-efficiency
+    # claim rests on the difference being small. Logged, never enforced.
+    usage = _extract_usage(full_raw_stream)
+    if predicted_prompt_tokens and usage and usage.get("prompt_tokens"):
+        actual = usage["prompt_tokens"]
+        log.info("token_prediction_reconciled",
+                 predicted=predicted_prompt_tokens, actual=actual,
+                 ratio=round(predicted_prompt_tokens / max(1, actual), 4),
+                 model=model_used)
+    elif predicted_prompt_tokens and settings.token_usage_reconciliation:
+        # A serving stack that ignores stream_options leaves the prediction
+        # unverifiable — say so rather than assuming it was fine.
+        log.info("token_usage_unavailable", predicted=predicted_prompt_tokens,
+                 model=model_used)
+
     clean_fragments = []
 
     for line in full_raw_stream.split("\n"):
@@ -370,12 +425,17 @@ async def chat_completions(
         ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
     db.commit()  # persist the stickiness state (shift counter + sticky model)
 
-    # C16: total context budget from the routed model's context window
-    # (fraction × window, clamped), not a hardcoded 23k.
-    model_ctx_window = get_model_context_window(model_name)
-    total_budget = derive_total_budget(model_ctx_window, settings)
-    log.info("context_budget", model=model_name,
-             context_window=model_ctx_window, total_budget=total_budget)
+    # C16: total context budget from the window the SERVER actually allocated,
+    # falling back to the registry's claim. Those two disagreed by 2x on a live
+    # model — the registry said 64,000, the runner had allocated 32,768, and
+    # the derived budget was 40,000, i.e. already over the real window before
+    # a single token of answer. log_window_truth emits all four every request.
+    registry_window = get_model_context_window(model_name)
+    effective_window = registry_window
+    if settings.context_use_serving_window:
+        effective_window = serving_window(model_name, registry_window)
+    total_budget = derive_total_budget(effective_window, settings)
+    log_window_truth(log, model_name, registry_window, total_budget)
 
     # ── Retrieval & prompt assembly ──
     result.prompt = user_message
@@ -573,7 +633,7 @@ async def chat_completions(
                     async with client.stream(
                         "POST",
                         ollama_url,
-                        json={"model": model_to_use, "messages": messages, "stream": True},
+                        json=_ollama_body(model_to_use, messages),
                     ) as response:
                         async for chunk in response.aiter_text():
                             accumulated_raw_chunks.append(chunk)
@@ -587,7 +647,7 @@ async def chat_completions(
                     async with client2.stream(
                         "POST",
                         ollama_url,
-                        json={"model": model_to_use, "messages": messages, "stream": True},
+                        json=_ollama_body(model_to_use, messages),
                     ) as response2:
                         async for chunk in response2.aiter_text():
                             accumulated_raw_chunks.append(chunk)
@@ -610,6 +670,7 @@ async def chat_completions(
         raw_stream_chunks=accumulated_raw_chunks,
         model_used=model_to_use,
         is_private=is_private_conversation,
+        predicted_prompt_tokens=prompt_tokens,
     )
 
     return StreamingResponse(
