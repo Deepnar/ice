@@ -424,3 +424,51 @@ advertised the retracted fact as a positive link, which would mean retrieval
 keeps injecting it. The write side is correct and the renderer handles polarity,
 so the suspicion is a one-step-behind regeneration. **Unconfirmed**; the
 reproduction is written into G30's entry.
+
+## C16 (2026-07-29) — consolidations, deletions, and one disarmed trap
+
+**Consolidated into `src/memory/tokens.py` (G29's largest cluster, closed).**
+Four incompatible token formulas across 21 sites became one real count:
+`prompt_assembler._estimate_tokens`, `slots._estimate_tokens`,
+`chunking.estimate_tokens`, 12 inline `int(len(x.split()) * 1.33)` copies in
+`retrieval/orchestrator.py`, one in `services/retrieval_svc.py`, one in
+`retrieval/evolution.py`, and the two `chars / 4.0` sites (`api/main.py`,
+`workers/conversation_summary.py` — now `tokens.estimate_from_chars`, so the
+4.0 lives in one place). The three inverse conversions (`SLOT_TOKEN_CAP / 1.33`
+and friends) died with them; truncation is now a real token truncation.
+
+**Deleted.**
+
+- `api/main.py`'s post-assembly trimming loop (~22 lines). Hardcoded to 4096,
+  measured `messages[0]` — the system message, which retrieval fragments never
+  enter — so its condition could not change by popping fragments; built
+  `reduced` as the COMPLEMENT of the survivors; and, because the condition was
+  invariant, ran until both lists were empty and then restored every fragment.
+  Zero behaviour, one `assemble_prompt` (and its DB query) per fragment on the
+  latency path. Recoverable at `3d2ce7d^`.
+- `api/prompt_assembler._trim_words` — its only caller went with the
+  newest-first window rewrite. Recoverable at `c0326e5^`.
+
+**Kept, not deleted.** `growth_cap` in `orchestrator.set_budget_from_turn_count`
+stays even though residual coverage supersedes it, because removing it before
+coverage is *measured* to bind would make ICE more expensive, not less (a short
+conversation would jump from a 2,750-token ceiling to the full allowance). Z2
+owns the deletion. Same reasoning kept `retrieval_leg_guarantee_enabled`
+defaulting **on**: A10 designed that guarantee against measured leg
+under-representation, so it is retired against a number and with the user.
+
+**Trap 6, disarmed in `tests/test_documents.py`.** Its cleanup selected the
+suite's rows via a hardcoded FILENAME allow-list, so every new fixture leaked
+until someone noticed — and three document conversations had. It now snapshots
+which non-chat conversations existed *before* the run and deletes the
+difference. This trap had re-armed itself twice (C12a, then C12b); it cannot
+now. `tests/test_longevity.py` likewise gained a line that NAMES the mismatched
+table when the export/import count check fails, instead of sending the reader
+through a 28-table round trip for one row.
+
+**Behaviour changes worth recording (no files moved).** Chunking now packs to a
+real 550 tokens, so code chunks shrink and prose chunks grow slightly; nothing
+needed re-chunking because the store was empty. The slot cap now admits 300
+real tokens rather than ~550. `cold_storage` gained a vector column and a
+`reembed.py` rule — G23's fail-loud guard refused to re-embed without it, which
+is exactly how the omission announced itself.

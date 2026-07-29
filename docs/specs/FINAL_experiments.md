@@ -211,6 +211,28 @@ the user gets access — seam only, no dependency); **better ground truth is man
 
 ---
 
+> **⚠ C16 (2026-07-29) — FRAGMENT ATTRIBUTION AND THE TOKEN CLAIM.** Two things
+> FINAL must inherit rather than rediscover:
+>
+> *(Criticisms 2 and 3 in the table above already record the 4.26-vs-4.25 ROI and
+> the 22,411-vs-21,025 token numbers. C16 did not rediscover those — it found the
+> **ruler** underneath them, and built the instrument to re-measure.)*
+>
+> 1. **Report per-`leg`, not per-`source_type`.** Eight retrieval mechanisms
+>    (`bm25`, `vector`, `chunks`, `codex`, `procedural`, `batch_summary`,
+>    `cold`, `wide_net`) reported as five `source_type`s, five of them collapsing
+>    into `"episodic"`. That is why Exp 2 could state Codex contributed 3.3% of
+>    fragments and say **nothing** about which mechanism produced the other 96%.
+>    `ContextFragment.leg` now carries the specific mechanism; use it.
+> 2. **The token comparison must use a real tokenizer for both arms, and be
+>    reported as a paired median + win-rate.** Exp 2 measured both arms with
+>    `words × 1.33`, which overcounts plain prose ~20% (the baseline's shape) and
+>    undercounts ICE's stamped turn format ~1.68× (ICE's shape) — the ruler
+>    leaned one way. And its headline −25.2% was a mean of means over a set
+>    containing one conversation where the baseline OOM'd; excluding it, ICE cost
+>    **+6.6% more**. See PROVENANCE's C16 section.
+
+
 ## 1. Decisions
 
 - **D1: One dataset, one memory build, one DB snapshot — conditions differ only at

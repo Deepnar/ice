@@ -448,3 +448,95 @@ treat it as a smell detector, and use paraphrase invariance (same intent, N
 surface forms, measure the decision-flip rate) as the acceptance test — for the
 heuristic AND its replacement. Roadmap **G28** owns that probe set.
 
+
+## C16 — context measurement runs (2026-07-29)
+
+The ledger's trigger fires here: this session produced measurements that later
+claims rest on. Machine: RTX 5090 Laptop (24 GB), CachyOS. Ollama 0.30.x.
+
+### The ruler — `words × 1.33` vs the real tokenizer
+
+Tokenizer: `Qwen/Qwen3-Embedding-0.6B` (the embedder's own, already loaded).
+Ratios are estimate ÷ real, so <1.0 is an UNDERCOUNT:
+
+| content | words×1.33 | chars/4 |
+| --- | --- | --- |
+| plain prose | 1.20× | 1.12× |
+| fenced Python | 0.53× | 0.72× |
+| ICE's `[date] User:/Assistant:` stamped turn format | 0.55× | 0.60× |
+
+**Why this matters beyond C16:** Experiment 2 measured BOTH arms with
+`words × 1.33`. The vector-RAG baseline injected raw prose (overcounted ~20%);
+ICE injected stamped structured text (undercounted ~1.7×). The reported "~25%
+fewer tokens" is therefore biased in ICE's favour by an unquantified amount.
+Any re-measurement must use a real tokenizer for both arms.
+
+### Exp 2 re-read (no new run — re-analysis of `experiments/mature/results/`)
+
+*Not a new discovery: `docs/specs/FINAL_experiments.md`'s reviewer table already
+lists the 4.26-vs-4.25 ROI and the 22,411-vs-21,025 tokens as criticisms 2 and 3.
+What was NOT recorded anywhere is the measurement bias in the section above,
+which changes how those numbers should be read.*
+
+| slice | ICE tokens | baseline tokens | ICE score | baseline score |
+| --- | --- | --- | --- | --- |
+| all 1,211 probes | 22,099 | 29,550 | 4.27 | 3.87 |
+| excluding `ice_dev` (1,057 probes) | 22,411 | 21,025 | 4.26 | 4.25 |
+
+`ice_dev` is where the baseline fed 88k tokens, OOM'd on 145 probes and scored
+1.23. The headline −25.2% is that one conversation; on everything else ICE
+costs **+6.6% more for +0.01 score**. The baseline's std was 27,006 on a mean
+of 29,550 — the mean summarised nothing. ICE's own std was 3,026 on 22,411,
+i.e. it emitted ~22k regardless of the question. **Acceptance statistics from
+here on: paired median and win-rate, never a mean of means.**
+
+### Embedder device
+
+Same model, same texts, `sentence-transformers` on this machine:
+
+| | CPU | GPU |
+| --- | --- | --- |
+| one encode | 321 ms | 21 ms (11 ms warm) |
+| batch of 100 | 22.5 s | 0.38 s |
+| VRAM held | — | ~1.2 GB |
+
+`device="cpu"` was hardcoded (uncommented) since G23/C17's embedder
+consolidation `d4d0a79`. Every chat turn encodes the prompt on the pre-flight
+path. Now `embedding_device` = auto | cuda | cpu, defaulting to GPU when one
+exists (user decision 2026-07-29: GPU by default, never GPU-only).
+
+**Cross-device vector difference:** cos(cpu, gpu) = 0.9998–0.9999, max
+component |Δ| ≈ 2.2e-3, TF32 matmul off. **Decision impact, live v2 head
+(`ice_classifier_v4_schema2.pt`), all 207 rows of
+`data/labeled/v2/eval_probes_independent.jsonl`:**
+
+- `context_reliance` (the memory gate): **207/207 identical**
+- all labels identical: **199/207** — 8 borderline multi-label tags cross the
+  0.65 threshold
+
+So the gate does not move; leg weighting wobbles at the margin.
+
+### Serving-window truth
+
+`tinyllama:latest` — registry `8192`, GGUF `2048`, live runner (`/api/ps`)
+`2048`. `derive_total_budget`'s minimum guardrail returned **4,000** for it,
+i.e. twice the whole window before any output. Fixed: reality outranks the
+floor, and `context_generation_reserve` (2,048) comes off the top.
+
+### Silent truncation — confirmed, not inferred
+
+Ollama's `/v1` shim **does** honour `stream_options: {include_usage: true}`.
+Prediction vs the server's own `prompt_eval_count`, per request:
+
+| prompt | predicted | actual | ratio |
+| --- | --- | --- | --- |
+| short | 283 | 331 | 0.855 |
+| short | 341 | 408 | 0.836 |
+| **oversized (~2,900 tokens)** | **2,909** | **2,047** | **1.42** |
+
+The last row is the finding: the server received 2,047 tokens — exactly the
+model's window — for a prompt of ~2,900. **The prompt was silently truncated,
+and truncation keeps the newest messages, so the block most likely destroyed
+is the retrieved-memory block.** The 0.83–0.86 ratios on the short prompts are
+the embedder-vs-Llama vocabulary gap and are why
+`token_count_safety_margin` was raised 1.10 → **1.20** (measured, not assumed).
