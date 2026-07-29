@@ -23,6 +23,7 @@ import structlog
 
 from src.api.memory_decision import estimate_recent_window_tokens
 from src.memory.models import ConversationSummary, EpisodicMemory
+from src.memory.tokens import estimate_from_chars
 from src.workers.turn_density import (
     SUMMARY_COVERAGE_THRESHOLD,
     extract_key_terms,
@@ -167,7 +168,7 @@ def run_conversation_summaries(db, llm=None, embedder=None,
                 and row.last_ts <= existing_row.covers_through:
             continue                                  # nothing new
         if existing_row is None:
-            total_tokens = float(row.chars) / 4.0
+            total_tokens = estimate_from_chars(row.chars)
             if total_tokens <= estimate_recent_window_tokens(row.n_turns):
                 stats["below_window"] += 1            # still fits the window
                 continue

@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
+from src.memory.tokens import count as count_tokens
 from src.memory.models import (
     CodexEdge,
     CodexEntity,
@@ -1137,7 +1138,7 @@ class HybridRetrievalOrchestrator:
                 text=chunk_text,
                 source_type="episodic",
                 score=score_val,
-                token_count=int(len(chunk_text.split()) * 1.33),
+                token_count=count_tokens(chunk_text),
                 source_batch_id=pid,
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
             ))
@@ -1512,7 +1513,7 @@ class HybridRetrievalOrchestrator:
                         seen_entities.add(ent.id)
                         t = f"[Entity: {ent.canonical_name}]\n{ent.context_payload}"
                         fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
-                                                         token_count=int(len(t.split()) * 1.33)))
+                                                         token_count=count_tokens(t)))
             # (b) relation-driven facts: "who inspired ..." → inspired_by edges,
             #     grouped into a single facts fragment (they're a list answer).
             fact_lines = []
@@ -1534,7 +1535,7 @@ class HybridRetrievalOrchestrator:
             if fact_lines:
                 t = "\n".join(fact_lines)
                 fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
-                                                 token_count=int(len(t.split()) * 1.33)))
+                                                 token_count=count_tokens(t)))
             if fragments:
                 logger.info("codex_enumeration", entities=len(seen_entities),
                             facts=len(fact_lines), relations=relations)
@@ -1639,7 +1640,7 @@ class HybridRetrievalOrchestrator:
                 text = "\n\n".join(local_texts)
                 fragments.append(ContextFragment(
                     text=text, source_type="codex", score=score,
-                    token_count=int(len(text.split()) * 1.33)))
+                    token_count=count_tokens(text)))
                 all_anchor_edges.extend(direct_edges)
 
                 # T4: attach the anchor's evolution timeline whenever it
@@ -1656,7 +1657,7 @@ class HybridRetrievalOrchestrator:
                     if tl:
                         timeline_frags.append(ContextFragment(
                             text=tl, source_type="timeline", score=0.9 * score,
-                            token_count=int(len(tl.split()) * 1.33)))
+                            token_count=count_tokens(tl)))
 
             if any_relation_hit:
                 logger.info("codex_relation_overlap", relations=detected_relations,
@@ -1911,7 +1912,7 @@ class HybridRetrievalOrchestrator:
                     text=pattern.pattern_description,
                     source_type="procedural",
                     score=r.score,
-                    token_count=int(len(pattern.pattern_description.split()) * 1.33)
+                    token_count=count_tokens(pattern.pattern_description)
                 ))
             return fragments
         except Exception:
@@ -1967,7 +1968,7 @@ class HybridRetrievalOrchestrator:
                     text=(f"[summary, {r.created_at.strftime('%Y-%m-%d')}] " if r.created_at else "") + r.summary_text,
                     source_type="batch_summary",
                     score=r.score,
-                    token_count=int(len(r.summary_text.split()) * 1.33)
+                    token_count=count_tokens(r.summary_text)
                 ) for r in rows]
             except Exception:
                 self.db.rollback()
@@ -2001,7 +2002,7 @@ class HybridRetrievalOrchestrator:
                       if r.updated_at else "[conversation summary] ") + r.summary_text,
                 source_type="batch_summary",
                 score=r.score,
-                token_count=int(len(r.summary_text.split()) * 1.33)
+                token_count=count_tokens(r.summary_text)
             ) for r in rows]
         except Exception:
             self.db.rollback()
@@ -2069,7 +2070,7 @@ class HybridRetrievalOrchestrator:
             text_ = stamp + body
             fragments.append(ContextFragment(
                 text=text_, source_type="episodic", score=0.6,
-                token_count=int(len(text_.split()) * 1.33),
+                token_count=count_tokens(text_),
                 source_batch_id=str(row.id),
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
             ))
@@ -2173,7 +2174,7 @@ class HybridRetrievalOrchestrator:
         logger.info("timescope_empty_window", t0=str(ts.t0.date()), t1=str(ts.t1.date()))
         final.append(ContextFragment(
             text=note, source_type="episodic", score=5.0,
-            token_count=int(len(note.split()) * 1.33)))
+            token_count=count_tokens(note)))
         return final
 
     # ------------------------------------------------------------------
@@ -2251,7 +2252,7 @@ class HybridRetrievalOrchestrator:
             for alt in (f.degrade_text, f.abstract_text):
                 if not alt or alt == f.text:
                     continue
-                tokens = int(len(alt.split()) * 1.33)
+                tokens = count_tokens(alt)
                 if tokens <= budget_left:
                     return dc_replace(f, text=alt, token_count=tokens,
                                       degrade_text=None, abstract_text=None)
@@ -2543,7 +2544,7 @@ class HybridRetrievalOrchestrator:
                 text=text,
                 source_type=source_type,
                 score=score_val,
-                token_count=int(len(text.split()) * 1.33),
+                token_count=count_tokens(text),
                 source_batch_id=str(row.id),
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
                 degrade_text=degrade_text,

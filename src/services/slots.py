@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.memory.models import MemorySlot
+from src.memory.tokens import count as count_tokens
 from src.services.errors import ConflictError, NotFoundError, ValidationError
 
 logger = structlog.get_logger("ice.services.slots")
@@ -51,17 +52,24 @@ VALID_SLOTS = {
 SLOT_TOKEN_CAP = 300
 
 
-def _estimate_tokens(text: str) -> int:
-    """Rough token count (words * 1.33), same heuristic as the orchestrator."""
-    return int(len(text.split()) * 1.33)
-
-
 def _cap_content(content: str) -> tuple[str, bool]:
-    """Enforce the G14 cap: hard-truncate past SLOT_TOKEN_CAP tokens."""
-    if _estimate_tokens(content) <= SLOT_TOKEN_CAP:
+    """Enforce the G14 cap: hard-truncate past SLOT_TOKEN_CAP tokens.
+
+    C16: real tokens, and the truncation is a real token truncation. The old
+    pair (`words * 1.33` to measure, `SLOT_TOKEN_CAP / 1.33` to cut) let a
+    300-token cap admit ~550 real tokens of dense content, and every slot is
+    prepended to EVERY prompt — with 13 slot names permitted, that was the
+    largest silent overrun in the whole context budget.
+    """
+    if count_tokens(content) <= SLOT_TOKEN_CAP:
         return content, False
-    max_words = int(SLOT_TOKEN_CAP / 1.33)
-    return " ".join(content.split()[:max_words]), True
+    words, kept, used = content.split(), [], 0
+    for w in words:
+        used += count_tokens(w + " ")
+        if used > SLOT_TOKEN_CAP:
+            break
+        kept.append(w)
+    return " ".join(kept), True
 
 
 def _format_slot(slot: MemorySlot, truncated: bool = False) -> dict:
@@ -159,7 +167,7 @@ def update_slot(db: Session, slot_name: str, content: str,
         slot = MemorySlot(
             slot_name=slot_name,
             content=content,
-            token_count=_estimate_tokens(content),
+            token_count=count_tokens(content),
             version=1,
             last_updated=datetime.now(timezone.utc),
             updated_by=updated_by,
@@ -169,7 +177,7 @@ def update_slot(db: Session, slot_name: str, content: str,
         db.add(slot)
     else:
         slot.content = content
-        slot.token_count = _estimate_tokens(content)
+        slot.token_count = count_tokens(content)
         slot.version += 1
         slot.last_updated = datetime.now(timezone.utc)
         slot.updated_by = updated_by

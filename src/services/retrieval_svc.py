@@ -18,6 +18,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
+from src.memory.tokens import count as count_tokens
 from src.memory.models import (
     Decision,
     EpisodicMemory,
@@ -60,7 +61,7 @@ def constraints_for_task(db: Session, task_text: str,
                             + f" (files: {', '.join(c.files_affected or [])})",
                     "source_type": "constraint",
                     "score": 10.0,
-                    "token_count": int(len(c.decision.split()) * 1.33),
+                    "token_count": count_tokens(c.decision),
                     "source_batch_id": str(c.id),
                     "conversation_id": None,
                 })

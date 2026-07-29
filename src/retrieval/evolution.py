@@ -26,6 +26,7 @@ from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
+from src.memory.tokens import count as count_tokens
 from src.memory.models import CodexEdge, CodexEntity, CodexEvent
 
 logger = structlog.get_logger("ice.retrieval.evolution")
@@ -150,7 +151,7 @@ def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
 
     # Token cap (D7: a life story must not eat the window) — drop the oldest
     # remaining lines before ever cutting mid-line.
-    while len(lines) > 1 and len(_render().split()) * 1.33 > settings.timeline_max_tokens:
+    while len(lines) > 1 and count_tokens(_render()) > settings.timeline_max_tokens:
         lines.pop(0)
         omitted = True
     return _render()

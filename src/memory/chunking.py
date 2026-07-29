@@ -16,6 +16,8 @@ resort.
 
 import re
 
+from src.memory.tokens import count as count_tokens
+
 CHUNK_TOKENS = 550                    # target tokens per chunk (A1; shared with A2 NER)
 OVERLAP_WORDS = 50                    # word overlap carried into the next chunk
 
@@ -26,13 +28,21 @@ _HEADING_RE = re.compile(r"(?m)^(#{1,6}\s.*)$")
 
 
 def estimate_tokens(text: str, is_code: bool = False) -> int:
-    """Rough token estimate. Code tokenizes far heavier than prose (symbols,
-    no word spacing), so for code we take the larger of a word- and a
-    char-based estimate rather than the prose words*1.33 heuristic."""
-    word_est = len(text.split()) * 1.33
-    if is_code:
-        return int(max(word_est, len(text) / 3.0))
-    return int(word_est)
+    """Token count for the packer. C16: this is now the REAL count.
+
+    It used to be `words * 1.33` (with a char-based floor for code), which
+    measured 0.53x on fenced Python — so a chunk the packer believed was 550
+    tokens was really ~1,000, and CHUNK_TOKENS meant nothing for exactly the
+    content where chunk size matters most. `is_code` is now vestigial for
+    accuracy and kept only so callers need no change; it costs one tokenizer
+    call per atomic unit (a sentence or a code line), ~1 ms per turn.
+
+    Behavioural consequence, stated plainly: chunks are now sized correctly,
+    which means code chunks get SMALLER and prose chunks get slightly LARGER
+    than before. Nothing needed re-chunking because the store was empty when
+    this landed.
+    """
+    return count_tokens(text)
 
 
 def split_segments(text: str):
@@ -75,6 +85,38 @@ def atomic_units(text: str):
     return units
 
 
+def _hard_split(unit_text: str, max_tokens: int) -> list:
+    """Last resort for a single unit larger than the whole budget.
+
+    Words first. Then characters, because a word boundary is not guaranteed to
+    exist: minified JS, a base64 blob and a comma-joined identifier list are
+    all ONE "word" and the word-split silently returned them whole — a 3,000-
+    token chunk from a 550-token cap, which then blows every budget downstream
+    while claiming to be a chunk.
+    """
+    out, piece, used = [], [], 0
+    for w in unit_text.split():
+        wt = count_tokens(w + " ")
+        if wt > max_tokens:
+            if piece:
+                out.append(" ".join(piece))
+                piece, used = [], 0
+            # No word boundary to use — cut on characters, sized from this
+            # blob's own measured density rather than an assumed ratio.
+            per_char = max(1e-6, wt / max(1, len(w)))
+            step = max(1, int(max_tokens / per_char))
+            out.extend(w[i:i + step] for i in range(0, len(w), step))
+            continue
+        if piece and used + wt > max_tokens:
+            out.append(" ".join(piece))
+            piece, used = [], 0
+        piece.append(w)
+        used += wt
+    if piece:
+        out.append(" ".join(piece))
+    return out
+
+
 def chunk_text(text: str, max_tokens: int = CHUNK_TOKENS, overlap_words: int = OVERLAP_WORDS) -> list:
     """Split *text* into ~max_tokens chunks on sentence/code-line boundaries,
     carrying overlap_words of context into each subsequent chunk. A single
@@ -94,7 +136,12 @@ def chunk_text(text: str, max_tokens: int = CHUNK_TOKENS, overlap_words: int = O
             current, current_tokens = [], 0
 
     for unit_text, is_code, is_boundary in units:
-        ut = estimate_tokens(unit_text, is_code)
+        # +1 for the "\n" this unit contributes when the chunk is joined.
+        # Units are counted individually but stored joined, and the tokenizer
+        # does not merge across that newline for free — without this the
+        # packer overshot the cap by ~24% on code, where units are lines and
+        # there are many of them.
+        ut = estimate_tokens(unit_text, is_code) + 1
         if is_boundary and current:
             # C3: a heading starts a new section — never let a chunk span it.
             # (No overlap carried across a section boundary either: the
@@ -103,10 +150,10 @@ def chunk_text(text: str, max_tokens: int = CHUNK_TOKENS, overlap_words: int = O
         if ut > max_tokens:
             # Oversized single unit (e.g. a minified line): flush, then hard-split.
             flush()
-            words = unit_text.split()
-            step = max(1, int(max_tokens / 1.33))
-            for i in range(0, len(words), step):
-                chunks.append(" ".join(words[i:i + step]))
+            # Word-step the split, then verify: the old `max_tokens / 1.33`
+            # inverse assumed the same wrong ratio the estimate did, so an
+            # oversized code line was split into pieces still over budget.
+            chunks.extend(_hard_split(unit_text, max_tokens))
             continue
         if current and current_tokens + ut > max_tokens:
             prev = "\n".join(current)

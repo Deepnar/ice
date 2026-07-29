@@ -36,11 +36,8 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from src.memory.models import ConversationSummary, EpisodicMemory, MemorySlot
+from src.memory.tokens import count as _estimate_tokens
 from src.retrieval.orchestrator import ContextFragment
-
-
-def _estimate_tokens(text: str) -> int:
-    return int(len(text.split()) * 1.33)
 
 
 def conversation_summary_block(
@@ -220,6 +217,18 @@ def assemble_prompt(
     if conversation_summary_text:
         system_msg["content"] += ("\n\n=== CONVERSATION SUMMARY ===\n"
                                   + conversation_summary_text)
+
+    # C16: bookmarks are INJECTED. This parameter was declared here and never
+    # read — the caller queried up to five bookmarked turns, word-capped each
+    # one, logged `bookmarked_count` as though they had been injected, and
+    # dropped them on the floor. A turn the user explicitly pinned is the
+    # highest-intent signal in the store and it was reaching the model in
+    # exactly none of the requests that reported it.
+    if bookmarked_texts:
+        system_msg["content"] += (
+            "\n\n=== BOOKMARKED BY THE USER ===\n"
+            "(turns the user pinned as important — treat as standing context)\n"
+            + "\n\n".join(bookmarked_texts))
 
     recent_messages = []
     if db_session and conversation_id:

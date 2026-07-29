@@ -34,6 +34,8 @@ from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
 from src.memory.models import Conversation, EpisodicMemory, MemorySlot
 from src.memory.session import resolve_session_id
+from src.memory.tokens import count_messages as count_tokens_messages
+from src.memory.tokens import estimate_from_chars as estimate_tokens_from_chars
 from src.model_registry.registry import (
     find_best_model,
     get_fallback_model,
@@ -391,7 +393,7 @@ async def chat_completions(
     total_chars = db.query(
         func.coalesce(func.sum(func.length(EpisodicMemory.raw_text)), 0)
     ).filter_by(conversation_id=conversation_id).scalar() or 0
-    total_tokens = int(total_chars) / 4.0  # rough chars→tokens estimate
+    total_tokens = estimate_tokens_from_chars(total_chars)
 
     mem_decision = decide_memory_retrieval(
         result, turn_count=turn_count, total_tokens=total_tokens, settings=settings,
@@ -493,28 +495,22 @@ async def chat_completions(
         conversation_summary_text=conversation_summary_text,
     )
 
-    # Token budget check (crude: words * 1.33 ≈ tokens, aim for 90% of 4096)
-    def word_count(text: str) -> int:
-        return len(text.split()) if text else 0
-
-    total_words = word_count(messages[0]["content"]) + word_count(user_message)
-    max_words = int(0.9 * 4096 / 1.33)
-
-    while total_words > max_words and (episodic_frags or procedural_frags):
-        if procedural_frags:
-            procedural_frags.pop()
-        elif episodic_frags:
-            episodic_frags.pop()
-        # Reassemble with the reduced fragment list
-        reduced = [f for f in fragments if f not in (set(episodic_frags) | set(procedural_frags))]
-        messages = assemble_prompt(memory_slots_list, reduced, user_message,
-                                   db_session=db, conversation_id=str(conversation_id),
-                                   bookmarked_texts=bookmarked_texts,
-                                   scope=scope,
-                                   max_recent_tokens=recent_budget,
-                                   session_start_text=session_start_text,
-                                   conversation_summary_text=conversation_summary_text)
-        total_words = word_count(messages[0]["content"]) + word_count(user_message)
+    # C16: the prompt is measured, not guessed. What stood here was a loop
+    # that trimmed fragments against a hardcoded 4096-token window, and it was
+    # broken four ways at once: (1) it ignored the model-derived budget
+    # entirely; (2) it measured `messages[0]`, the SYSTEM message, while
+    # fragments are appended as their own user message — so popping a fragment
+    # could never change its own loop condition; (3) `reduced` was built as the
+    # COMPLEMENT of the survivors, i.e. exactly the fragments it had just
+    # decided to drop; and (4) because the condition was invariant it ran until
+    # both lists were empty, at which point `reduced` == every fragment and all
+    # of them were restored. Net behaviour: none. Net cost: one re-assembly per
+    # fragment, each re-running the recent-turns query, on the latency path.
+    prompt_tokens = count_tokens_messages(messages)
+    log.info("prompt_measured", prompt_tokens=prompt_tokens,
+             total_budget=total_budget, model=model_name,
+             fragments=len(fragments),
+             episodic=len(episodic_frags), procedural=len(procedural_frags))
 
     log.info(
         "context_injection_complete",
