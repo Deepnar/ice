@@ -191,6 +191,13 @@ def denied_entities(conv):
     return orch._denied_entity_ids
 
 
+# Trap 6, disarmed: the cleanup used to select this suite's documents from a
+# hardcoded FILENAME allow-list, so every new fixture leaked until someone
+# noticed. Record which document conversations existed BEFORE the run instead;
+# anything new is ours, whatever it is called and however it was created.
+_pre_doc_convs = {r[0] for r in db.execute(sql_text(
+    "SELECT id FROM conversations WHERE kind <> 'chat'")).fetchall()}
+
 tmpdir = tempfile.mkdtemp(prefix="ice-c12-")
 conv_a = conv_b = conv_incog = None
 doc = doc_csv = None
@@ -570,9 +577,9 @@ finally:
     # FK order (trap 6): links → chunks → turns → procedural/clusters →
     # documents → conversations. A cleanup that deletes a parent first raises
     # on commit and leaves rows behind in a store that is supposed to be empty.
-    doc_convs = [d.conversation_id for d in db.query(Document).all()
-                 if d.filename in ("spec.md", "private_notes.md",
-                                   "metrics.csv", "broken.md", "pasted.md")]
+    doc_convs = [r[0] for r in db.execute(sql_text(
+        "SELECT id FROM conversations WHERE kind <> 'chat'")).fetchall()
+        if r[0] not in _pre_doc_convs]
     convs = [c for c in (conv_a, conv_b, conv_incog) if c is not None]
     conv_ids = [c.id for c in convs] + doc_convs
     turn_ids = [t.id for t in db.query(EpisodicMemory).filter(

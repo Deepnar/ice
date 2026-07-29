@@ -35,7 +35,13 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from src.memory.models import ConversationSummary, EpisodicMemory, MemorySlot
+from src.api.config import settings
+from src.memory.models import (
+    Conversation,
+    ConversationSummary,
+    EpisodicMemory,
+    MemorySlot,
+)
 from src.memory.tokens import count as _estimate_tokens
 from src.retrieval.orchestrator import ContextFragment
 
@@ -63,79 +69,162 @@ def conversation_summary_block(
     return f"{stamp}{row.summary_text}"
 
 
-def _trim_words(text: str, max_words: int) -> str:
-    words = text.split()
-    if len(words) > max_words:
-        return " ".join(words[:max_words]) + "…"
-    return text
+def _turn_text(t) -> str:
+    """The representation to show for one turn (C1's storage-side hint)."""
+    if t.inject_raw and t.raw_text:
+        return t.raw_text
+    if t.summary_text:
+        return t.summary_text
+    return (t.raw_text or "")[:300]
+
+
+def _split_pair(text: str):
+    """ICE's own stored turn format → (user_part, assistant_part_or_None).
+
+    This parses a separator ICE itself wrote (`main.py` builds every raw_text
+    as ``User: … \\n\\nAssistant: …``), so it is a protocol read, not a guess
+    about how a person writes.
+    """
+    if not text.startswith("User: "):
+        return text, None
+    body = text[6:]
+    i = body.find("\n\nAssistant: ")
+    if i == -1:
+        return body, None
+    return body[:i], body[i + len("\n\nAssistant: "):]
+
+
+def _fit(text: str, budget: int) -> str:
+    """Trim to a real token budget, on a word boundary."""
+    if budget <= 0 or not text:
+        return ""
+    if _estimate_tokens(text) <= budget:
+        return text
+    words, kept, used = text.split(), [], 0
+    for w in words:
+        used += _estimate_tokens(w + " ")
+        if used > budget:
+            break
+        kept.append(w)
+    return (" ".join(kept) + "…") if kept else ""
+
+
+def _recent_turn_rows(db_session, conversation_id, scope_mode: str,
+                      bridge_turns: int, hard_max: int):
+    """The turns of the CURRENT SITTING, newest first, plus a bridge.
+
+    C16/C6: the recent window is *continuity*, not evidence — "what were we
+    just doing" — so its natural boundary is the sitting, not a turn count and
+    not relevance. `session_id` has been written by all three ingest paths and
+    indexed since C6 and read by NOTHING in retrieval; this is its first reader.
+
+    When the current turn opens a NEW sitting, the whole previous sitting is
+    the conversation summary's job (C4) — except its last turn, which comes
+    along so a 31-minute coffee break does not amputate the thread. The clock
+    gap is not a meaning boundary and `recent_window_bridge_turns` exists
+    because of that.
+
+    The filters match every retrieval leg's: private turns, document sections
+    and promoted pastes have no business in a chat's continuity window. The old
+    query had none of them — so a >2,000-word turn that the vector leg excludes
+    *for being too big* walked straight into the window.
+    """
+    q = (db_session.query(EpisodicMemory)
+         .join(Conversation, Conversation.id == EpisodicMemory.conversation_id)
+         .filter(EpisodicMemory.conversation_id == conversation_id,
+                 EpisodicMemory.is_private.is_(False),
+                 EpisodicMemory.is_document.is_(False),
+                 EpisodicMemory.promoted_document_id.is_(None),
+                 Conversation.kind == "chat")
+         .order_by(EpisodicMemory.timestamp.desc()))
+
+    if scope_mode != "session":
+        return q.limit(hard_max).all()
+
+    rows = q.limit(hard_max).all()
+    if not rows:
+        return []
+    current = rows[0].session_id
+    if current is None:
+        return rows            # pre-C6 rows carry no session — count mode
+    same = [r for r in rows if r.session_id == current]
+    if len(same) < len(rows) and bridge_turns > 0:
+        # The last turn(s) of the sitting before this one.
+        older = [r for r in rows if r.session_id != current][:bridge_turns]
+        same += older
+    return same
 
 
 def get_recent_turns(
     db_session: Session,
     conversation_id: str,
     max_tokens: int = 4000,
-    max_count: int = 10,
+    max_count: int = None,
 ) -> List[dict]:
-    """Return the most recent turns that fit under *max_tokens* total.
+    """The recent-turn window, newest-first and bounded by the sitting.
 
-    Per‑turn word caps scale dynamically: a larger budget allows
-    fuller turns; a tiny budget keeps everything ultra‑compact.
+    Two behaviours changed here and both were bugs.
+
+    **It used to discard the NEWEST turns.** The query took the 10 newest
+    descending, reversed them, then `break`-ed on the first turn that would
+    overflow the budget — so one fat old turn cost you every turn after it,
+    including the one you had just sent. On a long sitting the "recent window"
+    showed the model the OLDEST turns it had. Selection now runs newest-first
+    and the output is reversed at the end, so the budget is spent on the most
+    recent context and the oldest turns are what fall off.
+
+    **`max_count` was hardcoded to 10 and no caller ever overrode it**, so a
+    model with a 40k window still saw ten turns. The bound is now the sitting,
+    with `recent_window_max_turns` as a rail for a marathon session.
+
+    A turn too big for its share degrades through C1/C3's chain (raw → summary
+    → abstract) instead of being word-truncated mid-sentence.
     """
-    turns = (
-        db_session.query(EpisodicMemory)
-        .filter_by(conversation_id=conversation_id)
-        .order_by(EpisodicMemory.timestamp.desc())
-        .limit(max_count)
-        .all()
-    )
-    turns.reverse()
+    scope_mode = getattr(settings, "recent_window_scope", "session")
+    hard_max = int(max_count or getattr(settings, "recent_window_max_turns", 40))
+    turns = _recent_turn_rows(
+        db_session, conversation_id, scope_mode,
+        int(getattr(settings, "recent_window_bridge_turns", 1)), hard_max)
+    if not turns:
+        return []
 
-    if max_tokens <= 1000:
-        per_turn_words = 80
-    elif max_tokens <= 3000:
-        per_turn_words = 150
-    else:
-        per_turn_words = min(500, max(100, max_tokens // max(1, len(turns)) // 2))
+    # One turn may not eat the window. Nothing enforced this before: the
+    # per-turn cap was a bracket ladder over `max_tokens // len(turns) // 2`.
+    max_turn_frac = float(getattr(settings, "recent_window_max_turn_frac", 0.35))
+    per_turn_cap = max(64, int(max_tokens * max_turn_frac))
 
-    result = []
-    tokens_used = 0
-    for t in turns:
-        if t.inject_raw and t.raw_text:
-            text = t.raw_text
-        elif t.summary_text:
-            text = t.summary_text
-        else:
-            text = (t.raw_text or "")[:300]
-
-        if text.startswith("User: "):
-            user_part = text[6:]
-            assistant_start = user_part.find("\n\nAssistant: ")
-            if assistant_start != -1:
-                assistant_part = user_part[assistant_start + len("\n\nAssistant: "):]
-                user_part = user_part[:assistant_start]
-                u = _trim_words(user_part, per_turn_words)
-                a = _trim_words(assistant_part, per_turn_words)
-                pair_tokens = _estimate_tokens(u) + _estimate_tokens(a)
-                if tokens_used + pair_tokens > max_tokens and result:
+    pairs, used = [], 0
+    for t in turns:                              # newest first
+        text = _turn_text(t)
+        if _estimate_tokens(text) > per_turn_cap:
+            # C1/C3 degrade-before-truncate: prefer a form that was written to
+            # be short over a sentence cut in half.
+            for alt in (t.summary_text, t.abstract_text):
+                if alt and _estimate_tokens(alt) <= per_turn_cap:
+                    text = alt
                     break
-                tokens_used += pair_tokens
-                result.append({"role": "user", "content": u})
-                result.append({"role": "assistant", "content": a})
-            else:
-                u = _trim_words(user_part, per_turn_words)
-                t_tok = _estimate_tokens(u)
-                if tokens_used + t_tok > max_tokens and result:
-                    break
-                tokens_used += t_tok
-                result.append({"role": "user", "content": u})
+        user_part, assistant_part = _split_pair(text)
+        share = min(per_turn_cap, max(64, max_tokens - used))
+        if assistant_part is not None:
+            u = _fit(user_part, share // 2)
+            a = _fit(assistant_part, share // 2)
+            cost = _estimate_tokens(u) + _estimate_tokens(a)
+            pair = [{"role": "user", "content": u},
+                    {"role": "assistant", "content": a}]
         else:
-            trimmed = _trim_words(text, per_turn_words)
-            t_tok = _estimate_tokens(trimmed)
-            if tokens_used + t_tok > max_tokens and result:
-                break
-            tokens_used += t_tok
-            result.append({"role": "user", "content": trimmed})
-    return result
+            u = _fit(user_part, share)
+            cost = _estimate_tokens(u)
+            pair = [{"role": "user", "content": u}]
+        if pairs and used + cost > max_tokens:
+            break                                 # the OLDEST turns fall off
+        used += cost
+        pairs.append(pair)
+
+    # Selection ran newest-first; the model reads oldest-first.
+    out = []
+    for pair in reversed(pairs):
+        out.extend(pair)
+    return out
 
 
 def assemble_prompt(
