@@ -312,6 +312,13 @@ try:
     scratch_counts = {t: sdb.execute(
         text(f"SELECT count(*) FROM {t}")).scalar()
         for t in manifest["tables"]}
+    if scratch_counts != manifest["tables"]:
+        # Name the offending table — a bare "counts differ" sent the C16
+        # session hunting through a 28-table round trip for one row.
+        print("    count mismatch (exported, imported):", {
+            t: (manifest["tables"].get(t), scratch_counts.get(t))
+            for t in set(manifest["tables"]) | set(scratch_counts)
+            if manifest["tables"].get(t) != scratch_counts.get(t)})
     check("imported counts equal exported counts",
           scratch_counts == manifest["tables"])
     check("episodic ids preserved",

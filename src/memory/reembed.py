@@ -87,6 +87,15 @@ RULES: dict[str, TableRule] = {
     "episodic_chunks": TableRule(
         kind="text",
         select_sql="SELECT id, chunk_text AS src FROM episodic_chunks"),
+    # C16: cold storage carries the episodic vector across at archive time, so
+    # its source text is the same `User: …` shape and takes the same transform.
+    # Registering it is not optional — G23's guard refuses to re-embed a store
+    # containing a vector column with no stated source, which is precisely how
+    # this column announced itself.
+    "cold_storage": TableRule(
+        kind="text",
+        select_sql="SELECT id, raw_text AS src FROM cold_storage",
+        transform=_episodic_source),
     "codex_entities": TableRule(
         kind="text",
         select_sql="""SELECT id, canonical_name AS src FROM codex_entities

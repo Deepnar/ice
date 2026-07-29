@@ -29,7 +29,22 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column('cold_storage', sa.Column('embedding', Vector(1024),
                                             nullable=True))
+    # G23 invariant: every vector column carries a `reembed:<table>` stamp in
+    # store_meta. C17 seeded one per column it created and this one owes the
+    # same — without it an export/import round trip comes back with one MORE
+    # store_meta row than it left with, because the importer's re-embed pass
+    # creates the missing stamp. 'done' is correct: the table is empty, so
+    # there is nothing to re-embed.
+    op.execute("""
+        INSERT INTO store_meta (key, value, updated_at)
+        VALUES ('reembed:cold_storage',
+                jsonb_build_object('status', 'done',
+                                   'stamped_at', now()::text),
+                now())
+        ON CONFLICT (key) DO NOTHING
+    """)
 
 
 def downgrade() -> None:
+    op.execute("DELETE FROM store_meta WHERE key = 'reembed:cold_storage'")
     op.drop_column('cold_storage', 'embedding')

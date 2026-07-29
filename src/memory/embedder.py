@@ -84,8 +84,22 @@ def get_embedder():
 
         from src.api.config import settings
         device = resolve_device(getattr(settings, "embedding_device", "auto"))
-        _embedder = SentenceTransformer(settings.embedding_model_name,
-                                        device=device)
+        try:
+            _embedder = SentenceTransformer(settings.embedding_model_name,
+                                            device=device)
+        except Exception as exc:
+            # The GPU can be full — the generation model shares it, and on this
+            # machine Ollama alone can hold 17+ GB of a 24 GB card. A memory
+            # system that refuses to start because the card is busy is worse
+            # than a slow one, so fall back and say so at WARNING. Set
+            # embedding_device="cpu" to stop the retry entirely.
+            if device == "cpu":
+                raise
+            logger.warning("embedder_gpu_load_failed", error=str(exc),
+                           falling_back_to="cpu")
+            device = "cpu"
+            _embedder = SentenceTransformer(settings.embedding_model_name,
+                                            device=device)
         logger.info("embedder_loaded", model=settings.embedding_model_name,
                     device=device)
     return _embedder

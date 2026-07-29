@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from src.api.chat_commands import command_sse_stream, try_handle
 from src.api.config import settings
+from src.api.context_ledger import ContextLedger, effective_memory_budget
 from src.api.core import ICECore, create_core
 from src.api.db import SessionLocal, get_db
 from src.api.memory_decision import (
@@ -82,7 +83,8 @@ def health():
     return {"status": "ok"}
 
 
-def _ollama_body(model: str, messages: list) -> dict:
+def _ollama_body(model: str, messages: list,
+                 prompt_tokens: int = 0) -> dict:
     """The generation request body.
 
     C16: `stream_options.include_usage` asks the server to append a final
@@ -96,6 +98,14 @@ def _ollama_body(model: str, messages: list) -> dict:
     body = {"model": model, "messages": messages, "stream": True}
     if settings.token_usage_reconciliation:
         body["stream_options"] = {"include_usage": True}
+    # C16: ask for the window this prompt actually needs. Off by default —
+    # a bigger KV cache costs VRAM and can evict the generation model, which
+    # trades ~300 ms of prompt handling for something worse. Only safe now
+    # that the prompt is bounded and measured.
+    if settings.ollama_send_num_ctx and prompt_tokens:
+        want = prompt_tokens + settings.context_generation_reserve
+        body["options"] = {"num_ctx": min(int(settings.ollama_num_ctx_max),
+                                          int(want))}
     return body
 
 
@@ -437,6 +447,20 @@ async def chat_completions(
     total_budget = derive_total_budget(effective_window, settings)
     log_window_truth(log, model_name, registry_window, total_budget)
 
+    # C16: the user's own message is part of the arithmetic now. It never was:
+    # on the turn where someone pastes 10,000 words, ICE added its full memory
+    # allowance ON TOP, which is precisely the case where stopping matters most.
+    memory_budget = effective_memory_budget(
+        total_budget, user_message,
+        generation_reserve=settings.context_generation_reserve,
+        floor=settings.context_budget_floor)
+    if memory_budget < total_budget:
+        log.info("budget_after_question", total=total_budget,
+                 memory=memory_budget,
+                 question_tokens=total_budget - memory_budget
+                 - settings.context_generation_reserve)
+    total_budget = memory_budget
+
     # ── Retrieval & prompt assembly ──
     result.prompt = user_message
     fragments = []
@@ -567,6 +591,41 @@ async def chat_completions(
     # of them were restored. Net behaviour: none. Net cost: one re-assembly per
     # fragment, each re-running the recent-turns query, on the latency path.
     prompt_tokens = count_tokens_messages(messages)
+
+    # C16: one account, in one unit, checked against the window the server
+    # actually allocated. When it does not fit, static blocks are shed before
+    # evidence — with E8 constraints exempt, because they are user preferences
+    # and losing one is the failure that feature exists to prevent.
+    ledger = ContextLedger(
+        serving_window=effective_window or 0,
+        generation_reserve=settings.context_generation_reserve,
+        safety_margin=settings.token_count_safety_margin)
+    ledger.add("system_prompt", messages[0]["content"] if messages else "")
+    ledger.add("recent_turns", sum(
+        count_tokens_messages([m]) for m in messages[1:-1]
+        if not m["content"].startswith("=== RETRIEVED CONTEXT")))
+    ledger.add("evidence", sum(f.token_count for f in fragments))
+    ledger.add("user_message", user_message)
+
+    plan = ledger.evict_plan()
+    if plan:
+        log.warning("context_evicting", plan=plan, overflow=ledger.overflow(),
+                    window=effective_window)
+        messages = assemble_prompt(
+            memory_slots_list if "slots" not in plan else [],
+            [] if "evidence" in plan else fragments,
+            user_message,
+            db_session=db, conversation_id=str(conversation_id),
+            bookmarked_texts=None if "bookmarks" in plan else bookmarked_texts,
+            classification=result, scope=scope,
+            max_recent_tokens=64 if "recent_turns" in plan else recent_budget,
+            session_start_text=None if "session_start" in plan else session_start_text,
+            conversation_summary_text=(
+                None if "conversation_summary" in plan else conversation_summary_text),
+        )
+        prompt_tokens = count_tokens_messages(messages)
+    ledger.log(log)
+
     log.info("prompt_measured", prompt_tokens=prompt_tokens,
              total_budget=total_budget, model=model_name,
              fragments=len(fragments),
@@ -633,7 +692,8 @@ async def chat_completions(
                     async with client.stream(
                         "POST",
                         ollama_url,
-                        json=_ollama_body(model_to_use, messages),
+                        json=_ollama_body(model_to_use, messages,
+                                          prompt_tokens),
                     ) as response:
                         async for chunk in response.aiter_text():
                             accumulated_raw_chunks.append(chunk)
@@ -647,7 +707,8 @@ async def chat_completions(
                     async with client2.stream(
                         "POST",
                         ollama_url,
-                        json=_ollama_body(model_to_use, messages),
+                        json=_ollama_body(model_to_use, messages,
+                                          prompt_tokens),
                     ) as response2:
                         async for chunk in response2.aiter_text():
                             accumulated_raw_chunks.append(chunk)

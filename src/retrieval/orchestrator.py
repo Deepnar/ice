@@ -544,8 +544,8 @@ class HybridRetrievalOrchestrator:
             # T3: cold storage joins time-scoped queries only (no-op leg
             # otherwise); fragments are episodic-typed, so budget fairness
             # treats them as memories — the leg name only affects RRF weight.
-            "cold": self._cold_lookup(prompt_keywords, conv_id,
-                                      prompt_embedding, scope),
+            "cold": self._cold_lookup(prompt_keywords, conv_id, scope,
+                                      prompt_embedding),
             "timeline": timeline_fragments,
         }
 
@@ -2029,8 +2029,8 @@ class HybridRetrievalOrchestrator:
     # T3: cold-storage leg + resurrection (D-U1) + honest emptiness
     # ------------------------------------------------------------------
     def _cold_lookup(self, prompt_keywords, conv_id: Optional[str] = None,
-                     prompt_embedding=None,
-                     scope: Optional[dict] = None) -> List[ContextFragment]:
+                     scope: Optional[dict] = None,
+                     prompt_embedding=None) -> List[ContextFragment]:
         """Cold storage joins time-scoped queries ONLY (never normal ones, and
         never the wide net). Requires a window — the window is what bounds the
         search when there are no keywords (a pure "what was I thinking about
