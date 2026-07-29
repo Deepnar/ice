@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
 from src.memory.tokens import count as count_tokens
+from src.retrieval import coverage
 from src.memory.models import (
     CodexEdge,
     CodexEntity,
@@ -50,6 +51,19 @@ class ContextFragment:
     # abstract); attached whenever the turn's summary is trusted, never
     # preferred by the chooser.
     abstract_text: Optional[str] = None
+    # C16: the SPECIFIC retrieval mechanism, alongside the coarse source_type.
+    # Eight legs report as five source_types — bm25, vector, chunks, cold and
+    # the wide net all say "episodic" — which is why no experiment ICE has run
+    # could say whether BM25, vector search or chunk retrieval did the episodic
+    # work. Exp 2 could report Codex at 3.3% of fragments and nothing about the
+    # other 96%.
+    #
+    # ⚠ ATTRIBUTION, NEVER ENTITLEMENT. The leg-diversity guarantee in
+    # `_enforce_token_budget` keys on `source_type` on purpose: re-keying it on
+    # this field would hand cold storage and the wide net guaranteed slots they
+    # do not have today, as a side effect of a measurement change. Conditional
+    # legs stay bounded by their own firing conditions.
+    leg: Optional[str] = None
 
 # C8: recency INSIDE the vector score (the candidate set is LIMIT 100 by
 # score — post-fusion bonuses can't rescue a recent turn that never made the
@@ -133,6 +147,7 @@ class HybridRetrievalOrchestrator:
         self.embedder = embedder
         self.bg_client = get_bg_client()
         self.max_retrieval_tokens = 5000
+        self._coverage_record = None   # C16: last coverage decision, for audit
         self._force_hyde = False
         # A4: entity resolution mode (ablation `fuzzy_match` flag maps here).
         self.use_fuzzy_match = True
@@ -636,6 +651,8 @@ class HybridRetrievalOrchestrator:
         # (delete the old leg‑diversity block entirely)
         diversified = self._session_diversify(fused, conversation_id, max_per_conversation=3)
         deduped = self._deduplicate(diversified)
+        deduped = self._collapse_provenance(deduped)
+        deduped = self._apply_coverage(deduped, prompt_embedding)
         final = self._enforce_token_budget(deduped)
 
         # T3 honest emptiness: a windowed query with nothing in the window
@@ -2188,6 +2205,13 @@ class HybridRetrievalOrchestrator:
         rrf_scores: Dict[str, float] = {}
         fragment_registry: Dict[str, ContextFragment] = {}
 
+        # C16: the leg name is right here and was being thrown away. Stamp it —
+        # first leg to produce the fragment wins, which is also the
+        # highest-ranked contribution for that fragment within that leg. This
+        # is the only place in the pipeline that knows which of the eight
+        # mechanisms actually found a given piece of memory.
+        frag_leg: Dict[str, str] = {}
+
         for leg_name, fragments in legs.items():
             weight = alpha_map.get(leg_name, 1.0)
             fragments.sort(key=lambda x: x.score, reverse=True)
@@ -2195,16 +2219,132 @@ class HybridRetrievalOrchestrator:
                 frag_hash = hashlib.sha256(frag.text.encode('utf-8')).hexdigest()
                 if frag_hash not in fragment_registry:
                     fragment_registry[frag_hash] = frag
+                    frag_leg[frag_hash] = leg_name
                 rrf_scores[frag_hash] = rrf_scores.get(frag_hash, 0.0) + (weight / (k + rank))
 
         fused = []
         for frag_hash, score in rrf_scores.items():
             original = fragment_registry[frag_hash]
-            new_frag = replace(original, score=score)
+            new_frag = replace(original, score=score,
+                               leg=original.leg or frag_leg.get(frag_hash))
             fused.append(new_frag)
 
         fused.sort(key=lambda x: x.score, reverse=True)
         return fused
+
+    def _collapse_provenance(self, fragments):
+        """C16: collapse fragments that are the SAME MEMORY, by identity.
+
+        A chunk and its parent turn carry the same `source_batch_id`, and today
+        that is deduped only *within* the vector leg — so a BM25 hit on the
+        parent plus a vector hit on one of its chunks both survive and the same
+        text is injected twice. `_deduplicate` cannot catch it: it hashes the
+        exact string, and a chunk is a substring, not a copy.
+
+        This runs before any similarity math because it is an ID join — a
+        resolver, not a lexicon — so it is exact, free, and cannot be fooled by
+        how anything is written. It is also the only arm in C16 that provably
+        cannot lose information: what it drops is, by construction, already
+        present.
+        """
+        if not getattr(settings, "retrieval_collapse_enabled", True):
+            return fragments
+        cap = int(getattr(settings, "retrieval_max_frags_per_turn", 2))
+        seen: Dict[str, int] = {}
+        out, dropped = [], 0
+        for f in fragments:            # already score-ordered — best survive
+            key = f.source_batch_id
+            if not key:
+                out.append(f)
+                continue
+            n = seen.get(key, 0)
+            if n >= cap:
+                dropped += 1
+                continue
+            seen[key] = n + 1
+            out.append(f)
+        if dropped:
+            logger.info("provenance_collapsed", dropped=dropped,
+                        kept=len(out), cap=cap)
+        return out
+
+    def _fragment_vectors(self, fragments):
+        """Vectors for coverage, fetched — never encoded at request time.
+
+        Encoding 100 fragments costs ~380 ms even on the GPU, which is not
+        something to spend on the pre-flight path. Every episodic fragment
+        already has a stored vector reachable by `source_batch_id`; anything
+        else returns None and is admitted without competing (see
+        `select_by_coverage`), so a leg with no stored embedding is
+        under-filtered rather than silently dropped.
+        """
+        ids = [f.source_batch_id for f in fragments if f.source_batch_id]
+        if not ids:
+            return {}
+        try:
+            rows = self.db.execute(text(
+                "SELECT id, embedding FROM episodic_memory "
+                "WHERE id = ANY(:ids) AND embedding IS NOT NULL"
+            ), {"ids": [str(i) for i in ids]}).fetchall()
+        except Exception as exc:
+            self.db.rollback()
+            logger.warning("coverage_vector_fetch_failed", error=str(exc))
+            return {}
+        out = {}
+        for r in rows:
+            vec = r.embedding
+            if isinstance(vec, str):          # pgvector text form
+                try:
+                    vec = [float(x) for x in vec.strip("[]").split(",")]
+                except ValueError:
+                    continue
+            out[str(r.id)] = vec
+        return out
+
+    def _apply_coverage(self, fragments, prompt_embedding):
+        """The "is this enough?" decision. Off by default until measured."""
+        if not getattr(settings, "retrieval_coverage_enabled", False):
+            return fragments
+        if not fragments or prompt_embedding is None:
+            return fragments
+
+        scores = [float(f.score) for f in fragments]
+        if getattr(settings, "retrieval_set_floor_enabled", False):
+            if not coverage.set_floor_passes(
+                    scores, float(settings.retrieval_set_floor)):
+                # Honest emptiness: nothing here is worth the tokens. Better a
+                # short prompt than the best of a bad set injected as evidence.
+                logger.info("coverage_set_floor_rejected_all",
+                            best=max(scores), floor=settings.retrieval_set_floor)
+                return []
+
+        vectors = self._fragment_vectors(fragments)
+        candidates = [
+            (f, vectors.get(str(f.source_batch_id)) if f.source_batch_id else None,
+             float(f.score))
+            for f in fragments
+        ]
+        selected, record = coverage.select_by_coverage(
+            prompt_embedding, candidates,
+            alpha=float(settings.coverage_alpha),
+            min_gain=float(settings.coverage_min_gain),
+            min_keep=int(settings.coverage_min_keep),
+            max_keep=int(settings.coverage_max_keep),
+            knee_enabled=bool(settings.coverage_knee_enabled),
+            knee_min_prominence=float(settings.coverage_knee_min_prominence),
+        )
+        # The counterfactual: what fill-to-cap WOULD have spent, recorded so a
+        # later experiment can price the decision without re-running retrieval.
+        self._coverage_record = {
+            **record,
+            "tokens_if_no_stop": sum(f.token_count for f in fragments),
+            "tokens_selected": sum(f.token_count for f in selected),
+            "legs_in": sorted({f.leg or f.source_type for f in fragments}),
+            "legs_out": sorted({f.leg or f.source_type for f in selected}),
+        }
+        logger.info("coverage_applied", **{
+            k: v for k, v in self._coverage_record.items() if k != "gains"})
+        return selected
 
     def _session_diversify(self, fragments, current_id, max_per_conversation=3):
         counts: Dict[str, int] = {}
