@@ -78,3 +78,6 @@ data/archive/
 # private publishing strategy (third-party emails, endorsement code, rejection history)
 docs/PUBLISHING.md
 experiments/paper/notes/REVISION_PLAN_v2.md
+
+# submission bundles (regenerable from source)
+experiments/paper/*_source.zip
