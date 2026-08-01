@@ -72,3 +72,7 @@ exports/
 
 # 2026-07-21 pre-B1 cleanup: archived historical/regenerable classifier+NER data (local-only)
 data/archive/
+
+# private publishing strategy (third-party emails, endorsement code, rejection history)
+docs/PUBLISHING.md
+experiments/paper/notes/REVISION_PLAN_v2.md
