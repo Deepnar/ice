@@ -767,6 +767,20 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   - **Conditions: full ICE generalist + the vector-RAG generalist baseline** (user, 2026-07-28 —
     revising the earlier ICE-only line). The baseline roughly doubles generation cost and earns it:
     without something beside it, "is this fragment bad?" is unanswerable by eye on a hard probe.
+  - **A THIRD ARM: ICE retrieval behind a BARE prompt** (added 2026-08-01, user). Same retrieval,
+    same fragments, but assembled the way the baseline is — fragments plus the question, with **no
+    system preamble, no memory slots, no recent-turns window, no acknowledgment turn**. Paper #1
+    measured none of this and now says so in print, which is why the arm is owed: *"we never ran
+    ICE's retrieval behind the baseline's bare prompt, so we cannot say whether stripping the
+    preamble and the recent-turns window would have been cheaper at equal quality, cheaper at worse
+    quality, or neither."* It is the cheapest arm in the run — retrieval is already computed, only
+    assembly and generation differ — and it separates two things Exp 2 confounded: how much of ICE's
+    result comes from **what it retrieves** versus **how it presents it**. Measured against the full
+    arm it answers whether ~195 tokens of static scaffolding plus the recent window earn their cost;
+    measured against the baseline it isolates retrieval quality with prompt structure held constant.
+    ⚠ Judge it **pairwise like the others**, and expect the honest outcome to be *"the scaffolding
+    buys quality at a token cost"* rather than a free win — if bare-prompt ICE matches full ICE, the
+    assembler is dead weight and C16's budget work gets easier, which is a *useful* answer either way.
   - **The judge at this scale is a TRIAGE TOOL, NOT A VERDICT.** Its job is to rank outputs so the
     twenty worst get read by a human — not to produce a number anyone acts on. N is far too small for
     an effect size, and a score sitting in a results file gets believed six weeks later regardless.
@@ -808,7 +822,7 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 
 ## FINAL — Redo the entire experiments
 
-> **📄 Publishing path for the resulting paper (and paper #1): [PUBLISHING.md](PUBLISHING.md)** — arXiv → TMLR (journal, no presentation ever, no page limit, free), endorsement routes, scam warning, and the paper-#2 lessons (CIs from day one, pre-registered deletion rules, tag-before-running).
+> **📄 Publishing path for the resulting paper (and paper #1): [PUBLISHING.md](PUBLISHING.md)** — **TMLR is closed: it desk-rejected paper #1 twice (2026-07-18, 2026-08-01) on genre fit, not quality.** Current target is **ACM TIST** (no presentation ever, free, appendix does not count toward the ~24pp/10k-word main body); arXiv remains blocked on endorsement after the 2026-01 policy change. Endorsement routes, scam warning, and the paper-#2 lessons (CIs from day one, pre-registered deletion rules, tag-before-running).
 >
 > **⚠ THE FLOW WILL CHANGE (user, 2026-07-12).** Even with everything thought through below and in the spec, expect the *entire* experiment flow to be revised at execution time — additions, subtractions, edits. Concretely, every stage of how the previous experiments were done is up for change: sourcing/getting the conversations, numbering + timing them, generating the probes, building their ground truth, choosing which conversations get tested, the testing process itself, and how each part is split into its own script. The spec is the starting design, not a contract — treat the frozen `experiments/*` folders as the record of what WAS done, never the template for what will be done. (Long-form reasoning: [BRUTAL_ASSESSMENT.md](BRUTAL_ASSESSMENT.md) §4.)
 >
