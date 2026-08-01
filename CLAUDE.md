@@ -121,6 +121,21 @@ reader six months from now cares about the change, not the conversation that pro
 Subject line ≤ ~70 chars, imperative or noun-phrase; body explains the *why* when it isn't
 obvious. This repo is destined to be public — the log is part of the artifact.
 
+**⚑ THIS REPO IS GOING PUBLIC (standing rule, 2026-08-01).** It is private today, but it
+will be flipped to public as the portfolio/paper artifact. Every session must work as if the
+tree, the docs, **and the commit log** will be read by strangers — recruiters, admissions
+readers, reviewers. Consequences:
+- **Never commit personal content.** Private planning, career notes, conversation corpora,
+  third-party email addresses, credentials, endorsement codes. If it names a real person who
+  didn't consent, or reveals the maintainer's private life, it does not belong in the tree.
+  (Git history is forever: a file committed once and gitignored later is *still public* —
+  the labeled-prompt corpus had to be purged with `git-filter-repo` for exactly this reason.)
+- **README.md is a first-class deliverable, not an afterthought.** It is the first and often
+  only thing a visitor reads. **Whenever a session changes what the project *is* or how it is
+  run — a new subsystem, a changed entry point, new setup steps, a new headline result — update
+  `README.md` in the same session**, the same way `ICE_Architecture.md` is kept in sync.
+- The public release is gated on a genuinely good README. Until then the repo stays private.
+
 **Commit granularity (standing rule, 2026-08-01):** **many small, focused commits — never
 one massive end-of-session commit.** Work as normal, but when committing, split by *concern*
 rather than by session: one logical change per commit (e.g. the migration, then the worker,
