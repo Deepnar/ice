@@ -1,197 +1,36 @@
-
-
-
-
-
-
-
-
-**SYSTEMS ARCHITECTURE  ·  TECHNICAL REPORT**
-
-**Architecture of ICE**
-
-Infinite Context Engine — A Systems Description
-
-
-
-
-
-
-
-
-
-
-Prepared: 2 July 2026
-
-Derived from the ICE source tree  ·  Code is authoritative
-
-# **Table of Contents**
-
-Table of Contents	i
-
-1. System Overview	1
-
-1.1 Request lifecycle	1
-
-1.2 High-level component map	2
-
-2. Classification Engine	3
-
-2.1 The PyTorch MLP classifier	3
-
-2.2 DI3 — Dynamic Intent Inferencer (DELETED, D8)	4
-
-2.3 Context-aware classification	5
-
-2.4 The memory-retrieval decision (B2)	6
-
-2.5 Training pipeline	6
-
-2.6 The temporal joint gate & style-dependent rules	7
-
-2.7 Experimental / partial features	7
-
-3. Memory Architecture	8
-
-3.1 Episodic memory	8
-
-3.2 Codex (semantic) memory	9
-
-3.3 Procedural memory	10
-
-3.4 Documents (C12)	10
-
-3.5 Memory Slots	10
-
-3.6 Context Clusters	11
-
-3.7 Decay and archival mechanics	12
-
-3.8 Batch summaries	13
-
-4. Codex Knowledge Graph (v2)	13
-
-4.1 Entity and edge tables	13
-
-4.2 Controlled relation vocabulary	14
-
-4.3 Temporal versioning and automatic property updates	15
-
-4.4 Extraction pipeline	15
-
-4.5 MERA — Meta-Enumeration Retrieval Agent	16
-
-4.6 Micro-NER model	17
-
-4.7 Vector fuzzy matching for entity resolution	17
-
-4.8 Retrieval and event-sourced compaction	17
-
-5. Procedural Memory	18
-
-5.1 Pattern extraction	18
-
-5.2 Trigger-condition gating for retrieval	19
-
-5.3 Decay and confidence promotion	19
-
-5.4 Retrieval	19
-
-6. Hybrid Retrieval Orchestrator	19
-
-6.1 The retrieval legs	20
-
-6.2 HyDE query rewriting	20
-
-6.3 Dynamic leg weighting	21
-
-6.4 Reciprocal Rank Fusion (RRF)	21
-
-6.5 Post-fusion processing	22
-
-6.6 Cluster-scoped retrieval	23
-
-6.7 Context budget and the coverage stop (C16)	23
-
-6.8 Wide-net fallback	24
-
-6.9 Feature Toggling for Ablation Studies	24
-
-6.11 Time-scoped retrieval (Track T: T1–T3)	24
-
-7. Prompt Assembly	24
-
-7.1 Stable-prefix ordering	25
-
-7.2 Per-component rendering	25
-
-7.3 Emotional / creative bypass	25
-
-7.4 Token budget enforcement during assembly	26
-
-8. Background Maintenance Runtime	26
-
-8.1 Runtime infrastructure: triggers, ledger, idle gating	26
-
-8.2 Post-Flight Evaluator	27
-
-8.3 Codex Extractor	28
-
-8.4 Procedural Extractor	28
-
-8.5 Decay Workers	28
-
-8.6 Reflection Worker	28
-
-8.7 Clustering Worker	29
-
-8.8 Batch Summariser	29
-
-8.9 Sentinel Monitor	29
-
-8.10 Fine-Tune Worker	30
-
-8.11 Compaction Worker	30
-
-8.12 Watch Folder and Codex Inject Watcher	30
-
-9. Model Registry and Mixture-of-Experts Routing	31
-
-9.1 Dynamic registry	31
-
-9.2 MoE selection	31
-
-9.3 Session stickiness	31
-
-10. Operational Infrastructure	32
-
-10.1 FastAPI proxy	32
-
-10.2 PostgreSQL + pgvector	33
-
-10.3 In-process maintenance runtime (Celery + Redis removed, C7)	34
-
-10.4 Idempotency architecture	34
-
-10.5 GPU resource management	34
-
-10.6 Configuration system	35
-
-11. Service Layer & ICE-as-MCP (E0/E7)	36
-
-11.1 The service layer (src/services/)	36
-
-11.2 The ice-mcp server	36
-
-11.3 Headless boot, the runtime lease, and standby	37
-
-11.4 Conversation deletion & chat commands (C10/C11)	37
-
-12. Coding ICE (E-coding core)	38
-
-13. Ingestion Engine (F10/F14 conversation import)	40
-
-14. Documents (C12a)	42
+# Architecture of ICE
+
+**Infinite Context Engine — a systems description**
+
+> A technical reference for the ICE codebase, derived from the source tree.
+> **Where this document and the code disagree, the code is authoritative.**
+> Features that are experimental, gated off, or not yet wired into the live path are
+> flagged inline.
+
+`Last updated: 1 August 2026` · `Scope: main` · [Roadmap](ROADMAP.md) · [Provenance](PROVENANCE.md)
+
+---
+
+## Contents
+
+| # | Section | Covers |
+|--:|---|---|
+| 1 | [System Overview](#1-system-overview) | request lifecycle, component map |
+| 2 | [Classification Engine](#2-classification-engine) | the 27-logit head, schema v2, the retrieval decision |
+| 3 | [Memory Architecture](#3-memory-architecture) | episodic, codex, procedural, documents, slots, clusters, decay |
+| 4 | [Codex Knowledge Graph](#4-codex-knowledge-graph-v2) | entities, temporal versioning, extraction, graph retrieval |
+| 5 | [Procedural Memory](#5-procedural-memory) | pattern extraction, trigger gating, promotion |
+| 6 | [Hybrid Retrieval Orchestrator](#6-hybrid-retrieval-orchestrator) | the legs, RRF fusion, budgeting, scoping, time-scoped retrieval |
+| 7 | [Prompt Assembly](#7-prompt-assembly) | stable-prefix ordering, rendering, budget enforcement |
+| 8 | [Background Maintenance Runtime](#8-background-maintenance-runtime) | in-process scheduler, extractors, decay, the maintenance agent |
+| 9 | [Model Registry & MoE Routing](#9-model-registry-and-mixture-of-experts-routing) | registry, expert selection, session stickiness |
+| 10 | [Operational Infrastructure](#10-operational-infrastructure) | API surface, database, configuration, observability |
+| 11 | [Service Layer & ICE-as-MCP](#11-service-layer--ice-as-mcp-e0e7) | HTTP-free services, the MCP server |
+| 12 | [Coding ICE](#12-coding-ice-e-coding-core-2026-07-18) | project state, code graph, reconcile-on-commit |
+| 13 | [Ingestion Engine](#13-ingestion-engine-f10f14-conversation-import-2026-07-20) | conversation import and replay |
+| 14 | [Documents](#14-documents-c12a-2026-07-28) | document store and chunk-level retrieval |
+
+---
 
 *This section describes the system as implemented in the source tree at the time of writing. Where the legacy design documents (\`architecture.md\`, \`architecture\_v2.md\`) conflict with the code, the code is treated as authoritative. Features that are experimental, gated off, or not yet wired into the live path are flagged inline.*
 
@@ -214,40 +53,44 @@ Each turn traverses a **pre-flight** (synchronous, in the request path) and a **
 
 The system decomposes into the following components, each described in the corresponding section below:
 
-                       ┌──────────────────────────────────────────────┐  
-   Client ──HTTP/SSE──▶│                FastAPI Proxy                  │  
-                       │  /v1/chat/completions  /memory-slots  /user-  │  
-                       │  control  /model-registry                    │  
-                       └───┬──────────────────────────────┬───────────┘  
-                           │ pre-flight (sync)            │ post-flight (async)  
-            ┌──────────────▼──────────────┐  ┌────────────▼─────────────────┐  
-            │  Classification Engine       │  │  Maintenance Runtime (C7)     │  
-            │  (DI3 + MLP + overrides)     │  │  (in-process asyncio + ledger)│  
-            └──────────────┬──────────────┘  │  post\_flight · codex\_extractor │  
-                           │                  │  procedural\_extractor · decay │  
-            ┌──────────────▼──────────────┐  │  codex\_decay · procedural\_decay│  
-            │  Hybrid Retrieval           │  │  reflection · clustering       │  
-            │  Orchestrator (6 legs + RRF)│  │  batch\_summarizer · sentinel   │  
-            └──────┬───────────────────────┘  │  fine\_tune · compaction        │  
-                   │                          │  drop\_zone · codex\_inject      │  
-            ┌──────▼──────────────┐           └────────────┬──────────────────┘  
-            │  Prompt Assembler   │                        │  
-            └──────┬──────────────┘                        │  
-                   │                                         │  
-            ┌──────▼─────────┐    ┌──────────────────────────▼──────────┐  
-            │  MoE Router    │    │        PostgreSQL + pgvector          │  
-            │  (registry)    │    │  episodic\_memory · codex\_entities     │  
-            └──────┬─────────┘    │  codex\_edges · procedural\_memory     │  
-                   │               │  documents · context\_clusters       │  
-            ┌──────▼─────────┐    │  memory\_slots · batch\_summaries      │  
-            │  Ollama/SGLang │    │  review\_queue · sentinel\_rules       │  
-            │  model pool    │    │  idempotency\_keys · cold\_storage     │  
-            └────────────────┘    └───────────────────────────────────────┘
+```
+                    ┌──────────────────────────────────────────────┐
+ Client ──HTTP/SSE─▶│               FastAPI Proxy                  │
+                    │  /v1/chat/completions   /memory-slots        │
+                    │  /user-control          /model-registry      │
+                    └───┬──────────────────────────────┬───────────┘
+        pre-flight (sync)                               post-flight (async)
+                        │                               │
+         ┌──────────────▼──────────────┐  ┌─────────────▼──────────────────┐
+         │  Classification Engine      │  │  Maintenance Runtime (C7)      │
+         │  (27-logit head, schema v2) │  │  in-process asyncio + ledger   │
+         └──────────────┬──────────────┘  │                                │
+                        │                 │  post_flight · codex_extractor │
+         ┌──────────────▼──────────────┐  │  procedural_extractor · decay  │
+         │  Hybrid Retrieval           │  │  codex_decay · procedural_decay│
+         │  Orchestrator (7 legs, RRF) │  │  reflection · clustering       │
+         └──────────────┬──────────────┘  │  batch_summarizer · compaction │
+                        │                 │  maintenance_agent · fine_tune │
+         ┌──────────────▼──────────────┐  └─────────────┬──────────────────┘
+         │  Prompt Assembler           │                │
+         └──────────────┬──────────────┘                │
+                        │                               │
+         ┌──────────────▼──────────────┐  ┌─────────────▼──────────────────┐
+         │  MoE Router (registry)      │  │  PostgreSQL + pgvector         │
+         └──────────────┬──────────────┘  │                                │
+                        │                 │  episodic_memory · documents   │
+         ┌──────────────▼──────────────┐  │  codex_entities · codex_edges  │
+         │  Ollama / SGLang model pool │  │  procedural_memory · clusters  │
+         └─────────────────────────────┘  │  memory_slots · batch_summaries│
+                                          │  review_queue · cold_storage   │
+                                          │  idempotency_keys              │
+                                          └────────────────────────────────┘
+```
 
 
 ## **2. Classification Engine**
 
-The classification engine produces, for each user turn, a set of **topic tags**, a set of **intent tags**, and — since B1 (2026-07-25) — **four independent context-reliance signals** from which the legacy single context-reliance string is *derived*. These outputs drive every downstream decision — which retrieval legs are weighted, how the token budget is split, whether the wide-net fallback fires, and which model the MoE router selects. The engine is deliberately a two-stage cascade: a cheap rule-based pre-classifier (DI3) resolves obvious cases in microseconds, and a small PyTorch MLP resolves everything else with sub-millisecond CPU inference.
+The classification engine produces, for each user turn, a set of **topic tags**, a set of **intent tags**, and — since B1 (2026-07-25) — **four independent context-reliance signals** from which the legacy single context-reliance string is *derived*. These outputs drive every downstream decision — which retrieval legs are weighted, how the token budget is split, whether the wide-net fallback fires, and which model the MoE router selects. The engine is a **single** small PyTorch head over a frozen embedding, resolving every turn with sub-millisecond CPU inference. It was a two-stage cascade until D8 (2026-07-27) deleted the rule-based pre-classifier (DI3): measured against the promoted v2 head on the 9,441 held-out rows it would have intercepted, DI3 lost every slice on every metric, so keeping it meant two disagreeing classifiers where the worse one won by running first (§2.2).
 
 **The head layout is data, not code.** data/labeled/label\_schema.json declares each head's labels, activation and decision rule; src/classifier/schema.py loads it and every consumer asks it for widths and offsets. Before B1 the layout lived as magic numbers scattered across classifier.py, orchestrator.py and fine\_tune.py (outputs\[:, 11:22\], probs\[22:\], torch.zeros(n, 25)), so adding one label meant hunting slices and hoping none were missed. A grep-gate (`\[:11\]|11:22|22:\]|== 25`) keeps src/ and scripts/ clean of them.
 
