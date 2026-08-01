@@ -81,12 +81,37 @@
 Conversational assistants forget everything between sessions, forcing users to re-establish context continually. We present the Infinite Context Engine (ICE), a local-first conversational memory system that sits between the user and any OpenAI-compatible model and maintains persistent memory across arbitrarily long histories: episodic turns, a temporally-versioned knowledge graph, procedural patterns, and documents, retrieved through weighted rank fusion under a per-query token budget. Evaluating such a system is itself an open problem, because static benchmarks cannot capture memory that accumulates, decays, and is revised over months. We therefore introduce LSREP, a Longitudinal State-Replay Evaluation Protocol that replays real, self-authored conversations (1{,}985 turns; 1{,}211 probes at 50 checkpoints), reconstructs the full memory state at each checkpoint, and scores answers against an evolving ground truth. Under LSREP, ICE matches a strong vector-RAG baseline on answer quality (paired $\Delta = +0.00$, 95\% CI $[-0.07, +0.07]$) while injecting 32\% fewer fragments, and wins a materially larger share of blind head-to-head comparisons (30.6\% vs.\ 21.2\%, non-overlapping intervals); on an independently hand-scored slice the margin is $+1.21$ $[+0.81, +1.61]$. ICE's retrieved fragments correlate \emph{positively} with answer quality ($r = +0.19$) where the baseline's correlate \emph{negatively} ($r = -0.02$). Under extreme per-turn context density the unbudgeted baseline collapses (94.2\% failure) while the budgeted system holds (mean 4.33). A cumulative ablation isolates rank fusion as the mechanism that makes multi-signal retrieval safe: an unfused lexical signal is harmful ($-0.74$, $[-1.14, -0.36]$) and fusion recovers it ($+0.82$, $[+0.39, +1.24]$). We pair these results with a component-level fidelity audit that separates three things systems evaluations routinely conflate: one component that was genuinely defective (a procedural-retrieval binding bug), several that this benchmark never exercised (document retrieval, batch summarisation, temporal and cross-conversation queries), and the mechanisms that demonstrably carried the result---the token budget, rank fusion, decay-weighted episodic retrieval, and post-fusion curation. Separating ``broken'' from ``untested'' is, we argue, a methodological requirement for evaluating any multi-component memory system, and the evidence here supports one design principle: memory is curation, not collection.
 \end{abstract}
 
-% Before submission, paste the CCSXML block generated at https://dl.acm.org/ccs
-% here; the \ccsdesc lines below are what is typeset.
+% Generated at https://dl.acm.org/ccs — the XML is what ACM's production system
+% ingests; the \ccsdesc lines below it are what is typeset on the title page.
+\begin{CCSXML}
+<ccs2012>
+   <concept>
+       <concept_id>10002951.10003317.10003347.10003348</concept_id>
+       <concept_desc>Information systems~Question answering</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10010147.10010178.10010179.10010181</concept_id>
+       <concept_desc>Computing methodologies~Discourse, dialogue and pragmatics</concept_desc>
+       <concept_significance>500</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10002951.10003317.10003331.10003271</concept_id>
+       <concept_desc>Information systems~Personalization</concept_desc>
+       <concept_significance>300</concept_significance>
+       </concept>
+   <concept>
+       <concept_id>10002951.10003317.10003338</concept_id>
+       <concept_desc>Information systems~Retrieval models and ranking</concept_desc>
+       <concept_significance>300</concept_significance>
+       </concept>
+ </ccs2012>
+\end{CCSXML}
+
 \ccsdesc[500]{Information systems~Question answering}
 \ccsdesc[500]{Computing methodologies~Discourse, dialogue and pragmatics}
-\ccsdesc[300]{Information systems~Retrieval models and ranking}
 \ccsdesc[300]{Information systems~Personalization}
+\ccsdesc[300]{Information systems~Retrieval models and ranking}
 
 \keywords{Conversational memory, long-term memory, retrieval-augmented generation,
 knowledge graphs, rank fusion, longitudinal evaluation, local-first systems,
@@ -628,6 +653,8 @@ The transferable lesson is procedural. Had the harness asserted a non-empty frag
 
 \subsection{Single-User Evaluation}
 All benchmark conversations were authored by one person. They span creative writing, technical planning, academic planning, and long-horizon worldbuilding, so they exercise a diverse set of conversation \emph{types}---but they reflect the habits, vocabulary, and interaction style of a single individual, and they demonstrate nothing about a diverse \emph{population of users}. This is the study's most consequential limitation and it is structural: it cannot be repaired by re-analysis, only by a different corpus. The follow-up study addresses it with a releasable synthetic corpus and an external anchor benchmark.
+
+One property of the corpus cuts the other way. It is demanding rather than convenient: turn lengths vary by orders of magnitude, one conversation runs past 1{,}100 turns, and another's turns routinely exceed 8{,}000 tokens---the case on which the baseline fails outright. Performance here is thus a lower bound with respect to density and horizon. We resist the tempting extension: a hard corpus does not license transfer to other users, since one author also fixes topic coverage, what counts as a correct answer, and who wrote the reference answers.
 
 \subsection{Replay Is Not Live Use}
 The evaluation reconstructs history by replaying existing conversations and probing the resulting memory state. This permits controlled experimentation over thousands of turns but cannot reproduce the feedback loops of live use, where retrieval events continuously shape future memory through reinforcement, decay adjustment, bookmarking, and user behaviour. During replay, future turns already exist and cannot be influenced by retrieved output.
