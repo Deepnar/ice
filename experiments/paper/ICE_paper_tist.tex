@@ -248,25 +248,6 @@ In post-flight, an evaluator runs lossless detection---the guiding principle in 
 
 ICE maintains four stores plus two structured overlays, all in one PostgreSQL database with the pgvector extension; every vector column is 384-dimensional because a single embedder is shared throughout.
 
-\begin{table}[htbp]
-\centering
-\small
-\caption{The four memory stores and the overlays. Each store is queried by one or more retrieval legs. Appendix~\ref{app:implementation} gives schemas and write paths.}
-\label{tab:stores}
-\begin{tabular}{@{}L{2.2cm}L{6.0cm}L{4.4cm}@{}}
-\toprule
-\textbf{Store} & \textbf{Purpose} & \textbf{Retrieval method} \\
-\midrule
-Episodic & Every conversational turn: raw text, summary, lossless flag, decay score, access count, embedding & BM25 leg; vector leg with decay weighting; session diversification \\
-Codex & Temporally-versioned semantic graph: entities with aliases and properties, typed edges carrying \texttt{valid\_from}/\texttt{valid\_until}, append-only event log, snapshots & Graph traversal (BFS depth 3 over edges where \texttt{valid\_until IS NULL}); enumeration fallback \\
-Procedural & Recurring behavioural patterns: trigger conditions, reinforcement count, confidence & Vector top-5 behind a hard intent gate \\
-RAG & Externally-ingested documents, chunked and embedded & Vector top-5, triple-gated \\
-\midrule
-Memory slots & Seven server-enforced persistent slots (persona, preferences, project context, guidance, pending items, \ldots) & Prepended verbatim to every prompt \\
-Context clusters & Conversation-scoped topical groupings with unit-norm centroids & Restrict episodic search to relevant clusters \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 The \textbf{Codex} is the store most specific to conversation. Its central design lever is a three-bucket controlled relation vocabulary---\emph{property} relations overwrite, \emph{multi-valued} relations accumulate, and \emph{single-valued} relations auto-expire the prior edge of the same (source, relation) pair---with generic relations such as \texttt{is} and \texttt{has} deliberately absent so the extractor is forced to be specific. Setting \texttt{valid\_until} rather than deleting is what makes the graph temporal: an edge with \texttt{valid\_until IS NULL} is currently true, and a non-NULL value means historically superseded but still auditable. Appendix~\ref{app:codex} details the write path and entity resolution.
 
@@ -293,39 +274,6 @@ where $\alpha_\ell$ is the blended leg weight and $\mathrm{rank}_\ell(f)$ starts
 
 \textbf{Dynamic token budget.} A total context budget of 23{,}000 tokens less an overhead reserve leaves 21{,}200 available. A length-based recent-window fraction, reduced by token density and shifted by intent and topic, splits this between recent turns and retrieval, and a \emph{growth cap} bracketed by turn count prevents long conversations from over-allocating. Leftover budget is intentionally left unused: this is the lever that keeps the retrieved set compact and, under extreme per-turn density, averts the context overflow that sinks an unbudgeted baseline (Section~\ref{sec:stress}). On ordinary turns ICE's total token count is comparable to the baseline's---the curation shows up as fewer \emph{fragments}, not fewer tokens. A configurable subclass of the orchestrator exposes flags that switch legs and post-processing steps on and off without redefining classification or fusion; Section~\ref{sec:ablation}'s buildup uses that mechanism.
 
-\begin{figure}[t]
-\centering
-\resizebox{\columnwidth}{!}{%
-\begin{tikzpicture}[node distance=2.5mm]
-\node[iceleg] (l1) {BM25};
-\node[iceleg, below=of l1] (l2) {vector (decay-wt)};
-\node[iceleg, below=of l2] (l3) {Codex traversal};
-\node[iceleg, below=of l3] (l4) {procedural};
-\node[iceleg, below=of l4] (l5) {RAG};
-\node[iceleg, below=of l5] (l6) {batch summaries};
-\node[font=\scriptsize\bfseries, above=1mm of l1] {6 legs (parallel)};
-\node[icebox, right=8mm of l3, yshift=3mm, minimum height=10mm] (wt) {dynamic\\leg weighting\\{\tiny($\alpha_\ell$)}};
-\node[icecore, right=6mm of wt, minimum height=10mm] (rrf) {RRF\\fusion};
-\node[icebox, right=7mm of rrf] (t1) {bonuses};
-\node[icebox, right=2.5mm of t1] (t2) {session\\diversify};
-\node[icebox, right=2.5mm of t2] (t3) {dedup};
-\node[icebox, right=2.5mm of t3] (t4) {two-phase\\budget};
-\node[icebox, right=2.5mm of t4] (t5) {strengthen};
-\begin{scope}[on background layer]
-\node[icephase, fit=(t1)(t5), inner sep=4pt, label={[font=\scriptsize\bfseries]above:post-fusion curation (sequential)}] (post) {};
-\end{scope}
-\node[icebox, fill=blue!12, below=8mm of t3, minimum width=30mm] (out) {token-budgeted fragments $\rightarrow$ Prompt Assembler};
-\foreach \l in {l1,l2,l3,l4,l5,l6} \draw[iceflow] (\l.east) -- (wt.west);
-\draw[iceflow] (wt) -- (rrf);
-\draw[iceflow] (rrf) -- (post);
-\draw[iceflow] (t1) -- (t2); \draw[iceflow] (t2) -- (t3);
-\draw[iceflow] (t3) -- (t4); \draw[iceflow] (t4) -- (t5);
-\draw[iceflow] (post.south) -- (out.north);
-\end{tikzpicture}%
-}
-\caption{Retrieval orchestrator. The legs are heterogeneous in retrieval semantics; RRF is what allows them to be combined without score normalisation; the two-phase budget guarantees leg diversity under budget pressure. Section~\ref{sec:exercised} reports which legs contributed during evaluation.}
-\label{fig:orchestrator}
-\end{figure}
 
 \subsection{Prompt Assembly}
 
@@ -738,6 +686,7 @@ One distinction deserves stating plainly: the \emph{protocol} is fully reproduci
 \bibliography{ICE_references}
 
 %======================================================================
+\clearpage
 \appendix
 
 \section{Component Fidelity Audit}
@@ -1001,6 +950,60 @@ Full ICE MoE           & 77.7 & 16.6 & 5.8 \\
 \end{table}
 
 \section{Implementation Reference}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{The four memory stores and the overlays. Each store is queried by one or more retrieval legs. Appendix~\ref{app:implementation} gives schemas and write paths.}
+\label{tab:stores}
+\begin{tabular}{@{}L{2.2cm}L{6.0cm}L{4.4cm}@{}}
+\toprule
+\textbf{Store} & \textbf{Purpose} & \textbf{Retrieval method} \\
+\midrule
+Episodic & Every conversational turn: raw text, summary, lossless flag, decay score, access count, embedding & BM25 leg; vector leg with decay weighting; session diversification \\
+Codex & Temporally-versioned semantic graph: entities with aliases and properties, typed edges carrying \texttt{valid\_from}/\texttt{valid\_until}, append-only event log, snapshots & Graph traversal (BFS depth 3 over edges where \texttt{valid\_until IS NULL}); enumeration fallback \\
+Procedural & Recurring behavioural patterns: trigger conditions, reinforcement count, confidence & Vector top-5 behind a hard intent gate \\
+RAG & Externally-ingested documents, chunked and embedded & Vector top-5, triple-gated \\
+\midrule
+Memory slots & Seven server-enforced persistent slots (persona, preferences, project context, guidance, pending items, \ldots) & Prepended verbatim to every prompt \\
+Context clusters & Conversation-scoped topical groupings with unit-norm centroids & Restrict episodic search to relevant clusters \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tikzpicture}[node distance=2.5mm]
+\node[iceleg] (l1) {BM25};
+\node[iceleg, below=of l1] (l2) {vector (decay-wt)};
+\node[iceleg, below=of l2] (l3) {Codex traversal};
+\node[iceleg, below=of l3] (l4) {procedural};
+\node[iceleg, below=of l4] (l5) {RAG};
+\node[iceleg, below=of l5] (l6) {batch summaries};
+\node[font=\scriptsize\bfseries, above=1mm of l1] {6 legs (parallel)};
+\node[icebox, right=8mm of l3, yshift=3mm, minimum height=10mm] (wt) {dynamic\\leg weighting\\{\tiny($\alpha_\ell$)}};
+\node[icecore, right=6mm of wt, minimum height=10mm] (rrf) {RRF\\fusion};
+\node[icebox, right=7mm of rrf] (t1) {bonuses};
+\node[icebox, right=2.5mm of t1] (t2) {session\\diversify};
+\node[icebox, right=2.5mm of t2] (t3) {dedup};
+\node[icebox, right=2.5mm of t3] (t4) {two-phase\\budget};
+\node[icebox, right=2.5mm of t4] (t5) {strengthen};
+\begin{scope}[on background layer]
+\node[icephase, fit=(t1)(t5), inner sep=4pt, label={[font=\scriptsize\bfseries]above:post-fusion curation (sequential)}] (post) {};
+\end{scope}
+\node[icebox, fill=blue!12, below=8mm of t3, minimum width=30mm] (out) {token-budgeted fragments $\rightarrow$ Prompt Assembler};
+\foreach \l in {l1,l2,l3,l4,l5,l6} \draw[iceflow] (\l.east) -- (wt.west);
+\draw[iceflow] (wt) -- (rrf);
+\draw[iceflow] (rrf) -- (post);
+\draw[iceflow] (t1) -- (t2); \draw[iceflow] (t2) -- (t3);
+\draw[iceflow] (t3) -- (t4); \draw[iceflow] (t4) -- (t5);
+\draw[iceflow] (post.south) -- (out.north);
+\end{tikzpicture}%
+}
+\caption{Retrieval orchestrator. The legs are heterogeneous in retrieval semantics; RRF is what allows them to be combined without score normalisation; the two-phase budget guarantees leg diversity under budget pressure. Section~\ref{sec:exercised} reports which legs contributed during evaluation.}
+\label{fig:orchestrator}
+\end{figure}
 \label{app:implementation}
 
 This appendix collects operational detail supporting Section~\ref{sec:architecture} but not required to follow the argument. A complete technical reference---the full training pipeline for the classifier and NER models, the controlled relation vocabulary in its entirety, GPU resource management, and the idempotency architecture---is the archived technical report in the repository, which describes the system at the tagged evaluation snapshot.
