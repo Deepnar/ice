@@ -343,25 +343,6 @@ We ran two instantiations. \textbf{Experiment~1 is a pilot} whose role was to ex
 
 \subsection{Metrics}
 
-\begin{table}[htbp]
-\centering
-\small
-\caption{Evaluation metrics. Each is computed per probe and aggregated across the benchmark.}
-\label{tab:metrics}
-\begin{tabular}{@{}L{2.2cm}L{6.2cm}L{4.2cm}@{}}
-\toprule
-\textbf{Metric} & \textbf{Definition} & \textbf{What it measures} \\
-\midrule
-Score (1--5) & Mean absolute score from the judge & Answer quality \\
-SPF & $\mathrm{mean\ score} / \mathrm{mean\ fragments}$ & Retrieval efficiency \\
-TUR & $\mathrm{mean\ score} / (\mathrm{mean\ tokens}/1000)$ & Token efficiency \\
-Win rate (\%) & Blind tournament: all four conditions' answers for a probe are anonymised, shuffled, and ranked best-to-worst in a single pass, independent of absolute scoring; the win rate is the share of appearances placed first & Relative preference, free of judge order bias \\
-Hallucination (\%) & Share of probes where the judge detects information not present in the conversation & Faithfulness \\
-Fragment count & Mean fragments injected per probe & Retrieval volume \\
-Recency $\Delta$ & $\mathrm{mean\ score}(\mathrm{late\ bins}) - \mathrm{mean\ score}(\mathrm{early\ bins})$ & Longitudinal improvement \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 No single metric captures memory quality, which is why we report several and read them together. Absolute \emph{score} conceals the cost at which quality was achieved; \emph{SPF} and \emph{TUR} expose that cost, which is the axis on which a curated memory system must distinguish itself from a firehose. \emph{Win rate} is the noise-robust relative signal, sidestepping the absolute-scale drift that makes raw 1--5 judgements hard to compare across hundreds of probes, and it often separates systems that tie on mean score. \emph{Hallucination} and \emph{fragment count} guard the two ways a system can look good on score and fail in practice---fabrication, and context bloat. \emph{Recency delta} is the longitudinal signal unique to this setting: whether answers \emph{improve} as memory accumulates, which a static-corpus baseline structurally cannot exhibit.
 
@@ -399,13 +380,41 @@ Full ICE MoE          & \textbf{4.28} $\pm$ 0.99 & 22{,}411 & 20.4 & 0.21 & 0.19
 
 The mean-score difference between ICE generalist and vector generalist is $+0.01$ (4.26 vs.\ 4.25). A paired per-probe bootstrap---both conditions answer the same probes, so the difference is taken within-probe before resampling---places it at $+0.00$ with a 95\% CI of $[-0.07, +0.07]$: a tightly estimated statistical tie rather than an ambiguous one. The secondary metrics carry the interesting content.
 
-\textbf{Efficiency.} ICE injects 32.0\% fewer fragments (20.4 vs.\ 30.0) at the same quality, giving an SPF of 0.21 against 0.14---a 50\% improvement in quality per fragment. It uses 6.6\% \emph{more} tokens (22{,}411 vs.\ 21{,}025). That overage is not fragment bloat: it is prompt structure the baseline never receives. Every ICE prompt carries a fixed instruction preamble, a persistent-context header, a retrieved-context header and a boundary acknowledgment turn---about 195 tokens of static scaffolding---plus any active memory slots verbatim and a window of recent conversation turns, while the baseline is served only its retrieved fragments and the question. The comparison is therefore full-system-versus-standard-RAG rather than fragment-versus-fragment, and the accounting is deliberately unflattering to us: ICE spends its extra tokens on structure and recency while retrieving a third fewer fragments. We state it plainly because it is the opposite of the claim such systems usually make: the win is in \emph{how many things} the model must reconcile, not in raw token count.
+\textbf{Efficiency.} ICE injects 32.0\% fewer fragments (20.4 vs.\ 30.0) at the same quality, giving an SPF of 0.21 against 0.14---a 50\% improvement in quality per fragment. It uses 6.6\% \emph{more} tokens (22{,}411 vs.\ 21{,}025). That overage is not fragment bloat: it is prompt structure the baseline never receives. Every ICE prompt carries a fixed instruction preamble, a persistent-context header, a retrieved-context header and a boundary acknowledgment turn---about 195 tokens of static scaffolding---plus any active memory slots verbatim and a window of recent conversation turns, while the baseline is served only its retrieved fragments and the question. The comparison is therefore full-system-versus-standard-RAG rather than fragment-versus-fragment, and the accounting is deliberately unflattering to us: ICE spends its extra tokens on structure and recency while retrieving a third fewer fragments. We state it plainly because it is the opposite of the claim such systems usually make: the win is in \emph{how many things} the model must reconcile, not in raw token count. Whether that scaffolding earns its cost is \emph{untested}. We never ran ICE's retrieval behind the baseline's bare prompt, so we cannot say whether stripping the preamble and the recent-turns window would have been cheaper at equal quality, cheaper at worse quality, or neither: the tokens and the answer quality move together in our design and we did not separate them. This is a controlled comparison the study omits, not a result it reports, and it is the first arm we add in the follow-up.
 
 \textbf{Preference.} The head-to-head win rate is the cleanest signal and it is statistically robust: ICE generalist wins 30.6\% of tournament appearances (95\% CI $[27.9, 33.4]$) against the baseline's 21.2\% ($[18.8, 23.7]$), and the intervals do not overlap. When the two systems disagree, ICE is more often preferred. Hallucination rates are close (19.6\% vs.\ 20.5\%).
 
 \textbf{Fragment--score correlation} shows a qualitative difference rather than a quantitative one. ICE generalist has $r = +0.193$ (MoE $+0.246$); vector generalist has $r = -0.015$ (MoE $-0.030$). For ICE, retrieving more fragments goes with better answers; for the baseline, retrieving more goes with worse. Same metric, opposite sign---a system whose retrieved fragments correlate negatively with answer quality is, in a deep sense, a system that does not know what it is doing.
 
 \textbf{Longitudinal behaviour.} \cref{fig:longitudinal} plots mean probe score against turn-index bin. All four conditions track closely through early and middle bins---the tie is visible as four overlapping curves. The separation appears at the deepest bin (turn 1{,}100 of Dataset B): both vector conditions drop sharply, to 3.80 and 3.87, while both ICE conditions hold at 4.18 and 4.14. The baseline's retrieval cannot reach across 1{,}000+ turns of history, and the gap opens precisely where that reach matters.
+
+\textbf{Token efficiency is not a constant, and the pooled average hides a crossover.} The 6.6\% figure above is an average over conditions that differ sharply, and two mechanisms push against each other. Per-turn \emph{density} favours ICE: the baseline retrieves a fixed top-30, so its injected tokens scale with how large each turn is, without bound. Conversation \emph{length} favours the baseline: ICE's growth cap deliberately widens the budget as turns accumulate ($2{,}000 + 150n$ below 30 turns, then $5{,}000 + 100(n-30)$, then $10{,}000 + 30(n-100)$), while top-30 is indifferent to how long a conversation has run. \cref{tab:token-crossover} contrasts the first and last quartile of each conversation, paired per probe and bootstrapped. Within every conversation the baseline is effectively flat and only ICE moves, so the trend is a property of the budget rather than of which conversation is being read.
+
+The clearest case is Dataset D, where the effect reverses sign inside a single conversation: ICE injects 2{,}309 fewer tokens than the baseline over the first quartile and 4{,}994 \emph{more} over the last, both intervals excluding zero, against a baseline that barely moves. Dataset A shows the same erosion without a reversal, and Dataset C shows density overwhelming the effect entirely---there the baseline sits near 87{,}000 tokens and ICE is cheaper on every probe at every position. The practical reading is that a per-query budget buys the most when turns are dense and least when a conversation is long and sparse, and that a growth cap keyed to turn count is the wrong lever: it spends more precisely as the marginal value of additional context is falling. Replacing fill-to-cap with a marginal-relevance stopping rule is the change this measurement argues for, and it is the same fix the ablation's dynamic-budget regression pointed at.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Token cost by position within each conversation: first quartile of probes versus last. $\Delta$ is the paired per-probe difference (ICE minus baseline; negative means ICE is cheaper) with a 95\% bootstrap interval, and ``cheaper'' is the share of probes on which ICE injected fewer tokens. The baseline is close to flat within each conversation; ICE's cost rises with position in all four.}
+\label{tab:token-crossover}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+\textbf{Dataset} & \textbf{Position} & \textbf{Paired $\Delta$} & \textbf{95\% CI} & \textbf{ICE cheaper} \\
+\midrule
+\multirow{2}{*}{A (Creative, 290 turns)} & first quartile & $-8{,}034$ & $[-8{,}650, -7{,}451]$ & 100\% \\
+                                          & last quartile  & $-2{,}284$ & $[-2{,}766, -1{,}800]$ & 91\% \\
+\midrule
+\multirow{2}{*}{B (Long-form, 1{,}119 turns)} & first quartile & $+3{,}766$ & $[+3{,}133, +4{,}394]$ & 18\% \\
+                                               & last quartile  & $+1{,}288$ & $[+476, +2{,}075]$ & 35\% \\
+\midrule
+\multirow{2}{*}{C (Technical, 325 turns)} & first quartile & $-70{,}731$ & $[-79{,}067, -63{,}734]$ & 100\% \\
+                                           & last quartile  & $-68{,}854$ & $[-88{,}105, -53{,}696]$ & 100\% \\
+\midrule
+\multirow{2}{*}{D (Academic, 251 turns)} & first quartile & $-2{,}309$ & $[-3{,}112, -1{,}521]$ & 69\% \\
+                                          & last quartile  & $+4{,}994$ & $[+4{,}362, +5{,}609]$ & 5\% \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{figure}[t]
 \centering
@@ -882,6 +891,26 @@ vector\_baseline   & 3.50 & 3.15 & 3.47 & $-0.03$ \\
 \end{table}
 
 \section{Experiment 2 Detailed Breakdowns}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Evaluation metrics. Each is computed per probe and aggregated across the benchmark.}
+\label{tab:metrics}
+\begin{tabular}{@{}L{2.2cm}L{6.2cm}L{4.2cm}@{}}
+\toprule
+\textbf{Metric} & \textbf{Definition} & \textbf{What it measures} \\
+\midrule
+Score (1--5) & Mean absolute score from the judge & Answer quality \\
+SPF & $\mathrm{mean\ score} / \mathrm{mean\ fragments}$ & Retrieval efficiency \\
+TUR & $\mathrm{mean\ score} / (\mathrm{mean\ tokens}/1000)$ & Token efficiency \\
+Win rate (\%) & Blind tournament: all four conditions' answers for a probe are anonymised, shuffled, and ranked best-to-worst in a single pass, independent of absolute scoring; the win rate is the share of appearances placed first & Relative preference, free of judge order bias \\
+Hallucination (\%) & Share of probes where the judge detects information not present in the conversation & Faithfulness \\
+Fragment count & Mean fragments injected per probe & Retrieval volume \\
+Recency $\Delta$ & $\mathrm{mean\ score}(\mathrm{late\ bins}) - \mathrm{mean\ score}(\mathrm{early\ bins})$ & Longitudinal improvement \\
+\bottomrule
+\end{tabular}
+\end{table}
 \label{app:exp2-detail}
 
 \begin{table}[htbp]
