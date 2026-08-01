@@ -58,6 +58,18 @@ Rules for working it:
   **(1)** §1 System Overview prose · **(2)** the ASCII diagrams · **(3)** §10's configuration
   /settings lists · **(4)** `README.md`.
 
+- **⚑ The README links the VENUE-AGNOSTIC paper, never a venue submission (standing rule,
+  2026-08-01).** `experiments/paper/` holds one canonical paper (`ICE_paper_v2.tex`, generic
+  `article` class) plus venue twins built from it (`_tmlr`, `_tist`, …). **Only the canonical
+  one may be linked from `README.md` or offered publicly.** A venue twin carries that venue's
+  furniture — ACM/TMLR branding, line numbers from `review` mode, placeholder volume/article
+  numbers and a dummy DOI (`10.1145/nnnnnnn.nnnnnnn`). Correct for a submission; on a public
+  repo it reads as *"published in that venue"*, which is a false claim about work that is
+  merely submitted. This has already happened once and was reverted. When a venue twin's
+  content improves on the canonical paper, **back-port it into the canonical file** (keep the
+  generic preamble, take the body) rather than repointing the link — the twin is a build
+  target, never the source of truth.
+
 - **README and the architecture doc follow the same contract.** Both describe **`main` as it
   is now**, and both are updated *in the same session* as the change that invalidates them.
   The split: `README.md` is the outside view (what ICE is, what it does, headline numbers,
