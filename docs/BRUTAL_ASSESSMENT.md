@@ -3,7 +3,7 @@
 > Written at the user's request in the last Fable 5 session: a no-deference pass over the
 > whole project — codebase, roadmap, specs, experiment results, and the rough notes — to
 > name every flaw worth naming and propose a solution for each. Grounded in: the full
-> [ROADMAP.md](ROADMAP.md), the full [rough_post_paper_work.md](rough_post_paper_work.md),
+> [ROADMAP.md](ROADMAP.md), the full [rough_post_paper_work.md](outdated/rough_post_paper_work.md) (since archived),
 > [ICE_Architecture.md](ICE_Architecture.md), the Exp1–3 summaries, the T/C7 implementation
 > sessions (orchestrator, models, workers, tests read in depth), and the FINAL spec.
 > **Nothing here is a work order** — it's a standing critique to be mined; promote items

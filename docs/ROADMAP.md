@@ -1,6 +1,6 @@
 # ICE Post-Paper Roadmap
 
-> Living checklist of everything queued after the paper. Distilled from [rough_post_paper_work.md](rough_post_paper_work.md) (raw notes — keep that file as the source of nuance), the experiment reports in `experiments/*/results*`, and the paper's limitations section.
+> Living checklist of everything queued after the paper, and **the authoritative queue** — it is no longer a distillation of anything. It was originally distilled from the raw post-paper notes, the experiment reports in `experiments/*/results*`, and the paper's limitations section. Those raw notes have since been **fully mined** (the sweep is recorded in [BRUTAL_ASSESSMENT.md](BRUTAL_ASSESSMENT.md): every item maps to a live roadmap entry) and archived to [outdated/rough_post_paper_work.md](outdated/rough_post_paper_work.md) — read them only for historical phrasing, never as a work queue.
 >
 > **How to use this file:**
 > - **Work it in order** (Phase 0 → Track A → B → …), respecting dependencies. The ordering is deliberate.

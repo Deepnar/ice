@@ -27,7 +27,7 @@ Raw metrics JSON sits alongside each report. Paper supporting notes (`paper_roug
 
 ## Post-paper workflow (current phase)
 
-The queue of upcoming work is **[docs/ROADMAP.md](docs/ROADMAP.md)** — a living checklist distilled from `docs/rough_post_paper_work.md` (planned-but-never-built features, reworks where the current version underperformed in the experiments, known bugs, and open questions with no settled solution).
+The queue of upcoming work is **[docs/ROADMAP.md](docs/ROADMAP.md)** — the authoritative living checklist (planned-but-never-built features, reworks where the current version underperformed in the experiments, known bugs, and open questions with no settled solution). It was originally distilled from raw post-paper notes; those have been fully mined and archived to `docs/outdated/rough_post_paper_work.md`, so **the roadmap is the queue — do not go looking for work anywhere else.**
 
 **Starting a session:** read this file and `docs/ROADMAP.md` — its **top section ("HOW TO EXECUTE THIS ROADMAP") is the implementation order**; follow it. **Since S1 (2026-07-10), every design-heavy item has a decision-complete spec in `docs/specs/`** — read the item's spec AND its `Assumes decided specs:` chain before coding, and obey `docs/specs/README.md` rules 11–12 (USER-REQUIRED steps; the divergence protocol: code↔spec mismatch ⇒ stop, re-ground, fix the spec first, never improvise past it). Items without a spec carry an explicit no-spec note. Completed items carry detailed notes (what shipped, why, validation) so you can pick up cold.
 
