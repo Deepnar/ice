@@ -49,11 +49,15 @@ governed by what you leave out.
 
 Each turn traverses a synchronous **pre-flight** and an asynchronous **post-flight** phase.
 
-**Pre-flight.** The prompt is classified by a two-stage pipeline — a rule-based pre-pass,
-falling through to a 25-way PyTorch head over a frozen `Qwen3-Embedding-0.6B` encoder —
-producing topic tags, intent tags, and a context-reliance label. A single calibrated decision
-combines that reliance signal with a memory-pressure prior to decide whether long-term
-retrieval fires at all. The hybrid orchestrator then runs its retrieval legs in parallel,
+**Pre-flight.** The prompt is classified by a small PyTorch head over a frozen
+`Qwen3-Embedding-0.6B` encoder: 27 all-sigmoid logits across three heads — 11 topic labels,
+12 intent labels, and 4 independent context-reliance signals (`Needs_Memory`,
+`Temporal_Recall`, `Needs_Live_Info`, `High_Complexity`). The reliance signals are deliberately
+independent rather than a single choice, because a prompt can need stored memory *and* live
+information at once; a fully self-contained prompt is the derived state where all four stay
+low. A calibrated decision then combines the memory signal with a memory-pressure prior to
+decide whether long-term retrieval fires at all. The hybrid orchestrator runs its legs in
+parallel,
 fuses them with weighted Reciprocal Rank Fusion, and post-processes the fused list with
 keyword/recency/length bonuses, session diversification, deduplication, and a per-query token
 budget. A prompt assembler lays the result out under a stable prefix to maximise KV-cache
@@ -80,6 +84,32 @@ and eventually archived to cold storage.
 
 These are complemented by persistent **memory slots**, topical **context clusters**, **batch
 summaries**, **cold storage**, and a **timeline** leg serving temporal queries.
+
+### Beyond retrieval
+
+The system has grown several capabilities that sit alongside the core loop:
+
+- **Temporal retrieval.** Memory is queryable along the time axis, not just by similarity:
+  *as-of* ("what did I think about this in March?"), *range*, and *evolution* ("how did my
+  design for X change?") — backed by the knowledge graph's `valid_from`/`valid_until` edges,
+  so a superseded fact stays retrievable as history rather than being overwritten.
+- **Agentic maintenance.** A maintenance agent reconciles graph state during idle GPU time —
+  merging duplicate entities, resolving contradictions, and escalating anything ambiguous to
+  a review queue rather than guessing. Deterministic checks run first; the model is consulted
+  only for genuinely ambiguous supersessions.
+- **Conversation import.** Exported histories from ChatGPT, Claude, and DeepSeek can be
+  replayed through the full pipeline, reconstructing episodic, graph, procedural, and cluster
+  state as though ICE had been present all along — rather than dumping them into a searchable
+  archive. This is the same replay machinery the evaluation protocol uses.
+- **Coding mode.** A project-state engine tracks code structure, decisions, and git history
+  as first-class memory, so retrieval can surface an architectural decision alongside the
+  file it applies to.
+- **MCP server.** ICE exposes itself over the Model Context Protocol for headless use by
+  agents, booting the stack itself without the HTTP proxy.
+- **User control.** In-chat commands (`/remember`, `/forget`, `/bookmark`, `/scope`,
+  `/search`, `/slots`, `/delete-conversation`), per-conversation and project scoping, an
+  incognito mode that writes nothing, and a real deletion cascade — memory the user can
+  inspect, correct, and remove rather than merely accumulate.
 
 ## Evaluation
 
