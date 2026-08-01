@@ -8,7 +8,10 @@ The **Infinite Context Engine (ICE)** is a local-first AI memory middleware. It 
 
 The authoritative design reference is [docs/ICE_Architecture.md](docs/ICE_Architecture.md) (July 2026, derived from the source tree — where any doc conflicts with code, **code is authoritative**). `docs/ICE_Architecture[real_v2].md` is the frozen technical report for the system **as evaluated in the paper** (git tag `v2-paper-eval`) — the paper cites it; never update it to match current code (it has minor known inaccuracies, e.g. its NER framing, accepted as part of the historical record). Superseded docs live in `docs/outdated/` (v1/intermediate architecture docs, paper-era notes) — kept to show what the system was, never edited. `docs/VISION.md` explains intent — conversational ICE is memory for human–AI thinking sessions; a separate Coding Mode is planned post-paper (see the roadmap). The `docs/` folder in general holds most project knowledge, and code comments throughout `src/` often explain *why* something is the way it is — but neither is guaranteed current; verify against the code.
 
-> **Maintainer note (private, gitignored):** `PERSONAL_ROADMAP.md` at the repo root holds the maintainer's own career/masters/publishing plan (paper submissions, application timeline, action items). It is intentionally **gitignored** — read it when present for context on non-code goals, but never commit it. (Remove this note + the file before any public release of the repo.)
+> **Maintainer note:** some working files at the repo root and under `docs/` are
+> **gitignored on purpose** (personal planning, publishing strategy). If present locally,
+> read them for context — but never commit them, and never quote their contents into
+> tracked files.
 
 ## Project status and research context
 
@@ -109,7 +112,21 @@ Two reasons this is a rule and not a nicety. **Community model quantizations are
 
 ## Git & pushing (standing rule, 2026-07-14)
 
-The repo has a **private** GitHub remote (`origin` → `github.com/Deepnar/ice`). **Pushing during normal development is pre-authorized and encouraged** — it's a private backup, so push your work at natural points (end of a session, after a meaningful milestone); you do **not** need to ask each time. Commit habits are unchanged (plain messages, **no AI attribution**; branch off `main` first if the default-branch rule applies). **Exception — freeze at the experiment phase:** once **SEMIFINAL (Z1)** or **FINAL** begins (the last / second-last roadmap phases — they generate personal data/results and are the pre-public-release cutoff), **stop pushing** until the user explicitly says otherwise. Until then, pushing is not a problem.
+The repo has a **private** GitHub remote (`origin` → `github.com/Deepnar/ice`). **Pushing during normal development is pre-authorized and encouraged** — it's a private backup, so push your work at natural points (end of a session, after a meaningful milestone); you do **not** need to ask each time. Commit habits are unchanged (plain messages, **no AI attribution**; branch off `main` first if the default-branch rule applies).
+
+**Commit message style (standing rule, 2026-08-01):** messages are **impersonal and
+factual** — describe *what changed and why*, in the repository's voice. **Never narrate the
+session**: no "the user asked…", "as requested…", "we decided…", "per our discussion". A
+reader six months from now cares about the change, not the conversation that produced it.
+Subject line ≤ ~70 chars, imperative or noun-phrase; body explains the *why* when it isn't
+obvious. This repo is destined to be public — the log is part of the artifact.
+
+**Commit granularity (standing rule, 2026-08-01):** **many small, focused commits — never
+one massive end-of-session commit.** Work as normal, but when committing, split by *concern*
+rather than by session: one logical change per commit (e.g. the migration, then the worker,
+then the docs, then the tests). This keeps each message short and specific, creates multiple
+restore points, and keeps `git bisect`/`git revert` usable. If a commit message needs
+bullet points to list unrelated changes, it should have been several commits. **Exception — freeze at the experiment phase:** once **SEMIFINAL (Z1)** or **FINAL** begins (the last / second-last roadmap phases — they generate personal data/results and are the pre-public-release cutoff), **stop pushing** until the user explicitly says otherwise. Until then, pushing is not a problem.
 
 ## Commands
 
