@@ -41,6 +41,32 @@ Rules for working it:
 - **It doubles as the progress tracker.** Check items off in `docs/ROADMAP.md` as they're completed.
 - **Keep the architecture doc in sync.** When a brand-new system/feature is finished, add a section for it to `docs/ICE_Architecture.md`; when an existing subsystem is reworked, search out its existing section there and update it to match the new behavior. The architecture doc must keep reflecting the system as built.
 
+- **⚑ DELETION SWEEP — the rule that stops zombie docs (standing rule, 2026-08-01).** Adding
+  a section is the easy half. The half that keeps getting missed is **removing a thing**: a
+  deleted component keeps living in the *overview* prose, the *diagrams*, and the *settings
+  list* long after its own section says "DELETED". This has actually happened — DI3 was
+  deleted in D8 and its own §2.2 said so, while §1.1 still called the classifier a
+  "two-stage pipeline (DI3 → 25-way MLP)", the component-map diagram still had a "DI3 + MLP"
+  box, and §10 still documented seven `DI3_*` settings that no longer exist in `config.py`.
+  So whenever a component is **deleted, replaced, renamed, or changes shape** (label counts,
+  leg counts, dimensions, cadences), `grep -rin '<old name>' docs/ README.md` and fix **every**
+  hit, classifying each as either:
+  - **live claim** → must be corrected, or
+  - **deliberate history** ("X was replaced by Y in D8") → keep, it's the record.
+
+  Check these four places specifically, because they are the ones that rot:
+  **(1)** §1 System Overview prose · **(2)** the ASCII diagrams · **(3)** §10's configuration
+  /settings lists · **(4)** `README.md`.
+
+- **README and the architecture doc follow the same contract.** Both describe **`main` as it
+  is now**, and both are updated *in the same session* as the change that invalidates them.
+  The split: `README.md` is the outside view (what ICE is, what it does, headline numbers,
+  how to run it) and stays short; `ICE_Architecture.md` is the inside view (how each
+  subsystem actually works) and carries the detail. A number that appears in both — label
+  counts, leg counts, embedding dimensions, headline results — must be changed in both or in
+  neither. Where either doc quotes evaluation results, say which snapshot they describe
+  (the paper's numbers are the `v2-paper-eval` tag, not `main`).
+
 ## Check where a signal LANDS, not just that it exists (standing rule, 2026-07-27)
 
 ICE computes a lot of signals. A signal can be trained, accurate, stored on every
