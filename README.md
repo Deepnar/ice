@@ -137,11 +137,20 @@ fusion recovers it (+0.82, [+0.39, +1.24]).
 
 **Read plainly:** ICE does not beat a well-built vector-RAG baseline on raw answer quality.
 It matches it on a third less context, is preferred in blind comparison, and survives
-conditions under which the baseline collapses. A component-level fidelity audit published
-alongside the paper documents precisely which parts of the system were active during that
-evaluation and which were not — curation, fusion, and the token budget carried the result.
+conditions under which the baseline collapses.
 
-- 📄 Paper — [`experiments/paper/ICE_paper_v2.pdf`](experiments/paper/ICE_paper_v2.pdf)
+A component-level fidelity audit is published alongside the paper, and it separates three
+things that ablation studies routinely conflate. One component was **genuinely defective** (a
+pgvector binding bug that killed procedural retrieval outright). Several were **never exercised
+by this benchmark** — document retrieval had no documents ingested, nothing decayed far enough
+to trigger batch summarisation or cold storage, every probe asked for *current* truth rather
+than how a fact changed, and every probe was scoped to a single conversation. And the rest
+**worked and carried the result**: the per-query token budget, rank fusion, decay-weighted
+episodic retrieval, post-fusion curation, and a live-but-under-weighted knowledge graph.
+A component that never ran is not a component that failed, and the paper is careful not to
+claim otherwise in either direction.
+
+- 📄 Paper — [`experiments/paper/ICE_paper_tist.pdf`](experiments/paper/ICE_paper_tist.pdf)
 - 🔍 Fidelity audit — [`experiments/paper/notes/FIDELITY_AUDIT.md`](experiments/paper/notes/FIDELITY_AUDIT.md)
 - 🏷 Evaluated snapshot — git tag `v2-paper-eval`
 
@@ -237,8 +246,8 @@ traded away.
 ```bibtex
 @misc{sonar2026ice,
   author = {Sonar, Deepesh},
-  title  = {Curation Over Collection: A Local-First Conversational Memory
-            System and a Longitudinal Protocol for Evaluating It},
+  title  = {{ICE}: A Local-First Conversational Memory System and a
+            Longitudinal Evaluation Protocol},
   year   = {2026},
   note   = {\url{https://github.com/Deepnar/ice}}
 }
