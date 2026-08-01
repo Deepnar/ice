@@ -55,6 +55,8 @@ logs/
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+*.bbl
+*.blg
 experiments/paper/*.log
 experiments/paper/*.out
 
