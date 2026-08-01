@@ -150,7 +150,7 @@ episodic retrieval, post-fusion curation, and a live-but-under-weighted knowledg
 A component that never ran is not a component that failed, and the paper is careful not to
 claim otherwise in either direction.
 
-- 📄 Paper — [`experiments/paper/ICE_paper_tist.pdf`](experiments/paper/ICE_paper_tist.pdf)
+- 📄 Paper — [`experiments/paper/ICE_paper_v2.pdf`](experiments/paper/ICE_paper_v2.pdf)
 - 🔍 Fidelity audit — [`experiments/paper/notes/FIDELITY_AUDIT.md`](experiments/paper/notes/FIDELITY_AUDIT.md)
 - 🏷 Evaluated snapshot — git tag `v2-paper-eval`
 
