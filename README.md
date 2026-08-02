@@ -244,12 +244,22 @@ traded away.
 ## Citation
 
 ```bibtex
-@misc{sonar2026ice,
+@software{sonar2026ice_software,
+  author = {Sonar, Deepesh},
+  title  = {{ICE}: Infinite Context Engine},
+  year   = {2026},
+  doi    = {10.5281/zenodo.21759702},
+  url    = {https://github.com/Deepnar/ice}
+}
+```
+
+```bibtex
+@unpublished{sonar2026ice_paper,
   author = {Sonar, Deepesh},
   title  = {{ICE}: A Local-First Conversational Memory System and a
             Longitudinal Evaluation Protocol},
   year   = {2026},
-  note   = {\url{https://github.com/Deepnar/ice}}
+  note   = {Submitted to ACM Transactions on Intelligent Systems and Technology}
 }
 ```
 
