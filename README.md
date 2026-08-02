@@ -128,7 +128,7 @@ budget logic:
 | **Answer quality** | Statistical tie — paired difference +0.00 (95% CI [−0.07, +0.07]) |
 | **Context efficiency** | **32% fewer fragments** injected for that same quality |
 | **Head-to-head preference** | **30.6%** vs 21.2% of blind tournament wins, non-overlapping CIs |
-| **Fragment quality** | ICE's fragments correlate **positively** with answer quality (r = +0.19); the baseline's correlate negatively (r = −0.02) |
+| **Fragment quality** | ICE's fragments correlate positively with answer quality (r = +0.19); the baseline's show no relationship (r = −0.02) |
 | **Robustness** | On 8,000+ token turns the unbudgeted baseline fails **94.2%** of probes; ICE holds at a mean score of 4.33 |
 
 A cumulative ablation isolates rank fusion as the mechanism that makes multi-signal retrieval
