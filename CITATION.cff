@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+title: "ICE: A Local-First Conversational Memory System and a Longitudinal Evaluation Protocol"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - given-names: Deepesh
+    family-names: Sonar
+    email: 18deepnar@gmail.com
+    orcid: "https://orcid.org/0009-0008-1762-4246"
+    affiliation: "Thakur College of Engineering and Technology, Mumbai"
+repository-code: "https://github.com/Deepnar/ice"
+abstract: >-
+  ICE is a local-first memory layer that sits between a chat client and any
+  OpenAI-compatible model, giving it persistent, structured memory of prior
+  conversations entirely on the user's own hardware. It combines a six-leg
+  hybrid retrieval orchestrator fused with weighted Reciprocal Rank Fusion, a
+  bi-temporal knowledge graph in which superseded facts remain retrievable as
+  history, and a multi-head classifier that gates whether long-term retrieval
+  fires at all. The accompanying protocol, LSREP (Longitudinal State-Replay
+  Evaluation Protocol), replays real long-running conversations turn by turn,
+  reconstructs the complete memory state at 50 checkpoints, and scores answers
+  against a ground truth that evolves as facts are superseded.
+keywords:
+  - information retrieval
+  - long-term memory
+  - large language models
+  - retrieval-augmented generation
+  - knowledge graphs
+  - evaluation methodology
+  - local-first
+license: Apache-2.0
+version: v2-paper-eval
+date-released: "2026-08-01"
