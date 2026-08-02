@@ -7,7 +7,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Status: research](https://img.shields.io/badge/status-research%20project-orange.svg)](#status)
-
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21759702.svg)](https://doi.org/10.5281/zenodo.21759702)
 </div>
 
 ICE sits between a chat client and any OpenAI-compatible model and gives that model a
