@@ -193,6 +193,18 @@ readers, reviewers. Consequences:
   didn't consent, or reveals the maintainer's private life, it does not belong in the tree.
   (Git history is forever: a file committed once and gitignored later is *still public* —
   the labeled-prompt corpus had to be purged with `git-filter-repo` for exactly this reason.)
+- **⚑ A HISTORY REWRITE MUST REWRITE TAGS, AND `git log` ON `main` CANNOT VERIFY IT
+  (learned the hard way, 2026-08-03).** The `git-filter-repo` purge above rewrote `main`
+  and left `refs/tags/v2-paper-eval` pointing into the *pre-filter* chain. A plain
+  `git clone` fetches tags, so for two days the public repo handed every cloner the full
+  20 MB personal-prompt file. Worse, the notes at the time recorded the local/remote tag
+  mismatch, called **the remote authoritative**, and prescribed `git fetch --tags --force`
+  — which overwrote the good local tag with the bad remote one. **Two rules follow:**
+  (1) verification is `scripts/git/check_history_clean.sh`, which scans **`--all`** (tags
+  included) and is wired to a `pre-push` hook via `scripts/git/install_hooks.sh` —
+  `--clone` checks what the public actually receives, which is the only check that cannot
+  lie; (2) **never resolve a tag mismatch by forcing one side to win without first asking
+  which side predates the rewrite.** Run `install_hooks.sh` once per clone.
 - **README.md is a first-class deliverable, not an afterthought.** It is the first and often
   only thing a visitor reads. **Whenever a session changes what the project *is* or how it is
   run — a new subsystem, a changed entry point, new setup steps, a new headline result — update
