@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What ICE is
 
-The **Infinite Context Engine (ICE)** is a local-first AI memory middleware. It runs as a **FastAPI proxy** (`src/api/main.py`) that sits between a chat frontend (Open WebUI) and a local inference backend (**Ollama**, port 11434). Every OpenAI-compatible `POST /v1/chat/completions` passes through ICE, which classifies the prompt, retrieves relevant memory, assembles a context-enriched prompt, routes to a model, streams the response, and asynchronously processes the completed turn into a structured memory store.
+The **Infinite Context Engine (ICE)** is a local-first AI memory middleware. It runs as a **FastAPI proxy** (`src/api/main.py`) that sits between *any* OpenAI-compatible chat frontend and a local inference backend (**Ollama**, port 11434). *(Open WebUI was the interim frontend and is **no longer the intended path** — user decision 2026-08-03; Track F's packaged app is the destination. Design-rationale citations of Open WebUI's architecture — e.g. its content-extraction engine shape for OCR — deliberately remain, because citing someone's design is not depending on their product.)* Every OpenAI-compatible `POST /v1/chat/completions` passes through ICE, which classifies the prompt, retrieves relevant memory, assembles a context-enriched prompt, routes to a model, streams the response, and asynchronously processes the completed turn into a structured memory store.
 
 The authoritative design reference is [docs/ICE_Architecture.md](docs/ICE_Architecture.md) (July 2026, derived from the source tree — where any doc conflicts with code, **code is authoritative**). `docs/ICE_Architecture[real_v2].md` is the frozen technical report for the system **as evaluated in the paper** (git tag `v2-paper-eval`) — the paper cites it; never update it to match current code (it has minor known inaccuracies, e.g. its NER framing, accepted as part of the historical record). Superseded docs live in `docs/outdated/` (v1/intermediate architecture docs, paper-era notes) — kept to show what the system was, never edited. `docs/VISION.md` explains intent — conversational ICE is memory for human–AI thinking sessions; a separate Coding Mode is planned post-paper (see the roadmap). The `docs/` folder in general holds most project knowledge, and code comments throughout `src/` often explain *why* something is the way it is — but neither is guaranteed current; verify against the code.
 
@@ -136,6 +136,25 @@ Parsers that RESOLVE a value (a date → a datetime) may stay; lexicons that INF
 INTENT must pass invariance. Roadmap **G28** is the systematic sweep and owns the
 style-variant probe set; D8 is the worked deletion protocol.
 
+## Ask before changing production code (standing rule, 2026-08-03)
+
+The user's instruction, after stopping a session mid-flight: *"if doing anything
+to the production code ask always."* Investigation, measurement, scratch scripts
+and reading are free — **changing `src/` is not.** Before touching production
+code: say what you intend to change, why, and what it affects, **in plain
+language they can act on** — mechanism in short sentences, what it is NOT, then
+the decision. Then wait.
+
+This is not ceremony. It exists because the alternative has a specific failure
+mode: an evaluation turns into a half-migration, and a benchmark session ships
+code nobody agreed to. Docs, tests and scratch work do not need the same gate —
+but a change to `src/` always does.
+
+Related, same rule from the other side: **analysis is not a decision.** The user
+has said *"I understood what you said, but not the decision from it."* End with
+"do X", not "X is worth considering". See [docs/TRAPS.md](docs/TRAPS.md) for the
+failure modes this project has actually hit.
+
 ## A silent fallback hides an outage (standing rule, 2026-08-03)
 
 The measured case: **every background LLM call in ICE was returning nothing**,
@@ -163,7 +182,7 @@ explanation is usually "it never ran".
 
 ## Boy-scout cleanup (standing rule, 2026-07-10)
 
-Every implementation session leaves the files it touches cleaner than found: imports sorted/grouped + unused dropped (`ruff` on touched files only — never a repo-wide reformat), dead code and lying comments fixed in place, one-off scripts moved (never deleted) to `scripts/oneoff/` with their paths fixed. **No barrel re-exports in `__init__.py`** (import-time side effects, hidden provenance, heavy transitive imports; the lazy in-function imports that break circular deps stay, commented). The pre-FINAL `experiments/*` folders are a **frozen historical record** — never reorganize them. Log every move/rename in [docs/CLEANUP.md](docs/CLEANUP.md).
+Every implementation session leaves the files it touches cleaner than found: imports sorted/grouped + unused dropped (`ruff` on touched files only — never a repo-wide reformat), dead code and lying comments fixed in place, one-off scripts moved (never deleted) to `scripts/oneoff/` with their paths fixed. **No barrel re-exports in `__init__.py`** (import-time side effects, hidden provenance, heavy transitive imports; the lazy in-function imports that break circular deps stay, commented). The pre-FINAL `experiments/*` folders are a **frozen historical record** — never reorganize them. Log every move/rename in [docs/CLEANUP.md](docs/CLEANUP.md). **Mistakes this project has actually made are catalogued in [docs/TRAPS.md](docs/TRAPS.md) — read it once at session start, and add to it in the same session something bites.**
 
 ## Provenance ledger (standing rule, 2026-07-26)
 

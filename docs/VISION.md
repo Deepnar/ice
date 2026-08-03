@@ -59,7 +59,7 @@ The second and more important differentiator is **control**. Automatic global me
 
 ## What ICE Is Not
 
-- Not a replacement for Open WebUI. ICE is middleware that lives between Open WebUI and the LLMs.
+- Not a chat client. ICE is middleware that lives between whatever frontend you use and the LLMs. *(Until 2026-08 this line named Open WebUI as the frontend; that path is **rejected** — see ROADMAP Track F. ICE speaks the OpenAI-compatible API, so any client that does will work, but the destination is Track F's packaged app.)*
 - Not a coding agent. It does not watch files, run terminal commands, or auto-apply patches.
 - Not a cloud service. All compute is local unless explicitly delegated.
 - Not a monolith. Each subsystem (classifier, memory stores, background worker, retrieval engine) is independently operable.

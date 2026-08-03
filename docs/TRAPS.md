@@ -1,0 +1,106 @@
+# Traps — mistakes this project has actually made, and how each was caught
+
+**Why this file exists.** These were carried in the session handoff note for
+weeks, growing one entry at a time. That made them fragile: a handoff that got
+trimmed, or a session that ended badly, would lose them. They are hard-won and
+several have re-occurred, so they belong in the tree.
+
+**How to use it:** read it once at the start of a session. Each entry is a
+*failure mode*, not a rule — the point is to recognise the shape when you are
+inside it.
+
+**How to add:** when something bites, add it here in the same session, with the
+concrete case. An entry with no worked example is a platitude.
+
+---
+
+### 1. Two eval scripts cannot see a change to the pre-classifier path
+`score_hard_probes.py` and `eval_probes.py` both call `load_checkpoint` and
+never run `classify()`. A change upstream of the head is invisible to both, so
+a green run means nothing about it.
+
+### 2. A spec can contradict itself, or go stale
+`docs/specs/README.md` rule 12: stop, verify against current code, record the
+divergence in the entry, fix the spec first, then code. Never improvise past a
+mismatch — that is what the specs exist to prevent.
+
+### 3. Measuring is not permission
+A designed seam that measures useless is **evidence**, not authorisation to
+delete it. Ask the user — and first explain what the thing was *meant* to do.
+Applied repeatedly: `growth_cap` was kept despite coverage superseding it,
+because deleting it before coverage is measured to bind makes ICE *more*
+expensive.
+
+### 4. Test the direction you didn't think of
+The C12a suite passed `runtime=None` at every call site, so 48 green checks
+never touched the path where a runtime *is* passed — which was the only path
+any live surface uses, and it was completely broken.
+
+### 5. A two-sided assertion, or it proves nothing — and check the negative side isn't vacuous
+A tight-budget check once passed on three-word fixtures that fit *any* budget.
+A knee assertion asserted the wrong thing (`-1` means "no cut", which trivially
+satisfies "never cuts below min_keep").
+**Re-earned 2026-08-03:** the first negation assertions in
+`test_codex_write_path.py` were wrong about the design — negation does not just
+delete, it expires the positive edge **and** writes an active `negated=True`
+edge, so "we decided against X" stays retrievable. An absence-only check would
+have passed if negation had written nothing at all. Also: assert on **sections**,
+not bare substrings — `"Negations: NOT uses → x"` legitimately contains
+`"uses → x"`.
+
+### 6. A crashed or leaky test leaves rows behind, and they fail a *different* test later
+`test_documents`' cleanup once selected its rows from a hardcoded filename
+allow-list, so every new fixture leaked.
+**Re-earned 2026-08-03, and this time it broke an unrelated suite:** two orphan
+conversations (one `kind='document'`) left by a run killed mid-flight made
+`test_session_scoping` fail 39/40 — `_apply_document_visibility` adds every
+non-enabled document conversation to `exclude_conversation_ids`, and the
+assertion compares that list exactly. `test_documents` does **not** leak on a
+clean run; the residue came from the killed one.
+**⇒ If a scoping or retrieval test fails oddly, check the store for orphan rows
+BEFORE debugging the code.**
+
+### 7. A dead test can be promoted to load-bearing, and an import check will never notice
+Re-check retired tests by **running** them. Corollary: do not write a test that
+pins ground a scheduled item is about to change — flag it instead.
+(`test_codex_2_0.py` was deliberately left unreplaced for exactly this reason,
+and was rebuilt as `test_codex_write_path.py` once A9b/A12 had settled.)
+
+### 8. Inserting a parameter mid-signature breaks positional callers silently
+`_cold_lookup` started receiving a scope dict where an embedding was expected.
+Related and reassuring: G23's fail-loud guard refused an unregistered vector
+column and `test_longevity` caught a missing `store_meta` stamp — both were the
+system telling the truth. **Do not route around a guard that fires.**
+
+### 9. A benchmark harness that forgets `model_override` benchmarks the default model
+Identical medians across "two different models" is what gave it away.
+**Always print the resolved model name.** Two companions from the same session:
+`pgrep -f <pattern>` matches the **waiter shells** whose own command line
+contains the pattern (four wait-loops reported RUNNING for a process that had
+already died — use `[a]9b_...`); and a harness that writes results only at the
+end loses everything when a later arm crashes, so write after each arm.
+
+### 10. Running from the wrong directory silently changes what the system IS
+Model paths in `src/` are CWD-relative (roadmap **G31**). Outside the repo root
+the micro-NER falls back to a capitalized-word regex and `load_registry()`
+returns `{}`, so `get_fallback_model()` drops to `default_fallback_model` —
+which is a model measured to produce word salad. Both fired accidentally on
+2026-08-03 and **both produced results that looked like findings** until the
+working directory was checked. **Run scripts from the repo root.**
+
+### 11. A silent fallback hides an outage
+Promoted to a CLAUDE.md standing rule on 2026-08-03 after every background LLM
+call in ICE was found returning nothing while the system looked healthy. Kept
+here too because it is the failure *shape*, not just a policy: when a component
+substitutes a default for a real answer, that substitution must be observable.
+⇒ **When a subsystem produces plausible-but-thin output, verify the model was
+actually called before tuning anything about it.**
+
+### 12. `git log` on `main` cannot verify a history rewrite
+A rewrite must rewrite **tags**. `refs/tags/v2-paper-eval` pointed into
+pre-filter history and a plain `git clone` served ~5,700 personal prompts from a
+public repo for two days. Verification is
+`scripts/git/check_history_clean.sh --clone`, which checks what the remote
+actually hands out. Also: **never resolve a tag mismatch by forcing one side to
+win without first asking which side predates the rewrite** — doing exactly that
+is what overwrote the good local tag with the bad remote one.

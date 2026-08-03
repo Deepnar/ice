@@ -54,7 +54,7 @@ wedge is the product; the conversational exocortex is the paper.** E7 gives real
 value to the person who builds it (self-hosting developers are exactly the audience that
 tolerates docker+postgres), while a custom chat frontend serves nobody Open WebUI doesn't
 already serve. Concretely: keep F2 (review queue), F3 (graph view), F5 (telemetry) as
-*panels bolted onto Open WebUI or a minimal single-page app*; kill or indefinitely park F1
+*panels bolted onto Open WebUI or a minimal single-page app*; kill or indefinitely park F1 **⟨CONSIDERED AND REJECTED, 2026-08-03 — user decision: ICE is not continuing down the Open WebUI path, so "panels bolted onto it" is no longer an available option and F1 stays. The critique underneath it still stands and is why Track F is post-FINAL: a custom frontend is a large build that must not delay the gate. Kept verbatim as the record of an argument that was made and answered, not deleted.⟩**
 as "the big one." Revisit only if ICE-as-MCP gets traction.
 
 ### 1.3 The paper describes a system that no longer exists
