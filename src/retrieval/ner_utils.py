@@ -38,14 +38,156 @@ import os
 import re
 from typing import List, Optional
 
+import structlog
 import torch
 from transformers import AutoTokenizer
 
 from src.memory.embedder import slice384
 
+logger = structlog.get_logger("ice.retrieval.ner")
+
 _ner_model = None
 _ner_tokenizer = None
 _load_attempted = False
+
+# --- A9b: the background tier -------------------------------------------
+# TWO NER models, split by PATH rather than by quality, because the two paths
+# want opposite things (measured 2026-08-03, full numbers in PROVENANCE.md):
+#
+#   PRE-FLIGHT keeps the micro-NER. It rides the encoder the classifier and
+#   embedder have already loaded, so it costs no extra VRAM on the synchronous
+#   request path, and at prompt length the two are a wash (13 ms vs 16 ms).
+#
+#   BACKGROUND uses NuNER Zero, where its precision is what the consumer
+#   actually wants and where the maintenance runtime's gpu lane already
+#   serialises the work — so it is loaded for a drain and released again.
+#
+# Note what did NOT move: the codex grounding whitelist stays on the micro-NER.
+# That list is PERMISSIVE ("use ONLY these as subjects"), so over-firing is
+# load-bearing there — a long noisy list gives the model more legal subjects
+# and it discards the junk itself, while a clean short list forbids real facts.
+# Measured 166 triplets against NuNER's 84; the union scored 170, which is
+# inside the run-to-run noise (the same arm scored 104 and 166 on two runs).
+_bg_ner = None
+_bg_ner_attempted = False
+
+
+def _bg_device() -> str:
+    from src.api.config import settings
+    from src.memory.embedder import resolve_device
+    return resolve_device(getattr(settings, "background_ner_device", "auto"))
+
+
+def _load_background_ner():
+    """Lazy, and failure is NOT silent (CLAUDE.md: a silent fallback hides an
+    outage — a NER that quietly degrades is exactly how the micro-NER's regex
+    fallback went unnoticed for months)."""
+    global _bg_ner, _bg_ner_attempted
+    if _bg_ner_attempted:
+        return _bg_ner
+    _bg_ner_attempted = True
+
+    from src.api.config import settings
+    repo = getattr(settings, "background_ner_model", "") or ""
+    if not repo:
+        logger.info("background_ner_disabled", falling_back_to="micro_ner")
+        return None
+    try:
+        from gliner import GLiNER
+        device = _bg_device()
+        _bg_ner = GLiNER.from_pretrained(repo).to(device).eval()
+        logger.info("background_ner_loaded", model=repo, device=device)
+    except Exception as exc:
+        logger.warning("background_ner_load_failed", model=repo,
+                       error=str(exc), falling_back_to="micro_ner")
+        _bg_ner = None
+    return _bg_ner
+
+
+def release_background_ner() -> bool:
+    """Drop the background NER and free its VRAM.
+
+    The gpu lane drains a backlog and then goes quiet for hours; holding ~1.7 GB
+    across that gap is the residency problem G4 exists to stop. Returns True if
+    something was actually released, so a caller can log it.
+    """
+    global _bg_ner, _bg_ner_attempted
+    if _bg_ner is None:
+        _bg_ner_attempted = False
+        return False
+    _bg_ner = None
+    _bg_ner_attempted = False
+    try:
+        torch.cuda.empty_cache()
+    except Exception:
+        pass
+    logger.info("background_ner_released")
+    return True
+
+
+def _merge_word_spans(entities, text):
+    """NuNER Zero is a WORD-level model (`max_width=1`), so adjacent words of
+    the same label come back separately — 'Rika' and 'Miyamoto', not 'Rika
+    Miyamoto'. This is the model card's own merge step; without it the
+    multi-word entities the swap exists to fix stay broken."""
+    if not entities:
+        return []
+    merged, current = [], dict(entities[0])
+    for nxt in entities[1:]:
+        if (nxt["label"] == current["label"]
+                and nxt["start"] in (current["end"], current["end"] + 1)):
+            current["text"] = text[current["start"]:nxt["end"]].strip()
+            current["end"] = nxt["end"]
+        else:
+            merged.append(current)
+            current = dict(nxt)
+    merged.append(current)
+    return merged
+
+
+def _background_labels() -> List[str]:
+    """ICE's own structural entity types, lower-cased (NuNER requires it).
+
+    `concept` and `object` are deliberately excluded: they are junk magnets on
+    conversational text, absorbing every abstract noun ('existence',
+    'connection', 'events') and undoing the precision this tier is chosen for.
+    """
+    from src.workers.codex_extractor import _KNOWN_TYPES
+    return sorted(t.lower() for t in _KNOWN_TYPES
+                  if t not in {"concept", "object"})
+
+
+def _extract_background(text: str) -> Optional[List[str]]:
+    """Entities via the background model, or None if it is unavailable."""
+    model = _load_background_ner()
+    if model is None:
+        return None
+    from src.api.config import settings
+    chunk = int(getattr(settings, "background_ner_chunk_words", 250))
+    threshold = float(getattr(settings, "background_ner_threshold", 0.5))
+    labels = _background_labels()
+
+    words = text.split()
+    found: List[str] = []
+    try:
+        for i in range(0, len(words), chunk):
+            piece = " ".join(words[i:i + chunk])
+            spans = model.predict_entities(piece, labels, threshold=threshold)
+            found.extend(s["text"].strip()
+                         for s in _merge_word_spans(spans, piece))
+    except Exception as exc:
+        logger.warning("background_ner_failed", error=str(exc),
+                       falling_back_to="micro_ner")
+        return None
+
+    cleaned, seen = [], set()
+    for name in found:
+        name = _clean_entity(name)
+        low = name.lower()
+        if name and low not in _NER_STOP and low not in seen:
+            seen.add(low)
+            cleaned.append(name)
+    return cleaned
 
 
 def _load_model():
@@ -116,8 +258,20 @@ def _clean_entity(s: str) -> str:
     return " ".join(parts).strip()
 
 
-def extract_entities(text: str, embedder, max_chars: Optional[int] = None) -> List[str]:
-    """Extract entity strings from *text* using the real MicroNER model.
+def extract_entities(text: str, embedder, max_chars: Optional[int] = None,
+                     tier: str = "preflight") -> List[str]:
+    """Extract entity strings from *text*.
+
+    *tier* selects the model, and the split is by PATH, not by quality — see
+    the module header for the measurements behind it:
+
+      ``"preflight"`` (default) — the micro-NER. The synchronous request path
+        and the codex grounding whitelist. Costs no extra VRAM.
+      ``"background"`` — NuNER Zero, for post-flight consumers that want
+        precision (``turn_density.extract_key_terms``, clustering). Falls back
+        to the micro-NER, loudly, if the model is unavailable.
+
+    Everything below documents the micro-NER path.
 
     Falls back to a capitalized-word regex ONLY if the model or tokenizer
     genuinely failed to load (e.g. the .pt file is missing) — this is a
@@ -141,11 +295,25 @@ def extract_entities(text: str, embedder, max_chars: Optional[int] = None) -> Li
     if max_chars is not None and len(text) > max_chars:
         text = text[:max_chars]
 
+    if tier == "background":
+        found = _extract_background(text)
+        if found is not None:
+            return found
+        # fall through to the micro-NER — already logged at WARNING
+
     _ensure_loaded()
 
     if _ner_model is None or _ner_tokenizer is None:
-        # Genuine fallback only — log-worthy if this fires in normal
-        # operation, since it means the real model isn't loadable.
+        # Genuine fallback only. It used to say "log-worthy if this fires in
+        # normal operation" and then not log, so nobody could know it fires
+        # whenever the process starts outside the repo root — `models/ner/
+        # ner_model.pt` is a CWD-relative path (ROADMAP G31). Measured
+        # 2026-08-03: entity counts silently fell 52.7 -> 34.1 per turn.
+        logger.warning("micro_ner_regex_fallback",
+                       reason="model or tokenizer unavailable",
+                       model_loaded=_ner_model is not None,
+                       tokenizer_loaded=_ner_tokenizer is not None,
+                       cwd=os.getcwd())
         candidates = re.findall(r'\b[A-Z][a-zA-Z]{2,}\b', text)
         common_caps = {"The", "This", "That", "These", "Those", "When", "Where",
                        "What", "Who", "How", "Why", "After", "Before", "Then",

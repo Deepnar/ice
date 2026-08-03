@@ -79,8 +79,16 @@ def extract_key_terms(text: str, embedder, max_chars: int = 2500) -> dict:
     worker's already-loaded embedder — never instantiate a new one, G13)."""
     from src.retrieval.ner_utils import extract_entities
 
+    # A9b: the BACKGROUND tier. Precision is the whole game here — these terms
+    # are injected into the summariser prompt as "must appear verbatim" AND are
+    # what `summary_coverage` scores against, so a junk term makes ICE demand
+    # noise and then grade itself on having preserved it. Measured 2026-08-03:
+    # the micro-NER saturated the MAX_MUST_TERMS cap on EVERY turn (median 25
+    # of 25), meaning the list was simply the first 25 spans it emitted —
+    # fragments like "gaining conciousness" and "deeply rooted" included.
     entities = list(dict.fromkeys(
-        extract_entities(text or "", embedder, max_chars=max_chars)
+        extract_entities(text or "", embedder, max_chars=max_chars,
+                         tier="background")
     ))[:MAX_MUST_TERMS]
 
     body = (text or "")[:max_chars * 2]

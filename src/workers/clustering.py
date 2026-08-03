@@ -120,11 +120,22 @@ ENTITY_EXTRACTION_MAX_CHARS = 2000
 
 
 def _extract_turn_entities(text_: str) -> set:
-    """Entity strings from a turn's raw_text via the shared MicroNER
-    (truncated: the recurring cast almost always appears in a scene's
-    opening portion, and per-turn NER cost compounds across the batch)."""
+    """Entity strings from a turn's raw_text (truncated: the recurring cast
+    almost always appears in a scene's opening portion, and per-turn NER cost
+    compounds across the batch).
+
+    A9b: the BACKGROUND tier. Clustering compares entity SETS, so what matters
+    is SEPARATION — do turns from the same conversation share entities that
+    turns from different conversations do not? Measured 2026-08-03 over five
+    conversations: the background model separates them 28x (mean within 0.0252
+    vs across 0.0009) where the micro-NER manages 1.97x (0.0435 vs 0.0221),
+    because the micro-NER tags function words — `and`, `but`, `for`, `not`,
+    `now` — as entities, and those recur in every conversation. 28 such spans
+    appeared in 3+ different conversations against 1 for the background model.
+    """
     return set(extract_entities(
-        text_ or "", cluster_embedder, max_chars=ENTITY_EXTRACTION_MAX_CHARS
+        text_ or "", cluster_embedder,
+        max_chars=ENTITY_EXTRACTION_MAX_CHARS, tier="background"
     ))
 
 

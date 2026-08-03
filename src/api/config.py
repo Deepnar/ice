@@ -166,6 +166,26 @@ class Settings(BaseSettings):
     # to every request. Set "cpu" when the generation model needs the VRAM.
     embedding_device: str = "auto"
 
+    # A9b: the BACKGROUND entity tier. The pre-flight tier deliberately keeps
+    # the micro-NER — it shares the already-loaded encoder with the classifier
+    # and the embedder, so it costs no extra VRAM on the synchronous path. This
+    # model is only ever used post-flight, where the maintenance runtime's gpu
+    # lane already serialises and idle-gates the work, so it can be loaded for
+    # a drain and released again rather than sitting resident.
+    # Measured 2026-08-03 (see PROVENANCE): against the micro-NER on a full
+    # turn it is 4.7x faster (101 ms vs 345 ms on GPU), emits 15.6 entities
+    # against 52.7, gives entity TYPES for free, and separates conversations
+    # 28x better for clustering where the micro-NER tags `and`/`but`/`not` as
+    # entities. Empty string disables it and everything falls back to the
+    # micro-NER.
+    background_ner_model: str = "numind/NuNER_Zero"
+    background_ner_device: str = "auto"        # auto|cuda|cpu, like the embedder
+    background_ner_threshold: float = 0.5
+    # NuNER Zero's max_len counts ITS OWN word split, in which punctuation is a
+    # word: 350 whitespace words measured 424 and were silently truncated. 250
+    # holds with margin.
+    background_ner_chunk_words: int = 250
+
     token_count_safety_margin: float = 1.20
     token_usage_reconciliation: bool = True
 

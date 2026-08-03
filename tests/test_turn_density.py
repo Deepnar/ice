@@ -32,7 +32,7 @@ def check(name, cond):
 import src.retrieval.ner_utils as ner
 _real_extract = ner.extract_entities
 _stub_entities = []
-ner.extract_entities = lambda text, emb, max_chars=None: list(_stub_entities)
+ner.extract_entities = lambda text, emb, max_chars=None, tier="preflight": list(_stub_entities)
 
 from src.workers.turn_density import (
     extract_key_terms, compute_entropy, decide_representation,
