@@ -307,6 +307,22 @@ class MaintenanceRuntime:
         return (self._generation_inflight == 0
                 and self._idle_seconds() > settings.user_active_threshold_seconds)
 
+    def should_yield(self) -> bool:
+        """G4(a): has the user come back while this job is running?
+
+        Starting a background job was already well guarded — `_gpu_ready`
+        demands both silence and no generation in flight. *Continuing* was not
+        guarded at all: once a job entered `asyncio.to_thread`, nothing could
+        interrupt it, so a returning user queued behind it inside Ollama and
+        paid the wait on their first token (a 3-chunk extraction is ~15 s).
+
+        Deliberately stricter than `is_idle()`: a job in flight yields the
+        moment the user does anything, rather than waiting out the 90-second
+        activity threshold that gates *starting* one.
+        """
+        return (self._generation_inflight > 0
+                or self._idle_seconds() <= settings.job_yield_grace_seconds)
+
     def _gpu_ready(self, for_event: bool) -> bool:
         if self._generation_inflight:
             return False
@@ -489,6 +505,19 @@ class MaintenanceRuntime:
                 t0 = time.monotonic()
                 try:
                     await asyncio.to_thread(self._call, spec, call_kwargs)
+                except JobYielded as stood_down:
+                    # G4(a): NOT a failure. The job stood down for a returning
+                    # user, so it goes back on the queue with its attempt count
+                    # untouched — a yield must never burn a retry or mark the
+                    # ledger row failed, or a chatty afternoon would exhaust the
+                    # backoff and disable the job.
+                    await asyncio.to_thread(self._ledger_finish, name, "yielded",
+                                            str(stood_down)[:500])
+                    logger.info("maintenance_job_yielded", job=name,
+                                at=str(stood_down), requeued=True)
+                    with self._lock:
+                        self._queue.append((name, kwargs, attempt))
+                        self._queued_keys.add(key)
                 except Exception as exc:
                     await asyncio.to_thread(
                         self._ledger_finish, name, "error"
@@ -721,3 +750,30 @@ _active_runtime: Optional[MaintenanceRuntime] = None
 
 def get_runtime() -> Optional[MaintenanceRuntime]:
     return _active_runtime
+
+
+class JobYielded(Exception):
+    """A background job stood down mid-flight because the user came back.
+
+    Not an error: `_run_job` requeues the job without consuming a retry
+    attempt and without marking the ledger row failed. It is a distinct type
+    precisely so it cannot be swallowed by a caller's `except Exception`.
+    """
+
+
+def yield_if_user_active(where: str = "") -> None:
+    """Cooperative cancellation point. Call at a natural boundary.
+
+    Python cannot interrupt a running thread, so this is the only honest shape:
+    the job asks, at points where abandoning is cheap and leaves no half-written
+    state. `extract_triplets` already loops over chunks and the summarisers over
+    turns, so the boundaries exist — they were simply never checked.
+
+    A no-op when there is no runtime (scripts, tests, one-off tools), which is
+    why every call site stays safe outside the app.
+    """
+    rt = get_runtime()
+    if rt is None or not rt.should_yield():
+        return
+    logger.info("maintenance_job_yielding", at=where)
+    raise JobYielded(where or "user returned")

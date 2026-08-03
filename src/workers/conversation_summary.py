@@ -161,6 +161,10 @@ def run_conversation_summaries(db, llm=None, embedder=None,
                  for s in db.query(ConversationSummary).all()}
 
     for row in rows:
+        # G4(a): per-conversation boundary, and `covers_through` means a
+        # conversation already folded is not redone on the requeued run.
+        from src.workers.runtime import yield_if_user_active
+        yield_if_user_active("conversation_summary.conversation")
         stats["scanned"] += 1
         existing_row = summaries.get(row.cid)
         if existing_row is not None and existing_row.covers_through is not None \

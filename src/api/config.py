@@ -64,6 +64,13 @@ class Settings(BaseSettings):
     # is_idle() gate for overdue-job dispatch: user quiet this long + no
     # generation in flight (today's 10s redis check was uselessly tight).
     user_active_threshold_seconds: int = 90
+    # G4(a): a RUNNING background job stands down if the user did anything
+    # within this window. Deliberately much tighter than the threshold that
+    # gates *starting* one (90 s): starting early is merely premature, but
+    # continuing while the user waits is latency they can feel — Ollama
+    # serialises requests to the same model, so their first token queues
+    # behind the background generation.
+    job_yield_grace_seconds: int = 10
     # queued gpu-lane *event* jobs (post-flight backlog) start draining after
     # this much quiet. Both knobs re-measured at Z1 (ledger vs chat log).
     idle_burst_seconds: int = 120

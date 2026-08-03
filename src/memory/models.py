@@ -466,7 +466,10 @@ class MaintenanceLedger(Base):
     job_name = Column(Text, primary_key=True)
     last_started = Column(DateTime(timezone=True), nullable=True)
     last_finished = Column(DateTime(timezone=True), nullable=True)
-    last_status = Column(Text, nullable=True)   # running, ok, retrying, error
+    # running, ok, retrying, error, yielded — "yielded" (G4a) is NOT a failure:
+    # the job stood down mid-flight for a returning user and was requeued with
+    # its attempt count untouched.
+    last_status = Column(Text, nullable=True)
     last_error = Column(Text, nullable=True)
     runs = Column(Integer, nullable=False, default=0, server_default="0")
 

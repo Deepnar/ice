@@ -452,6 +452,11 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
 
         all_triplets = []
         for chunk in chunks:
+            # G4(a): the chunk boundary is the cheap place to stand down — one
+            # LLM call per chunk, and abandoning between them leaves nothing
+            # half-written (the graph write happens later, in extract_codex).
+            from src.workers.runtime import yield_if_user_active
+            yield_if_user_active("codex_extract.chunk")
             # NER grounding (roadmap A2): confirm entities on the CPU first, then
             # constrain the LLM to relate only those. Reuses A1's chunk.
             ner_entities = extract_entities(chunk, embedder)

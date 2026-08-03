@@ -32,6 +32,10 @@ def batch_summarize():
             conv_groups.setdefault(conv_id, []).append(turn)
 
         for conv_id, turns in conv_groups.items():
+            # G4(a): one conversation's summary per iteration, each committed
+            # as it completes, so standing down here loses nothing already done.
+            from src.workers.runtime import yield_if_user_active
+            yield_if_user_active("batch_summarize.conversation")
             for i in range(0, len(turns), 50):
                 batch = turns[i:i+50]
                 if len(batch) < 5:
