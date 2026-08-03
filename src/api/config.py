@@ -47,6 +47,18 @@ class Settings(BaseSettings):
     # G12: bg-client calls scale their timeout with the requested output size:
     # timeout = bg_timeout_base_seconds × clamp(max_tokens / 500, 1, 6).
     bg_timeout_base_seconds: float = 30.0
+    # Ask the background model NOT to think. Measured 2026-08-03: every model in
+    # the live registry except qwen3:4b-instruct is a reasoning model, and the
+    # hidden reasoning block consumes the whole max_tokens budget before a single
+    # token of the answer is written — so `content` comes back EMPTY and the
+    # entire background layer (triplets, summaries, decisions, cluster names)
+    # produced nothing. Raising the budget does not fix it: at 5x the budget the
+    # 26B still returned 0 triplets on 12/12 turns, 6x slower, because the
+    # reasoning block scales with input length. Of `options`, `keep_alive`,
+    # `think` and `chat_template_kwargs`, only `reasoning_effort` survives
+    # Ollama's OpenAI-compatible shim (see ROADMAP G32). Set False only for a
+    # server that rejects the parameter outright.
+    bg_disable_reasoning: bool = True
 
     # ── C7: in-process maintenance runtime (replaces Celery beat + Redis) ──
     # is_idle() gate for overdue-job dispatch: user quiet this long + no

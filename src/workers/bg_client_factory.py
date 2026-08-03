@@ -7,9 +7,12 @@ separate OpenAI-compatible server on :8002, started manually (./ice no longer
 launches it).
 """
 
+import structlog
 from openai import OpenAI
 
 from src.api.config import settings
+
+logger = structlog.get_logger("ice.workers.bg_client")
 
 # Dedicated-mode default when background_model_name is unset — matches the
 # documented manual vLLM invocation in ./ice.
@@ -17,13 +20,85 @@ DEDICATED_DEFAULT_MODEL = "Qwen/Qwen2.5-3B-Instruct-AWQ"
 DEDICATED_BASE_URL = "http://localhost:8002/v1"
 
 
-def get_bg_client() -> OpenAI:
-    """Return an OpenAI-compatible client for the background model."""
+class _NoReasoningCompletions:
+    """Adds `reasoning_effort="none"` to every background completion.
+
+    This lives at the factory rather than at the ~17 call sites deliberately:
+    the parameter is not a property of any one task, it is a property of *how
+    ICE uses a chat model for structured background work*, and 17 copies of it
+    is exactly the drift G29 catalogues. It is also the seam G32(a) needs — when
+    background calls move to Ollama's native endpoint, this class becomes the
+    place that translates, and no caller changes.
+
+    Why it exists at all (measured 2026-08-03, see PROVENANCE): a reasoning
+    model spends the whole `max_tokens` budget inside a thinking block that
+    Ollama strips before returning, so `content` is `""` and ICE's entire
+    background layer silently produced nothing. A caller that genuinely wants
+    reasoning passes its own `extra_body={"reasoning_effort": ...}`, which is
+    respected.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def create(self, *args, **kwargs):
+        extra = dict(kwargs.pop("extra_body", None) or {})
+        extra.setdefault("reasoning_effort", "none")
+        completion = self._inner.create(*args, extra_body=extra, **kwargs)
+        # A fallback must be observable (CLAUDE.md standing rule): an empty
+        # answer is the exact shape of the outage this parameter exists to
+        # prevent, so say so rather than letting each caller's default hide it.
+        try:
+            choice = completion.choices[0]
+            if not (choice.message.content or "").strip():
+                logger.warning(
+                    "bg_model_returned_empty_content",
+                    model=kwargs.get("model"),
+                    finish_reason=choice.finish_reason,
+                    max_tokens=kwargs.get("max_tokens"),
+                    reasoning_chars=len(
+                        (choice.message.model_extra or {}).get("reasoning") or ""),
+                )
+        except (AttributeError, IndexError, TypeError):
+            pass
+        return completion
+
+    def __getattr__(self, item):
+        return getattr(self._inner, item)
+
+
+class _Chat:
+    def __init__(self, inner):
+        self._inner = inner
+        self.completions = _NoReasoningCompletions(inner.completions)
+
+    def __getattr__(self, item):
+        return getattr(self._inner, item)
+
+
+class _BgClient:
+    def __init__(self, inner: OpenAI):
+        self._inner = inner
+        self.chat = _Chat(inner.chat)
+
+    def __getattr__(self, item):
+        return getattr(self._inner, item)
+
+
+def get_bg_client():
+    """Return an OpenAI-compatible client for the background model.
+
+    Wrapped so structured background work never loses its answer to a hidden
+    reasoning block (`bg_disable_reasoning`, default on).
+    """
     if settings.background_model_mode == "shared":
         base_url = f"{settings.ollama_base_url}/v1"
     else:
         base_url = DEDICATED_BASE_URL
-    return OpenAI(base_url=base_url, api_key="dummy")
+    client = OpenAI(base_url=base_url, api_key="dummy")
+    if not settings.bg_disable_reasoning:
+        return client
+    return _BgClient(client)
 
 
 def get_bg_model_name() -> str:
