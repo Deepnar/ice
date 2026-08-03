@@ -606,7 +606,8 @@ the shim drops parameters, not as the list of parameters it drops.
 | `keep_alive` | **NO** | expiry stayed at year 2318; native honoured 30 s exactly |
 | `think` | **NO** | content still empty |
 | `chat_template_kwargs` | **NO** | content still empty |
-| JSON-schema constrained decoding (`format`) | **NO** (native only) | documented upstream; OpenAI `response_format` is ignored by Ollama |
+| ~~JSON-schema constrained decoding (`format`)~~ | ~~**NO** (native only)~~ | ~~documented upstream; OpenAI `response_format` is ignored by Ollama~~ |
+| **⚠ THE ROW ABOVE IS WRONG — corrected by the G32 audit below (2026-08-03).** It was recorded from upstream documentation, not measured, and it is the one row in this table nobody tested. `response_format: {"type":"json_schema"}` **IS honoured** (8/8); only `{"type":"json_object"}` is ignored (0/8). | | see *G32 — the Ollama control-surface audit* |
 | `reasoning_effort: "none"` | **YES** | `finish_reason=stop`, 35 output tokens, clean content |
 | `stream_options.include_usage` | YES | C16 already relies on it |
 
@@ -797,3 +798,120 @@ silently became the broken quant.
 install` for this evaluation and are **not** in `pyproject.toml`/`uv.lock`; a
 `uv sync` removes them. Scripts were run via `.venv/bin/python` directly,
 because `uv run` re-syncs the environment on every invocation.
+
+---
+
+## G32 — the Ollama control-surface audit (2026-08-03)
+
+The audit G32 makes its own first deliverable. No production code was written.
+Same machine as the A9b/A12/G4 session above: RTX 5090 Laptop (24,463 MiB),
+Ollama **0.30.7**, service env `OLLAMA_KEEP_ALIVE=-1 OLLAMA_FLASH_ATTENTION=1
+OLLAMA_KV_CACHE_TYPE=q4_0`. Probe models `qwen3:4b-instruct-bg` and, for the
+thinking arms, the resident `gemma4:26b-a4b-it-q4_K_M`. Full write-up in
+[specs/G32_ollama_transport.md](specs/G32_ollama_transport.md) §0.
+
+Every probe is two-sided against an **observable** effect (a number in
+`/api/ps`, a response field, schema conformance). "It didn't error" is never
+the test — the shim accepts unknown parameters silently.
+
+### Correction to the table above
+
+`response_format: {"type": "json_schema", …}` is **honoured** by Ollama's `/v1`
+shim. Measured on the schema shape codex extraction needs — an array of
+triplets whose `relation` is enum-constrained:
+
+| arm | conformance (n=8) |
+| --- | --- |
+| native `format: <schema>` | **8/8** |
+| `/v1 response_format: json_schema` | **8/8** |
+| `/v1 response_format: json_object` | **0/8** |
+| `/v1` no constraint (control) | **0/8** |
+
+Conformance is checked two-sided: valid JSON **and** correct keys **and** every
+`relation` inside the enum. A stronger arm confirms the constraint actually
+binds rather than the model merely cooperating — with the enum narrowed to the
+single value `RELATES_TO`, which no verb in the text implies, both the native
+and `json_schema` arms emitted `RELATES_TO` five times out of five.
+
+⇒ `json_object` — **the form `maintenance_agent.py:399` sends today** — is
+indistinguishable from sending no constraint at all.
+
+### Parameters still confirmed dropped by `/v1`
+
+| control | native | `/v1` | observable |
+| --- | --- | --- | --- |
+| `options.num_ctx` | 8,192 allocated | 32,768 (the default) | `/api/ps` `context_length` |
+| `options.top_k=1` @ temp 1.6 | 3 → **1** distinct | 6 → **6** distinct | output spread, n=6 |
+| `keep_alive: 0` | **unloaded** | still resident | `/api/ps` membership |
+| `think: false` | 0 ch thinking, real content | no such key | `message.thinking`, on the 26B |
+
+Honoured on both: `temperature`, `seed` (1 distinct at temp 1.6, n=4), `stop`,
+`max_tokens`. Native streaming carries `prompt_eval_count`/`eval_count`/
+`done_reason` on the final chunk **unconditionally**; `/v1` needs
+`stream_options.include_usage`.
+
+### Truncation — the C16 finding explained, and one arm invalidated
+
+⚠ **A first comparison here was invalid and is recorded because the shape
+recurs**: the native arm sent `num_ctx=2048`, the `/v1` arm sent nothing — and
+`/v1` *drops* `num_ctx`, so it ran at 32,768 and never truncated. The apparent
+result ("native is loud, the shim is silent") was an artifact of two different
+windows. Redone with the window pinned on the resident runner.
+
+Ollama 0.30.7 does **not** truncate by default — it **reloads the runner at a
+larger window**. A runner pinned at 2,048 received ~6,012 tokens and came back
+resident at 32,768, answering normally, on both transports.
+
+Silent truncation happens only when the model **cannot** grow. On `tinyllama`
+(GGUF ceiling 2,048), a ~6,012-token prompt returned, on **both** transports:
+
+    HTTP 200 · done_reason "stop" · prompt_eval_count 2047
+
+~4,000 tokens discarded, no error, no flag, **natively too**. This reproduces
+and explains C16's `predicted=2909 / actual=2047`: tinyllama was the model that
+could not grow. **The native endpoint is not inherently louder about
+truncation.** Loudness comes from the *combination* — send `options.num_ctx`
+explicitly and the same request becomes a typed refusal:
+
+    HTTP 400 exceed_context_size_error
+    "request (6012 tokens) exceeds the available context size (2048 tokens)"
+    n_prompt_tokens 6012 · n_ctx 2048
+
+`n_prompt_tokens` and `n_ctx` are the two numbers ICE's budget arithmetic wants
+to check itself against, and `num_ctx` is exactly what the shim drops.
+
+### `/api/show` exposes a `capabilities` list
+
+`gemma4:26b-a4b-it-q4_K_M` → `['completion','vision','tools','thinking']`;
+`qwen3:4b-instruct-bg` → `['tools','thinking','completion']`; `gpt-oss:latest`
+→ `['completion','tools','thinking']`.
+
+⚠ **Template-derived, not behavioural.** `qwen3:4b-instruct-bg` advertises
+`thinking` and emits **0 characters** of it under both `think:true` and
+`think:false`. Usable as a negative filter (absent ⇒ unsupported), never as a
+positive guarantee.
+
+### Endpoints, and what ICE uses
+
+All present on 0.30.7: `/api/chat`, `/api/generate`, `/api/embed`,
+`/api/embeddings`, `/api/ps`, `/api/show`, `/api/tags`, `/api/pull`,
+`/api/push`, `/api/create`, `/api/copy`, `/api/delete`, `/api/blobs/:digest`,
+`/api/version`, `/api/signout`, plus `/v1/{chat/completions,completions,
+models,embeddings,responses}`. ICE uses **four**: `/v1/chat/completions` (chat
+path via raw httpx; background path via the OpenAI SDK), `/api/tags`
+(`registry.populate_from_ollama`), and `/api/ps` + `/api/show`
+(`runtime_probe`). `/api/embed` returned **501 "does not support embeddings"**
+and is a non-lever regardless — ICE embeds locally and G23 pinned embedding
+identity.
+
+### Two live defects found while auditing, both transport-independent
+
+1. `maintenance_agent.py:399` sends `response_format={"type":"json_object"}` —
+   measured 0/8, i.e. no constraint at all.
+2. `registry.py:162` hardcodes `model="Qwen/Qwen2.5-3B-Instruct-AWQ"` (the
+   *dedicated*-mode default) while `get_bg_client()` in the default *shared*
+   mode points at Ollama → verified `404 model 'Qwen/Qwen2.5-3B-Instruct-AWQ'
+   not found`, swallowed by `except Exception: return {"topic_tags": [],
+   "intent_tags": []}`. Background model auto-tagging has been dead in the
+   default configuration, silently — a third instance of the CLAUDE.md
+   silent-fallback rule.
