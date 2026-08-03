@@ -394,7 +394,7 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
     **⚠ But it LOSES at the biggest consumer, and that is the finding.** Grounding `extract_triplets` with it produced **80 triplets against the micro-NER's 104**, losing on **9 of 10 turns**. The reason generalises: the entity list is a **permissive whitelist** ("use ONLY these as subjects"), so a long noisy list gives the model more legal subjects and it discards the junk itself, while a short clean list **forbids real facts**. The micro-NER's over-firing is load-bearing there. Measured per consumer, the division is:
     | consumer | use | evidence |
     |---|---|---|
-    | codex grounding whitelist | **micro-NER** (union untested — the open measurement) | 104 vs 80 triplets, won 9/10 turns |
+    | codex grounding whitelist | **micro-NER or the union — they tie** | micro 166 vs NuNER 84; the union adds only +4 (median Δ +1.0, 5W/2T/3L) for +14% latency |
     | `must_terms` → `summary_coverage` | **NuNER** | micro saturates the 25-term cap on EVERY turn with fragments (`gaining conciousness`, `deeply rooted`) |
     | clustering entity overlap | **NuNER** | discrimination 28× vs 1.97×; micro tags `and`/`but`/`for`/`not`/`now` as entities, and they recur in every conversation |
     | pre-flight graph match | **union** | 94 node hits vs 58/43; micro extracts NOTHING from **48 of 58** short prompts |

@@ -648,7 +648,26 @@ the NER swapped): micro-NER **104** triplets total / median 9.5, winning on
 **9 of 10** turns; NuNER 80 / median 7.0, winning on 0. The entity list is a
 *permissive whitelist*, so a long noisy list gives the model more legal subjects
 and it discards the junk itself, while a short clean list forbids real facts.
-**The union was not tested** — the open measurement.
+
+**Union arm, run 2026-08-03 after the `reasoning_effort` fix landed** (10 turns,
+same model and prompt, three arms in one run):
+
+| grounding | total triplets | median | grounded share | median s | paired vs micro |
+| --- | --- | --- | --- | --- | --- |
+| micro-NER | 166 | 17.5 | 0.952 | 6.97 | — |
+| NuNER Zero | 84 | 7.5 | 0.738 | 5.54 | median −6.0, 2W/1T/7L |
+| **union** | **170** | 15.0 | 0.953 | 7.94 | median **+1.0**, 5W/2T/3L |
+
+So the union is a **tie-to-marginal-win over the micro-NER alone** (+4 triplets
+over 10 turns), not the clear win the pre-flight numbers suggested — and it
+costs +14% latency. NuNER alone remains clearly worst here, and its lower
+grounded share (0.738 vs 0.952) is the mechanism made visible: the narrow
+whitelist does not stop the model proposing facts, it just marks a quarter of
+them low-confidence.
+
+⚠ **Absolute counts vary run to run** — the micro-NER arm scored 104 in the
+first run and 166 in this one on the same turns with the same model at
+temperature 0. Only *within-run* comparisons are used anywhere in this entry.
 
 **Clustering** (within- vs across-conversation entity overlap, five
 conversations as weak labels):
