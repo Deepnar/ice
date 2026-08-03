@@ -136,6 +136,31 @@ Parsers that RESOLVE a value (a date → a datetime) may stay; lexicons that INF
 INTENT must pass invariance. Roadmap **G28** is the systematic sweep and owns the
 style-variant probe set; D8 is the worked deletion protocol.
 
+## A silent fallback hides an outage (standing rule, 2026-08-03)
+
+The measured case: **every background LLM call in ICE was returning nothing**,
+and the system looked fine. Reasoning models spend the whole `max_tokens`
+budget inside a hidden thinking block, so Ollama returns `content=""` — and the
+callers had defaults. `clustering._generate_cluster_name` returned
+`"Unnamed Cluster"`. `detect_blob_kind` returned `document` via its
+`blob_kind_unparsed` branch. `post_flight` turned the empty summary into `None`
+and let raw text win. Each of those defaults is individually *correct*
+engineering. Together they made a dead subsystem indistinguishable from a
+working one, for an unknown length of time.
+
+**So: a fallback must be observable.** When a component substitutes a default
+for a real answer, it emits at WARNING with the reason — every time, not on the
+first occurrence. A fallback that fires on 100% of calls is not resilience, it
+is an outage wearing resilience as a costume.
+
+Two corollaries, both earned the same day. **(1)** Check the *rate*, not the
+existence: `ner_utils` has a regex fallback whose own docstring says it is
+"log-worthy if this fires in normal operation" — and there is no log line, so
+nobody could have known it fires whenever the process starts outside the repo
+root. **(2)** When a subsystem produces plausible-but-thin output, verify the
+model was actually called before tuning anything about it — the first
+explanation is usually "it never ran".
+
 ## Boy-scout cleanup (standing rule, 2026-07-10)
 
 Every implementation session leaves the files it touches cleaner than found: imports sorted/grouped + unused dropped (`ruff` on touched files only — never a repo-wide reformat), dead code and lying comments fixed in place, one-off scripts moved (never deleted) to `scripts/oneoff/` with their paths fixed. **No barrel re-exports in `__init__.py`** (import-time side effects, hidden provenance, heavy transitive imports; the lazy in-function imports that break circular deps stay, commented). The pre-FINAL `experiments/*` folders are a **frozen historical record** — never reorganize them. Log every move/rename in [docs/CLEANUP.md](docs/CLEANUP.md).

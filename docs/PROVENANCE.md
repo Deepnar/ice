@@ -540,3 +540,241 @@ and truncation keeps the newest messages, so the block most likely destroyed
 is the retrieved-memory block.** The 0.83–0.86 ratios on the short prompts are
 the embedder-vs-Llama vocabulary gap and are why
 `token_count_safety_margin` was raised 1.10 → **1.20** (measured, not assumed).
+
+---
+
+## A9b / A12 / G4 — the background-pipeline evaluation (2026-08-03)
+
+An evaluation session: no production code was written, and the ledger's trigger
+fires because the A9b, A12 and G4 decisions now rest on the measurements below.
+Machine: RTX 5090 Laptop (24,463 MiB), Ollama **0.30.7**, service env
+`OLLAMA_KEEP_ALIVE=-1  OLLAMA_FLASH_ATTENTION=1  OLLAMA_KV_CACHE_TYPE=q4_0`.
+
+### The turn set
+
+58 turns from `data/simulation/simulation_full.jsonl` (gitignored, personal —
+never committed, and no turn text appears in this file). Stratified over the
+four Exp-2 conversations (Shinchan, Flaw, ICE-Dev, Masters) plus the rest of the
+personal corpus, crossed with a length band (short <150 w / medium <600 w /
+long), 4 per cell, turns over 2,500 words excluded. Seed **20260803**. Chosen
+because these are the domains ICE actually serves and the ones Z2 reuses, so
+results transfer.
+
+### ⚠ The finding the rest of the session hangs off
+
+**Every background LLM call returned nothing.** Reproduced on six real call
+sites against the live default background model, each at its own shipped
+`max_tokens`:
+
+| call site | budget | as shipped | with `reasoning_effort="none"` |
+| --- | --- | --- | --- |
+| `codex_extractor.extract_triplets` | 500 | **0 triplets**, empty response | 6.5–7.5 triplets/turn |
+| `post_flight._summary_llm_call` | 300 | **empty string** | median coverage 0.92 |
+| `maintenance_agent` decider | 200 | **None** (`agent_llm_failed`) | `{"verdict": "merge"}` |
+| `decision_extractor._extract_llm` | 300 | **None** | decision + rationale JSON |
+| `clustering._generate_cluster_name` | 200 | **`"Unnamed Cluster"`** | `"Symbolism of Existential Flaws"` |
+| `documents.detect_blob_kind` | 8 | `blob_kind_unparsed` → default | decides correctly |
+
+*Not* individually tested: reflection ×5, batch_summarizer, conversation_summary,
+procedural_extractor, the codex reconciler, raw_slicer, registry tagging. They
+share the mechanism; that is an inference, not a measurement.
+
+**Mechanism.** Every model in the live registry except `qwen3:4b-instruct` is a
+reasoning model. Ollama spends the output budget inside a hidden reasoning
+block, returns `finish_reason="length"` with `content=""`, and puts the thinking
+in a separate `reasoning` field ICE never reads. Measured budget needed for ONE
+summary: **gemma4:12b 810 tokens, gemma4:26b-a4b 919**. ICE allows 300.
+
+**Thinking ON is not the alternative.** 26B, thinking on, budget raised 5× to
+2,500: **0 triplets on 12/12 turns at 42.0 s each**, against 7.5 triplets at
+6.6 s with thinking off. The reasoning block scales with input length.
+
+**Two of the six degrade silently** — `"Unnamed Cluster"` and
+`blob_kind_unparsed → document` are fallbacks that make a dead layer look like a
+working system. That is why this survived undetected.
+
+### What Ollama's OpenAI-compatible `/v1` endpoint accepts
+
+⚠ **This table is what was TESTED, not the complete control surface.** It was
+assembled by hitting the four things this session happened to need; the native
+API exposes more, and the gap has not been enumerated. Treat it as evidence that
+the shim drops parameters, not as the list of parameters it drops.
+
+| parameter | honoured on `/v1`? | evidence |
+| --- | --- | --- |
+| `options` (`num_ctx`, …) | **NO** | ctx stayed 32,768; native `/api/chat` allocated 16,384 and 745 MiB less on a 4B |
+| `keep_alive` | **NO** | expiry stayed at year 2318; native honoured 30 s exactly |
+| `think` | **NO** | content still empty |
+| `chat_template_kwargs` | **NO** | content still empty |
+| JSON-schema constrained decoding (`format`) | **NO** (native only) | documented upstream; OpenAI `response_format` is ignored by Ollama |
+| `reasoning_effort: "none"` | **YES** | `finish_reason=stop`, 35 output tokens, clean content |
+| `stream_options.include_usage` | YES | C16 already relies on it |
+
+### NER candidates
+
+`numind/NuNER_Zero` @ **`c90187673f464518dca09f41689184ed6976242c`** — MIT,
+448.9M params, backbone `microsoft/deberta-v3-large`, `max_len=384`
+**GLiNER-words** (punctuation counts: 350 whitespace words measured 424 and was
+silently truncated), `max_width=1`, so the card's `merge_entities` is mandatory.
+`numind/NuNER_Zero-4k` @ `7a7cd8d65af2572c297054dbaf8f25c0d46da55d` (max_len
+2048, longformer backbone) — exceeding its limit is a CUDA device-side assert,
+not an exception. `urchade/gliner_large-v2.1` measured as a cross-check and lost
+on every probe (`Redis/dataset`, `My character/character`, `competes/event`).
+
+Latency, median ms, by device and input size:
+
+| | micro-NER GPU | micro-NER CPU | NuNER GPU | NuNER CPU |
+| --- | --- | --- | --- | --- |
+| short prompt (pre-flight) | **13** | 272 | 16 | 446 |
+| full turn (background) | 345 | **16,811** | **101** | 4,458 |
+
+197 relation labels accepted in 0.088 s; 5 → 19 labels costs +7%. **Label count
+is not a constraint**, which settles the open question in the A9b entry.
+
+Style invariance (20 turns, meaning fixed, form varied; Jaccard of the
+case-folded entity set against the original):
+
+| variant | micro-NER | NuNER Zero |
+| --- | --- | --- |
+| lowercase | **0.000** (0/20 identical) | 0.732 |
+| punctuation stripped | 1.000 | 0.855 |
+| `"ok so like "` prefix | 1.000 | 1.000 |
+| filler inserted | 1.000 | 0.932 |
+
+### NER per consumer — the result that made A9b a division, not a swap
+
+**Codex grounding** (`extract_triplets`, 10 turns, same model and prompt, only
+the NER swapped): micro-NER **104** triplets total / median 9.5, winning on
+**9 of 10** turns; NuNER 80 / median 7.0, winning on 0. The entity list is a
+*permissive whitelist*, so a long noisy list gives the model more legal subjects
+and it discards the junk itself, while a short clean list forbids real facts.
+**The union was not tested** — the open measurement.
+
+**Clustering** (within- vs across-conversation entity overlap, five
+conversations as weak labels):
+
+| | mean within | mean across | ratio | entities in ≥3 conversations |
+| --- | --- | --- | --- | --- |
+| micro-NER | 0.0435 | 0.0221 | 1.97× | **28** (`and`, `but`, `for`, `not`, `now`, `let`, `like`, …) |
+| NuNER | 0.0252 | 0.0009 | **28×** | **1** |
+| union | 0.0395 | 0.0182 | 2.2× | 31 |
+
+The micro-NER tags **function words** as entities; `_NER_STOP` does not contain
+them and `_EDGE_TRIM` only trims them at span edges, not as standalone spans.
+
+**Pre-flight graph matching** (entities from the user's prompt against real
+Codex node names, built by running `extract_triplets` over the same
+conversations):
+
+| | node hits | prompts with ZERO hits (of 58) | median entities/prompt |
+| --- | --- | --- | --- |
+| micro-NER | 58 | **48** | **0** |
+| NuNER | 43 | 33 | 3 |
+| union | **94** | **30** | 3 |
+
+### Background model candidates — generation
+
+30 turns, `reasoning_effort="none"`, must-terms held fixed per turn, production
+summariser path verbatim. Paired against the incumbent (median delta + win rate,
+never a mean of means):
+
+| model | size | median coverage | median Δ | W/T/L | win rate | speed |
+| --- | --- | --- | --- | --- | --- | --- |
+| `gemma4:26b-a4b-it-q4_K_M` | 18.0 GB | 0.92 | — | — | — | 1.0× |
+| `gemma4:12b` | 7.6 GB | 0.90 | −0.020 | 11/4/15 | 0.42 | 0.53× |
+| `qwen2.5:7b` | 4.7 GB | 0.08 | −0.817 | 0/0/30 | 0.00 | — |
+| `qwen3.5:4b` | 3.4 GB | 0.92 | 0.000 | 13/7/10 | 0.57 | 1.60× |
+| `qwen3:4b-instruct` | 2.5 GB | **0.98** | +0.040 | 17/3/10 | **0.63** | 1.69× |
+
+`qwen3:4b-instruct` emitted the required `Abstract:` line on only **60%** of
+summaries — format compliance is a separate axis from coverage.
+
+### Background model candidates — extraction
+
+Same turns, ICE's own `extract_triplets`, `reasoning_effort="none"`:
+
+| model | median triplets | mean | turns yielding zero |
+| --- | --- | --- | --- |
+| `gemma4:26b-a4b-it-q4_K_M` | **7.5** | 11.17 | **1 / 12** |
+| `qwen3:4b-instruct` | 3.5 | 4.17 | 4 / 12 |
+| `qwen3.5:4b` | 2.0 | 1.75 | 4 / 12 |
+
+Only the 26B handled all four negation probes correctly. **This gap was measured
+against an UNCONSTRAINED decoder** — see the A12 entry for why that makes the
+number provisional.
+
+### Rejected candidates, with the symptom (so nobody re-tests them)
+
+* **`qwen2.5:7b`** — degenerate repetition on short *and* long inputs, with a
+  recurring Spanish token (`pérdida`); `llama3:8b` and `tinyllama` are clean on
+  the identical prompt, so it is a bad quant, not the q4_0 KV cache. It is
+  currently `settings.default_fallback_model`.
+* **`gemma4:12b`** — worse than a 4B on summaries at 3× the size and half the
+  speed.
+* **`numind/NuExtract3`** @ **`2e9fca82ee641e6bb6e1f5d905241e994be27a07`** —
+  Apache-2.0, base `Qwen/Qwen3.5-4B`, 4.54B BF16, vLLM 0.22.0
+  (`--max-num-seqs 16` required: the hybrid Mamba cache refuses the default
+  256), **12,587 MiB resident**. Its template grammar *does* express ICE's
+  triplet shape including a `"boolean"` negation field, and it was flawless on
+  four short probes — it even split "no longer uses PostgreSQL, moved to SQLite"
+  into a negated and a positive triplet, which the incumbent did not. **But with
+  the 197-relation enum, 1 turn in 3 enters an infinite repetition loop** — the
+  same triplet emitted forever, still looping at 6,000 output tokens. Enum size
+  is the driver: 197 → 66.7% parse / 11.07 s; 51 (property leg) → 91.7% /
+  4.89 s / 10.5 triplets; none → 100% / 0.58 s. Kept only as a property-leg
+  candidate.
+* **`knowledgator/gliner-multitask-large-v0.5`** — its "Open Information
+  Extraction" mode is `labels=["match"]` plus a natural-language prompt, i.e.
+  prompt-matched spans, **not** open triplets. This closes the one question the
+  previous session left open; the earlier conclusion stands.
+
+### Shortlist for the deferred model benchmark (selected by property, not size)
+
+Chosen on the three properties the measurements showed actually decide the
+outcome — non-reasoning, sound quantization, structured-output discipline — and
+explicitly **not** on parameter count, since a 7B was the worst arm and a 12B
+lost to a 4B:
+
+* **IBM Granite 4.1 3B / 8B** (Apache-2.0) — non-reasoning by design, built for
+  structured output, leads tool-calling benchmarks, notably token-efficient.
+* **Ministral 3 8B** (Apache-2.0), **Gemma 4 E4B** — closest peers.
+* **Nemotron-mini 4B** — reported to produce valid JSON where Llama 3.2 3B fails.
+* Incumbents to beat: `qwen3.5:4b`, `qwen3:4b-instruct`.
+
+**The benchmark is deliberately deferred until constrained decoding lands**,
+because the extraction gap above was produced by an unconstrained decoder and a
+schema constraint is expected to change the ranking.
+
+### GPU / residency measurements
+
+| | |
+| --- | --- |
+| chat model resident (`gemma4:26b-a4b-it-q4_K_M`) | 16,446 MiB, cold load **7.24 s** |
+| `qwen3.5:4b` | 3,439 MiB, 3.27 s |
+| `qwen3:4b-instruct` | 3,916 MiB, 1.62 s |
+| 26B + a 4B co-resident | 19,661 MiB by Ollama's own accounting, **21,662 by nvidia-smi** (Ollama under-reports ~2 GB) |
+| `num_ctx` effect on the 26B | 16,329 MiB at ctx 4,096 vs 16,446 at 32,768 — **120 MiB across an 8× range**, because the KV cache is q4_0 |
+| explicit unload | `POST /api/generate {"model": X, "keep_alive": 0}` → `done_reason: "unload"`, gone from `/api/ps` |
+
+A CUDA OOM occurred during the session with 22 GB held — a 26B nobody was using
+plus a 4B in use — because `OLLAMA_KEEP_ALIVE=-1` means nothing is ever
+released. One unload call freed 18 GB.
+
+### Two silent-degradation traps confirmed, both CWD-relative model paths
+
+| path | file | behaviour outside the repo root |
+| --- | --- | --- |
+| `models/ner/ner_model.pt` | `ner_utils.py` | silently falls back to a capitalized-word regex, **no log line** |
+| `models/model_registry.json` | `registry.py` | `load_registry()` returns `{}` → `get_fallback_model()` → `settings.default_fallback_model` = `qwen2.5:7b`, the broken model |
+
+Both fired accidentally during this session and both produced results that
+looked like findings until the working directory was checked: one run's NER
+entity count silently dropped 52.7 → 34.1, and one run's background model
+silently became the broken quant.
+
+### Tooling note
+
+`gliner==0.2.28` + `onnxruntime` were installed into `.venv` with `uv pip
+install` for this evaluation and are **not** in `pyproject.toml`/`uv.lock`; a
+`uv sync` removes them. Scripts were run via `.venv/bin/python` directly,
+because `uv run` re-syncs the environment on every invocation.
