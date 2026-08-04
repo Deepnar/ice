@@ -659,6 +659,8 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   **⚠ THE OTHER HALF: WHAT DOES DROPPING THE OpenAI SDK ACTUALLY COST? (user, 2026-08-03 — and the answer is small, which is why this is buildable.)** Grounded in code, the transports are already split: the **chat path** uses raw `httpx` against `{ollama}/v1/chat/completions` and does NOT touch the SDK at all; the **background path** is the `openai` Python SDK at **exactly ONE construction site** (`bg_client_factory.py:98`). So the audit's question is narrow: *what breaks if that one site speaks Ollama-native instead?*
   **The answer is: `background_model_mode="dedicated"`, and nothing else.** Dedicated mode points the same SDK at a vLLM/SGLang server on `:8002/v1`, which speaks OpenAI-compatible and does **not** speak Ollama-native. That is the entire cost — and it is why the design is **BOTH, not a swap**: one construction site is exactly the seam a capability-aware transport needs. Shape: the factory picks native when the server is Ollama (gaining `num_ctx`, `keep_alive`, `think`, JSON-schema constrained decoding) and the SDK otherwise, with **unavailable capabilities LOGGED, never silently dropped** — because silently dropping what it does not understand is precisely what `/v1` does to us and what this item exists to stop ICE repeating one layer up. Capability detection, not a hardcoded branch.
   **Look-ahead:** A12's model benchmark is scheduled AFTER (a), deliberately — benchmarking before the constraint measures which model is best at not being constrained. **[F11](#f11) (Cloud API models) shares this seam**: a cloud provider is OpenAI-compatible, so it lands on the SDK branch and inherits the same capability-reporting.
+  **📊 THE EVIDENCE RUN — 300 real turns, 2026-08-04. Full numbers in [PROVENANCE.md](PROVENANCE.md); it moved the relation question OUT of a1.** Harvested with the production extraction prompt (197/197 relations present, "SKIP IT" rule included) but **without** the `codex_extractor.py:514` filter, so the failures stay visible. **67.8% of every relation the model produces is out-of-vocabulary and is silently destroyed today** (lmsys 62% · personal 66% · wildchat 70% · sharegpt 78%), and the top misses are `is` (92×), `has` (68×), `includes` (29×) — ordinary English the 197-word list lacks, not near-misses. **The deterministic matching ladder recovers 5.7%** of them (a 31-probe hand-authored set had scored the identical cascade 24/24 — [TRAPS](TRAPS.md) #13). **The decoder enum keeps 100% but ~78% of what it rescues is WRONG**, because a few relations act as attractors for anything inexpressible (`is → is_employed_by`, `is_family_member_of → is_dating`, `is_sibling_of → is_separated_from`).
+  ⚠ **THE ENUM IS NOT CLOSED — it is a [Z2](#z2) DECISION (user, 2026-08-04).** a1 ships the enum as a *usable capability* and does not delete it; whether it ends up fully off, on over a repaired vocabulary, or on for a subset of call sites is decided at Z2 with the mini-exp's output in hand. Measuring it badly here is evidence, not permission (TRAPS #3). **What the run actually indicts is the VOCABULARY, not the transport or the matcher** — neither dropping (32% kept) nor forcing (100% kept, ~78% wrong) is acceptable — so the 606 ranked missing relations become Z2's input, and the ladder is *premature* rather than useless: once the vocabulary is repaired the residual failures genuinely will be near-misses. Also found: **`finish_reason == "length"` yields unparseable JSON at the production `max_tokens=500` (2/12 turns) and nothing in `src/` reads `finish_reason`** — constrained decoding guarantees a valid *prefix*, not completion.
 
 - [ ] <a id="g33"></a>**G33 Every property VALUE becomes an orphan entity node** `(bug/open — 2026-08-03)` — `handle_triplet` calls `get_or_create_entity` for the object **before** it checks `if relation in PROPERTY_RELATIONS`, so `kael —role→ fire mage` creates a `fire mage` node as well as storing the property. Its `context_payload` is empty forever, because nothing ever links to it. Found by `tests/test_codex_write_path.py` leaking exactly one row; it is now pinned there so the day it changes, something says so. **Why it is not merely untidy:** `_match_entities_exact` and `_match_entities_by_similarity` match on `canonical_name`, so these nodes ARE matchable pre-flight anchors — a prompt mentioning "fire mage" matches an entity, and `orchestrator.py:1530` then skips it for having an empty payload, so the anchor slot is spent for nothing and may displace a real one. `_codex_enumeration` ("list all the characters") would enumerate them too. At corpus scale that is one junk node per distinct role, version, deadline, accuracy figure and description value. ⚠ **Decide, do not just delete**: a value-as-node is arguably wanted ("who else is a fire mage?"), but with an empty payload it cannot answer that today — so the choice is *don't create it* or *make it answer*. Cheap either way; the audit above is the reason to choose deliberately.
 
@@ -765,6 +767,45 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   **Shape (deliberately small):** take **one real multi-turn conversation** — the `icedev_stitched` corpus is the obvious candidate (3,473 turns of genuine long-project history, already assembled for B1 and shared with FINAL) — replay it through the live stack, and then **read**: for each of ~20 sampled turns, what was retrieved, what the assembled prompt actually looked like, what the model answered, what got stored, what the extractors made of it. **Judged by eye, not by metric.** Record every "that's wrong" as an issue with the turn that produced it. No scoring, no judge, no cloud.
   **Why it must come after Z1 and before FINAL:** after Z1 because reading the output of an untuned system tells you about the tuning, not the design; before FINAL because everything it finds is a change, and FINAL must measure a frozen system. **Exit condition:** the list of "that's wrong" items is triaged — each one either fixed, or explicitly accepted with a reason written down. Not "the list is empty".
   **Explicitly in scope for the eyeball pass** (the places the automated suite provably cannot see — see [G30](#g30)): *retrieval relevance* (did the right memory come back, or just some memory), *summary faithfulness* (did the summariser drop the sentence that mattered), *codex correctness* (is the extracted fact true and is the relation right), *prompt assembly* (does the assembled context read like something a model can use, or like concatenated fragments), and *the answer itself*. **Depends on:** Z1 (tuned system), G29 (don't audit output shaped by known drift), G30's LLM lane if built (it automates the cheap half of this). **Feeds:** FINAL, which should start from a system that has already had its obvious problems removed.
+
+  ### ⚑ WHAT Z1 AND Z2 ACTUALLY ARE — clarified by the user, 2026-08-04
+
+  > Written after the G32/a1 evidence run, which is itself the worked example of the Z1 half.
+
+  **Z1 = every piece tested IN ISOLATION, on real prompts.** Not a smoke test and not a
+  tuning-only pass: take actual prompts, drive **one subsystem at a time**, and write down
+  **every** failure point. Two kinds come out and both get recorded: **bugs** (it does not do
+  what it says) and **design problems** — the "enum-type" finding, where the code works exactly
+  as written and the *design* is wrong. The G32/a1 run is the template: harvest what the
+  component really produces, with the downstream filter removed so the failures stay visible,
+  then read them. Fix what is fixable in place; log the rest for the fix pass.
+
+  **Z2 = the whole system, run as SPOT CHECKS IN BATCHES — not one big experiment.** The
+  structure borrows from the paper's Experiment 2, but it is **not** "run it all and read the
+  result at the end". It is: one conversation, a small chosen probe set, read the output, fix
+  or note, repeat. **Z2 is expected to run MULTIPLE times.** Only after the accumulated problem
+  list from Z1 + Z2 is in hand does the real fix pass happen — and FINAL comes strictly after
+  that, on a frozen system.
+
+  **Corpus shape — recommendation (asked by the user, 2026-08-04): use the MASSIVE
+  conversations, and cut the PROBE count instead.**
+  - Conversation size is what creates the conditions ICE exists for — memory pressure, decay,
+    clustering, an accumulated codex, a context budget that actually binds. **A short
+    conversation cannot produce a retrieval failure, because everything still fits in the
+    window and retrieval changes nothing.** Shrinking the conversation removes the phenomenon
+    under test.
+  - Probe count buys statistical confidence, which is FINAL's job, not Z2's. For *finding
+    problems*, five probes against a deep store beat two hundred against a shallow one.
+  - And probe count is exactly what makes the loop slow, which matters because Z2 runs
+    repeatedly. **This session is the evidence**: 300 turns exposed a 68% failure rate. 3,000
+    would have said the same thing, four hours later.
+  - The binding constraint is **reading**: Z2's whole value is a human reading output. Twenty
+    outputs is a morning; 1,211 is impossible, which is how Exp 2 shipped with the problem
+    unseen.
+  - ⚠ Two conditions on the small probe set: probes are **chosen, not sampled** — deliberately
+    spanning the legs (codex · vector · BM25 · procedural · temporal · clusters) so every
+    subsystem is exercised at least once; and the conversation is **held fixed across runs**,
+    so repeat runs are comparable and a fix can be seen to have worked.
 
   ### Z2's shape, decided with the user 2026-07-28: **a scaled-down re-run of Experiment 2 — on the system, not on the paper**
 
