@@ -34,6 +34,85 @@
 >
 > **📋 INVENTORY RE-TAKEN 2026-08-03 → 54 unchecked.** Closed: none outright — A9b and A12 are *evaluated and their decisions built*, but both keep an unchecked line (A9b's pre-flight question is Z2's; A12's model choice is Z1's), and G4 is half done. Opened: G31, G32, G33. **The next hands-on work is [G32](#g32)(a)** — the background half of the Ollama transport, which unblocks the deferred model benchmark. The ② queue's "Track G's real bugs" line now also carries G31/G32/G33.
 >
+> ---
+>
+> ## 📋 INVENTORY RE-TAKEN 2026-08-04 → **56 unchecked**, and split by PRE-FINAL vs POST-FINAL
+>
+> **Why this split exists (user, 2026-08-04):** the list reads as one queue, but it is two.
+> Some of it is **research** — it must be true before FINAL measures the system, because
+> FINAL measures a frozen system and anything found afterwards is a change. The rest is
+> **productization** — it makes ICE a product people can run, and none of it changes a
+> number in the paper. Mixing them makes the remaining work look far larger than the part
+> that actually gates the experiments.
+>
+> ### 🔬 PRE-FINAL — the research gate (~24 items). Nothing here may slip past FINAL.
+>
+> - **Gates, in order:** **[Z1](#z1)** (every piece tested in isolation on real prompts) →
+>   **[Z2](#z2)** (whole system, batched spot checks, read by eye, repeated) → the fix pass →
+>   **[Z3](#z3)** (FINAL's redesign) → FINAL.
+> - **Inside Z1:** **[G9](#g9)** (its first commit — constants → settings), **[G28](#g28)**
+>   (style invariance), **[G4](#g4)(b)** (VRAM budget), **[A12](#a12)** (the model choice —
+>   see the decision below), **[G32](#g32)(b)** (chat-half `num_ctx` + truncation guard),
+>   **[B4](#b4)** (validated fine-tune promotion).
+> - **Correctness bugs that would corrupt a measured result:** **[G31](#g31)** (CWD-relative
+>   model paths — already produced two results that *looked like findings*), **[G33](#g33)**
+>   (property values become orphan anchor nodes), **[G5](#g5)** (SSE truncation → degraded
+>   `raw_text` → degraded extraction), **[G7](#g7)** (idempotency not enforced),
+>   **[G11](#g11)** (undecayed old turns never summarised), **[G24](#g24)** (async hygiene in
+>   the hot path), **[G25](#g25)** (log privacy — raw prompts in logs, and this repo is
+>   public), **[G6](#g6)** (indexes via migrations).
+> - **Audits with teeth:** **[G29](#g29)** (drift), **[G30](#g30)** (test blind spots),
+>   **[G20](#g20)** (dead code).
+> - **Scheduled after Z1 by decision:** **[T5](#t5)** (wire `Temporal_Recall` into Track T),
+>   **[A9](#a9)b**'s pre-flight question (Z2's), the **relation-vocabulary decision + the
+>   enum's fate + the alias dictionary** (all Z2's, fed by the `codex_relation_gaps` ledger).
+> - **FINAL's own machinery:** **[G19](#g19)** (simulation-harness upkeep), **[H4](#h4)**
+>   (probe realism).
+>
+> ### 🏭 POST-FINAL — productization and deferred-by-design (~32 items). Not a backlog debt.
+>
+> - **All of Track F** (F1–F3, F5–F9, F11–F13, F15, F16) — the packaged app, the frontend,
+>   the graph view, settings exposure, cloud models, the hardware advisor. **[F2](#f2)** and
+>   **[F4](#f4)** have live backend halves already shipped and waiting on a surface.
+> - **Parked on evidence that does not exist yet:** **[B3](#b3)** (learned MoE routing — needs
+>   training data), **[F12](#f12)** (parked behind B3), **[B6](#b6)** (tree conversation),
+>   **[C13](#c13)/[C14](#c14)** (caching — premature, not blocked),
+>   **[G2](#g2)/[G3](#g3)** (parked by the shared-first decision), **[G15](#g15)**,
+>   **[G17](#g17)**, **[D3](#d3)** (needs F5's SSE surface), **[E10](#e10)**.
+> - **Research *limitations*, not tasks** — these describe what FINAL cannot answer and belong
+>   in the paper's future-work section rather than in a queue: **[H1](#h1)**
+>   (cross-conversation), **[H2](#h2)** (multi-user), **[H3](#h3)** (year-scale),
+>   **[H5](#h5)** (fine-tune scheduling on user machines).
+>
+> ⚠ **The split is a triage, not a contract.** Two known soft edges: **[G12](#g12)** (dynamic
+> timeouts) may already be satisfied by `bg_timeout()` and wants an audit before it is either
+> checked off or kept; and anything Z1/Z2 *find* is pre-FINAL by definition regardless of
+> which list it started in.
+>
+> ### ⚑ WHEN THE MODEL GETS CHOSEN — decided 2026-08-04
+>
+> **The model choice happens INSIDE Z1, as a sweep across the LLM-touching isolation tests —
+> not as a separate benchmark before them.** The user posed it as an either/or (pick first, or
+> test every model per component); this is the second, and it is strictly better for one
+> reason: **Z1's isolation tests and A12's benchmark are the same measurement.** Running each
+> LLM-touching component across the candidate shortlist yields a per-component ranking, which
+> a single aggregate score cannot give — and per-component is what **[A12](#a12)**'s
+> "ONE model, never two" decision actually needs, because a single winner has to be checked
+> for being catastrophically bad at *one* job, not just good on average.
+>
+> **This session is the existence proof:** the G32/a1 evidence run *was* a Z1-shaped isolation
+> test of the extractor, and it doubled as a two-arm model/configuration comparison at a cost
+> of ~7 minutes per arm on a 4B. Nothing extra had to be built.
+>
+> Mechanics: only the **LLM-touching** components sweep (extraction, summarisation, cluster
+> naming, reconciliation, blob-kind, slot proposals, motifs, decisions). Everything else —
+> retrieval legs, scoping, budget arithmetic — is model-independent and runs once. Cost is
+> `models × LLM-components`, held down by the same rule recommended for Z2's corpus: **small,
+> chosen probe sets per component**, because these runs find failures rather than estimate
+> effect sizes. **Prerequisite already met:** A12 required constrained decoding to land first
+> (otherwise the benchmark measures which model is best at *not* being constrained) — that
+> shipped with G32/a1 on 2026-08-04.
+>
 > **📌 ADDENDUM 2026-07-29c — the next session is an EVALUATION session and writes no production code (user).** It weighs and tests options across three linked questions and produces decisions; adoption is separate, later work. (1) **[A9b](#a9)** — NuNER Zero as a plain NER upgrade, with the standing caveat that NER is ~95% recall and is NOT the bottleneck. The relation model **does not fit** for open triplet extraction: `knowledgator/gliner-multitask-large-v0.5`'s relation labels are `"[Entity] <> [Relation]"`, i.e. slot filling with the subject supplied — verified from the model card. Kept only as a candidate for the `PROPERTY_RELATIONS` leg; its unchecked "Open Information Extraction" mode is the one thing that could reverse this. (2) **[A12](#a12) NEW** — the background pipeline is two families: extraction (NuExtract-class specialist; a 4B reportedly matches 27B generalists) and generation (no specialist exists; a model-size question, measurable with ICE's own `summary_coverage` and therefore needing no new ground truth). (3) **[G4](#g4)** — rescoped to own ICE's VRAM share and ICE's explicitness toward Ollama, background tasks included. ⚠ **A12 and G4 are one problem seen twice**: a 3 GB specialist only fits beside an 18 GB chat model if ICE controls `keep_alive`, and the load/unload cost the user worried about mostly dissolves because background work is already batched and idle-gated. Inventory 50 → **51** (A12 opened).
 >
 > **📌 ADDENDUM 2026-07-29b (same session, after C16 — the A8 bug).** `d0d7f88`. The unverified A8 negation finding carried by the last two handoffs was **reproduced and it was THREE bugs**, all in `_regenerate_context_payload`'s relationship to the write path. (1) `SessionLocal` is `autoflush=False`, so its two edge queries saw the graph **as of the last commit** — never the edge just added or the expiry just set; all **nine call sites across six files** were one write behind. Measured: assert "proj uses postgres" twice → payload EMPTY both times; negate it → payload becomes `Links: uses → postgres`, **the retracted fact rendered as current**, no Negations section. (2) The **non-property branch — the main path, every ordinary relation** — never called it at all; only the property and negation branches did. Since `context_payload` is exactly what the codex leg injects and `orchestrator.py:1530` **skips an entity whose payload is empty**, a freshly extracted entity contributed **nothing** to retrieval until reflection's 2-hour cadence happened to enrich it. ⚠ Weigh against Exp 2's "Codex supplied 3.3% of fragments" — not proof of the cause, but a mechanism that produces exactly that symptom. (3) Only the SUBJECT was regenerated, so A7's `Backlinks` never rendered on the other end of any edge. All three fixed and verified end-to-end. **Also recorded this session:** A9b's scope widened to "does a NER+relation model beat our whole codex setup", with the candidates, the two constraints that could kill it (150-relation vocabulary; negation), the four-layer no-ground-truth method, and the data to use — and **G4 rescoped** to own ICE's VRAM share and ICE's explicitness toward Ollama, background tasks included. Neither is started.
@@ -441,7 +520,8 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   **DECISIONS (user, 2026-08-03):**
   1. **ONE background model, never two** — including for research. A design that needs an 18 GB model for triplets and a 3 GB one for summaries is not shippable, and shipping-realism is allowed to reject it.
   2. **No specialist.** NuExtract3 is rejected for open extraction (infinite repetition loop on 1 turn in 3 with the 197-value enum) and kept only as a `PROPERTY_RELATIONS` candidate.
-  3. **The model choice is DEFERRED to Z1, and must come AFTER constrained decoding** — benchmarking now would measure which model is best at *not being constrained*, and the constraint is expected to change the ranking. Shortlist selected by property (non-reasoning · sound quant · structured-output discipline), not size: **Granite 4.1 3B/8B** (Apache-2.0, non-reasoning by design, built for structured output), **Ministral 3 8B**, **Gemma 4 E4B**, **Nemotron-mini 4B**, against incumbents `qwen3.5:4b` / `qwen3:4b-instruct`.
+  3. **⚑ HOW the choice gets made — decided 2026-08-04: it is a SWEEP INSIDE [Z1](#z1), not a separate benchmark.** Each LLM-touching component's Z1 isolation test runs across the shortlist, so the ranking is per-component rather than one aggregate — which is what "one model, never two" needs, since a single winner must be checked for being catastrophically bad at one job. **Its prerequisite is now met:** constrained decoding shipped with [G32](#g32)/a1 on 2026-08-04, so the benchmark can no longer be measuring which model is best at *not* being constrained. Full rationale in the 📋 inventory block at the top.
+  3b. **The model choice is DEFERRED to Z1, and must come AFTER constrained decoding** — benchmarking now would measure which model is best at *not being constrained*, and the constraint is expected to change the ranking. Shortlist selected by property (non-reasoning · sound quant · structured-output discipline), not size: **Granite 4.1 3B/8B** (Apache-2.0, non-reasoning by design, built for structured output), **Ministral 3 8B**, **Gemma 4 E4B**, **Nemotron-mini 4B**, against incumbents `qwen3.5:4b` / `qwen3:4b-instruct`.
   4. **ICE must state a REQUIREMENT, not a model name** — "returns non-empty JSON within N tokens" — verified once at startup with a throwaway call, failing loudly rather than silently building nothing. ⚠ Today it picks by **JSON key order** in `models/model_registry.json`, and `settings.default_fallback_model` is **`qwen2.5:7b`**, the broken quant — which is also what a wrong working directory silently falls back to (see [G31](#g31)).
 
 ## Track B — Classifier & routing
@@ -757,7 +837,7 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 
 ## SEMIFINAL — Full end-to-end system test (do SECOND LAST, after everything above)
 
-- [ ] **Z1 Complete live system test** `(gate)` — **The very last thing, once every item above is done.** Bring up the *whole* stack (`./ice`: docker postgres+redis, Ollama, celery worker+beat, uvicorn proxy — bg model SHARED per the C7 decision; vLLM only if testing the optional dedicated config; `./ice` is still the dev harness at Z1 time — the packaged app and E7's headless-MCP boot replace it *after* this gate, per the F end-state) and drive a real end-to-end run through our frontend / the API: real chat turns → classify → retrieve → assemble → route → stream → post-flight → codex/procedural extraction → reconciliation → enrichment → clustering → decay → reflection. Verify the pieces that could only be *stubbed/DB-validated* during development actually work against the live background model — especially the LLM-dependent ones flagged "pending live validation": A2 extraction quality + over-rejection rate, A6 reconciliation decisions, A7.3 note enrichment (fills the ~1,150-entity backlog), plus MoE routing, summaries, and the full worker cadence. Measure, not just run: re-check the Codex contribution and retrieval quality now that A1–A7/A10 landed. This is the acceptance gate for the whole post-paper cycle. **Expanded (user, 2026-07-10): Z1 is also the tuning + coverage gate — "test every single thing" is encoded here, and FINAL stays strictly after it.** (a) **Whole-system coverage matrix:** enumerate every subsystem/module × which roadmap item touched it this cycle; anything untouched gets an explicit review pass — nothing ships unexamined just because no item happened to rework it. **→ [G28](#g28) runs inside this pass (user, 2026-07-28): sweep out every keyword list that is doing a classifier's job, the way D8 found DI3 and the temporal gate doing it in two modules at once.** (b) **Staged parameter-tuning pass:** tunable constants live everywhere (leg weights, RRF k, bonuses, thresholds, taus, budget formulas, B2 log-odds weights, T-track pads) and exhaustive combination testing is impossible — so Z1 runs the Z1-prep spec's protocol: consolidate knobs into settings (G9), then tune stage-by-stage along the pipeline in dependency order (candidate generation → fusion → bonuses → budget → decision thresholds), one-factor sweeps per stage against the synthetic ledger auto-scorer (FINAL's machinery, built early and reused here), record a sensitivity verdict per knob (load-bearing / plateau / cosmetic), and freeze the tuned defaults BEFORE FINAL measures the system. **→ spec: [docs/specs/Z1_tuning_coverage.md](specs/Z1_tuning_coverage.md) (greedy stage-wise descent + jitter pass; dynamics solved by invariant math, not sweeps; coverage matrix + pending-validation ledger as Z1's entry checklist; G9 lands as its first commit).**
+- [ ] **Z1 Complete live system test** `(gate)` — **The very last thing, once every item above is done.** Bring up the *whole* stack (`./ice`: docker postgres+redis, Ollama, celery worker+beat, uvicorn proxy — bg model SHARED per the C7 decision; vLLM only if testing the optional dedicated config; `./ice` is still the dev harness at Z1 time — the packaged app and E7's headless-MCP boot replace it *after* this gate, per the F end-state) and drive a real end-to-end run through our frontend / the API: real chat turns → classify → retrieve → assemble → route → stream → post-flight → codex/procedural extraction → reconciliation → enrichment → clustering → decay → reflection. Verify the pieces that could only be *stubbed/DB-validated* during development actually work against the live background model — especially the LLM-dependent ones flagged "pending live validation": A2 extraction quality + over-rejection rate, A6 reconciliation decisions, A7.3 note enrichment (fills the ~1,150-entity backlog), plus MoE routing, summaries, and the full worker cadence. Measure, not just run: re-check the Codex contribution and retrieval quality now that A1–A7/A10 landed. This is the acceptance gate for the whole post-paper cycle. **⚑ Z1 IS ALSO WHERE THE BACKGROUND MODEL IS CHOSEN (2026-08-04)** — [A12](#a12)'s benchmark is not a separate step before Z1; it is Z1's LLM-touching isolation tests run across the candidate shortlist, giving a per-component ranking. Only LLM-touching components sweep; retrieval/scoping/budget are model-independent and run once. See the 📋 inventory block at the top. **Expanded (user, 2026-07-10): Z1 is also the tuning + coverage gate — "test every single thing" is encoded here, and FINAL stays strictly after it.** (a) **Whole-system coverage matrix:** enumerate every subsystem/module × which roadmap item touched it this cycle; anything untouched gets an explicit review pass — nothing ships unexamined just because no item happened to rework it. **→ [G28](#g28) runs inside this pass (user, 2026-07-28): sweep out every keyword list that is doing a classifier's job, the way D8 found DI3 and the temporal gate doing it in two modules at once.** (b) **Staged parameter-tuning pass:** tunable constants live everywhere (leg weights, RRF k, bonuses, thresholds, taus, budget formulas, B2 log-odds weights, T-track pads) and exhaustive combination testing is impossible — so Z1 runs the Z1-prep spec's protocol: consolidate knobs into settings (G9), then tune stage-by-stage along the pipeline in dependency order (candidate generation → fusion → bonuses → budget → decision thresholds), one-factor sweeps per stage against the synthetic ledger auto-scorer (FINAL's machinery, built early and reused here), record a sensitivity verdict per knob (load-bearing / plateau / cosmetic), and freeze the tuned defaults BEFORE FINAL measures the system. **→ spec: [docs/specs/Z1_tuning_coverage.md](specs/Z1_tuning_coverage.md) (greedy stage-wise descent + jitter pass; dynamics solved by invariant math, not sweeps; coverage matrix + pending-validation ledger as Z1's entry checklist; G9 lands as its first commit).**
   - **B2's log-odds weights: MEASURED AND LEFT ALONE (2026-07-27).** This entry first said re-tuning B2 was Z1-prep's highest-value target, on the reasoning that v1's `p_ltm` was one class's share of a 3-way softmax while v2's is a saturating sigmoid, so `_logit(p_ltm)` now spans a wider range and every additive bump is mis-scaled against it. **The reasoning was sound and the conclusion was wrong** — it was then actually swept (`scripts/classifier/pipeline/tune_b2.py`, coordinate descent over seven knobs, scored on 256 positives / 655 negatives drawn from the 207 user probes + 104 authored adversarial probes + held-out no-memory rows). Result: under the correct objective the shipped defaults are **already essentially optimal for the v2 head**; the only admissible change is `ltm_bump_creative` 0.7 → 0.35, worth +0.005 specificity with zero movement on either probe family, i.e. noise. Not applied.
     **The objective is the load-bearing part of that finding, and Z1-prep must keep it.** Plain balanced accuracy *does* find a +0.0105 "improvement" — by zeroing four bumps and buying specificity with recall (0.922 → 0.871). That is the wrong trade for a **silent** gate: a false negative means retrieval never ran, the answer is quietly worse, and nothing signals it; a false positive costs one wasted round-trip that the assembler's budget already bounds. So the sweep maximises **specificity subject to recall not falling below the shipped baseline**, and its per-family report exists to catch exactly the overfit that balanced accuracy walked into (the user-probe family *lost* 0.058 under it). Two further traps the script now handles and a hand-tune would not: three knobs (`ltm_bump_low_confidence`, `ltm_bump_reference`, `ltm_length_weight`) are **inert on this data** — every value scores identically because they never flip a decision — so a naive argmax silently zeroes them by tie-breaking and it reads as a finding; and `ltm_bump_reference` can only fire via DI3's anaphora path, which a direct-model harness never exercises. Re-run the script when the synthetic ledger scorer exists; do not hand-edit these constants.
 

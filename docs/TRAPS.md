@@ -104,6 +104,14 @@ public repo for two days. Verification is
 actually hands out. Also: **never resolve a tag mismatch by forcing one side to
 win without first asking which side predates the rewrite** — doing exactly that
 is what overwrote the good local tag with the bad remote one.
+**Closed 2026-08-04:** re-pointing the tag fixed reachability, but GitHub keeps
+unreachable objects fetchable by direct SHA until it garbage collects, so a
+Support ticket was needed for the server-side sweep. Confirmed done — the
+pre-filter commit and tag object now return 422 while the good tag target still
+returns 200 (the control that stops the check passing vacuously).
+⇒ **Re-pointing a ref is not deletion.** After any history rewrite on a hosted
+remote, the objects survive until the host GCs them, and only the host can do
+that.
 
 ### 13. A hand-authored probe set grades the author's imagination, not the system
 The relation-matching ladder scored **24/24, zero errors** on 31 probes written
