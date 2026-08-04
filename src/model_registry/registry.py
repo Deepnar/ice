@@ -2,9 +2,15 @@
 
 import json, os, time, re
 import httpx
-from openai import OpenAI
+import structlog
 from src.api.config import settings
-from src.workers.bg_client_factory import get_bg_client
+
+logger = structlog.get_logger("ice.model_registry")
+from src.workers.bg_client_factory import (
+    get_bg_client,
+    get_bg_model_name,
+    json_schema,
+)
 
 REGISTRY_PATH = "models/model_registry.json"
 
@@ -159,8 +165,14 @@ def _map_hf_tags_to_ice(tags):
 def _tag_with_bg_model(name: str) -> dict:
     bg_client = get_bg_client()
     try:
+        # This used to hardcode "Qwen/Qwen2.5-3B-Instruct-AWQ" — the *dedicated*
+        # mode default — while get_bg_client() in the default *shared* mode
+        # points at Ollama, which has no such model. Verified 2026-08-04: the
+        # call returned `404 model not found` on every invocation and the bare
+        # `except Exception` below turned that into empty tags, so background
+        # model auto-tagging had silently never worked in the shipped config.
         completion = bg_client.chat.completions.create(
-            model="Qwen/Qwen2.5-3B-Instruct-AWQ",
+            model=get_bg_model_name(),
             messages=[
                 {
                     "role": "system",
@@ -202,10 +214,25 @@ def _tag_with_bg_model(name: str) -> dict:
             temperature=0.0,
             max_tokens=150,
             timeout=15.0,
+            response_format=json_schema("model_tags", {
+                "type": "object",
+                "properties": {
+                    "topic_tags": {"type": "array", "items": {
+                        "type": "string", "enum": sorted(set(HF_TOPIC_MAP.values()))}},
+                    "intent_tags": {"type": "array", "items": {
+                        "type": "string", "enum": sorted(set(HF_INTENT_MAP.values()))}},
+                },
+                "required": ["topic_tags", "intent_tags"],
+            }),
         )
-        raw = completion.choices[0].message.content.strip()
+        raw = (completion.choices[0].message.content or "").strip()
         return json.loads(raw)
-    except Exception:
+    except Exception as exc:
+        # A fallback must be observable (CLAUDE.md): returning empty tags here
+        # is indistinguishable from "this model genuinely has no tags", which
+        # is how the 404 above stayed invisible.
+        logger.warning("model_autotag_failed", model_name=name,
+                       error=str(exc)[:200])
         return {"topic_tags": [], "intent_tags": []}
 
 

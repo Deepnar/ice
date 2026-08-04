@@ -391,10 +391,12 @@ def make_llm_decider():
         bg_timeout,
         get_bg_client,
         get_bg_model_name,
+        json_schema,
     )
     client = get_bg_client()
 
-    def _decide(prompt: str, max_tokens: int = 200) -> Optional[dict]:
+    def _decide(prompt: str, max_tokens: int = 200,
+                schema: Optional[dict] = None) -> Optional[dict]:
         try:
             resp = client.chat.completions.create(
                 model=get_bg_model_name(),
@@ -402,7 +404,14 @@ def make_llm_decider():
                            "content": "You output exactly one JSON object and nothing else."},
                           {"role": "user", "content": prompt}],
                 temperature=0.0, max_tokens=max_tokens,
-                response_format={"type": "json_object"},
+                # `{"type": "json_object"}` used to be here and it did NOTHING:
+                # measured 2026-08-04, it scored 0/8 for conformance, exactly as
+                # if no constraint had been sent, while `json_schema` scored 8/8
+                # through the same endpoint. Both return HTTP 200, which is why
+                # it went unnoticed. When the caller knows the answer's shape it
+                # passes one; otherwise we send no constraint rather than a
+                # decorative one.
+                response_format=json_schema("agent_decision", schema) if schema else None,
                 timeout=bg_timeout(max_tokens))
             raw = (resp.choices[0].message.content or "").strip()
             if raw.startswith("```"):
@@ -431,8 +440,23 @@ def _turn_for_batch(db, batch_id) -> str:
 
 
 def _ask_enum(llm_decider, prompt: str, key: str, allowed: tuple) -> str:
-    """One decider call, answer forced into the enum; anything else ⇒ unsure."""
-    parsed = llm_decider(prompt)
+    """One decider call, answer forced into the enum; anything else ⇒ unsure.
+
+    An enum is the right tool HERE, unlike the codex relation vocabulary: this
+    is a closed decision set that already contains "unsure", so a model with no
+    good answer has a legal way to say so. The relation vocabulary has no such
+    escape and forcing a choice there produced ~78% wrong facts (PROVENANCE,
+    2026-08-04) — the difference is whether declining is expressible.
+    """
+    options = tuple(allowed) + (() if "unsure" in allowed else ("unsure",))
+    schema = {"type": "object",
+              "properties": {key: {"type": "string", "enum": list(options)}},
+              "required": [key]}
+    try:
+        parsed = llm_decider(prompt, schema=schema)
+    except TypeError:
+        # a caller-supplied stub decider (tests) may not accept the kwarg
+        parsed = llm_decider(prompt)
     if not isinstance(parsed, dict):
         return "unsure"
     value = str(parsed.get(key, "")).strip().lower().replace(" ", "_").replace("-", "_")
