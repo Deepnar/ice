@@ -84,7 +84,12 @@
 >   (cross-conversation), **[H2](#h2)** (multi-user), **[H3](#h3)** (year-scale),
 >   **[H5](#h5)** (fine-tune scheduling on user machines).
 >
-> ⚠ **The split is a triage, not a contract.** Two known soft edges: **[G12](#g12)** (dynamic
+> ⚠ **The split is a triage, not a contract, and HOW it was made limits how far to trust
+> it:** each item was classified from its **entry text plus the 2026-08-04 session's
+> context — NOT by re-reading all 56 entries end to end.** The broad boundaries are sound
+> (all of Track F is productization; the gates and the correctness bugs are not), but a
+> few Track G items could move once someone reads them closely. **If you are about to
+> rely on one item's placement, read that entry first.** Known soft edges: **[G12](#g12)** (dynamic
 > timeouts) may already be satisfied by `bg_timeout()` and wants an audit before it is either
 > checked off or kept; and anything Z1/Z2 *find* is pre-FINAL by definition regardless of
 > which list it started in.
