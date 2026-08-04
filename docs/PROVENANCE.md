@@ -915,3 +915,111 @@ identity.
    "intent_tags": []}`. Background model auto-tagging has been dead in the
    default configuration, silently — a third instance of the CLAUDE.md
    silent-fallback rule.
+
+### The relation-matching evidence run (2026-08-04)
+
+Run to decide how G32/a1 should handle the relation vocabulary. **It overturned
+the design the session had converged on**, so the numbers matter more than the
+conclusion that preceded them.
+
+**Setup.** 300 turns, **identical across both arms** (fixed seed 20260804):
+150 personal (`data/simulation/simulation_full.jsonl`, gitignored) + 150 public
+(50 each lmsys / wildchat / sharegpt from `data/labeled/v2/corpus_raw.jsonl`),
+all ≥60 words. Model **`qwen3:4b-instruct`** — the 26B arms were dropped
+mid-run because A12 already decided one small model, so characterising the 26B
+would describe a model ICE will not ship. Harness is standalone (`harvest.py`),
+**not** `extract_triplets`, because that function drops out-of-vocabulary
+relations at `codex_extractor.py:514` — the dependent variable. Fidelity is
+preserved where it counts: the prompt is **captured from the real
+`extract_triplets` via a stub client**, asserted to contain **197/197**
+relations, the category headers, and the *"if nothing fits, SKIP IT"* rule.
+No filtering of any kind is applied afterwards.
+
+**Arm C — JSON shape constrained, `relation` left free text.**
+
+| | |
+|---|---|
+| triplets | 1,699 (689 distinct relations) |
+| in-vocabulary | 547 — **32.2%** |
+| **out-of-vocabulary** | **1,152 — 67.8%**, every one silently destroyed today |
+
+Out-of-vocabulary rate by source: lmsys 62% · personal 66% · wildchat 70% ·
+sharegpt 78%. The most frequent misses are not near-misses of vocabulary terms,
+they are **ordinary English the 197-word list does not contain**: `is` (92×),
+`has` (68×), `includes` (29×), then a long tail of free inventions
+(`is_exam_of`, `exists_in`, `designed_as`, `has_task`).
+
+**The deterministic ladder, measured on that real output.** Levels are
+exact → lexical normalisation → rule-based (helper verbs, articles, preposition
+synonyms) → alias dictionary → lemmatisation (nltk WordNet) → fuzzy
+(rapidfuzz) → token containment → embedding.
+
+| level | distinct resolved | occurrences resolved |
+|---|---|---|
+| L1 exact | 0/606 | 0.0% |
+| L2 normalize | 2/606 | 0.2% |
+| L3 rules | 5/606 | 0.7% |
+| L6 lemmatize | 13/606 | 2.7% |
+| L5 fuzzy WRatio ≥90 | 52/606 | 20.9% |
+| L5 fuzzy ratio ≥92 | 4/606 | 0.5% |
+| containment | 30/606 | 3.7% |
+| L7 embedding ≥0.85 | 46/606 | 23.9% |
+| **cascade L1▸L2▸L3▸L6▸L5(92)▸containment** | **38/606** | **5.7%** |
+
+⚠ **A 31-probe hand-authored set scored this same cascade at 24/24 with zero
+errors.** Real output scores it at **5.7%**. The probe set was written by the
+same author as the ladder and tested the failures that author imagined
+(space-vs-underscore, typos, helper verbs); the model's actual failure is
+**inventing new concepts**, which no string method can map. Recorded as
+[TRAPS](TRAPS.md) #13.
+
+Hand-audit of the cascade's 29 distinct proposals: ~4 are wrong (≈14%), and
+**two are direction inversions** — `is_used → uses` and `is created by →
+created` reverse the subject and object. Both came from containment/lemmatise,
+neither of which knows about direction.
+
+**Arm D — same 300 turns, plus the 197-value enum at the decoder.**
+
+| | |
+|---|---|
+| triplets | 1,673 (143 distinct) — essentially unchanged volume |
+| in-vocabulary | **100%** by construction |
+
+Paired against arm C on the **716** `(turn, subject, object)` triples both arms
+produced identically: the relation agrees on 406 (**57%**), differs on 310, and
+in **292** of those the shape arm's pick was out-of-vocabulary — i.e. those are
+facts today's code destroys and the enum "rescues".
+
+**Hand-audit of the top 45 rescues: roughly 8–10 are acceptable and ~35 are
+wrong (≈75–80%).** The failure has a clear shape — a few relations act as
+**attractors** that absorb anything inexpressible:
+
+    is                    -> is_employed_by   (7x)
+    is_defined_by         -> is_dating        (6x)
+    is_family_member_of   -> is_dating        (3x)
+    monitors              -> is_employed_by   (3x)
+    is_sibling_of         -> is_separated_from(2x)
+    has_environmental_impact -> is_founder_of (2x)
+
+against genuine successes like `includes → contains` (10×), `feature →
+features`, `worked_on → works_on`, `involved_in → participates_in`.
+
+⇒ **The enum converts ~1,126 silently-dropped facts into confidently-wrong
+ones.** A dropped fact costs recall; a wrong fact is retrieved and served as
+truth. The enum is **not** adopted.
+
+**Truncation — a separate live bug, confirmed.** At production's
+`max_tokens=500`, `finish_reason == "length"` occurred on **2 of 12** turns and
+the JSON was unparseable every time. **Constrained decoding does not prevent
+this** — it guarantees a valid grammar *prefix*, not completion within budget.
+`finish_reason` is present on every response and **no caller in `src/` reads
+it**.
+
+**What the run actually establishes.** The problem is not the transport, the
+constraint, or the matching algorithm — it is that **the 197-relation
+vocabulary does not fit real conversation**, and the three most-wanted
+relations are `is`, `has` and `includes`. Neither dropping (32% kept) nor
+forcing (100% kept, ~78% wrong) is acceptable, and string matching recovers
+5.7%. The decision belongs to a vocabulary experiment with this data in hand —
+scheduled at **Z2** — and the 606 ranked missing relations this run produced
+are its input.

@@ -104,3 +104,16 @@ public repo for two days. Verification is
 actually hands out. Also: **never resolve a tag mismatch by forcing one side to
 win without first asking which side predates the rewrite** — doing exactly that
 is what overwrote the good local tag with the bad remote one.
+
+### 13. A hand-authored probe set grades the author's imagination, not the system
+The relation-matching ladder scored **24/24, zero errors** on 31 probes written
+by the same session that designed it. On 1,152 real out-of-vocabulary relations
+harvested from 300 turns, the identical cascade scored **5.7%**. The probes
+tested the failures the author *expected* — space-vs-underscore, typos, helper
+verbs — and the model's actual failure is **inventing new concepts**
+(`is_exam_of`, `exists_in`, `has_task`), which no string method can map. The
+top three real misses were `is`, `has`, `includes`: ordinary English the
+197-word vocabulary simply lacks.
+⇒ **Before a hand-built probe set is allowed to decide anything, harvest the
+real distribution and check the probes look like it.** A probe set authored
+alongside the solution is a mirror, and it will agree with you.
