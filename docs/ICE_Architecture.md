@@ -399,15 +399,58 @@ The Codex Extractor (workers/codex_extractor.py::extract_codex, plain callable s
 
 4b. **NER grounding — entity confirmation (roadmap A2).** Before the LLM call, each chunk is run through the shared CPU micro-NER (`extract_entities`, §4.6) to produce a confirmed entity list. When non-empty, that list is injected into the extraction prompt as a **CONFIRMED ENTITIES** block instructing the model to use only those as subjects/objects and introduce no new named entities. This splits the cognitive load — the LLM reasons about relations, not entity discovery.
 
-5. **Background-model extraction.** The extractor calls the background model via `get_bg_client()` / `get_bg_model_name()` (mode-selected: dedicated vLLM :8002 Qwen2.5-3B, or shared Ollama; see §10.5). The prompt renders the relation vocabulary as grouped \# category: … headers, imposes six strict rules (use only individual relation words; canonicalise subjects/objects; property facts use the property relation as the relation; the relation must make logical sense; never output a category header as a relation; output only a JSON array), appends a code-specific sub-prompt when Software_&_Tech is in the topic tags, and appends the CONFIRMED ENTITIES block from 4b. Decoding: temperature=0.0, max_tokens=500, timeout=30.0.
+5. **Background-model extraction.** The extractor calls the background model via `get_bg_client()` / `get_bg_model_name()` (mode-selected: dedicated vLLM :8002 Qwen2.5-3B, or shared Ollama; see §10.5). The prompt renders the relation vocabulary as grouped \# category: … headers, imposes six strict rules (use only individual relation words; canonicalise subjects/objects; property facts use the property relation as the relation; the relation must make logical sense; never output a category header as a relation; output only a JSON array), appends a code-specific sub-prompt when Software_&_Tech is in the topic tags, and appends the CONFIRMED ENTITIES block from 4b. Decoding: temperature=0.0, **max_tokens=`codex_extraction_max_tokens` (1,200)**, timeout scaled by G12. **The output SHAPE is constrained at the decoder** (G32/a1): `response_format` carries a JSON schema pinning the triplet array and its required keys, which removes malformed-by-confusion output entirely. `relation` is deliberately left **free text** — see §4.4b. The budget rose from 500 because `finish_reason == "length"` was truncating whole turns into unparseable JSON; a schema guarantees a valid *prefix*, not a complete document, so the constraint does not cover truncation and `bg_client_factory` now warns on it.
 
-6. **Triplet validation.** (i) Markdown-fence strip; (ii) json.JSONDecoder().raw_decode with a regex fallback r'\\\{\\s*"subject"\\s*:\\s*"([^"]+)"\\s*,\\s*"relation"\\s*:\\s*"([^"]+)"\\s*,\\s*"object"\\s*:\\s*"([^"]+)"\\s*\\\}'; (iii) shape filter (all three keys present); (iv) vocabulary filter (relation in ALLOWED_RELATIONS); (v) verb-phrase filter dropping triplets whose object is in \{"blush","laugh","cry","smile","angry","sad","happy","mad"\}; (vi) self-reference filter dropping triplets whose normalised subject equals its object (kills `fastapi uses fastapi`); (vii) **NER grounding → extraction confidence** (`_ground_triplets`, A2+A3) — each triplet's subject (and, for non-property relations, object) is checked against the confirmed entities by normalised-exact or token-subset comparison, and the result sets its confidence: CONF_GROUNDED = 0.9 on pass, CONF_REJECTED = 0.35 on fail (**stored anyway** — retrieval's trust gates keep it out of context until corroborated, and decay expires it if it never is), CONF_UNGROUNDED = 0.7 when NER returned no entities for the chunk (nothing to ground against). Cross-chunk dedup keeps the highest confidence seen per (subject, relation, object). `handle_triplet` stores the value on new edges as extraction_confidence and raises it to the max seen on corroborating re-extraction.
+6. **Triplet validation.** (i) Markdown-fence strip; (ii) json.JSONDecoder().raw_decode with a regex fallback r'\\\{\\s*"subject"\\s*:\\s*"([^"]+)"\\s*,\\s*"relation"\\s*:\\s*"([^"]+)"\\s*,\\s*"object"\\s*:\\s*"([^"]+)"\\s*\\\}'; (iii) shape filter (all three keys present); (iv) **vocabulary mapping + gap ledger (G32/a1, replaces a silent filter)** — see §4.4b; (v) verb-phrase filter dropping triplets whose object is in \{"blush","laugh","cry","smile","angry","sad","happy","mad"\}; (vi) self-reference filter dropping triplets whose normalised subject equals its object (kills `fastapi uses fastapi`); (vii) **NER grounding → extraction confidence** (`_ground_triplets`, A2+A3) — each triplet's subject (and, for non-property relations, object) is checked against the confirmed entities by normalised-exact or token-subset comparison, and the result sets its confidence: CONF_GROUNDED = 0.9 on pass, CONF_REJECTED = 0.35 on fail (**stored anyway** — retrieval's trust gates keep it out of context until corroborated, and decay expires it if it never is), CONF_UNGROUNDED = 0.7 when NER returned no entities for the chunk (nothing to ground against). Cross-chunk dedup keeps the highest confidence seen per (subject, relation, object). `handle_triplet` stores the value on new edges as extraction_confidence and raises it to the max seen on corroborating re-extraction.
 
 7. **Deduplication.** Keyed on the case-normalised (subject, relation, object) triple, so multi-chunk repeats across overlap windows collapse.
 
 8. **Write + reconcile (A6).** Each surviving triplet is passed to handle_triplet, which now runs a **bounded self-correction loop** before applying the fixed write rules (non-property relations only — property relations already supersede). `check_conflict` is a cheap deterministic pre-filter: it queries the graph only when the relation has a known **antonym** (friend↔enemy, married_to↔is_divorced_from, endorses↔criticises, …) or when a **multi-valued** relation coincides with a **supersession cue** in the turn text ("migrated off", "no longer", "switched from", "replaced", …); the ~95% of triplets with neither take a dict-lookup fast path. On a hit, `reconcile_conflict` resolves it: **antonym reversals are deterministic** — the newly-asserted state expires its opposite for that pair, *no LLM* — while **ambiguous supersessions** ("migrated off X" vs "considered migrating") are the *only* case that consults a model: a bounded one-word reconciler (`make_llm_reconciler`, background model, max_tokens=5) returns expire_old / keep_both / reject_new; anything else, or no reconciler, falls to a `review_queue` row with the new edge kept (never auto-expire on a guess). This deliberately keeps a small model's write-authority over the source-of-truth minimal (the notes' full autonomous "Memory Maintenance Agent" is Track D). `handle_triplet(turn_text, reconciler)` and the standalone `check_conflict`/`reconcile_conflict` are callable units so the Track D agent can later drive the loop with its own reconciler. *(The review-queue fallback is not user-visible until the frontend renders it — F2.)*
 
 9. **Idempotency.** idempotency_key = sha256("codex:" + batch_id); on a hit the callable returns immediately. The key insert shares the worker's transaction, so a crash before commit leaves no key (retry re-runs) and a crash after commit leaves the key (retry is a no-op) — turning the runtime's at-least-once retries into effectively-once side effects.
+
+### **4.4b Relation vocabulary — mapping, and the gap ledger (G32/a1, 2026-08-04)**
+
+Step (iv) of the pipeline used to be one line — `[t for t in triplets if t["relation"] in
+ALLOWED_RELATIONS]` — with no log. Measured over 300 real turns (PROVENANCE, 2026-08-04)
+**it was discarding 67.8% of everything the model produced**, and the three most frequent
+casualties were `is` (92×), `has` (68×) and `includes` (29×): ordinary English the 197-word
+vocabulary does not contain, not near-misses of it. Extraction spent the GPU, looked
+healthy, and mostly deleted its own output.
+
+Three things replace it.
+
+**1. Normalisation (`normalize_relation`).** Case, separators and leading helper verbs only —
+`Works On` / `works-on` / `works on` → `works_on`, `is located in` → `located_in`. This is
+safe because **no two vocabulary entries collide once separators are stripped** (verified
+across all 197, and pinned by a test). It is deliberately narrow: the fuller ladder
+(lemmatisation, fuzzy matching, token containment, embeddings) was built and measured at
+**5.7%** recovery while introducing *direction inversions* — `is_used → uses`,
+`is created by → created` — which write a fact backwards. Those tiers are **premature, not
+useless**: once the vocabulary is repaired the residual failures genuinely will be
+near-misses, and they become worth adding.
+
+**2. The gap ledger (`codex_relation_gaps`).** What still does not map is written as a row
+carrying the model's own wording *and* the subject/object, rather than dropped. Two
+consequences: the table ranks what the vocabulary is missing — the input the Z2 vocabulary
+experiment needs and previously could not obtain, because the evidence was destroyed at the
+moment of creation — and a relation added later can be replayed straight into the graph with
+**no new LLM call**, since the fact was already extracted. Rows are `pending` until promoted
+or dismissed.
+
+**3. A loud drop.** `codex_relation_out_of_vocabulary` is emitted at WARNING on every chunk
+that loses a triplet, with the count and a sample. The rate *is* the finding.
+
+**Why the relation is not enum-constrained**, when the shape is: the vocabulary has no way
+to say "none of these". Pinning `relation` to the 197 values keeps 100% of triplets, but on
+the same 300 turns **~78% of the ones it rescued were wrong** — a few relations act as
+attractors for anything inexpressible (`is → is_employed_by`, `is_family_member_of →
+is_dating`, `is_sibling_of → is_separated_from`). A dropped fact costs recall; a wrong fact
+is retrieved and served as truth. The capability is wired and switchable
+(`codex_constrain_relation_enum`, default off) because **the decision belongs to Z2**, with
+the ledger's data in hand. Contrast the enums that *are* used — `DOCUMENT|TRANSCRIPT`, the
+four reconciliation verdicts, `user|assistant` — all genuinely closed sets where declining is
+either impossible or itself a legal answer.
 
 ### **4.5 Relation-aware retrieval and enumeration (A4 — replaces MERA)**
 
@@ -552,7 +595,7 @@ Before the legs run, _relevant_cluster_ids(prompt_embedding, classification, con
 
 **The window.** `model_registry/runtime_probe.py` reads `/api/ps` (the live runner's allocation) then `/api/show` (the GGUF ceiling) and logs `{registry, runtime_ps, gguf_max, budget_derived}` on every request, warning when the budget exceeds any visible ceiling. This is not theoretical: `tinyllama` is registered at 8,192, serves 2,048, and `derive_total_budget`'s **minimum guardrail** handed it 4,000 — a "minimum" that guarantees an overflow on any model smaller than itself. Reality now outranks the floor, and `context_generation_reserve` (2,048) comes off the top because nothing reserved room for the answer at all.
 
-**⚠ Silent truncation is real and measured.** An oversized prompt to `tinyllama` logged `predicted=2909 / actual=2047` — the server cut the prompt to the model's window. Truncation keeps the **newest** messages, so the block most likely destroyed is the retrieved memory ICE just built. `num_ctx` can now be sent (`ollama_send_num_ctx`, off by default — a bigger KV cache costs VRAM and can evict the generation model).
+**⚠ Silent truncation is real and measured.** An oversized prompt to `tinyllama` logged `predicted=2909 / actual=2047` — the server cut the prompt to the model's window. Truncation keeps the **newest** messages, so the block most likely destroyed is the retrieved memory ICE just built. `num_ctx` can be *set* in config (`ollama_send_num_ctx`, off by default), but **measured 2026-08-04 it never reaches Ollama**: the OpenAI-compatible `/v1` shim silently discards `options`, so the parameter is inert until G32(b) moves the chat path to the native endpoint. The same run showed 0.30.7 **grows the runner** rather than truncating when the model *can* grow — silent truncation is confined to prompts over the model's architectural ceiling (`tinyllama`, 2,048), where **both** transports truncate at HTTP 200 with `done_reason: "stop"`.
 
 **The ledger.** `api/context_ledger.py` accounts every block — system prompt, slots, session-start, constraints, summary, bookmarks, recent turns, evidence, the user's message, chat-template overhead — in real tokens. `OVERHEAD_RESERVE = 1_800` was fiction: `VALID_SLOTS` permits 13 slots × 300 tokens (3,900 alone), the project session-start block has no cap and embeds a raw git diffstat, and the user's own message was never counted. **The question now subtracts from the memory budget, with a floor** (`context_budget_floor`) — on the turn where someone pastes 10,000 words ICE used to add its full allowance on top. Under pressure blocks are evicted **static before evidence**; **E8 constraints are exempt entirely** (user decision, 2026-07-29 — they are static in shape but they are *user preferences*, and losing one is the failure that feature exists to prevent).
 
@@ -852,7 +895,7 @@ api/config.py defines a Pydantic Settings(BaseSettings) with SettingsConfigDict(
 
 - **Embedding identity (G23/C17)**: embedding_model_name (Qwen/Qwen3-Embedding-0.6B), embedding_dim (1024) — the pair the startup guard compares against store_meta (§10.7); changing either requires a migration plus scripts/ice_reembed.py.
 
-- **Maintenance runtime (C7)**: maintenance_intervals (per-job cadences dict, §8.1), user_active_threshold_seconds (90), idle_burst_seconds (120), auto_finetune (False), finetune_min_curated (20), background_model_name (None ⇒ chat model), bg_timeout_base_seconds (30), **bg_disable_reasoning (True — sends `reasoning_effort="none"` on every background call; without it the whole background layer returns empty content, see §8)**, **job_yield_grace_seconds (10 — a RUNNING job stands down if the user did anything this recently, G4a §8.1)**.
+- **Maintenance runtime (C7)**: maintenance_intervals (per-job cadences dict, §8.1), user_active_threshold_seconds (90), idle_burst_seconds (120), auto_finetune (False), finetune_min_curated (20), background_model_name (None ⇒ chat model), bg_timeout_base_seconds (30), **bg_disable_reasoning (True — sends `reasoning_effort="none"` on every background call; without it the whole background layer returns empty content, see §8)**, **job_yield_grace_seconds (10 — a RUNNING job stands down if the user did anything this recently, G4a §8.1)**, **codex_constrain_shape (True — JSON-schema constrained decoding on extraction; §4.4b)**, **codex_constrain_relation_enum (False — also pin `relation` to the 197-value vocabulary; measured to make ~78% of what it rescues wrong, kept switchable because the call is Z2's, §4.4b)**, **codex_extraction_max_tokens (1200 — raised from 500, where truncation cost whole turns)**.
 
 - **Upstream LLM**: ollama_base_url (http://localhost:11434), default_fallback_model (qwen2.5:7b — ⚠ **measured broken on this machine**: degenerate repetition on short and long inputs; it is the floor under four different decisions and is what a wrong working directory silently falls back to, roadmap G31/A12), background_model_mode (**shared** since C7 — dedicated is the manual power-user path).
 
