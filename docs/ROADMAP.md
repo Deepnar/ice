@@ -113,6 +113,52 @@
 > (otherwise the benchmark measures which model is best at *not* being constrained) — that
 > shipped with G32/a1 on 2026-08-04.
 >
+> ### 🧭 THE ROUTE INTO Z1 — three clusters, in this order (decided 2026-08-04)
+>
+> Grouped by *what breaks if you skip them*, not by track letter. The through-line: G32/a1
+> fixed what happens to facts **after** the model returns them; these are the two sides of
+> that — whether the input was intact, and whether the output is clean — plus the machinery
+> Z1 needs to exist before it can measure anything.
+>
+> **① MAKE THE INSTRUMENT TRUSTWORTHY — [G31](#g31) · [G5](#g5) · [G25](#g25).**
+> Each of these makes a *measurement* lie or leak, and Z1's whole job is measuring components
+> in isolation. Fixing them after Z1 means re-running Z1.
+> - **[G31](#g31) first — smallest, pure win, and it has ALREADY produced two false findings.**
+>   Outside the repo root the NER silently drops to a capitalized-word regex and the registry
+>   returns `{}` so the bg model becomes the measured-broken `qwen2.5:7b`. On 2026-08-03 both
+>   fired by accident: one run's NER entity count fell **52.7 → 34.1**, another's model
+>   silently swapped, and *both looked like findings* until someone checked `pwd`. Z1 runs
+>   many scripts; it will happen again and may not be caught next time.
+> - **[G5](#g5)** is the INPUT side of what a1 just fixed on the output side: unclosed SSE
+>   chunks are dropped silently, a truncated `raw_text` is stored, and every triplet, summary
+>   and embedding downstream is degraded with nothing saying so.
+> - **[G25](#g25)** — raw prompts in logs, and **the repo is public as of 2026-08-04**
+>   (verified: `visibility: public`). Z1 and Z2 both generate heavy logs over real personal
+>   conversations, so this lands *before* those runs, not after.
+>
+> **② THE CODEX WRITE PATH'S REMAINING HOLES — [G33](#g33) · [G11](#g11) · [G7](#g7).**
+> Same subsystem a1 just worked in, so a session picks it up warm.
+> - **[G33](#g33) needs a DECISION, not just a delete** (don't create the node, or make it
+>   answer). Worked example: `kael --role→ fire mage` stores the property *and* creates a
+>   `fire mage` node whose payload is empty forever. It is still a matchable pre-flight
+>   anchor, `orchestrator.py:1530` then skips it for having an empty payload, so the anchor
+>   slot is spent for nothing and may displace a real entity. Already pinned as a known leak
+>   in `test_codex_write_path.py`.
+> - **[G11](#g11)** matters *specifically now*: only decayed turns are summarised, so very old
+>   undecayed turns in long conversations never compress — and [Z2](#z2)'s corpus
+>   recommendation is **massive conversations**, which is exactly where it bites.
+> - **[G7](#g7)** is cheap and duplicate turns would skew any count Z1 produces.
+>
+> **③ Z1-PREP PROPER — [G9](#g9) · [G30](#g30) · [G28](#g28).** Only after ① and ②.
+> G9 is Z1's designated first commit (you cannot tune what is not a setting); G30 builds
+> machinery Z1 needs (`main.py` untested, retrieval quality resting on 3 assertions); G28 runs
+> *inside* Z1's coverage matrix and must not be pulled forward.
+>
+> **Two cheap warm-ups, same session as G31:** audit **[G12](#g12)** — it may already be
+> satisfied by `bg_timeout()`, and it should not sit ambiguous (flagged as a soft edge above);
+> and note the **`codex_relation_gaps` ledger fills itself** from any extraction that runs, so
+> every Z1/Z2 activity from here accumulates Z2's vocabulary evidence for free.
+>
 > **📌 ADDENDUM 2026-07-29c — the next session is an EVALUATION session and writes no production code (user).** It weighs and tests options across three linked questions and produces decisions; adoption is separate, later work. (1) **[A9b](#a9)** — NuNER Zero as a plain NER upgrade, with the standing caveat that NER is ~95% recall and is NOT the bottleneck. The relation model **does not fit** for open triplet extraction: `knowledgator/gliner-multitask-large-v0.5`'s relation labels are `"[Entity] <> [Relation]"`, i.e. slot filling with the subject supplied — verified from the model card. Kept only as a candidate for the `PROPERTY_RELATIONS` leg; its unchecked "Open Information Extraction" mode is the one thing that could reverse this. (2) **[A12](#a12) NEW** — the background pipeline is two families: extraction (NuExtract-class specialist; a 4B reportedly matches 27B generalists) and generation (no specialist exists; a model-size question, measurable with ICE's own `summary_coverage` and therefore needing no new ground truth). (3) **[G4](#g4)** — rescoped to own ICE's VRAM share and ICE's explicitness toward Ollama, background tasks included. ⚠ **A12 and G4 are one problem seen twice**: a 3 GB specialist only fits beside an 18 GB chat model if ICE controls `keep_alive`, and the load/unload cost the user worried about mostly dissolves because background work is already batched and idle-gated. Inventory 50 → **51** (A12 opened).
 >
 > **📌 ADDENDUM 2026-07-29b (same session, after C16 — the A8 bug).** `d0d7f88`. The unverified A8 negation finding carried by the last two handoffs was **reproduced and it was THREE bugs**, all in `_regenerate_context_payload`'s relationship to the write path. (1) `SessionLocal` is `autoflush=False`, so its two edge queries saw the graph **as of the last commit** — never the edge just added or the expiry just set; all **nine call sites across six files** were one write behind. Measured: assert "proj uses postgres" twice → payload EMPTY both times; negate it → payload becomes `Links: uses → postgres`, **the retracted fact rendered as current**, no Negations section. (2) The **non-property branch — the main path, every ordinary relation** — never called it at all; only the property and negation branches did. Since `context_payload` is exactly what the codex leg injects and `orchestrator.py:1530` **skips an entity whose payload is empty**, a freshly extracted entity contributed **nothing** to retrieval until reflection's 2-hour cadence happened to enrich it. ⚠ Weigh against Exp 2's "Codex supplied 3.3% of fragments" — not proof of the cause, but a mechanism that produces exactly that symptom. (3) Only the SUBJECT was regenerated, so A7's `Backlinks` never rendered on the other end of any edge. All three fixed and verified end-to-end. **Also recorded this session:** A9b's scope widened to "does a NER+relation model beat our whole codex setup", with the candidates, the two constraints that could kill it (150-relation vocabulary; negation), the four-layer no-ground-truth method, and the data to use — and **G4 rescoped** to own ICE's VRAM share and ICE's explicitness toward Ollama, background tasks included. Neither is started.
