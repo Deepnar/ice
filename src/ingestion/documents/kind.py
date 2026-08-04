@@ -69,13 +69,22 @@ def _default_llm(prompt: str, system: str) -> str:
         bg_timeout,
         get_bg_client,
         get_bg_model_name,
+        json_schema,
     )
     client = get_bg_client()
     completion = client.chat.completions.create(
         model=get_bg_model_name(),
         messages=[{"role": "system", "content": system},
                   {"role": "user", "content": prompt}],
-        temperature=0.0, max_tokens=8, timeout=bg_timeout(8))
+        temperature=0.0, max_tokens=16, timeout=bg_timeout(16),
+        # A genuinely closed two-value set, so an enum is safe here: there is
+        # no third honest answer to force the model away from.
+        # A bare top-level enum, NOT an object wrapper: the caller matches on
+        # the word, and {"kind": "..."} does not fit the token budget this
+        # call has always used — wrapping it truncated every answer to empty
+        # and the DOCUMENT default then silently swallowed real transcripts.
+        response_format=json_schema("blob_kind", {
+            "type": "string", "enum": ["DOCUMENT", "TRANSCRIPT"]}))
     return completion.choices[0].message.content or ""
 
 

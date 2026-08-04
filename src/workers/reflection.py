@@ -19,7 +19,12 @@ from src.memory.models import (
 from src.retrieval.evolution import log_description_update
 
 logger = structlog.get_logger("ice.workers.reflection")
-from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+from src.workers.bg_client_factory import (
+    bg_timeout,
+    get_bg_client,
+    get_bg_model_name,
+    json_schema,
+)
 
 bg_client = get_bg_client()
 # ------------------------------------------------------------------
@@ -73,19 +78,38 @@ MOTIF_PROMPT = (
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
-def _robust_json(raw: str) -> dict:
-    """Try to extract a JSON object from model output, fall back to empty dict."""
+def _robust_json(raw: str, *, where: str = "?") -> dict:
+    """Extract a JSON object from model output; empty dict if there is none.
+
+    Now LOUD. Every call site is schema-constrained, so reaching the fallback
+    means the constraint did not hold — truncation is the known cause
+    (finish_reason="length"), and an empty dict is indistinguishable from "the
+    model had nothing to say", which is exactly how a dead background layer
+    looked healthy for an unknown length of time (CLAUDE.md, 2026-08-03).
+    """
     try:
         json_match = re.search(r"\{.*\}", raw, re.DOTALL)
-        return json.loads(json_match.group(0)) if json_match else {}
-    except Exception:
+        if json_match:
+            return json.loads(json_match.group(0))
+        logger.warning("reflection_json_absent", where=where, chars=len(raw or ""),
+                       head=(raw or "")[:120])
+        return {}
+    except Exception as exc:
+        logger.warning("reflection_json_unparseable", where=where,
+                       error=str(exc)[:120], head=(raw or "")[:120])
         return {}
 
-def _robust_list(raw: str) -> list:
+def _robust_list(raw: str, *, where: str = "?") -> list:
     try:
         json_match = re.search(r"\[.*\]", raw, re.DOTALL)
-        return json.loads(json_match.group(0)) if json_match else []
-    except Exception:
+        if json_match:
+            return json.loads(json_match.group(0))
+        logger.warning("reflection_list_absent", where=where, chars=len(raw or ""),
+                       head=(raw or "")[:120])
+        return []
+    except Exception as exc:
+        logger.warning("reflection_list_unparseable", where=where,
+                       error=str(exc)[:120], head=(raw or "")[:120])
         return []
 
 # ------------------------------------------------------------------
@@ -143,10 +167,22 @@ def _synthesize_session(db, turns):
             {"role": "system", "content": "You are a session analysis engine. Output only JSON."},
             {"role": "user", "content": f"{SUMMARY_PROMPT}\n\n{full_text}"}
         ],
-        temperature=0.0, max_tokens=400, timeout=bg_timeout(400)
+        temperature=0.0, max_tokens=400, timeout=bg_timeout(400),
+        response_format=json_schema("session_summary", {
+            "type": "object",
+            "properties": {
+                "topics_covered": {"type": "array", "items": {"type": "string"}},
+                "decisions_made": {"type": "string"},
+                "unresolved_items": {"type": "string"},
+                "entities_updated": {"type": "array", "items": {"type": "string"}},
+                "patterns_observed": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["topics_covered", "decisions_made", "unresolved_items",
+                         "entities_updated", "patterns_observed"],
+        }),
     )
-    raw = completion.choices[0].message.content.strip()
-    data = _robust_json(raw)
+    raw = (completion.choices[0].message.content or "").strip()
+    data = _robust_json(raw, where="session_summary")
 
     summary = SessionSummary(
         topics_covered=data.get("topics_covered", []),
@@ -182,10 +218,11 @@ def _crystallize_patterns(db, turns):
             {"role": "system", "content": "You are a behavioural pattern detector."},
             {"role": "user", "content": f"{CRYSTALLIZATION_PROMPT}\n\n{txt}"}
         ],
-        temperature=0.0, max_tokens=200, timeout=bg_timeout(200)
+        temperature=0.0, max_tokens=200, timeout=bg_timeout(200),
+        response_format=json_schema("patterns", {"type": "array", "items": {"type": "string"}}),
     )
-    raw = completion.choices[0].message.content.strip()
-    patterns = _robust_list(raw)
+    raw = (completion.choices[0].message.content or "").strip()
+    patterns = _robust_list(raw, where="crystallization")
     for desc in patterns:
         if not isinstance(desc, str) or not desc.strip():
             continue
@@ -236,10 +273,16 @@ def _evolve_memory_slots(db, turns):
             {"role": "system", "content": "You are a memory slot analyst. Output only JSON."},
             {"role": "user", "content": f"{SLOT_EVOLUTION_PROMPT}\n\n{txt}"}
         ],
-        temperature=0.0, max_tokens=300, timeout=bg_timeout(300)
+        temperature=0.0, max_tokens=300, timeout=bg_timeout(300),
+        response_format=json_schema("slot_proposals", {
+            "type": "object",
+            "properties": {"project_context": {"type": "string"},
+                           "user_preferences": {"type": "string"},
+                           "guidance": {"type": "string"}},
+        }),
     )
-    raw = completion.choices[0].message.content.strip()
-    proposals = _robust_json(raw)
+    raw = (completion.choices[0].message.content or "").strip()
+    proposals = _robust_json(raw, where="slot_evolution")
     for slot_name, content in proposals.items():
         if slot_name in ("project_context", "user_preferences", "guidance") and isinstance(content, str) and content.strip():
             # Insert into review_queue for user confirmation (Phase C)
@@ -352,10 +395,11 @@ def _detect_motifs(db, turns):
             {"role": "system", "content": "You are a thematic motif detector. Output only JSON."},
             {"role": "user", "content": f"{MOTIF_PROMPT}\n\n{txt}"}
         ],
-        temperature=0.0, max_tokens=150, timeout=bg_timeout(150)
+        temperature=0.0, max_tokens=150, timeout=bg_timeout(150),
+        response_format=json_schema("motifs", {"type": "array", "items": {"type": "string"}}),
     )
-    raw = completion.choices[0].message.content.strip()
-    motifs = _robust_list(raw)
+    raw = (completion.choices[0].message.content or "").strip()
+    motifs = _robust_list(raw, where="motifs")
     for motif in motifs:
         if isinstance(motif, str) and motif.strip():
             db.execute(

@@ -131,7 +131,7 @@ def install_pipeline_stubs():
     post_flight.generate_summary = lambda *a, **k: (
         f"{MARK} summary.", 1.0, f"{MARK} abstract.")
 
-    def _triplets(t, model_override="", topic_tags=None):
+    def _triplets(t, model_override="", topic_tags=None, gaps=None):
         _codex_calls.append(t)
         return [{"subject": MARK + "sub", "relation": "describes",
                  "object": MARK + "obj"}]

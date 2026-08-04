@@ -58,13 +58,26 @@ _SEAM_PROMPT = (
 # ── bg-model seam (injectable) ──────────────────────────────────────────────
 
 def _default_llm(prompt: str, system: str = _EXTRACT_SYS) -> str:
-    from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+    from src.workers.bg_client_factory import (
+        bg_timeout,
+        get_bg_client,
+        get_bg_model_name,
+        json_schema,
+    )
     client = get_bg_client()
     completion = client.chat.completions.create(
         model=get_bg_model_name(),
         messages=[{"role": "system", "content": system},
                   {"role": "user", "content": prompt}],
-        temperature=0.0, max_tokens=1500, timeout=bg_timeout(1500))
+        temperature=0.0, max_tokens=1500, timeout=bg_timeout(1500),
+        response_format=json_schema("turns", {
+            "type": "array",
+            "items": {"type": "object",
+                      "properties": {"role": {"type": "string",
+                                              "enum": ["user", "assistant"]},
+                                     "text": {"type": "string"}},
+                      "required": ["role", "text"]},
+        }))
     return completion.choices[0].message.content or ""
 
 
@@ -83,8 +96,14 @@ def _parse_turns(raw: str, fallback_text: str) -> list:
                 turns.append({"role": role, "text": text})
         if turns:
             return turns
-    except (json.JSONDecodeError, AttributeError, TypeError, KeyError):
-        pass
+        logger.warning("raw_slice_no_turns_parsed",
+                       chars=len(raw or ""), head=(raw or "")[:120])
+    except (json.JSONDecodeError, AttributeError, TypeError, KeyError) as exc:
+        # Loud: the fallback below stores the ENTIRE slice as one user turn, so
+        # a silent failure here turns a conversation into an undifferentiated
+        # blob and nothing says the roles were lost.
+        logger.warning("raw_slice_unparseable", error=str(exc)[:120],
+                       head=(raw or "")[:120])
     stripped = fallback_text.strip()
     return [{"role": "user", "text": stripped}] if stripped else []
 

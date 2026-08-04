@@ -122,7 +122,7 @@ def install_pipeline_stubs():
         "entities": [MARK], "figures": [], "identifiers": []}
     post_flight.generate_summary = lambda *a, **k: (None, None, None)
     # Codex: one canned triplet → real graph rows appear.
-    codex_extractor.extract_triplets = lambda t, model_override="", topic_tags=None: [
+    codex_extractor.extract_triplets = lambda t, model_override="", topic_tags=None, gaps=None: [
         {"subject": MARK + "sub", "relation": "calls", "object": MARK + "obj"}]
     # Procedural: canned pattern → a procedural row appears.
     procedural_extractor.bg_client = _FakeBG(
