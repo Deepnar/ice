@@ -241,6 +241,29 @@ class Settings(BaseSettings):
     recent_window_max_turns: int = 40      # marathon-sitting rail
     recent_window_max_turn_frac: float = 0.35   # one turn may not eat the window
 
+    # ── G32/a1: constrained decoding for background extraction ──
+    # Shape only, by default. Measured on 300 real turns (2026-08-04, see
+    # PROVENANCE): the JSON *shape* constraint is a clear win — it removes
+    # malformed-by-confusion output entirely. Constraining `relation` to the
+    # 197-value vocabulary as well is a different bet, and on the same run it
+    # kept 100% of triplets but ~78% of the ones it rescued were WRONG,
+    # because a few relations act as attractors for anything the vocabulary
+    # cannot express (`is` → `is_employed_by`, `is_sibling_of` →
+    # `is_separated_from`).
+    # ⚠ The enum is NOT settled and this flag is NOT decoration: whether it
+    # ends up off, on over a repaired vocabulary, or on for a subset of call
+    # sites is a **Z2 decision** (user, 2026-08-04). It is wired and usable so
+    # Z2 can flip it and measure rather than rebuild it.
+    # Raised from the historical 500 by G32/a1: at 500, finish_reason came
+    # back "length" on 2 of 12 real turns and the JSON was unparseable every
+    # time — the whole turn's extraction lost, silently, because the salvage
+    # path cannot tell a truncated answer from a thin one. The schema does not
+    # help: it guarantees a valid prefix, not a complete document.
+    codex_extraction_max_tokens: int = 1200
+
+    codex_constrain_shape: bool = True
+    codex_constrain_relation_enum: bool = False
+
     # num_ctx. Telling the server the window we need costs KV-cache VRAM, so
     # it is opt-in and clamped. "fit" asks for exactly what the assembled
     # prompt needs plus the generation reserve.

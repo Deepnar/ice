@@ -10,12 +10,14 @@ from typing import List, Optional
 import structlog
 from sqlalchemy.orm.attributes import flag_modified
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.embedder import get_embedder
 from src.memory.models import (
     CodexEdge,
     CodexEntity,
     CodexEvent,
+    CodexRelationGap,
     EpisodicMemory,
     IdempotencyKey,
     ReviewQueue,
@@ -29,7 +31,12 @@ embedder = get_embedder()
 
 logger = structlog.get_logger("ice.workers.codex")
 
-from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+from src.workers.bg_client_factory import (
+    bg_timeout,
+    get_bg_client,
+    get_bg_model_name,
+    json_schema,
+)
 
 bg_client = get_bg_client()
 CODEX_NAMESPACE = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
@@ -375,8 +382,85 @@ def _build_grouped_relation_block() -> str:
     return "\n".join(lines)
 
 
-def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[List[str]] = None) -> list:
-    """Extract structured triplets using a controlled relation vocabulary."""
+_TRIPLET_SHAPE = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "subject": {"type": "string"},
+            # Deliberately NOT enum-constrained by default — see
+            # settings.codex_constrain_relation_enum and the Z2 note there.
+            "relation": {"type": "string"},
+            "object": {"type": "string"},
+            "negated": {"type": "boolean"},
+        },
+        "required": ["subject", "relation", "object"],
+    },
+}
+
+# Helper verbs and articles a model puts in front of a relation it means
+# correctly ("is located in" for `located_in`). Stripping them is safe here
+# because no two vocabulary entries collide once separators are removed —
+# verified over all 197 (2026-08-04), so a normalized form can never land on
+# the wrong relation.
+_LEAD_FILLER = {"is", "was", "are", "were", "be", "been", "being",
+                "get", "gets", "got", "the", "a", "an", "have", "had"}
+_PREP_SYNONYM = {"upon": "on", "onto": "on", "unto": "to", "into": "in"}
+
+
+def _relation_forms(raw: str):
+    """Every spelling of *raw* worth testing against the vocabulary, cheapest
+    first. Deterministic and lossless — this RESOLVES a surface form, it does
+    not INFER intent, so it is not the kind of rule CLAUDE.md's
+    style-invariance rule forbids."""
+    yield raw
+    n = raw.lower().strip()
+    n = re.sub(r"[^a-z0-9\s_-]", " ", n).replace("-", " ").replace("_", " ")
+    n = re.sub(r"\s+", "_", n.strip())
+    if not n:
+        return
+    yield n
+    toks = [_PREP_SYNONYM.get(w, w) for w in n.split("_")]
+    yield "_".join(toks)
+    while toks and toks[0] in _LEAD_FILLER:
+        toks = toks[1:]
+        if toks:
+            yield "_".join(toks)
+            yield "is_" + "_".join(toks)
+
+
+def normalize_relation(raw: str):
+    """Map a model-emitted relation onto the vocabulary, or None.
+
+    ⚠ Scope is deliberately narrow. Measured over 1,152 real out-of-vocabulary
+    relations (2026-08-04, PROVENANCE): this recovers ~1%, and the *full*
+    ladder — lemmatisation, fuzzy matching, token containment, embeddings —
+    only reaches 5.7% while introducing direction inversions (`is_used` →
+    `uses`, `is created by` → `created`) that write a fact backwards. The
+    remaining 94% are not near-misses at all: they are concepts the vocabulary
+    lacks (`is`, `has`, `includes`), and no string method invents those. So
+    the aggressive tiers are deliberately NOT here — they wait on the
+    vocabulary repair (Z2), after which the residual failures genuinely will
+    be near-misses and the extra tiers start paying.
+    """
+    if not raw:
+        return None
+    for form in _relation_forms(raw):
+        if form in ALLOWED_RELATIONS:
+            return form
+    return None
+
+
+def extract_triplets(text: str, model_override: str = "",
+                     topic_tags: Optional[List[str]] = None,
+                     gaps: Optional[list] = None) -> list:
+    """Extract structured triplets using a controlled relation vocabulary.
+
+    `gaps` is an optional sink: when supplied, every triplet whose relation
+    cannot be mapped onto the vocabulary is appended to it instead of simply
+    vanishing. Appended rather than returned so the existing callers and stubs
+    keep working unchanged (TRAPS #8).
+    """
     grouped_relations = _build_grouped_relation_block()
 
     prompt = (
@@ -451,6 +535,7 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
                         estimated_tokens=_estimate_tokens(text))
 
         all_triplets = []
+        log_relation_repairs = []
         for chunk in chunks:
             # G4(a): the chunk boundary is the cheap place to stand down — one
             # LLM call per chunk, and abandoning between them leaves nothing
@@ -470,16 +555,23 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
                 )
 
             chunk_prompt = prompt + code_prompt + "\nNow process this text:"
-            completion = bg_client.chat.completions.create(
+            call_kwargs = dict(
                 model=model_name,
                 messages=[
                     {"role": "system", "content": "You are a JSON-only fact extraction tool. Never output anything but JSON."},
                     {"role": "user", "content": f"Text:\n{chunk}{entity_block}\n\n{chunk_prompt}"}
                 ],
                 temperature=0.0,
-                max_tokens=500,
-                timeout=bg_timeout(500)
+                max_tokens=settings.codex_extraction_max_tokens,
+                timeout=bg_timeout(settings.codex_extraction_max_tokens),
             )
+            if settings.codex_constrain_shape:
+                shape = _TRIPLET_SHAPE
+                if settings.codex_constrain_relation_enum:
+                    shape = json.loads(json.dumps(shape))
+                    shape["items"]["properties"]["relation"]["enum"] = sorted(ALLOWED_RELATIONS)
+                call_kwargs["response_format"] = json_schema("codex_triplets", shape)
+            completion = bg_client.chat.completions.create(**call_kwargs)
             raw = completion.choices[0].message.content.strip()
             logger.debug("extraction_raw_response", raw=raw[:200])
 
@@ -511,8 +603,32 @@ def extract_triplets(text: str, model_override: str = "", topic_tags: Optional[L
                 else:
                     chunk_triplets = []
 
-            # Keep only triplets with allowed relations
-            chunk_triplets = [t for t in chunk_triplets if t.get("relation") in ALLOWED_RELATIONS]
+            # Map each relation onto the vocabulary; keep what maps, RECORD what
+            # does not. This line used to be a bare filter with no log, and it
+            # was discarding 67.8% of everything the model produced (measured
+            # over 300 real turns, 2026-08-04 — see PROVENANCE). A drop that
+            # large, invisible, is the silent-fallback failure CLAUDE.md names:
+            # extraction looked like it ran, and mostly it deleted its own work.
+            kept, dropped = [], []
+            for t in chunk_triplets:
+                mapped = normalize_relation(t.get("relation", ""))
+                if mapped:
+                    if mapped != t.get("relation"):
+                        log_relation_repairs.append((t.get("relation"), mapped))
+                    t["relation"] = mapped
+                    kept.append(t)
+                else:
+                    dropped.append(t)
+            if dropped:
+                # WARNING, not debug, and every time — the rate IS the finding.
+                logger.warning(
+                    "codex_relation_out_of_vocabulary",
+                    dropped=len(dropped), kept=len(kept),
+                    relations=sorted({str(t.get("relation"))[:40] for t in dropped})[:10],
+                )
+                if gaps is not None:
+                    gaps.extend(dropped)
+            chunk_triplets = kept
 
             # Sanity filter: remove triplets where object is clearly a verb phrase
             suspicious_objects = {"blush", "laugh", "cry", "smile", "angry", "sad", "happy", "mad"}
@@ -1108,6 +1224,46 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
     _regenerate_context_payload(obj, db)
 
 
+def _record_relation_gaps(db, dropped: list, turn, log) -> int:
+    """Persist facts the vocabulary cannot express, instead of losing them.
+
+    Deliberately best-effort and never fatal: this is a diagnostic ledger, and
+    an extraction run must not fail because its diagnostics could not be
+    written. It IS, however, loud on failure — a silent diagnostic is worth
+    nothing, which is the whole reason this table exists.
+    """
+    written = 0
+    try:
+        for t in dropped:
+            raw = str(t.get("relation") or "").strip()
+            if not raw:
+                continue
+            subject = str(t.get("subject") or "").strip()
+            obj = str(t.get("object") or "").strip()
+            if not subject or not obj:
+                continue
+            forms = list(_relation_forms(raw))
+            db.add(CodexRelationGap(
+                proposed_relation=forms[-1] if forms else raw.lower(),
+                raw_relation=raw[:200],
+                subject=subject[:500],
+                object=obj[:500],
+                negated=bool(t.get("negated", False)),
+                batch_id=turn.batch_id,
+                conversation_id=getattr(turn, "conversation_id", None),
+                status="pending",
+            ))
+            written += 1
+        db.flush()
+        log.info("codex_relation_gaps_recorded", count=written)
+    except Exception as exc:
+        db.rollback()
+        log.warning("codex_relation_gap_write_failed", error=str(exc)[:200],
+                    attempted=len(dropped))
+        return 0
+    return written
+
+
 def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
     """Executes background semantic link mutations across target graph states.
 
@@ -1128,7 +1284,12 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
         if not turn or not turn.lossless_flag:
             return
 
-        triplets = extract_triplets(turn.raw_text, model_used, topic_tags=turn.topic_tags)
+        relation_gaps = []
+        triplets = extract_triplets(turn.raw_text, model_used,
+                                    topic_tags=turn.topic_tags,
+                                    gaps=relation_gaps)
+        if relation_gaps:
+            _record_relation_gaps(db, relation_gaps, turn, log)
         reconciler = make_llm_reconciler()   # A6: bounded LLM for ambiguous supersessions
         for triplet in triplets:
             if isinstance(triplet, dict):
