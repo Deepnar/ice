@@ -607,3 +607,49 @@ class ImportConversation(Base):
     title = Column(Text, nullable=True)
     n_turns = Column(Integer, nullable=False, default=0)
     imported_at = Column(DateTime(timezone=True), default=utcnow)
+
+class CodexRelationGap(Base):
+    """G32/a1: the fact the extractor wanted to state but the vocabulary
+    cannot express — kept instead of destroyed.
+
+    `codex_extractor` filters every triplet whose relation is not in
+    ALLOWED_RELATIONS. Measured on 300 real turns (2026-08-04, see
+    PROVENANCE): **67.8% of produced relations fail that filter**, and the
+    three most common are `is`, `has` and `includes` — ordinary English the
+    197-word vocabulary lacks, not near-misses of it. Those rows were dropped
+    with no log line, which is why nobody knew.
+
+    The row keeps BOTH halves, and that is the point: `proposed_relation` is
+    what the model actually said, so the accumulated table ranks what the
+    vocabulary is missing — the input Z2's mini-experiment needs and today
+    cannot get, because the evidence is deleted at the moment it is created.
+    Keeping subject and object too means a relation added later can be
+    replayed straight into the graph with **no new LLM call**: the fact was
+    already extracted, it just had nowhere to go.
+
+    Deliberately NOT a codex_edges row: an unmappable relation is not a fact
+    the graph can hold, and writing it as one is exactly the confident-lie
+    failure the enum measurement rejected (~78% of forced picks were wrong).
+    """
+    __tablename__ = "codex_relation_gaps"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # What the model asked for, normalized only for grouping (lowercase,
+    # separators unified) — the raw form is kept alongside it because the
+    # surface form is itself evidence about the model's habits.
+    proposed_relation = Column(Text, nullable=False, index=True)
+    raw_relation = Column(Text, nullable=False)
+    subject = Column(Text, nullable=False)
+    object = Column(Text, nullable=False)
+    negated = Column(Boolean, default=False)
+    # Provenance: enough to re-read the source turn when judging whether the
+    # relation deserves to exist.
+    batch_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    conversation_id = Column(UUID(as_uuid=True), nullable=True)
+    # pending | promoted (the relation was added and this row replayed)
+    # | dismissed (judged not worth a vocabulary entry)
+    status = Column(Text, default="pending", index=True)
+    # Set when the ladder found a mapping but it was not confident enough to
+    # apply — records the near-miss without acting on it.
+    suggested_relation = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
