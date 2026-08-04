@@ -44,7 +44,24 @@ class _NoReasoningCompletions:
     def create(self, *args, **kwargs):
         extra = dict(kwargs.pop("extra_body", None) or {})
         extra.setdefault("reasoning_effort", "none")
-        completion = self._inner.create(*args, extra_body=extra, **kwargs)
+        try:
+            completion = self._inner.create(*args, extra_body=extra, **kwargs)
+        except Exception as exc:
+            # G32(a): a server that cannot do constrained decoding must SAY so.
+            # Silently dropping a capability it does not understand is exactly
+            # what Ollama's /v1 shim does to us; repeating it one layer up is
+            # what this item exists to prevent. Retry unconstrained so the
+            # caller still gets an answer, but never quietly.
+            if kwargs.get("response_format") is None or not _looks_like_schema_refusal(exc):
+                raise
+            logger.warning(
+                "bg_schema_unsupported_retrying_unconstrained",
+                model=kwargs.get("model"),
+                response_format=str(kwargs.get("response_format"))[:120],
+                error=str(exc)[:200],
+            )
+            kwargs.pop("response_format", None)
+            completion = self._inner.create(*args, extra_body=extra, **kwargs)
         # A fallback must be observable (CLAUDE.md standing rule): an empty
         # answer is the exact shape of the outage this parameter exists to
         # prevent, so say so rather than letting each caller's default hide it.
@@ -58,6 +75,21 @@ class _NoReasoningCompletions:
                     max_tokens=kwargs.get("max_tokens"),
                     reasoning_chars=len(
                         (choice.message.model_extra or {}).get("reasoning") or ""),
+                )
+            elif choice.finish_reason == "length":
+                # G32(a), measured 2026-08-04: at the production max_tokens=500
+                # this fired on 2 of 12 turns and the JSON was unparseable every
+                # time. Constrained decoding guarantees a valid *prefix*, not a
+                # complete document — so the schema does NOT make this go away,
+                # and every caller's salvage path reads a truncated answer as a
+                # thin one. `finish_reason` was on every response all along and
+                # nothing in src/ read it.
+                logger.warning(
+                    "bg_model_output_truncated",
+                    model=kwargs.get("model"),
+                    max_tokens=kwargs.get("max_tokens"),
+                    content_chars=len(choice.message.content or ""),
+                    constrained=kwargs.get("response_format") is not None,
                 )
         except (AttributeError, IndexError, TypeError):
             pass
@@ -83,6 +115,39 @@ class _BgClient:
 
     def __getattr__(self, item):
         return getattr(self._inner, item)
+
+
+def _looks_like_schema_refusal(exc) -> bool:
+    """Did the server reject us *for the schema*, or for something else?
+
+    Only a refusal of the constraint may be retried without it — retrying a
+    timeout or an out-of-memory unconstrained would silently downgrade output
+    quality for an unrelated reason.
+    """
+    status = getattr(exc, "status_code", None)
+    if status is not None and status not in (400, 415, 422, 501):
+        return False
+    blob = str(getattr(exc, "message", "") or exc).lower()
+    return any(k in blob for k in
+               ("response_format", "json_schema", "schema", "format",
+                "unsupported", "not supported", "unrecognized"))
+
+
+def json_schema(name: str, schema: dict) -> dict:
+    """Build the `response_format` for JSON-schema constrained decoding.
+
+    One constructor rather than a copy at each call site — the nesting is easy
+    to get subtly wrong, and getting it wrong is SILENT: measured 2026-08-04,
+    `{"type": "json_object"}` (the shape `maintenance_agent` used to send) is
+    honoured by nobody and scored 0/8, exactly as if no constraint had been
+    sent at all, while `{"type": "json_schema", ...}` scored 8/8 through the
+    very same endpoint. Both return 200. See PROVENANCE, the G32 audit.
+
+    Works on Ollama's OpenAI-compatible endpoint AND on vLLM/SGLang, so it
+    needs no transport branch; a server that refuses it is logged and retried
+    unconstrained by `_NoReasoningCompletions`.
+    """
+    return {"type": "json_schema", "json_schema": {"name": name, "schema": schema}}
 
 
 def get_bg_client():
