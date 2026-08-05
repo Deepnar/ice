@@ -3,7 +3,11 @@
 > Purpose: establish the honest boundary of what the paper is *allowed to claim*, by
 > classifying every mechanism ICE names as **working / degraded / dead / disabled /
 > inactive** at the evaluated snapshot. Grounded in (a) the code at git tag
-> `v2-paper-eval` = commit `e4019b6` ("ice v2 finished", 2026-07-02) and (b) the frozen
+> `v2-paper-eval` = commit `0521df9` ("ice v2 finished", 2026-07-02) and (b)
+> *(the tag pointed at `e4019b6` when this audit was written; the 2026-08-03
+> history rewrite re-pointed it, and `e4019b6` no longer resolves. The tree is
+> identical (`2990066b`), so every finding below still describes the same code —
+> `e4019b6` in the table headers should be read as that snapshot.)* the frozen
 > Experiment-2 result JSON (`experiments/mature/results/`, generated 2026-06-29).
 > Written 2026-07-20. Companion to `REVISION_PLAN_v2.md` §11.
 
