@@ -198,7 +198,9 @@ uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8000
 
 Configuration is read from a `.env` file at the repository root through Pydantic Settings
 (`src/api/config.py` documents every field and its default, including `ollama_base_url` and
-the model paths).
+the model paths). That file — and every model and data path ICE loads — is resolved against
+the installation directory rather than the shell's working directory, so ICE behaves the same
+whatever you launch it from; set `ICE_HOME` to override where it looks.
 
 Point an OpenAI-compatible client at `http://localhost:8000/v1` and address the synthetic
 model name `ice-proxy`. Send an `X-ICE-Conversation-ID` header to scope memory to a
