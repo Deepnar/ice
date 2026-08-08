@@ -78,7 +78,9 @@ class Settings(BaseSettings):
     idle_burst_seconds: int = 120
     # D6/H5: fine-tune never runs unattended. Enough curated labels + a
     # session end → run only if auto_finetune, else one pending review-queue
-    # proposal. Threshold aligned with fine_tune.MIN_ROWS_TO_PROMOTE.
+    # proposal. G9 collapsed fine_tune.MIN_ROWS_TO_PROMOTE into this — the
+    # two were the same gate declared twice, with a comment asserting they
+    # agreed rather than anything enforcing it.
     auto_finetune: bool = False
     finetune_min_curated: int = 20
     # Per-job cadences in seconds (G9-aligned: today's beat schedule, plus
@@ -354,6 +356,57 @@ class Settings(BaseSettings):
     # candidates the SQL over-fetches before tag-overlap re-ranking.
     retrieval_cluster_top_k: int = 10
     retrieval_cluster_candidate_multiplier: int = 3
+
+    # ── G9 (Tier 2): operational knobs ─────────────────────────────────────
+    # These do not decide what ICE remembers — they bound cost, batch sizes and
+    # timeouts. Z1 does not sweep them; they are here so the packaged app can
+    # expose them and so nothing is left needing a code edit.
+    gpu_util_threshold: int = 70
+    gpu_check_cache_seconds: float = 10.0
+    runtime_probe_timeout: float = 2.0
+    runtime_probe_cache_ttl_seconds: int = 300
+    # Missed cadences compress into one pass; this caps the catch-up so a long
+    # downtime cannot apply an unbounded exponent in a single statement.
+    runtime_cycles_cap: int = 96
+    runtime_lease_ttl_seconds: float = 180.0
+    chat_confirm_ttl_seconds: int = 600
+
+    # Document ingestion cost estimates and batch sizes.
+    document_section_seconds: int = 1
+    document_seconds_per_section: float = 6.0
+    document_blob_kind_sample_chars: int = 1500
+    document_watch_files_per_run: int = 1
+    document_catchup_docs_per_run: int = 5
+    # Tabular files are described, not dumped: a head plus a deterministic
+    # sample, every column described but at most this many rendered.
+    document_table_sample_rows: int = 50
+    document_table_max_render_cols: int = 30
+    document_table_top_values: int = 5
+
+    # Import decay policy windows (F10).
+    import_immune_window_days: int = 14
+    import_recent_days: int = 30
+    import_seconds_per_turn: float = 6.0
+    import_stale_run_seconds: float = 600.0
+    import_slice_budget_seconds: float = 600.0
+    # F14 raw-transcript slicing. ~2,000 prose words per slice.
+    raw_slice_tokens: int = 2667
+    raw_slice_overlap_words: int = 200
+    raw_slice_seam_turns: int = 3
+
+    # Coding side (E-track).
+    reconcile_max_commits_scanned: int = 20
+    # E11 D5: warn past this, never cap — a Z1 signal, not a limit.
+    reconcile_large_dirty_set: int = 50
+    code_graph_resolved_confidence: float = 1.0
+    code_graph_heuristic_confidence: float = 0.6
+    code_graph_max_files: int = 20_000
+
+    # Fine-tune promotion: the held-out split. The row-count gate is
+    # finetune_min_curated above — one gate, one setting.
+    finetune_val_fraction: float = 0.2
+
+    slot_token_cap: int = 300
 
     # ── G9: the write path (what gets stored, and in what form) ────────────
     # "Memory is earned" is decided by these numbers. A turn at or below the

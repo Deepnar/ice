@@ -30,14 +30,13 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from src.api.config import settings
 import structlog
 
 from src.memory.models import Project, ProjectState, ProjectTask
 
 logger = structlog.get_logger("ice.coding.reconciler")
 
-MAX_COMMITS_SCANNED = 20    # decision extraction per reconcile, newest first
-LARGE_DIRTY_SET = 50        # E11 D5: warn past this, never cap (a Z1 signal)
 
 # E11 throttle state, per process: project_id -> {"t": monotonic of the last
 # git-status run, "sig": (path, mtime, size) digest of the last dirty set}.
@@ -189,7 +188,7 @@ def reconcile_project(db, project_id=None, force_full: bool = False) -> dict:
     from src.workers.runtime import get_runtime
     runtime = get_runtime()
     queued_msgs = 0
-    for commit in commits[:MAX_COMMITS_SCANNED]:
+    for commit in commits[:settings.reconcile_max_commits_scanned]:
         msg = _git(root, "log", "-1", "--format=%B", commit)
         if not msg or decision_cue(msg) is None:
             continue
@@ -311,7 +310,7 @@ def freshen_working_tree(db, project) -> dict:
     if entry is not None and entry["sig"] == sig:
         _freshen_cache[project.id] = {"t": now, "sig": sig}
         return {"status": "unchanged", "dirty": len(dirty)}
-    if len(dirty) > LARGE_DIRTY_SET:
+    if len(dirty) > settings.reconcile_large_dirty_set:
         logger.warning("freshen_large_dirty_set", project=project.slug,
                        files=len(dirty))
     stats = extractor.sync_files(db, dirty)   # advisory-locked inside (D4)

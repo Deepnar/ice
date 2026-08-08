@@ -56,6 +56,7 @@ class StubEmbedder:
 
 _emb_mod._embedder = StubEmbedder()
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.ingestion import formats, importer, raw_slicer
 from src.ingestion.formats import NormalizedConversation, NormalizedTurn
@@ -291,12 +292,12 @@ try:
     s, imm, arch = cd("preserve", now - timedelta(days=100), now, False)
     check("preserve: 1.0 + 14-day immunity window",
           s == 1.0 and imm is not None
-          and abs((imm - now).days - importer.IMMUNE_WINDOW_DAYS) <= 0)
+          and abs((imm - now).days - settings.import_immune_window_days) <= 0)
     s, imm, arch = cd("fast_forward", now - timedelta(days=20), now, False)
     check("fast_forward 20d: score == 0.95**20 exactly",
           abs(s - 0.95 ** 20) < 1e-9 and not arch)
     s, imm, arch = cd("fast_forward", now - timedelta(days=300), now, False)
-    check("fast_forward very-old: floored at COLD_THRESHOLD, archived",
+    check("fast_forward very-old: floored at the cold threshold, archived",
           abs(s - 0.05) < 1e-9 and arch)
     s, imm, arch = cd("hybrid", now - timedelta(days=15), now, False)
     check("hybrid ≤30d: preserve semantics (1.0 + immunity)",
@@ -339,9 +340,9 @@ try:
     # ══ Check 5: F14 raw slicer ══
     print("\n[5] raw slicer (F14)")
     # test-tune the window so the tiny fixture yields 2 slices with an overlap
-    _mt, _ow, _st = (raw_slicer.RAW_SLICE_TOKENS, raw_slicer.RAW_OVERLAP_WORDS,
-                     raw_slicer.SEAM_TURNS)
-    raw_slicer.RAW_SLICE_TOKENS, raw_slicer.RAW_OVERLAP_WORDS = 16, 5
+    _mt, _ow, _st = (settings.raw_slice_tokens, settings.raw_slice_overlap_words,
+                     settings.raw_slice_seam_turns)
+    settings.raw_slice_tokens, settings.raw_slice_overlap_words = 16, 5
     raw_text = open(os.path.join(FIX, "raw_dump.txt")).read()
     from src.memory.chunking import chunk_text
     n_slices = len(chunk_text(raw_text, max_tokens=16, overlap_words=5))
@@ -390,8 +391,8 @@ try:
     check("raw import: turns flagged synthetic_raw_import provenance",
           len(raw_rows) >= 1
           and all(r.ts_provenance == "synthetic_raw_import" for r in raw_rows))
-    raw_slicer.RAW_SLICE_TOKENS, raw_slicer.RAW_OVERLAP_WORDS, raw_slicer.SEAM_TURNS = \
-        _mt, _ow, _st
+    settings.raw_slice_tokens, settings.raw_slice_overlap_words, \
+        settings.raw_slice_seam_turns = _mt, _ow, _st
 
     # ══ Check 6: service layer + ImportRun lifecycle ══
     print("\n[6] service layer")

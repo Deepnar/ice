@@ -30,8 +30,6 @@ from src.api.config import settings
 
 logger = structlog.get_logger("ice.registry.runtime_probe")
 
-PROBE_TIMEOUT = 2.0          # never block a request on the probe
-CACHE_TTL_SECONDS = 300      # a loaded runner's window does not move often
 
 _cache: dict = {}            # model_name -> (expires_at, dict)
 
@@ -61,7 +59,7 @@ def observed_context_window(model_name: str) -> dict:
     out = {"runtime": None, "gguf_max": None, "source": "unavailable"}
     base = settings.ollama_base_url.rstrip("/")
     try:
-        with httpx.Client(timeout=PROBE_TIMEOUT) as client:
+        with httpx.Client(timeout=settings.runtime_probe_timeout) as client:
             ps = client.get(f"{base}/api/ps")
             if ps.status_code == 200:
                 for m in (ps.json().get("models") or []):
@@ -85,7 +83,7 @@ def observed_context_window(model_name: str) -> dict:
         logger.warning("context_window_probe_failed", model=model_name,
                        error=str(exc))
 
-    _cache[model_name] = (time.monotonic() + CACHE_TTL_SECONDS, out)
+    _cache[model_name] = (time.monotonic() + settings.runtime_probe_cache_ttl_seconds, out)
     return out
 
 

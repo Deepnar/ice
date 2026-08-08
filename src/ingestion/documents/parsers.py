@@ -27,14 +27,12 @@ import os
 from dataclasses import dataclass, field
 from typing import Optional
 
+from src.api.config import settings
 import structlog
 
 logger = structlog.get_logger("ice.ingestion.documents.parsers")
 
 # Table rendering caps (D11): a described table, not a row dump.
-TABLE_SAMPLE_ROWS = 50           # head + deterministic sample, combined
-TABLE_MAX_RENDER_COLS = 30       # describe every column, render at most this many
-TABLE_TOP_VALUES = 5
 
 
 @dataclass
@@ -261,7 +259,7 @@ def _describe_frame(frame, name: str) -> str:
             elif "datetime" in dtype:
                 described = f"dates — {series.min()} to {series.max()}"
             else:
-                counts = series.astype("string").value_counts().head(TABLE_TOP_VALUES)
+                counts = series.astype("string").value_counts().head(settings.document_table_top_values)
                 top = ", ".join(f"{v} ({c})" for v, c in counts.items())
                 described = f"{series.nunique()} distinct — {top}"
         except Exception:                   # a column of mixed junk
@@ -275,12 +273,12 @@ def _render_rows(frame, name: str) -> str:
     table. Deterministic because a re-ingest of the same file must produce the
     same sections — otherwise idempotency keys change and the document
     duplicates."""
-    columns = list(frame.columns)[:TABLE_MAX_RENDER_COLS]
-    head_n = min(TABLE_SAMPLE_ROWS // 2, len(frame))
+    columns = list(frame.columns)[:settings.document_table_max_render_cols]
+    head_n = min(settings.document_table_sample_rows // 2, len(frame))
     picked = list(range(head_n))
     remaining = len(frame) - head_n
     if remaining > 0:
-        want = min(TABLE_SAMPLE_ROWS - head_n, remaining)
+        want = min(settings.document_table_sample_rows - head_n, remaining)
         step = max(1, remaining // want)
         picked += list(range(head_n, len(frame), step))[:want]
 
@@ -292,9 +290,9 @@ def _render_rows(frame, name: str) -> str:
         row = frame.iloc[i]
         lines.append("| " + " | ".join(
             str(row[c]).replace("|", "\\|")[:120] for c in columns) + " |")
-    if len(frame.columns) > TABLE_MAX_RENDER_COLS:
+    if len(frame.columns) > settings.document_table_max_render_cols:
         lines.append("")
-        lines.append(f"({len(frame.columns) - TABLE_MAX_RENDER_COLS} further "
+        lines.append(f"({len(frame.columns) - settings.document_table_max_render_cols} further "
                      "columns are described above but not sampled here.)")
     return "\n".join(lines)
 

@@ -20,8 +20,6 @@ import structlog
 from src.api.config import settings
 
 logger = structlog.get_logger("ice.workers.gpu")
-GPU_UTIL_THRESHOLD = 70
-CACHE_SECONDS = 10.0
 
 _cache: tuple = (0.0, False)   # (monotonic_stamp, busy)
 
@@ -35,7 +33,7 @@ def is_gpu_busy() -> bool:
 
     stamp, busy = _cache
     now = time.monotonic()
-    if now - stamp < CACHE_SECONDS:
+    if now - stamp < settings.gpu_check_cache_seconds:
         return busy
 
     try:
@@ -47,7 +45,7 @@ def is_gpu_busy() -> bool:
             check=True,
         )
         lines = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
-        busy = bool(lines) and max(int(util) for util in lines) > GPU_UTIL_THRESHOLD
+        busy = bool(lines) and max(int(util) for util in lines) > settings.gpu_util_threshold
     except (subprocess.SubprocessError, ValueError, FileNotFoundError) as err:
         logger.debug("Nvidia-smi query skipped or unavailable", error=str(err))
         busy = False

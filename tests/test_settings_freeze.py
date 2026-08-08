@@ -343,3 +343,60 @@ def test_recent_fraction_groups_apply_once_each():
         o, 100, 0, C(["Factual_Retrieval", "Troubleshooting"], []))
     assert one == two, ("two labels from one group moved the fraction "
                         f"({one} -> {two}); the delta is being applied twice")
+
+
+# ── Tier-2 operational knobs ────────────────────────────────────────────────
+# Matched by NAME in the base blob rather than by line number. These moved from
+# fifteen files and the name is unambiguous in each, so a name search is both
+# less brittle than a line anchor and still derived rather than retyped.
+OPERATIONAL = {
+    "gpu_util_threshold": ("src/workers/gpu_check.py", "GPU_UTIL_THRESHOLD"),
+    "gpu_check_cache_seconds": ("src/workers/gpu_check.py", "CACHE_SECONDS"),
+    "runtime_probe_timeout": ("src/model_registry/runtime_probe.py", "PROBE_TIMEOUT"),
+    "runtime_probe_cache_ttl_seconds": ("src/model_registry/runtime_probe.py", "CACHE_TTL_SECONDS"),
+    "runtime_cycles_cap": ("src/workers/runtime.py", "CYCLES_CAP"),
+    "runtime_lease_ttl_seconds": ("src/workers/runtime.py", "RUNTIME_LEASE_TTL"),
+    "chat_confirm_ttl_seconds": ("src/api/chat_commands.py", "CONFIRM_TTL_SECONDS"),
+    "document_section_seconds": ("src/ingestion/documents/ingest.py", "SECTION_SECONDS"),
+    "document_seconds_per_section": ("src/ingestion/documents/ingest.py", "SECONDS_PER_SECTION"),
+    "document_blob_kind_sample_chars": ("src/ingestion/documents/kind.py", "SAMPLE_CHARS"),
+    "document_watch_files_per_run": ("src/ingestion/documents/watch_folder.py", "FILES_PER_RUN"),
+    "document_catchup_docs_per_run": ("src/workers/document_chunker.py", "CATCHUP_DOCS_PER_RUN"),
+    "document_table_sample_rows": ("src/ingestion/documents/parsers.py", "TABLE_SAMPLE_ROWS"),
+    "document_table_max_render_cols": ("src/ingestion/documents/parsers.py", "TABLE_MAX_RENDER_COLS"),
+    "document_table_top_values": ("src/ingestion/documents/parsers.py", "TABLE_TOP_VALUES"),
+    "import_immune_window_days": ("src/ingestion/importer.py", "IMMUNE_WINDOW_DAYS"),
+    "import_recent_days": ("src/ingestion/importer.py", "RECENT_DAYS"),
+    "import_seconds_per_turn": ("src/ingestion/importer.py", "SECONDS_PER_TURN"),
+    "import_stale_run_seconds": ("src/ingestion/importer.py", "STALE_RUN_SECONDS"),
+    "import_slice_budget_seconds": ("src/ingestion/importer.py", "SLICE_BUDGET_SECONDS"),
+    "raw_slice_tokens": ("src/ingestion/raw_slicer.py", "RAW_SLICE_TOKENS"),
+    "raw_slice_overlap_words": ("src/ingestion/raw_slicer.py", "RAW_OVERLAP_WORDS"),
+    "raw_slice_seam_turns": ("src/ingestion/raw_slicer.py", "SEAM_TURNS"),
+    "reconcile_max_commits_scanned": ("src/coding/reconciler.py", "MAX_COMMITS_SCANNED"),
+    "reconcile_large_dirty_set": ("src/coding/reconciler.py", "LARGE_DIRTY_SET"),
+    "code_graph_resolved_confidence": ("src/coding/code_graph.py", "RESOLVED_CONFIDENCE"),
+    "code_graph_heuristic_confidence": ("src/coding/code_graph.py", "HEURISTIC_CONFIDENCE"),
+    "code_graph_max_files": ("src/coding/code_graph.py", "MAX_FILES"),
+    "slot_token_cap": ("src/services/slots.py", "SLOT_TOKEN_CAP"),
+    "finetune_val_fraction": ("src/workers/fine_tune.py", "VAL_FRACTION"),
+    # G9 collapsed this duplicate: fine_tune declared the same gate that
+    # settings.finetune_min_curated already held, and a comment asserted they
+    # agreed rather than anything enforcing it.
+    "finetune_min_curated": ("src/workers/fine_tune.py", "MIN_ROWS_TO_PROMOTE"),
+}
+
+
+@pytest.mark.parametrize("name,path,const",
+                         [(k, v[0], v[1]) for k, v in OPERATIONAL.items()],
+                         ids=list(OPERATIONAL))
+def test_operational_default_matches_base_commit(name, path, const):
+    src = "\n".join(_base_lines(path))
+    matches = re.findall(rf"^{const}\s*[:=]\s*([\d_.]+)", src, re.M)
+    assert len(matches) == 1, (
+        f"{const} appears {len(matches)} times in {path} at {BASE[:7]} — "
+        f"a name anchor is only valid when it is unique")
+    old = float(matches[0].replace("_", ""))
+    new = float(getattr(settings, name))
+    assert new == old, (f"{name} changed while moving into settings: "
+                        f"{old} at {BASE[:7]} -> {new} now")

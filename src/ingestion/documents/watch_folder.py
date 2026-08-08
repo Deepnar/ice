@@ -24,6 +24,7 @@ throughput, not this loop.
 import os
 import shutil
 
+from src.api.config import settings
 import structlog
 
 from src.paths import REPO_ROOT
@@ -35,7 +36,6 @@ logger = structlog.get_logger("ice.ingestion.documents.watch_folder")
 WATCH_DIR = os.path.join(REPO_ROOT, "ingest_inbox")
 PROCESSED_DIR = os.path.join(WATCH_DIR, "processed")
 FAILED_DIR = os.path.join(WATCH_DIR, "failed")
-FILES_PER_RUN = 1
 
 
 def _settled(path: str, min_age_seconds: float = 5.0) -> bool:
@@ -61,7 +61,7 @@ def pending_files(watch_dir: str = WATCH_DIR) -> list:
 
 
 def run_watch_folder(db, conversation_id: str = None,
-                     limit: int = FILES_PER_RUN) -> int:
+                     limit: int = settings.document_watch_files_per_run) -> int:
     """Ingest up to `limit` dropped files. Returns how many were ingested.
 
     Dropped files have no conversation of their own to belong to, so they are

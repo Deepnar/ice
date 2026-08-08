@@ -34,7 +34,6 @@ from src.api.db import SessionLocal, engine
 from src.memory.models import Conversation, EpisodicMemory
 from src.workers.runtime import (
     BURST_STAMP,
-    CYCLES_CAP,
     JOBS,
     JobSpec,
     MaintenanceRuntime,
@@ -121,7 +120,7 @@ def test_pure_logic():
     check("on-cadence gap → 1", missed_cycles(5400, 5400) == 1)
     check("sub-interval gap → 1 (floor then clamp)", missed_cycles(1800, 5400) == 1)
     check("3.5 intervals → 3", missed_cycles(5400 * 3.5, 5400) == 3)
-    check("month-long gap → cap 96", missed_cycles(86400 * 30, 5400) == CYCLES_CAP)
+    check("month-long gap → cap 96", missed_cycles(86400 * 30, 5400) == settings.runtime_cycles_cap)
     check("zero interval → 1", missed_cycles(99999, 0) == 1)
 
     print("── 3. overdue_seconds ──")

@@ -8,13 +8,14 @@ queue's slot-proposal arm — call these functions.
 C9 (D5–D7): three tiers (global / project / conversation). Global rows keep
 NULL anchors; project rows require a project_id; conversation rows require a
 conversation_id (ValidationError names the missing attachment). G14 lives
-here too: content is hard-capped at SLOT_TOKEN_CAP tokens on every write
+here too: content is hard-capped at settings.slot_token_cap tokens on every write
 (truncated + flagged in the response — never silently).
 """
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+from src.api.config import settings
 import structlog
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -49,24 +50,23 @@ VALID_SLOTS = {
 }
 
 # G14 (folded into C9): hard per-slot content cap.
-SLOT_TOKEN_CAP = 300
 
 
 def _cap_content(content: str) -> tuple[str, bool]:
-    """Enforce the G14 cap: hard-truncate past SLOT_TOKEN_CAP tokens.
+    """Enforce the G14 cap: hard-truncate past settings.slot_token_cap tokens.
 
     C16: real tokens, and the truncation is a real token truncation. The old
-    pair (`words * 1.33` to measure, `SLOT_TOKEN_CAP / 1.33` to cut) let a
+    pair (`words * 1.33` to measure, `settings.slot_token_cap / 1.33` to cut) let a
     300-token cap admit ~550 real tokens of dense content, and every slot is
     prepended to EVERY prompt — with 13 slot names permitted, that was the
     largest silent overrun in the whole context budget.
     """
-    if count_tokens(content) <= SLOT_TOKEN_CAP:
+    if count_tokens(content) <= settings.slot_token_cap:
         return content, False
     words, kept, used = content.split(), [], 0
     for w in words:
         used += count_tokens(w + " ")
-        if used > SLOT_TOKEN_CAP:
+        if used > settings.slot_token_cap:
             break
         kept.append(w)
     return " ".join(kept), True
@@ -89,7 +89,7 @@ def _format_slot(slot: MemorySlot, truncated: bool = False) -> dict:
     }
     if truncated:
         out["truncated"] = True
-        out["warning"] = (f"content exceeded the {SLOT_TOKEN_CAP}-token slot "
+        out["warning"] = (f"content exceeded the {settings.slot_token_cap}-token slot "
                           "cap and was hard-truncated")
     return out
 
@@ -160,7 +160,7 @@ def update_slot(db: Session, slot_name: str, content: str,
     content, truncated = _cap_content(content)
     if truncated:
         logger.warning("slot_content_truncated", slot=slot_name,
-                       tier=scope_tier, cap=SLOT_TOKEN_CAP)
+                       tier=scope_tier, cap=settings.slot_token_cap)
     anchor = _tier_anchor(scope_tier, project_id, conversation_id)
     slot = db.query(MemorySlot).filter_by(slot_name=slot_name, **anchor).first()
     if not slot:

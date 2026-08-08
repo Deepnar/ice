@@ -15,6 +15,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from src.api.config import settings
 import structlog
 from sqlalchemy.orm import Session
 
@@ -48,7 +49,7 @@ def _reap_stale(db: Session) -> None:
     crashed import — mark it aborted so a fresh start isn't blocked (rev 10;
     resume rides the hash ledger, not the row)."""
     cutoff = datetime.now(timezone.utc) - timedelta(
-        seconds=importer.STALE_RUN_SECONDS)
+        seconds=settings.import_stale_run_seconds)
     for run in db.query(ImportRun).filter(ImportRun.status == "running").all():
         stamp = run.updated_at or run.started_at
         if stamp is None or stamp < cutoff:

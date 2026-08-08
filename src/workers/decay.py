@@ -14,7 +14,6 @@ from sqlalchemy import text
 
 from src.api.config import settings
 from src.api.db import SessionLocal
-from src.workers.runtime import CYCLES_CAP
 
 logger = structlog.get_logger("ice.workers.decay")
 
@@ -47,7 +46,7 @@ def apply_decay(cycles: int = 1):
     compresses missed runs into one pass — thresholds and the creative floor
     apply once at the end, exactly as they would after N sequential runs.
     """
-    cycles = max(1, min(int(cycles), CYCLES_CAP))
+    cycles = max(1, min(int(cycles), settings.runtime_cycles_cap))
     db = SessionLocal()
     try:
         now = datetime.now(timezone.utc)

@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from src.api.config import settings
 import structlog
 from sqlalchemy import text
 
@@ -38,10 +39,7 @@ from src.memory.models import CodexEdge, CodexEntity
 logger = structlog.get_logger("ice.coding.code_graph")
 
 SOURCE_STATIC = "static_analysis"
-RESOLVED_CONFIDENCE = 1.0
-HEURISTIC_CONFIDENCE = 0.6
 # Spec §4: single-user laptop reality — bootstrap refuses to walk past this.
-MAX_FILES = 20_000
 # Spec §4 default ignore set; per-project additions via projects.settings["ignore"].
 DEFAULT_IGNORES = {
     ".git", ".venv", "venv", "node_modules", "__pycache__", ".mypy_cache",
@@ -218,8 +216,8 @@ class CodeExtractor:
                 if any(part in self.ignores for part in rel.parts):
                     continue
                 out.append(str(rel))
-                if len(out) >= MAX_FILES:
-                    logger.warning("code_graph_file_cap", cap=MAX_FILES,
+                if len(out) >= settings.code_graph_max_files:
+                    logger.warning("code_graph_file_cap", cap=settings.code_graph_max_files,
                                    project=self.slug)
                     return out
         return out
@@ -414,12 +412,12 @@ class CodeExtractor:
                 target = entity_map.get(f"{cls}.{method}") or self._lookup(
                     db, canonical_for(self.slug, pf.module, f"{cls}.{method}"))
                 if target is not None:
-                    return target, RESOLVED_CONFIDENCE
+                    return target, settings.code_graph_resolved_confidence
             return None
         # same-module qualname (foo, Cls.method)
         target = entity_map.get(ref)
         if target is not None:
-            return target, RESOLVED_CONFIDENCE
+            return target, settings.code_graph_resolved_confidence
         if "." in ref:
             # imported prefix + attribute — alias map ("from a import C" /
             # "import a.b as c") or a full "import a.b" module path. Note
@@ -433,13 +431,13 @@ class CodeExtractor:
                 target = self._lookup(
                     db, canonical_for(self.slug, f"{prefix}.{attr}"))
                 if target is not None:
-                    return target, RESOLVED_CONFIDENCE
+                    return target, settings.code_graph_resolved_confidence
             return None
         imported = pf.imported_names.get(ref)
         if imported:
             target = self._lookup(db, canonical_for(self.slug, imported))
             if target is not None:
-                return target, RESOLVED_CONFIDENCE
+                return target, settings.code_graph_resolved_confidence
         # heuristic: a unique function of that name anywhere in the project
         # (Postgres LIKE escapes with backslash by default — underscores in
         # identifiers must not act as wildcards)
@@ -451,7 +449,7 @@ class CodeExtractor:
             CodexEntity.canonical_name.like(f"%.{pattern}"),
         ).limit(2).all()
         if len(rows) == 1:
-            return rows[0], HEURISTIC_CONFIDENCE
+            return rows[0], settings.code_graph_heuristic_confidence
         return None
 
     def _add_edge(self, db, src: CodexEntity, tgt: CodexEntity, relation: str,
@@ -467,7 +465,7 @@ class CodeExtractor:
             valid_from=datetime.now(timezone.utc), source=SOURCE_STATIC,
         ))
         stats["edges"] += 1
-        stats["resolved" if confidence >= RESOLVED_CONFIDENCE else "heuristic"] += 1
+        stats["resolved" if confidence >= settings.code_graph_resolved_confidence else "heuristic"] += 1
 
     def _rebuild_edges(self, db, pf: ParsedFile, entity_map: dict,
                        stats: dict) -> None:
@@ -485,7 +483,7 @@ class CodeExtractor:
             target = self._lookup(db, canonical_for(self.slug, mod))
             if target is not None:
                 self._add_edge(db, module_ent, target, "imports",
-                               RESOLVED_CONFIDENCE, seen, stats)
+                               settings.code_graph_resolved_confidence, seen, stats)
         for caller, ref in pf.calls:
             src = entity_map.get(caller)
             if src is None:

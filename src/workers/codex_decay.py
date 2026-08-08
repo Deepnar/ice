@@ -10,7 +10,6 @@ from sqlalchemy import text
 
 from src.api.config import settings
 from src.api.db import SessionLocal
-from src.workers.runtime import CYCLES_CAP
 
 logger = structlog.get_logger("ice.workers.codex_decay")
 
@@ -25,7 +24,7 @@ def decay_rate() -> float:
 
 def decay_codex_edges(cycles: int = 1):
     """Decay strength of live Codex edges, demote weak ones."""
-    cycles = max(1, min(int(cycles), CYCLES_CAP))
+    cycles = max(1, min(int(cycles), settings.runtime_cycles_cap))
     db = SessionLocal()
     try:
         # 1. Decay ALL live conversation edges — pending included (A3).

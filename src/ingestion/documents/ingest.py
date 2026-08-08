@@ -35,8 +35,6 @@ logger = structlog.get_logger("ice.ingestion.documents.ingest")
 # order is stable and `resolve_session_id` keeps them in a single session,
 # which is what makes C5's session affinity cluster a document's sections
 # together instead of scattering them.
-SECTION_SECONDS = 1
-SECONDS_PER_SECTION = 6.0        # D5 cost estimate, same constant as F10
 
 
 class Section:
@@ -122,7 +120,7 @@ def ingest_document(db, doc, parse: parsers.DocumentParse, *,
 
         header = section_header(parse.title, section.meta, section.index, total)
         body = f"{header}\n{section.text}"
-        ts = base_ts + timedelta(seconds=SECTION_SECONDS * section.index)
+        ts = base_ts + timedelta(seconds=settings.document_section_seconds * section.index)
         try:
             stored = _store_section(db, doc, conv_id, body, ts, section.index,
                                     classifier, embedder)
@@ -219,4 +217,4 @@ def _lazy_embedder():
 
 
 def estimate_seconds(n_sections: int) -> float:
-    return n_sections * SECONDS_PER_SECTION
+    return n_sections * settings.document_seconds_per_section

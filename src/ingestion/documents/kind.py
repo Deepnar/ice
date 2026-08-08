@@ -25,6 +25,7 @@ come back with the same answer. `tests/test_documents.py` check 14 is that
 test in miniature and G28's probe set inherits it.
 """
 
+from src.api.config import settings
 import structlog
 
 logger = structlog.get_logger("ice.ingestion.documents.kind")
@@ -33,7 +34,6 @@ DOCUMENT = "document"
 TRANSCRIPT = "transcript"
 KINDS = (DOCUMENT, TRANSCRIPT)
 
-SAMPLE_CHARS = 1500      # per window; head + middle + tail are sent
 
 _SYSTEM = "You classify text. Answer with exactly one word."
 _PROMPT = (
@@ -55,13 +55,13 @@ def _sample(text: str) -> str:
     """Head + middle + tail. A transcript's shape shows up anywhere in it, but
     a document's front matter can look conversational (a preface, an epigraph),
     so one window from the top is not enough evidence."""
-    if len(text) <= SAMPLE_CHARS * 3:
+    if len(text) <= settings.document_blob_kind_sample_chars * 3:
         return text
-    middle_start = (len(text) - SAMPLE_CHARS) // 2
+    middle_start = (len(text) - settings.document_blob_kind_sample_chars) // 2
     return (
-        "--- beginning ---\n" + text[:SAMPLE_CHARS] +
-        "\n\n--- middle ---\n" + text[middle_start:middle_start + SAMPLE_CHARS] +
-        "\n\n--- end ---\n" + text[-SAMPLE_CHARS:])
+        "--- beginning ---\n" + text[:settings.document_blob_kind_sample_chars] +
+        "\n\n--- middle ---\n" + text[middle_start:middle_start + settings.document_blob_kind_sample_chars] +
+        "\n\n--- end ---\n" + text[-settings.document_blob_kind_sample_chars:])
 
 
 def _default_llm(prompt: str, system: str) -> str:

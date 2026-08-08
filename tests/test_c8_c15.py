@@ -25,9 +25,10 @@ def check(name, cond):
         print(f"  FAIL  {name}")
 
 
+from src.api.config import settings
+
 print("── C15: per-head confidence trigger logic (pure) ──")
-from src.retrieval.orchestrator import _head_confidences, \
-    WIDE_NET_BUDGET_FRACTION, WIDE_NET_BUDGET_FLOOR
+from src.retrieval.orchestrator import _head_confidences
 
 # ML result: topic peaked, intent weak — old max-over-25 would NOT fire; the
 # honest check requires BOTH weak, so a peaked topic still blocks firing.
@@ -54,9 +55,9 @@ check("all-zero probs → falls back to max_confidence",
 
 print("── C15: dynamic wide-net budget ──")
 check("fraction of model-aware budget",
-      max(WIDE_NET_BUDGET_FLOOR, int(20000 * WIDE_NET_BUDGET_FRACTION)) == 6000)
+      max(settings.retrieval_wide_net_budget_floor, int(20000 * settings.retrieval_wide_net_budget_fraction)) == 6000)
 check("floor holds for small budgets",
-      max(WIDE_NET_BUDGET_FLOOR, int(3000 * WIDE_NET_BUDGET_FRACTION)) == 1500)
+      max(settings.retrieval_wide_net_budget_floor, int(3000 * settings.retrieval_wide_net_budget_fraction)) == 1500)
 
 print("── C8: in-score recency (live DB) ──")
 from src.api.db import SessionLocal

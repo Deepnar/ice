@@ -18,7 +18,7 @@ landed mid-turn. v2 replaces that:
 
 The bg-model seams are injectable (``llm``) so tests run stubbed; the real
 path uses the shared background client. Empirical deferral (spec): if boundary
-errors show in >10% of spot-checked seams, raise ``RAW_OVERLAP_WORDS`` to 400
+errors show in >10% of spot-checked seams, raise ``settings.raw_slice_overlap_words`` to 400
 before touching the prompt.
 """
 
@@ -28,6 +28,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
+from src.api.config import settings
 import structlog
 
 from src.ingestion.formats import NormalizedConversation, NormalizedTurn
@@ -35,9 +36,6 @@ from src.memory.chunking import chunk_text
 
 logger = structlog.get_logger("ice.ingestion.raw_slicer")
 
-RAW_SLICE_TOKENS = 2667      # ≈2,000 prose words (rev 12)
-RAW_OVERLAP_WORDS = 200
-SEAM_TURNS = 3               # boundary turns each side handed to the seam call
 _NORM_RE = re.compile(r"[^a-z0-9]+")
 
 _EXTRACT_SYS = "You segment raw chat transcripts into speaker turns."
@@ -171,8 +169,8 @@ def slice_raw_text(raw: str, title: str, *, llm: Optional[Callable] = None,
     llm = llm or _default_llm
     mtime = mtime or datetime.now(timezone.utc)
 
-    slices = chunk_text(raw, max_tokens=RAW_SLICE_TOKENS,
-                        overlap_words=RAW_OVERLAP_WORDS)
+    slices = chunk_text(raw, max_tokens=settings.raw_slice_tokens,
+                        overlap_words=settings.raw_slice_overlap_words)
     if not slices:
         return None
 
@@ -181,11 +179,11 @@ def slice_raw_text(raw: str, title: str, *, llm: Optional[Callable] = None,
         b_turns = _extract_slice_turns(slices[i], llm)
         if not b_turns:
             continue
-        a_tail = merged[-SEAM_TURNS:]
-        b_head = b_turns[:SEAM_TURNS]
-        overlap = " ".join(slices[i].split()[:RAW_OVERLAP_WORDS])
+        a_tail = merged[-settings.raw_slice_seam_turns:]
+        b_head = b_turns[:settings.raw_slice_seam_turns]
+        overlap = " ".join(slices[i].split()[:settings.raw_slice_overlap_words])
         reconciled_head = _resolve_seam(a_tail, b_head, overlap, llm)
-        merged = merged + reconciled_head + b_turns[SEAM_TURNS:]
+        merged = merged + reconciled_head + b_turns[settings.raw_slice_seam_turns:]
 
     deduped = _dedup(merged)
     turns = _assign_times(deduped, mtime)

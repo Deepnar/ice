@@ -30,6 +30,7 @@ import time
 import uuid
 from typing import Optional
 
+from src.api.config import settings
 import structlog
 
 from src.services import bookmarks as bookmarks_svc
@@ -47,7 +48,6 @@ COMMANDS = ("remember", "slots", "bookmark", "search", "scope", "forget",
 # /delete-conversation two-step confirm state: conversation id → monotonic
 # deadline. Process-local by design (spec rev 11) — a restart clears pending
 # confirmations, which fails safe (the user just re-runs the preview).
-CONFIRM_TTL_SECONDS = 600
 _PENDING_DELETES: dict = {}
 
 HELP_TEXT = """**ICE chat commands**
@@ -336,7 +336,7 @@ def _cmd_delete_conversation(db, conv, args: str):
         raise ValidationError("usage: /delete-conversation "
                               "[confirm]")
     manifest = conversations_svc.delete_conversation(db, cid, dry_run=True)
-    _PENDING_DELETES[cid] = time.monotonic() + CONFIRM_TTL_SECONDS
+    _PENDING_DELETES[cid] = time.monotonic() + settings.chat_confirm_ttl_seconds
     return (_render_manifest(manifest)
             + "\n\nTo delete permanently, send `/delete-conversation "
               "confirm` within 10 minutes."), "rendered"

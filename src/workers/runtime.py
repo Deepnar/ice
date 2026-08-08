@@ -53,7 +53,6 @@ from src.workers.gpu_check import is_gpu_busy
 
 logger = structlog.get_logger("ice.workers.runtime")
 
-CYCLES_CAP = 96
 
 
 @dataclass(frozen=True)
@@ -126,10 +125,9 @@ BURST_STAMP = "session_end_burst"
 # overdue dispatch, the session-end burst, and lease stamping stay exclusive
 # to the owner. A standby runtime promotes itself when the lease goes stale.
 RUNTIME_LEASE = "runtime_lease"
-RUNTIME_LEASE_TTL = 180.0   # ≈ 3 ticks
 
 
-def runtime_lease_fresh(db_factory, ttl: float = RUNTIME_LEASE_TTL) -> bool:
+def runtime_lease_fresh(db_factory, ttl: float = settings.runtime_lease_ttl_seconds) -> bool:
     """Is another process's maintenance runtime alive (lease stamped within
     *ttl*)? Errors and absence both read as stale — the caller then owns
     maintenance, which is also the right call when the ledger is unreachable
@@ -153,7 +151,7 @@ def runtime_lease_fresh(db_factory, ttl: float = RUNTIME_LEASE_TTL) -> bool:
 # ── Pure helpers (unit-testable without a runtime) ──────────────────────────
 
 def missed_cycles(elapsed_seconds: float, interval_seconds: float,
-                  cap: int = CYCLES_CAP) -> int:
+                  cap: int = settings.runtime_cycles_cap) -> int:
     """Closed-form decay catch-up (D5): how many whole intervals elapsed,
     clamped to [1, cap]. rate**96 ≈ 0.73 for the 0.9968 unaccessed rate."""
     if interval_seconds <= 0:

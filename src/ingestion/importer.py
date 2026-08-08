@@ -52,13 +52,9 @@ NS_ICE_IMPORT = uuid.UUID("2f6c0b1e-9a3d-5e4b-8c7a-1d2e3f405162")
 # form, so the round trip is gone — settings.decay_daily_* IS what this needs.
 
 POLICIES = ("hybrid", "preserve", "fast_forward", "fresh")
-IMMUNE_WINDOW_DAYS = 14      # preserve/hybrid: memory feels present, then earns
-RECENT_DAYS = 30             # hybrid: ≤30d preserve, older fast-forward from 30
-SECONDS_PER_TURN = 6.0       # D5 cost estimate (bg-model extraction per turn)
 CREATIVE_TAG = "Creative_&_Media"
 
 # A running import older than this heartbeat is treated as crashed (rev 10).
-STALE_RUN_SECONDS = 600.0
 
 
 # ── decay policy ────────────────────────────────────────────────────────────
@@ -67,7 +63,7 @@ def compute_decay(policy: str, turn_ts: datetime, now: datetime,
                   is_creative: bool):
     """(decay_score, decay_immune_until, is_archived) for an imported turn.
 
-    hybrid (default) — turns ≤RECENT_DAYS old preserve (score 1.0 + 14d
+    hybrid (default) — turns ≤settings.import_recent_days old preserve (score 1.0 + 14d
     immunity); older turns fast-forward with aging counted from the threshold,
     so the ramp is smooth instead of a cliff at day 30. preserve — all fresh
     + immune. fast_forward — all aged to their real date. fresh — all 1.0, no
@@ -82,11 +78,11 @@ def compute_decay(policy: str, turn_ts: datetime, now: datetime,
     if policy == "fresh":
         return 1.0, None, False
     if policy == "preserve":
-        return 1.0, now + timedelta(days=IMMUNE_WINDOW_DAYS), False
+        return 1.0, now + timedelta(days=settings.import_immune_window_days), False
     if policy == "hybrid":
-        if age_days <= RECENT_DAYS:
-            return 1.0, now + timedelta(days=IMMUNE_WINDOW_DAYS), False
-        aging_days = age_days - RECENT_DAYS
+        if age_days <= settings.import_recent_days:
+            return 1.0, now + timedelta(days=settings.import_immune_window_days), False
+        aging_days = age_days - settings.import_recent_days
     else:   # fast_forward
         aging_days = age_days
 
@@ -363,12 +359,11 @@ def _bump_run(db, run_id, report) -> None:
 
 
 def estimate_seconds(total_turns: int) -> float:
-    return total_turns * SECONDS_PER_TURN
+    return total_turns * settings.import_seconds_per_turn
 
 
 # ── the runtime job (spec rev 9) ────────────────────────────────────────────
 
-SLICE_BUDGET_SECONDS = 600.0    # ≈10 min per gpu-lane slice, then yield
 
 
 def run_import_replay(db, import_id: str, seq: int = 0) -> None:
@@ -393,7 +388,7 @@ def run_import_replay(db, import_id: str, seq: int = 0) -> None:
         logger.error("import_source_build_failed", import_id=import_id, error=str(exc))
         return
 
-    deadline = time.monotonic() + SLICE_BUDGET_SECONDS
+    deadline = time.monotonic() + settings.import_slice_budget_seconds
     from src.api.core import get_core
     core = get_core()
     classifier = core.classifier if core is not None else None

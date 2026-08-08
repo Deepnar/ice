@@ -21,6 +21,7 @@ leaks; the conversation needs its own chunks for self-retrieval.
 
 import uuid
 
+from src.api.config import settings
 import structlog
 
 from src.memory.chunking import chunk_text
@@ -31,7 +32,6 @@ from src.workers.codex_extractor import embedder as shared_embedder
 
 logger = structlog.get_logger("ice.workers.document_chunker")
 
-CATCHUP_DOCS_PER_RUN = 5
 
 
 def run_chunk_turn(db, turn) -> int:
@@ -56,7 +56,7 @@ def run_chunk_turn(db, turn) -> int:
     return len(chunks)
 
 
-def run_pending_documents(db, limit: int = CATCHUP_DOCS_PER_RUN) -> int:
+def run_pending_documents(db, limit: int = settings.document_catchup_docs_per_run) -> int:
     """Catch-up callable: chunk turns that should have chunks but don't —
     is_document pastes (C2) and all long turns (C3, > ~settings.turn_long_turn_chunk_words,
     approximated in SQL by char length since word count isn't stored). Heals

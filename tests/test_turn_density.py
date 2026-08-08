@@ -34,9 +34,10 @@ _real_extract = ner.extract_entities
 _stub_entities = []
 ner.extract_entities = lambda text, emb, max_chars=None, tier="preflight": list(_stub_entities)
 
+from src.api.config import settings
 from src.workers.turn_density import (
     extract_key_terms, compute_entropy, decide_representation,
-    summary_coverage, must_terms, RAW_KEEP_MAX_WORDS,
+    summary_coverage, must_terms,
 )
 
 print("── key-term extraction ──")

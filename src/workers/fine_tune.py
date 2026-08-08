@@ -48,8 +48,6 @@ from src.memory.models import CuratedLabel
 from src.paths import resolve
 
 # Promotion guardrails.
-MIN_ROWS_TO_PROMOTE = 20     # below this, train an artifact but never auto-promote
-VAL_FRACTION = 0.2           # held-out split for the promotion decision
 
 
 def _build_labels(rows, schema):
@@ -172,10 +170,10 @@ def fine_tune_classifier():
         n = len(rows)
         rng = np.random.default_rng(42)
         perm = rng.permutation(n)
-        n_val = int(n * VAL_FRACTION)
+        n_val = int(n * settings.finetune_val_fraction)
         val_idx = torch.tensor(perm[:n_val], dtype=torch.long)
         train_idx = torch.tensor(perm[n_val:], dtype=torch.long)
-        can_promote = n >= MIN_ROWS_TO_PROMOTE and n_val >= 1 and len(train_idx) >= 1
+        can_promote = n >= settings.finetune_min_curated and n_val >= 1 and len(train_idx) >= 1
 
         if can_promote:
             emb_train = embeddings[train_idx]
@@ -223,7 +221,7 @@ def fine_tune_classifier():
         if not can_promote:
             return (
                 f"Fine‑tuned artifact saved to {artifact}; NOT promoted "
-                f"(need ≥{MIN_ROWS_TO_PROMOTE} curated rows for a held-out check, have {n})."
+                f"(need ≥{settings.finetune_min_curated} curated rows for a held-out check, have {n})."
             )
 
         cand_loss = _val_loss(model, emb_val, lbl_val, mask_val, schema, pos_weights)
