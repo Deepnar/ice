@@ -165,6 +165,29 @@ trusting them, capture one real sample of the thing being parsed and put it in
 the suite verbatim. And for any new warning, ask what fraction of NORMAL
 traffic trips it — a fallback that always fires is not observability.
 
+### 13c. A same-second, same-size edit is silently ignored (stale `.pyc`)
+Python invalidates cached bytecode by comparing the source's **mtime at
+one-second granularity and its size** against the header in
+`__pycache__/*.pyc`. Change `1.2` to `1.3` — identical byte count — within the
+same second as a previous run, and the interpreter serves the **old** module.
+No error, no warning.
+It bit twice inside one command during G9, in both directions: a negative
+control that nudged a leg weight **passed when it should have failed** (the
+edit never loaded), and the freeze suite then **failed after the file was
+restored** (the pre-restore value was still cached). Both results were
+believed for several minutes, and one of them was about to be written up as a
+real finding.
+The tell is the pair `stat -c '%y %s' <file>` against `ls -la
+__pycache__/*.pyc` showing the same second. The fix is
+`find src tests -name __pycache__ -type d -exec rm -rf {} +` between edit and
+run.
+⇒ **This is aimed squarely at Z1.** Its sweep is a loop of "edit one constant,
+re-run, record the score" — same file, same size, fast iterations. A sweep that
+does not clear bytecode between arms will silently record **the previous arm's
+number** for the current arm's label, which looks exactly like a knob measuring
+`plateau`. Clear the cache per arm, or mutate `settings` in-process rather than
+editing files.
+
 ### 14. `alembic --autogenerate` proposes deleting every index the models don't declare
 Adding one table generated a migration that also emitted **20 `drop_index`
 calls and five `alter_column`s loosening NOT NULL** — including all seven
