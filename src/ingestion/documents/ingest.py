@@ -25,7 +25,7 @@ import structlog
 
 from src.api.config import settings
 from src.ingestion.documents import parsers
-from src.memory.chunking import CHUNK_TOKENS, OVERLAP_WORDS, chunk_text
+from src.memory.chunking import chunk_text
 from src.memory.models import Conversation, EpisodicMemory
 from src.memory.session import resolve_session_id
 
@@ -56,8 +56,7 @@ def build_sections(parse: parsers.DocumentParse) -> list:
     """
     sections: list = []
     for block in parse.blocks:
-        pieces = chunk_text(block.text, max_tokens=CHUNK_TOKENS,
-                            overlap_words=OVERLAP_WORDS)
+        pieces = chunk_text(block.text)
         for piece in pieces:
             if piece.strip():
                 sections.append(Section(piece, block.meta, len(sections)))

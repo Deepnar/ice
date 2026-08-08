@@ -76,9 +76,21 @@ class PyTorchClassifier:
                     input_dim=self.input_dim, heads=self.active_schema.head_widths,
                     tag_threshold=self.tag_threshold, path=model_path)
 
-    def _get_context_turns(self, conversation_id: str, n: int = templates.CONTEXT_TURNS,
-                           max_total_words: int = templates.CONTEXT_MAX_WORDS) -> str:
-        """Return a truncated, summary‑preferring context string from the last *n* turns."""
+    def _get_context_turns(self, conversation_id: str, n: int = None,
+                           max_total_words: int = None) -> str:
+        """Return a truncated, summary‑preferring context string from the last *n* turns.
+
+        G9: both default to None and resolve from settings in the body — as
+        default arguments they were evaluated once at import, so a Z1 sweep of
+        the classifier's context window would have changed nothing."""
+        # Local import, matching this module's existing idiom (see the
+        # threshold resolution above) — classifier.py keeps config out of its
+        # module scope on purpose.
+        from src.api.config import settings as _settings
+        if n is None:
+            n = _settings.classifier_context_turns
+        if max_total_words is None:
+            max_total_words = _settings.classifier_context_max_words
         # Local import to avoid circular dependency at module level
         from src.api.db import SessionLocal
         db = SessionLocal()

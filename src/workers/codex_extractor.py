@@ -302,12 +302,8 @@ from src.memory.chunking import (
     estimate_tokens as _estimate_tokens,
 )
 
-MAX_EXTRACTION_TOKENS = 6000          # legacy constant; retained for import compatibility
-
 # A3 — extraction-confidence seeding (stored on codex_edges.extraction_confidence).
-CONF_GROUNDED = 0.9     # both terms confirmed by NER grounding
-CONF_UNGROUNDED = 0.7   # NER found no entities in the chunk; nothing to ground against
-CONF_REJECTED = 0.35    # failed grounding — stored anyway, gated out of retrieval until corroborated
+# G9: settings.codex_conf_* (grounded / ungrounded / rejected)
 
 # -----------------------------------------------------------------
 # NER grounding (roadmap A2)
@@ -650,9 +646,9 @@ def extract_triplets(text: str, model_override: str = "",
             if ner_entities:
                 grounded, rejected = _ground_triplets(chunk_triplets, ner_entities)
                 for t in grounded:
-                    t["confidence"] = CONF_GROUNDED
+                    t["confidence"] = settings.codex_conf_grounded
                 for t in rejected:
-                    t["confidence"] = CONF_REJECTED
+                    t["confidence"] = settings.codex_conf_rejected
                 if rejected:
                     logger.info("codex_grounding",
                                 kept=len(grounded), rejected=len(rejected),
@@ -661,7 +657,7 @@ def extract_triplets(text: str, model_override: str = "",
                 chunk_triplets = grounded + rejected
             else:
                 for t in chunk_triplets:
-                    t["confidence"] = CONF_UNGROUNDED
+                    t["confidence"] = settings.codex_conf_ungrounded
 
             all_triplets.extend(chunk_triplets)
 

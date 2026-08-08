@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 
+from src.api.config import settings
 import structlog
 from sqlalchemy import or_
 
@@ -19,7 +20,6 @@ embedder = get_embedder()
 # old-but-accessed turns in long conversations uncompressed forever, and long
 # conversations are the case compression exists for. A module constant for now,
 # like the other worker tuning constants; G9 sweeps these into settings.
-BATCH_SUMMARY_AGE_DAYS = 30
 
 def batch_summarize():
     """Compress old turns into per-conversation batch summaries. Plain callable
@@ -42,11 +42,11 @@ def batch_summarize():
     compressing, so a very old but frequently-accessed turn in a long
     conversation never did — and long conversations are exactly where compression
     matters. A turn now qualifies on `decay_score < 0.3` **or** simply being
-    older than `BATCH_SUMMARY_AGE_DAYS`, whichever comes first.
+    older than `settings.batch_summary_age_days`, whichever comes first.
     """
     db = SessionLocal()
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=BATCH_SUMMARY_AGE_DAYS)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=settings.batch_summary_age_days)
         stale_turns = db.query(EpisodicMemory).filter(
             EpisodicMemory.is_private == False,   # G16: incognito never summarised into shared stores
             EpisodicMemory.batch_summary_id.is_(None),   # G11: not already covered

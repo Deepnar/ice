@@ -16,10 +16,9 @@ resort.
 
 import re
 
+from src.api.config import settings
 from src.memory.tokens import count as count_tokens
 
-CHUNK_TOKENS = 550                    # target tokens per chunk (A1; shared with A2 NER)
-OVERLAP_WORDS = 50                    # word overlap carried into the next chunk
 
 _CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
@@ -32,7 +31,7 @@ def estimate_tokens(text: str, is_code: bool = False) -> int:
 
     It used to be `words * 1.33` (with a char-based floor for code), which
     measured 0.53x on fenced Python — so a chunk the packer believed was 550
-    tokens was really ~1,000, and CHUNK_TOKENS meant nothing for exactly the
+    tokens was really ~1,000, and the chunk budget meant nothing for exactly the
     content where chunk size matters most. `is_code` is now vestigial for
     accuracy and kept only so callers need no change; it costs one tokenizer
     call per atomic unit (a sentence or a code line), ~1 ms per turn.
@@ -117,10 +116,18 @@ def _hard_split(unit_text: str, max_tokens: int) -> list:
     return out
 
 
-def chunk_text(text: str, max_tokens: int = CHUNK_TOKENS, overlap_words: int = OVERLAP_WORDS) -> list:
+def chunk_text(text: str, max_tokens: int = None, overlap_words: int = None) -> list:
     """Split *text* into ~max_tokens chunks on sentence/code-line boundaries,
     carrying overlap_words of context into each subsequent chunk. A single
-    unit larger than the budget is hard word-split as a last resort."""
+    unit larger than the budget is hard word-split as a last resort.
+
+    G9: both default to None and resolve from settings here rather than in the
+    signature — a default argument is evaluated once at import, which would
+    freeze the value against a Z1 sweep."""
+    if max_tokens is None:
+        max_tokens = settings.chunk_tokens
+    if overlap_words is None:
+        overlap_words = settings.chunk_overlap_words
     units = atomic_units(text)
     if not units:
         return [text] if text.strip() else []

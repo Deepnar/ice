@@ -87,6 +87,7 @@ conv_id = None
 old_conv_id = None
 turn_ids: list = []
 
+from src.api.config import settings
 import src.workers.batch_summarizer as bs_mod
 
 _orig_client, _orig_embedder = bs_mod.bg_client, bs_mod.embedder
@@ -103,7 +104,7 @@ try:
     db.commit()
     conv_id = conv.id
 
-    old_ts = NOW - timedelta(days=bs_mod.BATCH_SUMMARY_AGE_DAYS + 5)
+    old_ts = NOW - timedelta(days=settings.batch_summary_age_days + 5)
     for i in range(6):
         t = EpisodicMemory(
             conversation_id=conv_id, batch_id=uuid.uuid4(),

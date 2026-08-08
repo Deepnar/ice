@@ -355,6 +355,50 @@ class Settings(BaseSettings):
     retrieval_cluster_top_k: int = 10
     retrieval_cluster_candidate_multiplier: int = 3
 
+    # ── G9: the write path (what gets stored, and in what form) ────────────
+    # "Memory is earned" is decided by these numbers. A turn at or below the
+    # raw-keep length is stored raw with no summary; above the entropy
+    # threshold it earns lossless_flag and gates codex extraction; a summary
+    # is trusted only if it retains this fraction of the turn's must-terms.
+    turn_raw_keep_max_words: int = 350
+    turn_long_turn_chunk_words: int = 600
+    turn_density_lossless_threshold: float = 0.35
+    turn_summary_coverage_threshold: float = 0.7
+    turn_max_must_terms: int = 25
+
+    # Chunking (A1), shared by the document ingest and the codex extractor.
+    chunk_tokens: int = 550
+    chunk_overlap_words: int = 50
+
+    # C4 evolving whole-conversation summaries: the revised summary's ceiling,
+    # the bite size new turns are folded in at, and the per-turn contribution
+    # bound that stops one huge turn dominating a fold.
+    conversation_summary_max_words: int = 250
+    conversation_summary_chunk_words: int = 3500
+    conversation_summary_per_turn_words: int = 400
+
+    # G11: a turn is batch-summarised once its decay falls below the retrieval
+    # floor OR it passes this age, whichever comes first. Handed to G9 by G11.
+    batch_summary_age_days: int = 30
+
+    # Reflection's codex enrichment pass.
+    reflection_enrich_limit: int = 25
+    reflection_enrich_refresh_days: int = 14
+
+    # A3: extraction confidence seeded onto codex_edges.extraction_confidence.
+    # Rejected edges are stored anyway and gated out of retrieval until
+    # something corroborates them — deletion would lose the evidence.
+    codex_conf_grounded: float = 0.9
+    codex_conf_ungrounded: float = 0.7
+    codex_conf_rejected: float = 0.35
+
+    # What the classifier sees of the conversation before the current turn.
+    # ⚠ Changing these changes what the classifier was TRAINED against, so
+    # they are a retrain-coupled knob, not a free one (see B1).
+    classifier_context_turns: int = 3
+    classifier_context_max_words: int = 500
+    classifier_turn_word_cap: int = 150
+
     # ── G9: memory dynamics (decay, promotion, archival) ───────────────────
     # Z1's D5 rule: these are NOT swept against a probe loop, because they are
     # temporal behaviours a single-turn probe cannot see. They are solved from

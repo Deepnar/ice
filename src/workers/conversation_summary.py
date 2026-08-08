@@ -19,13 +19,13 @@ as-is later.
 """
 from datetime import datetime, timezone
 
+from src.api.config import settings
 import structlog
 
 from src.api.memory_decision import estimate_recent_window_tokens
 from src.memory.models import ConversationSummary, EpisodicMemory
 from src.memory.tokens import estimate_from_chars
 from src.workers.turn_density import (
-    SUMMARY_COVERAGE_THRESHOLD,
     extract_key_terms,
     must_terms,
     summary_coverage,
@@ -33,9 +33,6 @@ from src.workers.turn_density import (
 
 logger = structlog.get_logger("ice.workers.conversation_summary")
 
-SUMMARY_MAX_WORDS = 250     # D2: revised summary stays ≤250 words (~330 tok)
-CHUNK_WORDS = 3500          # fold new turns in bounded bites (bg-model window)
-PER_TURN_WORDS = 400        # bound any single turn's contribution
 
 
 def _representation(turn) -> str:
@@ -49,8 +46,8 @@ def _representation(turn) -> str:
     else:
         text_ = (turn.raw_text or "")[:300]
     words = text_.split()
-    if len(words) > PER_TURN_WORDS:
-        text_ = " ".join(words[:PER_TURN_WORDS]) + "…"
+    if len(words) > settings.conversation_summary_per_turn_words:
+        text_ = " ".join(words[:settings.conversation_summary_per_turn_words]) + "…"
     return text_
 
 
@@ -103,7 +100,7 @@ def _fold_prompt(existing: str, chunk_text: str, terms: list,
         "drop information the existing summary carries unless the new turns "
         "supersede it (then state what changed). Preserve names, numbers, "
         "decisions, and open questions. Output ONLY the revised summary, "
-        f"at most {SUMMARY_MAX_WORDS} words."
+        f"at most {settings.conversation_summary_max_words} words."
         f"{must_block}{retry_block}\n\n"
         f"{existing_block}NEW TURNS:\n{chunk_text}"
     )
@@ -118,7 +115,7 @@ def _summarize_chunk(existing: str, chunk_text: str, llm, embedder) -> str:
     if not summary:
         return ""
     coverage = summary_coverage(summary, key_terms)
-    if coverage < SUMMARY_COVERAGE_THRESHOLD and terms:
+    if coverage < settings.turn_summary_coverage_threshold and terms:
         low = summary.lower()
         missing = [t for t in terms if t.lower() not in low]
         retry = llm(_fold_prompt(existing, chunk_text, terms, missing),
@@ -126,8 +123,8 @@ def _summarize_chunk(existing: str, chunk_text: str, llm, embedder) -> str:
         if retry and summary_coverage(retry, key_terms) > coverage:
             summary = retry
     words = summary.split()
-    if len(words) > SUMMARY_MAX_WORDS + 50:      # tolerance, then hard cap
-        summary = " ".join(words[:SUMMARY_MAX_WORDS])
+    if len(words) > settings.conversation_summary_max_words + 50:      # tolerance, then hard cap
+        summary = " ".join(words[:settings.conversation_summary_max_words])
     return summary
 
 
@@ -196,7 +193,7 @@ def run_conversation_summaries(db, llm=None, embedder=None,
             rep = _representation(turn)
             chunk.append(rep)
             chunk_words += len(rep.split())
-            if chunk_words >= CHUNK_WORDS:
+            if chunk_words >= settings.conversation_summary_chunk_words:
                 summary = _summarize_chunk(summary, "\n\n".join(chunk),
                                            llm, lazy_embedder)
                 if not summary:

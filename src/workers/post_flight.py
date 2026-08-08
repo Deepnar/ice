@@ -11,6 +11,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 
+from src.api.config import settings
 import structlog
 from sqlalchemy import text
 
@@ -22,9 +23,6 @@ from src.workers.codex_extractor import extract_codex
 from src.workers.document_chunker import run_chunk_turn
 from src.workers.procedural_extractor import extract_procedural
 from src.workers.turn_density import (
-    DENSITY_LOSSLESS_THRESHOLD,
-    LONG_TURN_CHUNK_WORDS,
-    SUMMARY_COVERAGE_THRESHOLD,
     compute_entropy,
     decide_representation,
     extract_key_terms,
@@ -119,7 +117,7 @@ def generate_summary(prompt: str, response: str, key_terms: dict,
                                     source_kind=source_kind,
                                     source_title=source_title)
         coverage = summary_coverage(summary, key_terms)
-        if coverage < SUMMARY_COVERAGE_THRESHOLD and terms:
+        if coverage < settings.turn_summary_coverage_threshold and terms:
             low = summary.lower()
             missing = [t for t in terms if t.lower() not in low]
             retry = _summary_llm_call(prompt, response, model_name, terms,
@@ -209,7 +207,7 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             # extraction below and exempts from batch summarisation. Generous
             # by design (codex was historically starved).
             lossless = (is_doc_source or has_code or is_creative
-                        or entropy >= DENSITY_LOSSLESS_THRESHOLD)
+                        or entropy >= settings.turn_density_lossless_threshold)
 
             decision = decide_representation(
                 word_count=word_count, entropy=entropy, has_code=has_code,
@@ -226,7 +224,7 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
                     # The retrievability gate: inject the summary only if it
                     # measurably preserved the key terms — else raw wins and
                     # the summary remains as metadata.
-                    inject_raw = not (summary and coverage >= SUMMARY_COVERAGE_THRESHOLD)
+                    inject_raw = not (summary and coverage >= settings.turn_summary_coverage_threshold)
                 log.info(
                     "summary_quality",
                     coverage=coverage,
@@ -258,7 +256,7 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
         # inherit visibility through the parent join, and the conversation
         # needs them for self-retrieval). run_chunk_turn is a no-op when
         # chunks already exist.
-        if turn.is_document or len((turn.raw_text or "").split()) > LONG_TURN_CHUNK_WORDS:
+        if turn.is_document or len((turn.raw_text or "").split()) > settings.turn_long_turn_chunk_words:
             run_chunk_turn(db, turn)
 
         # G16 incognito: private turns keep their per-turn evaluation (summary/

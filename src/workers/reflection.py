@@ -5,6 +5,7 @@ import json
 import re
 from datetime import datetime, timezone
 
+from src.api.config import settings
 import structlog
 from sqlalchemy import text
 
@@ -296,8 +297,6 @@ def _evolve_memory_slots(db, turns):
 # ------------------------------------------------------------------
 # Codex Enrichment
 # ------------------------------------------------------------------
-ENRICH_LIMIT = 25            # entities enriched per reflection run (was 10)
-ENRICH_REFRESH_DAYS = 14     # re-enrich an entity if its note is this old and it grew
 
 
 def _enrich_codex_entities(db):
@@ -319,11 +318,11 @@ def _enrich_codex_entities(db):
         GROUP BY e.id
         ORDER BY COUNT(ev.id) DESC
         LIMIT :lim
-    """), {"lim": ENRICH_LIMIT}).fetchall()
+    """), {"lim": settings.reflection_enrich_limit}).fetchall()
     ids = [r[0] for r in to_enrich]
 
     # Priority 2: fill remaining budget by refreshing stale, well-mentioned notes.
-    if len(ids) < ENRICH_LIMIT:
+    if len(ids) < settings.reflection_enrich_limit:
         stale = db.execute(text("""
             SELECT e.id
             FROM codex_entities e
@@ -334,7 +333,7 @@ def _enrich_codex_entities(db):
             HAVING COUNT(ev.id) >= 3
             ORDER BY COUNT(ev.id) DESC
             LIMIT :lim
-        """), {"days": ENRICH_REFRESH_DAYS, "lim": ENRICH_LIMIT - len(ids)}).fetchall()
+        """), {"days": settings.reflection_enrich_refresh_days, "lim": settings.reflection_enrich_limit - len(ids)}).fetchall()
         ids.extend(r[0] for r in stale)
 
     for eid in ids:

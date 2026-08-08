@@ -23,7 +23,7 @@ import uuid
 
 import structlog
 
-from src.memory.chunking import CHUNK_TOKENS, OVERLAP_WORDS, chunk_text
+from src.memory.chunking import chunk_text
 from src.memory.models import EpisodicChunk, EpisodicMemory
 
 # Reuse the process's already-loaded embedder (no extra model copy, G13).
@@ -40,8 +40,7 @@ def run_chunk_turn(db, turn) -> int:
     existing = db.query(EpisodicChunk).filter_by(turn_id=turn.id).count()
     if existing:
         return 0
-    chunks = chunk_text(turn.raw_text or "", max_tokens=CHUNK_TOKENS,
-                        overlap_words=OVERLAP_WORDS)
+    chunks = chunk_text(turn.raw_text or "")
     if len(chunks) <= 1:
         return 0
     for i, chunk in enumerate(chunks):
@@ -59,7 +58,7 @@ def run_chunk_turn(db, turn) -> int:
 
 def run_pending_documents(db, limit: int = CATCHUP_DOCS_PER_RUN) -> int:
     """Catch-up callable: chunk turns that should have chunks but don't —
-    is_document pastes (C2) and all long turns (C3, > ~LONG_TURN_CHUNK_WORDS,
+    is_document pastes (C2) and all long turns (C3, > ~settings.turn_long_turn_chunk_words,
     approximated in SQL by char length since word count isn't stored). Heals
     legacy pre-C2/C3 turns and lost dispatches."""
     from sqlalchemy import func, or_

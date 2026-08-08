@@ -110,7 +110,7 @@ except ValueError:
     check("unknown template version raises", True)
 long_ctx = templates.truncate_context(["word " * 400, "second turn"])
 check("context truncation respects the 500-word budget",
-      len(long_ctx.split()) <= templates.CONTEXT_MAX_WORDS)
+      len(long_ctx.split()) <= settings.classifier_context_max_words)
 
 print("── D2: trunk + three heads, all-sigmoid, 1024-dim ──")
 m = ICEClassifier(schema=V2)

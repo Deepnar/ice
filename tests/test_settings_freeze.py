@@ -39,6 +39,13 @@ CODEX_DECAY = "src/workers/codex_decay.py"
 PROC_DECAY = "src/workers/procedural_decay.py"
 COMPACTION = "src/workers/compaction.py"
 IMPORTER = "src/ingestion/importer.py"
+DENSITY = "src/workers/turn_density.py"
+CHUNKING = "src/memory/chunking.py"
+CONV_SUM = "src/workers/conversation_summary.py"
+REFLECTION = "src/workers/reflection.py"
+BATCH_SUM = "src/workers/batch_summarizer.py"
+EXTRACTOR = "src/workers/codex_extractor.py"
+TEMPLATES = "src/classifier/templates.py"
 
 # (setting, file, line in the base blob, regex whose group(1) is the literal)
 FROZEN = [
@@ -120,6 +127,27 @@ FROZEN = [
     ("procedural_stale_days", PROC_DECAY, 11, r"STALE_DAYS = (\d+)"),
     ("procedural_min_reinforcement", PROC_DECAY, 12, r"MIN_REINFORCEMENT = (\d+)"),
     ("compaction_event_threshold", COMPACTION, 12, r"EVENT_THRESHOLD = (\d+)"),
+
+    # ── write path ──────────────────────────────────────────────────────
+    ("turn_raw_keep_max_words", DENSITY, 55, r"RAW_KEEP_MAX_WORDS = (\d+)"),
+    ("turn_long_turn_chunk_words", DENSITY, 56, r"LONG_TURN_CHUNK_WORDS = (\d+)"),
+    ("turn_density_lossless_threshold", DENSITY, 58, r"DENSITY_LOSSLESS_THRESHOLD = ([\d.]+)"),
+    ("turn_summary_coverage_threshold", DENSITY, 60, r"SUMMARY_COVERAGE_THRESHOLD = ([\d.]+)"),
+    ("turn_max_must_terms", DENSITY, 61, r"MAX_MUST_TERMS = (\d+)"),
+    ("chunk_tokens", CHUNKING, 21, r"CHUNK_TOKENS = (\d+)"),
+    ("chunk_overlap_words", CHUNKING, 22, r"OVERLAP_WORDS = (\d+)"),
+    ("conversation_summary_max_words", CONV_SUM, 36, r"SUMMARY_MAX_WORDS = (\d+)"),
+    ("conversation_summary_chunk_words", CONV_SUM, 37, r"CHUNK_WORDS = (\d+)"),
+    ("conversation_summary_per_turn_words", CONV_SUM, 38, r"PER_TURN_WORDS = (\d+)"),
+    ("reflection_enrich_limit", REFLECTION, 299, r"ENRICH_LIMIT = (\d+)"),
+    ("reflection_enrich_refresh_days", REFLECTION, 300, r"ENRICH_REFRESH_DAYS = (\d+)"),
+    ("batch_summary_age_days", BATCH_SUM, 22, r"BATCH_SUMMARY_AGE_DAYS = (\d+)"),
+    ("codex_conf_grounded", EXTRACTOR, 308, r"CONF_GROUNDED = ([\d.]+)"),
+    ("codex_conf_ungrounded", EXTRACTOR, 309, r"CONF_UNGROUNDED = ([\d.]+)"),
+    ("codex_conf_rejected", EXTRACTOR, 310, r"CONF_REJECTED = ([\d.]+)"),
+    ("classifier_context_turns", TEMPLATES, 98, r"CONTEXT_TURNS = (\d+)"),
+    ("classifier_context_max_words", TEMPLATES, 99, r"CONTEXT_MAX_WORDS = (\d+)"),
+    ("classifier_turn_word_cap", TEMPLATES, 100, r"TURN_WORD_CAP = (\d+)"),
 ]
 
 _blob_cache: dict[str, list[str]] = {}

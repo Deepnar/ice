@@ -51,14 +51,9 @@ Matrix (want_summary = generate & store; inject_raw = the default hint):
 
 import re
 
-# ── Thresholds (module constants; G9 sweeps tunables into settings later) ──
-RAW_KEEP_MAX_WORDS = 350        # at/below: raw only, no summary generated
-LONG_TURN_CHUNK_WORDS = 600     # C3: turns longer than this get chunk-level embeddings
-                                # (document_chunker), not just is_document pastes
-DENSITY_LOSSLESS_THRESHOLD = 0.35  # entropy at/above ⇒ lossless_flag (codex-extraction gate);
-                                   # deliberately generous — codex was historically starved
-SUMMARY_COVERAGE_THRESHOLD = 0.7   # must-term fraction a summary must retain to be trusted
-MAX_MUST_TERMS = 25
+from src.api.config import settings
+
+# ── Thresholds: G9 moved these to settings.turn_* ──
 
 # No trailing \b: after a non-word unit char like '%' a word boundary can
 # never match, which silently stripped units ("42%" captured as bare "42").
@@ -83,13 +78,13 @@ def extract_key_terms(text: str, embedder, max_chars: int = 2500) -> dict:
     # are injected into the summariser prompt as "must appear verbatim" AND are
     # what `summary_coverage` scores against, so a junk term makes ICE demand
     # noise and then grade itself on having preserved it. Measured 2026-08-03:
-    # the micro-NER saturated the MAX_MUST_TERMS cap on EVERY turn (median 25
+    # the micro-NER saturated the settings.turn_max_must_terms cap on EVERY turn (median 25
     # of 25), meaning the list was simply the first 25 spans it emitted —
     # fragments like "gaining conciousness" and "deeply rooted" included.
     entities = list(dict.fromkeys(
         extract_entities(text or "", embedder, max_chars=max_chars,
                          tier="background")
-    ))[:MAX_MUST_TERMS]
+    ))[:settings.turn_max_must_terms]
 
     body = (text or "")[:max_chars * 2]
     figures = []
@@ -146,7 +141,7 @@ def decide_representation(word_count: int, entropy: float, has_code: bool,
         # survives to the final assignment.
         return {"inject_raw": True, "want_summary": False,
                 "summary_decides": False, "reason": "document"}
-    if word_count <= RAW_KEEP_MAX_WORDS:
+    if word_count <= settings.turn_raw_keep_max_words:
         return {"inject_raw": True, "want_summary": False,
                 "summary_decides": False, "reason": "short"}
     if has_code:
@@ -159,7 +154,7 @@ def decide_representation(word_count: int, entropy: float, has_code: bool,
         # for classifier context / budget degradation / future C3/C4 layers.
         return {"inject_raw": True, "want_summary": True,
                 "summary_decides": False, "reason": "creative_continuity"}
-    reason = "dense_long" if entropy >= DENSITY_LOSSLESS_THRESHOLD else "diffuse_long"
+    reason = "dense_long" if entropy >= settings.turn_density_lossless_threshold else "diffuse_long"
     return {"inject_raw": True, "want_summary": True,
             "summary_decides": True, "reason": reason}
 
@@ -171,7 +166,7 @@ def must_terms(key_terms: dict) -> list:
         if low not in seen:
             seen.add(low)
             out.append(term)
-    return out[:MAX_MUST_TERMS]
+    return out[:settings.turn_max_must_terms]
 
 
 def summary_coverage(summary: str, key_terms: dict) -> float:

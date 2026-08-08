@@ -84,6 +84,7 @@ _TEMPLATES = {
     2: (V2_NO_CONTEXT, V2_WITH_CONTEXT),
 }
 
+from src.api.config import settings
 DEFAULT_VERSION = 2
 
 # The context builder's shape (``classifier._get_context_turns``). Named here so
@@ -95,9 +96,6 @@ DEFAULT_VERSION = 2
 # of those. An offline builder that took the last three *messages* would show the
 # model roughly half the history it sees in production, in a different surface
 # form — the exact train/inference drift this module exists to prevent.
-CONTEXT_TURNS = 3
-CONTEXT_MAX_WORDS = 500
-TURN_WORD_CAP = 150            # per exchange, before the total budget applies
 EXCHANGE_FORMAT = "User: {user}\n\nAssistant: {assistant}"
 
 
@@ -118,7 +116,7 @@ def render(prompt: str, context_text: Optional[str] = None,
     return no_ctx.format(prompt=prompt)
 
 
-def cap_turn(text: str, max_words: int = TURN_WORD_CAP) -> str:
+def cap_turn(text: str, max_words: int = settings.classifier_turn_word_cap) -> str:
     """Trim ONE exchange to the live per-turn cap (mirrors `_get_context_turns`)."""
     if not text:
         return ""
@@ -126,8 +124,8 @@ def cap_turn(text: str, max_words: int = TURN_WORD_CAP) -> str:
     return " ".join(words[:max_words]) + "…" if len(words) > max_words else text
 
 
-def context_from_messages(messages, n_turns: int = CONTEXT_TURNS,
-                          max_total_words: int = CONTEXT_MAX_WORDS) -> str:
+def context_from_messages(messages, n_turns: int = settings.classifier_context_turns,
+                          max_total_words: int = settings.classifier_context_max_words) -> str:
     """Build the live-shaped context prefix from an ordered message list.
 
     *messages* is ``[(role, text), …]`` in chronological order, ending just
@@ -159,7 +157,7 @@ def context_from_messages(messages, n_turns: int = CONTEXT_TURNS,
     return truncate_context(recent, max_total_words=max_total_words)
 
 
-def truncate_context(turn_texts, max_total_words: int = CONTEXT_MAX_WORDS) -> str:
+def truncate_context(turn_texts, max_total_words: int = settings.classifier_context_max_words) -> str:
     """Join prior-turn texts under a word budget, mirroring the live path.
 
     ``classifier._get_context_turns`` applies this to rows pulled from the DB;
