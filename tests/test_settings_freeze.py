@@ -46,6 +46,8 @@ REFLECTION = "src/workers/reflection.py"
 BATCH_SUM = "src/workers/batch_summarizer.py"
 EXTRACTOR = "src/workers/codex_extractor.py"
 TEMPLATES = "src/classifier/templates.py"
+CLUSTERING = "src/workers/clustering.py"
+AGENT = "src/workers/maintenance_agent.py"
 
 # (setting, file, line in the base blob, regex whose group(1) is the literal)
 FROZEN = [
@@ -148,6 +150,32 @@ FROZEN = [
     ("classifier_context_turns", TEMPLATES, 98, r"CONTEXT_TURNS = (\d+)"),
     ("classifier_context_max_words", TEMPLATES, 99, r"CONTEXT_MAX_WORDS = (\d+)"),
     ("classifier_turn_word_cap", TEMPLATES, 100, r"TURN_WORD_CAP = (\d+)"),
+
+    # ── clustering + maintenance agent ──────────────────────────────────
+    ("cluster_similarity_threshold", CLUSTERING, 99, r"SIMILARITY_THRESHOLD = ([\d.]+)"),
+    ("cluster_merge_similarity_threshold", CLUSTERING, 100, r"MERGE_SIMILARITY_THRESHOLD = ([\d.]+)"),
+    ("cluster_merge_min_raw_sim", CLUSTERING, 101, r"MERGE_MIN_RAW_SIM = ([\d.]+)"),
+    ("cluster_max_turns_per_run", CLUSTERING, 102, r"MAX_TURNS_PER_RUN = (\d+)"),
+    ("cluster_entity_overlap_bonus_per_shared", CLUSTERING, 104, r"PER_SHARED = ([\d.]+)"),
+    ("cluster_entity_overlap_bonus_cap", CLUSTERING, 105, r"ENTITY_OVERLAP_BONUS_CAP = ([\d.]+)"),
+    ("cluster_merge_entity_bonus_cap", CLUSTERING, 106, r"MERGE_ENTITY_BONUS_CAP = ([\d.]+)"),
+    ("cluster_tag_overlap_bonus", CLUSTERING, 108, r"TAG_OVERLAP_BONUS = ([\d.]+)"),
+    ("cluster_tag_overlap_bonus_cap", CLUSTERING, 109, r"TAG_OVERLAP_BONUS_CAP = ([\d.]+)"),
+    ("cluster_session_affinity_bonus", CLUSTERING, 112, r"SESSION_AFFINITY_BONUS = ([\d.]+)"),
+    ("cluster_singleton_age_hours", CLUSTERING, 113, r"SINGLETON_AGE_HOURS = ([\d.]+)"),
+    ("cluster_name_regen_interval", CLUSTERING, 115, r"NAME_REGEN_INTERVAL = (\d+)"),
+    ("cluster_entity_extraction_max_chars", CLUSTERING, 119, r"MAX_CHARS = (\d+)"),
+    ("agent_max_scanned", AGENT, 42, r"MAX_SCANNED = (\d+)"),
+    ("agent_max_llm_decisions", AGENT, 43, r"MAX_LLM_DECISIONS = (\d+)"),
+    ("agent_max_tier2_proposals", AGENT, 44, r"MAX_TIER2_PROPOSALS = (\d+)"),
+    ("agent_max_applications", AGENT, 45, r"MAX_APPLICATIONS = (\d+)"),
+    ("agent_pileup_min_pending", AGENT, 49, r"PILEUP_MIN_PENDING = (\d+)"),
+    ("agent_pileup_min_active_overlap", AGENT, 50, r"PILEUP_MIN_ACTIVE_OVERLAP = (\d+)"),
+    ("agent_dup_cosine_threshold", AGENT, 54, r"DUP_COSINE_THRESHOLD = ([\d.]+)"),
+    ("agent_dup_pairs_per_run", AGENT, 55, r"DUP_PAIRS_PER_RUN = (\d+)"),
+    ("agent_max_attempts", AGENT, 58, r"MAX_AGENT_ATTEMPTS = (\d+)"),
+    ("agent_stale_slot_days", AGENT, 62, r"STALE_SLOT_DAYS = (\d+)"),
+    ("agent_stale_task_days", AGENT, 304, r"STALE_TASK_DAYS = (\d+)"),
 ]
 
 _blob_cache: dict[str, list[str]] = {}

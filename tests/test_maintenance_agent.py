@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from sqlalchemy import text
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import (
     CodexEdge,
@@ -65,7 +66,7 @@ rq_ids: list = []         # review rows created directly by the test
 run_ids: list = []        # agent_run_ids used (cleanup of proposals + events)
 slot_snapshot = "absent"  # pending_items snapshot ("absent" | tuple)
 orig_detectors = dict(ma.DETECTORS)
-orig_dup_cap = ma.DUP_PAIRS_PER_RUN
+orig_dup_cap = settings.agent_dup_pairs_per_run
 
 
 def mkent(name, aliases=None, emb=None, desc="", n_events=0):
@@ -122,7 +123,7 @@ try:
     db.commit()
     a_id, b_id, dup_id, uniq_id, loop_id = a.id, b.id, dup_edge.id, uniq_edge.id, loop_edge.id
 
-    ma.DUP_PAIRS_PER_RUN = 500   # the live DB may outrank fixtures at cap 10
+    settings.agent_dup_pairs_per_run = 500   # the live DB may outrank fixtures at cap 10
     items = ma._detect_duplicate_entities(db, 500)
     key_ab = ma._pair_key(a_id, b_id)
     mine = [i for i in items if i.payload["pair_key"] == key_ab]
@@ -483,7 +484,7 @@ try:
 
 finally:
     ma.DETECTORS = orig_detectors
-    ma.DUP_PAIRS_PER_RUN = orig_dup_cap
+    settings.agent_dup_pairs_per_run = orig_dup_cap
     db.rollback()
     try:
         # FK-safe order; marker/id-keyed — NEVER truncate.

@@ -405,7 +405,7 @@ async def test_decay_cycles():
         await rt._run_job("decay_episodic", {}, 0, "overdue")
         tdb.expire_all()
         score = tdb.query(EpisodicMemory).filter_by(id=marker.id).first().decay_score
-        expected = decay_mod.DECAY_RATE_UNACCESSED ** 4
+        expected = decay_mod.rate_unaccessed() ** 4
         check(f"marker score == rate**4 ({expected:.6f})", abs(score - expected) < 1e-6)
         row = ldb.execute(text("SELECT last_status, last_finished FROM maintenance_ledger "
                                "WHERE job_name='decay_episodic'")).first()

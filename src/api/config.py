@@ -442,6 +442,43 @@ class Settings(BaseSettings):
     # Codex events per entity before compaction snapshots and marks them.
     compaction_event_threshold: int = 100
 
+    # ── G9: clustering (C5 v5) ─────────────────────────────────────────────
+    # The assignment bar, the merge bars, and the bonuses that adjust raw
+    # centroid similarity. Merging is permanent, which is why it carries both
+    # a higher bar and a stricter bonus cap than assignment.
+    cluster_similarity_threshold: float = 0.6
+    cluster_merge_similarity_threshold: float = 0.90
+    cluster_merge_min_raw_sim: float = 0.82
+    cluster_max_turns_per_run: int = 25
+    cluster_entity_overlap_bonus_per_shared: float = 0.08
+    cluster_entity_overlap_bonus_cap: float = 0.30
+    cluster_merge_entity_bonus_cap: float = 0.10
+    cluster_tag_overlap_bonus: float = 0.05
+    # v5: capped, because within one conversation tags are near-uniform and
+    # uncapped this was a constant offset rather than a signal.
+    cluster_tag_overlap_bonus_cap: float = 0.10
+    cluster_session_affinity_bonus: float = 0.10
+    cluster_singleton_age_hours: float = 24.0
+    cluster_name_regen_interval: int = 5
+    cluster_entity_extraction_max_chars: int = 2000
+
+    # ── G9: maintenance agent per-run caps (D8) ────────────────────────────
+    # A flooded review queue is worse than no agent, which is what the tier-2
+    # cap is defending.
+    agent_max_scanned: int = 50
+    agent_max_llm_decisions: int = 25
+    agent_max_tier2_proposals: int = 5
+    agent_max_applications: int = 10
+    agent_pileup_min_pending: int = 3
+    agent_pileup_min_active_overlap: int = 2
+    # Z1's manual review of the first proposals moves this to 0.94 (if >20% of
+    # "same" verdicts are wrong) or 0.85 (if it never fires).
+    agent_dup_cosine_threshold: float = 0.90
+    agent_dup_pairs_per_run: int = 10
+    agent_max_attempts: int = 2
+    agent_stale_slot_days: int = 14
+    agent_stale_task_days: int = 14
+
     # ── G9: the dynamic-budget ladders ─────────────────────────────────────
     # These split the context budget between the recent-turns window and
     # retrieval, and they are the knob the flaw ablation scored WORST:

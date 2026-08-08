@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from src.api.config import settings
 import structlog
 from sqlalchemy import text
 from sqlalchemy.orm.attributes import flag_modified
@@ -38,28 +39,10 @@ logger = structlog.get_logger("ice.workers.maintenance_agent")
 
 SOURCE = "maintenance_agent"
 
-# ── D8 caps (per run) ────────────────────────────────────────────────────────
-MAX_SCANNED = 50            # detector items entering the worklist
-MAX_LLM_DECISIONS = 25      # bounded-LLM calls
-MAX_TIER2_PROPOSALS = 5     # review-queue writes (a flooded queue < no agent)
-MAX_APPLICATIONS = 10       # Tier-0/1 writes applied
-
-# Detector 2 — thresholds from the sentinel seed rule this detector replaces
-# ("High contradiction entity": min_pending_edges 3, min_active_overlap 2).
-PILEUP_MIN_PENDING = 3
-PILEUP_MIN_ACTIVE_OVERLAP = 2
-
-# Detector 3 — empirical deferral (spec rule 2b): Z1's manual review of the
-# first proposals moves 0.90 to 0.94 (>20% wrong "same") or 0.85 (never fires).
-DUP_COSINE_THRESHOLD = 0.90
-DUP_PAIRS_PER_RUN = 10
-
-# Detector 1 — leftover re-reconciles per item before it is left alone forever.
-MAX_AGENT_ATTEMPTS = 2
-
-# Detector 5 — the sentinel absence rule, ported.
+# Detector 5 — the sentinel absence rule, ported. A slot NAME, not a knob:
+# it identifies the slot the detector watches, so it stays a constant.
 STALE_SLOT_NAME = "pending_items"
-STALE_SLOT_DAYS = 14
+
 
 
 @dataclass
@@ -74,7 +57,7 @@ class WorkItem:
 def _detect_reconciliation_leftovers(db, cap: int) -> list:
     """D3.1: pending codex_reconciliation items the in-line reconciler refused
     to guess at. The agent re-decides WITH context the in-line pass lacked
-    (both edges' source turns). ≥MAX_AGENT_ATTEMPTS prior attempts ⇒ never
+    (both edges' source turns). ≥settings.agent_max_attempts prior attempts ⇒ never
     retried (check 6)."""
     rows = db.execute(text("""
         SELECT id, item_content FROM review_queue
@@ -82,7 +65,7 @@ def _detect_reconciliation_leftovers(db, cap: int) -> list:
           AND COALESCE((item_content->>'agent_attempts')::int, 0) < :max_att
         ORDER BY created_at ASC
         LIMIT :cap
-    """), {"max_att": MAX_AGENT_ATTEMPTS, "cap": cap}).fetchall()
+    """), {"max_att": settings.agent_max_attempts, "cap": cap}).fetchall()
     return [WorkItem("reconciliation_leftover", 1,
                      {"review_id": str(r.id), "content": dict(r.item_content or {})})
             for r in rows]
@@ -103,7 +86,7 @@ def _detect_pending_pileup(db, cap: int) -> list:
         HAVING COUNT(DISTINCT pe.id) > :min_pen
            AND COUNT(DISTINCT ae.id) > :min_act
         LIMIT :cap
-    """), {"min_pen": PILEUP_MIN_PENDING, "min_act": PILEUP_MIN_ACTIVE_OVERLAP,
+    """), {"min_pen": settings.agent_pileup_min_pending, "min_act": settings.agent_pileup_min_active_overlap,
            "cap": cap}).fetchall()
     return [WorkItem("pending_pileup", 1, {"entity_id": str(r.id)}) for r in rows]
 
@@ -119,11 +102,11 @@ def _pair_key(id_a, id_b) -> str:
 def _detect_duplicate_entities(db, cap: int) -> list:
     """D3.3: candidate pairs = casefold name/alias intersection ∪ embedding
     cosine ≥ threshold ∧ same entity_type; ranked name-overlap first then by
-    cosine; top DUP_PAIRS_PER_RUN. Normalization-equal ⇒ Tier 0 auto-merge;
+    cosine; top settings.agent_dup_pairs_per_run. Normalization-equal ⇒ Tier 0 auto-merge;
     cosine-only pairs ALWAYS need the LLM verdict (Tier 2 — spec §4 guard).
     Pairs the user rejected, and pairs already proposed/decided, are skipped
     forever (pair_key stamped in item_content)."""
-    cap = min(cap, DUP_PAIRS_PER_RUN)
+    cap = min(cap, settings.agent_dup_pairs_per_run)
     if cap <= 0:
         return []
 
@@ -170,7 +153,7 @@ def _detect_duplicate_entities(db, cap: int) -> list:
           AND 1 - (a.embedding <=> b.embedding) >= :thresh
         ORDER BY cos DESC
         LIMIT :cap
-    """), {"thresh": DUP_COSINE_THRESHOLD, "cap": cap}).fetchall()
+    """), {"thresh": settings.agent_dup_cosine_threshold, "cap": cap}).fetchall()
 
     ranked = [(key, ids, None) for key, ids in name_pairs.items()]
     ranked += [(_pair_key(r.a_id, r.b_id), (r.a_id, r.b_id), float(r.cos))
@@ -271,12 +254,12 @@ def _detect_contradictions(db, cap: int) -> list:
 
 def _detect_stale_slot(db, cap: int) -> list:
     """D3.5: the sentinel absence rule, ported — the pending_items slot has
-    content but hasn't been touched in STALE_SLOT_DAYS. Skipped while a
+    content but hasn't been touched in settings.agent_stale_slot_days. Skipped while a
     proposal for the slot is already pending, or the user rejected one since
     the slot last changed (their "no" stands until the slot moves)."""
     if cap <= 0:
         return []
-    cutoff = datetime.now(timezone.utc) - timedelta(days=STALE_SLOT_DAYS)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=settings.agent_stale_slot_days)
     row = db.execute(text("""
         SELECT slot_name, last_updated FROM memory_slots
         WHERE slot_name = :slot
@@ -301,11 +284,10 @@ def _detect_stale_slot(db, cap: int) -> list:
         "last_updated": row.last_updated.isoformat() if row.last_updated else None})]
 
 
-STALE_TASK_DAYS = 14
 
 
 def _detect_stale_work(db, cap: int) -> list:
-    """E3 (coding-core D5 step 4): project tasks untouched > STALE_TASK_DAYS
+    """E3 (coding-core D5 step 4): project tasks untouched > settings.agent_stale_task_days
     become Tier-2 proposals — detection is deterministic (no LLM), the review
     queue is the notifier (no parallel notification system). Skipped while a
     proposal for the task is pending, or rejected since the task last moved
@@ -313,7 +295,7 @@ def _detect_stale_work(db, cap: int) -> list:
     goal so drift is visible to the reviewer."""
     if cap <= 0:
         return []
-    cutoff = datetime.now(timezone.utc) - timedelta(days=STALE_TASK_DAYS)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=settings.agent_stale_task_days)
     try:
         rows = db.execute(text("""
             SELECT t.id, t.title, t.status, t.updated_at, t.project_id,
@@ -363,7 +345,7 @@ DETECTORS: dict = {
 def detect_all(db) -> list:
     items = []
     for name, fn in DETECTORS.items():
-        remaining = MAX_SCANNED - len(items)
+        remaining = settings.agent_max_scanned - len(items)
         if remaining <= 0:
             break
         try:
@@ -375,7 +357,7 @@ def detect_all(db) -> list:
         if found:
             logger.info("agent_detector", detector=name, items=len(found))
             items.extend(found)
-    return items[:MAX_SCANNED]
+    return items[:settings.agent_max_scanned]
 
 
 # ═══ Decide (fixed enums; bg model in JSON mode; unparseable ⇒ unsure) ═══════
@@ -561,7 +543,7 @@ def _decide_stale_slot(db, item: WorkItem, llm_decider) -> Optional[str]:
         f"- [{r.timestamp:%Y-%m-%d}] {(r.txt or '')[:200]}" for r in recents)
     prompt = (
         f'The user\'s "{item.payload["slot_name"]}" memory slot has not changed in '
-        f"{STALE_SLOT_DAYS}+ days. Suggest an updated version: keep items that "
+        f"{settings.agent_stale_slot_days}+ days. Suggest an updated version: keep items that "
         "still look open, drop ones the recent conversations show as done or "
         "abandoned. Do not invent new items.\n"
         f"Current content:\n{(slot.content or '')[:600]}\n\n"
@@ -727,7 +709,7 @@ def _propose_slot(db, item: WorkItem, suggestion: str, run_id) -> str:
         "slot_name": item.payload["slot_name"],
         "proposed_content": suggestion,
         "proposed_by": "agent",       # C9 D7: recorded as updated_by on apply
-        "reason": f"slot untouched > {STALE_SLOT_DAYS}d (maintenance agent)",
+        "reason": f"slot untouched > {settings.agent_stale_slot_days}d (maintenance agent)",
         "agent_run_id": str(run_id)}))
     db.commit()
     logger.info("agent_action", action="stale_slot", outcome="proposed",
@@ -784,11 +766,11 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
     if needs_llm:
         if llm_decider is None:
             return "skipped_no_llm"
-        if counters["llm_decisions"] >= MAX_LLM_DECISIONS:
+        if counters["llm_decisions"] >= settings.agent_max_llm_decisions:
             return "skipped_cap"
 
     if item.item_type == "duplicate_entities" and item.tier == 0:
-        if counters["applications"] >= MAX_APPLICATIONS:
+        if counters["applications"] >= settings.agent_max_applications:
             return "skipped_cap"
         outcome = _apply_merge(db, item, run_id)
         if outcome == "applied":
@@ -796,7 +778,7 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
         return outcome
 
     if item.item_type == "pending_pileup":
-        if counters["applications"] >= MAX_APPLICATIONS:
+        if counters["applications"] >= settings.agent_max_applications:
             return "skipped_cap"
         outcome = _apply_pileup(db, item, run_id)
         if outcome == "applied":
@@ -804,7 +786,7 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
         return outcome
 
     if item.item_type == "contradiction":
-        if counters["applications"] >= MAX_APPLICATIONS:
+        if counters["applications"] >= settings.agent_max_applications:
             return "skipped_cap"
         outcome = _apply_contradiction(db, item, run_id)
         if outcome == "applied":
@@ -814,7 +796,7 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
     if item.item_type == "reconciliation_leftover":
         decision = _decide_reconciliation(db, item, llm_decider)
         if decision in ("expire_old", "reject_new") and \
-                counters["applications"] >= MAX_APPLICATIONS:
+                counters["applications"] >= settings.agent_max_applications:
             return "skipped_cap"
         outcome = _apply_reconciliation(db, item, decision, run_id)
         if outcome == "applied":
@@ -824,7 +806,7 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
     if item.item_type == "duplicate_entities":       # tier 2
         verdict = _decide_duplicate(db, item, llm_decider)
         if verdict == "same":
-            if counters["proposals"] >= MAX_TIER2_PROPOSALS:
+            if counters["proposals"] >= settings.agent_max_tier2_proposals:
                 return "skipped_cap"
             counters["proposals"] += 1
             return _propose_merge(db, item, run_id)
@@ -836,7 +818,7 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
         suggestion = _decide_stale_slot(db, item, llm_decider)
         if not suggestion:
             return "no_suggestion"
-        if counters["proposals"] >= MAX_TIER2_PROPOSALS:
+        if counters["proposals"] >= settings.agent_max_tier2_proposals:
             return "skipped_cap"
         counters["proposals"] += 1
         return _propose_slot(db, item, suggestion, run_id)
@@ -844,7 +826,7 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
     if item.item_type == "stale_work":
         # E3: deterministic Tier-2 — the item payload IS the proposal
         # (self-describing for F2); no LLM decision needed.
-        if counters["proposals"] >= MAX_TIER2_PROPOSALS:
+        if counters["proposals"] >= settings.agent_max_tier2_proposals:
             return "skipped_cap"
         from src.memory.models import ReviewQueue
         db.add(ReviewQueue(item_type="stale_work", item_content={

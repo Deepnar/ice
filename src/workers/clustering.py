@@ -19,7 +19,7 @@ WHAT v5 CHANGES AND WHY
      + entity overlap + same-session bonus) and grouped by union-find; a
      cluster is created only from a group of ≥2 mutually-similar turns — so
      new clusters are born with two turns of evidence (better centroid,
-     better name). A turn that stays alone longer than SINGLETON_AGE_HOURS
+     better name). A turn that stays alone longer than settings.cluster_singleton_age_hours
      becomes a singleton cluster after all (one-off topics are real).
      Waiting is safe for retrieval: the cluster-scope filter explicitly
      passes turns that have no cluster links yet.
@@ -27,7 +27,7 @@ WHAT v5 CHANGES AND WHY
   3. SESSION AFFINITY (the C6 payoff).
      Turns from the same sitting (episodic_memory.session_id, 30-min-gap
      sessions) are likely same-topic, so sharing a session with a cluster's
-     existing members now adds SESSION_AFFINITY_BONUS. This replaces v4's
+     existing members now adds settings.cluster_session_affinity_bonus. This replaces v4's
      temporal-proximity bonus, which fired only when the turn was the
      cluster's *immediate* predecessor and cost two DB queries per
      turn×cluster comparison to detect — the session set is precomputed once
@@ -73,10 +73,11 @@ CARRIED OVER FROM v4 (still correct):
   - Centroid renormalization after every mean (an average of unit vectors
     is not unit length; unnormalized centroids deflate dot-product scores
     as clusters grow).
-  - Name/description regeneration only every NAME_REGEN_INTERVAL members.
+  - Name/description regeneration only every settings.cluster_name_regen_interval members.
   - Real MicroNER (shared with the orchestrator) over a regex proxy.
 """
 
+from src.api.config import settings
 import structlog
 import re
 from datetime import datetime, timezone, timedelta
@@ -96,27 +97,9 @@ bg_client = get_bg_client()
 # The process-shared native-width embedder (G13/G23).
 cluster_embedder = get_embedder()
 
-SIMILARITY_THRESHOLD = 0.6              # assignment bar (adjusted score)
-MERGE_SIMILARITY_THRESHOLD = 0.90       # adjusted bar for merging two clusters
-MERGE_MIN_RAW_SIM = 0.82                # raw-centroid floor to even consider merging
-MAX_TURNS_PER_RUN = 25
-
-ENTITY_OVERLAP_BONUS_PER_SHARED = 0.08
-ENTITY_OVERLAP_BONUS_CAP = 0.30         # assignment/pairing cap
-MERGE_ENTITY_BONUS_CAP = 0.10           # merging is permanent — be conservative
-
-TAG_OVERLAP_BONUS = 0.05
-TAG_OVERLAP_BONUS_CAP = 0.10            # v5: capped — within one conversation tags
-                                        # are near-uniform, so uncapped this was a
-                                        # constant offset, not a signal
-SESSION_AFFINITY_BONUS = 0.10           # v5: same sitting ⇒ likely same topic (C6)
-SINGLETON_AGE_HOURS = 24.0              # how long a lone turn waits for a friend
-
-NAME_REGEN_INTERVAL = 5
 
 from src.retrieval.ner_utils import extract_entities
 
-ENTITY_EXTRACTION_MAX_CHARS = 2000
 
 
 def _extract_turn_entities(text_: str) -> set:
@@ -135,7 +118,7 @@ def _extract_turn_entities(text_: str) -> set:
     """
     return set(extract_entities(
         text_ or "", cluster_embedder,
-        max_chars=ENTITY_EXTRACTION_MAX_CHARS, tier="background"
+        max_chars=settings.cluster_entity_extraction_max_chars, tier="background"
     ))
 
 
@@ -332,11 +315,11 @@ def _score_against_cluster(turn_emb, turn_tags, turn_entities, turn_session, sta
     """Adjusted assignment score of one turn against one cluster state."""
     cl = state["cluster"]
     base_sim = sum(a * b for a, b in zip(turn_emb, state["embedding"]))
-    tag_bonus = min(TAG_OVERLAP_BONUS_CAP,
-                    TAG_OVERLAP_BONUS * len(set(turn_tags) & set(cl.tags or [])))
-    entity_bonus = min(ENTITY_OVERLAP_BONUS_CAP,
-                       ENTITY_OVERLAP_BONUS_PER_SHARED * len(turn_entities & state["cast"]))
-    session_bonus = SESSION_AFFINITY_BONUS if (
+    tag_bonus = min(settings.cluster_tag_overlap_bonus_cap,
+                    settings.cluster_tag_overlap_bonus * len(set(turn_tags) & set(cl.tags or [])))
+    entity_bonus = min(settings.cluster_entity_overlap_bonus_cap,
+                       settings.cluster_entity_overlap_bonus_per_shared * len(turn_entities & state["cast"]))
+    session_bonus = settings.cluster_session_affinity_bonus if (
         turn_session is not None and turn_session in state["sessions"]
     ) else 0.0
     return base_sim + tag_bonus + entity_bonus + session_bonus
@@ -346,9 +329,9 @@ def _pair_score(a, b):
     """Adjusted similarity between two *waiting* turns (dicts with emb /
     entities / session_id) — the wait-for-a-friend grouping signal."""
     base = sum(x * y for x, y in zip(a["emb"], b["emb"]))
-    entity_bonus = min(ENTITY_OVERLAP_BONUS_CAP,
-                       ENTITY_OVERLAP_BONUS_PER_SHARED * len(a["entities"] & b["entities"]))
-    session_bonus = SESSION_AFFINITY_BONUS if (
+    entity_bonus = min(settings.cluster_entity_overlap_bonus_cap,
+                       settings.cluster_entity_overlap_bonus_per_shared * len(a["entities"] & b["entities"]))
+    session_bonus = settings.cluster_session_affinity_bonus if (
         a["session_id"] is not None and a["session_id"] == b["session_id"]
     ) else 0.0
     return base + entity_bonus + session_bonus
@@ -399,7 +382,7 @@ def _create_cluster_from_members(db, conversation_id, members, cluster_state):
 
 def _assign_turn_to_cluster(db, turn_info, state):
     """Link a turn to a cluster; refresh tags, centroid, session set, and the
-    name/description every NAME_REGEN_INTERVAL members."""
+    name/description every settings.cluster_name_regen_interval members."""
     cl = state["cluster"]
     if not db.query(EpisodicClusterLink).filter_by(
             episodic_id=turn_info["id"], cluster_id=cl.id).first():
@@ -415,7 +398,7 @@ def _assign_turn_to_cluster(db, turn_info, state):
     db.flush()
     member_count = db.query(EpisodicClusterLink).filter_by(cluster_id=cl.id).count()
 
-    if member_count > 1 and member_count % NAME_REGEN_INTERVAL == 0:
+    if member_count > 1 and member_count % settings.cluster_name_regen_interval == 0:
         linked_turns = db.query(EpisodicMemory).filter(
             EpisodicMemory.id.in_(
                 db.query(EpisodicClusterLink.episodic_id).filter(
@@ -450,7 +433,7 @@ def run_cluster_assignment(db, conversation_ids=None) -> dict:
     now = datetime.now(timezone.utc)
 
     conv_filter = "AND e.conversation_id = ANY(:conv_ids)" if conversation_ids else ""
-    params = {"limit": MAX_TURNS_PER_RUN}
+    params = {"limit": settings.cluster_max_turns_per_run}
     if conversation_ids:
         params["conv_ids"] = list(conversation_ids)
 
@@ -510,7 +493,7 @@ def run_cluster_assignment(db, conversation_ids=None) -> dict:
 
             # v5: EXCLUSIVE assignment — single best cluster above threshold
             # (multi-assignment was the mega-cluster convergence machine).
-            best, best_score = None, SIMILARITY_THRESHOLD
+            best, best_score = None, settings.cluster_similarity_threshold
             for state in cluster_state:
                 if state["embedding"] is None:
                     continue
@@ -540,7 +523,7 @@ def run_cluster_assignment(db, conversation_ids=None) -> dict:
 
         for i in range(len(waiting)):
             for j in range(i + 1, len(waiting)):
-                if _pair_score(waiting[i], waiting[j]) >= SIMILARITY_THRESHOLD:
+                if _pair_score(waiting[i], waiting[j]) >= settings.cluster_similarity_threshold:
                     parent[find(i)] = find(j)
 
         groups = {}
@@ -555,7 +538,7 @@ def run_cluster_assignment(db, conversation_ids=None) -> dict:
             else:
                 lone = members[0]
                 age = now - lone["timestamp"]
-                if age > timedelta(hours=SINGLETON_AGE_HOURS):
+                if age > timedelta(hours=settings.cluster_singleton_age_hours):
                     # One-off topics are real — after waiting long enough,
                     # a lone turn earns its own cluster.
                     _create_cluster_from_members(db, cid, [lone], cluster_state)
@@ -621,7 +604,7 @@ def run_cluster_merge(db, conversation_ids=None) -> dict:
                 continue
             emb = _parse_embedding(turn.embedding)
             entities = _extract_turn_entities(turn.raw_text or "")
-            best, best_score = None, SIMILARITY_THRESHOLD
+            best, best_score = None, settings.cluster_similarity_threshold
             for other in states:
                 if other["cluster"].id == cl.id or other["cluster"].id in removed_ids:
                     continue
@@ -672,12 +655,12 @@ def run_cluster_merge(db, conversation_ids=None) -> dict:
                 if emb_older is None or emb_newer is None:
                     continue
                 sim = sum(a * b for a, b in zip(emb_older, emb_newer))
-                if sim < MERGE_MIN_RAW_SIM:
+                if sim < settings.cluster_merge_min_raw_sim:
                     continue
                 shared = older_cast & live[j]["cast"]
-                entity_bonus = min(MERGE_ENTITY_BONUS_CAP,
-                                   ENTITY_OVERLAP_BONUS_PER_SHARED * len(shared))
-                if sim + entity_bonus < MERGE_SIMILARITY_THRESHOLD:
+                entity_bonus = min(settings.cluster_merge_entity_bonus_cap,
+                                   settings.cluster_entity_overlap_bonus_per_shared * len(shared))
+                if sim + entity_bonus < settings.cluster_merge_similarity_threshold:
                     continue
 
                 logger.info("merging_clusters", older=older.name, newer=newer.name,
