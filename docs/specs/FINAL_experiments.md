@@ -444,6 +444,27 @@ post-G19 flag mechanism). Budget: 8 flags × ~490 probes ≈ 2–3 nights.
    D-deferral c); report per-question-type accuracy next to the published numbers of
    long-context/Mem0/Zep-class systems from the LongMemEval results table (cite; we
    compare against *published* numbers, we don't rerun competitors).
+   **⚑ RE-OPENED AS AN EXPLICIT USER DECISION, 2026-08-04 — not yet reversed.** The
+   "published numbers" comparison is the weakest answer to criticism 1 and a reviewer
+   discounts it correctly: different hardware, different base model, different judge.
+   **A stronger option exists and costs nights rather than money** — Mem0, Letta/MemGPT
+   and Graphiti (Zep's core) are open source and self-hostable, so they can be pointed
+   at **the same local Ollama model** and fed the same haystack and probes, judged
+   identically. That is a true head-to-head on identical hardware.
+   **Cost, honestly:** ~a night per system to wire up and *verify it actually ran* (this
+   project has repeatedly found subsystems that looked healthy and were dead), and
+   fairness demands using their **defaults** with versions pinned in the manifest — a
+   competitor you tuned badly is worse than no competitor, because it is the first
+   thing a reviewer probes.
+   **Recommendation if reversed: exactly ONE competitor, Mem0** (most-cited, most
+   self-hostable), as a stretch arm — one run properly beats three run sloppily, and
+   the fallback to published numbers loses nothing. ⚠ **This contradicts the sentence
+   above, so it needs a rev note recording the reversal BEFORE any code is written**
+   (README rule 12); otherwise a later session finds code doing what the spec forbids.
+   ⚠ Also verify licensing/self-hostability first — it was recalled, not checked.
+   **What is NOT possible either way:** ChatGPT's and Claude's memory features have no
+   API for programmatic benchmarking. **State that as the reason** in the paper rather
+   than leaving the omission to look like an oversight.
 4. `vector_rag` and `cloud_longctx` run the same instances (baseline + frontier
    anchor on neutral, public data — criticism 1's clean kill).
 
