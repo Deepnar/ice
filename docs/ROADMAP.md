@@ -39,6 +39,8 @@
 > ## 📋 INVENTORY RE-TAKEN 2026-08-04 → **56 unchecked**, and split by PRE-FINAL vs POST-FINAL
 >
 > **↳ 2026-08-08: 56 → 54, then → 56 again.** Cluster ①'s first two closed — **[G31](#g31)** and **[G5](#g5)** — and **two new items opened from a user question about codex traversal**: **[G34](#g34)** (relation detection returns 5 relations for `"ok"` — 197/197 above its floor; the detector cannot say "no", and it owns the pure-Python cosine that costs 12 ms of pre-flight per turn) and **[G35](#g35)** (traversal is relation-blind with no fan-out limit, so codex fragment size tracks graph topology — fine on an empty store, not on Z2's corpus). **[G28](#g28)** also gained the uncatalogued `func_words` bet plus a *measurably false* docstring claim in `_stem`. Both new items are **pre-FINAL**: they change what a measured retrieval result means.
+> **[G7](#g7)** then closed by verification (constraint already enforced), and a
+> previously-unknown C10 cascade gap was found and fixed, so the net is **55**.
 > **[G25](#g25)** stays open but **left the critical path**: it was re-measured and two of its
 > premises are false (no prompt/response text in the logs; `logs/` has never been committed,
 > so it is not a public-repo exposure). **[G12](#g12)** was audited and stays open with
@@ -171,7 +173,14 @@
 > - **[G11](#g11)** matters *specifically now*: only decayed turns are summarised, so very old
 >   undecayed turns in long conversations never compress — and [Z2](#z2)'s corpus
 >   recommendation is **massive conversations**, which is exactly where it bites.
-> - **[G7](#g7)** is cheap and duplicate turns would skew any count Z1 produces.
+> - ~~**[G7](#g7)**~~ **CLOSED 2026-08-08 by verification — the unique constraint was
+>   already there and a duplicate insert already raises `IntegrityError`.** The entry's
+>   "informational only" claim was simply wrong; nothing was owed.
+> - **NEW, found 2026-08-08 and FIXED (`7177390`): C10's cascade did not sweep
+>   `codex_relation_gaps`.** The ledger arrived with G32/a1 after the cascade was written
+>   and has no FK, so deleting a conversation left rows holding the subject, object and
+>   the model's wording — raw content from turns the user asked to be forgotten — and the
+>   manifest never mentioned them. Same subsystem as this cluster, which is how it surfaced.
 >
 > **③ Z1-PREP PROPER — [G9](#g9) · [G30](#g30) · [G28](#g28).** Only after ① and ②.
 > G9 is Z1's designated first commit (you cannot tune what is not a setting); G30 builds
@@ -871,7 +880,11 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   - **NOT done, and deliberately:** no `raw_text_truncated` column. The flag's only value is changing a *downstream* decision (extraction, density/lossless), and which decision it should change is a memory-semantics question to settle with the user, not to invent. The entry's stated fix — "guard the parse" — is complete.
   - Validation: new **`tests/smoke/test_sse_parsing.py` (10)**, including a **two-sided** check that the old flat join really did swallow the fallback's first line (so the test cannot pass vacuously), plus **live end-to-end** through the proxy against Ollama `qwen3:4b-instruct`: correct `raw_text` stored, **zero** damage warnings on a healthy stream. Smoke **108**.
 - [ ] **G6 DB indexes via migrations** `(bug)` — `scripts/database/create_indexes.sql` isn't applied by Alembic; `batch_id` lookups full-scan episodic_memory at scale. Fold indexes into a migration. *(Down-payment 2026-07-12: Track T's migration `e5b8c2d4a917` added `ix_episodic_memory_timestamp`, `ix_cold_storage_timestamp`, and the two `codex_edges (source/target, valid_until)` indexes via Alembic — the remaining G6 work is the rest of the orphan SQL script, notably `batch_id`.)*
-- [ ] **G7 Idempotency enforcement** `(bug)` — `episodic_memory.idempotency_key` has no unique constraint (informational only); enforce it.
+- [x] <a id="g7"></a>**G7 Idempotency enforcement** `(bug)` — **CLOSED 2026-08-08 by VERIFICATION, not by code: the constraint already exists and already fires.** The entry claimed `episodic_memory.idempotency_key` was "informational only", and [G_mechanical.md](specs/G_mechanical.md) rightly said to check the **live** table rather than the ORM declaration, suspecting early migration drift. Checked both, and there is no drift:
+  - `pg_constraint` on `episodic_memory` carries **`episodic_memory_idempotency_key_key`, contype `u`** — a real unique constraint, matching the model's `unique=True` at [models.py:124](../src/memory/models.py).
+  - The spec's own validation — *"duplicate insert raises"* — was run against the live DB: inserting two rows with the same key raises **`IntegrityError`**. Behavioral, not a schema read.
+
+  So nothing was owed: no dedupe pass, no migration. **What this item is really worth is the caution**: the entry asserted a missing constraint for weeks and the spec's instinct to distrust it was correct. When an entry claims the database lacks something, query the database before writing a migration for it — the same shape as [G12](#g12)'s audit (which went the *other* way: assumed satisfied, found three gaps) and [G25](#g25)'s (assumed a leak, measured none).
 - [ ] **G8 Sticky-state persistence** `(bug)` — `SESSION_STATE` is an in-process dict; model stickiness resets on restart. Back it with Redis.
 - [ ] **G9 Constants → configuration** `(rework)` — Decay rates, RRF k, bonus multipliers, token budgets etc. are module-level constants; tuning requires code edits. Move the tunable ones into settings.
 - [x] **G10 Compaction scheduling** `(bug — corrected 2026-07; merge half DONE with C5, compaction half DONE with C7 2026-07-11)` — Beautifully written, never ran: `compact_entities` wasn't beat-scheduled, so `codex_events` grew unbounded. **Settled by C7:** compaction runs on the maintenance runtime's 24h cadence (`maintenance_intervals["compaction"]`); the orphan audit is moot — beat no longer exists, and the runtime's JOBS table + intervals dict are one source of truth (a job without an interval is deliberately event/consent-only). `merge_similar_clusters` → `run_cluster_merge` every 3h (C5, carried into the runtime). **Track-T constraint honored:** compaction stays **lossless** (marks `compacted` + snapshots, never deletes — re-verified during the C7 port; the constraint is now noted in the callable's docstring).
