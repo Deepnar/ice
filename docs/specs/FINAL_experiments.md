@@ -201,7 +201,7 @@ design requirements:**
 >    callbacks across chat boundaries — and needs no synthetic generation at all.
 
 User decisions (2026-07-10; **cloud-provider + judge-tier clauses SUPERSEDED by the rev
-above**): cloud via **Ollama Cloud free tier** (rate-limited, fine —
+above**): cloud via ~~**Ollama Cloud free tier**~~ **OpenRouter paid credits** (superseded by the rev-1 decision at the top of this file; the free tier survives only for one-off calls) — rate-limited handling still applies, fine —
 the runner is resumable by design); **synthetic publishable dataset required** (private
 sets can't be replicated by reviewers); **LongMemEval yes** ("would love that", spec
 provides the mechanical how); **compute = one laptop, intermittent, ~a week of nights
@@ -261,7 +261,8 @@ the user gets access — seam only, no dependency); **better ground truth is man
   seed + transcripts + ledger + probes) ships in the repo. Private sets stay as
   ecological-validity evidence; the synthetic set is what reviewers replicate.
 - **D6 (FINAL revision 2026-07-10 — user cost-comfort decides): the cloud lane
-  is one Ollama Cloud PAID MONTH (~$20 flat), bought when FINAL starts; metered
+  is ~~one Ollama Cloud PAID MONTH (~$20 flat)~~ **an OpenRouter credit top-up (min purchase $5, +5.5% purchase fee, credits may expire after 1 year)** — see
+  the re-costing note at the foot of §2.10; metered
   APIs are an optional appendix, default off.** Reasoning: for a student, flat
   and predictable beats metered foreign-currency billing — and the design keeps
   the cheaper lane rigorous anyway: the judge is **calibration-gated** (D8:
@@ -280,7 +281,7 @@ the user gets access — seam only, no dependency); **better ground truth is man
   remains the user's interactive coding lane only — never the harness's, so
   nothing clashes. Personal datasets still require the explicit per-run
   `--allow-personal-cloud` flag (default off) regardless of provider.
-- **USER-REQUIRED (rule 11):** (a) subscribe one Ollama Cloud paid month when
+- **USER-REQUIRED (rule 11):** (a) ~~subscribe one Ollama Cloud paid month~~ **load an OpenRouter credit top-up (~$20 is ample — see §2.10's re-costing)** when
   FINAL begins + set a cancel reminder (effectively one-time ~$20); (b)
   laptop-on nights (~a week, fully resumable); (c) the `--allow-personal-cloud`
   decision per run; (d) OPTIONAL and freely skippable: a small Anthropic API
@@ -316,7 +317,7 @@ the user gets access — seam only, no dependency); **better ground truth is man
   long-context model for `cloud_longctx`; record both in the run manifest. (b) MoE
   pool composition — comes from B3/F15; the gate (D7) is the decision rule. (c) If
   LongMemEval's official judge prompts require an OpenAI model unavailable to us,
-  the decision rule is: reuse their prompts verbatim on the Ollama-cloud judge and
+  the decision rule is: reuse their prompts verbatim on our OpenRouter judge and
   report ours as "protocol-adapted" (never silently substitute).
 
 ---
@@ -465,7 +466,7 @@ or vice versa beyond the public API + configurable orchestrator.
 Main runs: ~1,450 probes (synth 400, flaw 250, masters 200, shinchan 200, lme 150,
 control extras 250) × ~4 local condition-passes ≈ 5,000 local generations ≈ 40–55
 GPU-hours → 5–6 nights. Ablation ≈ +2–3 nights. Judging rides the cloud lane
-(paced, resumable, zero GPU). **Cost (plan of record): one Ollama Cloud paid month ≈ $20 flat** — covers
+(paced, resumable, zero GPU). ~~**Cost (plan of record): one Ollama Cloud paid month ≈ $20 flat**~~ — **VOID, see the re-costing immediately below.** It covered
 judging (~4,500 calls), `cloud_longctx`, AND `full_ice_cloud` (~550 ICE-context
 calls); worst case +$20 if B1's labeling can't ride the free tier. Optional
 Claude prestige appendix: ~$5–10 of API credit for a ~100-probe subset. (The
@@ -476,6 +477,62 @@ then `control` on flaw, then lme to 100 instances. Never drop: synth main runs,
 budget parity, temporal probes, judge calibration.
 
 ---
+
+#### ⚑ RE-COSTED 2026-08-04 against live OpenRouter prices — and the volumes SCALED
+
+The old "$20 flat month" was a *subscription* shape. The plan is metered now, so the
+cost is a function of tokens, and the volumes below are the **scaled** ones (the
+earlier sizing under-counted the judge lane by half — the AI-USAGE MAP mandates a
+**DUAL** judge, so every answer is scored twice).
+
+**Live price used (checked 2026-08-04):** DeepSeek-V4-Flash on OpenRouter
+**$0.068/M in · $0.137/M out**, 1M context — *cheaper* than the $0.09/$0.18 the
+rev-1 block recorded in July 2026.
+
+| lane | scaled volume | est. |
+|---|---|---|
+| judge — **×2, dual** | ~4,500 answers × 2 = **~9,000 calls** (rubric ~1.5k tok, cached ⇒ ~free; ~800 tok variable) | ~$0.75 |
+| `cloud_longctx` | ~550 calls, full history per probe — the one genuinely large lane; sticky routing keeps the repeated history warm | $1–4 |
+| `full_ice_cloud` | ~550 calls × ~8k assembled context | ~$0.35 |
+| GT generation | ~1,000 calls | ~$0.20 |
+| **subtotal** | | **$2.5–5.5** |
+
+**Double for reruns/resume overhead, add a possible judge escalation (~$10) ⇒
+realistic $10–20, worst case ~$30.** Against the ₹5,000 (~$60) cap that is 2–6×
+headroom. ⚠ **The cap was a guard, never a forecast** — do not load ₹5,000 of
+credit on the strength of it. OpenRouter's **minimum purchase is $5**; ~$20 is
+ample for the whole of FINAL.
+
+⚠ Purchase mechanics that affect *when* to buy: **+5.5% fee** on every credit
+purchase ($0.80 minimum), no markup on inference itself, and **credits may expire
+one year after purchase**. So buy once, near the run — not early and not large.
+
+#### ⚑ FOUR DISTINCT MODEL FAMILIES ARE REQUIRED, not three (derived 2026-08-04)
+
+The AI-USAGE MAP's rule is "two judges of different families, and no judge may share
+a family with the answerer." Applying it to the actual condition set gives a
+stricter constraint than it first reads, because **two conditions make a CLOUD model
+the answerer**:
+
+1. **local answerer** — whatever Z1/[A12](../ROADMAP.md#a12) promotes (Qwen- or Gemma-family today)
+2. **cloud answerer** — the frontier model for `cloud_longctx` / `full_ice_cloud`
+3. **judge A** — family ≠ 1, ≠ 2
+4. **judge B** — family ≠ 1, ≠ 2, ≠ 3
+
+⇒ **four distinct families minimum.** Consequence for A12: **choosing the local
+model narrows the judge pool**, so the two decisions are coupled and the local
+choice should be made knowing which cloud families remain available.
+
+#### ⚑ PROVIDER SPLIT — OpenRouter for FINAL, NOT a coding subscription (2026-08-04)
+
+Flat-rate coding subscriptions (e.g. OpenCode Go, $10/mo, OpenAI-compatible at
+`https://opencode.ai/zen/go/v1/chat/completions`) are cheap and *technically* usable
+here. **They must not serve FINAL.** Their own docs state the roster "may change as
+we test and add new ones" — which is precisely the reason rev-1 rejected the Ollama
+Cloud free tier: **a shifting roster cannot give the pinned, manifest-recorded model
+a paper requires.** If the judge model is withdrawn, the results stop being
+reproducible. Such a plan is the right tool for *unbounded exploratory coding*, and
+the wrong one for a bounded, citable experiment.
 
 ## 3. Files & integration points
 
