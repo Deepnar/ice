@@ -13,8 +13,10 @@ dragging the runtime in.
 
 Two schema generations coexist on purpose:
 
-* **v2** (``label_schema.json``) — three all-sigmoid heads, 11 topic / 13 intent
-  / 4 context-reliance = 28 logits.
+* **v2** (``label_schema.json``) — three all-sigmoid heads, 11 topic / 12 intent
+  / 4 context-reliance = 27 logits. (This said 13/28 until 2026-08-08; the
+  twelfth intent is ``Code_Change`` and ``Codebase_Query`` was dropped in B1's
+  run 2 at test F1 0.10, which is where the extra label went.)
 * **v1** (``label_schema_v1.json``, frozen) — the pre-B1 11/11/3 layout with a
   softmax context head. Kept loadable because D5's non-regression gate scores
   the OLD checkpoint on the same rows as the new one, and because the live
