@@ -29,6 +29,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from src.api.config import settings
+
 # ── v1 (frozen — verbatim from classifier.py @ 0dc5d89) ──────────────────────
 
 V1_WITH_CONTEXT = (
@@ -84,7 +86,6 @@ _TEMPLATES = {
     2: (V2_NO_CONTEXT, V2_WITH_CONTEXT),
 }
 
-from src.api.config import settings
 DEFAULT_VERSION = 2
 
 # The context builder's shape (``classifier._get_context_turns``). Named here so
