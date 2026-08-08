@@ -11,7 +11,9 @@ Cascade semantics (spec D2): codex facts corroborated by OTHER conversations
 survive; sole-support edges are expired-with-journal (`edge_expired`, reason
 `source_deleted` — excluded from T4 timelines: deletion is not evolution),
 never hard-deleted. Everything conversation-owned (turns, chunks, links, cold
-rows, summaries, replays, curated labels, conversation-tier slots) is
+rows, summaries, replays, curated labels, conversation-tier slots, and the
+G32/a1 relation-gap rows — which hold raw subject/object text, so a cascade
+that skipped them left content behind) is
 deleted; procedural patterns are pruned; live decisions extracted from the
 conversation expire bi-temporally; pending review items referencing its
 batches go `stale`. Logs are NOT touched — G25 owns redaction, and the
@@ -32,6 +34,7 @@ from src.memory.models import (
     CodexEdge,
     CodexEntity,
     CodexEvent,
+    CodexRelationGap,
     ColdStorage,
     ContextCluster,
     Conversation,
@@ -250,6 +253,17 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
         conversation_id=conv_uuid).count()
     n_conv_slots = db.query(MemorySlot).filter_by(
         conversation_id=conv_uuid).count()
+    # G32/a1's gap ledger holds the SUBJECT and OBJECT of facts the vocabulary
+    # could not express — real content from this conversation's turns. The table
+    # arrived (2026-08-04) after this cascade was written (2026-07-19) and has
+    # no FK, so deletion silently left it behind: "forget this conversation"
+    # kept the model's wording plus both entity names. Matched on either
+    # provenance column, because batch_id is nullable on rows written by paths
+    # that had no batch.
+    gap_filter = or_(CodexRelationGap.conversation_id == conv_uuid,
+                     CodexRelationGap.batch_id.in_(batches)) if batches \
+        else (CodexRelationGap.conversation_id == conv_uuid)
+    n_relation_gaps = db.query(CodexRelationGap).filter(gap_filter).count()
     n_curated = 0
     decisions_to_expire: list = []
     if batches:
@@ -310,6 +324,7 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
             "edges_expired": len(sole_edges),
             "edges_kept_corroborated": kept_edges,
             "entities_expired": len(entities_to_expire),
+            "relation_gaps_deleted": n_relation_gaps,
         },
         "decisions_expired": len(decisions_to_expire),
         "procedural_pruned": len(proc_rows),
@@ -366,6 +381,12 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
         db.query(CuratedLabel).filter(
             CuratedLabel.batch_id.in_(batches)).delete(
             synchronize_session=False)
+    # Deleted, not expired: a gap row is not a fact the graph holds, so there is
+    # no bi-temporal history to preserve — it is raw extracted content from a
+    # turn the user asked to be forgotten. Same `gap_filter` phase A counted, so
+    # the manifest and the delete cannot disagree.
+    db.query(CodexRelationGap).filter(gap_filter).delete(
+        synchronize_session=False)
     for d in decisions_to_expire:
         d.valid_until = datetime.now(timezone.utc)
     for item in stale_items:

@@ -32,6 +32,7 @@ from src.memory.models import (
     CodexEdge,
     CodexEntity,
     CodexEvent,
+    CodexRelationGap,
     ColdStorage,
     ContextCluster,
     Conversation,
@@ -211,6 +212,20 @@ try:
                         corrected_context_reliance="Zero_Shot"))
     db.add(CuratedLabel(batch_id=bF, prompt=f"{MARK} forget label",
                         corrected_context_reliance="Zero_Shot"))
+
+    # G32/a1's gap ledger. It arrived after this cascade was written and has no
+    # FK, so deletion used to leave it behind — and the row carries the raw
+    # subject and object, i.e. real content from a turn the user asked to be
+    # forgotten. Two rows: one inside the doomed conversation, one outside it,
+    # so the check is two-sided rather than "the table is empty".
+    db.add(CodexRelationGap(proposed_relation="is_capital_of",
+                            raw_relation="is_capital_of",
+                            subject=f"{MARK}_subj", object=f"{MARK}_obj",
+                            batch_id=bA1, conversation_id=conv_A_id))
+    db.add(CodexRelationGap(proposed_relation="includes",
+                            raw_relation="includes",
+                            subject=f"{MARK}_keep", object=f"{MARK}_keep_obj",
+                            batch_id=bB1, conversation_id=conv_B_id))
 
     p1 = ProceduralMemory(pattern_name=f"{MARK}_p1", source_batch_ids=[bA1, bB1],
                           confidence_score=0.5, is_active=True)
@@ -396,6 +411,7 @@ try:
           and m["deleted"]["session_summaries"] == 1
           and m["deleted"]["conversation_slots"] == 1
           and m["deleted"]["curated_labels"] == 1
+          and m["codex"]["relation_gaps_deleted"] == 1
           and m["codex"]["edges_expired"] == 2
           and m["codex"]["edges_kept_corroborated"] == 1
           and m["codex"]["entities_expired"] == 2
@@ -405,6 +421,17 @@ try:
           and m["review_items_staled"] == 1)
     check("manifest carries the G25 logs caveat",
           "Logs are NOT touched" in m["logs_caveat"])
+
+    # G32/a1 gap ledger, two-sided: the deleted conversation's row is gone (it
+    # held raw subject/object text from a forgotten turn), and another
+    # conversation's row is untouched — an absence-only check would pass if the
+    # cascade wiped the whole table.
+    check("deleted conversation's relation-gap row is gone",
+          db.query(CodexRelationGap).filter_by(
+              subject=f"{MARK}_subj").count() == 0)
+    check("...while another conversation's gap row survives",
+          db.query(CodexRelationGap).filter_by(
+              subject=f"{MARK}_keep").count() == 1)
 
     # ═══ 4) T4 timeline: deletion is not evolution ════════════════════════
     print("\n── C10: timeline exclusion ──")
@@ -604,6 +631,13 @@ finally:
                 synchronize_session=False)
         db.query(CuratedLabel).filter(
             CuratedLabel.batch_id.in_([bA1, bA2, bB1, bS, bF])).delete(
+            synchronize_session=False)
+        # The conv_B gap row SURVIVES the cascade by design (that is the
+        # two-sided half of the check), so this suite owns removing it — a
+        # fixture that outlives its run is TRAPS #6, and test_longevity was
+        # caught doing exactly this on 2026-08-08.
+        db.query(CodexRelationGap).filter(
+            CodexRelationGap.batch_id.in_([bA1, bA2, bB1, bS, bF])).delete(
             synchronize_session=False)
         if entity_ids:
             db.query(CodexEvent).filter(
