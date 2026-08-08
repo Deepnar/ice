@@ -462,16 +462,22 @@ under-representation, so it is retired against a number and with the user.
 suite's rows via a hardcoded FILENAME allow-list, so every new fixture leaked
 until someone noticed — and three document conversations had. It now snapshots
 which non-chat conversations existed *before* the run and deletes the
-difference. This trap had re-armed itself twice (C12a, then C12b); ~~it cannot
-now.~~ **⚠ FALSIFIED 2026-08-08: it did it again.** A clean 53/53
-`test_documents` run left exactly one orphan `kind='document'` conversation
-(0 turns, 0 `documents` rows), which took `test_session_scoping` to 39/40 on
-"exclusion resolves into the scope under auto". The snapshot-the-difference fix
-is evidently not covering whichever path created that row, and the suite's own
-trap-6 self-check is scoped to its `conv_ids` list, so a conversation it
-created but never recorded is invisible to it. **Do not trust this paragraph's
-original claim** — a cleanup that verifies only what it remembers creating
-cannot catch what it forgot to record. Spun out as its own task.
+difference. This trap had re-armed itself twice (C12a, then C12b); it cannot
+now — **re-verified 2026-08-08**: a clean 53/53 run leaves 0 conversations and
+`test_session_scoping` passes 40/40 immediately after.
+
+> **⚠ A correction worth keeping, because the mistake is instructive.** On
+> 2026-08-08 an orphan `kind='document'` conversation took
+> `test_session_scoping` to 39/40, and this paragraph was briefly edited to say
+> `test_documents` had leaked it. **It had not.** Bisecting one suite at a time
+> against a cleaned store showed the leaker is **`tests/test_longevity.py`**,
+> which creates `doc_conv` (line 241) for its portability round-trip and never
+> deletes it — `doc_conv_id` appears only in the fixture and in one assertion.
+> The lesson is the session's own TRAPS #13b in miniature: *the suite that
+> looks guilty is the one that matches the symptom's vocabulary.* A document
+> conversation appeared, so the document suite was blamed, on zero evidence.
+> **Bisect before you name a cause** — it cost one command.
+
 `tests/test_longevity.py` likewise gained a line that NAMES the mismatched
 table when the export/import count check fails, instead of sending the reader
 through a 28-table round trip for one row.
@@ -510,8 +516,14 @@ is imported below the logger for circular-import reasons, and reordering it is
 not a formatting change. Same caution as `pipeline/*`'s load-bearing `I001`.
 
 **Store residue removed (not a code change, recorded because it cost a debug
-cycle).** Three orphan `conversations` rows were deleted to restore the
+cycle).** Orphan `conversations` rows were deleted to restore the
 documented-correct empty store: two `kind='chat'` shells from this session's own
-live end-to-end G5 validation, and one `kind='document'` shell leaked by
-`test_documents`. All three were verified empty (0 turns, 0 `documents`) before
-removal. See the falsified trap-6 note above, and TRAPS #6's third entry.
+live end-to-end G5 validation, plus `kind='document'` shells leaked by
+**`tests/test_longevity.py`** (see the correction above — `test_documents` was
+wrongly blamed first). All were verified empty (0 turns, 0 `documents`) before
+removal. See TRAPS #6's third entry.
+
+**Not fixed here: `test_longevity`'s leak.** Its `doc_conv` (line 241) has no
+cleanup, so every run of that suite leaves one orphan document conversation
+that breaks `test_session_scoping`'s exact-list assertion. Left as its own task
+rather than folded into a G31/G5 commit.

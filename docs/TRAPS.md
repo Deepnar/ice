@@ -61,16 +61,22 @@ clean run; the residue came from the killed one.
 BEFORE debugging the code.**
 **Re-earned a THIRD time, 2026-08-08 — and this time the residue was partly
 self-inflicted.** Two live turns driven through the proxy to validate G5, plus
-**one orphan `kind='document'` conversation that `test_documents` leaked on a
-clean 53/53 run**, took `test_session_scoping` to 39/40 on exactly the check
-named above. The rule held: the store was inspected first (all three rows were
-empty shells — 0 turns, 0 `documents`), they were deleted, and 40/40 returned
-with no code touched. Two additions to the habit: **(a)** end-to-end validation
-against the live stack is itself a source of residue — clean up after it in the
-same session; **(b)** `test_documents`' cleanup verifies "0 rows remaining"
-scoped to *its own* `conv_ids`, so a conversation it created but never recorded
-is invisible to its own trap-6 check. A self-check scoped to what you remember
-creating cannot catch what you forgot to record.
+an orphan `kind='document'` conversation, took `test_session_scoping` to 39/40
+on exactly the check named above. The rule held: the store was inspected first
+(all rows were empty shells — 0 turns, 0 `documents`), they were deleted, and
+40/40 returned with no code touched.
+**⚠ But the CAUSE was then misdiagnosed, which is the more useful half.** The
+orphan was a *document* conversation, so `test_documents` was blamed — with no
+evidence beyond the matching vocabulary. Bisecting suite-by-suite against a
+cleaned store showed `test_documents` leaks **nothing** (53/53, 0 rows, and
+`test_session_scoping` passes right after it); the leaker is
+**`tests/test_longevity.py`**, whose `doc_conv` fixture has no cleanup.
+Three additions to the habit: **(a)** end-to-end validation against the live
+stack is itself a source of residue — clean up after it in the same session;
+**(b)** **bisect before naming a suite** — one `for` loop over the suites with
+a row count after each is cheaper than the wrong docs it saves you writing;
+**(c)** a cleanup that verifies "0 rows remaining" scoped to its *own* recorded
+ids cannot catch a row it created but never recorded.
 
 ### 7. A dead test can be promoted to load-bearing, and an import check will never notice
 Re-check retired tests by **running** them. Corollary: do not write a test that
