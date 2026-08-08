@@ -523,7 +523,12 @@ live end-to-end G5 validation, plus `kind='document'` shells leaked by
 wrongly blamed first). All were verified empty (0 turns, 0 `documents`) before
 removal. See TRAPS #6's third entry.
 
-**Not fixed here: `test_longevity`'s leak.** Its `doc_conv` (line 241) has no
-cleanup, so every run of that suite leaves one orphan document conversation
-that breaks `test_session_scoping`'s exact-list assertion. Left as its own task
-rather than folded into a G31/G5 commit.
+**`test_longevity`'s leak, fixed (`9aac4cd`).** Its `doc_conv` had no cleanup,
+so every run left one orphan document conversation that broke
+`test_session_scoping`'s exact-list assertion. The delete now runs after the
+`documents` row (which FKs to it), and the suite gained the check that would
+have caught it: a snapshot of conversation ids taken before the run, diffed
+after cleanup, failing with the leaked ids named. Verified two-sided — removing
+the delete makes the new check fail and print the id. 26 → **27 checks**, and
+both orderings now pass with no manual cleanup between them
+(longevity 27 → scoping 40/40; documents 53 → scoping 40/40).
