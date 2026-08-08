@@ -566,3 +566,51 @@ why that is now stated rather than assumed.
 **load-bearing** — `== None` / `== False` inside a SQLAlchemy filter compiles to
 `IS NULL` / `IS false`, while ruff's `is None` / `not x` would evaluate in
 Python and silently break the query. Do not "fix" them.
+
+---
+
+## 2026-08-08 (later) — G9: constants → settings
+
+**New module.** `src/retrieval/leg_weights.py` — the intent-dependent leg-weight
+blend, lifted out of ~50 lines of literals rebuilt inside `retrieve()` on every
+request. It owns the validation of the three weight settings; see its docstring
+for why validation runs at read time rather than at config load.
+
+**Deleted, with the reason each was safe.** All three were found by the sweep,
+not looked for:
+- `workers/decay.py::STRENGTHEN_AMOUNT` — declared and referenced **nowhere**,
+  in this commit's tree and in the base commit's. The live strengthening site
+  inlined the same `0.15` in `orchestrator._strengthen_retrieved`. One value
+  now, wired to the site that uses it (`settings.decay_strengthen_amount`).
+- `workers/codex_extractor.py::MAX_EXTRACTION_TOKENS` — its own comment said
+  "retained for import compatibility"; nothing imported it, anywhere.
+- `workers/fine_tune.py::MIN_ROWS_TO_PROMOTE` — the same promotion gate
+  `settings.finetune_min_curated` already held, with a config comment asserting
+  the two were "aligned" and nothing enforcing it. Collapsed into the setting.
+
+Recovery for all three: `git show ae3abe8:<path>`.
+
+**Kept deliberately, not swept.** `maintenance_agent.STALE_SLOT_NAME` (it names
+the slot detector 5 watches — an identifier, not a knob), every controlled
+vocabulary and prompt string, `embedder.SLICE_DIM` (a G23 bit-identity
+contract), and the classifier's training hyperparameters in `classifier/model.py`
+(B1 owns those, and they travel inside the checkpoint). The label SETS in the
+orchestrator (`NARRATIVE_FACT_INTENTS`, `META_LEANING_INTENTS`) stayed for the
+same reason: they name classifier labels, which is schema rather than tuning.
+
+**Test suites grew, none retired.** New `tests/test_settings_freeze.py` (148),
+`tests/smoke/test_leg_weights.py` (10) and `tests/smoke/test_ablation_flags.py`
+(4). Six existing suites had reached for constants by name and now go through
+settings: `test_batch_summary_coverage`, `test_maintenance_agent`,
+`test_maintenance_runtime`, `test_ingestion`, `test_c8_c15`, `test_turn_density`.
+⚠ **Two of those six (`test_c8_c15`, `test_turn_density`) were not in the suite
+list run during the sweep** — they were found by grepping every deleted name
+across the whole tree, which is now the closing check for a rename of this
+shape. A suite that is not run cannot go red.
+
+**Ruff on the touched files:** counts unchanged against the base commit
+(orchestrator 9, clustering + maintenance_agent 5, everything else clean). One
+new `E402` was introduced and fixed in the same session — the sweep put
+`templates.py`'s settings import beside the constant it fed, mid-module. The
+pre-existing `E711`/`E712` remain load-bearing SQLAlchemy comparisons; the note
+above still applies.

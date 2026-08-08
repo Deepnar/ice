@@ -1158,3 +1158,48 @@ on the synchronous pre-flight path. The cosine loop is pure Python: 197 × 1024
 (`orchestrator.py:1193` entity resolution — **unbounded, loops every entity in
 the graph**; `clustering.py:334`, `:348`, `:674` — background).
 `retrieval/coverage.py` already uses `np.dot`.
+
+---
+
+## 2026-08-08 — Experiment 3's ablation ladder: two arms were the same configuration
+
+Recorded here because it changes what a **published number means**, and the run
+that produced it cannot be re-read to find this — the defect is in the harness,
+not the data.
+
+**What was measured.** `ConfigurableOrchestrator._apply_bonuses` implemented the
+`recency_boost: False` arm by importing `BONUS_RECENT_TOP_10PCT` /
+`BONUS_RECENT_TOP_30PCT` from `orchestrator.py` and rebinding them with
+`global`. That writes the *subclass module's* copies; the scoring code is the
+parent's `_apply_bonuses`, reading the *parent module's* copies. Verified
+directly at the interpreter: after the ablation zeroes its own globals, the
+subclass sees `0.0` and the parent still sees `1.0`.
+
+**Consequence, in the buildup ladder** (`experiments/flaw_ablation/buildup/`):
+the branch only runs when keyword is on and recency is off, which is exactly one
+arm — `add_keyword_boost`. So that arm ran with recency bonuses **on**, making it
+identical to `full_ice`. The recorded results agree: 27,769 vs 27,768 tokens and
+15.1 vs 15.0 fragments, i.e. one configuration run twice.
+
+⇒ **`add_keyword_boost`'s +0.12 step is keyword AND recency combined**, and
+**`full_ice`'s −0.06 step is run-to-run noise, not the recency boost's
+contribution.** Both lie inside CIs the paper already reports as spanning zero,
+so no qualitative finding changes; the per-step attribution does.
+
+A second defect in the same file meant the harness **could not run at all** on
+current `main`: `_batch_summary_lookup` never gained the `include_cross`
+parameter the parent took on with C6, and `retrieve()` passes it by keyword ⇒
+`TypeError` at that leg.
+
+**Disposition (user decision, 2026-08-08): record now, correct at FINAL.**
+`experiments/` is a frozen record and was not touched; `ICE_paper_v2.tex` was not
+edited. FINAL re-runs the ladder on the fixed flag and replaces the table. Both
+defects are fixed on `main` (`73169a3`) and guarded by
+`tests/smoke/test_ablation_flags.py`, whose signature check reproduces the
+`include_cross` drift when it is re-introduced.
+
+**No other artifact this session.** G9 produced no corpus, checkpoint or
+experiment result — its equivalence runs (1,356 leg-weight combinations, 51,040
+recent-fraction, 3,600 growth-cap, all zero divergence except 180 unreachable
+`Null_Noise`-as-intent cases) are validation evidence, recorded in the roadmap
+entry rather than here.
