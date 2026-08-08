@@ -109,6 +109,89 @@ def _ollama_body(model: str, messages: list,
     return body
 
 
+def _salvage_content(line: str) -> Optional[str]:
+    """Recover `delta.content` from an SSE line whose JSON object never closed.
+
+    G5. The realistic truncation is a stream cut mid-write: the object is
+    missing its closing braces but the content STRING is intact. `json.loads`
+    rejects the whole line and the token is lost; `raw_decode` starting at the
+    opening quote reads that string and stops, ignoring the missing tail.
+
+    Returns None when the string itself is cut — that content genuinely is not
+    recoverable, and the caller counts it rather than inventing a value.
+    """
+    i = line.find('"content"')
+    if i == -1:
+        return None
+    j = line.find(":", i + len('"content"'))
+    if j == -1:
+        return None
+    k = j + 1
+    while k < len(line) and line[k] in " \t":
+        k += 1
+    if k >= len(line) or line[k] != '"':
+        return None
+    try:
+        value, _ = json.JSONDecoder().raw_decode(line[k:])
+    except ValueError:
+        return None
+    return value if isinstance(value, str) else None
+
+
+def _parse_sse_text(full_raw_stream: str) -> tuple[str, dict]:
+    """Assistant text out of an SSE stream, plus what it cost to get there.
+
+    G5. This loop used to end in a bare `except (...): continue`, so a line
+    that failed to parse vanished with no log, no counter, and a short
+    `raw_text` that looked exactly like a short answer. Every dropped line is
+    now counted and reported to the caller, which logs at WARNING — a fallback
+    that cannot be observed is an outage wearing resilience as a costume.
+    """
+    fragments: list[str] = []
+    stats = {"lines": 0, "parsed": 0, "no_content": 0, "salvaged": 0,
+             "dropped": 0}
+
+    for line in full_raw_stream.split("\n"):
+        line = line.strip()
+        if not line or not line.startswith("data:"):
+            continue
+        if line == "data: [DONE]":
+            continue
+        stats["lines"] += 1
+        payload = line[5:].strip()
+
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError:
+            # Only a line that will not PARSE is damage. Try to rescue it.
+            salvaged = _salvage_content(payload)
+            if salvaged is not None:
+                fragments.append(salvaged)
+                stats["salvaged"] += 1
+            else:
+                stats["dropped"] += 1
+            continue
+
+        # It parsed. Absence of a content delta is normal, NOT damage: the
+        # terminal usage chunk carries `"choices": []`, and role-only and
+        # finish_reason chunks carry no text either. Counting those as damage
+        # made the warning fire on every healthy stream — measured on a live
+        # 14-line qwen3:4b turn, 13 parsed and 1 "dropped", the usage chunk.
+        # A warning that fires 100% of the time trains everyone to ignore it,
+        # which is the failure this logging exists to prevent.
+        try:
+            content = data["choices"][0]["delta"].get("content", "")
+        except (KeyError, IndexError, TypeError):
+            content = ""
+        if content:
+            fragments.append(content)
+            stats["parsed"] += 1
+        else:
+            stats["no_content"] += 1
+
+    return "".join(fragments), stats
+
+
 def _extract_usage(full_raw_stream: str) -> Optional[dict]:
     """Pull the trailing usage chunk out of an SSE stream, if the server sent
     one. Returns None when it did not — which is itself worth logging, because
@@ -134,7 +217,7 @@ async def store_turn_async(
     topic_tags: list,
     intent_tags: list,
     context_reliance: str,
-    raw_stream_chunks: list[str],
+    raw_stream_segments: list[list[str]],
     model_used: str = "",
     is_private: bool = False,
     predicted_prompt_tokens: int = 0,
@@ -146,8 +229,16 @@ async def store_turn_async(
     """
     log = logger.bind(correlation_id=correlation_id)
 
-    # 1. Join raw fragments FIRST to repair broken line boundaries from socket splits
-    full_raw_stream = "".join(raw_stream_chunks)
+    # 1. Join raw fragments FIRST to repair broken line boundaries from socket
+    #    splits — but only WITHIN one upstream stream. G5: a turn can involve
+    #    two of them (primary, then the fallback model after a timeout), and
+    #    they used to share one flat chunk list. The primary almost always dies
+    #    mid-line, so its trailing partial got concatenated onto the fallback's
+    #    first line, producing ONE corrupt line that the parser then dropped in
+    #    silence — losing content from both models that the user had already
+    #    watched appear on screen. Joining segments with a newline keeps a
+    #    truncated tail on its own line, where it can hurt only itself.
+    full_raw_stream = "\n".join("".join(seg) for seg in raw_stream_segments)
 
     # C16: reconcile the prediction against the server's own count. This is
     # the only place ICE can learn whether its ruler is right — the embedder's
@@ -166,23 +257,23 @@ async def store_turn_async(
         log.info("token_usage_unavailable", predicted=predicted_prompt_tokens,
                  model=model_used)
 
-    clean_fragments = []
+    full_assistant_text, sse_stats = _parse_sse_text(full_raw_stream)
 
-    for line in full_raw_stream.split("\n"):
-        line = line.strip()
-        if not line or not line.startswith("data:"):
-            continue
-        if line == "data: [DONE]":
-            continue
-        try:
-            data = json.loads(line[5:].strip())
-            content = data["choices"][0]["delta"].get("content", "")
-            if content:
-                clean_fragments.append(content)
-        except (json.JSONDecodeError, KeyError, IndexError):
-            continue
-
-    full_assistant_text = "".join(clean_fragments)
+    # G5: say so, every time. A dropped line means `raw_text` is short by
+    # however much the model had already generated, and every triplet, summary
+    # and embedding derived from it is degraded with nothing else marking it.
+    if sse_stats["dropped"] or sse_stats["salvaged"]:
+        log.warning("sse_stream_damaged",
+                    reason="unparseable SSE lines in the completed stream",
+                    segments=len(raw_stream_segments), model=model_used,
+                    **sse_stats)
+    if len(raw_stream_segments) > 1:
+        # The user saw both models' output, so both are stored — but a turn
+        # whose answer is spliced from a timed-out model plus its replacement
+        # is not a clean training/extraction signal, and nothing downstream
+        # can tell from the text alone.
+        log.warning("turn_spans_multiple_models", segments=len(raw_stream_segments),
+                    final_model=model_used)
 
     # 2. Offload CPU-heavy tensor tasks to avoid event loop starvation
     embedding = await asyncio.to_thread(
@@ -643,7 +734,10 @@ async def chat_completions(
     # (Model selection happens above, before budgeting/retrieval — C16.)
 
     # ── Streaming generation with fallback model ──
-    accumulated_raw_chunks = []
+    # G5: ONE LIST PER UPSTREAM STREAM, never a single flat list. See the
+    # joining note in store_turn_async — a shared list lets the primary's
+    # truncated tail splice onto the fallback's first line.
+    raw_stream_segments: list[list[str]] = []
     model_to_use = model_name
 
     async def generate():
@@ -688,6 +782,8 @@ async def chat_completions(
         # generation_finished fires even on a client disconnect mid-stream.
         try:
             try:
+                primary_segment: list[str] = []
+                raw_stream_segments.append(primary_segment)
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     async with client.stream(
                         "POST",
@@ -696,13 +792,15 @@ async def chat_completions(
                                           prompt_tokens),
                     ) as response:
                         async for chunk in response.aiter_text():
-                            accumulated_raw_chunks.append(chunk)
+                            primary_segment.append(chunk)
                             yield chunk
             except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError) as e:
                 log.warning("primary_model_timeout", model=model_to_use, error=str(e))
                 yield sse_event("degraded", {"reason": "primary_model_timeout", "fallback": get_fallback_model()})
                 model_to_use = get_fallback_model()
                 yield sse_event("generating", {"model": model_to_use})
+                fallback_segment: list[str] = []
+                raw_stream_segments.append(fallback_segment)
                 async with httpx.AsyncClient(timeout=30.0) as client2:
                     async with client2.stream(
                         "POST",
@@ -711,9 +809,14 @@ async def chat_completions(
                                           prompt_tokens),
                     ) as response2:
                         async for chunk in response2.aiter_text():
-                            accumulated_raw_chunks.append(chunk)
+                            fallback_segment.append(chunk)
                             yield chunk
             except Exception as e:
+                # G5: this told the CLIENT and not the logs, so a generation
+                # that died server-side left a short turn in the store and no
+                # record of why.
+                log.error("streaming_failed", model=model_to_use,
+                          error=str(e), error_type=type(e).__name__)
                 yield sse_event("degraded", {"reason": "streaming_error", "error": str(e)})
         finally:
             if core is not None and core.runtime is not None:
@@ -728,7 +831,7 @@ async def chat_completions(
         topic_tags=result.topic_tags,
         intent_tags=result.intent_tags,
         context_reliance=result.context_reliance,
-        raw_stream_chunks=accumulated_raw_chunks,
+        raw_stream_segments=raw_stream_segments,
         model_used=model_to_use,
         is_private=is_private_conversation,
         predicted_prompt_tokens=prompt_tokens,
