@@ -129,6 +129,18 @@ bs_id = None
 slot_id = None
 ikey = f"longevity-{HEX}"
 
+# Trap 6: every conversation id that existed BEFORE this run. The per-id
+# trackers above only catch what the run remembered to record — and that is
+# exactly how `doc_conv` leaked for months: it was created, asserted on, and
+# never deleted, leaving one orphan `kind='document'` row per run that took
+# tests/test_session_scoping.py to 39/40 on "exclusion resolves into the scope
+# under auto" (_apply_document_visibility feeds every non-enabled document
+# conversation into exclude_conversation_ids, and that assertion compares the
+# list EXACTLY). Snapshot-and-diff catches the ones the trackers miss.
+_pre_existing_conv_ids = {
+    r[0] for r in db.execute(text("SELECT id FROM conversations")).fetchall()
+}
+
 scratch_engine = None
 tmp_root = Path(tempfile.mkdtemp(prefix="ice_longevity_"))
 export_dir = tmp_root / "export"
@@ -575,12 +587,28 @@ finally:
         if document_id is not None:
             db.execute(text("DELETE FROM documents WHERE id = :i"),
                        {"i": document_id})
+        # After the documents row above — documents.conversation_id FKs here.
+        if doc_conv_id is not None:
+            db.execute(text("DELETE FROM conversations WHERE id = :c"),
+                       {"c": doc_conv_id})
         if slot_id is not None:
             db.execute(text("DELETE FROM memory_slots WHERE id = :i"),
                        {"i": slot_id})
         db.execute(text("DELETE FROM idempotency_keys WHERE key = :k"),
                    {"k": ikey})
         db.commit()
+
+        # Trap 6, verified rather than assumed — and NOT scoped to the ids this
+        # run remembered, because a tracker that only knows what it recorded
+        # cannot catch what it forgot to record. Anything new since the
+        # snapshot is this run's residue.
+        _leaked = [
+            (str(r[0]), r[1]) for r in db.execute(text(
+                "SELECT id, kind FROM conversations")).fetchall()
+            if r[0] not in _pre_existing_conv_ids
+        ]
+        check("cleanup leaves no orphan conversations"
+              + (f" — LEAKED {_leaked}" if _leaked else ""), not _leaked)
     finally:
         db.close()
         if scratch_engine is not None:
