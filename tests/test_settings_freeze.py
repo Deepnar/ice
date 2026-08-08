@@ -92,6 +92,10 @@ FROZEN = [
     ("retrieval_procedural_limit", ORCH, 1904, r"LIMIT (\d+)"),
     ("retrieval_batch_summary_limit", ORCH, 1980, r"LIMIT (\d+)"),
     ("retrieval_conversation_summary_limit", ORCH, 2012, r"LIMIT (\d+)"),
+
+    # ── budget ladder scalars ───────────────────────────────────────────
+    ("context_total_budget_fallback", ORCH, 345, r"TOTAL_CONTEXT_BUDGET = ([\d_]+)"),
+    ("context_overhead_reserve", ORCH, 346, r"OVERHEAD_RESERVE = ([\d_]+)"),
 ]
 
 _blob_cache: dict[str, list[str]] = {}
@@ -209,3 +213,53 @@ def test_removed_constants_are_gone():
         "META_DOWNWEIGHT_FACTOR",
     ) if hasattr(orch, n)]
     assert not stale, f"module constant survived the move: {stale}"
+
+
+def test_budget_ladders_match_base_commit():
+    """The growth-cap and recent-fraction brackets, lifted off the base blob.
+
+    Both ladders were if/elif chains; the numbers are read back out of those
+    chains rather than retyped here, for the reason in _base_literal.
+    """
+    src = "\n".join(_base_lines(ORCH))
+
+    cap = [[int(a.replace("_", "")), int(b.replace("_", "")), int(c)]
+           for a, b, c in re.findall(
+               r"turn_count < ([\d_]+):\s*\n\s*growth_cap = ([\d_]+) \+ "
+               r"(?:turn_count|\(turn_count - [\d_]+\)) \* ([\d_]+)", src)]
+    assert len(cap) == 3, f"growth-cap anchors drifted: found {len(cap)} brackets"
+    got = [[int(x) for x in row] for row in settings.context_growth_cap_ladder]
+    assert got == cap, f"growth-cap ladder changed: {cap} -> {got}"
+
+    frac = [[int(a), float(b)] for a, b in re.findall(
+        r"turn_count < (\d+):\s*\n\s*base = ([\d.]+)", src)]
+    assert len(frac) == 4, f"recent-fraction anchors drifted: found {len(frac)}"
+    got_f = [[int(r[0]), float(r[1])] for r in settings.context_recent_fraction_ladder]
+    assert got_f == frac, f"recent-fraction ladder changed: {frac} -> {got_f}"
+
+    dens = [[int(a), -float(b)] for a, b in re.findall(
+        r"avg_tokens_per_turn > (\d+):\s*\n\s*base -= ([\d.]+)", src)]
+    assert len(dens) == 3, f"density anchors drifted: found {len(dens)}"
+    got_d = [[int(r[0]), float(r[1])] for r in settings.context_recent_density_ladder]
+    assert got_d == dens, f"density ladder changed: {dens} -> {got_d}"
+
+
+def test_recent_fraction_groups_apply_once_each():
+    """A group must not double-count when two of its labels are active.
+
+    The pre-G9 code tested set INTERSECTION and applied its delta once; a
+    label->delta map would have applied it per matching label, which is a
+    behaviour change disguised as a data-structure change.
+    """
+    from src.retrieval.orchestrator import HybridRetrievalOrchestrator as H
+
+    class C:
+        def __init__(self, i, t):
+            self.intent_tags, self.topic_tags = i, t
+
+    o = object.__new__(H)
+    one = H._compute_recent_fraction(o, 100, 0, C(["Factual_Retrieval"], []))
+    two = H._compute_recent_fraction(
+        o, 100, 0, C(["Factual_Retrieval", "Troubleshooting"], []))
+    assert one == two, ("two labels from one group moved the fraction "
+                        f"({one} -> {two}); the delta is being applied twice")

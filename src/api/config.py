@@ -355,6 +355,62 @@ class Settings(BaseSettings):
     retrieval_cluster_top_k: int = 10
     retrieval_cluster_candidate_multiplier: int = 3
 
+    # ── G9: the dynamic-budget ladders ─────────────────────────────────────
+    # These split the context budget between the recent-turns window and
+    # retrieval, and they are the knob the flaw ablation scored WORST:
+    # dynamic_budget measured −0.11 while adding tokens (14.9k→24.5k) and
+    # doubling fragment count. The roadmap's verdict is "retune, mistuned at
+    # high turn counts" — which is only possible once the ladders are data.
+    #
+    # Fallback ceiling when no model-derived budget is passed. C16 derives the
+    # real one from the routed model's window; this is the legacy/direct-caller
+    # path, and it duplicates context_budget_fallback on purpose for now — the
+    # two are consumed by different call paths.
+    context_total_budget_fallback: int = 23_000
+    context_overhead_reserve: int = 1_800
+
+    # Retrieval's cap grows with conversation length: [turn_count_below, base,
+    # per_turn]. Past the last bracket there is no cap. Read in order.
+    context_growth_cap_ladder: list[list[int]] = [
+        [30, 2_000, 150],
+        [100, 5_000, 100],
+        [500, 10_000, 30],
+    ]
+    # Share of the budget given to the recent window, by conversation length:
+    # [turn_count_below, fraction]. Past the last bracket, the default applies.
+    # (The 50/200 and 500/default rows carry equal values — that is the shipped
+    # shape, preserved rather than collapsed, because collapsing it would be a
+    # tuning decision wearing a refactor's clothes.)
+    context_recent_fraction_ladder: list[list[float]] = [
+        [10, 0.3],
+        [50, 0.2],
+        [200, 0.2],
+        [500, 0.15],
+    ]
+    context_recent_fraction_default: float = 0.15
+    # Long turns shift budget toward retrieval: [avg_tokens_per_turn_above,
+    # delta]. First match wins, so keep it descending.
+    context_recent_density_ladder: list[list[float]] = [
+        [3000, -0.15],
+        [1500, -0.10],
+        [800, -0.05],
+    ]
+    # Label-driven adjustments. Each GROUP applies its delta at most once, even
+    # when several of its labels are active — which is why this is a list of
+    # groups and not a label→delta map.
+    context_recent_fraction_groups: list[dict] = [
+        {"head": "intent", "delta": -0.10,
+         "labels": ["Factual_Retrieval", "Troubleshooting", "Analysis_&_Summarization"]},
+        {"head": "intent", "delta": 0.10,
+         "labels": ["Emotional_Processing", "Casual_Banter"]},
+        {"head": "topic", "delta": 0.05, "labels": ["Creative_&_Media"]},
+        {"head": "topic", "delta": -0.05, "labels": ["Software_&_Tech"]},
+        {"head": "topic", "delta": 0.05,
+         "labels": ["Social_&_Relationships", "Lifestyle_&_Health"]},
+    ]
+    context_recent_fraction_min: float = 0.05
+    context_recent_fraction_max: float = 0.85
+
     # ── G9: codex retrieval (A3/A4/A11) ────────────────────────────────────
     # A4 relation detection. Top-k is recall-only — a detected relation only
     # surfaces facts when a matched entity actually has such an edge, so the

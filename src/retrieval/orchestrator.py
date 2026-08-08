@@ -308,8 +308,16 @@ class HybridRetrievalOrchestrator:
 
 
 
-    TOTAL_CONTEXT_BUDGET = 23_000          # fallback ceiling when no model-derived budget is passed (C16)
-    OVERHEAD_RESERVE = 1_800               # system message + slots + question
+    # G9: the fallback ceiling and the overhead reserve are settings now
+    # (context_total_budget_fallback / context_overhead_reserve). Kept as
+    # properties so external callers reading the class attribute still work.
+    @property
+    def TOTAL_CONTEXT_BUDGET(self) -> int:
+        return settings.context_total_budget_fallback
+
+    @property
+    def OVERHEAD_RESERVE(self) -> int:
+        return settings.context_overhead_reserve
 
 
     def set_budget_from_turn_count(
@@ -325,15 +333,16 @@ class HybridRetrievalOrchestrator:
         recent_budget = int(available * fraction)
         raw_retrieval = available - recent_budget
 
-        # Growth-based retrieval cap (same as before)
-        if turn_count < 30:
-            growth_cap = 2_000 + turn_count * 150
-        elif turn_count < 100:
-            growth_cap = 5_000 + (turn_count - 30) * 100
-        elif turn_count < 500:
-            growth_cap = 10_000 + (turn_count - 100) * 30
-        else:
-            growth_cap = raw_retrieval
+        # Growth-based retrieval cap. G9: the brackets are
+        # settings.context_growth_cap_ladder — [turn_count_below, base,
+        # per_turn], with no cap past the last bracket.
+        growth_cap = raw_retrieval
+        prev_edge = 0
+        for edge, base_cap, per_turn in settings.context_growth_cap_ladder:
+            if turn_count < edge:
+                growth_cap = base_cap + (turn_count - prev_edge) * per_turn
+                break
+            prev_edge = edge
 
         retrieval_budget = min(raw_retrieval, growth_cap)
 
@@ -347,47 +356,40 @@ class HybridRetrievalOrchestrator:
 
 
     def _compute_recent_fraction(self, turn_count: int, total_tokens: int = 0, classification=None) -> float:
-        """Return 0.0‑1.0 – how much of the context budget goes to recent turns."""
-        # Base – conversation length
-        if turn_count < 10:
-            base = 0.3
-        elif turn_count < 50:
-            base = 0.2
-        elif turn_count < 200:
-            base = 0.2
-        elif turn_count < 500:
-            base = 0.15
-        else:
-            base = 0.15
+        """Return 0.0-1.0 - how much of the context budget goes to recent turns.
 
-        # Token‑density adjustment: if average tokens/turn is huge, shift some
-        # budget toward retrieval to avoid recent‑only context dominated by a
-        # couple of very long turns.
+        G9: every bracket and modifier is settings.context_recent_* now. The
+        shape is unchanged - a length ladder, a token-density adjustment for
+        conversations made of very long turns, and label groups that each
+        apply at most once however many of their labels are active.
+        """
+        base = settings.context_recent_fraction_default
+        for edge, value in settings.context_recent_fraction_ladder:
+            if turn_count < edge:
+                base = value
+                break
+
+        # Token-density adjustment: when the average turn is huge, shift budget
+        # toward retrieval so the recent window is not two enormous turns.
         if turn_count > 0 and total_tokens > 0:
             avg_tokens_per_turn = total_tokens / turn_count
-            if avg_tokens_per_turn > 3000:
-                base -= 0.15
-            elif avg_tokens_per_turn > 1500:
-                base -= 0.10
-            elif avg_tokens_per_turn > 800:
-                base -= 0.05
+            for threshold, delta in settings.context_recent_density_ladder:
+                if avg_tokens_per_turn > threshold:
+                    base += delta
+                    break
 
         modifier = 0.0
         if classification is not None:
-            intents = set(classification.intent_tags)
-            if intents & {"Factual_Retrieval", "Troubleshooting", "Analysis_&_Summarization"}:
-                modifier -= 0.10
-            if intents & {"Emotional_Processing", "Casual_Banter"}:
-                modifier += 0.10
-            topics = set(classification.topic_tags)
-            if "Creative_&_Media" in topics:
-                modifier += 0.05
-            if "Software_&_Tech" in topics:
-                modifier -= 0.05
-            if topics & {"Social_&_Relationships", "Lifestyle_&_Health"}:
-                modifier += 0.05
+            active = {
+                "intent": set(classification.intent_tags or []),
+                "topic": set(classification.topic_tags or []),
+            }
+            for group in settings.context_recent_fraction_groups:
+                if active.get(group["head"], set()) & set(group["labels"]):
+                    modifier += group["delta"]
 
-        return max(0.05, min(0.85, base + modifier))
+        return max(settings.context_recent_fraction_min,
+                   min(settings.context_recent_fraction_max, base + modifier))
 
     # ------------------------------------------------------------------
     # Main entry point
