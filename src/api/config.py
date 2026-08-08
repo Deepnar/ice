@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.paths import REPO_ROOT
+
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://ice:ice_local_dev@localhost:5432/ice_db"
@@ -335,7 +337,16 @@ class Settings(BaseSettings):
     #  THRESHOLD never did anything — it was the "past ten turns" tier of the
     #  reference rule, and no caller ever passed conversation_length.)
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # G31: anchored to the install, not the CWD. As ".env" this was read only
+    # when ICE happened to be launched from the repo root; anywhere else
+    # pydantic-settings found no file and EVERY setting silently took its code
+    # default. That is not hypothetical — `confidence_fallback_threshold` is
+    # 0.5 here and 0.75 below, and it gates the orchestrator's wide-net
+    # fallback, so the launch directory decided which retrieval path ran.
+    # Real environment variables still win over the file; only the file's
+    # location changed.
+    model_config = SettingsConfigDict(env_file=REPO_ROOT / ".env",
+                                      env_file_encoding="utf-8")
 
 
 settings = Settings()

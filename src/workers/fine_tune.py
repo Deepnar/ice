@@ -45,6 +45,7 @@ from src.classifier.promotion import promote_checkpoint
 from src.classifier.schema import CONTEXT_RELIANCE, INTENT, TOPIC
 from src.memory.embedder import fit_width
 from src.memory.models import CuratedLabel
+from src.paths import resolve
 
 # Promotion guardrails.
 MIN_ROWS_TO_PROMOTE = 20     # below this, train an artifact but never auto-promote
@@ -149,7 +150,12 @@ def fine_tune_classifier():
         if not rows:
             return "No curated labels found – skipping fine‑tuning."
 
-        live_path = settings.classifier_model_path
+        # G31: anchored to the install, not the CWD. Unanchored, this guard
+        # aborted the whole fine-tune with "checkpoint missing" whenever the
+        # process had been started from anywhere but the repo root — naming a
+        # file that was sitting right there. `promote_checkpoint` resolves the
+        # same path internally, so the two disagreed.
+        live_path = resolve(settings.classifier_model_path)
         if not os.path.exists(live_path):
             return f"Live classifier checkpoint missing at {live_path} – aborting."
 
@@ -206,7 +212,11 @@ def fine_tune_classifier():
 
         # 4. Always keep the candidate as a timestamped artifact.
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        artifact = f"models/classifier/ice_classifier_finetuned_{ts}.pt"
+        # G31: anchored — otherwise the artifact was written into a fabricated
+        # `<cwd>/models/classifier/`, which is the exact failure promotion.py's
+        # docstring records having already happened once (it reported
+        # "backup → None", skipped the backup, and looked like success).
+        artifact = resolve(f"models/classifier/ice_classifier_finetuned_{ts}.pt")
         torch.save(candidate, artifact)
 
         # 5. Validated promotion: only replace the live model if it's better.

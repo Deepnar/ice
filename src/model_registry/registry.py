@@ -1,9 +1,13 @@
 """Dynamic Model Registry – Hugging Face API + Ollama name mapping + background model tagging."""
 
-import json, os, time, re
+import json
+import os
+import re
+import time
 import httpx
 import structlog
 from src.api.config import settings
+from src.paths import resolve
 
 logger = structlog.get_logger("ice.model_registry")
 from src.workers.bg_client_factory import (
@@ -12,7 +16,12 @@ from src.workers.bg_client_factory import (
     json_schema,
 )
 
-REGISTRY_PATH = "models/model_registry.json"
+# G31: anchored to the install, not the CWD. Read from the wrong directory this
+# file simply "did not exist", `load_registry()` returned an empty registry, and
+# `get_fallback_model()` silently dropped to `settings.default_fallback_model`
+# — measured 2026-08-03 handing a whole evaluation run the broken qwen2.5:7b
+# quant while every log line looked normal.
+REGISTRY_PATH = resolve("models/model_registry.json")
 
 # Mapping from Hugging Face tags to ICE topic labels
 HF_TOPIC_MAP = {

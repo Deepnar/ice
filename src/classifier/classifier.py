@@ -3,6 +3,7 @@ import torch
 from typing import List, Optional
 
 from src.memory.embedder import fit_width, get_embedder
+from src.paths import resolve
 
 from . import templates
 from .model import load_checkpoint
@@ -39,6 +40,10 @@ class PyTorchClassifier:
 
     def __init__(self, model_path="models/classifier/ice_classifier.pt",
                  schema_path="data/labeled/label_schema.json"):
+        # G31: anchored to the install, not the CWD. `load_schema` already did
+        # this for itself; the checkpoint did not, so from the wrong directory
+        # construction died on a FileNotFoundError for a file that was there.
+        model_path = resolve(model_path)
         self.schema = load_schema(schema_path)
         self.model, self.meta = load_checkpoint(model_path, schema=self.schema)
 

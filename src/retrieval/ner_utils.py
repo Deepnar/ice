@@ -43,6 +43,7 @@ import torch
 from transformers import AutoTokenizer
 
 from src.memory.embedder import slice384
+from src.paths import resolve
 
 logger = structlog.get_logger("ice.retrieval.ner")
 
@@ -193,7 +194,11 @@ def _extract_background(text: str) -> Optional[List[str]]:
 def _load_model():
     from src.classifier.ner_model import MicroNER
     model = MicroNER()
-    path = "models/ner/ner_model.pt"
+    # G31: anchored to the install, not the CWD. This missing is what sends
+    # extract_entities down the capitalized-word regex — measured 2026-08-03
+    # dropping one run's entity count from 52.7 to 34.1 per turn. The fallback
+    # now logs; this stops it firing for the reason it was firing.
+    path = resolve("models/ner/ner_model.pt")
     if os.path.exists(path):
         model.load_state_dict(torch.load(path, map_location="cpu"))
         model.eval()
