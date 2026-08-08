@@ -44,9 +44,11 @@ DB1 = f"postgres{SFX}"
 DB2 = f"sqlite{SFX}"
 HERO = f"kael{SFX}"
 ALLY = f"orien{SFX}"
-# ⚠ handle_triplet creates the object entity BEFORE it checks whether the
-# relation is a property, so a property VALUE becomes an orphan node too (see
-# the check below and ROADMAP G33). The cleanup has to know that or it leaks.
+# handle_triplet creates the object entity BEFORE it checks whether the relation
+# is a property, so a property VALUE becomes a node of its own. That is kept by
+# design (G33, 2026-08-08 — the edge behind it carries property-change history
+# for T4); since 2026-08-08 the node also gets a real payload. The cleanup has to
+# know the node exists or it leaks.
 PROP_VALUE = f"fire mage {SFX}"
 
 
@@ -179,16 +181,26 @@ try:
     check("property value reaches the payload",
           PROP_VALUE in (hero.context_payload or "").lower(),
           repr(hero.context_payload))
-    # Pinning current behaviour, not endorsing it: the value ALSO becomes an
-    # entity with an empty payload, because get_or_create_entity runs before the
-    # property branch. Retrieval skips empty payloads, so such a node can be
-    # MATCHED by the pre-flight anchor search and then contribute nothing.
-    # ROADMAP G33 owns the decision; this check exists so the day it changes,
-    # something says so.
+    # G33 RESOLVED 2026-08-08 (option B: keep the node, make it answer). The
+    # value still becomes its own entity — deliberately, because the edge behind
+    # it is what lets T4 build a timeline when the property CHANGES, and removing
+    # the node would remove the edge and that history with it. What changed is
+    # that the payload is no longer empty, so retrieval stops skipping it and the
+    # node can answer the question it exists for ("who else is a fire mage?").
     val = entity(db, PROP_VALUE)
-    check("KNOWN (G33): the property value is also created as an orphan node",
-          val is not None and not (val.context_payload or "").strip(),
-          "if this now fails, G33 was fixed — update this check")
+    check("G33: the property value node exists", val is not None)
+    check("G33: its payload renders the backlink (was empty forever)",
+          "backlinks" in (val.context_payload or "").lower()
+          and HERO in (val.context_payload or "").lower(),
+          repr(val.context_payload))
+    check("G33: retrieval no longer skips it (orchestrator.py:1530)",
+          bool((val.context_payload or "").strip()))
+    # The direction half. `role` is in _TYPE_HINTS['person'] because a thing that
+    # HAS a role is a person — read from the far end it means the opposite, and
+    # the old flat vote typed this value `person`. Asymmetric incoming relations
+    # no longer vote, so the answer is an honest `entity`.
+    check("G33: an asymmetric incoming relation does NOT mistype the value",
+          val.entity_type != "person", f"entity_type={val.entity_type}")
 
     # ── 6. the self-reference guard, at the layer that owns it ───────────
     # It lives in `extract_triplets`, NOT in `handle_triplet` — verified: a

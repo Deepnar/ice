@@ -745,16 +745,48 @@ _KNOWN_TYPES = set(_TYPE_HINTS.keys()) | {
 }
 
 
-def _infer_entity_type(relations, tags, current: str) -> str:
+# G33: relations whose two ends are the SAME kind of thing, so an incoming edge
+# says as much about the target's type as an outgoing one says about the source's.
+# Everything else is asymmetric and may not vote from the far end — see
+# _infer_entity_type.
+_SYMMETRIC_RELATIONS = {
+    "married_to", "is_dating", "is_divorced_from", "is_separated_from",
+    "sibling_of", "friend", "enemy", "ally", "colleague", "knows",
+    "partners_with", "complements", "opposes",
+}
+
+
+def _infer_entity_type(outgoing, incoming, tags, current: str) -> str:
     """Infer a structural type: an explicit known type-tag wins; else vote by the
-    entity's outgoing relations; else keep the current value."""
+    entity's relations; else keep the current value.
+
+    ⚠ **Direction matters, and ignoring it produced confidently wrong types**
+    (G33, measured 2026-08-08). `_TYPE_HINTS` maps a relation to the type of the
+    entity that has it *outgoing*: `role` outgoing means "this thing HAS a role",
+    i.e. a person. Read from the other end it means the opposite — `fire mage`
+    with an incoming `role` edge **IS** a role, and is not a person. The old
+    signature took one flat list of both directions, so `kael --role→ fire mage`
+    typed `fire mage` as `person`.
+
+    So incoming relations vote **only when the relation is symmetric**
+    (`married_to`, `colleague`, …), where both ends genuinely are the same kind
+    of thing. Asymmetric incoming edges are ignored rather than guessed at: the
+    result is `entity` — unknown, which is honest — instead of a wrong type that
+    downstream tag filters and `_codex_enumeration` would trust.
+
+    (A full fix would carry a second hint table for the object side —
+    `works_at` incoming ⇒ organization, `located_in` incoming ⇒ place. That is
+    worth doing when something depends on it; under-claiming beats mis-claiming
+    in the meantime.)
+    """
     for t in (tags or []):
         tl = t.lower()
         tl = _TYPE_SYNONYMS.get(tl, tl)
         if tl in _KNOWN_TYPES:
             return tl
+    voting = list(outgoing) + [r for r in incoming if r in _SYMMETRIC_RELATIONS]
     votes = {}
-    for rel in relations:
+    for rel in voting:
         for etype, rels in _TYPE_HINTS.items():
             if rel in rels:
                 votes[etype] = votes.get(etype, 0) + 1
@@ -797,7 +829,7 @@ def _regenerate_context_payload(entity: CodexEntity, db) -> None:
     ).order_by(CodexEdge.strength.desc()).limit(20).all()
 
     entity.entity_type = _infer_entity_type(
-        [e.relation for e in out_edges] + [e.relation for e in in_edges],
+        [e.relation for e in out_edges], [e.relation for e in in_edges],
         entity.tags, entity.entity_type)
 
     parts = []
@@ -1082,10 +1114,18 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
         flag_modified(subj, "properties")          # tell SQLAlchemy the JSONB changed
         subj.last_updated = datetime.now(timezone.utc)
 
-        # Regenerate context payload
-        # --- Enhanced context_payload regeneration ---
+        # Regenerate context payload — BOTH ends (G33, 2026-08-08).
+        # This branch was the only one of the three that refreshed the subject
+        # alone; the negation branch above and the non-property branch below
+        # always did both. The consequence was the property VALUE's node sitting
+        # with an empty `context_payload` forever, which made it a matchable
+        # pre-flight anchor that `orchestrator.py:1530` then skipped for being
+        # empty — an anchor slot spent on nothing, possibly displacing a real
+        # entity. With the backlink rendered it answers the question the node
+        # exists for ("who else is a fire mage?").
         _regenerate_context_payload(subj, db)
-        return        
+        _regenerate_context_payload(obj, db)
+        return
 
     # ── 2. Non‑property relations ──
     # A6: reconcile cross-turn conflicts before the fixed rules apply. Cheap
