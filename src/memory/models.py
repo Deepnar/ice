@@ -121,6 +121,18 @@ class EpisodicMemory(Base):
     # and by retrieval, because the promoted conversation is the readable copy.
     promoted_document_id = Column(UUID(as_uuid=True),
                                   ForeignKey("documents.id"), nullable=True)
+    # G11: which batch summary covers this turn. NULL = not yet summarised, and
+    # that is the batch summariser's selection predicate. Before this column the
+    # worker had NO way to tell — its docstring claimed it skipped
+    # already-summarised turns while nothing excluded them, so every cadence
+    # pass re-ran the LLM over the same turns and appended another summary row,
+    # which the batch-summary retrieval leg then injected as duplicates.
+    # ON DELETE SET NULL: deleting a summary must make its turns eligible again,
+    # never orphan the reference or block the delete.
+    batch_summary_id = Column(UUID(as_uuid=True),
+                              ForeignKey("batch_summaries.id",
+                                         ondelete="SET NULL"),
+                              nullable=True, index=True)
     idempotency_key = Column(Text, unique=True, nullable=False)
 
     conversation = relationship("Conversation", back_populates="episodic_turns")
@@ -531,6 +543,13 @@ class BatchSummary(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
+    # ⚠ WRITE-ONLY, and not usable as coverage provenance (G11, 2026-08-08).
+    # These are positions in the *filtered, ordered list the producing run
+    # happened to build* — a list that shifts between runs as decay advances —
+    # not stable turn identifiers. Nothing reads them. Coverage is recorded on
+    # the turn instead (`episodic_memory.batch_summary_id`). Kept rather than
+    # dropped because they are harmless and a column drop is not this item's
+    # business; do not start trusting them.
     start_turn_index = Column(Integer, nullable=False)
     end_turn_index = Column(Integer, nullable=False)
     summary_text = Column(Text, nullable=False)
