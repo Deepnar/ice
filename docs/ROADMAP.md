@@ -38,7 +38,7 @@
 >
 > ## 📋 INVENTORY RE-TAKEN 2026-08-04 → **56 unchecked**, and split by PRE-FINAL vs POST-FINAL
 >
-> **↳ 2026-08-08: 56 → 54.** Cluster ①'s first two closed — **[G31](#g31)** and **[G5](#g5)**.
+> **↳ 2026-08-08: 56 → 54, then → 56 again.** Cluster ①'s first two closed — **[G31](#g31)** and **[G5](#g5)** — and **two new items opened from a user question about codex traversal**: **[G34](#g34)** (relation detection returns 5 relations for `"ok"` — 197/197 above its floor; the detector cannot say "no", and it owns the pure-Python cosine that costs 12 ms of pre-flight per turn) and **[G35](#g35)** (traversal is relation-blind with no fan-out limit, so codex fragment size tracks graph topology — fine on an empty store, not on Z2's corpus). **[G28](#g28)** also gained the uncatalogued `func_words` bet plus a *measurably false* docstring claim in `_stem`. Both new items are **pre-FINAL**: they change what a measured retrieval result means.
 > **[G25](#g25)** stays open but **left the critical path**: it was re-measured and two of its
 > premises are false (no prompt/response text in the logs; `logs/` has never been committed,
 > so it is not a public-repo exposure). **[G12](#g12)** was audited and stays open with
@@ -71,6 +71,11 @@
 >   public), **[G6](#g6)** (indexes via migrations).
 > - **Audits with teeth:** **[G29](#g29)** (drift), **[G30](#g30)** (test blind spots),
 >   **[G20](#g20)** (dead code).
+> - **What a retrieval result MEANS (opened 2026-08-08):** **[G34](#g34)** (the relation
+>   detector fires on every prompt, so the `+0.25` overlap boost is applied on noise) and
+>   **[G35](#g35)** (uncapped depth-3 fan-out ⇒ fragment size set by graph topology). Both
+>   are pre-FINAL for the same reason: they make a number describe something other than
+>   what it appears to describe, and only on a *populated* store — which is FINAL's store.
 > - **Scheduled after Z1 by decision:** **[T5](#t5)** (wire `Temporal_Recall` into Track T),
 >   **[A9](#a9)b**'s pre-flight question (Z2's), the **relation-vocabulary decision + the
 >   enum's fate + the alias dictionary** (all Z2's, fed by the `codex_relation_gaps` ledger).
@@ -820,6 +825,35 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 
 - [ ] <a id="g33"></a>**G33 Every property VALUE becomes an orphan entity node** `(bug/open — 2026-08-03)` — `handle_triplet` calls `get_or_create_entity` for the object **before** it checks `if relation in PROPERTY_RELATIONS`, so `kael —role→ fire mage` creates a `fire mage` node as well as storing the property. Its `context_payload` is empty forever, because nothing ever links to it. Found by `tests/test_codex_write_path.py` leaking exactly one row; it is now pinned there so the day it changes, something says so. **Why it is not merely untidy:** `_match_entities_exact` and `_match_entities_by_similarity` match on `canonical_name`, so these nodes ARE matchable pre-flight anchors — a prompt mentioning "fire mage" matches an entity, and `orchestrator.py:1530` then skips it for having an empty payload, so the anchor slot is spent for nothing and may displace a real one. `_codex_enumeration` ("list all the characters") would enumerate them too. At corpus scale that is one junk node per distinct role, version, deadline, accuracy figure and description value. ⚠ **Decide, do not just delete**: a value-as-node is arguably wanted ("who else is a fire mage?"), but with an empty payload it cannot answer that today — so the choice is *don't create it* or *make it answer*. Cheap either way; the audit above is the reason to choose deliberately.
 
+- [ ] <a id="g34"></a>**G34 Relation detection cannot say "no relation here"** `(bug/open — 2026-08-08, measured)` — `_detect_relations` (`orchestrator.py:1247`) feeds `_relation_facts` (extra `[Fact: …]` lines) and a `+0.25` fragment boost. Its two channels are both broken, in different ways. **Channel 1** is the word-list/stemmer half — catalogued under **[G28](#g28)** above, do not fix it separately. **Channel 2** is the part this item owns: cosine between the prompt embedding and ~197 embedded relation glosses, keeping everything `>= RELATION_SIM_FLOOR` (0.45) and taking `RELATION_TOP_K` (5).
+
+  **Measured 2026-08-08 — the floor is not merely mistuned, the test is the wrong shape:**
+
+  | prompt | relations above the 0.45 floor | top score |
+  |---|---|---|
+  | `"ok"` | **197 / 197** | `ally` 0.844 |
+  | `"hello"` | 195 / 197 | `ally` 0.736 |
+  | `"thanks, that helped"` | 189 / 197 | 0.625 |
+  | `"what is 2 + 2"` | 143 / 197 | 0.600 |
+  | `"who is Rika married to"` | 66 / 197 | `married_to` 0.667 |
+  | `"who inspired Kael"` | **43 / 197** | 0.575 |
+
+  **Absolute similarity is anti-correlated with relational content on these samples**: `"ok"` scores higher against *every relation in the vocabulary* than a genuine relational question scores against the correct one. Short, contentless strings sit near the centre of the embedding space and are therefore close to everything — and "ok" / "thanks" / "yes" / "go on" are exactly what a chat frontend sees constantly. So channel 2 returns 5 relations on essentially every prompt: it is **a ranking with no rejection ability, not a detector**. (It does work for content-rich negatives: `"write me a haiku about rain"` → 0/197. The failure is specific to short input.)
+
+  **Consequence:** because it is almost never empty, the relation-fact path runs on nearly every codex retrieval, so any prompt with a matched entity pulls facts in ~5 semi-arbitrary relations and gets its fragment boosted. A4's "joint signal only" rule (pair with matched entities, never trust alone) is what keeps this from being pure noise — the entity join is carrying the entire precision burden.
+
+  **⚠ Neither obvious fix works.** Raising the floor cannot separate these (`"ok"` = 0.844). A better stemmer is G28's rejected bet. **The lead worth testing is a RELATIVE test: the margin between the top relation and the bulk of the vocabulary for that prompt.** On `"ok"` the whole distribution is flat and high; on `"who is Rika married to"` one relation stands above a lower pack. A margin/z-score test is phrasing-independent by construction, which is the invariance property the standing rule demands — and it must itself pass the decision-flip test before it ships. **Also worth deciding:** whether `RELATION_OVERLAP_BOOST` should apply at all when the detector is this weak (the boost concept is sound — it is the input that is not).
+
+  **Owns the perf half too, because it is the same function.** The cosine loop is **pure Python** — `sum(a * b for a, b in zip(...))`, 197 × 1024 ≈ 202k Python-level multiply-adds — measured at **12.2 ms median on the synchronous pre-flight path**, every turn. One numpy matmul is sub-millisecond. ⚠ **This is NOT confined to relation detection**: five such loops exist, and **the worst is `orchestrator.py:1193` in entity resolution, which loops over EVERY entity in the graph** (fixed 197 here vs unbounded there — free on today's empty store, pathological on [Z2](#z2)'s massive-conversation corpus). The other three are background (`clustering.py:334`, `:348`, `:674`). `retrieval/coverage.py` already uses `np.dot` correctly, so the right idiom is in-tree. The numpy conversion is a pure win and independent of the detection question — it can ship without settling anything above.
+
+- [ ] <a id="g35"></a>**G35 Codex traversal is relation-blind and has no breadth cap** `(open — 2026-08-08, from a user question)` — `_traverse_graph` (`orchestrator.py:1754`) takes no relation argument at all. Per visited entity it fetches **all** live edges in both directions, orders them `strength.desc()`, keeps any above a trust floor (`CODEX_DIRECT_TRUST_FLOOR` 0.5 at the anchor, `CODEX_DEEP_STRENGTH_FLOOR` 1.0 deeper), and recurses into **every** survivor to `CODEX_MAX_DEPTH` 3. Two consequences:
+
+  1. **The `strength.desc()` ordering buys nothing for selection** — no caller takes a top-k, so the sorted list is consumed whole. It only affects the order lines render in.
+  2. **There is no fan-out limit.** Depth 3 × every trustworthy edge. Only the downstream token budget stops it, which means a codex fragment's size is decided by graph topology rather than by relevance. Harmless on today's empty store; [Z2](#z2)'s corpus is explicitly *massive conversations*, where a hub entity expands combinatorially. **A measurement whose cost depends on topology is exactly what makes a benchmark number mean something other than what it appears to.**
+
+  **Relation-directed traversal** — "this question is about `married_to`, so prefer those edges" — is the natural fix for both, and it is **blocked on [G34](#g34)**: you cannot steer a walk with a signal that fires on every prompt. Sequence it after G34, or ship a plain breadth cap first (cheap, independent, and it bounds the blast radius regardless of what G34 concludes). ⚠ Related but distinct: **[C13](#c13)** already owns the N+1 (two queries per visited entity, same loop) — that is a latency fix, this is a *what gets selected* fix. Do not conflate them.
+
+
 - [x] <a id="g31"></a>**G31 Model paths are CWD-relative, and two of them degrade SILENTLY** `(bug — 2026-08-03)` — **DONE 2026-08-08** (`93e997f` the module · `33dfeb6` the reads + the smoke test · `c916812` the dedup). New **[src/paths.py](../src/paths.py)**: one `REPO_ROOT` + `resolve()`, anchored to `__file__`, with **`ICE_HOME`** as the single override for Track F's packaged app and E7's headless boot.
   - **The entry named three sites. There were SIX, and the worst was not on the list: `.env` itself** (`config.py:338` `env_file=".env"`). Outside the repo root pydantic-settings found no file and **every setting silently took its code default**. Measured from `/tmp`: `confidence_fallback_threshold` **0.5 → 0.75** — and that gates the orchestrator's **wide-net fallback**, a *degraded single-leg retrieval mode*, so the launch directory decided which retrieval path ran. The other three `.env` keys happen to equal their defaults; that is luck, not design. The two others not listed were in `fine_tune.py` (the B4 path): its guard aborted with "checkpoint missing" naming a file that existed, and its artifact was written into a fabricated `<cwd>/models/classifier/` — the exact bug `promotion.py`'s docstring records having already happened once.
   - Measured before/after from `/tmp`: registry `0 → 6` models, `get_fallback_model()` `qwen2.5:7b → gemma4:26b-a4b-it-q4_K_M`, `confidence_fallback_threshold` `0.75 → 0.5`.
@@ -908,7 +942,18 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   - **`orchestrator.py:780`** — BM25 term prep deletes every digit and symbol, so `postgres 15`, `GPT-4`, `v2`, `C17`, `3.11` all lose their discriminating token; then drops words ≤2 chars (`go`, `ls`, `id`).
   - **`orchestrator.py:2294`** — `kw in text or kw.rstrip('s') in text`; a spurious substring hit **pins a fragment to raw and marks it non-degradable**, so it cannot be shed under budget pressure and displaces relevant fragments. (`"css" → "cs"`, `"analysis" → "analysi"`.)
   - **`orchestrator.py:260`** — word-count bands as a proxy for value: >800 words `+150%`, <80 words `−70%`. A one-line answer that IS the fact asked for is cut by 70%.
-  - **`orchestrator.py:1158` `_stem`** and **`:1296`** (a 7-word stop set gating entity resolution, whose wrong answers feed graph facts injected as ground truth), plus **`workers/clustering.py:151`**, which deletes any line matching `chapter \d+` from the snippets sent to the cluster-naming LLM — a domain guess hardcoded into a general pipeline, and the bad name persists because names only regenerate every `NAME_REGEN_INTERVAL`.
+  - **`orchestrator.py:1237` `_stem`** *(was :1158 — line numbers re-grounded 2026-08-08)* and **`:1431`** (an 8-word stop set gating entity resolution, whose wrong answers feed graph facts injected as ground truth), plus **`workers/clustering.py:151`**, which deletes any line matching `chapter \d+` from the snippets sent to the cluster-naming LLM — a domain guess hardcoded into a general pipeline, and the bad name persists because names only regenerate every `NAME_REGEN_INTERVAL`.
+  - **⚑ `orchestrator.py:1260` `func_words` — UNCATALOGUED UNTIL 2026-08-08, and `_stem` is measurably broken.** Channel 1 of `_detect_relations` is an 11-word hardcoded function-word list + whitespace split + a fixed punctuation strip + `_stem`. **The stemmer's own docstring claims "both sides are stemmed identically, so crudeness cancels out". That is false**, because the `len(w) > 4` guard means short words are not stemmed at all, so the two sides cannot meet:
+
+    | vocabulary | prompt | → | → | meet? |
+    |---|---|---|---|---|
+    | `uses` | using | `uses` | `us` | **NO** |
+    | `uses` | use | `uses` | `use` | **NO** |
+    | `owns` | owning | `owns` | `own` | **NO** |
+    | `has` | have | `has` | `have` | **NO** |
+    | `inspired` | inspiring | `inspir` | `inspir` | yes |
+
+    Measured live (2026-08-08), and `uses`/`owns` are both real vocabulary entries: *"what does Kael use for the ritual"* and *"what is Kael using for the ritual"* both yield **zero** lexical hits, and *"what does Kael own"* finds `owned_by` while **missing `owns`** — the same concept, two entries, and word length decides which one is reachable. Also **110 of the 197 relations are single words**, and those hit on *any* one-word match, so `age`, `author`, `name`, `role`, `contains` fire on any prompt containing those common words. ⚠ **The fix is NOT a better stemmer** — that is the same bet at better odds. See **[G34](#g34)** for the channel-2 half and the replacement idea; the two are one design conversation.
 
   **Method:** D8's protocol (build the slice the rule fires on, score heuristic vs model, delete the heuristic if the model ties or wins, record the number either way) **plus** the invariance test above, which D8 did not run and which is the part that generalises. **Why at Z1:** several only differ under a live stack, and Z1's coverage matrix is already the "nothing ships unexamined" pass. **Trap:** do not delete a heuristic that is a *fallback* for an absent model (`ner_utils`' regex path exists for a missing checkpoint).
 

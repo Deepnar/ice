@@ -1104,3 +1104,57 @@ response text.
 empty store, so the background workers (which own every content-bearing line
 listed above) were barely exercised. The number that matters — what a populated
 store logs over a real session — is unmeasured. Re-run under Z2's conditions.
+
+### G34 — the relation detector, measured (2026-08-08)
+
+Read-only probe against the live vocabulary and the shared embedder
+(`Qwen/Qwen3-Embedding-0.6B`, 1024 dims, GPU), run from the repo root. No DB
+writes. Recorded because G34's design decision rests on these numbers and the
+"raise the floor" fix looks obvious until you see them.
+
+**Vocabulary:** 197 relations, of which **110 are single words** (those match on
+any one-word hit in channel 1). `RELATION_SIM_FLOOR` 0.45, `RELATION_TOP_K` 5.
+
+**Channel 2 — relations above the floor, by prompt:**
+
+| prompt | above floor | top-1 |
+|---|---|---|
+| `"ok"` | 197 / 197 | `ally` 0.844 |
+| `"hello"` | 195 / 197 | `ally` 0.736 |
+| `"thanks, that helped"` | 189 / 197 | `complements` 0.625 |
+| `"what does Kael own"` | 154 / 197 | `owned_by` 0.626 |
+| `"what is 2 + 2"` | 143 / 197 | `complements` 0.600 |
+| `"what is Kael using for the ritual"` | 123 / 197 | `wields` 0.586 |
+| `"what does Kael use for the ritual"` | 109 / 197 | `wields` 0.585 |
+| `"who is Rika married to"` | 66 / 197 | `married_to` 0.667 |
+| `"who inspired Kael"` | 43 / 197 | `is_founder_of` 0.575 |
+| `"write me a haiku about rain"` | **0 / 197** | `foreshadows` 0.409 |
+
+The ordering is the finding: **absolute cosine is anti-correlated with
+relational content** across these samples. Short contentless strings embed near
+the centroid and are close to everything, so no absolute threshold can separate
+`"ok"` (0.844) from `"who inspired Kael"` (0.575). The one clean negative is a
+long, semantically specific non-relational prompt.
+
+**Channel 1 — the stemmer's symmetry claim is false.** `_stem` only strips a
+suffix when `len(w) > 4`, so short vocabulary words are never stemmed:
+
+| vocabulary | prompt | → | → | meet? |
+|---|---|---|---|---|
+| `uses` | using | `uses` | `us` | NO |
+| `uses` | use | `uses` | `use` | NO |
+| `owns` | owning | `owns` | `own` | NO |
+| `has` | have | `has` | `have` | NO |
+| `inspired` | inspiring | `inspir` | `inspir` | yes |
+
+`uses` and `owns` are both live vocabulary entries. Confirmed end-to-end:
+*"what does Kael use for the ritual"* and *"what is Kael using for the ritual"*
+produce **zero** channel-1 hits; *"what does Kael own"* finds `owned_by` and
+misses `owns` — one concept, two entries, reachability decided by word length.
+
+**Latency.** `_detect_relations` median **12.2 ms** (min 11.8, max 13.6, n=10)
+on the synchronous pre-flight path. The cosine loop is pure Python: 197 × 1024
+≈ 202k multiply-adds per turn. ⚠ Four other pure-Python dot-product loops exist
+(`orchestrator.py:1193` entity resolution — **unbounded, loops every entity in
+the graph**; `clustering.py:334`, `:348`, `:674` — background).
+`retrieval/coverage.py` already uses `np.dot`.
