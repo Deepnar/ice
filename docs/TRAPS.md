@@ -59,6 +59,18 @@ assertion compares that list exactly. `test_documents` does **not** leak on a
 clean run; the residue came from the killed one.
 **⇒ If a scoping or retrieval test fails oddly, check the store for orphan rows
 BEFORE debugging the code.**
+**Re-earned a THIRD time, 2026-08-08 — and this time the residue was partly
+self-inflicted.** Two live turns driven through the proxy to validate G5, plus
+**one orphan `kind='document'` conversation that `test_documents` leaked on a
+clean 53/53 run**, took `test_session_scoping` to 39/40 on exactly the check
+named above. The rule held: the store was inspected first (all three rows were
+empty shells — 0 turns, 0 `documents`), they were deleted, and 40/40 returned
+with no code touched. Two additions to the habit: **(a)** end-to-end validation
+against the live stack is itself a source of residue — clean up after it in the
+same session; **(b)** `test_documents`' cleanup verifies "0 rows remaining"
+scoped to *its own* `conv_ids`, so a conversation it created but never recorded
+is invisible to its own trap-6 check. A self-check scoped to what you remember
+creating cannot catch what you forgot to record.
 
 ### 7. A dead test can be promoted to load-bearing, and an import check will never notice
 Re-check retired tests by **running** them. Corollary: do not write a test that
@@ -79,6 +91,11 @@ Identical medians across "two different models" is what gave it away.
 contains the pattern (four wait-loops reported RUNNING for a process that had
 already died — use `[a]9b_...`); and a harness that writes results only at the
 end loses everything when a later arm crashes, so write after each arm.
+**The `pkill` half re-earned 2026-08-08, and it is worse than `pgrep`:**
+`pkill -f 'uvicorn src.api.main:app'` inside a shell command whose own text
+contains that string **kills the shell running it** (exit 144), taking the rest
+of the compound command with it. The bracket trick is not optional here —
+`pgrep -f '[u]vicorn ...' | xargs -r kill`.
 
 ### 10. Running from the wrong directory silently changes what the system IS
 Model paths in `src/` are CWD-relative (roadmap **G31**). Outside the repo root
@@ -125,6 +142,22 @@ top three real misses were `is`, `has`, `includes`: ordinary English the
 ⇒ **Before a hand-built probe set is allowed to decide anything, harvest the
 real distribution and check the probes look like it.** A probe set authored
 alongside the solution is a mirror, and it will agree with you.
+
+### 13b. …and the same trap fires on the fixtures you write for a bugfix
+Same shape as #13, one week later, caught only because a live run happened.
+G5's new SSE parser was validated by 8 hand-written fixtures, all green. The
+first real turn through the proxy then logged `dropped=1, lines=14` on a
+**perfectly healthy stream**: the terminal usage chunk carries
+`"choices": []`, which raises `IndexError`, and the parser counted that as
+damage. So the brand-new "this fallback is now observable" warning would have
+fired on **100% of turns** — noise that trains everyone to ignore it, which is
+the exact failure the logging was added to prevent.
+The fixtures missed it because their author wrote what a *damaged* stream
+looks like and never pasted in what a *healthy* one actually contains.
+⇒ **A bugfix's own test fixtures are hand-authored probes too.** Before
+trusting them, capture one real sample of the thing being parsed and put it in
+the suite verbatim. And for any new warning, ask what fraction of NORMAL
+traffic trips it — a fallback that always fires is not observability.
 
 ### 14. `alembic --autogenerate` proposes deleting every index the models don't declare
 Adding one table generated a migration that also emitted **20 `drop_index`

@@ -863,6 +863,14 @@ These events are consumed by the Textual TUI to render a live observability pane
 
 ).
 
+**Reading the stream back: what `raw_text` is made of (G5, 2026-08-08).** The bytes streamed to the client are also the *only* source of the assistant half of the stored turn, so a parse defect here silently degrades every triplet, summary and embedding downstream. Two mechanisms guard it.
+
+**One accumulator per upstream stream.** A turn can involve *two* — the primary, and the fallback model after a timeout. They shared a single flat chunk list, and since the primary almost always dies mid-line, its truncated tail was concatenated onto the fallback's first line: one corrupt line, dropped in silence, losing content from **both** models that the user had already watched appear on screen. Each stream now accumulates into its own segment; `store_turn_async` joins chunks with `""` **within** a segment (this is what repairs socket splits, which land at arbitrary byte offsets) and segments with `"\n"`, so a truncated tail can only damage itself. A turn that spans two models logs `turn_spans_multiple_models` — the text is stored as the user saw it, but nothing else could tell it was spliced.
+
+**Damage is counted, never swallowed.** `_parse_sse_text` classifies every `data:` line as parsed / no_content / salvaged / dropped, and logs `sse_stream_damaged` at WARNING whenever the last two are non-zero. A line whose JSON object never closed but whose content string is intact is **salvaged** with `raw_decode`; a line whose string is itself cut is counted, not guessed at. ⚠ The `no_content` bucket exists because the first version did not have it: the terminal usage chunk carries `"choices": []`, so the warning fired on **100% of healthy streams** — a fallback that always fires is noise, not observability. Content-free chunks (usage, role-only openers, `finish_reason`) are normal and are counted separately from loss.
+
+Validated by `tests/smoke/test_sse_parsing.py` (10 checks, including a two-sided assertion that the old flat join really did swallow the fallback's first line) plus live end-to-end runs through Ollama.
+
 ### **10.2 PostgreSQL + pgvector**
 
 A single PostgreSQL instance with the pgvector extension is the unified store. api/db.py constructs create_engine(settings.database_url, pool_size=50, max_overflow=20, pool_pre_ping=True, pool_recycle=3600) and a sessionmaker. Every vector column is Vector(1024) because the same embedder is used everywhere; every embedding column carries an **HNSW cosine index** (idx_\<table\>_embedding — first landed by migration b6e2f9a41c73; G6's orphan scripts/database/create_indexes.sql predated it and was never applied to the live DB), and **store_meta** stamps the store's embedding identity (§10.7). Filtered vector queries follow a uniform idiom — SELECT …, (1 - (embedding \<=\> :prompt_embedding)) [* decay_weight] AS score FROM \<table\> WHERE embedding IS NOT NULL AND \<filters\> ORDER BY score DESC LIMIT :k — used by the episodic, procedural, batch-summary, and cluster-relevance queries. Worker-side variants cast the embedding explicitly (CAST(:emb AS vector)) because the embedding arrives as a Python list string.
@@ -889,7 +897,11 @@ Every worker is a plain callable that re-raises after db.rollback() (C7 — the 
 
 ### **10.6 Configuration system**
 
-api/config.py defines a Pydantic Settings(BaseSettings) with SettingsConfigDict(env_file=".env", env_file_encoding="utf-8"). Env vars are auto-derived from uppercased field names (no explicit Field(env=…)). The fields, grouped by concern:
+api/config.py defines a Pydantic Settings(BaseSettings) with SettingsConfigDict(env_file=**REPO_ROOT / ".env"**, env_file_encoding="utf-8"). Env vars are auto-derived from uppercased field names (no explicit Field(env=…)). Real environment variables still take precedence over the file.
+
+**Every ICE-owned path is anchored to the install, not the working directory (G31, 2026-08-08).** `src/paths.py` holds one `REPO_ROOT` (from `__file__`) and one `resolve()`; `ICE_HOME` overrides it, set before import, and is the seam Track F's packaged app and E7's headless boot need. This closed a class of silent misbehavior rather than a single bug: as a bare `".env"` the config file was read **only** when ICE happened to start in the repo root, and anywhere else *every* setting silently took its code default — `confidence_fallback_threshold` 0.5 → 0.75, which gates the wide-net fallback (§6.8), so the launch directory decided which retrieval path ran. The model registry read empty (falling to the broken `qwen2.5:7b`), the micro-NER checkpoint went missing (regex fallback), and the fine-tune worker aborted naming a file that existed. **What is deliberately NOT anchored:** `coding/project_facts.py` and `coding/code_graph.py` resolve the *user's* project, not ICE's install. Five modules that had each hand-rolled a repo root now share this one.
+
+The fields, grouped by concern:
 
 - **Database**: database_url (default postgresql+psycopg://ice:ice_local_dev@localhost:5432/ice_db). (redis_url deleted with the broker, C7.)
 
@@ -897,11 +909,11 @@ api/config.py defines a Pydantic Settings(BaseSettings) with SettingsConfigDict(
 
 - **Maintenance runtime (C7)**: maintenance_intervals (per-job cadences dict, §8.1), user_active_threshold_seconds (90), idle_burst_seconds (120), auto_finetune (False), finetune_min_curated (20), background_model_name (None ⇒ chat model), bg_timeout_base_seconds (30), **bg_disable_reasoning (True — sends `reasoning_effort="none"` on every background call; without it the whole background layer returns empty content, see §8)**, **job_yield_grace_seconds (10 — a RUNNING job stands down if the user did anything this recently, G4a §8.1)**, **codex_constrain_shape (True — JSON-schema constrained decoding on extraction; §4.4b)**, **codex_constrain_relation_enum (False — also pin `relation` to the 197-value vocabulary; measured to make ~78% of what it rescues wrong, kept switchable because the call is Z2's, §4.4b)**, **codex_extraction_max_tokens (1200 — raised from 500, where truncation cost whole turns)**.
 
-- **Upstream LLM**: ollama_base_url (http://localhost:11434), default_fallback_model (qwen2.5:7b — ⚠ **measured broken on this machine**: degenerate repetition on short and long inputs; it is the floor under four different decisions and is what a wrong working directory silently falls back to, roadmap G31/A12), background_model_mode (**shared** since C7 — dedicated is the manual power-user path).
+- **Upstream LLM**: ollama_base_url (http://localhost:11434), default_fallback_model (qwen2.5:7b — ⚠ **measured broken on this machine**: degenerate repetition on short and long inputs; it is the floor under four different decisions. It used to be what a wrong working directory silently fell back to; **G31 closed that path 2026-08-08**, but the floor itself is still this model — A12 owns replacing it), background_model_mode (**shared** since C7 — dedicated is the manual power-user path).
 
 - **Entity extraction (A9b)**: background_ner_model (numind/NuNER_Zero; empty string disables it and everything falls back to the micro-NER), background_ner_device (auto), background_ner_threshold (0.5), background_ner_chunk_words (250 — the model's max_len counts ITS OWN word split, in which punctuation is a word, so 350 whitespace words measured 424 and were silently truncated).
 
-- **Classifier**: classifier_threshold (0.3), confidence_fallback_threshold (0.75), classifier_model_path (models/classifier/ice_classifier_v3_qwen_ft3.pt), label_schema_path (data/labeled/label_schema.json).
+- **Classifier**: classifier_threshold (0.3), confidence_fallback_threshold (0.75 in code, **0.5 in this machine's `.env`** — the live value, and the one G31 restored outside the repo root), classifier_model_path (**models/classifier/ice_classifier_v4_schema2.pt** — the v1 file `ice_classifier_v3_qwen_ft3.pt` is the rollback artifact; this line named the old path until 2026-08-08, stale since B1's promotion), label_schema_path (data/labeled/label_schema.json).
 
 *(The DI3 density thresholds that used to live here — `DI3_ENABLED`, the five per-signal cutoffs — went with the pre-classifier in D8 and are no longer settings.)*
 

@@ -462,8 +462,17 @@ under-representation, so it is retired against a number and with the user.
 suite's rows via a hardcoded FILENAME allow-list, so every new fixture leaked
 until someone noticed — and three document conversations had. It now snapshots
 which non-chat conversations existed *before* the run and deletes the
-difference. This trap had re-armed itself twice (C12a, then C12b); it cannot
-now. `tests/test_longevity.py` likewise gained a line that NAMES the mismatched
+difference. This trap had re-armed itself twice (C12a, then C12b); ~~it cannot
+now.~~ **⚠ FALSIFIED 2026-08-08: it did it again.** A clean 53/53
+`test_documents` run left exactly one orphan `kind='document'` conversation
+(0 turns, 0 `documents` rows), which took `test_session_scoping` to 39/40 on
+"exclusion resolves into the scope under auto". The snapshot-the-difference fix
+is evidently not covering whichever path created that row, and the suite's own
+trap-6 self-check is scoped to its `conv_ids` list, so a conversation it
+created but never recorded is invisible to it. **Do not trust this paragraph's
+original claim** — a cleanup that verifies only what it remembers creating
+cannot catch what it forgot to record. Spun out as its own task.
+`tests/test_longevity.py` likewise gained a line that NAMES the mismatched
 table when the export/import count check fails, instead of sending the reader
 through a 28-table round trip for one row.
 
@@ -473,3 +482,36 @@ needed re-chunking because the store was empty. The slot cap now admits 300
 real tokens rather than ~550. `cold_storage` gained a vector column and a
 `reembed.py` rule — G23's fail-loud guard refused to re-embed without it, which
 is exactly how the omission announced itself.
+
+## 2026-08-08 — G31 / G5 (cluster ①)
+
+**Consolidated, not moved: five hand-rolled repo roots → one `src/paths.py`.**
+`classifier/schema.py`, `classifier/promotion.py`, `memory/backup.py`,
+`mcp/server.py` and `ingestion/documents/watch_folder.py` each derived the repo
+root from `__file__` independently — four with `pathlib`, one with `os.path` —
+and two carried a byte-equivalent `_resolve` helper. All five now import
+`REPO_ROOT` / `resolve` from the shared module. **No behavior change from this
+half**: these five already resolved correctly, which is exactly why the four
+*broken* read sites (`.env`, the model registry, the micro-NER checkpoint, the
+fine-tune paths) went unnoticed for so long. Recoverable at `c916812^`.
+
+**Kept, not deleted.** `promotion.py::_resolve` survives as a one-line wrapper
+rather than being replaced at its call sites, because its docstring is the
+record of this bug class already having happened once — silently writing a
+checkpoint to a fabricated `<cwd>/models/classifier/`, reporting
+`backup → None`, and looking like success. The wrapper is cheap; the docstring
+is not reproducible.
+
+**Boy-scout on touched files only.** Dropped a now-unused `pathlib.Path` import
+in `mcp/server.py` and in `classifier/promotion.py`; split `registry.py`'s
+`import json, os, time, re` into four lines. ⚠ **`registry.py`'s
+import-after-`logger` (E402) was deliberately left alone** — `bg_client_factory`
+is imported below the logger for circular-import reasons, and reordering it is
+not a formatting change. Same caution as `pipeline/*`'s load-bearing `I001`.
+
+**Store residue removed (not a code change, recorded because it cost a debug
+cycle).** Three orphan `conversations` rows were deleted to restore the
+documented-correct empty store: two `kind='chat'` shells from this session's own
+live end-to-end G5 validation, and one `kind='document'` shell leaked by
+`test_documents`. All three were verified empty (0 turns, 0 `documents`) before
+removal. See the falsified trap-6 note above, and TRAPS #6's third entry.

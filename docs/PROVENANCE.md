@@ -1023,3 +1023,84 @@ forcing (100% kept, ~78% wrong) is acceptable, and string matching recovers
 5.7%. The decision belongs to a vocabulary experiment with this data in hand —
 scheduled at **Z2** — and the 606 ranked missing relations this run produced
 are its input.
+
+## G31 / G5 / G25 — cluster ①, the instrument-trust pass (2026-08-08)
+
+**Why these are recorded.** None of them produced a corpus or a checkpoint, but
+all three produced *measurements a later decision will rest on* — specifically,
+two measurements that **contradict what the roadmap said was true**. A future
+session scoping G25, or wondering whether a pre-2026-08-08 result is
+trustworthy, needs these numbers rather than the entries' prose.
+
+**Environment.** Same machine and stack as the 2026-08-03 sections. Postgres
+`pgvector/pgvector:pg16` (docker), Ollama on :11434, live store **empty**
+(0 conversations, 0 turns) before and after — the three residue rows created
+during validation were removed, see CLEANUP.md.
+
+### G31 — what the working directory silently changed
+
+Probe: import `src.api.config` + `src.model_registry.registry` from two
+directories and diff. Read-only, no DB, no model load.
+
+| observable | from repo root | from `/tmp` (before fix) | from `/tmp` (after fix) |
+|---|---|---|---|
+| `.env` read | yes | **no** | yes |
+| `confidence_fallback_threshold` | 0.5 | **0.75** | 0.5 |
+| registry models | 6 | **0** | 6 |
+| `get_fallback_model()` | `gemma4:26b-a4b-it-q4_K_M` | **`qwen2.5:7b`** | `gemma4:26b-a4b-it-q4_K_M` |
+| micro-NER ckpt found | yes | **no** (→ regex) | yes |
+| classifier ckpt found | yes | **no** (FileNotFoundError) | yes |
+| label schema | yes | yes (already anchored) | yes |
+
+**The `.env` row is the one that was not in the roadmap entry and matters most
+for the paper**: `confidence_fallback_threshold` gates the orchestrator's
+wide-net fallback, a *degraded single-leg retrieval mode*. Any result produced
+by a script launched outside the repo root before 2026-08-08 ran with 0.75, not
+the intended 0.5. The other three `.env` keys (`DATABASE_URL`,
+`OLLAMA_BASE_URL`, `BACKGROUND_MODEL_MODE`, `CLASSIFIER_THRESHOLD`) happen to
+equal their code defaults, so they are unaffected — by luck, not design.
+
+⚠ **This retro-taints an unknown set of earlier measurements.** The 2026-08-03
+session already recorded two runs where the NER and the background model
+silently swapped; the `.env`/threshold arm was not known then and was not
+checked for. Treat any pre-2026-08-08 number whose producing command's working
+directory is not recorded as **suspect on this axis**.
+
+### G5 — SSE damage rates on a healthy stream
+
+Driven live through the proxy (`uvicorn src.api.main:app`) against Ollama
+`qwen3:4b-instruct`, two single-turn conversations.
+
+- Healthy 14-line stream, **first** taxonomy: `parsed=13, dropped=1`. The one
+  "dropped" line was the **terminal usage chunk** (`"choices": []` → IndexError)
+  — i.e. the new WARNING would have fired on **100% of turns**. Recorded because
+  it is the measurement that changed the design.
+- Same stream, **shipped** taxonomy: `dropped=0, salvaged=0, no_content=2`
+  (usage chunk + `finish_reason` chunk). Zero damage warnings on two consecutive
+  live turns; `raw_text` stored verbatim and correct both times.
+- The splice defect was **not** exercised live (it needs a primary-model
+  timeout); it is pinned by a two-sided unit assertion instead, which checks
+  that the *old* flat join really did swallow the fallback's first line.
+
+### G25 — what actually reaches `logs/`
+
+Method: one real turn through the proxy against a live Ollama with an **empty
+store**, then grep the resulting structlog output for the prompt and the
+response text.
+
+- **0** occurrences of the user's prompt text; **0** of the assistant's answer.
+- **18** distinct structlog events emitted (`classified`, `memory_decision`,
+  `context_ledger`, `prompt_measured`, `turn_stored`, `token_prediction_reconciled`,
+  `context_window_truth`, `cluster_assignment_complete`, …) — all metadata.
+- `logs/` is gitignored (`.gitignore:51`) and `git ls-files logs/` is **empty**:
+  no log file has ever been committed, so this is not a public-repo exposure.
+- Static sweep of every `log*.{info,warning,error,debug}` call in `src/` found
+  the hot path logs counts by design (`query_words=len(...)`, `words=len(...)`,
+  and `context_ledger` storing token counts, never text). Content-bearing lines
+  that remain are derived and short: `pattern_text[:50]`, `cluster.name`,
+  `canonical_name`, `title[:80]`, plus `error=str(exc)` as an indirect channel.
+
+⚠ **Explicitly PARTIAL — do not cite this as a clean bill of health.** One turn,
+empty store, so the background workers (which own every content-bearing line
+listed above) were barely exercised. The number that matters — what a populated
+store logs over a real session — is unmeasured. Re-run under Z2's conditions.
