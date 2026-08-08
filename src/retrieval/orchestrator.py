@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
 from src.memory.tokens import count as count_tokens
-from src.retrieval import coverage
+from src.retrieval import coverage, leg_weights
 from src.memory.models import (
     CodexEdge,
     CodexEntity,
@@ -516,93 +516,11 @@ class HybridRetrievalOrchestrator:
         }
 
         # ── Dynamic leg weighting (blended over all active intents) ──
-
-        # Base balanced weights
-        base_weights = {
-            "bm25": 0.8,
-            "vector": 1.0,
-            "codex": 0.5,
-            "procedural": 0.2,
-            "timeline": 0.6,   # T4: pinned below — constant across profiles
-        }
-
-        # Profile definitions: each profile → (intents, weight_override)
-        PROFILES = [
-            ({"Factual_Retrieval", "Utility_Formatting"},
-            {"vector": 1.2, "bm25": 0.8, "codex": 0.1, "procedural": 0.1}),
-            ({"Troubleshooting", "Strategic_Planning"},
-            {"vector": 1.0, "bm25": 0.8, "codex": 0.3, "procedural": 1.2}),
-            ({"Generation", "Ideation", "Open_Exploration"},
-            {"vector": 0.6, "bm25": 0.6, "codex": 1.2, "procedural": 0.1}),
-            ({"Emotional_Processing", "Analysis_&_Summarization", "Decision_Making"},
-            {"vector": 1.1, "bm25": 0.6, "codex": 0.9, "procedural": 0.0}),
-            ({"Casual_Banter", "Null_Noise"},
-            {"vector": 0.5, "bm25": 0.2, "codex": 0.0, "procedural": 0.0}),
-            # B1 D9: the v2 coding intent. Code_Change leans procedural — how
-            # this user/project does changes (conventions, past fixes) matters
-            # more than definitions.
-            # Starting values — Z1-prep's tuning pass owns the final numbers.
-            #
-            # E12 (2026-07-27) measured whether this row is actually reached,
-            # because the blend below divides every profile by len(active_intents)
-            # and the roadmap's worry was that a 3-intent row leaves a third of a
-            # nudge. Over 9,441 held-out rows: the head fires Code_Change on
-            # 5.75%, carrying a mean of 1.79 intents (alone on 27%), so it lands
-            # ~56% of its intended weight and shifts the biggest leg by 0.291
-            # against base weights of 0.2–1.2. That is a real effect, so the row
-            # STAYS. Its usual companion is Troubleshooting (269 of 543 rows),
-            # which agrees on procedural 1.2 and disagrees on codex (0.3 vs 1.0)
-            # — so the dilution that does happen mostly costs codex weight.
-            #
-            # D9's second row, Codebase_Query → {codex 1.3, bm25 0.9,
-            # vector 0.8, procedural 0.6}, is deliberately absent: the label was
-            # dropped from label_schema.json in B1's run 2 (test F1 0.10 — see
-            # dropped_labels there). It cannot appear in intent_tags, so a
-            # profile for it would be unreachable. Those weights are the tuned
-            # starting point if E7's MCP traffic earns the label back.
-            ({"Code_Change"},
-            {"procedural": 1.2, "codex": 1.0, "vector": 0.6, "bm25": 0.6}),
-        ]
-
-        # Build a mapping from intent label → its profile’s override
-        intent_to_profile_weights = {}
-        for intents_in_profile, override in PROFILES:
-            for intent in intents_in_profile:
-                intent_to_profile_weights[intent] = override
-
-        # Blend: each active intent contributes equally
-        active_intents = classification.intent_tags
-        num_active = len(active_intents) if active_intents else 1
-
-        blend_weights = {leg: 0.0 for leg in base_weights}
-        for tag in active_intents:
-            profile_weights = intent_to_profile_weights.get(tag)
-            if profile_weights:
-                for leg, w in profile_weights.items():
-                    blend_weights[leg] += w / num_active
-            else:
-                # Unknown intent – use base weights
-                for leg, w in base_weights.items():
-                    blend_weights[leg] += w / num_active
-
-        # Fallback to base weights if nothing matched
-        if all(v == 0.0 for v in blend_weights.values()):
-            blend_weights = dict(base_weights)
-
-        # --- TOPIC OVERRIDES (cumulative) ---
-        if "Creative_&_Media" in set(classification.topic_tags):
-            blend_weights["codex"] = blend_weights.get("codex", 0.5) + 0.3
-        if "Software_&_Tech" in set(classification.topic_tags):
-            blend_weights["procedural"] = blend_weights.get("procedural", 0.2) + 0.4
-
-        # T4: the timeline weight is constant across intent profiles — its
-        # firing condition (history_exists on a matched anchor) is the gate,
-        # not the intent. The profile dicts don't carry it, so pin it here.
-        blend_weights["timeline"] = base_weights["timeline"]
-
-        # Clamp to zero (no negative weights)
-        for leg in blend_weights:
-            blend_weights[leg] = max(0.0, blend_weights[leg])
+        # G9: the table itself is settings.retrieval_leg_* and the blend lives
+        # in leg_weights.resolve(), which validates it on every read. It used
+        # to be ~50 lines of literals rebuilt here on every single request.
+        blend_weights = leg_weights.resolve(classification.intent_tags,
+                                            classification.topic_tags)
 
         # Fuse, diversify, deduplicate, trim
         fused = self._apply_rrf(legs, alpha_map=blend_weights)

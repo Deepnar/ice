@@ -286,6 +286,54 @@ class Settings(BaseSettings):
     # Reciprocal-rank fusion. Larger k flattens the rank curve.
     retrieval_rrf_k: int = 60
 
+    # ── G9: the intent-dependent leg weights (Z1 stage 2 sweeps these first) ──
+    # A table, kept shaped like a table — a row is one intent's opinion about
+    # all four legs, and flattening it into thirty scalar fields would destroy
+    # the thing that makes it reviewable. Resolved and VALIDATED on every read
+    # by src/retrieval/leg_weights.py; see that module for why validation is at
+    # read time and why the two halves fail differently.
+    retrieval_leg_base_weights: dict[str, float] = {
+        "bm25": 0.8,
+        "vector": 1.0,
+        "codex": 0.5,
+        "procedural": 0.2,
+        # T4: pinned, not blended — its firing condition is the gate.
+        "timeline": 0.6,
+    }
+    # intent label → per-leg override. An intent absent from this table
+    # contributes the base weights instead.
+    #
+    # `Code_Change` is B1 D9's v2 coding intent. E12 measured that the row is
+    # genuinely reached: the head fires it on 5.75% of held-out rows carrying a
+    # mean 1.79 intents, so it lands ~56% of its intended weight and still
+    # shifts the biggest leg by 0.291 against base weights of 0.2–1.2.
+    #
+    # D9's second row — Codebase_Query → {codex 1.3, bm25 0.9, vector 0.8,
+    # procedural 0.6} — is deliberately absent: the label was dropped in B1's
+    # run 2 (test F1 0.10), so it cannot appear in intent_tags and a row for it
+    # would be unreachable. Those are the tuned starting values if E7's MCP
+    # traffic ever earns the label back.
+    retrieval_leg_profiles: dict[str, dict[str, float]] = {
+        "Factual_Retrieval":       {"vector": 1.2, "bm25": 0.8, "codex": 0.1, "procedural": 0.1},
+        "Utility_Formatting":      {"vector": 1.2, "bm25": 0.8, "codex": 0.1, "procedural": 0.1},
+        "Troubleshooting":         {"vector": 1.0, "bm25": 0.8, "codex": 0.3, "procedural": 1.2},
+        "Strategic_Planning":      {"vector": 1.0, "bm25": 0.8, "codex": 0.3, "procedural": 1.2},
+        "Generation":              {"vector": 0.6, "bm25": 0.6, "codex": 1.2, "procedural": 0.1},
+        "Ideation":                {"vector": 0.6, "bm25": 0.6, "codex": 1.2, "procedural": 0.1},
+        "Open_Exploration":        {"vector": 0.6, "bm25": 0.6, "codex": 1.2, "procedural": 0.1},
+        "Emotional_Processing":    {"vector": 1.1, "bm25": 0.6, "codex": 0.9, "procedural": 0.0},
+        "Analysis_&_Summarization": {"vector": 1.1, "bm25": 0.6, "codex": 0.9, "procedural": 0.0},
+        "Decision_Making":         {"vector": 1.1, "bm25": 0.6, "codex": 0.9, "procedural": 0.0},
+        "Casual_Banter":           {"vector": 0.5, "bm25": 0.2, "codex": 0.0, "procedural": 0.0},
+        "Null_Noise":              {"vector": 0.5, "bm25": 0.2, "codex": 0.0, "procedural": 0.0},
+        "Code_Change":             {"procedural": 1.2, "codex": 1.0, "vector": 0.6, "bm25": 0.6},
+    }
+    # topic label → cumulative deltas applied after the intent blend.
+    retrieval_leg_topic_overrides: dict[str, dict[str, float]] = {
+        "Creative_&_Media": {"codex": 0.3},
+        "Software_&_Tech": {"procedural": 0.4},
+    }
+
     # Per-leg candidate limits. These bound what each leg hands to fusion, so
     # they set the ceiling everything downstream can pick from.
     retrieval_bm25_candidate_limit: int = 100

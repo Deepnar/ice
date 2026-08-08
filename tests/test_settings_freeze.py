@@ -125,6 +125,73 @@ def test_every_frozen_setting_exists():
     assert not missing, f"declared frozen but absent from Settings: {missing}"
 
 
+def _base_literal(path: str, assignment: str):
+    """ast.literal_eval the literal assigned by *assignment* in the base blob.
+
+    Transcribing the weight table into this file by hand would be a
+    hand-authored probe of my own edit (TRAPS #13) — it would agree with
+    whatever I typed. Lifting the source text cannot.
+
+    Scans from the opening delimiter to its match so the extracted text is a
+    complete literal; `#` comments inside it are fine, ast strips them.
+    """
+    import ast
+    src = "\n".join(_base_lines(path))
+    i = src.index(assignment) + len(assignment)
+    while src[i] in " \n":
+        i += 1
+    opener = src[i]
+    closer = {"{": "}", "[": "]", "(": ")"}[opener]
+    depth, j = 0, i
+    while True:
+        if src[j] == opener:
+            depth += 1
+        elif src[j] == closer:
+            depth -= 1
+            if depth == 0:
+                break
+        j += 1
+    return ast.literal_eval(src[i:j + 1])
+
+
+def test_leg_base_weights_match_base_commit():
+    old = {k: float(v) for k, v in _base_literal(ORCH, "base_weights =").items()}
+    new = {k: float(v) for k, v in settings.retrieval_leg_base_weights.items()}
+    assert new == old, f"base leg weights changed: {old} -> {new}"
+
+
+def test_leg_profiles_match_base_commit():
+    """Every intent's row must still hold the weights it held at the base commit.
+
+    The old table keyed one override off a SET of intents; the settings table
+    is flat (one row per intent), so the comparison expands the sets.
+    """
+    rows = _base_literal(ORCH, "PROFILES =")
+    expanded = {}
+    for intents, override in rows:
+        for intent in intents:
+            expanded[intent] = {k: float(v) for k, v in override.items()}
+    new = {k: {kk: float(vv) for kk, vv in v.items()}
+           for k, v in settings.retrieval_leg_profiles.items()}
+    assert new == expanded, (
+        f"leg profiles diverged from {BASE[:7]}\n"
+        f"  only in base: {set(expanded) - set(new)}\n"
+        f"  only in settings: {set(new) - set(expanded)}\n"
+        f"  differing: {[k for k in set(new) & set(expanded) if new[k] != expanded[k]]}")
+
+
+def test_topic_overrides_match_base_commit():
+    """The two cumulative topic bumps, read off the base blob's if-statements."""
+    lines = _base_lines(ORCH)
+    src = "\n".join(lines)
+    creative = re.search(r'blend_weights\["codex"\] = blend_weights\.get\("codex", [\d.]+\) \+ ([\d.]+)', src)
+    software = re.search(r'blend_weights\["procedural"\] = blend_weights\.get\("procedural", [\d.]+\) \+ ([\d.]+)', src)
+    assert creative and software, "topic-override anchors drifted in the base blob"
+    got = settings.retrieval_leg_topic_overrides
+    assert float(got["Creative_&_Media"]["codex"]) == float(creative.group(1))
+    assert float(got["Software_&_Tech"]["procedural"]) == float(software.group(1))
+
+
 def test_removed_constants_are_gone():
     """The old names must not survive as a second copy of the value.
 
