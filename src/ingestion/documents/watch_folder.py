@@ -26,9 +26,12 @@ import shutil
 
 import structlog
 
+from src.paths import REPO_ROOT
+
 logger = structlog.get_logger("ice.ingestion.documents.watch_folder")
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+# G31: one shared install root (src/paths.py) — this was one of five copies,
+# and the only one spelled with os.path rather than pathlib.
 WATCH_DIR = os.path.join(REPO_ROOT, "ingest_inbox")
 PROCESSED_DIR = os.path.join(WATCH_DIR, "processed")
 FAILED_DIR = os.path.join(WATCH_DIR, "failed")

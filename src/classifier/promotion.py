@@ -24,13 +24,11 @@ from __future__ import annotations
 import os
 import shutil
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional, Union
 
 import torch
 
-# src/classifier/promotion.py → repo root
-_ROOT = Path(__file__).resolve().parents[2]
+from src.paths import resolve
 
 
 def _resolve(path: str) -> str:
@@ -46,10 +44,13 @@ def _resolve(path: str) -> str:
     fabricated `<cwd>/models/classifier/...` and, finding nothing at that path to
     displace, reported `backup → None` and skipped the backup. The live model was
     never replaced, the gate had already printed PASS, and every log line looked
-    like success. Mirrors ``schema._resolve`` — same convention, same reason.
+    like success.
+
+    G31 (2026-08-08) moved the root into ``src/paths.py``, and this docstring is
+    why: the same class of bug was still live in four other places, including
+    ``fine_tune.py``, whose "checkpoint missing" abort named a file that existed.
     """
-    p = Path(path)
-    return str(p if p.is_absolute() else _ROOT / p)
+    return resolve(path)
 
 
 def promote_checkpoint(candidate: Union[dict, str], live_path: str,

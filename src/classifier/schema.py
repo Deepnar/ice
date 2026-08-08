@@ -30,6 +30,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
+from src.paths import resolve
+
 # Head names — the keys every consumer uses. Constants, not string literals
 # sprinkled at call sites.
 TOPIC = "topic"
@@ -191,19 +193,20 @@ def _parse_v1(raw: dict, path: str) -> LabelSchema:
     )
 
 
-# Repo root — src/classifier/schema.py → parents[2].
-_ROOT = Path(__file__).resolve().parents[2]
-
-
 def _resolve(path: str) -> str:
     """Anchor a relative schema path to the repo root.
 
     ``settings.label_schema_path`` is repo-relative, but the pipeline stages run
     from their own directory. Resolving here means every caller gets the same
     schema regardless of where it was invoked from.
+
+    G31 (2026-08-08) moved the root itself into ``src/paths.py``. This module's
+    copy was one of five, and it was the only *read* path that already worked —
+    which is precisely why the other four went unnoticed for so long. Note that
+    ``src.paths`` is stdlib-only, so importing it keeps this module's
+    dependency-light contract (see the header) intact.
     """
-    p = Path(path)
-    return str(p if p.is_absolute() else _ROOT / p)
+    return resolve(path)
 
 
 @lru_cache(maxsize=8)

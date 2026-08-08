@@ -23,7 +23,6 @@ import subprocess
 import sys
 import time
 from contextlib import asynccontextmanager, contextmanager
-from pathlib import Path
 from typing import Optional
 
 import structlog
@@ -35,13 +34,16 @@ from src.services import graph as graph_svc
 from src.services import projects as projects_svc
 from src.services import registry_svc, retrieval_svc
 from src.services import review as review_svc
+from src.paths import REPO_ROOT
 from src.services import scoping as scoping_svc
 from src.services import slots as slots_svc
 
 logger = structlog.get_logger("ice.mcp")
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_COMPOSE_FILE = _REPO_ROOT / "docker" / "docker-compose.yml"
+# G31: one shared install root (src/paths.py). This boot path is the reason the
+# override exists — `ice-mcp` resolves its artifacts correctly today only
+# because the harness passes `--directory <repo>`, which happens to set the CWD.
+_COMPOSE_FILE = REPO_ROOT / "docker" / "docker-compose.yml"
 _core = None
 
 

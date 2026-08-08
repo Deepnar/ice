@@ -25,9 +25,11 @@ from urllib.parse import urlparse
 
 import structlog
 
+from src.paths import REPO_ROOT
+
 logger = structlog.get_logger("ice.memory.backup")
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+# G31: one shared install root (src/paths.py) — this was one of five copies.
 COMPOSE_FILE = REPO_ROOT / "docker" / "docker-compose.yml"
 
 
