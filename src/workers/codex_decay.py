@@ -8,14 +8,19 @@ identical to N sequential runs.
 import structlog
 from sqlalchemy import text
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.workers.runtime import CYCLES_CAP
 
 logger = structlog.get_logger("ice.workers.codex_decay")
-CYCLES_PER_DAY = 16.0
-DECAY_RATE = 0.99 ** (1.0 / CYCLES_PER_DAY)   # ≈0.9994  (same effective daily rate)
-DEMOTION_THRESHOLD = 0.3   # strength below this -> pending
-EXPIRY_THRESHOLD = 0.1     # pending edges below this are expired (A3 garbage collection)
+
+
+def decay_rate() -> float:
+    """Per-cycle multiplier compounding to settings.codex_decay_daily per day.
+
+    G9: derived, not stored — see the note on decay.per_cycle.
+    """
+    return settings.codex_decay_daily ** (1.0 / settings.codex_decay_cycles_per_day)
 
 
 def decay_codex_edges(cycles: int = 1):
@@ -35,7 +40,7 @@ def decay_codex_edges(cycles: int = 1):
             SET strength = strength * POWER(:rate, :cycles)
             WHERE valid_until IS NULL
               AND source = 'conversation'
-        """), {"rate": DECAY_RATE, "cycles": cycles})
+        """), {"rate": decay_rate(), "cycles": cycles})
         # 2. Demote active edges that fell below threshold
         db.execute(text("""
             UPDATE codex_edges
@@ -44,7 +49,7 @@ def decay_codex_edges(cycles: int = 1):
               AND valid_until IS NULL
               AND source = 'conversation'
               AND strength < :thresh
-        """), {"thresh": DEMOTION_THRESHOLD})
+        """), {"thresh": settings.codex_demotion_threshold})
         # 3. A3 garbage collection: pending edges that decayed to near-zero
         #    without ever being corroborated or retrieved are expired —
         #    uncorroborated low-trust residue (e.g. grounding-rejected
@@ -56,7 +61,7 @@ def decay_codex_edges(cycles: int = 1):
               AND valid_until IS NULL
               AND source = 'conversation'
               AND strength < :expiry
-        """), {"expiry": EXPIRY_THRESHOLD})
+        """), {"expiry": settings.codex_expiry_threshold})
 
         db.commit()
         logger.info("codex_decay_cycle_complete", cycles=cycles)

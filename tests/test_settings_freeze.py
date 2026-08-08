@@ -34,6 +34,11 @@ from src.api.config import settings  # noqa: E402
 BASE = "ae3abe82d275ffb0a8d1ccd59057f2dbc8779aa1"
 
 ORCH = "src/retrieval/orchestrator.py"
+DECAY = "src/workers/decay.py"
+CODEX_DECAY = "src/workers/codex_decay.py"
+PROC_DECAY = "src/workers/procedural_decay.py"
+COMPACTION = "src/workers/compaction.py"
+IMPORTER = "src/ingestion/importer.py"
 
 # (setting, file, line in the base blob, regex whose group(1) is the literal)
 FROZEN = [
@@ -96,6 +101,25 @@ FROZEN = [
     # ── budget ladder scalars ───────────────────────────────────────────
     ("context_total_budget_fallback", ORCH, 345, r"TOTAL_CONTEXT_BUDGET = ([\d_]+)"),
     ("context_overhead_reserve", ORCH, 346, r"OVERHEAD_RESERVE = ([\d_]+)"),
+
+    # ── memory dynamics ─────────────────────────────────────────────────
+    # The DAILY targets, read off the exponent expressions they used to be
+    # buried inside; the per-cycle rates are derived from these now.
+    ("decay_cycles_per_day", DECAY, 21, r"CYCLES_PER_DAY = ([\d.]+)"),
+    ("decay_daily_unaccessed", DECAY, 22, r"= ([\d.]+) \*\* \(1\.0 / CYCLES_PER_DAY\)"),
+    ("decay_daily_accessed", DECAY, 23, r"= ([\d.]+) \*\* \(1\.0 / CYCLES_PER_DAY\)"),
+    ("decay_daily_creative", DECAY, 26, r"= ([\d.]+) \*\* \(1\.0 / CYCLES_PER_DAY\)"),
+    ("decay_strengthen_amount", DECAY, 27, r"STRENGTHEN_AMOUNT = ([\d.]+)"),
+    ("decay_archive_threshold", DECAY, 28, r"ARCHIVE_THRESHOLD = ([\d.]+)"),
+    ("decay_cold_threshold", DECAY, 29, r"COLD_THRESHOLD = ([\d.]+)"),
+    ("decay_creative_floor", IMPORTER, 59, r"CREATIVE_FLOOR = ([\d.]+)"),
+    ("codex_decay_cycles_per_day", CODEX_DECAY, 15, r"CYCLES_PER_DAY = ([\d.]+)"),
+    ("codex_decay_daily", CODEX_DECAY, 16, r"= ([\d.]+) \*\* \(1\.0 / CYCLES_PER_DAY\)"),
+    ("codex_demotion_threshold", CODEX_DECAY, 17, r"DEMOTION_THRESHOLD = ([\d.]+)"),
+    ("codex_expiry_threshold", CODEX_DECAY, 18, r"EXPIRY_THRESHOLD = ([\d.]+)"),
+    ("procedural_stale_days", PROC_DECAY, 11, r"STALE_DAYS = (\d+)"),
+    ("procedural_min_reinforcement", PROC_DECAY, 12, r"MIN_REINFORCEMENT = (\d+)"),
+    ("compaction_event_threshold", COMPACTION, 12, r"EVENT_THRESHOLD = (\d+)"),
 ]
 
 _blob_cache: dict[str, list[str]] = {}

@@ -5,11 +5,10 @@ from datetime import datetime, timedelta, timezone
 import structlog
 from sqlalchemy import text
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 
 logger = structlog.get_logger("ice.workers.procedural_decay")
-STALE_DAYS = 180
-MIN_REINFORCEMENT = 3
 
 
 def decay_procedural_patterns(cycles: int = 1):
@@ -21,14 +20,14 @@ def decay_procedural_patterns(cycles: int = 1):
     """
     db = SessionLocal()
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=settings.procedural_stale_days)
         db.execute(text("""
             UPDATE procedural_memory
             SET is_active = FALSE
             WHERE is_active = TRUE
               AND last_observed < :cutoff
               AND reinforcement_count < :min_reinf
-        """), {"cutoff": cutoff, "min_reinf": MIN_REINFORCEMENT})
+        """), {"cutoff": cutoff, "min_reinf": settings.procedural_min_reinforcement})
         db.commit()
         logger.info("procedural_decay_cycle_complete")
     except Exception as exc:

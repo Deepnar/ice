@@ -5,11 +5,11 @@ from datetime import datetime, timezone
 import structlog
 from sqlalchemy import func, select
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import CodexEntity, CodexEvent, CodexSnapshot
 
 logger = structlog.get_logger("ice.workers.compaction")
-EVENT_THRESHOLD = 100
 
 
 def compact_entities():
@@ -23,7 +23,7 @@ def compact_entities():
             select(CodexEvent.entity_id)
             .where(CodexEvent.compacted == False)
             .group_by(CodexEvent.entity_id)
-            .having(func.count(CodexEvent.id) >= EVENT_THRESHOLD)
+            .having(func.count(CodexEvent.id) >= settings.compaction_event_threshold)
             .subquery()
         )
         

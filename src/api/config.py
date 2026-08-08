@@ -355,6 +355,49 @@ class Settings(BaseSettings):
     retrieval_cluster_top_k: int = 10
     retrieval_cluster_candidate_multiplier: int = 3
 
+    # ── G9: memory dynamics (decay, promotion, archival) ───────────────────
+    # Z1's D5 rule: these are NOT swept against a probe loop, because they are
+    # temporal behaviours a single-turn probe cannot see. They are solved from
+    # target half-lives and pinned by tests/test_dynamics_invariants.py.
+    #
+    # So the DAILY target is the setting and the per-cycle rate is derived:
+    # rate = daily ** (1 / cycles_per_day). Storing the per-cycle rate instead
+    # would mean anyone retuning it has to do the algebra by hand, on a number
+    # whose meaning (0.9968) is unreadable.
+    #
+    # ⚠ decay_cycles_per_day must equal 86400 / maintenance_intervals
+    # ["decay_episodic"]. It is a SEPARATE setting rather than a derivation
+    # because deriving it would change behaviour for anyone who has already
+    # retuned that interval, and G9 freezes behaviour. Changing the interval
+    # without changing this silently changes the effective daily decay — see
+    # the G9 completion note in ROADMAP.
+    decay_cycles_per_day: float = 16.0
+    decay_daily_unaccessed: float = 0.95
+    decay_daily_accessed: float = 0.98
+    decay_daily_creative: float = 0.99
+    decay_strengthen_amount: float = 0.15
+    decay_archive_threshold: float = 0.1
+    decay_cold_threshold: float = 0.05
+    # Creative turns never decay below this — they are re-read in bursts
+    # months apart, so the usual "unused means unwanted" inference is wrong.
+    decay_creative_floor: float = 0.3
+
+    # Codex edges decay on the same cadence at the creative rate; strength
+    # below the demotion threshold sends an active edge back to pending, and a
+    # pending edge below the expiry threshold is garbage-collected (A3).
+    codex_decay_cycles_per_day: float = 16.0
+    codex_decay_daily: float = 0.99
+    codex_demotion_threshold: float = 0.3
+    codex_expiry_threshold: float = 0.1
+
+    # Procedural patterns: unreinforced for this long, with fewer than this
+    # many reinforcements, and the pattern is retired.
+    procedural_stale_days: int = 180
+    procedural_min_reinforcement: int = 3
+
+    # Codex events per entity before compaction snapshots and marks them.
+    compaction_event_threshold: int = 100
+
     # ── G9: the dynamic-budget ladders ─────────────────────────────────────
     # These split the context budget between the recent-turns window and
     # retrieval, and they are the knob the flaw ablation scored WORST:

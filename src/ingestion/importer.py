@@ -37,13 +37,6 @@ from src.memory.models import (
     ImportRun,
 )
 from src.memory.session import resolve_session_id
-from src.workers.decay import (
-    ARCHIVE_THRESHOLD,
-    COLD_THRESHOLD,
-    CREATIVE_DECAY_RATE,
-    CYCLES_PER_DAY,
-    DECAY_RATE_UNACCESSED,
-)
 
 logger = structlog.get_logger("ice.ingestion.importer")
 
@@ -51,12 +44,12 @@ logger = structlog.get_logger("ice.ingestion.importer")
 # the same conversation across re-runs so per-turn keys can dedupe.
 NS_ICE_IMPORT = uuid.UUID("2f6c0b1e-9a3d-5e4b-8c7a-1d2e3f405162")
 
-# Per-day decay rates DERIVED from decay.py's per-cycle constants (rev 1) —
 # fast_forward/hybrid ages memory in one closed-form pass at insert; the live
 # apply_decay job keeps aging it forward from there.
-DAILY_UNACCESSED = DECAY_RATE_UNACCESSED ** CYCLES_PER_DAY      # ≈0.95/day
-DAILY_CREATIVE = CREATIVE_DECAY_RATE ** CYCLES_PER_DAY          # ≈0.99/day
-CREATIVE_FLOOR = 0.3                                            # decay.py floor
+#
+# G9: these used to raise decay.py's per-cycle constants back to the power of
+# CYCLES_PER_DAY to recover the daily rate. The daily rate is now the stored
+# form, so the round trip is gone — settings.decay_daily_* IS what this needs.
 
 POLICIES = ("hybrid", "preserve", "fast_forward", "fresh")
 IMMUNE_WINDOW_DAYS = 14      # preserve/hybrid: memory feels present, then earns
@@ -78,7 +71,7 @@ def compute_decay(policy: str, turn_ts: datetime, now: datetime,
     immunity); older turns fast-forward with aging counted from the threshold,
     so the ramp is smooth instead of a cliff at day 30. preserve — all fresh
     + immune. fast_forward — all aged to their real date. fresh — all 1.0, no
-    immunity. Fast-forwarded scores floor at COLD_THRESHOLD: the importer
+    immunity. Fast-forwarded scores floor at settings.decay_cold_threshold: the importer
     never deletes a row it just created (rev 4); the next natural decay cycle
     takes truly-dead rows cold through the normal machinery.
     """
@@ -97,13 +90,13 @@ def compute_decay(policy: str, turn_ts: datetime, now: datetime,
     else:   # fast_forward
         aging_days = age_days
 
-    rate = DAILY_CREATIVE if is_creative else DAILY_UNACCESSED
+    rate = settings.decay_daily_creative if is_creative else settings.decay_daily_unaccessed
     score = rate ** aging_days
     if is_creative:
-        score = max(score, CREATIVE_FLOOR)
+        score = max(score, settings.decay_creative_floor)
         return score, None, False
-    score = max(score, COLD_THRESHOLD)
-    is_archived = score < ARCHIVE_THRESHOLD
+    score = max(score, settings.decay_cold_threshold)
+    is_archived = score < settings.decay_archive_threshold
     return score, None, is_archived
 
 

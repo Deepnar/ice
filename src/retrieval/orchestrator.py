@@ -2383,7 +2383,11 @@ class HybridRetrievalOrchestrator:
                 turn = self.db.query(EpisodicMemory).get(uuid.UUID(frag.source_batch_id))
                 if turn:
                     turn.access_count = (turn.access_count or 0) + 1
-                    turn.decay_score = min(1.0, (turn.decay_score or 0.0) + 0.15)
+                    # G9: this literal and decay.STRENGTHEN_AMOUNT were the
+                    # same number in two places, and the decay.py one had no
+                    # readers at all. One value, wired to the live site.
+                    turn.decay_score = min(
+                        1.0, (turn.decay_score or 0.0) + settings.decay_strengthen_amount)
                     self.db.commit()
             except Exception:
                 self.db.rollback()

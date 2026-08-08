@@ -12,21 +12,32 @@ from datetime import datetime, timedelta, timezone
 import structlog
 from sqlalchemy import text
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.workers.runtime import CYCLES_CAP
 
 logger = structlog.get_logger("ice.workers.decay")
-# Effective daily decay targets: 0.95 (unaccessed), 0.98 (accessed)
-# Cycles per day (from maintenance_intervals): 24h / 1.5h = 16
-CYCLES_PER_DAY = 16.0
-DECAY_RATE_UNACCESSED = 0.95 ** (1.0 / CYCLES_PER_DAY)   # ≈0.9968
-DECAY_RATE_ACCESSED   = 0.98 ** (1.0 / CYCLES_PER_DAY)   # ≈0.9987
 
-# Creative slow decay (1% per day effective)
-CREATIVE_DECAY_RATE = 0.99 ** (1.0 / CYCLES_PER_DAY)     # ≈0.9994
-STRENGTHEN_AMOUNT = 0.15
-ARCHIVE_THRESHOLD = 0.1
-COLD_THRESHOLD = 0.05
+
+# G9: the DAILY targets are settings (decay_daily_*); the per-cycle rates are
+# derived here, because 0.9968 is unreadable as a tuning target and 0.95/day
+# is not. Functions rather than module constants so a Z1 sweep of the daily
+# target is picked up — a module-level derivation would freeze at import.
+def per_cycle(daily: float) -> float:
+    """Per-cycle multiplier that compounds to *daily* over one day."""
+    return daily ** (1.0 / settings.decay_cycles_per_day)
+
+
+def rate_unaccessed() -> float:
+    return per_cycle(settings.decay_daily_unaccessed)
+
+
+def rate_accessed() -> float:
+    return per_cycle(settings.decay_daily_accessed)
+
+
+def rate_creative() -> float:
+    return per_cycle(settings.decay_daily_creative)
 
 
 def apply_decay(cycles: int = 1):
@@ -62,7 +73,7 @@ def apply_decay(cycles: int = 1):
               AND is_bookmarked = FALSE
               AND access_count = 0
               AND NOT ('Creative_&_Media' = ANY(topic_tags))
-        """), {"rate": DECAY_RATE_UNACCESSED, "cutoff": cutoff,
+        """), {"rate": rate_unaccessed(), "cutoff": cutoff,
                "cycles": cycles, "now": now})
 
         # Access-weighted decay: previously-accessed non-creative turns
@@ -75,7 +86,7 @@ def apply_decay(cycles: int = 1):
               AND is_bookmarked = FALSE
               AND access_count > 0
               AND NOT ('Creative_&_Media' = ANY(topic_tags))
-        """), {"rate": DECAY_RATE_ACCESSED, "cutoff": cutoff,
+        """), {"rate": rate_accessed(), "cutoff": cutoff,
                "cycles": cycles, "now": now})
 
         # Slow decay for creative turns (1% per day)
@@ -87,16 +98,16 @@ def apply_decay(cycles: int = 1):
               AND (decay_immune_until IS NULL OR decay_immune_until < :now)
               AND is_bookmarked = FALSE
               AND 'Creative_&_Media' = ANY(topic_tags)
-        """), {"rate": CREATIVE_DECAY_RATE, "cutoff": cutoff,
+        """), {"rate": rate_creative(), "cutoff": cutoff,
                "cycles": cycles, "now": now})
 
-        # Creative floor: never drop below 0.3
+        # Creative floor (G9: settings.decay_creative_floor)
         db.execute(text("""
             UPDATE episodic_memory
-            SET decay_score = 0.3
+            SET decay_score = :creative_floor
             WHERE 'Creative_&_Media' = ANY(topic_tags)
-              AND decay_score < 0.3
-        """))
+              AND decay_score < :creative_floor
+        """), {"creative_floor": settings.decay_creative_floor})
 
         # T3 (D11) un-archive: a row whose score recovered above the archive
         # line (write-on-read strengthening — retrieval under a time window
@@ -106,14 +117,14 @@ def apply_decay(cycles: int = 1):
             UPDATE episodic_memory
             SET is_archived = FALSE
             WHERE is_archived = TRUE AND decay_score >= :archive_threshold
-        """), {"archive_threshold": ARCHIVE_THRESHOLD})
+        """), {"archive_threshold": settings.decay_archive_threshold})
 
         # Archive turns below threshold
         db.execute(text("""
             UPDATE episodic_memory
             SET is_archived = TRUE
             WHERE decay_score < :archive_threshold AND is_archived = FALSE
-        """), {"archive_threshold": ARCHIVE_THRESHOLD})
+        """), {"archive_threshold": settings.decay_archive_threshold})
 
         # Move extremely stale archived turns to cold_storage. T3 (D12): the
         # cold row carries conversation_id / is_private / batch_id so
@@ -124,7 +135,7 @@ def apply_decay(cycles: int = 1):
                    conversation_id, is_private, batch_id, embedding
             FROM episodic_memory
             WHERE is_archived = TRUE AND decay_score < :cold_threshold
-        """), {"cold_threshold": COLD_THRESHOLD}).fetchall()
+        """), {"cold_threshold": settings.decay_cold_threshold}).fetchall()
 
         for row in cold_rows:
             db.execute(text("""
