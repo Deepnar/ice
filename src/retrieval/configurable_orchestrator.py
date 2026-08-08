@@ -14,10 +14,8 @@ import hashlib
 from sqlalchemy.orm import Session
 import structlog
 
-from src.retrieval.orchestrator import (
-    HybridRetrievalOrchestrator, ContextFragment,
-    BONUS_RECENT_TOP_10PCT, BONUS_RECENT_TOP_30PCT,
-)
+from src.api.config import settings
+from src.retrieval.orchestrator import HybridRetrievalOrchestrator, ContextFragment
 
 logger = structlog.get_logger("ice.retrieval.configurable")
 
@@ -68,10 +66,14 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
             return []
         return super()._procedural_lookup(prompt_embedding, classification, scope)
 
-    def _batch_summary_lookup(self, prompt_embedding, conv_id=None):
+    def _batch_summary_lookup(self, prompt_embedding, conv_id=None, include_cross=True):
+        # `include_cross` mirrors the parent, which gained it with C6's
+        # incognito rule. Without it every ablation run died with TypeError at
+        # this leg — retrieve() calls it by keyword.
         if self._off("batch_summary"):
             return []
-        return super()._batch_summary_lookup(prompt_embedding, conv_id)
+        return super()._batch_summary_lookup(prompt_embedding, conv_id,
+                                             include_cross=include_cross)
 
     # (C12: the `rag` flag and its override are gone with the leg itself.
     # Document content is retrieved by the vector/bm25/codex legs, so ablating
@@ -127,18 +129,25 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
         if self._off("keyword_boost") and self._on("recency_boost"):
             return super()._apply_bonuses(fragments, classification, conv_id, set())
 
-        # Only keyword → temporarily zero out recency bonus constants
+        # Only keyword → temporarily zero out the recency bonuses.
+        #
+        # ⚠ This block used to `global BONUS_RECENT_TOP_10PCT` after importing
+        # the constants from the parent module. That rebound THIS module's
+        # copy, while the scoring code read the parent's — so `recency_boost:
+        # False` did nothing, for as long as the flag has existed. It is the
+        # desync ROADMAP G19 warns about, and it is why Experiment 3's
+        # `add_keyword_boost` and `full_ice` arms were the same configuration.
+        # Settings hold ONE value, which is what makes the override real.
         if self._on("keyword_boost") and self._off("recency_boost"):
-            global BONUS_RECENT_TOP_10PCT, BONUS_RECENT_TOP_30PCT
-            saved_top = BONUS_RECENT_TOP_10PCT
-            saved_30  = BONUS_RECENT_TOP_30PCT
-            BONUS_RECENT_TOP_10PCT = 0.0
-            BONUS_RECENT_TOP_30PCT  = 0.0
+            saved_top = settings.retrieval_bonus_recent_top_10pct
+            saved_30 = settings.retrieval_bonus_recent_top_30pct
+            settings.retrieval_bonus_recent_top_10pct = 0.0
+            settings.retrieval_bonus_recent_top_30pct = 0.0
             try:
                 return super()._apply_bonuses(fragments, classification, conv_id, prompt_keywords)
             finally:
-                BONUS_RECENT_TOP_10PCT = saved_top
-                BONUS_RECENT_TOP_30PCT  = saved_30
+                settings.retrieval_bonus_recent_top_10pct = saved_top
+                settings.retrieval_bonus_recent_top_30pct = saved_30
 
         # Both on → normal path
         return super()._apply_bonuses(fragments, classification, conv_id, prompt_keywords)

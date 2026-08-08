@@ -65,18 +65,15 @@ class ContextFragment:
     # legs stay bounded by their own firing conditions.
     leg: Optional[str] = None
 
-# C8: recency INSIDE the vector score (the candidate set is LIMIT 100 by
-# score — post-fusion bonuses can't rescue a recent turn that never made the
-# cut). Mirrors A11's codex formula, gentler because episodic already has
-# post-hoc recency bonuses; skipped for creative (recent meta turns are noise,
-# same rule as _apply_bonuses).
-EPISODIC_RECENCY_BOOST = 0.25
-EPISODIC_RECENCY_TAU_DAYS = 30.0
-
-# C15: wide-net budget derives from the model-aware retrieval budget instead
-# of a hardcoded 2,000 tokens.
-WIDE_NET_BUDGET_FRACTION = 0.3
-WIDE_NET_BUDGET_FLOOR = 1500
+# G9 (2026-08-08): every tunable number in this module moved to settings, so
+# Z1 can sweep it without editing code. What remains here are label SETS —
+# they name classifier labels, which is schema, not tuning.
+#
+# C8's recency-inside-the-vector-score, C15's wide-net budget, the whole bonus
+# family and every leg candidate limit are now `settings.retrieval_*`; the
+# codex traversal/relation knobs (formerly `self.CODEX_*` / `self.RELATION_*`
+# attributes set in __init__) are `settings.codex_*`. They are read at the
+# point of use, never cached on the instance — see the config.py note.
 
 
 def _head_confidences(classification):
@@ -120,22 +117,10 @@ def _truncate_at_sentence(text: str, word_cap: int) -> str:
     return hard + '…'
 
 
-# ---------------------------------------------------------------------------
-# Scoring constants – single source for all additive bonuses
-# ---------------------------------------------------------------------------
-BONUS_BOOKMARKED = 0.5            # +50% of base score
-BONUS_RECENT_TOP_10PCT = 1.0      # +100% if in the most recent 10% of the conversation
-BONUS_RECENT_TOP_30PCT = 0.5      # +50% if in the most recent 30%
-BONUS_LONG_NARRATIVE = 1.5        # +150% if >800 words (likely a full chapter)
-BONUS_SUBSTANTIAL = 0.5           # +50% if >400 words
-PENALTY_SHORT = -0.7              # −70% if <80 words
-BONUS_KEYWORD_MATCH = 1.0         # +100% if fragment contains a prompt keyword
-MAX_TOTAL_BONUS_MULTIPLIER = 4.0  # maximum bonus sum (score can be multiplied by up to 5.0)
-
-# Soft meta‑discussion downweight – classifier‑driven, not string‑matching
+# Soft meta‑discussion downweight – classifier‑driven, not string‑matching.
+# The label sets stay here (schema); the factor is settings.
 NARRATIVE_FACT_INTENTS = {"Factual_Retrieval", "Decision_Making"}
 META_LEANING_INTENTS = {"Analysis_&_Summarization"}
-META_DOWNWEIGHT_FACTOR = 0.55     # multiply score by this if source turn leans meta
 
 # A4: process-wide cache of (relation_names, gloss_embeddings) for relation
 # detection — built lazily on first use by _relation_gloss_cache().
@@ -163,33 +148,9 @@ class HybridRetrievalOrchestrator:
         # prompts score ~0.69 absolute), so detected relations are never a
         # trigger on their own — they only boost/annotate edges of matched
         # entities, or drive enumeration when explicit cue words are present.
-        # Top-k is recall-only: a detected relation surfaces facts only when a
-        # matched entity actually has such an edge (the join is the precision),
-        # so k=5 is safe — feasibility probe: top-3 11/12, top-5 12/12.
-        self.RELATION_TOP_K = 5
-        self.RELATION_SIM_FLOOR = 0.45           # below this a gloss match is noise
-        self.RELATION_OVERLAP_BOOST = 0.25       # entity-hit ∩ relation-hit fragment boost
-        self.EXPANSION_MAX_TERMS = 8             # grounded query expansion cap (BM25)
-        self.ENUM_EDGE_LIMIT = 15                # enumeration: max fact edges surfaced
-        self.ENUM_ENTITY_LIMIT = 8               # enumeration: max entities surfaced
+        # (G9: the numbers are settings.codex_relation_* now; the feasibility
+        # probe behind the default k=5 was top-3 11/12, top-5 12/12.)
         self._last_matched_entities = []         # per-call: for grounded expansion
-
-        # A3 — edge confidence/strength as a live retrieval signal.
-        # An edge's effective trust is strength * extraction_confidence:
-        # strength carries usage dynamics (reinforcement/decay), confidence
-        # carries extraction trust (NER grounding, corroboration).
-        self.CODEX_MAX_DEPTH = 3                 # traversal ceiling (gated below)
-        self.CODEX_DIRECT_TRUST_FLOOR = 0.5      # matched-entity edge must clear this to expand/reinforce
-        self.CODEX_DEEP_STRENGTH_FLOOR = 1.0     # deep hops require this much effective trust
-        self.CODEX_REINFORCE_INCREMENT = 0.15    # per-retrieval boost on anchor edges (episodic analog)
-        self.CODEX_STRENGTH_CAP = 10.0           # soft ceiling so retrieval can't inflate forever
-        self.CODEX_PROMOTE_STRENGTH = 2.0        # reinforced pending edge promotes to active (enters decay cycle)
-        self.CODEX_PROMOTE_MIN_CONFIDENCE = 0.5  # ...but never on low-trust extractions (needs corroboration first)
-        # A11: mild recency boost on edge trust — a recently-asserted fact
-        # outranks a stale one of equal strength. Rewards recent assertion
-        # (valid_from); never penalises age (decay already handles that).
-        self.CODEX_RECENCY_BOOST = 0.3           # max multiplier bump for a just-asserted edge
-        self.CODEX_RECENCY_TAU_DAYS = 30.0       # e-folding time of the boost
 
         # T2/T3: the request's TimeScope (set from scope["timescope"] at the
         # top of retrieve()/_wide_net_fallback(); one orchestrator instance
@@ -209,11 +170,13 @@ class HybridRetrievalOrchestrator:
         self._denied_entity_ids = set()
 
         # Load micro‑NER model (fallback to None if not available)
-    def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=10, scope=None):
+    def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=None, scope=None):
         """Return a list of cluster_id strings for the clusters most
         relevant to the prompt, using both embedding similarity and
         topic‑tag overlap with the current classification.
         """
+        if top_k is None:
+            top_k = settings.retrieval_cluster_top_k
         try:
             # G29: the shared scope filter — under project scope conv_id is
             # None and the ids live in scope["conversation_ids"]; hand-rolling
@@ -227,7 +190,9 @@ class HybridRetrievalOrchestrator:
                 ORDER BY sim DESC
                 LIMIT :limit
             """).bindparams(bindparam("emb", type_=PgVector))
-            params = {"emb": prompt_embedding, "limit": top_k * 3, **conv_params}
+            params = {"emb": prompt_embedding,
+                      "limit": top_k * settings.retrieval_cluster_candidate_multiplier,
+                      **conv_params}
             rows = self.db.execute(query, params).fetchall()
         except Exception:
             return []
@@ -275,15 +240,15 @@ class HybridRetrievalOrchestrator:
             if prompt_keywords and any(
                 kw in text_lower or kw.rstrip('s') in text_lower for kw in prompt_keywords
             ):
-                bonus += BONUS_KEYWORD_MATCH
+                bonus += settings.retrieval_bonus_keyword_match
 
             # Length
-            if word_count > 800:
-                bonus += BONUS_LONG_NARRATIVE
-            elif word_count > 400:
-                bonus += BONUS_SUBSTANTIAL
-            elif word_count < 80:
-                bonus += PENALTY_SHORT
+            if word_count > settings.retrieval_long_narrative_words:
+                bonus += settings.retrieval_bonus_long_narrative
+            elif word_count > settings.retrieval_substantial_words:
+                bonus += settings.retrieval_bonus_substantial
+            elif word_count < settings.retrieval_short_words:
+                bonus += settings.retrieval_penalty_short
 
             # Recency (skip for creative – recent meta turns are noise;
             # T3: skipped under any non-current mode — this bonus points at now)
@@ -294,9 +259,10 @@ class HybridRetrievalOrchestrator:
             # Soft meta downweight
             if wants_narrative_fact and f.source_type == "episodic" and f.source_batch_id:
                 if self._turn_leans_meta(f.source_batch_id):
-                    bonus -= (1.0 - META_DOWNWEIGHT_FACTOR)
+                    bonus -= (1.0 - settings.retrieval_meta_downweight_factor)
 
-            bonus = max(-0.9, min(MAX_TOTAL_BONUS_MULTIPLIER, bonus))
+            bonus = max(settings.retrieval_min_total_bonus,
+                        min(settings.retrieval_max_total_bonus_multiplier, bonus))
             new_score = f.score * (1.0 + bonus)
             out.append(replace(f, score=new_score))
         return out
@@ -308,17 +274,17 @@ class HybridRetrievalOrchestrator:
             if not turn:
                 return 0.0
             total = self.db.query(EpisodicMemory).filter_by(conversation_id=conv_id).count()
-            if total <= 20:
+            if total <= settings.retrieval_recency_min_turns:
                 return 0.0
             newer_count = self.db.query(EpisodicMemory).filter(
                 EpisodicMemory.conversation_id == conv_id,
                 EpisodicMemory.timestamp > turn.timestamp
             ).count()
             recency_pct = newer_count / total
-            if recency_pct < 0.10:
-                return BONUS_RECENT_TOP_10PCT
-            elif recency_pct < 0.30:
-                return BONUS_RECENT_TOP_30PCT
+            if recency_pct < settings.retrieval_recent_top_pct:
+                return settings.retrieval_bonus_recent_top_10pct
+            elif recency_pct < settings.retrieval_recent_mid_pct:
+                return settings.retrieval_bonus_recent_top_30pct
             return 0.0
         except Exception:
             return 0.0
@@ -788,10 +754,10 @@ class HybridRetrievalOrchestrator:
         if ts.mode == "as_of" and ts.t0 and ts.t1:
             center = ts.t0 + (ts.t1 - ts.t0) / 2
             window_days = (ts.t1 - ts.t0).total_seconds() / 86400.0
-            return center, EPISODIC_RECENCY_BOOST, max(EPISODIC_RECENCY_TAU_DAYS, window_days / 2)
+            return center, settings.retrieval_episodic_recency_boost, max(settings.retrieval_episodic_recency_tau_days, window_days / 2)
         if ts.mode in ("range", "evolution"):
-            return now, 0.0, EPISODIC_RECENCY_TAU_DAYS
-        return now, (0.0 if creative else EPISODIC_RECENCY_BOOST), EPISODIC_RECENCY_TAU_DAYS
+            return now, 0.0, settings.retrieval_episodic_recency_tau_days
+        return now, (0.0 if creative else settings.retrieval_episodic_recency_boost), settings.retrieval_episodic_recency_tau_days
 
     # ------------------------------------------------------------------
     # HyDE rewriting
@@ -917,9 +883,10 @@ class HybridRetrievalOrchestrator:
               AND decay_score > :min_decay
               {archived_filter}
             ORDER BY score DESC
-            LIMIT 100
+            LIMIT :cand_limit
         """)
         params = {
+            "cand_limit": settings.retrieval_bm25_candidate_limit,
             "search_terms": search_terms,
             "prompt_text": prompt_text,
             "min_decay": min_decay,
@@ -955,9 +922,10 @@ class HybridRetrievalOrchestrator:
                       AND decay_score > :min_decay
                       {archived_filter}
                     ORDER BY score DESC
-                    LIMIT 100
+                    LIMIT :cand_limit
                 """)
-                p = {"prompt_text": prompt_text, "min_decay": min_decay,
+                p = {"cand_limit": settings.retrieval_bm25_candidate_limit,
+                     "prompt_text": prompt_text, "min_decay": min_decay,
                      **ts_params, **conv_params, **excl_params}
                 if scope and scope.get("cluster_ids"):
                     p["cluster_ids"] = scope["cluster_ids"]
@@ -1035,7 +1003,9 @@ class HybridRetrievalOrchestrator:
         params = {"prompt_embedding": prompt_embedding, "min_decay": min_decay,
                   "recency_boost": rec_boost, "recency_tau": rec_tau,
                   "ts_center": ts_center,
-                  "cand_limit": 300 if ts.mode == "evolution" else 100,
+                  "cand_limit": (settings.retrieval_vector_candidate_limit_evolution
+                                 if ts.mode == "evolution"
+                                 else settings.retrieval_vector_candidate_limit),
                   **ts_params, **conv_params, **excl_params}
         if scope and scope.get("cluster_ids"):
             params["cluster_ids"] = scope["cluster_ids"]
@@ -1078,11 +1048,17 @@ class HybridRetrievalOrchestrator:
         return kept
 
     def _vector_chunks(self, prompt_embedding, scope, conv_id=None,
-                       recency_boost=EPISODIC_RECENCY_BOOST) -> List[ContextFragment]:
+                       recency_boost=None) -> List[ContextFragment]:
         """C2: chunk-level vector search over document turns. Visibility
         (decay, archive, privacy, conversation, cluster scope) is enforced
         through the parent turn; provenance points at the parent so
-        strengthening/decay land on the turn. Max 3 chunks per document."""
+        strengthening/decay land on the turn. Max 3 chunks per document.
+
+        G9: `recency_boost` defaults to None rather than to the setting — a
+        default argument is evaluated once at import, which would freeze the
+        value and make a Z1 sweep of it silently do nothing."""
+        if recency_boost is None:
+            recency_boost = settings.retrieval_episodic_recency_boost
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(
             scope, conv_id, column="e.conversation_id")
         # C6: exclusions ride the parent turn like every other visibility rule.
@@ -1124,9 +1100,10 @@ class HybridRetrievalOrchestrator:
               {privacy_filter}
               {cluster_filter}
             ORDER BY score DESC
-            LIMIT 30
+            LIMIT :cand_limit
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
-        params = {"prompt_embedding": prompt_embedding, "min_decay": min_decay,
+        params = {"cand_limit": settings.retrieval_chunk_candidate_limit,
+                  "prompt_embedding": prompt_embedding, "min_decay": min_decay,
                   "recency_boost": recency_boost, "recency_tau": rec_tau,
                   "ts_center": ts_center, **ts_params, **conv_params,
                   **excl_params}
@@ -1147,7 +1124,7 @@ class HybridRetrievalOrchestrator:
             per_parent[pid] = per_parent.get(pid, 0) + 1
             score_val = float(row.score)
             if row.is_bookmarked:
-                score_val *= (1.0 + BONUS_BOOKMARKED)
+                score_val *= (1.0 + settings.retrieval_bonus_bookmarked)
             # T1: chunks are episodic fragments too — date them from the parent turn.
             chunk_text = row.chunk_text
             if row.timestamp:
@@ -1163,9 +1140,11 @@ class HybridRetrievalOrchestrator:
         return fragments
         
     
-    def _match_entities_by_similarity(self, entity_strings: List[str], threshold: float = 0.85) -> List:
+    def _match_entities_by_similarity(self, entity_strings: List[str], threshold: float = None) -> List:
         """Match extracted entity strings to CodexEntity rows using vector similarity.
         Falls back to canonical name / alias exact match when embeddings are unavailable."""
+        if threshold is None:
+            threshold = settings.codex_entity_match_threshold
         if not entity_strings:
             return []
 
@@ -1278,10 +1257,10 @@ class HybridRetrievalOrchestrator:
                     if rel in detected:
                         continue
                     sim = sum(a * b for a, b in zip(p, emb))
-                    if sim >= self.RELATION_SIM_FLOOR:
+                    if sim >= settings.codex_relation_sim_floor:
                         scored.append((sim, rel))
                 scored.sort(reverse=True)
-                detected.extend(rel for _, rel in scored[:self.RELATION_TOP_K])
+                detected.extend(rel for _, rel in scored[:settings.codex_relation_top_k])
             return detected
         except Exception as err:
             logger.error("relation_detection_failed", error=str(err))
@@ -1439,7 +1418,7 @@ class HybridRetrievalOrchestrator:
                 rows = self.db.query(CodexEntity).filter(
                     CodexEntity.context_payload.ilike(f"%{w}%"),
                     *self._entity_source_filters(),
-                ).limit(20).all()
+                ).limit(settings.codex_entity_payload_match_limit).all()
                 for ent in rows:
                     scored[ent.id] = (scored.get(ent.id, (0, ent))[0] + 1, ent)
             ranked = sorted(scored.values(), key=lambda t: t[0], reverse=True)
@@ -1490,8 +1469,9 @@ class HybridRetrievalOrchestrator:
         if self._denied_batch_ids:   # C6 exclusion
             q = q.filter(CodexEdge.source_batch.notin_(self._denied_batch_ids))
         lines, fact_edges = [], []
-        for edge in q.order_by(CodexEdge.strength.desc()).limit(10).all():
-            if self._edge_trust(edge) < self.CODEX_DIRECT_TRUST_FLOOR:
+        for edge in q.order_by(CodexEdge.strength.desc()).limit(
+                settings.codex_entity_edge_limit).all():
+            if self._edge_trust(edge) < settings.codex_direct_trust_floor:
                 continue
             src = self.db.query(CodexEntity).get(edge.source_id)
             tgt = self.db.query(CodexEntity).get(edge.target_id)
@@ -1522,7 +1502,7 @@ class HybridRetrievalOrchestrator:
                 q = self.db.query(CodexEntity).filter(
                     or_(*[CodexEntity.tags.any(t) for t in candidate_tags]),
                     *self._entity_source_filters())
-                for ent in q.limit(self.ENUM_ENTITY_LIMIT).all():
+                for ent in q.limit(settings.codex_enum_entity_limit).all():
                     if allowed_entity_ids is not None and ent.id not in allowed_entity_ids:
                         continue
                     if ent.id in self._denied_entity_ids:   # C6 exclusion
@@ -1543,8 +1523,8 @@ class HybridRetrievalOrchestrator:
                     q = q.filter(CodexEdge.source_batch.in_(allowed_batch_ids))
                 if self._denied_batch_ids:   # C6 exclusion
                     q = q.filter(CodexEdge.source_batch.notin_(self._denied_batch_ids))
-                for edge in q.order_by(CodexEdge.strength.desc()).limit(self.ENUM_EDGE_LIMIT).all():
-                    if self._edge_trust(edge) < self.CODEX_DIRECT_TRUST_FLOOR:
+                for edge in q.order_by(CodexEdge.strength.desc()).limit(settings.codex_enum_edge_limit).all():
+                    if self._edge_trust(edge) < settings.codex_direct_trust_floor:
                         continue
                     src = self.db.query(CodexEntity).get(edge.source_id)
                     tgt = self.db.query(CodexEntity).get(edge.target_id)
@@ -1576,7 +1556,7 @@ class HybridRetrievalOrchestrator:
                 if t and t not in seen:
                     seen.add(t)
                     terms.append(t)
-                if len(terms) >= self.EXPANSION_MAX_TERMS:
+                if len(terms) >= settings.codex_expansion_max_terms:
                     return terms
         return terms
 
@@ -1636,7 +1616,7 @@ class HybridRetrievalOrchestrator:
                 if anchor.id in self._denied_entity_ids:   # C6 exclusion
                     continue
                 local_texts, direct_edges = [], []
-                self._traverse_graph(anchor, 0, self.CODEX_MAX_DEPTH, set(),
+                self._traverse_graph(anchor, 0, settings.codex_max_depth, set(),
                                      local_texts, direct_edges,
                                      allowed_entity_ids, allowed_batch_ids,
                                      exclude_ids=anchor_ids - {anchor.id})
@@ -1653,7 +1633,7 @@ class HybridRetrievalOrchestrator:
                     if fact_lines:
                         local_texts.extend(fact_lines)
                         direct_edges.extend(fact_edges)
-                        score += self.RELATION_OVERLAP_BOOST
+                        score += settings.codex_relation_overlap_boost
                         any_relation_hit = True
                 text = "\n\n".join(local_texts)
                 fragments.append(ContextFragment(
@@ -1706,7 +1686,7 @@ class HybridRetrievalOrchestrator:
                     age_days = abs((ts.t1 - vf).total_seconds()) / 86400.0
                 else:
                     age_days = max(0.0, (datetime.now(timezone.utc) - vf).total_seconds() / 86400.0)
-                base *= 1.0 + self.CODEX_RECENCY_BOOST * math.exp(-age_days / self.CODEX_RECENCY_TAU_DAYS)
+                base *= 1.0 + settings.codex_recency_boost * math.exp(-age_days / settings.codex_recency_tau_days)
             except Exception:
                 pass
         return base
@@ -1796,12 +1776,12 @@ class HybridRetrievalOrchestrator:
             if depth == 0:
                 # A3 dynamic threshold: a matched entity's edge expands (and is
                 # reinforced as a query anchor) only above the direct floor.
-                if trust < self.CODEX_DIRECT_TRUST_FLOOR:
+                if trust < settings.codex_direct_trust_floor:
                     continue
                 if anchor_edges is not None:
                     anchor_edges.append(edge)
             # A3: trust-gate deep hops — weak/decayed edges don't expand the frontier.
-            elif trust < self.CODEX_DEEP_STRENGTH_FLOOR:
+            elif trust < settings.codex_deep_strength_floor:
                 continue
             # A5: traversal never leaves the conversation's entity set under scope.
             if allowed_entity_ids is not None and other_id not in allowed_entity_ids:
@@ -1840,12 +1820,12 @@ class HybridRetrievalOrchestrator:
                 if e.id in seen:
                     continue
                 seen.add(e.id)
-                e.strength = min((e.strength or 0.0) + self.CODEX_REINFORCE_INCREMENT,
-                                 self.CODEX_STRENGTH_CAP)
+                e.strength = min((e.strength or 0.0) + settings.codex_reinforce_increment,
+                                 settings.codex_strength_cap)
                 conf = e.extraction_confidence if e.extraction_confidence is not None else 1.0
                 if (e.confidence == "pending"
-                        and e.strength >= self.CODEX_PROMOTE_STRENGTH
-                        and conf >= self.CODEX_PROMOTE_MIN_CONFIDENCE):
+                        and e.strength >= settings.codex_promote_strength
+                        and conf >= settings.codex_promote_min_confidence):
                     e.confidence = "active"
             self.db.commit()
         except Exception:
@@ -1885,6 +1865,7 @@ class HybridRetrievalOrchestrator:
         time_filter, params = "", {
             "prompt_embedding": prompt_embedding,
             "min_conf": settings.procedural_min_conf,
+            "proc_limit": settings.retrieval_procedural_limit,
         }
         if ts.mode in ("as_of", "range") and ts.t0 and ts.t1:
             time_filter = "AND first_observed <= :ts_t1 AND last_observed >= :ts_t0"
@@ -1901,7 +1882,7 @@ class HybridRetrievalOrchestrator:
               AND confidence_score >= :min_conf
             {time_filter}
             ORDER BY score DESC
-            LIMIT 5
+            LIMIT :proc_limit
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
         try:
             rows = self.db.execute(query, params).fetchall()
@@ -1977,9 +1958,11 @@ class HybridRetrievalOrchestrator:
                     WHERE conversation_id = :conv_id
                       AND embedding IS NOT NULL
                     ORDER BY score DESC
-                    LIMIT 3
+                    LIMIT :bs_limit
                 """).bindparams(bindparam("prompt_embedding", type_=PgVector))
-                rows = self.db.execute(query, {"prompt_embedding": prompt_embedding, "conv_id": conv_id}).fetchall()
+                rows = self.db.execute(query, {
+                    "prompt_embedding": prompt_embedding, "conv_id": conv_id,
+                    "bs_limit": settings.retrieval_batch_summary_limit}).fetchall()
                 # T1: summaries are written long after the turns they compress,
                 # so they get a "[summary, <created>]" prefix, not a turn date.
                 fragments += [ContextFragment(
@@ -2009,11 +1992,12 @@ class HybridRetrievalOrchestrator:
                   AND (CAST(:conv_id AS uuid) IS NULL
                        OR s.conversation_id != CAST(:conv_id AS uuid))
                 ORDER BY score DESC
-                LIMIT 2
+                LIMIT :cs_limit
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
             rows = self.db.execute(query, {
                 "prompt_embedding": prompt_embedding,
                 "conv_id": conv_id,
+                "cs_limit": settings.retrieval_conversation_summary_limit,
             }).fetchall()
             fragments += [ContextFragment(
                 text=(f"[conversation summary, {r.updated_at.strftime('%Y-%m-%d')}] "
@@ -2220,10 +2204,12 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # RRF fusion, diversification, dedup, token budget
     # ------------------------------------------------------------------
-    def _apply_rrf(self, legs: Dict[str, List[ContextFragment]], alpha_map: Dict[str, float] = None, k: int = 60) -> List[ContextFragment]:
+    def _apply_rrf(self, legs: Dict[str, List[ContextFragment]], alpha_map: Dict[str, float] = None, k: int = None) -> List[ContextFragment]:
         from dataclasses import replace
         if alpha_map is None:
             alpha_map = {}
+        if k is None:
+            k = settings.retrieval_rrf_k
 
         rrf_scores: Dict[str, float] = {}
         fragment_registry: Dict[str, ContextFragment] = {}
@@ -2369,7 +2355,9 @@ class HybridRetrievalOrchestrator:
             k: v for k, v in self._coverage_record.items() if k != "gains"})
         return selected
 
-    def _session_diversify(self, fragments, current_id, max_per_conversation=3):
+    def _session_diversify(self, fragments, current_id, max_per_conversation=None):
+        if max_per_conversation is None:
+            max_per_conversation = settings.retrieval_max_per_conversation
         counts: Dict[str, int] = {}
         result = []
         for f in fragments:
@@ -2538,11 +2526,12 @@ class HybridRetrievalOrchestrator:
                   {privacy_filter}
                   {cluster_filter}
                 ORDER BY score DESC
-                LIMIT 100
+                LIMIT :cand_limit
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
             creative = "Creative_&_Media" in (classification.topic_tags or [])
             ts_center, rec_boost, rec_tau = self._recency_params(creative)
             params = {"prompt_embedding": prompt_embedding, "min_decay": min_decay,
+                      "cand_limit": settings.retrieval_wide_net_candidate_limit,
                       "recency_boost": rec_boost, "recency_tau": rec_tau,
                       "ts_center": ts_center, **ts_params, **conv_params,
                       **excl_params}
@@ -2564,8 +2553,8 @@ class HybridRetrievalOrchestrator:
         diversified = self._session_diversify(fused, conversation_id, max_per_conversation=3)
         # C15: dynamic ceiling — a fraction of the (model-aware, C16) retrieval
         # budget with a floor, replacing the hardcoded 2,000 tokens.
-        wide_budget = max(WIDE_NET_BUDGET_FLOOR,
-                          int(self.max_retrieval_tokens * WIDE_NET_BUDGET_FRACTION))
+        wide_budget = max(settings.retrieval_wide_net_budget_floor,
+                          int(self.max_retrieval_tokens * settings.retrieval_wide_net_budget_fraction))
         return self._enforce_token_budget(self._deduplicate(diversified), max_tokens=wide_budget)
 
     # ------------------------------------------------------------------
@@ -2688,7 +2677,7 @@ class HybridRetrievalOrchestrator:
 
             score_val = float(getattr(row, "score", 1.0))
             if getattr(row, "is_bookmarked", False):
-                score_val *= (1.0 + BONUS_BOOKMARKED)
+                score_val *= (1.0 + settings.retrieval_bonus_bookmarked)
 
             # T1 date-grounding: every episodic fragment carries the date its
             # turn was written, so the model can order events against the

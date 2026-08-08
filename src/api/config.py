@@ -234,6 +234,108 @@ class Settings(BaseSettings):
     retrieval_collapse_enabled: bool = True
     retrieval_max_frags_per_turn: int = 2
 
+    # ── G9: retrieval scoring knobs (were module constants + __init__ attrs) ──
+    # Everything below was a literal in orchestrator.py until 2026-08-08, so
+    # tuning any of it meant editing code. Z1's staged sweep needs them
+    # config-driven; the defaults here ARE the pre-G9 values, verified against
+    # the base commit by tests/test_settings_freeze.py.
+    #
+    # ⚠ Read these at the point of USE, never bind them to a module global or
+    # an instance attribute at construction. Z1's sweeper mutates the settings
+    # singleton at runtime, and a second copy of a value is how the ablation
+    # harness's `recency_boost` flag came to do nothing for a year (see the
+    # G19 note in ROADMAP).
+    #
+    # C8: recency folded INTO the vector score, because the candidate set is
+    # cut by score before post-fusion bonuses can rescue anything recent.
+    retrieval_episodic_recency_boost: float = 0.25
+    retrieval_episodic_recency_tau_days: float = 30.0
+
+    # C15: the wide net's budget derives from the model-aware retrieval budget.
+    retrieval_wide_net_budget_fraction: float = 0.3
+    retrieval_wide_net_budget_floor: int = 1500
+
+    # Post-fusion additive bonuses. Each is a FRACTION of the base score:
+    # 0.5 means +50%, and the sum is clamped to [min, max] before the score is
+    # multiplied by (1 + bonus).
+    retrieval_bonus_bookmarked: float = 0.5
+    retrieval_bonus_recent_top_10pct: float = 1.0
+    retrieval_bonus_recent_top_30pct: float = 0.5
+    retrieval_bonus_long_narrative: float = 1.5
+    retrieval_bonus_substantial: float = 0.5
+    retrieval_penalty_short: float = -0.7
+    retrieval_bonus_keyword_match: float = 1.0
+    retrieval_max_total_bonus_multiplier: float = 4.0
+    retrieval_min_total_bonus: float = -0.9
+    # Soft meta-discussion downweight: multiply by this when the source turn
+    # leans meta and the query wants narrative fact.
+    retrieval_meta_downweight_factor: float = 0.55
+
+    # Word-count brackets the length bonuses key on.
+    retrieval_long_narrative_words: int = 800
+    retrieval_substantial_words: int = 400
+    retrieval_short_words: int = 80
+
+    # Post-fusion recency bands, as a fraction of the conversation. Below the
+    # minimum turn count the whole bonus is skipped — in a short conversation
+    # "the most recent 10%" is one turn and means nothing.
+    retrieval_recent_top_pct: float = 0.10
+    retrieval_recent_mid_pct: float = 0.30
+    retrieval_recency_min_turns: int = 20
+
+    # Reciprocal-rank fusion. Larger k flattens the rank curve.
+    retrieval_rrf_k: int = 60
+
+    # Per-leg candidate limits. These bound what each leg hands to fusion, so
+    # they set the ceiling everything downstream can pick from.
+    retrieval_bm25_candidate_limit: int = 100
+    retrieval_vector_candidate_limit: int = 100
+    # T4 evolution queries need a wider net to span eras before stratifying.
+    retrieval_vector_candidate_limit_evolution: int = 300
+    retrieval_chunk_candidate_limit: int = 30
+    retrieval_wide_net_candidate_limit: int = 100
+    retrieval_procedural_limit: int = 5
+    retrieval_batch_summary_limit: int = 3
+    retrieval_conversation_summary_limit: int = 2
+
+    # Session diversification: how many fragments one FOREIGN conversation may
+    # contribute (the active conversation is uncapped).
+    retrieval_max_per_conversation: int = 3
+
+    # Cluster restriction: how many clusters scope a query, and how many
+    # candidates the SQL over-fetches before tag-overlap re-ranking.
+    retrieval_cluster_top_k: int = 10
+    retrieval_cluster_candidate_multiplier: int = 3
+
+    # ── G9: codex retrieval (A3/A4/A11) ────────────────────────────────────
+    # A4 relation detection. Top-k is recall-only — a detected relation only
+    # surfaces facts when a matched entity actually has such an edge, so the
+    # join is the precision and k can be generous.
+    codex_relation_top_k: int = 5
+    codex_relation_sim_floor: float = 0.45
+    codex_relation_overlap_boost: float = 0.25
+    codex_expansion_max_terms: int = 8
+    codex_enum_edge_limit: int = 15
+    codex_enum_entity_limit: int = 8
+    codex_entity_match_threshold: float = 0.85
+    codex_entity_payload_match_limit: int = 20
+    codex_entity_edge_limit: int = 10
+
+    # A3: an edge's effective trust is strength × extraction_confidence.
+    # Strength carries usage dynamics (reinforcement/decay); confidence
+    # carries extraction trust (NER grounding, corroboration).
+    codex_max_depth: int = 3
+    codex_direct_trust_floor: float = 0.5
+    codex_deep_strength_floor: float = 1.0
+    codex_reinforce_increment: float = 0.15
+    codex_strength_cap: float = 10.0
+    codex_promote_strength: float = 2.0
+    codex_promote_min_confidence: float = 0.5
+    # A11: a recently-asserted fact outranks a stale one of equal strength.
+    # Rewards recent assertion; never penalises age (decay does that).
+    codex_recency_boost: float = 0.3
+    codex_recency_tau_days: float = 30.0
+
     # The recent-turns window is CONTINUITY, not evidence — it is never
     # relevance-filtered. It is bounded by the sitting instead: this session's
     # turns, plus the last turn of the previous one so a 31-minute break does
