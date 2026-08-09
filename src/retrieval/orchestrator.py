@@ -1214,8 +1214,16 @@ class HybridRetrievalOrchestrator:
             # G36: the exclusion resolver could not work out what to deny.
             # Reading the graph unscoped would serve the excluded material;
             # match nothing instead. Checked before the `not batch_ids`
-            # fallback below, which returns UNSCOPED.
+            # branch below.
             return set(), set()
+        # G37: did the caller RESTRICT the conversation set, or merely scope by
+        # something else? Tested by key PRESENCE, not truthiness — C6's rule,
+        # because an exclusion can empty a closed set and `[]` must still mean
+        # "these conversations, of which there are none". A cluster-only or
+        # timescope-only scope names no conversations at all and stays
+        # unscoped, which is what keeps `auto` traffic working.
+        restricted = ("batch_ids" in scope or "conversation_ids" in scope
+                      or "conversation_id" in scope)
         try:
             batch_ids = set()
             if scope.get("batch_ids"):
@@ -1238,6 +1246,20 @@ class HybridRetrievalOrchestrator:
             # reads only its own graph).
             pid = self._scope_project_id
             if pid is None and not batch_ids:
+                # G37: a named conversation set that resolves to no batches
+                # reads NOTHING, not everything. It resolves to nothing on the
+                # first turn of every manually-scoped conversation (no stored
+                # turns yet) and whenever exclusions empty a closed set — and
+                # the old `return None, None` meant UNSCOPED, so exactly then
+                # the graph leg served the whole store. C6 already settled this
+                # for the episodic legs (`_conv_scope_filter`: "an empty set
+                # must match nothing"); the codex and procedural legs never got
+                # it. A project attachment was exempted long ago by the `pid`
+                # test above, with a comment naming this same hazard.
+                # User decision 2026-08-09: starting fresh should give nothing,
+                # which is what codex scoping was built for.
+                if restricted:
+                    return set(), set()
                 return None, None
             entity_ids = set()
             if batch_ids:

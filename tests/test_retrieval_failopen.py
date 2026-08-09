@@ -201,6 +201,47 @@ try:
     check("broken exclusion: reported as scope.exclusions",
           "scope.exclusions" in legs_reported(cap))
 
+    print("── G37: a named conversation set that resolves to nothing ──")
+    # The everyday case: a manually-scoped conversation on its FIRST turn has
+    # no stored turns, so its scope resolves to zero batches. That used to mean
+    # UNSCOPED — the graph leg served the whole store on turn one of every
+    # scoped conversation, which is the opposite of what scoping is for.
+    fresh = Conversation(memory_scope_type="manual")
+    db.add(fresh)
+    db.commit()
+    made["convs"].append(fresh)
+
+    out = codex_text({"conversation_ids": [str(fresh.id)]})
+    check("fresh conversation (zero turns): A does not leak in",
+          NAME_A not in out)
+    check("fresh conversation (zero turns): B does not leak in",
+          NAME_B not in out)
+
+    out = codex_text({"conversation_ids": []})
+    check("emptied conversation set reads nothing",
+          NAME_A not in out and NAME_B not in out)
+
+    # ...and the exclusion still holds on its own terms, which is what stops
+    # this being described as "forbidden material comes back". It never did.
+    out = codex_text({"conversation_ids": [str(fresh.id)],
+                      "exclude_conversation_ids": [str(conv_b.id)]})
+    check("...with an exclusion set too, still nothing",
+          NAME_A not in out and NAME_B not in out)
+
+    # ⚠ The controls that stop the fix from firing too widely. A scope naming
+    # no conversations must stay UNSCOPED — otherwise every `auto` request
+    # loses its codex leg, which no other check here would notice.
+    out = codex_text({})
+    check("CONTROL auto (no scope) still reads the graph",
+          NAME_A in out and NAME_B in out)
+    out = codex_text({"exclude_conversation_ids": [str(conv_b.id)]})
+    check("CONTROL exclusion-only scope still reads the graph",
+          NAME_A in out)
+    check("...and still honours the exclusion", NAME_B not in out)
+    out = codex_text({"cluster_ids": [str(uuid.uuid4())]})
+    check("CONTROL cluster-only scope still reads the graph",
+          NAME_A in out and NAME_B in out)
+
     print("── a broken leg names itself ──")
     orch = HybridRetrievalOrchestrator(db, embedder)
     orch._active_timescope = orch._resolve_timescope(None)
