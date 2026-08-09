@@ -22,9 +22,40 @@ logger = structlog.get_logger("ice.workers.decay")
 # derived here, because 0.9968 is unreadable as a tuning target and 0.95/day
 # is not. Functions rather than module constants so a Z1 sweep of the daily
 # target is picked up — a module-level derivation would freeze at import.
-def per_cycle(daily: float) -> float:
+
+# Fallback used only when the cadence is missing or nonsensical; it is the
+# shipped 1.5h cadence expressed as cycles/day.
+_FALLBACK_CYCLES_PER_DAY = 16.0
+_SECONDS_PER_DAY = 86_400.0
+
+
+def cycles_per_day(job: str = "decay_episodic") -> float:
+    """How many times *job* runs in a day, from its configured cadence.
+
+    NOT a setting, and deliberately so. This job applies its multiplier once
+    per run, so for the daily target to actually compound to itself the count
+    has to equal 86400 / cadence. A separate knob could disagree with the
+    cadence, and then `0.95/day` would simply be false — the decay would be
+    whatever the arithmetic happened to produce. There is no value of this
+    number that is correct while disagreeing, which is what makes it derived
+    rather than tunable (G9 left it as a setting; the coupling is closed here).
+
+    Change the cadence and the daily target is preserved automatically, which
+    is the property tests/test_dynamics_invariants.py pins.
+    """
+    seconds = settings.maintenance_intervals.get(job)
+    if not seconds or seconds <= 0:
+        logger.warning("decay_cadence_unresolved", job=job, configured=seconds,
+                       using=_FALLBACK_CYCLES_PER_DAY,
+                       reason="maintenance_intervals has no usable cadence for "
+                              "this job; the daily decay target cannot be honoured")
+        return _FALLBACK_CYCLES_PER_DAY
+    return _SECONDS_PER_DAY / float(seconds)
+
+
+def per_cycle(daily: float, job: str = "decay_episodic") -> float:
     """Per-cycle multiplier that compounds to *daily* over one day."""
-    return daily ** (1.0 / settings.decay_cycles_per_day)
+    return daily ** (1.0 / cycles_per_day(job))
 
 
 def rate_unaccessed() -> float:

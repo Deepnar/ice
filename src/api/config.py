@@ -462,13 +462,11 @@ class Settings(BaseSettings):
     # would mean anyone retuning it has to do the algebra by hand, on a number
     # whose meaning (0.9968) is unreadable.
     #
-    # ⚠ decay_cycles_per_day must equal 86400 / maintenance_intervals
-    # ["decay_episodic"]. It is a SEPARATE setting rather than a derivation
-    # because deriving it would change behaviour for anyone who has already
-    # retuned that interval, and G9 freezes behaviour. Changing the interval
-    # without changing this silently changes the effective daily decay — see
-    # the G9 completion note in ROADMAP.
-    decay_cycles_per_day: float = 16.0
+    # There is no `cycles_per_day` setting on purpose: it is DERIVED from
+    # maintenance_intervals by decay.cycles_per_day(). It has to equal
+    # 86400 / cadence or the daily target below is not the decay that actually
+    # happens, so a knob that could disagree with the cadence has no correct
+    # value — it only has a wrong one that looks configured.
     decay_daily_unaccessed: float = 0.95
     decay_daily_accessed: float = 0.98
     decay_daily_creative: float = 0.99
@@ -482,7 +480,6 @@ class Settings(BaseSettings):
     # Codex edges decay on the same cadence at the creative rate; strength
     # below the demotion threshold sends an active edge back to pending, and a
     # pending edge below the expiry threshold is garbage-collected (A3).
-    codex_decay_cycles_per_day: float = 16.0
     codex_decay_daily: float = 0.99
     codex_demotion_threshold: float = 0.3
     codex_expiry_threshold: float = 0.1

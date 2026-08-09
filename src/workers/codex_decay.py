@@ -10,6 +10,7 @@ from sqlalchemy import text
 
 from src.api.config import settings
 from src.api.db import SessionLocal
+from src.workers.decay import per_cycle as decay_per_cycle
 
 logger = structlog.get_logger("ice.workers.codex_decay")
 
@@ -17,9 +18,11 @@ logger = structlog.get_logger("ice.workers.codex_decay")
 def decay_rate() -> float:
     """Per-cycle multiplier compounding to settings.codex_decay_daily per day.
 
-    G9: derived, not stored — see the note on decay.per_cycle.
+    Derived from THIS job's own cadence (`decay_codex`), not the episodic one —
+    they happen to share 5400 s today, and a shared constant would hide it the
+    day they stop. See decay.cycles_per_day for why this is not a setting.
     """
-    return settings.codex_decay_daily ** (1.0 / settings.codex_decay_cycles_per_day)
+    return decay_per_cycle(settings.codex_decay_daily, job="decay_codex")
 
 
 def decay_codex_edges(cycles: int = 1):

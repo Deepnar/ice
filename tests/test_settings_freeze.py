@@ -114,7 +114,6 @@ FROZEN = [
     # ── memory dynamics ─────────────────────────────────────────────────
     # The DAILY targets, read off the exponent expressions they used to be
     # buried inside; the per-cycle rates are derived from these now.
-    ("decay_cycles_per_day", DECAY, 21, r"CYCLES_PER_DAY = ([\d.]+)"),
     ("decay_daily_unaccessed", DECAY, 22, r"= ([\d.]+) \*\* \(1\.0 / CYCLES_PER_DAY\)"),
     ("decay_daily_accessed", DECAY, 23, r"= ([\d.]+) \*\* \(1\.0 / CYCLES_PER_DAY\)"),
     ("decay_daily_creative", DECAY, 26, r"= ([\d.]+) \*\* \(1\.0 / CYCLES_PER_DAY\)"),
@@ -122,7 +121,6 @@ FROZEN = [
     ("decay_archive_threshold", DECAY, 28, r"ARCHIVE_THRESHOLD = ([\d.]+)"),
     ("decay_cold_threshold", DECAY, 29, r"COLD_THRESHOLD = ([\d.]+)"),
     ("decay_creative_floor", IMPORTER, 59, r"CREATIVE_FLOOR = ([\d.]+)"),
-    ("codex_decay_cycles_per_day", CODEX_DECAY, 15, r"CYCLES_PER_DAY = ([\d.]+)"),
     ("codex_decay_daily", CODEX_DECAY, 16, r"= ([\d.]+) \*\* \(1\.0 / CYCLES_PER_DAY\)"),
     ("codex_demotion_threshold", CODEX_DECAY, 17, r"DEMOTION_THRESHOLD = ([\d.]+)"),
     ("codex_expiry_threshold", CODEX_DECAY, 18, r"EXPIRY_THRESHOLD = ([\d.]+)"),
@@ -400,3 +398,30 @@ def test_operational_default_matches_base_commit(name, path, const):
     new = float(getattr(settings, name))
     assert new == old, (f"{name} changed while moving into settings: "
                         f"{old} at {BASE[:7]} -> {new} now")
+
+
+def test_cycles_per_day_still_derives_to_the_base_commit_value():
+    """cycles-per-day stopped being a setting; the VALUE must not have moved.
+
+    It was `CYCLES_PER_DAY = 16.0` in both decay modules, and is now derived
+    from each job's own cadence. Deleting its freeze row without replacing it
+    would quietly drop the proof that the number is unchanged, so the proof
+    moves here instead of disappearing.
+    """
+    from src.workers import codex_decay, decay
+
+    for path, job, fn in (
+        (DECAY, "decay_episodic", lambda: decay.cycles_per_day("decay_episodic")),
+        (CODEX_DECAY, "decay_codex", lambda: decay.cycles_per_day("decay_codex")),
+    ):
+        src = "\n".join(_base_lines(path))
+        old = re.search(r"^CYCLES_PER_DAY = ([\d.]+)", src, re.M)
+        assert old, f"anchor drifted: no CYCLES_PER_DAY in {path} at {BASE[:7]}"
+        assert fn() == float(old.group(1)), (
+            f"{job} cycles/day changed while becoming derived: "
+            f"{old.group(1)} at {BASE[:7]} -> {fn()} now")
+
+    # And the rate the derivation feeds must be unchanged too, which is the
+    # thing that actually decides how fast memory fades.
+    assert decay.rate_unaccessed() == 0.95 ** (1.0 / 16.0)
+    assert codex_decay.decay_rate() == 0.99 ** (1.0 / 16.0)
