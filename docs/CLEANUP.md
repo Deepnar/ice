@@ -614,3 +614,61 @@ new `E402` was introduced and fixed in the same session — the sweep put
 `templates.py`'s settings import beside the constant it fed, mid-module. The
 pre-existing `E711`/`E712` remain load-bearing SQLAlchemy comparisons; the note
 above still applies.
+
+---
+
+## 2026-08-09 — G36: dead handlers, the HyDE rewriter, and three orphan row-sets
+
+**Deleted from `src/retrieval/orchestrator.py`** (recovery commit: the parent of
+`fb07e7c`).
+
+- **Four unreachable `except` handlers.** Two in `_bm25_episodic` wrapped
+  `tokens.append(w)` — appending a `str` to a `list`, which cannot raise — and
+  the loop containing it. Two more were inside `_hyde_rewrite`, below.
+- **`_hyde_rewrite`** and its commented-out call site, plus `_force_hyde`,
+  `_hyde_used`, `_last_hyde_query`. **Not dead-by-neglect — dead since before
+  `v2-paper-eval`**, and unreachable through the one path the docs claimed
+  (`ConfigurableOrchestrator`'s `hyde` flag was never read). A comment stands at
+  both deletion sites recording *why* real HyDE was rejected (roadmap P0.1:
+  it would fabricate specifics about private history with a small model, and
+  hallucinated specifics poison BM25) so the design is not rebuilt from git
+  history. See PROVENANCE for what it does to Experiment 1's ablation table.
+- **`self.bg_client` and the `get_bg_client` import.** `_hyde_rewrite` was its
+  only consumer, so it had been constructing an OpenAI client per retrieving
+  request for nothing. **Retrieval now calls no model at all**, which is
+  checked at the seam in `test_retrieval_failopen` and `test_c10_c11`.
+- **`hyde` from `configurable_orchestrator.py`** — the docstring entry and the
+  special-case default in `_on()`. Nothing else referenced it.
+
+**Deleted from `src/api/main.py`:** the `hyde_used` variable, its `getattr` read
+off the orchestrator, and its two emissions — the `context_injection_complete`
+log field and the SSE `retrieval` event field. Both were permanently `False`.
+This closes item (2) of **G20**'s sweep verdict list.
+
+**Adapted, not deleted:** `test_c10_c11`'s `BoobyTrappedClient`. It patched
+`orchestrator.get_bg_client` to trip if `/search` ever asked for a completion;
+with the import gone there was nothing to patch. The contract is now asserted
+structurally (retrieval imports no client, holds no `bg_client`), which covers
+every path rather than the one the test walks.
+
+**Store rows removed** (backed up first to
+`backups/orphan_rows_20260809_g36.json`, gitignored — full contents recoverable
+from there):
+
+| table | rows | what it was |
+|---|--:|---|
+| `memory_slots` | 1 | `test_services` marker (`svce0e62d24 …`) left 2026-07-28. `is_active=True`, `scope_tier='global'` — **injected into every system prompt for twelve days.** |
+| `review_queue` | 4 | `decision_supersession` items from 2026-07-28 referencing six decision ids, none of which exist (`decisions` is empty). |
+| `procedural_memory` | 1 | Newborn pattern from a live turn on 2026-08-08 whose source turn was later deleted outside the C10 cascade. Inert (`is_active=False`) but promotable by the next matching extraction. |
+
+⚠ **One row was deleted in error and restored** with its original `created_at`:
+the `conversations` shell `ab934e9c-…`, which is
+`services/bookmarks.py::NOTES_CONVERSATION_ID` — production state, created
+lazily by `ice_remember`, not test residue. Nothing was lost (empty shell,
+deterministic id, get-or-create). The habit that would have prevented it is
+TRAPS #15: grep `src/` for whatever generates an id before deleting a row you
+did not create.
+
+**Ruff on the touched files:** at parity with the base commit (orchestrator 9,
+`main.py` and `configurable_orchestrator.py` clean). The pre-existing `E711` in
+the orchestrator remains a load-bearing SQLAlchemy `== None`.

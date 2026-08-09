@@ -1203,3 +1203,52 @@ experiment result — its equivalence runs (1,356 leg-weight combinations, 51,04
 recent-fraction, 3,600 growth-cap, all zero divergence except 180 unreachable
 `Null_Noise`-as-intent cases) are validation evidence, recorded in the roadmap
 entry rather than here.
+
+---
+
+## 2026-08-09 — G36: a third ablation flag that toggled nothing, and Experiment 1's HyDE arm
+
+**Not an artifact-producing session** — no corpus, checkpoint or experiment
+result. Recorded here because it **falsifies a published ablation row**, which
+is the same trigger the G19 entry above was written under.
+
+**The finding.** `_hyde_rewrite` was unreachable by every path, and had been
+since before the `v2-paper-eval` tag. Verified three ways: the call site is
+commented out in the tagged file (`git show v2-paper-eval:src/retrieval/orchestrator.py`,
+lines 313–322); nothing anywhere sets `_force_hyde`; and
+`ConfigurableOrchestrator` never calls `_on("hyde")` and does not override
+`retrieve()`, so its `hyde` flag reached no code.
+
+**What that means for Experiment 1.** `phase2_run_evaluation_matrix.py`
+(`RUN_HYDE_ABLATION = True`) built its `full_ice_no_hyde` arm by monkeypatching
+`_hyde_rewrite` to return `None` — a method nothing invoked. **`full_ice_no_hyde`
+and `full_ice` were therefore the same configuration.**
+`experiments/unmature/generate_paper_summary.py:105` reports *"HyDE has minimal
+impact (possibly because the background model is weak)"*; the parenthesised
+cause is wrong. The true statement is that the arm never exercised HyDE. This
+is the **third** instance of the shadow-subclass drift G19 warns about, after
+`recency_boost` (Exp 3's `add_keyword_boost` ≡ `full_ice`) and the
+`include_cross` signature break.
+
+⚠ That runner cannot be executed today in any case — it imports
+`src.workers.sentinel_monitor`, deleted by D1/D2.
+
+**Disposition — identical to the G19 decision above: record now, correct at
+FINAL.** `experiments/` was not touched and `ICE_paper_v2.tex` was not edited.
+The method, the flag, the `_hyde_used` telemetry and `self.bg_client` are
+deleted on `main` (`4e3b43d`), with an in-place comment at each deletion site
+recording why real HyDE was rejected (roadmap P0.1) so it is not rebuilt from
+the history.
+
+**Also measured, and load-bearing for how the rest of G36 was judged.** A
+`sys.settrace` probe counted every exception propagating through an
+`orchestrator.py` frame while fifteen seeded suites ran (476 checks):
+**zero swallows**, generator-teardown excluded. That is the baseline behind the
+decision to log on *every* swallow rather than first-occurrence-only — a
+warning that never fires in normal operation is signal, per TRAPS #13b. Re-run
+the probe after any change to the legs; the method is a trace function keyed on
+`frame.f_code.co_filename`.
+
+**Store state at session end:** 1 row — `conversations`, the deterministic
+`ice://mcp-notes` shell (`ab934e9c-…`), which is production state, not residue.
+Three genuine orphan row-sets were removed; see CLEANUP.md and TRAPS #15/#16.

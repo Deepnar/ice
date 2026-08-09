@@ -48,8 +48,13 @@ alongside the flow phases (top-of-roadmap section).
   from three different sources on a seeded DB.
 - **G19** → folded into FINAL D10 (audit-or-fold the configurable orchestrator
   before any run; prefer folding flags into the parent as settings).
-- **G20 sweep verdicts:** `_hyde_used` flag → delete with the commented block
-  (keep the relabeled `_hyde_rewrite` comment per P0.1); `conversations.
+- **G20 sweep verdicts:** ~~`_hyde_used` flag → delete with the commented block
+  (keep the relabeled `_hyde_rewrite` comment per P0.1)~~ — **EXECUTED by G36,
+  2026-08-09 (`4e3b43d`), and it went further than this verdict:** the flag, the
+  commented block, the `_hyde_rewrite` method itself, the ablation `hyde` flag and
+  `self.bg_client` are all gone, because the method turned out to be unreachable by
+  *every* path including the ablation one this file assumed still worked. The P0.1
+  rationale survives as an in-place comment at both deletion sites. `conversations.
   custom_filter` → **DROP column** (C6's richer scope forms supersede it; never
   read today) — **EXECUTED by C6, 2026-07-28, migration `a1f6b8d94c22`**
   (user-confirmed; it was v1's contradictory "user writes a SQL WHERE clause"
