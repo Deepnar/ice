@@ -1240,6 +1240,12 @@ class HybridRetrievalOrchestrator:
             return None, None
         if scope.get("isolated"):                 # C6 'none' = true incognito
             return set(), set()
+        if self._scope_resolution_failed:
+            # G36: the exclusion resolver could not work out what to deny.
+            # Reading the graph unscoped would serve the excluded material;
+            # match nothing instead. Checked before the `not batch_ids`
+            # fallback below, which returns UNSCOPED.
+            return set(), set()
         try:
             batch_ids = set()
             if scope.get("batch_ids"):
@@ -1283,9 +1289,19 @@ class HybridRetrievalOrchestrator:
                 batch_ids -= self._denied_batch_ids
                 entity_ids -= self._denied_entity_ids
             return entity_ids, batch_ids
-        except Exception:
-            self.db.rollback()
-            return None, None
+        except Exception as err:
+            # G36: this used to return (None, None) — which does NOT mean
+            # "no scope", it means UNSCOPED, i.e. search the entire graph.
+            # A failure resolving the scope the caller asked for therefore
+            # WIDENED visibility, silently, in the one direction G16 forbids.
+            # Fail closed instead: the empty sets match nothing, which is the
+            # same value the `isolated` (incognito) branch above returns, so
+            # every downstream admission point already handles it.
+            # Reached only when a scope EXISTS (`if not scope` returns above),
+            # so this never turns an ordinary `auto` query into a dead one.
+            self._leg_degraded("scope.codex_sets", err)
+            self._scope_resolution_failed = True
+            return set(), set()
 
     def _resolve_exclusion_sets(self, scope: Optional[dict]) -> None:
         """C6: compute the codex/procedural DENY sets once per request.
@@ -1311,6 +1327,10 @@ class HybridRetrievalOrchestrator:
         Text visibility and knowledge visibility are different questions."""
         self._denied_batch_ids = set()
         self._denied_entity_ids = set()
+        # G36: this runs at the top of every entry point (retrieve,
+        # _wide_net_fallback, _procedural_lookup), so it is where the
+        # fail-closed flag is cleared for a fresh resolution.
+        self._scope_resolution_failed = False
         scope = scope or {}
         excluded = scope.get("exclude_knowledge_conversation_ids")
         if excluded is None:
@@ -1335,10 +1355,18 @@ class HybridRetrievalOrchestrator:
                      "                AND batch_source = ANY(:bids))"),
                 {"bids": list(self._denied_batch_ids)}).fetchall()
             self._denied_entity_ids = {r.entity_id for r in rows}
-        except Exception:
-            self.db.rollback()
+        except Exception as err:
+            # G36: clearing the deny sets here meant a failure to compute what
+            # the user EXCLUDED silently un-excluded it — the graph then served
+            # exactly the conversations they asked it not to read. Reached only
+            # when an exclusion list exists (the `if not excluded` return
+            # above), so failing closed costs nothing in the common case:
+            # _codex_scope_sets sees the flag and scopes the codex and
+            # procedural legs to nothing rather than to everything.
+            self._leg_degraded("scope.exclusions", err)
             self._denied_batch_ids = set()
             self._denied_entity_ids = set()
+            self._scope_resolution_failed = True
 
     def _match_entities_exact(self, entity_strings: List[str]) -> List:
         """Entity resolution by exact canonical name / alias only (no vectors).
