@@ -47,11 +47,12 @@
 > from what its sweep found — net unchanged at **53**, mechanical count still **49**. G9's own
 > entry was wrong about its subject in three directions (the **sixth** consecutive entry to be),
 > and the real knob population was ~160 rather than the four it named.
-> **↳ 2026-08-09: [G36](#g36) CLOSED, [G37](#g37) opened — net unchanged at 53, mechanical
-> count still 49.** G36's entry was wrong about its own subject too (the **seventh**
-> consecutive one): 4 of its 22 handlers were on dead code, only 11 rolled back, and it
-> missed the two that fail OPEN, which were the actual bug. G37 is the third fail-open, held
-> back deliberately because it is a behaviour decision rather than a swallowed failure.
+> **↳ 2026-08-09: [G36](#g36) AND [G37](#g37) both CLOSED — 53 → 52, mechanical count
+> 49 → 48.** G36's entry was wrong about its own subject too (the **seventh** consecutive
+> one): 4 of its 22 handlers were on dead code, only 11 rolled back, and it missed the two
+> that fail OPEN, which were the actual bug. G37 was the third fail-open — opened separately
+> because it is a behaviour decision rather than a swallowed failure, and closed the same day
+> once the user made the call: a scope that resolves to no batches now reads **nothing**.
 > **[G12](#g12) is down to two sites** (the third was inside the deleted HyDE rewriter), and
 > **[G19](#g19) now has a 3-for-3 record** of ablation flags that toggle nothing.
 > **[G25](#g25)** stays open but **left the critical path**: it was re-measured and two of its
@@ -202,15 +203,16 @@
 >   the model's wording — raw content from turns the user asked to be forgotten — and the
 >   manifest never mentioned them. Same subsystem as this cluster, which is how it surfaced.
 >
-> **③ Z1-PREP PROPER — ~~[G9](#g9)~~ · ~~[G36](#g36)~~ · [G30](#g30) · [G28](#g28).**
+> **③ Z1-PREP PROPER — ~~[G9](#g9)~~ · ~~[G36](#g36)~~ · ~~[G37](#g37)~~ · [G30](#g30) · [G28](#g28).**
 > **G36 DONE 2026-08-09** (`fb07e7c`/`b4a79a8`/`4e3b43d`/`c4e07a7`): 31 handlers on one event
 > name, two fail-open scope resolvers made to fail closed, and the unreachable HyDE rewriter
 > deleted — which exposed that **Experiment 1's `full_ice_no_hyde` arm was the same
 > configuration as `full_ice`**, G19's drift for the second time. It also answered the
 > user's standing question about Exp 2 pulling in other conversations: at `v2-paper-eval`
 > `_traverse_graph` took no scope parameter at all. **One new item: [G37](#g37)** — an
-> emptied conversation set still reads the whole graph, which is C6's already-decided
-> semantics missing from the codex leg. **Next is G30.**
+> emptied conversation set still read the whole graph, which was C6's already-decided
+> semantics missing from the codex leg — **also closed the same day** (`c7f37fd`), on the
+> user's decision that a conversation starting fresh should get nothing. **Next is G30.**
 > **G9 DONE 2026-08-08** (nine commits, `73169a3`…`a7f13af`): ~160 values moved, behaviour
 > frozen and *proved* frozen — 148 derived checks plus ~56,000 equivalence combinations.
 > **Read its completion note before Z1**, especially the rule that values are read at the point
@@ -1059,11 +1061,14 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   - **Boy-scout, same pass:** four unreachable handlers deleted; `self.bg_client` deleted (it built an OpenAI client per retrieving request for the one consumer that was `_hyde_rewrite`, so **retrieval now calls no model at all**); `test_c10_c11`'s no-LLM trap for `/search` re-expressed at the seam (retrieval imports no client) instead of as a runtime trap, which holds for every path rather than the one the test walks.
   - **Store hygiene, same pass** — see [CLEANUP.md](CLEANUP.md) and TRAPS #15/#16. Three orphan row-sets removed (backed up to `backups/orphan_rows_20260809_g36.json`), one of which was **not inert**: a `memory_slots` row left by `test_services` on 2026-07-28 was `is_active=True` + `scope_tier='global'`, and `main.py` injects every such slot into the system prompt — so a test marker had been in **every turn for twelve days**.
 
-- [ ] <a id="g37"></a>**G37 An emptied conversation set reads the WHOLE graph** `(bug — new 2026-08-09, found while auditing G36's third fail-open; PRE-FINAL; NEEDS A DECISION)` — `_codex_scope_sets` ends its resolution with `if pid is None and not batch_ids: return None, None` — i.e. **UNSCOPED**. So a scope that names conversations but resolves to zero batches searches the entire graph instead of nothing. **Measured 2026-08-09 with a positive control:** scoped to a conversation that *has* turns, the other conversation's entity is correctly absent; scoped to a conversation with **zero turns**, or to an **empty `conversation_ids` list**, both entities come back. Incognito (`isolated`) is correctly empty, which is the control proving the mechanism is reachable rather than dead.
-  - **The empty-list half is a decision C6 already made, applied to the leg it missed.** `_conv_scope_filter`'s docstring says it in as many words: "the list is tested for PRESENCE, not truthiness. An exclusion set can empty a closed conversation set, and an empty set must match nothing — `= ANY('{}')` is false, which is exactly right. Under the old truthiness test an emptied list fell through to no filter at all." C6 fixed exactly that on the **episodic** legs and left the identical bug on the **codex and procedural** legs. And it is reachable, not theoretical: `scoping.py:183-185` subtracts excluded ids from `conversation_ids`, so **excluding every conversation in a `manual` set empties the list** — an exclusion bypass.
-  - **The zero-turns half is genuinely open, and the code shows the author saw it.** The `pid is not None` exemption right above it carries the comment *"a project scope NEVER falls back to unscoped (a fresh project conversation with zero turns still reads only its own graph)"* — the hazard was recognised and closed **for projects only**. Nothing records why a non-project closed set should behave differently. The argument for the current behaviour is that a brand-new conversation with no history probably wants global memory; the argument against is that under `manual` the user picked a closed set and "closed" should mean closed.
-  - **Documented intent covers only `auto`.** [A5](#a5)'s completion note says "Auto/none conversations keep global traversal (per the scoping semantics in main.py)" — true and correct, and it is a different branch (`if not scope: return None, None`, before the try). `ICE_Architecture.md` §12 says `_codex_scope_sets` "never falls back to unscoped **when a project is attached**", which describes the exemption rather than justifying the fallback. **Not documented as intended for `manual`/cross-chat.**
-  - **Deliberately NOT fixed in G36** — it is a behaviour decision, not a swallowed failure, and G36's own rule is that measuring is not permission. Ask the user, then fix; the empty-list half is the uncontroversial one.
+- [x] <a id="g37"></a>**G37 A scope that resolves to no batches read the WHOLE graph** `(bug — opened and closed 2026-08-09, found while auditing [G36](#g36)'s third fail-open; PRE-FINAL)` — **DONE** (`c7f37fd`). `_codex_scope_sets` ended its resolution with `if pid is None and not batch_ids: return None, None` — and `None` there means **UNSCOPED**, so a scope that named conversations but resolved to zero batches searched the entire graph instead of nothing.
+  - **Not an edge case.** A conversation has no stored turns *before its first turn*, so the codex leg served the whole store on **turn one of every manually-scoped conversation**. Exclusions reach it by the other route: `scoping.py:183-185` subtracts them from the closed set, so excluding enough of it empties the list.
+  - **Measured with controls, before and after.** Scoped to a conversation that *has* turns → the other conversation stays out (the control proving the mechanism works). Scoped to a conversation with zero turns, or to an empty `conversation_ids` list → both entities came back. Incognito (`isolated`) → correctly empty.
+  - **Stated precisely, because the loose version overstates it:** the deny sets held throughout — an explicitly excluded conversation stayed excluded — so *forbidden* material never came back. What broke is that the **closed set stopped being closed**: you got everything that was not explicitly forbidden.
+  - **The fix is C6's already-made decision, applied to the leg C6 missed.** `_conv_scope_filter`'s docstring: "the list is tested for PRESENCE, not truthiness. An exclusion set can empty a closed conversation set, and an empty set must match nothing." C6 fixed that on the **episodic** legs; the **codex and procedural** legs never got it. The `pid is not None` exemption directly above is the same fix applied to project attachments long ago — with a comment naming this very hazard ("a fresh project conversation with zero turns still reads only its own graph").
+  - **User decision, 2026-08-09, on the half that was genuinely open** (should turn one of a scoped conversation read everything or nothing?): **nothing** — *"why would i need thing if i am starting anew, thats why the scoping for codex was built in the first place."*
+  - **The discrimination that keeps `auto` alive.** Failing closed whenever `batch_ids` is empty would take the codex leg out of **every ordinary request**, and no existing check would have noticed. The guard is key **presence** — `"batch_ids" in scope or "conversation_ids" in scope or "conversation_id" in scope` — so a scope that names no conversations (cluster-only, timescope-only, exclusion-only, plain `auto`) restricts nothing and stays unscoped. Verified that `_apply_document_visibility` only *extends* an existing `conversation_ids` and never introduces the key under `auto`, which is what makes presence a safe test.
+  - **Validated:** `tests/test_retrieval_failopen.py` **19 → 27**; the four new behaviour checks go red when the branch is reverted while the **three CONTROL checks stay green** (so they are not mirroring the fix). Full sweep at baseline — smoke+freeze+dynamics 287, session_scoping 40, coding_core 52, timescope 61, c10_c11 58, documents 53, retrieval_coverage 25, codex_write_path 23, relation_gaps 33, mcp_server 21, services 48, c4_c9 28, longevity 27, context_budget 17, clustering_v5 13, reconcile_on_read 16, turn_density 32.
 
 ## SEMIFINAL — Full end-to-end system test (do SECOND LAST, after everything above)
 
