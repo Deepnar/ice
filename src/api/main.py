@@ -557,7 +557,6 @@ async def chat_completions(
     fragments = []
     memory_slots_list = []
     bookmarked_texts = []
-    hyde_used = False
 
     # B2: one principled, classifier-trusting decision replaces the old hard
     # overrides (turn_count>10 / conf<0.95 / creative / referential). Prefers
@@ -607,8 +606,6 @@ async def chat_completions(
             scope=scope,
         )
 
-        # HyDE usage detection (the orchestrator sets a flag internally; we approximate)
-        hyde_used = getattr(orchestrator, "_hyde_used", False)
         recent_budget = getattr(orchestrator, "recent_token_budget", recent_budget)
 
     # ── Persistent memory + assembly run on EVERY turn ──
@@ -728,7 +725,6 @@ async def chat_completions(
         injected_fragments=len(fragments),
         active_slots=len(memory_slots_list),
         bookmarked_count=len(bookmarked_texts),
-        hyde_used=hyde_used,
     )
 
     # (Model selection happens above, before budgeting/retrieval — C16.)
@@ -759,7 +755,6 @@ async def chat_completions(
         # SSE: retrieval
         yield sse_event("retrieval", {
             "active_legs": list({f.source_type for f in fragments}),
-            "hyde_used": hyde_used,
             "tokens_injected": sum(f.token_count for f in fragments),
         })
 

@@ -1,6 +1,6 @@
 """Hybrid Retrieval Orchestrator – Phase A hardened: decay filtering, access-weighting,
-wide‑net full‑vector, Codex/Procedural scoping, HyDE rewriting, procedural trigger matching,
-micro‑NER integration, and dynamic token budget."""
+wide‑net full‑vector, Codex/Procedural scoping, grounded query expansion, procedural
+trigger matching, micro‑NER integration, and dynamic token budget."""
 
 import hashlib
 import math
@@ -29,7 +29,6 @@ from src.memory.models import (
 from src.retrieval.evolution import build_entity_timeline, history_exists
 from src.retrieval.ner_utils import extract_entities
 from src.retrieval.timescope import CURRENT, from_scope
-from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
 
 logger = structlog.get_logger("ice.retrieval")
 
@@ -131,10 +130,12 @@ class HybridRetrievalOrchestrator:
     def __init__(self, db: Session, embedder):
         self.db = db
         self.embedder = embedder
-        self.bg_client = get_bg_client()
+        # (`self.bg_client = get_bg_client()` lived here. Deleted 2026-08-09
+        # with `_hyde_rewrite`, its only consumer — it built an OpenAI client
+        # per orchestrator, i.e. once per retrieving request, for nothing.
+        # Retrieval calls no LLM: query expansion is grounded in the graph.)
         self.max_retrieval_tokens = 5000
         self._coverage_record = None   # C16: last coverage decision, for audit
-        self._force_hyde = False
         # A4: entity resolution mode (ablation `fuzzy_match` flag maps here).
         self.use_fuzzy_match = True
         # A4: relation/tag-driven enumeration for entity-less category queries
@@ -448,8 +449,6 @@ class HybridRetrievalOrchestrator:
         # old Zero_Shot+conversation and Creative belt-and-suspenders forces
         # (which silently overrode that decision) are gone. These early returns
         # stay purely as a defensive guard if retrieve() is ever called directly.
-        self._hyde_used = False
-        self._last_hyde_query = None
         # T2: resolve the request's TimeScope once; every leg below reads it.
         self._active_timescope = self._resolve_timescope(scope)
         # E1b (D3): attached project — gates derived-entity visibility.
@@ -498,18 +497,11 @@ class HybridRetrievalOrchestrator:
             if cluster_ids and scope is not None:
                 scope["cluster_ids"] = cluster_ids
 
-        # HyDE query rewriting
-        # hyde_prompt = None
-        # if self._force_hyde or classification.context_reliance == "Long_Term_Memory":
-        #     hyde_prompt = self._hyde_rewrite(classification.prompt, conversation_id)
-        #     search_prompt = hyde_prompt if hyde_prompt else classification.prompt
-        #     if self._force_hyde:
-        #         self._hyde_used = hyde_prompt is not None
-        #         self._last_hyde_query = hyde_prompt
+        # (A commented-out HyDE call sat here, and had since before
+        # `v2-paper-eval`. Deleted with the method itself, 2026-08-09, G36 —
+        # see the note where `_hyde_rewrite` used to be. The grounded query
+        # expansion a few lines down is what replaced it.)
 
-        # # Re‑compute embedding if the search prompt changed
-        # if hyde_prompt:
-        #     prompt_embedding = self.embedder.encode(search_prompt, convert_to_tensor=False).tolist()
         # A4: run the codex leg first — the entities it resolves ground the
         # query expansion for the lexical leg below.
         codex_fragments = self._codex_graph(classification, scope,
@@ -724,48 +716,26 @@ class HybridRetrievalOrchestrator:
         return now, (0.0 if creative else settings.retrieval_episodic_recency_boost), settings.retrieval_episodic_recency_tau_days
 
     # ------------------------------------------------------------------
-    # HyDE rewriting
+    # (A `_hyde_rewrite` method used to live here. DELETED 2026-08-09, G36.)
+    #
+    # It asked the background model to rewrite the prompt into a dense search
+    # query before the lexical leg ran. It was never real HyDE — it never
+    # fabricated a hypothetical answer document, only reformulated the
+    # question — and the post-paper review (roadmap P0.1) rejected shipping
+    # the real thing: it would invent specifics about the user's PRIVATE
+    # history with a small model, and hallucinated specifics poison the
+    # noise-sensitive BM25 leg. **Its replacement is A4 grounded query
+    # expansion** in retrieve(): the BM25 search prompt gains the canonical
+    # names and aliases of the entities the codex leg actually matched, so
+    # the expansion terms come from the graph rather than from a generator.
+    #
+    # Why it was deleted rather than left commented: the call site had been
+    # commented out since before `v2-paper-eval`, `ConfigurableOrchestrator`
+    # never read its own `hyde` flag, and nothing set `_force_hyde` — so the
+    # method was unreachable by every path, including the ablation one the
+    # docs claimed. Experiment 1's `full_ice_no_hyde` arm was therefore the
+    # same configuration as `full_ice`; see ROADMAP G36 and PROVENANCE.
     # ------------------------------------------------------------------
-    def _hyde_rewrite(self, prompt: str, conversation_id: str = None) -> Optional[str]:
-        # Collect the last 5 turns as context for the rewrite
-        context_text = ""
-        if conversation_id:
-            try:
-                recent = self.db.query(EpisodicMemory).filter_by(
-                    conversation_id=conversation_id
-                ).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
-                recent.reverse()
-                parts = []
-                for t in recent:
-                    parts.append(t.raw_text[:300])
-                context_text = "\n".join(parts)
-            except Exception:
-                pass
-
-        rewrite_prompt = (
-            f"Recent conversation:\n{context_text}\n\nUser's question:\n{prompt}"
-            if context_text else prompt
-        )
-
-        try:
-            resp = self.bg_client.chat.completions.create(
-                model=get_bg_model_name(),
-                messages=[
-                    {"role": "system", "content": (
-                        "You are a query rewriting engine. Take the user's question and rewrite it "
-                        "as a dense, factual search query that would retrieve the relevant past conversation. "
-                        "Include key entities and omit polite phrasing. Output ONLY the rewritten query, no other text."
-                    )},
-                    {"role": "user", "content": rewrite_prompt},
-                ],
-                temperature=0.0,
-                max_tokens=200,
-                timeout=15.0,
-            )
-            rewritten = resp.choices[0].message.content.strip()
-            return rewritten if rewritten else None
-        except Exception:
-            return None
 
     # ------------------------------------------------------------------
     # BM25 episodic (full‑text search)

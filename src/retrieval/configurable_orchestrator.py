@@ -3,10 +3,17 @@
 Inherits from HybridRetrievalOrchestrator and allows individual retrieval legs
 and post‑processing steps to be toggled on/off via an `overrides` dict.
 
-Flags (all default ON unless noted):
-    vector, bm25, rrf, hyde (default OFF), cluster_restrict, session_diversify,
+Flags (all default ON):
+    vector, bm25, rrf, cluster_restrict, session_diversify,
     codex, mera, fuzzy_match, procedural, batch_summary,
     dynamic_budget, sliding_window, keyword_boost, recency_boost, timescope
+
+(A `hyde` flag, default OFF, was listed here until 2026-08-09 (G36). NOTHING
+read it — `_on("hyde")` had no caller, this class does not override
+`retrieve()`, and the parent's HyDE call site had been commented out since
+before `v2-paper-eval`. So Experiment 1's `full_ice_no_hyde` arm was the same
+configuration as `full_ice`; the method and the flag are both gone. Same
+shadow-subclass drift as G19's `recency_boost` — see ROADMAP G19/G36.)
 """
 
 from typing import List, Optional, Dict
@@ -28,7 +35,6 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
 
         Default (overrides=None or key missing): feature is ON (True).
         Set a key to False to disable that feature.
-        Special: 'hyde' defaults to False (OFF) — set to True to enable.
         """
         super().__init__(db, embedder)
         self.overrides = overrides or {}
@@ -41,9 +47,8 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
     # ── Convenience helpers ──────────────────────────────────────────────
 
     def _on(self, flag: str) -> bool:
-        """Return True if *flag* is enabled.  'hyde' defaults to False; all others default to True."""
-        default = False if flag == "hyde" else True
-        return self.overrides.get(flag, default)
+        """Return True if *flag* is enabled. Every flag defaults to True."""
+        return self.overrides.get(flag, True)
 
     def _off(self, flag: str) -> bool:
         """Return True if *flag* is explicitly disabled."""

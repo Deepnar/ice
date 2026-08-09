@@ -97,14 +97,14 @@ class FakeCore:
         pass
 
 
-class BoobyTrappedClient:
-    """/search's no-LLM contract: any completion attempt trips the trap."""
-    tripped = False
-
-    @property
-    def chat(self):
-        BoobyTrappedClient.tripped = True
-        raise AssertionError("LLM client invoked during a chat command")
+# (A `BoobyTrappedClient` stood in for the orchestrator's bg client here and
+#  tripped if anything asked it for a completion — /search's no-LLM contract.
+#  G36 deleted `_hyde_rewrite`, the retrieval path's only LLM caller, and the
+#  `self.bg_client` it was built for; the orchestrator no longer imports
+#  `get_bg_client` at all, so the trap had nothing left to patch. The contract
+#  is now checked structurally below, which is strictly stronger: a runtime
+#  trap only fires on the code path the test happens to walk, while the
+#  absence of the import holds for every path.)
 
 
 db = SessionLocal()
@@ -117,7 +117,6 @@ from src.retrieval.evolution import build_entity_timeline, history_exists
 from src.services import conversations as conversations_svc
 from src.services import review as review_svc
 
-_orig_get_bg_client = orch_mod.get_bg_client
 _orig_active_core = core_mod._active_core
 _orig_active_runtime = runtime_mod._active_runtime
 
@@ -458,7 +457,6 @@ try:
     # ═══ C11: chat commands ═══════════════════════════════════════════════
     print("\n── C11: commands ──")
     core_mod._active_core = FakeCore()
-    orch_mod.get_bg_client = lambda: BoobyTrappedClient()
     conv_C_row = db.query(Conversation).filter_by(id=conv_C_id).first()
 
     # snapshot the LIVE global pending_items slot (restored in finally)
@@ -524,7 +522,12 @@ try:
           r["handled"] and f"{MARK}sear" in r["text"])
     check("/search fragments are date-stamped",
           re.search(r"\[\d{4}-\d{2}-\d{2}\]", r["text"]) is not None)
-    check("/search never invoked an LLM", BoobyTrappedClient.tripped is False)
+    # G36: /search's no-LLM contract, checked at the seam instead of by a
+    # runtime trap — retrieval imports no LLM client and holds no bg client.
+    check("/search never invoked an LLM (orchestrator imports none)",
+          not hasattr(orch_mod, "get_bg_client")
+          and not hasattr(orch_mod.HybridRetrievalOrchestrator(db, None),
+                          "bg_client"))
 
     # 7) /forget queues a proposal; the D6 arm applies a fixture-only item
     r = try_handle(db, None, conv_C_row,
@@ -612,7 +615,6 @@ finally:
     db.rollback()
     core_mod._active_core = _orig_active_core
     runtime_mod._active_runtime = _orig_active_runtime
-    orch_mod.get_bg_client = _orig_get_bg_client
     _PENDING_DELETES.clear()
     try:
         # restore/clean the live global pending_items slot
