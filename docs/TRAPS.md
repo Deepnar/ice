@@ -238,3 +238,15 @@ conversation*, and this turn was removed by an ad-hoc cleanup instead.
 ⇒ **Rate the residue by what reads it, not by how much of it there is.** One
 row can be in every prompt. And deleting turns outside `delete_conversation`
 leaves procedural patterns orphaned — use the cascade.
+
+**The leaker was found by bisect the same day, and its defect is #6c's exact
+shape.** `test_mcp_server` snapshot-and-restores the `session_patterns` slot —
+but the restore was guarded by `if slot_snapshot:`, and on a clean store there
+is no slot to snapshot. The suite then *creates* one through `ice_slots set`
+and the cleanup does nothing, so **every run left a global slot behind**. A
+snapshot-and-restore cannot clean a row that did not exist to be snapshotted;
+it needs a `created` flag and a delete branch, which `test_c10_c11` already had
+for `pending_items` and was copied from. Fixed 2026-08-09.
+⇒ **Any "snapshot the live row, restore it after" fixture needs the
+did-not-exist branch.** Verify by clearing the table, running the suite alone,
+and counting — which is also the bisect that names the leaker.

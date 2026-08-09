@@ -109,11 +109,22 @@ def _payload_list(result):
 db = SessionLocal()
 slot_snapshot = None
 
+# A snapshot-and-restore cannot clean a row that did not exist to be
+# snapshotted. On a clean store there is no `session_patterns` slot, this suite
+# CREATES one through `ice_slots set`, and the old `if slot_snapshot:` restore
+# then did nothing — leaving an `is_active=True`, `scope_tier='global'` slot
+# behind on every run. `main.py` injects every such slot into the system
+# prompt, so the leak was in every subsequent turn's context, not merely
+# sitting in a table (TRAPS #16). Track creation as well as content, the way
+# `test_c10_c11` does for `pending_items`.
+slot_created = False
 live_slot = db.query(MemorySlot).filter_by(slot_name="session_patterns").first()
 if live_slot:
     slot_snapshot = {c: getattr(live_slot, c) for c in
                      ("content", "token_count", "version", "last_updated",
                       "updated_by", "is_active")}
+else:
+    slot_created = True
 
 try:
     # ═══ Fixtures ════════════════════════════════════════════════════════
@@ -263,11 +274,12 @@ finally:
         EpisodicMemory.raw_text.like(f"{MARK}%")).delete(synchronize_session=False)
     db.query(Conversation).filter_by(id=uuid.UUID(conv_id)).delete(
         synchronize_session=False)
-    if slot_snapshot:
-        live = db.query(MemorySlot).filter_by(slot_name="session_patterns").first()
-        if live:
-            for k, v in slot_snapshot.items():
-                setattr(live, k, v)
+    live = db.query(MemorySlot).filter_by(slot_name="session_patterns").first()
+    if live is not None and slot_snapshot:
+        for k, v in slot_snapshot.items():
+            setattr(live, k, v)
+    elif live is not None and slot_created:
+        db.delete(live)
     db.commit()
     db.close()
 
