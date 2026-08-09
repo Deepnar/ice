@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 import structlog
 from pgvector.sqlalchemy import Vector as PgVector
 from sqlalchemy import bindparam, or_, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
@@ -168,8 +169,45 @@ class HybridRetrievalOrchestrator:
         # "nothing excluded", which is the default and the common case.
         self._denied_batch_ids = set()
         self._denied_entity_ids = set()
+        # G36: set when a scope/exclusion resolver failed. Both used to fail
+        # OPEN (unscoped / nothing excluded), so a broken scope query widened
+        # visibility. The flag makes _codex_scope_sets fail CLOSED instead.
+        self._scope_resolution_failed = False
 
         # Load micro‑NER model (fallback to None if not available)
+
+    # ------------------------------------------------------------------
+    # G36: the one place a retrieval leg is allowed to give up
+    # ------------------------------------------------------------------
+    def _leg_degraded(self, leg: str, err: Exception) -> None:
+        """Announce that *leg* swallowed *err* and is returning nothing.
+
+        Every ``except`` on this path used to catch, roll back and return
+        ``[]`` — so a leg whose SQL was broken by a schema change or an
+        unbound parameter said *"no memory found"* and nothing anywhere
+        disagreed. `_procedural_lookup` sat dead that way from the psycopg3
+        move until C9 happened to remove the gate hiding it. One event name
+        (`retrieval_leg_failed`) with the leg as a FIELD, because the question
+        worth asking is "did any leg fail on this request", and thirty-one
+        distinct event names cannot answer it.
+
+        Logged EVERY time, never first-occurrence-only: the rate is the
+        signal. Measured baseline before this shipped — 476 checks across 15
+        seeded suites raised nothing here, so a line means something.
+
+        **The rollback is conditional and that is the point.** After a
+        *database* error Postgres refuses every later statement in the
+        transaction, so rolling back is mandatory or one broken leg kills all
+        the ones behind it *and* the post-flight write on the same session.
+        After a *Python* error the transaction is intact, and rolling back
+        anyway expires the whole identity map on a session `main.py` keeps
+        using for the rest of the request. So: DB errors only.
+        """
+        logger.warning("retrieval_leg_failed", leg=leg,
+                       error_type=type(err).__name__, error=str(err))
+        if isinstance(err, SQLAlchemyError):
+            self.db.rollback()
+
     def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=None, scope=None):
         """Return a list of cluster_id strings for the clusters most
         relevant to the prompt, using both embedding similarity and
@@ -194,7 +232,8 @@ class HybridRetrievalOrchestrator:
                       "limit": top_k * settings.retrieval_cluster_candidate_multiplier,
                       **conv_params}
             rows = self.db.execute(query, params).fetchall()
-        except Exception:
+        except Exception as err:
+            self._leg_degraded("cluster_scope", err)
             return []
 
         if not rows:
@@ -286,7 +325,8 @@ class HybridRetrievalOrchestrator:
             elif recency_pct < settings.retrieval_recent_mid_pct:
                 return settings.retrieval_bonus_recent_top_30pct
             return 0.0
-        except Exception:
+        except Exception as err:
+            self._leg_degraded("bonus.recency", err)
             return 0.0
 
     def _turn_leans_meta(self, source_batch_id):
@@ -296,7 +336,8 @@ class HybridRetrievalOrchestrator:
             if not turn or not turn.intent_tags:
                 return False
             return bool(META_LEANING_INTENTS & set(turn.intent_tags))
-        except Exception:
+        except Exception as err:
+            self._leg_degraded("bonus.meta_lean", err)
             return False
     def _extract_prompt_keywords(self, prompt_text):
         words = set(re.sub(r'[^\w\s]', ' ', prompt_text).lower().split())
@@ -571,7 +612,10 @@ class HybridRetrievalOrchestrator:
             return None
         try:
             return uuid.UUID(str(scope["project_id"]))
-        except (ValueError, AttributeError, TypeError):
+        except (ValueError, AttributeError, TypeError) as err:
+            # Tolerant by design — but "no project" silently WIDENS what the
+            # derived-entity filters admit, so it says so.
+            self._leg_degraded("scope.project", err)
             return None
 
     def _entity_source_filters(self):
@@ -738,20 +782,12 @@ class HybridRetrievalOrchestrator:
                       "our","his","her","they","them","these","those","not","but","can","all","been",
                       "had","has","did","does","get","got","very","too","now","how"}
         valid_words = [w for w in words[:30] if w not in stop_words]
-        # Build individual to_tsquery tokens and join with OR
-        try:
-            tokens = []
-            for w in valid_words:
-                try:
-                    tokens.append(w)
-                except Exception:
-                    continue
-            if tokens:
-                search_terms = " | ".join(tokens)
-            else:
-                search_terms = prompt_text
-        except Exception:
-            search_terms = prompt_text
+        # Build individual to_tsquery tokens and join with OR.
+        # (G36: two nested try/excepts guarded this. The inner one wrapped
+        # `tokens.append(w)` — appending a str to a list, which cannot raise —
+        # and the outer wrapped the loop containing it. Both were unreachable
+        # handlers counted among this file's silent swallows; deleted.)
+        search_terms = " | ".join(valid_words) if valid_words else prompt_text
 
         topic_filter = ""
         # D11: single conversation OR the project's conversation list.
@@ -821,8 +857,7 @@ class HybridRetrievalOrchestrator:
             rows = self.db.execute(query, params).fetchall()
             return self._rows_to_fragments(rows, "episodic", prompt_text=search_prompt or classification.prompt, classification=classification)
         except Exception as err:
-            logger.error("bm25_retrieval_failed", error=str(err))
-            self.db.rollback()
+            self._leg_degraded("bm25", err)
             # Final fallback: use plainto_tsquery (AND) if everything fails
             try:
                 query2 = text(f"""
@@ -850,8 +885,9 @@ class HybridRetrievalOrchestrator:
                 if scope and scope.get("cluster_ids"):
                     p["cluster_ids"] = scope["cluster_ids"]
                 rows = self.db.execute(query2, p).fetchall()
-                return self._rows_to_fragments(rows, "episodic", prompt_text=search_prompt or classification.prompt, classification=classification)        
-            except Exception:
+                return self._rows_to_fragments(rows, "episodic", prompt_text=search_prompt or classification.prompt, classification=classification)
+            except Exception as err2:
+                self._leg_degraded("bm25.fallback", err2)
                 return []
 
     # ------------------------------------------------------------------
@@ -944,8 +980,7 @@ class HybridRetrievalOrchestrator:
                              if f.source_batch_id not in parent_ids)
             return fragments
         except Exception as err:
-            logger.error("vector_retrieval_failed", error=str(err))
-            self.db.rollback()
+            self._leg_degraded("vector", err)
             return []
 
     def _stratify_by_era(self, rows):
@@ -1032,8 +1067,7 @@ class HybridRetrievalOrchestrator:
         try:
             rows = self.db.execute(query, params).fetchall()
         except Exception as err:
-            logger.error("chunk_vector_retrieval_failed", error=str(err))
-            self.db.rollback()
+            self._leg_degraded("vector_chunks", err)
             return []
 
         fragments, per_parent = [], {}
@@ -1183,7 +1217,7 @@ class HybridRetrievalOrchestrator:
                 detected.extend(rel for _, rel in scored[:settings.codex_relation_top_k])
             return detected
         except Exception as err:
-            logger.error("relation_detection_failed", error=str(err))
+            self._leg_degraded("codex.relations", err)
             return []
 
     def _codex_scope_sets(self, scope: Optional[dict]):
@@ -1343,8 +1377,8 @@ class HybridRetrievalOrchestrator:
                     scored[ent.id] = (scored.get(ent.id, (0, ent))[0] + 1, ent)
             ranked = sorted(scored.values(), key=lambda t: t[0], reverse=True)
             return [ent for hits, ent in ranked[:2] if hits >= 1]
-        except Exception:
-            self.db.rollback()
+        except Exception as err:
+            self._leg_degraded("codex.payload_match", err)
             return []
 
     def _edge_valid_filters(self):
@@ -1459,8 +1493,7 @@ class HybridRetrievalOrchestrator:
                             facts=len(fact_lines), relations=relations)
             return fragments
         except Exception as err:
-            logger.error("codex_enumeration_failed", error=str(err))
-            self.db.rollback()
+            self._leg_degraded("codex.enumeration", err)
             return []
 
     def _expansion_terms(self) -> List[str]:
@@ -1584,8 +1617,7 @@ class HybridRetrievalOrchestrator:
             self._reinforce_codex_edges(all_anchor_edges)
             return fragments + timeline_frags
         except Exception as err:
-            logger.error("codex_retrieval_failed", error=str(err))
-            self.db.rollback()
+            self._leg_degraded("codex", err)
             return []
 
     def _edge_trust(self, edge) -> float:
@@ -1607,8 +1639,8 @@ class HybridRetrievalOrchestrator:
                 else:
                     age_days = max(0.0, (datetime.now(timezone.utc) - vf).total_seconds() / 86400.0)
                 base *= 1.0 + settings.codex_recency_boost * math.exp(-age_days / settings.codex_recency_tau_days)
-            except Exception:
-                pass
+            except Exception as err:
+                self._leg_degraded("codex.edge_recency", err)
         return base
 
     def _render_codex_entity(self, entity, depth, out_edges, in_edges,
@@ -1748,8 +1780,8 @@ class HybridRetrievalOrchestrator:
                         and conf >= settings.codex_promote_min_confidence):
                     e.confidence = "active"
             self.db.commit()
-        except Exception:
-            self.db.rollback()
+        except Exception as err:
+            self._leg_degraded("codex.reinforce", err)
 
     # ------------------------------------------------------------------
     # Procedural lookup (scoped + trigger‑condition evaluation)
@@ -1834,8 +1866,12 @@ class HybridRetrievalOrchestrator:
                     token_count=count_tokens(pattern.pattern_description)
                 ))
             return fragments
-        except Exception:
-            self.db.rollback()
+        except Exception as err:
+            # The proof case for G36: this exact handler hid a psycopg3 bind
+            # mismatch (`vector <=> double precision[]`) for months — the leg
+            # returned [] on every call and the intent whitelist above it made
+            # the silence look like a design choice.
+            self._leg_degraded("procedural", err)
             return []
 
     def _procedural_trigger_match(self, pattern: ProceduralMemory, classification: ClassificationResult) -> bool:
@@ -1891,8 +1927,8 @@ class HybridRetrievalOrchestrator:
                     score=r.score,
                     token_count=count_tokens(r.summary_text)
                 ) for r in rows]
-            except Exception:
-                self.db.rollback()
+            except Exception as err:
+                self._leg_degraded("batch_summary.own", err)
         # Half 2 (C4 D3b): OTHER conversations' evolving whole-conversation
         # summaries — cross-conversation overview hits. The active
         # conversation's own summary is excluded (the assembler injects it —
@@ -1926,8 +1962,8 @@ class HybridRetrievalOrchestrator:
                 score=r.score,
                 token_count=count_tokens(r.summary_text)
             ) for r in rows]
-        except Exception:
-            self.db.rollback()
+        except Exception as err:
+            self._leg_degraded("batch_summary.cross", err)
         return fragments
     # ------------------------------------------------------------------
     # T3: cold-storage leg + resurrection (D-U1) + honest emptiness
@@ -2003,8 +2039,7 @@ class HybridRetrievalOrchestrator:
         try:
             rows = self.db.execute(query, params).fetchall()
         except Exception as err:
-            logger.error("cold_lookup_failed", error=str(err))
-            self.db.rollback()
+            self._leg_degraded("cold", err)
             return []
 
         fragments = []
@@ -2074,8 +2109,7 @@ class HybridRetrievalOrchestrator:
                                 decay_score=settings.timescope_probation_score)
                 self.db.commit()
             except Exception as err:
-                logger.error("cold_resurrect_failed", cold_id=str(row.id), error=str(err))
-                self.db.rollback()
+                self._leg_degraded(f"cold.resurrect[{row.id}]", err)
 
     def _append_empty_window_note(self, final, prompt_embedding, conv_id,
                                   scope=None):
@@ -2113,8 +2147,8 @@ class HybridRetrievalOrchestrator:
             if eras:
                 note += (" Closest matches outside that window are from "
                          + ", ".join(eras) + ".")
-        except Exception:
-            self.db.rollback()
+        except Exception as err:
+            self._leg_degraded("timescope.era_probe", err)
         logger.info("timescope_empty_window", t0=str(ts.t0.date()), t1=str(ts.t1.date()))
         final.append(ContextFragment(
             text=note, source_type="episodic", score=5.0,
@@ -2216,18 +2250,27 @@ class HybridRetrievalOrchestrator:
                 "WHERE id = ANY(:ids) AND embedding IS NOT NULL"
             ), {"ids": [str(i) for i in ids]}).fetchall()
         except Exception as exc:
-            self.db.rollback()
-            logger.warning("coverage_vector_fetch_failed", error=str(exc))
+            self._leg_degraded("coverage.vectors", exc)
             return {}
         out = {}
+        unparsed = 0
+        last_err = None
         for r in rows:
             vec = r.embedding
             if isinstance(vec, str):          # pgvector text form
                 try:
                     vec = [float(x) for x in vec.strip("[]").split(",")]
-                except ValueError:
+                except ValueError as err:
+                    # G36: counted, not logged per row. A vector that will not
+                    # parse is a SHAPE problem, so it hits every row — one line
+                    # each would be a flood saying one thing.
+                    unparsed += 1
+                    last_err = err
                     continue
             out[str(r.id)] = vec
+        if unparsed:
+            self._leg_degraded(f"coverage.vector_parse[{unparsed}/{len(rows)}]",
+                               last_err)
         return out
 
     def _apply_coverage(self, fragments, prompt_embedding):
@@ -2389,8 +2432,8 @@ class HybridRetrievalOrchestrator:
                     turn.decay_score = min(
                         1.0, (turn.decay_score or 0.0) + settings.decay_strengthen_amount)
                     self.db.commit()
-            except Exception:
-                self.db.rollback()
+            except Exception as err:
+                self._leg_degraded("strengthen", err)
 
     # ------------------------------------------------------------------
     # Wide‑net fallback (now uses full vector search)
@@ -2463,8 +2506,8 @@ class HybridRetrievalOrchestrator:
                 params["cluster_ids"] = scope["cluster_ids"]
             rows = self.db.execute(query, params).fetchall()
             fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt, classification=classification)
-        except Exception:
-            self.db.rollback()
+        except Exception as err:
+            self._leg_degraded("wide_net", err)
             fragments = []
 
         fragments.extend(self._codex_graph(classification, scope,
@@ -2549,8 +2592,8 @@ class HybridRetrievalOrchestrator:
                 SELECT chunk_text, chunk_index FROM episodic_chunks
                 WHERE turn_id = :tid ORDER BY chunk_index ASC
             """), {"tid": turn_id}).fetchall()
-        except Exception:
-            self.db.rollback()
+        except Exception as err:
+            self._leg_degraded("document_chunks", err)
             return None
         if not rows:
             return None
