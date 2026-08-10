@@ -54,8 +54,11 @@ see the restructure below for why it moved 52 → 50 without work finishing.
 
 **The docs were restructured on 2026-08-10** (`c57f522`…`eb83a81`), which
 changes where things are:
-- **[ROADMAP.md](ROADMAP.md) is now the queue only** — 50 open items plus a
-  one-line stub per finished one. 65,475 → 34,607 words.
+- **[ROADMAP.md](ROADMAP.md) is now the queue only** — **51 open items** plus a
+  one-line stub per finished one. **65,475 → 32,202 words**, preamble 540 → 266
+  lines. Every track is in strict numeric order; **Track G was in three places**
+  (G31/32/33 wedged between G4 and G5, and G28/29/30/34/35/36/37 filed under
+  Track H, "Research follow-ups") and now holds G1–G37 with no gaps.
 - **[ROADMAP_DONE.md](ROADMAP_DONE.md)** holds the 70 finished entries verbatim.
 - **[outdated/roadmap_session_log.md](outdated/roadmap_session_log.md)** holds
   the 17 dated session notes that used to clog the preamble — this file
@@ -124,7 +127,18 @@ fix is reverted, which is how you know they are not mirroring it.
   relations above its floor for the prompt `"ok"`, and raising the floor cannot
   fix it because absolute cosine is anti-correlated with relational content.
 - **36 of 49 roadmap cross-references were dangling** (13 anchors existed).
-  Every item now has one.
+  Every item now has one; 0 dangling.
+- **A THIRD phantom item: [G27](#g27)** — announced 2026-07-25 as "shared-mode bg
+  model bug", never written, while a decision-complete description sat in
+  `specs/G_mechanical.md` the whole time. Open count is **51**, not 50.
+- **Z2 had been handed five things and its entry said none of them** — C16's
+  three (coverage stop + set floor on and measured, the paired token audit as a
+  median and win-rate, per-leg reporting), A9b's three-arm pre-flight comparison,
+  and the adjacent-turn overlap number that decides C13/C14. They were recorded
+  in a preamble triage block and nowhere else. Now in Z2's entry.
+- **The Z1/Z2 definition block was nested inside Z2's entry**, unreachable from
+  Z1; lifted to the SEMIFINAL section head. **Z1's entry described the stack as
+  "postgres+redis, celery worker+beat"** — C7 deleted both — and is corrected.
 - **A standing rule was lost and restored** (`d2710ec`) — the CLAUDE.md shrink
   compared a rule against its ROADMAP twin by heading rather than by text.
   That incident is why CLAUDE.md edits are now user-gated.
