@@ -153,13 +153,39 @@ The repo has a **private** GitHub remote (`origin` → `github.com/Deepnar/ice`)
 **Pushing during normal development is pre-authorized and encouraged** — it is a
 private backup, so push at natural points without asking.
 
-- **Message style:** impersonal and factual — *what changed and why*, in the
-  repository's voice. **Never narrate the session**: no "the user asked…", "as
-  requested…", "we decided…". Subject ≤ ~70 chars; body explains the *why* when
-  it is not obvious. **No AI attribution / Co-Authored-By trailer.**
-- **Granularity:** many small, focused commits split by *concern* — never one
-  end-of-session commit. If a message needs bullets to list unrelated changes,
-  it should have been several commits.
+- **⚑ SMALL COMMITS *IN THIS FORMAT*. Granularity and format are ONE rule.**
+  Many small commits split by *concern* — never one end-of-session commit; if a
+  message needs bullets for unrelated changes it should have been several
+  commits. **And every one of them, however small, takes the full shape below.**
+
+  ```
+  area: what changed (ITEM)
+
+  ITEM — what it does now:
+  - concrete change: function/file/migration names, measured numbers
+  - concrete change
+
+  SECOND-ITEM — ...
+
+  Also fixes: the thing found in passing.
+
+  Validated N/N (tests/test_x.py: what was checked); regressions green:
+  a 13/13, b 31/31. Architecture §6.10 updated; roadmap C6 checked.
+  ```
+
+  **Subject:** lowercase area prefix (`retrieval:`, `codex:`, `memory:`,
+  `workers:`, `classifier:`, `clustering:`, `budget:`, `roadmap:`, `specs:`,
+  `docs:`, `tooling:`) · what changed · the roadmap item id in parens · ≤ ~70
+  chars. **Body:** organised **by item**, dense and concrete, closing with a
+  **`Validated`** line and a **docs/roadmap** line. **The log is the reference —
+  read it before writing one:** `git log 6bac35d 1a30484 051cea9 5124efb`.
+  - ⚠ **It is a record, not an explanation.** No paragraph essays, no rhetorical
+    beats ("That is not an edge case."), no argument structure. Impersonal, in
+    the repository's voice; **never narrate the session** ("the user asked…",
+    "as requested…", "we decided…"). **No AI attribution / Co-Authored-By.**
+  - *(This drifted badly on 2026-08-09/10 — a dozen commits with no area prefix,
+    no item id, no validation line, and prose bodies. The rule was already here;
+    the log was not read. Read the log.)*
 - **Freeze at the experiment phase:** once **SEMIFINAL (Z1)** or **FINAL**
   begins, **stop pushing** until the user says otherwise.
 
