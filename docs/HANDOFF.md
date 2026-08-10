@@ -229,6 +229,15 @@ with base on every touched file. **Store: 1 row** — the deterministic
   in the same session, and read TRAPS #15 before deleting anything.
 - No cloud keys.
 
+## ⚠ COMMIT FORMAT — READ THE LOG BEFORE WRITING ONE
+
+This drifted badly across the 2026-08-09/10 commits: no area prefix, no roadmap
+item id, no `Validated` line, and prose bodies with rhetorical structure. The
+rule was already in CLAUDE.md and the log was never read. It is now spelled out
+there with a template — **and `git log 6bac35d 1a30484 051cea9 5124efb` is the
+reference.** Granularity and format are one rule: a small commit still takes the
+full shape.
+
 ## WHEN DONE
 
 Propagate on completion per the roadmap's own rules, update the docs the change
