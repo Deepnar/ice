@@ -87,6 +87,17 @@ def _check_labels(where: str, keys: Iterable[str], head: str) -> set:
     return set(keys) - unknown
 
 
+def _unrankable(weights: Dict[str, float]) -> bool:
+    """True when no leg can contribute a ranking signal.
+
+    `timeline` is excluded because it is pinned to its base value after the
+    blend, so it is never the leg that collapsed — counting it would make this
+    check unsatisfiable.
+    """
+    rankable = [w for leg, w in weights.items() if leg != "timeline"]
+    return bool(rankable) and all(w <= 0.0 for w in rankable)
+
+
 def resolve(intent_tags: List[str], topic_tags: List[str]) -> Dict[str, float]:
     """Blend the per-intent profiles into one weight per leg.
 
@@ -118,6 +129,11 @@ def resolve(intent_tags: List[str], topic_tags: List[str]) -> Dict[str, float]:
     if all(v == 0.0 for v in blended.values()):
         blended = dict(base)
 
+    # Snapshot before the deltas — the all-zero guard below needs something
+    # meaningful to fall back to, and "the weights minus the override that
+    # broke them" is the closest honest answer.
+    pre_override = dict(blended)
+
     # Cumulative topic overrides.
     topic_overrides = settings.retrieval_leg_topic_overrides
     for topic, override in topic_overrides.items():
@@ -128,6 +144,35 @@ def resolve(intent_tags: List[str], topic_tags: List[str]) -> Dict[str, float]:
         if topic in valid_topics:
             for leg, delta in topic_overrides.get(topic, {}).items():
                 blended[leg] = blended.get(leg, 0.0) + delta
+
+    # A weight of 0.0 does NOT switch a leg off. `_apply_rrf` still registers
+    # that leg's fragments; they simply score 0.0. So an all-zero weight set
+    # does not mean "retrieve nothing" — it means "admit every candidate at
+    # score 0 and let _apply_bonuses order them", i.e. recency decides and
+    # relevance is discarded entirely. That state is UNRANKABLE, not
+    # restrictive, and its output is indistinguishable from a legitimately bad
+    # retrieval, which is why it is refused here rather than served.
+    #
+    # Unreachable with the shipped table (every override is positive). It
+    # becomes reachable the moment a negative delta meets an already-suppressed
+    # intent blend — and Z1 stage 2 writes these values AT RUNTIME, so the
+    # sweep can land on it without anyone having typed it.
+    #
+    # Loud every time, not once per process: this substitutes a default for a
+    # real answer, which is the one case the warn-once idiom above must not
+    # cover. It cannot spam a healthy system, because a healthy system never
+    # reaches it.
+    if _unrankable(blended):
+        replacement = pre_override if not _unrankable(pre_override) else dict(base)
+        logger.warning(
+            "leg_weight_all_zero",
+            intent_tags=list(intent_tags or []), topic_tags=list(topic_tags or []),
+            collapsed=dict(blended), falling_back_to=dict(replacement),
+            reason="every rankable leg resolved to <= 0, which admits all "
+                   "candidates at score 0 rather than retrieving nothing; "
+                   "check the topic overrides for this label combination",
+        )
+        blended = replacement
 
     # T4: the timeline weight is constant across intent profiles.
     if "timeline" in base:
