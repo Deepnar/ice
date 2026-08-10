@@ -147,11 +147,13 @@ is touched-files only (never a repo-wide reformat), imports sorted and unused
 dropped, dead code and lying comments fixed in place, one-off scripts *moved*
 (never deleted) to `scripts/oneoff/`, and every move logged.
 
-### Git, commits, and the public release
+### Git, commits, and the public repo
 
-The repo has a **private** GitHub remote (`origin` → `github.com/Deepnar/ice`).
-**Pushing during normal development is pre-authorized and encouraged** — it is a
-private backup, so push at natural points without asking.
+**⚑ THE REPO IS PUBLIC** (`origin` → `github.com/Deepnar/ice`), since
+2026-08-10. It is no longer a private backup: **every push is a publication.**
+Pushing during normal development stays pre-authorized — push at natural points
+without asking — but write every commit, message and file knowing it is read as
+soon as it lands, by strangers, with no window to take it back.
 
 - **⚑ SMALL COMMITS *IN THIS FORMAT*. Granularity and format are ONE rule.**
   Many small commits split by *concern* — never one end-of-session commit; if a
@@ -187,15 +189,24 @@ private backup, so push at natural points without asking.
     no item id, no validation line, and prose bodies. The rule was already here;
     the log was not read. Read the log.)*
 - **Freeze at the experiment phase:** once **SEMIFINAL (Z1)** or **FINAL**
-  begins, **stop pushing** until the user says otherwise.
+  begins, **stop pushing** until the user says otherwise — a half-run
+  experiment published mid-flight is a result nobody chose to publish.
 
-**⚑ THIS REPO IS GOING PUBLIC.** Private today, but it will be flipped as the
-portfolio/paper artifact. Work as if the tree, the docs **and the commit log**
-will be read by strangers.
+**⚑ IT IS PUBLIC NOW — the tree, the docs and the commit log.** This used to
+read "going public" and describe a future state; it is the present one.
 
 - **Never commit personal content** — private planning, career notes,
-  conversation corpora, third-party emails, credentials. Git history is forever:
-  a file committed once and gitignored later is *still public*.
+  conversation corpora, third-party emails, credentials. **Git history is
+  forever, and on a public remote it is forever the moment you push**: a file
+  committed once and gitignored later is still there, and even a rewritten
+  history keeps serving the old objects by SHA until the host garbage-collects
+  them (TRAPS #12 — that took a support ticket last time). **Check before the
+  commit, not after the push.**
+- **Verified clean at the flip (2026-08-10):** `check_history_clean.sh --clone`
+  green against the live remote, no personal or planning file tracked, no
+  credential-shaped string in the tree, README links the canonical
+  venue-agnostic paper, and `v2-paper-eval` points at `0521df9` (post-rewrite).
+  Re-run the `--clone` check after anything that touches history.
 - **A history rewrite must rewrite TAGS, and `git log` on `main` cannot verify
   it.** Verification is `scripts/git/check_history_clean.sh`, wired to a
   `pre-push` hook by `scripts/git/install_hooks.sh` (**run once per clone**);
