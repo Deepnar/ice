@@ -1,303 +1,270 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) working in this repository.
+
+**This file is loaded into every session, so it holds only what is (a) true of
+the system as built and (b) not written anywhere a session reads naturally.**
+Everything else is a pointer. When a rule's evidence or worked example lives in
+another doc, that doc owns it and this file keeps the one-line imperative.
+⚠ It rots the most expensively of any doc here — it was once found describing
+DI3, Celery, Redis, a 384-dim encoder and a 25-logit head, all long deleted.
+It is item (5) on the deletion-sweep checklist in [docs/CLEANUP.md](docs/CLEANUP.md).
 
 ## What ICE is
 
-The **Infinite Context Engine (ICE)** is a local-first AI memory middleware. It runs as a **FastAPI proxy** (`src/api/main.py`) that sits between *any* OpenAI-compatible chat frontend and a local inference backend (**Ollama**, port 11434). *(Open WebUI was the interim frontend and is **no longer the intended path** — user decision 2026-08-03; Track F's packaged app is the destination. Design-rationale citations of Open WebUI's architecture — e.g. its content-extraction engine shape for OCR — deliberately remain, because citing someone's design is not depending on their product.)* Every OpenAI-compatible `POST /v1/chat/completions` passes through ICE, which classifies the prompt, retrieves relevant memory, assembles a context-enriched prompt, routes to a model, streams the response, and asynchronously processes the completed turn into a structured memory store.
+The **Infinite Context Engine (ICE)** is local-first AI memory middleware. It
+runs as a **FastAPI proxy** (`src/api/main.py`) between any OpenAI-compatible
+chat frontend and a local inference backend (**Ollama**, port 11434). Every
+`POST /v1/chat/completions` passes through ICE, which classifies the prompt,
+retrieves relevant memory, assembles a context-enriched prompt, routes to a
+model, streams the response, and asynchronously processes the finished turn
+into a structured memory store.
 
-The authoritative design reference is [docs/ICE_Architecture.md](docs/ICE_Architecture.md) (July 2026, derived from the source tree — where any doc conflicts with code, **code is authoritative**). `docs/ICE_Architecture[real_v2].md` is the frozen technical report for the system **as evaluated in the paper** (git tag `v2-paper-eval`) — the paper cites it; never update it to match current code (it has minor known inaccuracies, e.g. its NER framing, accepted as part of the historical record). Superseded docs live in `docs/outdated/` (v1/intermediate architecture docs, paper-era notes) — kept to show what the system was, never edited. `docs/VISION.md` explains intent — conversational ICE is memory for human–AI thinking sessions; a separate Coding Mode is planned post-paper (see the roadmap). The `docs/` folder in general holds most project knowledge, and code comments throughout `src/` often explain *why* something is the way it is — but neither is guaranteed current; verify against the code.
+Guiding principle in the code: **"memory is earned"** — a turn is stored
+losslessly only if dense enough (`lossless_flag` / `inject_raw`, set by the
+post-flight evaluator); otherwise it is summarised by the background model.
+
+*(Open WebUI was the interim frontend and is **no longer the intended path** —
+user decision 2026-08-03; Track F's packaged app is the destination. Existing
+design-rationale citations of Open WebUI's architecture stay: citing someone's
+design is not depending on their product.)*
+
+ICE is also a **research project**. v2 is finished, the experiments are done, a
+paper is written for later arXiv posting, and the work now is the post-paper
+cycle — the experiments exposed gaps and closing them is the job. Experiment
+results live in `experiments/*/results*/` as `.md` summaries.
+
+## Start here — read these, in this order
+
+| Read | What it is |
+|---|---|
+| [docs/HANDOFF.md](docs/HANDOFF.md) | **Where the last session left off, and what it was told to do.** Rewritten every session. Read it first; it is state, never a queue. |
+| [docs/TRAPS.md](docs/TRAPS.md) | Mistakes this project has actually made. Read once at session start. Add to it the same session something bites. |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | **The queue, and the only queue.** Its top section "HOW TO EXECUTE THIS ROADMAP" is the implementation order, and its "How to use this file" block is the rules for working it — they are not repeated here. Check items off there as they complete. |
+
+Then, as the work requires:
+
+| Doc | Owns |
+|---|---|
+| [docs/ICE_Architecture.md](docs/ICE_Architecture.md) | How each subsystem actually works. The authoritative design reference. **Where any doc conflicts with code, code wins.** |
+| [docs/specs/](docs/specs/) | Decision-complete specs. Since S1 every design-heavy roadmap item has one — read the item's spec **and its `Assumes decided specs:` chain** before coding, and obey [specs/README.md](docs/specs/README.md) rules 11–12 (USER-REQUIRED steps; the divergence protocol: code↔spec mismatch ⇒ stop, re-ground, fix the spec first, never improvise past it). |
+| [docs/PROVENANCE.md](docs/PROVENANCE.md) | What was *done* — model revisions, corpora, checkpoints, run parameters. It states its own standing rule; follow it when a run produces an artifact. |
+| [docs/CLEANUP.md](docs/CLEANUP.md) | Cleanup rules (incl. the deletion sweep) + the move/rename ledger. |
+| [docs/VISION.md](docs/VISION.md) | Intent — memory for human–AI thinking sessions. A separate Coding Mode is planned post-paper. |
+
+`docs/ICE_Architecture[real_v2].md` is the **frozen** technical report for the
+system as evaluated in the paper (git tag `v2-paper-eval`) — never update it to
+match current code; its known inaccuracies are part of the historical record.
+Superseded docs live in `docs/outdated/` and are never edited.
+
+Code comments across `src/` often explain *why* something is the way it is.
+Neither docs nor comments are guaranteed current — verify against the code.
 
 > **Maintainer note:** some working files at the repo root and under `docs/` are
-> **gitignored on purpose** (personal planning, publishing strategy). If present locally,
-> read them for context — but never commit them, and never quote their contents into
-> tracked files.
+> **gitignored on purpose** (personal planning, publishing strategy). Read them
+> for context if present; never commit them, never quote them into tracked files.
 
-## Project status and research context
+## Standing rules
 
-ICE is also a research project: v2 of the system is finished, the experiments are complete, and a paper has been written for later posting on arXiv. The project is now **past that version threshold and into the post-paper update cycle** — the experiments exposed gaps (not everything works as intended), and closing them is the current work.
-
-Experiment results live in `experiments/`, each with a results folder containing `.md` summary reports (the quick way to understand what worked and what didn't):
-
-- `experiments/mature/results/*.md` — Experiment 2, mature-memory benchmark (1,211 probes; full ICE vs vector-RAG: +0.4 score, ~25% fewer tokens, but e.g. Codex contributed only 3.3% of fragments and MoE routing was ≈neutral)
-- `experiments/unmature/results_phase2/paper_summary.md` — Experiment 1, unmature-memory phase
-- `experiments/flaw_ablation/buildup/paper_summary.md` — Experiment 3, cumulative feature build-up ablation (plus `subtraction/`)
-
-Raw metrics JSON sits alongside each report. Paper supporting notes (`paper_rough_notes.md`, `related_work_notes.md`) now live in `docs/outdated/`.
-
-## Post-paper workflow (current phase)
-
-The queue of upcoming work is **[docs/ROADMAP.md](docs/ROADMAP.md)** — the authoritative living checklist (planned-but-never-built features, reworks where the current version underperformed in the experiments, known bugs, and open questions with no settled solution). It was originally distilled from raw post-paper notes; those have been fully mined and archived to `docs/outdated/rough_post_paper_work.md`, so **the roadmap is the queue — do not go looking for work anywhere else.**
-
-**Starting a session:** read this file and `docs/ROADMAP.md` — its **top section ("HOW TO EXECUTE THIS ROADMAP") is the implementation order**; follow it. **Since S1 (2026-07-10), every design-heavy item has a decision-complete spec in `docs/specs/`** — read the item's spec AND its `Assumes decided specs:` chain before coding, and obey `docs/specs/README.md` rules 11–12 (USER-REQUIRED steps; the divergence protocol: code↔spec mismatch ⇒ stop, re-ground, fix the spec first, never improvise past it). Items without a spec carry an explicit no-spec note. Completed items carry detailed notes (what shipped, why, validation) so you can pick up cold.
-
-Rules for working it:
-
-- **Roadmap entries are intent + rationale, not specs.** When a feature's turn comes, discuss the concrete implementation with the user first — never build straight from the entry.
-- **No first versions.** Build the robust, thought-through version of each feature (proper algorithms, edge cases, end-state in mind), not a throwaway MVP. If too big for one pass, split into robust sub-items rather than shipping a knowingly-temporary version.
-- **Look ahead before building.** Before implementing any item, scan the roadmap for later items in the same subsystem. Design the current work to be forward-compatible with where those are heading (build on the primitive they'll need), or if they genuinely conflict, decide explicitly (do the later one first, or record the exact seam). Don't implement anything a known-future item will have to tear out; note the look-ahead result in the completion entry.
-- **Earn the checkmark.** Only mark an item done after its full original scope is implemented *and* behaviorally validated (a real run/test, not just a syntax check) — audit against the entry text, not memory of it. Always before implementaions check what how it actually is in realtion to what we want to do and roughly check thru the previous implemented if they are actually done or not.
-- **Propagate on completion — refresh downstream stale references.** The mirror of look-ahead, done *after* finishing an item: scan the still-unchecked roadmap items for any that describe the *old* behavior of what you just changed, and update them to the new reality (and the new dependency). A shipped feature that leaves later items describing the pre-change world silently misleads the next session. Do this pass before checking the item off.
-- **It doubles as the progress tracker.** Check items off in `docs/ROADMAP.md` as they're completed.
-- **Keep the architecture doc in sync.** When a brand-new system/feature is finished, add a section for it to `docs/ICE_Architecture.md`; when an existing subsystem is reworked, search out its existing section there and update it to match the new behavior. The architecture doc must keep reflecting the system as built.
-
-- **⚑ DELETION SWEEP — the rule that stops zombie docs (standing rule, 2026-08-01).** Adding
-  a section is the easy half. The half that keeps getting missed is **removing a thing**: a
-  deleted component keeps living in the *overview* prose, the *diagrams*, and the *settings
-  list* long after its own section says "DELETED". This has actually happened — DI3 was
-  deleted in D8 and its own §2.2 said so, while §1.1 still called the classifier a
-  "two-stage pipeline (DI3 → 25-way MLP)", the component-map diagram still had a "DI3 + MLP"
-  box, and §10 still documented seven `DI3_*` settings that no longer exist in `config.py`.
-  So whenever a component is **deleted, replaced, renamed, or changes shape** (label counts,
-  leg counts, dimensions, cadences), `grep -rin '<old name>' docs/ README.md` and fix **every**
-  hit, classifying each as either:
-  - **live claim** → must be corrected, or
-  - **deliberate history** ("X was replaced by Y in D8") → keep, it's the record.
-
-  Check these four places specifically, because they are the ones that rot:
-  **(1)** §1 System Overview prose · **(2)** the ASCII diagrams · **(3)** §10's configuration
-  /settings lists · **(4)** `README.md`.
-
-- **⚑ The README links the VENUE-AGNOSTIC paper, never a venue submission (standing rule,
-  2026-08-01).** `experiments/paper/` holds one canonical paper (`ICE_paper_v2.tex`, generic
-  `article` class) plus venue twins built from it (`_tmlr`, `_tist`, …). **Only the canonical
-  one may be linked from `README.md` or offered publicly.** A venue twin carries that venue's
-  furniture — ACM/TMLR branding, line numbers from `review` mode, placeholder volume/article
-  numbers and a dummy DOI (`10.1145/nnnnnnn.nnnnnnn`). Correct for a submission; on a public
-  repo it reads as *"published in that venue"*, which is a false claim about work that is
-  merely submitted. This has already happened once and was reverted. When a venue twin's
-  content improves on the canonical paper, **back-port it into the canonical file** (keep the
-  generic preamble, take the body) rather than repointing the link — the twin is a build
-  target, never the source of truth.
-
-- **README and the architecture doc follow the same contract.** Both describe **`main` as it
-  is now**, and both are updated *in the same session* as the change that invalidates them.
-  The split: `README.md` is the outside view (what ICE is, what it does, headline numbers,
-  how to run it) and stays short; `ICE_Architecture.md` is the inside view (how each
-  subsystem actually works) and carries the detail. A number that appears in both — label
-  counts, leg counts, embedding dimensions, headline results — must be changed in both or in
-  neither. Where either doc quotes evaluation results, say which snapshot they describe
-  (the paper's numbers are the `v2-paper-eval` tag, not `main`).
-
-## Check where a signal LANDS, not just that it exists (standing rule, 2026-07-27)
-
-ICE computes a lot of signals. A signal can be trained, accurate, stored on every
-result — and still change nothing, because it is wired to a decision that was
-already made. Three were found in this state on the same day (`p_complex`: zero
-readers; `Codebase_Query`: dropped; `Temporal_Recall`: see below). **When a new
-classifier label or score is added, trace it to the decision it changes and
-measure the delta with it on vs off.** "It's wired up" is not the test; "turning
-it off changes N decisions" is.
-
-The worked example, because it generalises. `Temporal_Recall` was wired to the
-retrieve-or-not gate — and a question about the past *needs memory by
-definition*, so 78% of its rows were already `Needs_Memory`, sitting at mean
-`p_ltm` 0.931. Turning the whole arm off moved **1 decision in 9,441**. The label
-was fine; it was answering a question something else had already answered. Its
-real information — *only 20% of memory queries are time-shaped* — belongs where
-time matters (ranking old-vs-recent, gating a time window), which is roadmap
-**T5**. Beware this shape generally: **a signal that is a subset of another
-signal cannot improve that signal's own decision.**
-
-Corollary on deletions: when a measurement says a designed hook or seam is not
-paying off, **that is evidence, not permission — ask the user first.** A null
-result on one wiring does not mean the signal is homeless, and the seam records
-design intent the measurement does not contain.
-
-## No decision may depend on HOW a thing is written (standing rule, 2026-07-28)
-
-The user's diagnosis, and the measured reason Codex underperformed across a month
-of experiments: a rule keyed on punctuation, word order, or a fixed vocabulary is
-a **bet on writing convention**. ICE was validated on LMSYS/ShareGPT/WildChat —
-all "people typing at a chatbot", all sharing conventions — so the bets never
-looked broken.
-
-**The goal is INVARIANCE, not personalization.** The maintainer writes
-out-of-convention and is a useful canary, but they are an *existence proof*, not
-a target: tuning toward their corpus is the same mistake with a different corpus.
-**We have no idea how any given user writes and no corpus can tell us** — a
-writing style is not a distribution you can sample your way out of. The
-requirement is that the same intent, written any way, yields the same decision.
-
-Two measurements to keep in mind. (1) T2's gate accepts a time expression if the
-prompt *starts with* one of twelve interrogatives: lmsys 25%, wildchat 14%,
-sharegpt 13%, personal 2% — a 10× swing, and 2× **between the public corpora
-alone**. (2) **The trained head is not automatically the fix**: firing-rate spread
-across those sources is 1.5× for `has "?"` but 16.2× for `p_ltm ≥ 0.5`. That is
-confounded (personal rows genuinely need memory more), and *that confound is the
-lesson* — **firing-rate-by-source cannot separate "different people" from
-"different meanings", so it is a smell detector, never an acceptance test.**
-
-The test that works holds meaning fixed and varies only form: write one prompt
-several ways (± question mark, "ok so"/"like" prefixes, interrogative buried,
-lowercase, typos, terse vs rambling) and measure the **decision-flip rate**. A
-rule that flips is measuring typography. **Apply it to the replacement too.**
-Parsers that RESOLVE a value (a date → a datetime) may stay; lexicons that INFER
-INTENT must pass invariance. Roadmap **G28** is the systematic sweep and owns the
-style-variant probe set; D8 is the worked deletion protocol.
-
-## Ask before changing production code (standing rule, 2026-08-03)
+### Ask before changing production code (2026-08-03)
 
 The user's instruction, after stopping a session mid-flight: *"if doing anything
 to the production code ask always."* Investigation, measurement, scratch scripts
 and reading are free — **changing `src/` is not.** Before touching production
 code: say what you intend to change, why, and what it affects, **in plain
 language they can act on** — mechanism in short sentences, what it is NOT, then
-the decision. Then wait.
+the decision. Then wait. Docs, tests and scratch work do not need the gate.
 
-This is not ceremony. It exists because the alternative has a specific failure
-mode: an evaluation turns into a half-migration, and a benchmark session ships
-code nobody agreed to. Docs, tests and scratch work do not need the same gate —
-but a change to `src/` always does.
+This is not ceremony: the alternative failure mode is real — an evaluation turns
+into a half-migration, and a benchmark session ships code nobody agreed to.
 
-Related, same rule from the other side: **analysis is not a decision.** The user
-has said *"I understood what you said, but not the decision from it."* End with
-"do X", not "X is worth considering". See [docs/TRAPS.md](docs/TRAPS.md) for the
-failure modes this project has actually hit.
+Same rule from the other side: **analysis is not a decision.** The user has said
+*"I understood what you said, but not the decision from it."* End with "do X",
+not "X is worth considering".
 
-## A silent fallback hides an outage (standing rule, 2026-08-03)
+### Check where a signal LANDS, not just that it exists (2026-07-27)
 
-The measured case: **every background LLM call in ICE was returning nothing**,
-and the system looked fine. Reasoning models spend the whole `max_tokens`
-budget inside a hidden thinking block, so Ollama returns `content=""` — and the
-callers had defaults. `clustering._generate_cluster_name` returned
-`"Unnamed Cluster"`. `detect_blob_kind` returned `document` via its
-`blob_kind_unparsed` branch. `post_flight` turned the empty summary into `None`
-and let raw text win. Each of those defaults is individually *correct*
-engineering. Together they made a dead subsystem indistinguishable from a
-working one, for an unknown length of time.
+ICE computes a lot of signals. A signal can be trained, accurate, stored on
+every result — and still change nothing, because it is wired to a decision that
+was already made. Three were found in that state on one day.
 
-**So: a fallback must be observable.** When a component substitutes a default
-for a real answer, it emits at WARNING with the reason — every time, not on the
-first occurrence. A fallback that fires on 100% of calls is not resilience, it
-is an outage wearing resilience as a costume.
+**When a new classifier label or score is added, trace it to the decision it
+changes and measure the delta with it on vs off.** "It's wired up" is not the
+test; "turning it off changes N decisions" is. Beware especially that **a signal
+which is a subset of another signal cannot improve that signal's own decision**.
 
-Two corollaries, both earned the same day. **(1)** Check the *rate*, not the
-existence: `ner_utils` has a regex fallback whose own docstring says it is
-"log-worthy if this fires in normal operation" — and there is no log line, so
-nobody could have known it fires whenever the process starts outside the repo
-root. **(2)** When a subsystem produces plausible-but-thin output, verify the
-model was actually called before tuning anything about it — the first
-explanation is usually "it never ran".
+Worked examples and the measurements behind them: `ICE_Architecture.md` §2.2 and
+§2.4. Corollary on deletions: when a measurement says a designed hook or seam is
+not paying off, **that is evidence, not permission — ask the user first.**
 
-## Boy-scout cleanup (standing rule, 2026-07-10)
+### No decision may depend on HOW a thing is written (2026-07-28)
 
-Every implementation session leaves the files it touches cleaner than found: imports sorted/grouped + unused dropped (`ruff` on touched files only — never a repo-wide reformat), dead code and lying comments fixed in place, one-off scripts moved (never deleted) to `scripts/oneoff/` with their paths fixed. **No barrel re-exports in `__init__.py`** (import-time side effects, hidden provenance, heavy transitive imports; the lazy in-function imports that break circular deps stay, commented). The pre-FINAL `experiments/*` folders are a **frozen historical record** — never reorganize them. Log every move/rename in [docs/CLEANUP.md](docs/CLEANUP.md). **Mistakes this project has actually made are catalogued in [docs/TRAPS.md](docs/TRAPS.md) — read it once at session start, and add to it in the same session something bites.**
+A rule keyed on punctuation, word order, or a fixed vocabulary is a **bet on
+writing convention**, and it is the measured reason Codex underperformed. ICE
+was validated on corpora that all share one convention ("people typing at a
+chatbot"), so the bets never looked broken.
 
-## Provenance ledger (standing rule, 2026-07-26)
+**The goal is INVARIANCE, not personalization.** We have no idea how any given
+user writes and no corpus can tell us. The requirement is that the same intent,
+written any way, yields the same decision.
 
-When a run produces an artifact anything downstream depends on — a corpus, a labeled set, a checkpoint, an experiment result — record what produced it in **[docs/PROVENANCE.md](docs/PROVENANCE.md)** *in the same session*. Model repo **and revision SHA**, quantization, serving engine + version, key parameters, row counts, and the decisions taken.
+**The test that works** holds meaning fixed and varies only form: write one
+prompt several ways (± question mark, "ok so"/"like" prefixes, interrogative
+buried, lowercase, typos, terse vs rambling) and measure the **decision-flip
+rate**. A rule that flips is measuring typography. **Apply it to the replacement
+too** — the trained head is not automatically the fix. Parsers that RESOLVE a
+value (a date → a datetime) may stay; lexicons that INFER INTENT must pass
+invariance.
 
-Two reasons this is a rule and not a nicety. **Community model quantizations are not stable references** — they get re-uploaded, revised, or deleted, so `org/model-AWQ` is unverifiable a year later while `org/model-AWQ @ <sha>` is; the SHA is free to read (`ls ~/.cache/huggingface/hub/models--*/snapshots`). And **the paper gets written months after the runs**: reconstructing which weights or which corpus produced a number is archaeology, and the details that matter most are the ones that decay fastest. Record rejected candidates too, with the symptom — that is what stops the next session re-testing a model that was already found broken.
+The measurements, and why firing-rate-by-source is a smell detector rather than
+an acceptance test: `ICE_Architecture.md` §2.6. Roadmap **G28** is the systematic
+sweep and owns the style-variant probe set; **D8** is the worked deletion protocol.
 
-`ICE_Architecture.md` describes the system as it *is*; PROVENANCE.md records what was *done*. They are not substitutes.
+### A silent fallback hides an outage (2026-08-03)
 
-## Git & pushing (standing rule, 2026-07-14)
+When a component substitutes a default for a real answer, **it emits at WARNING
+with the reason — every time, not on first occurrence.** A fallback that fires
+on 100% of calls is not resilience, it is an outage wearing resilience as a
+costume. Check the *rate* before shipping any new warning, and when a subsystem
+produces plausible-but-thin output, verify the model was actually called before
+tuning anything about it. Worked example and corollaries: **TRAPS #11**.
 
-The repo has a **private** GitHub remote (`origin` → `github.com/Deepnar/ice`). **Pushing during normal development is pre-authorized and encouraged** — it's a private backup, so push your work at natural points (end of a session, after a meaningful milestone); you do **not** need to ask each time. Commit habits are unchanged (plain messages, **no AI attribution**; branch off `main` first if the default-branch rule applies).
+### Boy-scout cleanup (2026-07-10)
 
-**Commit message style (standing rule, 2026-08-01):** messages are **impersonal and
-factual** — describe *what changed and why*, in the repository's voice. **Never narrate the
-session**: no "the user asked…", "as requested…", "we decided…", "per our discussion". A
-reader six months from now cares about the change, not the conversation that produced it.
-Subject line ≤ ~70 chars, imperative or noun-phrase; body explains the *why* when it isn't
-obvious. This repo is destined to be public — the log is part of the artifact.
+Every implementation session leaves the files it touches cleaner than it found
+them. Rules and the ledger: [docs/CLEANUP.md](docs/CLEANUP.md) — the short form
+is touched-files only (never a repo-wide reformat), imports sorted and unused
+dropped, dead code and lying comments fixed in place, one-off scripts *moved*
+(never deleted) to `scripts/oneoff/`, and every move logged.
 
-**⚑ THIS REPO IS GOING PUBLIC (standing rule, 2026-08-01).** It is private today, but it
-will be flipped to public as the portfolio/paper artifact. Every session must work as if the
-tree, the docs, **and the commit log** will be read by strangers — recruiters, admissions
-readers, reviewers. Consequences:
-- **Never commit personal content.** Private planning, career notes, conversation corpora,
-  third-party email addresses, credentials, endorsement codes. If it names a real person who
-  didn't consent, or reveals the maintainer's private life, it does not belong in the tree.
-  (Git history is forever: a file committed once and gitignored later is *still public* —
-  the labeled-prompt corpus had to be purged with `git-filter-repo` for exactly this reason.)
-- **⚑ A HISTORY REWRITE MUST REWRITE TAGS, AND `git log` ON `main` CANNOT VERIFY IT
-  (learned the hard way, 2026-08-03).** The `git-filter-repo` purge above rewrote `main`
-  and left `refs/tags/v2-paper-eval` pointing into the *pre-filter* chain. A plain
-  `git clone` fetches tags, so for two days the public repo handed every cloner the full
-  20 MB personal-prompt file. Worse, the notes at the time recorded the local/remote tag
-  mismatch, called **the remote authoritative**, and prescribed `git fetch --tags --force`
-  — which overwrote the good local tag with the bad remote one. **Two rules follow:**
-  (1) verification is `scripts/git/check_history_clean.sh`, which scans **`--all`** (tags
-  included) and is wired to a `pre-push` hook via `scripts/git/install_hooks.sh` —
-  `--clone` checks what the public actually receives, which is the only check that cannot
-  lie; (2) **never resolve a tag mismatch by forcing one side to win without first asking
-  which side predates the rewrite.** Run `install_hooks.sh` once per clone.
-- **README.md is a first-class deliverable, not an afterthought.** It is the first and often
-  only thing a visitor reads. **Whenever a session changes what the project *is* or how it is
-  run — a new subsystem, a changed entry point, new setup steps, a new headline result — update
-  `README.md` in the same session**, the same way `ICE_Architecture.md` is kept in sync.
-- The public release is gated on a genuinely good README. Until then the repo stays private.
+### Git, commits, and the public release
 
-**Commit granularity (standing rule, 2026-08-01):** **many small, focused commits — never
-one massive end-of-session commit.** Work as normal, but when committing, split by *concern*
-rather than by session: one logical change per commit (e.g. the migration, then the worker,
-then the docs, then the tests). This keeps each message short and specific, creates multiple
-restore points, and keeps `git bisect`/`git revert` usable. If a commit message needs
-bullet points to list unrelated changes, it should have been several commits. **Exception — freeze at the experiment phase:** once **SEMIFINAL (Z1)** or **FINAL** begins (the last / second-last roadmap phases — they generate personal data/results and are the pre-public-release cutoff), **stop pushing** until the user explicitly says otherwise. Until then, pushing is not a problem.
+The repo has a **private** GitHub remote (`origin` → `github.com/Deepnar/ice`).
+**Pushing during normal development is pre-authorized and encouraged** — it is a
+private backup, so push at natural points without asking.
+
+- **Message style:** impersonal and factual — *what changed and why*, in the
+  repository's voice. **Never narrate the session**: no "the user asked…", "as
+  requested…", "we decided…". Subject ≤ ~70 chars; body explains the *why* when
+  it is not obvious. **No AI attribution / Co-Authored-By trailer.**
+- **Granularity:** many small, focused commits split by *concern* — never one
+  end-of-session commit. If a message needs bullets to list unrelated changes,
+  it should have been several commits.
+- **Freeze at the experiment phase:** once **SEMIFINAL (Z1)** or **FINAL**
+  begins, **stop pushing** until the user says otherwise.
+
+**⚑ THIS REPO IS GOING PUBLIC.** Private today, but it will be flipped as the
+portfolio/paper artifact. Work as if the tree, the docs **and the commit log**
+will be read by strangers.
+
+- **Never commit personal content** — private planning, career notes,
+  conversation corpora, third-party emails, credentials. Git history is forever:
+  a file committed once and gitignored later is *still public*.
+- **A history rewrite must rewrite TAGS, and `git log` on `main` cannot verify
+  it.** Verification is `scripts/git/check_history_clean.sh`, wired to a
+  `pre-push` hook by `scripts/git/install_hooks.sh` (**run once per clone**);
+  `--clone` checks what the public actually receives. Never resolve a tag
+  mismatch by forcing one side to win without first asking which side predates
+  the rewrite. Full story: **TRAPS #12**.
+- **README.md is a first-class deliverable** — the first and often only thing a
+  visitor reads. Update it in the same session as anything that changes what the
+  project *is* or how it is run. The public release is gated on a good README.
+- **⚑ README links the VENUE-AGNOSTIC paper, never a venue submission.**
+  `experiments/paper/` holds one canonical paper (`ICE_paper_v2.tex`, generic
+  `article` class) plus venue twins (`_tmlr`, `_tist`, …). Only the canonical one
+  may be linked or offered publicly — a twin carries that venue's branding, line
+  numbers, placeholder volume numbers and a dummy DOI, which on a public repo
+  reads as *"published there"*, a false claim about work merely submitted. This
+  has happened once and was reverted. When a twin's content is better,
+  **back-port it into the canonical file**; never repoint the link.
+- **README and ICE_Architecture follow the same contract.** Both describe `main`
+  as it is now, both updated in the same session as the change that invalidates
+  them. README is the outside view (what ICE is, what it does, headline numbers,
+  how to run it) and stays short; ICE_Architecture is the inside view and carries
+  the detail. A number appearing in both must change in both or neither. Where
+  either quotes evaluation results, say which snapshot (the paper's numbers are
+  the `v2-paper-eval` tag, not `main`).
+
+### End every session by rewriting docs/HANDOFF.md
+
+One file, overwritten in place, committed as the session's last commit. It
+carries the datetime, what the *previous* session was told to do next (so the
+next session can compare intent against the git log), current position, the
+decisions made, and anything that would otherwise be lost. **It is state, never
+a queue** — the roadmap is the queue, and a handoff that starts listing work
+becomes a second source of truth that drifts. Format and rules are in the file.
 
 ## Commands
 
-Package/deps are managed with **uv** (Python 3.11.9, pinned in `.python-version`). Always run project code through `uv run`.
+Package/deps are managed with **uv** (Python 3.11.9, pinned in `.python-version`).
+Always run project code through `uv run`, **from the repo root** (model paths and
+`.env` resolve relative to it — see TRAPS #10).
 
 ```bash
-./ice          # start everything: docker (postgres+redis), vLLM bg model, celery worker+beat, uvicorn proxy; tails logs — use only when testing the whole service. NOTE: ./ice/stop_ice/setup.sh are dev scaffolding with a decided fate (ROADMAP Track-F end-state): replaced by one packaged app, PLUS a separate headless boot path for ICE-as-MCP (E7); the vLLM bg server also leaves the default stack (shared-first decision, C7). Keep changes to these scripts thin.
+./ice          # start everything: docker postgres, uvicorn proxy; tails logs
 ./stop_ice     # stop all services
 ./setup.sh     # first-time install (Arch/CachyOS): pacman deps, pyenv, uv sync, docker up, alembic upgrade, model pull
 
 # Individual services (what ./ice runs under the hood)
 docker compose -f docker/docker-compose.yml up -d
 uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8000
-uv run celery -A src.workers.celery_app worker -B --loglevel=info   # -B also runs beat
 
-# Database migrations (SQLAlchemy sync + Alembic; DB is postgres+psycopg on localhost:5432/ice_db)
+# Database migrations (SQLAlchemy sync + Alembic; postgres+psycopg on localhost:5432/ice_db)
 uv run alembic upgrade head
-uv run alembic revision --autogenerate -m "message"
+uv run alembic revision --autogenerate -m "message"   # ⚠ read every generated migration — TRAPS #14
 ```
 
-Logs go to `logs/{proxy,celery,vllm_bg}.log`.
+There is **no Celery, no Redis and no separate worker process**: C7 replaced
+them with an in-process maintenance runtime that the proxy owns. Background
+model mode is `shared` by default (reuses the main Ollama model); `dedicated`
+starts a separate vLLM on :8002 and is a manual, power-user path.
+
+`./ice`, `./stop_ice` and `setup.sh` are **dev scaffolding with a decided fate**
+(Track F end-state): replaced by one packaged app, plus the separate headless
+boot path for ICE-as-MCP that shipped with E7 (`ice-mcp`). Keep changes to these
+scripts thin. Logs go to `logs/{proxy,vllm_bg}.log`.
 
 ### Tests
 
-Tests in `tests/` are **standalone scripts, not a pytest suite** — they `sys.path.insert` the repo root and run directly against a live Postgres (several `TRUNCATE` the tables). Run one with:
+Tests in `tests/` are **standalone scripts, not a pytest suite** — they
+`sys.path.insert` the repo root and run directly against a live Postgres. The
+exception is `tests/smoke/` and a few `test_*_freeze`/`invariants` files, which
+are pytest.
 
 ```bash
-uv run python tests/test_retrieval.py
+uv run python tests/test_retrieval.py     # a behavioural suite
+uv run pytest tests/smoke -q              # the rails — run before every commit
 ```
 
-They require the docker services (postgres/redis) up and, for pipeline tests, Ollama/vLLM running. There is no lint config; match existing style.
+They need docker up, and for pipeline tests Ollama running. No lint config;
+match existing style. **Suites leak rows and the residue fails a *different*
+suite later — TRAPS #6, #15, #16.** Check the store before debugging a strange
+scoping or retrieval failure.
 
-## Architecture
+## Code map
 
-### Request lifecycle (the core flow in `src/api/main.py`)
+Where things live. (How they *work* is `ICE_Architecture.md`'s job — kept as
+pointers here so this section cannot rot into a description of a deleted system,
+which is exactly what happened to its predecessor.)
 
-**Pre-flight (synchronous, latency-sensitive):**
-1. Extract latest user message → **DI3** (`src/classifier/di3.py`), a heuristic "Dynamic Intent Inferencer" that tries to classify from signals and returns `None` to fall back to the ML model.
-2. **PyTorch classifier** (`src/classifier/classifier.py`) — an MLP head over a frozen `Qwen/Qwen3-Embedding-0.6B` encoder (truncated to 384 dim; live checkpoint `models/classifier/ice_classifier_v3_qwen_ft3.pt`). Outputs 25 logits → 11 topic + 11 intent (multi-label sigmoid) + 3 context-reliance (softmax) labels. Schema in `data/labeled/label_schema.json`.
-3. If context reliance is `Long_Term_Memory` (or confidence < fallback threshold), invoke the **Hybrid Retrieval Orchestrator** (`src/retrieval/orchestrator.py`), which blends BM25 + vector + codex-graph + procedural sources with **intent-dependent weights** (see the weight tables around `orchestrator.py:339`).
-4. **Prompt Assembler** (`src/api/prompt_assembler.py`) builds the system prompt from retrieved `ContextFragment`s.
-5. **Model Registry** (`src/model_registry/registry.py`, `find_best_model`) picks the Ollama model from tags, with session stickiness in `SESSION_STATE`.
-6. Forward to Ollama, stream back as SSE.
+| Path | Holds |
+|---|---|
+| `src/api/main.py` | The request lifecycle: classify → decide → retrieve → assemble → route → stream → post-flight. |
+| `src/api/config.py` | **Pydantic Settings**, loaded from `.env` — every tunable value (G9 consolidated ~160 of them here). The DB URL is duplicated in `alembic.ini`. |
+| `src/api/prompt_assembler.py` | Builds the system prompt from retrieved fragments, slots, bookmarks, summaries. |
+| `src/api/memory_decision.py` | B2 — the one place the retrieve/don't-retrieve decision is made. |
+| `src/api/routers/` | `memory_slots.py`, `user_control.py`, `adapter.py` — thin adapters over `src/services/`. |
+| `src/classifier/` | The MLP head over a frozen `Qwen/Qwen3-Embedding-0.6B` encoder at native 1024 dim. Schema v2: **27 logits — 11 topic + 12 intent (multi-label sigmoid) + 4 independent context sigmoids**. Live checkpoint in `settings.classifier_model_path`; schema in `data/labeled/label_schema.json`. |
+| `src/retrieval/orchestrator.py` | The hybrid retrieval legs, RRF fusion, scoping, budgeting. Leg weights live in `src/retrieval/leg_weights.py` + settings. |
+| `src/memory/models.py` | Every ORM model, one file. `EpisodicMemory` (+pgvector), `Codex*` (the knowledge graph), `ProceduralMemory`, `ContextCluster`, `MemorySlot`, documents, plus operational tables. DB is **pgvector** (`pgvector/pgvector:pg16`). |
+| `src/workers/runtime.py` | The in-process maintenance runtime. **`JOBS` is the source of truth for what runs and how often** — register a new background job there. |
+| `src/workers/` | The jobs themselves: `post_flight` → `codex_extractor` / `procedural_extractor`; periodic `clustering`, `decay`, `reflection`, `batch_summarizer`, `maintenance_agent`, `fine_tune`. |
+| `src/services/` | HTTP-free service layer shared by the REST routers and the MCP server. |
+| `src/mcp/server.py` | ICE-as-MCP (`ice-mcp`), with its own headless boot path. |
+| `src/paths.py` | Anchors every model/data path (G31); `ICE_HOME` overrides. |
 
-**Post-flight (async, accuracy-sensitive):** After the stream, a FastAPI `BackgroundTask` stores the raw turn to episodic memory + embeddings and publishes a `CHAT_COMPLETED` event to Redis. Celery tasks then take over (see below).
-
-Guiding principle in the code: **"memory is earned"** — a turn is stored losslessly only if dense enough (`lossless_flag` / `inject_raw` set by the post-flight evaluator); otherwise it's summarized by the background model.
-
-### Background workers (`src/workers/`, Celery on Redis)
-
-The task graph is wired in `src/workers/celery_app.py` — the `include=[...]` list is the source of truth for active workers, and `beat_schedule` defines the cron cadence. Key stages: `post_flight` (density eval + summary) → `codex_extractor` (entity triplets → knowledge graph) and `procedural_extractor` (recurring behavior patterns). Periodic: `clustering`, `sentinel_monitor`, `decay`/`codex_decay`/`procedural_decay`, `reflection`, `batch_summarizer`, and a weekly `fine_tune` of the classifier. **When adding a worker, register it in both the `include` list and (if scheduled) `beat_schedule`.**
-
-### Memory schema (`src/memory/models.py`)
-
-All ORM models live in one file. The memory stores form the system's substance: `EpisodicMemory` (raw turns + pgvector embeddings), `Codex*` (entities/edges/events/snapshots — the knowledge graph), `ProceduralMemory`, `ContextCluster` + `EpisodicClusterLink` (user-scoped memory clusters), `MemorySlot`, `RAGDocument`/`RAGChunk`, `Sentinel*`, plus operational tables (`IdempotencyKey`, `ColdStorage`, `ReviewQueue`, session replay/summaries). DB uses the **pgvector** extension (`pgvector/pgvector:pg16` image).
-
-### API routers (`src/api/routers/`)
-
-Beyond `/v1/chat/completions` and `/health`: `memory_slots.py` (`/memory-slots`) and `user_control.py` (`/user-control`) — the human-oversight layer for bookmarks, tag overrides, conversation scope assignment, cluster management, the review queue, and model-registry editing.
-
-## Config and conventions
-
-- Runtime config is **Pydantic Settings** in `src/api/config.py`, loaded from `.env`. Model paths (e.g. `classifier_model_path` currently `models/classifier/ice_classifier_v3_qwen_ft3.pt`), thresholds, `ollama_base_url`, and `background_model_mode` (`dedicated` runs a separate vLLM on port 8002; `shared` reuses the main LLM) all live there. The DB URL is duplicated in `alembic.ini`.
-- Logging is **structlog** (`ice.api`, `ice.*` loggers), consistent with the "no silent failure" principle — surface what the system decided, don't swallow it.
-- Trained artifacts (`models/`), datasets (`data/`), and one-off `scripts/` are versioned; classifier checkpoints are suffixed by version/fine-tune generation. Update `config.py` when promoting a new checkpoint.
+Logging is **structlog** (`ice.*` loggers), consistent with the no-silent-failure
+principle: surface what the system decided, don't swallow it. Trained artifacts
+(`models/`), datasets (`data/`) and `scripts/` are versioned; classifier
+checkpoints are suffixed by version/fine-tune generation, and `config.py` is
+updated when one is promoted.
