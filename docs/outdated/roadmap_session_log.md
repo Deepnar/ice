@@ -136,3 +136,74 @@ PROVENANCE.md.
 > *Prior re-take (after D8/A9a/E12): 51 → 54 — three closed, D8 discharged as a spec item, six opened
 > (T5, G28, and G29/G30/Z2 from the audits).*
 
+---
+
+## The ①–⑥ triage of the open items (2026-07-28), superseded 2026-08-04
+
+Archived 2026-08-10. Replaced by the PRE-FINAL / POST-FINAL split in the
+roadmap's preamble, which triages the same items on the axis that matters —
+whether an item must be true before FINAL measures the system. The two standing
+decisions this block carried (Z1's scope confirmation, and where the background
+model gets chosen) were moved into the Z1 entry.
+
+**Previously ① (claimable) is empty** — the three items B1 unblocked (D8, A9a, E12) all landed
+2026-07-28. The next hands-on work is ② below.
+
+**② The real pre-Z1 queue** (open, unblocked, and Z1 needs them done):
+- ~~**C6** session_id per sitting + scope-semantics rework~~ **DONE 2026-07-28** (migration
+  `a1f6b8d94c22`, 40/40): closed vocabulary, `manual` as a real closed-set mode that beats the
+  automatic picker, conversation+cluster exclusion in every mode, one shared scope resolver for
+  both request paths (the MCP copy had drifted and leaked global memory into incognito pulls),
+  `custom_filter` dropped. Two G29 clusters closed in the same file-pass. **Track F still owes the
+  picker UI** — the fields it writes to all exist now.
+- ~~**C12** RAG leg completion~~ — **DONE as far as the backend goes.** C12a shipped 2026-07-28 (`27f64eb`, migration `5fe5ad26480b`): documents live through the pipeline as their own conversations, opt-in everywhere, and the v1 RAG leg + its tables + the drop zone are deleted. **E10 is unblocked.** **C12b was RE-HOMED TO TRACK F on 2026-07-28e** — the in-chat paste split is free at the browser's `paste` event and impossible in a proxy that receives one flat string, so it is composer work, not `post_flight` work; see the C12 entry and [specs/C12_documents.md](specs/C12_documents.md) §1b. One backend bug fell out of that session and was fixed (`b90ab77`, migration `7c4d19ab35e2`): a pasted blob could never finish ingesting through REST or MCP.
+- ~~**C16** second half~~ **DONE 2026-07-29** — residual coverage replaces fill-to-cap, one real token count everywhere, the ledger, the sitting-bounded recent window. ⚠ It measured that ICE is **+6.6% above** the vector baseline once Exp 2's one pathological conversation is excluded, and that the ruler used for that comparison favoured ICE. **Z2 owns proving or restating "below baseline".**
+- **Track G's real bugs**: G4 (GPU gating), G5 (SSE resiliency), G6 (indexes via migrations),
+  G7 (idempotency), G8 (sticky state), G11 (batch-summariser coverage), G12 (dynamic timeouts),
+  G13 (drop-zone duplicate classifier), G24 (async hygiene), G25 (log privacy), G20 (dead-code
+  sweep), plus G15/G17/G19/G27. "Opportunistic per phase" by standing rule — but they are real work
+  and they are *not* optional before a system gate.
+- **⚠ G9 (constants → configuration) is Z1-prep's OWN first commit** — not a prerequisite you do
+  beforehand, it opens that phase.
+
+**③ Post-FINAL by design** (implementation-order step 12 — do NOT pull forward): all of **Track F**
+(F1–F16, 14 items — the whole frontend era), **B3** (learned routing), **C13/C14** (caching +
+KV-cache). **F12** is separately parked behind B3. **Confirmed by the user 2026-07-28** as part of
+resolving Z1's scope: Track F is large enough (14 items + a mandatory design conversation + 8 UI
+surfaces owed to other tracks) that it stays after FINAL.
+
+**④ Scheduled, not blocked:**
+- **G29** (drift audit) and **G30** (test blind spots) — do these **inside the ② phase**, one pass per
+  file alongside whatever else touches it, rather than as a separate sweep. G29's scope leak and
+  `decision_add` were the two worth pulling forward on their own and **landed 2026-07-28
+  (`033b5b7`)**; its other nine clusters stay on the per-file plan.
+- **T5** (wire `Temporal_Recall` into Track T) — **explicitly post-Z1 by user decision.** Both halves
+  are retrieval thresholds; landing them before Z1 would mean Z1 tuning a system that just moved.
+- **G28** (style invariance) — **runs inside Z1's coverage matrix**, not before it.
+- **Z2** — ⚠ **A9b (2026-08-03) HANDED Z2 A FOURTH: a THREE-ARM comparison for pre-flight codex activation.** Not "try a fix" — three named candidates, measured against each other, because the shipped state has a known price and the two alternatives fail in different directions.
+  **The problem, measured.** Pre-flight entity extraction is what activates the codex leg: `_codex_graph` extracts entities from the prompt, matches them to graph nodes, and **returns `[]` if nothing matched**. The micro-NER extracts **nothing at all from 48 of 58 short user prompts** — they are lowercase and conversational (`what did we decide about the codex confidence thing`), and a context-free per-token tagger keys on spelling (it scores Jaccard **0.000** under a pure lowercase change). So on most short prompts the graph is never consulted.
+  **The three arms:**
+  | arm | mechanism | measured today | cost | risk |
+  |---|---|---|---|---|
+  | **A — micro-NER alone** *(SHIPPED)* | status quo | **48/58** prompts dead, 58 node hits | none — shares the loaded encoder | the graph is silent on most short prompts |
+  | **B — union (micro + NuNER)** | run both, concatenate the whitelists | **30/58** dead, **94** node hits | **1.7 GB resident on the SYNCHRONOUS path** + ~16 ms/prompt; breaks the property that pre-flight adds no VRAM (user's explicit reason for arm A) | a second model on the latency-critical path, and it is the one thing G4's budget cannot absorb |
+  | **C — embedding fallback, no second model** | when the extractor returns nothing, match the **prompt embedding** against entity names/payloads instead of returning `[]` | **unmeasured** | ~zero — the prompt is *already embedded* on the pre-flight path, and `_match_entities_by_similarity` / `_match_entities_by_payload` / `_codex_enumeration` already exist; they are simply gated behind "NER produced strings", a precondition an empty extractor can never meet | whole-prompt-vs-entity-name similarity is a **different** comparison from entity-name-vs-entity-name — it may match broadly and drag in irrelevant anchors, which is precisely why it must be measured rather than assumed |
+  **The measure is task-grounded, not hit-rate.** Node-hit counts got us this far but they are a proxy: the judge-free question is *did a probe whose answer required a graph fact fail because the codex leg never fired* — run per arm, over the same probes. A prettier anchor set that does not improve answers is worth nothing (the same rule the A9b evaluation used).
+  **Do NOT re-derive the baselines** — arms A and B are already measured, in [PROVENANCE.md](PROVENANCE.md). Z2 owes arm C's numbers and the three-way task-grounded comparison. Note that A and C are not exclusive: C is a *fallback*, so it can also sit under B.
+  ⚠ **A FIFTH THING, and it is one NUMBER that decides whether [C13](#c13)/[C14](#c14) are worth building at all (user, 2026-08-03).** Measure **adjacent-turn fragment overlap**: the Jaccard of the retrieved fragment-id set at turn N against N−1, N−2, … across a real session. Z2 already replays a real conversation turn by turn, so this is nearly free here and impossible to get anywhere else. Report it alongside **order stability** (do the same fragments come back in the same sequence?), because content overlap without order stability still destroys the KV prefix. **If overlap is high, C13/C14 stop being speculative optimisation and become a measured win; if it is low, both shrink and nobody builds a cache.** ⚠ Also **add a reasoning-ON arm for ANSWERING** (user, 2026-08-03): the paper experiments ran with reasoning off throughout, and while reasoning is now measured as *fatal* for structured background extraction, its effect on answer quality has never been tested — a different question, and Z2 already re-runs a scaled-down Exp 2, so it is one more condition on a run that is happening anyway.
+- **Z2** — ⚠ **C16 (2026-07-29) HANDED Z2 THREE THINGS**, by user decision: (1) turn `retrieval_coverage_enabled` and `retrieval_set_floor_enabled` **on** and measure them against the 311 ground-truth probes — the direct, judge-free question being *did a dropped fragment hold the answer turn*; (2) build the **paired ICE-vs-baseline token audit** — same probe, both arms, the same REAL tokenizer, reported as a **median and a win-rate, never a mean of means**, which is exactly what manufactured Exp 2’s 25.2%; (3) report **per-`leg`**, now that fragments carry the specific mechanism rather than the `episodic` rollup. C16 also measured that ICE costs **+6.6% MORE** than the baseline once `ice_dev` is excluded, so Z2 is where “below baseline” is either achieved or honestly restated. (the read-the-output pass, **now also a scaled-down Exp2 re-run** — shape decided 2026-07-28,
+  see the entry; it is deliberately **NOT** a rehearsal of FINAL) — **between Z1 and FINAL.** After Z1 because reading an untuned
+  system's output tells you about the tuning; before FINAL because everything it finds is a change
+  and FINAL must measure a frozen system.
+
+**⑤ Gated on evidence, not effort** (they wait for a measurement, so "unchecked" is correct until a
+gate trips): **A9b/A9c** (NER), **B4**'s feedback half (needs F9's UI, post-FINAL), **H1–H5**
+(research follow-ups). — **B5 (ensemble) is CLOSED, 2026-07-28, user decision**: B1's label-ceiling
+finding kills it, since an ensemble cannot exceed supervision its members share and every member
+would train on this same corpus. Reopening is free if supervision from outside the two labelers ever
+arrives.
+
+**⑥ Bookkeeping — resolved but still showing as unchecked:** **D3**'s backend half is discharged by
+D1's `agent_action` / `agent_run_summary` structlog events; only F5's SSE promotion remains, which is
+post-FINAL. *(E5 was cleared in the previous inventory.)*
+

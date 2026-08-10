@@ -31,17 +31,19 @@
 
 **Cluster ③ of the route into Z1: [G9](#g9) · [G36](#g36) · [G37](#g37) done. [G30](#g30) is next, then [G28](#g28) — and G28 runs INSIDE Z1's coverage matrix, so it must not be pulled forward.**
 
-- **Inventory: 50 open items**, all of them top-level `- [ ]` lines that you can
+- **Inventory: 51 open items**, all of them top-level `- [ ]` lines that you can
   count. The split into PRE-FINAL research work and POST-FINAL productization is
   below and is the triage that matters — the raw count reads as far more
   remaining work than actually gates the experiments.
-  - ⚠ **The count moved 52 → 50, and NOT because work was finished.** The
-    2026-08-10 cleanup found **[G34](#g34)** and **[G35](#g35)** counted in the
-    PRE-FINAL list but **never written as entries** — opened 2026-08-08 as two
-    summary lines in a preamble note, with G34's measurements filed in
-    PROVENANCE, and no item to work from. Both now have entries. The old "52
-    unchecked / 48 mechanical" split existed because the counted set and the
-    written set had drifted; they now agree, which is the number to keep true.
+  - ⚠ **The count moved 52 → 51, and NOT because work was finished.** The
+    2026-08-10 cleanup found **three items that were counted but never written**:
+    **[G34](#g34)** and **[G35](#g35)** (opened 2026-08-08 as two summary lines in a
+    preamble note — G34's measurements were even filed in PROVENANCE) and
+    **[G27](#g27)** (announced 2026-07-25 as "new G27 (shared-mode bg model bug)",
+    with a decision-complete description sitting in
+    [specs/G_mechanical.md](specs/G_mechanical.md) the whole time). A session told to
+    do any of the three would have found nothing. All three now have entries, and the
+    counted set and the written set agree — which is the number to keep true.
 - **Finished items live in [ROADMAP_DONE.md](ROADMAP_DONE.md)** — 70 of them,
   verbatim, each reachable from a one-line stub here that keeps its anchor. The
   completion notes are where look-ahead, propagation and validation are
@@ -59,31 +61,12 @@
 
 > ---
 >
-> ## 📋 INVENTORY RE-TAKEN 2026-08-04 → **56 unchecked**, and split by PRE-FINAL vs POST-FINAL
+> ## 📋 THE SPLIT — PRE-FINAL vs POST-FINAL
 >
-> **↳ 2026-08-08: 56 → 54, then → 56 again.** Cluster ①'s first two closed — **[G31](#g31)** and **[G5](#g5)** — and **two new items opened from a user question about codex traversal**: **[G34](#g34)** (relation detection returns 5 relations for `"ok"` — 197/197 above its floor; the detector cannot say "no", and it owns the pure-Python cosine that costs 12 ms of pre-flight per turn) and **[G35](#g35)** (traversal is relation-blind with no fan-out limit, so codex fragment size tracks graph topology — fine on an empty store, not on Z2's corpus). **[G28](#g28)** also gained the uncatalogued `func_words` bet plus a *measurably false* docstring claim in `_stem`. Both new items are **pre-FINAL**: they change what a measured retrieval result means.
-> **[G7](#g7)** then closed by verification (constraint already enforced), and a
-> previously-unknown C10 cascade gap was found and fixed. **Cluster ② then closed the same
-> day** — G33 and G11 both shipped — so the net is **53**, with the mechanical top-level
-> `- [ ]` count at **49**.
-> **↳ later the same day: cluster ③ opened and [G9](#g9) CLOSED**, with **[G36](#g36)** opened
-> from what its sweep found — net unchanged at **53**, mechanical count still **49**. G9's own
-> entry was wrong about its subject in three directions (the **sixth** consecutive entry to be),
-> and the real knob population was ~160 rather than the four it named.
-> **↳ 2026-08-09: [G36](#g36) AND [G37](#g37) both CLOSED — 53 → 52, mechanical count
-> 49 → 48.** G36's entry was wrong about its own subject too (the **seventh** consecutive
-> one): 4 of its 22 handlers were on dead code, only 11 rolled back, and it missed the two
-> that fail OPEN, which were the actual bug. G37 was the third fail-open — opened separately
-> because it is a behaviour decision rather than a swallowed failure, and closed the same day
-> once the user made the call: a scope that resolves to no batches now reads **nothing**.
-> **[G12](#g12) is down to two sites** (the third was inside the deleted HyDE rewriter), and
-> **[G19](#g19) now has a 3-for-3 record** of ablation flags that toggle nothing.
-> **[G25](#g25)** stays open but **left the critical path**: it was re-measured and two of its
-> premises are false (no prompt/response text in the logs; `logs/` has never been committed,
-> so it is not a public-repo exposure). **[G12](#g12)** was audited and stays open with
-> concrete scope — three LLM call sites still on a hardcoded 15 s, two of them silent.
-> Mechanical count of top-level `- [ ]` lines: 54 → 52; the 56 basis above additionally counts
-> the sub-item lines A9b/A12/G4(b) deliberately kept unchecked.
+> **51 open items.** The count has been re-taken after every phase since 2026-07-28,
+> and the trail of re-takings is in
+> [outdated/roadmap_session_log.md](outdated/roadmap_session_log.md) and `git log -p` —
+> a stack of superseded counts is not information. What matters is the split below.
 >
 > **Why this split exists (user, 2026-08-04):** the list reads as one queue, but it is two.
 > Some of it is **research** — it must be true before FINAL measures the system, because
@@ -92,7 +75,7 @@
 > number in the paper. Mixing them makes the remaining work look far larger than the part
 > that actually gates the experiments.
 >
-> ### 🔬 PRE-FINAL — the research gate (~24 items). Nothing here may slip past FINAL.
+> ### 🔬 PRE-FINAL — the research gate. Nothing here may slip past FINAL.
 >
 > - **Gates, in order:** **[Z1](#z1)** (every piece tested in isolation on real prompts) →
 >   **[Z2](#z2)** (whole system, batched spot checks, read by eye, repeated) → the fix pass →
@@ -121,7 +104,7 @@
 > - **FINAL's own machinery:** **[G19](#g19)** (simulation-harness upkeep), **[H4](#h4)**
 >   (probe realism).
 >
-> ### 🏭 POST-FINAL — productization and deferred-by-design (~32 items). Not a backlog debt.
+> ### 🏭 POST-FINAL — productization and deferred-by-design. Not a backlog debt.
 >
 > - **All of Track F** (F1–F3, F5–F9, F11–F13, F15, F16) — the packaged app, the frontend,
 >   the graph view, settings exposure, cloud models, the hardware advisor. **[F2](#f2)** and
@@ -146,187 +129,55 @@
 > checked off or kept; and anything Z1/Z2 *find* is pre-FINAL by definition regardless of
 > which list it started in.
 >
-> ### ⚑ WHEN THE MODEL GETS CHOSEN — decided 2026-08-04
->
-> **The model choice happens INSIDE Z1, as a sweep across the LLM-touching isolation tests —
-> not as a separate benchmark before them.** The user posed it as an either/or (pick first, or
-> test every model per component); this is the second, and it is strictly better for one
-> reason: **Z1's isolation tests and A12's benchmark are the same measurement.** Running each
-> LLM-touching component across the candidate shortlist yields a per-component ranking, which
-> a single aggregate score cannot give — and per-component is what **[A12](#a12)**'s
-> "ONE model, never two" decision actually needs, because a single winner has to be checked
-> for being catastrophically bad at *one* job, not just good on average.
->
-> **This session is the existence proof:** the G32/a1 evidence run *was* a Z1-shaped isolation
-> test of the extractor, and it doubled as a two-arm model/configuration comparison at a cost
-> of ~7 minutes per arm on a 4B. Nothing extra had to be built.
->
-> Mechanics: only the **LLM-touching** components sweep (extraction, summarisation, cluster
-> naming, reconciliation, blob-kind, slot proposals, motifs, decisions). Everything else —
-> retrieval legs, scoping, budget arithmetic — is model-independent and runs once. Cost is
-> `models × LLM-components`, held down by the same rule recommended for Z2's corpus: **small,
-> chosen probe sets per component**, because these runs find failures rather than estimate
-> effect sizes. **Prerequisite already met:** A12 required constrained decoding to land first
-> (otherwise the benchmark measures which model is best at *not* being constrained) — that
-> shipped with G32/a1 on 2026-08-04.
->
 > ### 🧭 THE ROUTE INTO Z1 — three clusters, in this order (decided 2026-08-04)
 >
-> Grouped by *what breaks if you skip them*, not by track letter. The through-line: G32/a1
-> fixed what happens to facts **after** the model returns them; these are the two sides of
-> that — whether the input was intact, and whether the output is clean — plus the machinery
-> Z1 needs to exist before it can measure anything.
+> Grouped by *what breaks if you skip them*, not by track letter: whether the input to a
+> measurement was intact, whether its output is clean, and whether the machinery Z1 needs
+> exists at all.
 >
 > **① MAKE THE INSTRUMENT TRUSTWORTHY — ~~[G31](#g31)~~ · ~~[G5](#g5)~~ · [G25](#g25).**
-> **G31 and G5 DONE 2026-08-08** (`93e997f`/`33dfeb6`/`c916812`, `2c6a94d`); **G25 is
-> re-measured and stays open — read its entry, two of its premises are false.**
-> Each of these makes a *measurement* lie or leak, and Z1's whole job is measuring components
-> in isolation. Fixing them after Z1 means re-running Z1.
-> - ~~**[G31](#g31) first**~~ **DONE.** It was worse than written: the entry named three sites,
->   there were **six**, and the unlisted one was `.env` itself — outside the repo root
->   pydantic-settings found no file and every setting took its code default, moving
->   `confidence_fallback_threshold` 0.5 → 0.75 and thereby changing *which retrieval path ran*.
->   One `src/paths.py` now anchors everything, with `ICE_HOME` as Track F's / E7's override.
-> - ~~**[G5](#g5)**~~ **DONE**, and it also had an unlisted half that was the damaging one: the
->   primary and fallback streams shared one chunk list, so the primary's truncated tail spliced
->   onto the fallback's first line and **both** models' content was dropped in silence.
-> - **[G25](#g25) — ⚠ THE PREMISE CHANGED, DO NOT BUILD FROM THE OLD TEXT.** Measured
->   2026-08-08 on a real turn: **zero** prompt or response text in the logs across 18 event
->   types; the hot path already logs counts by design. And it is **not** a public-repo
->   exposure — `logs/` is gitignored and `git ls-files logs/` is empty, so no log has ever been
->   committed (the earlier "raw prompts in logs, and the repo is public" framing here was
->   wrong and is retracted). What remains is a handful of derived fields in **background
->   workers**, which an empty store barely exercises. **Re-measure against a populated store —
->   that is [Z2](#z2)'s condition — then scope the toggle.** It no longer blocks Z1.
+> Each makes a *measurement* lie or leak, and Z1's whole job is measuring components in
+> isolation — fixing them after Z1 means re-running Z1. **G31 and G5 DONE 2026-08-08**
+> (records in [ROADMAP_DONE.md](ROADMAP_DONE.md)); both were worse than their entries said.
+> **[G25](#g25) stays open but LEFT the critical path** — re-measured 2026-08-08 and two of
+> its premises are false. ⚠ **Read its entry; do not build from its old text.**
 >
 > **② THE CODEX WRITE PATH'S REMAINING HOLES — ~~[G33](#g33)~~ · ~~[G11](#g11)~~ · ~~[G7](#g7)~~.**
-> **CLUSTER ② IS COMPLETE (2026-08-08).** G33 `b61e840`, G11 `b946b1b`+`0153ccc`
-> (migration `d5c81a37e9b2`), G7 closed by verification. **All three entries were wrong about
-> their own subject** — G33's stated mechanism was false, G11 needed a schema change rather
-> than the one-line widening its spec prescribed, and G7's missing constraint already existed.
-> A fourth hole was found in passing and fixed: C10's cascade did not sweep
-> `codex_relation_gaps` (`7177390`). Next is ③.
-> - ~~**[G33](#g33) needs a DECISION**~~ **DECIDED (user, 2026-08-08): make it answer.** Not
->   creating the node would have removed the edge, its expiry event, and therefore any T4
->   timeline for a property change — the case T4 exists for. Worked example: `kael --role→ fire mage` stores the property *and* creates a
->   `fire mage` node whose payload is empty forever. It is still a matchable pre-flight
->   anchor, `orchestrator.py:1530` then skips it for having an empty payload, so the anchor
->   slot is spent for nothing and may displace a real entity. Already pinned as a known leak
->   in `test_codex_write_path.py`.
-> - ~~**[G11](#g11)**~~ **DONE.** It needed a migration, not a predicate tweak: there was no
->   marker recording what had already been summarised, so the worker re-ran the LLM over the
->   same turns every 2 hours and the retrieval leg injected the duplicates. Coverage marker
->   first, then the age widening.
-> - ~~**[G7](#g7)**~~ **CLOSED 2026-08-08 by verification — the unique constraint was
->   already there and a duplicate insert already raises `IntegrityError`.** The entry's
->   "informational only" claim was simply wrong; nothing was owed.
-> - **NEW, found 2026-08-08 and FIXED (`7177390`): C10's cascade did not sweep
->   `codex_relation_gaps`.** The ledger arrived with G32/a1 after the cascade was written
->   and has no FK, so deleting a conversation left rows holding the subject, object and
->   the model's wording — raw content from turns the user asked to be forgotten — and the
->   manifest never mentioned them. Same subsystem as this cluster, which is how it surfaced.
+> **COMPLETE 2026-08-08.** All three entries were wrong about their own subject — G33's stated
+> mechanism was false, G11 needed a schema change rather than the one-line widening its spec
+> prescribed, and G7's "missing" constraint already existed. A fourth hole was found in passing
+> and fixed: C10's cascade did not sweep `codex_relation_gaps`, leaving raw content from turns
+> the user had asked to forget.
 >
 > **③ Z1-PREP PROPER — ~~[G9](#g9)~~ · ~~[G36](#g36)~~ · ~~[G37](#g37)~~ · [G30](#g30) · [G28](#g28).**
-> **G36 DONE 2026-08-09** (`fb07e7c`/`b4a79a8`/`4e3b43d`/`c4e07a7`): 31 handlers on one event
-> name, two fail-open scope resolvers made to fail closed, and the unreachable HyDE rewriter
-> deleted — which exposed that **Experiment 1's `full_ice_no_hyde` arm was the same
-> configuration as `full_ice`**, G19's drift for the second time. It also answered the
-> user's standing question about Exp 2 pulling in other conversations: at `v2-paper-eval`
-> `_traverse_graph` took no scope parameter at all. **One new item: [G37](#g37)** — an
-> emptied conversation set still read the whole graph, which was C6's already-decided
-> semantics missing from the codex leg — **also closed the same day** (`c7f37fd`), on the
-> user's decision that a conversation starting fresh should get nothing. **Next is G30.**
-> **G9 DONE 2026-08-08** (nine commits, `73169a3`…`a7f13af`): ~160 values moved, behaviour
-> frozen and *proved* frozen — 148 derived checks plus ~56,000 equivalence combinations.
-> **Read its completion note before Z1**, especially the rule that values are read at the point
-> of USE (six knobs were defaults-in-a-signature, and sweeping those would have changed nothing)
-> and the warning that `test_settings_freeze.py` is meant to be retired knob-by-knob as Z1
-> tunes, never weakened. **Next is G30** — machinery Z1 needs (`main.py` untested, retrieval
-> quality resting on 3 assertions) — which now also inherits **[G36](#g36)**. G28 still runs
-> *inside* Z1's coverage matrix and must not be pulled forward.
-> - **G9's sweep opened one item and corrected three.** New: **[G36](#g36)** — the retrieval
->   legs swallow their own failures, so a broken leg is indistinguishable from an empty store;
->   it made one of G9's own validation probes vacuous, which is how it surfaced. Corrected:
->   **[G19](#g19)** (its sync warning had already come true **twice** — `recency_boost` disabled
->   nothing and the harness could not run at all, so **two Experiment 3 arms were the same
->   configuration**), **[G15](#g15)** (half unbuildable — `Null_Noise` is a topic label, never
->   an intent), and **[G12](#g12)**, whose two silent sites are instances of G36's pattern.
+> **G9, G36 and G37 DONE.** G9 moved ~160 constants into settings and proved the behaviour
+> frozen; G36 made every retrieval leg report its own failure and stopped two scope resolvers
+> failing open; G37 stopped a scope that resolves to nothing from reading everything.
+> **[G30](#g30) is NEXT** — the machinery Z1 needs, and it inherits both G36's
+> `retrieval_leg_failed` event and `tests/test_retrieval_failopen.py` as the worked example for
+> its own headline complaint. **[G28](#g28) runs INSIDE Z1's coverage matrix — do not pull it
+> forward.**
 >
-> ~~**Two cheap warm-ups, same session as G31:** audit **[G12](#g12)**~~ — **AUDITED
-> 2026-08-08: G12 STAYS OPEN.** `bg_timeout()` covers nine background calls and C7's
-> `RETRY_DELAYS` answers the retry-storm half, but **three LLM sites still carry a hardcoded
-> `timeout=15.0`** — `orchestrator.py:833` (synchronous path, and its `except` logs nothing),
-> `clustering.py:245` (the `"Unnamed Cluster"` one), `registry.py:216`. Two of the three
-> degrade silently. **↳ CORRECTED 2026-08-09 (G36): the orchestrator site is GONE** — it was
-> inside `_hyde_rewrite`, which nothing had called since before `v2-paper-eval`, and the
-> method is deleted. **Retrieval now makes no LLM call at all, so G12 is down to two sites**,
-> both in workers. Scope is now concrete in its entry. Still true: the
-> **`codex_relation_gaps` ledger fills itself** from any extraction that runs, so every Z1/Z2
-> activity from here accumulates Z2's vocabulary evidence for free.
+> **⚠ The cluster history — which entry was wrong in which direction, and the measurements
+> behind each close — is in [ROADMAP_DONE.md](ROADMAP_DONE.md), not here.** This block is the
+> route, not the record.
 >
-> **✅ B1 COMPLETE (2026-07-27 — trained, gated, and PROMOTED; the live classifier is now schema v2).**
-> Data assembly and training are done. Full run record — every number, both gates, the sweep,
-> the rejected models — is in **[PROVENANCE.md](PROVENANCE.md)**; the system-as-built is in
-> **[ICE_Architecture.md](ICE_Architecture.md) §2.1/§2.5**. Read those, not this summary.
-> - **Candidate:** `models/classifier/ice_classifier_v4_schema2.pt` — 27 logits (11 topic /
->   12 intent / 4 context), cap 5, `tag_threshold` **0.65 stamped inside the checkpoint**.
->   **PROMOTED 2026-07-27** — `settings.classifier_model_path` now holds the v2 model
->   (verified live: schema_version 2, input_dim 1024, tag_threshold 0.65, heads 11/12/4).
->   **The live path was RENAMED** to `models/classifier/ice_classifier_v4_schema2.pt` in the
->   same session — it had been `ice_classifier_v3_qwen_ft3.pt`, a name asserting "v3, qwen,
->   fine-tune 3" while holding a from-scratch v2 retrain. The v1 model keeps that honest name
->   and **is the rollback**: `cp models/classifier/ice_classifier_v3_qwen_ft3.pt
->   models/classifier/ice_classifier_v4_schema2.pt` — no code change, because a checkpoint
->   declares its own `schema_version`. `train.py --out` now defaults to `candidate.pt` so a
->   no-arg train cannot overwrite the serving model.
-> - **Both gates pass.** D5 non-regression +0.196 overall. Independent probes: retrieval
->   fires 0.705 → **0.831** while false-fires drop 0.238 → **0.118**. On 104 new
->   hand-authored adversarial probes the retrieval decision is **84% accurate vs v1's 78%**,
->   with false alarms nearly halved.
-> - **⚠ THE FINDING THAT OUTLIVES THIS ITEM — the label ceiling.** Per-label labeler
->   agreement vs model F1 correlates **0.90 with a −0.01 mean gap**. The model has already
->   extracted what its labels contain. **Do not plan another retrain, wider trunk, or
->   fine-tune on this corpus expecting improvement** — none of them add information. Only
->   supervision from outside these two labelers can. The held-out split is no longer
->   informative either; use the independent probe sets.
-> - **`Codebase_Query` DROPPED** (labelers overlapped on 33 of 640 rows; head scored 0.10 =
->   its supervision's ceiling). Data keeps the annotations, so re-adding is a schema edit +
->   retrain with **no relabeling** — but only once E7's MCP traffic exists.
-> - **`High_Complexity` KEPT but is not trusted and has no reader** (user decision). It
->   measures verbosity, not difficulty. See F11's ⚠ note before building on it.
-> - **End-to-end the two models tie at 80%** despite the v2 head winning 84% vs 78%. The
->   obvious explanation — B2's `ltm_*` weights mistuned for the new head's distribution — was
->   **swept and refuted** (`tune_b2.py`): the shipped weights are already near-optimal for v2
->   under a recall-first objective, and B2 ships unchanged. The tie is B2 deliberately spending
->   specificity to buy recall, which is right for a silent gate and flattens the head's
->   precision gain under a symmetric metric. Details in the Z1 entry + PROVENANCE.
-> - **Live config changed:** `temporal_label_threshold` 0.6 → **0.85** — the label fires as a
->   shadow of `Needs_Memory` and is OR'd with T2's detector.
-> - **→ NEW ITEM [E12](#track-e--coding-ice--project-state-engine) — READ IT.** The consumer
->   audit found the coding intent labels are wired to almost nothing (coding mode comes from
->   `project_id`; `p_complex` has zero readers). E12 owns the consume-or-delete decision.
->   *(E2's entry carries the same note, but E2 is checked off and nobody re-reads a done item
->   — E12 is the discoverable half.)*
-> - **Two broken requants** stay marked in `serving.PROFILES`; don't re-pick them. 909 corpus
->   rows (2.3%) never settled — accepted as loss (user).
+**Implementation order (dependency-honoring).** Steps 0–9 are DONE — C7's runtime,
+Track T, the service layer and MCP, the maintenance agent, the coding core, C4/C9 and
+C10/C11, G23+C17's data longevity, the F10/F14 import engine, and B1's retrain. Their
+records are in [ROADMAP_DONE.md](ROADMAP_DONE.md); the sequence itself is history and
+does not need re-reading.
 
-> **🔎 Standing critique: [BRUTAL_ASSESSMENT.md](BRUTAL_ASSESSMENT.md)** (2026-07-12, Fable close-out — written at the user's request). A no-deference flaw list over the whole project with a solution per flaw: the deletion-budget problem, the product-vs-paper fork, the **unbacked-up live memory DB + truncating tests (its ⚡⚡ item — CLOSED by G23, 2026-07-19: backup module + archives shipped, the one truncating test rewritten)**, import poisoning, pre-flight latency, classifier-taxonomy ROI, the pending-validation cliff, FINAL-flow volatility, and the rough-notes sweep result (F10 confirmed present; F16 + the C6 exclusion addendum recovered). **Not a work queue** — mine it deliberately; re-read once per phase.
+**What is left of it:**
 
-**Implementation order (dependency-honoring):**
-
-0. **G26** (P0 hotfix — `chat_completions` is broken at HEAD) + **G22** (smoke suite — the rails). Both in [G_mechanical.md](specs/G_mechanical.md).
-1. **C7** — the world-change: in-process maintenance runtime, Celery+Redis deleted, shared-first bg model. Everything later assumes its world. [C7_scheduling.md](specs/C7_scheduling.md)
-2. **Track T** (T1 → T2 → T3 → T4) — the exocortex layer; G5/G6/G7 alongside. [T_temporal.md](specs/T_temporal.md)
-3. **E0 → E7** — service layer, then ICE-as-MCP (coding memory becomes usable early). [E0_E7_services_mcp.md](specs/E0_E7_services_mcp.md)
-4. **D1/D2** — maintenance agent; Sentinel dies. [D1_D2_maintenance_agent.md](specs/D1_D2_maintenance_agent.md)
-5. **E-coding core** — E1 → E1b → E9 → E3/E4 → E8 (E10 waits on C12's backend). [E_coding_core.md](specs/E_coding_core.md)
-6. **C4/C9** then **C10/C11**. [C4_C9](specs/C4_C9_memory_quality.md) · [C10_C11](specs/C10_C11_deletion_chat_control.md)
-7. **G23+C17** — export/backup, then 384→1024 (backup FIRST — user-required). [G23_C17](specs/G23_C17_data_longevity.md)
-8. ~~**F10/F14** import~~ **DONE 2026-07-20 (`316e11f`)** (+ C12 backend when reached — its entry is decision-complete as written). [F10_F14](specs/F10_F14_import.md)
-9. ~~**B1 retrain**~~ — **DONE 2026-07-27 (trained, gated, promoted)**, and its three follow-ups **DONE 2026-07-28**: D8 (DI3 deleted, `ba791db`), A9a (`c3a0f04`), E12 (`1cb6df5`). Two items were opened by that work and are scheduled at/after the gate: **[T5](#t5)** post-Z1 and **[G28](#g28)** inside Z1's coverage matrix. Read its LIVE STATUS block above for the label-ceiling finding before planning any further classifier work. [B1_classifier_retrain.md](specs/B1_classifier_retrain.md)
-10. **Z1-prep** (G9 sweep → staged tuning → coverage matrix → pending-validation ledger) → **Z1, the gate**. [Z1_tuning_coverage.md](specs/Z1_tuning_coverage.md)
-11. **FINAL** — the experiment redo, strictly last. [FINAL_experiments.md](specs/FINAL_experiments.md)
-12. Post-FINAL: **B3** (only if its gates pass — [B3_routing.md](specs/B3_routing.md)), **F-track** (design conversation from [F_design_brief.md](specs/F_design_brief.md); F2 first), C13/C14 per the Z1 profile ([C13_C14](specs/C13_C14_caching.md)).
+10. **Z1-prep → [Z1](#z1), the gate.** G9 ✓ · G36 ✓ · G37 ✓ · **G30 next** · G28 inside
+    Z1's own coverage matrix. Spec: [Z1_tuning_coverage.md](specs/Z1_tuning_coverage.md).
+11. **[Z2](#z2)** — the read-the-output pass, then the fix pass. Strictly after Z1.
+12. **FINAL** — the experiment redo, strictly last.
+    [FINAL_experiments.md](specs/FINAL_experiments.md)
+13. **Post-FINAL:** [B3](#b3) (only if its gates pass — [B3_routing.md](specs/B3_routing.md)),
+    the whole of Track F (design conversation from [F_design_brief.md](specs/F_design_brief.md);
+    [F2](#f2) first), and [C13](#c13)/[C14](#c14) per the Z1 profile.
 
 ### ❓ "The database is empty — is that a problem?" NO. (Standing answer, 2026-07-28 — asked every few sessions)
 
@@ -363,78 +214,6 @@ was missing a whole group. Three new items, all evidence-backed, none of them sp
   (unfenced code never reaches the knowledge graph; `is_document` set by counting `"Assistant:"`).
 Plus **[Z2](#z2)** below — the read-the-output pass — which is a *gate*, not a task.
 These are **not** this-session work; they are wired here so the next sessions pick them up in order.
-
-**Previously ① (claimable) is empty** — the three items B1 unblocked (D8, A9a, E12) all landed
-2026-07-28. The next hands-on work is ② below.
-
-**② The real pre-Z1 queue** (open, unblocked, and Z1 needs them done):
-- ~~**C6** session_id per sitting + scope-semantics rework~~ **DONE 2026-07-28** (migration
-  `a1f6b8d94c22`, 40/40): closed vocabulary, `manual` as a real closed-set mode that beats the
-  automatic picker, conversation+cluster exclusion in every mode, one shared scope resolver for
-  both request paths (the MCP copy had drifted and leaked global memory into incognito pulls),
-  `custom_filter` dropped. Two G29 clusters closed in the same file-pass. **Track F still owes the
-  picker UI** — the fields it writes to all exist now.
-- ~~**C12** RAG leg completion~~ — **DONE as far as the backend goes.** C12a shipped 2026-07-28 (`27f64eb`, migration `5fe5ad26480b`): documents live through the pipeline as their own conversations, opt-in everywhere, and the v1 RAG leg + its tables + the drop zone are deleted. **E10 is unblocked.** **C12b was RE-HOMED TO TRACK F on 2026-07-28e** — the in-chat paste split is free at the browser's `paste` event and impossible in a proxy that receives one flat string, so it is composer work, not `post_flight` work; see the C12 entry and [specs/C12_documents.md](specs/C12_documents.md) §1b. One backend bug fell out of that session and was fixed (`b90ab77`, migration `7c4d19ab35e2`): a pasted blob could never finish ingesting through REST or MCP.
-- ~~**C16** second half~~ **DONE 2026-07-29** — residual coverage replaces fill-to-cap, one real token count everywhere, the ledger, the sitting-bounded recent window. ⚠ It measured that ICE is **+6.6% above** the vector baseline once Exp 2's one pathological conversation is excluded, and that the ruler used for that comparison favoured ICE. **Z2 owns proving or restating "below baseline".**
-- **Track G's real bugs**: G4 (GPU gating), G5 (SSE resiliency), G6 (indexes via migrations),
-  G7 (idempotency), G8 (sticky state), G11 (batch-summariser coverage), G12 (dynamic timeouts),
-  G13 (drop-zone duplicate classifier), G24 (async hygiene), G25 (log privacy), G20 (dead-code
-  sweep), plus G15/G17/G19/G27. "Opportunistic per phase" by standing rule — but they are real work
-  and they are *not* optional before a system gate.
-- **⚠ G9 (constants → configuration) is Z1-prep's OWN first commit** — not a prerequisite you do
-  beforehand, it opens that phase.
-
-**③ Post-FINAL by design** (implementation-order step 12 — do NOT pull forward): all of **Track F**
-(F1–F16, 14 items — the whole frontend era), **B3** (learned routing), **C13/C14** (caching +
-KV-cache). **F12** is separately parked behind B3. **Confirmed by the user 2026-07-28** as part of
-resolving Z1's scope: Track F is large enough (14 items + a mandatory design conversation + 8 UI
-surfaces owed to other tracks) that it stays after FINAL.
-
-**④ Scheduled, not blocked:**
-- **G29** (drift audit) and **G30** (test blind spots) — do these **inside the ② phase**, one pass per
-  file alongside whatever else touches it, rather than as a separate sweep. G29's scope leak and
-  `decision_add` were the two worth pulling forward on their own and **landed 2026-07-28
-  (`033b5b7`)**; its other nine clusters stay on the per-file plan.
-- **T5** (wire `Temporal_Recall` into Track T) — **explicitly post-Z1 by user decision.** Both halves
-  are retrieval thresholds; landing them before Z1 would mean Z1 tuning a system that just moved.
-- **G28** (style invariance) — **runs inside Z1's coverage matrix**, not before it.
-- **Z2** — ⚠ **A9b (2026-08-03) HANDED Z2 A FOURTH: a THREE-ARM comparison for pre-flight codex activation.** Not "try a fix" — three named candidates, measured against each other, because the shipped state has a known price and the two alternatives fail in different directions.
-  **The problem, measured.** Pre-flight entity extraction is what activates the codex leg: `_codex_graph` extracts entities from the prompt, matches them to graph nodes, and **returns `[]` if nothing matched**. The micro-NER extracts **nothing at all from 48 of 58 short user prompts** — they are lowercase and conversational (`what did we decide about the codex confidence thing`), and a context-free per-token tagger keys on spelling (it scores Jaccard **0.000** under a pure lowercase change). So on most short prompts the graph is never consulted.
-  **The three arms:**
-  | arm | mechanism | measured today | cost | risk |
-  |---|---|---|---|---|
-  | **A — micro-NER alone** *(SHIPPED)* | status quo | **48/58** prompts dead, 58 node hits | none — shares the loaded encoder | the graph is silent on most short prompts |
-  | **B — union (micro + NuNER)** | run both, concatenate the whitelists | **30/58** dead, **94** node hits | **1.7 GB resident on the SYNCHRONOUS path** + ~16 ms/prompt; breaks the property that pre-flight adds no VRAM (user's explicit reason for arm A) | a second model on the latency-critical path, and it is the one thing G4's budget cannot absorb |
-  | **C — embedding fallback, no second model** | when the extractor returns nothing, match the **prompt embedding** against entity names/payloads instead of returning `[]` | **unmeasured** | ~zero — the prompt is *already embedded* on the pre-flight path, and `_match_entities_by_similarity` / `_match_entities_by_payload` / `_codex_enumeration` already exist; they are simply gated behind "NER produced strings", a precondition an empty extractor can never meet | whole-prompt-vs-entity-name similarity is a **different** comparison from entity-name-vs-entity-name — it may match broadly and drag in irrelevant anchors, which is precisely why it must be measured rather than assumed |
-  **The measure is task-grounded, not hit-rate.** Node-hit counts got us this far but they are a proxy: the judge-free question is *did a probe whose answer required a graph fact fail because the codex leg never fired* — run per arm, over the same probes. A prettier anchor set that does not improve answers is worth nothing (the same rule the A9b evaluation used).
-  **Do NOT re-derive the baselines** — arms A and B are already measured, in [PROVENANCE.md](PROVENANCE.md). Z2 owes arm C's numbers and the three-way task-grounded comparison. Note that A and C are not exclusive: C is a *fallback*, so it can also sit under B.
-  ⚠ **A FIFTH THING, and it is one NUMBER that decides whether [C13](#c13)/[C14](#c14) are worth building at all (user, 2026-08-03).** Measure **adjacent-turn fragment overlap**: the Jaccard of the retrieved fragment-id set at turn N against N−1, N−2, … across a real session. Z2 already replays a real conversation turn by turn, so this is nearly free here and impossible to get anywhere else. Report it alongside **order stability** (do the same fragments come back in the same sequence?), because content overlap without order stability still destroys the KV prefix. **If overlap is high, C13/C14 stop being speculative optimisation and become a measured win; if it is low, both shrink and nobody builds a cache.** ⚠ Also **add a reasoning-ON arm for ANSWERING** (user, 2026-08-03): the paper experiments ran with reasoning off throughout, and while reasoning is now measured as *fatal* for structured background extraction, its effect on answer quality has never been tested — a different question, and Z2 already re-runs a scaled-down Exp 2, so it is one more condition on a run that is happening anyway.
-- **Z2** — ⚠ **C16 (2026-07-29) HANDED Z2 THREE THINGS**, by user decision: (1) turn `retrieval_coverage_enabled` and `retrieval_set_floor_enabled` **on** and measure them against the 311 ground-truth probes — the direct, judge-free question being *did a dropped fragment hold the answer turn*; (2) build the **paired ICE-vs-baseline token audit** — same probe, both arms, the same REAL tokenizer, reported as a **median and a win-rate, never a mean of means**, which is exactly what manufactured Exp 2’s 25.2%; (3) report **per-`leg`**, now that fragments carry the specific mechanism rather than the `episodic` rollup. C16 also measured that ICE costs **+6.6% MORE** than the baseline once `ice_dev` is excluded, so Z2 is where “below baseline” is either achieved or honestly restated. (the read-the-output pass, **now also a scaled-down Exp2 re-run** — shape decided 2026-07-28,
-  see the entry; it is deliberately **NOT** a rehearsal of FINAL) — **between Z1 and FINAL.** After Z1 because reading an untuned
-  system's output tells you about the tuning; before FINAL because everything it finds is a change
-  and FINAL must measure a frozen system.
-
-**⑤ Gated on evidence, not effort** (they wait for a measurement, so "unchecked" is correct until a
-gate trips): **A9b/A9c** (NER), **B4**'s feedback half (needs F9's UI, post-FINAL), **H1–H5**
-(research follow-ups). — **B5 (ensemble) is CLOSED, 2026-07-28, user decision**: B1's label-ceiling
-finding kills it, since an ensemble cannot exceed supervision its members share and every member
-would train on this same corpus. Reopening is free if supervision from outside the two labelers ever
-arrives.
-
-**⑥ Bookkeeping — resolved but still showing as unchecked:** **D3**'s backend half is discharged by
-D1's `agent_action` / `agent_run_summary` structlog events; only F5's SSE promotion remains, which is
-post-FINAL. *(E5 was cleared in the previous inventory.)*
-
-**Z1'S SCOPE — CONFIRMED BY THE USER, 2026-07-28.** Z1 said "the very last thing, once every item
-above is done" while step 12 defers all of Track F to post-FINAL; both could not hold. **Resolved and
-now confirmed: Z1 is a BACKEND gate.** Its body describes bringing up the backend stack and driving
-turns through classify → retrieve → assemble → route → stream → post-flight → extraction →
-reconciliation → clustering → decay → reflection, and FINAL likewise measures the pipeline, not a UI.
-So **"every item above" means every item in Tracks A–E and G that is not explicitly post-FINAL or
-evidence-gated** — i.e. ② above, plus ④ landing at/after the gate. The user's condition was "if Track
-F takes time, it is post-FINAL"; it does (see ③).
-
-Mechanical G items: opportunistic per [G_mechanical.md](specs/G_mechanical.md), each inside the phase that touches its file. Architecture-doc upkeep per CLAUDE.md applies at every phase. **Boy-scout cleanup applies at every phase too** (CLAUDE.md standing rule → ledger in [docs/CLEANUP.md](CLEANUP.md)): touched files leave cleaner, one-offs → `scripts/oneoff/`, pre-FINAL experiment folders stay frozen.
 
 **🤖 AI-USAGE MAP — where LOCAL runs and where CLOUD earns its cost (decided 2026-07-25, user; standing reference for every later item).** Hardware: **24 GB VRAM + 64 GB RAM**. Cloud budget: **~₹5,000 (~$60) TOTAL, hard cap** — not a subscription.
 
@@ -706,23 +485,6 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   **(a) THE STOP SIGNAL — ✅ DONE 2026-08-03.** `runtime.should_yield()` + `yield_if_user_active()`, a `JobYielded` exception the runtime treats as **not a failure** (requeued, attempt count untouched, ledger status `yielded`), and yield points at the three loops that already had natural boundaries: `extract_triplets` per chunk, `batch_summarize` per conversation, `run_conversation_summaries` per conversation. `job_yield_grace_seconds` (10) is deliberately far tighter than the 90 s that gates *starting* a job — starting early is merely premature, continuing while the user waits is latency they feel. A yield point placed BEFORE the LLM call and before the graph write means abandoning leaves nothing half-written; `covers_through` already stops a folded conversation being refolded. No runtime (scripts, tests) ⇒ no-op. Validated by `tests/test_job_yield.py` 14/14, incl. a two-sided assertion that the start gate stays looser than the stop gate. ⚠ **The blind spot is NOT fixed**: `generation_started()` fires only at `api/main.py:655`, so any client talking straight to Ollama instead of through ICE is invisible and ICE believes the machine is idle — that half stays open here. *(Original entry:)* Read from `runtime.py`: *starting* during real use is well guarded (`_gpu_ready()` requires no generation in flight **and** the user quiet past `user_active_threshold_seconds` 90 / `idle_burst_seconds` 120; the gpu lane is `Semaphore(1)`). **Continuing is completely unguarded** — once a job is inside `asyncio.to_thread(self._call, …)` there is no cancellation, no yield, and no stop flag anywhere in the file. A returning user queues behind it inside Ollama; a 3-chunk extraction is ~15 s of added latency on their first token. Build: a **cooperative stop flag checked at the natural chunk boundaries** that already exist in `extract_triplets` and the summariser, plus **requeue-with-remaining-work** through the existing retry machinery. ⚠ Second gap: `generation_started()` fires only at `api/main.py:655` — the ICE proxy path — so any client talking straight to Ollama instead of through ICE is invisible and ICE believes the machine is idle.
   **(b) THE VRAM BUDGET — deferred to Z1** (thresholds and numbers are tuning). Measured inputs for when it lands: chat model **16,446 MiB / 7.24 s cold load**; a 4B **3.4–3.9 GB**; the two co-resident at **21,662 MiB by nvidia-smi against 19,661 by Ollama's own accounting — Ollama under-reports ~2 GB**; ~2.8 GB headroom, which does *not* also cover the embedder (1.2) plus a NuNER-class NER (1.7). `OLLAMA_KEEP_ALIVE=-1` is set in the service env, so nothing is ever released — a CUDA OOM was hit mid-session with 22 GB held, of which 16 GB was a model nobody was using; one unload call freed it. `num_ctx` is NOT the lever it looked like: 16,329 MiB at ctx 4,096 vs 16,446 at 32,768, i.e. **120 MiB across an 8× range**, because the KV cache is `q4_0`. Its value is truncation-avoidance, not VRAM. The mechanics of *saying* any of this to Ollama moved to **[G32](#g32)**.
 
-- [ ] <a id="g32"></a>**G32 ICE↔Ollama control surface — ICE talks through a door that drops most of it** `(new — 2026-08-03)` — **The finding, generalised.** ICE posts everything to Ollama's OpenAI-compatible `/v1/chat/completions`, for both chat and background work. That shim **silently discards parameters it does not recognise**, and every Ollama-native control is in that category. Measured: `options` (`num_ctx`), `keep_alive`, `think`, `chat_template_kwargs` — all **ignored**; `reasoning_effort` and `stream_options.include_usage` — honoured. ~~JSON-schema **constrained decoding** is native-only too (Ollama's `format`; the OpenAI `response_format` is ignored upstream).~~ **← STRUCK 2026-08-03: false, and never measured. See the audit result below.**
-  ⚠ **That list is what was TESTED, not the control surface.** It was assembled from the four things one session happened to need. **This item's first deliverable is the AUDIT** — enumerate what the native API actually exposes, diff it against what survives the shim, and record the whole gap — because the pattern so far is that every time we look for one thing we find another, and C16 shipped `num_ctx` believing it landed (it does not: `ollama_send_num_ctx` also defaults to `False`).
-  **✅ THE AUDIT IS DONE — 2026-08-03. It OVERTURNS the premise of (a). Full record: [specs/G32_ollama_transport.md](specs/G32_ollama_transport.md) §0; numbers in [PROVENANCE.md](PROVENANCE.md).** The sentence above claiming constrained decoding is native-only is **FALSE and struck** — it was recorded from upstream docs, never measured. **`response_format: {"type":"json_schema", …}` IS honoured by the shim**: 8/8 conformance on the schema codex extraction actually needs (triplet array, enum-constrained relation), and both arms obeyed an enum narrowed to a value no verb in the text implied. What *is* ignored is `{"type":"json_object"}` — 0/8, indistinguishable from no constraint — **which is exactly the form `maintenance_agent.py:399` sends today.** ⇒ **(a)'s headline prize needs no transport change at all.** Still genuinely native-only: `options.*` (`num_ctx`, `top_k`, …), `keep_alive` + explicit unload, `think` as its own field. **Truncation was re-measured and the first comparison was INVALID** (the `/v1` arm silently ran at 32,768 because the shim dropped the `num_ctx` the native arm got): Ollama 0.30.7 **grows the runner** rather than truncating, and when the model *cannot* grow both transports truncate silently — `tinyllama`, 6,012 tokens in, `prompt_eval_count 2047`, HTTP 200, `done_reason "stop"`, **natively too**. Loudness comes from the *pair* `native + explicit num_ctx` → typed `400 exceed_context_size_error` carrying `n_prompt_tokens`/`n_ctx`. **`/api/show` exposes a `capabilities` list** — the detection primitive this item asks for — but it is template-derived, not behavioural (a model advertising `thinking` emitted zero), so it is a negative filter only. **Two live defects found in passing, both transport-independent:** the `json_object` call above, and `registry.py:162` hardcoding the *dedicated*-mode model name so background model auto-tagging 404s and is swallowed into empty tags in the default shared mode — a third silent-fallback instance. **⏳ OPEN, and it is the user's call:** whether (a) now splits into (a1) constrained decoding + those defects on the existing SDK, and (a2) the native transport folded into G4(b) where `keep_alive`'s only consumer lives. Options and the recommendation are in the spec §1.1.
-  **Split, because the two halves have very different risk (user, 2026-08-03):**
-  - **(a) BACKGROUND HALF — the immediate next session.** Background calls are non-streaming request/response and all resolve through one factory (`bg_client_factory`), so moving them to the native endpoint is a small, contained change. Unlocks **JSON-schema constrained decoding** (which is what makes A12's one-small-model design affordable and kills the regex JSON fallback in `extract_triplets`), plus `keep_alive` + explicit unload (`POST /api/generate {"keep_alive": 0}` → `done_reason:"unload"`, verified), which is G4(b)'s mechanism. `runtime_probe.py` already speaks the native API over httpx, so the client exists.
-  - **(b) CHAT HALF — its own session, before Z1.** `num_ctx` on the generation request, the truncation guard, and streaming/`usage` equivalence on the native API. Higher risk: it is the live SSE path users watch.
-  **⚠ THE AUDIT IS THE FIRST DELIVERABLE, AND IT IS BROADER THAN THE FIVE PARAMETERS ABOVE (user, 2026-08-03).** Enumerate **every endpoint Ollama exposes** — `/api/chat`, `/api/generate`, `/api/embed`, `/api/ps`, `/api/show`, `/api/tags`, `/api/pull`, `/api/create`, `/api/copy`, `/api/delete`, `/api/blobs`, plus the `/v1` shim — and for each record: what it does, what ICE uses today instead, and what it would buy. We have only ever probed the handful a single session happened to need.
-  **⚠ THE OTHER HALF: WHAT DOES DROPPING THE OpenAI SDK ACTUALLY COST? (user, 2026-08-03 — and the answer is small, which is why this is buildable.)** Grounded in code, the transports are already split: the **chat path** uses raw `httpx` against `{ollama}/v1/chat/completions` and does NOT touch the SDK at all; the **background path** is the `openai` Python SDK at **exactly ONE construction site** (`bg_client_factory.py:98`). So the audit's question is narrow: *what breaks if that one site speaks Ollama-native instead?*
-  **The answer is: `background_model_mode="dedicated"`, and nothing else.** Dedicated mode points the same SDK at a vLLM/SGLang server on `:8002/v1`, which speaks OpenAI-compatible and does **not** speak Ollama-native. That is the entire cost — and it is why the design is **BOTH, not a swap**: one construction site is exactly the seam a capability-aware transport needs. Shape: the factory picks native when the server is Ollama (gaining `num_ctx`, `keep_alive`, `think`, JSON-schema constrained decoding) and the SDK otherwise, with **unavailable capabilities LOGGED, never silently dropped** — because silently dropping what it does not understand is precisely what `/v1` does to us and what this item exists to stop ICE repeating one layer up. Capability detection, not a hardcoded branch.
-  **✅ a1 SHIPPED 2026-08-04** (`d43f580` transport helper · `b63ab7d` ledger + migration **`c704abf1917e`** = the new alembic head · `e77fa65` extractor · `f71b347` the two dead calls · `baa45f4` remaining call sites · docs `2f2842b`). What landed: **JSON-schema constrained decoding at every structured background call site** — extraction, the maintenance agent, model auto-tagging, four reflection calls, raw-slice turn extraction, blob-kind — through one `json_schema()` constructor, on the **existing SDK**, no transport change; **`normalize_relation`** (case/separator/helper-verb only, safe because no two vocabulary entries collide after normalisation); the **`codex_relation_gaps` ledger** keeping the model's own wording plus subject/object so Z2 can rank the missing relations and replay them without a new LLM call; **`finish_reason == "length"` now warns** and `codex_extraction_max_tokens` rose 500 → 1,200; and **every silent fallback in these paths made loud** (`_robust_json`/`_robust_list`, `_parse_turns`, the vocabulary drop, blob-kind's DOCUMENT default, model auto-tagging). **Two calls that had NEVER worked were repaired**: `maintenance_agent`'s `response_format={"type":"json_object"}` (ignored by the server, scored 0/8 — indistinguishable from no constraint) and `registry._tag_with_bg_model`'s hardcoded dedicated-mode model name (404 on every call in the default shared config, swallowed into empty tags). The **enum stays wired and switchable** — it is Z2's decision, not a1's. Validated: `tests/test_relation_gaps.py` **33/33** against a live model (every assertion two-sided), plus codex_write_path 20 · documents 53 · ingestion 36 · maintenance_runtime 49 · maintenance_agent 43 · services 48 · clustering_v5 13 · c4_c9 28 · coding_core 52 · retrieval_coverage 25 · context_budget 17 · smoke 92. ⚠ **Its own truncation warning caught a regression this session introduced** — wrapping blob-kind's answer in a JSON object overflowed that call's 16-token budget, so every answer truncated to empty and the `DOCUMENT` default silently absorbed real transcripts; fixed with a bare top-level enum. That is the standing rule paying for itself inside one session.
-  **⏭ STILL OPEN under (a):** the deterministic ladder beyond normalisation (lemmatisation, fuzzy, containment, inverse-direction guard) — **premature until the vocabulary is repaired**, and it needs the inverse-relation check first because containment/lemmatisation invert direction (`is_used → uses`). Z2 owns the vocabulary decision, the alias dictionary seeded from the ledger, and the enum's fate. **(b) the chat half is untouched** and still owns `num_ctx` + the truncation guard on the live SSE path.
-  **Look-ahead:** A12's model benchmark is scheduled AFTER (a), deliberately — benchmarking before the constraint measures which model is best at not being constrained. **[F11](#f11) (Cloud API models) shares this seam**: a cloud provider is OpenAI-compatible, so it lands on the SDK branch and inherits the same capability-reporting.
-  **📊 THE EVIDENCE RUN — 300 real turns, 2026-08-04. Full numbers in [PROVENANCE.md](PROVENANCE.md); it moved the relation question OUT of a1.** Harvested with the production extraction prompt (197/197 relations present, "SKIP IT" rule included) but **without** the `codex_extractor.py:514` filter, so the failures stay visible. **67.8% of every relation the model produces is out-of-vocabulary and is silently destroyed today** (lmsys 62% · personal 66% · wildchat 70% · sharegpt 78%), and the top misses are `is` (92×), `has` (68×), `includes` (29×) — ordinary English the 197-word list lacks, not near-misses. **The deterministic matching ladder recovers 5.7%** of them (a 31-probe hand-authored set had scored the identical cascade 24/24 — [TRAPS](TRAPS.md) #13). **The decoder enum keeps 100% but ~78% of what it rescues is WRONG**, because a few relations act as attractors for anything inexpressible (`is → is_employed_by`, `is_family_member_of → is_dating`, `is_sibling_of → is_separated_from`).
-  ⚠ **THE ENUM IS NOT CLOSED — it is a [Z2](#z2) DECISION (user, 2026-08-04).** a1 ships the enum as a *usable capability* and does not delete it; whether it ends up fully off, on over a repaired vocabulary, or on for a subset of call sites is decided at Z2 with the mini-exp's output in hand. Measuring it badly here is evidence, not permission (TRAPS #3). **What the run actually indicts is the VOCABULARY, not the transport or the matcher** — neither dropping (32% kept) nor forcing (100% kept, ~78% wrong) is acceptable — so the 606 ranked missing relations become Z2's input, and the ladder is *premature* rather than useless: once the vocabulary is repaired the residual failures genuinely will be near-misses. Also found: **`finish_reason == "length"` yields unparseable JSON at the production `max_tokens=500` (2/12 turns) and nothing in `src/` reads `finish_reason`** — constrained decoding guarantees a valid *prefix*, not completion.
-
-- [x] <a id="g33"></a>**G33 Every property VALUE becomes an orphan entity node** — DONE 2026-08-08. → [full record](ROADMAP_DONE.md#g33)
-- [x] <a id="g31"></a>**G31 Model paths are CWD-relative, and two of them degrade SILENTLY** — DONE 2026-08-08. → [full record](ROADMAP_DONE.md#g31)
 - [x] <a id="g5"></a>**G5 SSE stream resiliency** — DONE 2026-08-08. → [full record](ROADMAP_DONE.md#g5)
 - [ ] <a id="g6"></a>**G6 DB indexes via migrations** `(bug)` — `scripts/database/create_indexes.sql` isn't applied by Alembic; `batch_id` lookups full-scan episodic_memory at scale. Fold indexes into a migration. *(Down-payment 2026-07-12: Track T's migration `e5b8c2d4a917` added `ix_episodic_memory_timestamp`, `ix_cold_storage_timestamp`, and the two `codex_edges (source/target, valid_until)` indexes via Alembic — the remaining G6 work is the rest of the orphan SQL script, notably `batch_id`.)*
 - [x] <a id="g7"></a>**G7 Idempotency enforcement** — DONE. → [full record](ROADMAP_DONE.md#g7)
@@ -775,16 +537,11 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   - **⚠ The measurement is PARTIAL and must not be treated as a clean bill of health.** It was one turn against an **empty store**, so it exercised the hot path and barely touched the background workers — and every content-bearing line listed above lives in a *worker* that only produces output once there is memory to work on. **Re-run this against a populated store**, which is [Z2](#z2)'s condition. Scope the toggle then, against what is really there.
 
 - [x] <a id="g26"></a>**G26 chat_completions classifies before the conversation is resolved** — DONE 2026-07-11. → [full record](ROADMAP_DONE.md#g26)
-## Track H — Research follow-ups & open questions
-
-- [ ] <a id="h1"></a>**H1 Cross-conversation retrieval evaluation** `(open)` — All 1,211 probes were within-conversation; the scoping/cross-convo machinery (and C6) has never been measured. **Update 2026-07-28: C6 shipped, so there is now more to measure, not less** — `manual` mode is a real user-chosen closed conversation set (not the no-op it was during the experiments), and conversation/cluster **exclusion** exists. Both are cross-conversation behaviors with zero measurement; a probe class that ticks two conversations into scope and one that excludes a conversation the answer lives in are the obvious additions. **S1 note: FINAL's probe taxonomy includes a cross-conversation class (synthetic set has multi-conversation fact lifecycles) — re-verdict this after FINAL.**
-- [ ] <a id="h2"></a>**H2 Multi-user evaluation** `(open)` — All benchmark conversations are one user's; generalisation across users is unvalidated. **S1 note: partially discharged by FINAL (synthetic persona = a second "user"; LongMemEval = third-party data) — full multi-user study stays future work.**
-  **⚑ n=1 IS A LIMITATION, NOT SOMETHING THE EXTERNAL BENCHMARKS DISCHARGE (settled 2026-08-04).** The absence of an organic public corpus *explains* why n=1; it does not remove the risk that results are specific to how one person writes and thinks — which is precisely what CLAUDE.md's style-invariance rule warns about. **The honest structure is also the strongest**: (1) state it as a limitation, (2) explain the cause is structural — organic longitudinal history cannot be crowd-sourced without waiting years, (3) show partial mitigation — the `synth` and `lme` arms are **not** n=1, so some results generalise even where Dataset B does not, and (4) point at the reproduction path: **LSREP ingests anyone's export**, so a reader can rerun the protocol on their own history. **(4) is the actual contribution** — "you cannot replicate my data, but you can replicate my protocol on yours" beats any claim about what does not exist.
-- [ ] <a id="h3"></a>**H3 Year-scale memory studies** `(open)` — 93 days max simulated so far. Saturation, retrieval drift, decay convergence/cold-start (does everything but bookmarks decay to zero?), compaction cadence.
-- [ ] <a id="h4"></a>**H4 Probe realism** `(open)` — LLM-generated probes under-represent anaphoric/ambiguous human questions; grow the manually-authored probe set. **S1 note: FINAL's taxonomy reserves 15% for human-authored anaphoric/ambiguous probes — this is that growth.**
-- [ ] <a id="h5"></a>**H5 Fine-tune scheduling on user machines** `(open)` — No good answer yet for when to run expensive fine-tunes for users who close the app (tail of C7). **S1 note: SETTLED by C7 D6 — consent-gated proposals (session-end + threshold + `auto_finetune` default OFF), never unattended, no cron.**
-
----
+- [ ] <a id="g27"></a>**G27 Shared-mode background model resolves to the WRONG model** `(bug — announced 2026-07-25, entry written 2026-08-10; PRE-FINAL)` — In shared mode (no `background_model_name` pin) `bg_client_factory.get_bg_model_name()` returns `registry.get_fallback_model()`, i.e. **the first `confirmed: true` entry in `models/model_registry.json`** — not "the chat model currently in use", which is what shared mode is documented to mean (C7 D7) and what the user believes it does.
+  - **The cost is VRAM thrash on a 24 GB box.** With MoE routing live, chat may route to one ~17 GB model while background work fires on another, so Ollama holds or swaps **two** of them on every background task. `settings.default_fallback_model` only applies when nothing is confirmed, so it never rescues this case.
+  - **⚠ It is also a reproducibility hole**, which is why it is pre-FINAL: a background model that silently varies with chat routing means a FINAL run cannot state which model produced its summaries and extractions.
+  - **The decision, and both options, are written out in [specs/G_mechanical.md](specs/G_mechanical.md)** — (a) resolve the session's routed model (true "shared" semantics, better product behaviour) vs (b) pin a small always-resident background model (deterministic, safer for FINAL). They can coexist: (a) as the default, (b) as the documented pin.
+  - *(Entry written 2026-08-10 during the roadmap cleanup, which found G27 announced in a preamble note as "new G27 (shared-mode bg model bug — fix before FINAL)" and **never given an entry** — the third such phantom after [G34](#g34) and [G35](#g35). Its description had been decision-complete in the spec the whole time.)*
 
 - [ ] <a id="g28"></a>**G28 Style invariance — no decision may depend on HOW a thing is written** `(new — 2026-07-28, user; RUN AS PART OF Z1's COVERAGE MATRIX)` — **⚠ The user's diagnosis, and the measured reason Codex underperformed across a month of experiments.** A rule keyed on punctuation, word order, or a fixed vocabulary is a bet on writing convention. ICE was validated on LMSYS/ShareGPT/WildChat — all "people typing at a chatbot", all sharing conventions — so the bets never looked broken.
 
@@ -851,6 +608,23 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
     (b) **An UNVERIFIED observation worth a measurement, recorded because the investigation was stopped mid-flight and must not be lost.** A8 negation writes correctly — asserting `X uses Y` twice then negating expires the positive edge and stores a `negated=True` active edge — but the entity's `context_payload`, which is what retrieval actually injects, read `Links: uses → pyro; uses → blade` **after** the negation, i.e. it still advertised the retracted fact as positive. `_regenerate_context_payload` itself handles polarity correctly (it splits `out_pos`/`out_neg` into Links vs a Negations section), and the negated branch of `handle_triplet` does call it — so the likely explanation is that the payload is regenerated **one step behind** (read before the expiry/insert is flushed), which would also explain why the payload was empty immediately after the two positive assertions. **NOT CONFIRMED — do not treat as a diagnosis.** If it holds, a retracted fact keeps being injected as true until something else regenerates the payload, which is a correctness bug in A8's read half. Reproduce with two `handle_triplet` calls plus a `negated=True` third, then read `context_payload` after each commit.
   - Also unmeasured: `src/workers/{reflection,fine_tune,codex_inject_watcher,compaction,batch_summarizer,procedural_decay}.py`, `retrieval/configurable_orchestrator.py`, and ~~`workers/drop_zone.py`~~ — **deleted 2026-07-28 by C12a; the smoke sweep's exclusion list is now EMPTY, so every module under `src/` is at least proven to import (smoke 81 → 88).** The rest of this list stands. `test_router_parity.py`'s baseline lives in gitignored `logs/`, so on a clean checkout that coverage is **zero**.
 
+- [x] <a id="g31"></a>**G31 Model paths are CWD-relative, and two of them degrade SILENTLY** — DONE 2026-08-08. → [full record](ROADMAP_DONE.md#g31)
+- [ ] <a id="g32"></a>**G32 ICE↔Ollama control surface — ICE talks through a door that drops most of it** `(new — 2026-08-03)` — **The finding, generalised.** ICE posts everything to Ollama's OpenAI-compatible `/v1/chat/completions`, for both chat and background work. That shim **silently discards parameters it does not recognise**, and every Ollama-native control is in that category. Measured: `options` (`num_ctx`), `keep_alive`, `think`, `chat_template_kwargs` — all **ignored**; `reasoning_effort` and `stream_options.include_usage` — honoured. ~~JSON-schema **constrained decoding** is native-only too (Ollama's `format`; the OpenAI `response_format` is ignored upstream).~~ **← STRUCK 2026-08-03: false, and never measured. See the audit result below.**
+  ⚠ **That list is what was TESTED, not the control surface.** It was assembled from the four things one session happened to need. **This item's first deliverable is the AUDIT** — enumerate what the native API actually exposes, diff it against what survives the shim, and record the whole gap — because the pattern so far is that every time we look for one thing we find another, and C16 shipped `num_ctx` believing it landed (it does not: `ollama_send_num_ctx` also defaults to `False`).
+  **✅ THE AUDIT IS DONE — 2026-08-03. It OVERTURNS the premise of (a). Full record: [specs/G32_ollama_transport.md](specs/G32_ollama_transport.md) §0; numbers in [PROVENANCE.md](PROVENANCE.md).** The sentence above claiming constrained decoding is native-only is **FALSE and struck** — it was recorded from upstream docs, never measured. **`response_format: {"type":"json_schema", …}` IS honoured by the shim**: 8/8 conformance on the schema codex extraction actually needs (triplet array, enum-constrained relation), and both arms obeyed an enum narrowed to a value no verb in the text implied. What *is* ignored is `{"type":"json_object"}` — 0/8, indistinguishable from no constraint — **which is exactly the form `maintenance_agent.py:399` sends today.** ⇒ **(a)'s headline prize needs no transport change at all.** Still genuinely native-only: `options.*` (`num_ctx`, `top_k`, …), `keep_alive` + explicit unload, `think` as its own field. **Truncation was re-measured and the first comparison was INVALID** (the `/v1` arm silently ran at 32,768 because the shim dropped the `num_ctx` the native arm got): Ollama 0.30.7 **grows the runner** rather than truncating, and when the model *cannot* grow both transports truncate silently — `tinyllama`, 6,012 tokens in, `prompt_eval_count 2047`, HTTP 200, `done_reason "stop"`, **natively too**. Loudness comes from the *pair* `native + explicit num_ctx` → typed `400 exceed_context_size_error` carrying `n_prompt_tokens`/`n_ctx`. **`/api/show` exposes a `capabilities` list** — the detection primitive this item asks for — but it is template-derived, not behavioural (a model advertising `thinking` emitted zero), so it is a negative filter only. **Two live defects found in passing, both transport-independent:** the `json_object` call above, and `registry.py:162` hardcoding the *dedicated*-mode model name so background model auto-tagging 404s and is swallowed into empty tags in the default shared mode — a third silent-fallback instance. **⏳ OPEN, and it is the user's call:** whether (a) now splits into (a1) constrained decoding + those defects on the existing SDK, and (a2) the native transport folded into G4(b) where `keep_alive`'s only consumer lives. Options and the recommendation are in the spec §1.1.
+  **Split, because the two halves have very different risk (user, 2026-08-03):**
+  - **(a) BACKGROUND HALF — the immediate next session.** Background calls are non-streaming request/response and all resolve through one factory (`bg_client_factory`), so moving them to the native endpoint is a small, contained change. Unlocks **JSON-schema constrained decoding** (which is what makes A12's one-small-model design affordable and kills the regex JSON fallback in `extract_triplets`), plus `keep_alive` + explicit unload (`POST /api/generate {"keep_alive": 0}` → `done_reason:"unload"`, verified), which is G4(b)'s mechanism. `runtime_probe.py` already speaks the native API over httpx, so the client exists.
+  - **(b) CHAT HALF — its own session, before Z1.** `num_ctx` on the generation request, the truncation guard, and streaming/`usage` equivalence on the native API. Higher risk: it is the live SSE path users watch.
+  **⚠ THE AUDIT IS THE FIRST DELIVERABLE, AND IT IS BROADER THAN THE FIVE PARAMETERS ABOVE (user, 2026-08-03).** Enumerate **every endpoint Ollama exposes** — `/api/chat`, `/api/generate`, `/api/embed`, `/api/ps`, `/api/show`, `/api/tags`, `/api/pull`, `/api/create`, `/api/copy`, `/api/delete`, `/api/blobs`, plus the `/v1` shim — and for each record: what it does, what ICE uses today instead, and what it would buy. We have only ever probed the handful a single session happened to need.
+  **⚠ THE OTHER HALF: WHAT DOES DROPPING THE OpenAI SDK ACTUALLY COST? (user, 2026-08-03 — and the answer is small, which is why this is buildable.)** Grounded in code, the transports are already split: the **chat path** uses raw `httpx` against `{ollama}/v1/chat/completions` and does NOT touch the SDK at all; the **background path** is the `openai` Python SDK at **exactly ONE construction site** (`bg_client_factory.py:98`). So the audit's question is narrow: *what breaks if that one site speaks Ollama-native instead?*
+  **The answer is: `background_model_mode="dedicated"`, and nothing else.** Dedicated mode points the same SDK at a vLLM/SGLang server on `:8002/v1`, which speaks OpenAI-compatible and does **not** speak Ollama-native. That is the entire cost — and it is why the design is **BOTH, not a swap**: one construction site is exactly the seam a capability-aware transport needs. Shape: the factory picks native when the server is Ollama (gaining `num_ctx`, `keep_alive`, `think`, JSON-schema constrained decoding) and the SDK otherwise, with **unavailable capabilities LOGGED, never silently dropped** — because silently dropping what it does not understand is precisely what `/v1` does to us and what this item exists to stop ICE repeating one layer up. Capability detection, not a hardcoded branch.
+  **✅ a1 SHIPPED 2026-08-04** (`d43f580` transport helper · `b63ab7d` ledger + migration **`c704abf1917e`** = the new alembic head · `e77fa65` extractor · `f71b347` the two dead calls · `baa45f4` remaining call sites · docs `2f2842b`). What landed: **JSON-schema constrained decoding at every structured background call site** — extraction, the maintenance agent, model auto-tagging, four reflection calls, raw-slice turn extraction, blob-kind — through one `json_schema()` constructor, on the **existing SDK**, no transport change; **`normalize_relation`** (case/separator/helper-verb only, safe because no two vocabulary entries collide after normalisation); the **`codex_relation_gaps` ledger** keeping the model's own wording plus subject/object so Z2 can rank the missing relations and replay them without a new LLM call; **`finish_reason == "length"` now warns** and `codex_extraction_max_tokens` rose 500 → 1,200; and **every silent fallback in these paths made loud** (`_robust_json`/`_robust_list`, `_parse_turns`, the vocabulary drop, blob-kind's DOCUMENT default, model auto-tagging). **Two calls that had NEVER worked were repaired**: `maintenance_agent`'s `response_format={"type":"json_object"}` (ignored by the server, scored 0/8 — indistinguishable from no constraint) and `registry._tag_with_bg_model`'s hardcoded dedicated-mode model name (404 on every call in the default shared config, swallowed into empty tags). The **enum stays wired and switchable** — it is Z2's decision, not a1's. Validated: `tests/test_relation_gaps.py` **33/33** against a live model (every assertion two-sided), plus codex_write_path 20 · documents 53 · ingestion 36 · maintenance_runtime 49 · maintenance_agent 43 · services 48 · clustering_v5 13 · c4_c9 28 · coding_core 52 · retrieval_coverage 25 · context_budget 17 · smoke 92. ⚠ **Its own truncation warning caught a regression this session introduced** — wrapping blob-kind's answer in a JSON object overflowed that call's 16-token budget, so every answer truncated to empty and the `DOCUMENT` default silently absorbed real transcripts; fixed with a bare top-level enum. That is the standing rule paying for itself inside one session.
+  **⏭ STILL OPEN under (a):** the deterministic ladder beyond normalisation (lemmatisation, fuzzy, containment, inverse-direction guard) — **premature until the vocabulary is repaired**, and it needs the inverse-relation check first because containment/lemmatisation invert direction (`is_used → uses`). Z2 owns the vocabulary decision, the alias dictionary seeded from the ledger, and the enum's fate. **(b) the chat half is untouched** and still owns `num_ctx` + the truncation guard on the live SSE path.
+  **Look-ahead:** A12's model benchmark is scheduled AFTER (a), deliberately — benchmarking before the constraint measures which model is best at not being constrained. **[F11](#f11) (Cloud API models) shares this seam**: a cloud provider is OpenAI-compatible, so it lands on the SDK branch and inherits the same capability-reporting.
+  **📊 THE EVIDENCE RUN — 300 real turns, 2026-08-04. Full numbers in [PROVENANCE.md](PROVENANCE.md); it moved the relation question OUT of a1.** Harvested with the production extraction prompt (197/197 relations present, "SKIP IT" rule included) but **without** the `codex_extractor.py:514` filter, so the failures stay visible. **67.8% of every relation the model produces is out-of-vocabulary and is silently destroyed today** (lmsys 62% · personal 66% · wildchat 70% · sharegpt 78%), and the top misses are `is` (92×), `has` (68×), `includes` (29×) — ordinary English the 197-word list lacks, not near-misses. **The deterministic matching ladder recovers 5.7%** of them (a 31-probe hand-authored set had scored the identical cascade 24/24 — [TRAPS](TRAPS.md) #13). **The decoder enum keeps 100% but ~78% of what it rescues is WRONG**, because a few relations act as attractors for anything inexpressible (`is → is_employed_by`, `is_family_member_of → is_dating`, `is_sibling_of → is_separated_from`).
+  ⚠ **THE ENUM IS NOT CLOSED — it is a [Z2](#z2) DECISION (user, 2026-08-04).** a1 ships the enum as a *usable capability* and does not delete it; whether it ends up fully off, on over a repaired vocabulary, or on for a subset of call sites is decided at Z2 with the mini-exp's output in hand. Measuring it badly here is evidence, not permission (TRAPS #3). **What the run actually indicts is the VOCABULARY, not the transport or the matcher** — neither dropping (32% kept) nor forcing (100% kept, ~78% wrong) is acceptable — so the 606 ranked missing relations become Z2's input, and the ladder is *premature* rather than useless: once the vocabulary is repaired the residual failures genuinely will be near-misses. Also found: **`finish_reason == "length"` yields unparseable JSON at the production `max_tokens=500` (2/12 turns) and nothing in `src/` reads `finish_reason`** — constrained decoding guarantees a valid *prefix*, not completion.
+
+- [x] <a id="g33"></a>**G33 Every property VALUE becomes an orphan entity node** — DONE 2026-08-08. → [full record](ROADMAP_DONE.md#g33)
 - [ ] <a id="g34"></a>**G34 The relation detector cannot say "no"** `(bug — opened 2026-08-08 from a user question about codex traversal; PRE-FINAL; entry written 2026-08-10, see note)` — `_detect_relations` fires on **every** prompt, so A4's `+0.25` relation-overlap boost is applied to noise on every turn, and the codex leg's score stops meaning "this fact matches the question".
   - **Measured, and the numbers are the whole argument** (full table in [PROVENANCE.md](PROVENANCE.md#g34--the-relation-detector-measured-2026-08-08)): against the 197-relation vocabulary at `RELATION_SIM_FLOOR` 0.45, the prompt **`"ok"` puts 197 of 197 relations above the floor** (top-1 `ally` 0.844); `"hello"` 195; `"thanks, that helped"` 189. Meanwhile `"who inspired Kael"` — a genuine relational query — clears only **43**, with a top-1 of 0.575.
   - **⚠ Raising the floor CANNOT fix it, which is why this needs a design and not a tweak.** Absolute cosine is **anti-correlated with relational content** across the sample: short contentless strings embed near the centroid and are therefore close to everything. No threshold separates `"ok"` (0.844) from `"who inspired Kael"` (0.575). The one clean negative is a long, semantically specific non-relational prompt (`"write me a haiku about rain"`, 0/197).
@@ -866,9 +640,60 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 
 - [x] <a id="g36"></a>**G36 The retrieval legs swallow their own failures** — DONE 2026-08-09. → [full record](ROADMAP_DONE.md#g36)
 - [x] <a id="g37"></a>**G37 A scope that resolves to no batches read the WHOLE graph** — DONE 2026-08-09. → [full record](ROADMAP_DONE.md#g37)
+## Track H — Research follow-ups & open questions
+
+- [ ] <a id="h1"></a>**H1 Cross-conversation retrieval evaluation** `(open)` — All 1,211 probes were within-conversation; the scoping/cross-convo machinery (and C6) has never been measured. **Update 2026-07-28: C6 shipped, so there is now more to measure, not less** — `manual` mode is a real user-chosen closed conversation set (not the no-op it was during the experiments), and conversation/cluster **exclusion** exists. Both are cross-conversation behaviors with zero measurement; a probe class that ticks two conversations into scope and one that excludes a conversation the answer lives in are the obvious additions. **S1 note: FINAL's probe taxonomy includes a cross-conversation class (synthetic set has multi-conversation fact lifecycles) — re-verdict this after FINAL.**
+- [ ] <a id="h2"></a>**H2 Multi-user evaluation** `(open)` — All benchmark conversations are one user's; generalisation across users is unvalidated. **S1 note: partially discharged by FINAL (synthetic persona = a second "user"; LongMemEval = third-party data) — full multi-user study stays future work.**
+  **⚑ n=1 IS A LIMITATION, NOT SOMETHING THE EXTERNAL BENCHMARKS DISCHARGE (settled 2026-08-04).** The absence of an organic public corpus *explains* why n=1; it does not remove the risk that results are specific to how one person writes and thinks — which is precisely what CLAUDE.md's style-invariance rule warns about. **The honest structure is also the strongest**: (1) state it as a limitation, (2) explain the cause is structural — organic longitudinal history cannot be crowd-sourced without waiting years, (3) show partial mitigation — the `synth` and `lme` arms are **not** n=1, so some results generalise even where Dataset B does not, and (4) point at the reproduction path: **LSREP ingests anyone's export**, so a reader can rerun the protocol on their own history. **(4) is the actual contribution** — "you cannot replicate my data, but you can replicate my protocol on yours" beats any claim about what does not exist.
+- [ ] <a id="h3"></a>**H3 Year-scale memory studies** `(open)` — 93 days max simulated so far. Saturation, retrieval drift, decay convergence/cold-start (does everything but bookmarks decay to zero?), compaction cadence.
+- [ ] <a id="h4"></a>**H4 Probe realism** `(open)` — LLM-generated probes under-represent anaphoric/ambiguous human questions; grow the manually-authored probe set. **S1 note: FINAL's taxonomy reserves 15% for human-authored anaphoric/ambiguous probes — this is that growth.**
+- [ ] <a id="h5"></a>**H5 Fine-tune scheduling on user machines** `(open)` — No good answer yet for when to run expensive fine-tunes for users who close the app (tail of C7). **S1 note: SETTLED by C7 D6 — consent-gated proposals (session-end + threshold + `auto_finetune` default OFF), never unattended, no cron.**
+
+---
+
 ## SEMIFINAL — Full end-to-end system test (do SECOND LAST, after everything above)
 
-- [ ] <a id="z1"></a>**Z1 Complete live system test** `(gate)` — **The very last thing, once every item above is done.** Bring up the *whole* stack (`./ice`: docker postgres+redis, Ollama, celery worker+beat, uvicorn proxy — bg model SHARED per the C7 decision; vLLM only if testing the optional dedicated config; `./ice` is still the dev harness at Z1 time — the packaged app and E7's headless-MCP boot replace it *after* this gate, per the F end-state) and drive a real end-to-end run through our frontend / the API: real chat turns → classify → retrieve → assemble → route → stream → post-flight → codex/procedural extraction → reconciliation → enrichment → clustering → decay → reflection. Verify the pieces that could only be *stubbed/DB-validated* during development actually work against the live background model — especially the LLM-dependent ones flagged "pending live validation": A2 extraction quality + over-rejection rate, A6 reconciliation decisions, A7.3 note enrichment (fills the ~1,150-entity backlog), plus MoE routing, summaries, and the full worker cadence. Measure, not just run: re-check the Codex contribution and retrieval quality now that A1–A7/A10 landed. This is the acceptance gate for the whole post-paper cycle. **⚑ LongMemEval-S IS A Z1 FIXTURE, NOT A SCORE (2026-08-04).** Pull a small LME-S subset and replay it through the F10/LSREP ingestion path as **neutral fuel for the isolation tests**: it is public (no privacy cost, cloud-safe), it carries **ground-truth answers** — the one thing "read the output by eye" cannot give you — and it **populates the store, which is currently EMPTY**. It exercises extraction, the relation-gap ledger, clustering and retrieval on data that is not the maintainer's. ⚠ **Do NOT score it pre-Z1**: an untuned system yields a number about tuning, not design (the same argument [Z2](#z2) makes for why reading output before Z1 measures the wrong thing). The **scored** LME run stays at FINAL, where [FINAL_experiments.md](specs/FINAL_experiments.md) §2.8 already specifies the variant, replay path, judge protocol and comparison table. It **complements** `icedev_stitched` for [Z2](#z2) rather than replacing it — organic history has the contradictions a synthetic haystack does not.
+### ⚑ WHAT Z1 AND Z2 ACTUALLY ARE — clarified by the user, 2026-08-04
+
+> Written after the G32/a1 evidence run, which is itself the worked example of the Z1 half.
+
+**Z1 = every piece tested IN ISOLATION, on real prompts.** Not a smoke test and not a
+tuning-only pass: take actual prompts, drive **one subsystem at a time**, and write down
+**every** failure point. Two kinds come out and both get recorded: **bugs** (it does not do
+what it says) and **design problems** — the "enum-type" finding, where the code works exactly
+as written and the *design* is wrong. The G32/a1 run is the template: harvest what the
+component really produces, with the downstream filter removed so the failures stay visible,
+then read them. Fix what is fixable in place; log the rest for the fix pass.
+
+**Z2 = the whole system, run as SPOT CHECKS IN BATCHES — not one big experiment.** The
+structure borrows from the paper's Experiment 2, but it is **not** "run it all and read the
+result at the end". It is: one conversation, a small chosen probe set, read the output, fix
+or note, repeat. **Z2 is expected to run MULTIPLE times.** Only after the accumulated problem
+list from Z1 + Z2 is in hand does the real fix pass happen — and FINAL comes strictly after
+that, on a frozen system.
+
+**Corpus shape — recommendation (asked by the user, 2026-08-04): use the MASSIVE
+conversations, and cut the PROBE count instead.**
+- Conversation size is what creates the conditions ICE exists for — memory pressure, decay,
+  clustering, an accumulated codex, a context budget that actually binds. **A short
+  conversation cannot produce a retrieval failure, because everything still fits in the
+  window and retrieval changes nothing.** Shrinking the conversation removes the phenomenon
+  under test.
+- Probe count buys statistical confidence, which is FINAL's job, not Z2's. For *finding
+  problems*, five probes against a deep store beat two hundred against a shallow one.
+- And probe count is exactly what makes the loop slow, which matters because Z2 runs
+  repeatedly. **This session is the evidence**: 300 turns exposed a 68% failure rate. 3,000
+  would have said the same thing, four hours later.
+- The binding constraint is **reading**: Z2's whole value is a human reading output. Twenty
+  outputs is a morning; 1,211 is impossible, which is how Exp 2 shipped with the problem
+  unseen.
+- ⚠ Two conditions on the small probe set: probes are **chosen, not sampled** — deliberately
+  spanning the legs (codex · vector · BM25 · procedural · temporal · clusters) so every
+  subsystem is exercised at least once; and the conversation is **held fixed across runs**,
+  so repeat runs are comparable and a fix can be seen to have worked.
+
+
+- [ ] <a id="z1"></a>**Z1 Complete live system test** `(gate)` — **The very last thing, once every item above is done.** Bring up the *whole* stack (docker postgres, Ollama, the uvicorn proxy and its in-process maintenance runtime — bg model SHARED per the C7 decision; vLLM only if testing the optional dedicated config. ⚠ **This entry used to say "postgres+redis … celery worker+beat"; C7 deleted both**, and `./ice` is to be assumed non-working — bring the stack up with the individual commands in CLAUDE.md) and drive a real end-to-end run through our frontend / the API: real chat turns → classify → retrieve → assemble → route → stream → post-flight → codex/procedural extraction → reconciliation → enrichment → clustering → decay → reflection. Verify the pieces that could only be *stubbed/DB-validated* during development actually work against the live background model — especially the LLM-dependent ones flagged "pending live validation": A2 extraction quality + over-rejection rate, A6 reconciliation decisions, A7.3 note enrichment (fills the ~1,150-entity backlog), plus MoE routing, summaries, and the full worker cadence. Measure, not just run: re-check the Codex contribution and retrieval quality now that A1–A7/A10 landed. This is the acceptance gate for the whole post-paper cycle. **⚑ LongMemEval-S IS A Z1 FIXTURE, NOT A SCORE (2026-08-04).** Pull a small LME-S subset and replay it through the F10/LSREP ingestion path as **neutral fuel for the isolation tests**: it is public (no privacy cost, cloud-safe), it carries **ground-truth answers** — the one thing "read the output by eye" cannot give you — and it **populates the store, which is currently EMPTY**. It exercises extraction, the relation-gap ledger, clustering and retrieval on data that is not the maintainer's. ⚠ **Do NOT score it pre-Z1**: an untuned system yields a number about tuning, not design (the same argument [Z2](#z2) makes for why reading output before Z1 measures the wrong thing). The **scored** LME run stays at FINAL, where [FINAL_experiments.md](specs/FINAL_experiments.md) §2.8 already specifies the variant, replay path, judge protocol and comparison table. It **complements** `icedev_stitched` for [Z2](#z2) rather than replacing it — organic history has the contradictions a synthetic haystack does not.
   **⚑ Z1 IS ALSO WHERE THE BACKGROUND MODEL IS CHOSEN (2026-08-04)** — [A12](#a12)'s benchmark is not a separate step before Z1; it is Z1's LLM-touching isolation tests run across the candidate shortlist, giving a per-component ranking. Only LLM-touching components sweep; retrieval/scoping/budget are model-independent and run once. See the 📋 inventory block at the top. **Expanded (user, 2026-07-10): Z1 is also the tuning + coverage gate — "test every single thing" is encoded here, and FINAL stays strictly after it.** (a) **Whole-system coverage matrix:** enumerate every subsystem/module × which roadmap item touched it this cycle; anything untouched gets an explicit review pass — nothing ships unexamined just because no item happened to rework it. **→ [G28](#g28) runs inside this pass (user, 2026-07-28): sweep out every keyword list that is doing a classifier's job, the way D8 found DI3 and the temporal gate doing it in two modules at once.** (b) **Staged parameter-tuning pass:** tunable constants live everywhere (leg weights, RRF k, bonuses, thresholds, taus, budget formulas, B2 log-odds weights, T-track pads) and exhaustive combination testing is impossible — so Z1 runs the Z1-prep spec's protocol: consolidate knobs into settings (G9), then tune stage-by-stage along the pipeline in dependency order (candidate generation → fusion → bonuses → budget → decision thresholds), one-factor sweeps per stage against the synthetic ledger auto-scorer (FINAL's machinery, built early and reused here), record a sensitivity verdict per knob (load-bearing / plateau / cosmetic), and freeze the tuned defaults BEFORE FINAL measures the system. **→ spec: [docs/specs/Z1_tuning_coverage.md](specs/Z1_tuning_coverage.md) (greedy stage-wise descent + jitter pass; dynamics solved by invariant math, not sweeps; coverage matrix + pending-validation ledger as Z1's entry checklist; G9 lands as its first commit).**
   - **B2's log-odds weights: MEASURED AND LEFT ALONE (2026-07-27).** This entry first said re-tuning B2 was Z1-prep's highest-value target, on the reasoning that v1's `p_ltm` was one class's share of a 3-way softmax while v2's is a saturating sigmoid, so `_logit(p_ltm)` now spans a wider range and every additive bump is mis-scaled against it. **The reasoning was sound and the conclusion was wrong** — it was then actually swept (`scripts/classifier/pipeline/tune_b2.py`, coordinate descent over seven knobs, scored on 256 positives / 655 negatives drawn from the 207 user probes + 104 authored adversarial probes + held-out no-memory rows). Result: under the correct objective the shipped defaults are **already essentially optimal for the v2 head**; the only admissible change is `ltm_bump_creative` 0.7 → 0.35, worth +0.005 specificity with zero movement on either probe family, i.e. noise. Not applied.
     **The objective is the load-bearing part of that finding, and Z1-prep must keep it.** Plain balanced accuracy *does* find a +0.0105 "improvement" — by zeroing four bumps and buying specificity with recall (0.922 → 0.871). That is the wrong trade for a **silent** gate: a false negative means retrieval never ran, the answer is quietly worse, and nothing signals it; a false positive costs one wasted round-trip that the assembler's budget already bounds. So the sweep maximises **specificity subject to recall not falling below the shipped baseline**, and its per-family report exists to catch exactly the overfit that balanced accuracy walked into (the user-probe family *lost* 0.058 under it). Two further traps the script now handles and a hand-tune would not: three knobs (`ltm_bump_low_confidence`, `ltm_bump_reference`, `ltm_length_weight`) are **inert on this data** — every value scores identically because they never flip a decision — so a naive argmax silently zeroes them by tie-breaking and it reads as a finding; and `ltm_bump_reference` can only fire via DI3's anaphora path, which a direct-model harness never exercises. Re-run the script when the synthetic ledger scorer exists; do not hand-edit these constants.
@@ -876,50 +701,47 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   - **⚠ KNOB ADDED 2026-07-27 (B1 run-2 probe audit): `settings.temporal_label_threshold` (currently 0.6) is set too low, and it is load-bearing** — it is the one place a v2 context signal reaches a live decision (`memory_decision.py:191`, where the label is OR'd with T2's detector for the `ltm_bump_timescope` retrieval bump). Measured on hand-authored probes: `p_temporal` fires as a **shadow of `Needs_Memory`** rather than as an independent time signal — mean **0.87** on a cell of memory-needing prompts with no temporal content at all ("remember the approach we settled on? does it still hold here"), 0.82 on "is the migration plan still consistent with the deadline I'm working to", 0.81 on a self-contained argument critique. Inter-labeler agreement on `Temporal_Recall` is F1 0.65, and the two labelers disagreed on volume badly (A tagged 2,473, B 1,363). Because the bump is OR'd, an over-firing label makes the deterministic detector redundant and pushes the retrieval decision toward "always retrieve" — which is the failure mode B2 exists to avoid. **Sweep this knob explicitly against the D7 intent** (label gates, detector parses) and consider whether the OR should become "label only when the detector is silent AND p_temporal is high", i.e. a genuinely conservative threshold in the 0.8–0.9 region. Do NOT tune it against the held-out split — that split shares the labelers' bias; use the independent probe sets (`eval_probes_independent.jsonl`, `hard_probes_authored.jsonl`).
 
 
+
+### ⚑ WHEN THE MODEL GETS CHOSEN — decided 2026-08-04
+
+**The model choice happens INSIDE Z1, as a sweep across the LLM-touching isolation tests —
+not as a separate benchmark before them.** The user posed it as an either/or (pick first, or
+test every model per component); this is the second, and it is strictly better for one
+reason: **Z1's isolation tests and A12's benchmark are the same measurement.** Running each
+LLM-touching component across the candidate shortlist yields a per-component ranking, which
+a single aggregate score cannot give — and per-component is what **[A12](#a12)**'s
+"ONE model, never two" decision actually needs, because a single winner has to be checked
+for being catastrophically bad at *one* job, not just good on average.
+
+**This session is the existence proof:** the G32/a1 evidence run *was* a Z1-shaped isolation
+test of the extractor, and it doubled as a two-arm model/configuration comparison at a cost
+of ~7 minutes per arm on a 4B. Nothing extra had to be built.
+
+Mechanics: only the **LLM-touching** components sweep (extraction, summarisation, cluster
+naming, reconciliation, blob-kind, slot proposals, motifs, decisions). Everything else —
+retrieval legs, scoping, budget arithmetic — is model-independent and runs once. Cost is
+`models × LLM-components`, held down by the same rule recommended for Z2's corpus: **small,
+chosen probe sets per component**, because these runs find failures rather than estimate
+effect sizes. **Prerequisite already met:** A12 required constrained decoding to land first
+(otherwise the benchmark measures which model is best at *not* being constrained) — that
+shipped with G32/a1 on 2026-08-04.
+
+**Z1'S SCOPE — CONFIRMED BY THE USER, 2026-07-28.** Z1 said "the very last thing, once every item
+above is done" while step 12 defers all of Track F to post-FINAL; both could not hold. **Resolved and
+now confirmed: Z1 is a BACKEND gate.** Its body describes bringing up the backend stack and driving
+turns through classify → retrieve → assemble → route → stream → post-flight → extraction →
+reconciliation → clustering → decay → reflection, and FINAL likewise measures the pipeline, not a UI.
+So **"every item above" means every item in Tracks A–E and G that is not explicitly post-FINAL or
+evidence-gated** — i.e. ② above, plus ④ landing at/after the gate. The user's condition was "if Track
+F takes time, it is post-FINAL"; it does (see ③).
+
+Mechanical G items: opportunistic per [G_mechanical.md](specs/G_mechanical.md), each inside the phase that touches its file. Architecture-doc upkeep per CLAUDE.md applies at every phase. **Boy-scout cleanup applies at every phase too** (CLAUDE.md standing rule → ledger in [docs/CLEANUP.md](CLEANUP.md)): touched files leave cleaner, one-offs → `scripts/oneoff/`, pre-FINAL experiment folders stay frozen.
+
 - [ ] <a id="z2"></a>**Z2 The read-the-output pass — one real conversation, judged by eye, BEFORE the experiments** `(gate — 2026-07-28, user; THIS ENTRY IS THE SPEC. Runs AFTER Z1, BEFORE FINAL.)` — **This is the single most valuable thing that happened during Experiment 2, and it happened by accident.** Mid-experiment the maintainer ran ICE over one conversation, *read the actual output*, and immediately saw what was wrong — "this is shit, that is shit" — and a large share of Exp-2's design changes came from that one sitting, not from the aggregate metrics. **It is now a deliberate gate**, because doing it by accident is not a plan and doing it after FINAL is too late.
   **The point is that it is NOT the experiment.** FINAL is thousands of probes, a judge, a rubric, a budget — expensive, slow, and it answers *"how much better"*. This answers *"is anything obviously broken"*, which is a different and cheaper question, and one that aggregate scores are actively bad at: a mean score cannot show you a retrieved fragment that is irrelevant, a summary that dropped the one load-bearing sentence, or a codex fact that is confidently wrong. **A human reading twenty real turns finds those in an hour.** Running FINAL to discover them would cost the whole budget and the whole GPU week.
   **Shape (deliberately small):** take **one real multi-turn conversation** — the `icedev_stitched` corpus is the obvious candidate (3,473 turns of genuine long-project history, already assembled for B1 and shared with FINAL) — replay it through the live stack, and then **read**: for each of ~20 sampled turns, what was retrieved, what the assembled prompt actually looked like, what the model answered, what got stored, what the extractors made of it. **Judged by eye, not by metric.** Record every "that's wrong" as an issue with the turn that produced it. No scoring, no judge, no cloud.
   **Why it must come after Z1 and before FINAL:** after Z1 because reading the output of an untuned system tells you about the tuning, not the design; before FINAL because everything it finds is a change, and FINAL must measure a frozen system. **Exit condition:** the list of "that's wrong" items is triaged — each one either fixed, or explicitly accepted with a reason written down. Not "the list is empty".
   **Explicitly in scope for the eyeball pass** (the places the automated suite provably cannot see — see [G30](#g30)): *retrieval relevance* (did the right memory come back, or just some memory), *summary faithfulness* (did the summariser drop the sentence that mattered), *codex correctness* (is the extracted fact true and is the relation right), *prompt assembly* (does the assembled context read like something a model can use, or like concatenated fragments), and *the answer itself*. **Depends on:** Z1 (tuned system), G29 (don't audit output shaped by known drift), G30's LLM lane if built (it automates the cheap half of this). **Feeds:** FINAL, which should start from a system that has already had its obvious problems removed.
-
-  ### ⚑ WHAT Z1 AND Z2 ACTUALLY ARE — clarified by the user, 2026-08-04
-
-  > Written after the G32/a1 evidence run, which is itself the worked example of the Z1 half.
-
-  **Z1 = every piece tested IN ISOLATION, on real prompts.** Not a smoke test and not a
-  tuning-only pass: take actual prompts, drive **one subsystem at a time**, and write down
-  **every** failure point. Two kinds come out and both get recorded: **bugs** (it does not do
-  what it says) and **design problems** — the "enum-type" finding, where the code works exactly
-  as written and the *design* is wrong. The G32/a1 run is the template: harvest what the
-  component really produces, with the downstream filter removed so the failures stay visible,
-  then read them. Fix what is fixable in place; log the rest for the fix pass.
-
-  **Z2 = the whole system, run as SPOT CHECKS IN BATCHES — not one big experiment.** The
-  structure borrows from the paper's Experiment 2, but it is **not** "run it all and read the
-  result at the end". It is: one conversation, a small chosen probe set, read the output, fix
-  or note, repeat. **Z2 is expected to run MULTIPLE times.** Only after the accumulated problem
-  list from Z1 + Z2 is in hand does the real fix pass happen — and FINAL comes strictly after
-  that, on a frozen system.
-
-  **Corpus shape — recommendation (asked by the user, 2026-08-04): use the MASSIVE
-  conversations, and cut the PROBE count instead.**
-  - Conversation size is what creates the conditions ICE exists for — memory pressure, decay,
-    clustering, an accumulated codex, a context budget that actually binds. **A short
-    conversation cannot produce a retrieval failure, because everything still fits in the
-    window and retrieval changes nothing.** Shrinking the conversation removes the phenomenon
-    under test.
-  - Probe count buys statistical confidence, which is FINAL's job, not Z2's. For *finding
-    problems*, five probes against a deep store beat two hundred against a shallow one.
-  - And probe count is exactly what makes the loop slow, which matters because Z2 runs
-    repeatedly. **This session is the evidence**: 300 turns exposed a 68% failure rate. 3,000
-    would have said the same thing, four hours later.
-  - The binding constraint is **reading**: Z2's whole value is a human reading output. Twenty
-    outputs is a morning; 1,211 is impossible, which is how Exp 2 shipped with the problem
-    unseen.
-  - ⚠ Two conditions on the small probe set: probes are **chosen, not sampled** — deliberately
-    spanning the legs (codex · vector · BM25 · procedural · temporal · clusters) so every
-    subsystem is exercised at least once; and the conversation is **held fixed across runs**,
-    so repeat runs are comparable and a fix can be seen to have worked.
 
   ### Z2's shape, decided with the user 2026-07-28: **a scaled-down re-run of Experiment 2 — on the system, not on the paper**
 
