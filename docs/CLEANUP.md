@@ -694,3 +694,32 @@ did not create.
 **Ruff on the touched files:** at parity with the base commit (orchestrator 9,
 `main.py` and `configurable_orchestrator.py` clean). The pre-existing `E711` in
 the orchestrator remains a load-bearing SQLAlchemy `== None`.
+
+---
+
+## 2026-08-10 — the documentation restructure
+
+No code touched. Three files' worth of material moved, nothing deleted.
+
+| From | To | Why |
+|---|---|---|
+| `CLAUDE.md` (17 rules/sections) | `docs/ROADMAP.md`, `docs/TRAPS.md`, `docs/CLEANUP.md` | It is loaded into every session; duplication is paid on every request. Six roadmap-working rules were near-verbatim copies of ROADMAP's own block, the provenance rationale a copy of PROVENANCE's header, the architecture section a restatement of ICE_Architecture. |
+| `docs/ROADMAP.md` preamble (~7,100 words) | `docs/outdated/roadmap_session_log.md` | 17 dated "DOCS ARE IN SYNC"/"ADDENDUM" paragraphs + 4 stacked inventories. They lived in the roadmap because there was nowhere else to put a session note; `docs/HANDOFF.md` now owns that. |
+| `docs/ROADMAP.md` — 70 finished entries (~26,000 words) | `docs/ROADMAP_DONE.md` | The queue was 59% finished items. Entries moved **verbatim, never compressed** — the completion notes are where look-ahead, propagation and validation are recorded, and the "seven consecutive entries were wrong about their own subject" pattern only exists because each one says which way it was wrong. |
+
+**Net:** `ROADMAP.md` 65,475 → 34,607 words, and it is now the queue.
+
+**Found by the move, and worth more than the tidying:**
+- **`G34` and `G35` had no entries.** Both were counted in the PRE-FINAL list
+  and G34 had a full measurement section in PROVENANCE, but neither was ever
+  written as an item — they existed only as two summary lines in a preamble
+  note from 2026-08-08. A session told to do G34 would have found nothing.
+  Entries written from the recorded material; the inventory now agrees with
+  what is actually written down (50, counted mechanically).
+- **36 of 49 cross-references were dangling.** `(#a12)`, `(#b3)`, `(#g30)` and
+  33 others pointed at anchors that did not exist — only 13 `<a id=>` tags had
+  ever been added. Every item now carries one; all 49 resolve.
+- **A rule was lost by the CLAUDE.md shrink and restored** (`d2710ec`): the
+  "check the ground before building on it" clause, dropped because two bullets
+  were compared by heading rather than by text. It is now a ROADMAP rule, and
+  CLAUDE.md edits are user-gated because of it.
