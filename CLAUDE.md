@@ -149,8 +149,9 @@ dropped, dead code and lying comments fixed in place, one-off scripts *moved*
 
 ### Git, commits, and the public repo
 
-**⚑ THE REPO IS PUBLIC** (`origin` → `github.com/Deepnar/ice`), since
-2026-08-10. It is no longer a private backup: **every push is a publication.**
+**⚑ THE REPO IS PUBLIC** (`origin` → `github.com/Deepnar/ice`), and has been
+for a while — TRAPS #12's exposure incident, closed 2026-08-04, was already a
+public clone. It is not a private backup: **every push is a publication.**
 Pushing during normal development stays pre-authorized — push at natural points
 without asking — but write every commit, message and file knowing it is read as
 soon as it lands, by strangers, with no window to take it back.
@@ -193,7 +194,7 @@ soon as it lands, by strangers, with no window to take it back.
   experiment published mid-flight is a result nobody chose to publish.
 
 **⚑ IT IS PUBLIC SINCE A GOOD WHILE NOW — the tree, the docs and the commit log.** This used to
-read "going public" and describe a future state; it is the present one.
+read "going public" long after it already had; corrected 2026-08-10.
 
 - **Never commit personal content** — private planning, career notes,
   conversation corpora, third-party emails, credentials. **Git history is
@@ -202,7 +203,7 @@ read "going public" and describe a future state; it is the present one.
   history keeps serving the old objects by SHA until the host garbage-collects
   them (TRAPS #12 — that took a support ticket last time). **Check before the
   commit, not after the push.**
-- **Verified clean at the flip (2026-08-10):** `check_history_clean.sh --clone`
+- **Verified clean 2026-08-10:** `check_history_clean.sh --clone`
   green against the live remote, no personal or planning file tracked, no
   credential-shaped string in the tree, README links the canonical
   venue-agnostic paper, and `v2-paper-eval` points at `0521df9` (post-rewrite).
