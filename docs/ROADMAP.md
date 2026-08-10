@@ -116,13 +116,16 @@ for FINAL. See [G30](#g30) for the instrument this needs.
 >   (style invariance), **[G4](#g4)(b)** (VRAM budget), **[A12](#a12)** (the model choice —
 >   see the decision below), **[G32](#g32)(b)** (chat-half `num_ctx` + truncation guard),
 >   **[B4](#b4)** (validated fine-tune promotion).
-> - **Correctness bugs that would corrupt a measured result:** ~~**[G31](#g31)**~~ **(DONE
->   2026-08-08)**, **[G33](#g33)**
->   (property values become orphan anchor nodes), ~~**[G5](#g5)**~~ **(DONE 2026-08-08)**,
->   **[G7](#g7)** (idempotency not enforced),
->   **[G11](#g11)** (undecayed old turns never summarised), **[G24](#g24)** (async hygiene in
->   the hot path), **[G25](#g25)** (log privacy — raw prompts in logs, and this repo is
->   public), **[G6](#g6)** (indexes via migrations).
+> - **Correctness bugs that would corrupt a measured result:** ~~**[G31](#g31)**~~,
+>   ~~**[G33](#g33)**~~, ~~**[G5](#g5)**~~, ~~**[G7](#g7)**~~, ~~**[G11](#g11)**~~ — **all
+>   five DONE 2026-08-08.** Still open: **[G24](#g24)** (async hygiene in the hot path),
+>   **[G25](#g25)** (log privacy — raw prompts in logs, and this repo is public),
+>   **[G6](#g6)** (indexes via migrations), and **[G27](#g27)** (shared-mode background
+>   model resolves to the wrong model — opened after this split was written).
+>   *(G33/G7/G11 were left unstruck here when they closed and this block went on
+>   listing them as open bugs until 2026-08-10 — a session reading it would have
+>   re-done finished work. This is the "propagate on completion" rule failing in
+>   the preamble, which is the same failure that lost G27, G34 and G35.)*
 > - **Audits with teeth:** **[G29](#g29)** (drift), **[G30](#g30)** (test blind spots),
 >   **[G20](#g20)** (dead code).
 > - **What a retrieval result MEANS (opened 2026-08-08):** **[G34](#g34)** (the relation
