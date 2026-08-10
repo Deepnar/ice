@@ -40,7 +40,28 @@
 
 ### 📍 CURRENT POSITION — 2026-08-10
 
-**Cluster ③ of the route into Z1: [G9](#g9) · [G36](#g36) · [G37](#g37) done. [G30](#g30) is next, then [G28](#g28) — and G28 runs INSIDE Z1's coverage matrix, so it must not be pulled forward.**
+**⚑ [Z1](#z1) HAS STARTED — declared by the user 2026-08-10. Z1-prep is not a
+separate phase; it is Z1's first work.** [G9](#g9) · [G36](#g36) · [G37](#g37) done,
+[G30](#g30) in progress as Z1's instrument-building step, [G28](#g28) inside the
+coverage matrix as always.
+
+**⚑ THE PUSH FREEZE IS ON.** Per CLAUDE.md's experiment-phase rule: commit
+locally, **do not push to the public remote** until the user lifts it. This is
+not a documentation detail — a half-run experiment published mid-flight is a
+result nobody chose to publish.
+
+**⚠ THE PROBE BUDGET IS THE BINDING CONSTRAINT, AND IT IS SMALLER THAN IT LOOKS
+(measured 2026-08-10).** `experiments/curation_files/` holds **58 files / 681 raw
+probes**, but probes repeat across a conversation's three checkpoints: **259
+unique by text, over 19 conversations.** *(FINAL's spec §3b records 649/252 —
+drifted, re-count before use.)* That is the entire hand-written evidence base,
+and **[FINAL](specs/FINAL_experiments.md) §3b already claims it** ("reusable, do
+NOT ask the user to rewrite them"). ⇒ **Z1 must not tune against these probes.**
+Tuning and reporting on the same 259 questions makes FINAL's numbers a
+measurement of the tuning, and the contamination is invisible afterwards.
+Z1's tuning fuel is **generated and regenerable** (ground truth scripted first,
+per FINAL §2's own synthetic-corpus technique); the 259 human probes stay sealed
+for FINAL. See [G30](#g30) for the instrument this needs.
 
 - **Inventory: 51 open items**, all of them top-level `- [ ]` lines that you can
   count. The split into PRE-FINAL research work and POST-FINAL productization is
