@@ -10,6 +10,15 @@ another doc, that doc owns it and this file keeps the one-line imperative.
 DI3, Celery, Redis, a 384-dim encoder and a 25-logit head, all long deleted.
 It is item (5) on the deletion-sweep checklist in [docs/CLEANUP.md](docs/CLEANUP.md).
 
+**⚑ Keeping it true is a standing job, and changing it is USER-GATED.** When a
+session touches a subsystem this file describes, **verify the claim here against
+the code** — same sweep as any other doc. But **ask before editing CLAUDE.md**,
+every time, even for a one-word correction: it is loaded into every session, so
+an edit changes how all future sessions behave, and a rule quietly dropped here
+is gone everywhere. *(That is not hypothetical: the `942d5a9` shrink compared a
+rule against its ROADMAP twin **by heading rather than by text** and deleted a
+clause the twin never had. Report what you found and what you propose; wait.)*
+
 ## What ICE is
 
 The **Infinite Context Engine (ICE)** is local-first AI memory middleware. It
@@ -219,10 +228,13 @@ them with an in-process maintenance runtime that the proxy owns. Background
 model mode is `shared` by default (reuses the main Ollama model); `dedicated`
 starts a separate vLLM on :8002 and is a manual, power-user path.
 
-`./ice`, `./stop_ice` and `setup.sh` are **dev scaffolding with a decided fate**
-(Track F end-state): replaced by one packaged app, plus the separate headless
-boot path for ICE-as-MCP that shipped with E7 (`ice-mcp`). Keep changes to these
-scripts thin. Logs go to `logs/{proxy,vllm_bg}.log`.
+**⚠ Assume `./ice`, `./stop_ice` and `setup.sh` DO NOT WORK.** They are dev
+scaffolding with a decided fate (Track F end-state: one packaged app, plus the
+separate headless boot path for ICE-as-MCP that shipped with E7, `ice-mcp`), so
+they are unmaintained and are not kept in step with the code. **Never debug
+them, never build on them, and never conclude anything from one of them
+failing** — bring the stack up with the individual commands above instead. Fix
+one only if the user asks. Logs go to `logs/{proxy,vllm_bg}.log`.
 
 ### Tests
 
