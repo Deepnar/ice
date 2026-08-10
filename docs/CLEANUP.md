@@ -710,6 +710,24 @@ No code touched. Three files' worth of material moved, nothing deleted.
 **Net:** `ROADMAP.md` 65,475 → 34,607 words, and it is now the queue.
 
 **Found by the move, and worth more than the tidying:**
+- **Track G was in three places.** G1–G26 sat in Track G with G31/G32/G33
+  wedged between G4 and G5; G28, G29, G30, G34, G35, G36 and G37 sat under
+  **Track H — "Research follow-ups & open questions"** — behind a bare divider,
+  an ops-and-bugs track filed as research. Every track is now in strict numeric
+  order and Track G holds G1–G37 with no gaps.
+- **Three items were counted but never written.** `G27` (announced 2026-07-25,
+  description decision-complete in `specs/G_mechanical.md` the whole time),
+  `G34` and `G35` (opened 2026-08-08 as two lines in a preamble note, with
+  G34's measurements already in PROVENANCE). A session told to do any of them
+  would have found nothing. All three now have entries; the open count is 51.
+- **Z2 had been handed five pieces of work and its entry named none of them** —
+  three from C16, one from A9b, one from the C13/C14 question — recorded in a
+  preamble triage block the entry never pointed at. Carried into the entry.
+- **The Z1/Z2 definition block was nested inside Z2's entry**, unreachable from
+  Z1; lifted to the SEMIFINAL section head. **Z1's own entry described the stack
+  as "postgres+redis, celery worker+beat"** — C7 deleted both — and is corrected.
+- ⇒ **The rule this earned**, now in the roadmap's own rules block: *if it is
+  work, it goes in an entry, never in preamble prose.*
 - **`G34` and `G35` had no entries.** Both were counted in the PRE-FINAL list
   and G34 had a full measurement section in PROVENANCE, but neither was ever
   written as an item — they existed only as two summary lines in a preamble
@@ -723,3 +741,30 @@ No code touched. Three files' worth of material moved, nothing deleted.
   "check the ground before building on it" clause, dropped because two bullets
   were compared by heading rather than by text. It is now a ROADMAP rule, and
   CLAUDE.md edits are user-gated because of it.
+
+---
+
+## 2026-08-10b — the repo went public
+
+Not a cleanup, recorded here because it changes what every later cleanup must
+check. `github.com/Deepnar/ice` is **public** as of 2026-08-10; CLAUDE.md's git
+section was rewritten from "going public" to the present tense.
+
+**Verified at the flip** (re-run these after anything that touches history):
+
+| check | result |
+|---|---|
+| `scripts/git/check_history_clean.sh --clone` | clean — against the live remote, i.e. what the public actually receives |
+| personal / planning / career files tracked | none |
+| credential-shaped strings in the tree | none |
+| README's paper link | `experiments/paper/ICE_paper_v2.pdf` — the canonical venue-agnostic one, not a twin |
+| `v2-paper-eval` | `0521df9`, post-rewrite |
+
+⚠ **`docs/BRUTAL_ASSESSMENT.md` is tracked and therefore public.** That is
+intended — it is a technical self-critique referenced from the roadmap, and it
+was scanned for personal content at the flip and is clean. Do not confuse it
+with the gitignored planning files.
+
+⚠ **A rewrite is no longer cheap.** On a public remote the old objects stay
+fetchable by SHA until GitHub garbage-collects them, which last time needed a
+support ticket (TRAPS #12). Fix forward.
