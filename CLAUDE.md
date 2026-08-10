@@ -192,7 +192,7 @@ soon as it lands, by strangers, with no window to take it back.
   begins, **stop pushing** until the user says otherwise — a half-run
   experiment published mid-flight is a result nobody chose to publish.
 
-**⚑ IT IS PUBLIC NOW — the tree, the docs and the commit log.** This used to
+**⚑ IT IS PUBLIC SINCE A GOOD WHILE NOW — the tree, the docs and the commit log.** This used to
 read "going public" and describe a future state; it is the present one.
 
 - **Never commit personal content** — private planning, career notes,

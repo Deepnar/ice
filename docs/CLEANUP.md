@@ -744,13 +744,15 @@ No code touched. Three files' worth of material moved, nothing deleted.
 
 ---
 
-## 2026-08-10b — the repo went public
+## 2026-08-10b — public-repo verification
 
 Not a cleanup, recorded here because it changes what every later cleanup must
-check. `github.com/Deepnar/ice` is **public** as of 2026-08-10; CLAUDE.md's git
-section was rewritten from "going public" to the present tense.
+check. `github.com/Deepnar/ice` is **public, and has been for a while** — the
+TRAPS #12 exposure incident closed 2026-08-04 was already a public clone.
+CLAUDE.md's git section had gone on saying "going public" long after it had;
+corrected 2026-08-10, and the state verified rather than assumed.
 
-**Verified at the flip** (re-run these after anything that touches history):
+**Verified 2026-08-10** (re-run these after anything that touches history):
 
 | check | result |
 |---|---|
@@ -765,6 +767,6 @@ intended — it is a technical self-critique referenced from the roadmap, and it
 was scanned for personal content at the flip and is clean. Do not confuse it
 with the gitignored planning files.
 
-⚠ **A rewrite is no longer cheap.** On a public remote the old objects stay
+⚠ **A rewrite is not cheap.** On a public remote the old objects stay
 fetchable by SHA until GitHub garbage-collects them, which last time needed a
 support ticket (TRAPS #12). Fix forward.
