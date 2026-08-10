@@ -112,12 +112,36 @@ which is a model measured to produce word salad. Both fired accidentally on
 working directory was checked. **Run scripts from the repo root.**
 
 ### 11. A silent fallback hides an outage
-Promoted to a CLAUDE.md standing rule on 2026-08-03 after every background LLM
-call in ICE was found returning nothing while the system looked healthy. Kept
-here too because it is the failure *shape*, not just a policy: when a component
-substitutes a default for a real answer, that substitution must be observable.
-⇒ **When a subsystem produces plausible-but-thin output, verify the model was
-actually called before tuning anything about it.**
+**The standing rule, and its worked example** (was a CLAUDE.md section until
+2026-08-09; the rule stays there in one line, the evidence lives here).
+
+The measured case: **every background LLM call in ICE was returning nothing**,
+and the system looked fine. Reasoning models spend the whole `max_tokens`
+budget inside a hidden thinking block, so Ollama returns `content=""` — and
+every caller had a default. `clustering._generate_cluster_name` returned
+`"Unnamed Cluster"`. `detect_blob_kind` returned `document` via its
+`blob_kind_unparsed` branch. `post_flight` turned the empty summary into `None`
+and let raw text win. Each of those defaults is individually *correct*
+engineering. Together they made a dead subsystem indistinguishable from a
+working one, for an unknown length of time.
+
+⇒ **A fallback must be observable.** When a component substitutes a default for
+a real answer, it emits at WARNING with the reason — **every time, not on the
+first occurrence**. A fallback that fires on 100% of calls is not resilience,
+it is an outage wearing resilience as a costume.
+
+Two corollaries, both earned the same day. **(1)** Check the *rate*, not the
+existence: `ner_utils` has a regex fallback whose own docstring says it is
+"log-worthy if this fires in normal operation" — and there was no log line, so
+nobody could have known it fires whenever the process starts outside the repo
+root. **(2)** When a subsystem produces plausible-but-thin output, **verify the
+model was actually called before tuning anything about it** — the first
+explanation is usually "it never ran".
+
+**Swept through retrieval by G36 (2026-08-09):** 22 silent `except` handlers in
+`orchestrator.py` now report through one `retrieval_leg_failed` event. The
+measured firing rate before shipping was zero across 476 checks, which is what
+makes the line meaningful — see #13b for why that check is not optional.
 
 ### 12. `git log` on `main` cannot verify a history rewrite
 A rewrite must rewrite **tags**. `refs/tags/v2-paper-eval` pointed into

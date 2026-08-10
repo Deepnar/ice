@@ -29,7 +29,29 @@ cleaner than it found them. Organizing, never destroying.
    only within the touched files.
 6. **Log it.** Every move/rename or non-obvious cleanup gets one ledger line
    below — so old paths stay findable and nothing is ever "mysteriously gone."
-7. **Never delete data, configs, or anything user-authored.** When in doubt:
+7. **⚑ DELETION SWEEP — the rule that stops zombie docs (standing rule,
+   2026-08-01; moved here from CLAUDE.md 2026-08-09, because this is the file
+   you open when you remove something).** Adding a section is the easy half.
+   The half that keeps getting missed is **removing a thing**: a deleted
+   component keeps living in the *overview prose*, the *diagrams*, and the
+   *settings list* long after its own section says "DELETED". DI3 was deleted
+   in D8 and its own §2.2 said so, while §1.1 still called the classifier a
+   "two-stage pipeline (DI3 → 25-way MLP)", the component map still had a
+   "DI3 + MLP" box, and §10 still documented seven `DI3_*` settings that no
+   longer existed. So whenever a component is **deleted, replaced, renamed, or
+   changes shape** (label counts, leg counts, dimensions, cadences),
+   `grep -rin '<old name>' docs/ README.md CLAUDE.md` and fix **every** hit,
+   classifying each as either a **live claim** (correct it) or **deliberate
+   history** ("X was replaced by Y in D8" — keep it, it is the record).
+   Check these five places specifically, because they are the ones that rot:
+   **(1)** `ICE_Architecture.md` §1 System Overview prose · **(2)** its ASCII
+   diagrams · **(3)** its §10 configuration/settings lists · **(4)**
+   `README.md` · **(5)** **`CLAUDE.md`** — added 2026-08-09 after it was found
+   describing DI3, Celery, Redis, a 384-dim encoder, a 25-logit head and the
+   `ice_classifier_v3` checkpoint, all of which had been gone for weeks. It is
+   the one doc loaded into *every* session, so it rots the most expensively
+   and was the only one not on this list.
+8. **Never delete data, configs, or anything user-authored.** When in doubt:
    move to `scripts/oneoff/` or leave + note.
 
 ## Ledger
