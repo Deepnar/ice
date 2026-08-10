@@ -1,7 +1,7 @@
 # Session handoff
 
-**Written 2026-08-10 17:38 IST.** Last commit before this one: `6c71033`
-(2026-08-09 19:08 +0530).
+**Written 2026-08-10.** Covers two sittings: the G36/G37 work (2026-08-09) and
+the documentation restructure (2026-08-10).
 
 > **What this file is.** The state of the work at the end of the last session,
 > rewritten in place every session and committed as the session's **last**
@@ -49,7 +49,23 @@ CLUSTERS ①, ② COMPLETE. **CLUSTER ③: G9 · G36 · G37 done — G30 is next
 - **`6c71033`** — `test_mcp_server` no longer leaks a global memory slot.
 
 ⚠ **ALEMBIC HEAD UNCHANGED — `d5c81a37e9b2`.** No migration this cycle.
-Inventory **52** (48 mechanical top-level `- [ ]`).
+Inventory **50 open items**, and the count is now mechanically countable —
+see the restructure below for why it moved 52 → 50 without work finishing.
+
+**The docs were restructured on 2026-08-10** (`c57f522`…`eb83a81`), which
+changes where things are:
+- **[ROADMAP.md](ROADMAP.md) is now the queue only** — 50 open items plus a
+  one-line stub per finished one. 65,475 → 34,607 words.
+- **[ROADMAP_DONE.md](ROADMAP_DONE.md)** holds the 70 finished entries verbatim.
+- **[outdated/roadmap_session_log.md](outdated/roadmap_session_log.md)** holds
+  the 17 dated session notes that used to clog the preamble — this file
+  replaced them.
+- **CLAUDE.md is 38% shorter and was wrong about the running system in eight
+  places** (DI3, Celery/Redis, 384 dims, 25 logits, the live checkpoint,
+  Sentinel models, the leg-weight location, redis in docker). **Editing it now
+  requires asking the user first**, every time.
+- **⚠ Assume `./ice`, `./stop_ice` and `setup.sh` DO NOT WORK.** Unmaintained
+  scaffolding; conclude nothing from one of them failing.
 
 ## NEXT
 
@@ -101,6 +117,17 @@ fix is reverted, which is how you know they are not mirroring it.
 ## OPENED / CORRECTED / CLOSED BY THIS SESSION
 
 - **G37 opened and closed same day.** Full record in its entry.
+- **G34 and G35 were counted but never written.** The restructure found both in
+  the PRE-FINAL list — G34 even had a measurement section in PROVENANCE — with
+  no entry to work from. Both now have entries built from the recorded
+  material. **G34 is the interesting one:** the relation detector puts 197/197
+  relations above its floor for the prompt `"ok"`, and raising the floor cannot
+  fix it because absolute cosine is anti-correlated with relational content.
+- **36 of 49 roadmap cross-references were dangling** (13 anchors existed).
+  Every item now has one.
+- **A standing rule was lost and restored** (`d2710ec`) — the CLAUDE.md shrink
+  compared a rule against its ROADMAP twin by heading rather than by text.
+  That incident is why CLAUDE.md edits are now user-gated.
 - **G12 is down to two sites** — the third hardcoded `timeout=15.0` was inside
   the deleted `_hyde_rewrite`. **Retrieval now makes no LLM call at all.**
 - **G19 has a 3-for-3 record.** `hyde` joins `recency_boost` and the
