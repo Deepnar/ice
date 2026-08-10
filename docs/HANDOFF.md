@@ -27,8 +27,17 @@ finished and was not the shape the entry describes by the end. What happened:
 
 ## ⚑ THE PUSH FREEZE IS ON
 
-**Five commits are local and unpushed** (`de64ba4` → `a229504`). Do not push
+**Seven commits are local and unpushed** (`de64ba4` → this one). Do not push
 until the user lifts it. This is Z1's experiment-phase rule from CLAUDE.md.
+
+**⚠ The PRE-FINAL split was overstating the open bug work** and was corrected
+(`00fa582`): it listed G33, G7 and G11 as open correctness bugs after all three
+closed on 2026-08-08, and omitted G27 entirely. **Still genuinely open
+pre-FINAL: G24, G25, G6, G27, G34, G35** — plus the audits (G29, G30, G20), the
+in-Z1 items (G28, G4b, A12, G32b, B4), G19/H4, and T5/A9b after Z1. Roughly 21
+pre-FINAL of the 51. **G25 (raw prompts in logs, public repo) is the one worth
+looking at soonest.** G34/G35 bite specifically on a populated store, which is
+what Z1 is about to create.
 
 ## WHERE THINGS STAND
 
