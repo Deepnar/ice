@@ -175,7 +175,27 @@ def get_bg_model_name() -> str:
         # Lazy import: registry is a JSON read, but keep the dependency out
         # of module import time for the pure-logic tests.
         from src.model_registry.registry import get_fallback_model
-        return get_fallback_model()
+        chosen = get_fallback_model()
+        # G27: this is NOT what shared mode is documented to mean. It returns
+        # the first `confirmed: true` entry in the registry, which has no
+        # relation to the model chat is routed to — so background work can hold
+        # a second ~17 GB model against a 24 GB card, and no run can state what
+        # produced its output because the choice follows file order.
+        #
+        # Warned on EVERY call, not once: a fallback that fires on 100% of calls
+        # is an outage wearing resilience as a costume (CLAUDE.md / TRAPS #11),
+        # and the reason this stayed invisible is that it never said anything.
+        # Resolving the session's routed model is deferred to Z2, where the
+        # background-model comparison will say which default is worth having;
+        # `BACKGROUND_MODEL_NAME` is the supported way to make this
+        # deterministic in the meantime.
+        logger.warning("bg_model_unpinned",
+                       chosen=chosen,
+                       reason="shared mode with no BACKGROUND_MODEL_NAME falls "
+                              "through to the first confirmed registry entry, "
+                              "which is not the chat model (G27)",
+                       fix="set BACKGROUND_MODEL_NAME to pin it")
+        return chosen
     return DEDICATED_DEFAULT_MODEL
 
 
