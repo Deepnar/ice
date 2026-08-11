@@ -15,6 +15,14 @@ number is stable because the base blob is immutable. The regex must match on
 that exact line, and its group(1) is the old literal — if the anchor drifts,
 the row fails loudly rather than silently checking nothing.
 
+⚠ These rows compare the base literal to the DECLARATION in config.py, via
+`_declared()` — not to `settings.<name>`, which is what the running process
+resolved after `.env`. The distinction did not matter until tuning started: an
+`.env` override is deliberate, a changed declaration is the drift this suite is
+for, and reading the resolved value failed identically on both. That made the
+suite red for the whole of a tuning sweep, which is how a suite stops being
+read. See `_declared()` for what is given up.
+
 Run:  uv run pytest tests/test_settings_freeze.py -q
 """
 
@@ -188,6 +196,25 @@ def _base_lines(path: str) -> list[str]:
     return _blob_cache[path]
 
 
+def _declared(name):
+    """The value DECLARED in Settings — not the value this process resolved.
+
+    These rows compare against `config.py`, and only against `config.py`. An
+    `.env` override is a deliberate local act (a tuning sweep, an ablation
+    arm); a changed declaration is the silent drift this suite exists to catch.
+    Reading `settings.<name>` cannot tell those apart, so it failed on both,
+    which made the suite unusable during exactly the tuning work G9 was built
+    to enable.
+
+    The tradeoff is real and worth stating: drift introduced through `.env` is
+    no longer caught here. Nothing else in the repo catches it either, so a run
+    whose numbers must be attributable states its overrides in PROVENANCE.md
+    rather than relying on this suite to notice them.
+    """
+    field = type(settings).model_fields[name]
+    return field.default_factory() if field.default_factory is not None else field.default
+
+
 @pytest.mark.parametrize("name,path,lineno,pattern",
                          FROZEN, ids=[r[0] for r in FROZEN])
 def test_default_matches_base_commit(name, path, lineno, pattern):
@@ -196,7 +223,7 @@ def test_default_matches_base_commit(name, path, lineno, pattern):
     assert m, (f"anchor drifted: {path}:{lineno} in {BASE[:7]} does not match "
                f"{pattern!r}\n  line: {line!r}")
     old = float(m.group(1))
-    new = float(getattr(settings, name))
+    new = float(_declared(name))
     assert new == old, (f"{name} changed while moving into settings: "
                         f"{old} at {BASE[:7]} -> {new} now")
 
@@ -238,7 +265,7 @@ def _base_literal(path: str, assignment: str):
 
 def test_leg_base_weights_match_base_commit():
     old = {k: float(v) for k, v in _base_literal(ORCH, "base_weights =").items()}
-    new = {k: float(v) for k, v in settings.retrieval_leg_base_weights.items()}
+    new = {k: float(v) for k, v in _declared("retrieval_leg_base_weights").items()}
     assert new == old, f"base leg weights changed: {old} -> {new}"
 
 
@@ -254,7 +281,7 @@ def test_leg_profiles_match_base_commit():
         for intent in intents:
             expanded[intent] = {k: float(v) for k, v in override.items()}
     new = {k: {kk: float(vv) for kk, vv in v.items()}
-           for k, v in settings.retrieval_leg_profiles.items()}
+           for k, v in _declared("retrieval_leg_profiles").items()}
     assert new == expanded, (
         f"leg profiles diverged from {BASE[:7]}\n"
         f"  only in base: {set(expanded) - set(new)}\n"
@@ -269,7 +296,7 @@ def test_topic_overrides_match_base_commit():
     creative = re.search(r'blend_weights\["codex"\] = blend_weights\.get\("codex", [\d.]+\) \+ ([\d.]+)', src)
     software = re.search(r'blend_weights\["procedural"\] = blend_weights\.get\("procedural", [\d.]+\) \+ ([\d.]+)', src)
     assert creative and software, "topic-override anchors drifted in the base blob"
-    got = settings.retrieval_leg_topic_overrides
+    got = _declared("retrieval_leg_topic_overrides")
     assert float(got["Creative_&_Media"]["codex"]) == float(creative.group(1))
     assert float(got["Software_&_Tech"]["procedural"]) == float(software.group(1))
 
@@ -306,19 +333,19 @@ def test_budget_ladders_match_base_commit():
                r"turn_count < ([\d_]+):\s*\n\s*growth_cap = ([\d_]+) \+ "
                r"(?:turn_count|\(turn_count - [\d_]+\)) \* ([\d_]+)", src)]
     assert len(cap) == 3, f"growth-cap anchors drifted: found {len(cap)} brackets"
-    got = [[int(x) for x in row] for row in settings.context_growth_cap_ladder]
+    got = [[int(x) for x in row] for row in _declared("context_growth_cap_ladder")]
     assert got == cap, f"growth-cap ladder changed: {cap} -> {got}"
 
     frac = [[int(a), float(b)] for a, b in re.findall(
         r"turn_count < (\d+):\s*\n\s*base = ([\d.]+)", src)]
     assert len(frac) == 4, f"recent-fraction anchors drifted: found {len(frac)}"
-    got_f = [[int(r[0]), float(r[1])] for r in settings.context_recent_fraction_ladder]
+    got_f = [[int(r[0]), float(r[1])] for r in _declared("context_recent_fraction_ladder")]
     assert got_f == frac, f"recent-fraction ladder changed: {frac} -> {got_f}"
 
     dens = [[int(a), -float(b)] for a, b in re.findall(
         r"avg_tokens_per_turn > (\d+):\s*\n\s*base -= ([\d.]+)", src)]
     assert len(dens) == 3, f"density anchors drifted: found {len(dens)}"
-    got_d = [[int(r[0]), float(r[1])] for r in settings.context_recent_density_ladder]
+    got_d = [[int(r[0]), float(r[1])] for r in _declared("context_recent_density_ladder")]
     assert got_d == dens, f"density ladder changed: {dens} -> {got_d}"
 
 
@@ -395,7 +422,7 @@ def test_operational_default_matches_base_commit(name, path, const):
         f"{const} appears {len(matches)} times in {path} at {BASE[:7]} — "
         f"a name anchor is only valid when it is unique")
     old = float(matches[0].replace("_", ""))
-    new = float(getattr(settings, name))
+    new = float(_declared(name))
     assert new == old, (f"{name} changed while moving into settings: "
                         f"{old} at {BASE[:7]} -> {new} now")
 
