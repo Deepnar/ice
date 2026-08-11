@@ -1303,3 +1303,70 @@ revert marker in `.env`. `tests/test_settings_freeze.py` was changed the same
 day to compare declarations rather than resolved values, so overrides like these
 no longer turn that suite red — which means **this file is now the only record
 that they are set.**
+
+---
+
+## 2026-08-11 — G34: three candidate detectors measured, and none of them works
+
+Read-only, no DB writes, no LLM. `scripts/oneoff/g34_ablation.py`, against the
+live 197-relation vocabulary and the shared `Qwen/Qwen3-Embedding-0.6B`. Run
+before designing anything, because the obvious fixes look convincing until they
+are scored.
+
+**Candidates.** `base` = today's absolute cosine ≥ floor. `B` = centre prompt and
+glosses on the vocabulary centroid first (embedding anisotropy is the suspected
+cause: everything shares a large common component). `A` = z-score within the
+prompt's *own* similarity distribution, so the question becomes "does this
+relation stand out?" rather than "is it close?". `A+B` = both.
+
+**Each design is swept over its own threshold grid.** Comparing them at one
+number would be invalid — centring changes the scale of the similarities, and
+judging `B` at `base`'s 0.45 silences it completely (0% firing) while making it
+look perfectly style-invariant, which is the vacuous stability of a function
+that always returns nothing.
+
+**Best operating point per design** — `neg` = mean relations fired across the
+five negative probes (want 0); `pos` = positives whose expected relation was
+returned, of 5; `rate` = % of 120 real corpus turns firing anything.
+
+| design | threshold | neg | pos | rate | verdict |
+|---|---|---|---|---|---|
+| `base` | 0.45 (live) | 4.00 | 4/5 | 82.5% | no operating point separates: `neg`→0 only at 0.85, where `pos`=0/5 |
+| `B` | 0.30–0.40 | 0.00–0.20 | **1/5** | 2.5–18% | silences the noise *and* the signal; never exceeds 1/5 at any threshold |
+| `A` | 2.5 | 1.00 | 3/5 | 83.3% | best of the four, and still not separation |
+| `A` | 3.0 | 0.40 | 2/5 | 54.2% | |
+| `A+B` | any | — | ≤2/5 | — | **strictly dominated by `A` alone** |
+
+**Three findings, and the third is the one that matters.**
+
+1. **Combining the candidates is worse than either alone.** `A+B` is dominated by
+   `A` everywhere on the grid. The instinct to stack fixes is wrong here.
+2. **`base`'s 4/5 is flattering and should not be read as recall.** It returns 5
+   relations on essentially every prompt, so "the expected relation is among 5 of
+   197" is nearly free. `A` at 2.5 returns fewer *and* still reaches 3/5.
+3. **No design achieves separation.** On this evidence the embedding channel
+   cannot answer "is this prompt relational?" at all. The candidates trade noise
+   against recall along one curve; none breaks it.
+
+**Style invariance (G28), same meaning varied form.** `base`, `A` and `A+B` all
+**FLIP** — five distinct decisions across five phrasings of *"who inspired Kael"*.
+`B` is stable only because it returns nothing. **No candidate passes.**
+
+**⚠ A correction to the option set this run was built to test.** "Require a
+resolved entity before trusting relations" was proposed as a separable fix. It is
+**already the behaviour**: `_relation_facts` is reached only inside
+`for anchor in matched:`, so relations are entity-gated on the fact path already
+(the one exception is `_codex_enumeration`, which needs an explicit cue word).
+The entity gate therefore cannot be the fix, and the real mechanism of harm is
+narrower than "the detector fires on everything":
+
+> Given a matched anchor, `_relation_facts` filters `CodexEdge.relation.in_(detected)`.
+> With ~197 relations detected that filter is a **no-op**, so the leg returns the
+> anchor's top-`codex_entity_edge_limit` edges by strength *regardless of the
+> question*, and the `+0.25` overlap boost applies unconditionally. The
+> "entity ∩ relation joint hit" that A4 documents as its precision anchor
+> degenerates into "dump the anchor's edges".
+
+So the requirement is not a better *score* — it is a relation set that is
+**restrictive**, and the three candidates above fail to be restrictive without
+also being empty. Design continues from here; nothing was changed in `src/`.
