@@ -30,6 +30,7 @@ Run:  uv run pytest tests/smoke/test_codex_fanout.py -q
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -259,7 +260,8 @@ def test_relation_fit_outranks_trust_in_the_frontier(monkeypatch):
     o._denied_entity_ids = set()
     o._scope_project_id = None
     # Synthetic glosses: the "prompt" sits exactly on inspired_by.
-    o._relation_gloss_cache = lambda: (["inspired_by", "owns"], [[1, 0], [0, 1]])
+    o._relation_gloss_cache = lambda: (["inspired_by", "owns"],
+                                       np.asarray([[1, 0], [0, 1]], dtype=np.float64))
     o._prompt_embedding = [1, 0]
 
     expanded = []
@@ -297,7 +299,8 @@ def test_without_a_prompt_embedding_it_falls_back_to_trust(monkeypatch):
     o._denied_batch_ids = set()
     o._denied_entity_ids = set()
     o._scope_project_id = None
-    o._relation_gloss_cache = lambda: (["inspired_by", "owns"], [[1, 0], [0, 1]])
+    o._relation_gloss_cache = lambda: (["inspired_by", "owns"],
+                                       np.asarray([[1, 0], [0, 1]], dtype=np.float64))
     o._prompt_embedding = None
 
     expanded = []

@@ -21,6 +21,8 @@ Run:  uv run pytest tests/smoke/test_relation_fit.py -q
 import sys
 from pathlib import Path
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator  # noqa: E402
@@ -37,7 +39,10 @@ VOCAB = ["married_to", "owns", "inspired_by"]
 #            married  owns  inspired
 POINTED = [1.0, 0.0, 0.0]      # sits squarely on `married_to`
 FLAT = [0.5, 0.5, 0.5]         # equidistant — the "ok" case
-VECTORS = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+# An ndarray, mirroring the real cache: G41 stores the glosses as one float64
+# array precisely so nothing re-marshals a list-of-lists per call, and a stub
+# that hands back lists would be testing a contract the code no longer has.
+VECTORS = np.asarray([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
 
 
 def test_a_pointed_prompt_earns_a_positive_fit():

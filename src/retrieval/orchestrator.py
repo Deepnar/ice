@@ -10,6 +10,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
+import numpy as np
 import structlog
 from pgvector.sqlalchemy import Vector as PgVector
 from sqlalchemy import bindparam, or_, text
@@ -1070,30 +1071,46 @@ class HybridRetrievalOrchestrator:
 
         # Embed all candidate strings
         candidate_embeddings = self.embedder.encode(entity_strings, convert_to_tensor=False, show_progress_bar=False)
-        # Fetch all entities that have embeddings
-        all_entities = self.db.query(CodexEntity).filter(CodexEntity.embedding != None).all()
 
         matched = []
         seen_ids = set()
         for candidate_str, candidate_emb in zip(entity_strings, candidate_embeddings):
-            # 1) Vector similarity
-            best_score = 0.0
+            # G41: the nearest entity, ranked BY POSTGRES.
+            #
+            # This used to fetch every CodexEntity carrying an embedding into
+            # Python and score them in a pure-Python loop — O(candidates x
+            # entities x 1024) multiply-adds per prompt, unbounded in the size of
+            # the graph. Invisible on an empty store, and the reason G34's entry
+            # singled it out as "fine on an empty store and not fine on Z2's".
+            #
+            # The rewrite is EXACTLY equivalent, not merely close. Two facts make
+            # it so: (a) since C17 native-width encodes are unit-norm, cosine
+            # similarity IS the dot product the old loop computed, and pgvector's
+            # `<=>` is cosine distance, so `1 - (a <=> b)` is that same number;
+            # (b) the loop only ever wanted the single best entity above the
+            # threshold that had not already been claimed, and ordering by
+            # distance puts it at rank 1 — so `LIMIT 1 + len(seen_ids)` is
+            # guaranteed to contain it however many earlier candidates matched.
+            rows = self.db.execute(text("""
+                SELECT id, 1 - (embedding <=> CAST(:emb AS vector)) AS sim
+                FROM codex_entities
+                WHERE embedding IS NOT NULL
+                ORDER BY embedding <=> CAST(:emb AS vector)
+                LIMIT :lim
+            """), {
+                # ⚠ float(), not list(): candidate_emb is a numpy array, and
+                # str(list(ndarray)) renders "[np.float32(-0.019), ...]", which
+                # pgvector rejects as invalid vector syntax.
+                "emb": str([float(x) for x in candidate_emb]),
+                "lim": 1 + len(seen_ids),
+            }).all()
             best_entity = None
-            for ent in all_entities:
-                if ent.id in seen_ids:
+            for row in rows:
+                if row.id in seen_ids:
                     continue
-                emb = ent.embedding
-                if emb is None:
-                    continue
-                # cosine similarity = dot product of unit vectors. True since
-                # C17: native-width encode IS unit-norm (the old truncate_dim
-                # prefixes were NOT — this comparison ran deflated for the
-                # whole 384 era).
-                dot = sum(a * b for a, b in zip(candidate_emb, emb))
-                score = dot
-                if score > best_score and score >= threshold:
-                    best_score = score
-                    best_entity = ent
+                if row.sim >= threshold:
+                    best_entity = self.db.query(CodexEntity).get(row.id)
+                break   # rank 1 among the unclaimed; a worse one cannot win
             if best_entity is not None:
                 matched.append(best_entity)
                 seen_ids.add(best_entity.id)
@@ -1129,7 +1146,13 @@ class HybridRetrievalOrchestrator:
             rels = sorted(ALLOWED_RELATIONS)
             embs = self.embedder.encode([r.replace("_", " ") for r in rels],
                                         convert_to_tensor=False, show_progress_bar=False)
-            _RELATION_GLOSSES = (rels, [list(e) for e in embs])
+            # G41: cached as ONE float64 ndarray, not a list of 197 lists.
+            # Measured: the matmul against these is 0.018 ms, but converting the
+            # list-of-lists to an array on every call cost 2.97 ms — so the
+            # per-prompt bill was the marshalling, not the arithmetic. Vectorising
+            # the loop without fixing this bought 25%; fixing this buys ~165x on
+            # the same line.
+            _RELATION_GLOSSES = (rels, np.asarray(embs, dtype=np.float64))
         return _RELATION_GLOSSES
 
     @staticmethod
@@ -1182,12 +1205,16 @@ class HybridRetrievalOrchestrator:
             # Channel 2 — embedding paraphrase channel (true cosine — both
             # sides unit-norm natively since C17).
             if prompt_embedding is not None:
-                p = prompt_embedding
+                # G41: 197 x 1024 as one matmul rather than 197 Python loops —
+                # this is the median 12.2 ms that used to sit on every
+                # pre-flight, now confined to enumeration-cue prompts (G34).
+                all_sims = gloss_embs @ np.asarray(prompt_embedding,
+                                                   dtype=np.float64)
                 scored = []
-                for rel, emb in zip(rels, gloss_embs):
+                for rel, sim in zip(rels, all_sims):
                     if rel in detected:
                         continue
-                    sim = sum(a * b for a, b in zip(p, emb))
+                    sim = float(sim)
                     if sim >= settings.codex_relation_sim_floor:
                         scored.append((sim, rel))
                 scored.sort(reverse=True)
@@ -1462,9 +1489,12 @@ class HybridRetrievalOrchestrator:
             if len(known) < 2:
                 # Ranking one item is theatre, and the spread of one is zero.
                 return {}, 0.0
-            p = prompt_embedding
-            scores = {r: sum(a * b for a, b in zip(p, embs[index[r]]))
-                      for r in known}
+            # G41: fancy-index the cached array and take one matmul. Building an
+            # intermediate list here would reintroduce the marshalling cost that
+            # was the whole bill (see _relation_gloss_cache).
+            sims = embs[[index[r] for r in known]] @ np.asarray(
+                prompt_embedding, dtype=np.float64)
+            scores = dict(zip(known, (float(s) for s in sims)))
             vals = list(scores.values())
             fit = max(vals) - (sum(vals) / len(vals))
             return scores, max(0.0, min(1.0, fit))
