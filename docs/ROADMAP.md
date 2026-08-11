@@ -713,7 +713,8 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 
 - [ ] <a id="g40"></a>**G40 No curated probe carries a usable `probe_type`** `(bug — found 2026-08-10, measured and entry written 2026-08-11; blocks stratified reporting, not retrieval itself)` — **measured across all 58 curation files: 681 probes, 660 hold the literal placeholder `ENTER_TYPE` and the other 21 hold the question text pasted into the type field. Zero carry a real type.** The generator (`experiments/unmature/phase1_generate_curation_files.py:89`) writes `"probe_type": "ENTER_TYPE"` as a fill-me marker and nothing ever filled it.
   - **What it costs:** `probe_type` is the field any result would be stratified by — recall by probe class, which classes the tuning helps, which it hurts. With it unusable, every number over this set is a single undifferentiated mean, and a config that improves one class while destroying another looks flat. **A mean over 681 probes of unknown composition is exactly the kind of number this project has been correcting elsewhere.**
-  - **Not a blocker for [Z1](#z1)'s scorer**, which ranks against the derived gold turn and never reads the field — recorded so that it is fixed before anything *reports* by class, and so nobody later mistakes `ENTER_TYPE` for a real category. **FINAL's taxonomy needs this**, and the user is regenerating probes for FINAL, so the cheapest fix is to make the regeneration populate it rather than to back-fill 681 rows.
+  - **⚠ THE LINE BELOW IS WRONG, AND THE HAND-VERIFICATION OF 2026-08-11 IS WHY. This item BLOCKS [Z1](#z1)'s scorer.** The scorer's premise is that each probe has an answer-bearing turn to rank against. **A whole class of these probes does not have one, by nature** — questions asking for *synthesis* ("go through my entire story and make a time progression", "ALL of it") are answered by assembling many turns, so no single gold turn can support the expected answer and any recall@k keyed on one measures nothing. Two of the four failures the user found were exactly this: the key had dutifully assigned one turn to a question whose answer spanned a decade of the conversation. **The probe class is not a reporting nicety — it decides WHICH METRIC IS VALID for a given probe**, and `probe_type` is the field that would carry it. ⇒ classify the 91-probe tuning set (at minimum *lookup* vs *synthesis*) before any score is computed over it, and fold the vocabulary into FINAL's probe regeneration.
+  - ~~**Not a blocker for [Z1](#z1)'s scorer**, which ranks against the derived gold turn and never reads the field~~ — recorded so that it is fixed before anything *reports* by class, and so nobody later mistakes `ENTER_TYPE` for a real category. **FINAL's taxonomy needs this**, and the user is regenerating probes for FINAL, so the cheapest fix is to make the regeneration populate it rather than to back-fill 681 rows.
 
 - [x] <a id="g41"></a>**G41 The pure-Python dot-product loops on the synchronous path** — DONE 2026-08-11. → [full record](ROADMAP_DONE.md#g41)
 
@@ -821,6 +822,60 @@ Mechanical G items: opportunistic per [G_mechanical.md](specs/G_mechanical.md), 
   **Shape (deliberately small):** take **one real multi-turn conversation** — the `icedev_stitched` corpus is the obvious candidate (3,473 turns of genuine long-project history, already assembled for B1 and shared with FINAL) — replay it through the live stack, and then **read**: for each of ~20 sampled turns, what was retrieved, what the assembled prompt actually looked like, what the model answered, what got stored, what the extractors made of it. **Judged by eye, not by metric.** Record every "that's wrong" as an issue with the turn that produced it. No scoring, no judge, no cloud.
   **Why it must come after Z1 and before FINAL:** after Z1 because reading the output of an untuned system tells you about the tuning, not the design; before FINAL because everything it finds is a change, and FINAL must measure a frozen system. **Exit condition:** the list of "that's wrong" items is triaged — each one either fixed, or explicitly accepted with a reason written down. Not "the list is empty".
   **Explicitly in scope for the eyeball pass** (the places the automated suite provably cannot see — see [G30](#g30)): *retrieval relevance* (did the right memory come back, or just some memory), *summary faithfulness* (did the summariser drop the sentence that mattered), *codex correctness* (is the extracted fact true and is the relation right), *prompt assembly* (does the assembled context read like something a model can use, or like concatenated fragments), and *the answer itself*. **Depends on:** Z1 (tuned system), G29 (don't audit output shaped by known drift), G30's LLM lane if built (it automates the cheap half of this). **Feeds:** FINAL, which should start from a system that has already had its obvious problems removed.
+
+  ### ⚑ THE PROTOCOL Z2 SHOULD USE — proven on Z1's key verification, 2026-08-11 (user)
+
+  **Z2's shape is "read twenty turns and see what's wrong", which is powerful and
+  unstructured, and unstructured is what makes it exhausting and unrepeatable.**
+  Z1's ground-truth verification accidentally produced a better shape, it caught
+  four real defects in one sitting of ~25 items, and the user asked for it to be
+  carried here. It is six rules and they are all about protecting human attention,
+  which is the scarcest instrument in this project.
+
+  0. **⚑ IT RUNS ON BOTH HALVES — WHAT WAS RETRIEVED *AND* WHAT THE MODEL
+     ANSWERED (user, 2026-08-11).** Not retrieval alone. The two failures are
+     independent and only the pair is diagnostic: retrieval can surface exactly
+     the right memory and the model can still ignore it or contradict it, and a
+     good answer can come out of bad retrieval because the model already knew
+     the thing. Judging either alone attributes the fault to the wrong half —
+     and "the answer was fine" is precisely how a dead retrieval leg survives a
+     review. Each sampled turn therefore carries **two** verdicts: *was the
+     evidence there* and *did the answer use it*.
+  1. **ONE question per artifact, answerable yes/no.** Not a rubric, not a 1–5
+     score. Z1's was *"could someone answer Q using only the turns shown?"*.
+     Z2's lanes each get their own: did the right memory come back · did the
+     summary drop anything load-bearing · is this extracted fact true · does the
+     assembled prompt read as usable context · **did the model's answer actually
+     use the retrieved memory, or answer around it**.
+  2. **Silence means correct — only failures are written down.** Recording 25
+     "fine"s is 25 chances to stop paying attention.
+  3. **State what is NOT being judged**, explicitly, next to the question. Z1's
+     sample said: not whether the answer is *good*, not whether these are the
+     *only* supporting turns. Without that line the reviewer invents a stricter
+     standard and the number stops meaning one thing.
+  4. **⚑ CENTRE THE EXCERPT ON THE EVIDENCE, never on the artifact's opening.**
+     The first draft showed each turn's first 300 characters; a 2,000-character
+     turn with the supporting sentence at 800 would have been rejected as wrong.
+     **This one rule is the difference between measuring the system and
+     measuring the excerpt window.**
+  5. **A STOP RULE, stated up front** (Z1's: three failures ends the session).
+     Once the verdict is known, further reading buys nothing and the reviewer
+     is being asked to work out of duty.
+  6. **⚑ REPORT THE BREAKDOWN, NEVER THE AVERAGE — this is what made it worth
+     doing.** Z1's aggregate was ~4 failures in 25, which reads as "mostly
+     fine". Split by conversation it was **4 of 6 on one conversation** against
+     1 of 11 on another, which is a different finding entirely and named the
+     cause (uniform vocabulary in a single-subject conversation defeats a
+     rarity-based shortlist). ⇒ **stratify the sample and publish the split.**
+     Same principle C16 already handed Z2 for tokens ("median and win-rate,
+     never a mean of means").
+
+  **And the finding that came out of it, which Z2 inherits:** the human found a
+  *class* of probe the machine could not — questions asking for **synthesis**
+  ("walk me through all of it") have **no single answer-bearing turn by nature**,
+  so any metric keyed on one is meaningless for them. Z2 must classify what it
+  is judging before it judges it; see [G40](#g40), which owns the missing
+  `probe_type`.
 
   ### ⚑ WHAT Z2 HAS BEEN HANDED — five things, none of them optional
 
