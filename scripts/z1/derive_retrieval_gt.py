@@ -168,6 +168,28 @@ def turn_text(t: dict) -> str:
     return f"{t.get('user_input') or ''}\n{t.get('ai_response') or ''}"
 
 
+def best_excerpt(text: str, answer: str, width: int = 420) -> str:
+    """The window of *text* that overlaps *answer* most, not its first N chars.
+
+    A gold turn can be 2,000 characters with the supporting sentence at 800.
+    Showing the opening would make a human verifier reject a turn that is
+    actually correct — corrupting the very measurement the sample is taken to
+    produce. So the excerpt is centred on the evidence.
+    """
+    a_terms = set(words(answer))
+    if not a_terms or len(text) <= width:
+        return text.strip()
+    best_i, best_hits = 0, -1
+    step = max(1, width // 4)
+    for i in range(0, max(1, len(text) - width + 1), step):
+        hits = len(a_terms & set(words(text[i:i + width])))
+        if hits > best_hits:
+            best_hits, best_i = hits, i
+    lead = "…" if best_i > 0 else ""
+    tail = "…" if best_i + width < len(text) else ""
+    return f"{lead}{text[best_i:best_i + width].strip()}{tail}"
+
+
 def build_idf(turns: list[dict]) -> dict:
     """IDF over the conversation's own turns.
 
@@ -279,19 +301,40 @@ def main() -> int:
         picks = random.sample(withgold, min(args.sample or 30, len(withgold)))
         by_turn = {cid: {t.get("turn_number"): t for t in m["turns"]}
                    for cid, m in convs.items()}
-        print(f"{'='*70}\nHAND-VERIFICATION SAMPLE ({len(picks)} of {len(withgold)})")
-        print("For each: does the GOLD TURN actually contain what the question asks for?")
         print(f"{'='*70}")
+        print(f"HAND-VERIFICATION SAMPLE — {len(picks)} of {len(withgold)} keyed probes")
+        print(f"{'='*70}")
+        print("""
+THE ONE QUESTION, for each item below:
+
+    Could someone answer Q using ONLY the turns shown?
+
+  YES  -> say nothing. Silence means correct.
+  NO   -> write down the item number.
+
+That is the whole task. You are NOT judging whether the answer is good, nor
+whether these are the ONLY turns that could help, nor whether extra turns crept
+in. Only: is the evidence here.
+
+STOP RULE — do not do all of them out of duty:
+  * hit 3 NOs at any point -> stop, the key needs fixing, the rest is wasted;
+  * reach the end with 0-2 NOs -> the key is good enough to tune on.
+
+Excerpts are centred on the part of the turn that matches the answer, not the
+turn's opening, so what you see is the evidence itself.
+""")
         for i, p in enumerate(picks, 1):
-            print(f"\n--- {i}. [{p['conversation']} {p['probe_id']}] ---")
-            print(f"Q: {p['question']}")
-            print(f"Expected answer: {p['expected_answer'][:260].strip()}...")
-            print(f"GOLD TURNS: {p['gold_turns']}")
+            print(f"\n{'─'*70}\n{i}.  [{p['conversation']} · {p['probe_id']}]\n")
+            print(f"Q:  {p['question']}\n")
+            print(f"Expected answer:\n    {p['expected_answer'][:300].strip()}…\n")
+            print(f"Turns the key says hold it: {p['gold_turns']}")
             for tn in p["gold_turns"]:
                 t = by_turn.get(p["conversation"], {}).get(tn)
                 if t:
-                    print(f"  turn {tn}: {turn_text(t)[:300].strip()}...")
-            print("  VERDICT (yours): correct / wrong / partial")
+                    print(f"\n  ── turn {tn} ──")
+                    print("  " + best_excerpt(turn_text(t),
+                                               p["expected_answer"]).replace("\n", "\n  "))
+        print(f"\n{'='*70}\nDone. Report only the numbers that were NO.\n{'='*70}")
         return 0
 
     print("Z1 tuning corpus")
