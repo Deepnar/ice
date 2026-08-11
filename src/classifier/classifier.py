@@ -38,13 +38,22 @@ class PyTorchClassifier:
     swap rather than a code change.
     """
 
-    def __init__(self, model_path="models/classifier/ice_classifier.pt",
-                 schema_path="data/labeled/label_schema.json"):
+    def __init__(self, model_path=None, schema_path=None):
+        # G39: both arguments default to their SETTING, not to a literal. They
+        # used to default to `models/classifier/ice_classifier.pt` — the **v1**
+        # head — while `settings.classifier_model_path` pointed at v4. That file
+        # still exists on disk, so a bare ``PyTorchClassifier()`` did not fail:
+        # it loaded two-month-old weights and returned plausible labels, and had
+        # already produced one wrong measurement before anyone noticed. The
+        # request path always passed the setting explicitly (`api/core.py`), so
+        # the exposure was scratch scripts and new tests — precisely the callers
+        # that write a bare constructor.
+        from src.api.config import settings as _settings
         # G31: anchored to the install, not the CWD. `load_schema` already did
         # this for itself; the checkpoint did not, so from the wrong directory
         # construction died on a FileNotFoundError for a file that was there.
-        model_path = resolve(model_path)
-        self.schema = load_schema(schema_path)
+        model_path = resolve(model_path or _settings.classifier_model_path)
+        self.schema = load_schema(schema_path or _settings.label_schema_path)
         self.model, self.meta = load_checkpoint(model_path, schema=self.schema)
 
         # A v1 checkpoint brings its own (frozen) schema — the live schema file
@@ -56,7 +65,6 @@ class PyTorchClassifier:
         self.input_dim = int(self.meta.get("input_dim", self.active_schema.input_dim))
 
         # Calibration rides with the weights — see _tags_above.
-        from src.api.config import settings as _settings
         self.tag_threshold = float(self.meta.get("tag_threshold")
                                    or _settings.classifier_threshold)
 
