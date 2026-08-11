@@ -274,3 +274,34 @@ for `pending_items` and was copied from. Fixed 2026-08-09.
 ⇒ **Any "snapshot the live row, restore it after" fixture needs the
 did-not-exist branch.** Verify by clearing the table, running the suite alone,
 and counting — which is also the bisect that names the leaker.
+
+### 17. A config value can be present, correct, frozen — and inert
+Two instances on 2026-08-11, from one afternoon, and they are the same mistake
+in two costumes: **the value was verified, the effect was not.**
+
+*Setting a knob to its off-value is not turning the feature off.* The plan for
+Z1's tuning runs was `codex_relation_overlap_boost = 0.0`, to stop G34's
+fires-on-every-prompt relation detector from distorting the tuned weights. That
+setting is read at **one** site (a score bump). A detected relation has three
+other effects, all of which survive 0.0: its fact lines are appended to the
+fragment text and still consume budget; its fact edges reach
+`_reinforce_codex_edges`, which writes edge strength, promotes `pending` →
+`active`, and **commits**; and it still gates `_codex_enumeration`. So the
+"neutralised" run would have kept mutating the store it was measuring. This is
+the **second** 0.0-≠-off finding in four days — [G15](ROADMAP.md#g15) was the first.
+
+*A literal that equals its setting is a dead knob with no symptom.*
+`_session_diversify`, `_relevant_cluster_ids` and `_apply_rrf` each read their
+setting only when the caller omits the argument — and every call site passed a
+literal. `retrieval_max_per_conversation`, `retrieval_cluster_top_k` and
+`retrieval_rrf_k` were unreachable. Nothing looked wrong because in every case
+the literal *equalled* the setting (3=3, 10=10, 60=60), so the system produced
+the right number by coincidence. **`test_settings_freeze.py` had a row for all
+three and passed throughout**, because the declarations never moved — a suite
+vouching for knobs it cannot reach.
+⇒ **Never accept a config value on inspection. Change it and observe a
+decision change** — which is CLAUDE.md's check-where-a-signal-LANDS rule applied
+to settings rather than to classifier labels. Two consequences worth stating
+separately: an off-switch must be checked at the **source** of the thing it
+disables, not at the last site that consumes it; and a freeze/declaration test
+proves a value was not edited, **never** that anything reads it.
