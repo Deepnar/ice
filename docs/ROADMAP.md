@@ -56,12 +56,18 @@ probes**, but probes repeat across a conversation's three checkpoints: **259
 unique by text, over 19 conversations.** *(FINAL's spec §3b records 649/252 —
 drifted, re-count before use.)* That is the entire hand-written evidence base,
 and **[FINAL](specs/FINAL_experiments.md) §3b already claims it** ("reusable, do
-NOT ask the user to rewrite them"). ⇒ **Z1 must not tune against these probes.**
-Tuning and reporting on the same 259 questions makes FINAL's numbers a
-measurement of the tuning, and the contamination is invisible afterwards.
-Z1's tuning fuel is **generated and regenerable** (ground truth scripted first,
-per FINAL §2's own synthetic-corpus technique); the 259 human probes stay sealed
-for FINAL. See [G30](#g30) for the instrument this needs.
+NOT ask the user to rewrite them"). The contamination risk is real and worth
+naming: tuning and reporting on the same 259 questions would make FINAL's
+numbers a measurement of the tuning, and it is invisible afterwards.
+
+**✅ RESOLVED BY USER DECISION 2026-08-10 — Z1 MAY tune against these probes.**
+The user will **regenerate FINAL's probes** (covering the classes the current
+set never measured), so FINAL does not inherit the set Z1 tuned on and the two
+corpora are separated by construction rather than by abstinence. The sealed-set
+rule this block previously stated is **superseded** — do not re-impose it.
+What survives is the *principle*: whatever FINAL finally reports on must not be
+what Z1 swept. See [G30](#g30) for the instrument, and [G40](#g40) for the
+`probe_type` gap the regeneration should close while it is there.
 
 - **Inventory: 51 open items**, all of them top-level `- [ ]` lines that you can
   count. The split into PRE-FINAL research work and POST-FINAL productization is
