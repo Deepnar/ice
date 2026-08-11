@@ -101,7 +101,7 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
 
     # ── Override post‑processing ─────────────────────────────────────────
 
-    def _apply_rrf(self, legs, alpha_map=None, k=60):
+    def _apply_rrf(self, legs, alpha_map=None, k=None):
         if self._off("rrf"):
             return self._simple_merge(legs)
         return super()._apply_rrf(legs, alpha_map=alpha_map, k=k)
@@ -119,7 +119,7 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
         merged.sort(key=lambda x: x.score, reverse=True)
         return merged
 
-    def _session_diversify(self, fragments, current_id, max_per_conversation=3):
+    def _session_diversify(self, fragments, current_id, max_per_conversation=None):
         if self._off("session_diversify"):
             return fragments
         return super()._session_diversify(fragments, current_id, max_per_conversation)
@@ -170,7 +170,7 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
 
     # ── Cluster restriction override ─────────────────────────────────────
 
-    def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=3, scope=None):
+    def _relevant_cluster_ids(self, prompt_embedding, classification=None, conversation_id=None, top_k=None, scope=None):
         if self._off("cluster_restrict"):
             return []
         return super()._relevant_cluster_ids(prompt_embedding, classification, conversation_id, top_k, scope)

@@ -493,7 +493,11 @@ class HybridRetrievalOrchestrator:
             logger.debug("cluster_scope_explicit_kept",
                          clusters=len(scope.get("cluster_ids") or []))
         else:
-            cluster_ids = self._relevant_cluster_ids(prompt_embedding, classification=classification, conversation_id=conv_id, top_k=10, scope=scope)
+            # G29: top_k omitted so settings.retrieval_cluster_top_k decides. The
+            # literal 10 that used to sit here matched the setting, so nothing
+            # moves — but it made the knob unreachable, same as the
+            # max_per_conversation case below.
+            cluster_ids = self._relevant_cluster_ids(prompt_embedding, classification=classification, conversation_id=conv_id, scope=scope)
             if cluster_ids and scope is not None:
                 scope["cluster_ids"] = cluster_ids
 
@@ -561,15 +565,9 @@ class HybridRetrievalOrchestrator:
         fused = self._apply_rrf(legs, alpha_map=blend_weights)
         fused = self._apply_bonuses(fused, classification, conv_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
-                # ── Leg diversity guarantee: always include the top‑ranked fragment
-        #     from each leg, even if RRF would have dropped it.
-
-        # ── Keyword‑aware re‑ranking: fragments containing probe keywords
-        #     get a massive score boost so they survive token‑budget enforcement.
-
-
-        # (delete the old leg‑diversity block entirely)
-        diversified = self._session_diversify(fused, conversation_id, max_per_conversation=3)
+        # G29: no max_per_conversation here — passing the literal 3 is what made
+        # settings.retrieval_max_per_conversation unreachable on every live path.
+        diversified = self._session_diversify(fused, conversation_id)
         deduped = self._deduplicate(diversified)
         deduped = self._collapse_provenance(deduped)
         deduped = self._apply_coverage(deduped, prompt_embedding)
@@ -2543,7 +2541,7 @@ class HybridRetrievalOrchestrator:
         prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
         fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
-        diversified = self._session_diversify(fused, conversation_id, max_per_conversation=3)
+        diversified = self._session_diversify(fused, conversation_id)   # G29: see retrieve()
         # C15: dynamic ceiling — a fraction of the (model-aware, C16) retrieval
         # budget with a floor, replacing the hardcoded 2,000 tokens.
         wide_budget = max(settings.retrieval_wide_net_budget_floor,
