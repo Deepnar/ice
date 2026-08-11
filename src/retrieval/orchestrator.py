@@ -2563,7 +2563,43 @@ class HybridRetrievalOrchestrator:
                     active.remove(leg)
             if not progressed:
                 break
+        self._log_leg_budget_share(result, total, max_tokens)
         return result
+
+    def _log_leg_budget_share(self, fragments, total, max_tokens):
+        """G35: report what share of the window each leg actually took.
+
+        The entry's look-ahead asks for this by name, and the reason is that the
+        total is the wrong number to watch. The budget already bounds total
+        injected tokens, so an over-eager leg never blows the window — it crowds
+        the other legs out from *inside* it, which is the harder failure to see
+        and the one a total-tokens check cannot show. Phase 2's round-robin makes
+        that unlikely; this is what would reveal it happening anyway.
+
+        Emitted at INFO on every retrieval, not sampled: a share that has to be
+        reproduced before it can be looked at is a share nobody looks at.
+        """
+        if not fragments:
+            return
+        try:
+            per_leg = {}
+            for f in fragments:
+                per_leg[f.source_type] = per_leg.get(f.source_type, 0) + f.token_count
+            logger.info(
+                "leg_budget_share",
+                total_tokens=total,
+                max_tokens=max_tokens,
+                utilisation=round(total / max_tokens, 3) if max_tokens else None,
+                # share of what was SPENT, not of the cap — a leg taking 80% of a
+                # barely-used window is not the same problem as taking 80% of a
+                # full one, and the raw totals below keep both readable.
+                share={leg: round(t / total, 3) for leg, t in per_leg.items()} if total else {},
+                tokens=per_leg,
+                fragments={leg: sum(1 for f in fragments if f.source_type == leg)
+                           for leg in per_leg})
+        except Exception as err:
+            self._leg_degraded("budget.share_log", err)
+
     # ------------------------------------------------------------------
     # Strengthening (access count + decay boost)
     # ------------------------------------------------------------------
