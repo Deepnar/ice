@@ -1,6 +1,5 @@
 """Procedural Extractor – identifies recurring behavioural patterns."""
 
-import hashlib
 import uuid
 from datetime import datetime, timezone
 import structlog
@@ -12,6 +11,7 @@ from src.memory.models import EpisodicMemory, ProceduralMemory, IdempotencyKey
 
 logger = structlog.get_logger("ice.workers.procedural")
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+from src.workers.idempotency import job_key
 bg_client = get_bg_client()
 # The process-shared native-width embedder (G13/G23).
 pattern_embedder = get_embedder()
@@ -25,7 +25,8 @@ def extract_procedural(batch_id: str, model_used: str = ""):
     since C7 — gating/retries live in the maintenance runtime."""
     log = logger.bind(batch_id=batch_id)
 
-    idempotency_key = hashlib.sha256(f"procedural:{batch_id}".encode()).hexdigest()
+    # G29: byte-identical to the hand-rolled f"procedural:{batch_id}" it replaces.
+    idempotency_key = job_key("procedural", batch_id)
     db = SessionLocal()
     try:
         if db.query(IdempotencyKey).filter_by(key=idempotency_key).first():

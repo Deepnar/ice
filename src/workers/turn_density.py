@@ -178,3 +178,37 @@ def summary_coverage(summary: str, key_terms: dict) -> float:
     low = (summary or "").lower()
     hit = sum(1 for t in terms if t.lower() in low)
     return round(hit / len(terms), 4)
+
+
+def retry_on_coverage_miss(summary: str, key_terms: dict, retry_fn):
+    """G29: the one grounded-summary retry — measure, name what was dropped,
+    ask again, and keep the retry only if it actually scores better.
+
+    ``retry_fn(missing)`` re-runs the caller's own LLM call with the dropped
+    terms named; everything around it is identical between the two callers and
+    used to be written out twice.
+
+    The copies had already drifted, in the way this consolidation exists to
+    stop: `conversation_summary` adopted a better retry **without updating its
+    coverage**, and only escaped consequence because it discards the value —
+    while `post_flight` returns it, and `summary_coverage` is precisely the
+    trust gate that decides whether a summary may be injected at all. Returning
+    the pair from one place makes forgetting it impossible. The empty-retry
+    guard also existed on one side only.
+
+    Returns ``(summary, coverage)`` — the originals when no retry is warranted,
+    when the retry comes back empty, or when it scores no better.
+    """
+    terms = must_terms(key_terms)
+    coverage = summary_coverage(summary, key_terms)
+    if coverage >= settings.turn_summary_coverage_threshold or not terms:
+        return summary, coverage
+    low = (summary or "").lower()
+    missing = [t for t in terms if t.lower() not in low]
+    retry = retry_fn(missing)
+    if not retry:
+        return summary, coverage
+    retry_coverage = summary_coverage(retry, key_terms)
+    if retry_coverage > coverage:
+        return retry, retry_coverage
+    return summary, coverage

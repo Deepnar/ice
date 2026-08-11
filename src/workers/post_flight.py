@@ -6,7 +6,6 @@ the same job (C7). Retries/backoff and idle gating live in the runtime, not
 here.
 """
 
-import hashlib
 import re
 import uuid
 from datetime import datetime, timezone
@@ -22,11 +21,13 @@ from src.workers.codex_extractor import embedder as shared_embedder
 from src.workers.codex_extractor import extract_codex
 from src.workers.document_chunker import run_chunk_turn
 from src.workers.procedural_extractor import extract_procedural
+from src.workers.idempotency import job_key
 from src.workers.turn_density import (
     compute_entropy,
     decide_representation,
     extract_key_terms,
     must_terms,
+    retry_on_coverage_miss,
     summary_coverage,
 )
 
@@ -116,16 +117,12 @@ def generate_summary(prompt: str, response: str, key_terms: dict,
         summary = _summary_llm_call(prompt, response, model_name, terms,
                                     source_kind=source_kind,
                                     source_title=source_title)
-        coverage = summary_coverage(summary, key_terms)
-        if coverage < settings.turn_summary_coverage_threshold and terms:
-            low = summary.lower()
-            missing = [t for t in terms if t.lower() not in low]
-            retry = _summary_llm_call(prompt, response, model_name, terms,
-                                      missing, source_kind=source_kind,
-                                      source_title=source_title)
-            retry_cov = summary_coverage(retry, key_terms)
-            if retry_cov > coverage:
-                summary, coverage = retry, retry_cov
+        # G29: shared with conversation_summary's fold (turn_density).
+        summary, coverage = retry_on_coverage_miss(
+            summary, key_terms,
+            lambda missing: _summary_llm_call(prompt, response, model_name, terms,
+                                              missing, source_kind=source_kind,
+                                              source_title=source_title))
         summary, abstract = _split_abstract(summary)
         # coverage was measured on the full text incl. the Key-terms line;
         # re-measure on the stored body so the gate reflects what's injected.
@@ -163,7 +160,11 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
     """
     log = logger.bind(batch_id=batch_id, conversation_id=conversation_id)
 
-    idempotency_key = hashlib.sha256(batch_id.encode()).hexdigest()
+    # G29: was a bare sha256(batch_id) — the un-namespaced key in a table shared
+    # with every other job. Safe to re-namespace here because episodic_memory is
+    # empty; on a populated store this orphans existing markers and re-processes
+    # their turns, so a future change to this string needs that check first.
+    idempotency_key = job_key("post_flight", batch_id)
     db = SessionLocal()
 
     try:

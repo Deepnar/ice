@@ -28,6 +28,7 @@ from src.memory.tokens import estimate_from_chars
 from src.workers.turn_density import (
     extract_key_terms,
     must_terms,
+    retry_on_coverage_miss,
     summary_coverage,
 )
 
@@ -114,14 +115,12 @@ def _summarize_chunk(existing: str, chunk_text: str, llm, embedder) -> str:
     summary = llm(_fold_prompt(existing, chunk_text, terms), max_tokens=400)
     if not summary:
         return ""
-    coverage = summary_coverage(summary, key_terms)
-    if coverage < settings.turn_summary_coverage_threshold and terms:
-        low = summary.lower()
-        missing = [t for t in terms if t.lower() not in low]
-        retry = llm(_fold_prompt(existing, chunk_text, terms, missing),
-                    max_tokens=400)
-        if retry and summary_coverage(retry, key_terms) > coverage:
-            summary = retry
+    # G29: shared with post_flight — this copy used to adopt a better retry
+    # without updating its coverage.
+    summary, _coverage = retry_on_coverage_miss(
+        summary, key_terms,
+        lambda missing: llm(_fold_prompt(existing, chunk_text, terms, missing),
+                            max_tokens=400))
     words = summary.split()
     if len(words) > settings.conversation_summary_max_words + 50:      # tolerance, then hard cap
         summary = " ".join(words[:settings.conversation_summary_max_words])
