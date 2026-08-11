@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 
 from src.api.config import settings
 import structlog
+
+from src.workers.llm_json import parse_array, parse_object
 from sqlalchemy import text
 
 from src.api.db import SessionLocal
@@ -80,38 +82,15 @@ MOTIF_PROMPT = (
 # Helpers
 # ------------------------------------------------------------------
 def _robust_json(raw: str, *, where: str = "?") -> dict:
-    """Extract a JSON object from model output; empty dict if there is none.
+    """G29: delegates to the shared salvage. Kept as a named wrapper because
+    this module's callers expect {} rather than None — the loudness that made
+    this the canonical copy now lives in llm_json."""
+    return parse_object(raw, where=f"reflection.{where}") or {}
 
-    Now LOUD. Every call site is schema-constrained, so reaching the fallback
-    means the constraint did not hold — truncation is the known cause
-    (finish_reason="length"), and an empty dict is indistinguishable from "the
-    model had nothing to say", which is exactly how a dead background layer
-    looked healthy for an unknown length of time (CLAUDE.md, 2026-08-03).
-    """
-    try:
-        json_match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group(0))
-        logger.warning("reflection_json_absent", where=where, chars=len(raw or ""),
-                       head=(raw or "")[:120])
-        return {}
-    except Exception as exc:
-        logger.warning("reflection_json_unparseable", where=where,
-                       error=str(exc)[:120], head=(raw or "")[:120])
-        return {}
 
 def _robust_list(raw: str, *, where: str = "?") -> list:
-    try:
-        json_match = re.search(r"\[.*\]", raw, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group(0))
-        logger.warning("reflection_list_absent", where=where, chars=len(raw or ""),
-                       head=(raw or "")[:120])
-        return []
-    except Exception as exc:
-        logger.warning("reflection_list_unparseable", where=where,
-                       error=str(exc)[:120], head=(raw or "")[:120])
-        return []
+    return parse_array(raw, where=f"reflection.{where}") or []
+
 
 # ------------------------------------------------------------------
 # Main task

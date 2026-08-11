@@ -798,3 +798,27 @@ should name the tables it means rather than counting everything.
 If it is removed later: it is a plain `DELETE FROM idempotency_keys`, safe only
 while `episodic_memory` is empty — after that, deleting a live marker re-runs the
 job it belonged to. Check that first, back up the table, and log it here.
+
+## 2026-08-11 — store restored after a diagnostic script seeded it
+
+`tests/test_codex_extractor.py` is a **diagnostic printer, not an assertion
+suite** — it seeds a graph and prints what the extractor did, and it has no
+cleanup. Run three times while validating G29's JSON-salvage consolidation, it
+left 22 `codex_entities`, 27 `codex_edges`, 77 `codex_events`, 7
+`episodic_memory` and 15 `conversations`.
+
+Removed, back to the documented-clean state: **1 conversation, everything else
+0.** The kept row is `ab934e9c-3e3c-5ec2-a0f2-e98e8ee22e4a` — the deterministic
+**uuid5** `ice://mcp-notes` shell created by `services/bookmarks.py`, which is
+production state, not residue (TRAPS #15: grep `src/` for whatever generates an
+id before deleting a row you did not create — that check is exactly why this row
+survived a previous sweep's first pass).
+
+Backed up before deletion (`pg_dump --data-only` of the five tables, 215 lines)
+to the session scratchpad, per the inventory-then-remove rule.
+
+⚠ **The suite is the thing to fix, not the rows.** Every other live-DB suite
+here inserts and deletes its own fixtures; this one does not, so it will do this
+again. It is also the reason a *different* suite failed earlier in the same
+session — `test_retrieval_failopen` hit a unique-constraint violation on residue
+from a crashed run (TRAPS #6, third time).

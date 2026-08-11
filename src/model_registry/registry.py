@@ -6,6 +6,8 @@ import re
 import time
 import httpx
 import structlog
+
+from src.workers.llm_json import parse_object
 from src.api.config import settings
 from src.paths import resolve
 
@@ -235,7 +237,11 @@ def _tag_with_bg_model(name: str) -> dict:
             }),
         )
         raw = (completion.choices[0].message.content or "").strip()
-        return json.loads(raw)
+        # G29: was a bare json.loads, so any fenced reply threw and the caller
+        # returned empty tags — indistinguishable from a model that genuinely
+        # has none, which is how the 404 above stayed invisible.
+        return parse_object(raw, where="registry.autotag") or {
+            "topic_tags": [], "intent_tags": []}
     except Exception as exc:
         # A fallback must be observable (CLAUDE.md): returning empty tags here
         # is indistinguishable from "this model genuinely has no tags", which

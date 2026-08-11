@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 import structlog
+
+from src.workers.llm_json import strip_fences
 from sqlalchemy.orm.attributes import flag_modified
 
 from src.api.config import settings
@@ -571,12 +573,10 @@ def extract_triplets(text: str, model_override: str = "",
             raw = completion.choices[0].message.content.strip()
             logger.debug("extraction_raw_response", raw=raw[:200])
 
-            # Strip markdown fences
-            if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:]
-                raw = raw.strip()
+            # G29: shared fence-strip. The triplet regex below stays local —
+            # it is a domain-specific salvage for THIS schema, not a fifth copy
+            # of the generic one.
+            raw = strip_fences(raw)
 
             # Parse JSON
             decoder = json.JSONDecoder()

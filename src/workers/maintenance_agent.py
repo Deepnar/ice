@@ -32,6 +32,8 @@ from typing import Optional
 
 from src.api.config import settings
 import structlog
+
+from src.workers.llm_json import parse_object
 from sqlalchemy import text
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -396,13 +398,9 @@ def make_llm_decider():
                 response_format=json_schema("agent_decision", schema) if schema else None,
                 timeout=bg_timeout(max_tokens))
             raw = (resp.choices[0].message.content or "").strip()
-            if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:]
-                raw = raw.strip()
-            parsed = json.loads(raw)
-            return parsed if isinstance(parsed, dict) else None
+            # G29: shared salvage — this fence-strip was byte-identical to
+            # codex_extractor's, and both are in llm_json now.
+            return parse_object(raw, where="maintenance_agent")
         except Exception as exc:
             logger.warning("agent_llm_failed", error=str(exc))
             return None

@@ -1159,10 +1159,26 @@ class HybridRetrievalOrchestrator:
     def _stem(word: str) -> str:
         """Crude suffix-stripper so 'inspired'/'inspires'/'inspiring' all meet
         the relation lexeme 'inspired'. Both sides are stemmed identically, so
-        crudeness cancels out."""
+        crudeness cancels out.
+
+        G34: the guard was `len(w) > 4`, which made the symmetry claim above
+        MEASURABLY FALSE for short vocabulary words — `uses`/`using`,
+        `uses`/`use`, `owns`/`owning`, `has`/`have` all failed to meet, and both
+        `uses` and `owns` are live vocabulary. End to end, "what does Kael use
+        for the ritual" produced zero channel-1 hits and "what does Kael own"
+        found `owned_by` while missing `owns`: one concept, two entries,
+        reachability decided by word length. The floor is now the length of what
+        REMAINS, so stripping never empties a word and short entries still stem.
+
+        ⚠ This makes the docstring true; it does not make the channel sound.
+        Lexical matching is a bet on how a thing is written, which CLAUDE.md's
+        invariance rule forbids and [G28] owns. G34 removed this channel from the
+        anchor path entirely for that reason — it survives only for
+        `_codex_enumeration`, whose gate is explicitly lexical anyway.
+        """
         w = word.lower()
         for suf in ("ing", "ed", "es", "s"):
-            if len(w) > 4 and w.endswith(suf):
+            if w.endswith(suf) and len(w) - len(suf) >= 2:
                 return w[: -len(suf)]
         return w
 

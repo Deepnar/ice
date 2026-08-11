@@ -31,6 +31,8 @@ from typing import Callable, Optional
 from src.api.config import settings
 import structlog
 
+from src.workers.llm_json import parse_array
+
 from src.ingestion.formats import NormalizedConversation, NormalizedTurn
 from src.memory.chunking import chunk_text
 
@@ -84,8 +86,8 @@ def _parse_turns(raw: str, fallback_text: str) -> list:
     failure, fall back to one user turn holding the whole text — never drop
     content."""
     try:
-        match = re.search(r"\[.*\]", raw, re.DOTALL)
-        data = json.loads(match.group(0) if match else raw)
+        # G29: shared salvage (was a third regex variant).
+        data = parse_array(raw, where="raw_slicer") or []
         turns = []
         for obj in data:
             role = (obj.get("role") or "").lower()
