@@ -589,6 +589,19 @@ class Settings(BaseSettings):
     # A4 relation detection. Top-k is recall-only — a detected relation only
     # surfaces facts when a matched entity actually has such an edge, so the
     # join is the precision and k can be generous.
+    #
+    # G34: codex_relation_detection_enabled is the kill-switch. False ⇒
+    # _detect_relations returns [] before doing any work, so the whole A4
+    # relation path is inert — no fact lines in the fragment, no fact edges
+    # into retrieval-reinforcement, no overlap boost, and enumeration falls
+    # back to its tag channel alone. It also skips the per-prompt gloss cosine
+    # loop. This is the ONLY true off: setting codex_relation_overlap_boost to
+    # 0.0 removes the score bump at orchestrator.py:1609 and nothing else, so
+    # the fact lines still consume budget and the fact edges still reinforce
+    # (and can promote) codex edges on every retrieval. It is an ablation seam,
+    # not a fix — G34 is that the detector cannot say "no" to a given prompt,
+    # and this says "no" to every prompt indiscriminately.
+    codex_relation_detection_enabled: bool = True
     codex_relation_top_k: int = 5
     codex_relation_sim_floor: float = 0.45
     codex_relation_overlap_boost: float = 0.25

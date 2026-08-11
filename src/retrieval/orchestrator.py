@@ -1154,7 +1154,13 @@ class HybridRetrievalOrchestrator:
         hit; (2) embedding — top-k gloss cosine for paraphrases ('who is X's
         wife' → married_to). Joint-signal only (see __init__ note): callers
         must pair the result with matched entities or enumeration cues, never
-        use it alone."""
+        use it alone.
+
+        G34: the kill-switch returns before any work — the empty list makes the
+        whole A4 relation path inert at every downstream site, which zeroing
+        codex_relation_overlap_boost does not (see config.py)."""
+        if not settings.codex_relation_detection_enabled:
+            return []
         try:
             rels, gloss_embs = self._relation_gloss_cache()
             detected: List[str] = []
