@@ -649,6 +649,40 @@ class HybridRetrievalOrchestrator:
             return f"AND {column} = :conv_id", {"conv_id": conv_id}, True
         return "", {}, False
 
+    def _cluster_filter(self, scope, id_column="episodic_memory.id") -> str:
+        """C5 cluster scoping as a SQL fragment — G29: written out four times.
+
+        The copies were verbatim apart from the row alias (`episodic_memory.id`
+        on three legs, `e.id` on the chunk leg), which is why they read as
+        identical and could not be diffed by eye. The wide net had **no** copy
+        at all until C6 added one, and that omission widened *visibility* rather
+        than ranking — the failure this consolidation is meant to make
+        impossible to repeat.
+
+        The `OR NOT EXISTS` half is load-bearing and easy to mistake for
+        redundancy: a turn that no clustering pass has reached yet belongs to no
+        cluster, and must stay visible rather than be scoped out of existence by
+        a filter about clusters it was never eligible for.
+
+        `id_column` is a caller-supplied SQL identifier, never user input; the
+        cluster ids themselves are bound as `:cluster_ids`.
+        """
+        if not (scope and scope.get("cluster_ids")):
+            return ""
+        return f"""
+                AND (
+                    EXISTS (
+                        SELECT 1 FROM episodic_cluster_links l
+                        WHERE l.episodic_id = {id_column}
+                          AND l.cluster_id = ANY(:cluster_ids)
+                    )
+                    OR NOT EXISTS (
+                        SELECT 1 FROM episodic_cluster_links l
+                        WHERE l.episodic_id = {id_column}
+                    )
+                )
+            """
+
     def _exclusion_filters(self, scope, conv_column="conversation_id",
                            id_column="episodic_memory.id"):
         """C6: the negated scope — "keep this memory, stop retrieving it".
@@ -769,21 +803,7 @@ class HybridRetrievalOrchestrator:
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
 
         # ── Cluster filter (new) ──
-        cluster_filter = ""
-        if scope and scope.get("cluster_ids"):
-            cluster_filter = """
-                AND (
-                    EXISTS (
-                        SELECT 1 FROM episodic_cluster_links l
-                        WHERE l.episodic_id = episodic_memory.id
-                          AND l.cluster_id = ANY(:cluster_ids)
-                    )
-                    OR NOT EXISTS (
-                        SELECT 1 FROM episodic_cluster_links l
-                        WHERE l.episodic_id = episodic_memory.id
-                    )
-                )
-            """
+        cluster_filter = self._cluster_filter(scope)
 
         query = text(f"""
             SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp,
@@ -874,21 +894,7 @@ class HybridRetrievalOrchestrator:
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
 
         # ── Cluster filter (new) ──
-        cluster_filter = ""
-        if scope and scope.get("cluster_ids"):
-            cluster_filter = """
-                AND (
-                    EXISTS (
-                        SELECT 1 FROM episodic_cluster_links l
-                        WHERE l.episodic_id = episodic_memory.id
-                          AND l.cluster_id = ANY(:cluster_ids)
-                    )
-                    OR NOT EXISTS (
-                        SELECT 1 FROM episodic_cluster_links l
-                        WHERE l.episodic_id = episodic_memory.id
-                    )
-                )
-            """
+        cluster_filter = self._cluster_filter(scope)
 
         # C2: document turns are EXCLUDED from turn-level vector search — one
         # embedding over thousands of words is semantic mush (the C3 ceiling).
@@ -992,21 +998,7 @@ class HybridRetrievalOrchestrator:
         # archived/decay-floor on the parent's flags.
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters(prefix="e.")
         ts_center, _, rec_tau = self._recency_params(creative=False)  # boost passed in by caller
-        cluster_filter = ""
-        if scope and scope.get("cluster_ids"):
-            cluster_filter = """
-                AND (
-                    EXISTS (
-                        SELECT 1 FROM episodic_cluster_links l
-                        WHERE l.episodic_id = e.id
-                          AND l.cluster_id = ANY(:cluster_ids)
-                    )
-                    OR NOT EXISTS (
-                        SELECT 1 FROM episodic_cluster_links l
-                        WHERE l.episodic_id = e.id
-                    )
-                )
-            """
+        cluster_filter = self._cluster_filter(scope, "e.id")
         query = text(f"""
             SELECT c.chunk_text, c.chunk_index, e.id AS parent_id,
                    e.conversation_id, e.is_bookmarked, e.timestamp,
@@ -2510,21 +2502,7 @@ class HybridRetrievalOrchestrator:
         # that tripped the wide net widened its VISIBILITY, not just its
         # ranking, which is exactly what the comment above forbids. Same
         # predicate as the other legs, unlinked turns still allowed through.
-        cluster_filter = ""
-        if scope and scope.get("cluster_ids"):
-            cluster_filter = """
-                  AND (
-                      EXISTS (
-                          SELECT 1 FROM episodic_cluster_links l
-                          WHERE l.episodic_id = episodic_memory.id
-                            AND l.cluster_id = ANY(:cluster_ids)
-                      )
-                      OR NOT EXISTS (
-                          SELECT 1 FROM episodic_cluster_links l
-                          WHERE l.episodic_id = episodic_memory.id
-                      )
-                  )
-            """
+        cluster_filter = self._cluster_filter(scope)
         # T3: same window/archived/floor rules as the normal legs (the wide
         # net widens ranking, not visibility — and not time either).
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
