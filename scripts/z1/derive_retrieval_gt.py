@@ -225,6 +225,57 @@ def shortlist(answer: str, turns: list[dict], idf: dict, k: int) -> list[tuple[f
     return scored[:k]
 
 
+_CLAIMS_SCHEMA = {
+    "type": "object",
+    "properties": {"claims": {"type": "array", "items": {"type": "string"}}},
+    "required": ["claims"],
+}
+
+
+def split_claims(client, model, question: str, answer: str, cap: int) -> list[str]:
+    """Break an expected answer into atomic, independently-checkable claims.
+
+    **Why the key is derived per CLAIM rather than per ANSWER.** The first
+    version mapped a whole answer to "the turns that hold it", which assumes an
+    answer rests on one or two turns. Hand-verification on 2026-08-11 found that
+    assumption false for a whole class of probe: questions asking for synthesis
+    ("go through my entire story and make a time progression", "ALL of it") are
+    answered by assembling many turns, and forcing a small gold set onto them
+    produced a wrong one — two of the four failures the user found were exactly
+    that, and the precision noise on two more ("turns 31, 32 were irrelevant")
+    is the same cause, the derivation having to pick *something*.
+
+    Claims dissolve the distinction instead of special-casing it. A lookup
+    answer yields two claims and two supporting turns; a synthesis answer yields
+    twenty claims across fifteen turns, which is not a failure but the correct
+    description of that probe. The probe's gold set is the union, and the metric
+    that follows — what fraction of a probe's claims did retrieval cover —
+    is meaningful for both without anyone having to classify them first.
+    """
+    prompt = (
+        "Break the ANSWER below into atomic factual claims.\n\n"
+        "Each claim must be independently checkable against a single piece of "
+        "source material, and must carry its own subject — never 'he', 'it' or "
+        "'the above'. Drop hedging, structure and commentary; keep only "
+        "assertions of fact. If the answer states no facts, return an empty "
+        f"list. Return at most {cap} claims.\n\n"
+        f"QUESTION THIS ANSWERS:\n{question}\n\nANSWER:\n{answer[:6000]}"
+    )
+    from src.workers.bg_client_factory import json_schema
+
+    try:
+        resp = client.chat.completions.create(
+            model=model, messages=[{"role": "user", "content": prompt}],
+            temperature=0, max_tokens=1800,
+            response_format=json_schema("claims", _CLAIMS_SCHEMA))
+        data = json.loads(resp.choices[0].message.content or "{}")
+        out = [c.strip() for c in (data.get("claims") or []) if str(c).strip()]
+        return out[:cap]
+    except Exception as exc:
+        print(f"    ! claim split failed: {type(exc).__name__}: {exc}")
+        return []
+
+
 _CONFIRM_SCHEMA = {
     "type": "object",
     "properties": {
@@ -277,15 +328,21 @@ def main() -> int:
                     help="lexical shortlist only, no model calls")
     ap.add_argument("--top-k", type=int, default=6)
     ap.add_argument("--char-cap", type=int, default=1200)
+    ap.add_argument("--max-claims", type=int, default=14,
+                    help="cap per probe; a synthesis answer can list dozens")
     ap.add_argument("--sample", type=int, default=0,
                     help="print N derived keys for hand-verification")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--only", default=None,
+                    help="restrict to one conversation (8-char id)")
     ap.add_argument("--verify-only", action="store_true",
                     help="print the hand-verification sample from the SAVED key, "
                          "no model calls and no re-derivation")
     args = ap.parse_args()
 
     convs = load_conversations()
+    if args.only:
+        convs = {k: v for k, v in convs.items() if k == args.only}
     if not convs:
         print("no conversations found — is experiments/curation_files/ present?")
         return 1
@@ -360,27 +417,59 @@ turn's opening, so what you see is the evidence itself.
         items = list(probes[cid].values())
         print(f"── {cid}: {len(items)} probes")
         for i, pr in enumerate(items, 1):
-            cands = shortlist(pr["expected_answer"], meta["turns"], idf, args.top_k)
-            if not cands:
-                stats["no_candidates"] += 1
-                gold: list[int] = []
-            elif args.dry_run:
-                gold = [t.get("turn_number") for _, t in cands[:2]]
+            # Per-CLAIM derivation. Each claim gets its own lexical shortlist —
+            # which is the other half of the 2026-08-11 fix: shortlisting on the
+            # whole answer let a single-subject conversation's uniform vocabulary
+            # dominate (4 of 6 sampled probes wrong on the story conversation
+            # against 1 of 11 elsewhere), because every turn shares the answer's
+            # common terms. One claim is short and specific, so the terms that
+            # distinguish it are the ones that survive.
+            claims = ([] if args.dry_run else
+                      split_claims(client, model, pr["question"],
+                                   pr["expected_answer"], args.max_claims))
+            claim_map, gold = [], set()
+            if claims:
+                for claim in claims:
+                    cands = shortlist(claim, meta["turns"], idf, args.top_k)
+                    if not cands:
+                        claim_map.append({"claim": claim, "turns": []})
+                        continue
+                    turns_for = confirm(client, model, pr["question"],
+                                        claim, cands, args.char_cap)
+                    claim_map.append({"claim": claim, "turns": sorted(turns_for)})
+                    gold.update(turns_for)
+                stats["claims"] += len(claims)
+                stats["claims_grounded"] += sum(1 for c in claim_map if c["turns"])
             else:
-                gold = confirm(client, model, pr["question"],
-                               pr["expected_answer"], cands, args.char_cap)
+                # No claims (split failed, or an answer that asserts nothing):
+                # fall back to the whole-answer path rather than losing the probe.
+                cands = shortlist(pr["expected_answer"], meta["turns"], idf, args.top_k)
+                if not cands:
+                    stats["no_candidates"] += 1
+                elif args.dry_run:
+                    gold.update(t.get("turn_number") for _, t in cands[:2])
+                else:
+                    gold.update(confirm(client, model, pr["question"],
+                                        pr["expected_answer"], cands, args.char_cap))
+                stats["fell_back"] += 1
+
             stats["with_gold" if gold else "no_gold"] += 1
             stats["gold_turns"] += len(gold)
+            # A probe whose claims spread over many turns is a SYNTHESIS probe;
+            # one resting on a couple is a LOOKUP. Recorded rather than
+            # thresholded here — G40 owns the classification, and the coverage
+            # metric this enables does not need the label to be meaningful.
             out["probes"].append({
                 **pr,
                 "conversation": cid,
                 "conversation_id": meta["conv"],
                 "gold_turns": sorted(gold),
-                "candidates": [{"turn": t.get("turn_number"), "lex": round(s, 4)}
-                               for s, t in cands],
+                "claims": claim_map,
+                "n_claims": len(claims),
+                "spread": len(gold),
             })
             if i % 10 == 0:
-                print(f"    {i}/{len(items)}")
+                print(f"    {i}/{len(items)}  (claims so far: {stats['claims']})")
 
     n = len(out["probes"])
     with_gold = stats["with_gold"]
@@ -390,6 +479,18 @@ turn's opening, so what you see is the evidence itself.
           f"(unanswerable from this history, or the derivation missed it)")
     print(f"  no lexical candidate: {stats['no_candidates']}")
     print(f"  mean gold turns    : {stats['gold_turns']/max(1,with_gold):.2f}")
+    if stats["claims"]:
+        print(f"  claims extracted   : {stats['claims']}  "
+              f"({stats['claims']/max(1,n):.1f}/probe)")
+        print(f"  claims grounded    : {stats['claims_grounded']}/{stats['claims']} "
+              f"({100*stats['claims_grounded']//max(1,stats['claims'])}%)")
+        print(f"  fell back to answer: {stats['fell_back']}")
+        spreads = sorted(p["spread"] for p in out["probes"])
+        if spreads:
+            mid = spreads[len(spreads)//2]
+            wide = sum(1 for s_ in spreads if s_ >= 6)
+            print(f"  gold-set size      : median {mid}, "
+                  f"{wide} probes span >=6 turns (synthesis-shaped)")
 
     if not args.dry_run:
         OUT.write_text(json.dumps(out, indent=2))
