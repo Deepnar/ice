@@ -1370,3 +1370,50 @@ narrower than "the detector fires on everything":
 So the requirement is not a better *score* — it is a relation set that is
 **restrictive**, and the three candidates above fail to be restrictive without
 also being empty. Design continues from here; nothing was changed in `src/`.
+
+### G34 continued — inverting the question, and it works
+
+Same script, same run. Design **D**: instead of asking "which of 197 abstract
+glosses is this prompt near?", ask "given we are already rendering this anchor's
+edges, **which of its own handful of relations** does the question point at?"
+
+That is a different problem, and a much easier one. It is also what A4's docstring
+has always claimed the leg does.
+
+**Method.** The anchor's candidate relations are drawn at **random** from the
+vocabulary with the true relation inserted — a hand-assembled neighbour set would
+be a probe of the author's imagination (TRAPS #13) and would agree with whatever
+design it was written for. 400 trials per row. Two baselines, because "better
+than nothing" is not a result: `random` is chance, and `strength` is today's
+behaviour (edges ordered by raw strength, i.e. the question ignored entirely).
+
+**Top-1 accuracy of the expected relation within the anchor's set:**
+
+| anchor edges | random | strength (today) | **D** | D + centred |
+|---|---|---|---|---|
+| 3 | 32.0% | 33.0% | **97.5%** | 95.5% |
+| 5 | 23.0% | 19.0% | **94.2%** | 86.5% |
+| 10 | 11.0% | 8.0% | **93.2%** | 83.0% |
+| 20 | 3.0% | 4.8% | **83.5%** | 62.8% |
+
+**Why this succeeds where the gate designs failed.** It never has to say "no".
+The unanswerable question was *"is this prompt relational?"*; ordering an anchor's
+existing edges is a strictly weaker claim that does not require one. `codex_max_fanout`
+([G35](ROADMAP.md#g35), landed the same day) already bounds *how many* edges are
+rendered — D decides *which*, and the two compose.
+
+**Centring hurts here too** (83.0% vs 93.2% at 10 edges). That is the third
+independent measurement in this run saying the same thing: stacking these
+corrections makes things worse, not better.
+
+**⚠ Caveats, both real.**
+- **Style invariance is improved but NOT solved.** Across five phrasings of
+  *"who inspired Kael"* the pick was `['co_authors', 'inspired_by', 'inspired_by',
+  'inspired_by', 'knows']` — 3 distinct, with the typo variant landing on `knows`.
+  Better than the gate designs (5 distinct) and not good enough to call invariant.
+  This is a **single random candidate set** and therefore noisy; it must be
+  re-measured over many seeds before any number is quoted.
+- **Simulated anchors, not a real store.** The candidate sets are sampled, not
+  read from `codex_edges`, because the store is empty. Re-run against Z1's
+  populated graph before trusting the absolute numbers; the *ordering* of D
+  against its two baselines is the durable part.

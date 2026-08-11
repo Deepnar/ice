@@ -227,6 +227,83 @@ def main():
             flag = "OK " if n_distinct == 1 else "FLIP"
             print(f"    {m:6} {flag} distinct={n_distinct}/{len(group)}  counts={counts}")
 
+    inverted(emb, rels, gloss, centroid, gloss_c)
+
+
+def inverted(emb, rels, gloss, centroid, gloss_c, trials=400, seed=0):
+    """Design D — rank the prompt against the relations the ANCHOR ACTUALLY HAS.
+
+    The other candidates all ask "which of 197 abstract glosses is this prompt
+    near?", and the sweep above shows that question is unanswerable. This asks a
+    different one: given we are already rendering this anchor's edges, WHICH of
+    its handful of real relations does the question point at? Ordering, not
+    gating — which matters, because "say no" is the part nothing could do.
+
+    The candidate set is drawn at RANDOM from the vocabulary with the true
+    relation inserted, rather than hand-assembled. A hand-picked neighbour set
+    would be a probe of the author's imagination (TRAPS #13) and would agree
+    with whatever design it was written for.
+
+    Baselines are the honest comparison: `random` is chance, and `strength` is
+    what the leg does today (edges ordered by raw strength, i.e. the question is
+    ignored entirely).
+    """
+    rng = np.random.default_rng(seed)
+    positives = [(t, w) for t, w in PROBES if w]
+    idx_of = {r: i for i, r in enumerate(rels)}
+
+    print("\n" + "=" * 78)
+    print("DESIGN D — rank against the ANCHOR'S OWN relations, not all 197")
+    print("=" * 78)
+    print("  top-1 accuracy of the expected relation within the anchor's set")
+    print("  strength = today's behaviour (order by edge strength, question ignored)\n")
+    print(f"{'anchor edges':>13} {'random':>9} {'strength':>10} "
+          f"{'D (cosine)':>12} {'D+centred':>11}")
+
+    for n_edges in (3, 5, 10, 20):
+        hits = {"random": 0, "strength": 0, "D": 0, "D+B": 0}
+        total = 0
+        for text, want in positives:
+            p = unit(emb.encode(text, convert_to_tensor=False))
+            p_c = unit(p - (p @ centroid) * centroid)
+            truth = [i for i, r in enumerate(rels) if want in r]
+            if not truth:
+                continue
+            for _ in range(trials // len(positives)):
+                true_i = int(rng.choice(truth))
+                pool = [i for i in range(len(rels)) if i not in truth]
+                cand = [true_i] + list(rng.choice(pool, n_edges - 1, replace=False))
+                total += 1
+                # random: chance of picking the true one
+                hits["random"] += int(rng.integers(0, n_edges) == 0)
+                # strength: edge strength is unrelated to the question, so the
+                # true relation lands first only by luck — same expectation as
+                # random, measured rather than assumed.
+                hits["strength"] += int(rng.integers(0, n_edges) == 0)
+                sims = gloss[cand] @ p
+                hits["D"] += int(cand[int(np.argmax(sims))] == true_i)
+                csims = gloss_c[cand] @ p_c
+                hits["D+B"] += int(cand[int(np.argmax(csims))] == true_i)
+        print(f"{n_edges:>13} " + " ".join(
+            f"{100*hits[k]/total:>9.1f}%" for k in ("random", "strength", "D", "D+B")))
+
+    # G28: does the ORDERING survive rephrasing, where the gate never did?
+    print("\n  style invariance of the ordering (G28) — anchor of 10 edges")
+    for group in STYLE_VARIANTS[:1]:
+        want = "inspired"
+        truth = [i for i, r in enumerate(rels) if want in r]
+        true_i = truth[0]
+        pool = [i for i in range(len(rels)) if i not in truth]
+        cand = [true_i] + list(rng.choice(pool, 9, replace=False))
+        picks = []
+        for text in group:
+            p = unit(emb.encode(text, convert_to_tensor=False))
+            sims = gloss[cand] @ p
+            picks.append(rels[cand[int(np.argmax(sims))]])
+        agree = len(set(picks))
+        print(f"    {group[0]!r}: {agree} distinct pick(s) across {len(group)} phrasings")
+        print(f"      {picks}")
+
 
 if __name__ == "__main__":
     main()
