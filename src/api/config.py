@@ -590,17 +590,14 @@ class Settings(BaseSettings):
     # surfaces facts when a matched entity actually has such an edge, so the
     # join is the precision and k can be generous.
     #
-    # G34: codex_relation_detection_enabled is the kill-switch. False ⇒
-    # _detect_relations returns [] before doing any work, so the whole A4
-    # relation path is inert — no fact lines in the fragment, no fact edges
-    # into retrieval-reinforcement, no overlap boost, and enumeration falls
-    # back to its tag channel alone. It also skips the per-prompt gloss cosine
-    # loop. This is the ONLY true off: setting codex_relation_overlap_boost to
-    # 0.0 removes the score bump at orchestrator.py:1609 and nothing else, so
-    # the fact lines still consume budget and the fact edges still reinforce
-    # (and can promote) codex edges on every retrieval. It is an ablation seam,
-    # not a fix — G34 is that the detector cannot say "no" to a given prompt,
-    # and this says "no" to every prompt indiscriminately.
+    # G34: the kill-switch for prompt→vocabulary relation detection. False ⇒
+    # _detect_relations returns [] before doing any work.
+    # ⚠ Its scope SHRANK on 2026-08-11. It once governed the whole A4 relation
+    # path and was the only way to neutralise it for a tuning run. The anchor
+    # path no longer detects relations at all — it ranks each anchor against its
+    # own relations (_relation_fit) — so this now governs `_codex_enumeration`
+    # alone, where an explicit cue word already carries the precision.
+    # Kept as an ablation seam for that leg, not as a fix.
     codex_relation_detection_enabled: bool = True
     # G35: max neighbours _traverse_graph expands per node, best-first by
     # _edge_trust across both edge directions. Before this existed, fan-out was
@@ -614,7 +611,19 @@ class Settings(BaseSettings):
     codex_max_fanout: int = 12
     codex_relation_top_k: int = 5
     codex_relation_sim_floor: float = 0.45
-    codex_relation_overlap_boost: float = 0.25
+    # G34: replaced codex_relation_overlap_boost, which was a FLAT +0.25 applied
+    # whenever any relation was detected — a condition that was true on every
+    # prompt, so it boosted noise unconditionally. The per-anchor bonus is now
+    # this weight times `fit` (how sharply one of the anchor's own relations
+    # stood out), so a contentless prompt earns zero by construction.
+    # ⚠ 0.25 matches the magnitude it replaces so this change is not silently
+    # also a re-tuning. UNMEASURED, and a Z1 knob — say so wherever it is quoted.
+    codex_relation_fit_weight: float = 0.25
+    # G34/G35: how many of an anchor's edges compete for the
+    # codex_entity_edge_limit output slots. Bounded because a hub entity has
+    # hundreds (G35), at a multiple of the output so strength decides only who
+    # competes and relation fit decides who wins. Also unmeasured.
+    codex_relation_pool_multiplier: int = 5
     codex_expansion_max_terms: int = 8
     codex_enum_edge_limit: int = 15
     codex_enum_entity_limit: int = 8

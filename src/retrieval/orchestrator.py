@@ -1146,9 +1146,14 @@ class HybridRetrievalOrchestrator:
         must pair the result with matched entities or enumeration cues, never
         use it alone.
 
-        G34: the kill-switch returns before any work — the empty list makes the
-        whole A4 relation path inert at every downstream site, which zeroing
-        codex_relation_overlap_boost does not (see config.py)."""
+        ⚠ G34 (2026-08-11): the ANCHOR path no longer calls this. It ranks each
+        anchor against its own relations instead (`_relation_fit`), because this
+        function could not be made to say "no" — measured, three candidate fixes,
+        none separating. `_codex_enumeration` is now the only caller, and there
+        the explicit cue word carries the precision this cannot.
+
+        The kill-switch therefore governs enumeration alone, and returns before
+        any work so "off" costs nothing."""
         if not settings.codex_relation_detection_enabled:
             return []
         try:
@@ -1421,34 +1426,99 @@ class HybridRetrievalOrchestrator:
         since = f" (since {vf.strftime('%Y-%m')})" if vf else ""
         return f"[Fact: {src.canonical_name} --{rel}--> {tgt.canonical_name}{since}]"
 
-    def _relation_facts(self, matched, relations: List[str], allowed_batch_ids):
-        """A4: surface explicit edge facts where a matched entity participates
-        in a detected relation (either direction). The entity∩relation joint
-        hit is the precision anchor; these edges also join the reinforcement
-        anchors because they directly answered the query."""
-        if not matched or not relations:
-            return [], []
+    def _relation_fit(self, relations: List[str], prompt_embedding):
+        """G34: score each of *relations* against the prompt, and report how
+        sharply the best one stands out. Returns ``(scores, fit)``.
+
+        This is the inverted question. The old detector asked "which of the 197
+        vocabulary glosses is this prompt near?" and could not be made to answer
+        — measured 2026-08-11, three candidate fixes, none separating, because
+        absolute cosine is anti-correlated with relational content ("ok" clears
+        197/197 at 0.844; "who inspired Kael" clears 43 at 0.575). Asking instead
+        which of an anchor's OWN handful of relations the prompt points at scored
+        93.2% top-1 against 8.0% for strength ordering, at a 10-edge anchor.
+
+        It works because it never has to say "no". Ranking a set we are already
+        rendering is a strictly weaker claim than judging relational intent.
+
+        ``fit`` — best minus mean across *relations* — is the one place a "no"
+        is expressed, and it is expressed as a continuous zero rather than a
+        gate: a contentless prompt is uniformly near everything, so the spread
+        collapses and the caller's bonus vanishes without any threshold deciding
+        that it should.
+        """
+        if not relations or prompt_embedding is None:
+            return {}, 0.0
+        try:
+            vocab, embs = self._relation_gloss_cache()
+            index = {r: i for i, r in enumerate(vocab)}
+            known = [r for r in relations if r in index]
+            if len(known) < 2:
+                # Ranking one item is theatre, and the spread of one is zero.
+                return {}, 0.0
+            p = prompt_embedding
+            scores = {r: sum(a * b for a, b in zip(p, embs[index[r]]))
+                      for r in known}
+            vals = list(scores.values())
+            fit = max(vals) - (sum(vals) / len(vals))
+            return scores, max(0.0, min(1.0, fit))
+        except Exception as err:
+            self._leg_degraded("codex.relation_fit", err)
+            return {}, 0.0
+
+    def _relation_facts(self, matched, prompt_embedding, allowed_batch_ids):
+        """A4: surface an anchor's explicit edge facts, ordered by how well each
+        edge's relation answers the question. Returns ``(lines, edges, fit)``.
+
+        G34 inverted this. It used to take a list of relations detected from the
+        prompt and filter edges to them — but with ~197 relations detected on
+        every prompt that filter was a **no-op**, so the leg returned the
+        anchor's strongest edges regardless of what was asked, and A4's
+        documented "entity ∩ relation joint hit" was never actually a joint hit.
+        Now every valid edge of the anchor is a candidate and the *ordering*
+        carries the relation signal.
+
+        The candidate pool stays bounded by strength (G35's concern: a hub
+        entity has hundreds of edges), but at a multiple of the output size, so
+        strength decides only who competes and fit decides who wins.
+        """
+        if not matched:
+            return [], [], 0.0
         matched_ids = [e.id for e in matched]
         q = self.db.query(CodexEdge).filter(
             *self._edge_valid_filters(),
-            CodexEdge.relation.in_(relations),
             ((CodexEdge.source_id.in_(matched_ids)) | (CodexEdge.target_id.in_(matched_ids)))
         )
         if allowed_batch_ids is not None:
             q = q.filter(CodexEdge.source_batch.in_(allowed_batch_ids))
         if self._denied_batch_ids:   # C6 exclusion
             q = q.filter(CodexEdge.source_batch.notin_(self._denied_batch_ids))
+        pool = q.order_by(CodexEdge.strength.desc()).limit(
+            settings.codex_entity_edge_limit
+            * settings.codex_relation_pool_multiplier).all()
+        # A8: a negated edge is a stored fact, not an answer — "X does NOT use Y"
+        # must never rank first on a question about using.
+        pool = [e for e in pool
+                if not getattr(e, "negated", False)
+                and self._edge_trust(e) >= settings.codex_direct_trust_floor]
+        if not pool:
+            return [], [], 0.0
+
+        scores, fit = self._relation_fit(
+            sorted({e.relation for e in pool}), prompt_embedding)
+        # No usable scores ⇒ keep the strength order the pool already carries.
+        if scores:
+            pool.sort(key=lambda e: (scores.get(e.relation, 0.0), self._edge_trust(e)),
+                      reverse=True)
+
         lines, fact_edges = [], []
-        for edge in q.order_by(CodexEdge.strength.desc()).limit(
-                settings.codex_entity_edge_limit).all():
-            if self._edge_trust(edge) < settings.codex_direct_trust_floor:
-                continue
+        for edge in pool[:settings.codex_entity_edge_limit]:
             src = self.db.query(CodexEntity).get(edge.source_id)
             tgt = self.db.query(CodexEntity).get(edge.target_id)
             if src and tgt:
                 lines.append(self._fact_line(src, edge, tgt))
                 fact_edges.append(edge)
-        return lines, fact_edges
+        return lines, fact_edges, fit
 
     def _codex_enumeration(self, prompt: str, relations: List[str],
                            allowed_entity_ids, allowed_batch_ids) -> List[ContextFragment]:
@@ -1547,17 +1617,21 @@ class HybridRetrievalOrchestrator:
                 # A4 descriptor fallback: 'main fortress' → payload mentions 'fortress'
                 matched = self._match_entities_by_payload(entity_strings)
 
-        # A4: relations relevant to the prompt — lexical + embedding channels
-        # (joint signal only).
-        detected_relations = self._detect_relations(prompt, prompt_embedding)
         # A5: project-scope sets (both None when unscoped).
         allowed_entity_ids, allowed_batch_ids = self._codex_scope_sets(scope)
 
         if not matched:
             # A4: re-homed MERA — entity-less enumeration ("list all the characters").
             if self.enable_enumeration:
-                return self._codex_enumeration(prompt, detected_relations,
-                                               allowed_entity_ids, allowed_batch_ids)
+                # G34: _detect_relations is computed HERE, not at the top of the
+                # leg. It is now enumeration's only consumer — the anchor path
+                # ranks against each anchor's own relations instead — and
+                # enumeration additionally needs an explicit cue word, so the
+                # 12.2 ms gloss loop went from every prompt to the rare ones
+                # that could use it.
+                return self._codex_enumeration(
+                    prompt, self._detect_relations(prompt, prompt_embedding),
+                    allowed_entity_ids, allowed_batch_ids)
             return []
 
         self._last_matched_entities = matched   # grounded query expansion (BM25)
@@ -1573,7 +1647,7 @@ class HybridRetrievalOrchestrator:
             fragments: List[ContextFragment] = []
             timeline_frags: List[ContextFragment] = []   # T4: own leg (RRF weight + budget lane)
             all_anchor_edges = []   # A3: reinforced across all anchors at the end
-            any_relation_hit = False
+            best_fit = 0.0   # G34: max across anchors, not the last one's
             anchor_ids = {a.id for a in matched}
             ts = self._active_timescope
             timeline_cap = (settings.timeline_max_fragments_evolution
@@ -1595,15 +1669,23 @@ class HybridRetrievalOrchestrator:
                 mean_trust = (sum(self._edge_trust(e) for e in direct_edges) / len(direct_edges)
                               if direct_edges else 0.0)
                 score = 1.0 + min(0.5, 0.25 * mean_trust)
-                # A4: relation-aware facts for this anchor → boost just this fragment.
-                if detected_relations:
-                    fact_lines, fact_edges = self._relation_facts(
-                        [anchor], detected_relations, allowed_batch_ids)
-                    if fact_lines:
-                        local_texts.extend(fact_lines)
-                        direct_edges.extend(fact_edges)
-                        score += settings.codex_relation_overlap_boost
-                        any_relation_hit = True
+                # A4/G34: this anchor's facts, ordered by how well each edge's
+                # relation answers the question. Runs unconditionally now — the
+                # old `if detected_relations:` gate was always true (the detector
+                # fired on every prompt), so it decided nothing while looking
+                # like precision.
+                fact_lines, fact_edges, fit = self._relation_facts(
+                    [anchor], prompt_embedding, allowed_batch_ids)
+                if fact_lines:
+                    local_texts.extend(fact_lines)
+                    direct_edges.extend(fact_edges)
+                    # G34: proportional to how sharply one relation stood out,
+                    # replacing a flat +0.25 that was applied on every prompt
+                    # because its condition could never be false. A contentless
+                    # prompt scores every relation alike, so fit collapses to 0
+                    # and this adds nothing — without a threshold saying so.
+                    score += settings.codex_relation_fit_weight * fit
+                    best_fit = max(best_fit, fit)
                 text = "\n\n".join(local_texts)
                 fragments.append(ContextFragment(
                     text=text, source_type="codex", score=score,
@@ -1626,8 +1708,11 @@ class HybridRetrievalOrchestrator:
                             text=tl, source_type="timeline", score=0.9 * score,
                             token_count=count_tokens(tl)))
 
-            if any_relation_hit:
-                logger.info("codex_relation_overlap", relations=detected_relations,
+            if best_fit > 0.0:
+                # G34: reports the measured fit rather than a list of "detected"
+                # relations. The old field listed whatever cleared the floor —
+                # typically all 197 — so it logged noise as though it were a hit.
+                logger.info("codex_relation_overlap", best_fit=round(best_fit, 4),
                             fragments=len(fragments))
             # A3: retrieval-reinforcement across every anchor's edges.
             self._reinforce_codex_edges(all_anchor_edges)

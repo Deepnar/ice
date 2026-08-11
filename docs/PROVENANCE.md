@@ -1417,3 +1417,33 @@ corrections makes things worse, not better.
   read from `codex_edges`, because the store is empty. Re-run against Z1's
   populated graph before trusting the absolute numbers; the *ordering* of D
   against its two baselines is the durable part.
+
+### G34 — the style-invariance gate, threshold agreed before measuring
+
+The spec makes this **blocking**, and the acceptable rate was fixed with the user
+**before** the run so it could not be chosen to fit the result: **≤ 10% flips.**
+
+Meaning held fixed, form varied — ± question mark, "ok so"/"like" prefixes,
+lowercase, typos, terse vs rambling, and a possessive rephrasing. Seven phrasings
+per group, three groups, **60 random candidate sets each** (10-edge anchors,
+relations drawn at random with the true one inserted). A "flip" is any phrasing
+disagreeing with its group's majority pick.
+
+| group | flip rate | top-1 correct |
+|---|---|---|
+| `inspired_by` | 8.3% | 91.7% |
+| `married_to` | 0.0% | 100.0% |
+| `owns` | 6.4% | 88.8% |
+| **overall** | **4.9%** | **93.5%** |
+
+**PASS** (4.9% against ≤10%).
+
+⚠ **This supersedes the single-seed caveat recorded above**, which suggested ~3
+distinct picks in 5 phrasings (~40%). That sample was one random candidate set and
+was explicitly flagged as noise rather than a result — correctly, as it turns out.
+The lesson is the cheaper half of TRAPS #13: a single fixture is not a measurement,
+whichever direction it points.
+
+**Still owed:** these anchors are simulated, because the store is empty. Re-run
+against Z1's populated graph and record the numbers; the *ordering* against the
+two baselines is the durable claim, the absolute rates are provisional.

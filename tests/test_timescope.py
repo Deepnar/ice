@@ -295,7 +295,14 @@ try:
           f"{MARK}-gamma" not in asof_names and f"{MARK}-gamma" in cur_names)
 
     orch._active_timescope = CURRENT
-    lines, _ = orch._relation_facts([eA], ["uses"], None)
+    # G34 changed this signature: _relation_facts no longer takes a list of
+    # relations detected from the prompt (that filter was a no-op, since the
+    # detector fired on all 197 on every prompt) — it takes the prompt embedding
+    # and ranks the anchor's own edges by it, returning (lines, edges, fit).
+    # This check is about T3/T4 temporal RENDERING, not about ranking, so it
+    # passes None: the fit is then 0.0, strength order is kept, and the fact
+    # lines render exactly as before.
+    lines, _, _ = orch._relation_facts([eA], None, None)
     since = ed_new.valid_from.strftime("%Y-%m")
     check("17 fact line renders (since YYYY-MM)",
           any(f"(since {since})" in ln for ln in lines))

@@ -77,7 +77,9 @@ FROZEN = [
     # ── __init__ instance attributes ────────────────────────────────────
     ("codex_relation_top_k", ORCH, 169, r"RELATION_TOP_K = (\d+)"),
     ("codex_relation_sim_floor", ORCH, 170, r"RELATION_SIM_FLOOR = ([\d.]+)"),
-    ("codex_relation_overlap_boost", ORCH, 171, r"RELATION_OVERLAP_BOOST = ([\d.]+)"),
+    # codex_relation_overlap_boost's row was retired 2026-08-11 (G34) — the
+    # setting no longer exists. Its proof moves below rather than disappearing,
+    # per the same rule as cycles-per-day.
     ("codex_expansion_max_terms", ORCH, 172, r"EXPANSION_MAX_TERMS = (\d+)"),
     ("codex_enum_edge_limit", ORCH, 173, r"ENUM_EDGE_LIMIT = (\d+)"),
     ("codex_enum_entity_limit", ORCH, 174, r"ENUM_ENTITY_LIMIT = (\d+)"),
@@ -425,6 +427,27 @@ def test_operational_default_matches_base_commit(name, path, const):
     new = float(_declared(name))
     assert new == old, (f"{name} changed while moving into settings: "
                         f"{old} at {BASE[:7]} -> {new} now")
+
+
+def test_relation_overlap_boost_was_retired_deliberately():
+    """G34 removed `codex_relation_overlap_boost`; its magnitude did not move.
+
+    Dropping a frozen row silently is indistinguishable from losing a value, so
+    the proof moves here instead of disappearing — same rule as cycles-per-day
+    below. The old setting was a FLAT bonus applied whenever any relation was
+    detected, a condition that was true on every prompt. It is replaced by
+    `codex_relation_fit_weight` times a measured fit, so the *shape* of the
+    bonus changed on purpose while its scale deliberately did not.
+    """
+    assert not hasattr(settings, "codex_relation_overlap_boost"), (
+        "the retired setting is back; either the retirement was reverted or a "
+        "second copy has appeared")
+    line = _base_lines(ORCH)[171 - 1]
+    m = re.search(r"RELATION_OVERLAP_BOOST = ([\d.]+)", line)
+    assert m, "the base-commit anchor for the retired boost drifted"
+    assert float(_declared("codex_relation_fit_weight")) == float(m.group(1)), (
+        "the replacement weight no longer matches the boost it replaced — the "
+        "G34 change would then also be an unrecorded re-tuning")
 
 
 def test_cycles_per_day_still_derives_to_the_base_commit_value():
