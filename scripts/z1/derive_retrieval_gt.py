@@ -50,6 +50,7 @@ import os
 import random
 import re
 import sys
+from datetime import datetime
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -335,6 +336,8 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--only", default=None,
                     help="restrict to one conversation (8-char id)")
+    ap.add_argument("--verify-claims", action="store_true",
+                    help="write a claim-level verification sample as markdown")
     ap.add_argument("--verify-only", action="store_true",
                     help="print the hand-verification sample from the SAVED key, "
                          "no model calls and no re-derivation")
@@ -347,6 +350,61 @@ def main() -> int:
         print("no conversations found — is experiments/curation_files/ present?")
         return 1
     probes = collect_probes(convs)
+
+    if args.verify_claims:
+        if not OUT.exists():
+            print(f"no saved key at {OUT} — run without --verify-claims first")
+            return 1
+        saved = json.loads(OUT.read_text())
+        by_turn = {cid: {t.get("turn_number"): t for t in m["turns"]}
+                   for cid, m in convs.items()}
+        # Sample CLAIMS, not probes: the claim->turn pair is the unit the key
+        # actually asserts, so it is the unit that has to be checked. Verifying
+        # whole probes asks the reviewer to hold seven excerpts in their head
+        # and return one verdict, which is where "kinda relevant but not"
+        # answers come from — the question was too coarse to answer cleanly.
+        pool = []
+        for p in saved["probes"]:
+            for ci, c in enumerate(p.get("claims") or [], 1):
+                for tn in c["turns"]:
+                    pool.append((p, ci, len(p["claims"]), c["claim"], tn))
+        random.seed(args.seed)
+        picks = random.sample(pool, min(args.sample or 10, len(pool)))
+
+        L = []
+        L.append("# Key verification — v2 (claim level)\n")
+        L.append(f"*{len(picks)} of {len(pool)} claim→turn pairs · "
+                 f"derived {datetime.now().strftime('%Y-%m-%d %H:%M')}*\n")
+        L.append("## The one question\n")
+        L.append("> **Does the turn shown actually contain the claim?**\n")
+        L.append("- **Yes** → say nothing. Silence means correct.\n"
+                 "- **No** → write down the item number.\n")
+        L.append("## What you are NOT judging\n")
+        L.append("- not whether the claim is *important*\n"
+                 "- not whether *other* turns also support it\n"
+                 "- not whether the turn is well written or on topic\n\n"
+                 "Only: **is this claim's evidence in this turn.** A turn that is "
+                 "*about* the subject but does not contain the claim is a **No**.\n")
+        L.append("## Stop rule\n")
+        L.append("- **3 No's → stop.** The key needs fixing; the rest is wasted reading.\n"
+                 "- **Through to the end with 0–2 → the key is good enough to tune on.**\n")
+        L.append("\n---\n")
+        for i, (p, ci, ctot, claim, tn) in enumerate(picks, 1):
+            t = by_turn.get(p["conversation"], {}).get(tn)
+            L.append(f"\n### {i}. `{p['conversation']}` · {p['probe_id']} · "
+                     f"claim {ci}/{ctot}\n")
+            L.append(f"**Claim:** {claim}\n")
+            L.append(f"**Turn {tn} says:**\n")
+            body = best_excerpt(turn_text(t), claim) if t else "*(turn missing)*"
+            L.append("> " + body.replace("\n", "\n> ") + "\n")
+            L.append(f"<sub>from: “{p['question'][:110]}”</sub>\n")
+            L.append("\n---\n")
+        L.append("\n**Report only the numbers that were No.**\n")
+
+        dest = CURATION / "VERIFY_ME_v2.md"
+        dest.write_text("\n".join(L))
+        print(f"wrote {dest}  ({len(picks)} of {len(pool)} claim→turn pairs)")
+        return 0
 
     if args.verify_only:
         if not OUT.exists():
