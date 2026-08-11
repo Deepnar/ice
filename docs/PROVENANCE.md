@@ -1252,3 +1252,54 @@ the probe after any change to the legs; the method is a trace function keyed on
 **Store state at session end:** 1 row — `conversations`, the deterministic
 `ice://mcp-notes` shell (`ab934e9c-…`), which is production state, not residue.
 Three genuine orphan row-sets were removed; see CLEANUP.md and TRAPS #15/#16.
+
+---
+
+## 2026-08-11 — Z1 run configuration: two local overrides that no commit records
+
+**Both live in `.env`, which is gitignored.** Recorded here because a run has to
+be able to state what produced it, and neither of these is visible in the tree.
+
+| Key | Value | Why |
+|---|---|---|
+| `BACKGROUND_MODEL_NAME` | `gemma4:26b-a4b-it-q4_K_M` | G27 option (b) — the pin |
+| `CODEX_RELATION_DETECTION_ENABLED` | `false` | G34 — neutralises A4 for tuning |
+
+### The pin changes nothing today, which is the point
+
+Unset, `get_bg_model_name()` falls through to `get_fallback_model()`, which
+returns **the first entry in the registry JSON carrying `confirmed: true`** —
+insertion order, no scoring, no relation to the model serving the chat. Resolved
+live before and after the pin:
+
+```
+get_bg_model_name() -> gemma4:26b-a4b-it-q4_K_M     (both)
+```
+
+So the pin is not a behaviour change; it removes a **silent** one. Regenerating
+the registry, or confirming a new model that lands earlier in the file, would
+have swapped the background model with nothing in any log or artifact to say so.
+This is the model the 2026-08-10 retrieval ground-truth key was derived with, so
+the key and everything scored against it now name the same thing.
+
+Registry order at the time of the pin, first to last: `gemma4:26b-a4b-it-q4_K_M`,
+`qwen3-coder:30b-a3b-q4_K_M`, `qwen3.6:27b`, `gemma4:12b`, `tinyllama:latest`,
+`qwen2.5:7b` — **all six `confirmed: true`**, so the fallback is decided purely
+by which one is written first.
+
+### The relation override is the real off, not the boost
+
+The plan was `CODEX_RELATION_OVERLAP_BOOST=0.0`. Measured and abandoned: that
+setting is read at **one** site and leaves three effects of a detected relation
+running — fact lines in the fragment text, fact edges into
+`_reinforce_codex_edges` (which commits), and the `_codex_enumeration` gate. See
+ROADMAP G34. `CODEX_RELATION_DETECTION_ENABLED=false` returns from
+`_detect_relations` before any work, which is inert at all four sites.
+
+⚠ **Both keys are run configuration, not decisions about the product.** The
+declared defaults in `config.py` are unchanged (`background_model_name=None`,
+`codex_relation_detection_enabled=True`), and the relation override carries a
+revert marker in `.env`. `tests/test_settings_freeze.py` was changed the same
+day to compare declarations rather than resolved values, so overrides like these
+no longer turn that suite red — which means **this file is now the only record
+that they are set.**
