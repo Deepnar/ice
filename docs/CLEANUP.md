@@ -770,3 +770,31 @@ with the gitignored planning files.
 ⚠ **A rewrite is not cheap.** On a public remote the old objects stay
 fetchable by SHA until GitHub garbage-collects them, which last time needed a
 support ticket (TRAPS #12). Fix forward.
+
+## 2026-08-11 — 1,596 orphaned job markers, FOUND AND NOT REMOVED
+
+Counted while checking the blast radius of G29's idempotency-key change:
+
+```
+idempotency_keys   1596
+episodic_memory       0
+conversations         1     (the ice://mcp-notes shell — production state)
+```
+
+Every one of those markers says "job X already processed batch Y" about a turn
+that no longer exists — residue from the 2026-08-09 sweeps (TRAPS #15/#16), which
+removed turns without their markers.
+
+**Not removed, deliberately.** The rule here is inventory-then-remove with a
+backup, and the *reason* to remove is weaker than it looks: `batch_id` is a UUID,
+so a re-created turn draws a new one and cannot collide with a dead marker. The
+cost is 1,596 dead rows and a misleading count for anyone sizing the store.
+
+⚠ **The reason to record it now is that it makes a store-emptiness check lie.**
+"Is the store clean?" answered by row counts across all tables says no, while the
+tables that matter say yes. A [Z1](ROADMAP.md#z1) run that asserts a clean start
+should name the tables it means rather than counting everything.
+
+If it is removed later: it is a plain `DELETE FROM idempotency_keys`, safe only
+while `episodic_memory` is empty — after that, deleting a live marker re-runs the
+job it belonged to. Check that first, back up the table, and log it here.
