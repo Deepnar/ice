@@ -226,6 +226,40 @@ def shortlist(answer: str, turns: list[dict], idf: dict, k: int) -> list[tuple[f
     return scored[:k]
 
 
+def distinctive_guard(claim: str, turns_for: list, all_turns: list,
+                      idf: dict, top_n: int) -> list:
+    """Drop a confirmed turn that shares only COMMON words with the claim.
+
+    Found 2026-08-11 by hand-verification. The claim *"the current conversation
+    represents the first time the story was observed from an outside perspective
+    … arc-by-arc reactions and etymology"* was grounded to a turn about the
+    in-story **Observer** building the cosmos. The overlap was the word
+    ``observe`` — which in a conversation about a character called the Observer
+    is one of the *least* distinctive words available — while the terms that
+    actually carry the claim (``etymology``, ``arc-by-arc``, ``outside``)
+    appeared nowhere in it.
+
+    So the guard is not "more overlap"; it is overlap **on the terms that
+    distinguish this claim from its conversation**. A turn must contain at least
+    one of the claim's ``top_n`` highest-IDF terms to survive. Cheap, and it is
+    checked *after* the model rather than instead of it — the model is good at
+    reading, and bad at noticing that the only word it matched on is everywhere.
+    """
+    if not turns_for:
+        return turns_for
+    terms = sorted(set(words(claim)), key=lambda w: -idf.get(w, 0.0))[:top_n]
+    if not terms:
+        return turns_for
+    key = set(terms)
+    by_num = {t.get("turn_number"): t for t in all_turns}
+    kept = []
+    for tn in turns_for:
+        t = by_num.get(tn)
+        if t and key & set(words(turn_text(t))):
+            kept.append(tn)
+    return kept
+
+
 _CLAIMS_SCHEMA = {
     "type": "object",
     "properties": {"claims": {"type": "array", "items": {"type": "string"}}},
@@ -329,6 +363,9 @@ def main() -> int:
                     help="lexical shortlist only, no model calls")
     ap.add_argument("--top-k", type=int, default=6)
     ap.add_argument("--char-cap", type=int, default=1200)
+    ap.add_argument("--distinct-terms", type=int, default=6,
+                    help="a confirmed turn must contain >=1 of the claim's "
+                         "N highest-IDF terms")
     ap.add_argument("--max-claims", type=int, default=14,
                     help="cap per probe; a synthesis answer can list dozens")
     ap.add_argument("--sample", type=int, default=0,
@@ -494,6 +531,8 @@ turn's opening, so what you see is the evidence itself.
                         continue
                     turns_for = confirm(client, model, pr["question"],
                                         claim, cands, args.char_cap)
+                    turns_for = distinctive_guard(claim, turns_for, meta["turns"],
+                                                  idf, args.distinct_terms)
                     claim_map.append({"claim": claim, "turns": sorted(turns_for)})
                     gold.update(turns_for)
                 stats["claims"] += len(claims)
