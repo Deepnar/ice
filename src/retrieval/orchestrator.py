@@ -1686,12 +1686,15 @@ class HybridRetrievalOrchestrator:
                 # A5 scoped: rebuild from this conversation's edges only (both
                 # directions), no global description — it would leak other convos.
                 lines = []
-                for e in out_edges[:10]:
+                # G29: these two slices were the literal 10 while
+                # settings.codex_entity_edge_limit was already 10 — right number,
+                # unreachable knob, same shape as the diversify/rrf/cluster case.
+                for e in out_edges[:settings.codex_entity_edge_limit]:
                     t = self.db.query(CodexEntity).get(e.target_id)
                     if t:
                         rel = f"NOT {e.relation}" if getattr(e, "negated", False) else e.relation
                         lines.append(f"{rel} → {t.canonical_name}")
-                for e in in_edges[:10]:
+                for e in in_edges[:settings.codex_entity_edge_limit]:
                     s = self.db.query(CodexEntity).get(e.source_id)
                     if s:
                         rel = f"NOT {e.relation}" if getattr(e, "negated", False) else e.relation
@@ -1741,6 +1744,18 @@ class HybridRetrievalOrchestrator:
 
         # A7.2: traverse both directions (into the target of outgoing edges and
         # the source of incoming ones), trust-gated and scope-bounded as before.
+        # G35: collect the surviving frontier, then expand only the best
+        # `codex_max_fanout` of it. Two changes here, both load-bearing:
+        #   * a cap exists at all. Expansion was unbounded, so the size and the
+        #     cost of a codex fragment were set by graph topology — how many
+        #     edges the anchor happens to have — instead of by relevance to the
+        #     question. Invisible on a sparse store, unavoidable on a hub.
+        #   * candidates from BOTH directions now compete in ONE ranking keyed
+        #     on _edge_trust. The old loop walked every out_edge and then every
+        #     in_edge, each ordered by raw `strength` in SQL — a different
+        #     ordering from the _edge_trust that gates them, and one under which
+        #     a well-connected outgoing set starves every backlink.
+        frontier = []
         for edge, other_id in ([(e, e.target_id) for e in out_edges] +
                                [(e, e.source_id) for e in in_edges]):
             # A8: a negated edge ("X does NOT use Y") is a stored fact, not a
@@ -1754,6 +1769,10 @@ class HybridRetrievalOrchestrator:
                 # reinforced as a query anchor) only above the direct floor.
                 if trust < settings.codex_direct_trust_floor:
                     continue
+                # ⚠ anchor_edges is deliberately NOT capped. It drives A3
+                # retrieval-reinforcement, and narrowing what gets reinforced is
+                # a different behaviour change from bounding traversal cost —
+                # G35 is the second one only.
                 if anchor_edges is not None:
                     anchor_edges.append(edge)
             # A3: trust-gate deep hops — weak/decayed edges don't expand the frontier.
@@ -1768,6 +1787,13 @@ class HybridRetrievalOrchestrator:
             # its own fragment.
             if exclude_ids and other_id in exclude_ids:
                 continue
+            frontier.append((trust, other_id))
+
+        # Highest trust first. A node already in `visited`, or one that fails
+        # the visibility check below, still consumes a slot — the cap bounds the
+        # WORK done per node, which is the property being bought.
+        frontier.sort(key=lambda c: c[0], reverse=True)
+        for _trust, other_id in frontier[:settings.codex_max_fanout]:
             other = self.db.query(CodexEntity).get(other_id)
             # E1b (D3): derived entities stay invisible outside their project
             # even when reachable through a conversation edge.

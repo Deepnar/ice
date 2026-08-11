@@ -602,6 +602,16 @@ class Settings(BaseSettings):
     # not a fix — G34 is that the detector cannot say "no" to a given prompt,
     # and this says "no" to every prompt indiscriminately.
     codex_relation_detection_enabled: bool = True
+    # G35: max neighbours _traverse_graph expands per node, best-first by
+    # _edge_trust across both edge directions. Before this existed, fan-out was
+    # unbounded and a hub entity's fragment size was a property of the corpus
+    # rather than of the query.
+    # ⚠ THE VALUE IS UNMEASURED. It cannot be measured on the current store,
+    # which is effectively empty — the pathological case only exists once Z1/Z2
+    # populate the graph. 12 is chosen to be a certain no-op today while making
+    # the cost bounded; it is a recall/token trade and therefore a Z1 tuning
+    # knob, not a constant anybody has evidence for.
+    codex_max_fanout: int = 12
     codex_relation_top_k: int = 5
     codex_relation_sim_floor: float = 0.45
     codex_relation_overlap_boost: float = 0.25
