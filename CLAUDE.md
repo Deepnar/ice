@@ -242,6 +242,20 @@ decisions made, and anything that would otherwise be lost. **It is state, never
 a queue** — the roadmap is the queue, and a handoff that starts listing work
 becomes a second source of truth that drifts. Format and rules are in the file.
 
+**⚑ It is written LAST, and there are exactly two things that make it time.**
+Either **the work the session was given is DONE**, or **the context is genuinely
+running out** — and in that second case it is not a shortcut: write the handoff
+*and* do the full end-of-session job with it, propagation included (the docs the
+change invalidates, the roadmap boxes, PROVENANCE, TRAPS, the cleanup ledger).
+
+**A convenient stopping point is NOT one of the two.** Writing it early turns an
+unfinished session into a finished-looking one: the next session reads the
+handoff, trusts the position it states, and the outstanding items silently
+become nobody's. **If work is outstanding and context is not the reason, say so
+in chat and let the user decide** — never narrate a stop into HANDOFF.md as
+though it were an ending. Stating what is unfinished, plainly and specifically,
+is worth more to the next session than a tidy summary of what is not.
+
 ## Commands
 
 Package/deps are managed with **uv** (Python 3.11.9, pinned in `.python-version`).
