@@ -1,4 +1,4 @@
-# Handoff — 2026-08-10, 23:5x IST
+# Handoff — 2026-08-11, ~23:00 IST
 
 **State, not a queue.** [ROADMAP.md](ROADMAP.md) is the queue and the only one.
 This file exists for the one thing no other doc holds: **what the last session
@@ -10,136 +10,115 @@ every session, committed last; earlier ones are in `git log -p docs/HANDOFF.md`.
 
 ## TOLD → DID
 
-**Told:** `NEXT: G30, then G28.`
+**Told:** verify the derived ground-truth key, then build Z1's retrieval scorer.
 
-**Did:** G30's ground check, then **the user redirected the session**. G30 is not
-finished and was not the shape the entry describes by the end. What happened:
-
-1. G30's ground check found the entry **wrong about its own subject in five
-   places** (recorded in G30's entry) — the eighth consecutive entry to be so.
-2. Found and fixed an unrankable all-zero leg-weight state (`de64ba4`).
-3. Found the `Null_Noise` row is **G15's frozen decision**, stopped, and wrote
-   the measurements into G15 instead of acting (`f2d82ee`).
-4. **The user declared Z1 STARTED and the push freeze ON** (`71ccb9e`).
-5. Rebuilt the approach to tuning from the user's own argument (below), then
-   built the first instrument: the retrieval ground-truth derivation
-   (`a229504`).
+**Did:** the key was verified twice by the user and **failed twice**, and both
+failures were informative rather than fatal. The tuning instrument was rebuilt
+around what they showed, and the corpus plan changed as a result. Also: a side
+session's 30 commits were reviewed line by line, G6 was closed, and the
+bookkeeping debt from that session was paid.
 
 ## ⚑ THE PUSH FREEZE IS ON
 
-**Seven commits are local and unpushed** (`de64ba4` → this one). Do not push
-until the user lifts it. This is Z1's experiment-phase rule from CLAUDE.md.
-
-**⚠ The PRE-FINAL split was overstating the open bug work** and was corrected
-(`00fa582`): it listed G33, G7 and G11 as open correctness bugs after all three
-closed on 2026-08-08, and omitted G27 entirely. **Still genuinely open
-pre-FINAL: G24, G25, G6, G27, G34, G35** — plus the audits (G29, G30, G20), the
-in-Z1 items (G28, G4b, A12, G32b, B4), G19/H4, and T5/A9b after Z1. Roughly 21
-pre-FINAL of the 51. **G25 (raw prompts in logs, public repo) is the one worth
-looking at soonest.** G34/G35 bite specifically on a populated store, which is
-what Z1 is about to create.
+**All commits since `3fd49b5` are local and unpushed.** Do not push until the
+user lifts it (Z1's experiment-phase rule, CLAUDE.md).
 
 ## WHERE THINGS STAND
 
-→ [ROADMAP.md](ROADMAP.md)'s **CURRENT POSITION** block, rewritten this session.
+→ [ROADMAP.md](ROADMAP.md)'s **CURRENT POSITION**. Facts it does not carry:
 
-Facts it does not carry:
+- **Alembic head is now `f2a7c9e04b31`** (G6's btree indexes) — it moved.
+- **Store: 1 conversation, 0 turns** — production state, verified after the
+  seeding smoke test cleaned up after itself.
+- **Background model pinned** to `gemma4:26b-a4b-it-q4_K_M` in `.env`.
+- **A12's shortlist is being PULLED overnight** (`granite4`, `ministral`,
+  `gemma4:e4b`, `nemotron-mini`) — script and log in the session scratchpad;
+  **check what actually resolved before planning around them**, the registry
+  names are guesses at the paper names.
 
-- **Alembic head `d5c81a37e9b2`, unchanged** — no migration this cycle.
-- **Store: 1 row** — the deterministic `ice://mcp-notes` shell. Not residue.
-- **Background model is `gemma4:26b-a4b-it-q4_K_M`**, ~2.3 s per constrained
-  call warm (6 s cold). 91 probes derive in ~3 minutes.
+## THE TWO THINGS THE USER'S VERIFICATION FOUND
 
-## ⚠ THE NEXT ACTION NEEDS THE USER, AND NOTHING SHOULD BE BUILT ON TOP FIRST
+Both are recorded properly ([G40](ROADMAP.md#g40) owns the taxonomy, [Z2](ROADMAP.md#z2)
+owns the protocol) — read those, not this. In one line each:
 
-`experiments/curation_files/VERIFY_ME.txt` (gitignored, 391 lines, 25 samples)
-asks one question per sample: **does the gold turn actually contain what the
-question asks for?** Regenerate any time with
-`uv run python scripts/z1/derive_retrieval_gt.py --verify-only --sample 25`.
+1. **A whole class of probe cannot score retrieval at all.** Questions asking
+   for *synthesis* ("go through my entire story") have no single answer-bearing
+   turn: **38 of 91** span ≥6 gold turns, max 17. Unreachable inside a token
+   budget, and many different turn sets are equally correct. **This is a
+   property of the task, not of the derivation** (user) — do not try to fix it.
+2. **The key ran the hard direction.** Deriving turns *backwards* from a written
+   answer mis-grounded ~20% of claims even after two rounds of fixes.
 
-**The key is NOT trusted until this passes.** If it is wrong, every tuning
-number built on it is wrong *invisibly* — which is the single failure the whole
-instrument exists to prevent. Do not build the scorer on an unverified key.
+## THE PLAN CHANGED — THE PROBE SET IS NOW BUILT FORWARDS
 
-Also pending: **10 of 91 probes derived no gold turn.** Triage which are
-genuinely unanswerable from the loaded history versus a derivation miss.
+**Old:** derive gold turns from the curated answers, tune on those 91.
+**Measured:** only **29** are usable, giving SE ≈ 0.093 against a **+0.05**
+keep-rule. Unresolvable — no care in the derivation fixes a sample-size wall.
 
-## THE DECISIONS THIS SESSION MADE — the tuning argument, which changed the plan
+**Now, and the user rejected the first alternative for good reason:**
 
-The user's objection, and it is quantitatively correct: **tuning delicate
-parameters against ~190 probes is not trustworthy.** With ~190 probes the
-standard error on a mean score is ≈0.036, so the Z1 spec's `+0.05` keep-rule is
-~1.4 SE — inside noise. Greedy coordinate descent then compounds it, because
-taking the max over several noisy options systematically selects upward noise.
-
-What was decided against, and why: **doing it "all in one big experiment" makes
-this worse, not better** — an end-to-end run adds answer variance on top of
-retrieval variance, costs more so affords fewer configurations, and cannot
-attribute a movement to a knob.
-
-**The resolution: split by whether an LLM is in the loop.**
-- Retrieval / scoping / fusion / budget have **no LLM** — deterministic, exact
-  scoring (did the gold turn rank top-k), milliseconds per probe. The
-  190-probe ceiling is self-imposed here; this half can run thousands.
-- Extraction / summarisation / answering need a judge — **choose**, don't
-  finely tune, and that is where the integrated run belongs.
-
-**And the answer to "how do we KNOW the tuning works": a held-out split, opened
-once**, plus a **measured noise floor** (same config, resampled probe sets, ~50
-runs) taken *before* any tuning, so "better" has a threshold that was not
-chosen after seeing results.
-
-**The user's own simplification, accepted:** Z1's live run and Z2's mini-exp are
-**one harness**, built once. They differ only in what is done with the output —
-Z1 scores it, Z2 reads it.
-
-**Superseded:** the earlier worry that Z1 must not tune on the 259 curated
-probes because FINAL claims them. **The user will regenerate probes for FINAL**,
-which frees the existing set for tuning. The roadmap's CURRENT POSITION block
-still states the sealed-probe rule and **should be updated to record this**.
-
-## WHAT WOULD OTHERWISE BE LOST
-
-| What | Where |
-|---|---|
-| G30's five wrong claims; the all-zero guard's reasoning | [ROADMAP.md](ROADMAP.md) G30, and `de64ba4` |
-| The three measured `Null_Noise` re-homings + the 0.0-≠-off finding | [G15](ROADMAP.md#g15) |
-| Z1 started, push freeze, probe budget (681 raw → **259 unique**, 19 convs) | [ROADMAP.md](ROADMAP.md) CURRENT POSITION |
-| Corpus choice + the variety sweep behind it | `a229504`, and the script's docstring |
-
-**Three things found in passing that have no home yet:**
-
-- **`PyTorchClassifier()` bare loads the v1 checkpoint** (`classifier.py:25`
-  defaults to `ice_classifier.pt`) while `settings.classifier_model_path` is
-  `ice_classifier_v4_schema2.pt`. Production passes the path explicitly
-  (`core.py:39`) so it is safe; **scratch scripts and new tests are not**, and
-  it silently produced a wrong variety ranking in this session before it was
-  caught. Worth an entry.
-- **`probe_type` is the literal placeholder `ENTER_TYPE` on 660 of 681 probes**,
-  and on 21 the *question text* was pasted into that field.
-- **`orchestrator.py:566-571`** carries a stale comment block ending
-  `# (delete the old leg-diversity block entirely)` describing code that is gone.
+- **NOT synthetic conversations.** Scripting facts and having a model write
+  dialogue around them bets on realistic dialogue, on facts landing where the
+  script says, and on focal points being hit — three unvalidated assumptions.
+- **Instead: generate probes FROM real turns.** Pick a turn, write a question
+  whose answer is in it. The gold turn is *chosen first*, so it is correct by
+  construction — no shortlist, no confirmation, no circularity.
+  `scripts/z1/generate_probes.py`. Smoked at 44% keep, **0 rejected for
+  fabricated evidence**; questions come back in the speaker's own register.
+- **The 91 derived probes are now the VALIDATION set** (29 usable), opened once
+  at the end. They are the only *real questions a real person typed*, which is
+  exactly what generated probes can never be. **They still need the user's
+  check before that** — deferred deliberately, not forgotten.
 
 ## NEXT
 
-1. **User verifies the key** (`VERIFY_ME.txt`), and the agreement rate is
-   recorded. Nothing downstream is valid before this.
-2. Triage the 10 gold-less probes.
-3. Build the scorer: seed the three conversations' turns as episodic rows with
-   real embeddings, run the real orchestrator per probe, report recall@k and
-   MRR against the key. Deterministic seeding, **not** the LLM ingestion path —
-   an instrument for tuning must not carry generation variance.
-4. **Measure the noise floor before tuning anything.**
-5. Only then sweep — screening pass first (which knobs move the score at all),
-   held-out conversation opened once at the end.
+1. **Full probe generation** — ~880 questions over 293 turns, ~385 expected to
+   survive both gates. ~1 hour. `scripts/z1/generate_probes.py` (no flags).
+2. **Seed the store** — `scripts/z1/seed_store.py`, this time **without**
+   `--no-codex` so the codex leg is populated. Then `pg_dump` it: every tuning
+   run restores that snapshot, which is what makes the loop deterministic
+   despite the LLM, and disposes of [G38](ROADMAP.md#g38) without per-probe
+   transaction surgery.
+3. **Build the scorer** — the one piece not yet written. Coverage per probe
+   (what fraction of its claims' turns came back), resolved settings dumped per
+   run (the freeze test no longer catches `.env` drift).
+4. **Noise floor, screening pass, then sweep.**
+5. **The model arms.** User's decision: **all 7 of A12's shortlist**, with the
+   bg-model comparison run *after or during* tuning. ⚠ Population cost is
+   **unmeasured** — measure one arm before committing to seven.
 
-G30's other three gaps (`main.py` request path, the `RUN_LLM_TESTS=1` lane, the
-`test_retrieval.py` rename) are **untouched** and still owed; the user asked for
-all four, and the session went deep on the tuning half by their redirection.
+## WHAT WOULD OTHERWISE BE LOST
+
+- **The side session's 30 commits were reviewed and are CORRECT** — G34's
+  inverted design, G41's pgvector rewrite (traced line by line; the `break`
+  placement is right and `LIMIT 1 + len(seen_ids)` is provably sufficient),
+  G35, G39, G27. Discrepancies found: it claimed 37 commits (actual 30) and
+  used "rails" for a wider set than CLAUDE.md defines (347 vs `tests/smoke`'s
+  183). One substantive nit: G34's "magnitude unchanged at 0.25" is true of the
+  *setting* and false of the *effect*.
+- **G41 had NO roadmap entry** — announced in a commit subject only. Fourth
+  phantom-item after G27/G34/G35. Written now, with two caveats its session did
+  not record.
+- **⚠ I was wrong about one of those caveats and corrected it the same day:** I
+  wrote "the pgvector query has no index" from reading the diff without checking
+  the database. `idx_codex_entities_embedding` exists *and* is migration-covered
+  by `b6e2f9a41c73`. Recorded in [ROADMAP_DONE](ROADMAP_DONE.md#g41) rather than
+  deleted, because it is one more instance of the pattern that file tracks.
+- **G6 was half-done and nobody knew** — the vector half has been
+  migration-covered since G23/C17. Only the btree half was missing.
+
+## OPEN, AND ONLY HERE
+
+- **`derived_gt.json` currently holds all 91 probes** (claim-level, 80%
+  grounded). `generated_probes.json` holds only the **8-probe smoke output** —
+  it is overwritten by a full run, so do not mistake it for the corpus.
+- **Timestamps are spread across a synthetic span when seeding.** If that is
+  ever changed to a single "now", every recency knob will measure as *cosmetic*
+  and the verdict will be an artifact of the fixture. The reason is in
+  `seed_store.py`'s module docstring; keep it there.
 
 ## WHEN DONE
 
-Propagate on completion per the roadmap's rules, update the docs the change
-invalidates in the **same** session, then rewrite this file — carrying the NEXT
-above into TOLD → DID — and commit it last. **Do not push while the freeze
-holds.**
+Propagate per the roadmap's rules, update the docs the change invalidates in
+the **same** session, then rewrite this file — carrying the NEXT above into
+TOLD → DID — and commit it last. **Do not push while the freeze holds.**
