@@ -7,14 +7,19 @@ fragment became a property of the corpus rather than of the query. The budget
 bounds total injected tokens, so this never blew the window — it crowded the
 other legs out from inside it, which is the harder failure to see.
 
-Two properties are asserted, and the second is the one a naive cap gets wrong:
+Three properties are asserted, and the second is the one a naive cap gets wrong:
 
   1. at most `codex_max_fanout` neighbours are expanded per node;
-  2. the ones kept are the highest `_edge_trust`, ranked across BOTH edge
-     directions together. The pre-cap loop walked every out-edge and then every
-     in-edge, each ordered by raw `strength` in SQL — a different ordering from
-     the `_edge_trust` that gates them, under which a well-connected outgoing
-     set starves every backlink.
+  2. the ones kept are ranked across BOTH edge directions together. The pre-cap
+     loop walked every out-edge and then every in-edge, each ordered by raw
+     `strength` in SQL — a different ordering from the `_edge_trust` that gates
+     them, under which a well-connected outgoing set starves every backlink;
+  3. (G35's second half, unblocked by G34) the ranking leads on **relation fit**
+     and falls back to trust. Which neighbours we walk into was previously
+     decided by how often the graph had seen an edge and never by what was
+     asked — so a weak edge answering the question must beat a strong one that
+     does not, and a missing prompt embedding must return to trust order rather
+     than to an arbitrary one.
 
 No DB and no model. The session is a scripted stub: the question is whether the
 frontier is built, ranked and truncated correctly, which is wiring, not data.
@@ -227,3 +232,83 @@ def test_anchor_edges_are_not_capped(monkeypatch):
     o._traverse_graph(hub, 0, settings.codex_max_depth, set(), [], anchor_edges)
     assert len(anchor_edges) == 20, (
         f"the cap leaked into A3 reinforcement: {len(anchor_edges)} of 20 edges")
+
+
+def test_relation_fit_outranks_trust_in_the_frontier(monkeypatch):
+    """G35's second half (unblocked by G34): WHICH neighbours we walk into.
+
+    Before this, the frontier was ordered by `_edge_trust` alone — i.e. by how
+    often the graph had seen an edge, never by what was asked. A weak edge whose
+    relation answers the question must now beat a strong edge whose relation does
+    not, or relation-awareness is wired up and changing nothing.
+    """
+    monkeypatch.setattr(settings, "codex_max_fanout", 1)
+    monkeypatch.setattr(HybridRetrievalOrchestrator, "_render_codex_entity",
+                        lambda *a, **k: None)
+
+    hub = _Entity(0)
+    entities = {1: _Entity(1), 2: _Entity(2)}
+    strong = _Edge(1, 0, 1, 0.99)      # high trust, irrelevant relation
+    strong.relation = "owns"
+    weak = _Edge(2, 0, 2, 0.55)        # low trust, the relation being asked about
+    weak.relation = "inspired_by"
+
+    o = object.__new__(HybridRetrievalOrchestrator)
+    o.db = _DB([strong, weak], entities)
+    o._denied_batch_ids = set()
+    o._denied_entity_ids = set()
+    o._scope_project_id = None
+    # Synthetic glosses: the "prompt" sits exactly on inspired_by.
+    o._relation_gloss_cache = lambda: (["inspired_by", "owns"], [[1, 0], [0, 1]])
+    o._prompt_embedding = [1, 0]
+
+    expanded = []
+    real = HybridRetrievalOrchestrator._traverse_graph
+
+    def spy(self, entity, depth, *a, **k):
+        if depth > 0:
+            expanded.append(entity.id)
+        return real(self, entity, depth, *a, **k)
+
+    monkeypatch.setattr(HybridRetrievalOrchestrator, "_traverse_graph", spy)
+    spy(o, hub, 0, settings.codex_max_depth, set(), [], [])
+
+    assert expanded == [2], (
+        "the frontier kept the higher-trust edge whose relation does not answer "
+        "the question — relation fit is not reaching the traversal ranking")
+
+
+def test_without_a_prompt_embedding_it_falls_back_to_trust(monkeypatch):
+    """The other side, and the degraded-encoder path: no embedding must mean the
+    pre-G35 trust ordering, not an arbitrary one."""
+    monkeypatch.setattr(settings, "codex_max_fanout", 1)
+    monkeypatch.setattr(HybridRetrievalOrchestrator, "_render_codex_entity",
+                        lambda *a, **k: None)
+
+    hub = _Entity(0)
+    entities = {1: _Entity(1), 2: _Entity(2)}
+    strong = _Edge(1, 0, 1, 0.99)
+    strong.relation = "owns"
+    weak = _Edge(2, 0, 2, 0.55)
+    weak.relation = "inspired_by"
+
+    o = object.__new__(HybridRetrievalOrchestrator)
+    o.db = _DB([strong, weak], entities)
+    o._denied_batch_ids = set()
+    o._denied_entity_ids = set()
+    o._scope_project_id = None
+    o._relation_gloss_cache = lambda: (["inspired_by", "owns"], [[1, 0], [0, 1]])
+    o._prompt_embedding = None
+
+    expanded = []
+    real = HybridRetrievalOrchestrator._traverse_graph
+
+    def spy(self, entity, depth, *a, **k):
+        if depth > 0:
+            expanded.append(entity.id)
+        return real(self, entity, depth, *a, **k)
+
+    monkeypatch.setattr(HybridRetrievalOrchestrator, "_traverse_graph", spy)
+    spy(o, hub, 0, settings.codex_max_depth, set(), [], [])
+
+    assert expanded == [1], "no embedding must fall back to highest trust"

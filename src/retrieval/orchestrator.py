@@ -174,6 +174,12 @@ class HybridRetrievalOrchestrator:
         # OPEN (unscoped / nothing excluded), so a broken scope query widened
         # visibility. The flag makes _codex_scope_sets fail CLOSED instead.
         self._scope_resolution_failed = False
+        # G35: the request's prompt embedding, so _traverse_graph can rank its
+        # frontier by relation fit (same instance-attr pattern as
+        # _active_timescope — one orchestrator per request). None means "rank by
+        # trust alone", which is the pre-G35 behaviour and the honest fallback
+        # when the encoder is degraded.
+        self._prompt_embedding = None
 
         # Load micro‑NER model (fallback to None if not available)
 
@@ -1606,6 +1612,9 @@ class HybridRetrievalOrchestrator:
                      prompt_embedding=None) -> List[ContextFragment]:
         prompt = classification.prompt
         self._last_matched_entities = []
+        # G35: hand the traversal the request's prompt so it can rank its
+        # frontier by relation fit rather than by trust alone.
+        self._prompt_embedding = prompt_embedding
         entity_strings = extract_entities(prompt, self.embedder)
 
         matched = []
@@ -1864,13 +1873,26 @@ class HybridRetrievalOrchestrator:
             # its own fragment.
             if exclude_ids and other_id in exclude_ids:
                 continue
-            frontier.append((trust, other_id))
+            frontier.append((trust, other_id, edge.relation))
 
-        # Highest trust first. A node already in `visited`, or one that fails
-        # the visibility check below, still consumes a slot — the cap bounds the
+        # G35's second half, unblocked by G34: rank the frontier by how well each
+        # edge's RELATION answers the question, then by trust. Which edges we
+        # walk into was previously decided by trust alone — i.e. by how often the
+        # graph had seen them, never by what was asked. Relation fit leads
+        # because trust is the tiebreak *within* an equally relevant set, not a
+        # substitute for relevance.
+        #
+        # When there is no prompt embedding, or fewer than two distinct relations
+        # to choose between, `scores` is empty and this degrades to exactly the
+        # trust ordering it replaces — the same fallback the fact path takes.
+        scores, _ = self._relation_fit(
+            sorted({r for _, _, r in frontier}),
+            getattr(self, "_prompt_embedding", None))
+        # Highest first. A node already in `visited`, or one that fails the
+        # visibility check below, still consumes a slot — the cap bounds the
         # WORK done per node, which is the property being bought.
-        frontier.sort(key=lambda c: c[0], reverse=True)
-        for _trust, other_id in frontier[:settings.codex_max_fanout]:
+        frontier.sort(key=lambda c: (scores.get(c[2], 0.0), c[0]), reverse=True)
+        for _trust, other_id, _rel in frontier[:settings.codex_max_fanout]:
             other = self.db.query(CodexEntity).get(other_id)
             # E1b (D3): derived entities stay invisible outside their project
             # even when reachable through a conversation edge.
