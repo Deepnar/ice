@@ -1519,3 +1519,40 @@ Candidates and their proposed opposites: `scripts/z1/harvest_vocabulary.py`.
 **Real-world errors worth recording:** `granite4:micro` read a recurring **9.65
 CGPA as "$9.65 per hour"**; `qwen3.5:4b` placed **CMU in Seattle** (Pittsburgh);
 `gemma4:26b` attributed a CSI-Club fact to a turn that never mentions it.
+
+**The output defects the read found, in full** (2026-08-12; the four not already
+covered by [G42](ROADMAP.md#g42)–[G44](ROADMAP.md#g44) are recorded here because
+they decide model selection and would otherwise survive only in a chat log):
+
+1. **Bare key-terms degeneration** — the "summary" is a term list plus one
+   generic sentence. `granite4:tiny-h` **12/12**, `qwen3.5:4b` **5/12**,
+   `granite4:micro` 1/12. Coverage scores it 0.9375–1.0. (TRAPS #21.)
+2. **Echoing the user's own ALL-CAPS emphasis as content.** `qwen3.5:4b` and
+   `granite4:micro` did this on the *same* source turn — key terms came back as
+   `SO, REGENRATE, THE, ENTIRE, CORNICLE…`, the user's typos preserved. Two
+   models failing identically on one turn ⇒ an instruction/content boundary
+   failure, not noise.
+3. **Generation repetition loops.** `qwen3.5:4b`: *"across regions including
+   India, Europe, SE Asia, Australia, Asia, India, Europe, SE Asia, USA…"*
+4. **Role-label leakage / verbatim turn reproduction.** `granite4:micro`'s
+   summaries open with literal `User:` / `Assistant:` and reproduce the source
+   turn instead of paraphrasing it.
+5. Unresolved pronoun subjects · 6. generic non-entity subjects → [G44](ROADMAP.md#g44).
+7. Whole-clause-as-object contract violations → [G45](ROADMAP.md#g45).
+8. Confident fabrication · 9. misattribution → [G43](ROADMAP.md#g43).
+10. "Seen 1×" claimed as consistent → [G42](ROADMAP.md#g42).
+11. **Real-world factual errors independent of the corpus** — `qwen3.5:4b` put
+    **CMU in Seattle** (Pittsburgh); `granite4:micro` read a recurring **9.65
+    CGPA as "$9.65 per hour"**.
+12. **Raw formatting/encoding leakage** — `qwen3.5:4b` emitted unescaped UTF-8
+    byte sequences (`<0xE2><0x80><0xAF>`); `ministral-3:8b` wrapped every cluster
+    name in quadrupled markdown asterisks.
+
+**⚑ PER-SECTION WINNERS DIVERGE, and that is the more useful finding than the
+aggregate.** Best summariser `gemma4:e4b`; best vocabulary-gap signal
+`qwen3.5:4b` — which is also the worst summariser and produced zero procedural
+patterns. **No model is good at codex extraction and none produces a valid
+procedural pattern**, which is why those two are [G43](ROADMAP.md#g43)/[G44](ROADMAP.md#g44)
+and [G42](ROADMAP.md#g42) rather than model-selection criteria. If the pipeline
+ever splits these into separate model calls, `qwen3.5:4b` is a poor default and
+a genuinely useful second opinion for Z2's vocabulary repair.
