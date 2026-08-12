@@ -364,6 +364,22 @@ def main() -> int:
             print(f"  ! clustering: {type(exc).__name__}: {exc}")
             db.rollback()
 
+        # ── Batch summaries. evaluate_turn does NOT call this — the batch
+        #    summariser is a separate periodic job — so without it
+        #    `batch_summaries` stays empty in every arm and the summary
+        #    degradation path (raw → trusted summary → abstract) has nothing to
+        #    degrade TO. Found by store_report.py flagging a zero count as a
+        #    silent worker rather than a thin store.
+        try:
+            from src.workers.batch_summarizer import batch_summarize
+            print("batch summaries …")
+            batch_summarize()
+            n = db.execute(text("SELECT count(*) FROM batch_summaries")).scalar()
+            print(f"  batch_summaries now: {n}")
+        except Exception as exc:
+            print(f"  ! batch_summarize: {type(exc).__name__}: {exc}")
+            db.rollback()
+
     counts = {t: db.execute(text(f"SELECT count(*) FROM {t}")).scalar()
               for t in ("episodic_memory", "codex_entities", "codex_edges",
                         "episodic_chunks", "procedural_memory", "context_clusters",

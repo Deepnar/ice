@@ -122,6 +122,50 @@ def main() -> int:
     print(f"  {'orphan entity %':24} {round(100*orph/ents):>7}   "
           f"(G33: property values that became nodes with no edges)")
 
+    # ── Is the codex a GRAPH, or a pile of standalone triplets? ──────────────
+    # The codex leg's whole value proposition is traversal: reaching a fact that
+    # the question did not name, through an entity that it did. That only pays
+    # if entities actually connect. A store of degree-1 entities is a lookup
+    # table with extra steps, and `codex_max_depth`/`codex_max_fanout` would be
+    # tuning a walk that has nowhere to walk to.
+    deg = db.execute(text("""
+        WITH d AS (
+          SELECT e.id,
+                 (SELECT count(*) FROM codex_edges x
+                   WHERE x.source_id = e.id OR x.target_id = e.id) AS degree
+            FROM codex_entities e)
+        SELECT count(*) FILTER (WHERE degree = 0),
+               count(*) FILTER (WHERE degree = 1),
+               count(*) FILTER (WHERE degree BETWEEN 2 AND 4),
+               count(*) FILTER (WHERE degree >= 5),
+               max(degree), avg(degree)
+          FROM d""")).first()
+    if deg and (vals.get("entities") or 0):
+        d0, d1, d24, d5, dmax, davg = deg
+        n = vals["entities"]
+        print(f"\n[graph shape — can the codex leg actually TRAVERSE?]")
+        print(f"  {'degree 0 (isolated)':24} {d0:>7}   ({100*d0//n}%)")
+        print(f"  {'degree 1 (standalone)':24} {d1:>7}   ({100*d1//n}%)")
+        print(f"  {'degree 2-4':24} {d24:>7}   ({100*d24//n}%)")
+        print(f"  {'degree 5+ (hubs)':24} {d5:>7}   ({100*d5//n}%)")
+        print(f"  {'max degree':24} {dmax:>7}   "
+              f"(G35 caps fan-out at codex_max_fanout)")
+        print(f"  {'mean degree':24} {round(float(davg or 0), 2):>7}")
+        # A 2-hop neighbourhood is the smallest thing that counts as traversal:
+        # one hop is what a direct entity match already gives you for free.
+        two_hop = db.execute(text("""
+            SELECT count(*) FROM (
+              SELECT a.source_id AS root
+                FROM codex_edges a
+                JOIN codex_edges b
+                  ON b.source_id = a.target_id AND b.target_id <> a.source_id
+               GROUP BY a.source_id) s""")).scalar() or 0
+        print(f"  {'entities with a 2-hop':24} {two_hop:>7}   "
+              f"(one hop is free from a direct match; two is traversal)")
+        reachable = 100 * (d24 + d5) // n
+        print(f"  → {reachable}% of entities sit on a path worth walking; "
+              f"{100*(d0+d1)//n}% are effectively standalone triplets")
+
     silent = [j for j, n, _ in QUERIES if vals.get(n) == 0
               and j in ("chunker", "summary", "codex", "procedural",
                         "clustering", "batch_summ")]
