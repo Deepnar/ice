@@ -70,7 +70,13 @@ _TRACKED = (
     "retrieval_bm25_candidate_limit", "retrieval_vector_candidate_limit",
     "retrieval_chunk_candidate_limit", "codex_max_fanout",
     "codex_relation_fit_weight", "codex_relation_pool_multiplier",
-    "codex_entity_edge_limit", "codex_max_depth", "max_retrieval_tokens",
+    "codex_entity_edge_limit", "codex_max_depth",
+    # ⚠ NOT `max_retrieval_tokens` — that is an orchestrator instance attribute
+    # (default 5000, overwritten per request from the computed budget at
+    # orchestrator.py:402), not a setting. Tracking it recorded a null under a
+    # name that does not exist. These are the knobs that actually set the window.
+    "context_budget_min", "context_budget_max", "context_budget_fallback",
+    "context_budget_floor",
     "decay_strengthen_amount", "codex_reinforce_increment",
     "retrieval_coverage_enabled", "retrieval_set_floor_enabled",
 )
@@ -132,6 +138,9 @@ def main() -> int:
 
     todo = probes[:args.limit] if args.limit else probes
     ranks, per_leg, misses, stats = [], Counter(), [], Counter()
+    # Recorded because a probe set that collapses into one intent would exercise
+    # ONE row of a 13-row leg-weight table while looking like full coverage.
+    intents, topics, frag_counts = Counter(), Counter(), []
 
     for i, p in enumerate(todo, 1):
         cid = p["conversation"]
@@ -149,6 +158,10 @@ def main() -> int:
             print(f"  ! probe {i}: {type(exc).__name__}: {exc}")
             stats["retrieve_failed"] += 1
             continue
+
+        intents.update(c.intent_tags or ["<none>"])
+        topics.update(c.topic_tags or ["<none>"])
+        frag_counts.append(len(frags))
 
         rank = None
         for pos, f in enumerate(frags, 1):
@@ -181,6 +194,17 @@ def main() -> int:
     if hits:
         print(f"  median rank when found: {statistics.median(hits):.0f}")
     print(f"  by leg: {dict(per_leg.most_common())}")
+    print(f"\n  ⚠ recall@k is CAPPED by retrieval_max_per_conversation="
+          f"{getattr(settings, 'retrieval_max_per_conversation', '?')}: the gold "
+          f"turn must rank in the top N of ITS OWN conversation to be returned "
+          f"at all, whatever k says.")
+    if frag_counts:
+        z = sum(1 for x in frag_counts if x == 0)
+        print(f"  fragments returned: mean {statistics.mean(frag_counts):.1f}, "
+              f"median {statistics.median(frag_counts):.0f}, "
+              f"ZERO for {z}/{len(frag_counts)} probes")
+    print(f"\n  intents:  {dict(intents.most_common(6))}")
+    print(f"  topics:   {dict(topics.most_common(6))}")
     for k, v in stats.items():
         print(f"  {k}: {v}")
 
@@ -191,6 +215,8 @@ def main() -> int:
         "tag": args.tag, "utc": stamp, "n": n,
         "recall_at_1": rec1, f"recall_at_{args.k}": reck, "mrr": mrr,
         "found": len(hits), "by_leg": dict(per_leg),
+        "intents": dict(intents), "topics": dict(topics),
+        "fragments_returned": frag_counts,
         "freeze_writes": args.freeze, "stats": dict(stats),
         "ranks": ranks, "misses": misses[:40],
         "settings": resolved_settings(),
