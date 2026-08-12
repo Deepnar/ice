@@ -305,3 +305,41 @@ to settings rather than to classifier labels. Two consequences worth stating
 separately: an off-switch must be checked at the **source** of the thing it
 disables, not at the last site that consumes it; and a freeze/declaration test
 proves a value was not edited, **never** that anything reads it.
+
+### 20. The instrument you build to measure a system becomes part of what you measure
+2026-08-12: three of the day's headline numbers were partly about the scorer
+rather than about ICE. The scorer never called `set_budget_from_turn_count`, so
+it ran at a default budget production does not use; the snapshot restored the
+database but not the probe→row map, so a stale file produced "every retrieval
+leg returns 0" and nearly shipped as *"retrieval is completely broken"*; and the
+probe generator's ambiguity guard scored **question + answer** words when
+retrieval only ever sees the **question**, letting 74% of ambiguous probes
+through the check meant to stop them.
+
+**The rule: before believing a measurement, check that the instrument reproduces
+the production path.** Cheap tests that would have caught all three — does the
+harness call what `main.py` calls; do the IDs in the map exist in the store; does
+the guard test the same information the system has.
+
+### 21. A metric can be green on output that does not exist
+`summary_coverage` measures whether must-preserve TERMS appear. A model that
+emits `Key terms: a, b, c` and one generic sentence scores **0.9375–1.0** while
+producing no summary at all — measured on `granite4:tiny-h`, 12 of 12 items,
+2026-08-12. The metric was working exactly as designed; "the terms are present"
+and "a summary exists" are different claims and only one was being tested.
+
+**Generalises past summaries:** any presence-based score (coverage, in-vocabulary
+rate, hit counts) answers *"is the expected thing in there"* and never *"is what
+is there any good"*. Pair every one with either a structural check (is this prose
+or a word list?) or a human reading a random sample. On the same day the eyeball
+pass overturned the metric ranking of eight models and found fabricated facts
+(`kael --role--> fire mage`) that every number had scored as healthy.
+
+### 22. `pgrep -f "<pattern>"` matches the shell that is running it
+Three background waiters in one session hung forever because
+`until ! pgrep -f "seed_store.py"` matched **its own command line**. The process
+being waited on had exited; the waiter kept finding itself.
+
+Use the bracket form — `pgrep -f "[s]eed_store.py"` — which matches the target
+but not the literal pattern text in the watcher's own argv. Same trap applies to
+`ps | grep`.

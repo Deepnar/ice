@@ -49,7 +49,7 @@ results live in `experiments/*/results*/` as `.md` summaries.
 |---|---|
 | [docs/HANDOFF.md](docs/HANDOFF.md) | **Where the last session left off, and what it was told to do.** Rewritten every session. Read it first; it is state, never a queue. |
 | [docs/TRAPS.md](docs/TRAPS.md) | Mistakes this project has actually made. Read once at session start. Add to it the same session something bites. |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | **The queue, and the only queue** — 51 open items plus a one-line stub per finished one. Its "How to use this file" block is the rules for working it and its "HOW TO EXECUTE THIS ROADMAP" section carries the current position; neither is repeated here. Check items off there as they complete. |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | **The queue, and the only queue** — 56 open items plus a one-line stub per finished one. Its "How to use this file" block is the rules for working it and its "HOW TO EXECUTE THIS ROADMAP" section carries the current position; neither is repeated here. Check items off there as they complete. |
 | [docs/ROADMAP_DONE.md](docs/ROADMAP_DONE.md) | The finished items in full — what shipped, what each entry got wrong about its own subject, look-ahead, propagation, validation. Every stub in the roadmap links to its record here. |
 
 Then, as the work requires:

@@ -40,6 +40,16 @@
 
 ### 📍 CURRENT POSITION — 2026-08-10
 
+**⚑ Z1 AND Z2 HAVE MERGED IN PRACTICE, AND THAT IS CORRECT (user, 2026-08-12).**
+Z1's instruments turned out to measure Z2's questions: seeding the tuning corpus
+exercises every background job, so extraction quality, summary faithfulness and
+codex correctness were all measured *during* Z1-prep — the very things Z2's
+entry lists as "the places the automated suite provably cannot see". The user
+predicted this before it happened. ⇒ **treat them as one phase**: measure the
+whole pipeline on real data, read the output every time, cross-check often, and
+do not rush a sweep to completion. The eyeball pass is not a later stage; it is
+what caught every finding a metric missed on 2026-08-12.
+
 **⚑ [Z1](#z1) HAS STARTED — declared by the user 2026-08-10. Z1-prep is not a
 separate phase; it is Z1's first work.** [G9](#g9) · [G36](#g36) · [G37](#g37) done,
 [G30](#g30) in progress as Z1's instrument-building step, [G28](#g28) inside the
@@ -69,7 +79,7 @@ What survives is the *principle*: whatever FINAL finally reports on must not be
 what Z1 swept. See [G30](#g30) for the instrument, and [G40](#g40) for the
 `probe_type` gap the regeneration should close while it is there.
 
-- **Inventory: 51 open items**, all of them top-level `- [ ]` lines that you can
+- **Inventory: 56 open items** *(51 + G42–G47, opened 2026-08-12 from the whole-pipeline measurement)*, all of them top-level `- [ ]` lines that you can
   count. The split into PRE-FINAL research work and POST-FINAL productization is
   below and is the triage that matters — the raw count reads as far more
   remaining work than actually gates the experiments.
@@ -726,6 +736,42 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   - ~~**Not a blocker for [Z1](#z1)'s scorer**, which ranks against the derived gold turn and never reads the field~~ — recorded so that it is fixed before anything *reports* by class, and so nobody later mistakes `ENTER_TYPE` for a real category. **FINAL's taxonomy needs this**, and the user is regenerating probes for FINAL, so the cheapest fix is to make the regeneration populate it rather than to back-fill 681 rows.
 
 - [x] <a id="g41"></a>**G41 The pure-Python dot-product loops on the synchronous path** — DONE 2026-08-11. → [full record](ROADMAP_DONE.md#g41)
+
+- [ ] <a id="g42"></a>**G42 Procedural memory fabricates its patterns, and cannot not** `(bug — measured 2026-08-12 across EIGHT models; PRE-FINAL)` — `extract_procedural` shows the model **ONE turn** and asks it to identify a *recurring* workflow or habit. A single turn cannot evidence recurrence, so the model invents one. **Every pattern from every one of eight candidate models is a single-turn restatement wrapped in "the user consistently…" language, evidenced by exactly one occurrence.** 247 of them sit in the full-seed store, and they feed a retrieval leg — so ICE is writing fiction and filing it as memory.
+  - **The reinforcement mechanism is dead as a consequence.** Every pattern is born `reinforcement_count=1`; promotion needs `>= 3`; the only way to increment is an 0.85 similarity match against an existing pattern. One-per-turn generation makes near-duplicates rather than genuine repeats, so `is_active` almost never becomes true.
+  - **The fix (user, 2026-08-12): send a SESSION's worth of the USER's prompts only.** Three reasons it is right rather than merely cheaper — a habit is a property of what the *user* does, and the assistant's replies are most of the tokens and none of the signal; a session contains multiple turns so a pattern can genuinely recur; and one pattern per *session*, matched across sessions, is the shape `reinforcement_count` was designed for. `episodic_memory.session_id` exists and is indexed. ⚠ Require a **minimum session length** (~3 user turns) or short sessions reproduce the same fabrication at smaller scale.
+  - **The honest reading of the model comparison:** `qwen3.5:4b` produced ZERO patterns where the others produced 25–59. Scored as a functional failure, but with this defect understood it may be the only arm that declined to invent.
+
+- [ ] <a id="g43"></a>**G43 The codex grounding check is too loose — fabricated facts survive it** `(bug — measured 2026-08-12; PRE-FINAL)` — `codex_grounding` exists and rejects some triplets (`kept=11 rejected=4` observed live), but ungrounded facts still land. `granite4:tiny-h` wrote `kael --role--> fire mage` and `goo blade --wields--> kael` — a named weapon and a class that appear **nowhere in 60 turns × 7 models of extraction** — and contradicted itself with `kael --role--> crusader`. `gemma4:26b` attributed a CSI-Club fact to a turn that never mentions CSI Club.
+  - **Not a provenance bug.** `handle_triplet` receives `batch_id=row.batch_id`, so the source turn is structurally correct. A fact "from the wrong turn" is a fact the model **invented**, which makes this the same defect as fabrication rather than a second one.
+  - **Proposed fix, deterministic and model-free:** require the subject **and** the object to appear (fuzzily) in the source turn before the edge is written. Both fabrications above fail that test immediately.
+  - **⚑ HIGHEST-LEVERAGE SINGLE FIX ON THE LIST.** It attacks fabrication, the wrong-turn facts, and a large share of the junk subjects in [G44](#g44) at once — and through those the sparse graph — with no prompt change and no model change.
+
+- [ ] <a id="g44"></a>**G44 Codex subjects are not entities, and the graph is 65% disconnected** `(bug — measured 2026-08-12; PRE-FINAL)` — extracted subjects include `i`, `danger`, `massive`, `universe`, `music`, `post-study pathway`. **A graph node named `i` can never be looked up.** Present in **all eight** models, so it is the prompt's contract, not model capability.
+  - **Measured graph shape on 293 real turns:** degree-0 **24** · degree-1 **2,394 (65%)** · degree 2–4 **937** · degree 5+ **316** · **max degree 139** · mean **2.27**. Only **34%** of entities sit on a path worth walking; 824 have a 2-hop neighbourhood. It did NOT densify with scale — 60 turns gave 67% standalone, 293 gave 65%.
+  - **Consequence for the codex leg:** for two-thirds of anchors there is nothing to traverse *to*, so `codex_max_depth` buys nothing there. Meanwhile **max degree 139 against `codex_max_fanout`=12** means the cap binds hard on hubs — and [G35](#g35) chose 12 against a SIMULATED graph, so it is now a real sweepable knob.
+  - **Fix has two halves:** the prompt contract (subjects must be named, resolvable entities), and **node promotion** — Graphiti's mechanism, where a generic canonical node is upgraded when a duplicate arrives carrying more specific labels. The second repairs junk already stored rather than only preventing new junk.
+
+- [ ] <a id="g45"></a>**G45 Open the relation vocabulary — and keep G34/G35 while doing it** `(new — user decision 2026-08-12; supersedes the enum question Z2 owns; NEEDS A SPEC BEFORE CODE)` — [G32](#g32) measured **67.8%** of relations landing outside the 197-word list and being destroyed; the eight-arm run raised that to **14,091 dropped relations, 3,244 distinct candidates**, with `main --is--> X` missing **875 times** and corroborated independently by two models. Neither dropping (32% kept) nor forcing the enum (100% kept, ~78% wrong) is acceptable, so the closed vocabulary itself is the defect.
+  - **⚑ GOING OPEN DOES NOT REQUIRE REMOVING [G34](#g34) OR [G35](#g35).** `_relation_fit` needs *an embedding per relation*, not a closed list. `_relation_gloss_cache` builds that from `ALLOWED_RELATIONS` today; building it from `SELECT DISTINCT relation FROM codex_edges`, embedded on demand and cached, makes G34 work unchanged on an open vocabulary — and G35 reads relation fit, so it inherits the fix. **One function changes; nothing is torn out.**
+  - **Guardrails taken from Graphiti** (researched 2026-08-12), whose design is a **deterministic IR cascade with LLM only as fallback**, adopted because LLM-per-resolution cost them "variance, retry loops and token burn":
+    1. **Canonicalise at write, do not reject** — embed the incoming relation, compare against relations already in the graph, reuse the existing string above a threshold. This is the ladder [G32](#g32) already designed (lemmatisation → fuzzy → containment → inverse-direction guard), moved from *match-time rescue* to *write-time drift control*. Its entry called that ladder "premature until the vocabulary is repaired" — going open repairs it by definition.
+    2. **Entropy gate instead of a length rule.** Graphiti excludes low-entropy (short, repetitive) names from fuzzy matching because they are unstable. ICE's `_stem` only strips a suffix when `len(w) > 4`, which is why `uses`/`using` never meet — a length rule, i.e. exactly the "decision keyed on how a thing is written" that [G28](#g28) exists to kill.
+    3. **Node promotion** — repairs [G44](#g44)'s junk entities rather than only preventing them.
+    4. **Bi-temporal edges** — ICE has `valid_from`/`valid_until` (when the fact was true); Graphiti additionally tracks when the system *learned and unlearned* it. Two columns, and it is what lets a wrong memory be audited later.
+  - **What it costs, stated:** `codex_relation_gaps` loses its purpose (no drops ⇒ no ledger; the 3,244 candidates become a one-time seed for the canonicalisation table), the enum decision dissolves, and traversal gets noisier until promotion catches up.
+  - **Harvested evidence is ready:** ~25 genuinely useful relations with multi-arm agreement (`built` 75× across **8/8 arms**, `carries` 38× 8/8, `becomes`, `asks`, `includes`, `holds`, `describes`, `finds`, `creates`, `handles`, `needs`, `produces`, `feels`, `breaks`, `gives`, `earns`, `affects`, `applies_to`), and the **active/passive pairs appear spontaneously in the data** — `built`/`built_by`, `creates`/`created_by`, `makes`/`made_by` — which is the inversion hazard G32 named, showing up live.
+
+- [ ] <a id="g46"></a>**G46 The retrieval instruments do not match production, and three numbers were partly about them** `(bug — found 2026-08-12 while investigating G47; blocks every tuning result)` — the Z1 scorer, snapshot and probe generator each carry a defect that contaminated a measurement before it was caught.
+  - **The scorer never calls `set_budget_from_turn_count`.** `retrieve()` does not compute the budget; `main.py` calls that setter first. So the scorer ran at the `__init__` default of **5,000 tokens** while production derives it from conversation length — **every number produced on 2026-08-12 is off-production**.
+  - **The snapshot omits the probe→row map.** `snapshot.py` dumps DB tables; the map lives in a file the arm runs overwrote. Restoring the 293-turn store left the map pointing at the last arm's 20-turn conversations, and the resulting "every leg returns 0" nearly shipped as *"retrieval is completely broken"*. ⇒ **derive the map from the store** (rows carry `z1seed-<conv>-<turn>` keys), never from a file.
+  - **The probe generator's ambiguity guard tested the wrong condition.** It scored candidate turns on **question + answer** words; retrieval only ever sees the **question**. The answer's distinctive words live in the gold turn, so gold won and the guard passed almost everything — **74% of the 592 probes have another turn that matches the question at least as well**. Fix: score the question alone.
+  - **Leg attribution is first-leg-wins.** `_apply_rrf` stamps the first leg to produce a fragment and `bm25` is first in the dict, so a fragment found by both reads as bm25. This produced a near-miss report that *"the vector leg is dead"* — it is not; it returns **87–89 candidates on its own**. Record ALL producing legs, not the first.
+
+- [ ] <a id="g47"></a>**G47 Retrieval returns NOTHING for some prompts, and the token budget is the real cap** `(bug — measured 2026-08-12; PRE-FINAL)` — two findings from tracing the pipeline stage by stage on real probes.
+  - **The budget, not the per-conversation cap, is what limits results.** Traced on live probes: legs return **71–88** candidates each, fusion **89–90**, and bonuses/diversify/dedupe/collapse/coverage **all preserve 88–90** — `_session_diversify` passed **90 of 90**, so `retrieval_max_per_conversation` caps nothing here. `_enforce_token_budget` then cuts to **2–5 fragments**, because turns average ~1,500 tokens against a 5,000-token window. ⇒ **"recall@10" was never available; the system returns 2–5 memories.** An earlier claim that the per-conversation cap explained the low recall is **struck**.
+  - **⚠ 15 of 592 probes return ZERO fragments** while their legs find 71–88 candidates. **Hypothesis, unconfirmed:** the top-ranked fragment alone exceeds the whole budget and the enforcer stops rather than skipping to smaller ones behind it. ICE has a degradation chain built for exactly this (raw → trusted summary → abstract, C1/C3) — **whether it fires has never been measured**. Confirm by printing the token count of the top fragment for one zero probe before designing anything.
+  - **Look-ahead:** if degradation does fire, ten summaries would fit where three raw turns do now, which is a larger lever than any leg weight. Budget and degradation belong at the front of [Z1](#z1)'s sweep, not among the leg weights.
 
 - [x] <a id="g36"></a>**G36 The retrieval legs swallow their own failures** — DONE 2026-08-09. → [full record](ROADMAP_DONE.md#g36)
 - [x] <a id="g37"></a>**G37 A scope that resolves to no batches read the WHOLE graph** — DONE 2026-08-09. → [full record](ROADMAP_DONE.md#g37)
