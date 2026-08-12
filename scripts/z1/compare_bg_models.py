@@ -15,6 +15,22 @@ background work into two families and each already has a measurable target:
     this on every summary** — A12 calls it "the cheapest measurement in this
     whole item", and it needs no ground truth and no judge.
 
+**⚑ ONE PROBE PER FAMILY, and the limit is stated rather than hidden.** ICE gives
+a background model about a dozen jobs (triplets, decisions, procedural patterns,
+document-kind, four summarisation paths, reflection descriptions, cluster naming,
+slot proposals, motifs). This measures **two**: codex triplets and the post-flight
+summary. The defence is A12's own — *"the background work is TWO families, not six
+tasks; this is the finding that makes the item tractable"* — and the backstop is
+that the FULL SEED for a finalist exercises every one of those jobs, with
+retrieval recall against the store it built as the task-grounded verdict. This
+script only decides who earns a full seed.
+
+*(A procedural-extraction probe was added here and removed: `extract_procedural`
+is DB-bound with no text-level entry, and its call is free text — "one sentence
+or NONE" — so it belongs to the generation family anyway, not to extraction.
+Replicating its prompt here would have duplicated production logic into a test
+and drifted from it.)*
+
 **⚑ What this does NOT measure, deliberately.** Answer quality. No model writes
 an answer here, because answer quality needs a judge and belongs to Z2. The
 question this asks is narrower and more useful for Z1: *which model builds a
@@ -128,7 +144,7 @@ def run_arm(model: str, turns: list, vocab: set) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--turns", type=int, default=12)
+    ap.add_argument("--turns", type=int, default=60)
     ap.add_argument("--models", default=None, help="comma-separated override")
     args = ap.parse_args()
 
