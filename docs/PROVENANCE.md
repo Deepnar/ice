@@ -1447,3 +1447,75 @@ whichever direction it points.
 **Still owed:** these anchors are simulated, because the store is empty. Re-run
 against Z1's populated graph and record the numbers; the *ordering* against the
 two baselines is the durable claim, the absolute rates are provisional.
+
+## A12 — the eight-arm background-model comparison, 2026-08-12
+
+**Setup.** Each candidate seeded the SAME 60 turns (20 from each of the three Z1
+corpus conversations) through the real pipeline — `post_flight.evaluate_turn`
+(density, grounded summary, chunking, codex, procedural) plus clustering and
+batch summaries — so every background job was exercised, not the two with
+text-level entry points. Store measured per arm by `scripts/z1/store_report.py`;
+output sampled by `scripts/z1/sample_bg_output.py` and judged by a subagent
+reading all five sections of all seven viable arms (nemotron-mini excluded on
+measured grounds).
+
+**Measured (60 turns each).**
+
+| arm | entities | edges | patterns | summary coverage | junk % |
+|---|---|---|---|---|---|
+| gemma4:26b-a4b (incumbent) | 1142 | 1243 | 57 | 0.979 | 2 |
+| gemma4:e4b | 761 | 554 | 49 | 0.976 | 8 |
+| qwen3.5:4b | 233 | 190 | **0** | 0.970 | 1 |
+| qwen3:4b-instruct | 353 | 281 | 57 | 0.956 | 3 |
+| ministral-3:8b | 1611 | 1485 | 59 | 0.918 | 1 |
+| granite4:micro | 252 | 176 | 25 | 0.913 | 6 |
+| granite4:tiny-h | 250 | 230 | 50 | 0.895 | 7 |
+| nemotron-mini:4b | 23 | 15 | 48 | 0.607 | 30 |
+
+Every arm summarised exactly 50 of 60 turns — the density gate picks which turns
+earn a summary, not the model, so coverage differences are about quality alone.
+
+**⚑ THE EYEBALL OVERTURNED THE METRIC RANKING, and the reason is the metric's
+stated blind spot.** `granite4:tiny-h` scored coverage **0.9375–1.0** — mid-pack
+— while **12 of its 12 summaries were bare `Key terms: [list]` dumps with no
+synthesis at all**. `summary_coverage` measures term PRESENCE, so a model can
+score ~1.0 while producing no summary whatsoever. That caveat was written into
+`store_report.py` before the run; this is it at the extreme.
+
+**Ranking after reading (agent, all five sections):** gemma4:e4b > qwen3:4b-instruct
+> gemma4:26b > ministral-3:8b > qwen3.5:4b > granite4:micro > granite4:tiny-h.
+
+- **The 26B is NOT the winner** — "more generic-subject-heavy than gemma4_e4b for
+  no quality gain, at nearly 2× the VRAM". ⇒ **A12's premise holds: the
+  background pipeline does not need a 26B.**
+- **Practical pick: `qwen3:4b-instruct`** — tied with e4b on summary quality at
+  **2.5 GB against 9.6 GB**.
+- `qwen3.5:4b` is bimodal: 5/12 summaries bare, **zero** procedural patterns, yet
+  the best vocabulary-gap signal in the set.
+- `granite4:tiny-h` fabricates *specific* unsupported detail (`kael --role-->
+  fire mage`, a `goo blade`), contradicting its own output, with zero
+  corroboration across 60 turns × 7 models.
+
+**⚑ TWO DEFECTS ARE ICE'S, NOT THE MODELS' — present in ALL SEVEN arms.**
+
+1. **Codex subjects are unusable.** Generic non-entities (`universe`, `story`,
+   `music`, `post-study pathway`) and unresolved pronouns (`i --possesses-->
+   diverse skills`) — a graph node named "i" cannot be looked up. Universal ⇒
+   prompt/design, not model capability. Consistent with the store's shape: 65%
+   of entities are degree-1 standalone triplets.
+2. **Procedural patterns are fabricated by construction.** Every pattern from
+   every model is a SINGLE-turn restatement wrapped in "the user consistently…",
+   evidenced by exactly one occurrence. `extract_procedural` asks one turn to
+   reveal a *recurring* habit, which it definitionally cannot. qwen3.5:4b's zero
+   output is arguably the honest answer.
+
+**Vocabulary harvest (feeds [Z2](ROADMAP.md#z2)).** 14,091 relations dropped
+across the arms; **3,244 distinct candidates** after junk removal and
+normalisation. Top gap: **`main --is--> X` dropped 875×, found independently by
+TWO models** — "X is the primary/main choice" has no slot at all. Also
+`global cs rank --has--> cmu` and `b1 german --has--> likely pr` at 238× each.
+Candidates and their proposed opposites: `scripts/z1/harvest_vocabulary.py`.
+
+**Real-world errors worth recording:** `granite4:micro` read a recurring **9.65
+CGPA as "$9.65 per hour"**; `qwen3.5:4b` placed **CMU in Seattle** (Pittsburgh);
+`gemma4:26b` attributed a CSI-Club fact to a turn that never mentions it.
