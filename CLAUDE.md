@@ -76,6 +76,54 @@ Neither docs nor comments are guaranteed current — verify against the code.
 
 ## Standing rules
 
+### RESEARCH FIRST — the measurement is the deliverable (2026-08-12)
+
+**A product is wanted; research is what is being done.** Those are not in
+tension, they are in *order*: nothing gets productised until it is known to
+work, and "known" here means measured, not believed. So the unit of progress in
+this repo is **a measurement someone can trust**, not a feature.
+
+**⚑ Be certain the measurement is CORRECT before believing what it says.** Not
+"be thorough" — *be correct*. Before reporting a number, ask:
+
+- **Is everything there?** Did the harness populate every part the real path
+  populates, and call what the real path calls? A store missing three of eight
+  legs, or a scorer skipping the budget setter `main.py` calls, measures
+  something — just not the system.
+- **Would this number look the same if the thing under test were broken?** If
+  yes, it is not a measurement. A presence-based score (coverage, in-vocabulary
+  rate, hit count) answers *"is the expected thing in there"* and never *"is
+  what is there any good"*.
+- **Does the instrument reproduce production, or my idea of it?** The instrument
+  becomes part of what it measures the moment it diverges.
+
+**Nothing may be skipped, and no result is exempt.** A step left out is a
+variable left uncontrolled, and it will be discovered later as a wrong
+conclusion rather than a missing step. Where something genuinely cannot be
+measured yet, **say so in the number's own words** — "off-production",
+"unconfirmed", "inert on this corpus" — rather than letting it read as clean.
+
+**But this is not an argument for long experiments.** A four-night sweep on an
+unverified instrument wastes four nights; a ten-minute check that would have
+invalidated it is worth more than all of them. Nor is it an argument for
+short ones: a probe set too small to resolve the effect you are looking for
+produces a confident number about noise. **Size the run to the question**, and
+compute what the run can actually resolve *before* starting it.
+
+**There is no hurry. There is also no room for waste.** Being unhurried is what
+makes it affordable to re-check; it is not permission to re-derive what is
+already written down, to re-run what a cheaper measurement settles, or to
+explore adjacent questions nobody asked.
+
+**Worked evidence, and it is the reason this rule exists:** on 2026-08-12 five
+conclusions were drawn and corrected within one session — four of them from
+reasoning about code instead of querying the running system. The instruments
+built that day carried nine defects of their own. **Every finding that survived
+scrutiny came from reading actual output**, and the two that mattered most (a
+ground-truth key that looked fine, an eight-model ranking that was backwards)
+were caught by a human and an agent *reading*, against metrics that were green.
+See TRAPS #20, #21 and roadmap [G46](docs/ROADMAP.md#g46).
+
 ### Ask before changing production code (2026-08-03)
 
 The user's instruction, after stopping a session mid-flight: *"if doing anything
