@@ -96,6 +96,13 @@ this repo is **a measurement someone can trust**, not a feature.
   what is there any good"*.
 - **Does the instrument reproduce production, or my idea of it?** The instrument
   becomes part of what it measures the moment it diverges.
+- **⚑ Did I QUERY the running system, or reason about the code?** Reading source
+  and reasoning forward produces conclusions that feel verified and are not —
+  **four wrong ones in a single session, 2026-08-12**, each disproved by one
+  query taking seconds. The comments describe intent; the database describes
+  what happened. **Any claim about behaviour gets a query before it gets
+  stated**, and a claim that cannot be cheaply checked says so in its own words
+  rather than in a caveat afterwards. TRAPS #23.
 
 **Nothing may be skipped, and no result is exempt.** A step left out is a
 variable left uncontrolled, and it will be discovered later as a wrong

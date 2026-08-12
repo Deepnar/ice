@@ -343,3 +343,31 @@ being waited on had exited; the waiter kept finding itself.
 Use the bracket form — `pgrep -f "[s]eed_store.py"` — which matches the target
 but not the literal pattern text in the watcher's own argv. Same trap applies to
 `ps | grep`.
+
+### 23. Reasoning about the code instead of querying the running system
+**The most productive failure mode in this repo, measured 2026-08-12: FOUR wrong
+conclusions in a single session, every one from reading source and reasoning
+forward instead of asking the live system.** Each was stated confidently, each
+was wrong, and each took minutes to disprove once actually queried.
+
+| claimed, from reading code | what one query showed |
+|---|---|
+| "the pgvector query has no index, so it full-scans" | `idx_codex_entities_embedding` exists **and** is migration-covered. Read the diff, never opened the database |
+| "`retrieval_max_per_conversation=3` is capping recall" | `_session_diversify` passes **90 of 90**. The token budget is the cap. Read the setting, never traced the pipeline |
+| "the vector leg is dead — every hit is bm25" | vector returns **87–89 candidates alone**. Read the leg-stamping code, never ran the leg |
+| "procedural extraction produced 0 for every arm" | 25–59 per arm. Read my own script's output under the **wrong dict key**, never queried the table |
+
+**Why it is so seductive here:** the source is well-commented, the comments
+explain *why*, and a chain of correct-looking reasoning over correct-looking
+code produces a conclusion that feels verified. It is not. The comments describe
+intent; the database describes what happened.
+
+**The rule: any claim about behaviour gets a query before it gets stated.** Not
+"read the function" — run it, print the count, select from the table, trace the
+stages. If a claim cannot be cheaply checked against the running system, say it
+is unverified *in the claim itself* rather than in a caveat afterwards.
+
+**The corollary that makes this affordable:** these checks are seconds. Every one
+of the four above was disproved by a single query. The cost of the habit is
+nothing; the cost of skipping it was four wrong conclusions, one of which nearly
+shipped as "retrieval is completely broken".
