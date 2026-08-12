@@ -47,9 +47,11 @@ Run:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
+from pathlib import Path
 from collections import Counter
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
@@ -62,6 +64,12 @@ from src.api.config import settings  # noqa: E402
 # worst arm and a 12B lost to a 4B". granite4:small-h (32.2B) is deliberately
 # ABSENT: it is four times the size the shortlist asked for and contradicts the
 # selection principle. Add it explicitly with --models if you want it measured.
+# Raw per-arm output is SAVED, not just scored. The rough eyeball pass needs
+# something to read, and this script measures in memory while store_report.py
+# and sample_bg_output.py read the database — so without this the 8 arms would
+# produce numbers with no samples behind them.
+ARM_OUT = Path("experiments/curation_files/arm_output")
+
 DEFAULT_ARMS = [
     "gemma4:26b-a4b-it-q4_K_M",   # the incumbent / current pin
     "granite4:micro",             # the 3B
@@ -99,6 +107,7 @@ def run_arm(model: str, turns: list, vocab: set) -> dict:
     m = Counter()
     t0 = time.time()
     cov_scores = []
+    samples = []
 
     for user, assistant in turns:
         text = f"User: {user}\n\nAssistant: {assistant}"
@@ -115,6 +124,8 @@ def run_arm(model: str, turns: list, vocab: set) -> dict:
             rel = str(t.get("relation") or "").strip().lower().replace(" ", "_")
             m["in_vocab" if rel in vocab else "out_of_vocab"] += 1
 
+        summary = ""
+        coverage = 0.0
         try:
             kt = extract_key_terms(user, assistant)
             summary, coverage, _abstract = generate_summary(
@@ -127,8 +138,18 @@ def run_arm(model: str, turns: list, vocab: set) -> dict:
             m["summary_failed"] += 1
             print(f"    ! summary: {type(exc).__name__}: {str(exc)[:90]}")
 
+        samples.append({
+            "source_turn": text[:2500],
+            "triplets": [{"s": t.get("subject"), "r": t.get("relation"),
+                          "o": t.get("object")} for t in tris],
+            "summary": summary, "coverage": coverage,
+        })
+
     elapsed = time.time() - t0
     n = max(1, len(turns))
+    ARM_OUT.mkdir(parents=True, exist_ok=True)
+    (ARM_OUT / f"{model.replace(':', '_').replace('/', '_')}.json").write_text(
+        json.dumps({"model": model, "samples": samples}, indent=2))
     total_rel = m["in_vocab"] + m["out_of_vocab"]
     return {
         "model": model,
