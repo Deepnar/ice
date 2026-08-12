@@ -63,10 +63,69 @@ MANIFEST = "experiments/curation_files/seeded_store.json"
 
 
 def clean(db) -> int:
-    """Delete only what this script created, found via the row marker."""
+    """Delete only what this script created — episodic AND codex.
+
+    ⚠ The first version cleaned episodic rows only and left **307 entities and
+    380 edges** behind from a 10-turn timing run. That is the TRAPS #6 residue
+    pattern, and codex residue is worse than episodic residue for this
+    instrument: leftover entities and edges are exactly what the codex leg
+    retrieves, so a later scoring run would be measuring a store nobody
+    described.
+
+    Edges are traceable — `source_batch` carries the batch id of the turn that
+    produced them. **Entities are not**: `CodexEntity` has no source column
+    because `get_or_create_entity` dedupes globally by canonical name. So the
+    manifest records the entity ids that existed BEFORE seeding, and anything
+    outside that set was created by it. Exact, and it degrades safely: with no
+    manifest the entity sweep is skipped rather than guessed at.
+    """
     ids = [r[0] for r in db.execute(
         text("SELECT DISTINCT conversation_id FROM episodic_memory "
              "WHERE idempotency_key LIKE :m"), {"m": f"{MARK}-%"}).all()]
+    batch_ids = [r[0] for r in db.execute(
+        text("SELECT batch_id FROM episodic_memory WHERE idempotency_key LIKE :m"),
+        {"m": f"{MARK}-%"}).all()]
+
+    # Each statement stands alone: a failure here must not abort the rest of the
+    # sweep. The first version let one bad column name (`codex_events.batch_id`,
+    # which does not exist — it is `batch_source`) roll back and abandon the
+    # episodic deletes, leaving a half-cleaned store, which is worse than either
+    # extreme.
+    if batch_ids:
+        for sql in (
+            "DELETE FROM codex_events WHERE batch_source = ANY(:b)",
+            "DELETE FROM codex_edges WHERE source_batch = ANY(:b)",
+            "DELETE FROM codex_relation_gaps WHERE batch_id = ANY(:b)",
+        ):
+            try:
+                db.execute(text(sql), {"b": batch_ids})
+                db.commit()
+            except Exception as exc:
+                print(f"  ! {sql.split()[2]}: {exc}")
+                db.rollback()
+
+    if os.path.exists(MANIFEST):
+        try:
+            pre = json.load(open(MANIFEST)).get("pre_existing_entity_ids")
+        except Exception:
+            pre = None
+        if pre is None:
+            print("  ! manifest has no pre_existing_entity_ids — entities left alone")
+        else:
+            try:
+                # An EMPTY pre-list is the common case (a clean store before
+                # seeding) and must delete everything, so the cast is explicit:
+                # an untyped empty array makes `= ANY()` fail type inference.
+                n = db.execute(text(
+                    "DELETE FROM codex_entities "
+                    "WHERE NOT (id = ANY(CAST(:pre AS uuid[])))"),
+                    {"pre": pre or []}).rowcount
+                db.commit()
+                print(f"  removed {n} codex entities created by seeding")
+            except Exception as exc:
+                print(f"  ! codex_entities: {exc}")
+                db.rollback()
+
     if not ids:
         print("nothing to clean")
         return 0
@@ -122,7 +181,13 @@ def main() -> int:
     clf = PyTorchClassifier(model_path=settings.classifier_model_path,
                             schema_path=settings.label_schema_path)
     stats = Counter()
-    manifest = {"marker": MARK, "conversations": {}}
+    # Snapshot what exists BEFORE we write anything — the only way to tell a
+    # seeded entity from a pre-existing one, since CodexEntity has no source
+    # column (see clean()).
+    pre_ids = [r[0] for r in db.execute(text("SELECT id FROM codex_entities")).all()]
+    manifest = {"marker": MARK, "conversations": {},
+                "pre_existing_entity_ids": [str(i) for i in pre_ids]}
+    print(f"pre-existing codex entities: {len(pre_ids)}")
 
     for cid, meta in sorted(convs.items()):
         turns = meta["turns"][:args.limit] if args.limit else meta["turns"]
@@ -180,7 +245,18 @@ def main() -> int:
                 row = db.query(EpisodicMemory).get(uuid.UUID(rec["episodic_id"]))
                 try:
                     for tri in extract_triplets(row.raw_text) or []:
-                        handle_triplet(db, tri, batch_id=row.batch_id)
+                        # Positional subject/relation/object — handle_triplet takes
+                        # the three parts, not the dict extract_triplets returns.
+                        subj = (tri.get("subject") or "").strip()
+                        rel = (tri.get("relation") or "").strip()
+                        obj = (tri.get("object") or "").strip()
+                        if not (subj and rel and obj):
+                            stats["triplet_incomplete"] += 1
+                            continue
+                        handle_triplet(db, subj, rel, obj,
+                                       batch_id=row.batch_id,
+                                       turn_text=row.raw_text,
+                                       negated=bool(tri.get("negated", False)))
                         stats["triplets"] += 1
                 except Exception as exc:
                     print(f"    ! extract: {type(exc).__name__}: {exc}")
