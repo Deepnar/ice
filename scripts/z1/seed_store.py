@@ -204,7 +204,17 @@ def main() -> int:
     ap.add_argument("--span-days", type=int, default=120,
                     help="lay the turns down across this many days")
     ap.add_argument("--end-days-ago", type=int, default=2)
+    ap.add_argument("--bg-model", default=None,
+                    help="background model for THIS arm; overrides "
+                         "settings.background_model_name for the run")
     args = ap.parse_args()
+
+    if args.bg_model:
+        # One arm = one background model. Overriding the setting here rather
+        # than editing .env keeps the arms reproducible from the command line
+        # and stops a half-finished arm leaving the wrong pin behind.
+        settings.background_model_name = args.bg_model
+        print(f"background model pinned for this arm: {args.bg_model}")
 
     db = SessionLocal()
     if args.clean:
