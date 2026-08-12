@@ -96,6 +96,12 @@ def clean(db) -> int:
             "DELETE FROM codex_events WHERE batch_source = ANY(:b)",
             "DELETE FROM codex_edges WHERE source_batch = ANY(:b)",
             "DELETE FROM codex_relation_gaps WHERE batch_id = ANY(:b)",
+            # procedural_memory has NO foreign key to conversations or
+            # episodic_memory, so the schema walk below cannot find it — it
+            # links through a `source_batch_ids` ARRAY instead. Left behind on
+            # the first fixed cleanup, and it feeds a retrieval leg, so residue
+            # here is residue the scorer would read.
+            "DELETE FROM procedural_memory WHERE source_batch_ids && CAST(:b AS uuid[])",
         ):
             try:
                 db.execute(text(sql), {"b": batch_ids})
@@ -129,23 +135,62 @@ def clean(db) -> int:
     if not ids:
         print("nothing to clean")
         return 0
-    for table, col in (("episodic_chunks", None), ("episodic_memory", "conversation_id"),
-                       ("conversation_summaries", "conversation_id"),
-                       ("batch_summaries", "conversation_id")):
+
+    # ⚑ THE DEPENDENT TABLES ARE DISCOVERED FROM THE LIVE SCHEMA, not listed.
+    # A hardcoded list is a list that goes stale: this cleanup already broke
+    # once when clustering joined the pipeline and `context_clusters` started
+    # referencing the conversation, and the resulting foreign-key violation
+    # aborted the whole delete and left a half-cleaned store. Asking the
+    # database which tables point at ours cannot fall out of date.
+    def dependents(target: str) -> list[tuple[str, str]]:
+        rows = db.execute(text("""
+            SELECT tc.table_name, kcu.column_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+              ON tc.constraint_name = kcu.constraint_name
+            JOIN information_schema.constraint_column_usage ccu
+              ON tc.constraint_name = ccu.constraint_name
+            WHERE tc.constraint_type = 'FOREIGN KEY'
+              AND ccu.table_name = :t AND tc.table_name <> :t
+        """), {"t": target}).all()
+        return [(r[0], r[1]) for r in rows]
+
+    removed = Counter()
+    for tbl, col in dependents("episodic_memory"):
         try:
-            if table == "episodic_chunks":
-                db.execute(text(
-                    "DELETE FROM episodic_chunks WHERE turn_id IN "
-                    "(SELECT id FROM episodic_memory WHERE conversation_id = ANY(:i))"),
-                    {"i": ids})
-            else:
-                db.execute(text(f"DELETE FROM {table} WHERE {col} = ANY(:i)"), {"i": ids})
+            n = db.execute(text(
+                f"DELETE FROM {tbl} WHERE {col} IN "
+                f"(SELECT id FROM episodic_memory WHERE conversation_id = ANY(:i))"),
+                {"i": ids}).rowcount
+            db.commit()
+            removed[tbl] += n
         except Exception as exc:
-            print(f"  ! {table}: {exc}")
+            print(f"  ! {tbl}: {str(exc)[:120]}")
             db.rollback()
-    db.execute(text("DELETE FROM conversations WHERE id = ANY(:i)"), {"i": ids})
-    db.commit()
-    print(f"removed {len(ids)} seeded conversation(s) and their rows")
+
+    for tbl, col in dependents("conversations"):
+        if tbl == "episodic_memory":
+            continue                       # deleted below, after its own dependents
+        try:
+            n = db.execute(text(f"DELETE FROM {tbl} WHERE {col} = ANY(:i)"),
+                           {"i": ids}).rowcount
+            db.commit()
+            removed[tbl] += n
+        except Exception as exc:
+            print(f"  ! {tbl}: {str(exc)[:120]}")
+            db.rollback()
+
+    for sql in ("DELETE FROM episodic_memory WHERE conversation_id = ANY(:i)",
+                "DELETE FROM conversations WHERE id = ANY(:i)"):
+        try:
+            removed[sql.split()[2]] += db.execute(text(sql), {"i": ids}).rowcount
+            db.commit()
+        except Exception as exc:
+            print(f"  ! {sql.split()[2]}: {str(exc)[:160]}")
+            db.rollback()
+
+    detail = ", ".join(f"{k} {v}" for k, v in sorted(removed.items()) if v)
+    print(f"removed {len(ids)} seeded conversation(s): {detail or 'nothing'}")
     return len(ids)
 
 
@@ -189,12 +234,35 @@ def main() -> int:
                 "pre_existing_entity_ids": [str(i) for i in pre_ids]}
     print(f"pre-existing codex entities: {len(pre_ids)}")
 
+    from src.workers.bg_client_factory import get_bg_model_name
+    from src.workers.post_flight import evaluate_turn
+    # ⚠ model_used is not a label — procedural_extractor CALLS it. Passing
+    # a tag ("z1-seed") 404s the whole post-flight chain.
+    seed_model = get_bg_model_name()
+
     for cid, meta in sorted(convs.items()):
         turns = meta["turns"][:args.limit] if args.limit else meta["turns"]
-        conv = Conversation(memory_scope_type="auto")
-        db.add(conv)
-        db.commit()
-        print(f"── {cid}: seeding {len(turns)} turns into {conv.id}")
+
+        # RESUME: reuse this conversation's existing shell if a previous run
+        # created one, so re-running tops up instead of duplicating. Found via
+        # the deterministic idempotency key below — the old key carried a random
+        # suffix, which made resume impossible because no key could be predicted.
+        existing = db.execute(text(
+            "SELECT DISTINCT conversation_id FROM episodic_memory "
+            "WHERE idempotency_key LIKE :m"), {"m": f"{MARK}-{cid}-%"}).first()
+        if existing:
+            conv_id = existing[0]
+            print(f"── {cid}: resuming into {conv_id}")
+        else:
+            conv = Conversation(memory_scope_type="auto")
+            db.add(conv)
+            db.commit()
+            conv_id = conv.id
+            print(f"── {cid}: seeding {len(turns)} turns into {conv_id}")
+
+        class _C:                      # tiny shim so the loop below reads the same
+            id = conv_id
+        conv = _C()
 
         # Oldest first, ending `end_days_ago` before now — see the module note on
         # why a single shared timestamp would silently neuter every recency knob.
@@ -207,73 +275,92 @@ def main() -> int:
             assistant = (t.get("ai_response") or "").strip()
             if not user and not assistant:
                 continue
-            ts = end - step * (len(turns) - 1 - i)
-            try:
-                c = clf.classify(user[:2000])
-            except Exception as exc:
-                print(f"  ! classify turn {t.get('turn_number')}: {exc}")
-                stats["classify_failed"] += 1
-                continue
-            row = EpisodicMemory(
-                conversation_id=conv.id,
-                batch_id=uuid.uuid4(),
-                timestamp=ts,
-                topic_tags=list(c.topic_tags or []),
-                intent_tags=list(c.intent_tags or []),
-                context_reliance=c.context_reliance,
-                raw_text=f"User: {user}\n\nAssistant: {assistant}",
-                lossless_flag=True,
-                embedding=embedder.encode(user or assistant,
-                                          convert_to_tensor=False).tolist(),
-                idempotency_key=f"{MARK}-{cid}-{t.get('turn_number')}-{uuid.uuid4().hex[:6]}",
-            )
-            db.add(row)
-            db.flush()
-            turn_ids.append({"turn_number": t.get("turn_number"),
-                             "episodic_id": str(row.id),
-                             "batch_id": str(row.batch_id)})
-            stats["turns"] += 1
-            if (i + 1) % 25 == 0:
-                db.commit()
-                print(f"    {i+1}/{len(turns)}")
-        db.commit()
+            tn = t.get("turn_number")
+            # ⚑ DETERMINISTIC, so the turn can be recognised on a later run.
+            # The first version appended a random hex suffix, which made resume
+            # impossible: nothing could predict the key to look for.
+            ikey = f"{MARK}-{cid}-{tn}"
 
-        if not args.no_codex:
-            from src.workers.codex_extractor import extract_triplets, handle_triplet
-            print("    extracting codex triplets …")
-            for rec in turn_ids:
-                row = db.query(EpisodicMemory).get(uuid.UUID(rec["episodic_id"]))
+            row = db.query(EpisodicMemory).filter_by(idempotency_key=ikey).first()
+            if row is None:
+                ts = end - step * (len(turns) - 1 - i)
                 try:
-                    for tri in extract_triplets(row.raw_text) or []:
-                        # Positional subject/relation/object — handle_triplet takes
-                        # the three parts, not the dict extract_triplets returns.
-                        subj = (tri.get("subject") or "").strip()
-                        rel = (tri.get("relation") or "").strip()
-                        obj = (tri.get("object") or "").strip()
-                        if not (subj and rel and obj):
-                            stats["triplet_incomplete"] += 1
-                            continue
-                        handle_triplet(db, subj, rel, obj,
-                                       batch_id=row.batch_id,
-                                       turn_text=row.raw_text,
-                                       negated=bool(tri.get("negated", False)))
-                        stats["triplets"] += 1
+                    c = clf.classify(user[:2000])
                 except Exception as exc:
-                    print(f"    ! extract: {type(exc).__name__}: {exc}")
-                    stats["extract_failed"] += 1
-                    db.rollback()
-            db.commit()
+                    print(f"  ! classify turn {tn}: {exc}")
+                    stats["classify_failed"] += 1
+                    continue
+                row = EpisodicMemory(
+                    conversation_id=conv.id,
+                    batch_id=uuid.uuid4(),
+                    timestamp=ts,
+                    topic_tags=list(c.topic_tags or []),
+                    intent_tags=list(c.intent_tags or []),
+                    context_reliance=c.context_reliance,
+                    raw_text=f"User: {user}\n\nAssistant: {assistant}",
+                    lossless_flag=True,
+                    embedding=embedder.encode(user or assistant,
+                                              convert_to_tensor=False).tolist(),
+                    idempotency_key=ikey,
+                )
+                db.add(row)
+                db.commit()          # per TURN, not per conversation: an interrupt
+                stats["turns"] += 1  # now costs one turn, not an hour of extraction
+            else:
+                stats["turns_already_present"] += 1
+
+            turn_ids.append({"turn_number": tn, "episodic_id": str(row.id),
+                             "batch_id": str(row.batch_id)})
+
+            if not args.no_codex:
+                # ⚑ THE REAL POST-FLIGHT, not a hand-rolled extraction call.
+                # evaluate_turn runs density qualification, the grounded summary,
+                # chunking, codex extraction AND procedural extraction — the four
+                # stages the previous version skipped, which would have left the
+                # chunk, procedural and cluster legs empty and made their weights
+                # untunable. Its own docstring guarantees the chain is
+                # self-idempotent ("a retry after a partial chain failure
+                # completes the missing stages"), which is what makes this script
+                # resumable rather than restart-only.
+                try:
+                    evaluate_turn(batch_id=str(row.batch_id), prompt=user,
+                                  response=assistant,
+                                  conversation_id=str(conv.id),
+                                  model_used=seed_model)
+                    stats["post_flight"] += 1
+                except Exception as exc:
+                    print(f"    ! post_flight turn {tn}: {type(exc).__name__}: {exc}")
+                    stats["post_flight_failed"] += 1
+
+            if (i + 1) % 10 == 0:
+                print(f"    {i+1}/{len(turns)}  (post-flight {stats['post_flight']})")
 
         manifest["conversations"][cid] = {"conversation_id": str(conv.id),
                                           "turns": turn_ids}
+        with open(MANIFEST, "w") as fh:      # written per conversation, so an
+            json.dump(manifest, fh, indent=2)  # interrupt still leaves a usable map
 
-    with open(MANIFEST, "w") as fh:
-        json.dump(manifest, fh, indent=2)
+    # ── Clustering: a periodic job in production, run here as a catch-up pass
+    #    over everything just seeded. Without it `_relevant_cluster_ids` has
+    #    nothing to match and cluster-scoped retrieval is silently inert.
+    if not args.no_codex:
+        try:
+            from src.workers.clustering import run_cluster_assignment, run_cluster_merge
+            conv_ids = [m["conversation_id"] for m in manifest["conversations"].values()]
+            print("\nclustering …")
+            print(f"  assignment: {run_cluster_assignment(db, conversation_ids=conv_ids)}")
+            print(f"  merge:      {run_cluster_merge(db, conversation_ids=conv_ids)}")
+        except Exception as exc:
+            print(f"  ! clustering: {type(exc).__name__}: {exc}")
+            db.rollback()
 
     counts = {t: db.execute(text(f"SELECT count(*) FROM {t}")).scalar()
               for t in ("episodic_memory", "codex_entities", "codex_edges",
-                        "episodic_chunks")}
-    print(f"\nseeded {stats['turns']} turns · triplets {stats['triplets']} "
+                        "episodic_chunks", "procedural_memory", "context_clusters",
+                        "batch_summaries", "codex_relation_gaps")}
+    print(f"\nseeded {stats['turns']} new turns "
+          f"({stats['turns_already_present']} already present) · "
+          f"post-flight ok {stats['post_flight']}, failed {stats['post_flight_failed']} "
           f"· classify failures {stats['classify_failed']}")
     print(f"store now: {counts}")
     print(f"manifest → {MANIFEST}  (turn_number → episodic id, for scoring)")
