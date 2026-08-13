@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    event,
     ARRAY,
     BigInteger,
     Boolean,
@@ -241,8 +242,20 @@ class CodexEdge(Base):
     # of any relation without doubling the controlled vocabulary. A negated edge
     # is a stored fact, not a navigable link.
     negated = Column(Boolean, default=False)
+    # ── Bi-temporal (G45 §5, Graphiti) ──────────────────────────────────────
+    # TWO timelines, and conflating them is what makes a wrong memory
+    # unauditable. valid_* is when the FACT was true in the world; learned_* is
+    # when ICE came to believe it. They diverge constantly: a fact true since
+    # 2019 learned yesterday, or a fact ICE believed for months that was never
+    # true at all. Only the second pair can answer "when did we start believing
+    # this, and what did we read to get there" — which is the question asked
+    # after a fabrication is found, and today it cannot be answered.
     valid_from = Column(DateTime(timezone=True), default=utcnow)
     valid_until = Column(DateTime(timezone=True), nullable=True)  # NULL = currently true
+    learned_at = Column(DateTime(timezone=True), default=utcnow)
+    # NULL = still believed. Set when an edge is retracted (A8 negation
+    # supersedes it, a contradiction expires it, compaction drops it).
+    unlearned_at = Column(DateTime(timezone=True), nullable=True)
     # E1b (D3): mirrors codex_entities.source — static-analysis edges are
     # derived memory (decay-exempt, journal-free, regenerable).
     source = Column(Text, nullable=False, default="conversation",
@@ -672,3 +685,27 @@ class CodexRelationGap(Base):
     # apply — records the near-miss without acting on it.
     suggested_relation = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Bi-temporal invariant (G45 §5)
+# ─────────────────────────────────────────────────────────────────────────────
+# `valid_until` (the fact stopped being true) and `unlearned_at` (ICE stopped
+# believing it) are set at the same instant by every retraction path there is:
+# A8 negation, contradiction supersession, property replacement, expiry, and
+# codex_ops' manual edits — SEVEN call sites across two modules at the time of
+# writing.
+#
+# Mirroring them here rather than at each site is deliberate. The alternative is
+# seven identical two-line edits, and the eighth retraction site somebody adds
+# next month silently writes an edge that was retracted but never unlearned —
+# a half-populated column that reads as "still believed". This listener cannot
+# be forgotten by a new call site.
+#
+# ⚠ It fires on ORM attribute assignment only. A bulk `query.update()` or raw
+# SQL retraction bypasses it and must set `unlearned_at` itself; there is no
+# such path today, and this comment is the reason to check before adding one.
+@event.listens_for(CodexEdge.valid_until, "set")
+def _mirror_unlearned_at(target, value, oldvalue, initiator):
+    if value is not None and getattr(target, "unlearned_at", None) is None:
+        target.unlearned_at = value
