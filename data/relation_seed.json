@@ -1,0 +1,737 @@
+{
+ "meta": {
+  "utc": "2026-08-13T12:19:11Z",
+  "unix": 1786623551,
+  "script": "seed_relation_vocab.py",
+  "script_path": "/home/deepnar/Programs/ice/scripts/z1/seed_relation_vocab.py",
+  "argv": [],
+  "args": {
+   "min_arms": 4,
+   "min_count": 5,
+   "dry_run": false
+  },
+  "git": {
+   "commit": "c33ec7868de3",
+   "branch": "main",
+   "dirty": true,
+   "dirty_files": [
+    "M CLAUDE.md",
+    " M docs/ROADMAP.md",
+    " M scripts/z1/generate_probes.py",
+    " M scripts/z1/score_retrieval.py",
+    " M scripts/z1/seed_store.py",
+    " M src/api/config.py",
+    " M src/memory/models.py",
+    " M src/retrieval/orchestrator.py",
+    " M src/workers/codex_extractor.py",
+    " M src/workers/procedural_extractor.py",
+    "?? alembic/versions/505f12031434_bi_temporal_codex_edges_learned_at_.py",
+    "?? docs/specs/G45_open_relation_vocabulary.md",
+    "?? scripts/z1/generate_typed_probes.py",
+    "?? scripts/z1/harvest_probe_context.py",
+    "?? scripts/z1/run_meta.py",
+    "?? scripts/z1/score_typed.py",
+    "?? scripts/z1/seed_relation_vocab.py"
+   ]
+  },
+  "settings_resolved": {
+   "codex_relation_open_vocabulary": true,
+   "codex_relation_canonical_threshold": 0.86
+  },
+  "inputs": [
+   {
+    "path": "experiments/curation_files/VOCAB_CANDIDATES.md",
+    "sha256": "684e3dbc52323419",
+    "bytes": 12586
+   }
+  ],
+  "env": {
+   "python": "3.11.9",
+   "platform": "Linux-7.1.4-1-cachyos-x86_64-with-glibc2.43",
+   "host": "orien",
+   "user": "deepnar",
+   "gpu": "NVIDIA GeForce RTX 5090 Laptop GPU, 24463 MiB",
+   "cwd": "/home/deepnar/Programs/ice"
+  },
+  "extra": {
+   "kept": 111,
+   "rejected": {
+    "low_arms": 31,
+    "low_count": 0,
+    "blocked": 7,
+    "malformed": 1
+   },
+   "note": "seed for canonicalisation only \u2014 these are NOT a closed vocabulary and nothing is rejected for being absent from them"
+  }
+ },
+ "relations": [
+  "has",
+  "built",
+  "carries",
+  "asks",
+  "holds",
+  "describes",
+  "finds",
+  "property",
+  "handles",
+  "needs",
+  "asked",
+  "produces",
+  "found",
+  "feels",
+  "builds",
+  "built_by",
+  "creates",
+  "generates",
+  "makes",
+  "breaks",
+  "affects",
+  "learning",
+  "after",
+  "made",
+  "cost",
+  "rare",
+  "called",
+  "associated_with",
+  "fake",
+  "involves",
+  "emerges_from",
+  "becomes",
+  "includes",
+  "does",
+  "have",
+  "location",
+  "gives",
+  "real",
+  "backup",
+  "earns",
+  "action",
+  "made_by",
+  "built_flaw",
+  "appears",
+  "exists",
+  "activity_participation",
+  "helps",
+  "costs",
+  "sees",
+  "loves",
+  "absorbs",
+  "reframes",
+  "goes_black",
+  "kills",
+  "erases",
+  "discusses",
+  "grows_from",
+  "bad",
+  "avoid",
+  "strengths",
+  "continues",
+  "falls_toward",
+  "debate",
+  "looks_at",
+  "optional",
+  "space",
+  "can_copy",
+  "cannot_copy",
+  "experiences",
+  "get",
+  "applies_to",
+  "worth",
+  "did",
+  "exists_in",
+  "social_relationship",
+  "deserves",
+  "connection",
+  "built_on",
+  "comes_from",
+  "tool",
+  "build",
+  "integrated",
+  "allowed",
+  "became",
+  "score",
+  "arrives",
+  "wants",
+  "connected_to",
+  "kill",
+  "based_on",
+  "strength",
+  "takes",
+  "hesitation",
+  "means",
+  "shows",
+  "goal",
+  "lands",
+  "had",
+  "first",
+  "focuses_on",
+  "completes",
+  "prefer",
+  "say",
+  "holds_up",
+  "emphasizes",
+  "attached_to",
+  "built_on_top_of",
+  "argues",
+  "introduces",
+  "governing_principle",
+  "come_to"
+ ],
+ "detail": [
+  {
+   "relation": "has",
+   "count": 122,
+   "arms": 8
+  },
+  {
+   "relation": "built",
+   "count": 75,
+   "arms": 8
+  },
+  {
+   "relation": "carries",
+   "count": 38,
+   "arms": 8
+  },
+  {
+   "relation": "asks",
+   "count": 38,
+   "arms": 7
+  },
+  {
+   "relation": "holds",
+   "count": 28,
+   "arms": 7
+  },
+  {
+   "relation": "describes",
+   "count": 27,
+   "arms": 7
+  },
+  {
+   "relation": "finds",
+   "count": 26,
+   "arms": 7
+  },
+  {
+   "relation": "property",
+   "count": 26,
+   "arms": 7
+  },
+  {
+   "relation": "handles",
+   "count": 20,
+   "arms": 7
+  },
+  {
+   "relation": "needs",
+   "count": 19,
+   "arms": 7
+  },
+  {
+   "relation": "asked",
+   "count": 17,
+   "arms": 7
+  },
+  {
+   "relation": "produces",
+   "count": 16,
+   "arms": 7
+  },
+  {
+   "relation": "found",
+   "count": 12,
+   "arms": 7
+  },
+  {
+   "relation": "feels",
+   "count": 24,
+   "arms": 6
+  },
+  {
+   "relation": "builds",
+   "count": 23,
+   "arms": 6
+  },
+  {
+   "relation": "built_by",
+   "count": 22,
+   "arms": 6
+  },
+  {
+   "relation": "creates",
+   "count": 20,
+   "arms": 6
+  },
+  {
+   "relation": "generates",
+   "count": 18,
+   "arms": 6
+  },
+  {
+   "relation": "makes",
+   "count": 16,
+   "arms": 6
+  },
+  {
+   "relation": "breaks",
+   "count": 15,
+   "arms": 6
+  },
+  {
+   "relation": "affects",
+   "count": 11,
+   "arms": 6
+  },
+  {
+   "relation": "learning",
+   "count": 11,
+   "arms": 6
+  },
+  {
+   "relation": "after",
+   "count": 10,
+   "arms": 6
+  },
+  {
+   "relation": "made",
+   "count": 10,
+   "arms": 6
+  },
+  {
+   "relation": "cost",
+   "count": 10,
+   "arms": 6
+  },
+  {
+   "relation": "rare",
+   "count": 9,
+   "arms": 6
+  },
+  {
+   "relation": "called",
+   "count": 9,
+   "arms": 6
+  },
+  {
+   "relation": "associated_with",
+   "count": 9,
+   "arms": 6
+  },
+  {
+   "relation": "fake",
+   "count": 8,
+   "arms": 6
+  },
+  {
+   "relation": "involves",
+   "count": 8,
+   "arms": 6
+  },
+  {
+   "relation": "emerges_from",
+   "count": 6,
+   "arms": 6
+  },
+  {
+   "relation": "becomes",
+   "count": 45,
+   "arms": 5
+  },
+  {
+   "relation": "includes",
+   "count": 28,
+   "arms": 5
+  },
+  {
+   "relation": "does",
+   "count": 25,
+   "arms": 5
+  },
+  {
+   "relation": "have",
+   "count": 16,
+   "arms": 5
+  },
+  {
+   "relation": "location",
+   "count": 15,
+   "arms": 5
+  },
+  {
+   "relation": "gives",
+   "count": 15,
+   "arms": 5
+  },
+  {
+   "relation": "real",
+   "count": 14,
+   "arms": 5
+  },
+  {
+   "relation": "backup",
+   "count": 13,
+   "arms": 5
+  },
+  {
+   "relation": "earns",
+   "count": 12,
+   "arms": 5
+  },
+  {
+   "relation": "action",
+   "count": 11,
+   "arms": 5
+  },
+  {
+   "relation": "made_by",
+   "count": 11,
+   "arms": 5
+  },
+  {
+   "relation": "built_flaw",
+   "count": 10,
+   "arms": 5
+  },
+  {
+   "relation": "appears",
+   "count": 10,
+   "arms": 5
+  },
+  {
+   "relation": "exists",
+   "count": 10,
+   "arms": 5
+  },
+  {
+   "relation": "activity_participation",
+   "count": 9,
+   "arms": 5
+  },
+  {
+   "relation": "helps",
+   "count": 9,
+   "arms": 5
+  },
+  {
+   "relation": "costs",
+   "count": 9,
+   "arms": 5
+  },
+  {
+   "relation": "sees",
+   "count": 8,
+   "arms": 5
+  },
+  {
+   "relation": "loves",
+   "count": 8,
+   "arms": 5
+  },
+  {
+   "relation": "absorbs",
+   "count": 8,
+   "arms": 5
+  },
+  {
+   "relation": "reframes",
+   "count": 8,
+   "arms": 5
+  },
+  {
+   "relation": "goes_black",
+   "count": 7,
+   "arms": 5
+  },
+  {
+   "relation": "kills",
+   "count": 7,
+   "arms": 5
+  },
+  {
+   "relation": "erases",
+   "count": 7,
+   "arms": 5
+  },
+  {
+   "relation": "discusses",
+   "count": 7,
+   "arms": 5
+  },
+  {
+   "relation": "grows_from",
+   "count": 7,
+   "arms": 5
+  },
+  {
+   "relation": "bad",
+   "count": 6,
+   "arms": 5
+  },
+  {
+   "relation": "avoid",
+   "count": 6,
+   "arms": 5
+  },
+  {
+   "relation": "strengths",
+   "count": 6,
+   "arms": 5
+  },
+  {
+   "relation": "continues",
+   "count": 6,
+   "arms": 5
+  },
+  {
+   "relation": "falls_toward",
+   "count": 5,
+   "arms": 5
+  },
+  {
+   "relation": "debate",
+   "count": 5,
+   "arms": 5
+  },
+  {
+   "relation": "looks_at",
+   "count": 5,
+   "arms": 5
+  },
+  {
+   "relation": "optional",
+   "count": 5,
+   "arms": 5
+  },
+  {
+   "relation": "space",
+   "count": 5,
+   "arms": 5
+  },
+  {
+   "relation": "can_copy",
+   "count": 5,
+   "arms": 5
+  },
+  {
+   "relation": "cannot_copy",
+   "count": 5,
+   "arms": 5
+  },
+  {
+   "relation": "experiences",
+   "count": 18,
+   "arms": 4
+  },
+  {
+   "relation": "get",
+   "count": 12,
+   "arms": 4
+  },
+  {
+   "relation": "applies_to",
+   "count": 11,
+   "arms": 4
+  },
+  {
+   "relation": "worth",
+   "count": 10,
+   "arms": 4
+  },
+  {
+   "relation": "did",
+   "count": 9,
+   "arms": 4
+  },
+  {
+   "relation": "exists_in",
+   "count": 9,
+   "arms": 4
+  },
+  {
+   "relation": "social_relationship",
+   "count": 9,
+   "arms": 4
+  },
+  {
+   "relation": "deserves",
+   "count": 9,
+   "arms": 4
+  },
+  {
+   "relation": "connection",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "built_on",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "comes_from",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "tool",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "build",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "integrated",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "allowed",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "became",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "score",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "arrives",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "wants",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "connected_to",
+   "count": 7,
+   "arms": 4
+  },
+  {
+   "relation": "kill",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "based_on",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "strength",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "takes",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "hesitation",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "means",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "shows",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "goal",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "lands",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "had",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "first",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "focuses_on",
+   "count": 6,
+   "arms": 4
+  },
+  {
+   "relation": "completes",
+   "count": 5,
+   "arms": 4
+  },
+  {
+   "relation": "prefer",
+   "count": 5,
+   "arms": 4
+  },
+  {
+   "relation": "say",
+   "count": 5,
+   "arms": 4
+  },
+  {
+   "relation": "holds_up",
+   "count": 5,
+   "arms": 4
+  },
+  {
+   "relation": "emphasizes",
+   "count": 5,
+   "arms": 4
+  },
+  {
+   "relation": "attached_to",
+   "count": 5,
+   "arms": 4
+  },
+  {
+   "relation": "built_on_top_of",
+   "count": 5,
+   "arms": 4
+  },
+  {
+   "relation": "argues",
+   "count": 5,
+   "arms": 4
+  },
+  {
+   "relation": "introduces",
+   "count": 5,
+   "arms": 4
+  },
+  {
+   "relation": "governing_principle",
+   "count": 5,
+   "arms": 4
+  },
+  {
+   "relation": "come_to",
+   "count": 5,
+   "arms": 4
+  }
+ ]
+}

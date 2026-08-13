@@ -7,7 +7,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
+import numpy as np
 import structlog
+from sqlalchemy import text
 
 from src.workers.llm_json import strip_fences
 from sqlalchemy.orm.attributes import flag_modified
@@ -325,12 +327,30 @@ def _normalize_term(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
-def _ground_triplets(triplets: list, ner_entities: List[str]):
+def _ground_triplets(triplets: list, ner_entities: List[str], source_text: str = ""):
     """Split *triplets* into (grounded, rejected) against the NER-confirmed
     entity list. A term is grounded if its normalised form equals a confirmed
     entity or its token set is a subset (either direction) of one — so
     shortened ('citadel' ⊂ 'obsidian citadel') and qualified mentions still
-    ground, while invented entities with no token overlap are rejected."""
+    ground, while invented entities with no token overlap are rejected.
+
+    G43: a PROPERTY relation's object is a value, not an entity, so NER has
+    nothing to say about it — and until 2026-08-12 that meant it was not
+    checked at all. `november --eye_color--> golden black` and
+    `krishna --role--> god of love` both reached the live graph that way, with
+    the invented half sitting in the position nobody looked at. Property
+    objects are now required to OCCUR IN THE SOURCE TEXT. That is the one
+    check available for a value: it cannot be confirmed as an entity, but a
+    value the turn never contains was not read out of the turn.
+
+    Deliberately verbatim (after normalisation) rather than fuzzy. Rejection is
+    not deletion here — a rejected triplet still enters the graph at
+    `codex_conf_rejected` — so the cost of being strict is a true fact landing
+    at low confidence, while the cost of being loose is a fabricated one landing
+    at high confidence. Measured on the 293-turn store: a strict rule of this
+    shape marks 4.8% of existing edges (201 of 4,170), so it is not a purge.
+    """
+    norm_source = _normalize_term(source_text) if source_text else ""
     norm_entities = set()
     entity_token_sets = []
     for e in ner_entities:
@@ -350,11 +370,24 @@ def _ground_triplets(triplets: list, ner_entities: List[str]):
             return False
         return any(t_tokens <= e or e <= t_tokens for e in entity_token_sets)
 
+    def _value_in_source(term: str) -> bool:
+        """G43: a property VALUE has to appear in the turn it is attributed to.
+        No source text (legacy callers, tests) means no opinion — unchanged
+        behaviour rather than a silent mass-rejection."""
+        if not norm_source:
+            return True
+        nt = _normalize_term(term)
+        return bool(nt) and nt in norm_source
+
     keep, drop = [], []
     for t in triplets:
         subj_ok = _grounded(t.get("subject", ""))
-        # Property relations carry a value object, not an entity — ground subject only.
-        obj_ok = True if t.get("relation") in PROPERTY_RELATIONS else _grounded(t.get("object", ""))
+        # Property relations carry a value object, not an entity: NER cannot
+        # ground it, so it is checked against the source text instead.
+        if t.get("relation") in PROPERTY_RELATIONS:
+            obj_ok = _value_in_source(t.get("object", ""))
+        else:
+            obj_ok = _grounded(t.get("object", ""))
         (keep if (subj_ok and obj_ok) else drop).append(t)
     return keep, drop
 
@@ -427,8 +460,160 @@ def _relation_forms(raw: str):
             yield "is_" + "_".join(toks)
 
 
+def _is_inverse_pair(a: str, b: str) -> bool:
+    """True when *a* and *b* are the active/passive forms of one relation.
+
+    G45: `built`/`built_by`, `creates`/`created_by` and `makes`/`made_by` all
+    appear spontaneously in real extraction output, and every similarity measure
+    scores them near-identical. Collapsing them **writes the fact backwards** —
+    `A built_by B` becoming `A built B` swaps subject and object. So this is
+    checked BEFORE any similarity test and is deterministic, not a threshold:
+    a guard that a threshold can skip is not a guard.
+    """
+    a, b = (a or "").strip().lower(), (b or "").strip().lower()
+    if not a or not b or a == b:
+        return False
+    # Known converses first — similarity CANNOT distinguish these (measured:
+    # before/after 0.8791, above the merge threshold), so the only reliable
+    # signal is the curated map. See _ANTONYM_PAIRS for why this is not
+    # optional.
+    _ant = globals().get("ANTONYM_OF") or {}
+    if b in _ant.get(a, ()) or a in _ant.get(b, ()):
+        return True
+    # Blanket direction rule, and deliberately blunt: two relations may not be
+    # merged when exactly ONE of them is marked passive. Matching stems was the
+    # first attempt and it failed on irregulars — `makes`/`made_by` share no
+    # stem, and that pair appears in the real harvested data. Being blunt costs
+    # at most a missed merge between an active and a passive form, which leaves
+    # two correct relations; being clever costs a fact written backwards.
+    return _is_passive(a) != _is_passive(b)
+
+
+def _is_passive(rel: str) -> bool:
+    """Whether a relation names the object→subject direction (`built_by`,
+    `is_used`). Marker-based, so it holds for irregular verbs too."""
+    r = (rel or "").strip().lower()
+    return r.endswith("_by") or r.startswith(("is_", "was_", "been_"))
+
+
+_RELATION_SEED: Optional[List[str]] = None
+
+
+def _seed_relations() -> List[str]:
+    """G45: the harvested starter vocabulary, loaded once per process.
+
+    A fresh store holds no relations, so canonicalisation has nothing to match
+    against and the first few hundred turns each invent their own synonym —
+    exactly the spread the mechanism exists to prevent. These 111 relations are
+    the ones several independent models produced for the same idea, so they are
+    the safest possible starting set. **They are a SEED, not a gate:** nothing
+    is rejected for being absent from them.
+    """
+    global _RELATION_SEED
+    if _RELATION_SEED is None:
+        _RELATION_SEED = []
+        try:
+            from src.paths import REPO_ROOT
+            p = REPO_ROOT / "data" / "relation_seed.json"
+            if p.exists():
+                _RELATION_SEED = list(json.loads(p.read_text()).get("relations") or [])
+        except Exception as err:                        # noqa: BLE001
+            logger.warning("codex_relation_seed_unreadable", error=str(err)[:120])
+    return _RELATION_SEED
+
+
+def known_relations(db=None) -> list:
+    """The open vocabulary: what the graph holds, plus the harvested seed.
+
+    Fetched ONCE per extraction call and passed down, not queried per triplet:
+    a chunk yields dozens of relations and this is on the background path, not
+    the request path, but a query per relation is still gratuitous.
+    """
+    own = db is None
+    if own:
+        from src.api.db import SessionLocal
+        db = SessionLocal()
+    try:
+        live = [r[0] for r in db.execute(text(
+            "SELECT DISTINCT relation FROM codex_edges "
+            "WHERE relation IS NOT NULL")).all() if r[0]]
+    except Exception as err:
+        logger.warning("codex_known_relations_failed", error=str(err)[:120])
+        live = []
+    finally:
+        if own:
+            db.close()
+    return sorted(set(live) | set(_seed_relations()))
+
+
+def canonical_relation(raw: str, known=None):
+    """G45: resolve *raw* onto a relation the graph already uses, or accept it.
+
+    The closed-vocabulary gate this replaces returned None for anything not on a
+    197-word list, and the caller **discarded** those triplets — 1,259 of them in
+    a single 293-turn seed, including true facts like `i --didnt_get--> csi`.
+    Dropping kept 32% of what the model produced; forcing the enum kept 100% and
+    got ~78% of them wrong. The list itself was the defect.
+
+    Three tiers, cheapest first:
+      1. an exact vocabulary form — unchanged behaviour, keeps existing
+         relations stable;
+      2. a relation ALREADY IN THE GRAPH within
+         `codex_relation_canonical_threshold` — write-time drift control, so the
+         graph converges instead of sprouting a synonym per turn;
+      3. otherwise the relation itself — new is not the same as wrong.
+
+    Inverse pairs are never collapsed (see `_is_inverse_pair`).
+    """
+    if not raw:
+        return None
+    cleaned = re.sub(r"\s+", "_", str(raw).strip().lower())
+    cleaned = re.sub(r"[^a-z0-9_]", "", cleaned).strip("_")
+    if not cleaned:
+        return None
+
+    for form in _relation_forms(raw):
+        if form in ALLOWED_RELATIONS:
+            return form
+
+    if not settings.codex_relation_open_vocabulary:
+        return None
+
+    if known:
+        try:
+            candidates = [k for k in known
+                          if k and k != cleaned and not _is_inverse_pair(cleaned, k)]
+            if candidates:
+                vecs = embedder.encode([cleaned] + candidates,
+                                       convert_to_tensor=False,
+                                       show_progress_bar=False)
+                arr = np.asarray(vecs, dtype=np.float64)
+                target, rest = arr[0], arr[1:]
+                sims = rest @ target / (
+                    np.linalg.norm(rest, axis=1) * np.linalg.norm(target) + 1e-12)
+                best = int(np.argmax(sims))
+                if float(sims[best]) >= settings.codex_relation_canonical_threshold:
+                    if candidates[best] != cleaned:
+                        logger.info("codex_relation_canonicalised",
+                                    incoming=cleaned, reused=candidates[best],
+                                    similarity=round(float(sims[best]), 4))
+                    return candidates[best]
+        except Exception as err:
+            # Never lose the relation because canonicalisation failed — the
+            # whole point of this item is that a relation survives.
+            logger.warning("codex_relation_canonicalise_failed",
+                           relation=cleaned, error=str(err)[:120])
+
+    return cleaned
+
+
 def normalize_relation(raw: str):
     """Map a model-emitted relation onto the vocabulary, or None.
+
+    ⚠ **G45 superseded this as the write-path decision.** `canonical_relation`
+    is what extraction calls now; this stays for callers that genuinely want
+    "is this one of the 197 controlled words" (and for the closed-vocabulary
+    kill-switch, `codex_relation_open_vocabulary=False`).
 
     ⚠ Scope is deliberately narrow. Measured over 1,152 real out-of-vocabulary
     relations (2026-08-04, PROVENANCE): this recovers ~1%, and the *full*
@@ -460,20 +645,25 @@ def extract_triplets(text: str, model_override: str = "",
     keep working unchanged (TRAPS #8).
     """
     grouped_relations = _build_grouped_relation_block()
+    # G45: the open vocabulary, read once per call rather than per triplet.
+    _known_rels = (known_relations()
+                   if settings.codex_relation_open_vocabulary else [])
 
     prompt = (
         "You are a precise fact extractor. Convert the given text into a JSON array of "
         "subject‑relation‑object triplets.\n\n"
         "STRICT RULES:\n"
-        "1. Use ONLY the individual relation words listed below (e.g. uses, friend, lives_in). "
+        "1. Prefer the individual relation words listed below (e.g. uses, friend, lives_in). "
         "Relations are grouped under '# category: ...' comment headers purely to help you pick "
         "the most precise word when several similar relations exist — the category header itself "
         "is NEVER a valid relation value. Pick one specific word from inside a group, never the "
         "header text above it.\n"
         f"{grouped_relations}\n"
-        "   If a fact does not naturally and clearly fit any of these individual relation words, "
-        "SKIP IT – never invent a new relation, never output a category name, and never force a "
-        "fact into a relation that doesn't truly describe it.\n"
+        "   If a fact does not naturally fit any of these words, use the clearest short verb "
+        "phrase of your own instead (lowercase, underscores, e.g. didnt_get, applies_to). "
+        "NEVER output a category name, and never force a fact into a relation that doesn't "
+        "truly describe it — a precise new relation is better than a wrong listed one, and "
+        "far better than dropping the fact.\n"
         "2. Canonicalise subjects and objects: lowercase, singular, no punctuation, concise.\n"
         "   Example: \"PostgreSQL\" → \"postgresql\", \"the goo blade\" → \"goo blade\".\n"
         "3. For facts that describe a property of something (e.g., name, age, role, profession, description), "
@@ -607,7 +797,10 @@ def extract_triplets(text: str, model_override: str = "",
             # extraction looked like it ran, and mostly it deleted its own work.
             kept, dropped = [], []
             for t in chunk_triplets:
-                mapped = normalize_relation(t.get("relation", ""))
+                # G45: canonicalise, do not gate. This returned None for
+                # anything off a 197-word list and the triplet was destroyed —
+                # 1,259 in one seed, `i --didnt_get--> csi` among them.
+                mapped = canonical_relation(t.get("relation", ""), known=_known_rels)
                 if mapped:
                     if mapped != t.get("relation"):
                         log_relation_repairs.append((t.get("relation"), mapped))
@@ -644,7 +837,8 @@ def extract_triplets(text: str, model_override: str = "",
             # corroborated (or they decay out). No-NER chunks get mid confidence
             # (nothing to ground against).
             if ner_entities:
-                grounded, rejected = _ground_triplets(chunk_triplets, ner_entities)
+                grounded, rejected = _ground_triplets(chunk_triplets, ner_entities,
+                                                      source_text=chunk)
                 for t in grounded:
                     t["confidence"] = settings.codex_conf_grounded
                 for t in rejected:
@@ -679,6 +873,42 @@ def extract_triplets(text: str, model_override: str = "",
 
 
 
+# G44: tokens that cannot name a node, whatever the writing style.
+#
+# ⚠ NOT A LENGTH RULE, and deliberately so. "short name = junk" is a bet on how
+# people write, which is the class of rule CLAUDE.md's invariance rule exists to
+# kill and which G45 calls out by name in `_stem`. `ai`, `ml`, `q4` and `eq` are
+# four characters or fewer and are perfectly good nodes.
+#
+# What these have in common is FUNCTIONAL, not stylistic: none of them refers to
+# anything on its own. A node called `i` collects every speaker who ever said
+# "I"; a node called `8` collects every unrelated eight. They can never be
+# looked up and they merge things that are not the same, which is the defect —
+# measured 2026-08-12, the store held `8`, `3`, `6`, `2` and `d` typed as
+# **person**. The set is closed and universal (pronouns, articles, bare
+# numerals, punctuation), so it infers no intent and carries no convention.
+_NON_REFERRING = {
+    "i", "me", "my", "mine", "myself", "you", "your", "yours", "yourself",
+    "he", "him", "his", "she", "her", "hers", "it", "its", "we", "us", "our",
+    "ours", "they", "them", "their", "theirs", "this", "that", "these",
+    "those", "the", "a", "an", "there", "here", "who", "what", "which",
+    "someone", "something", "anyone", "anything", "everyone", "everything",
+}
+
+
+def is_unusable_entity_name(name: str) -> bool:
+    """True when *name* cannot serve as a graph node. See `_NON_REFERRING`."""
+    n = (name or "").strip().lower()
+    if not n:
+        return True
+    if n in _NON_REFERRING:
+        return True
+    # Nothing but digits, punctuation or whitespace — `8`, `~`, `10`, `- -`.
+    if not any(ch.isalpha() for ch in n):
+        return True
+    return False
+
+
 def get_or_create_entity(db, name: str) -> CodexEntity:
     """Resolves structural identity records across global name and alias spaces."""
     canonical = name.strip().lower()
@@ -689,6 +919,55 @@ def get_or_create_entity(db, name: str) -> CodexEntity:
     entity = db.query(CodexEntity).filter(CodexEntity.aliases.any(canonical)).first()
     if entity:
         return entity
+
+    # ── G44 second half: node promotion ──────────────────────────────────────
+    # A generic node is one nothing can usefully be walked to. When a strictly
+    # MORE SPECIFIC name arrives ("master plan" for a stored "plan"), Graphiti's
+    # move is to promote: the specific node becomes canonical and the generic
+    # name resolves to it, so later mentions land on the node worth traversing
+    # rather than sprouting a second one.
+    #
+    # ⚠ Only STUB nodes are eligible — zero edges by default. Promotion merges
+    # two identities, and "plan" is not always "master plan"; doing it to a node
+    # that already carries facts would silently re-attribute them. A stub has no
+    # facts to re-attribute, so the merge cannot destroy anything. Off by
+    # default regardless (`codex_node_promotion`).
+    if settings.codex_node_promotion:
+        try:
+            tokens = set(canonical.split())
+            if len(tokens) > 1:
+                for generic in db.query(CodexEntity).filter(
+                        CodexEntity.canonical_name.in_(list(tokens))).all():
+                    degree = db.query(CodexEdge).filter(
+                        (CodexEdge.source_id == generic.id)
+                        | (CodexEdge.target_id == generic.id)).count()
+                    if degree > settings.codex_node_promotion_max_degree:
+                        continue
+                    new_specific = CodexEntity(
+                        id=generate_uuid5(canonical),
+                        canonical_name=canonical,
+                        aliases=list({*(generic.aliases or []), generic.canonical_name, name}),
+                        tags=list(generic.tags or []),
+                        properties=dict(generic.properties or {}),
+                        context_payload=generic.context_payload or "",
+                        entity_type=generic.entity_type,
+                        description=generic.description,
+                        embedding=embedder.encode(canonical,
+                                                  convert_to_tensor=False).tolist(),
+                        last_updated=datetime.now(timezone.utc),
+                    )
+                    db.add(new_specific)
+                    db.delete(generic)
+                    db.flush()
+                    logger.info("codex_node_promoted",
+                                generic=generic.canonical_name,
+                                promoted_to=canonical, generic_degree=degree)
+                    return new_specific
+        except Exception as err:
+            # Promotion is an optimisation; never lose the entity over it.
+            logger.warning("codex_node_promotion_failed",
+                           name=canonical, error=str(err)[:120])
+            db.rollback()
 
     new_entity = CodexEntity(
         id=generate_uuid5(canonical),
@@ -874,7 +1153,30 @@ _ANTONYM_PAIRS = [
     ("friend", "enemy"), ("ally", "enemy"),
     ("married_to", "is_divorced_from"), ("is_dating", "is_separated_from"),
     ("endorses", "criticises"),
-]  # all in the controlled vocabulary (verified); add new pairs only for real relations
+    # ── G45: CONVERSES, added 2026-08-13 ────────────────────────────────────
+    # These are not negations, they are DIRECTION REVERSALS: `A parent_of B` is
+    # not "not `A child_of B`", it is the same fact read from the other end.
+    # Two reasons they belong here now:
+    #   1. A6 contradiction detection gets them for free.
+    #   2. ⚑ Canonicalisation MUST NOT merge them, and similarity cannot tell
+    #      them apart. Measured 2026-08-13 on the live encoder:
+    #        before/after         0.8791   ← ABOVE the 0.86 merge threshold
+    #        parent_of/child_of   0.8569
+    #        teaches/learns_from  0.8159
+    #      Embeddings place converses next to each other because they share
+    #      every context word. Left to similarity, `before` would have been
+    #      canonicalised into `after` — silently reversing every temporal fact
+    #      in the graph. This list is what stops that, deterministically.
+    # ⚠ NEGATIONS ARE DELIBERATELY ABSENT (`lacks`, `excludes`, `destroys`).
+    # A8 stores those as `negated=True` on the edge specifically so the
+    # vocabulary does not double; adding them here would re-create by hand the
+    # thing that mechanism exists to avoid.
+    ("before", "after"), ("parent_of", "child_of"),
+    ("teaches", "learns_from"), ("follows", "precedes"),
+    ("supports", "opposes"), ("above", "below"),
+    ("buys", "sells"), ("wins", "loses"),
+    ("member_of", "contains"), ("part_of", "has_part"),
+]  # add pairs only for CONVERSES; negation is A8's job, not the vocabulary's
 ANTONYM_OF: dict = {}
 for _a, _b in _ANTONYM_PAIRS:
     ANTONYM_OF.setdefault(_a, set()).add(_b)
@@ -1021,6 +1323,20 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
     edge keeps the highest confidence seen (corroboration raises trust).
     *turn_text* / *reconciler* drive the A6 reconciliation loop (below).
     *negated* (A8) stores the relation's negative polarity."""
+
+    # G44: an edge is only as useful as its endpoints. A triplet hanging off a
+    # node nobody can look up is not a weaker fact, it is an unreachable one —
+    # so it is refused here, at the single write boundary, rather than filtered
+    # downstream. Loud on purpose: the RATE is the finding, and a silent skip
+    # would read as a clean graph (CLAUDE.md — a silent fallback hides an outage).
+    for role, candidate in (("subject", subject_name), ("object", object_name)):
+        if is_unusable_entity_name(candidate):
+            logger.warning("codex_entity_name_unusable", role=role,
+                           name=str(candidate)[:40], relation=relation,
+                           subject=str(subject_name)[:40],
+                           object=str(object_name)[:40],
+                           reason="not a referring expression — cannot be a node")
+            return
 
     subj = get_or_create_entity(db, subject_name)
     obj  = get_or_create_entity(db, object_name)
