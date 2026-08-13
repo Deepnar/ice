@@ -470,7 +470,84 @@ class Settings(BaseSettings):
     decay_daily_unaccessed: float = 0.95
     decay_daily_accessed: float = 0.98
     decay_daily_creative: float = 0.99
+    # G42: procedural extraction reads a SESSION of the user's own prompts, not
+    # one turn. A single turn cannot evidence recurrence, so asking a model to
+    # name a "recurring" habit from one turn guarantees invention — measured
+    # 2026-08-12, all 247 stored patterns were evidenced by exactly one turn and
+    # only 2 ever reached the reinforcement threshold. Sessions shorter than
+    # `min_session_turns` are skipped rather than guessed at; `session_step`
+    # re-extracts as a session grows instead of once per turn (a 20-turn session
+    # costs 5 calls, not 20).
+    # G45: the relation vocabulary is OPEN. An incoming relation is reused as an
+    # existing one only above this cosine; otherwise it is accepted as a new
+    # relation rather than destroyed. Was a closed 197-word list that threw away
+    # 1,259 true relations in one seed (`i --didnt_get--> csi` among them).
+    # CALIBRATED 2026-08-13 (was a guessed 0.86). Measured on the live encoder
+    # over 15 pairs that should merge and 15 that must not:
+    #   * with converses guarded deterministically (_ANTONYM_PAIRS), the highest
+    #     scoring pair that MUST NOT merge is `likes`/`dislikes` at **0.787**;
+    #   * true synonyms run 0.786–0.954 (`using`/`uses` 0.872,
+    #     `carrying`/`carries` 0.911, `needs`/`requires` 0.808).
+    # 0.86 produced 0 wrong merges but caught only 9/15 real ones; 0.82 keeps
+    # 0 wrong merges with clear margin over 0.787 and catches 11/15.
+    # ⚠ Calibrated on 30 hand-built pairs — enough to move off a guess, not
+    # enough to be final. The classes OVERLAP (one true synonym scores 0.645),
+    # so no threshold separates them perfectly and the deterministic guards do
+    # the load-bearing work. Erring high is deliberate: a wrong merge writes a
+    # false relation permanently, a missed merge only leaves two synonyms.
+    codex_relation_canonical_threshold: float = 0.82
+    codex_relation_open_vocabulary: bool = True
+    # G44 second half — node promotion. When a MORE SPECIFIC name arrives for a
+    # generic node already in the graph ("master plan" against a stored "plan"),
+    # the generic one is registered as an alias of the specific one so later
+    # mentions resolve to the node worth walking.
+    # ⚠ DEFAULT OFF, and that is a decision, not an oversight: promotion merges
+    # identities, and merging "plan" into "master plan" is WRONG whenever the
+    # user also has an unrelated plan. Only stub nodes (no edges at all) are
+    # eligible even when enabled, because merging a stub cannot destroy a fact.
+    # The aggressive form — promoting nodes that already carry edges, migrating
+    # those edges across — changes stored history and needs its own decision.
+    codex_node_promotion: bool = False
+    codex_node_promotion_max_degree: int = 0
+
+    # ── Z1 probe generation (tooling, not a runtime path) ───────────────────
+    # An external model writes the typed probe set (G48). Declared here because
+    # Settings forbids extra keys: leaving these as bare .env lines made EVERY
+    # import of this module raise ValidationError, which takes the whole
+    # application down — the proxy, the workers and every test at once. Found
+    # 2026-08-13, seconds after they were added.
+    # ⚠ probe_api_key is a CREDENTIAL. Never log it, never echo it, never write
+    # it into a tracked file. `.env` is gitignored (.gitignore:5) and untracked.
+    probe_api_key: str = ""
+    probe_api_base_url: str = ""
+    probe_model: str = "deepseek-v4-flash"
+
+    procedural_min_session_turns: int = 3
+    procedural_session_step: int = 5
+    procedural_max_prompt_chars: int = 12000
+    # Cosine above which a new pattern counts as a repeat of a stored one. Was a
+    # bare 0.85 in the extractor, so it could not be swept.
+    # ⚠ MEASURED 2026-08-13 AND PROBABLY WRONG: two extractions of the SAME
+    # habit — "restates or asks to restate the plan before proceeding" and
+    # "requests confirmation of the agreed-upon plan before proceeding" — score
+    # **0.708**, so they land as two patterns of count 1 rather than one of
+    # count 2. With G42's fabrication fixed, THIS is what still keeps
+    # `reinforcement_count >= 3` out of reach. Left at 0.85 deliberately: one
+    # observation is not a calibration, and retuning on it would be the same
+    # mistake in the other direction. Z1 sweeps it.
+    procedural_similarity_threshold: float = 0.85
+
     decay_strengthen_amount: float = 0.15
+    # Master switch for the strengthening WRITE itself, not its magnitude.
+    # Zeroing decay_strengthen_amount stops decay_score moving but NOT the
+    # access_count increment beside it, and that increment is enough to make
+    # retrieval irreproducible: measured 2026-08-12, two identical runs over
+    # the same store agreed on only 26 of 40 result sets with it on, and 40 of
+    # 40 with it off. access_count has no reader in the retrieval path, so the
+    # drift is a pure side effect — the rows are rewritten and equal-scoring
+    # candidates come back in a different order. Left ON in production; the
+    # Z1 scorer turns it off so a tuning delta is not competing with it.
+    retrieval_strengthen_writes: bool = True
     decay_archive_threshold: float = 0.1
     decay_cold_threshold: float = 0.05
     # Creative turns never decay below this — they are re-read in bursts
