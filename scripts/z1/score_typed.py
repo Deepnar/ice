@@ -1,0 +1,286 @@
+#!/usr/bin/env python3
+"""Z1: score TYPED probes — a different metric per probe class.
+
+**Why a second scorer.** `score_retrieval.py` computes recall@k against a single
+gold turn. That is the right metric for exactly one of the five probe classes.
+Applying it to the rest is not merely imprecise, it is backwards: a
+`summary_synthesis` probe has no single gold turn, so recall@k scores it as a
+failure whenever retrieval does the right thing and returns a summary.
+
+The consequence of having only that metric was measured (2026-08-13): of 377
+hits on the 592-probe set, **`bm25+vector` produced 376 and `vector` 1 — codex,
+procedural, batch-summary and timeline scored zero, never**. Those legs still
+spend the token budget, so on that metric they are pure cost and a leg-weight
+sweep would drive them to zero and call it an improvement (G48).
+
+**Per class, what counts as success:**
+
+| type | metric | rationale |
+|---|---|---|
+| `episodic_lookup`   | recall@k on the gold turn | one fact, one turn |
+| `codex_multihop`    | **entity coverage** — did the anchor entity and the required turns' content reach the prompt, by any leg | no single gold turn exists |
+| `procedural`        | **pattern presence** — did any procedural fragment come back at all | the answer is a stored habit, not a turn |
+| `summary_synthesis` | **turn-set coverage** — what fraction of the required turn set is represented, directly or via a summary covering it | one turn cannot answer it |
+| `temporal`          | recall@k **plus** the superseding turn not outranking it | returning only the current value is the failure mode |
+
+Every number is reported PER TYPE and never averaged into one figure — a single
+mean over five incommensurable metrics is a number about nothing.
+
+Run:
+  uv run python scripts/z1/score_typed.py --limit 40
+  uv run python scripts/z1/score_typed.py --tag post-reseed
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import statistics
+import sys
+from collections import Counter, defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+from sqlalchemy import func, text  # noqa: E402
+
+from scripts.z1.run_meta import file_digest, run_meta  # noqa: E402
+from src.api.config import settings  # noqa: E402
+from src.api.db import SessionLocal  # noqa: E402
+
+PROBES = Path("experiments/curation_files/typed_probes.json")
+RESULTS = Path("experiments/curation_files/score_runs")
+SEED_MARKER = "z1seed"
+
+_TRACKED = (
+    "retrieval_leg_base_weights", "retrieval_rrf_k",
+    "retrieval_max_per_conversation", "retrieval_cluster_top_k",
+    "codex_max_fanout", "codex_max_depth", "codex_relation_open_vocabulary",
+    "codex_relation_canonical_threshold", "codex_node_promotion",
+    "procedural_min_session_turns", "procedural_similarity_threshold",
+    "context_growth_cap_ladder", "retrieval_strengthen_writes",
+)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--probes", default=None,
+                    help="alternate probe file (used to exercise every "
+                         "scoring branch, which --limit alone cannot)")
+    ap.add_argument("--k", type=int, default=10)
+    ap.add_argument("--tag", default="typed")
+    args = ap.parse_args()
+
+    probe_path = Path(args.probes) if args.probes else PROBES
+    if not probe_path.exists():
+        print(f"need {probe_path} — run generate_typed_probes.py first")
+        return 1
+    payload = json.loads(probe_path.read_text())
+    probes = payload["probes"]
+    if args.limit:
+        probes = probes[:args.limit]
+
+    db = SessionLocal()
+    settings.codex_reinforce_increment = 0.0
+    settings.decay_strengthen_amount = 0.0
+    settings.retrieval_strengthen_writes = False
+
+    conv_of, gold_index, turn_text_by_id = {}, {}, {}
+    for rid, cid, key, raw in db.execute(text(
+            "select id, conversation_id, idempotency_key, raw_text "
+            "from episodic_memory where idempotency_key like :m"),
+            {"m": f"{SEED_MARKER}-%"}):
+        _, slug, turn = key.split("-", 2)
+        conv_of[slug] = str(cid)
+        gold_index[(slug, int(turn))] = str(rid)
+        turn_text_by_id[str(rid)] = raw or ""
+    if not conv_of:
+        print("store not seeded — nothing to score against")
+        return 1
+
+    # ⚑ COVERAGE METRICS INFLATE ON A SMALL STORE, and silently.
+    # `codex_multihop` and `summary_synthesis` score how much of a required turn
+    # set came back. If the store holds only those turns, everything comes back
+    # and both score 1.000 — measured on a 2-turn fragment during branch
+    # testing, where a system doing nothing useful looked perfect. The number is
+    # not wrong so much as unearned, which is worse: it reads as a result.
+    store_turns = sum(1 for _ in gold_index)
+    expected = max((max(p.get("gold_turns") or [0]) for p in probes), default=0)
+    if store_turns < expected or store_turns < 50:
+        print(f"\n  ⚠⚠ STORE HAS {store_turns} TURNS; the probe set references "
+              f"turns up to {expected}.")
+        print("  Coverage-based scores (codex_multihop, summary_synthesis) are "
+              "TRIVIALLY SATISFIED at this size and must not be reported as "
+              "results. Re-seed before believing anything below.\n")
+
+    from src.api.context_ledger import effective_memory_budget
+    from src.api.memory_decision import (decide_memory_retrieval,
+                                         derive_total_budget,
+                                         estimate_recent_window_tokens)
+    from src.classifier.classifier import PyTorchClassifier
+    from src.memory.embedder import get_embedder
+    from src.memory.models import EpisodicMemory
+    from src.memory.tokens import estimate_from_chars
+    from src.model_registry.registry import find_best_model, get_model_context_window
+    from src.model_registry.runtime_probe import serving_window
+    from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+
+    embedder = get_embedder()
+    clf = PyTorchClassifier(model_path=settings.classifier_model_path,
+                            schema_path=settings.label_schema_path)
+    orch = HybridRetrievalOrchestrator(db, embedder)
+
+    meta_conv = {}
+    for slug, cid in conv_of.items():
+        tc = db.query(EpisodicMemory).filter_by(conversation_id=cid).count()
+        ch = db.query(func.coalesce(
+            func.sum(func.length(EpisodicMemory.raw_text)), 0)
+        ).filter_by(conversation_id=cid).scalar() or 0
+        meta_conv[slug] = (tc, estimate_from_chars(ch))
+
+    def retrieve_for(question, slug):
+        """The production preamble, then retrieval. Same path as score_retrieval."""
+        tc, tt = meta_conv[slug]
+        c = clf.classify(question[:2000])
+        emb = embedder.encode(question, convert_to_tensor=False).tolist()
+        model_name, _ = find_best_model(c.topic_tags, c.intent_tags)
+        rw = get_model_context_window(model_name)
+        win = serving_window(model_name, rw) if settings.context_use_serving_window else rw
+        tb = effective_memory_budget(
+            derive_total_budget(win, settings), question,
+            generation_reserve=settings.context_generation_reserve,
+            floor=settings.context_budget_floor)
+        d = decide_memory_retrieval(
+            c, turn_count=tc, total_tokens=tt, settings=settings,
+            recent_window_tokens=estimate_recent_window_tokens(tc, tb),
+            timescope_mode="current", coding_scope=False)
+        if not d.retrieve:
+            return None, c
+        c.context_reliance = "Long_Term_Memory"
+        orch.set_budget_from_turn_count(tc, total_tokens=tt, classification=c,
+                                        total_budget=tb)
+        return orch.retrieve(classification=c, conversation_id=conv_of[slug],
+                             prompt_embedding=emb, scope=None), c
+
+    # Warm-up (the first retrieval of a process differs — relation gloss cache).
+    for p in probes:
+        if p["conversation"] in conv_of:
+            retrieve_for(p["question"], p["conversation"])
+            break
+
+    per_type = defaultdict(lambda: {"n": 0, "scores": [], "declined": 0,
+                                    "legs": Counter(), "detail": []})
+    for p in probes:
+        slug = p["conversation"]
+        if slug not in conv_of:
+            continue
+        ptype = p["probe_type"]
+        frags, _c = retrieve_for(p["question"], slug)
+        bucket = per_type[ptype]
+        bucket["n"] += 1
+        if frags is None:
+            bucket["declined"] += 1
+            continue
+        for f in frags:
+            bucket["legs"][f.source_type] += 1
+
+        gold_ids = [gold_index.get((slug, tn)) for tn in (p.get("gold_turns") or [])]
+        gold_ids = [g for g in gold_ids if g]
+        returned_ids = [str(f.source_batch_id) for f in frags if f.source_batch_id]
+        blob = " ".join((f.text or "") for f in frags).lower()
+
+        if ptype == "episodic_lookup":
+            gid = gold_ids[0] if gold_ids else None
+            rank = next((i for i, f in enumerate(frags, 1)
+                         if f.source_batch_id and str(f.source_batch_id) == gid), None)
+            score = 1.0 if (rank and rank <= args.k) else 0.0
+            bucket["detail"].append({"rank": rank})
+
+        elif ptype == "codex_multihop":
+            # No single gold turn: did the ANCHOR ENTITY reach the prompt, and
+            # how much of the required evidence came with it, by ANY leg?
+            anchor = (p.get("anchor_entity") or "").lower()
+            anchor_present = bool(anchor and anchor in blob)
+            covered = sum(1 for g in gold_ids if g in returned_ids)
+            frac = covered / len(gold_ids) if gold_ids else 0.0
+            score = (0.5 if anchor_present else 0.0) + 0.5 * frac
+            bucket["detail"].append({"anchor_present": anchor_present,
+                                     "turn_coverage": round(frac, 3),
+                                     "codex_frags": sum(
+                                         1 for f in frags if f.source_type == "codex")})
+
+        elif ptype == "procedural":
+            # The answer is a stored habit; a turn cannot satisfy it.
+            n_proc = sum(1 for f in frags if f.source_type == "procedural")
+            score = 1.0 if n_proc else 0.0
+            bucket["detail"].append({"procedural_frags": n_proc})
+
+        elif ptype == "summary_synthesis":
+            direct = sum(1 for g in gold_ids if g in returned_ids)
+            n_sum = sum(1 for f in frags
+                        if f.source_type in ("batch_summary", "summary"))
+            frac = direct / len(gold_ids) if gold_ids else 0.0
+            # A summary covering the span counts: that is the RIGHT answer here,
+            # and demanding the raw turns would score the intended behaviour as
+            # a failure.
+            score = max(frac, 1.0 if n_sum else 0.0)
+            bucket["detail"].append({"turn_coverage": round(frac, 3),
+                                     "summary_frags": n_sum})
+
+        elif ptype == "temporal":
+            gid = gold_ids[0] if gold_ids else None
+            rank = next((i for i, f in enumerate(frags, 1)
+                         if f.source_batch_id and str(f.source_batch_id) == gid), None)
+            sup_id = gold_index.get((slug, p.get("superseded_by")))
+            sup_rank = next((i for i, f in enumerate(frags, 1)
+                             if f.source_batch_id and str(f.source_batch_id) == sup_id),
+                            None)
+            hit = bool(rank and rank <= args.k)
+            # Returning ONLY the current value is the failure this class exists
+            # to catch, so the superseding turn must not outrank the old one.
+            beaten = bool(hit and sup_rank and sup_rank < rank)
+            score = 1.0 if (hit and not beaten) else 0.0
+            bucket["detail"].append({"rank": rank, "superseding_rank": sup_rank,
+                                     "outranked_by_newer": beaten})
+        else:
+            continue
+        bucket["scores"].append(score)
+
+    print(f"\n{'='*66}\nTYPED SCORE   (tag: {args.tag})\n{'='*66}")
+    summary = {}
+    for ptype in sorted(per_type):
+        b = per_type[ptype]
+        sc = b["scores"]
+        mean = statistics.mean(sc) if sc else 0.0
+        summary[ptype] = {
+            "n": b["n"], "scored": len(sc), "declined": b["declined"],
+            "mean_score": round(mean, 3),
+            "legs_seen": dict(b["legs"].most_common()),
+        }
+        print(f"  {ptype:<20} n={b['n']:<4} scored={len(sc):<4} "
+              f"score={mean:.3f}   declined={b['declined']}")
+        print(f"      legs returned: {dict(b['legs'].most_common(6))}")
+    print("\n  ⚑ These are FIVE DIFFERENT METRICS. They are not averaged, and a "
+          "single headline number over them would describe nothing.")
+
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    out = RESULTS / f"{stamp}_{args.tag}.json"
+    out.write_text(json.dumps({
+        "meta": run_meta(script=__file__, args=vars(args),
+                         settings_keys=list(_TRACKED),
+                         inputs=[file_digest(probe_path)],
+                         extra={"probe_set_meta": payload.get("meta", {}),
+                                "k": args.k}),
+        "per_type": summary,
+        "detail": {t: per_type[t]["detail"] for t in per_type},
+    }, indent=1, default=str))
+    print(f"\nwrote {out}")
+    db.close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

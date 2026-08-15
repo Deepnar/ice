@@ -51,7 +51,6 @@ import json
 import os
 import sys
 from collections import Counter
-from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
@@ -127,13 +126,31 @@ def better_elsewhere(question: str, answer: str, gold_turn: int,
                      turns: list, idf: dict) -> int | None:
     """Return a turn that answers *question* at least as well as the gold one.
 
-    Scores each turn by IDF-weighted overlap with the question AND its answer —
-    the answer matters because a question's own words are often generic while the
-    thing being asked about is not. A hit here means the probe is unusable: either
-    several turns answer it (so retrieval cannot be marked wrong for picking one)
-    or a later turn supersedes it (so the gold answer is stale).
+    **⚑ SCORED ON THE QUESTION ALONE, and the fix is the whole point (G46).**
+    This used to score `question | answer` on the reasoning that a question's own
+    words are often generic while the thing asked about is not. That reasoning is
+    about what a *reader* knows. **Retrieval never sees the answer** — it gets the
+    question and nothing else.
+
+    The consequence was not subtle: the answer's distinctive words live in the
+    gold turn by construction, so including them handed the gold turn a score no
+    rival could match, and the guard passed almost everything.
+
+    **Replayed over the existing 592 probes, 2026-08-13 — the two rules side by
+    side on the same set:** the old rule rejects **5 probes (0.8%)**, this one
+    rejects **385 (65.0%)**. So **380 probes — 64% of the set now in use — are
+    there only because the guard scored words retrieval never sees.** Each is a
+    probe where retrieval can be marked wrong for returning an equally good
+    answer, and the 0.508 recall measured over that set inherits it.
+
+    So: score exactly what retrieval is given. A hit here means the probe is
+    unusable — either several turns answer it, or a later turn supersedes it.
+
+    *answer* is still accepted (callers pass it) and deliberately unused; it is
+    kept in the signature so the reason for its absence stays visible here rather
+    than becoming a silent omission somebody re-adds.
     """
-    terms = set(words(question)) | set(words(answer))
+    terms = set(words(question))
     if not terms:
         return None
 
