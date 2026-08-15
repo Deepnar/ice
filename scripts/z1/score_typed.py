@@ -199,14 +199,29 @@ def main() -> int:
             bucket["detail"].append({"rank": rank})
 
         elif ptype == "codex_multihop":
-            # No single gold turn: did the ANCHOR ENTITY reach the prompt, and
-            # how much of the required evidence came with it, by ANY leg?
+            # No single gold turn, so success is: did the material needed to
+            # join the hop reach the prompt?
+            #
+            # ⚑ THE ANCHOR MUST ARRIVE VIA THE GRAPH, NOT ANY LEG. The first
+            # version gave half credit whenever the anchor entity appeared
+            # anywhere in the returned text — including inside an episodic
+            # fragment bm25 happened to return. That scores the knowledge graph
+            # as working while it contributes nothing, which is precisely the
+            # blindness G48 exists to remove, reintroduced one level up. Anchor
+            # credit now requires a CODEX fragment carrying it.
             anchor = (p.get("anchor_entity") or "").lower()
-            anchor_present = bool(anchor and anchor in blob)
+            codex_blob = " ".join((f.text or "") for f in frags
+                                  if f.source_type in ("codex", "timeline")).lower()
+            anchor_via_graph = bool(anchor and anchor in codex_blob)
+            anchor_anywhere = bool(anchor and anchor in blob)
             covered = sum(1 for g in gold_ids if g in returned_ids)
             frac = covered / len(gold_ids) if gold_ids else 0.0
-            score = (0.5 if anchor_present else 0.0) + 0.5 * frac
-            bucket["detail"].append({"anchor_present": anchor_present,
+            score = (0.5 if anchor_via_graph else 0.0) + 0.5 * frac
+            bucket["detail"].append({"anchor_via_graph": anchor_via_graph,
+                                     # kept for contrast: a large gap between
+                                     # these two is the graph being carried by
+                                     # the episodic legs.
+                                     "anchor_anywhere": anchor_anywhere,
                                      "turn_coverage": round(frac, 3),
                                      "codex_frags": sum(
                                          1 for f in frags if f.source_type == "codex")})
