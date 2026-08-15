@@ -226,6 +226,26 @@ try:
     check("a real triplet survives the same filter",
           kept and kept[0]["object"] == DB1, str(kept))
 
+    # ── 6b. G44's name rule refuses non-referring words, NOT numbers ──────
+    # Measured 2026-08-15 over 586 seeded turns: 2,273 refusals, of which 94
+    # were numbers — years, GPAs and exam scores, including the subject of
+    # `3.80 --score--> maths`. The clause required a LETTER; a number is as
+    # referable as any other short name, and versions/sizes/prices/years are
+    # numeric for every user, so this was a product defect not a corpus quirk.
+    # Two-sided: the pronouns that justify the rule must still be refused, or
+    # "numbers survive" would just mean the rule stopped working.
+    print("── the junk-name rule: numbers in, non-referring words out ──")
+    from src.workers.codex_extractor import is_unusable_entity_name
+    keep = ["8", "3", "19", "2023", "9.65", "3.80", "3/80", "128k", "4090",
+            "v2.1", "ai", "ml", "q4"]
+    drop = ["i", "me", "you", "the", "it", "this", "~", "- -", "...", "", "   "]
+    bad_keep = [n for n in keep if is_unusable_entity_name(n)]
+    bad_drop = [n for n in drop if not is_unusable_entity_name(n)]
+    check("numbers, versions and short real names are NOT refused",
+          not bad_keep, f"wrongly refused: {bad_keep}")
+    check("pronouns, articles and pure punctuation ARE still refused",
+          not bad_drop, f"wrongly allowed: {bad_drop}")
+
     # ── 7. G44 promotion must not delete the endpoint of the triplet that is
     #    writing it ────────────────────────────────────────────────────────
     # Found 2026-08-15 on a smoke seed: 1 turn in 6 died with a ForeignKeyViolation

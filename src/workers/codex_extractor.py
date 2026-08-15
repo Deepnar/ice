@@ -903,8 +903,21 @@ def is_unusable_entity_name(name: str) -> bool:
         return True
     if n in _NON_REFERRING:
         return True
-    # Nothing but digits, punctuation or whitespace — `8`, `~`, `10`, `- -`.
-    if not any(ch.isalpha() for ch in n):
+    # Pure punctuation or whitespace — `~`, `- -`, `...`. A name needs at least
+    # one letter OR DIGIT to refer to anything.
+    #
+    # ⚑ THIS USED TO REQUIRE A LETTER, AND IT DESTROYED TRUE FACTS. Measured
+    # 2026-08-15 over 586 seeded turns: 2,273 refusals, of which **94 were
+    # numbers** — `2023`, `9.65`, `3.80`, `3/80`, `19`, `8`. Years, exam scores
+    # and GPAs are referable entities; `3.80 --score--> maths` is a fact, and
+    # the rule deleted its subject. The original reasoning ("a node named 8 can
+    # never be looked up") is true of a bare pronoun and false of a number,
+    # which is exactly as lookup-able as any other short name.
+    #
+    # This is a PRODUCT defect, not a corpus quirk: versions (`v2.1`), model
+    # sizes (`128k`), hardware (`4090`), prices, years and scores are numeric
+    # for every user. What still goes is punctuation, which refers to nothing.
+    if not any(ch.isalnum() for ch in n):
         return True
     return False
 
