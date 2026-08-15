@@ -1,4 +1,4 @@
-# Handoff — 2026-08-12, ~21:00 IST
+# Handoff — 2026-08-13, ~22:20 IST
 
 **State, not a queue.** [ROADMAP.md](ROADMAP.md) is the queue and the only one.
 This file exists for the one thing no other doc holds: **what the last session
@@ -10,111 +10,121 @@ every session, committed last; earlier ones are in `git log -p docs/HANDOFF.md`.
 
 ## TOLD → DID
 
-**Told:** verify the derived ground-truth key, then build Z1's retrieval scorer.
+**Told:** confirm G47's zero-fragment hypothesis, fix the instruments, measure
+the noise floor, then the pipeline fixes in leverage order.
 
-**Did:** the key failed hand-verification **twice**, was rebuilt in the opposite
-direction, and the resulting instruments were used to measure the whole pipeline
-end to end — seeding, extraction, summarisation, clustering, retrieval, and
-eight candidate background models. **Six new roadmap items came out of it
-([G42](ROADMAP.md#g42)–[G47](ROADMAP.md#g47)) and three TRAPS entries (#20–22).**
+**Did:** all of it, and **the hypothesis was wrong**. Confirming it exposed that
+the *instrument* was the finding: correcting four scorer defects moved recall@10
+from **0.250 to 0.508 without changing one line of ICE**. A legacy-mode control
+reproduced 0.250 exactly (`recall@1` identical to 17 decimal places), so the
+delta is attributable to the harness and nothing else. Then G42, G43, G44, G45,
+bi-temporal edges and the seeder were fixed, each tested twice.
 
-**⚑ Z1 AND Z2 HAVE MERGED, and the user called it in advance.** Seeding the
-tuning corpus runs every background job, so extraction quality, summary
-faithfulness and codex correctness were measured *during* Z1-prep — exactly what
-Z2's entry lists as what the automated suite cannot see. The roadmap's CURRENT
-POSITION now says so. **Treat them as one phase.** Standing instruction from the
-user: *measure with real use every time, cross-check often, do not rush.*
+**⚑ NOTHING IS COMMITTED. THE PUSH FREEZE HOLDS. NOTHING HAS BEEN RE-SEEDED.**
 
-## ⚑ THE PUSH FREEZE IS ON
+## ⚠ THE STORE IS A 2-TURN FRAGMENT — THIS IS THE FIRST THING TO FIX
 
-Everything since `3fd49b5` is local and unpushed. Do not push until the user
-lifts it.
+A re-seed was started and **stopped by the user, twice, correctly**: the rule is
+*nothing runs until every fix is in*. The store now holds ~2 turns and is
+useless. Both baselines are snapshotted and restorable:
 
-## WHERE THINGS STAND
+* `experiments/curation_files/snapshots/gemma4-26b.sql` — pre-session
+* `experiments/curation_files/snapshots/pre-g42g43g44.sql` — post-cleanup, verified
 
-- **Alembic head `f2a7c9e04b31`** (G6's btree indexes — moved this cycle).
-- **Store: the full 293-turn gemma4-26b seed, restored.** Snapshot at
-  `experiments/curation_files/snapshots/gemma4-26b.sql` (71.8 MB), restore
-  verified against recorded row counts.
-- **⚠ The probe→row map was REBUILT BY HAND** from `idempotency_key` after the
-  arm runs desynchronised it. It is correct now; the tooling still has the bug
-  ([G46](ROADMAP.md#g46)).
-- **592 generated probes**, key correct by construction, in
-  `experiments/curation_files/generated_probes.json`.
-- **Eight arm reports + samples** in `store_reports/` and `arm_stores/`.
-- **3,244 vocabulary candidates** with proposed opposites in
-  `VOCAB_CANDIDATES.md`.
-- Background model pinned to `gemma4:26b-a4b-it-q4_K_M` in `.env`.
+## WHAT SHIPPED (all twice-tested; 35/35 verified in code, 347 tests green)
+
+| | was | now |
+|---|---|---|
+| **freeze leak** | `access_count` written every retrieval, read by nothing; 26/40 identical runs | gated by `retrieval_strengthen_writes`; **40/40** |
+| **[G43](ROADMAP.md#g43)** | 51 property relations (30% of edges) never checked their OBJECT | must occur in source turn; 30 edges (0.72%) demoted |
+| **[G42](ROADMAP.md#g42)** | 247/247 habits invented from ONE turn | session-scoped, ≥2 cited messages enforced, cross-session reinforcement only |
+| **[G44](ROADMAP.md#g44)** | nodes named `8`,`3`,`i` typed *person* | refused at write; stub promotion (default OFF) |
+| **[G45](ROADMAP.md#g45)** | 1,259 true relations destroyed per seed | open vocabulary + converse guard + 111-relation seed |
+| **bi-temporal** | could not say when a fact was *learned* | `learned_at`/`unlearned_at`, migration `505f12031434` |
+| **seeder** | 293 turns → 293 one-turn sessions | sittings → 6/9/4 sessions of 11–20 |
+| **[G46](ROADMAP.md#g46)** | scorer measured itself | all four defects fixed |
 
 ## THE NUMBERS, AND WHAT EACH IS WORTH
 
 | measured | value | trust |
 |---|---|---|
-| retrieval recall (592 probes) | **0.250** | ⚠ off-production — the scorer skips the budget setter |
-| fragments actually returned | **2–5** | solid, and it reframes the above |
-| graph: degree-1 entities | **65%** at 293 turns | solid; did not densify from 60 turns (67%) |
-| relations destroyed | **14,091** across arms | solid |
-| model ranking | **gemma4:e4b > qwen3:4b-instruct > gemma4:26b** | by reading; the metric ranking was overturned |
-| summary coverage | 0.607–0.979 | ⚠ **cannot see an empty summary** (TRAPS #21) |
+| recall@10, production path | **0.508** | solid — legacy control reproduces 0.250 exactly |
+| paired MDE (592 probes) | **0.037** (~22 probes) | solid; this is the bar for any tuning claim |
+| fragments returned | median **14** (8–46) | solid; supersedes "2–5" |
+| retrieval budget | **8,100–11,350** | solid; set by the growth ladder, not the model window |
+| probe-set contamination | **380 of 592 (64%)** | solid, and it makes 0.508 soft |
+| degradation chain | **fires** — 104/60 probes, 1,056 tok median saved | solid |
+| relation threshold | 0.86 → **0.82** | 30 hand-built pairs — enough to leave a guess, not final |
+| procedural threshold | 0.85, a true match scores **0.708** | ⚠ promotion still dead; needs post-seed data |
 
-## NEXT — the user's instruction, in order
+## ⚑ THE TWO THINGS THAT BLOCK REAL PROGRESS
 
-**Measure and test everything first. This is a whole-pipeline test, not a tuning
-sweep.** Nothing below is a code change until the user approves it.
+1. **[G48](ROADMAP.md#g48) — the metric can only score ONE leg family.** Of 377
+   hits, `bm25+vector` produced 376 and `vector` 1; **codex, procedural and
+   summary scored zero, never** — they carry no `source_batch_id`. They still
+   spend budget, so a leg-weight sweep would drive them to zero and report a
+   win. **LEG-WEIGHT TUNING IS FROZEN.** Found by the user.
+2. **The probe set is 64% contaminated.** The fixed ambiguity guard rejects
+   **385 of 592** where the old one rejected 5.
 
-1. **Confirm [G47](ROADMAP.md#g47)'s zero-fragment hypothesis** — print the token
-   count of the top fragment for one of the 15 zero probes. If it exceeds the
-   budget, the enforcer stops instead of skipping and that is the bug. Ten
-   minutes, and it gates everything downstream.
-2. **Does the degradation chain fire?** raw → trusted summary → abstract. If it
-   does not, ten summaries would fit where three raw turns do now — a bigger
-   lever than any leg weight.
-3. **Fix the instruments** ([G46](ROADMAP.md#g46)) — call the budget setter,
-   derive the map from the store, score the ambiguity guard on the question
-   alone, record all producing legs. **Until these land every number is partly
-   about the harness.**
-4. **Measure the noise floor.** Nothing is provably an improvement without it.
-5. **Then** the fixes, in leverage order: [G43](ROADMAP.md#g43) grounding
-   (highest — one change hits fabrication, wrong-turn facts and junk subjects),
-   [G42](ROADMAP.md#g42) procedural, [G44](ROADMAP.md#g44) subjects,
-   [G45](ROADMAP.md#g45) open vocabulary **(spec before code — it supersedes a
-   decision Z2 owns)**.
-6. **Then** re-seed and re-run the whole comparison on a pipeline that works.
-   Today's ranking partly measures which model best survives our defects.
+Both are addressed by the **typed probe set** (below) — which is generated but
+has **never been scored against a real store**.
+
+## NEXT — in order, and NOTHING runs before the re-seed
+
+1. ~~Merge the boost runs~~ **DONE.** `typed_probes.json` holds **420 probes**:
+   episodic 232 · **codex 89** · procedural 40 · summary 40 · temporal 19.
+   Codex went 12 → 89 once the prompt stopped demanding a verbatim quote from
+   every host turn (that length was truncating the JSON mid-object, and the
+   discarded generations were the probes). Each probe carries `_source_run`.
+   ⚠ **Never scored against a real store** — the store is a 2-turn fragment.
+2. **Re-seed both arms** — `qwen3:4b-instruct` then `gemma4:e4b`, whole 293
+   turns each, snapshot per arm. Driver: the session scratchpad's
+   `two_arm_seed.sh` (sets `CODEX_NODE_PROMOTION=true`). **~50 min per arm.**
+   ⚑ **`gemma4:26b` is NOT the pick** — PROVENANCE's read ranked it third and
+   named `qwen3:4b-instruct` the practical pick (tied on quality at 2.5 GB vs
+   9.6 GB). `.env` still pins the 26B; that is why the first re-seed was stopped.
+3. **Validate the pipeline fixes on the new store** — are habits evidenced by
+   >1 turn, are invented property values gone, are junk nodes gone, did the
+   1,259 destroyed relations survive.
+4. **Score the typed probes** (`score_typed.py`) — five metrics, never averaged.
+5. **Read the output** — `harvest_probe_context.py` dumps question + gold turn +
+   every returned fragment, scoreless on purpose. Then an agent read, which is
+   what overturned the model ranking last time.
+6. **Re-run the model comparison** on the fixed pipeline, script *and* agent.
 
 ## WHAT WOULD OTHERWISE BE LOST
 
-- **Everything measured is in [PROVENANCE.md](PROVENANCE.md)** under the
-  2026-08-12 A12 entry, and the defects are one roadmap item each. Read those,
-  not a summary.
-- **⚠ FIVE CONCLUSIONS WERE DRAWN AND THEN CORRECTED IN THE SAME SESSION.** They
-  are listed because the pattern matters more than any one of them: *"the vector
-  leg is dead"* (it returns 87–89 candidates alone — attribution artifact);
-  *"`max_per_conversation=3` caps recall"* (diversify passes 90 of 90; the
-  **budget** caps it); *"probe ambiguity explains the low score"* (0.284 vs
-  0.255 — it does not); *"the pgvector query has no index"* (it exists and is
-  migration-covered — written from reading a diff instead of the database);
-  *"procedural is 0 for every arm"* (wrong dict key in my own report script).
-- **The eyeball found what no metric did**, twice: the user's verification killed
-  a key that looked fine, and the agent's read overturned an eight-model ranking
-  and found invented facts. Every finding that survived scrutiny came from
-  reading output.
-- **Nine bugs in the session's own instruments** are catalogued in
-  [G46](ROADMAP.md#g46) and TRAPS #20/#22.
+* **Everything measured is in [PROVENANCE.md](PROVENANCE.md)** under the
+  2026-08-13 entry. New traps: **#24** (a guard that only fires in the harness),
+  **#25** (`.env` keys undeclared in Settings take the whole app down),
+  **#26** (embeddings cannot tell a converse from a synonym).
+* **⚠ Three self-inflicted incidents, all caught, all instructive.** The test
+  suite leaked 3 turns into the measured store (cleaned, verified back to
+  293/3,671/4,170/247). `alembic --autogenerate` proposed dropping **every HNSW
+  vector index**; the migration was rewritten by hand. Adding `PROBE_*` to
+  `.env` broke **every** import of `src.api.config` while the script using them
+  worked fine.
+* **Every experiment artifact now carries `run_meta()`** — commit, dirty flag,
+  resolved settings, corpus digests, redacted secrets. Use it; it is the reason
+  the probe set can be dated and attributed later.
+* **Probe generation uses a CLOUD model** (`deepseek-v4-flash`, OpenCode Go).
+  Corpus excerpts leave the machine in those prompts. `PROBE_API_KEY` lives in
+  gitignored `.env`; **the user should rotate it** — it was pasted in chat.
+* **`codex_node_promotion` defaults OFF** and `procedural_similarity_threshold`
+  was deliberately NOT retuned on one observation. Both are decisions, not
+  oversights.
 
 ## OPEN, AND ONLY HERE
 
-- `experiments/curation_files/` is gitignored and holds personal conversation
-  text — probes, samples, snapshots, arm output. **Never commit it.** The user
-  authorised cloud-agent review of this content on 2026-08-12.
-- `granite4:small-h` (32.2 B, 19 GB) was pulled by mistake — the shortlist asked
-  for the 3 B (`granite4:micro`). Excluded from the comparison by user decision.
-- `qwen3:4b-instruct-bg` exists locally; the registry never routed to it. Shared
-  mode resolved to the 26B all along ([G27](ROADMAP.md#g27)).
-- The scripts built this cycle live in `scripts/z1/`: `derive_retrieval_gt`,
-  `generate_probes`, `seed_store`, `score_retrieval`, `snapshot`,
-  `store_report`, `sample_bg_output`, `compare_bg_models`,
-  `harvest_vocabulary`, `run_arms.sh`.
+* `experiments/curation_files/` is gitignored and holds personal conversation
+  text. **Never commit it.**
+* New scripts: `generate_typed_probes.py`, `score_typed.py`,
+  `harvest_probe_context.py`, `run_meta.py`, `seed_relation_vocab.py`.
+* `data/relation_seed.json` (111 relations) IS tracked — relation words only, no
+  conversation text.
+* Scorer defect #4 is fixed in the generator but **the live 592-probe set was
+  never regenerated**; it still carries the 64%.
 
 ## WHEN DONE
 
