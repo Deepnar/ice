@@ -1,6 +1,5 @@
 """Codex Extractor Subsystem – Structural Ingestion Plane."""
 
-import hashlib
 import json
 import re
 import uuid
@@ -27,6 +26,7 @@ from src.memory.models import (
     ReviewQueue,
 )
 from src.retrieval.ner_utils import extract_entities
+from src.workers.idempotency import job_key
 
 # The process-shared native-width embedder (G13/G23) — document_chunker,
 # decision_extractor and conversation_summary reach the SAME instance
@@ -1706,7 +1706,12 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
     """
     log = logger.bind(batch_id=batch_id)
 
-    idempotency_key = hashlib.sha256(f"codex:{batch_id}".encode()).hexdigest()
+    # G29 consolidated every job onto job_key(); this one kept hashing by hand.
+    # Byte-identical output (both are sha256("codex:<batch_id>")), verified — so
+    # no existing marker is orphaned and no turn is re-processed. The point is
+    # that the namespace is now expressed rather than spelled out, which is what
+    # stops the un-namespaced-key bug G29 fixed from coming back here.
+    idempotency_key = job_key("codex", batch_id)
     db = SessionLocal()
     
     try:

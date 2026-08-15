@@ -2,7 +2,6 @@
    memory slot evolution, Codex enrichment, motif detection."""
 
 import json
-import re
 from datetime import datetime, timezone
 
 from src.api.config import settings
@@ -214,7 +213,13 @@ def _crystallize_patterns(db, turns):
                 text("SELECT id, 1 - (embedding <=> CAST(:emb AS vector)) AS sim FROM procedural_memory WHERE embedding IS NOT NULL ORDER BY sim DESC LIMIT 1"),
                 {"emb": str(emb)}
             ).first()
-            if similar and similar.sim > 0.85:
+            # Reflection is the SECOND writer of procedural_memory, and it was
+            # hardcoded at 0.85 while procedural_extractor read the setting —
+            # so recalibrating the threshold (G49: two extractions of the same
+            # habit measure 0.708 against a bar of 0.85, which is why nothing
+            # ever activates) would have moved one writer and not the other.
+            # Identical value today; the point is that they cannot diverge.
+            if similar and similar.sim > settings.procedural_similarity_threshold:
                 existing = db.query(ProceduralMemory).get(similar.id)
                 existing.reinforcement_count += 1
                 existing.last_observed = datetime.now(timezone.utc)
@@ -325,7 +330,16 @@ def _enrich_codex_entities(db):
         ).fetchall()
         passages = []
         for (bid,) in rows:
-            turn = db.query(EpisodicMemory).filter_by(batch_id=bid).first()
+            # G16: incognito turns never feed a shared store. Every other
+            # consumer filters this (batch_summarizer.py:51, clustering.py:446);
+            # this one did not, and an entity description is about as shared as
+            # a store gets — it is rendered into context_payload and injected.
+            # post_flight already skips the pipelines for a private turn, so
+            # this is defence in depth for turns made private after extraction.
+            turn = (db.query(EpisodicMemory)
+                      .filter_by(batch_id=bid)
+                      .filter(EpisodicMemory.is_private == False)  # noqa: E712
+                      .first())
             if turn and turn.raw_text:
                 passages.append(turn.raw_text[:600])
             if len(passages) >= 8:
