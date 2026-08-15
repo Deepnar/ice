@@ -1657,3 +1657,69 @@ material was never the limitation. (A partial-object salvage was added at the
 same time and never fired: 0 events. Shortening the reply was the entire fix,
 which is worth knowing before anyone attributes the gain to the salvage.) Every artifact from here carries a `run_meta` provenance block
 (commit, dirty state, resolved settings, corpus digests, seeds).
+
+## 2026-08-15 — the two-arm re-seed on the fixed pipeline
+
+**What was run.** `scripts/z1/two_arm_seed.sh`, 293 turns per arm, whole corpus
+(3 conversations: 87 / 61 / 145 turns), `CODEX_NODE_PROMOTION=true`, post-flight
+chain complete (density, grounded summary, chunking, codex, procedural) plus
+catch-up clustering and batch summaries.
+
+| arm | model | wall clock | entities | edges | procedural | chunks | batch summaries |
+|---|---|---|---|---|---|---|---|
+| 1 | `qwen3:4b-instruct` (2.5 GB) | 85 min | 8,280 | 9,662 | 61 | 895 | 0 |
+| 2 | `gemma4:e4b` (9.6 GB) | 108 min | 7,949 | 7,052 | 58 | 895 | 3 |
+
+**293/293 post-flight per arm, 0 failures, 0 classify failures.** Snapshots:
+`snapshots/fixed-qwen3-4b-instruct.sql` (132 MB), `fixed-gemma4-e4b.sql` (127 MB).
+The store was TRUNCATED before arm 1 — the previous "empty" store still held 59
+entities from the pre-fix pipeline (`hackathon team` typed *person*, whole
+sentences as node names) that `seed_store.py --clean` preserves by design, plus
+28 from test suites and 3,692 stale idempotency keys. Pre-truncate state saved as
+`snapshots/pre-truncate-2026-08-15.sql`. **Anything measured on top of that
+residue would have scored the OLD pipeline's junk against the new fixes.**
+
+### What the fixes did (measured on arm 2 unless stated)
+
+* **[G42](ROADMAP.md#g42) procedural — WORKS.** All 58 patterns cite **≥3 turns**
+  (`source_batch_ids` 3–30), against the pre-fix **247/247 invented from ONE turn**.
+* **[G43](ROADMAP.md#g43) property grounding — WORKS, no leak.** 463 property
+  edges: **0 ungrounded values carry full confidence.** All 21 that fail
+  `_value_in_source` sit at `codex_conf_rejected` 0.35; 331 grounded at 0.9; 111
+  grounded but demoted (the subject, not the value, failed). ⚠ A raw SQL
+  substring check reports 42 "ungrounded" — half of that is the check, not the
+  store. Use `_normalize_term`, and cross it against `extraction_confidence`.
+  The `november --eye_color--> golden black` class is **absent entirely**.
+* **[G44](ROADMAP.md#g44) junk nodes — WORKS.** `codex_entity_name_unusable`
+  fired **2,273 times** across the run; **0** nodes named `8`/`3`/`i`/`the`, 0
+  non-alphabetic. ⚠ Residual: **5 single-LETTER nodes** (`d`, `z`, `e`, `f`, `g`,
+  1–4 edges each) pass because the rule is functional, not a length rule — which
+  is deliberate (`ai`, `ml`, `q4` must survive). 5 of 7,949 = 0.06%.
+* **[G45](ROADMAP.md#g45)/[G49](ROADMAP.md#g49) relations — CANONICALISATION IS
+  NOT BINDING.** **1,801 distinct relations** against G49's ~1,000 alarm line;
+  **1,029 used exactly once (57%)**. Tense variants never meet: `has` 491 ·
+  `have` 78 · `had` 60. `codex_relation_out_of_vocabulary` fired **once** — the
+  vocabulary is open, and nothing is converging it.
+* **Bi-temporal — written.** `learned_at` on all 7,052 edges, `unlearned_at` on
+  1,350. Whether anything READS them is G49's second prediction, untested here.
+* **[G49](ROADMAP.md#g49) prediction 1 CONFIRMED — procedural cannot activate.**
+  0 of 58 active; 56 at `reinforcement_count` 1, 2 at 2, threshold 3; every
+  pattern has `first_observed == last_observed`. **The procedural leg will score
+  zero and it is NOT retrieval.**
+
+### Node promotion does nothing on this corpus, and it nearly cost the run
+
+`codex_node_promoted` fired **0 times in 586 turns**. `codex_node_promotion_skipped_in_flight`
+fired **98 times** — every single candidate was an endpoint of the triplet being
+written. Before the same-day fix each of those was a `ForeignKeyViolation` that
+cost its turn the codex **and** procedural extraction (`evaluate_turn` re-raises),
+while the run still completed and printed a total. Measured pre-fix: **1 turn in
+6**; post-fix 0 in 6 with the guard firing 3 times, and 0 in 586 on the full run.
+⇒ **G44's repair half is inert here.** Do not tune it; see [TRAPS #31](TRAPS.md).
+
+### Also observed
+
+`bg_model_output_truncated` **154 times** across the run (the salvage path from
+2026-08-13 is what keeps those generations usable). Arm 1 produced **0** batch
+summaries against arm 2's 3 — unexplained, and worth one query before any
+summary-leg number is trusted.
