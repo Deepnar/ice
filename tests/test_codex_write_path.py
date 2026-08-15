@@ -246,6 +246,27 @@ try:
     check("pronouns, articles and pure punctuation ARE still refused",
           not bad_drop, f"wrongly allowed: {bad_drop}")
 
+    # ── 6c. G49: a clause is not a predicate ─────────────────────────────
+    # The open vocabulary accepts any relation word, which is right, but nothing
+    # checked SHAPE — so whole clauses became edges. Those are unmatchable by
+    # construction: no later mention produces the same string, so the fact is
+    # stored and can never be found. Demoted, never dropped (G45).
+    # Two-sided: real multi-word predicates must survive, or the rule is just
+    # punishing length.
+    print("── relations that are clauses are demoted, predicates are not ──")
+    from src.workers.codex_extractor import is_clausal_relation
+    clauses = ["was_waiting_for_a_reason_to_come_back",
+               "taking_what_youve_built_and_what_youve_understood",
+               "wont_carry_as_much_weight_in_admissions_as"]
+    predicates = ["has", "built_by", "didnt_get", "is_associated_with",
+                  "belongs_to_same_person_as", "more_common_in", "is_example_of"]
+    check("sentence fragments are flagged",
+          all(is_clausal_relation(r) for r in clauses),
+          str([r for r in clauses if not is_clausal_relation(r)]))
+    check("real predicates (incl. 5-word ones) are NOT flagged",
+          not any(is_clausal_relation(r) for r in predicates),
+          str([r for r in predicates if is_clausal_relation(r)]))
+
     # ── 7. G44 promotion must not delete the endpoint of the triplet that is
     #    writing it ────────────────────────────────────────────────────────
     # Found 2026-08-15 on a smoke seed: 1 turn in 6 died with a ForeignKeyViolation

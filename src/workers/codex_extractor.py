@@ -546,6 +546,23 @@ def known_relations(db=None) -> list:
     return sorted(set(live) | set(_seed_relations()))
 
 
+def is_clausal_relation(rel: str) -> bool:
+    """G49: True when *rel* is a sentence fragment rather than a predicate.
+
+    The open vocabulary (G45) accepts any relation word, which is right — but
+    nothing checked the SHAPE, so whole clauses became edges:
+    `taking_what_youve_built_and_what_youve_understood`,
+    `was_waiting_for_a_reason_to_come_back`. Those are unmatchable by
+    construction: no later mention will ever produce the same string, so the
+    fact is stored and can never be found again.
+
+    Counted by words, not characters — a length-in-characters rule would punish
+    long single words, which is the kind of writing-convention bet G28 exists to
+    kill. Callers DEMOTE on a True; they must not drop (G45).
+    """
+    return len([w for w in str(rel or "").split("_") if w]) > settings.codex_relation_max_words
+
+
 def canonical_relation(raw: str, known=None):
     """G45: resolve *raw* onto a relation the graph already uses, or accept it.
 
@@ -852,6 +869,25 @@ def extract_triplets(text: str, model_override: str = "",
             else:
                 for t in chunk_triplets:
                     t["confidence"] = settings.codex_conf_ungrounded
+
+            # G49: a clause is not a predicate. Demote AFTER grounding so the
+            # two judgements compose — a triplet can be well-grounded and still
+            # carry an unusable relation, and it keeps the lowest verdict.
+            # Demoted, never dropped: G45 measured that dropping destroys true
+            # facts, and a low-confidence edge stays out of context until it is
+            # corroborated rather than being deleted.
+            clausal = [t for t in chunk_triplets
+                       if is_clausal_relation(t.get("relation", ""))]
+            for t in clausal:
+                t["confidence"] = min(float(t.get("confidence", 1.0)),
+                                      settings.codex_conf_rejected)
+            if clausal:
+                logger.info(
+                    "codex_relation_clausal",
+                    demoted=len(clausal), of=len(chunk_triplets),
+                    max_words=settings.codex_relation_max_words,
+                    samples=sorted({str(t.get("relation"))[:60] for t in clausal})[:6],
+                )
 
             all_triplets.extend(chunk_triplets)
 

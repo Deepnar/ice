@@ -497,6 +497,15 @@ class Settings(BaseSettings):
     # false relation permanently, a missed merge only leaves two synonyms.
     codex_relation_canonical_threshold: float = 0.82
     codex_relation_open_vocabulary: bool = True
+    # G49 — a relation longer than this many words is a CLAUSE, not a predicate,
+    # and is demoted (never dropped: G45's lesson is that dropping loses true
+    # facts). Measured on 7,052 real edges: >5 words is 126 of 1,801 relation
+    # types and 146 edges, and the ones it catches are assistant prose that
+    # became an edge — `was_waiting_for_a_reason_to_come_back`. The cut is 5 and
+    # not 4 because real predicates reach five words (`belongs_to_same_person_as`)
+    # and demoting those would cost more than the junk is worth. This is a rule
+    # about SHAPE, not vocabulary, so it does not re-create what G45 removed.
+    codex_relation_max_words: int = 5
     # G44 second half — node promotion. When a MORE SPECIFIC name arrives for a
     # generic node already in the graph ("master plan" against a stored "plan"),
     # the generic one is registered as an alias of the specific one so later
