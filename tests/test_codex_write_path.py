@@ -50,6 +50,13 @@ ALLY = f"orien{SFX}"
 # for T4); since 2026-08-08 the node also gets a real payload. The cleanup has to
 # know the node exists or it leaks.
 PROP_VALUE = f"fire mage {SFX}"
+# G44 promotion: the generic must be a SINGLE token, because promotion only
+# matches an entity whose WHOLE name is one token of the incoming name. A
+# two-word generic is never eligible and would make the test vacuous.
+GEN_A = f"zzgena{SFX}"
+GEN_B = f"zzgenb{SFX}"
+SPEC_A = f"the big {GEN_A}"
+SPEC_B = f"the big {GEN_B}"
 
 
 def check(name, cond, detail=""):
@@ -77,7 +84,8 @@ def active_edges(db, subject):
 
 
 def cleanup(db):
-    names = [PROJ, DB1, DB2, HERO, ALLY, PROP_VALUE]
+    names = [PROJ, DB1, DB2, HERO, ALLY, PROP_VALUE,
+             GEN_A, GEN_B, SPEC_A, SPEC_B]
     ids = [e.id for e in db.query(CodexEntity)
            .filter(CodexEntity.canonical_name.in_(names)).all()]
     if ids:
@@ -217,6 +225,59 @@ try:
     check("a self-referential triplet is dropped", len(kept) == 1, str(kept))
     check("a real triplet survives the same filter",
           kept and kept[0]["object"] == DB1, str(kept))
+
+    # ── 7. G44 promotion must not delete the endpoint of the triplet that is
+    #    writing it ────────────────────────────────────────────────────────
+    # Found 2026-08-15 on a smoke seed: 1 turn in 6 died with a ForeignKeyViolation
+    # on codex_edges.source_id, costing that turn its codex AND procedural
+    # extraction (post_flight rolls back and re-raises). handle_triplet resolves
+    # the subject, then the object; resolving the object promoted the SUBJECT
+    # away, because the edge that would have given it a degree does not exist
+    # yet. "Zero committed edges" is not "disposable".
+    #
+    # ⚑ TWO-SIDED ON PURPOSE. The control below has to fire, or the fix case
+    # passes for the boring reason that promotion never ran at all.
+    print("── G44 promotion vs the in-flight endpoint ──")
+    from src.api.config import settings as _settings
+    from src.workers.codex_extractor import get_or_create_entity
+    _was = _settings.codex_node_promotion
+    _settings.codex_node_promotion = True
+    try:
+        # CONTROL: promotion is live in this configuration. An unprotected
+        # zero-edge stub IS folded into the more specific name.
+        gen_b = get_or_create_entity(db, GEN_B)
+        db.commit()
+        gen_b_id = gen_b.id
+        get_or_create_entity(db, SPEC_B)          # no protect_ids
+        db.commit()
+        check("control: an unprotected stub IS promoted away (promotion is live)",
+              db.query(CodexEntity).filter(CodexEntity.id == gen_b_id).first() is None,
+              "promotion did not fire — every assertion below is vacuous")
+
+        # THE FIX: the same shape, but the stub is the subject of the triplet
+        # being written, so it must survive and the edge must land.
+        gen_a = get_or_create_entity(db, GEN_A)
+        db.commit()
+        gen_a_id = gen_a.id
+        failure = None
+        try:
+            handle_triplet(db, GEN_A, "have", SPEC_A, BATCH, extraction_confidence=0.9)
+            db.commit()
+        except Exception as exc:                   # the FK violation, pre-fix
+            db.rollback()
+            failure = f"{type(exc).__name__}: {exc}"
+        check("the triplet writes without a ForeignKeyViolation",
+              failure is None, failure or "")
+        check("the in-flight subject still exists",
+              db.query(CodexEntity).filter(CodexEntity.id == gen_a_id).first() is not None,
+              "promotion deleted the endpoint the edge points at")
+        edges = [e for e in active_edges(db, GEN_A) if e.relation == "have"]
+        check("the edge itself landed", len(edges) == 1, f"{len(edges)} edges")
+        check("the edge points at an entity that EXISTS",
+              bool(edges) and db.query(CodexEntity).filter(
+                  CodexEntity.id == edges[0].target_id).first() is not None)
+    finally:
+        _settings.codex_node_promotion = _was
 
 finally:
     try:

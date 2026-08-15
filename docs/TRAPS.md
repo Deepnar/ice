@@ -557,3 +557,39 @@ suite to seed **real** embeddings.
 ⇒ A fixture value chosen for convenience becomes part of what the test measures.
 If the thing under test consumes an embedding, the fixture must contain a real
 one — otherwise the green is about the stub.
+
+### 31. "Zero edges" is not "safe to delete" — the in-flight endpoint
+
+G44's node promotion folds a zero-edge stub into a more specific name: `plan`
+becomes `the big plan`. Its safety argument was written down and is sound as far
+as it goes — *only stubs are eligible, and a stub has no facts to re-attribute,
+so the merge cannot destroy anything.*
+
+It is still wrong, because **the degree count sees committed edges and the
+caller is holding an uncommitted one.** `handle_triplet` resolves the subject,
+then the object, then writes the edge between them. Resolving the object can
+promote the SUBJECT away — at that instant the edge that would have given it a
+degree does not exist. The caller then writes `source_id` pointing at a deleted
+row, Postgres rejects it, and `evaluate_turn` rolls back and **re-raises**, so
+the turn loses its codex *and* procedural extraction. The seeder counts the
+failure and continues, so a 293-turn run completes and looks finished.
+
+Measured 2026-08-15: 1 turn in 6 on a smoke seed with `CODEX_NODE_PROMOTION=true`;
+0 in 6 with it off, same turns, store cleaned between. Reproduced deterministically
+at the function level — resolve `zzrepro`, then `the big zzrepro`, and the first
+entity's row is gone. Fixed with a `protect_ids` exemption for the endpoint the
+caller is still holding.
+
+⚠ **Two things this cost, and both are general.** The first repro used a
+two-word generic (`zzrepro plan`) and did not reproduce — promotion only matches
+an entity whose WHOLE name is one token of the incoming name, so the fixture was
+never eligible and the clean result was about the fixture (TRAPS #13b again).
+The second is the handler underneath: promotion's `except` called a bare
+`db.rollback()` inside the caller's open transaction, which would discard the
+whole batch's uncommitted work — now a SAVEPOINT, so a failed promotion undoes
+only itself.
+
+⇒ Before deleting a row on the grounds that nothing references it, ask what the
+**current call stack** is about to reference. A "read the database" check cannot
+see the caller's intent, and an operation that repairs the store must not run in
+the middle of a write to it.

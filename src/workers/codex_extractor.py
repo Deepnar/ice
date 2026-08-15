@@ -909,8 +909,12 @@ def is_unusable_entity_name(name: str) -> bool:
     return False
 
 
-def get_or_create_entity(db, name: str) -> CodexEntity:
-    """Resolves structural identity records across global name and alias spaces."""
+def get_or_create_entity(db, name: str, protect_ids=None) -> CodexEntity:
+    """Resolves structural identity records across global name and alias spaces.
+
+    *protect_ids* names entities the caller is still holding — they are exempt
+    from promotion below. See the promotion block for why that is not optional.
+    """
     canonical = name.strip().lower()
     entity = db.query(CodexEntity).filter_by(canonical_name=canonical).first()
     if entity:
@@ -932,12 +936,29 @@ def get_or_create_entity(db, name: str) -> CodexEntity:
     # that already carries facts would silently re-attribute them. A stub has no
     # facts to re-attribute, so the merge cannot destroy anything. Off by
     # default regardless (`codex_node_promotion`).
+    #
+    # ⚑ "ZERO EDGES" MEANS ZERO *COMMITTED* EDGES, AND THAT IS THE WHOLE TRAP.
+    # `record_triplet` resolves its subject, then its object, then writes the
+    # edge between them. Resolving the object can promote the SUBJECT away —
+    # `plan` folded into `the big plan` — because at that instant the edge the
+    # triplet is about to write does not exist, so the subject counts as a
+    # disposable stub. The caller then writes an edge pointing at a deleted row
+    # and Postgres rejects the whole batch on the foreign key, costing that
+    # turn its codex AND procedural extraction (post_flight re-raises).
+    # Reproduced deterministically 2026-08-15; 1 turn in 6 on a smoke seed.
+    # ⇒ an entity the caller is still holding is never a disposable stub.
     if settings.codex_node_promotion:
         try:
             tokens = set(canonical.split())
             if len(tokens) > 1:
+                protected = set(protect_ids or ())
                 for generic in db.query(CodexEntity).filter(
                         CodexEntity.canonical_name.in_(list(tokens))).all():
+                    if generic.id in protected:
+                        logger.info("codex_node_promotion_skipped_in_flight",
+                                    generic=generic.canonical_name,
+                                    candidate=canonical)
+                        continue
                     degree = db.query(CodexEdge).filter(
                         (CodexEdge.source_id == generic.id)
                         | (CodexEdge.target_id == generic.id)).count()
@@ -956,18 +977,25 @@ def get_or_create_entity(db, name: str) -> CodexEntity:
                                                   convert_to_tensor=False).tolist(),
                         last_updated=datetime.now(timezone.utc),
                     )
-                    db.add(new_specific)
-                    db.delete(generic)
-                    db.flush()
+                    # SAVEPOINT, so a failed promotion undoes ITSELF and not the
+                    # caller's open transaction. This used to fall through to a
+                    # bare `db.rollback()`, which discards every uncommitted
+                    # write in the batch — the same class of defect as the
+                    # in-flight deletion above, and silent where that one is loud.
+                    with db.begin_nested():
+                        db.add(new_specific)
+                        db.delete(generic)
+                        db.flush()
                     logger.info("codex_node_promoted",
                                 generic=generic.canonical_name,
                                 promoted_to=canonical, generic_degree=degree)
                     return new_specific
         except Exception as err:
-            # Promotion is an optimisation; never lose the entity over it.
+            # Promotion is an optimisation; never lose the entity over it. The
+            # savepoint has already undone the failed attempt, so the caller's
+            # transaction is intact and resolution falls through to a new node.
             logger.warning("codex_node_promotion_failed",
                            name=canonical, error=str(err)[:120])
-            db.rollback()
 
     new_entity = CodexEntity(
         id=generate_uuid5(canonical),
@@ -1339,7 +1367,11 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
             return
 
     subj = get_or_create_entity(db, subject_name)
-    obj  = get_or_create_entity(db, object_name)
+    # ⚑ The subject is now IN FLIGHT: this triplet is about to write an edge
+    # from it, but that edge does not exist yet, so promotion would read it as a
+    # zero-edge stub and delete it while resolving the object. Passing the id
+    # exempts it. See the promotion block in get_or_create_entity.
+    obj  = get_or_create_entity(db, object_name, protect_ids={subj.id})
 
     # ── A8: negated assertion ("X no longer uses Y", "X distrusts Y") ──
     # A negation retracts the matching POSITIVE edge (the fact stopped being
