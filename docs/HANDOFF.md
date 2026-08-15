@@ -78,8 +78,20 @@ If you read these anywhere, they are superseded — the correction is in
 **1. Re-seed both arms.** ~50 min each.
 
 ```
-sh <scratchpad>/two_arm_seed.sh      # or reproduce it: it sets CODEX_NODE_PROMOTION=true
+sh scripts/z1/two_arm_seed.sh
 ```
+
+> **⚑ `CODEX_NODE_PROMOTION` — the contradiction you are about to notice, answered.**
+> `codex_node_promotion` defaults to **False** in `config.py`, and that default
+> is deliberate. **The seed script overrides it to `true` for the run.** Both are
+> correct because they are different scopes: OFF is the production default
+> (promotion merges two entity identities and must never happen unattended), ON
+> for a seeding run is how [G44](ROADMAP.md#g44)'s second half gets exercised at
+> all — the store is disposable and snapshotted, and only ZERO-EDGE stubs are
+> eligible, so the merge cannot re-attribute a fact that exists.
+> **The override is per-run and does not change the default. Do not "fix" the
+> disagreement by editing `config.py`.** Verified: with the env var set,
+> `Settings().codex_node_promotion` is True; without it, False.
 Arm 1 `qwen3:4b-instruct`, arm 2 `gemma4:e4b`, whole 293 turns each, snapshot
 per arm. The driver passes `--bg-model`, which **is** honoured all the way down
 (verified: `seed_store.py:304` sets it, `:339` reads it into `seed_model`, `:440`
@@ -179,7 +191,13 @@ of them** — every one presents as an obvious bug whose obvious fix is wrong.
   `data/` is 871 MB, so **never `git add data/` blind**; only
   `data/relation_seed.json` (111 relation words, no conversation text) is tracked.
 * New scripts, all in `scripts/z1/`: `generate_typed_probes.py`, `score_typed.py`,
-  `harvest_probe_context.py`, `run_meta.py`, `seed_relation_vocab.py`.
+  `harvest_probe_context.py`, `run_meta.py`, `seed_relation_vocab.py`,
+  `two_arm_seed.sh`.
+* **⚠ A previous version of this handoff pointed at a driver script in a session
+  scratchpad, which was wiped between sessions** — the next session found an
+  instruction referencing a file that no longer existed and correctly stopped.
+  `two_arm_seed.sh` is now tracked in the repo. **Never reference a scratchpad
+  path from a committed doc:** an experiment driver is part of the experiment.
 * **One stale line remains, and it is USER-GATED:** `CLAUDE.md:303` says *"The
   public release is gated on a good README"* — the repo has been public for a
   long time; there is no pending release. The user was shown a proposed fix and
