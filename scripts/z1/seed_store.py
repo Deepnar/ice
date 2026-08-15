@@ -25,6 +25,27 @@ recency knob measures as "cosmetic" — a verdict that would be an artifact of
 this fixture rather than a fact about ICE. Turns are laid down across a
 synthetic span ending `--end-days-ago` before now, in conversation order.
 
+**⚑ AND THEY ARE SHAPED AS SITTINGS, which the even spread destroyed.** Spacing
+293 turns evenly across 120 days puts ~10 hours between consecutive turns, and
+`resolve_session_id` opens a new session after 30 minutes of silence — so the
+corpus this script built had **293 sessions of exactly one turn** (measured
+2026-08-12). Everything keyed on sessions was therefore untestable on it and
+would have measured as inert: session-aware clustering (C5), the session-gap
+maintenance trigger (C7), cross-chat scoping (C6-F), and G42's procedural fix,
+whose whole premise is that a habit is visible across a sitting and not inside
+one turn. The recency spread was real and is kept; it was simply never the only
+temporal property that mattered.
+
+Turns now land in **sittings** — bursts `--within-sitting-seconds` apart,
+separated by gaps long enough to open a new session — with the sittings
+themselves spread across the span. Both properties hold at once.
+
+**⚑ session_id is NOT assigned here.** The rows are written with the real
+`resolve_session_id`, the same call `main.py` makes, so what gets measured is
+ICE's session logic rather than this script's idea of it. Writing the ids
+directly would test our own labels — the same mistake as a scorer that skips
+the budget setter and then reports the budget's effect.
+
 **Never truncates** (TRAPS #6, #15, #16). It owns its rows through the
 conversation it creates and `--clean` removes exactly those.
 
@@ -38,6 +59,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 import sys
 import uuid
 from collections import Counter
@@ -47,10 +69,52 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from sqlalchemy import text  # noqa: E402
 
-from scripts.z1.derive_retrieval_gt import load_conversations, turn_text  # noqa: E402
+from scripts.z1.derive_retrieval_gt import load_conversations  # noqa: E402
 from src.api.config import settings  # noqa: E402
 from src.api.db import SessionLocal  # noqa: E402
 from src.memory.models import Conversation, EpisodicMemory  # noqa: E402
+from src.memory.session import resolve_session_id  # noqa: E402
+
+
+def _sitting_timestamps(n_turns, *, end, span_days, sitting_min, sitting_max,
+                        within_seconds, rng):
+    """Return `n_turns` timestamps laid out as SITTINGS, oldest first.
+
+    A sitting is a burst of consecutive turns `within_seconds` apart — short
+    enough that `resolve_session_id` keeps them in one session. Sittings are
+    spread evenly across `span_days`, so the silence between them is days and
+    each one opens a new session.
+
+    Deterministic given `rng`: the seeder is a measurement fixture, so two runs
+    with the same seed must produce the same corpus or the fixture is itself a
+    variable.
+    """
+    sizes, remaining = [], n_turns
+    while remaining > 0:
+        size = min(remaining, rng.randint(sitting_min, sitting_max))
+        # Never leave a runt sitting behind: it would be a session too short to
+        # evidence a habit, which is the exact failure this layout exists to fix.
+        if 0 < remaining - size < sitting_min:
+            size = remaining
+        sizes.append(size)
+        remaining -= size
+
+    span = timedelta(days=span_days)
+    gap = span / max(1, len(sizes))
+    stamps = []
+    for s_idx, size in enumerate(sizes):
+        start = end - span + gap * s_idx
+        for j in range(size):
+            stamps.append(start + timedelta(seconds=within_seconds * j))
+    stamps = stamps[:n_turns]
+    # Anchor the NEWEST turn on `end`. Without this the last sitting starts one
+    # gap short of it and the whole corpus lands ~15 days older than
+    # `--end-days-ago` promises — which is a recency change nobody asked for,
+    # smuggled in by a layout change. Shifting preserves every interval.
+    if stamps:
+        offset = end - stamps[-1]
+        stamps = [s + offset for s in stamps]
+    return stamps
 
 # Every episodic row this script writes carries this idempotency_key prefix, and
 # --clean finds its conversations THROUGH those rows. Deliberately not a marker
@@ -119,18 +183,35 @@ def clean(db) -> int:
             print("  ! manifest has no pre_existing_entity_ids — entities left alone")
         else:
             try:
+                # ⚑ DEPENDENTS FIRST. codex_events and codex_snapshots both
+                # foreign-key the entity, so deleting entities directly raises
+                # ForeignKeyViolation — and the handler below caught it, printed
+                # one line and carried on, leaving a store with **0 episodic rows
+                # and 3,671 stale entities**. A re-seed on top of that silently
+                # mixes a new corpus with the previous run's graph, which is the
+                # worst possible fixture: it looks seeded. Observed 2026-08-13.
+                #
                 # An EMPTY pre-list is the common case (a clean store before
                 # seeding) and must delete everything, so the cast is explicit:
                 # an untyped empty array makes `= ANY()` fail type inference.
-                n = db.execute(text(
-                    "DELETE FROM codex_entities "
-                    "WHERE NOT (id = ANY(CAST(:pre AS uuid[])))"),
-                    {"pre": pre or []}).rowcount
+                where = "WHERE NOT (id = ANY(CAST(:pre AS uuid[])))"
+                for dep in ("codex_events", "codex_snapshots"):
+                    db.execute(text(
+                        f"DELETE FROM {dep} WHERE entity_id IN "
+                        f"(SELECT id FROM codex_entities {where})"),
+                        {"pre": pre or []})
+                n = db.execute(text(f"DELETE FROM codex_entities {where}"),
+                               {"pre": pre or []}).rowcount
                 db.commit()
                 print(f"  removed {n} codex entities created by seeding")
             except Exception as exc:
+                # Loud and FATAL: a half-cleaned store is not a recoverable
+                # state to seed into, and continuing produced exactly that.
                 print(f"  ! codex_entities: {exc}")
                 db.rollback()
+                raise SystemExit(
+                    "clean failed on codex_entities — refusing to leave a "
+                    "half-cleaned store. Nothing was seeded.")
 
     if not ids:
         print("nothing to clean")
@@ -204,6 +285,13 @@ def main() -> int:
     ap.add_argument("--span-days", type=int, default=120,
                     help="lay the turns down across this many days")
     ap.add_argument("--end-days-ago", type=int, default=2)
+    ap.add_argument("--sitting-min", type=int, default=10,
+                    help="fewest turns in one sitting (see _sitting_timestamps)")
+    ap.add_argument("--sitting-max", type=int, default=20,
+                    help="most turns in one sitting")
+    ap.add_argument("--within-sitting-seconds", type=int, default=120,
+                    help="silence between turns INSIDE a sitting; must stay "
+                         "well under settings.session_gap_minutes")
     ap.add_argument("--bg-model", default=None,
                     help="background model for THIS arm; overrides "
                          "settings.background_model_name for the run")
@@ -275,9 +363,16 @@ def main() -> int:
         conv = _C()
 
         # Oldest first, ending `end_days_ago` before now — see the module note on
-        # why a single shared timestamp would silently neuter every recency knob.
+        # why a single shared timestamp would silently neuter every recency knob,
+        # and why an EVEN spread silently neutered every session-keyed feature.
         end = datetime.now(timezone.utc) - timedelta(days=args.end_days_ago)
-        step = timedelta(days=args.span_days) / max(1, len(turns))
+        # Seeded per conversation so a re-run reproduces the corpus exactly, and
+        # so two conversations do not receive identical sitting boundaries.
+        rng = random.Random(f"{MARK}-{cid}")
+        stamps = _sitting_timestamps(
+            len(turns), end=end, span_days=args.span_days,
+            sitting_min=args.sitting_min, sitting_max=args.sitting_max,
+            within_seconds=args.within_sitting_seconds, rng=rng)
         turn_ids = []
 
         for i, t in enumerate(turns):
@@ -293,7 +388,12 @@ def main() -> int:
 
             row = db.query(EpisodicMemory).filter_by(idempotency_key=ikey).first()
             if row is None:
-                ts = end - step * (len(turns) - 1 - i)
+                ts = stamps[i]
+                # The production call, not a local guess — see the module note.
+                session_id, session_started, _gap = resolve_session_id(
+                    db, conv.id, ts, settings.session_gap_minutes)
+                if session_started:
+                    stats["sessions_opened"] += 1
                 try:
                     c = clf.classify(user[:2000])
                 except Exception as exc:
@@ -304,6 +404,7 @@ def main() -> int:
                     conversation_id=conv.id,
                     batch_id=uuid.uuid4(),
                     timestamp=ts,
+                    session_id=session_id,
                     topic_tags=list(c.topic_tags or []),
                     intent_tags=list(c.intent_tags or []),
                     context_reliance=c.context_reliance,
