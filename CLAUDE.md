@@ -61,6 +61,18 @@ Then, as the work requires:
 | [docs/PROVENANCE.md](docs/PROVENANCE.md) | What was *done* — model revisions, corpora, checkpoints, run parameters. It states its own standing rule; follow it when a run produces an artifact. |
 | [docs/CLEANUP.md](docs/CLEANUP.md) | Cleanup rules (incl. the deletion sweep) + the move/rename ledger. |
 | [docs/VISION.md](docs/VISION.md) | Intent — memory for human–AI thinking sessions. A separate Coding Mode is planned post-paper. |
+| [docs/FEATURE_INVENTORY.md](docs/FEATURE_INVENTORY.md) | **Every feature the system actually has** — ~433 of them, each with a verified `file:line`, its controlling setting, that setting's **default**, and whether it is **ON by default**. Plus 40 items that are implemented and **cannot currently fire**. |
+
+**⚑ CHECK [FEATURE_INVENTORY.md](docs/FEATURE_INVENTORY.md) BEFORE CLAIMING THE
+SYSTEM DOES SOMETHING — AND BEFORE BUILDING SOMETHING.** It prevents the two
+failures that have each already happened here: a capability rebuilt because
+nobody knew it existed (the coding core, forgotten within 45 days), and a
+capability described as active in a write-up while its setting defaults to off.
+Its `On by default?` and `DEAD OR INERT` columns are the load-bearing parts — an
+inert path attributed a measurement is how several wrong conclusions were drawn
+on 2026-08-15. **Update it in the same session as anything that adds, removes or
+re-gates a feature**; like every doc here it rots, and the `file:line` is there
+so re-deriving an entry costs seconds. Code wins over it, always.
 
 `docs/ICE_Architecture[real_v2].md` is the **frozen** technical report for the
 system as evaluated in the paper (git tag `v2-paper-eval`) — never update it to
