@@ -198,10 +198,11 @@ of them** — every one presents as an obvious bug whose obvious fix is wrong.
   instruction referencing a file that no longer existed and correctly stopped.
   `two_arm_seed.sh` is now tracked in the repo. **Never reference a scratchpad
   path from a committed doc:** an experiment driver is part of the experiment.
-* **One stale line remains, and it is USER-GATED:** `CLAUDE.md:303` says *"The
-  public release is gated on a good README"* — the repo has been public for a
-  long time; there is no pending release. The user was shown a proposed fix and
-  has not yet approved it.
+* **Stale public-release language: swept and CLEARED.** `CLAUDE.md`'s "the
+  public release is gated on a good README" was removed by the user (the repo
+  has been public since 2026-08-10). The only remaining hits anywhere are
+  `CLAUDE.md`'s and `CLEANUP.md`'s records OF that staleness, which are correct
+  history. A memory file saying "destined to become public" was corrected too.
 * Commit style settled 2026-08-13: **subsystem-specific `area:` prefixes**
   (`retrieval:`, `codex:`, …), not generic buckets.
 * **[TRAPS](TRAPS.md) is now 28 entries.** #27 is the "looks broken but is not"
