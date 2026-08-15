@@ -95,7 +95,15 @@ this repo is **a measurement someone can trust**, not a feature.
   rate, hit count) answers *"is the expected thing in there"* and never *"is
   what is there any good"*.
 - **Does the instrument reproduce production, or my idea of it?** The instrument
-  becomes part of what it measures the moment it diverges.
+  becomes part of what it measures the moment it diverges. **So change it one
+  part at a time, and prove each part TWICE before it feeds a run** — once in
+  isolation (does the piece do what it claims?), once through the path
+  production actually takes (does the real caller still agree?). The second
+  catches what the first cannot: a fixture's sitting layout passed its own check
+  and still aged the whole corpus by fifteen days, visible only once the
+  assertion asked what production would see. **A long run started on an
+  unverified change does not fail — it returns a number, and the number is
+  wrong.**
 - **⚑ Did I QUERY the running system, or reason about the code?** Reading source
   and reasoning forward produces conclusions that feel verified and are not —
   **four wrong ones in a single session, 2026-08-12**, each disproved by one
@@ -130,6 +138,27 @@ scrutiny came from reading actual output**, and the two that mattered most (a
 ground-truth key that looked fine, an eight-model ranking that was backwards)
 were caught by a human and an agent *reading*, against metrics that were green.
 See TRAPS #20, #21 and roadmap [G46](docs/ROADMAP.md#g46).
+
+### Name the item, then SAY WHAT IT IS — every time (2026-08-13)
+
+**A bare roadmap id is not a reference, it is a lookup the user has to perform.**
+There are 56 open items; nobody holds them in their head, and the person reading
+your message has been away from the queue longer than you have.
+
+So every mention of a roadmap item, spec, TRAPS entry or setting carries **its
+number AND a one-line plain explanation with a concrete example** — every time
+it appears, including the second and third time in the same message. Repetition
+here is not clutter; it is the only thing that makes the id mean anything.
+
+> ❌ "G44 is next, then G45."
+> ✅ "**G44** — codex subjects are not real entities: the store holds nodes
+>    literally named `8` and `3`, typed as *person*, which nothing can ever look
+>    up. Then **G45** — the relation vocabulary is a closed 197-word list, so a
+>    true fact like `i --didnt_get--> csi` is thrown away for using a word that
+>    is not on it."
+
+The example is the load-bearing part. "G44 (entity quality)" is still a lookup;
+`nodes named 8, typed as person` is recognisable a week later.
 
 ### Ask before changing production code (2026-08-03)
 
