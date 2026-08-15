@@ -31,7 +31,7 @@ isolation and once through the path production actually takes.
 | | |
 |---|---|
 | **Store** | **~2 turns. Deliberately empty.** Unusable for any measurement. |
-| **Git** | All work committed, **11 commits**. `main` is **77 commits ahead** of `origin/main` (`0c446d1`). |
+| **Git** | All work committed, **16 commits this session**. `main` is **82 commits ahead** of `origin/main` (`0c446d1`). Working tree clean. |
 | **Push freeze** | **ON.** Nothing pushed. Do not push until the user lifts it. |
 | **Alembic head** | `505f12031434` (bi-temporal codex edges). |
 | **Tests** | 347/347 green (`tests/smoke`, `test_settings_freeze.py`, `test_dynamics_invariants.py`). |
@@ -186,6 +186,12 @@ of them** — every one presents as an obvious bug whose obvious fix is wrong.
   has not yet approved it.
 * Commit style settled 2026-08-13: **subsystem-specific `area:` prefixes**
   (`retrieval:`, `codex:`, …), not generic buckets.
+* **[TRAPS](TRAPS.md) is now 28 entries.** #27 is the "looks broken but is not"
+  checklist; **#28–30 were mined out of five overwritten handoffs** at the end of
+  this session — durable lessons that had only ever lived in a file that gets
+  replaced every time. **#28 is the one to read first: nine consecutive roadmap
+  entries were found wrong about their own subject, and overstating remaining
+  work is the direction that wastes an entire session.**
 
 ## WHEN DONE
 
