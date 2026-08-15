@@ -3,7 +3,29 @@
 
 **What it measures.** For each probe — a question written FROM a known turn —
 run the real orchestrator against the seeded store and ask: did that turn come
-back, and where in the ranking? Recall@k and MRR, plus which leg found it.
+back, and where in the ranking? Recall@k and MRR, plus which legs found it.
+
+**⚑ IT RUNS THE PRODUCTION PREAMBLE, and G46 is why (fixed 2026-08-12).** This
+instrument used to call `retrieve()` directly with the raw classification. That
+is not the path `main.py` takes, and three of its numbers were partly about the
+harness: the orchestrator kept its `__init__` default of 5,000 tokens instead of
+the 8,100-11,350 a real conversation derives, and the classifier's raw
+`Zero_Shot` reached a defensive guard production never hits because `main.py`
+sets `context_reliance = "Long_Term_Memory"` first. Correcting only those two
+moved recall@10 from **0.250 to 0.55** on the same store and the same probes,
+and took zero-fragment probes from 15 to 0. Nothing about ICE changed.
+
+So the preamble below is not optional scaffolding — it IS the measurement:
+route the model, derive the budget from its real window, ask B2 whether memory
+is consulted at all, and only then retrieve. **A probe B2 declines is reported
+separately; it is a decision, not a miss.**
+
+**⚠ What this still cannot tell you.** Recall is a PRESENCE metric — it answers
+"did the gold turn come back", never "was the retrieved context any good". And
+the generator's ambiguity guard scored candidates on question + answer while
+retrieval only sees the question, so **74% of these probes have another turn
+matching the question at least as well** (G46): a "miss" may be ICE returning an
+equally good turn. Both caps are on the probe set, not on retrieval.
 
 **Why this can be a fast loop at all.** Retrieval has no LLM in it. Given a
 fixed store and a fixed question the ranking is deterministic, and scoring is
@@ -45,7 +67,6 @@ import json
 import os
 import statistics
 import sys
-import uuid
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,6 +81,7 @@ from src.api.db import SessionLocal  # noqa: E402
 PROBES = Path("experiments/curation_files/generated_probes.json")
 MANIFEST = Path("experiments/curation_files/seeded_store.json")
 RESULTS = Path("experiments/curation_files/score_runs")
+SEED_MARKER = "z1seed"
 
 # Every knob this instrument exists to turn. Dumped verbatim with each run so a
 # score is never separated from the configuration that produced it.
@@ -102,22 +124,34 @@ def main() -> int:
                     help="let retrieval mutate the store (G38) — for measuring the drift itself")
     args = ap.parse_args()
 
-    if not PROBES.exists() or not MANIFEST.exists():
-        print(f"need {PROBES} and {MANIFEST} — generate probes and seed first")
+    if not PROBES.exists():
+        print(f"need {PROBES} — generate probes and seed first")
         return 1
     probes = json.loads(PROBES.read_text())["probes"]
-    manifest = json.loads(MANIFEST.read_text())
-
-    # turn_number -> the episodic row id, per conversation. `source_batch_id` on
-    # a fragment holds the episodic PRIMARY KEY (see _strengthen_retrieved,
-    # which does .get() on it), despite the name.
-    gold_index, conv_of = {}, {}
-    for cid, meta in manifest["conversations"].items():
-        conv_of[cid] = meta["conversation_id"]
-        for rec in meta["turns"]:
-            gold_index[(cid, rec["turn_number"])] = rec["episodic_id"]
 
     db = SessionLocal()
+
+    # G46: turn_number -> the episodic row id, and slug -> conversation_id,
+    # DERIVED FROM THE STORE via idempotency_key. Both used to come out of a
+    # file, and the arm runs overwrote that file — the map then pointed at the
+    # last arm's 20-turn conversations while the 293-turn store was loaded, and
+    # "every leg returns 0" nearly shipped as *retrieval is completely broken*.
+    # The store is the only thing that cannot disagree with itself.
+    #
+    # `source_batch_id` on a fragment holds the episodic PRIMARY KEY (see
+    # _strengthen_retrieved, which does .get() on it), despite the name.
+    gold_index, conv_of = {}, {}
+    for row_id, conv_id, key in db.execute(text(
+            "SELECT id, conversation_id, idempotency_key FROM episodic_memory "
+            "WHERE idempotency_key LIKE :m"), {"m": f"{SEED_MARKER}-%"}):
+        _, slug, turn = key.split("-", 2)
+        conv_of[slug] = str(conv_id)
+        gold_index[(slug, int(turn))] = str(row_id)
+    if not conv_of:
+        print(f"no '{SEED_MARKER}-' rows in the store — seed it first")
+        return 1
+    print(f"  map from store: {len(conv_of)} conversations, "
+          f"{len(gold_index)} turns")
     cold = db.execute(text("SELECT count(*) FROM cold_storage")).scalar()
     if cold and args.freeze:
         print(f"⚠ {cold} cold_storage rows present — resurrection CAN fire and "
@@ -126,9 +160,24 @@ def main() -> int:
     if args.freeze:
         settings.codex_reinforce_increment = 0.0
         settings.decay_strengthen_amount = 0.0
+        # The two above are AMOUNTS; this is the write. Without it the
+        # access_count increment still fires on every retrieval, and that alone
+        # made two identical runs disagree on 14 of 40 probes — the freeze
+        # looked like it held because decay_score stopped moving.
+        settings.retrieval_strengthen_writes = False
 
+    from sqlalchemy import func
+
+    from src.api.context_ledger import effective_memory_budget
+    from src.api.memory_decision import (decide_memory_retrieval,
+                                         derive_total_budget,
+                                         estimate_recent_window_tokens)
     from src.classifier.classifier import PyTorchClassifier
     from src.memory.embedder import get_embedder
+    from src.memory.models import EpisodicMemory
+    from src.memory.tokens import estimate_from_chars
+    from src.model_registry.registry import find_best_model, get_model_context_window
+    from src.model_registry.runtime_probe import serving_window
     from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 
     embedder = get_embedder()
@@ -136,11 +185,49 @@ def main() -> int:
                             schema_path=settings.label_schema_path)
     orch = HybridRetrievalOrchestrator(db, embedder)
 
+    # Per-conversation constants for the budget, queried once.
+    conv_meta = {}
+    for slug, conv_id in conv_of.items():
+        turns = db.query(EpisodicMemory).filter_by(conversation_id=conv_id).count()
+        chars = db.query(func.coalesce(
+            func.sum(func.length(EpisodicMemory.raw_text)), 0)
+        ).filter_by(conversation_id=conv_id).scalar() or 0
+        conv_meta[slug] = (turns, estimate_from_chars(chars))
+
+    # G46: record EVERY leg that produced the gold fragment, not the first one
+    # RRF happened to stamp. `_apply_rrf` keeps first-leg-wins and bm25 is first
+    # in the legs dict, so a fragment both legs found reads as bm25 — which is
+    # how *"the vector leg is dead"* got written down about a leg that returns
+    # 87-89 candidates on its own. Measured here in the harness by wrapping the
+    # leg methods; the production attribution is untouched.
+    gold_legs: set[str] = set()
+    _watch = {}
+
+    def _wrap_leg(name, fn):
+        def inner(*a, **kw):
+            out = fn(*a, **kw)
+            try:
+                want = _watch.get("gold")
+                if want and any(f.source_batch_id and str(f.source_batch_id) == want
+                                for f in out):
+                    gold_legs.add(name)
+            except Exception:
+                pass
+            return out
+        return inner
+
+    for _leg in ("_bm25_episodic", "_vector_episodic", "_codex_graph",
+                 "_procedural_lookup", "_batch_summary_lookup", "_cold_lookup"):
+        if hasattr(orch, _leg):
+            setattr(orch, _leg, _wrap_leg(_leg.strip("_").split("_")[0],
+                                          getattr(orch, _leg)))
+
     todo = probes[:args.limit] if args.limit else probes
     ranks, per_leg, misses, stats = [], Counter(), [], Counter()
     # Recorded because a probe set that collapses into one intent would exercise
     # ONE row of a 13-row leg-weight table while looking like full coverage.
     intents, topics, frag_counts = Counter(), Counter(), []
+    budgets, found_legs, declined = [], Counter(), []
 
     for i, p in enumerate(todo, 1):
         cid = p["conversation"]
@@ -149,9 +236,50 @@ def main() -> int:
             stats["gold_turn_not_seeded"] += 1
             continue
         q = p["question"]
+        turn_count, total_tokens = conv_meta[cid]
         try:
             c = clf.classify(q[:2000])
             emb = embedder.encode(q, convert_to_tensor=False).tolist()
+
+            # ── the production preamble main.py runs before retrieve() ──
+            # Without it this instrument measured a system nobody ships: the
+            # orchestrator sat at its __init__ default of 5,000 tokens (real
+            # budgets here are 8,100-11,350), and the classifier's raw
+            # `Zero_Shot` survived into a defensive guard that main.py's
+            # `context_reliance = "Long_Term_Memory"` means production never
+            # reaches — which returned 0 fragments for 15 probes and scored
+            # them as retrieval misses. C16: the budget comes from the routed
+            # model's real window, then the question's own tokens.
+            model_name, _ = find_best_model(c.topic_tags, c.intent_tags)
+            registry_window = get_model_context_window(model_name)
+            window = (serving_window(model_name, registry_window)
+                      if settings.context_use_serving_window else registry_window)
+            total_budget = effective_memory_budget(
+                derive_total_budget(window, settings), q,
+                generation_reserve=settings.context_generation_reserve,
+                floor=settings.context_budget_floor)
+
+            # B2 decides whether memory is consulted at all. A turn it declines
+            # is NOT a retrieval failure and averaging the two together is how
+            # a deliberate decision got counted as a miss.
+            decision = decide_memory_retrieval(
+                c, turn_count=turn_count, total_tokens=total_tokens,
+                settings=settings,
+                recent_window_tokens=estimate_recent_window_tokens(
+                    turn_count, total_budget),
+                timescope_mode="current", coding_scope=False)
+            if not decision.retrieve:
+                declined.append({"conversation": cid, "gold_turn": p["gold_turn"],
+                                 "question": q})
+                continue
+
+            c.context_reliance = "Long_Term_Memory"          # main.py
+            orch.set_budget_from_turn_count(
+                turn_count, total_tokens=total_tokens, classification=c,
+                total_budget=total_budget)
+
+            gold_legs.clear()
+            _watch["gold"] = str(gold_id)
             frags = orch.retrieve(classification=c, conversation_id=conv_of[cid],
                                   prompt_embedding=emb, scope=None)
         except Exception as exc:
@@ -162,6 +290,7 @@ def main() -> int:
         intents.update(c.intent_tags or ["<none>"])
         topics.update(c.topic_tags or ["<none>"])
         frag_counts.append(len(frags))
+        budgets.append(orch.max_retrieval_tokens)
 
         rank = None
         for pos, f in enumerate(frags, 1):
@@ -170,12 +299,16 @@ def main() -> int:
                 per_leg[getattr(f, "leg", None) or f.source_type] += 1
                 break
         ranks.append(rank)
+        if rank is not None:
+            found_legs["+".join(sorted(gold_legs)) or "<none>"] += 1
         if rank is None:
             misses.append({"conversation": cid, "gold_turn": p["gold_turn"],
-                           "question": q, "returned": len(frags)})
+                           "question": q, "returned": len(frags),
+                           "produced_by_legs": sorted(gold_legs)})
         if i % 25 == 0:
             hit = sum(1 for r in ranks if r)
-            print(f"    {i}/{len(todo)}  hit {hit}/{len(ranks)}")
+            print(f"    {i}/{len(todo)}  hit {hit}/{len(ranks)}  "
+                  f"declined {len(declined)}")
 
     n = len(ranks)
     if not n:
@@ -193,11 +326,23 @@ def main() -> int:
     print(f"  found at all {len(hits)}/{n}")
     if hits:
         print(f"  median rank when found: {statistics.median(hits):.0f}")
-    print(f"  by leg: {dict(per_leg.most_common())}")
-    print(f"\n  ⚠ recall@k is CAPPED by retrieval_max_per_conversation="
-          f"{getattr(settings, 'retrieval_max_per_conversation', '?')}: the gold "
-          f"turn must rank in the top N of ITS OWN conversation to be returned "
-          f"at all, whatever k says.")
+    print(f"  by leg (first-leg-wins, as RRF stamps it): "
+          f"{dict(per_leg.most_common())}")
+    print(f"  by ALL producing legs: {dict(found_legs.most_common(8))}")
+    print(f"\n  B2 declined to retrieve for {len(declined)} probes — production "
+          f"never calls retrieve() for those, so they are a memory-DECISION "
+          f"result, not a retrieval failure. They are excluded from the {n} above.")
+    # The old warning here claimed recall@k was capped by
+    # retrieval_max_per_conversation. It is not, for these probes:
+    # `_session_diversify` exempts the CURRENT conversation from the cap
+    # entirely, and every probe asks about its own conversation. Measured
+    # 2026-08-12: RRF fuses ~157-196, diversify keeps ~59-115, and what
+    # actually bounds the returned set is the token budget below.
+    if budgets:
+        print(f"  retrieval token budget: median "
+              f"{statistics.median(budgets):.0f} "
+              f"(min {min(budgets)}, max {max(budgets)}) — derived per "
+              f"conversation from turn count; NOT the 5,000 __init__ default.")
     if frag_counts:
         z = sum(1 for x in frag_counts if x == 0)
         print(f"  fragments returned: mean {statistics.mean(frag_counts):.1f}, "
@@ -215,8 +360,10 @@ def main() -> int:
         "tag": args.tag, "utc": stamp, "n": n,
         "recall_at_1": rec1, f"recall_at_{args.k}": reck, "mrr": mrr,
         "found": len(hits), "by_leg": dict(per_leg),
+        "by_all_producing_legs": dict(found_legs),
         "intents": dict(intents), "topics": dict(topics),
-        "fragments_returned": frag_counts,
+        "fragments_returned": frag_counts, "budgets": budgets,
+        "declined": len(declined), "declined_probes": declined,
         "freeze_writes": args.freeze, "stats": dict(stats),
         "ranks": ranks, "misses": misses[:40],
         "settings": resolved_settings(),
