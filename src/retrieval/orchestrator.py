@@ -1143,7 +1143,20 @@ class HybridRetrievalOrchestrator:
         global _RELATION_GLOSSES
         if _RELATION_GLOSSES is None:
             from src.workers.codex_extractor import ALLOWED_RELATIONS
-            rels = sorted(ALLOWED_RELATIONS)
+            # G45: the vocabulary is open, so relation fit must be scored over
+            # the relations the graph ACTUALLY uses — not a 197-word list it has
+            # outgrown. G34 needs an embedding per relation, never a closed set,
+            # so this is the one function that changes: score against the union
+            # and the feature keeps working instead of going quietly inert on
+            # every relation invented after it was written.
+            rels = set(ALLOWED_RELATIONS)
+            try:
+                rels |= {r[0] for r in self.db.execute(text(
+                    "SELECT DISTINCT relation FROM codex_edges "
+                    "WHERE relation IS NOT NULL")).all() if r[0]}
+            except Exception as err:
+                self._leg_degraded("codex.relation_vocab", err)
+            rels = sorted(rels)
             embs = self.embedder.encode([r.replace("_", " ") for r in rels],
                                         convert_to_tensor=False, show_progress_bar=False)
             # G41: cached as ONE float64 ndarray, not a list of 197 lists.
@@ -2650,6 +2663,12 @@ class HybridRetrievalOrchestrator:
     # Strengthening (access count + decay boost)
     # ------------------------------------------------------------------
     def _strengthen_retrieved(self, fragments: List[ContextFragment]):
+        # G38/Z1: the write is gated as a whole. decay_strengthen_amount=0 stops
+        # the score moving but leaves access_count incrementing, and that alone
+        # reorders equal-scoring candidates on the next query — 26/40 identical
+        # result sets with it on, 40/40 with it off, on one store and one config.
+        if not settings.retrieval_strengthen_writes:
+            return
         for frag in fragments:
             if frag.source_type != "episodic" or not frag.source_batch_id:
                 continue
