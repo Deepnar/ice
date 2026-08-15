@@ -49,9 +49,18 @@ def main() -> int:
                     help="only probes whose gold turn did NOT come back")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--tag", default="read")
+    # ⚠ The default is the OLD 592-probe set, which score_typed.py does NOT
+    # use — it reads typed_probes.json (420, carrying probe_type). Harvesting
+    # one set and scoring the other means the read pass judges probes that were
+    # never scored, on a set whose fixed ambiguity guard rejects 385 of 592.
+    # Pass --probes experiments/curation_files/typed_probes.json to line them up.
+    ap.add_argument("--probes", default=None,
+                    help="probe file; default is the legacy untyped set")
     args = ap.parse_args()
 
-    probes = json.loads(PROBES.read_text())["probes"]
+    probe_path = Path(args.probes) if args.probes else PROBES
+    probes = json.loads(probe_path.read_text())["probes"]
+    print(f"probes: {len(probes)} from {probe_path}")
     random.Random(args.seed).shuffle(probes)
 
     db = SessionLocal()
@@ -116,9 +125,18 @@ def main() -> int:
             break
         slug = p["conversation"]
         conv_id = conv_of.get(slug)
-        gold_id = gold_index.get((slug, p["gold_turn"]))
-        if not conv_id or not gold_id:
+        # Two probe formats. The legacy set carries ONE `gold_turn`; the typed
+        # set carries `gold_turns`, a LIST — a summary_synthesis probe can span
+        # 17 turns, and reading only the first would judge retrieval against a
+        # fraction of its own answer. Accept both, always work with the list.
+        gold_turns = p.get("gold_turns")
+        if gold_turns is None:
+            gold_turns = [p["gold_turn"]] if p.get("gold_turn") is not None else []
+        gold_ids = [gold_index.get((slug, t)) for t in gold_turns]
+        gold_ids = [g for g in gold_ids if g]
+        if not conv_id or not gold_ids:
             continue
+        gold_set = {str(g) for g in gold_ids}
         seen += 1
         q = p["question"]
         tc, tt = meta[slug]
@@ -137,7 +155,8 @@ def main() -> int:
             timescope_mode="current", coding_scope=False)
         if not d.retrieve:
             records.append({"question": q, "conversation": slug,
-                            "gold_turn": p["gold_turn"],
+                            "probe_type": p.get("probe_type", "untyped"),
+                            "gold_turns": gold_turns,
                             "b2_declined": True, "fragments": []})
             continue
         c.context_reliance = "Long_Term_Memory"
@@ -145,24 +164,33 @@ def main() -> int:
                                         total_budget=tb)
         frags = orch.retrieve(classification=c, conversation_id=conv_id,
                               prompt_embedding=emb, scope=None)
+        # Rank of the FIRST gold turn to come back, and how many of them did.
+        # For a multi-gold probe rank alone is misleading: a summary probe
+        # spanning 17 turns can rank 1 and still have missed 16.
         rank = next((i for i, f in enumerate(frags, 1)
-                     if f.source_batch_id and str(f.source_batch_id) == str(gold_id)), None)
+                     if f.source_batch_id and str(f.source_batch_id) in gold_set), None)
+        returned = {str(f.source_batch_id) for f in frags if f.source_batch_id}
+        covered = len(gold_set & returned)
         if args.only_misses and rank is not None:
             continue
         records.append({
             "question": q,
             "conversation": slug,
-            "gold_turn": p["gold_turn"],
+            "probe_type": p.get("probe_type", "untyped"),
+            "gold_turns": gold_turns,
             "expected_answer": p.get("answer", ""),
             "gold_rank": rank,
+            "gold_covered": covered,
+            "gold_total": len(gold_set),
             "b2_declined": False,
-            "gold_turn_text": (gold_text.get(gold_id) or "")[:1500],
+            "gold_turn_text": "\n---\n".join(
+                (gold_text.get(g) or "")[:1500] for g in gold_ids[:3]),
             "fragments": [{
                 "position": i,
                 "leg": f.source_type,
                 "tokens": f.token_count,
                 "score": round(float(f.score), 4),
-                "is_gold": bool(f.source_batch_id and str(f.source_batch_id) == str(gold_id)),
+                "is_gold": bool(f.source_batch_id and str(f.source_batch_id) in gold_set),
                 "text": (f.text or "")[:1200],
             } for i, f in enumerate(frags, 1)],
         })
