@@ -822,3 +822,43 @@ here inserts and deletes its own fixtures; this one does not, so it will do this
 again. It is also the reason a *different* suite failed earlier in the same
 session — `test_retrieval_failopen` hit a unique-constraint violation on residue
 from a crashed run (TRAPS #6, third time).
+
+## 2026-08-13 — Z1 instrument and pipeline session
+
+**Removed from the store (data, not code).** `tests/test_codex_extractor.py` was
+run three times against the live measured store and leaked **3 episodic turns,
+17 entities, 23 edges, 23 relation-gap rows** into the 293-turn Z1 corpus — the
+failure TRAPS #6/#15/#16 describes, committed by the session doing the
+measuring. Every row was backed up to JSON before deletion
+(`leaked_rows_backup.json` in the session scratchpad) and the store was verified
+back to its recorded baseline exactly: **293 / 3,671 / 4,170 / 247**. The
+entities were unmistakably fixtures (`redis`, `celery`, `evaluate_turn`,
+`pgvector extension`, `codex_edges`), none from the real conversations.
+
+**Deleted from a generated migration.** `alembic revision --autogenerate` for the
+bi-temporal columns proposed dropping **every HNSW vector index in the database**
+(episodic, codex entities, chunks, clusters, decisions, batch summaries,
+procedural) plus a dozen btree indexes including G6's and
+`uq_memory_slots_name_tier_anchor`, and flipping six columns to nullable. All of
+it was discarded; `505f12031434` adds two columns and one index. Those objects
+are created by raw SQL in earlier migrations and are invisible to autogenerate —
+see TRAPS #14, and the migration's own docstring records this so a future
+regeneration does not re-propose it.
+
+**Unused imports dropped** from files touched this session: `uuid` in
+`scripts/z1/score_retrieval.py`, `turn_text` in `scripts/z1/seed_store.py`,
+`pathlib.Path` in `scripts/z1/generate_probes.py`, `words` in
+`generate_typed_probes.py`. Import order fixed in
+`src/workers/procedural_extractor.py`.
+
+**Deliberately NOT "fixed":** the `== None` / `== False` comparisons ruff flags
+in `src/workers/codex_extractor.py` (E711/E712). They are **required** SQLAlchemy
+filter idioms — `is None` does not generate SQL — and "correcting" them would
+break the queries silently. Pre-existing E402s there are left alone too: the
+late imports look deliberate (circular-import avoidance) and this session had no
+evidence either way.
+
+**New files, all under `scripts/z1/`:** `generate_typed_probes.py`,
+`score_typed.py`, `harvest_probe_context.py`, `run_meta.py`,
+`seed_relation_vocab.py`. `run_meta.py` is the one to reuse — every experiment
+artifact from here carries its provenance block.

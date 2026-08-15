@@ -371,3 +371,62 @@ is unverified *in the claim itself* rather than in a caveat afterwards.
 of the four above was disproved by a single query. The cost of the habit is
 nothing; the cost of skipping it was four wrong conclusions, one of which nearly
 shipped as "retrieval is completely broken".
+
+### 24. A guard that only fires in the harness makes production look broken
+
+**2026-08-13, and it moved a headline number by 2×.** Fifteen probes returned
+zero fragments and the recorded hypothesis was that the token budget stopped
+them. Wrapping the live `_enforce_token_budget` showed **it was never called at
+all**: retrieval exits ~120 lines earlier at `retrieve()`'s
+`context_reliance == "Zero_Shot"` guard — a *defensive* guard whose own comment
+says the decision is made upstream, and which `main.py` makes unreachable by
+setting `context_reliance = "Long_Term_Memory"` before it calls.
+
+The scorer called `retrieve()` directly, so it hit a branch production cannot
+reach. Correcting that, plus calling the budget setter `main.py` calls, moved
+recall@10 from **0.250 to 0.508** on the same store and the same probes. **A
+legacy-mode control reproduced 0.250 exactly** — `recall@1` identical to 17
+decimal places — which is what makes the delta attributable to the harness
+rather than to luck.
+
+**The rule: when a component has a "this should never happen here" guard, the
+harness must reproduce whatever makes it unreachable.** Otherwise the harness
+measures the guard, and the guard is not the system.
+
+### 25. `.env` keys that Settings does not declare take the whole application down
+
+**2026-08-13.** Three `PROBE_*` lines were added to `.env` for an experiment
+script that reads `.env` directly. `Settings` is configured `extra="forbid"`, so
+**every import of `src.api.config` raised `ValidationError`** — the proxy, the
+workers, and all 347 tests at once. The experiment script kept working
+perfectly, because it never imported Settings.
+
+That asymmetry is the trap: the new thing was fine and everything else was dead.
+It surfaced only when an unrelated command touched the production import path.
+
+**The rule: any new `.env` key gets a declared field in `Settings` in the same
+edit.** And: after touching `.env`, run something that imports the app.
+
+### 26. Embeddings cannot tell a converse from a synonym
+
+**2026-08-13, measured on the live encoder.** Opening the relation vocabulary
+(G45) meant canonicalising near-duplicate relations by cosine. Calibration
+against 30 hand-built pairs found the classes **overlap**, and the worst
+offenders were exactly the pairs that must never merge:
+
+| pair | cosine | |
+|---|---|---|
+| `before` / `after` | **0.8791** | above the 0.86 merge threshold in force at the time |
+| `parent_of` / `child_of` | 0.8569 | |
+| `teaches` / `learns_from` | 0.8159 | |
+
+Converses share every context word, so a similarity measure places them on top
+of each other. Merging `before` into `after` reverses every temporal fact in the
+graph, silently.
+
+**The rule: direction and polarity are settled deterministically, before
+similarity is consulted — never by a threshold.** A curated converse map plus a
+passive-marker check do that job; the threshold only ever decides between pairs
+that are already known to be safe. With the guards in place the highest
+unsafe pair fell to 0.787 and the threshold could be *lowered* to 0.82, catching
+more true merges with fewer wrong ones.

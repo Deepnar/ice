@@ -1556,3 +1556,104 @@ procedural pattern**, which is why those two are [G43](ROADMAP.md#g43)/[G44](ROA
 and [G42](ROADMAP.md#g42) rather than model-selection criteria. If the pipeline
 ever splits these into separate model calls, `qwen3.5:4b` is a poor default and
 a genuinely useful second opinion for Z2's vocabulary repair.
+
+---
+
+## 2026-08-13 — the instrument was the finding: 0.250 → 0.508, and five pipeline fixes
+
+**Everything below is on the restored 293-turn `gemma4:26b-a4b-it-q4_K_M` store
+(3 conversations: `ecc64aab` 145, `355a5709` 87, `cca73c87` 61), alembic head
+`505f12031434`, tree dirty throughout — no commit describes what ran.**
+
+### 1. The retrieval numbers were about the harness
+
+| | legacy scorer | production path |
+|---|---|---|
+| recall@1 | 0.076 | **0.135** |
+| recall@10 | 0.250 | **0.508** |
+| MRR | 0.108 | **0.209** |
+| fragments returned (median) | 6 | **14** (8–46) |
+| retrieval budget (median) | 5,000 | **10,700** (8,100–11,350) |
+| zero-fragment probes | **242 / 592** | **0** |
+
+**The control is what makes this attributable:** a legacy-mode run reproduced the
+recorded numbers exactly — `recall@1 = 0.07601351351351351` to the last digit,
+`recall@10 = 0.250`, MRR 0.1083 vs 0.1087 — so the delta comes from four
+instrument fixes and nothing else. **ICE did not change.**
+
+Four defects (G46): the scorer never called `set_budget_from_turn_count`; the
+probe→row map came from a file the arm runs had overwritten; the classifier's
+raw `Zero_Shot` reached a guard `main.py` makes unreachable; leg attribution was
+first-leg-wins. Corrected attribution: of 377 hits, **`bm25+vector` produced 376
+and `vector` 1** — see G48.
+
+⚠ *"15 of 592 zero-fragment probes"* was itself an artifact: the old scorer wrote
+`misses[:40]`, so 15 was the truncation. True legacy figure **242 (41%)**.
+
+### 2. Noise floor
+
+* **Determinism:** `access_count` is incremented on every retrieval and read by
+  nothing; with it on, two identical runs agreed on **26/40** result sets, with
+  it off **40/40**. Now gated by `retrieval_strengthen_writes`.
+* Residual: pass 1 differs from passes 2–3 on 2/60 fragment counts (no rank
+  changes) — process warm-up, cause not isolated, `_relation_gloss_cache` the
+  prime suspect. Mitigation: one throwaway retrieval before scoring.
+* **Paired MDE (592 probes): 0.037 absolute (~22 probes).** The instrument fix
+  itself measured **+0.258 [+0.221, +0.296]**.
+* Marginal 95% CI on recall@10: **[0.470, 0.549]**.
+
+### 3. The probe set is 64% contaminated
+
+The generator's ambiguity guard scored `question + answer` while retrieval sees
+only the question. Replayed over the same 592 probes: the old rule rejects **5
+(0.8%)**, the fixed rule **385 (65.0%)**. **380 probes (64%) are in the set only
+because the guard scored words retrieval never sees**, and the 0.508 inherits it.
+
+### 4. Pipeline defects, measured then fixed
+
+* **G42:** all **247** stored patterns evidenced by exactly ONE turn; only 2 ever
+  reached `reinforcement_count >= 3`. Session-scoped extraction now yields e.g.
+  *"Restates or asks to restate the plan before proceeding"* citing messages
+  [1,2,3,4,5]. ⚠ Two extractions of the SAME habit score **0.708** against a 0.85
+  reinforcement threshold — promotion remains effectively dead; threshold now a
+  swept setting, deliberately unchanged on one observation.
+* **G43:** 51 property relations (30% of all edges) never had their OBJECT
+  checked. `november --eye_color--> golden black`, `krishna --role--> god of
+  love`. Verbatim source-text check marks **30 edges (0.72%)**.
+* **G44:** 155/3,671 entities ≤3 chars, incl. `8`, `3`, `6`, `2`, `d` typed
+  **person**. Refused at write; promotion folds zero-edge stubs only.
+* **G45:** **1,259** relations destroyed in one seed (`i --didnt_get--> csi`,
+  `my father --t_get--> first` from an apostrophe split). Vocabulary opened;
+  111 multi-arm candidates seeded as `data/relation_seed.json`.
+* **Degradation chain DOES fire:** 104 degradations / 60 probes, median **1,056**
+  tokens saved, 113,921 total; 88.5% of returned fragments still raw and **1,462
+  dropped while carrying an unused summary** — that is the headroom.
+* **Corpus defect:** the seeder spread 293 turns evenly over 120 days, so
+  `resolve_session_id` produced **293 sessions of one turn**. Sitting-shaped
+  timestamps now give 6/9/4 sessions of 11–20 turns.
+
+### 5. Relation-threshold calibration (30 pairs, live encoder)
+
+Converses are inseparable by similarity: `before`/`after` **0.8791**,
+`parent_of`/`child_of` 0.8569, `teaches`/`learns_from` 0.8159 — all above the
+0.86 threshold then in force. With converses guarded deterministically the
+highest unsafe pair falls to **0.787**, so the threshold moved **0.86 → 0.82**:
+0 wrong merges either way, 11/15 true merges instead of 9/15. Classes still
+overlap (one true synonym scores 0.645); the guards, not the threshold, do the
+load-bearing work.
+
+### 6. Typed probes
+
+**420 after three runs** (`deepseek-v4-flash` via OpenCode Go): episodic 232 ·
+**codex 89** · procedural 40 · summary 40 · temporal 19. 344 episodic candidates
+rejected by the fixed ambiguity guard.
+
+⚠ **The first run produced only 12 codex probes, and the cause was the harness
+again.** The codex prompt demanded a verbatim quote from EACH of up to four host
+turns; that text was the bulk of every reply and truncated the JSON mid-object,
+whereupon the whole generation was discarded. Replacing the quotes with turn
+numbers took codex from **12 → 89 on the same corpus and the same model** — the
+material was never the limitation. (A partial-object salvage was added at the
+same time and never fired: 0 events. Shortening the reply was the entire fix,
+which is worth knowing before anyone attributes the gain to the salvage.) Every artifact from here carries a `run_meta` provenance block
+(commit, dirty state, resolved settings, corpus digests, seeds).
