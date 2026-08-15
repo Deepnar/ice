@@ -492,3 +492,68 @@ tracked. **Never `git add data/` without `git add -n` first.**
 store** — if the store holds only the gold turns, everything comes back.
 Measured 1.000 on a 2-turn fragment where nothing useful was happening.
 `score_typed.py` now refuses to let that read as a result.
+
+### 28. A roadmap entry is not a reliable description of its own subject
+
+**Nine consecutive entries were found wrong about themselves** — the count is not
+rhetorical, it was tracked across sessions in 2026-08 (`G30`'s ground check found
+five errors in one entry; `G29` made it nine, and was the first where the entry
+*overstated* remaining work rather than understating it).
+
+The failure is structural, not careless. An entry is written when a problem is
+noticed, and then the code moves: the bug gets fixed by a neighbouring change,
+the setting is renamed, half the work ships inside another item, or the entry's
+premise was a guess nobody re-checked. Nothing forces the text to follow.
+
+Both directions cost, differently:
+
+* **Understating** — the entry says "add X"; X already exists, and a session
+  builds a second one.
+* **Overstating** — the entry lists work that is already done, and a session
+  spends itself confirming that. **This is the one that wastes a whole session**
+  rather than breaking a system, and it is the harder one to notice, because
+  finding nothing to do feels like being wrong rather than being finished.
+
+⇒ **GROUND-CHECK THE ENTRY BEFORE WORKING IT.** Read the item, then read the code
+it names, then query the running system — *before* planning against its
+description. Record what the entry got wrong in the entry itself; that is what
+`ROADMAP_DONE.md`'s "what it got wrong about its own subject" field is for.
+Budget for this: it is routinely the first hour of an item, and it is not
+overhead — it is the item.
+
+### 29. Derive ground truth in the EASY direction
+
+Z1's first retrieval key was built **backwards**: take a curated answer, work
+back to the turns that support it. Two rounds of fixes later it still
+**mis-grounded ~20% of claims**, and hand-verification by the user **failed it
+twice**. Worse, the failures were invisible to every automated check — the key
+looked fine.
+
+Two distinct problems, and only one was fixable:
+
+1. **The direction.** Reversed — *pick a real turn first, then write a question
+   whose answer is in it* — the gold turn is correct **by construction**. No
+   shortlist, no confirmation step, nothing to be wrong.
+2. **Some probes cannot be scored at all, and no care in the derivation fixes
+   it.** Questions asking for *synthesis* ("go through my entire story") have no
+   single answer-bearing turn: **38 of 91 spanned ≥6 gold turns, up to 17**.
+   That is a property of the TASK, not of the derivation (user, 2026-08-11).
+   Scoring them with recall@k measures nothing — they need their own metric, or
+   they must be excluded. This is the same root as [G48](ROADMAP.md#g48).
+
+⇒ When building an evaluation key, ask which direction makes the answer true by
+construction, and take it. Then ask which probes the metric can *physically*
+score, and type the rest rather than averaging them in.
+
+### 30. A test that seeds stub embeddings cannot test retrieval
+
+Codex suites seeded entities with `[0.05]*1024` — a constant vector. Every
+cosine comparison against it returns the same value, so vector ranking is
+uniform and the retrieval path under test is not exercised at all: the suite
+passes whether ranking works or not. Named as a blind spot in
+[G30](ROADMAP.md#g30) and fixed in `tests/test_retrieval_failopen.py`, the first
+suite to seed **real** embeddings.
+
+⇒ A fixture value chosen for convenience becomes part of what the test measures.
+If the thing under test consumes an embedding, the fixture must contain a real
+one — otherwise the green is about the stub.
