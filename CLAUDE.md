@@ -300,7 +300,7 @@ read "going public" long after it already had; corrected 2026-08-10.
   the rewrite. Full story: **TRAPS #12**.
 - **README.md is a first-class deliverable** — the first and often only thing a
   visitor reads. Update it in the same session as anything that changes what the
-  project *is* or how it is run. The public release is gated on a good README.
+  project *is* or how it is run.
 - **⚑ README links the VENUE-AGNOSTIC paper, never a venue submission.**
   `experiments/paper/` holds one canonical paper (`ICE_paper_v2.tex`, generic
   `article` class) plus venue twins (`_tmlr`, `_tist`, …). Only the canonical one
