@@ -430,3 +430,65 @@ passive-marker check do that job; the threshold only ever decides between pairs
 that are already known to be safe. With the guards in place the highest
 unsafe pair fell to 0.787 and the threshold could be *lowered* to 0.82, catching
 more true merges with fewer wrong ones.
+
+### 27. Things that LOOK broken and are not — check here before debugging
+
+**Every line below cost real time on 2026-08-13 and was settled by a
+measurement.** They are collected in one place because each presents as an
+obvious bug, and the obvious fix is wrong in every case.
+
+**"The procedural leg returns nothing."** It is not retrieval. `_procedural_lookup`
+requires `is_active = true`; activation needs `reinforcement_count >= 3`;
+reinforcement needs a cross-session match above `procedural_similarity_threshold`
+(0.85) — and two extractions of the SAME habit **measure 0.708**. Patterns are
+born at 1 and never activate. Extraction can be working perfectly while the leg
+returns nothing forever. See [G49](ROADMAP.md#g49).
+
+**"The probe API is down / the key is wrong" (HTTP 403, body `error code: 1010`).**
+Cloudflare fronts `opencode.ai` and rejects anything that looks like a scripted
+client. **Send a browser `User-Agent`** and the same key, endpoint and model work
+immediately. Nothing is wrong with the credentials.
+
+**"Retrieval is non-deterministic."** Two separate causes, and only the first is
+a defect. (1) `access_count` was written on every retrieval and read by nothing —
+now gated by `retrieval_strengthen_writes`; that took identical runs from 26/40
+to 40/40. (2) What remains is **process warm-up**: pass 1 differs from passes 2
+and 3 on ~2/60 fragment counts with **no rank changes**, and passes 2 and 3 agree
+exactly. `_relation_gloss_cache` is a lazily-built module global and the prime
+suspect (unverified). **Issue one throwaway retrieval before scoring** rather
+than hunting it.
+
+**"`== None` in the ORM filters is a bug ruff caught."** It is **required**
+SQLAlchemy: `is None` does not generate SQL. E711/E712 in a `.filter()` are false
+positives, and "fixing" them silently breaks the query. Same for the late imports
+(E402) in `codex_extractor.py` — they look deliberate.
+
+**"The model returned nothing, the call failed."** An empty reply is a
+**legitimate answer** when the prompt says "return an empty list if there is
+nothing here". `json.loads("")` raises at char 0, which reads as a failure;
+retrying it three times with backoff wastes ~12s per honest non-answer and makes
+a correct model look broken. Related: a **truncated** reply still contains
+complete objects before the cut — salvage them instead of discarding the
+generation. Discarding cost 87% of one probe class.
+
+**"`retrieval_max_per_conversation` is capping recall."** It is not, for
+within-conversation probes: `_session_diversify` exempts the CURRENT
+conversation entirely, and every generated probe asks about its own. This was
+claimed, struck, and is struck again.
+
+**"`.env` says the background model is `gemma4:26b-a4b-it-q4_K_M`, so that is the
+model."** That is a stale pin, not a decision. The A12 read ranked it **third**
+and named **`qwen3:4b-instruct`** the practical pick — tied on summary quality at
+**2.5 GB against 9.6 GB**. Check [PROVENANCE.md](PROVENANCE.md) before trusting
+the pin.
+
+**"`data/` is untracked, so commit it."** `data/` is **871 MB** across 102 files
+and `data/labeled/` is gitignored for good reason (conversation-derived training
+data, on a **public** repo). Only `data/relation_seed.json` is meant to be
+tracked. **Never `git add data/` without `git add -n` first.**
+
+**"The coverage metric says 1.000, retrieval is perfect."** Coverage-based scores
+(`codex_multihop`, `summary_synthesis`) are **trivially satisfied on a small
+store** — if the store holds only the gold turns, everything comes back.
+Measured 1.000 on a 2-turn fragment where nothing useful was happening.
+`score_typed.py` now refuses to let that read as a result.

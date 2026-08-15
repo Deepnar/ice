@@ -112,6 +112,15 @@ last cycle, against metrics that were green.
 
 **5. Re-run the model comparison** on a pipeline that works — script *and* agent.
 
+## ⚑ BEFORE YOU DEBUG ANYTHING — [TRAPS #27](TRAPS.md)
+
+**TRAPS #27 is a checklist of nine things that LOOK broken and are not**, each
+settled by a measurement this cycle: the procedural leg returning nothing, the
+probe API's 403/1010, retrieval "non-determinism", ruff's `== None` warnings, an
+empty model reply, `retrieval_max_per_conversation`, the stale `gemma4:26b` pin,
+`data/`, and a coverage metric reading 1.000. **Read it before investigating any
+of them** — every one presents as an obvious bug whose obvious fix is wrong.
+
 ## ⚑ THREE THINGS YOU WILL MISREAD — see [G49](ROADMAP.md#g49)
 
 1. **Procedural probes will score ZERO, and it is NOT retrieval.**
