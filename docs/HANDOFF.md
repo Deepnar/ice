@@ -1,208 +1,192 @@
-# Handoff — 2026-08-16, ~13:40 IST
+# Handoff — 2026-08-16, ~23:30 IST
 
 **State, not a queue.** [ROADMAP.md](ROADMAP.md) is the queue and the only one.
 This file exists for the one thing no other doc holds: **what the last session
 was told to do, against what it actually did.** Overwritten every session,
 committed last; earlier ones are in `git log -p docs/HANDOFF.md`.
 
-> **⚑ READ THIS BEFORE TOUCHING ANYTHING.** Two items on this list are
-> unfinished and one of them **blocks pushing**. Three roadmap entries were
-> found wrong about their own subject, and four hypotheses about the graph were
-> tested and disproved. Starting work without reading this will reproduce
-> conclusions that were already killed.
+> **⚑ ONE FINDING HERE INVALIDATES EVERY RETRIEVAL NUMBER THIS REPO HAS
+> PUBLISHED**, including the 0.508 a whole cycle celebrated. It is the first
+> section below. Read it before quoting any recall figure, and before designing
+> anything that rests on one.
 
 ---
 
 ## TOLD → DID
 
-**Told:** re-seed both arms on the fixed pipeline, validate the pipeline fixes,
-score the typed probes, read the output, re-run the model comparison.
+**Told:** settle the background model, then the pre-re-seed fixes, then re-seed.
 
-**Did:** all of it — and **the re-seed nearly ran on a pipeline that would have
-corrupted a third of it.** A smoke test before the long run caught a
-`ForeignKeyViolation` in G44's node promotion; the guard it needed fired **98
-times** across the real run. Then the measurements went four-for-four against my
-own hypotheses, which is the story of the day: every theory about the sparse
-graph was wrong, and the code that fixes it already existed.
+**Did:** built the two instruments that were missing (answer generation and a
+paired judge), ran both arms through them, and **found that recall has never
+measured four of the five legs.** The model question came out directional but
+thin; the metric finding is the session's actual result. Six extraction fixes
+landed. The re-seed did **not** run — deliberately, and the reason matters.
 
 ## ⚑ START HERE — THE STATE OF THE WORLD
 
 | | |
 |---|---|
-| **Store** | **arm 2 (`fixed-gemma4-e4b`) restored and live** — 7,949 entities / 7,052 edges / 293 turns. Both arms snapshotted. |
-| **Git** | **97 commits ahead of `origin`. NOT PUSHED, and pushing is BLOCKED — see below.** Working tree clean. |
-| **Tests** | 347/347 regressions · `test_codex_write_path.py` 32/32 · `test_maintenance_agent.py` 45/45. |
-| **Alembic** | `505f12031434` (unchanged). |
+| **Store** | **arm 1 (`fixed-qwen3-4b-instruct`) live** — 8,280 entities / 9,662 edges / 293 turns. Both arms snapshotted. |
+| **Git** | Clean. Pushed through `07fc689`; later commits local. History was scrubbed and verified before the first push (see below). |
+| **Tests** | 347/347 regressions · `test_codex_write_path.py` 32/32 · `test_maintenance_agent.py` 45/45 · `test_retrieval.py` 3/3 · `test_retrieval_failopen.py` 27/27. |
+| **Cloud API** | **Usage limit reached.** Resets ~17:00 the following day. The judge died at 65 of 150 because of it. |
+| **Probe set** | **372** (was 420) — see the loss below. |
 
-### ✅ HISTORY WAS SCRUBBED BEFORE THE FIRST PUSH OF THIS CYCLE
+## ⚑ 1. RECALL ONLY EVER SCORED THE EPISODIC LEG
 
-Sensitive personal specifics were written into tracked docs and committed
-earlier in the session. They were removed from the working tree, and then the
-six affected commits were **rebuilt** (`git cherry-pick` + `--msg-filter`, scoped
-to the unpushed range only so no published SHA changed) so that no blob and no
-commit message in history carries them. Verified before pushing: 0 matches
-across every blob in the range, 0 in every message.
+Measured on one harvest:
 
-**The structure that prevents a repeat is a standing rule in CLAUDE.md**
-("PRIVATE DETAIL IN A TRACKED DOC"): the tracked doc carries the technical claim
-and stands alone, specifics go in `docs/PRIVATE_CONTEXT.md` (gitignored, verified
-with `git check-ignore` **before** the file is written), the tracked doc points
-at a marker, and **the user eyeballs the exact lines before any commit.**
-⚠ A cleanup commit message that *describes what was removed* is itself a
-signpost — that is why the messages were rewritten too, not just the diffs.
+| leg | fragments returned | ever credited as gold |
+|---|---|---|
+| episodic | 4,124 | 249 |
+| codex | 474 | **0** |
+| procedural | 400 | **0** |
+| timeline | 207 | **0** |
 
-## ⚠ FOUR HYPOTHESES ABOUT THE SPARSE GRAPH, ALL WRONG
+Not because those fragments were wrong — because `ContextFragment` carried no
+link to the turns it was derived from, so nothing could attribute them.
+**Every recall number in this repo is an episodic-leg score reported under the
+whole system's name.**
 
-The graph is **80.5% degree-1** (arm 2) / **69.6%** (arm 1) — worse than the
-65% measured pre-fix. Tested and killed, in order:
+Fixed for codex and procedural via `origin_batch_ids`. **Timeline is still
+unwired.** Effect with ICE untouched and only the metric changed: codex 0 → 18
+credits, procedural 0 → 4, probes with a gold hit **15/25 → 21/25 (60% → 84%)**.
 
-1. **Entity duplication** — no. Only 10–14% of names are near-duplicates at
-   cosine 0.90; merging every one leaves the problem.
-2. **A missing resolver** — no. `maintenance_agent` has one, with an LLM judge
-   and caps, better rails than the thing I was about to propose building.
-3. **The job never ran** — it ran. Degree-1 moved **80.5% → 80.5%**.
-4. **A starved detector** — a backlog of 69 `codex_reconciliation` items ate the
-   `agent_max_scanned=50` budget, but draining it only revealed the real cause.
+⚠ **Two id spaces nearly produced a false finding.** `source_batch_id` is the
+episodic **row id**; `codex_edges.source_batch` is the **batch id** — 9,662 edges
+join on batch id, **0** on row id. The first two attempts compared them directly,
+got zeros, and that read as *"the graph does not cover the gold turns."* That
+sentence was one step from the roadmap. [G48b](ROADMAP.md#g48b), [TRAPS #33](TRAPS.md).
 
-**THE ACTUAL CAUSE ([G50](ROADMAP.md#g50)):** Tier 2 merges are **proposed into
-the review queue and never auto-applied**. 7 proposals, 0 applications, against
-**1,094 candidate pairs** and a cap of 10/run — roughly 200 human review
-sessions. Correct for one user; impossible for a product. And **Tier 0, the
-auto-apply channel, was structurally dead**: it looked for a casefold collision
-on `canonical_name`, which is UNIQUE.
+## 2. THE MODEL QUESTION — directional, thin, and qwen3 is the pick
 
-## WHAT SHIPPED
+**65 usable verdicts of 150; 85 lost to the API limit.** Probe order is
+round-robin by type, so what landed is balanced rather than 65 of one type.
+
+| type | qwen3:4b | gemma4:e4b | tie |
+|---|---|---|---|
+| codex_multihop | 4 | 3 | 6 |
+| episodic_lookup | 3 | 2 | 8 |
+| procedural | 4 | 2 | 7 |
+| summary_synthesis | 3 | 2 | 8 |
+| temporal | 4 | 1 | 8 |
+| **total** | **18** | **10** | **37** |
+
+**Pick `qwen3:4b-instruct`**, on three things that don't depend on the judge:
+graph connectivity (**69.6% vs 80.5%** dead ends, re-measured from both
+snapshots), size (**2.5 GB vs 9.6 GB**), and the pending fixes all landing on the
+graph side where it already leads. The counterweight is real — gemma4 wins
+episodic recall 0.664 vs 0.591 — but that number is now known to score one leg.
+**Cheap to reverse:** re-seeding one arm is ~50 minutes.
+
+## 3. WHAT SHIPPED — six extraction fixes, all awaiting a re-seed to be visible
 
 | item | was | now |
 |---|---|---|
-| **[G44](ROADMAP.md#g44) promotion** | deleted the endpoint of the triplet writing it; cost that turn its codex **and** procedural extraction | `protect_ids` exemption + SAVEPOINT. **98 saves** across 586 turns |
-| **[G44](ROADMAP.md#g44) numbers** | `8`, `19`, `2023`, `9.65`, `3/80` refused — **94 of 2,273** | numerals are entities; pronouns still refused |
-| **[G49](ROADMAP.md#g49) clauses** | `taking_what_youve_built_and_what_youve_understood` was an edge | >5 words ⇒ demoted, never dropped |
-| **[G50](ROADMAP.md#g50) Tier 0** | dead channel | `merge_key()` — 20 real groups, no model, no review |
-| **G16 / G29 / G49** | enrichment read private turns; reflection hardcoded 0.85; codex hashed its own key | fixed, all three |
-| **instruments** | harvest read a different probe set than the scorer, and crashed on typed probes | `--probes`, `gold_turns` lists, `probe_type` in every record |
-| **[Z2](ROADMAP.md#z2)** | no way to test the half that matters | `answer_probes.py` — retrieve → assemble → **answer** |
+| **[G44](ROADMAP.md#g44)** numbers | `8`, `19`, `2023`, `9.65` refused — **94 of 2,273** | numerals are entities; pronouns still refused |
+| **[G44](ROADMAP.md#g44)** promotion | deleted the endpoint of the triplet writing it | `protect_ids` + SAVEPOINT; **98 saves** in 586 turns |
+| **[G49](ROADMAP.md#g49)** clauses | whole sentences became relations | >5 words ⇒ demoted, never dropped |
+| **[G45](ROADMAP.md#g45)** supersession | any unknown relation retired its predecessor — **7 of 8 components of one explanation** | supersedes only for *known* single-valued relations |
+| **[G45](ROADMAP.md#g45)** attractors | `has` 491 / `have` 78 / `had` 60 coexisting | known-set fed forward within a turn; threshold **0.82 → 0.90** |
+| **[G49](ROADMAP.md#g49)** activation | 61 patterns citing 514 turns, **1 active** | also activates on `procedural_min_cited_turns` (10) ⇒ **29 of 61** |
 
-## THE NUMBERS, AND WHAT THEY CAN'T SAY
+Plus **[G50](ROADMAP.md#g50)** `merge_key()` (Tier 0 was structurally dead —
+`canonical_name` is UNIQUE), G16 privacy leak, G29 idempotency key, G46 leg
+attribution completed, and per-leg reporting decoupled from the coverage flag.
 
-Five metrics, never averaged. `n` matters more than the value:
+## 4. WHY THE RE-SEED HAS NOT RUN, AND WHAT IT NEEDS FIRST
 
-```
-                    n     arm2 gemma4:e4b   arm1 qwen3:4b
-episodic_lookup    232        0.664            0.591      ← the only solid one
-codex_multihop      89        0.535            0.538
-summary_synthesis   40        0.361            0.324
-procedural          40        0.000            1.000      ← ARTIFACT, see below
-temporal            19        0.211            0.211      ← below the MDE
-```
+Every fix above is invisible until a re-seed, so they were **batched
+deliberately** — one 50-minute run instead of six. It is blocked on:
 
-* **procedural is not a measurement.** Arm 1 had exactly ONE active pattern, so
-  it returned on every probe and scored 1.000; arm 2 had none and scored 0.000.
-  The metric cannot tell "found the right habit" from "one habit exists".
-* **codex_multihop is not measuring the graph.** Codex gets **0.1–9% of the
-  token budget**, usually one fragment; episodic takes 88–99%.
-* **Model choice is genuinely split and unresolved.** gemma4:e4b wins episodic
-  and pattern quality; qwen3 wins graph connectivity (69.6% vs 80.5% dead ends)
-  at **2.5 GB against 9.6 GB**. `answer_probes.py` exists to settle it and
-  **has never been run**.
+1. **[G50](ROADMAP.md#g50) auto-apply policy** — consolidation is human-gated at
+   ~5/run against **1,094 candidates**. The policy governs what the store
+   *becomes*, so running it after the re-seed means seeding twice.
+2. **Temporal + codex probe generation** — both launched, both died with the
+   session, neither wrote output.
+3. **Optional but cheap:** benchmark vLLM against the re-seed. One fixed model
+   over 293 turns is where the hour goes and exactly vLLM's strength. **No note
+   exists in this repo about which models have issues under vLLM** — searched
+   tracked docs and the gitignored working files. Write it when it is tested.
 
-## ⚑ THREE ROADMAP ENTRIES WERE WRONG ABOUT THEIR OWN SUBJECT
+## 5. ⚠ 48 PROBES WERE DESTROYED AND CANNOT BE RECOVERED
 
-* **[G43](ROADMAP.md#g43)** — `november --eye_color--> golden black` was **not**
-  an invented value. The grounding rule it shipped is measured working (0 of 463
-  property edges ungrounded at full confidence) but was never the fix for that
-  example. Real defect: `PROPERTY_RELATIONS` is closed on the **handling** side.
-* **[G44](ROADMAP.md#g44)** — its name rule was destroying true facts.
-* **[G50](ROADMAP.md#g50)** — replaces the four dead hypotheses above.
+`generate_typed_probes.py --types temporal --limit 6` built 0 prompts and
+**wrote the empty result over 420 typed probes.** `curation_files/` is
+gitignored, so no history. 372 were rebuilt by merging an older 328-probe file
+with records recovered from the answer-run JSONs. **Codex fell 89 → 41**, and
+those 48 had cost a salvage fix to obtain in the first place.
 
-**And a subagent made the same class of error**, calling grounded output a
-fabrication and letting that decide its model ranking. **[TRAPS #31b](TRAPS.md)**
-is the rule: any claim that the model made something up gets a corpus query
-before it is stated, and that binds subagents too.
+Guards added and verified against the exact command: refuse to write zero over a
+populated file, merge partial runs, keep the previous generation. **Run smoke
+tests against a temp output path, never the live one.** [TRAPS #35](TRAPS.md).
 
-## NEW: [FEATURE_INVENTORY.md](FEATURE_INVENTORY.md)
+## 6. THE JUDGE — and the fix that made it worse
 
-**~433 features**, each with a verified `file:line`, its setting, that setting's
-default, and whether it is **ON by default**. Plus **40 dead-or-inert** items.
-Six that matter, three now fixed. Still open:
+Paired, blind, A/B slot randomised, reason from a fixed enum with **`both_failed`
+load-bearing**. It writes partial state after **every** probe, which is the only
+reason a limit-killed run left usable data.
 
-* **The context ledger's eviction is inverted** — only `evidence` and
-  `recent_turns` are ever registered as evictable; slots, bookmarks and
-  summaries are welded into one `system_prompt` block, which is `NEVER_EVICT`.
-  **User decided: finish it** (label the blocks), do not delete it.
-* **Per-leg attribution is read only inside the coverage path, which is off** —
-  so a default run cannot say which leg did the work. **Decouple it**; it is
-  three lines, and coverage (C16) is a stopping rule, unrelated to leg forcing.
-* `decide_representation` returns `inject_raw: True` on every branch.
+⚠ **`reasoning_effort="none"` cured empty content and caused a worse failure.**
+`deepseek-v4-flash` is a reasoning model; at `max_tokens` 300 it spent the budget
+in the hidden block and returned empty content *only on long inputs*. Disabling
+reasoning fixed that and made the judge **confidently wrong** — over-calling
+`both_failed` on **30 of 73**, several at 100% content overlap with the expected
+answer. Reasoning restored, ceiling removed: `both_failed` fell **49% → 31%**.
+An entire 150-probe paid run was spent on verdicts that had to be discarded.
+[TRAPS #34](TRAPS.md).
 
-## NEXT — AND THE ORDER MATTERS
+## 7. FAN-OUT IS AN EXTRACTION PROPERTY — five hypotheses died
 
-1. **Re-seed.** The numbers fix and the clause fix exist in code and in
-   **neither snapshot** — every stored measurement predates them.
-2. **Run `answer_probes.py` on both arms.** The only fair test of the background
-   model, and the only one that sees whether the context was usable.
-3. **[G50](ROADMAP.md#g50) needs a spec** — which merges may be auto-applied
-   under what structural guard. Shape settled by
+Dead ends are the **least** duplicated part of the graph: degree-1
+nearest-neighbour mean **0.8194** (12.2% above 0.90) against degree-5+ **0.8908**
+(47.6%). Near-duplicates concentrate in the **hubs**, exactly where merging is
+most dangerous because a hub carries facts to re-attribute.
+
+Nor is it one bad relation: `has` touches 6.1% of dead ends, `description` 3.0%,
+with the top 18 covering ~21% across a ~1,800-relation tail.
+
+⇒ **No merge policy moves fan-out.** [G50](ROADMAP.md#g50) is a graph-*quality*
+item; do not justify it by pointing at 80.5%.
+
+## 8. CLAIMS WITHDRAWN THIS SESSION
+
+* **"The closed `PROPERTY_RELATIONS` is the real defect behind `eye_color`"** —
+  wrong, asserted repeatedly. 50 edges use property relations against 9,602
+  open-vocabulary ones, and open-vocab facts render identically. It is a storage
+  style, not a gate. **Do not extend that list** — adding corpus-specific words
+  is the closed vocabulary G45 removed.
+* **"59 of 73 failures were the answering model's fault"** — computed on the
+  broken judge run. Dead.
+* **"The vector leg is dead"** — no. `_apply_rrf` stamped only the first leg;
+  `{'bm25': 4}` is really `{'bm25+vector': 4}`.
+
+## 9. HOUSEKEEPING
+
+* **History was scrubbed before the first push.** Personal specifics were
+  committed to tracked docs earlier in the session; six commits were rebuilt so
+  neither blobs nor **commit messages** carry them — a cleanup message that
+  describes what was removed is itself a signpost. CLAUDE.md now carries the
+  structure and a **user-eyeball gate** before any commit with private detail.
+* **CLAUDE.md** gained the v1/v2/v3 scheme — v2 and v3 numbers are not
+  comparable and nothing in the output says which you hold.
+* **[FEATURE_INVENTORY.md](FEATURE_INVENTORY.md)** has a 2026-08-16 corrections
+  section; eight entries went stale in one day.
+* `/tmp` is cleared aggressively here — three run logs vanished mid-session.
+  **Write run output under `experiments/curation_files/`, not `/tmp`.**
+
+## NEXT — IN THIS ORDER
+
+1. **[G50](ROADMAP.md#g50) auto-apply policy** — needs a spec. Shape settled by
    [getzep/graphiti#1728](https://github.com/getzep/graphiti/issues/1728):
-   **the model narrows, it never authorises.**
-4. **Finish the ledger.** Attribution is done — `producing_legs` now rides on
-   `leg_budget_share`, which fires on every retrieval.
-
-## ⚑ THE UNLOCK NOBODY HAS BUILT
-
-Opening `PROPERTY_RELATIONS` needs a way to tell "this object is a **value**"
-from "this object is an **entity**". **Two structural predicates were tried and
-both failed** — target degree and never-appears-as-subject both score `say`,
-`suggests` and `states` exactly like `size` and `description`, because in an 80%
-degree-1 graph nothing ever becomes a subject.
-
-⇒ **The signal has to come from the text, not the graph: have the extractor
-label the object type, and enforce it with constrained decoding** (Ollama
-supports it). ⚠ Not free — one benchmark measured structured outputs *reducing*
-extraction validity 51% → 37%, so it is a "test it on our corpus" change.
-
-## WHERE ICE IS AHEAD OF GRAPHITI, MEASURED
-
-Worth knowing, and it is publishable: their edge invalidation runs unscoped and
-**41% of 3,950 facts carry an `invalid_at`**, 3 of 4 hand-audited being
-collateral. ICE scopes contradiction to the entity pair, deterministically:
-**1,253 of 1,350 retirements (93%) have a live successor**. Retrieval also
-filters `valid_until IS NULL`, so retired facts are never served — their
-separate open issue. The gap runs the other way on **entity resolution**:
-`get_or_create_entity` is exact-match + alias only, while relations have
-`canonical_relation`'s three-tier ladder. That asymmetry is unexamined, not
-decided.
-
-## OPEN, AND ONLY HERE
-
-* **v1 / v2 / v3 is now in CLAUDE.md.** v2 numbers and v3 numbers are not
-  comparable and nothing in the output says which you are holding.
-* **`docs/PRIVATE_CONTEXT.md` exists and is gitignored.** It holds the case
-  behind TRAPS #31b, and names a design gap worth tracked work once phrased
-  corpus-agnostically: **ICE stores an assistant's hypothesis about the user as
-  a fact about the user, at full confidence**, with nothing marking which is
-  which.
-* **Relation canonicalisation works but converges to several attractors** —
-  `have→has` merges correctly on demand (0.9469) yet the store holds `has` 491,
-  `have` 78, `had` 60. Likely cause, unconfirmed: the known-relation set is read
-  **once per turn**, so same-turn variants cannot see each other.
-* **Procedural can never activate** — 0 of 58; needs real pattern pairs to
-  calibrate, not a guess.
-* **97 retirements (7%)** have no live successor and only 3 negated edges exist
-  to explain them.
-* **MCP and REST have diverged** — neither is a superset. MCP is *not*
-  read-mostly: it reaches codex extraction through bookmark/note/document
-  ingest.
-* One dubious merge proposal is sitting in the review queue:
-  `devstral-small-2` ← `devstral-small`.
-* `experiments/curation_files/` and `docs/PRIVATE_CONTEXT.md` are gitignored and
-  hold personal material. **Never commit them.** `data/` is 871 MB — never
-  `git add data/` blind.
-
-## WHEN DONE
-
-Propagate per the roadmap's rules, update the docs the change invalidates in the
-**same** session, then rewrite this file — carrying the NEXT above into
-TOLD → DID — and commit it last.
+   **the model narrows, it never authorises.** ICE runs a 2.5 GB local judge, so
+   this matters more here than there.
+2. **Regenerate temporal + the 48 lost codex probes** (Ollama, `qwen3.6:27b`;
+   the generator takes its endpoint from env, so no code change).
+3. **Re-seed one arm with qwen3**, carrying all six fixes.
+4. **Re-score and re-judge** once the API resets — recall will move on the
+   metric fix alone, so do not read the delta as a system improvement.
+5. **Wire timeline provenance** (207 fragments still uncredited).
+6. **Finish the ledger** (only `evidence` and `recent_turns` are evictable).
 
 **⚑ Do not write this file, or close a session, without the user saying so.**
