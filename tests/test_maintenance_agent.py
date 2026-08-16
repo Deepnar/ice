@@ -482,6 +482,31 @@ try:
     check("every applied run has CodexEvents keyed by agent_run_id, "
           "all tagged source=maintenance_agent", ok)
 
+    # ── G50: the Tier 0 identity key ─────────────────────────────────────
+    # Tier 0 keyed on casefold could never fire — canonical_name is UNIQUE, so
+    # two rows cannot share one; 0 collisions measured across 7,949 entities.
+    # merge_key gives the auto-apply channel something real to do. Pure
+    # function, no DB, so it runs regardless of what the live store holds.
+    # ⚑ TWO-SIDED, and the negative side is the load-bearing one: a wrong
+    # auto-merge writes a false identity permanently and nothing reviews it.
+    must_merge = [("gemma-4-e4b", "gemma4:e4b"), ("qwen3-8b", "qwen3:8b"),
+                  ("~18 gb", "~18gb"), ("mixture of experts", "mixture-of-experts"),
+                  ("manhattan 5 lb book", "manhattan 5lb book")]
+    # Quantities, versions and emoji variants are DIFFERENT entities. The last
+    # two are why token order is preserved: sorting merges converses (TRAPS #26).
+    must_not = [("~15 gb", "~17 gb"), ("12th boards", "10th boards"),
+                ("1-2 percent", "1-4 percent"),
+                ("devstral-small", "devstral-small-2"),
+                ("choose 🇦", "choose 🇪"), ("see you", "you see"),
+                ("brahma's creation without shiva's dissolution",
+                 "shiva's dissolution without brahma's creation")]
+    bad_m = [p for p in must_merge if ma.merge_key(p[0]) != ma.merge_key(p[1])]
+    bad_n = [p for p in must_not if ma.merge_key(p[0]) == ma.merge_key(p[1])]
+    check(f"merge_key unifies spelling variants ({len(must_merge)} pairs){bad_m}",
+          not bad_m)
+    check(f"merge_key keeps quantities, versions, emoji and converses "
+          f"APART ({len(must_not)} pairs){bad_n}", not bad_n)
+
 finally:
     ma.DETECTORS = orig_detectors
     settings.agent_dup_pairs_per_run = orig_dup_cap

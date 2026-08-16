@@ -43,6 +43,21 @@ paper is written for later arXiv posting, and the work now is the post-paper
 cycle — the experiments exposed gaps and closing them is the job. Experiment
 results live in `experiments/*/results*/` as `.md` summaries.
 
+### ⚑ WHICH VERSION YOU ARE WORKING ON — say it, every time
+
+| | what it is |
+|---|---|
+| **v1** | the paper's **Exp 0 and Exp 1** — the immature system. Historical only. |
+| **v2** | the paper's **mature run and the ablations**. Frozen at git tag `v2-paper-eval`; `docs/ICE_Architecture[real_v2].md` describes it and is **never updated**. Every number in the paper is v2. |
+| **v3** | **what `main` is now, and what you are working on.** Everything after the paper: the pipeline fixes, the open relation vocabulary, bi-temporal edges, the instrument rebuild. |
+
+**Name the version whenever a number or a behaviour is discussed.** A v2 number
+and a v3 number are not comparable and there is no line in the output that says
+which one you are holding — the store, the probes, the model and the pipeline
+have all changed since the tag. This is also why a v3 fix is **not** a
+regression against v2: removing something v2 shipped is a decision, not a
+restoration, and it needs the same gate as any other production change.
+
 ## Start here — read these, in this order
 
 | Read | What it is |

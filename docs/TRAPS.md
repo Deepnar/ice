@@ -593,3 +593,35 @@ only itself.
 **current call stack** is about to reference. A "read the database" check cannot
 see the caller's intent, and an operation that repairs the store must not run in
 the middle of a write to it.
+
+### 31b. Unusual content is indistinguishable from hallucination — unless you look
+
+**Three times in one session (2026-08-15) something judged real corpus content
+to be a model error and suppressed it.** Each time the suppression was written
+by someone reasoning about what a normal conversation looks like, and each time
+one SQL query would have settled it.
+
+* `november --eye_color--> golden black` was cited across three sessions as an
+  invented value, and [G43](ROADMAP.md#g43) was partly justified by it. **The
+  value was present in the source turn** — the corpus simply contains subject
+  matter the rule's author did not anticipate. The real defect was the closed
+  property vocabulary underneath.
+* [G44](ROADMAP.md#g44)'s name rule refused `8`, `19`, `2023`, `9.65`, `3/80` —
+  **94 numeric refusals of 2,273** — on the reasoning that a node named `8`
+  cannot be looked up. Versions, years, prices, sizes and scores are numeric for
+  every user; it was deleting the subject of `3.80 --score--> maths`.
+* A subagent sent to read output declared a set of triplets fabricated and made
+  that the **"dealbreaker"** deciding its model ranking. **15 turns in the source
+  corpus discuss the topic**, and the user had asked for exactly that content.
+  The verdict was reversed by one query.
+
+The failure is not carelessness — it is that the check *feels* unnecessary. An
+implausible-looking fact reads as obviously wrong, and "obviously" is doing all
+the work.
+
+⇒ **Any claim of the form "the model made this up" gets a corpus query before it
+is stated, and the query goes in the write-up.** This binds subagents too: brief
+them to verify against the source, because a confident wrong verdict from a
+reader is more expensive than a wrong metric — it arrives with reasoning
+attached. Corollary for design: a suppression rule written from an outside view
+of "normal" content will be wrong for the users who most need memory.

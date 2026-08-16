@@ -25,6 +25,7 @@ E1 look-ahead: detectors are a pluggable registry keyed by item type — the
 coding-side decisions table reuses this exact pattern.
 """
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -97,6 +98,37 @@ def _norm(name: str) -> str:
     return (name or "").strip().casefold()
 
 
+# Separator-like punctuation only. Everything else — emoji, `~`, `*`, `+`, `%`,
+# currency — SURVIVES, because it distinguishes entities: `choose 🇦` is not
+# `choose 🇪`, and stripping non-ASCII collapsed three real options into one.
+_MERGE_SEPS = re.compile(r"[\s\-_:;,()\[\]{}\"'/\\.]+")
+_DIGIT_ALPHA = re.compile(r"(\d)([a-z])")
+_ALPHA_DIGIT = re.compile(r"([a-z])(\d)")
+
+
+def merge_key(name: str) -> str:
+    """G50: a deterministic identity key — two names with the same key are the
+    same entity, with no model and no review.
+
+    Casefold, split digit/letter runs (`18gb` → `18 gb`), collapse separator
+    punctuation. **Token ORDER is preserved on purpose.** Sorting the tokens
+    finds 11 more groups on the real store and two of them are wrong in the way
+    that cannot be undone: `see you`/`you see`, and `brahma's creation without
+    shiva's dissolution`/`shiva's dissolution without brahma's creation` — a
+    converse, the entity-side twin of TRAPS #26. A wrong auto-merge writes a
+    false identity permanently, so permutation matches belong in Tier 2 where a
+    model and a human look at them.
+
+    Measured on 7,949 real entities: 20 groups merge, and every safety probe
+    holds — `~15 gb`≠`~17 gb`, `12th boards`≠`10th boards`,
+    `1-2 percent`≠`1-4 percent`, `devstral-small`≠`devstral-small-2`.
+    """
+    s = (name or "").strip().casefold()
+    s = _DIGIT_ALPHA.sub(r"\1 \2", s)
+    s = _ALPHA_DIGIT.sub(r"\1 \2", s)
+    return " ".join(t for t in _MERGE_SEPS.sub(" ", s).split() if t)
+
+
 def _pair_key(id_a, id_b) -> str:
     return "|".join(sorted([str(id_a), str(id_b)]))
 
@@ -128,9 +160,16 @@ def _detect_duplicate_entities(db, cap: int) -> list:
         WHERE (properties->>'merged_into') IS NULL
           AND source = 'conversation'
     """)).fetchall()
+    # G50: keyed by merge_key, not by casefold. The casefold channel could
+    # never fire — `canonical_name` is UNIQUE, so two rows cannot share one, and
+    # aliases mirror it; measured 0 collisions across 7,949 entities. The Tier 0
+    # channel, the one designed to need no judgement, had therefore never merged
+    # anything. merge_key finds 20 groups on the same store with the same
+    # safety, e.g. `gemma 4 e4b`/`gemma-4-e4b`/`gemma4:e4b`, `qwen3-8b`/
+    # `qwen3:8b`, `~18 gb`/`~18gb`, `manhattan 5 lb book`/`manhattan 5lb book`.
     by_name: dict = {}
     for e in ents:
-        for n in {_norm(e.canonical_name), *(_norm(a) for a in (e.aliases or []))}:
+        for n in {merge_key(e.canonical_name), *(merge_key(a) for a in (e.aliases or []))}:
             if n:
                 by_name.setdefault(n, []).append(e)
     name_pairs = {}
