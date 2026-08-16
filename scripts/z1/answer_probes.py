@@ -42,6 +42,7 @@ from sqlalchemy import func, text  # noqa: E402
 
 from src.api.config import settings  # noqa: E402
 from src.api.db import SessionLocal  # noqa: E402
+from scripts.z1.run_meta import run_meta  # noqa: E402
 
 PROBES = Path("experiments/curation_files/typed_probes.json")
 OUT = Path("experiments/curation_files/probe_answers")
@@ -227,6 +228,15 @@ def main() -> int:
             "b2_declined": not d.retrieve,
             "fragment_count": len(frags),
             "legs": sorted({f.source_type for f in frags}),
+            # ⚑ Per-fragment identity, not just a list of leg NAMES. The old
+            # `legs` field could not support re-scoring at all, so a crediting
+            # change meant re-running retrieval on the GPU (G48b).
+            "fragments": [{
+                "position": i, "leg": f.leg or f.source_type,
+                "tokens": f.token_count,
+                "source_batch_id": str(f.source_batch_id) if f.source_batch_id else None,
+                "origin_batch_ids": [str(b) for b in (getattr(f, "origin_batch_ids", ()) or ())],
+            } for i, f in enumerate(frags, 1)],
             "assembled_prompt": "\n\n".join(
                 f"[{m['role']}]\n{m['content']}" for m in messages)[:12000],
             "answer": answer,
@@ -240,6 +250,10 @@ def main() -> int:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     path = OUT / f"{stamp}_{args.tag}.json"
     path.write_text(json.dumps({
+        "meta": run_meta(script=__file__, args=vars(args),
+                         settings_keys=["codex_relation_canonical_threshold",
+                                        "procedural_min_cited_turns",
+                                        "retrieval_strengthen_writes"]),
         "utc": stamp, "tag": args.tag, "seed": args.seed,
         "probe_file": str(probe_path), "records": records,
     }, indent=2))

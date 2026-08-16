@@ -37,6 +37,7 @@ from sqlalchemy import func, text  # noqa: E402
 
 from src.api.config import settings  # noqa: E402
 from src.api.db import SessionLocal  # noqa: E402
+from scripts.z1.run_meta import run_meta  # noqa: E402
 
 PROBES = Path("experiments/curation_files/generated_probes.json")
 OUT = Path("experiments/curation_files/probe_context")
@@ -211,6 +212,14 @@ def main() -> int:
                 "tokens": f.token_count,
                 "score": round(float(f.score), 4),
                 "is_gold": _hits(f),
+                # ⚑ IDENTITY, so a metric change never forces a GPU re-run.
+                # These files exist to make scoring offline, and they recorded
+                # only leg/tokens/text — no way to attribute a fragment to a
+                # turn. When the crediting rule changed on 2026-08-16 nothing
+                # could be re-scored from disk, because the field had never
+                # been written (G48b).
+                "source_batch_id": str(f.source_batch_id) if f.source_batch_id else None,
+                "origin_batch_ids": [str(b) for b in (getattr(f, "origin_batch_ids", ()) or ())],
                 "text": (f.text or "")[:1200],
             } for i, f in enumerate(frags, 1)],
         })
@@ -219,6 +228,10 @@ def main() -> int:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     path = OUT / f"{stamp}_{args.tag}.json"
     path.write_text(json.dumps({
+        "meta": run_meta(script=__file__, args=vars(args),
+                         settings_keys=["codex_relation_canonical_threshold",
+                                        "procedural_min_cited_turns",
+                                        "retrieval_strengthen_writes"]),
         "utc": stamp, "sampled": len(records), "considered": seen,
         "only_misses": args.only_misses,
         "records": records,

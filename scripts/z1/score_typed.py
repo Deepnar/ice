@@ -87,15 +87,32 @@ def main() -> int:
     settings.decay_strengthen_amount = 0.0
     settings.retrieval_strengthen_writes = False
 
-    conv_of, gold_index, turn_text_by_id = {}, {}, {}
-    for rid, cid, key, raw in db.execute(text(
-            "select id, conversation_id, idempotency_key, raw_text "
+    # ⚑ TWO ID SPACES (G48b). A fragment's source_batch_id is the episodic ROW
+    # id, but codex_edges.source_batch and procedural_memory.source_batch_ids
+    # hold the turn's BATCH id — 9,662 edges join on batch_id and 0 on row id.
+    # Without carrying both, codex/procedural/timeline fragments can never be
+    # credited and this scorer measures the episodic leg alone.
+    conv_of, gold_index, turn_text_by_id, gold_batch = {}, {}, {}, {}
+    for rid, bid, cid, key, raw in db.execute(text(
+            "select id, batch_id, conversation_id, idempotency_key, raw_text "
             "from episodic_memory where idempotency_key like :m"),
             {"m": f"{SEED_MARKER}-%"}):
         _, slug, turn = key.split("-", 2)
         conv_of[slug] = str(cid)
         gold_index[(slug, int(turn))] = str(rid)
+        gold_batch[str(rid)] = str(bid)
         turn_text_by_id[str(rid)] = raw or ""
+
+    def _frag_ids(f):
+        """Every turn this fragment can be attributed to, in both id spaces."""
+        out = set()
+        if f.source_batch_id:
+            out.add(str(f.source_batch_id))
+        out.update(str(b) for b in (getattr(f, "origin_batch_ids", ()) or ()))
+        return out
+
+    def _ids_for(gid):
+        return {str(gid)} | ({gold_batch[str(gid)]} if str(gid) in gold_batch else set())
     if not conv_of:
         print("store not seeded — nothing to score against")
         return 1
@@ -188,13 +205,14 @@ def main() -> int:
 
         gold_ids = [gold_index.get((slug, tn)) for tn in (p.get("gold_turns") or [])]
         gold_ids = [g for g in gold_ids if g]
-        returned_ids = [str(f.source_batch_id) for f in frags if f.source_batch_id]
+        returned_ids = [i for f in frags for i in _frag_ids(f)]
         blob = " ".join((f.text or "") for f in frags).lower()
 
         if ptype == "episodic_lookup":
             gid = gold_ids[0] if gold_ids else None
+            want = _ids_for(gid) if gid else set()
             rank = next((i for i, f in enumerate(frags, 1)
-                         if f.source_batch_id and str(f.source_batch_id) == gid), None)
+                         if _frag_ids(f) & want), None)
             score = 1.0 if (rank and rank <= args.k) else 0.0
             bucket["detail"].append({"rank": rank})
 
@@ -247,10 +265,10 @@ def main() -> int:
         elif ptype == "temporal":
             gid = gold_ids[0] if gold_ids else None
             rank = next((i for i, f in enumerate(frags, 1)
-                         if f.source_batch_id and str(f.source_batch_id) == gid), None)
+                         if _frag_ids(f) & _ids_for(gid)), None)
             sup_id = gold_index.get((slug, p.get("superseded_by")))
             sup_rank = next((i for i, f in enumerate(frags, 1)
-                             if f.source_batch_id and str(f.source_batch_id) == sup_id),
+                             if _frag_ids(f) & _ids_for(sup_id)),
                             None)
             hit = bool(rank and rank <= args.k)
             # Returning ONLY the current value is the failure this class exists
