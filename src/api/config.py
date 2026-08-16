@@ -495,7 +495,16 @@ class Settings(BaseSettings):
     # so no threshold separates them perfectly and the deterministic guards do
     # the load-bearing work. Erring high is deliberate: a wrong merge writes a
     # false relation permanently, a missed merge only leaves two synonyms.
-    codex_relation_canonical_threshold: float = 0.82
+    # ⚑ 0.82 -> 0.90, measured 2026-08-16 while fixing the same-turn attractor
+    # bug (G50). At 0.82 the tense variants merge — but so does `has` into
+    # `contains` at 0.8608, which is a FALSE relation, and once the known-set
+    # grows within a turn that wrong attractor propagates to everything after
+    # it. At 0.90: have->has 0.948 and had->has 0.9255 still merge, has/contains
+    # (0.8848) no longer does, and the built/built_by converse stays split.
+    # Cost, stated: asks/asked (0.8912) no longer merge. That is the trade this
+    # setting's own note already chooses — a wrong merge writes a false relation
+    # permanently, a missed merge only leaves two synonyms.
+    codex_relation_canonical_threshold: float = 0.90
     codex_relation_open_vocabulary: bool = True
     # G49 — a relation longer than this many words is a CLAUSE, not a predicate,
     # and is demoted (never dropped: G45's lesson is that dropping loses true

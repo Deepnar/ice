@@ -822,6 +822,19 @@ def extract_triplets(text: str, model_override: str = "",
                     if mapped != t.get("relation"):
                         log_relation_repairs.append((t.get("relation"), mapped))
                     t["relation"] = mapped
+                    # ⚑ G45/G50: feed the accepted relation back into the set
+                    # THIS turn is canonicalising against. `known_relations()`
+                    # is read once per call, and a turn yields 24.5 distinct
+                    # relations on average (164 at the worst), so without this
+                    # every variant in the same turn is blind to the others and
+                    # they diverge permanently. That is why `have` merges into
+                    # `has` on demand at 0.9469 and yet the store still holds
+                    # has 491 / have 78 / had 60 — they were all first written
+                    # in the same batch window, before either could see the
+                    # other. Canonicalisation converges to one attractor only
+                    # if the set grows as the turn proceeds.
+                    if mapped not in _known_rels:
+                        _known_rels.append(mapped)
                     kept.append(t)
                 else:
                     dropped.append(t)
