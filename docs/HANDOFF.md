@@ -48,9 +48,14 @@ link to the turns it was derived from, so nothing could attribute them.
 **Every recall number in this repo is an episodic-leg score reported under the
 whole system's name.**
 
-Fixed for codex and procedural via `origin_batch_ids`. **Timeline is still
+Fixed for codex and procedural via `origin_batch_ids`, in the two harnesses
+**and in `score_typed.py`**, which carried the same blind logic in four places
+and would otherwise have reproduced the old numbers. **Timeline is still
 unwired.** Effect with ICE untouched and only the metric changed: codex 0 → 18
-credits, procedural 0 → 4, probes with a gold hit **15/25 → 21/25 (60% → 84%)**.
+credits, procedural 0 → 4, probes with a gold hit **15/25 → 21/25 (60% → 84%)**
+on a 25-probe sample. ⚠ **That is a sample, not a re-measurement** — the full
+372-probe re-count is patched and ready but has NOT been run (~10 min, local,
+deterministic, no API). It will be the first honest recall number this repo has.
 
 ⚠ **Two id spaces nearly produced a false finding.** `source_batch_id` is the
 episodic **row id**; `codex_edges.source_batch` is the **batch id** — 9,662 edges
@@ -99,6 +104,8 @@ attribution completed, and per-leg reporting decoupled from the coverage flag.
 Every fix above is invisible until a re-seed, so they were **batched
 deliberately** — one 50-minute run instead of six. It is blocked on:
 
+0. **Run the full 372-probe re-count** — patched, ready, ~10 min, deterministic,
+   no API. Cheapest real number available and it needs nothing else first.
 1. **[G50](ROADMAP.md#g50) auto-apply policy** — consolidation is human-gated at
    ~5/run against **1,094 candidates**. The policy governs what the store
    *becomes*, so running it after the re-seed means seeding twice.
@@ -166,7 +173,28 @@ item; do not justify it by pointing at 80.5%.
 * **"The vector leg is dead"** — no. `_apply_rrf` stamped only the first leg;
   `{'bm25': 4}` is really `{'bm25+vector': 4}`.
 
-## 9. HOUSEKEEPING
+## 9. ⚑ EXPERIMENT ARTIFACTS MUST BE RE-SCORABLE WITHOUT A RE-RUN
+
+The saved probe artifacts existed so scoring would not need retrieval re-run —
+and they recorded only `leg / tokens / score / text`. **No fragment identity.**
+So when the crediting rule changed today, nothing on disk could be re-scored and
+a full GPU pass was the only route. Information that was never written down
+cannot be recovered.
+
+Both harnesses now persist `source_batch_id` and `origin_batch_ids` per
+fragment, and `answer_probes` records real fragment entries rather than a bare
+list of leg names. A metric change is now a JSON re-read.
+
+**`run_meta()` was missing from both scripts written today** — CLAUDE.md makes it
+a standing rule for every experiment artifact, and `score_typed.py` was the only
+one that had it. Added to both.
+
+⇒ **Before any experiment run, ask what a future metric change would need, and
+record that — not just what today's metric reads.** The generator now checkpoints
+every call for the same reason ([TRAPS #36](TRAPS.md)); two hours of GPU were
+lost to a script that wrote only at the end.
+
+## 10. HOUSEKEEPING
 
 * **History was scrubbed before the first push.** Personal specifics were
   committed to tracked docs earlier in the session; six commits were rebuilt so
@@ -182,6 +210,8 @@ item; do not justify it by pointing at 80.5%.
 
 ## NEXT — IN THIS ORDER
 
+0. **Run the full 372-probe re-count** — patched, ready, ~10 min, deterministic,
+   no API. Cheapest real number available and it needs nothing else first.
 1. **[G50](ROADMAP.md#g50) auto-apply policy** — needs a spec. Shape settled by
    [getzep/graphiti#1728](https://github.com/getzep/graphiti/issues/1728):
    **the model narrows, it never authorises.** ICE runs a 2.5 GB local judge, so
@@ -189,8 +219,12 @@ item; do not justify it by pointing at 80.5%.
 2. **Regenerate temporal + the 48 lost codex probes** (Ollama, `qwen3.6:27b`;
    the generator takes its endpoint from env, so no code change).
 3. **Re-seed one arm with qwen3**, carrying all six fixes.
-4. **Re-score and re-judge** once the API resets — recall will move on the
-   metric fix alone, so do not read the delta as a system improvement.
+4. **Re-score and re-judge** once the API resets. ⚠ Recall will move on the
+   METRIC FIX alone, so the delta is not a system improvement. The honest
+   comparison after a one-arm re-seed is **new-pipeline qwen3 vs old-pipeline
+   qwen3** on the same probes — both stores exist, arm 1's snapshot is the
+   "before", and that answers "did the six fixes help?" rather than re-running
+   a model bake-off.
 5. **Wire timeline provenance** (207 fragments still uncredited).
 6. **Finish the ledger** (only `evidence` and `recent_turns` are evictable).
 
