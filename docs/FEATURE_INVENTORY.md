@@ -1381,3 +1381,33 @@ and the rendered architecture doc.
   (`code_graph.py:372` then `project_facts.derive_project_facts`, which does its own
   `rglob("*.py")` twice more in `_parse_db_schema` and `_parse_config_surface`) — four
   full tree walks to register one project.
+
+---
+
+## Corrections — 2026-08-16
+
+The inventory was built 2026-08-15 and this session changed or disproved several
+entries. **Where this section conflicts with the tables above, this section
+wins; where it conflicts with the code, the code wins.**
+
+| Entry above | Correction |
+|---|---|
+| Per-leg attribution readable only inside the coverage path | **Fixed.** `producing_legs` now rides on `leg_budget_share`, which fires on every retrieval. Also completes G46's second half — `_apply_rrf` stamped only the FIRST leg, so `bm25` (first in the dict) masked vector; legs now join as `bm25+vector`. What read as `{'bm25': 4}` is really `{'bm25+vector': 4}`. |
+| Maintenance agent Tier-0 name-collision channel is structurally impossible | **Fixed.** Replaced with `merge_key()` — casefold, split digit/letter runs, collapse separator punctuation, **token order preserved**. 20 real groups on the seeded arm. Sorting tokens adds 11 groups of which two are converses. |
+| `codex_node_promotion` default OFF | Still OFF, and now known **inert**: 0 `entity_merged` events across a 586-turn run. Every promotion candidate was an in-flight endpoint; the guard fired 98 times. |
+| `PROPERTY_RELATIONS` (51 words) described as a gate | **Not a gate.** 50 edges use property relations against 9,602 open-vocabulary ones, and open-vocab facts render identically in the context payload. It is a storage *style*. The earlier claim that it destroyed facts is withdrawn. |
+| Relation supersession | **Changed.** `handle_triplet` superseded whenever a relation was absent from `MULTI_VALUED_RELATIONS`, so every open-vocabulary relation retired its predecessor. Now supersedes only for relations *known* single-valued. |
+| `codex_relation_canonical_threshold` 0.82 | **Now 0.90**, and `known_relations()` is fed forward within a turn. |
+| Procedural `is_active` requires `reinforcement_count >= 3` | **Second path added:** `procedural_min_cited_turns` (10). 29 of 61 patterns on the existing arm would activate, against 1 today. |
+| `is_unusable_entity_name` refuses non-alphabetic names | **Changed.** Now refuses only names with no letter **and** no digit. It was deleting 94 numeric entities per run — years, GPAs, scores. |
+
+### New in this session
+
+| Feature | Where | Roadmap id | What it does | Setting | Default | On by default? |
+|---|---|---|---|---|---|---|
+| Fragment origin provenance | `src/retrieval/orchestrator.py:71` | G48b | Carries the turns a codex/procedural fragment was derived from, so recall can credit legs other than episodic. Timeline still unwired. | — | — | YES |
+| Clause-shaped relation demotion | `src/workers/codex_extractor.py` | G49 | A relation longer than N words is demoted, never dropped. | `codex_relation_max_words` | `5` | YES |
+| Deterministic entity merge key | `src/workers/maintenance_agent.py` | G50 | Tier-0 auto-merge of spelling variants with no model and no review. | — | — | YES |
+| In-flight endpoint protection | `src/workers/codex_extractor.py` | G44 | Stops promotion deleting the endpoint of the triplet being written. Fired 98 times in 586 turns. | — | — | YES |
+| Z2-mini answer harness | `scripts/z1/answer_probes.py` | Z2 | Retrieve → assemble → generate an answer. The half no recall number measures. | — | — | N-A |
+| Paired blind judge | `scripts/z1/judge_answers.py` | Z2 | Head-to-head arm comparison with a fixed reason taxonomy; writes partial state after every probe. | — | — | N-A |
