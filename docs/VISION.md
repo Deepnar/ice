@@ -19,6 +19,20 @@ ICE is not a coding agent. It is not a background tool that watches a developer'
 
 It is memory for the human mind, not memory for a code compiler.
 
+### As built
+
+ICE runs as a **FastAPI proxy** (`src/api/main.py`) between any OpenAI-compatible
+chat frontend and a local inference backend (**Ollama**, port 11434). Every
+`POST /v1/chat/completions` passes through it: classify the prompt → decide
+whether memory is needed at all → retrieve → assemble a context-enriched prompt
+→ route to a model → stream the response → process the finished turn into the
+memory store asynchronously.
+
+The same memory is reachable without the proxy. **ICE-as-MCP** (`ice-mcp`,
+`src/mcp/server.py`) exposes it to any MCP-speaking agent through a shared
+service layer, with its own headless boot path. The two surfaces have diverged
+and neither is a superset of the other — that gap is tracked, not designed.
+
 ---
 
 ## The Differentiation
@@ -33,7 +47,7 @@ The second and more important differentiator is **control**. Automatic global me
 
 **Primary:** Build a working personal AI memory system that makes the experience of resuming a long-running project with a local LLM feel continuous — as if the AI never forgot a single session.
 
-**Secondary:** Produce a research-grade implementation demonstrating that intent-driven memory routing, hybrid retrieval (BM25 + vector + graph), and user-scoped context selection achieve measurably better retrieval quality than baseline approaches. This is the foundation for three research papers.
+**Secondary:** Produce a research-grade implementation demonstrating that intent-driven memory routing, hybrid retrieval (BM25 + vector + graph), and user-scoped context selection achieve measurably better retrieval quality than baseline approaches. **The first paper is written** — v2, frozen at tag `v2-paper-eval` — and the work since is the post-paper cycle: the experiments exposed gaps, and closing them is the job.
 
 **Tertiary:** Build a proof-of-work portfolio artifact that demonstrates elite systems engineering thinking for graduate program applications (UofT MScAC, TUM Informatics, Stanford).
 
@@ -59,8 +73,8 @@ The second and more important differentiator is **control**. Automatic global me
 
 ## What ICE Is Not
 
-- Not a chat client. ICE is middleware that lives between whatever frontend you use and the LLMs. *(Until 2026-08 this line named Open WebUI as the frontend; that path is **rejected** — see ROADMAP Track F. ICE speaks the OpenAI-compatible API, so any client that does will work, but the destination is Track F's packaged app.)*
-- Not a coding agent. It does not watch files, run terminal commands, or auto-apply patches.
+- Not a chat client. ICE is middleware between whatever frontend you use and the LLMs. It speaks the OpenAI-compatible API, so any client that does will work; the intended destination is Track F's packaged app.
+- Not a coding agent. It does not run terminal commands or auto-apply patches. It *does* keep a static code graph for registered projects and refresh it on commit or on read — that is memory about code, not an agent acting on it.
 - Not a cloud service. All compute is local unless explicitly delegated.
 - Not a monolith. Each subsystem (classifier, memory stores, background worker, retrieval engine) is independently operable.
 - Not finished at a fixed feature set. The architecture is designed to absorb new capabilities without breaking existing ones.

@@ -2,13 +2,15 @@
 
 Guidance for Claude Code (claude.ai/code) working in this repository.
 
-**This file is loaded into every session, so it holds only what is (a) true of
-the system as built and (b) not written anywhere a session reads naturally.**
-Everything else is a pointer. When a rule's evidence or worked example lives in
-another doc, that doc owns it and this file keeps the one-line imperative.
-⚠ It rots the most expensively of any doc here — it was once found describing
-DI3, Celery, Redis, a 384-dim encoder and a 25-logit head, all long deleted.
-It is item (5) on the deletion-sweep checklist in [docs/CLEANUP.md](docs/CLEANUP.md).
+**Loaded into every session — so it costs context on every prompt, and holds
+only what is (a) true of the system as built and (b) not written anywhere a
+session reads naturally.** Everything else is a pointer: where a rule's evidence
+lives in another doc, that doc owns it and this file keeps the imperative.
+
+⚠ **It rots the most expensively of anything here**, because a stale line is
+believed by every future session. It was once found describing Celery, Redis, a
+384-dim encoder and a 25-logit head — all long deleted. Item (5) on the
+deletion-sweep checklist in [docs/CLEANUP.md](docs/CLEANUP.md).
 
 **⚑ Keeping it true is a standing job, and changing it is USER-GATED.** When a
 session touches a subsystem this file describes, **verify the claim here against
@@ -21,27 +23,18 @@ clause the twin never had. Report what you found and what you propose; wait.)*
 
 ## What ICE is
 
-The **Infinite Context Engine (ICE)** is local-first AI memory middleware. It
-runs as a **FastAPI proxy** (`src/api/main.py`) between any OpenAI-compatible
-chat frontend and a local inference backend (**Ollama**, port 11434). Every
-`POST /v1/chat/completions` passes through ICE, which classifies the prompt,
-retrieves relevant memory, assembles a context-enriched prompt, routes to a
-model, streams the response, and asynchronously processes the finished turn
-into a structured memory store.
+Local-first AI memory middleware, and a research project. A **FastAPI proxy**
+(`src/api/main.py`) sits between an OpenAI-compatible frontend and **Ollama**;
+every `POST /v1/chat/completions` is classified, given retrieved memory, routed,
+streamed, then processed into the memory store asynchronously. The same store is
+reachable through **ICE-as-MCP** (`src/mcp/server.py`).
 
 Guiding principle in the code: **"memory is earned"** — a turn is stored
 losslessly only if dense enough (`lossless_flag` / `inject_raw`, set by the
-post-flight evaluator); otherwise it is summarised by the background model.
+post-flight evaluator); otherwise the background model summarises it.
 
-*(Open WebUI was the interim frontend and is **no longer the intended path** —
-user decision 2026-08-03; Track F's packaged app is the destination. Existing
-design-rationale citations of Open WebUI's architecture stay: citing someone's
-design is not depending on their product.)*
-
-ICE is also a **research project**. v2 is finished, the experiments are done, a
-paper is written for later arXiv posting, and the work now is the post-paper
-cycle — the experiments exposed gaps and closing them is the job. Experiment
-results live in `experiments/*/results*/` as `.md` summaries.
+Why it exists, what it is *not*, and the design principles: [docs/VISION.md](docs/VISION.md).
+Experiment results live in `experiments/*/results*/` as `.md` summaries.
 
 ### ⚑ WHICH VERSION YOU ARE WORKING ON — say it, every time
 
@@ -77,7 +70,7 @@ one end-to-end burns the context the actual work needs:
 | [docs/specs/](docs/specs/) | the spec for your item **and its `Assumes decided specs:` chain**, before coding. Obey [specs/README.md](docs/specs/README.md) rules 11–12 — USER-REQUIRED steps, and the divergence protocol: code↔spec mismatch ⇒ stop, re-ground, fix the spec first, never improvise past it. |
 | [docs/PROVENANCE.md](docs/PROVENANCE.md) | the entry for the run you are questioning. It owns what was *done* — models, corpora, run parameters — and states its own standing rule: follow it when a run produces an artifact. |
 | [docs/CLEANUP.md](docs/CLEANUP.md) | the deletion-sweep checklist, or the move/rename ledger. |
-| [docs/VISION.md](docs/VISION.md) | intent — memory for human–AI thinking sessions. The coding surface is **ICE-as-MCP** (`ice-mcp`, `src/mcp/server.py`), not a separate mode. |
+| [docs/VISION.md](docs/VISION.md) | why ICE exists, what it deliberately is **not**, and the design principles. Stable — check it before assuming a capability is in scope. |
 
 **⚑ CHECK [FEATURE_INVENTORY.md](docs/FEATURE_INVENTORY.md) BEFORE CLAIMING THE
 SYSTEM DOES SOMETHING — AND BEFORE BUILDING IT.** Its `On by default?` and
