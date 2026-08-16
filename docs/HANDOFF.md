@@ -34,23 +34,22 @@ graph was wrong, and the code that fixes it already existed.
 | **Tests** | 347/347 regressions · `test_codex_write_path.py` 32/32 · `test_maintenance_agent.py` 45/45. |
 | **Alembic** | `505f12031434` (unchanged). |
 
-### ⛔ PUSHING IS BLOCKED, AND IT IS NOT THE EXPERIMENT FREEZE
+### ✅ HISTORY WAS SCRUBBED BEFORE THE FIRST PUSH OF THIS CYCLE
 
-Commit **`de78391`** contains the user's **clinical/health detail** in
-`ROADMAP.md` and `TRAPS.md`. It was written and committed without asking; the
-user reviewed it and decided **the trait stays, the clinical material goes**.
-The working tree is already correct — but the commit is still in history, and
-this remote is **public under the user's name**.
+Sensitive personal specifics were written into tracked docs and committed
+earlier in the session. They were removed from the working tree, and then the
+six affected commits were **rebuilt** (`git cherry-pick` + `--msg-filter`, scoped
+to the unpushed range only so no published SHA changed) so that no blob and no
+commit message in history carries them. Verified before pushing: 0 matches
+across every blob in the range, 0 in every message.
 
-**Rewrite `de78391` out of history, run `scripts/git/check_history_clean.sh
---clone`, and only then push.** TRAPS #12: a public host serves old objects by
-SHA until it garbage-collects, and that needed a support ticket last time.
-The user has been asked and has not yet authorised the rewrite.
-
-**The new structure for this is now a standing rule in CLAUDE.md** ("PRIVATE
-DETAIL IN A TRACKED DOC"): technical claim in the tracked doc, specifics in
-`docs/PRIVATE_CONTEXT.md` (gitignored), tracked doc points at a marker, and
-**the user eyeballs the exact lines before any commit**.
+**The structure that prevents a repeat is a standing rule in CLAUDE.md**
+("PRIVATE DETAIL IN A TRACKED DOC"): the tracked doc carries the technical claim
+and stands alone, specifics go in `docs/PRIVATE_CONTEXT.md` (gitignored, verified
+with `git check-ignore` **before** the file is written), the tracked doc points
+at a marker, and **the user eyeballs the exact lines before any commit.**
+⚠ A cleanup commit message that *describes what was removed* is itself a
+signpost — that is why the messages were rewritten too, not just the diffs.
 
 ## ⚠ FOUR HYPOTHESES ABOUT THE SPARSE GRAPH, ALL WRONG
 
@@ -138,16 +137,16 @@ Six that matter, three now fixed. Still open:
 
 ## NEXT — AND THE ORDER MATTERS
 
-1. **Scrub `de78391`, verify, push.** Everything else is blocked behind this.
-2. **Re-seed.** The numbers fix and the clause fix exist in code and in
+1. **Re-seed.** The numbers fix and the clause fix exist in code and in
    **neither snapshot** — every stored measurement predates them.
-3. **Run `answer_probes.py` on both arms.** The only fair test of the background
+2. **Run `answer_probes.py` on both arms.** The only fair test of the background
    model, and the only one that sees whether the context was usable.
-4. **[G50](ROADMAP.md#g50) needs a spec** — which merges may be auto-applied
+3. **[G50](ROADMAP.md#g50) needs a spec** — which merges may be auto-applied
    under what structural guard. Shape settled by
    [getzep/graphiti#1728](https://github.com/getzep/graphiti/issues/1728):
    **the model narrows, it never authorises.**
-5. **Finish the ledger; decouple attribution.**
+4. **Finish the ledger.** Attribution is done — `producing_legs` now rides on
+   `leg_budget_share`, which fires on every retrieval.
 
 ## ⚑ THE UNLOCK NOBODY HAS BUILT
 
@@ -204,4 +203,6 @@ decided.
 
 Propagate per the roadmap's rules, update the docs the change invalidates in the
 **same** session, then rewrite this file — carrying the NEXT above into
-TOLD → DID — and commit it last. **Do not push until `de78391` is scrubbed.**
+TOLD → DID — and commit it last.
+
+**⚑ Do not write this file, or close a session, without the user saying so.**
