@@ -47,47 +47,44 @@ results live in `experiments/*/results*/` as `.md` summaries.
 
 | | what it is |
 |---|---|
-| **v1** | the paper's **Exp 0 and Exp 1** — the immature system. Historical only. |
-| **v2** | the paper's **mature run and the ablations**. Frozen at git tag `v2-paper-eval`; `docs/ICE_Architecture[real_v2].md` describes it and is **never updated**. Every number in the paper is v2. |
-| **v3** | **what `main` is now, and what you are working on.** Everything after the paper: the pipeline fixes, the open relation vocabulary, bi-temporal edges, the instrument rebuild. |
+| **v1** | the paper's Exp 0 and Exp 1 — the immature system. Historical only. |
+| **v2** | the paper's mature run and the ablations. Frozen at tag `v2-paper-eval`; `docs/ICE_Architecture[real_v2].md` describes it and is **never updated**. Every number in the paper is v2. |
+| **v3** | **what `main` is now, and what you are working on.** |
 
-**Name the version whenever a number or a behaviour is discussed.** A v2 number
-and a v3 number are not comparable and there is no line in the output that says
-which one you are holding — the store, the probes, the model and the pipeline
-have all changed since the tag. This is also why a v3 fix is **not** a
-regression against v2: removing something v2 shipped is a decision, not a
-restoration, and it needs the same gate as any other production change.
+**Name the version whenever a number or a behaviour is discussed** — v2 and v3
+numbers are not comparable and nothing in the output says which you hold. A v3
+change that removes something v2 shipped is a decision, not a regression, and
+needs the same gate as any other production change.
 
-## Start here — read these, in this order
+## Start here
+
+**⚑ READ IN FULL — both are short and both are about *this* session:**
 
 | Read | What it is |
 |---|---|
-| [docs/HANDOFF.md](docs/HANDOFF.md) | **Where the last session left off, and what it was told to do.** Rewritten every session. Read it first; it is state, never a queue. |
-| [docs/TRAPS.md](docs/TRAPS.md) | Mistakes this project has actually made. Read once at session start. Add to it the same session something bites. |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | **The queue, and the only queue** — 56 open items plus a one-line stub per finished one. Its "How to use this file" block is the rules for working it and its "HOW TO EXECUTE THIS ROADMAP" section carries the current position; neither is repeated here. Check items off there as they complete. |
-| [docs/ROADMAP_DONE.md](docs/ROADMAP_DONE.md) | The finished items in full — what shipped, what each entry got wrong about its own subject, look-ahead, propagation, validation. Every stub in the roadmap links to its record here. |
+| [docs/HANDOFF.md](docs/HANDOFF.md) | **Where the last session left off, and what it was told to do.** Rewritten every session. It is state, never a queue. |
+| [docs/TRAPS.md](docs/TRAPS.md) | Mistakes this project has actually made — failure *shapes*, so you recognise one from inside it. Add to it the same session something bites. |
 
-Then, as the work requires:
+**⚑ CONSULT, NEVER READ WHOLE.** These are reference works, not reading. Opening
+one end-to-end burns the context the actual work needs:
 
-| Doc | Owns |
+| Doc | Read only… |
 |---|---|
-| [docs/ICE_Architecture.md](docs/ICE_Architecture.md) | How each subsystem actually works. The authoritative design reference. **Where any doc conflicts with code, code wins.** |
-| [docs/specs/](docs/specs/) | Decision-complete specs. Since S1 every design-heavy roadmap item has one — read the item's spec **and its `Assumes decided specs:` chain** before coding, and obey [specs/README.md](docs/specs/README.md) rules 11–12 (USER-REQUIRED steps; the divergence protocol: code↔spec mismatch ⇒ stop, re-ground, fix the spec first, never improvise past it). |
-| [docs/PROVENANCE.md](docs/PROVENANCE.md) | What was *done* — model revisions, corpora, checkpoints, run parameters. It states its own standing rule; follow it when a run produces an artifact. |
-| [docs/CLEANUP.md](docs/CLEANUP.md) | Cleanup rules (incl. the deletion sweep) + the move/rename ledger. |
-| [docs/VISION.md](docs/VISION.md) | Intent — memory for human–AI thinking sessions. A separate Coding Mode is planned post-paper. |
-| [docs/FEATURE_INVENTORY.md](docs/FEATURE_INVENTORY.md) | **Every feature the system actually has** — ~433 of them, each with a verified `file:line`, its controlling setting, that setting's **default**, and whether it is **ON by default**. Plus 40 items that are implemented and **cannot currently fire**. |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | **the item you are working**, plus its `Assumes` chain. It is the queue and the only queue; its "How to use this file" and "HOW TO EXECUTE" blocks carry the rules and current position. Check items off there. |
+| [docs/ROADMAP_DONE.md](docs/ROADMAP_DONE.md) | the record for one finished item — what shipped, and **what that entry got wrong about its own subject**. Every stub links here. |
+| [docs/ICE_Architecture.md](docs/ICE_Architecture.md) | the section for the subsystem you are touching. Authoritative design reference. **Where any doc conflicts with code, code wins.** |
+| [docs/FEATURE_INVENTORY.md](docs/FEATURE_INVENTORY.md) | the row for one feature — its `file:line`, controlling setting, that setting's **default**, and whether it is **ON by default**. |
+| [docs/specs/](docs/specs/) | the spec for your item **and its `Assumes decided specs:` chain**, before coding. Obey [specs/README.md](docs/specs/README.md) rules 11–12 — USER-REQUIRED steps, and the divergence protocol: code↔spec mismatch ⇒ stop, re-ground, fix the spec first, never improvise past it. |
+| [docs/PROVENANCE.md](docs/PROVENANCE.md) | the entry for the run you are questioning. It owns what was *done* — models, corpora, run parameters — and states its own standing rule: follow it when a run produces an artifact. |
+| [docs/CLEANUP.md](docs/CLEANUP.md) | the deletion-sweep checklist, or the move/rename ledger. |
+| [docs/VISION.md](docs/VISION.md) | intent — memory for human–AI thinking sessions. The coding surface is **ICE-as-MCP** (`ice-mcp`, `src/mcp/server.py`), not a separate mode. |
 
 **⚑ CHECK [FEATURE_INVENTORY.md](docs/FEATURE_INVENTORY.md) BEFORE CLAIMING THE
-SYSTEM DOES SOMETHING — AND BEFORE BUILDING SOMETHING.** It prevents the two
-failures that have each already happened here: a capability rebuilt because
-nobody knew it existed (the coding core, forgotten within 45 days), and a
-capability described as active in a write-up while its setting defaults to off.
-Its `On by default?` and `DEAD OR INERT` columns are the load-bearing parts — an
-inert path attributed a measurement is how several wrong conclusions were drawn
-on 2026-08-15. **Update it in the same session as anything that adds, removes or
-re-gates a feature**; like every doc here it rots, and the `file:line` is there
-so re-deriving an entry costs seconds. Code wins over it, always.
+SYSTEM DOES SOMETHING — AND BEFORE BUILDING IT.** Its `On by default?` and
+`DEAD OR INERT` columns are the load-bearing parts: a capability has been
+rebuilt because nobody knew it existed, and inert paths have been credited with
+measurements. **Update it in the same session as anything that adds, removes or
+re-gates a feature.** Code wins over it, always.
 
 `docs/ICE_Architecture[real_v2].md` is the **frozen** technical report for the
 system as evaluated in the paper (git tag `v2-paper-eval`) — never update it to
@@ -105,66 +102,42 @@ Neither docs nor comments are guaranteed current — verify against the code.
 
 ### RESEARCH FIRST — the measurement is the deliverable (2026-08-12)
 
-**A product is wanted; research is what is being done.** Those are not in
-tension, they are in *order*: nothing gets productised until it is known to
-work, and "known" here means measured, not believed. So the unit of progress in
-this repo is **a measurement someone can trust**, not a feature.
+**A product is wanted; research is what is being done** — in that *order*:
+nothing gets productised until it is measured, not believed. The unit of
+progress here is **a measurement someone can trust**, not a feature.
 
-**⚑ Be certain the measurement is CORRECT before believing what it says.** Not
-"be thorough" — *be correct*. Before reporting a number, ask:
+**⚑ Be certain the measurement is CORRECT before believing it.** Four questions,
+each of which has caught a wrong number in this repo:
 
-- **Is everything there?** Did the harness populate every part the real path
-  populates, and call what the real path calls? A store missing three of eight
-  legs, or a scorer skipping the budget setter `main.py` calls, measures
-  something — just not the system.
-- **Would this number look the same if the thing under test were broken?** If
-  yes, it is not a measurement. A presence-based score (coverage, in-vocabulary
-  rate, hit count) answers *"is the expected thing in there"* and never *"is
+- **Is everything there?** Did the harness call what the real path calls? A
+  scorer skipping the budget setter measures something — just not ICE.
+- **Would this number look the same if the thing under test were broken?** A
+  presence-based score answers *"is the expected thing in there"*, never *"is
   what is there any good"*.
-- **Does the instrument reproduce production, or my idea of it?** The instrument
-  becomes part of what it measures the moment it diverges. **So change it one
-  part at a time, and prove each part TWICE before it feeds a run** — once in
-  isolation (does the piece do what it claims?), once through the path
-  production actually takes (does the real caller still agree?). The second
-  catches what the first cannot: a fixture's sitting layout passed its own check
-  and still aged the whole corpus by fifteen days, visible only once the
-  assertion asked what production would see. **A long run started on an
-  unverified change does not fail — it returns a number, and the number is
-  wrong.**
-- **⚑ Did I QUERY the running system, or reason about the code?** Reading source
-  and reasoning forward produces conclusions that feel verified and are not —
-  **four wrong ones in a single session, 2026-08-12**, each disproved by one
-  query taking seconds. The comments describe intent; the database describes
-  what happened. **Any claim about behaviour gets a query before it gets
-  stated**, and a claim that cannot be cheaply checked says so in its own words
-  rather than in a caveat afterwards. TRAPS #23.
+- **Can the metric even SEE the subsystem?** Recall credited only episodic
+  fragments for months while four other legs returned thousands
+  ([TRAPS #32](docs/TRAPS.md)).
+- **⚑ Did I QUERY the running system, or reason about the code?** Reasoning
+  forward produces conclusions that feel verified and are not — four wrong ones
+  in one session, each disproved by a query taking seconds
+  ([TRAPS #23](docs/TRAPS.md)).
 
-**Nothing may be skipped, and no result is exempt.** A step left out is a
-variable left uncontrolled, and it will be discovered later as a wrong
-conclusion rather than a missing step. Where something genuinely cannot be
-measured yet, **say so in the number's own words** — "off-production",
+**Change the instrument one part at a time, and prove each part TWICE** — once
+in isolation, once through the path production takes. **A long run started on an
+unverified change does not fail; it returns a number, and the number is wrong.**
+
+**Nothing may be skipped and no result is exempt.** Where something cannot be
+measured yet, say so **in the number's own words** — "off-production",
 "unconfirmed", "inert on this corpus" — rather than letting it read as clean.
 
-**But this is not an argument for long experiments.** A four-night sweep on an
-unverified instrument wastes four nights; a ten-minute check that would have
-invalidated it is worth more than all of them. Nor is it an argument for
-short ones: a probe set too small to resolve the effect you are looking for
-produces a confident number about noise. **Size the run to the question**, and
-compute what the run can actually resolve *before* starting it.
+**Neither long nor short experiments are virtuous.** Size the run to the
+question and compute what it can resolve *before* starting. **There is no hurry
+and no room for waste**: being unhurried is what makes re-checking affordable,
+not permission to re-derive what is already written down.
 
-**There is no hurry. There is also no room for waste.** Being unhurried is what
-makes it affordable to re-check; it is not permission to re-derive what is
-already written down, to re-run what a cheaper measurement settles, or to
-explore adjacent questions nobody asked.
-
-**Worked evidence, and it is the reason this rule exists:** on 2026-08-12 five
-conclusions were drawn and corrected within one session — four of them from
-reasoning about code instead of querying the running system. The instruments
-built that day carried nine defects of their own. **Every finding that survived
-scrutiny came from reading actual output**, and the two that mattered most (a
-ground-truth key that looked fine, an eight-model ranking that was backwards)
-were caught by a human and an agent *reading*, against metrics that were green.
-See TRAPS #20, #21 and roadmap [G46](docs/ROADMAP.md#g46).
+Worked evidence: [PROVENANCE.md](docs/PROVENANCE.md) 2026-08-12 onward, and
+TRAPS #20–23, #32–35. Every finding that survived scrutiny came from reading
+actual output.
 
 ### Name the item, then SAY WHAT IT IS — every time (2026-08-13)
 
@@ -260,110 +233,66 @@ dropped, dead code and lying comments fixed in place, one-off scripts *moved*
 
 ### Git, commits, and the public repo
 
-**⚑ THE REPO IS PUBLIC** (`origin` → `github.com/Deepnar/ice`), and has been
-for a while — TRAPS #12's exposure incident, closed 2026-08-04, was already a
-public clone. It is not a private backup: **every push is a publication.**
-Pushing during normal development stays pre-authorized — push at natural points
-without asking — but write every commit, message and file knowing it is read as
-soon as it lands, by strangers, with no window to take it back.
+**⚑ THE REPO IS PUBLIC** (`origin` → `github.com/Deepnar/ice`) and has been for a
+while. It is not a private backup: **every push is a publication.** Pushing
+during normal development is pre-authorized — push at natural points without
+asking — but write every commit, message and file knowing it is read as soon as
+it lands, with no window to take it back.
 
 - **⚑ SMALL COMMITS *IN THIS FORMAT*. Granularity and format are ONE rule.**
   Many small commits split by *concern* — never one end-of-session commit; if a
-  message needs bullets for unrelated changes it should have been several
-  commits. **And every one of them, however small, takes the full shape below.**
+  message needs bullets for unrelated changes it should have been several.
 
   ```
   area: what changed (ITEM)
 
   ITEM — what it does now:
   - concrete change: function/file/migration names, measured numbers
-  - concrete change
 
-  SECOND-ITEM — ...
-
-  Also fixes: the thing found in passing.
-
-  Validated N/N (tests/test_x.py: what was checked); regressions green:
-  a 13/13, b 31/31. Architecture §6.10 updated; roadmap C6 checked.
+  Validated N/N (tests/test_x.py: what was checked); regressions green.
+  Architecture §6.10 updated; roadmap C6 checked.
   ```
 
   **Subject:** lowercase area prefix (`retrieval:`, `codex:`, `memory:`,
-  `workers:`, `classifier:`, `clustering:`, `budget:`, `roadmap:`, `specs:`,
-  `docs:`, `tooling:`) · what changed · the roadmap item id in parens · ≤ ~70
-  chars. **Body:** organised **by item**, dense and concrete, closing with a
-  **`Validated`** line and a **docs/roadmap** line. **The log is the reference —
-  read it before writing one:** `git log 6bac35d 1a30484 051cea9 5124efb`.
-  - ⚠ **It is a record, not an explanation.** No paragraph essays, no rhetorical
-    beats ("That is not an edge case."), no argument structure. Impersonal, in
-    the repository's voice; **never narrate the session** ("the user asked…",
-    "as requested…", "we decided…"). **No AI attribution / Co-Authored-By.**
-  - *(This drifted badly on 2026-08-09/10 — a dozen commits with no area prefix,
-    no item id, no validation line, and prose bodies. The rule was already here;
-    the log was not read. Read the log.)*
+  `workers:`, `classifier:`, `budget:`, `roadmap:`, `docs:`, `tooling:`) · what
+  changed · roadmap id in parens · ≤ ~70 chars. **Body:** organised by item,
+  dense and concrete, closing with **`Validated`** and a **docs/roadmap** line.
+  **The log is the reference — read it before writing one:**
+  `git log 6bac35d 1a30484 051cea9 5124efb`.
+  - ⚠ **A record, not an explanation.** No essays, no rhetorical beats, no
+    argument structure. Impersonal, in the repository's voice; **never narrate
+    the session** ("the user asked…", "we decided…"). **No AI attribution.**
 - **Freeze at the experiment phase:** once **SEMIFINAL (Z1)** or **FINAL**
-  begins, **stop pushing** until the user says otherwise — a half-run
-  experiment published mid-flight is a result nobody chose to publish.
-
-**⚑ IT IS PUBLIC SINCE A GOOD WHILE NOW — the tree, the docs and the commit log.** This used to
-read "going public" long after it already had; corrected 2026-08-10.
-
-- **Never commit personal content** — private planning, career notes,
-  conversation corpora, third-party emails, credentials. **Git history is
-  forever, and on a public remote it is forever the moment you push**: a file
-  committed once and gitignored later is still there, and even a rewritten
-  history keeps serving the old objects by SHA until the host garbage-collects
-  them (TRAPS #12 — that took a support ticket last time). **Check before the
-  commit, not after the push.**
-- **⚑ PRIVATE DETAIL IN A TRACKED DOC — the structure, and it is USER-GATED.**
-  Findings sometimes depend on personal specifics: why an extraction was
-  correct, why a heuristic was wrong about real content. The detail is what
-  makes the finding checkable, so "just leave it out" loses the evidence. The
-  shape that keeps both:
-  1. **The tracked doc states the technical claim** and nothing more — what was
-     measured, what it means, what to do. It must stand alone and be useful to a
-     reader who never sees the detail.
-  2. **The specifics go in `docs/PRIVATE_CONTEXT.md`** (gitignored; verify with
-     `git check-ignore -v` *before* writing the file), under a marker heading
-     like `[PRIVATE:g43-example]`.
-  3. **The tracked doc points at the marker**, so a later session knows detail
-     exists and where it is, instead of rediscovering the finding from scratch.
-  4. **⚑ ASK THE USER TO EYEBALL IT BEFORE COMMITTING** — every time, quoting
-     the exact lines. Not a summary of them, the lines. This gate exists because
-     on 2026-08-15 a session wrote the corpus owner's neurological and health
-     details into `ROADMAP.md` and `TRAPS.md` and committed them, on a public
-     remote, without asking. It was caught before any push; it would have been
-     permanent one command later.
-  **What belongs where is the user's call, not a judgement to make for them** —
-  a trait they describe openly may be fine in the open while a clinical framing
-  is not, and only they can draw that line. Ask; do not decide.
-- **Verified clean 2026-08-10:** `check_history_clean.sh --clone`
-  green against the live remote, no personal or planning file tracked, no
-  credential-shaped string in the tree, README links the canonical
-  venue-agnostic paper, and `v2-paper-eval` points at `0521df9` (post-rewrite).
-  Re-run the `--clone` check after anything that touches history.
+  begins, **stop pushing** until the user says otherwise.
+- **Never commit personal content** — planning, career notes, conversation
+  corpora, third-party email, credentials. **Git history is forever the moment
+  you push**, and a rewritten history still serves old objects by SHA until the
+  host garbage-collects (TRAPS #12 — a support ticket last time). **Check before
+  the commit, not after the push.** ⚠ A cleanup commit *message* that describes
+  what was removed is itself a signpost; rewrite messages too, not just diffs.
+- **⚑ PRIVATE DETAIL IN A TRACKED DOC — USER-GATED, every time.** The tracked doc
+  states the technical claim and stands alone; the specifics go in
+  `docs/PRIVATE_CONTEXT.md` (gitignored — verify with `git check-ignore` **before**
+  writing it) under a marker like `[PRIVATE:g43-example]`; the tracked doc points
+  at the marker. **Then ask the user to eyeball the exact lines before
+  committing** — not a summary, the lines. **What belongs where is the user's
+  call, not a judgement to make for them.**
 - **A history rewrite must rewrite TAGS, and `git log` on `main` cannot verify
-  it.** Verification is `scripts/git/check_history_clean.sh`, wired to a
-  `pre-push` hook by `scripts/git/install_hooks.sh` (**run once per clone**);
-  `--clone` checks what the public actually receives. Never resolve a tag
-  mismatch by forcing one side to win without first asking which side predates
-  the rewrite. Full story: **TRAPS #12**.
-- **README.md is a first-class deliverable** — the first and often only thing a
-  visitor reads. Update it in the same session as anything that changes what the
-  project *is* or how it is run.
+  it.** Verification is `scripts/git/check_history_clean.sh` (`--clone` checks
+  what the public receives), wired to `pre-push` by `install_hooks.sh` — run once
+  per clone. Full story: **TRAPS #12**.
+- **README.md is a first-class deliverable** — the first thing a visitor reads.
+  Update it in the same session as anything that changes what the project *is*
+  or how it is run.
 - **⚑ README links the VENUE-AGNOSTIC paper, never a venue submission.**
-  `experiments/paper/` holds one canonical paper (`ICE_paper_v2.tex`, generic
-  `article` class) plus venue twins (`_tmlr`, `_tist`, …). Only the canonical one
-  may be linked or offered publicly — a twin carries that venue's branding, line
-  numbers, placeholder volume numbers and a dummy DOI, which on a public repo
-  reads as *"published there"*, a false claim about work merely submitted. This
-  has happened once and was reverted. When a twin's content is better,
-  **back-port it into the canonical file**; never repoint the link.
-- **README and ICE_Architecture follow the same contract.** Both describe `main`
+  `experiments/paper/` holds one canonical paper (`ICE_paper_v2.tex`) plus venue
+  twins. A twin carries that venue's branding and a dummy DOI, which on a public
+  repo reads as *"published there"* — a false claim about work merely submitted.
+  When a twin's content is better, **back-port it**; never repoint the link.
+- **README and ICE_Architecture follow the same contract** — both describe `main`
   as it is now, both updated in the same session as the change that invalidates
-  them. README is the outside view (what ICE is, what it does, headline numbers,
-  how to run it) and stays short; ICE_Architecture is the inside view and carries
-  the detail. A number appearing in both must change in both or neither. Where
-  either quotes evaluation results, say which snapshot (the paper's numbers are
+  them. README is the outside view and stays short. A number in both must change
+  in both or neither, and must say which snapshot it is (the paper's numbers are
   the `v2-paper-eval` tag, not `main`).
 
 ### End every session by rewriting docs/HANDOFF.md
