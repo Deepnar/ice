@@ -710,3 +710,41 @@ script and worth copying to any generator: refuse to write zero over a populated
 file, merge partial runs instead of overwriting, and keep the previous
 generation beside the new one. And run smoke tests with `--limit` against a
 **temp output path**, never the live one.
+
+### 36. Killing the client does not stop the GPU, and a long run that only writes at the end writes nothing
+
+Two failures that compound, both hit on 2026-08-16.
+
+**The work was lost.** `generate_typed_probes.py` collected every model reply in
+memory and wrote the output file only after the last one returned. A ~2-hour
+generation was killed near the end and produced **exactly what a run killed
+after one second produces: nothing.** The judge had per-probe checkpointing by
+then and survived its own kill with 65 usable verdicts; the generator did not,
+and lost everything.
+
+**The GPU did not stop.** The Python parent was gone from `htop`/`nvtop` and
+**Ollama kept generating** — queued requests outlive the client that queued them,
+and a `ThreadPoolExecutor` with N workers means N of them are already in flight.
+The machine ran at **105 °C** until a full restart. Killing the process you can
+see is not the same as stopping the work you started.
+
+⇒ **Three habits for any run measured in hours:**
+
+* **Checkpoint every unit, not every run.** Append raw results to a sidecar as
+  they land. A killed run should be resumable or salvageable, never repeated.
+  Cost is one `open(..., "a")` per call; the alternative is hours.
+* **Stop the server, not just the script.** `pkill` on the Python parent leaves
+  Ollama working. Unload the model explicitly:
+
+      pgrep -f '[g]enerate_typed' | xargs -r kill
+      ollama stop <model>            # the part people forget
+      ollama ps                      # verify nothing is resident
+
+* **Keep concurrency low on a local GPU.** `--workers 3` against a 27B model is
+  three simultaneous generations on one card. Thermals, not throughput, are the
+  binding constraint, and there is no backpressure telling you so.
+
+⚠ **Related, and it bit twice the same day:** `/tmp` is cleared aggressively on
+this machine. Three run logs vanished mid-session, including the one holding a
+two-hour generation's progress. **Write run output under
+`experiments/curation_files/`, never `/tmp`.**

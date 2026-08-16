@@ -213,10 +213,32 @@ def run_tasks(tasks: list, workers: int) -> list:
                 print(f"    {d}/{t} calls", flush=True)
         return result
 
+    # ⚑ CHECKPOINT EVERY CALL. This function is the expensive part — a full
+    # run is HOURS of GPU — and the caller previously wrote nothing until the
+    # very end, so a run killed at 99% produced exactly what a run killed at 1%
+    # produced. That happened: a two-hour generation was lost entirely. Raw
+    # replies are appended to a sidecar as they land, so a killed run can be
+    # resumed or salvaged instead of repeated.
+    ckpt = OUT.with_suffix(".raw-calls.jsonl")
+
+    def _checkpoint(task, result):
+        try:
+            with ckpt.open("a") as fh:
+                fh.write(json.dumps({"kind": task.get("kind"),
+                                     "conversation": task.get("conversation"),
+                                     "result": result}, default=str) + "\n")
+        except Exception:                                        # noqa: BLE001
+            pass                                                 # never fail the run over telemetry
+
+    def one_ckpt(t):
+        r = one(t)
+        _checkpoint(t, r)
+        return r
+
     if workers <= 1:
-        return [one(t) for t in tasks]
+        return [one_ckpt(t) for t in tasks]
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        return list(pool.map(one, tasks))
+        return list(pool.map(one_ckpt, tasks))
 
 
 def prompt_episodic(turn: dict, n: int) -> str:
