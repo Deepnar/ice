@@ -1,219 +1,207 @@
-# Handoff — 2026-08-15, ~07:45 IST
+# Handoff — 2026-08-16, ~13:40 IST
 
 **State, not a queue.** [ROADMAP.md](ROADMAP.md) is the queue and the only one.
 This file exists for the one thing no other doc holds: **what the last session
 was told to do, against what it actually did.** Overwritten every session,
 committed last; earlier ones are in `git log -p docs/HANDOFF.md`.
 
-> **⚑ READ THIS WHOLE FILE BEFORE TOUCHING ANYTHING.** The last session was
-> long, it changed seven subsystems, and it left the store deliberately empty.
-> Three of the numbers you will find in older docs are **wrong and superseded**;
-> they are named below. Starting work without reading this will reproduce
-> conclusions that were already disproved.
+> **⚑ READ THIS BEFORE TOUCHING ANYTHING.** Two items on this list are
+> unfinished and one of them **blocks pushing**. Three roadmap entries were
+> found wrong about their own subject, and four hypotheses about the graph were
+> tested and disproved. Starting work without reading this will reproduce
+> conclusions that were already killed.
 
 ---
 
 ## TOLD → DID
 
-**Told:** confirm [G47](ROADMAP.md#g47)'s zero-fragment hypothesis, fix the Z1
-instruments, measure the noise floor, then the pipeline fixes in leverage order.
+**Told:** re-seed both arms on the fixed pipeline, validate the pipeline fixes,
+score the typed probes, read the output, re-run the model comparison.
 
-**Did:** all of it — and **the hypothesis was wrong in a way that mattered more
-than the hypothesis.** Confirming it exposed that the *instrument* was the
-finding: fixing four scorer defects moved recall@10 from **0.250 to 0.508
-without changing one line of ICE**. Then [G42](ROADMAP.md#g42),
-[G43](ROADMAP.md#g43), [G44](ROADMAP.md#g44), [G45](ROADMAP.md#g45),
-bi-temporal edges, and the seeder were fixed — each tested twice, once in
-isolation and once through the path production actually takes.
+**Did:** all of it — and **the re-seed nearly ran on a pipeline that would have
+corrupted a third of it.** A smoke test before the long run caught a
+`ForeignKeyViolation` in G44's node promotion; the guard it needed fired **98
+times** across the real run. Then the measurements went four-for-four against my
+own hypotheses, which is the story of the day: every theory about the sparse
+graph was wrong, and the code that fixes it already existed.
 
 ## ⚑ START HERE — THE STATE OF THE WORLD
 
 | | |
 |---|---|
-| **Store** | **~2 turns. Deliberately empty.** Unusable for any measurement. |
-| **Git** | All work committed, **16 commits this session**. `main` is **82 commits ahead** of `origin/main` (`0c446d1`). Working tree clean. |
-| **Push freeze** | **ON.** Nothing pushed. Do not push until the user lifts it. |
-| **Alembic head** | `505f12031434` (bi-temporal codex edges). |
-| **Tests** | 347/347 green (`tests/smoke`, `test_settings_freeze.py`, `test_dynamics_invariants.py`). |
-| **Probes** | **420 typed probes** ready, never scored against a real store. |
+| **Store** | **arm 2 (`fixed-gemma4-e4b`) restored and live** — 7,949 entities / 7,052 edges / 293 turns. Both arms snapshotted. |
+| **Git** | **97 commits ahead of `origin`. NOT PUSHED, and pushing is BLOCKED — see below.** Working tree clean. |
+| **Tests** | 347/347 regressions · `test_codex_write_path.py` 32/32 · `test_maintenance_agent.py` 45/45. |
+| **Alembic** | `505f12031434` (unchanged). |
 
-**Both baselines are snapshotted and restorable** — the store was emptied on
-purpose, not lost:
+### ⛔ PUSHING IS BLOCKED, AND IT IS NOT THE EXPERIMENT FREEZE
 
-* `experiments/curation_files/snapshots/gemma4-26b.sql` — pre-session
-* `experiments/curation_files/snapshots/pre-g42g43g44.sql` — post-cleanup, verified
+Commit **`de78391`** contains the user's **clinical/health detail** in
+`ROADMAP.md` and `TRAPS.md`. It was written and committed without asking; the
+user reviewed it and decided **the trait stays, the clinical material goes**.
+The working tree is already correct — but the commit is still in history, and
+this remote is **public under the user's name**.
 
-## ⚠ THREE NUMBERS IN OLDER DOCS ARE WRONG
+**Rewrite `de78391` out of history, run `scripts/git/check_history_clean.sh
+--clone`, and only then push.** TRAPS #12: a public host serves old objects by
+SHA until it garbage-collects, and that needed a support ticket last time.
+The user has been asked and has not yet authorised the rewrite.
 
-If you read these anywhere, they are superseded — the correction is in
-[PROVENANCE.md](PROVENANCE.md) 2026-08-13 and in each roadmap entry:
+**The new structure for this is now a standing rule in CLAUDE.md** ("PRIVATE
+DETAIL IN A TRACKED DOC"): technical claim in the tracked doc, specifics in
+`docs/PRIVATE_CONTEXT.md` (gitignored), tracked doc points at a marker, and
+**the user eyeballs the exact lines before any commit**.
 
-1. **"recall@10 = 0.250"** → **0.508**. The scorer skipped the budget setter and
-   hit a guard production cannot reach. A legacy-mode control reproduced 0.250
-   *exactly* (recall@1 identical to 17 decimal places), which is what makes the
-   delta attributable to the harness rather than to luck.
-2. **"the system returns 2–5 memories"** → **median 14** (8–46). That was the
-   orchestrator sitting at its `__init__` default of 5,000 tokens; real budgets
-   are **8,100–11,350**, set by `context_growth_cap_ladder`, not the model window.
-3. **"15 of 592 probes return zero fragments"** → **242 (41%)** in the legacy
-   condition, **0** on the production path. 15 was the old scorer's
-   `misses[:40]` truncation, not a count.
+## ⚠ FOUR HYPOTHESES ABOUT THE SPARSE GRAPH, ALL WRONG
 
-## WHAT SHIPPED (each twice-tested)
+The graph is **80.5% degree-1** (arm 2) / **69.6%** (arm 1) — worse than the
+65% measured pre-fix. Tested and killed, in order:
+
+1. **Entity duplication** — no. Only 10–14% of names are near-duplicates at
+   cosine 0.90; merging every one leaves the problem.
+2. **A missing resolver** — no. `maintenance_agent` has one, with an LLM judge
+   and caps, better rails than the thing I was about to propose building.
+3. **The job never ran** — it ran. Degree-1 moved **80.5% → 80.5%**.
+4. **A starved detector** — a backlog of 69 `codex_reconciliation` items ate the
+   `agent_max_scanned=50` budget, but draining it only revealed the real cause.
+
+**THE ACTUAL CAUSE ([G50](ROADMAP.md#g50)):** Tier 2 merges are **proposed into
+the review queue and never auto-applied**. 7 proposals, 0 applications, against
+**1,094 candidate pairs** and a cap of 10/run — roughly 200 human review
+sessions. Correct for one user; impossible for a product. And **Tier 0, the
+auto-apply channel, was structurally dead**: it looked for a casefold collision
+on `canonical_name`, which is UNIQUE.
+
+## WHAT SHIPPED
 
 | item | was | now |
 |---|---|---|
-| freeze leak (G38) | `access_count` written every retrieval, read by nothing; 26/40 identical runs | gated by `retrieval_strengthen_writes`; **40/40** |
-| **[G43](ROADMAP.md#g43)** | 51 property relations (30% of edges) never checked their OBJECT — `november --eye_color--> golden black` | value must occur in the source turn; 30 edges (0.72%) demoted |
-| **[G42](ROADMAP.md#g42)** | 247/247 habits invented from ONE turn | session-scoped, ≥2 cited messages enforced in code, cross-session reinforcement only |
-| **[G44](ROADMAP.md#g44)** | nodes named `8`, `3`, `i` typed **person** | refused at write (functional test, *not* a length rule); stub promotion, default OFF |
-| **[G45](ROADMAP.md#g45)** | 1,259 true relations destroyed per seed (`i --didnt_get--> csi`) | open vocabulary, converse guard, 111-relation seed |
-| bi-temporal | could not say when a fact was *learned* | `learned_at`/`unlearned_at`, migration `505f12031434` |
-| seeder | 293 turns → **293 one-turn sessions** | sittings → 6/9/4 sessions of 11–20 turns |
-| **[G46](ROADMAP.md#g46)** | scorer measured itself | all four defects fixed |
-| **[G48](ROADMAP.md#g48)** | metric could only score ONE leg family | 420 typed probes + type-aware scorer |
+| **[G44](ROADMAP.md#g44) promotion** | deleted the endpoint of the triplet writing it; cost that turn its codex **and** procedural extraction | `protect_ids` exemption + SAVEPOINT. **98 saves** across 586 turns |
+| **[G44](ROADMAP.md#g44) numbers** | `8`, `19`, `2023`, `9.65`, `3/80` refused — **94 of 2,273** | numerals are entities; pronouns still refused |
+| **[G49](ROADMAP.md#g49) clauses** | `taking_what_youve_built_and_what_youve_understood` was an edge | >5 words ⇒ demoted, never dropped |
+| **[G50](ROADMAP.md#g50) Tier 0** | dead channel | `merge_key()` — 20 real groups, no model, no review |
+| **G16 / G29 / G49** | enrichment read private turns; reflection hardcoded 0.85; codex hashed its own key | fixed, all three |
+| **instruments** | harvest read a different probe set than the scorer, and crashed on typed probes | `--probes`, `gold_turns` lists, `probe_type` in every record |
+| **[Z2](ROADMAP.md#z2)** | no way to test the half that matters | `answer_probes.py` — retrieve → assemble → **answer** |
 
-## NEXT — IN THIS ORDER. NOTHING ELSE FIRST.
+## THE NUMBERS, AND WHAT THEY CAN'T SAY
 
-**1. Re-seed both arms.** ~50 min each.
+Five metrics, never averaged. `n` matters more than the value:
 
 ```
-sh scripts/z1/two_arm_seed.sh
+                    n     arm2 gemma4:e4b   arm1 qwen3:4b
+episodic_lookup    232        0.664            0.591      ← the only solid one
+codex_multihop      89        0.535            0.538
+summary_synthesis   40        0.361            0.324
+procedural          40        0.000            1.000      ← ARTIFACT, see below
+temporal            19        0.211            0.211      ← below the MDE
 ```
 
-> **⚑ `CODEX_NODE_PROMOTION` — the contradiction you are about to notice, answered.**
-> `codex_node_promotion` defaults to **False** in `config.py`, and that default
-> is deliberate. **The seed script overrides it to `true` for the run.** Both are
-> correct because they are different scopes: OFF is the production default
-> (promotion merges two entity identities and must never happen unattended), ON
-> for a seeding run is how [G44](ROADMAP.md#g44)'s second half gets exercised at
-> all — the store is disposable and snapshotted, and only ZERO-EDGE stubs are
-> eligible, so the merge cannot re-attribute a fact that exists.
-> **The override is per-run and does not change the default. Do not "fix" the
-> disagreement by editing `config.py`.** Verified: with the env var set,
-> `Settings().codex_node_promotion` is True; without it, False.
-Arm 1 `qwen3:4b-instruct`, arm 2 `gemma4:e4b`, whole 293 turns each, snapshot
-per arm. The driver passes `--bg-model`, which **is** honoured all the way down
-(verified: `seed_store.py:304` sets it, `:339` reads it into `seed_model`, `:440`
-passes `model_used` to `evaluate_turn`, and `post_flight.py:114` forwards it to
-both extractors).
+* **procedural is not a measurement.** Arm 1 had exactly ONE active pattern, so
+  it returned on every probe and scored 1.000; arm 2 had none and scored 0.000.
+  The metric cannot tell "found the right habit" from "one habit exists".
+* **codex_multihop is not measuring the graph.** Codex gets **0.1–9% of the
+  token budget**, usually one fragment; episodic takes 88–99%.
+* **Model choice is genuinely split and unresolved.** gemma4:e4b wins episodic
+  and pattern quality; qwen3 wins graph connectivity (69.6% vs 80.5% dead ends)
+  at **2.5 GB against 9.6 GB**. `answer_probes.py` exists to settle it and
+  **has never been run**.
 
-> **⚑ `gemma4:26b` IS NOT THE PICK.** [PROVENANCE.md](PROVENANCE.md)'s A12 read
-> ranked it **third** and named **`qwen3:4b-instruct` the practical pick** —
-> tied with `gemma4:e4b` on summary quality at **2.5 GB against 9.6 GB**.
-> **`.env` still pins the 26B**, which is why a re-seed was stopped twice. The
-> pin does not affect the two-arm run, but it affects anything else that reads
-> `background_model_name`.
+## ⚑ THREE ROADMAP ENTRIES WERE WRONG ABOUT THEIR OWN SUBJECT
 
-**2. Validate the pipeline fixes on the new store.** This is what the re-seed is
-*for* — not tuning:
-* are procedural patterns evidenced by **more than one turn**?
-* are invented property values gone (`november --eye_color--> …`)?
-* are junk nodes gone (entities named `8`, `3`, `i`)?
-* did the **1,259** destroyed relations survive?
-* **count distinct relations** — over ~1,000 means canonicalisation is not
-  binding ([G49](ROADMAP.md#g49)).
+* **[G43](ROADMAP.md#g43)** — `november --eye_color--> golden black` was **not**
+  an invented value. The grounding rule it shipped is measured working (0 of 463
+  property edges ungrounded at full confidence) but was never the fix for that
+  example. Real defect: `PROPERTY_RELATIONS` is closed on the **handling** side.
+* **[G44](ROADMAP.md#g44)** — its name rule was destroying true facts.
+* **[G50](ROADMAP.md#g50)** — replaces the four dead hypotheses above.
 
-**3. Score the typed probes** — `scripts/z1/score_typed.py`. **Five metrics,
-never averaged.**
+**And a subagent made the same class of error**, calling grounded output a
+fabrication and letting that decide its model ranking. **[TRAPS #31b](TRAPS.md)**
+is the rule: any claim that the model made something up gets a corpus query
+before it is stated, and that binds subagents too.
 
-**4. Read the actual output** — `scripts/z1/harvest_probe_context.py` dumps
-question + gold turn + every returned fragment and computes **no score on
-purpose**. Then an agent read. That pass is what overturned the model ranking
-last cycle, against metrics that were green.
+## NEW: [FEATURE_INVENTORY.md](FEATURE_INVENTORY.md)
 
-**5. Re-run the model comparison** on a pipeline that works — script *and* agent.
+**~433 features**, each with a verified `file:line`, its setting, that setting's
+default, and whether it is **ON by default**. Plus **40 dead-or-inert** items.
+Six that matter, three now fixed. Still open:
 
-## ⚑ BEFORE YOU DEBUG ANYTHING — [TRAPS #27](TRAPS.md)
+* **The context ledger's eviction is inverted** — only `evidence` and
+  `recent_turns` are ever registered as evictable; slots, bookmarks and
+  summaries are welded into one `system_prompt` block, which is `NEVER_EVICT`.
+  **User decided: finish it** (label the blocks), do not delete it.
+* **Per-leg attribution is read only inside the coverage path, which is off** —
+  so a default run cannot say which leg did the work. **Decouple it**; it is
+  three lines, and coverage (C16) is a stopping rule, unrelated to leg forcing.
+* `decide_representation` returns `inject_raw: True` on every branch.
 
-**TRAPS #27 is a checklist of nine things that LOOK broken and are not**, each
-settled by a measurement this cycle: the procedural leg returning nothing, the
-probe API's 403/1010, retrieval "non-determinism", ruff's `== None` warnings, an
-empty model reply, `retrieval_max_per_conversation`, the stale `gemma4:26b` pin,
-`data/`, and a coverage metric reading 1.000. **Read it before investigating any
-of them** — every one presents as an obvious bug whose obvious fix is wrong.
+## NEXT — AND THE ORDER MATTERS
 
-## ⚑ THREE THINGS YOU WILL MISREAD — see [G49](ROADMAP.md#g49)
+1. **Scrub `de78391`, verify, push.** Everything else is blocked behind this.
+2. **Re-seed.** The numbers fix and the clause fix exist in code and in
+   **neither snapshot** — every stored measurement predates them.
+3. **Run `answer_probes.py` on both arms.** The only fair test of the background
+   model, and the only one that sees whether the context was usable.
+4. **[G50](ROADMAP.md#g50) needs a spec** — which merges may be auto-applied
+   under what structural guard. Shape settled by
+   [getzep/graphiti#1728](https://github.com/getzep/graphiti/issues/1728):
+   **the model narrows, it never authorises.**
+5. **Finish the ledger; decouple attribution.**
 
-1. **Procedural probes will score ZERO, and it is NOT retrieval.**
-   `_procedural_lookup` requires `is_active = true`; activation needs
-   `reinforcement_count >= 3`; two extractions of the SAME habit **measure
-   0.708** against a 0.85 threshold. Patterns are born at 1 and never activate.
-   [G42](ROADMAP.md#g42)'s fabrication fix can be working perfectly and this
-   still reads as a dead leg.
-2. **`learned_at`/`unlearned_at` are written and read by nothing.** The
-   `access_count` defect, reintroduced by the commit that fixed it.
-3. **The relation count may explode** under the open vocabulary.
+## ⚑ THE UNLOCK NOBODY HAS BUILT
 
-## ⚠ WHAT THE MEASUREMENTS STILL CANNOT DO
+Opening `PROPERTY_RELATIONS` needs a way to tell "this object is a **value**"
+from "this object is an **entity**". **Two structural predicates were tried and
+both failed** — target degree and never-appears-as-subject both score `say`,
+`suggests` and `states` exactly like `size` and `description`, because in an 80%
+degree-1 graph nothing ever becomes a subject.
 
-* **The old 592-probe set is 64% contaminated.** The fixed ambiguity guard
-  rejects **385 of 592** where the old one rejected **5**. `0.508` inherits that.
-* **After the re-seed, old and new numbers are NOT comparable** — different
-  pipeline, different model, different probes. It is a new baseline, not a
-  before/after. Only the **graph-shape query** (65% degree-1) is comparable.
-* **Leg-weight tuning is FROZEN** ([G48](ROADMAP.md#g48)) until typed probes are
-  scored. On the old metric, codex/procedural/summary scored **zero of 377
-  hits**; a sweep would drive them to zero and report an improvement.
-* **Tuning bar:** paired MDE **0.037** (~22 probes). Below that is noise.
+⇒ **The signal has to come from the text, not the graph: have the extractor
+label the object type, and enforce it with constrained decoding** (Ollama
+supports it). ⚠ Not free — one benchmark measured structured outputs *reducing*
+extraction validity 51% → 37%, so it is a "test it on our corpus" change.
 
-## WHAT WOULD OTHERWISE BE LOST
+## WHERE ICE IS AHEAD OF GRAPHITI, MEASURED
 
-* **Every measurement is in [PROVENANCE.md](PROVENANCE.md)** under 2026-08-13.
-  New traps: **#24** (a guard that only fires in the harness makes production
-  look broken), **#25** (`.env` keys undeclared in `Settings` take the whole app
-  down), **#26** (embeddings cannot tell a converse from a synonym —
-  `before`/`after` scored **0.8791**, above the merge threshold then in force).
-* **⚠ FOUR SELF-INFLICTED INCIDENTS, all caught.** The test suite leaked 3 turns
-  into the measured store (cleaned; store verified back to 293/3,671/4,170/247).
-  `alembic --autogenerate` proposed dropping **every HNSW vector index** — the
-  migration was rewritten by hand. Adding `PROBE_*` to `.env` broke **every**
-  import of `src.api.config` while the script using them worked fine. And three
-  separate harness bugs made a correct model look incapable (empty replies
-  retried as failures, junk word-frequency anchors, truncated JSON discarded
-  whole) — codex probes went **12 → 89** once the last was fixed.
-* **Every experiment artifact now carries `run_meta()`** —
-  `scripts/z1/run_meta.py`: commit, dirty flag, resolved settings, corpus
-  digests, redacted secrets. **Use it in any new experiment script.**
-* **Probe generation uses a CLOUD model** (`deepseek-v4-flash`, OpenCode Go,
-  `PROBE_*` in gitignored `.env`). **Corpus excerpts leave the machine** in those
-  prompts. A browser `User-Agent` is mandatory or Cloudflare answers 403/1010.
-  **The user should rotate `PROBE_API_KEY`** — it was pasted in chat.
-* **Two settings are deliberately NOT tuned:** `codex_node_promotion` defaults
-  OFF (promotion merges identities), and `procedural_similarity_threshold` stays
-  0.85 despite the 0.708 measurement (one observation is not a calibration).
-  Both are decisions, not oversights.
+Worth knowing, and it is publishable: their edge invalidation runs unscoped and
+**41% of 3,950 facts carry an `invalid_at`**, 3 of 4 hand-audited being
+collateral. ICE scopes contradiction to the entity pair, deterministically:
+**1,253 of 1,350 retirements (93%) have a live successor**. Retrieval also
+filters `valid_until IS NULL`, so retired facts are never served — their
+separate open issue. The gap runs the other way on **entity resolution**:
+`get_or_create_entity` is exact-match + alias only, while relations have
+`canonical_relation`'s three-tier ladder. That asymmetry is unexamined, not
+decided.
 
 ## OPEN, AND ONLY HERE
 
-* `experiments/curation_files/` is gitignored and holds personal conversation
-  text. **Never commit it.** `data/labeled/` likewise (`.gitignore:11`) — and
-  `data/` is 871 MB, so **never `git add data/` blind**; only
-  `data/relation_seed.json` (111 relation words, no conversation text) is tracked.
-* New scripts, all in `scripts/z1/`: `generate_typed_probes.py`, `score_typed.py`,
-  `harvest_probe_context.py`, `run_meta.py`, `seed_relation_vocab.py`,
-  `two_arm_seed.sh`.
-* **⚠ A previous version of this handoff pointed at a driver script in a session
-  scratchpad, which was wiped between sessions** — the next session found an
-  instruction referencing a file that no longer existed and correctly stopped.
-  `two_arm_seed.sh` is now tracked in the repo. **Never reference a scratchpad
-  path from a committed doc:** an experiment driver is part of the experiment.
-* **Stale public-release language: swept and CLEARED.** `CLAUDE.md`'s "the
-  public release is gated on a good README" was removed by the user (the repo
-  has been public since 2026-08-10). The only remaining hits anywhere are
-  `CLAUDE.md`'s and `CLEANUP.md`'s records OF that staleness, which are correct
-  history. A memory file saying "destined to become public" was corrected too.
-* Commit style settled 2026-08-13: **subsystem-specific `area:` prefixes**
-  (`retrieval:`, `codex:`, …), not generic buckets.
-* **[TRAPS](TRAPS.md) is now 28 entries.** #27 is the "looks broken but is not"
-  checklist; **#28–30 were mined out of five overwritten handoffs** at the end of
-  this session — durable lessons that had only ever lived in a file that gets
-  replaced every time. **#28 is the one to read first: nine consecutive roadmap
-  entries were found wrong about their own subject, and overstating remaining
-  work is the direction that wastes an entire session.**
+* **v1 / v2 / v3 is now in CLAUDE.md.** v2 numbers and v3 numbers are not
+  comparable and nothing in the output says which you are holding.
+* **`docs/PRIVATE_CONTEXT.md` exists and is gitignored.** It holds the case
+  behind TRAPS #31b, and names a design gap worth tracked work once phrased
+  corpus-agnostically: **ICE stores an assistant's hypothesis about the user as
+  a fact about the user, at full confidence**, with nothing marking which is
+  which.
+* **Relation canonicalisation works but converges to several attractors** —
+  `have→has` merges correctly on demand (0.9469) yet the store holds `has` 491,
+  `have` 78, `had` 60. Likely cause, unconfirmed: the known-relation set is read
+  **once per turn**, so same-turn variants cannot see each other.
+* **Procedural can never activate** — 0 of 58; needs real pattern pairs to
+  calibrate, not a guess.
+* **97 retirements (7%)** have no live successor and only 3 negated edges exist
+  to explain them.
+* **MCP and REST have diverged** — neither is a superset. MCP is *not*
+  read-mostly: it reaches codex extraction through bookmark/note/document
+  ingest.
+* One dubious merge proposal is sitting in the review queue:
+  `devstral-small-2` ← `devstral-small`.
+* `experiments/curation_files/` and `docs/PRIVATE_CONTEXT.md` are gitignored and
+  hold personal material. **Never commit them.** `data/` is 871 MB — never
+  `git add data/` blind.
 
 ## WHEN DONE
 
 Propagate per the roadmap's rules, update the docs the change invalidates in the
 **same** session, then rewrite this file — carrying the NEXT above into
-TOLD → DID — and commit it last. **Do not push while the freeze holds.**
+TOLD → DID — and commit it last. **Do not push until `de78391` is scrubbed.**
