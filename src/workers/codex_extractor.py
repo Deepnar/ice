@@ -1593,8 +1593,23 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
     else:
         # No existing edge between this source and target
         # If the relation is single‑valued, expire any other active edge with the same source and relation
+        #
+        # ⚑ KNOWN single-valued, not "absent from the multi-valued list" (G45/G50).
+        # This read `relation not in MULTI_VALUED_RELATIONS`, so every relation
+        # the OPEN vocabulary invented — anything outside the 88 known words —
+        # was treated as single-valued and each new object retired the previous
+        # one. Measured on the live arm: `deepesh --lists_components_of-->`
+        # code / algo / advantages / disadvantages / complexity / dry run /
+        # example / application — eight genuine components of one explanation,
+        # SEVEN retired by the eighth. Silent, because the edges stay in the
+        # table with `valid_until` set; nothing reads as lost until you count.
+        #
+        # The default for an unknown relation must be KEEP BOTH. Losing a
+        # supersession leaves a stale edge, which is visible and correctable;
+        # losing a fact is neither. Do not "fix" this by growing the list —
+        # that is the closed-vocabulary defect G45 removed.
         previous_expired = False
-        if relation not in MULTI_VALUED_RELATIONS:
+        if relation in SINGLE_VALUED_RELATIONS:
             previous = db.query(CodexEdge).filter(
                 CodexEdge.source_id == subj.id,
                 CodexEdge.relation == relation,
