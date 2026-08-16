@@ -68,13 +68,21 @@ def main() -> int:
     settings.decay_strengthen_amount = 0.0
     settings.retrieval_strengthen_writes = False
 
-    conv_of, gold_index, gold_text = {}, {}, {}
-    for rid, cid, key, raw in db.execute(text(
-            "select id, conversation_id, idempotency_key, raw_text "
+    # ⚑ TWO IDENTIFIER SPACES, AND THEY ARE NOT INTERCHANGEABLE. A fragment's
+    # `source_batch_id` is the episodic ROW id, but `codex_edges.source_batch`
+    # and `procedural_memory.source_batch_ids` hold the turn's BATCH id —
+    # verified: 9,662 edges join on batch_id and 0 on row id. Crediting a
+    # derived fragment therefore needs BOTH ids for the same turn, or codex and
+    # procedural can never match a gold turn and recall silently scores the
+    # episodic leg alone (G48).
+    conv_of, gold_index, gold_text, gold_batch = {}, {}, {}, {}
+    for rid, bid, cid, key, raw in db.execute(text(
+            "select id, batch_id, conversation_id, idempotency_key, raw_text "
             "from episodic_memory where idempotency_key like 'z1seed-%'")):
         _, slug, turn = key.split("-", 2)
         conv_of[slug] = str(cid)
         gold_index[(slug, int(turn))] = str(rid)
+        gold_batch[str(rid)] = str(bid)
         gold_text[str(rid)] = raw
     if not conv_of:
         print("store not seeded")
@@ -137,6 +145,8 @@ def main() -> int:
         if not conv_id or not gold_ids:
             continue
         gold_set = {str(g) for g in gold_ids}
+        # the same turns, in the other id space
+        gold_set |= {gold_batch[str(g)] for g in gold_ids if str(g) in gold_batch}
         seen += 1
         q = p["question"]
         tc, tt = meta[slug]
@@ -167,9 +177,19 @@ def main() -> int:
         # Rank of the FIRST gold turn to come back, and how many of them did.
         # For a multi-gold probe rank alone is misleading: a summary probe
         # spanning 17 turns can rank 1 and still have missed 16.
-        rank = next((i for i, f in enumerate(frags, 1)
-                     if f.source_batch_id and str(f.source_batch_id) in gold_set), None)
+        # G48: credit a fragment whose ORIGIN turns include the gold turn, not
+        # only one whose source_batch_id is it. Without this, codex, procedural
+        # and timeline fragments can never be credited and recall silently
+        # measures the episodic leg alone.
+        def _hits(f):
+            if f.source_batch_id and str(f.source_batch_id) in gold_set:
+                return True
+            return any(str(b) in gold_set
+                       for b in (getattr(f, "origin_batch_ids", ()) or ()))
+        rank = next((i for i, f in enumerate(frags, 1) if _hits(f)), None)
         returned = {str(f.source_batch_id) for f in frags if f.source_batch_id}
+        for f in frags:
+            returned.update(str(b) for b in (getattr(f, "origin_batch_ids", ()) or ()))
         covered = len(gold_set & returned)
         if args.only_misses and rank is not None:
             continue
@@ -190,7 +210,7 @@ def main() -> int:
                 "leg": f.source_type,
                 "tokens": f.token_count,
                 "score": round(float(f.score), 4),
-                "is_gold": bool(f.source_batch_id and str(f.source_batch_id) in gold_set),
+                "is_gold": _hits(f),
                 "text": (f.text or "")[:1200],
             } for i, f in enumerate(frags, 1)],
         })

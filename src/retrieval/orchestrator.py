@@ -56,6 +56,19 @@ class ContextFragment:
     token_count: int
     source_batch_id: Optional[str] = None
     conversation_id: Optional[str] = None
+    # ⚑ WHICH TURNS THIS FRAGMENT WAS DERIVED FROM (G48). `source_batch_id` is
+    # one turn and only episodic fragments ever set it, so every recall number
+    # ICE has produced credits the episodic leg alone: measured on one harvest,
+    # 4,124 episodic fragments earned 249 gold credits while 474 codex, 400
+    # procedural and 207 timeline fragments earned **zero** — not because they
+    # were wrong, but because nothing could attribute them to a turn.
+    #
+    # A codex facts fragment aggregates many edges and a procedural pattern
+    # cites many turns, so this is a TUPLE, not a single id. The provenance
+    # already exists in the store (all 9,662 edges carry a source_batch that
+    # maps to a real turn; patterns carry source_batch_ids) — it was simply
+    # never carried onto the fragment. Frozen dataclass, hence a tuple.
+    origin_batch_ids: tuple = ()
     # C1: the *trusted* compact form (grounded summary with passing coverage)
     # when text is the raw representation — lets the token budget degrade a
     # too-big fragment to its summary instead of dropping it entirely. None
@@ -1634,6 +1647,7 @@ class HybridRetrievalOrchestrator:
             # (b) relation-driven facts: "who inspired ..." → inspired_by edges,
             #     grouped into a single facts fragment (they're a list answer).
             fact_lines = []
+            fact_batches: list = []
             if relations:
                 q = self.db.query(CodexEdge).filter(
                     *self._edge_valid_filters(),
@@ -1649,10 +1663,13 @@ class HybridRetrievalOrchestrator:
                     tgt = self.db.query(CodexEntity).get(edge.target_id)
                     if src and tgt:
                         fact_lines.append(self._fact_line(src, edge, tgt))
+                        if edge.source_batch:
+                            fact_batches.append(str(edge.source_batch))
             if fact_lines:
                 t = "\n".join(fact_lines)
                 fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
-                                                 token_count=count_tokens(t)))
+                                                 token_count=count_tokens(t),
+                                                 origin_batch_ids=tuple(fact_batches)))
             if fragments:
                 logger.info("codex_enumeration", entities=len(seen_entities),
                             facts=len(fact_lines), relations=relations)
@@ -1771,7 +1788,15 @@ class HybridRetrievalOrchestrator:
                 text = "\n\n".join(local_texts)
                 fragments.append(ContextFragment(
                     text=text, source_type="codex", score=score,
-                    token_count=count_tokens(text)))
+                    token_count=count_tokens(text),
+                    # G48: the turns these facts were extracted FROM. This is the
+                    # path that actually produces the codex fragments retrieval
+                    # returns — the enumeration path below is a different one —
+                    # and without this a codex fragment can never be credited to
+                    # a gold turn, which is why recall has only ever scored the
+                    # episodic leg.
+                    origin_batch_ids=tuple(
+                        {str(e.source_batch) for e in direct_edges if e.source_batch})))
                 all_anchor_edges.extend(direct_edges)
 
                 # T4: attach the anchor's evolution timeline whenever it
@@ -2085,7 +2110,11 @@ class HybridRetrievalOrchestrator:
                     text=pattern.pattern_description,
                     source_type="procedural",
                     score=r.score,
-                    token_count=count_tokens(pattern.pattern_description)
+                    token_count=count_tokens(pattern.pattern_description),
+                    # G48: the turns this habit was inferred from. Already
+                    # computed above for scoping and then thrown away, so a
+                    # procedural fragment could never be credited to a turn.
+                    origin_batch_ids=tuple(str(b) for b in source_batches),
                 ))
             return fragments
         except Exception as err:
