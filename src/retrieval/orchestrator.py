@@ -34,6 +34,20 @@ from src.retrieval.timescope import CURRENT, from_scope
 logger = structlog.get_logger("ice.retrieval")
 
 
+def _count_by(items, key) -> dict:
+    """Count *items* by *key*, for log payloads. Never raises on a bad key —
+    an observability helper that can break the call it is observing is worse
+    than the missing number."""
+    out: dict = {}
+    for it in items:
+        try:
+            k = str(key(it))
+        except Exception:                                    # noqa: BLE001
+            k = "?"
+        out[k] = out.get(k, 0) + 1
+    return out
+
+
 @dataclass(frozen=True)
 class ContextFragment:
     text: str
@@ -2381,7 +2395,15 @@ class HybridRetrievalOrchestrator:
         # highest-ranked contribution for that fragment within that leg. This
         # is the only place in the pipeline that knows which of the eight
         # mechanisms actually found a given piece of memory.
-        frag_leg: Dict[str, str] = {}
+        # ⚑ ALL producing legs, not the first — G46 asked for this and only the
+        # first half landed. `legs` is a dict and `bm25` is first in it, so a
+        # fragment found by bm25 AND vector was stamped `bm25` and the vector
+        # leg read as dead. That near-miss was reported once as "the vector leg
+        # is dead"; it is not — it returns 87-89 candidates on its own. Legs are
+        # joined with "+" (`bm25+vector`) so the field stays a string and the
+        # overlap is visible rather than silently resolved to whichever leg the
+        # dict happened to yield first.
+        frag_legs: Dict[str, set] = {}
 
         for leg_name, fragments in legs.items():
             weight = alpha_map.get(leg_name, 1.0)
@@ -2390,14 +2412,15 @@ class HybridRetrievalOrchestrator:
                 frag_hash = hashlib.sha256(frag.text.encode('utf-8')).hexdigest()
                 if frag_hash not in fragment_registry:
                     fragment_registry[frag_hash] = frag
-                    frag_leg[frag_hash] = leg_name
+                frag_legs.setdefault(frag_hash, set()).add(leg_name)
                 rrf_scores[frag_hash] = rrf_scores.get(frag_hash, 0.0) + (weight / (k + rank))
 
         fused = []
         for frag_hash, score in rrf_scores.items():
             original = fragment_registry[frag_hash]
+            produced = "+".join(sorted(frag_legs.get(frag_hash, ())))
             new_frag = replace(original, score=score,
-                               leg=original.leg or frag_leg.get(frag_hash))
+                               leg=original.leg or produced or None)
             fused.append(new_frag)
 
         fused.sort(key=lambda x: x.score, reverse=True)
@@ -2655,7 +2678,18 @@ class HybridRetrievalOrchestrator:
                 share={leg: round(t / total, 3) for leg, t in per_leg.items()} if total else {},
                 tokens=per_leg,
                 fragments={leg: sum(1 for f in fragments if f.source_type == leg)
-                           for leg in per_leg})
+                           for leg in per_leg},
+                # G46/C16: `source_type` is the FAMILY (episodic, codex,
+                # timeline); `leg` is the leg that actually produced the
+                # fragment (bm25 / vector / chunk inside episodic). That
+                # distinction is the whole point of C16's attribution work, and
+                # its only reader was the coverage block — which is OFF by
+                # default, so on a default config no run could say which leg did
+                # the episodic work. Reported here instead, where the log
+                # already fires on every retrieval, because a measurement gated
+                # behind a BEHAVIOUR flag cannot be turned on without changing
+                # the thing being measured (coverage also stops retrieval early).
+                producing_legs=_count_by(fragments, lambda f: f.leg or f.source_type))
         except Exception as err:
             self._leg_degraded("budget.share_log", err)
 
