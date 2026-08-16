@@ -629,3 +629,84 @@ them to verify against the source, because a confident wrong verdict from a
 reader is more expensive than a wrong metric — it arrives with reasoning
 attached. Corollary for design: a suppression rule written from an outside view
 of "normal" content will be wrong for the users who most need memory.
+
+### 32. A metric can be structurally blind to most of the system
+
+Recall@k credited a fragment only when its `source_batch_id` matched the gold
+turn — and **only episodic fragments ever set that field**. Measured on one
+harvest: 4,124 episodic fragments earned 249 gold credits while **474 codex, 400
+procedural and 207 timeline fragments earned zero**. Not because they were
+wrong. Because nothing could attribute them to a turn.
+
+So every recall number this project has produced — including the 0.508 that a
+whole cycle celebrated, and the 0.664 called "the only solid one" — is an
+**episodic-leg score reported under the whole system's name**. Fixing the
+attribution alone moved 25 probes from 60% to 84% with ICE untouched.
+
+The tell was available and ignored for months: a per-leg breakdown showing
+hundreds of fragments from a leg that never once appears in the numerator.
+
+⇒ **For any metric, ask which components can physically appear in the
+numerator.** If a subsystem contributes output that the metric has no way to
+count, the metric is not measuring the system — it is measuring the one part
+that happens to be countable, and it will read as evidence that the other parts
+do not work.
+
+### 33. Two id spaces with near-identical names produce a confident false finding
+
+`ContextFragment.source_batch_id` holds the episodic **row id**.
+`codex_edges.source_batch` and `procedural_memory.source_batch_ids` hold that
+turn's **batch id**. Verified: 9,662 edges join on `batch_id`, **0** on row id.
+
+Comparing them can never match. When the leg-attribution fix above was first
+written it compared the two spaces directly, and the result — codex fragments
+scoring zero gold credits — read exactly like a substantive finding: *"the graph
+does not cover the gold turns."* That sentence was one step from being written
+into the roadmap.
+
+What separated bug from finding was asking the cheap structural question — *do
+these two columns even live in the same space?* — rather than interpreting the
+zero.
+
+⇒ **Before believing a zero, check that the two things being compared could ever
+have been equal.** A join count settles it in seconds, and near-identical field
+names are the warning sign, not a reassurance.
+
+### 34. Fixing one failure mode can cause a worse one in the same call
+
+The cloud judge returned empty content on long inputs while a toy prompt worked
+perfectly — a reasoning model spending its whole `max_tokens` inside the hidden
+block (TRAPS #11). Setting `reasoning_effort="none"` fixed it completely.
+
+It also made the judge stop deliberating, and it **over-called `both_failed` on
+30 of 73 verdicts**, several at 100% content overlap between the answer and the
+expected answer. The failure mode moved from *visibly broken* (empty strings) to
+*confidently wrong* (a clean-looking verdict table), which is strictly worse:
+the first stops you, the second gets published. Restoring reasoning and removing
+the ceiling took `both_failed` from **49% to 31%**.
+
+Cost of the detour: a full 150-probe run on a paid API, spent on verdicts that
+had to be discarded.
+
+⇒ **A fix that silences a symptom on a judgement task deserves the same
+verification as the feature it fixed.** Reach for budget before capability: pay
+for the thinking rather than switching it off. And when a fix works instantly on
+a small case and the real case is expensive, test on the real case anyway.
+
+### 35. A generator wrote an empty result over an irreplaceable input
+
+`generate_typed_probes.py --types temporal --limit 6` built 0 prompts (the limit
+excluded everything) and **wrote its output file anyway**, overwriting 420 typed
+probes with an empty set. `experiments/curation_files/` is gitignored, so there
+was no history to recover from. 372 were rebuilt by merging an older 328-probe
+file with records recovered out of the answer-run JSONs; **48 codex probes were
+lost permanently**, and those had cost a salvage fix to obtain (12 → 89).
+
+Two mistakes stacked: a **writing** command used as a smoke test, and no copy
+taken of the artifact every measurement depends on.
+
+⇒ **Treat a generated corpus as an ASSET, not an output.** Guards now in that
+script and worth copying to any generator: refuse to write zero over a populated
+file, merge partial runs instead of overwriting, and keep the previous
+generation beside the new one. And run smoke tests with `--limit` against a
+**temp output path**, never the live one.

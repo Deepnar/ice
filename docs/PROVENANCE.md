@@ -1723,3 +1723,150 @@ while the run still completed and printed a total. Measured pre-fix: **1 turn in
 2026-08-13 is what keeps those generations usable). Arm 1 produced **0** batch
 summaries against arm 2's 3 — unexplained, and worth one query before any
 summary-leg number is trusted.
+
+## 2026-08-16 — the answer half, and a metric that could only score one leg
+
+### Z2-mini: retrieve → assemble → ANSWER (the half no Z1 number measures)
+
+`scripts/z1/answer_probes.py`, built this session. 150 typed probes stratified
+30 per type (30 is the smallest count that resolves a per-type difference
+against the ~22-probe paired MDE), the production chain end to end, then the
+**real** `assemble_prompt`, then a generated answer. Answering model pinned to
+`gemma4:26b-a4b-it-q4_K_M` for both arms — **A12's top-ranked model and neither
+arm under test**, so it cannot favour its own summaries. Arm 1 147/150 answered,
+arm 2 149/150.
+
+### Judging: paired, blind, and the taxonomy is the instrument
+
+`scripts/z1/judge_answers.py`. Absolute 1–5 scoring drifts between batches, so
+the judge sees the question, the gold turn as SOURCE, and two answers as A/B,
+with the slot randomised per probe and arm identity never disclosed. Verdict
+plus a reason from a fixed enum, of which **`both_failed` is load-bearing** — a
+tie because both answers are good and a tie because both are useless are
+opposite findings, and collapsing them hides the most important result.
+
+**Final run (reasoning on, no ceiling): 65 usable verdicts of 150; 85 lost to a
+cloud usage limit mid-run.**
+
+| type | qwen3:4b | gemma4:e4b | tie |
+|---|---|---|---|
+| codex_multihop | 4 | 3 | 6 |
+| episodic_lookup | 3 | 2 | 8 |
+| procedural | 4 | 2 | 7 |
+| summary_synthesis | 3 | 2 | 8 |
+| temporal | 4 | 1 | 8 |
+| **total** | **18** | **10** | **37** |
+
+Probe order is round-robin across types, so the 65 that landed are balanced
+rather than 65 of one type — the reason a limit-killed run still produced a
+readable result. Partial state is written after **every** probe for the same
+reason.
+
+### ⚠ THE JUDGE WAS WRONG ONCE, AND THE FIX FOR ONE BUG CAUSED IT
+
+`deepseek-v4-flash` returns `reasoning_content`. At `max_tokens` 300 it spent the
+whole budget inside the hidden block and returned empty content **only on long
+inputs** — a toy prompt worked perfectly, which is exactly what makes it read as
+a broken judge rather than an exhausted one (TRAPS #11). Setting
+`reasoning_effort="none"` fixed that and **caused a worse failure**: the judge
+stopped deliberating and over-called `both_failed` on **30 of 73**, several at
+100% content overlap with the expected answer. Reasoning restored with the
+ceiling removed, `both_failed` fell from **49% to 31%**. ⇒ **A comparison task
+needs the thinking; pay for it in budget, never by switching it off.**
+
+### ⚑ RECALL COULD ONLY EVER CREDIT THE EPISODIC LEG
+
+The largest measurement finding of the session, and it changes every number in
+the 2026-08-15 entry above. Fragments carried no link to the turns they were
+derived from, so on one harvest:
+
+| leg | fragments returned | ever credited as gold |
+|---|---|---|
+| episodic | 4,124 | 249 |
+| codex | 474 | **0** |
+| procedural | 400 | **0** |
+| timeline | 207 | **0** |
+
+Not because those fragments were wrong — because nothing could attribute them
+to a turn. **Every recall number ICE has produced is an episodic-leg score
+reported under the whole system's name.**
+
+Fixed by carrying `origin_batch_ids` onto derived fragments. Measured on 25
+typed probes with **ICE unchanged and only the metric altered**: codex 0 → 18
+gold credits, procedural 0 → 4, probes with a gold hit **15/25 → 21/25 (60% →
+84%)**.
+
+⚠ **Two identifier spaces, and the first two attempts at this fix produced a
+false finding.** A fragment's `source_batch_id` is the episodic **row id**;
+`codex_edges.source_batch` and `procedural_memory.source_batch_ids` hold the
+turn's **batch id**. 9,662 edges join on `batch_id` and **0** on row id, so the
+comparison could never match — which read as *"the graph does not cover the gold
+turns"*, a conclusion about to be written down. Carry both ids.
+
+### Graph shape, re-measured from both snapshots (confirms 2026-08-15)
+
+| arm | degree-1 | degree 5+ |
+|---|---|---|
+| `qwen3:4b-instruct` | 5,762/8,280 = **69.6%** | 8.5% |
+| `gemma4:e4b` | 6,401/7,949 = **80.5%** | 4.4% |
+
+**Dead ends are the LEAST duplicated part of the graph** (nearest-neighbour
+cosine, 400 sampled per bucket): degree-1 mean **0.8194** with 12.2% above 0.90,
+against degree-5+ mean **0.8908** with 47.6%. ⇒ fan-out is an **extraction**
+property, not a resolution failure, and no merge policy moves it. Near-duplicates
+concentrate in the hubs — exactly where merging is most dangerous, because a hub
+carries facts to re-attribute.
+
+**Nor is it one bad relation.** Relations touching a dead end are flat: `has`
+6.1% of dead ends, `description` 3.0%, `contains` 2.1%, with the top 18 covering
+~21% across a ~1,800-relation tail. There is no concentrated pattern to catch.
+
+### Procedural activation was gated on the one signal the system cannot produce
+
+61 patterns citing **514 turns** between them, **one active**. Patterns citing 20
+turns sat at `reinforcement_count` 1, because activation asked whether a later
+session re-emitted a *similar sentence* three times — and two write-ups of the
+same habit measure **0.708** against a 0.85 bar. Activation now also fires on
+cited turns (`procedural_min_cited_turns`, default 10). Projected on the existing
+arm: **29 of 61 would activate**, which is where config's own C9 note anticipated
+the calibration landing. ⚠ 10 is a defensible default, not a calibration.
+
+### Relation canonicalisation converged to several attractors
+
+`known_relations()` is read **once per extract_codex call**, and a turn yields
+**24.5 distinct relations on average (164 at worst)** — so same-turn variants
+were structurally blind to each other. That is why `have` merges into `has` on
+demand at 0.9469 while the store still holds `has` 491 / `have` 78 / `had` 60.
+Accepted relations are now fed back into the set the turn is matching against.
+
+That fix exposed the threshold: at 0.82, feeding the set forward made things
+**worse** — `has` merged into `contains` at 0.8608, and a wrong attractor then
+captures everything after it. **Raised 0.82 → 0.90**: `have`→`has` 0.948 and
+`had`→`has` 0.9255 still merge, `has`/`contains` (0.8848) no longer does,
+`built`/`built_by` stays split. Cost, stated: `asks`/`asked` (0.8912) no longer
+merge.
+
+### An unknown relation defaulted to supersession and was destroying facts
+
+`handle_triplet` superseded whenever `relation not in MULTI_VALUED_RELATIONS`,
+so every relation the open vocabulary invented counted as single-valued and each
+new object retired the previous one. Worked case: **eight genuine components of
+one explanation, seven retired by the eighth** — silent, because the edges stay
+in the table with `valid_until` set. Now supersedes only for relations *known*
+single-valued. A missed supersession leaves a visible stale edge; a lost fact is
+neither.
+
+### Also measured, and NOT acted on
+
+* **`PROPERTY_RELATIONS` needs no extension.** Only **50** edges use property
+  relations against **9,602** open-vocabulary ones, and open-vocab facts render
+  identically in the context payload. The list is a storage style, not a gate —
+  so the claim that a closed property vocabulary was destroying facts (asserted
+  repeatedly earlier in the session) is **withdrawn**.
+* **Node promotion is inert:** 0 `entity_merged` events across the seeded arm.
+* **Tier 0 auto-merge was structurally impossible** — it looked for a casefold
+  collision on `canonical_name`, which is UNIQUE. Replaced with `merge_key()`
+  (20 real groups). ⚠ Do **not** sort tokens: sorting adds 11 groups of which two
+  are converses, the entity-side twin of TRAPS #26.
+* **Entity consolidation is human-gated at ~5/run against 1,094 candidates** —
+  correct for one user, impossible for a product. [G50](ROADMAP.md#g50).
