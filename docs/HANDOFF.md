@@ -102,8 +102,13 @@ deliberately** — one 50-minute run instead of six. It is blocked on:
 1. **[G50](ROADMAP.md#g50) auto-apply policy** — consolidation is human-gated at
    ~5/run against **1,094 candidates**. The policy governs what the store
    *becomes*, so running it after the re-seed means seeding twice.
-2. **Temporal + codex probe generation** — both launched, both died with the
-   session, neither wrote output.
+2. **Temporal + codex probe generation** — both launched, both ran for ~2 hours
+   of GPU, **both lost everything**: the generator only wrote at the end. It now
+   checkpoints every call to a `.raw-calls.jsonl` sidecar, so a re-run is
+   salvageable. ⚠ **Killing the script does not stop Ollama** — queued requests
+   outlive the client and the card ran to 105 °C until a restart. Use
+   `ollama stop <model>` then `ollama ps`, and keep `--workers` low
+   ([TRAPS #36](TRAPS.md)).
 3. **Optional but cheap:** benchmark vLLM against the re-seed. One fixed model
    over 293 turns is where the hour goes and exactly vLLM's strength. **No note
    exists in this repo about which models have issues under vLLM** — searched
