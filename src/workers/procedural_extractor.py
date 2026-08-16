@@ -235,10 +235,17 @@ def extract_procedural(batch_id: str, model_used: str = ""):
                 topic_tags=turn.topic_tags or [],
                 trigger_conditions={},
                 reinforcement_count=1,
-                confidence_score=0.3,
                 first_observed=datetime.now(timezone.utc),
                 last_observed=datetime.now(timezone.utc),
-                is_active=False,
+                # ⚑ Activate on EVIDENCE (G49). A pattern citing enough distinct
+                # turns is supported whether or not a later session happens to
+                # re-describe it similarly — and re-description is what the
+                # system provably cannot produce (0.708 against a 0.85 bar).
+                # Reinforcement still activates below; this is a second path,
+                # not a replacement.
+                is_active=len(session_batch_ids or []) >= settings.procedural_min_cited_turns,
+                confidence_score=(0.8 if len(session_batch_ids or [])
+                                  >= settings.procedural_min_cited_turns else 0.3),
                 # The whole session is the evidence now, not the one turn that
                 # happened to trigger the job — which is also what lets a later
                 # session be recognised as a genuinely separate observation.

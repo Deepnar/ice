@@ -560,6 +560,42 @@ def main() -> int:
                 "block, not absolute turn numbers",
             ],
         })
+    # ⚑ THIS FILE IS AN ASSET, NOT AN OUTPUT. It is expensive to build, it is
+    # gitignored so there is no history to recover from, and every scoring run
+    # depends on it. On 2026-08-16 a `--types temporal --limit 6` smoke test
+    # built 0 prompts and wrote the file anyway, destroying 420 probes — 48
+    # codex probes were unrecoverable, and those had cost a salvage fix to get
+    # from 12 to 89 in the first place. Three guards, cheapest first.
+    existing = []
+    if OUT.exists():
+        try:
+            existing = json.loads(OUT.read_text()).get("probes", [])
+        except Exception:                                        # noqa: BLE001
+            existing = []
+
+    # 1. Never let an empty or failed run overwrite real probes.
+    if not probes and existing:
+        print(f"\n⚠ REFUSING TO WRITE: generated 0 probes and {OUT} holds "
+              f"{len(existing)}. Nothing written; the existing set is intact.")
+        return 1
+
+    # 2. A partial run (--types / --limit) must not silently drop the types it
+    #    did not generate. Merge by question text, new wins on collision.
+    if existing:
+        merged = {p["question"]: p for p in existing}
+        added = sum(1 for p in probes if p["question"] not in merged)
+        merged.update({p["question"]: p for p in probes})
+        if len(merged) > len(probes):
+            print(f"\n  merging into the existing set: {len(existing)} on disk "
+                  f"+ {added} new -> {len(merged)}")
+        probes = list(merged.values())
+        counts = Counter(p["probe_type"] for p in probes)
+
+    # 3. Keep the previous generation recoverable regardless.
+    if existing:
+        bak = OUT.with_suffix(".prev.json")
+        bak.write_text(json.dumps({"probes": existing}, indent=1))
+
     OUT.write_text(json.dumps({
         "meta": meta,
         "model": _env("PROBE_MODEL"), "generated_utc": time.strftime("%Y%m%dT%H%M%SZ"),

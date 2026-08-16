@@ -131,6 +131,20 @@ class Settings(BaseSettings):
     # whitelist as the precision mechanism (embedding rank + trigger match +
     # this floor). Z1 rule: >30 active patterns with <5% injection rate ⇒ 0.5.
     procedural_min_conf: float = 0.3
+    # ⚑ Activation on EVIDENCE, not on re-emission (G49, 2026-08-16).
+    # `is_active` required reinforcement_count >= 3, and reinforcement needs a
+    # later session to produce a description similar to the earlier one above
+    # procedural_similarity_threshold. Those descriptions are free text, and two
+    # write-ups of the SAME habit measure 0.708 against a 0.85 bar — so nothing
+    # activated. Measured on the seeded arm: 61 patterns citing 514 turns
+    # between them, ONE active, with patterns citing 20 turns each sitting at
+    # reinforcement 1. The evidence was already there and was being ignored.
+    # G42 enforces >=3 cited turns at creation, so cited turns are the signal
+    # this system can actually produce; reinforcement stays as a second path.
+    # ⚠ 10 is a defensible default, NOT a calibration. The C9 note above states
+    # the rule for settling it: >30 active patterns with <5% injection rate
+    # => raise. Measure the injection rate after the re-seed and tune here.
+    procedural_min_cited_turns: int = 10
 
     # ── C16 (model-aware half): total context budget derived from the routed
     # model's context window instead of a hardcoded 23k. fraction reserves the
