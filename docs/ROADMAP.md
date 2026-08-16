@@ -806,6 +806,16 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   - **The open vocabulary may explode the relation count.** [G45](#g45) accepts any relation not close enough to an existing one, so 293 turns could produce far more than the 153 distinct relations the closed list allowed. A count over ~1,000 means canonicalisation is not binding and `codex_relation_canonical_threshold` is wrong — and `codex_max_fanout`=12 then binds differently than [G35](#g35) measured. **Count it on the first arm** (spec §6, validation step 5); it is one query.
 
 - [ ] <a id="g50"></a>**G50 Entity consolidation is human-gated at a rate that cannot scale** `(opened 2026-08-15 from measuring the machinery that already exists; PRE-FINAL; NEEDS A SPEC BEFORE CODE)` — the graph does not consolidate, and it is **not** because the code is missing.
+  - **⚑ CONSOLIDATION WILL NOT FIX FAN-OUT — MEASURED 2026-08-16, AND IT SEPARATES TWO PROBLEMS THIS ENTRY WAS CONFLATING.** Nearest-neighbour cosine to any other entity, sampled 400 per bucket on the `fixed-gemma4-e4b` arm:
+
+    | bucket | n | mean | median | ≥0.90 | ≥0.95 |
+    |---|---|---|---|---|---|
+    | degree-1 | 400 | **0.8194** | 0.8229 | **12.2%** | 2.5% |
+    | degree 2–4 | 400 | 0.8597 | 0.8638 | 29.5% | 8.8% |
+    | degree 5+ | 347 | **0.8908** | 0.8963 | **47.6%** | 15.0% |
+
+    **The dead ends are the LEAST duplicated part of the graph, and near-duplicates concentrate in the hubs.** So the 80.5% degree-1 population is not redundancy waiting to be merged — those are distinct entities the extractor minted once and never referred to again. ⇒ **fan-out is an EXTRACTION property, not a resolution failure**, and every merge policy in this entry (deterministic key, LLM tier, review queue) improves graph *quality* without moving the fan-out number. Two items, not one; do not justify consolidation work by pointing at 80.5%.
+    ⚠ **And the duplicates sit where merging is most dangerous.** A hub carries facts, so merging it re-attributes real edges — which is exactly why promotion restricts itself to zero-edge stubs. The safe merges are where the duplicates are not.
   - **⚑ WHAT THE ENTRY REPLACES.** Three hypotheses for the 80.5% degree-1 graph were tested and all three are wrong: it is not entity duplication (only 10–14% of names are near-duplicates at cosine 0.90), not a missing resolver (`maintenance_agent` has one), and not an unrun job (it ran; degree-1 moved 80.5% → 80.5%). **The real cause is the merge POLICY, not the merge machinery.**
   - **Measured 2026-08-15 on the `fixed-gemma4-e4b` arm** (7,949 entities / 7,052 edges): the agent found 10 candidates, the background model judged 7 duplicates and 3 different, and proposed **7 into the review queue with 0 applications** — because Tier 2 never auto-applies. Against **1,094 candidate pairs above cosine 0.90** and a cap of `agent_dup_pairs_per_run`=10, draining the backlog is ~200 runs of human review. **Correct for one user's store; impossible for a product.**
   - **Tier 0 — the auto-apply channel — is structurally dead.** It looks for a casefold collision between `canonical_name`s, and `canonical_name` is UNIQUE, so it can never find one. 0 collisions across 7,949 entities. The tier that was designed to need no judgement has never fired.
