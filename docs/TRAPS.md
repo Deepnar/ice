@@ -602,18 +602,22 @@ by someone reasoning about what a normal conversation looks like, and each time
 one SQL query would have settled it.
 
 * `november --eye_color--> golden black` was cited across three sessions as an
-  invented value, and [G43](ROADMAP.md#g43) was partly justified by it. **The
-  value was present in the source turn** — the corpus simply contains subject
-  matter the rule's author did not anticipate. The real defect was the closed
-  property vocabulary underneath.
+  invented value, and [G43](ROADMAP.md#g43) was partly justified by it. The
+  corpus owner has synesthesia; months carry colours. **The value was present in
+  the source turn.** The real defect was the closed property vocabulary
+  underneath.
 * [G44](ROADMAP.md#g44)'s name rule refused `8`, `19`, `2023`, `9.65`, `3/80` —
   **94 numeric refusals of 2,273** — on the reasoning that a node named `8`
   cannot be looked up. Versions, years, prices, sizes and scores are numeric for
   every user; it was deleting the subject of `3.80 --score--> maths`.
 * A subagent sent to read output declared a set of triplets fabricated and made
-  that the **"dealbreaker"** deciding its model ranking. **15 turns in the source
-  corpus discuss the topic**, and the user had asked for exactly that content.
-  The verdict was reversed by one query.
+  that the **"dealbreaker"** deciding its model ranking — a verdict one query
+  reversed, taking the agent's overall model preference with it. The subject
+  matter is sensitive and stays out of this file: **`[PRIVATE:traps31b-third-case]`**
+  in `docs/PRIVATE_CONTEXT.md` (gitignored) has the case, and names a real
+  design gap it exposed — ICE stores an assistant's *hypothesis about the user*
+  as a *fact about the user*, at full confidence, with nothing marking which is
+  which.
 
 The failure is not carelessness — it is that the check *feels* unnecessary. An
 implausible-looking fact reads as obviously wrong, and "obviously" is doing all

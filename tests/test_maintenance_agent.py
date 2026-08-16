@@ -489,17 +489,51 @@ try:
     # function, no DB, so it runs regardless of what the live store holds.
     # ⚑ TWO-SIDED, and the negative side is the load-bearing one: a wrong
     # auto-merge writes a false identity permanently and nothing reviews it.
-    must_merge = [("gemma-4-e4b", "gemma4:e4b"), ("qwen3-8b", "qwen3:8b"),
-                  ("~18 gb", "~18gb"), ("mixture of experts", "mixture-of-experts"),
-                  ("manhattan 5 lb book", "manhattan 5lb book")]
-    # Quantities, versions and emoji variants are DIFFERENT entities. The last
-    # two are why token order is preserved: sorting merges converses (TRAPS #26).
-    must_not = [("~15 gb", "~17 gb"), ("12th boards", "10th boards"),
-                ("1-2 percent", "1-4 percent"),
-                ("devstral-small", "devstral-small-2"),
-                ("choose 🇦", "choose 🇪"), ("see you", "you see"),
-                ("brahma's creation without shiva's dissolution",
-                 "shiva's dissolution without brahma's creation")]
+    must_merge = [
+        # — separator variants (the common real case) —
+        ("gemma-4-e4b", "gemma4:e4b"), ("qwen3-8b", "qwen3:8b"),
+        ("mixture of experts", "mixture-of-experts"),
+        ("long context", "long-context"),
+        ("qwen2.5-coder 32b", "qwen2.5-coder-32b"),
+        ("11th-12th", "11th/12th"),
+        # — digit/letter run splitting —
+        ("~18 gb", "~18gb"), ("manhattan 5 lb book", "manhattan 5lb book"),
+        ("128k", "128 k"), ("gpt4", "gpt 4"),
+        # — case and whitespace —
+        ("PostgreSQL", "postgresql"), ("  spaced  out  ", "spaced out"),
+        ("Tab\tSeparated", "tab separated"),
+        # — trailing/edge punctuation —
+        ("the eden.", "the eden"), ("(fastapi)", "fastapi"),
+        ("'quoted thing'", "quoted thing"),
+    ]
+    # ⚑ The negative side is the load-bearing one: a Tier 0 merge is applied
+    # with no model and no review, and a wrong one writes a false identity
+    # permanently. Quantities, versions, ordinals and emoji variants are
+    # DIFFERENT entities; the converse pairs are why token order is preserved.
+    must_not = [
+        # — quantities: embeddings score these 0.93+, which is why the
+        #   cosine channel must never be the auto-apply path —
+        ("~15 gb", "~17 gb"), ("~18 gb", "~19 gb"), ("1 gb", "10 gb"),
+        ("1-2 percent", "1-4 percent"), ("9.65", "9.66"),
+        # — ordinals and years —
+        ("12th boards", "10th boards"), ("2023", "2024"),
+        ("11th grade", "12th grade"),
+        # — versions and model families —
+        ("devstral-small", "devstral-small-2"), ("qwen3", "qwen3.5"),
+        ("gpt 4", "gpt 5"), ("v2.1", "v2.2"),
+        # — unicode that carries meaning; stripping it collapsed three
+        #   distinct options into one —
+        ("choose 🇦", "choose 🇪"), ("school", "school 🇦"),
+        # — word order: sorting tokens merges all of these, and the last
+        #   two reverse the meaning outright (TRAPS #26, entity side) —
+        ("see you", "you see"), ("feeling good", "good feeling"),
+        ("brahma's creation without shiva's dissolution",
+         "shiva's dissolution without brahma's creation"),
+        ("a without b", "b without a"),
+        # — genuinely different things that merely share a token —
+        ("the plan", "the big plan"), ("python", "python 3"),
+        ("maths", "maths score"),
+    ]
     bad_m = [p for p in must_merge if ma.merge_key(p[0]) != ma.merge_key(p[1])]
     bad_n = [p for p in must_not if ma.merge_key(p[0]) == ma.merge_key(p[1])]
     check(f"merge_key unifies spelling variants ({len(must_merge)} pairs){bad_m}",

@@ -81,3 +81,7 @@ experiments/paper/notes/REVISION_PLAN_v2.md
 
 # submission bundles (regenerable from source)
 experiments/paper/*_source.zip
+
+# Personal context that findings reference but must never be published.
+# See CLAUDE.md, "Private detail in a tracked doc".
+docs/PRIVATE_CONTEXT.md

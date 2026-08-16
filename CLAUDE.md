@@ -314,6 +314,28 @@ read "going public" long after it already had; corrected 2026-08-10.
   history keeps serving the old objects by SHA until the host garbage-collects
   them (TRAPS #12 — that took a support ticket last time). **Check before the
   commit, not after the push.**
+- **⚑ PRIVATE DETAIL IN A TRACKED DOC — the structure, and it is USER-GATED.**
+  Findings sometimes depend on personal specifics: why an extraction was
+  correct, why a heuristic was wrong about real content. The detail is what
+  makes the finding checkable, so "just leave it out" loses the evidence. The
+  shape that keeps both:
+  1. **The tracked doc states the technical claim** and nothing more — what was
+     measured, what it means, what to do. It must stand alone and be useful to a
+     reader who never sees the detail.
+  2. **The specifics go in `docs/PRIVATE_CONTEXT.md`** (gitignored; verify with
+     `git check-ignore -v` *before* writing the file), under a marker heading
+     like `[PRIVATE:g43-example]`.
+  3. **The tracked doc points at the marker**, so a later session knows detail
+     exists and where it is, instead of rediscovering the finding from scratch.
+  4. **⚑ ASK THE USER TO EYEBALL IT BEFORE COMMITTING** — every time, quoting
+     the exact lines. Not a summary of them, the lines. This gate exists because
+     on 2026-08-15 a session wrote the corpus owner's neurological and health
+     details into `ROADMAP.md` and `TRAPS.md` and committed them, on a public
+     remote, without asking. It was caught before any push; it would have been
+     permanent one command later.
+  **What belongs where is the user's call, not a judgement to make for them** —
+  a trait they describe openly may be fine in the open while a clinical framing
+  is not, and only they can draw that line. Ask; do not decide.
 - **Verified clean 2026-08-10:** `check_history_clean.sh --clone`
   green against the live remote, no personal or planning file tracked, no
   credential-shaped string in the tree, README links the canonical
