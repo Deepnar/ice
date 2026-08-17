@@ -55,7 +55,25 @@ def main() -> int:
                     help="fail if fewer than this many summaries exist after")
     ap.add_argument("--passes", type=int, default=3,
                     help="re-run while the eligible remainder is still falling")
+    ap.add_argument("--bg-model", default=None,
+                    help="⚑ PASS THE ARM'S MODEL. batch_summarize() resolves "
+                         "its model through settings.background_model_name, "
+                         "and .env pins that to gemma4:26b-a4b-it-q4_K_M — a "
+                         "model A12 ranked third and which no arm uses. "
+                         "seed_store overrides it in-process, so its own "
+                         "internal call is correct; THIS script is a separate "
+                         "process and would silently summarise an arm's turns "
+                         "with a different model than the arm ran on, making "
+                         "the arms incomparable on summary_synthesis.")
     args = ap.parse_args()
+
+    if args.bg_model:
+        settings.background_model_name = args.bg_model
+        print(f"background model pinned for this drain: {args.bg_model}")
+    else:
+        print(f"⚠ NO --bg-model: summaries would be written by "
+              f"{settings.background_model_name!r} (from .env), which may not "
+              f"be the model this arm was seeded with.")
 
     db = SessionLocal()
     try:
