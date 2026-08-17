@@ -57,6 +57,7 @@ needs the same gate as any other production change.
 |---|---|
 | [docs/HANDOFF.md](docs/HANDOFF.md) | **Where the last session left off, and what it was told to do.** Rewritten every session. It is state, never a queue. |
 | [docs/TRAPS.md](docs/TRAPS.md) | Mistakes this project has actually made — failure *shapes*, so you recognise one from inside it. Add to it the same session something bites. |
+| [docs/SESSION.md](docs/SESSION.md) | **This session's live task list and findings.** Gitignored, emptied at the end. Start one if it is absent. |
 
 **⚑ CONSULT, NEVER READ WHOLE.** These are reference works, not reading. Opening
 one end-to-end burns the context the actual work needs:
@@ -71,6 +72,7 @@ one end-to-end burns the context the actual work needs:
 | [docs/PROVENANCE.md](docs/PROVENANCE.md) | the entry for the run you are questioning. It owns what was *done* — models, corpora, run parameters — and states its own standing rule: follow it when a run produces an artifact. |
 | [docs/CLEANUP.md](docs/CLEANUP.md) | the deletion-sweep checklist, or the move/rename ledger. |
 | [docs/VISION.md](docs/VISION.md) | why ICE exists, what it deliberately is **not**, and the design principles. Stable — check it before assuming a capability is in scope. |
+| [docs/MODELS.md](docs/MODELS.md) | the row for one model — every local, cloud and vLLM/AWQ model, which job each does, and the 23.5 GB VRAM ceiling. Consult before picking a model or planning a run. |
 
 **⚑ CHECK [FEATURE_INVENTORY.md](docs/FEATURE_INVENTORY.md) BEFORE CLAIMING THE
 SYSTEM DOES SOMETHING — AND BEFORE BUILDING IT.** Its `On by default?` and
@@ -215,6 +217,22 @@ on 100% of calls is not resilience, it is an outage wearing resilience as a
 costume. Check the *rate* before shipping any new warning, and when a subsystem
 produces plausible-but-thin output, verify the model was actually called before
 tuning anything about it. Worked example and corollaries: **TRAPS #11**.
+
+### Keep a live session file (2026-08-17)
+
+Start `docs/SESSION.md` (gitignored) at the beginning of every session and update
+it **as things happen** — a short task list plus findings recorded at the moment
+they land, including mistakes made. It grows and shrinks.
+
+**Cleared at the end**: mined for the handoff, then emptied, so it carries
+nothing between sessions. An item with no home in HANDOFF / ROADMAP / PROVENANCE
+/ TRAPS / FEATURE_INVENTORY / CLEANUP means **the propagation is unfinished**,
+not that it should stay there.
+
+It is **not** HANDOFF.md and **not** the roadmap. It exists because long sessions
+outrun what either party can hold in their head — and because a finished
+investigation left at the top of the list makes the next step invisible, which is
+the exact failure it is meant to prevent.
 
 ### Boy-scout cleanup (2026-07-10)
 
