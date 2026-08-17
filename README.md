@@ -14,7 +14,7 @@ ICE sits between a chat client and any OpenAI-compatible model and gives that mo
 persistent, structured memory of everything it has discussed — entirely on your own hardware.
 
 ```
-client  ──▶  ICE proxy  ──▶  local model (Ollama / SGLang)
+client  ──▶  ICE proxy  ──▶  local model (Ollama, or vLLM)
                │
                └── PostgreSQL + pgvector
                    episodic · knowledge graph · procedural · documents
