@@ -569,6 +569,16 @@ class Settings(BaseSettings):
     coe_api_base_url: str = ""
     coe_model: str = "qwen3.6"
 
+    # Output ceiling for a batch summary. Was hardcoded at 500, which truncated
+    # 2 of the 3 summaries on the arm-1 store mid-sentence (one ended "...**The
+    # plan is", another cut a list at item 15) while `bg_model_output_truncated`
+    # logged it and nothing acted on it. A batch summary is what retrieval
+    # serves INSTEAD of the raw turns once they age out, so a truncated one
+    # silently loses the tail of a 50-turn span — the compression is lossy in
+    # the one direction it must not be. 2-3 paragraphs preserving names,
+    # numbers and decisions over 50 turns needs the room.
+    batch_summary_max_tokens: int = 1200
+
     procedural_min_session_turns: int = 3
     procedural_session_step: int = 5
     procedural_max_prompt_chars: int = 12000

@@ -85,10 +85,10 @@ def batch_summarize():
                         {"role": "user", "content": f"{prompt}\n\n{combined}"}
                     ],
                     temperature=0.0,
-                    max_tokens=500,
+                    max_tokens=settings.batch_summary_max_tokens,
                     # prefill-heavy (up to 50 turns in the prompt): keep the
                     # old 60s floor — G12's formula scales with output only.
-                    timeout=max(60.0, bg_timeout(500))
+                    timeout=max(60.0, bg_timeout(settings.batch_summary_max_tokens))
                 )
                 summary_text = completion.choices[0].message.content.strip()
                 if not summary_text:
