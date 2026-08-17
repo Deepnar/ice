@@ -32,9 +32,18 @@ date -u +"start %Y-%m-%dT%H:%M:%SZ" | tee -a "$LOG"
 echo "--- 1/2 batch summaries (asserted, summaries >= 1) ---" | tee -a "$LOG"
 # ⚠ --bg-model is not optional: .env pins BACKGROUND_MODEL_NAME to a model no
 # arm uses, and this runs in a different process than seed_store's own override.
+#
+# ⚑ REDIRECT, NEVER PIPE TO tee. The first version of this script ended the
+# command with `| tee -a "$LOG"` and then read `$?` — which in POSIX sh is the
+# exit status of the LAST command in the pipeline, i.e. tee, which essentially
+# always succeeds. So `drain` was hardcoded to 0 and the abort below could
+# never fire. It was caught on 2026-08-17 when the drain genuinely failed
+# (batch summariser 400, context overflow) and the script snapshotted anyway.
+# A guard that cannot fail is not a guard; it is a comment.
 uv run python scripts/z1/drain_batch_summaries.py \
-    --expect-min 1 --bg-model "$MODEL" 2>&1 | tee -a "$LOG"
+    --expect-min 1 --bg-model "$MODEL" >> "$LOG" 2>&1
 drain=$?
+tail -n 25 "$LOG"
 if [ "$drain" -ne 0 ]; then
   echo "⛔ DRAIN FAILED (exit $drain) — NOT snapshotting, NOT proceeding." \
     | tee -a "$LOG"
@@ -44,8 +53,9 @@ if [ "$drain" -ne 0 ]; then
 fi
 
 echo "--- 2/2 snapshot ---" | tee -a "$LOG"
-uv run python scripts/z1/snapshot.py save --arm "$ARM" 2>&1 | tee -a "$LOG"
+uv run python scripts/z1/snapshot.py save --arm "$ARM" >> "$LOG" 2>&1
 snap=$?
+tail -n 5 "$LOG"
 if [ "$snap" -ne 0 ]; then
   echo "⛔ SNAPSHOT FAILED (exit $snap) — the arm is NOT preserved." | tee -a "$LOG"
   exit 1
