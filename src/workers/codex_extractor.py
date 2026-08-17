@@ -27,6 +27,10 @@ from src.memory.models import (
 )
 from src.retrieval.ner_utils import extract_entities
 from src.workers.idempotency import job_key
+# G50: shared identity key. Safe at module level — maintenance_agent's own
+# codex_extractor imports are all lazy (inside functions), so there is no cycle,
+# and it pulls in nothing heavier than settings at import time.
+from src.workers.maintenance_agent import merge_key
 
 # The process-shared native-width embedder (G13/G23) — document_chunker,
 # decision_extractor and conversation_summary reach the SAME instance
@@ -1005,6 +1009,41 @@ def get_or_create_entity(db, name: str, protect_ids=None) -> CodexEntity:
     if entity:
         return entity
 
+    # ── G50: normalisation-equal match, the deterministic tier ───────────────
+    # Both lookups above are EXACT-STRING, and `canonical_name` is UNIQUE with
+    # aliases mirroring it — so `gemma-4-e4b q4` and `gemma-4-e4b-q4` both miss
+    # and both get minted as separate entities. Relations have had a three-tier
+    # ladder (`canonical_relation`) since G45; entities had none at all, and the
+    # asymmetry was never a decision.
+    #
+    # This is where the fix belongs rather than in the background sweep: the
+    # sweep repairs duplicates AFTER they exist, while this stops them being
+    # minted. Measured 2026-08-17 on 8,280 entities — 51 merge_key groups store
+    # wide, and every safety probe holds (`~15 gb`≠`~17 gb`, `8 gb`≠`4 gb`,
+    # `12th boards`≠`10th boards`), because merge_key preserves token ORDER and
+    # splits digit/letter runs rather than sorting anything.
+    #
+    # ⚠ NOT gated on `codex_node_promotion`. That flag guards PROMOTION, which
+    # merges two *different* names and can re-attribute facts. This tier merges
+    # names that normalise identically, which is an equality test, not a
+    # judgement — and it never deletes a row.
+    key = merge_key(canonical)
+    if key:
+        hit = db.query(CodexEntity).filter(
+            CodexEntity.properties["merge_key"].astext == key,
+            CodexEntity.properties["merged_into"].astext.is_(None),
+        ).first()
+        if hit is not None:
+            # Record the surface form so the exact-string tiers catch it next
+            # time without reaching this query at all.
+            if canonical not in (hit.aliases or []):
+                hit.aliases = [*(hit.aliases or []), canonical]
+                flag_modified(hit, "aliases")
+                db.flush()
+            logger.info("codex_entity_merge_key_hit",
+                        name=canonical, resolved_to=hit.canonical_name, key=key)
+            return hit
+
     # ── G44 second half: node promotion ──────────────────────────────────────
     # A generic node is one nothing can usefully be walked to. When a strictly
     # MORE SPECIFIC name arrives ("master plan" for a stored "plan"), Graphiti's
@@ -1050,7 +1089,12 @@ def get_or_create_entity(db, name: str, protect_ids=None) -> CodexEntity:
                         canonical_name=canonical,
                         aliases=list({*(generic.aliases or []), generic.canonical_name, name}),
                         tags=list(generic.tags or []),
-                        properties=dict(generic.properties or {}),
+                        # G50: the promoted node carries the GENERIC's properties,
+                        # so its merge_key would be the generic's — stamp the new
+                        # canonical name's key or promotion silently poisons the
+                        # tier above with a key that no longer describes the row.
+                        properties={**dict(generic.properties or {}),
+                                    "merge_key": merge_key(canonical)},
                         context_payload=generic.context_payload or "",
                         entity_type=generic.entity_type,
                         description=generic.description,
@@ -1083,7 +1127,10 @@ def get_or_create_entity(db, name: str, protect_ids=None) -> CodexEntity:
         canonical_name=canonical,
         aliases=[name],
         tags=[],
-        properties={},
+        # G50: stamped at birth, because the tier above matches on it. An
+        # entity created without it is invisible to normalisation matching
+        # forever — the migration backfills existing rows for the same reason.
+        properties={"merge_key": merge_key(canonical)},
         context_payload="",
         embedding=embedder.encode(canonical, convert_to_tensor=False).tolist(),
         last_updated=datetime.now(timezone.utc)
