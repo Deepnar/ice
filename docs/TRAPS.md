@@ -842,3 +842,44 @@ anything.
 ⚠ Note the shape it hides behind: the traceback names **pydantic**, not your
 edit, and points at `config.py` rather than at `.env`. If config suddenly fails
 to validate and you did not touch `config.py`, look at `.env` first.
+
+---
+
+### 39. A subsystem can produce output that never reaches the prompt
+
+Two independent instances the same day, and they look identical from the score:
+
+| subsystem | produces? | retrievable? | reaches the prompt? | reported as |
+|---|---|---|---|---|
+| procedural | 1 active pattern of 61 | yes, on every query | yes — but it is the *same* one always | **1.000**, a tautology |
+| batch summaries | 3, covering 89 turns | **yes** — `_batch_summary_lookup` returns 2 fragments at cosine 0.52 / 0.48 | **no** | **0.322**, unchanged after fixing the producer |
+
+The batch-summary case is the sharper one. `batch_summaries` sat at **0**, so the
+obvious diagnosis was "the summariser is broken". It was not: `seed_store` calls
+it and the call had failed **once, transiently**, inside a `try/except` that
+prints a warning nobody read. Running it produced summaries immediately.
+
+**And the score did not move.** The producer was fixed, the leg demonstrably
+works when called directly, and `summary_synthesis` stayed at 0.322 — because
+`leg_budget_share` gives **episodic 95–99%** of every request and the summary
+fragments are trimmed before assembly.
+
+⇒ **"The subsystem produces output" and "the output reaches the prompt" are
+different claims.** Three questions, in order, before crediting or blaming any
+leg:
+
+1. **Does it produce?** `select count(*)` on its table.
+2. **Does its leg return it?** Call the leg directly with a real embedding — not
+   through `retrieve()`, which fuses and trims.
+3. **Does it survive the budget?** Read `leg_budget_share` on a real request.
+
+A failure at (3) looks exactly like a failure at (1) from the score, and fixing
+(1) changes nothing. ⚠ The corollary bites the other way too: a subsystem can be
+fully *broken* at (1) and still score **perfectly**, if the metric only asks
+whether *something* came back — see [#37](#37-a-presence-metric-turns-one-row-into-0000-or-1000-and-reports-both-as-a-result).
+
+⚠ **And a `try/except` around a periodic job converts a transient failure into a
+permanent one.** The seeder logs and continues, which is right; what was missing
+is that nothing ever re-ran it or checked the count afterwards. A worker whose
+output is a *precondition for a measurement* needs its row count asserted, not
+its exception caught.

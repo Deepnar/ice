@@ -1949,3 +1949,148 @@ So the obvious follow-up to the 0.591 → 0.767 move — *which leg supplied the
 newly-credited fragments* — **is not answerable from disk** and needs a re-run.
 This is exactly the gap the 2026-08-16 entry closed in `answer_probes.py` and
 `harvest_probe_context.py`; `score_typed.py` was not included in that fix.
+
+---
+
+## 2026-08-17 (later) — G50 shipped, the probe set rebuilt, and two subsystems that produce but never arrive
+
+### Probes rebuilt — 372 → 444, and the anchor half is scoreable again
+
+`generate_typed_probes.py --types codex,temporal --workers 2`, **local Ollama
+`qwen3.8:27b`** (endpoint overridden from `.env`, so no paid quota was spent).
+Backed up first as `typed_probes.pre-regen-20260817T190153.json`.
+
+| | before | after |
+|---|---|---|
+| total | 372 | **444** |
+| `codex_multihop` | 41 | **104** — past the 89 lost in the [TRAPS #35](TRAPS.md) destruction |
+| …carrying `anchor_entity` | **12** | **75** |
+| `temporal` | 19 | **28** (13 with `superseded_by`) |
+
+⚠ **The 29 legacy anchorless probes survive** (the generator merges on question
+text). `score_typed.py` now scores those on **turn coverage alone** and reports
+the two populations separately, instead of counting a missing field as an anchor
+failure — the thing that made a 68.5% → 75% improvement read as a regression.
+
+### Typed score on the rebuilt set (arm 1, store unchanged apart from summaries)
+
+| type | 08-17 early | **08-17 late** | n |
+|---|---|---|---|
+| `codex_multihop` | 0.317 | **0.532** | 41 → 104 |
+| `episodic_lookup` | 0.767 | 0.772 | 232 |
+| `procedural` | 1.000 | 1.000 | 40 |
+| `summary_synthesis` | 0.324 | **0.322** | 40 |
+| `temporal` | 0.211 | 0.214 | 19 → 28 |
+
+**Anchor via graph is 53/75 = 70.7%** on properly anchored probes. Artifact:
+`score_runs/20260817T151302_post-summaries-444.json`.
+
+### ⚑ TWO SUBSYSTEMS PRODUCE OUTPUT THAT NEVER REACHES THE PROMPT
+
+The session's structural finding, arrived at twice independently.
+
+**1. Batch summaries.** `batch_summarize()` was never broken — `seed_store` calls
+it, the call failed **once, transiently**, inside a `try/except` that prints a
+warning, and `batch_summaries` stayed **0** from then on. Running it drained the
+backlog: **89 turns summarised**, 3 left and correctly skipped below the 5-turn
+floor, and **164 turns are `lossless_flag=True`** and are never batch-summarised
+**by design** ("memory is earned").
+
+Also fixed: `max_tokens` was hardcoded **500** and truncated **2 of 3** summaries
+mid-sentence (one ended `"...**The plan is"`, another cut a list at item 15)
+while `bg_model_output_truncated` logged it every time. Now
+`batch_summary_max_tokens` = 1200; no truncation at the new ceiling.
+
+⚑ **And `summary_synthesis` still scores 0.322.** Summaries exist for 30 of the
+40 probes' conversations. `_batch_summary_lookup` called directly returns **2
+fragments at cosine 0.52 / 0.48**, 322 and 467 tokens — **the leg works.** They
+are eliminated downstream in RRF/bonuses/budget, where `leg_budget_share` shows
+**episodic taking 95–99%** of every request. ⇒ Not a summariser bug, not a metric
+bug — a **budget** one, and leg-weight tuning is frozen under [G48](ROADMAP.md#g48).
+
+**2. The procedural leg**, same shape, recorded earlier the same day: one active
+pattern returned to every query, scoring 1.000 on a presence test.
+
+⇒ **"The subsystem produces output" and "the output reaches the prompt" are
+different claims, and this repo has now confirmed the gap twice in one day.**
+Check the second before crediting the first.
+
+### What a seed run does and does NOT exercise
+
+Checked before committing to a two-arm re-seed, because a fixture's gaps become
+findings otherwise.
+
+**Real production path:** `evaluate_turn` drives density, grounded summary,
+chunking, codex and procedural extraction. Real `resolve_session_id` — not the
+script's own labels. Real bg model via `get_bg_model_name()`. Turns land in
+**sittings**, so session-keyed features are not inert (an even spread once
+produced 293 sessions of one turn each).
+
+**Thin or absent:** `context_clusters` **2** · `conversation_summaries` **0** ·
+`session_summaries` **0** · `decisions` **0**. Decay, reflection and the
+maintenance agent **do not run during a seed at all**.
+
+⇒ **A seeded store is not a lived-in store.** Any claim about a subsystem only
+those jobs populate is **unmeasured, not negative**.
+
+### G50 shipped — and its spec's own numbers were off the production path
+
+Implementation: `difference_kind()` (`e951a4d`), write-time `merge_key` tier +
+migration `a1c4e7b90d22` (`77b129f`), typed rejection at detection (`89c1b57`).
+On the live store with the cap lifted: **51 merge · 59 defer · 46 rejected**
+(35 digits, 5 gender, 4 tense, 1 wordnum, **1 permutation catching a real
+converse**). Second run writes **0** new memos.
+
+⚠ **The spec's §1 split (2,247 → 42/583/1,622) was measured with a hand-written
+query omitting two filters the real detector applies** — `source='conversation'`
+and `entity_type` equality. Production sees **1,793** pairs. Spec corrected under
+the divergence protocol (`500c899`). **Third instance this session of a harness
+measuring something adjacent to the system and reporting it under the system's
+name**; the other two were the probe sampling and the batch-summary eligibility
+count.
+
+### Also settled
+
+* **The NER/grounding line closed with nothing shipped, correctly.** Four
+  candidate fixes tested and rejected on evidence; the permissive-whitelist bet
+  ("the model discards the junk itself") **confirmed on the current pipeline** —
+  8 indefensible NER entries against 1,390 produced terms, exactly **1** reaching
+  a triplet. A9b stands; **A9c (retrain MicroNER) stays parked**.
+
+### The extraction shape-rule A/B — a clean negative, and the sampling that hid it
+
+`scripts/z1/ab_entity_shape_rule.py`, paired, `qwen3:4b-instruct`, real
+extraction path, per-turn checkpointing. Metric is **superset rate** — the share
+of subjects/objects grounding only via `_ground_triplets`' superset arm, i.e.
+the mechanism itself, deterministic and needing no fragment lexicon.
+
+| run | sample | superset rate | triplets | verdict |
+|---|---|---|---|---|
+| v1 | 30 turns, **25 from one conversation** | 0.090 → 0.1008 | 12.5 → 12.53 | **invalid sampling** |
+| v3 | 24 turns, **8/8/8 across conversations** | **0.0858 → 0.1166** | **58.4 → 49.1 (−16%)** | **rule fails** |
+
+⇒ **No precision gain, real recall cost.** `codex_extraction_entity_shape_rule`
+ships **False** and stays that way as the record of a tested negative.
+
+⚑ **And the re-read overturned the item's premise.** Of 266 superset hits across
+the three conversations, the overwhelming majority are **legitimate**:
+`gemma-4-e4b`, `nvidia nemotron 3 nano`, `qwen-coder-32b-q4`, `separate /boot
+partition`, `central board of secondary education`, `object oriented
+programming`. Genuine fragments (`in room`, `first thing`, `became too good`) are
+**≈0.4% of extracted terms** — a hand-read of a sample, **not a measurement**,
+flagged as such because a hand-written lexicon tried the same job and reported
+10.8% while passing `get validation` and `to stress or trauma` as real links.
+
+⇒ **Fragments are UNIQUE; real entities REPEAT.** 0.4% of extracted terms but
+24.6% of *distinct* store entities — 89 superset hits collapse to 39 distinct
+terms. **Store counts and extraction rates have different denominators**, and
+conflating them is what made a 0.4% tail look like an epidemic. ⇒ Fragments are
+**not** why the graph is 75% dead ends; those are real one-mention entities
+(`gemma 4 31b`, `boot efi`, `soft skills`), which makes [G51](ROADMAP.md#g51)
+*more* valuable and demotes its `junk` verdict to a sub-case.
+
+⚠ **Run-to-run variance is ±60% and it lied at n=2**: a 2-turn smoke reported
+triplets −33%; at 30 turns the delta was 0.0. Size runs accordingly — the A9b
+comparison cannot be re-decided on 10 turns.
+* **CoE AI Gateway** available as a third serving path (see [MODELS.md](MODELS.md)).
+  **Judging stays on `deepseek-v4-flash`** so verdicts remain comparable.
