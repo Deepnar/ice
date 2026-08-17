@@ -35,7 +35,7 @@ Merging is the wrong operation because the pairs are usually not the same thing:
 psychological concept, `a lack of validation` is the negation. A merge destroys
 three distinctions to gain one node; a link keeps all three and connects them.
 
-**D2 — The model classifies THREE ways, and a structural guard authorises the
+**D2 — The model classifies FOUR ways, and a structural guard authorises the
 write.** This is where the model auto-merger the user asked for actually belongs
 (2026-08-17). Over a cosine pair the model is asked "same or different?" about
 `two sagas` / `four sagas` — a question the embedding already failed and the
@@ -47,6 +47,32 @@ question with visible structure:
 | `merge` | `podar` / `rn podar school santacruz` | hand to G50's `merge_entities` |
 | `link` | `emotional validation` / `validation` | write one edge, relation from the model |
 | `unrelated` | `validation loss` / `validation` | memo, never re-ask |
+| `junk` | `what the flaw` / `flaw` | memo + report to G44; **never linked** |
+
+⚑ **`junk` IS THE VERDICT THIS DESIGN CANNOT SHIP WITHOUT, and it was missing
+from the first draft.** A large share of satellites are not entities but
+sentence fragments the extractor minted: `what the flaw`, `began flaw`, `after
+flaw`, `when orien`, `named orien`, `to krishna`, `way krishna`, `everything
+krishna`. Given only three options a model classifies every one of these as
+`link` — they *are* about their head — and the pass would cement fragments into
+the graph as structure. **Degree-1 share would fall sharply, the headline number
+would look excellent, and the graph would be worse.** That is [TRAPS #37](../TRAPS.md)
+in a new costume: an improvement a broken implementation produces just as well.
+
+⚠ **Some HEADS are not entities either.** `first` (degree 29) carries 39
+satellites — `first brick`, `first author`, `first message`, `first two volumes`
+— which share an ordinal and nothing else. A head whose satellites have no
+common referent must be rejected wholesale, not linked satellite by satellite.
+The prompt therefore asks about a **cluster**, not a pair (D7), which is the
+only framing in which this is visible.
+
+⚠ **Do NOT trust a hand-written lexicon to pre-filter fragments.** One was tried
+2026-08-17 (wh-words, function words, a verb list) and reported 10.8% fragments;
+reading its own output shows it passing `get validation`, `needs validation` and
+`to stress or trauma` as plausible links. **10.8% is a floor, not an estimate.**
+A rule keyed on which words appear is exactly the style-dependent bet CLAUDE.md
+forbids, and it fails the same way here. The true share comes from the
+USER-REQUIRED hand-read sample in §5, and nowhere else.
 
 ⚑ **The model narrows; it never authorises** (getzep/graphiti [#1728](https://github.com/getzep/graphiti/issues/1728)).
 Candidates are found deterministically by string containment — the model never
@@ -73,6 +99,30 @@ argument does not extend here: a model-authorised link is not re-derivable from
 the two names. Reversal is a prerequisite, per the user's inverse-ranking
 principle (2026-08-17) — undo scales with how much judgement authorised the
 write.
+
+**D7 — Candidates are batched BY HEAD CLUSTER, not pair by pair.** Measured
+funnel on arm 1: 8,280 entities → **5,616** raw containment pairs → 5,603 after
+dropping stopword/relation-name heads (that filter removes only **13** — it is
+not where the noise is) → **5,474** after dropping the 129 already joined →
+**1,558 distinct heads**, median cluster size 2, max **47** (`flaw`), with
+**412** satellites at degree 0 that would gain their first edge.
+
+One call per head, all its satellites in the prompt. Three reasons, and the
+second is the important one:
+
+1. **Amortises the call** — `flaw`'s 47 pairs are one request, not 47.
+2. **⚑ Gives the model contrastive context, which is what the hard cases need.**
+   `validation loss` is only recognisable as a different *sense* of the word
+   when it appears beside `emotional validation`, `external validation` and
+   `seeking validation`. Asked in isolation it looks exactly like a link.
+3. **Produces a connected neighbourhood per call** rather than edges scattered
+   across the graph, so partial progress is still structurally useful.
+
+**Cluster order: by `head_degree × satellite_count`, descending** — attach the
+most orphans to the largest existing hubs first. Top of that ranking today:
+`flaw` (degree 137, 47 satellites), `orien` (113, 22), `krishna` (84, 22),
+`observer` (101, 18), `universe` (72, 21), `lethe` (71, 21). `agent_link_pairs_per_run`
+becomes a **cluster** cap, default **5**.
 
 **D6 — Degree-0 entities are NOT deleted by this item.** 608 of them contribute
 nothing to graph traversal today, and deleting them is tempting. But this spec

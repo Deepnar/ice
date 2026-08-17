@@ -85,3 +85,7 @@ experiments/paper/*_source.zip
 # Personal context that findings reference but must never be published.
 # See CLAUDE.md, "Private detail in a tracked doc".
 docs/PRIVATE_CONTEXT.md
+
+# Per-session working notes (created 2026-08-17). Local-only: the running
+# task/finding list for ONE session. HANDOFF.md is the durable record.
+docs/SESSION.md

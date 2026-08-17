@@ -783,6 +783,13 @@ class Settings(BaseSettings):
     # path cannot tell a truncated answer from a thin one. The schema does not
     # help: it guarantees a valid prefix, not a complete document.
     codex_extraction_max_tokens: int = 1200
+    # 2026-08-17: adds a SHAPE rule for subjects/objects to the extraction
+    # prompt (noun phrase naming a thing, never a clause/verb/question span).
+    # The entity whitelist constrains WHICH entities are legal, never what shape
+    # they take, so the model returns copied spans like `what the flaw`, and
+    # `_ground_triplets` cannot reject them without also rejecting legitimate
+    # qualified mentions. OFF until the paired A/B run says it works.
+    codex_extraction_entity_shape_rule: bool = False
 
     codex_constrain_shape: bool = True
     codex_constrain_relation_enum: bool = False

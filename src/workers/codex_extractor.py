@@ -702,7 +702,26 @@ def extract_triplets(text: str, model_override: str = "",
         "\"object\":\"postgresql\",\"negated\":true}\n"
         "   \"Kael and Orien are no longer allies\" → {\"subject\":\"kael\",\"relation\":\"ally\","
         "\"object\":\"orien\",\"negated\":true}\n"
-        "7. Output ONLY a JSON array. No markdown, no explanation.\n\n"
+        + (
+            # 2026-08-17: the whitelist constrains WHICH entities are legal but
+            # never what SHAPE a subject may take, so the model returns spans it
+            # copied out of the turn — `what the flaw`, `to krishna`, `when
+            # orien`. `_ground_triplets` then admits every one of them, because
+            # a fragment containing a confirmed entity is structurally identical
+            # to a legitimate qualified mention (`emotional validation`). No
+            # rule over set-membership or source-presence separates the two, so
+            # the only place left to act is where the string is produced.
+            # Default OFF until measured; flip after the paired run.
+            "7. A subject or object must be a NOUN PHRASE NAMING A THING — never a "
+            "clause, a question fragment, or a verb phrase. If the text does not give "
+            "you a nameable thing, skip the fact rather than inventing a span.\n"
+            "   BAD:  {\"subject\":\"what the flaw\",...}  (question fragment)\n"
+            "   BAD:  {\"subject\":\"began flaw\",...}     (verb phrase)\n"
+            "   BAD:  {\"subject\":\"to krishna\",...}     (preposition + name)\n"
+            "   GOOD: {\"subject\":\"flaw\",...}  {\"subject\":\"emotional validation\",...}\n"
+            if settings.codex_extraction_entity_shape_rule else ""
+        )
+        + "7. Output ONLY a JSON array. No markdown, no explanation.\n\n"
         "EXAMPLES:\n"
         "Text: \"ICE uses PostgreSQL for memory and Redis for tasks.\"\n"
         "Output: [{\"subject\":\"ice\",\"relation\":\"uses\",\"object\":\"postgresql\"},"
