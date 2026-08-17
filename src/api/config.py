@@ -827,6 +827,17 @@ class Settings(BaseSettings):
     # `codex_conf_rejected` instead of deleting them. Default reproduces the
     # pre-2026-08-17 behaviour exactly; the two-arm re-seed flips it.
     codex_extraction_ner_tier: str = "preflight"
+    # Entity types the CODEX grounding whitelist puts BACK on top of the
+    # background tier's default list, comma-separated. Empty = that tier's own
+    # list, unchanged. Inert unless `codex_extraction_ner_tier` is "background".
+    # Why a per-consumer override rather than widening the default: the two
+    # existing background consumers (`turn_density.extract_key_terms`,
+    # `clustering`) want PRECISION and the exclusion of `concept`/`object` was
+    # measured for them. Codex grounding wants the opposite — PROVENANCE
+    # 2026-08-03: "a long noisy list gives the model more legal subjects and it
+    # discards the junk itself, while a short clean list FORBIDS REAL FACTS."
+    # Default is "" so the setting is a no-op until a run says otherwise.
+    codex_grounding_ner_extra_types: str = ""
 
     codex_constrain_shape: bool = True
     codex_constrain_relation_enum: bool = False

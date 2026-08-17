@@ -655,6 +655,23 @@ def normalize_relation(raw: str):
     return None
 
 
+def _grounding_ner_labels() -> Optional[List[str]]:
+    """The label set the grounding whitelist asks the background NER for.
+
+    None means "whatever that tier defaults to", which keeps the micro-NER path
+    and the unconfigured background path byte-identical. A non-empty
+    `codex_grounding_ner_extra_types` puts those types back for THIS consumer
+    only — see the setting's comment for why widening the shared default would
+    regress clustering and key-term extraction.
+    """
+    raw = (settings.codex_grounding_ner_extra_types or "").strip()
+    if not raw:
+        return None
+    from src.retrieval.ner_utils import _background_labels
+    extra = [t.strip() for t in raw.split(",") if t.strip()]
+    return _background_labels(extra_types=extra)
+
+
 def extract_triplets(text: str, model_override: str = "",
                      topic_tags: Optional[List[str]] = None,
                      gaps: Optional[list] = None) -> list:
@@ -775,7 +792,8 @@ def extract_triplets(text: str, model_override: str = "",
             # The tier picks the tagger — see `codex_extraction_ner_tier`; both
             # honour their own device setting, so neither is CPU-only.
             ner_entities = extract_entities(
-                chunk, embedder, tier=settings.codex_extraction_ner_tier)
+                chunk, embedder, tier=settings.codex_extraction_ner_tier,
+                labels=_grounding_ner_labels())
             entity_block = ""
             if ner_entities:
                 confirmed = ", ".join(dict.fromkeys(ner_entities))  # dedup, keep order

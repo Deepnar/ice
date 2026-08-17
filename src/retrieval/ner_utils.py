@@ -36,7 +36,7 @@ LOADED ONCE, MODULE-LEVEL
 
 import os
 import re
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 import structlog
 import torch
@@ -146,27 +146,46 @@ def _merge_word_spans(entities, text):
     return merged
 
 
-def _background_labels() -> List[str]:
+#: Types held back from the background tier's default label list. They are junk
+#: magnets on conversational text, absorbing every abstract noun ('existence',
+#: 'connection', 'events') and undoing the precision that tier is chosen for.
+_BACKGROUND_EXCLUDED_TYPES = frozenset({"concept", "object"})
+
+
+def _background_labels(extra_types: Sequence[str] = ()) -> List[str]:
     """ICE's own structural entity types, lower-cased (NuNER requires it).
 
-    `concept` and `object` are deliberately excluded: they are junk magnets on
-    conversational text, absorbing every abstract noun ('existence',
-    'connection', 'events') and undoing the precision this tier is chosen for.
+    The default omits `_BACKGROUND_EXCLUDED_TYPES`, which is right for the two
+    consumers the exclusion was measured for — `turn_density.extract_key_terms`
+    and `clustering` both want PRECISION.
+
+    *extra_types* puts named types back, for a consumer that wants the
+    opposite. The codex grounding whitelist is one: PROVENANCE 2026-08-03, on
+    why the micro-NER stayed on that path — "a long noisy list gives the model
+    more legal subjects and it discards the junk itself, while a short clean
+    list FORBIDS REAL FACTS". A permissive whitelist TOLERATES junk without
+    benefiting from it; a strict one loses facts outright. Per consumer, never
+    globally — widening the default would regress the two that want it narrow.
     """
     from src.workers.codex_extractor import _KNOWN_TYPES
-    return sorted(t.lower() for t in _KNOWN_TYPES
-                  if t not in {"concept", "object"})
+    keep = _BACKGROUND_EXCLUDED_TYPES - {t.strip().lower() for t in extra_types}
+    return sorted(t.lower() for t in _KNOWN_TYPES if t not in keep)
 
 
-def _extract_background(text: str) -> Optional[List[str]]:
-    """Entities via the background model, or None if it is unavailable."""
+def _extract_background(text: str,
+                        labels: Optional[Sequence[str]] = None) -> Optional[List[str]]:
+    """Entities via the background model, or None if it is unavailable.
+
+    *labels* overrides the label set NuNER conditions on. None means the
+    background tier's own default — see `_background_labels`.
+    """
     model = _load_background_ner()
     if model is None:
         return None
     from src.api.config import settings
     chunk = int(getattr(settings, "background_ner_chunk_words", 250))
     threshold = float(getattr(settings, "background_ner_threshold", 0.5))
-    labels = _background_labels()
+    labels = list(labels) if labels is not None else _background_labels()
 
     words = text.split()
     found: List[str] = []
@@ -264,7 +283,8 @@ def _clean_entity(s: str) -> str:
 
 
 def extract_entities(text: str, embedder, max_chars: Optional[int] = None,
-                     tier: str = "preflight") -> List[str]:
+                     tier: str = "preflight",
+                     labels: Optional[Sequence[str]] = None) -> List[str]:
     """Extract entity strings from *text*.
 
     *tier* selects the model, and the split is by PATH, not by quality — see
@@ -275,6 +295,11 @@ def extract_entities(text: str, embedder, max_chars: Optional[int] = None,
       ``"background"`` — NuNER Zero, for post-flight consumers that want
         precision (``turn_density.extract_key_terms``, clustering). Falls back
         to the micro-NER, loudly, if the model is unavailable.
+
+    *labels* is honoured by the background tier only, and overrides the types
+    NuNER conditions on — see `_background_labels`. None means that tier's own
+    default. The micro-NER has no label space to condition on, so the argument
+    is inert under ``"preflight"``.
 
     Everything below documents the micro-NER path.
 
@@ -301,7 +326,7 @@ def extract_entities(text: str, embedder, max_chars: Optional[int] = None,
         text = text[:max_chars]
 
     if tier == "background":
-        found = _extract_background(text)
+        found = _extract_background(text, labels=labels)
         if found is not None:
             return found
         # fall through to the micro-NER — already logged at WARNING
