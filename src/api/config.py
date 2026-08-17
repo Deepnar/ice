@@ -815,6 +815,18 @@ class Settings(BaseSettings):
     # `_ground_triplets` cannot reject them without also rejecting legitimate
     # qualified mentions. OFF until the paired A/B run says it works.
     codex_extraction_entity_shape_rule: bool = False
+    # Which NER confirms the entities extraction is allowed to relate —
+    # "preflight" (micro-NER) or "background" (NuNER Zero, see
+    # `background_ner_model`). A9b moved clustering and key-term extraction to
+    # the background tier on 2026-08-03 and left THIS call site on the
+    # micro-NER, because the evidence for the swap was 10 turns and this is the
+    # path the codex graph is built from. The two behave differently in a way
+    # that matters here rather than there: the micro-NER emits 52.7 entities a
+    # turn against NuNER's 15.6, and the list becomes a whitelist, so the
+    # narrower one pushes triplets from `codex_conf_grounded` down to
+    # `codex_conf_rejected` instead of deleting them. Default reproduces the
+    # pre-2026-08-17 behaviour exactly; the two-arm re-seed flips it.
+    codex_extraction_ner_tier: str = "preflight"
 
     codex_constrain_shape: bool = True
     codex_constrain_relation_enum: bool = False

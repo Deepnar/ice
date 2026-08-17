@@ -770,9 +770,12 @@ def extract_triplets(text: str, model_override: str = "",
             # half-written (the graph write happens later, in extract_codex).
             from src.workers.runtime import yield_if_user_active
             yield_if_user_active("codex_extract.chunk")
-            # NER grounding (roadmap A2): confirm entities on the CPU first, then
-            # constrain the LLM to relate only those. Reuses A1's chunk.
-            ner_entities = extract_entities(chunk, embedder)
+            # NER grounding (roadmap A2): confirm entities with a tagger first,
+            # then constrain the LLM to relate only those. Reuses A1's chunk.
+            # The tier picks the tagger — see `codex_extraction_ner_tier`; both
+            # honour their own device setting, so neither is CPU-only.
+            ner_entities = extract_entities(
+                chunk, embedder, tier=settings.codex_extraction_ner_tier)
             entity_block = ""
             if ner_entities:
                 confirmed = ", ".join(dict.fromkeys(ner_entities))  # dedup, keep order
