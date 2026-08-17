@@ -68,11 +68,49 @@ All Q4_K_M unless noted. Sizes are on-disk, not VRAM.
 
 ---
 
-## 3. Cloud
+## 3. Cloud / remote
 
-| model | endpoint | used for |
+| model | endpoint | env prefix | used for |
+|---|---|---|---|
+| `deepseek-v4-flash` | `https://opencode.ai/zen/go/v1` | `PROBE_*` | probe generation and the paired judge |
+| **`Qwen3.6-35B-A3B-NVFP4-Fast`** | `https://ai.tcetcercd.in/v1` | `COE_*` | **CoE AI Gateway** — TCET campus, free, unused so far |
+
+### CoE AI Gateway (added 2026-08-17)
+
+Campus-hosted at Thakur College. **NVIDIA DGX Spark, 119 GB unified memory**,
+serving **Qwen3.6-35B-A3B** (35B MoE / 3B active) at NVFP4 4-bit with
+multi-token prediction. Apache 2.0. OpenAI-compatible; verified live
+2026-08-17. Reachable from off-campus.
+
+* **`owned_by: "vllm"`** — the gateway is itself vLLM-served, and it is serving
+  **exactly the model this machine had to reject**: `cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit`
+  is 25.0 GB against 23.5 GB usable VRAM (§4). So it reaches a capability tier
+  the local box cannot.
+* **The `model` field is ignored** — single-model gateway, any string routes.
+* **Thinking is OFF by default.** Opt in per request via
+  `extra_body.chat_template_kwargs = {"enable_thinking": True, "reasoning_effort": "medium"}`
+  (`low` | `medium` | `xhigh`). ⚠ Relevant to [TRAPS #34](TRAPS.md), where
+  disabling reasoning on a reasoning model made a judge **confidently wrong** —
+  if this is ever used as a judge, leave thinking ON and give it room.
+* Defaults: `max_tokens` 2048, `temperature` 0.7. Vision supported; video not.
+* Errors: 401 bad key · 400 malformed · 502 model server down · timeout = busy.
+
+⚑ **FAIR USE IS A HARD CONSTRAINT, NOT A COURTESY — READ BEFORE PLANNING A RUN.**
+The guide states the server is shared by **~15 students at a time** and
+explicitly forbids *"bulk scraping, automated spam, or anything that violates
+TCET policy"*, with per-key usage logged and keys revocable by the coordinator.
+
+| ICE workload | calls | suitable? |
 |---|---|---|
-| `deepseek-v4-flash` | `https://opencode.ai/zen/go/v1` | probe generation (`PROBE_MODEL`) and the paired judge |
+| re-seed (293 turns × chunks) | **hundreds–thousands** | ❌ **no** — this is exactly the bulk automation the policy forbids |
+| probe generation | ~50–500 | ⚠ only with low concurrency, and Ollama already does it free |
+| **paired judge** | ~150, one-off | ✅ **the best fit** — currently the only thing blocked on a paid quota |
+
+⇒ **Default to Ollama for anything batch.** Reach for the gateway when the
+local box genuinely cannot do the job — a 35B-class model, vision, or a judge
+run that would otherwise wait on a cloud usage limit. Keep concurrency at 1–2.
+**The key is a personal student credential; getting it revoked costs more than
+the run saves.** Key lives in `.env` (`COE_API_KEY`), never in a tracked file.
 
 ⚠ **Usage-limited.** A 150-probe judge run died at **65** on the limit
 (2026-08-16). Budget judge runs deliberately; local scoring is free and should
