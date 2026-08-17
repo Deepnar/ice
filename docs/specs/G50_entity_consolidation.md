@@ -196,9 +196,32 @@ own rows, **never truncates**.
 10. Detection writes a `merge_rejected` event for a reject pair and **does not** enqueue it; a second run skips the pair without re-deciding.
 11. Regression: `uv run python tests/test_codex_write_path.py` 32/32, `tests/test_maintenance_agent.py` 45/45, `uv run pytest tests/smoke -q`.
 
-**Acceptance number:** on the arm-1 snapshot, a full detection pass proposes
-**42 merges**, drops **583** with memos, and defers **1,622** — matching §1.
-Any other split means `difference_kind` diverged from the measurement.
+**Acceptance number — ⚠ CORRECTED 2026-08-17 DURING IMPLEMENTATION (divergence
+protocol, specs/README rule 12).** §1's split (2,247 pairs → 42 / 583 / 1,622)
+was measured with a **hand-written query that omitted two filters the production
+detector applies**: `source = 'conversation'` and `COALESCE(entity_type,'entity')`
+equality on both sides. Production sees **1,793** pairs above 0.90, not 2,247 —
+the `entity_type` match alone removes 454.
+
+⇒ **The §1 table describes the store, not the queue.** It stays as the argument
+for *why* typing beats a threshold (that argument is unaffected), but the
+acceptance number is what the real detector produces. Measured on the live store
+with the cap lifted to 120:
+
+| | count |
+|---|---|
+| queued `merge` (deterministic) | **51** |
+| queued `defer` (→ G51) | **59** |
+| rejected with a memo | **46** — 35 digits · 5 gender · 4 tense · 1 wordnum · 1 permutation |
+
+At the shipped cap (`agent_dup_pairs_per_run` = 10) the 51 `merge_key` groups
+saturate a run before any cosine pair is reached, which is the intended
+priority order — the deterministic backlog drains first, in ~5 runs.
+
+⚑ **The lesson is the one CLAUDE.md states: the harness must call what the real
+path calls.** A measurement script that re-implements the production query
+measures something adjacent to the system and reports it under the system's
+name. This is the same shape as [TRAPS #32](../TRAPS.md), one level up.
 
 ## 6. Look-ahead constraints
 
