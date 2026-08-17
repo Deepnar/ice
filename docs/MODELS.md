@@ -95,22 +95,26 @@ multi-token prediction. Apache 2.0. OpenAI-compatible; verified live
 * Defaults: `max_tokens` 2048, `temperature` 0.7. Vision supported; video not.
 * Errors: 401 bad key · 400 malformed · 502 model server down · timeout = busy.
 
-⚑ **FAIR USE IS A HARD CONSTRAINT, NOT A COURTESY — READ BEFORE PLANNING A RUN.**
-The guide states the server is shared by **~15 students at a time** and
-explicitly forbids *"bulk scraping, automated spam, or anything that violates
-TCET policy"*, with per-key usage logged and keys revocable by the coordinator.
+* **Context window: 64k** (as understood 2026-08-17; not independently verified
+  against the server — measure before relying on a long-context run).
 
-| ICE workload | calls | suitable? |
-|---|---|---|
-| re-seed (293 turns × chunks) | **hundreds–thousands** | ❌ **no** — this is exactly the bulk automation the policy forbids |
-| probe generation | ~50–500 | ⚠ only with low concurrency, and Ollama already does it free |
-| **paired judge** | ~150, one-off | ✅ **the best fit** — currently the only thing blocked on a paid quota |
+### Where to use it — settled 2026-08-17
 
-⇒ **Default to Ollama for anything batch.** Reach for the gateway when the
-local box genuinely cannot do the job — a 35B-class model, vision, or a judge
-run that would otherwise wait on a cloud usage limit. Keep concurrency at 1–2.
-**The key is a personal student credential; getting it revoked costs more than
-the run saves.** Key lives in `.env` (`COE_API_KEY`), never in a tracked file.
+**Use it wherever it helps.** The student guide's "~15 students, be considerate"
+wording reads stricter than the service's actual operating position; see
+`[PRIVATE:coe-gateway]` in `docs/PRIVATE_CONTEXT.md` (gitignored) for why. An
+earlier draft of this section treated that wording as a hard constraint and
+over-stated it.
+
+| workload | verdict |
+|---|---|
+| **⚑ a model's judgement where spinning up a local model is the only alternative** | ✅ **the standout use.** No VRAM, no model swap, no thermal load on a laptop card, no 30 s cold start — a one-off classification or sanity check becomes an HTTP call |
+| anything needing >27B, or vision | ✅ the local ceiling is 27B and the 35B AWQ does not fit in 23.5 GB |
+| probe generation | ✅ viable; Ollama also does it free, so pick on quality |
+| re-seed (hundreds–thousands of calls) | ⚠ prefer Ollama — not policy, just that a long local batch has no failure mode involving someone else's server |
+| **the paired judge** | ❌ **stay on `deepseek-v4-flash`** — maintainer's call 2026-08-17. The paid quota has reset, and keeping the judge model fixed preserves comparability with the existing verdicts |
+
+Key lives in `.env` (`COE_API_KEY`), never in a tracked file.
 
 ⚠ **Usage-limited.** A 150-probe judge run died at **65** on the limit
 (2026-08-16). Budget judge runs deliberately; local scoring is free and should

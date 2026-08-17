@@ -129,6 +129,59 @@ def merge_key(name: str) -> str:
     return " ".join(t for t in _MERGE_SEPS.sub(" ", s).split() if t)
 
 
+_WORDNUM = frozenset(
+    "one two three four five six seven eight nine ten eleven twelve "
+    "first second third fourth fifth sixth seventh eighth ninth tenth "
+    "half quarter double triple".split())
+_GENDER = frozenset(
+    "his her he she him hers himself herself mr mrs ms sir madam".split())
+_TENSE = frozenset(
+    "is was are were has had have will would did does do being been "
+    "am shall should can could".split())
+_TOKENS = re.compile(r"[\s\-_:;,()\[\]{}\"'/\\.]+")
+_NUMERALS = re.compile(r"\d+")
+
+
+def difference_kind(a: str, b: str) -> str:
+    """G50: what KIND of difference separates two names — 'merge', 'reject:<why>'
+    or 'defer'. Deterministic: no model, no embedding, no vector.
+
+    **Why this exists rather than a cosine threshold.** Measured 2026-08-17 over
+    all 2,247 pairs above cosine 0.90 on the arm-1 store: only **42 (1.9%)** are
+    `merge_key`-equal and safe, while **583 (26%)** differ by a token that
+    changes what the name refers to. Cosine does not sort by safety and the top
+    of the band is the worst part — 0.98+ holds `two sagas`/`four sagas`,
+    `8 gb`/`4 gb`, `qwen3-32b`/`qwen3-30b` and `gemma-4-e4b`/`gemma-4-e4b-q4`
+    (base versus quantised) sitting beside genuinely safe pairs. So the
+    candidate queue is 98% pending REJECTIONS, not pending merges, and the
+    cheapest correct thing is to type the difference and drop the rejects at
+    detection — no model, no review queue, no human.
+
+    Ordered most-specific first: a pair differing by BOTH a digit and a tense
+    word is a digit rejection, because the digit is the stronger signal.
+    """
+    if merge_key(a) == merge_key(b):
+        return "merge"
+    if sorted(_NUMERALS.findall(a or "")) != sorted(_NUMERALS.findall(b or "")):
+        return "reject:digits"
+    ta = {t for t in _TOKENS.split((a or "").casefold()) if t}
+    tb = {t for t in _TOKENS.split((b or "").casefold()) if t}
+    diff = ta ^ tb
+    if diff & _WORDNUM:
+        return "reject:wordnum"
+    if diff & _GENDER:
+        return "reject:gender"
+    if diff & _TENSE:
+        return "reject:tense"
+    # ⚑ SAME TOKENS, DIFFERENT ORDER — stays a REJECTION even though it looks
+    # like the safest case of all. `shiva without brahma`/`brahma without shiva`
+    # is live in the store at cosine 0.9639: a converse, the entity-side twin of
+    # TRAPS #26. Merging it writes a false identity that cannot be undone.
+    if ta == tb:
+        return "reject:permutation"
+    return "defer"
+
+
 def _pair_key(id_a, id_b) -> str:
     return "|".join(sorted([str(id_a), str(id_b)]))
 

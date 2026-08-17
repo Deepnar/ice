@@ -554,6 +554,21 @@ class Settings(BaseSettings):
     probe_api_base_url: str = ""
     probe_model: str = "deepseek-v4-flash"
 
+    # CoE AI Gateway (TCET campus, added 2026-08-17) — OpenAI-compatible,
+    # Qwen3.6-35B-A3B on a DGX Spark, vLLM-served. See docs/MODELS.md §3.
+    # Reached for where a model's JUDGEMENT is wanted but spinning up a local
+    # model is the only alternative: no VRAM, no model swap, no cold start.
+    # ⚠ NOT the paired judge — that stays pinned to probe_model so verdicts
+    # remain comparable across runs (maintainer's call 2026-08-17).
+    # ⚠ coe_api_key is a CREDENTIAL, same rules as probe_api_key above.
+    # ⚠ AND THESE THREE LINES ARE WHY THE COMMENT ABOVE EXISTS: adding
+    # COE_* to `.env` without declaring them here took the whole application
+    # down again on 2026-08-17 (`extra_forbidden`), exactly as recorded for
+    # 2026-08-13. An env var is not optional config — declare it or omit it.
+    coe_api_key: str = ""
+    coe_api_base_url: str = ""
+    coe_model: str = "qwen3.6"
+
     procedural_min_session_turns: int = 3
     procedural_session_step: int = 5
     procedural_max_prompt_chars: int = 12000

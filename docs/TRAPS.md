@@ -808,3 +808,37 @@ mean (0.317) read as the knowledge graph regressing from 0.538; on the 12 probes
 that could actually be scored the graph had **improved**, 68.5% → 75%. **A field
 missing from the probe file is indistinguishable from the system failing, unless
 you split the population by whether the field is there.**
+
+---
+
+### 38. An undeclared `.env` key takes the whole application down
+
+Adding `COE_API_BASE_URL` / `COE_API_KEY` / `COE_MODEL` to `.env` — and nothing
+else — broke **the proxy, the workers and every test at once**:
+
+```
+pydantic_core.ValidationError: 3 validation errors for Settings
+coe_api_base_url
+  Extra inputs are not permitted [type=extra_forbidden]
+```
+
+`Settings` is a pydantic-settings model with extras **forbidden**, so it reads
+every key in `.env` and refuses any it does not declare. There is no partial
+failure: `settings = Settings()` runs at import, so the first thing that touches
+config dies, and so does everything downstream of it.
+
+⚠ **This is the second time.** `config.py:549` already carried the note — *"took
+the application down — the proxy, the workers and every test at once. Found
+2026-08-13, seconds after they were added."* It was found in seconds that time
+because a test ran immediately; it was found the same way here, by a test that
+had nothing to do with config.
+
+⇒ **An env var is not optional configuration — declare it in `Settings` or do
+not put it in `.env`.** The two steps are one change, never two. And the reason
+it stays cheap is that *something ran straight afterwards*: the failure is
+instant and total, so any test at all catches it. Add the var, then run
+anything.
+
+⚠ Note the shape it hides behind: the traceback names **pydantic**, not your
+edit, and points at `config.py` rather than at `.env`. If config suddenly fails
+to validate and you did not touch `config.py`, look at `.env` first.
