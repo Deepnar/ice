@@ -1870,3 +1870,82 @@ neither.
   are converses, the entity-side twin of TRAPS #26.
 * **Entity consolidation is human-gated at ~5/run against 1,094 candidates** —
   correct for one user, impossible for a product. [G50](ROADMAP.md#g50).
+
+---
+
+## 2026-08-17 — the first full re-count under the fixed metric, and three of five types cannot see their subsystem
+
+`scripts/z1/score_typed.py --tag g48b-full-recount`, 372 probes, ~9 min, local
+and deterministic (no API, no Ollama). Store unchanged from 2026-08-16: arm 1
+`fixed-qwen3-4b-instruct`, **293 turns / 8,280 entities / 9,662 edges / 61
+procedural patterns / 0 batch summaries**. Artifact:
+`experiments/curation_files/score_runs/20260817T110843_g48b-full-recount.json`
+(probe file sha256 `dcfcd0d39e2d1c87`). Baseline for comparison is
+`20260815T125535_post-reseed-qwen3-4b-instruct.json` — **same store, same code,
+pre-[G48b](ROADMAP.md#g48) crediting rule**.
+
+| type | n | 08-15 (old metric) | 08-17 (G48b metric) | comparable? |
+|---|---|---|---|---|
+| episodic_lookup | 232 | 0.591 | **0.767** | **yes** — identical probes |
+| codex_multihop | 89 → 41 | 0.538 | 0.317 | **no** — different probe population |
+| procedural | 40 | 1.000 | 1.000 | yes, and meaningless (below) |
+| summary_synthesis | 40 | 0.324 | 0.324 | yes |
+| temporal | 19 | 0.211 | 0.211 | yes |
+
+### The one clean number, and what it is NOT
+
+**episodic_lookup 0.591 → 0.767** is the isolated G48b effect: identical 232
+probes against an identical store, with only the crediting rule changed so that
+codex/procedural fragments derived from the gold turn can be attributed to it.
+Gold rank found on **191/232**.
+
+⚑ **This is the ruler being fixed, not ICE improving.** Nothing in `src/`
+differs between the two runs. Quote it as "the first honest episodic-class
+number on this store", never as a recall gain.
+
+⚠ **The other three unchanged numbers moved by zero, not by a rounding
+margin** — G48b's provenance fix bought them nothing, each for its own reason.
+
+### Three of the five types cannot currently see their subsystem
+
+* **`procedural` = 1.000 is a presence test over a pool of one.** 61 patterns,
+  **60 `is_active=false`** (activation needs `reinforcement_count >= 3`; 59 sit
+  at 1, one at 2, one at 4). The leg's entire candidate pool is the single
+  `reinforcement_count=4` row at confidence 0.8, and it is returned to **every**
+  query in the store. Verified directly against the leg's own SQL: the nonsense
+  string `zzzq wumpus glorbnax fleeb` returns that same fragment at cosine
+  0.4147, as do `how do I cook rice` and `explain gradient descent`. The metric
+  asks *"did any procedural fragment come back at all"*, so it reads **1.000 for
+  gibberish**. See TRAPS #37 — the same defect scored **0.000** on arm 2.
+* **`codex_multihop` = 0.317 is mostly a damaged probe file.** Only **12 of 41**
+  surviving codex probes still carry `anchor_entity`, the field the anchor half
+  of the metric reads; for the other 29 it is absent, so `anchor_via_graph` is
+  False **by construction** and the achievable ceiling is 0.5, not 1.0.
+
+  | | n | anchor via graph | turn coverage | score | ceiling |
+  |---|---|---|---|---|---|
+  | anchored | 12 | **9/12 (75%)** | 0.500 | 0.625 | 1.000 |
+  | unanchored | 29 | 0/29 *by construction* | 0.379 | 0.190 | 0.500 |
+  | as reported | 41 | 9/41 | 0.415 | **0.317** | — |
+
+  The 08-15 baseline had essentially all 89 probes anchored (`anchor_anywhere`
+  **86/89**) at **61/89 = 68.5%** via graph. ⇒ **On probes the metric can score,
+  the graph went 68.5% → 75%. It did not regress.** The 0.538 → 0.317 is the
+  [TRAPS #35](TRAPS.md) probe destruction, and specifically a casualty not
+  recorded at the time: the rebuild recovered `question` and `gold_turns` but
+  **dropped `anchor_entity` for 29 of 41 records**.
+* **`summary_synthesis` = 0.324 is pure turn-coverage.** `batch_summaries` holds
+  **0 rows**, so `summary_frags` was 0 on all 40 probes and the metric's designed
+  right answer — *a summary covering the span counts* — **cannot fire on this
+  store**. The number is a coverage score wearing a synthesis score's name.
+
+`temporal` = 0.211 found the gold rank on **4/19** with `outranked_by_newer` 0 —
+timeline provenance is still unwired, as recorded 2026-08-16.
+
+### The scorer cannot answer "which leg earned the credit"
+
+`score_typed.py` records `{"rank": …}` and nothing else for `episodic_lookup`.
+So the obvious follow-up to the 0.591 → 0.767 move — *which leg supplied the
+newly-credited fragments* — **is not answerable from disk** and needs a re-run.
+This is exactly the gap the 2026-08-16 entry closed in `answer_probes.py` and
+`harvest_probe_context.py`; `score_typed.py` was not included in that fix.
