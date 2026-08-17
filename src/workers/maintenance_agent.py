@@ -27,6 +27,7 @@ coding-side decisions table reuses this exact pattern.
 import json
 import re
 import uuid
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -160,6 +161,13 @@ def difference_kind(a: str, b: str) -> str:
     Ordered most-specific first: a pair differing by BOTH a digit and a tense
     word is a digit rejection, because the digit is the stronger signal.
     """
+    # ⚑ A MISSING NAME MUST NEVER PRODUCE A MERGE. Both keys are "" when a
+    # lookup misses, and `"" == ""` made every pair read as `merge` — so a
+    # silently empty name map would have auto-merged the entire candidate set,
+    # which is the one direction this function must not fail in. Caught
+    # 2026-08-17 while wiring the detector, before it reached the queue.
+    if not (a or "").strip() or not (b or "").strip():
+        return "defer"
     if merge_key(a) == merge_key(b):
         return "merge"
     if sorted(_NUMERALS.findall(a or "")) != sorted(_NUMERALS.findall(b or "")):
@@ -201,6 +209,14 @@ def _detect_duplicate_entities(db, cap: int) -> list:
         "SELECT item_content->>'pair_key' FROM review_queue "
         "WHERE item_type = 'entity_merge' "
         "  AND item_content->>'pair_key' IS NOT NULL")).fetchall()}
+    # G50: a pair already typed as a rejection is settled — `8 gb`/`4 gb` will
+    # not stop differing by a digit. Without this the detector re-derives the
+    # same verdict and writes a duplicate memo on every run, and the rejection
+    # work would grow linearly with run count instead of draining.
+    seen_keys |= {r[0] for r in db.execute(text(
+        "SELECT payload->>'pair_key' FROM codex_events "
+        "WHERE event_type = 'merge_rejected' "
+        "  AND payload->>'pair_key' IS NOT NULL")).fetchall()}
 
     # Name-overlap channel (Tier 0 candidates). Canonical names are stored
     # casefolded, but aliases keep original case — normalize in Python; the
@@ -253,18 +269,62 @@ def _detect_duplicate_entities(db, cap: int) -> list:
     ranked += [(_pair_key(r.a_id, r.b_id), (r.a_id, r.b_id), float(r.cos))
                for r in cos_rows]
 
+    # Lazy, like every other model import in this module (codex_extractor
+    # loads a SentenceTransformer at import time).
+    from src.memory.models import CodexEvent
+
+    # G50: names for the typed rejection below. One query rather than a lookup
+    # per pair — the cosine channel alone can return `cap` rows and each would
+    # otherwise cost a round trip.
+    pair_ids = {i for _k, ids, _c in ranked for i in ids}
+    names = {}
+    if pair_ids:
+        names = {r.id: r.canonical_name for r in db.execute(text(
+            "SELECT id, canonical_name FROM codex_entities WHERE id = ANY(:ids)"),
+            {"ids": list(pair_ids)}).fetchall()}
+
     items, used = [], set()
+    rejected = Counter()
+    reject_batch = uuid.uuid4()
     for key, (id_a, id_b), cos in ranked:
         if len(items) >= cap:
             break
         if key in seen_keys or key in used:
             continue
         used.add(key)
+        # ⚑ G50: TYPED REJECTION BEFORE THE QUEUE. Measured 2026-08-17 over all
+        # 2,247 pairs above cosine 0.90: **583 (26%)** differ by a digit, a
+        # spelled-out number, a gender word, a tense word or a token
+        # permutation — every one of which changes what the name refers to.
+        # Those never needed a model or a human, and queueing them is what made
+        # consolidation look like a scaling problem: the backlog is mostly
+        # pending REJECTIONS, not pending merges. Dropped here, journalled so a
+        # later run does not re-derive the same verdict.
+        kind = difference_kind(names.get(id_a, ""), names.get(id_b, ""))
+        if kind.startswith("reject:"):
+            rejected[kind] += 1
+            db.add(CodexEvent(
+                entity_id=id_a, event_type="merge_rejected",
+                # batch_source is NOT NULL — a detection pass has no graph batch
+                # of its own, so it gets one per run, the same shape
+                # codex_ops._run_batch() uses when there is no agent_run_id.
+                batch_source=reject_batch,
+                payload={"other_id": str(id_b), "kind": kind,
+                         "pair_key": key, "cosine": cos}))
+            continue
         keep_id, absorb_id = _merge_order(db, id_a, id_b)
         items.append(WorkItem(
             "duplicate_entities", 0 if cos is None else 2,
             {"keep_id": str(keep_id), "absorb_id": str(absorb_id),
-             "pair_key": key, "cosine": cos}))
+             "pair_key": key, "cosine": cos, "difference_kind": kind}))
+    if rejected:
+        db.commit()
+        # WARNING, and the RATE is the finding: if this fires on nearly every
+        # candidate, the cosine threshold is manufacturing the queue rather
+        # than discovering it — which is exactly what it was measured doing.
+        logger.warning("codex_merge_candidates_rejected",
+                       total=sum(rejected.values()), by_kind=dict(rejected),
+                       queued=len(items))
     return items
 
 
