@@ -705,6 +705,18 @@ lost permanently**, and those had cost a salvage fix to obtain (12 → 89).
 Two mistakes stacked: a **writing** command used as a smoke test, and no copy
 taken of the artifact every measurement depends on.
 
+⚠ **THE SALVAGE LOST A FIELD, AND IT WENT UNNOTICED FOR A DAY (found 2026-08-17).**
+The rebuild is worse than "89 → 41": records recovered from the answer-run JSONs
+kept `question` and `gold_turns` but **not `anchor_entity`**, which only the
+generator ever wrote. So **29 of the 41 surviving codex probes have no anchor**,
+`score_typed.py` reads `(p.get("anchor_entity") or "")`, and those probes score
+the anchor half False *by construction* — ceiling 0.5 instead of 1.0. The mean
+then read as the graph regressing 0.538 → 0.317 when it had improved.
+⇒ **A partial recovery is not a recovery until you diff the KEY SET, not the
+record count.** `sorted({k for p in probes for k in p})` against the previous
+generation would have caught it immediately. Restore `anchor_entity` when the
+lost codex probes are regenerated.
+
 ⇒ **Treat a generated corpus as an ASSET, not an output.** Guards now in that
 script and worth copying to any generator: refuse to write zero over a populated
 file, merge partial runs instead of overwriting, and keep the previous
@@ -748,3 +760,51 @@ see is not the same as stopping the work you started.
 this machine. Three run logs vanished mid-session, including the one holding a
 two-hour generation's progress. **Write run output under
 `experiments/curation_files/`, never `/tmp`.**
+
+---
+
+### 37. A presence metric turns one row into 0.000 or 1.000, and reports both as a result
+
+`score_typed.py` scores the `procedural` class as *"did any procedural fragment
+come back at all"*. On the two seeded arms, that metric produced:
+
+| arm | procedural rows | `is_active` | fragments returned | **reported score** |
+|---|---|---|---|---|
+| 2 — `fixed-gemma4-e4b` | 58 | **0** | 0 | **0.000** |
+| 1 — `fixed-qwen3-4b-instruct` | 61 | **1** | 40 of 40 probes | **1.000** |
+
+**Same defect, opposite extremes, one row apart.** Activation requires
+`reinforcement_count >= 3`; on arm 1 exactly one pattern reached 4 and every
+other sits at 1. That single row is the leg's whole candidate pool, so it is
+returned to every query — verified against the leg's own SQL, the nonsense
+string `zzzq wumpus glorbnax fleeb` retrieves it at cosine 0.4147, identical to
+what a real question gets.
+
+**The zero was predicted; the 1.000 was not, and it is the dangerous half.**
+[PROVENANCE](PROVENANCE.md) 2026-08-16 recorded *"the procedural leg will score
+zero and it is NOT retrieval"* — correct, on arm 2, and it reads as a flag to
+investigate. The identical defect on arm 1 reads as a **finished subsystem**. A
+zero gets chased. A 1.000 gets celebrated and then built on.
+
+⇒ **Three habits:**
+
+* **A presence test is not a quality test.** *"Is the expected kind of thing in
+  there"* cannot answer *"is what is there any good"* — CLAUDE.md's second
+  question, and this is the worked case. Score what the fragment says, not that
+  it exists.
+* **Before believing a perfect score, ask what the candidate pool is.** A metric
+  over a pool of one is a constant. `select count(*) … where is_active` is the
+  whole check and it takes seconds.
+* **⚑ Feed the subsystem something it must fail.** Nonsense input is the cheapest
+  instrument in this repo: one query against `zzzq wumpus glorbnax fleeb`
+  distinguished "retrieval is working" from "the pool has one row" instantly,
+  after a 372-probe run could not. **Do this before quoting any score at or near
+  a ceiling.**
+
+⚠ **Corollary — the same run's `codex_multihop` failed the mirror-image way.**
+29 of 41 probes had lost the `anchor_entity` field the metric reads, so the
+anchor half scored False *by construction* and capped those probes at 0.5. The
+mean (0.317) read as the knowledge graph regressing from 0.538; on the 12 probes
+that could actually be scored the graph had **improved**, 68.5% → 75%. **A field
+missing from the probe file is indistinguishable from the system failing, unless
+you split the population by whether the field is there.**
