@@ -227,15 +227,28 @@ def main() -> int:
             # as working while it contributes nothing, which is precisely the
             # blindness G48 exists to remove, reintroduced one level up. Anchor
             # credit now requires a CODEX fragment carrying it.
-            anchor = (p.get("anchor_entity") or "").lower()
+            anchor = (p.get("anchor_entity") or "").strip().lower()
             codex_blob = " ".join((f.text or "") for f in frags
                                   if f.source_type in ("codex", "timeline")).lower()
             anchor_via_graph = bool(anchor and anchor in codex_blob)
             anchor_anywhere = bool(anchor and anchor in blob)
             covered = sum(1 for g in gold_ids if g in returned_ids)
             frac = covered / len(gold_ids) if gold_ids else 0.0
-            score = (0.5 if anchor_via_graph else 0.0) + 0.5 * frac
-            bucket["detail"].append({"anchor_via_graph": anchor_via_graph,
+            # ⚑ A MISSING FIELD IS NOT A GRAPH FAILURE (2026-08-17).
+            # The TRAPS #35 salvage recovered `question` and `gold_turns` but not
+            # `anchor_entity`, which only the generator ever wrote — so 29 of 41
+            # codex probes had no anchor, scored the anchor half False BY
+            # CONSTRUCTION, and capped at 0.5. The mean then read as the graph
+            # regressing 0.538 → 0.317 when on the 12 scoreable probes it had
+            # IMPROVED, 68.5% → 75%. An unanchored probe is now scored on turn
+            # coverage alone and counted separately; the two populations are
+            # never averaged into one figure.
+            if anchor:
+                score = (0.5 if anchor_via_graph else 0.0) + 0.5 * frac
+            else:
+                score = frac
+            bucket["detail"].append({"anchored": bool(anchor),
+                                     "anchor_via_graph": anchor_via_graph,
                                      # kept for contrast: a large gap between
                                      # these two is the graph being carried by
                                      # the episodic legs.
@@ -295,6 +308,21 @@ def main() -> int:
         print(f"  {ptype:<20} n={b['n']:<4} scored={len(sc):<4} "
               f"score={mean:.3f}   declined={b['declined']}")
         print(f"      legs returned: {dict(b['legs'].most_common(6))}")
+        # Split the codex population by whether the metric could see the anchor
+        # at all. One mean over both answers nothing (see the branch above).
+        if ptype == "codex_multihop":
+            anch = [d for d in b["detail"] if d.get("anchored")]
+            unanch = [d for d in b["detail"] if not d.get("anchored")]
+            summary[ptype]["anchored"] = len(anch)
+            summary[ptype]["unanchored"] = len(unanch)
+            if anch:
+                via = sum(1 for d in anch if d["anchor_via_graph"])
+                summary[ptype]["anchor_via_graph"] = f"{via}/{len(anch)}"
+                print(f"      anchored={len(anch)} (anchor via graph {via}/{len(anch)})"
+                      f"  unanchored={len(unanch)} (turn-coverage only)")
+            if unanch:
+                print(f"      ⚠ {len(unanch)} probes carry NO anchor_entity — scored on "
+                      f"turn coverage alone, NOT as an anchor failure")
     print("\n  ⚑ These are FIVE DIFFERENT METRICS. They are not averaged, and a "
           "single headline number over them would describe nothing.")
 
