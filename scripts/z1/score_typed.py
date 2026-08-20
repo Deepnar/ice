@@ -71,6 +71,12 @@ def main() -> int:
                          "scoring branch, which --limit alone cannot)")
     ap.add_argument("--k", type=int, default=10)
     ap.add_argument("--tag", default="typed")
+    ap.add_argument("--ablate-leg", default=None,
+                    help="disable ONE named leg/feature via "
+                         "ConfigurableOrchestrator (vector, bm25 via rrf, "
+                         "procedural, batch_summary, mera, fuzzy_match, "
+                         "cluster_restrict, session_diversify, keyword_boost, "
+                         "recency_boost, timescope, dynamic_budget)")
     ap.add_argument("--ablate", choices=["none", "fragments", "all"],
                     default="none",
                     help="none=full system; fragments=drop codex "
@@ -168,6 +174,16 @@ def main() -> int:
     # leading explanation for arm A's episodic win, and currently untested.
     if args.ablate == "all":
         orch = ConfigurableOrchestrator(db, embedder, overrides={"codex": False})
+    elif args.ablate_leg:
+        # ⚑ THE GENERAL QUESTION, not just codex: what is EACH leg worth?
+        # `procedural` scores a constant 1.000 because its metric asks only
+        # whether any procedural fragment came back (TRAPS #37), so its
+        # contribution has never been measured at all; `batch_summary` sits at
+        # 0.303 and IMPROVED when codex was removed. Turning one leg off at a
+        # time against the same 444 probes is the only thing that separates a
+        # leg that works from a leg nobody has checked.
+        orch = ConfigurableOrchestrator(
+            db, embedder, overrides={args.ablate_leg: False})
     else:
         orch = HybridRetrievalOrchestrator(db, embedder)
     _drop_codex_fragments = (args.ablate == "fragments")

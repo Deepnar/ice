@@ -2639,3 +2639,55 @@ returns. The prediction that follows, and the way to falsify all of this:
 **repair the graph first (direction check alone would move ~25% of edges) and
 re-run this exact ablation. If codex still loses, the design is wrong; if it
 wins, the quality bar is simply higher than the current extractor clears.**
+
+---
+
+## 2026-08-20 (close) — what the day actually established, and the question it opened
+
+**Read this before re-reading the individual entries above.** Several were
+written and later corrected as instruments were fixed; this is the surviving
+account.
+
+### What is now measured, and how confident to be
+
+| claim | evidence | confidence |
+|---|---|---|
+| NuNER halves malformed triplets and fragment-entities | 25.0%→12.5% (n=200/arm) · 58.7%→40.7% non-entities (n=150/arm), both ~4.5 SE | **high** |
+| NuNER does NOT improve triplet correctness | 18.0%→20.0%, inside 1 SE at n=200 | **high** (a real null) |
+| NuNER does NOT improve answers | full-gold judging 31–30 across 61 decisive verdicts | **high** (a real null) |
+| Only ~20% of stored triplets are TRUE | n=200/arm, judged against each triplet's own source turn | **high** |
+| ~25% of triplets are merely REVERSED | same run; a distinct, mechanically repairable class | **high** |
+| `extraction_confidence` is inverted against truth | grounded 14–15% correct vs rejected 22–25%, **independently in both arms** | **high** |
+| A4 grounded query expansion contributes nothing | two ablations identical on two types (0.664/0.664, 0.536/0.536) | **high** |
+| The codex leg is net-harmful on its own probe type | disabling it wins 36–17, 53 decisive, two-tailed p≈0.013 | **medium-high** — one store, one probe type, one model, single run |
+| 64–68% of entities carry exactly one edge | direct count, both arms | **high** |
+| ~41–59% of those single-edge entities are not entities at all | n=150/arm | **high** |
+
+### What is NOT established, and must not be inferred from the above
+
+- **That codex is worthless in principle.** What is shown is that a graph at 20%
+  triplet correctness costs more budget than it returns. The falsification test
+  is stated and cheap: **repair direction (~25% of edges) and re-run the same
+  ablation.**
+- **That the other legs work.** `procedural` scores a constant 1.000 because its
+  metric asks only whether any procedural fragment came back (TRAPS #37) — its
+  contribution has **never been measured**. `batch_summary` sits at 0.303.
+  `timeline` was found to depend entirely on codex. **A per-leg ablation was
+  started the same day to answer this.**
+- **That decay, reflection or the maintenance agent do anything.** None of them
+  run during a seed: `decay_score < 1.0` is **0 rows** in this store. Every
+  number here describes a store that has never aged.
+- **Anything about the write path.** The density evaluator, the earned-lossless
+  decision (**164 of 293 turns lossless, 129 summarised**), procedural
+  extraction, the B2 retrieve/don't-retrieve gate and the context ledger were
+  **not under test today**. The day's findings concern one read-path leg.
+
+### The instrument record, which bounds all of it
+
+**Seven measurement defects in one day**, none of which raised an exception
+(TRAPS #41). Three interpretations were written and withdrawn — the answer
+comparison alone reversed twice before its judge was shown more than a median
+12.7% of the gold. ⇒ **Treat any number here that has not been reproduced by a
+second, independent instrument as provisional.** The four claims marked *high*
+above each have two: a deterministic count and a model judgement, or two
+independent arms agreeing.
