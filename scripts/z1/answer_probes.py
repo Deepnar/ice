@@ -71,6 +71,11 @@ def main() -> int:
     ap.add_argument("--n", type=int, default=30)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--tag", default="answers")
+    ap.add_argument("--ablate", choices=["none", "fragments", "all"],
+                    default="none",
+                    help="none=full; fragments=drop codex fragments, "
+                         "KEEP query expansion; all=disable the codex "
+                         "leg entirely")
     ap.add_argument("--probes", default=None)
     ap.add_argument("--answer-model", default=None,
                     help="override the routed chat model (keep it FIXED across "
@@ -121,11 +126,25 @@ def main() -> int:
     from src.model_registry.registry import find_best_model, get_model_context_window
     from src.model_registry.runtime_probe import serving_window
     from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+    from src.retrieval.configurable_orchestrator import ConfigurableOrchestrator
 
     embedder = get_embedder()
     clf = PyTorchClassifier(model_path=settings.classifier_model_path,
                             schema_path=settings.label_schema_path)
-    orch = HybridRetrievalOrchestrator(db, embedder)
+    # ⚑ Same two-condition split as `score_typed --ablate`, and for the same
+    # reason: the codex graph reaches the prompt BOTH as fragments and as A4
+    # query expansion (`orchestrator.py:558`). `fragments` withholds only the
+    # fragments, so expansion still shapes the BM25 query; `all` disables the
+    # leg, which kills expansion too because `_last_matched_entities` is never
+    # populated. Retrieval-level stage 1 found the leg nets ~zero and expansion
+    # contributes nothing — but `codex_multihop`'s retrieval metric is CIRCULAR
+    # (its anchor half is defined as the anchor appearing in a codex fragment),
+    # so only the ANSWER level can judge codex on its own ground.
+    if args.ablate == "all":
+        orch = ConfigurableOrchestrator(db, embedder, overrides={"codex": False})
+    else:
+        orch = HybridRetrievalOrchestrator(db, embedder)
+    _drop_codex = (args.ablate == "fragments")
 
     meta = {}
     for slug, cid in conv_of.items():
@@ -182,6 +201,8 @@ def main() -> int:
                                             total_budget=tb)
             frags = orch.retrieve(classification=c, conversation_id=conv_id,
                                   prompt_embedding=emb, scope=None)
+            if _drop_codex:
+                frags = [f for f in frags if f.source_type != "codex"]
 
         # The REAL assembler, not a hand-rolled concatenation — the shape of the
         # prompt is part of what is under test (Z2: "does the assembled context
