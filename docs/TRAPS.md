@@ -973,3 +973,45 @@ truth broken.
 **The tell.** You are about to report a number from an instrument that has never
 once returned an error. Ask what it would look like if the instrument were wrong,
 and check that specific thing.
+
+---
+
+### 42. A new session proposes work the project already did, or work on things it no longer has
+
+**Two instances in one afternoon, both caught by the user, neither by me.**
+
+1. **Proposed re-running a settled experiment.** After measuring the codex graph
+   at 20% triplet correctness, the obvious hypothesis was "the extractor is a 4B
+   model — try a bigger one." That experiment is **A12**, run 2026-08-12: eight
+   models, 4B through 26B, same 60 turns. **The 26B ranked THIRD**, and A12's
+   conclusion is explicit — the defects were *"present in ALL SEVEN arms.
+   Universal ⇒ prompt/design, not model capability."* The answer was on disk,
+   in PROVENANCE, under a heading naming the item.
+2. **Nearly ablated a deleted subsystem.** Queued `mera` as an ablation leg.
+   MERA was deleted by A4; the flag survives only because it was **re-homed**
+   onto the graph-enumeration path. Right answer by luck — the leg does measure
+   something — but the reasoning was "the flag exists so the thing exists."
+
+**Why this shape recurs.** A session starts with no memory of what was tried.
+Everything looks unexplored. The unexplored thing is *interesting*, so it gets
+proposed with confidence — and a confident proposal to re-run settled work is
+expensive twice over: it burns the hours, and it implies to the user that the
+earlier result did not exist or is not trusted.
+
+**The rule: CHECK THE BLAST RADIUS BEFORE PROPOSING OR CHANGING ANYTHING.**
+Both directions, and both are cheap:
+
+- **Backwards — has this been done?** Before proposing an experiment, grep
+  PROVENANCE and ROADMAP_DONE for the *subject*, not the item id you have in
+  mind. `grep -n "model comparison\|eight-arm" docs/PROVENANCE.md` would have
+  cost seconds and saved an hour.
+- **Forwards — what does this touch?** Before changing or removing anything,
+  find every consumer. A flag existing does not mean its subsystem exists
+  (`mera`), and a subsystem existing does not mean anything reads it — the
+  codex leg feeds BM25 query expansion and the timeline leg, neither of which
+  is obvious from `_codex_graph`'s signature. Disabling codex silently disabled
+  timeline; nothing recorded that until an ablation exposed it.
+
+**The tell.** You are about to say "we should test whether X" or "we can just
+remove Y" in a session that started less than an hour ago, about a subsystem you
+have only read today. Both sentences are a cue to grep first.
