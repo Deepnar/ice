@@ -2708,6 +2708,7 @@ run; each row disables ONE leg.
 | `batch_summary` | 0.698 (**0**) | 0.531 (**0**) | 0.303 (**0**) | 0.536 (+0.036) |
 | `vector` | 0.608 (**−0.090**) | 0.404 (**−0.127**) | **0.046 (−0.257)** | 0.571 (+0.071) |
 | `rrf` | **0.478 (−0.220)** | **0.349 (−0.182)** | 0.138 (**−0.165**) | 0.464 (−0.036) |
+| `mera` (graph enumeration) | 0.698 (0) | 0.530 (−0.001) | 0.303 (0) | 0.500 (0) |
 
 *(`procedural` scores 1.000 in every row but its own — the metric asks only
 whether any procedural fragment returned, TRAPS #37. It is excluded from
@@ -2745,6 +2746,27 @@ defect and none has been repaired:
 3. **`procedural` is fabricated by construction** (A12): `extract_procedural`
    asks ONE turn to reveal a RECURRING habit. It also **hurts** episodic
    retrieval (+0.039 when removed).
+
+### ⚠ TWO KINDS OF ZERO, AND THEY MEAN OPPOSITE THINGS
+
+`batch_summary` and `mera` both score 0.000 delta. They are not the same result
+and must never be tabulated as one:
+
+- **`batch_summary` PRODUCES and always LOSES.** Called directly it returns a
+  real fragment; it reaches the prompt 0 times in 1,925 requests. That is a
+  **structural defect** — a measured failure with a known mechanism.
+- **`mera` (graph enumeration) NEVER TRIGGERS.** It is cue-gated — it fires only
+  on an explicit "list all the X" prompt carrying a grounded tag/relation
+  signal, and the 444-probe set contains no such prompt. That is **UNTESTED ON
+  THIS CORPUS**, not a null. Recording it as "contributes nothing" would be a
+  false negative about a feature that was never asked to run.
+
+⇒ To measure enumeration at all, the probe set needs enumeration-shaped
+questions. None of the five typed classes generates them.
+
+⚠ **`mera` is also a stale NAME.** MERA as a subsystem was deleted by A4; the
+flag survives only because it was re-homed onto the enumeration path
+(`configurable_orchestrator.py:99` → `enable_enumeration`). See TRAPS #42.
 
 ### Two effects with unresolved mechanisms — do not report either as established
 
