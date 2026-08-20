@@ -2539,3 +2539,48 @@ ABSOLUTE turn numbers, while `procedural` (gold width 14, windows starting 15,
 every evidence turn, and the first version of the check reported **34 of 40
 `procedural` probes as broken and would have dropped them.** The checker now
 tries absolute first and falls back to relative.
+
+### ⚑ CODEX ABLATION (retrieval level) — the leg is NET-NEGATIVE outside its own metric
+
+Arm B store, all 444 probes, `score_typed --ablate`, deterministic, no model.
+Three conditions; the middle one exists because the codex graph reaches the
+prompt by TWO paths — as fragments, and as A4 grounded query expansion appending
+matched entity names to the BM25 search prompt (`orchestrator.py:558`).
+
+| type | full | fragments dropped (expansion KEPT) | codex fully OFF | codex's net worth |
+|---|---|---|---|---|
+| `codex_multihop` | 0.531 | 0.406 | 0.296 | +0.235 — **circular, discount** |
+| `episodic_lookup` | 0.698 | 0.664 | **0.664** | **+0.034** |
+| `procedural` | 1.000 | 1.000 | 1.000 | 0 — tautology |
+| `summary_synthesis` | 0.303 | 0.303 | **0.336** | **−0.033** |
+| `temporal` | 0.500 | 0.536 | **0.536** | **−0.036** |
+| anchor via graph | 56/75 | 30/75 | **0/75** | |
+
+**1. ⚑ GROUNDED QUERY EXPANSION (A4) CONTRIBUTES NOTHING.** The gap between
+`fragments` and `all` IS the expansion contribution. `episodic_lookup` is
+**0.664 vs 0.664** and `temporal` **0.536 vs 0.536** — identical. Expansion
+slightly HURTS `summary_synthesis` (0.303 → 0.336 when removed). ⇒ the
+hypothesis that arm A's larger entity set won via better BM25 expansion is
+**dead on evidence**, not merely unsupported.
+
+**2. ⚑ THE CODEX LEG IS NET-NEGATIVE ON THE TYPES THAT CAN JUDGE IT FAIRLY.**
+Against fully-off it gains **+0.034** on `episodic_lookup` and loses **0.036**
+(`temporal`) and **0.033** (`summary_synthesis`) — netting to roughly zero,
+**while consuming 0.5–32% of the prompt budget** (`leg_budget_share`). The
+`codex_multihop` gain is discounted because that metric's anchor half is DEFINED
+as "the anchor entity appeared in a codex or timeline fragment", so disabling
+codex zeroes it by construction (0/75) — the metric cannot be used to justify
+the leg it is built from.
+
+**3. UNDOCUMENTED COUPLING: THE TIMELINE LEG DEPENDS ON THE CODEX GRAPH.**
+`anchor via graph` runs 56 → 30 → **0**: dropping codex fragments leaves 30
+anchors supplied by TIMELINE fragments, but disabling the codex leg kills those
+too. Nothing in the architecture notes records that timeline cannot function
+without codex.
+
+⇒ **Consequence for the fix queue.** The direction check, junk filter and
+confidence recalibration were ranked by how much of the GRAPH they repair. This
+says repairing the graph buys little at the retrieval level, because the leg
+carrying it is already worth about zero. **Confirm at the answer level (stage 2)
+before acting** — retrieval score is not answer quality, and `codex_multihop`
+answers were the one place arm B beat arm A on truncated gold.

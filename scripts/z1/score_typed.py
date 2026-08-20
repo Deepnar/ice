@@ -71,6 +71,12 @@ def main() -> int:
                          "scoring branch, which --limit alone cannot)")
     ap.add_argument("--k", type=int, default=10)
     ap.add_argument("--tag", default="typed")
+    ap.add_argument("--ablate", choices=["none", "fragments", "all"],
+                    default="none",
+                    help="none=full system; fragments=drop codex "
+                         "fragments but KEEP query expansion; "
+                         "all=disable the codex leg entirely "
+                         "(expansion dies with it)")
     args = ap.parse_args()
 
     probe_path = Path(args.probes) if args.probes else PROBES
@@ -143,11 +149,28 @@ def main() -> int:
     from src.model_registry.registry import find_best_model, get_model_context_window
     from src.model_registry.runtime_probe import serving_window
     from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+    from src.retrieval.configurable_orchestrator import ConfigurableOrchestrator
 
     embedder = get_embedder()
     clf = PyTorchClassifier(model_path=settings.classifier_model_path,
                             schema_path=settings.label_schema_path)
-    orch = HybridRetrievalOrchestrator(db, embedder)
+    # ⚑ THE CODEX ABLATION HAS TWO DISTINCT CONDITIONS, and collapsing them
+    # would answer neither question. The codex graph reaches the prompt by TWO
+    # paths: as fragments, and as A4 grounded query expansion, which appends
+    # matched entity names to the BM25 search prompt (`orchestrator.py:558`).
+    #   `none`      - full system.
+    #   `fragments` - codex fragments dropped AFTER retrieval, expansion KEPT.
+    #                 Isolates what the codex leg contributes to the prompt.
+    #   `all`       - `ConfigurableOrchestrator(codex=False)`, which skips
+    #                 `_codex_graph` entirely, so `_last_matched_entities` is
+    #                 never populated and expansion dies with it.
+    # The GAP between `fragments` and `all` IS the expansion contribution — the
+    # leading explanation for arm A's episodic win, and currently untested.
+    if args.ablate == "all":
+        orch = ConfigurableOrchestrator(db, embedder, overrides={"codex": False})
+    else:
+        orch = HybridRetrievalOrchestrator(db, embedder)
+    _drop_codex_fragments = (args.ablate == "fragments")
 
     meta_conv = {}
     for slug, cid in conv_of.items():
@@ -178,8 +201,14 @@ def main() -> int:
         c.context_reliance = "Long_Term_Memory"
         orch.set_budget_from_turn_count(tc, total_tokens=tt, classification=c,
                                         total_budget=tb)
-        return orch.retrieve(classification=c, conversation_id=conv_of[slug],
-                             prompt_embedding=emb, scope=None), c
+        _frags = orch.retrieve(classification=c, conversation_id=conv_of[slug],
+                               prompt_embedding=emb, scope=None)
+        if _drop_codex_fragments:
+            # Retrieval ran in full — expansion already shaped the BM25 query —
+            # and only the codex FRAGMENTS are withheld. That is the isolation
+            # the condition needs.
+            _frags = [f for f in _frags if f.source_type != "codex"]
+        return _frags, c
 
     # Warm-up (the first retrieval of a process differs — relation gloss cache).
     for p in probes:
