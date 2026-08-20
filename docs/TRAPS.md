@@ -926,3 +926,50 @@ are still gitignored, but they survive a reboot, which `/tmp` does not.
 **The tell.** You are about to say "it's in the session file" or "it's in the
 judgements folder" about a number that will be quoted next week. Both are local
 and both are swept.
+
+---
+
+### 41. Six instruments in one day ran clean and returned the wrong number
+
+**2026-08-20, during the A9b two-arm comparison.** Every defect below was in the
+MEASUREMENT, not the system. None raised an exception. Each returned a plausible
+number that would have been reported as a finding.
+
+| # | instrument | what it actually measured | how it was caught |
+|---|---|---|---|
+| 1 | arm-B config mirror | full TURN vs production's CHUNK — 24 spans against 13 | its own equality assert |
+| 2 | stratified probe sampler | target recomputed inside the loop against DRAINING pools, so a 40-probe type stopped at 20 | output count looked short |
+| 3 | codex quality sampler | `left join conversations c on true` — a CROSS JOIN for a column never printed; every triplet rendered 3× | sample looked like duplicate extraction |
+| 4 | answer judge | source double-truncated (3 turns × 1,200 chars, then 4,000) — judge saw a **median 12.7%** of the gold | **the user asked whether the GT was too small** |
+| 5 | gold consistency check | `evidence` numbering is type-dependent — absolute for `codex_multihop`, RELATIVE to a 14-turn window for `procedural`; read as absolute it declared **34 of 40 valid probes broken** | the failure pattern was too uniform to be real |
+| 6 | ablation patch | filtered a `(fragments, classification)` TUPLE as if it were a list | read the patched line back |
+
+**What they have in common.** Not one crashed. Each produced output of the right
+SHAPE — a percentage, a count, a table — and the shape is what gets believed.
+Defects 1, 3 and 5 were caught only because a human or an assert found the
+*pattern* implausible, never because anything failed.
+
+**The cost when it is not caught.** Defect 4 alone produced three successive
+readings of the same run that each reversed: "arm A wins decisively" → "arm B
+wins the graph type" → "dead heat". Two full interpretations were written and
+withdrawn. Defect 5 would have deleted 34 valid probes and declared the ground
+truth broken.
+
+**The rules that actually work, in order of what they saved:**
+
+1. **Write the assert that would FAIL.** Defect 1 was caught by a mirror-equality
+   check written specifically because a mirror is an adjacent system until
+   proven otherwise. That is the only defect caught by design rather than luck.
+2. **Prove the instrument DISCRIMINATES before spending the run.** Before the
+   3-hour ablation, all three conditions were run on 2 probes to confirm they
+   produce different fragment counts. An ablation whose conditions are
+   accidentally identical returns a clean, meaningless null.
+3. **Do not interpret a comparison until the metric has been checked against its
+   own ground truth.** Both withdrawn interpretations came from reading a
+   comparison before checking what the judge could see.
+4. **A number whose failure pattern is too uniform is an instrument bug.** 34 of
+   40 probes broken *in exactly the same way* is not data about the world.
+
+**The tell.** You are about to report a number from an instrument that has never
+once returned an error. Ask what it would look like if the instrument were wrong,
+and check that specific thing.
