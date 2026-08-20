@@ -9,6 +9,7 @@ from sqlalchemy import or_
 from src.api.db import SessionLocal
 from src.memory.embedder import get_embedder
 from src.memory.models import BatchSummary, EpisodicMemory
+from src.memory import tokens
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 
 logger = structlog.get_logger("ice.workers.batch_summarizer")
@@ -20,6 +21,49 @@ embedder = get_embedder()
 # old-but-accessed turns in long conversations uncompressed forever, and long
 # conversations are the case compression exists for. A module constant for now,
 # like the other worker tuning constants; G9 sweeps these into settings.
+
+# The prompt + system message + chat-template envelope, generously rounded. Kept
+# as a constant rather than measured so the prompt text below stays the single
+# place it is written; `token_count_safety_margin` already covers the slack.
+_PROMPT_OVERHEAD_TOKENS = 128
+
+
+def _content_budget() -> int:
+    """Tokens available for the TURNS THEMSELVES in one summarisation call.
+
+    ⚑ WHY THIS EXISTS. Batches were a fixed 50 turns with no token budget. On
+    2026-08-17 that sent **37,359 tokens at a 32,768-token window** — a hard
+    400 which, because the whole loop shared one `try`, killed every LATER
+    batch as well, including two that would have fitted. The arm finished with
+    **zero** summaries and `summary_synthesis` (40 probes) was unscoreable, and
+    the failure was recorded as "transient" for a session because the only
+    evidence was a swallowed exception.
+    """
+    window = int(settings.ollama_num_ctx_max)
+    usable = window - int(settings.batch_summary_max_tokens) - _PROMPT_OVERHEAD_TOKENS
+    # Divide rather than multiply: we need the CONTENT to still fit once the
+    # margin is applied to it (`tokens.with_margin` is the other direction).
+    return max(1, int(usable / float(settings.token_count_safety_margin)))
+
+
+def _token_batches(turns, budget):
+    """Greedy `(start_index, batch)` pairs whose content fits *budget* tokens.
+
+    Always advances by at least one turn, so a single turn larger than the
+    whole budget becomes a batch of ONE rather than an infinite loop — the
+    `< 5` floor then skips it, which shows up in the log instead of as a 400.
+    """
+    batch, used, start = [], 0, 0
+    for idx, turn in enumerate(turns):
+        n = tokens.count(turn.raw_text or "")
+        if batch and used + n > budget:
+            yield start, batch
+            batch, used, start = [], 0, idx
+        batch.append(turn)
+        used += n
+    if batch:
+        yield start, batch
+
 
 def batch_summarize():
     """Compress old turns into per-conversation batch summaries. Plain callable
@@ -56,7 +100,8 @@ def batch_summarize():
             EpisodicMemory.is_document == False
         ).order_by(EpisodicMemory.conversation_id, EpisodicMemory.timestamp).all()
 
-        # Group by conversation in batches of 50 turns
+        # Group by conversation; the batching inside is by TOKEN BUDGET,
+        # not a turn count — see `_token_batches`.
         conv_groups = {}
         for turn in stale_turns:
             conv_id = str(turn.conversation_id)
@@ -67,56 +112,83 @@ def batch_summarize():
             # as it completes, so standing down here loses nothing already done.
             from src.workers.runtime import yield_if_user_active
             yield_if_user_active("batch_summarize.conversation")
-            for i in range(0, len(turns), 50):
-                batch = turns[i:i+50]
+            budget = _content_budget()
+            for start, batch in _token_batches(turns, budget):
                 if len(batch) < 5:
-                    continue  # skip tiny batches
-                # Assemble the raw text
-                combined = "\n\n".join(t.raw_text for t in batch)
-                prompt = (
-                    "Summarise the following conversation excerpt in 2‑3 paragraphs. "
-                    "Preserve all names, numbers, decisions, and specific facts. "
-                    "Output only the summary."
-                )
-                completion = bg_client.chat.completions.create(
-                    model=get_bg_model_name(),
-                    messages=[
-                        {"role": "system", "content": "You are a concise summarisation engine."},
-                        {"role": "user", "content": f"{prompt}\n\n{combined}"}
-                    ],
-                    temperature=0.0,
-                    max_tokens=settings.batch_summary_max_tokens,
-                    # prefill-heavy (up to 50 turns in the prompt): keep the
-                    # old 60s floor — G12's formula scales with output only.
-                    timeout=max(60.0, bg_timeout(settings.batch_summary_max_tokens))
-                )
-                summary_text = completion.choices[0].message.content.strip()
-                if not summary_text:
+                    # G11's floor, kept (a 4-turn summary is not worth a model
+                    # call). Logged, not silent: a token-CUT tail has to be
+                    # distinguishable from a conversation that was just short.
+                    logger.info("batch_summary_skipped_small",
+                                conv_id=conv_id, turns=len(batch))
                     continue
+                batch_tokens = sum(tokens.count(t.raw_text or "") for t in batch)
+                logger.info("batch_summary_batch_sized", conv_id=conv_id,
+                            turns=len(batch), tokens=batch_tokens, budget=budget)
+                # ⚑ PER-BATCH, NOT PER-PASS. The outer `try` still re-raises
+                # genuinely fatal errors (the DB going away), but one batch the
+                # model refuses must not take the other batches with it — that
+                # is precisely how a single 400 produced an arm with zero
+                # summaries while two fitting batches never ran.
+                try:
+                    # Assemble the raw text
+                    combined = "\n\n".join(t.raw_text for t in batch)
+                    prompt = (
+                        "Summarise the following conversation excerpt in 2‑3 paragraphs. "
+                        "Preserve all names, numbers, decisions, and specific facts. "
+                        "Output only the summary."
+                    )
+                    completion = bg_client.chat.completions.create(
+                        model=get_bg_model_name(),
+                        messages=[
+                            {"role": "system", "content": "You are a concise summarisation engine."},
+                            {"role": "user", "content": f"{prompt}\n\n{combined}"}
+                        ],
+                        temperature=0.0,
+                        max_tokens=settings.batch_summary_max_tokens,
+                        # prefill-heavy (a budget's worth of turns in the
+                        # prompt): keep the old 60s floor — G12's formula
+                        # scales with output only.
+                        timeout=max(60.0, bg_timeout(settings.batch_summary_max_tokens))
+                    )
+                    summary_text = completion.choices[0].message.content.strip()
+                    if not summary_text:
+                        continue
 
-                # Store with embedding
-                embedding = embedder.encode(summary_text, convert_to_tensor=False).tolist()
-                summary = BatchSummary(
-                    conversation_id=batch[0].conversation_id,
-                    # ⚠ Write-only legacy (see models.py): positions in THIS
-                    # run's filtered list, not turn identity. Coverage is the
-                    # `batch_summary_id` stamp below.
-                    start_turn_index=i,
-                    end_turn_index=min(i+49, len(turns)-1),
-                    summary_text=summary_text,
-                    embedding=embedding
-                )
-                db.add(summary)
-                db.flush()          # need the id before stamping the turns
-                # G11: close the loop — mark exactly the turns this summary
-                # covers, in the SAME transaction as the summary. Committing the
-                # summary without the stamps would recreate the duplicate-work
-                # bug on the next pass, so these cannot be separated.
-                for t in batch:
-                    t.batch_summary_id = summary.id
-                db.commit()
-                logger.info("batch_summary_created", conv_id=conv_id,
-                            turns=len(batch), summary_id=str(summary.id))
+                    # Store with embedding
+                    embedding = embedder.encode(summary_text, convert_to_tensor=False).tolist()
+                    summary = BatchSummary(
+                        conversation_id=batch[0].conversation_id,
+                        # ⚠ Write-only legacy (see models.py): positions in THIS
+                        # run's filtered list, not turn identity. Coverage is the
+                        # `batch_summary_id` stamp below.
+                        start_turn_index=start,
+                        end_turn_index=start + len(batch) - 1,
+                        summary_text=summary_text,
+                        embedding=embedding
+                    )
+                    db.add(summary)
+                    db.flush()          # need the id before stamping the turns
+                    # G11: close the loop — mark exactly the turns this summary
+                    # covers, in the SAME transaction as the summary. Committing the
+                    # summary without the stamps would recreate the duplicate-work
+                    # bug on the next pass, so these cannot be separated.
+                    for t in batch:
+                        t.batch_summary_id = summary.id
+                    db.commit()
+                    logger.info("batch_summary_created", conv_id=conv_id,
+                                turns=len(batch), summary_id=str(summary.id))
+                except Exception as exc:
+                    # WARNING and EVERY time, with the size that caused it —
+                    # the RATE is the finding (CLAUDE.md: a silent fallback
+                    # hides an outage). rollback() first: the batch may have
+                    # already added and flushed its summary row.
+                    db.rollback()
+                    logger.warning(
+                        "batch_summary_batch_failed", conv_id=conv_id,
+                        turns=len(batch), tokens=batch_tokens, budget=budget,
+                        error=str(exc)[:300],
+                    )
+                    continue
 
     except Exception as exc:
         db.rollback()
