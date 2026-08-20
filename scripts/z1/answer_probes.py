@@ -265,7 +265,12 @@ def main() -> int:
         })
         print(f"  {idx}/{len(sample)}  {p.get('probe_type','?'):18s} "
               f"frags={len(frags):3d} rank={rank} "
-              f"{'ERR' if err else str(len(answer)) + ' chars'}")
+              # ⚑ PRINT THE REASON, not just that it failed. Two probes
+              # errored in the ablation's `fragments` condition with no way to
+              # tell a timeout from a 400 from a refusal, which is the
+              # difference between "drop these probes" and "the condition is
+              # broken". Diagnostic only — no behavioural change.
+              f"{('ERR ' + str(err)[:70]) if err else str(len(answer)) + ' chars'}")
 
     OUT.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")

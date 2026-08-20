@@ -2584,3 +2584,58 @@ says repairing the graph buys little at the retrieval level, because the leg
 carrying it is already worth about zero. **Confirm at the answer level (stage 2)
 before acting** — retrieval score is not answer quality, and `codex_multihop`
 answers were the one place arm B beat arm A on truncated gold.
+
+### ⚑⚑ CODEX ABLATION, ANSWER LEVEL — THE LEG IS NET-HARMFUL ON ITS OWN PROBE TYPE
+
+Arm B store, **all 104 `codex_multihop` probes** — the only type where codex can
+earn credit as codex. Three answer sets generated on identical probes with
+`gemma4:26b-a4b-it-q4_K_M`, differing only in codex; judged pairwise and blind
+by deepseek-v4-flash against FULL untruncated gold.
+
+| comparison | full system | ablated | TIE | decisive | one-tailed p |
+|---|---|---|---|---|---|
+| full vs **codex fragments dropped** (expansion kept) | 14 | **25** | 65 | 39 | ≈ 0.055 |
+| full vs **codex leg disabled** (budget reclaimed) | 17 | **36** | 51 | 53 | **≈ 0.007** |
+
+`both_failed` falls **42 → 29** between the two comparisons: with codex fully
+off, the pair collectively answers MORE probes.
+
+**⚑ THE PROGRESSION IS THE RESULT.** Dropping codex TEXT helps (suggestive,
+p≈0.11 two-tailed). Disabling the LEG so other legs reclaim its budget helps
+MORE and significantly (p≈0.013 two-tailed). Fragment counts confirm the
+mechanism: 20.1/probe full → 16.9 with fragments dropped → **18.4** with the leg
+off, i.e. other legs recover ~1.5 of the freed slots. ⇒ the claim is not merely
+"codex fragments are noise" but "**the budget codex consumes is worth more to
+other legs**".
+
+**Paired set: 102 of 104.** Two probes excluded — both `ReadTimeout` at
+`answer_probes.py:219`'s 180 s cap, both in the `fragments` condition, both from
+the longest-turn conversation. Excluding them is safe in the direction that
+matters: `fragments` carries FEWER fragments per probe (16.9 vs 20.1) and hence
+shorter prompts, so the timeouts cannot have been caused by the condition
+inflating the prompt. Empty-answer counts are balanced across conditions
+(2/1/2).
+
+**FOUR INDEPENDENT MEASUREMENTS NOW AGREE:**
+| measurement | verdict |
+|---|---|
+| retrieval ablation (444 probes) | codex nets ~zero; −0.036 `temporal`, −0.033 `summary_synthesis` |
+| **answer ablation (104 codex probes)** | **codex loses 17–36 on its own type** |
+| codex truth judge (n=200/arm) | 20% of triplets correct, 25% reversed |
+| A9b arm comparison (293 turns) | better extraction moved form, not outcome |
+
+⇒ **CONSEQUENCE FOR THE FIX QUEUE, WHICH THIS INVERTS.** The queue (direction
+check, junk filter, `extraction_confidence` recalibration, G51 linking, vacuous
+relation pruning) was ranked by how much of the GRAPH each repairs — the right
+ranking for a leg worth improving. The leg is currently net-harmful, so the
+first question is not which repair to make but **whether to gate the leg while
+its quality is this low**. ⚠ Gating it would also disable the TIMELINE leg,
+which depends on the codex graph (anchor-via-graph 56 → 30 → 0).
+
+⚠ **Scope of the claim.** One store (arm B), one probe type, one answering
+model, single run. It does NOT show codex is worthless in principle — it shows
+that a graph measured at 20% triplet correctness costs more budget than it
+returns. The prediction that follows, and the way to falsify all of this:
+**repair the graph first (direction check alone would move ~25% of edges) and
+re-run this exact ablation. If codex still loses, the design is wrong; if it
+wins, the quality bar is simply higher than the current extractor clears.**
