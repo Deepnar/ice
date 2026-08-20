@@ -2094,3 +2094,143 @@ triplets −33%; at 30 turns the delta was 0.0. Size runs accordingly — the A9
 comparison cannot be re-decided on 10 turns.
 * **CoE AI Gateway** available as a third serving path (see [MODELS.md](MODELS.md)).
   **Judging stays on `deepseek-v4-flash`** so verdicts remain comparable.
+
+---
+
+## 2026-08-20 — the two-arm NER re-seed (A9b), and the first measurement of whether the codex graph is TRUE
+
+**⚑ EVERY NUMBER BELOW LIVES ONLY HERE.** `experiments/curation_files/` and
+`logs/` are both gitignored (they carry the corpus), and `docs/SESSION.md` is
+gitignored and emptied at session end. A result that is not copied into this
+file is lost when the working tree is cleaned — see the standing rule added to
+[TRAPS.md](TRAPS.md) the same day, after an arm's seed log was destroyed by a
+reboot because it had been written to `/tmp`.
+
+### The design — one variable
+
+Both arms: 293 turns from the same three conversations, `qwen3:4b-instruct` as
+the background model, the six older extraction fixes, G50's write-time
+`merge_key` tier, `CODEX_NODE_PROMOTION=true` (matching the `arm1-post-g50`
+snapshot they are compared against). **The only difference is which NER confirms
+entities for codex grounding:**
+
+| arm | snapshot | codex-grounding NER | settings |
+|---|---|---|---|
+| A | `ner-a-micro` | micro-NER | `codex_extraction_ner_tier=preflight` |
+| B | `ner-b-nuner` | NuNER Zero | `codex_extraction_ner_tier=background`, `codex_grounding_ner_extra_types=concept,object` |
+
+Clustering and key-term extraction use NuNER in **both** arms (unchanged since
+A9b, 2026-08-03); the pre-flight request path keeps the micro-NER in **both**
+(A9c, parked). ⇒ this is not "NuNER everywhere vs micro-NER everywhere": one of
+four call sites differs. Config asserted from each running process's
+`/proc/<pid>/environ`, not from the driver.
+
+### Store outcome
+
+| | arm A (micro-NER) | arm B (NuNER + concept/object) |
+|---|---|---|
+| turns / post-flight failures | 293 / 0 | 293 / 0 |
+| codex_entities | 8,470 | **6,271** (0.74×) |
+| codex_edges | 10,239 | **10,228** (−0.1%) |
+| edges/entity | 1.21 | **1.63** |
+| procedural | 64 | 65 |
+| batch_summaries | 3 | 3 |
+
+**Arm B holds an essentially identical graph over 26% fewer entities.** That is a
+count, not a quality claim.
+
+### Retrieval, typed score, all 444 probes — ARM B
+
+| type | n | arm B | arm 1 (2026-08-17, OLD pipeline) |
+|---|---|---|---|
+| `codex_multihop` | 104 | 0.531 | 0.532 |
+| `episodic_lookup` | 232 | 0.698 | 0.772 |
+| `procedural` | 40 | 1.000 | 1.000 — **a tautology**, pool of one (TRAPS #37) |
+| `summary_synthesis` | 40 | 0.303 | 0.322 |
+| `temporal` | 28 | **0.500** | 0.214 |
+
+Anchor via graph 56/75 (74.7%) against arm 1's 53/75 (70.7%). ⚠ arm 1 is the OLD
+pipeline, so these differences conflate the six fixes, G50 and the NER. **Arm A
+is what separates them and is not yet scored.**
+
+### ⚑ CODEX QUALITY — the first time this store's triplets were checked for TRUTH
+
+`scripts/z1/judge_codex.py`, **deepseek-v4-flash**, n=200, arm B. Each triplet
+judged against its own source turn (`codex_edges.source_batch` →
+`episodic_memory.batch_id`, verified 1:1, 293 distinct ids for 293 turns), blind
+to the arm and to the stored confidence tier. Grouped by source turn so the judge
+sees a turn's triplets together. Categorical taxonomy, not a 1–5 rating, for the
+same drift reason `judge_answers.py` gives.
+
+| label | n | share |
+|---|---|---|
+| correct | 40 | **20.0%** |
+| **reversed** (subject/object swapped) | 50 | **25.0%** |
+| wrong | 74 | 37.0% |
+| malformed | 25 | 12.5% |
+| vacuous | 8 | 4.0% |
+| unjudgeable | 3 | 1.5% |
+
+**One in five stored triplets is true.**
+
+**A quarter are merely BACKWARDS** — right entities, right relation, inverted
+direction (`india --lives_in--> maharashtra`, `student paper --is_used_for-->
+turnitin`). Nothing guards this: the converse guard (`codex_extractor.py:463`)
+covers only a curated `_ANTONYM_PAIRS` list. A direction check would move a
+quarter of the graph from wrong to right without touching the NER, the relation
+vocabulary or the model.
+
+**And `extraction_confidence` is INVERTED against truth:**
+
+| tier | n | correct | reversed | wrong |
+|---|---|---|---|---|
+| grounded 0.9 | 107 | **15.0%** | 24.3% | 42.1% |
+| rejected 0.35 | 92 | **25.0%** | 26.1% | 31.5% |
+
+The tier retrieval trusts more is the one less often true. This does **not** mean
+grounding is broken — grounding predicts whether the subject string is present in
+the source turn at all, and there it works (**7.3%** of grounded subjects absent
+from their source turn vs **22.9%** of rejected ones). It means **span presence
+is not truth**, while `extraction_confidence` is consumed downstream as if it
+were. A3's confidence seeding, and any retrieval gate keyed on that column, are
+ranking by the wrong quantity.
+
+⚠ **None of this separates the arms.** It is a statement about the extractor.
+Arm A's identical run (same script, same seed, same n) is pending its restore.
+
+### Graph shape — arm B
+
+6,271 entities, 9,411 live edges. **64.2% of entities carry exactly one edge** —
+a single triplet and nothing more; 0.5% isolated, 4.9% hubs (degree ≥ 10), median
+degree 1, max 333. Fan-out among entities with any outgoing edge: mean 2.24,
+median 1. ⇒ [G51](ROADMAP.md#g51)'s premise confirmed on real data: the store is
+mostly disconnected pairs, not a graph. Top hubs mix real entities (`deepesh`
+179, `orien` 156, `krishna` 112) with generic ones the wide label list admitted
+(`person` 333, `story` 257, `people` 121, `student` 101).
+
+Relation vocabulary has collapsed toward vacuous predicates: `have` 816, `in`
+788, `are` 631, `uses` 594 — ~30% of all edges in four near-meaningless
+relations.
+
+### Batch summariser — fixed the same day, and it is why both arms are scoreable
+
+The fixed-50-turn batch sent **37,359 tokens at a 32,768 window** and returned
+400; because one `try` wrapped the whole pass, that killed the two later batches
+that would have fitted, and the arm ended with **zero** summaries — recorded the
+previous session as a transient failure it was not. Now token-budgeted (26,200
+content tokens) with per-batch isolation. Arm A drained to 3 summaries covering
+89 turns; arm B produced 3 during its own seed. **`summary_synthesis` (40 probes)
+is scoreable on both arms only because of this.**
+
+### Known asymmetry against the "before" snapshot — state it when reporting
+
+Every arm A/B `context_payload` opens `Properties: merge_key: <its own name>`,
+because G50 writes `merge_key` into `properties` and the payload builder
+serialises all properties. **176,391 of 498,654 payload characters (35%)**, ~9
+tokens per injected entity, restating a name already in the `[Entity: X]`
+header. Payloads carrying the line: `fixed-qwen3-4b-instruct` **0**,
+`arm1-post-g50` **0**, `ner-a-micro` **8,435** — the G50 migration backfilled the
+property without regenerating payloads. ⇒ **arm A vs arm B is clean** (both carry
+it); **arm A vs `arm1-post-g50` is not** — the new pipeline spends tokens the old
+one did not, from the same budget the evidence block competes for. Left in place
+deliberately for this run (user, 2026-08-20).

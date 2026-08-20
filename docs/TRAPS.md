@@ -883,3 +883,46 @@ permanent one.** The seeder logs and continues, which is right; what was missing
 is that nothing ever re-ran it or checked the count afterwards. A worker whose
 output is a *precondition for a measurement* needs its row count asserted, not
 its exception caught.
+
+---
+
+### 40. A result written outside the tracked tree is a result you will lose
+
+**What happened (2026-08-20).** A 293-turn seed's log was written to
+`/tmp/ice_ner_arm_seed.log`. The machine rebooted between sessions and `/tmp`
+was cleared, so that arm's per-chunk grounding lines — the only record of how
+often extraction grounded nothing — are gone permanently. The comparison they
+existed for cannot be run. Nothing errored; the file simply was not there the
+next day.
+
+**It was recoverable only by luck.** The same outcome happens to be persisted in
+the database as `codex_edges.extraction_confidence`, so the question could be
+re-asked a different way. That is not a plan.
+
+**The trap is wider than `/tmp`, and this is the part that surprises people.**
+In this repo the *durable* set is much smaller than it looks:
+
+| location | status |
+|---|---|
+| `experiments/curation_files/**` — score runs, judgements, snapshots, probe sets | **gitignored** (it carries the corpus) |
+| `logs/` | **gitignored** |
+| `docs/SESSION.md` | **gitignored, and emptied at session end** |
+| `/tmp` | cleared on reboot |
+| `docs/PROVENANCE.md`, `ROADMAP.md`, `TRAPS.md`, `FEATURE_INVENTORY.md` | **tracked — the only durable home** |
+
+So "I wrote it down" is ambiguous, and three of the five places a number
+naturally lands are erased on a different schedule. A judged run whose verdicts
+sit in `experiments/curation_files/judgements/` is one `git clean` from gone,
+and the session file that summarised it is emptied on purpose.
+
+**The rule.** *When a run produces a number anyone might cite later, copy the
+number into a TRACKED doc in the same session — normally
+[PROVENANCE.md](PROVENANCE.md), which already owns "what was done".* The JSON
+artifact stays where it is and is still worth keeping; it is the **evidence**.
+The tracked doc carries the **claim**, so the claim survives losing the evidence.
+Write experiment logs under `logs/` or `experiments/` rather than `/tmp` — they
+are still gitignored, but they survive a reboot, which `/tmp` does not.
+
+**The tell.** You are about to say "it's in the session file" or "it's in the
+judgements folder" about a number that will be quoted next week. Both are local
+and both are swept.
