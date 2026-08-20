@@ -2454,3 +2454,88 @@ AND its metric is a presence check that any procedural fragment satisfies
 ⇒ **Fix the gold before any further arm comparison, ablation or codex-probe
 work.** Repair `gold_turns` or drop the probe, then re-score. Until then, only
 `episodic_lookup` (100% supported) rests on sound ground truth.
+
+### ⚑ RE-JUDGED ON FULL GOLD — the arms are a DEAD HEAT, and the earlier per-type story is WITHDRAWN
+
+Same 120 probes, same answers, same judge. Only the SOURCE changed: rebuilt from
+the store untruncated (mean 2,612 → **38,649 chars, 14.8×**, 0 fallbacks).
+
+| | truncated gold | **full gold** |
+|---|---|---|
+| arm A (micro-NER) wins | 23 | **31** |
+| arm B (NuNER) wins | 13 | **30** |
+| TIE | 84 | 59 |
+| **both_failed** | **70 (58%)** | **37 (31%)** |
+
+| type | truncated | full gold |
+|---|---|---|
+| `codex_multihop` | B 4–2 | **A 7–3** |
+| `episodic_lookup` | A 9–3 | **7–7** |
+| `procedural` | B 3–1 | A 6–5 |
+| `summary_synthesis` | 1–1 | **B 8–5** |
+| `temporal` | **A 10–2** | B 7–6 |
+
+**1. `both_failed` nearly halved (58% → 31%).** The truncation inflated it by
+~27 points. 31% is the credible figure and is still an overstatement while
+21.7% of probes carry gold that cannot support their own answer.
+
+**2. The arms are statistically indistinguishable on answer quality: 31 vs 30
+across 61 decisive verdicts.** The earlier 23–13 was an artifact.
+
+**3. ⛔ EVERY PER-TYPE SIGNAL FROM THE TRUNCATED RUN FLIPPED OR VANISHED**, and
+the interpretation built on them is withdrawn. That interpretation was: arm B
+wins the graph-testing type while arm A wins lexical types via A4 query
+expansion (8,470 entities vs 6,271 feeding `orchestrator.py:558`). With full
+source, `codex_multihop` reverses to A 7–3 and `temporal` evens out. **The
+expansion hypothesis may still be true — it simply has no evidence behind it
+now**, and testing it is what the planned codex ablation is for.
+
+**What survives the correction:** the arms differ measurably in FORM — arm B
+carries ~1,640 junk nodes against arm A's ~3,400, halves malformed triplets
+(25.0% → 12.5%) and fragment entities (42.0% → 22.7%), and yields a denser graph
+(edges/entity 1.63 vs 1.15) — while being **indistinguishable in answer
+OUTCOME**. Nothing measured so far shows that better-formed memory produces
+better answers.
+
+⚠ **Method note.** Three successive readings of this run reversed as the
+instrument was corrected. The rule that would have saved the intermediate
+claims: *do not interpret a comparison until the metric has been checked against
+its own ground truth.*
+
+### ⚑ CORRECTION — the ground truth is SOUND; "21.7% unpassable" was over-escalated
+
+`check_gold_consistency.py` (deterministic, no model, no cost) checks each
+probe's `gold_turns` against its own `evidence` field — unused by any scorer
+until now, and present on **400 of 444** probes.
+
+| type | consistent | broken | unchecked (no evidence) |
+|---|---|---|---|
+| `codex_multihop` | 74 | 1 | 29 |
+| `episodic_lookup` | 226 | 3 | 3 |
+| `procedural` | **40** | **0** | 0 |
+| `summary_synthesis` | 40 | 0 | 0 |
+| `temporal` | 13 | 0 | 15 |
+
+**4 broken of 400 checkable — 1%, not 21.7%.**
+
+**Why the two measurements disagree, and which one governs.** `verify_gold.py`
+asks whether the probe's **stated `answer`** is supported by the gold; 21.7%
+were `unsupported`. But **`unanswerable` was 0.0%** — the judge never once said a
+QUESTION could not be answered from its gold. And neither scorer reads
+`expected_answer`: `score_typed` scores coverage against `gold_turns`, and
+`judge_answers` shows those turns as SOURCE and compares two answers. ⇒ **the
+21.7% is a defect in a field nothing consumes.** The probes are passable; their
+`answer` label over-claims.
+
+⇒ **The gold does NOT block the codex ablation or any further comparison.** The
+one real ground-truth defect this session was the SOURCE TRUNCATION, which is
+fixed and re-run.
+
+**⚠ AND THE CHECK ITSELF NEARLY DESTROYED THE PROBE SET.** `evidence` numbering
+is **type-dependent and undocumented**: `codex_multihop` (gold width 4) uses
+ABSOLUTE turn numbers, while `procedural` (gold width 14, windows starting 15,
+29, 43…) uses an index RELATIVE to the window — `[1, 3, 14]` against gold
+`[15..28]` means turns 15, 17, 28. Read as absolute it looks like the gold omits
+every evidence turn, and the first version of the check reported **34 of 40
+`procedural` probes as broken and would have dropped them.** The checker now
+tries absolute first and falls back to relative.
