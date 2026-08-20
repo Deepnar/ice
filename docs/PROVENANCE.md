@@ -2234,3 +2234,223 @@ property without regenerating payloads. ⇒ **arm A vs arm B is clean** (both ca
 it); **arm A vs `arm1-post-g50` is not** — the new pipeline spends tokens the old
 one did not, from the same budget the evidence block competes for. Left in place
 deliberately for this run (user, 2026-08-20).
+
+### ⚑ ARM A vs ARM B — retrieval, and the result is the OPPOSITE of the structural read
+
+Typed score, all 444 probes, same probe set, same scorer, one run each.
+
+| type | n | arm A (micro-NER) | arm B (NuNER + concept/object) |
+|---|---|---|---|
+| `codex_multihop` | 104 | **0.559** | 0.531 |
+| `episodic_lookup` | 232 | **0.707** | 0.698 |
+| `procedural` | 40 | 1.000 | 1.000 — tautology, pool of one (TRAPS #37) |
+| `summary_synthesis` | 40 | **0.324** | 0.303 |
+| `temporal` | 28 | **0.643** | 0.500 |
+| anchor via graph | 75 | 57/75 (76.0%) | 56/75 (74.7%) |
+
+**Arm A wins every non-tautological type.** And yet arm B has the structurally
+better graph on every measure:
+
+| | arm A | arm B |
+|---|---|---|
+| entities | 8,470 | 6,271 |
+| live edges | 9,755 | 9,411 |
+| edges/entity | 1.15 | **1.63** |
+| single-edge entities | 5,783 (**68.3%**) | 4,029 (**64.2%**) |
+| isolated | 59 (0.7%) | 31 (0.5%) |
+| hubs (degree ≥ 10) | 252 (3.0%) | 307 (**4.9%**) |
+| mean / max degree | 2.30 / 204 | **3.00** / 333 |
+| fan-out mean (entities with out-edges) | 1.99 | **2.24** |
+
+⇒ **The denser, less fragmented graph retrieves WORSE.** This is the opposite of
+the premise A9b's swap rests on, and it is the central result of the run.
+
+⚠ **What this is not.** One run per arm, no variance estimate, and three of the
+four gaps are 0.01–0.03 — only `temporal` (0.643 vs 0.500) is a wide gap. The
+answer-level judging and the per-arm codex-truth judging are what decide whether
+arm B's graph is at least *truer*; a cleaner graph that retrieves slightly worse
+but answers better would be a trade rather than a loss.
+
+### ⚑ CODEX TRUTH, BOTH ARMS — better extraction bought WELL-FORMEDNESS, not TRUTH
+
+`judge_codex.py`, deepseek-v4-flash, n=200 per arm, same seed (`20260820`), same
+taxonomy, blind to arm and to stored confidence.
+
+| label | arm A (micro-NER) | arm B (NuNER + concept/object) |
+|---|---|---|
+| correct | 18.0% | **20.0%** |
+| reversed | 16.5% | **25.0%** |
+| wrong | 38.0% | 37.0% |
+| **malformed** | **25.0%** | **12.5%** |
+| vacuous | 2.5% | 4.0% |
+| unjudgeable | 0.0% | 1.5% |
+
+**NuNER HALVED malformed triplets (25.0% → 12.5%)** — cleaner spans doing
+exactly what a better entity source should do. But the recovered mass did not
+become *correct*; it became **reversed** (16.5% → 25.0%). Correctness moved
+**2 points** and `wrong` did not move at all (38.0% → 37.0%).
+
+⇒ **The best available extraction change moved correctness from 18% to 20%.**
+Meanwhile the cleanup-addressable share — `reversed` + `malformed`, both fixable
+by post-processing without touching extraction — is **41.5%** (arm A) and
+**37.5%** (arm B). The lever is cleanup, not extraction.
+
+**And the confidence inversion REPRODUCES INDEPENDENTLY IN BOTH ARMS:**
+
+| tier | arm A correct | arm B correct |
+|---|---|---|
+| grounded 0.9 | 14.3% | 15.0% |
+| rejected 0.35 | **22.1%** | **25.0%** |
+
+Two stores, two different NERs, same inversion — so it is a property of the
+system, not of either entity source. `extraction_confidence` measures whether
+the NER confirmed the subject SPAN, and span presence is not truth; every
+consumer that reads that column as a truth prior is ranking by the wrong
+quantity (A3's seeding, and any retrieval gate keyed on it).
+
+### ⚑ ARE SINGLE-EDGE ENTITIES REAL? — and this is NuNER's clearest win
+
+64–68% of each arm's entities carry exactly ONE edge. The question was whether
+those are genuine one-mention facts or [G51](ROADMAP.md#g51) missed links. **They
+are mostly neither: they are nodes that should not exist.**
+
+Structural tests could not separate junk from missed links — "one edge + many
+mentions" turned out to measure JUNK (`will` 138 turns, `enough` 88, `between`
+70, all with a single edge; a genuinely important entity that common would have
+accumulated edges), and a multi-word cut failed too (`it is`, `the one`, `to
+build`, `will be`). So the strings were judged directly, deepseek-v4-flash,
+n=150 per arm, seeded random over single-edge entities:
+
+| single-edge entities are… | arm A (micro-NER) | arm B (NuNER + concept/object) |
+|---|---|---|
+| a real entity | 41.3% | **59.3%** |
+| a sentence FRAGMENT | 42.0% | **22.7%** |
+| a common word | 16.7% | 18.0% |
+| **NOT an entity** | **58.7%** | **40.7%** |
+
+**An 18-point gap at n=150 is ~4.4 SE — the clearest, most significant
+difference between the arms.** Fragments HALVED (42.0% → 22.7%), independently
+corroborating the codex judge's malformed halving (25.0% → 12.5%). Two unrelated
+instruments, same conclusion: **NuNER's gain is well-formedness, and it is
+large.**
+
+Absolute junk-node load: arm A ~**3,400** of 5,783 single-edge entities; arm B
+~**1,640** of 4,029. **Arm B carries less than half the junk.**
+
+⇒ **This revises G51's sizing the way G50's was revised.** Its "5,487 missing
+edges" backlog is majority JUNK in arm A and minority junk in arm B — a linking
+pass run over arm A would spend most of its effort connecting nodes that should
+have been dropped. **Deduplicate/prune before linking, not after.**
+
+### ⚑ ANSWER JUDGING, ARM A vs ARM B — 120 probes, blind, paired
+
+`judge_answers.py`, deepseek-v4-flash, same 120 stratified probes answered by
+`gemma4:26b-a4b-it-q4_K_M` on each arm's own store, arm identity hidden and A/B
+slot randomised per probe.
+
+| type | arm A (micro-NER) | arm B (NuNER) | TIE |
+|---|---|---|---|
+| `codex_multihop` | 2 | **4** | 18 |
+| `episodic_lookup` | **9** | 3 | 12 |
+| `procedural` | 1 | **3** | 20 |
+| `summary_synthesis` | 1 | 1 | 22 |
+| `temporal` | **10** | 2 | 12 |
+| **TOTAL** | **23** | 13 | 84 |
+
+Reasons: **both_failed 70**, more_grounded 18, equivalent 14,
+contradicts_source 9, more_complete 7, no_memory_used 2.
+
+**⚑ THE HEADLINE IS NOT THE ARM COMPARISON. `both_failed` is 70 of 120 (58%) —
+neither arm answered nearly six probes in ten.** The NER question is being asked
+inside a system that cannot answer most of what is put to it, which bounds how
+much any entity-source decision can matter.
+
+**⚑ AND THE TOTAL HIDES OPPOSITE EFFECTS.** Arm B wins `codex_multihop` (4–2) —
+the only type that actually tests the graph — and `procedural` (3–1). Arm A's
+lead comes entirely from `temporal` (10–2, the only per-type result clearing
+noise at p≈0.02) and `episodic_lookup` (9–3). ⇒ **the cleaner graph helps GRAPH
+questions; the larger, junkier entity set helps LEXICAL recall.** That is the
+signature of A4 grounded query expansion (`orchestrator.py:558`), which appends
+matched entity names and aliases to the BM25 search prompt: arm A has 8,470
+entities to arm B's 6,271, so it expands more. **Reading the 23–13 total as
+"micro-NER is better" would invert the finding on the type the swap was for.**
+
+⚠ Overall 23 vs 13 across 36 decisive verdicts is binomial p≈0.07 — marginal.
+Per type, only `temporal` is individually significant.
+
+### ⛔ RETRACTION — the 58% `both_failed` is largely a JUDGE ARTIFACT (found by the user, same day)
+
+The judge is shown a **median 12.7%** of the gold material it is asked to verify
+answers against. Two truncations compose:
+`answer_probes.py:226` keeps at most **3 gold turns**, each cut to **1,200
+chars**; `judge_answers.py:107` then cuts the result to 4,000.
+
+| | |
+|---|---|
+| gold content per probe | mean **38,638** chars |
+| what the judge SEES | mean **2,606** chars |
+| coverage | mean 19.7% · **median 12.7%** |
+| probes where judge sees <50% of gold | **111 of 120** |
+
+**46 of the 120 probes have 14 gold turns.** The judge sees three.
+
+**⚑ AND COVERAGE PREDICTS THE TIE RATE MONOTONICALLY ACROSS ALL FIVE TYPES:**
+
+| type | gold coverage | TIE rate |
+|---|---|---|
+| `summary_synthesis` | 6.3% | 92% (22/24) |
+| `procedural` | 6.7% | 83% (20/24) |
+| `codex_multihop` | 15.8% | 75% (18/24) |
+| `temporal` | 32.2% | 50% (12/24) |
+| `episodic_lookup` | 37.5% | 50% (12/24) |
+
+⇒ **"Memory failed on 58% of probes" is NOT a finding.** A correct answer drawn
+from gold turn 7 of 14 is ruled unsupported because the judge was shown turns
+1–3. The arm-vs-arm verdicts are less affected — both arms were judged against
+the same truncated source, so the comparison is internally fair — but the
+`both_failed` RATE, and any absolute claim about memory quality built on it, are
+withdrawn.
+
+**Fix before any further answer judging**, or every subsequent run reproduces
+the artifact: raise the per-turn cap and the turn count so the judge sees the
+gold set, or select the gold turns that the probe's answer actually depends on
+rather than the first three.
+
+### ⛔ SECOND, INDEPENDENT GROUND-TRUTH DEFECT — 21.7% of probes are UNPASSABLE
+
+Distinct from the truncation above. That was the judge being shown too little of
+the gold; **this is whether the gold is RIGHT AT ALL.** `verify_gold.py`,
+deepseek-v4-flash, n=60, gold turns untruncated, no system under test — just the
+probe's stated answer against the turns it was labelled with.
+
+| verdict | n | share |
+|---|---|---|
+| supported | 44 | 73.3% |
+| partial | 3 | 5.0% |
+| **unsupported** | **13** | **21.7%** |
+| unanswerable | 0 | 0.0% |
+
+| type | supported | unsupported |
+|---|---|---|
+| `episodic_lookup` | **100.0%** | 0.0% |
+| `codex_multihop` | 58.3% | **29.2%** |
+| `procedural` | 50.0% | **50.0%** |
+
+*(n=60 covered `codex_multihop`, `episodic_lookup` and half of `procedural`;
+`summary_synthesis` and `temporal` are UNMEASURED.)*
+
+**A probe whose own gold cannot support its own answer scores every arm as a
+failure no matter how good retrieval is.** And it corrupts both metrics at once:
+`score_typed` computes recall/coverage against those turn ids, and
+`judge_answers` shows those turns to the judge as SOURCE.
+
+⚠ **The damage is concentrated in exactly the types that showed the highest tie
+rates**, so the two GT defects and the `both_failed` rate are not independent
+observations — they are substantially the same artifact seen three ways.
+`procedural` is now known to be broken in TWO ways: half its gold is unsupported,
+AND its metric is a presence check that any procedural fragment satisfies
+(TRAPS #37), which is why it reports a constant 1.000.
+
+⇒ **Fix the gold before any further arm comparison, ablation or codex-probe
+work.** Repair `gold_turns` or drop the probe, then re-score. Until then, only
+`episodic_lookup` (100% supported) rests on sound ground truth.

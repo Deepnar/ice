@@ -98,13 +98,67 @@ def _env(k: str):
     return None
 
 
+_GOLD_IDX = None
+
+
+def _full_source(rec) -> str:
+    """The COMPLETE gold turns for a record, read from the store.
+
+    The `gold_turn_text` baked into an answer file is already truncated (3
+    turns, 1,200 chars each), so re-judging an existing run cannot recover the
+    source by reading it back — it has to be rebuilt. The answers themselves are
+    unaffected: they were generated from RETRIEVED fragments, never from this
+    field, so only the judge's view was ever short.
+
+    Keyed on (conversation, turn_number) via the seed manifest rather than on
+    episodic ids, because ids are regenerated per seed and differ between arms
+    while the corpus text is identical — so one loaded store serves both arms'
+    records. Falls back to the stored text if a turn cannot be resolved, and
+    says so rather than silently shortening.
+    """
+    global _GOLD_IDX
+    if _GOLD_IDX is None:
+        _GOLD_IDX = {}
+        try:
+            from src.api.db import SessionLocal
+            from sqlalchemy import text as _sql
+            man = json.loads(Path(
+                "experiments/curation_files/seeded_store.json").read_text())
+            db = SessionLocal()
+            raw = {r[0]: r[1] for r in db.execute(
+                _sql("select id::text, raw_text from episodic_memory")).fetchall()}
+            db.close()
+            for cid, d in man["conversations"].items():
+                for turn in d["turns"]:
+                    txt = raw.get(turn["episodic_id"])
+                    if txt:
+                        _GOLD_IDX[(cid, int(turn["turn_number"]))] = txt
+        except Exception as exc:                              # noqa: BLE001
+            print(f"  ! could not build gold index ({type(exc).__name__}) — "
+                  f"falling back to the TRUNCATED stored text")
+    conv = rec.get("conversation")
+    turns = rec.get("gold_turns") or []
+    parts = [_GOLD_IDX.get((conv, int(t))) for t in turns]
+    got = [p for p in parts if p]
+    if not got:
+        return rec.get("gold_turn_text", "")
+    return "\n\n".join(got)
+
+
 def judge_one(question, source, ans_a, ans_b, *, retries=3):
     key, base, model = (_env("PROBE_API_KEY"), _env("PROBE_API_BASE_URL"),
                         _env("PROBE_MODEL"))
     if not key or not base:
         raise SystemExit("PROBE_API_KEY / PROBE_API_BASE_URL missing from .env")
     user = (f"QUESTION\n{question}\n\n"
-            f"SOURCE\n{source[:4000]}\n\n"
+            # ⚑ NO CAP. This was `source[:4000]`, on top of answer_probes
+            # keeping only 3 gold turns at 1,200 chars each. Measured
+            # 2026-08-20: the judge saw a MEDIAN 12.7% of the gold material,
+            # and the per-type coverage predicted the tie rate monotonically
+            # across all five types (summary_synthesis 6.3% coverage -> 92%
+            # ties; episodic_lookup 37.5% -> 50%). It was ruling answers
+            # unsupported because it had not been shown the support.
+            f"SOURCE\n{source}\n\n"
             f"ANSWER A\n{(ans_a or '(empty)')[:2500]}\n\n"
             f"ANSWER B\n{(ans_b or '(empty)')[:2500]}")
     body = {"model": model,
@@ -193,7 +247,7 @@ def main() -> int:
         # Randomise the slot so position bias cannot align with an arm.
         a_is_first = rng.random() < 0.5
         first, second = (ra, rb) if a_is_first else (rb, ra)
-        v = judge_one(ra["question"], ra.get("gold_turn_text", ""),
+        v = judge_one(ra["question"], _full_source(ra),
                       first.get("answer", ""), second.get("answer", ""))
         # Translate the blind slot back to the arm.
         winner = v["verdict"]
