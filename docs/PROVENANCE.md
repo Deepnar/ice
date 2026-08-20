@@ -2691,3 +2691,77 @@ comparison alone reversed twice before its judge was shown more than a median
 second, independent instrument as provisional.** The four claims marked *high*
 above each have two: a deterministic count and a model judgement, or two
 independent arms agreeing.
+
+---
+
+## 2026-08-20 — PER-LEG ABLATION: what each retrieval leg is actually worth
+
+Arm B store, 444 probes per condition, `score_typed --ablate-leg <name>`,
+deterministic (classifier + embedder + micro-NER only — **no generative model**,
+so no temperature and no run-to-run variance). Baseline is the full-system arm B
+run; each row disables ONE leg.
+
+| leg disabled | `episodic_lookup` | `codex_multihop` | `summary_synthesis` | `temporal` |
+|---|---|---|---|---|
+| — (baseline) | 0.698 | 0.531 | 0.303 | 0.500 |
+| `procedural` | **0.737** (+0.039) | 0.543 (+0.012) | 0.296 | **0.214 (−0.286)** |
+| `batch_summary` | 0.698 (**0**) | 0.531 (**0**) | 0.303 (**0**) | 0.536 (+0.036) |
+| `vector` | 0.608 (**−0.090**) | 0.404 (**−0.127**) | **0.046 (−0.257)** | 0.571 (+0.071) |
+| `rrf` | **0.478 (−0.220)** | **0.349 (−0.182)** | 0.138 (**−0.165**) | 0.464 (−0.036) |
+
+*(`procedural` scores 1.000 in every row but its own — the metric asks only
+whether any procedural fragment returned, TRAPS #37. It is excluded from
+comparison throughout.)*
+
+### ⚑ WHAT WORKS IS THE HYBRID-RAG CORE; THE MEMORY-STRUCTURE LEGS DO NOT PAY
+
+**`rrf` is the largest contributor in the system** (−0.220 / −0.182 / −0.165) and
+**`vector` is second** (−0.257 on `summary_synthesis`). Semantic + lexical
+retrieval fused by reciprocal rank is doing the work. The three legs that make
+ICE *not* a RAG system — codex, procedural, batch summaries — are the three that
+currently contribute nothing or less than nothing.
+
+**This must not be read as "the design is wrong."** Each has a named, mechanical
+defect and none has been repaired:
+
+1. **`batch_summary` HAS NEVER BEEN IN A PROMPT.** Zero appearances in **1,925**
+   `leg_budget_share` lines across three independent runs. Called directly the
+   leg WORKS — it returns a real fragment (`score=0.234`, 367 tokens, correctly
+   typed). **The cause is structural, not a bug or a missing weight:** a leg
+   absent from `retrieval_leg_base_weights` defaults to **1.0** in RRF
+   (`orchestrator.py:2438`, joint-highest), but RRF scores
+   `weight / (k + rank)` **summed over every leg that found the fragment** — so a
+   turn found by BOTH `bm25` (0.8) and `vector` (1.0) accumulates ~1.8/(k+r)
+   while a summary, which no other leg can produce, gets 1.0/(k+0) once.
+   ⇒ **A leg with no cross-leg partner cannot win RRF, however relevant its
+   content.** Codex, procedural and timeline share the disadvantage; batch
+   summary is the extreme case, at exactly zero. **This is a sharper statement of
+   [G48](ROADMAP.md#g48) than "the budget favours episodic": leg-weight tuning
+   alone cannot fix it — a partnerless leg needs a reserved slot or a fusion rule
+   that does not reward agreement.**
+2. **`codex` is net-harmful at 20% triplet correctness** (25% merely reversed).
+   The falsification test — repair direction, re-run the same ablation — is
+   unrun.
+3. **`procedural` is fabricated by construction** (A12): `extract_procedural`
+   asks ONE turn to reveal a RECURRING habit. It also **hurts** episodic
+   retrieval (+0.039 when removed).
+
+### Two effects with unresolved mechanisms — do not report either as established
+
+- **`procedural` OFF collapses `temporal` 0.500 → 0.214**, the largest single
+  effect measured. It may be capability, or it may be provenance credit: G48's
+  rule counts a fragment if the gold turn is among the turns it was DERIVED
+  from, and **65 procedural rows carry `source_batch_ids` spanning 250 of 293
+  turns**, with 5 procedural fragments returned on every probe. **The decisive
+  test is unrun:** record the `source_type` of the fragment that earned the hit.
+- **`vector` OFF IMPROVES `temporal` (+0.071).** Coherent mechanism: `temporal`
+  scores recall PLUS the superseded turn not outranking the current one, and
+  semantic similarity cannot distinguish a stale value from a fresh one — an old
+  "my CGPA is X" embeds almost identically to the new one. Plausible, not proven.
+
+⚠ **Scope.** Retrieval level only, one store, no generative model. It says what
+reaches the prompt, never whether answers improved — and those two disagreed
+repeatedly this session. **And it does not touch the WRITE path at all**: the
+earned-lossless density decision (164 of 293 turns lossless, 129 summarised), the
+B2 retrieve/don't-retrieve gate, decay, and the context ledger were not under
+test. Every claim here concerns read-path legs.
