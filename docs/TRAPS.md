@@ -1015,3 +1015,63 @@ Both directions, and both are cheap:
 **The tell.** You are about to say "we should test whether X" or "we can just
 remove Y" in a session that started less than an hour ago, about a subsystem you
 have only read today. Both sentences are a cue to grep first.
+
+---
+
+### 43. The harness and production disagreed about one argument, and every retrieval number was wrong
+
+**2026-08-21.** A full day of retrieval measurement — a two-arm comparison, a
+three-condition codex ablation, a five-leg ablation, ~2,000 scored requests —
+was taken on a configuration production never uses.
+
+`orchestrator.retrieve()` takes BOTH a `conversation_id` parameter and a `scope`
+dict. It derives its conversation filter from **the scope only**:
+
+```python
+conv_id = None
+if scope and "conversation_id" in scope:
+    conv_id = scope["conversation_id"]
+```
+
+The `conversation_id` parameter is never used for it. `score_typed.py` and
+`answer_probes.py` both call with **`scope=None`**;
+`services/retrieval_svc.py:152` passes `scope=scope` with `conversation_id`
+populated. Measured side by side, same probe, same store:
+
+| call | fragments |
+|---|---|
+| `scope=None` (both harnesses) | `{episodic: 11, codex: 1, procedural: 5}` |
+| `scope={"conversation_id": …}` (production) | `{episodic: 6, **batch_summary: 2**, procedural: 2}` |
+
+`_batch_summary_lookup`'s own-conversation query sits behind `if conv_id:`, so
+the summary leg was **switched off in every measurement**. And the effect was not
+confined to it — every leg returned a different amount.
+
+**What it cost.** A whole chain of confident, wrong conclusions: "batch summaries
+never reach the prompt" (they do), "a leg with no cross-leg partner cannot win
+RRF" (a mechanism invented to explain a zero that had another cause),
+"`summary_synthesis` = 0.303" (measured with the summary leg off), and a per-leg
+ablation row that compared *leg off* against *already off*.
+
+**Why a day of cross-checking did not catch it.** Because **every harness shared
+the defect, so the harnesses agreed with each other.** Two independent
+instruments returning the same answer feels like corroboration and is worthless
+when both call the system the same wrong way. The disagreement only appeared
+against *production*, which nothing was comparing to.
+
+**The rule, which CLAUDE.md already states and which this ignored:**
+
+> *"Is everything there? Did the harness call what the real path calls? A scorer
+> skipping the budget setter measures something — just not ICE."*
+
+**How to actually check it, once, before a measurement campaign:**
+
+1. Find the production call site (`grep -rn "\.retrieve(" src/services src/api`).
+2. Diff its arguments against the harness's, **argument by argument** — not
+   "does it call the same function", but "with the same values".
+3. Run one request each way and diff the returned `source_type` counts. If they
+   differ at all, the harness is measuring something else.
+
+**The tell.** A subsystem scores exactly zero, repeatedly, and the explanation
+you reach for is architectural. Architectural explanations for perfect zeros are
+usually wrong: a zero that clean is nearly always a switch, not a design.

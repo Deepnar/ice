@@ -244,90 +244,22 @@ dropped, dead code and lying comments fixed in place, one-off scripts *moved*
 
 ### Git, commits, and the public repo
 
-**⚑ THE REPO IS PUBLIC** (`origin` → `github.com/Deepnar/ice`) and has been for a
-while. It is not a private backup: **every push is a publication.** Pushing
-during normal development is pre-authorized — push at natural points without
-asking — but write every commit, message and file knowing it is read as soon as
-it lands, with no window to take it back.
+**⚑ THE REPO IS PUBLIC** (`origin` → `github.com/Deepnar/ice`) — **every push is
+a publication.** Pushing during normal development is pre-authorized. The commit
+format and granularity rule, the experiment-phase push freeze, the
+never-commit-personal-content rules, the USER-GATED private-detail gate, history
+rewrite verification and the README/paper-link contract all live in the
+**`ice-git` skill** — **load it before writing a commit message, before pushing,
+and before rewriting history.**
 
-- **⚑ SMALL COMMITS *IN THIS FORMAT*. Granularity and format are ONE rule.**
-  Many small commits split by *concern* — never one end-of-session commit; if a
-  message needs bullets for unrelated changes it should have been several.
+### Ending a session
 
-  ```
-  area: what changed (ITEM)
-
-  ITEM — what it does now:
-  - concrete change: function/file/migration names, measured numbers
-
-  Validated N/N (tests/test_x.py: what was checked); regressions green.
-  Architecture §6.10 updated; roadmap C6 checked.
-  ```
-
-  **Subject:** lowercase area prefix (`retrieval:`, `codex:`, `memory:`,
-  `workers:`, `classifier:`, `budget:`, `roadmap:`, `docs:`, `tooling:`) · what
-  changed · roadmap id in parens · ≤ ~70 chars. **Body:** organised by item,
-  dense and concrete, closing with **`Validated`** and a **docs/roadmap** line.
-  **The log is the reference — read it before writing one:**
-  `git log 6bac35d 1a30484 051cea9 5124efb`.
-  - ⚠ **A record, not an explanation.** No essays, no rhetorical beats, no
-    argument structure. Impersonal, in the repository's voice; **never narrate
-    the session** ("the user asked…", "we decided…"). **No AI attribution.**
-- **Freeze at the experiment phase:** once **SEMIFINAL (Z1)** or **FINAL**
-  begins, **stop pushing** until the user says otherwise.
-- **Never commit personal content** — planning, career notes, conversation
-  corpora, third-party email, credentials. **Git history is forever the moment
-  you push**, and a rewritten history still serves old objects by SHA until the
-  host garbage-collects (TRAPS #12 — a support ticket last time). **Check before
-  the commit, not after the push.** ⚠ A cleanup commit *message* that describes
-  what was removed is itself a signpost; rewrite messages too, not just diffs.
-- **⚑ PRIVATE DETAIL IN A TRACKED DOC — USER-GATED, every time.** The tracked doc
-  states the technical claim and stands alone; the specifics go in
-  `docs/PRIVATE_CONTEXT.md` (gitignored — verify with `git check-ignore` **before**
-  writing it) under a marker like `[PRIVATE:g43-example]`; the tracked doc points
-  at the marker. **Then ask the user to eyeball the exact lines before
-  committing** — not a summary, the lines. **What belongs where is the user's
-  call, not a judgement to make for them.**
-- **A history rewrite must rewrite TAGS, and `git log` on `main` cannot verify
-  it.** Verification is `scripts/git/check_history_clean.sh` (`--clone` checks
-  what the public receives), wired to `pre-push` by `install_hooks.sh` — run once
-  per clone. Full story: **TRAPS #12**.
-- **README.md is a first-class deliverable** — the first thing a visitor reads.
-  Update it in the same session as anything that changes what the project *is*
-  or how it is run.
-- **⚑ README links the VENUE-AGNOSTIC paper, never a venue submission.**
-  `experiments/paper/` holds one canonical paper (`ICE_paper_v2.tex`) plus venue
-  twins. A twin carries that venue's branding and a dummy DOI, which on a public
-  repo reads as *"published there"* — a false claim about work merely submitted.
-  When a twin's content is better, **back-port it**; never repoint the link.
-- **README and ICE_Architecture follow the same contract** — both describe `main`
-  as it is now, both updated in the same session as the change that invalidates
-  them. README is the outside view and stays short. A number in both must change
-  in both or neither, and must say which snapshot it is (the paper's numbers are
-  the `v2-paper-eval` tag, not `main`).
-
-### End every session by rewriting docs/HANDOFF.md
-
-One file, overwritten in place, committed as the session's last commit. It
-carries the datetime, what the *previous* session was told to do next (so the
-next session can compare intent against the git log), current position, the
-decisions made, and anything that would otherwise be lost. **It is state, never
-a queue** — the roadmap is the queue, and a handoff that starts listing work
-becomes a second source of truth that drifts. Format and rules are in the file.
-
-**⚑ It is written LAST, and there are exactly two things that make it time.**
-Either **the work the session was given is DONE**, or **the context is genuinely
-running out** — and in that second case it is not a shortcut: write the handoff
-*and* do the full end-of-session job with it, propagation included (the docs the
-change invalidates, the roadmap boxes, PROVENANCE, TRAPS, the cleanup ledger).
-
-**A convenient stopping point is NOT one of the two.** Writing it early turns an
-unfinished session into a finished-looking one: the next session reads the
-handoff, trusts the position it states, and the outstanding items silently
-become nobody's. **If work is outstanding and context is not the reason, say so
-in chat and let the user decide** — never narrate a stop into HANDOFF.md as
-though it were an ending. Stating what is unfinished, plainly and specifically,
-is worth more to the next session than a tidy summary of what is not.
+`docs/HANDOFF.md` is written **LAST**, and only when either the work the session
+was given is DONE or the context is genuinely running out. **A convenient
+stopping point is not one of them** — say so in chat and let the user decide
+instead. The full rules and the end-of-session propagation checklist (ROADMAP,
+PROVENANCE, TRAPS, FEATURE_INVENTORY, ICE_Architecture, MODELS, CLEANUP, README)
+live in the **`ice-session-closeout` skill**.
 
 ## Commands
 
