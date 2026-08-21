@@ -2787,3 +2787,74 @@ repeatedly this session. **And it does not touch the WRITE path at all**: the
 earned-lossless density decision (164 of 293 turns lossless, 129 summarised), the
 B2 retrieve/don't-retrieve gate, decay, and the context ledger were not under
 test. Every claim here concerns read-path legs.
+
+---
+
+## ⛔⛔ 2026-08-21 — EVERY RETRIEVAL NUMBER FROM 2026-08-20 WAS MEASURED OFF THE PRODUCTION PATH
+
+**The harnesses pass `scope=None`; production passes a scope carrying
+`conversation_id`. That single difference changes which legs run.**
+
+`orchestrator.retrieve` derives its conversation filter from the SCOPE only:
+
+```python
+conv_id = None
+if scope and "conversation_id" in scope:
+    conv_id = scope["conversation_id"]
+```
+
+The `conversation_id` PARAMETER that `retrieve()` also receives is never used for
+this. `score_typed.py` and `answer_probes.py` both call with `scope=None`, so
+`conv_id` is None, and `_batch_summary_lookup`'s own-conversation branch — gated
+behind `if conv_id:` — never runs. `src/services/retrieval_svc.py:152` passes
+`scope=scope` with `conversation_id` populated.
+
+**Measured side by side, same probe, same store, same orchestrator:**
+
+| call | fragments returned |
+|---|---|
+| `scope=None` (both harnesses) | `{episodic: 11, codex: 1, procedural: 5}` |
+| `scope={"conversation_id": …}` (production) | `{episodic: 6, **batch_summary: 2**, procedural: 2}` |
+
+### What this retracts
+
+- **"`batch_summary` never reaches the prompt — 0 of 1,925 budget lines."**
+  FALSE as a statement about ICE. The leg works; the harness disabled it. All
+  1,925 observations come from `scope=None` runs.
+- **"A partnerless leg cannot win RRF."** That mechanism was inferred to explain
+  a zero that had a different cause. Withdrawn — it may still be true, but
+  nothing here is evidence for it.
+- **`summary_synthesis` = 0.303** was measured with the summary leg switched
+  off. It is not a measurement of summarisation.
+- **The per-leg ablation's `batch_summary` row (0.000 delta)** compared "leg off"
+  against "leg already off". It measured nothing.
+- **⚠ AND IT REACHES FURTHER THAN batch_summary.** The whole fragment mix
+  differs — codex 1 → 0, procedural 5 → 2, episodic 11 → 6. **Every retrieval
+  measurement of 2026-08-20 — the per-leg ablation, the codex ablation, and both
+  arms' typed scores — was taken on a configuration production does not use.**
+
+### What SURVIVES
+
+Comparisons where both sides shared the same defect remain internally fair:
+- **arm A vs arm B** (both `scope=None`) — the A9b verdict stands.
+- **the codex ablation's three conditions** (all `scope=None`) — the ordering
+  between conditions stands; the ABSOLUTE claim "codex is net-harmful in ICE"
+  does not, because production runs codex under a scope that changes what it
+  returns.
+- Everything not routed through the orchestrator: the codex truth judging (20%
+  correct, 25% reversed), the entity-reality split, graph shape, gold
+  consistency. Those read the store directly.
+
+### The rule this breaks, verbatim from CLAUDE.md
+
+> *"Is everything there? Did the harness call what the real path calls? A scorer
+> skipping the budget setter measures something — just not ICE."*
+
+Eighth instrument defect of the cycle (TRAPS #41), and the most expensive: it
+did not corrupt one number, it corrupted a class of them, and it survived a
+whole day of cross-checking because every harness shared it — so the harnesses
+agreed with each other.
+
+**Before ANY retrieval number is trusted again: give the harnesses the
+production scope and re-run.** Until then the 2026-08-20 retrieval tables are
+provisional and marked so.
