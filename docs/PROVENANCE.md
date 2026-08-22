@@ -2866,3 +2866,87 @@ agreed with each other.
 **Before ANY retrieval number is trusted again: give the harnesses the
 production scope and re-run.** Until then the 2026-08-20 retrieval tables are
 provisional and marked so.
+
+---
+
+## 2026-08-22 — the extractor fixes are a NULL on truth, and the reversals are generated
+
+**⚑ THE HEADLINE IS A NULL, AND IT IS THE MOST USEFUL RESULT OF THE DAY.**
+
+Six write-path defects were found and fixed (G51, G45, A8, G50, G57 ×2), all
+verified to change the *mechanisms* they targeted. A full 293-turn re-seed on
+identical inputs — same model (`qwen3:4b-instruct`), same NER tier
+(`background`), same promotion flag, **only the code differs** — then judged by
+the same judge (`deepseek-v4-flash`, n=200, seed 20260820) as arm B.
+
+**Store-level mechanism changes, arm B → `ner-b-postfix` (rates, not counts):**
+
+| | arm B | postfix |
+|---|---|---|
+| edges expired | **7.99%** | **1.93%** |
+| negations stored as `negated=True` | **0.11%** | **6.04%** |
+| relation `in` (copula rewritten as containment) | **7.70%** (the #2 relation) | **0.013%** (1 edge) |
+| `bg_model_output_truncated` | 138 | 73 |
+| relations canonicalised | 4,012 | 1,323 |
+
+**Truth-judge outcome — nothing moved.** n=190 judged of 200 (10 unreturned):
+
+| | arm B | postfix | z | |
+|---|---|---|---|---|
+| correct | 20.0% | 15.8% | −1.09 | noise |
+| reversed | 25.0% | 27.9% | +0.65 | noise |
+| wrong | 37.0% | 42.6% | +1.14 | noise |
+| malformed | 12.5% | 8.9% | −1.14 | noise |
+
+**Not one difference clears significance at n≈200.** Every mechanism fix
+worked and the graph is no more TRUE than before.
+
+**⚑ WHAT THE NULL RULES OUT, WHICH IS THE POINT.** The merge guard blocked
+**1,611 of 4,012** real canonicalisation merges — including `is` → `in` ×942,
+`can` → `cannot` ×18, `is_the_same_as` → `is_not_the_same_as` ×14 — every one
+of them a direction or polarity change. **The reversal rate did not move.** So
+reversals are **not** manufactured downstream by canonicalisation; they are
+generated that way. That is a hypothesis eliminated by measurement rather than
+by argument, and it redirects the work.
+
+⇒ The extraction prompt had **no direction instruction at all**: nothing named
+which argument goes in `subject`, all three examples were active SVO, and
+`ALLOWED_RELATIONS` mixes voices inside a single category (`created` active
+beside `founded_by`; `manufactured_by` passive-only). G59 adds the rule; the
+A/B is running.
+
+**`extraction_confidence` is inverted, and worse than recorded:**
+
+| | grounded (0.9) | rejected (0.35) | gap |
+|---|---|---|---|
+| arm B | 15.0% correct | 25.0% | 10.0 pts backwards |
+| postfix | **2.5%** correct | **18.1%** | **15.6 pts backwards** |
+
+Grounded triplets are correct **1 time in 40**. The retrieval trust floor
+admits ~100% of that tier and excludes 94% of the more accurate one. This is
+not a weak signal to tune — it is anti-correlated, and it must stop being used
+as a truth prior regardless of what any model comparison finds.
+
+**⚠ AN UNATTRIBUTED 24% VOLUME DROP — do not read the counts.** The re-seed
+extracted **8,208** triplets against arm B's **10,806** on identical turns
+(50.0 vs 65.9 per turn), giving −24% entities and −28% edges. The cause is
+NOT established. My merge guard compounds within a turn — `_known_rels` grows
+as relations are accepted, so blocking one merge changes every later decision,
+and a static replay predicted 2,401 surviving canonicalisations where only
+1,323 occurred. But blocking merges should mean *less* dedup and therefore
+*more* triplets, which is the opposite sign. **Reported as unexplained.** The
+rate table above is normalised and unaffected; the absolute counts are not.
+
+⇒ This is why the noise floor is being measured before any model sweep: if two
+identical runs can differ by 24%, **A12's eight-model ranking — one run per
+model — was partly noise**, on top of being scored by a circular metric
+([TRAPS #45](TRAPS.md)) and settled by a single subagent read
+([TRAPS #31b](TRAPS.md)).
+
+**Artifacts:** `experiments/curation_files/judgements/codex_quality_ner-b-postfix.json`,
+snapshot `ner-b-postfix`, `logs/reseed_ner-b-postfix.log`,
+`logs/judge_codex_postfix.log`.
+
+**What this does NOT show:** anything about retrieval or answers. This is
+store-level only — the judge reads each stored triplet against its own source
+turn. No retrieval ran, no answering model was involved.
