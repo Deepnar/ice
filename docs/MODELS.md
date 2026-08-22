@@ -35,6 +35,8 @@ concurrency** — a 27B at `--workers 3` reached 105 °C ([TRAPS #36](TRAPS.md))
 
 All Q4_K_M unless noted. Sizes are on-disk, not VRAM.
 
+⚑ **This table is INVENTORY, not evidence — holding a model is not having tested it.** For which models were actually run, for which job, and with what verdict, see **[§5](#5--what-has-actually-been-tested--by-job)**. Roughly half of what is listed here has never been through any ICE arm.
+
 | model | size | params | quant |
 |---|---|---|---|
 | `granite4:small-h` | 19.5 G | 32.2B | Q4_K_M |
@@ -159,3 +161,119 @@ planning a run around it.
 experimental and slow), so every vLLM model is a *separate download*, and it
 pre-allocates ~90% of VRAM for KV cache by default — tighter than Ollama for the
 same model. Expect to tune `gpu_memory_utilization`.
+
+---
+
+## 5. ⚑ WHAT HAS ACTUALLY BEEN TESTED — by job
+
+**Why this section exists (added 2026-08-22).** §2 lists what the machine
+*holds* and §4 lists vLLM verdicts, but nothing recorded **which models were
+tried for which job, and what the result was** — so a session looking at a
+28-model list could not tell a measured rejection from a model nobody had ever
+loaded. Both directions cost: re-running a settled arm, and "discovering" a
+candidate that was already ruled out. [TRAPS #42](TRAPS.md) is that failure.
+
+**A model is only ever tested FOR A JOB.** ICE runs at least five distinct ones —
+background extraction, corpus labelling, probe generation, probe answering,
+judging — and a verdict does not transfer between them. A12 ranked models for
+*background extraction*; that ranking was then cited in this file as an
+endorsement of an *answering* model, which is how a wrong claim survived
+(see §1).
+
+### Background / codex extraction + summarisation — **A12, 2026-08-12**
+
+Eight models, same 60 turns, full background pipeline (density, grounded
+summary, chunking, codex, procedural, clustering, batch summaries).
+Evidence: [PROVENANCE.md](PROVENANCE.md) A12 entry.
+
+| model | entities | edges | patterns | summary coverage | junk % | verdict |
+|---|---|---|---|---|---|---|
+| `gemma4:e4b` | 761 | 554 | 49 | 0.976 | 8 | **ranked 1st** |
+| `qwen3:4b-instruct` | 353 | 281 | 57 | 0.956 | 3 | **ranked 2nd — the practical pick**, tied on quality at 2.5 GB vs 9.6 |
+| `gemma4:26b-a4b` (then incumbent) | 1142 | 1243 | 57 | 0.979 | 2 | **ranked 3rd** — "generic-subject-heavy for no quality gain at ~2× VRAM" |
+| `ministral-3:8b` | 1611 | 1485 | 59 | 0.918 | 1 | 4th |
+| `qwen3.5:4b` | 233 | 190 | **0** | 0.970 | 1 | 5th — **zero procedural patterns**; bimodal, but best vocabulary-gap signal |
+| `granite4:micro` | 252 | 176 | 25 | 0.913 | 6 | 6th |
+| `granite4:tiny-h` | 250 | 230 | 50 | 0.895 | 7 | 7th — **fabricates specific unsupported detail**; 12/12 summaries were bare term dumps |
+| `nemotron-mini:4b` | 23 | 15 | 48 | 0.607 | 30 | **excluded on measured grounds** |
+
+⚠ **HOW MUCH TO TRUST THIS RANKING — read before re-using it (2026-08-22).**
+Four of its five columns are *volume* (entities, edges, patterns) or *format
+compliance*, not correctness:
+
+* `summary coverage` is the metric [TRAPS #45](TRAPS.md) shows is **circular** —
+  the prompt orders the model to append the very terms the metric counts. Every
+  arm scored 0.895–0.979, a spread of 0.08, which is what "did you follow the
+  format" looks like rather than "is this any good".
+* entity/edge/pattern counts say how much came out, never whether it is true.
+* The ranking itself came from **one subagent reading samples** —
+  [TRAPS #31b](TRAPS.md) records a subagent producing a confident wrong verdict
+  on exactly this kind of read, which reversed its model preference until a
+  single query overturned it.
+
+**No model here was ever measured on whether its stored facts are TRUE.** That
+judge (`scripts/z1/judge_codex.py`) was built 2026-08-20 and has only ever been
+pointed at `qwen3:4b-instruct` — the 20% correct / 25% reversed figures are its
+output, and there is no comparable number for any other model.
+
+⇒ **What survives A12 unqualified is its other conclusion**: the two defects
+were present in **all seven** viable arms, 4B through 26B, so they are
+prompt/design and not capacity. "Use a bigger model" stays ruled out. **Which
+small model is best is effectively unmeasured**, and a re-run should use the
+truth judge as the primary metric, one variable at a time, with the NER tier
+pinned (it is a second variable — see `codex_extraction_ner_tier`).
+
+### Corpus labelling (B1) — 2026-07-25, under vLLM
+
+Three served and compared, five rejected. Full table with revisions,
+throughput and failure modes: **§4 above**. Summary: `gemma-4-26B-A4B-it-AWQ`
+won at 2.34 rows/s and 0.01% degenerate.
+
+### Probe generation
+
+| model | verdict |
+|---|---|
+| `qwen3.8:27b` | **current** (user preference, 2026-08-17) |
+| `qwen3.6:27b` | superseded by 3.8; still named in `models/model_registry.json` |
+| `deepseek-v4-flash` (cloud) | works; usage-limited, so local is preferred for volume |
+
+### Probe answering
+
+| model | verdict |
+|---|---|
+| `gemma4:26b-a4b-it-q4_K_M` | **current** — chosen because it is neither arm under test. ⚠ NOT on A12 grounds; see §1 |
+
+### Judging
+
+| model | verdict |
+|---|---|
+| `deepseek-v4-flash` (cloud) | **current and pinned** — keeping it fixed preserves comparability with existing verdicts. ⚠ reasoning model: leave thinking ON ([TRAPS #34](TRAPS.md)) |
+| CoE gateway `Qwen3.6-35B-A3B` | ❌ rejected for the judge (maintainer, 2026-08-17), fine elsewhere |
+
+### ⚑ ON DISK AND NEVER TESTED FOR ANY ICE JOB
+
+These have never been run through any arm. Nothing below is a rejection — it is
+an absence of evidence, and the distinction is the point of this section.
+
+| model | size | note |
+|---|---|---|
+| **`gemma4:12b`** (+ `64k`/`128k`/`256k`) | 7.6 G | **the most obvious gap** — sits between `e4b` (1st) and `26b` (3rd) in A12 and was never in that run. Long-context variants matter for the batch summariser, which has already blown a 32k window |
+| `granite4:small-h` | 19.5 G | the only Granite above `tiny-h`, and both smaller Granites ranked last |
+| `qwen3-vl:8b-thinking` | 6.1 G | ⚠ reasoning model — [TRAPS #11](TRAPS.md): the whole budget can vanish into a hidden block |
+| `mistral-nemo` | 7.1 G | |
+| `qwen2.5:7b` | 4.7 G | named in the routing registry, never benchmarked for a background job |
+| `llama3:8b` | 4.7 G | |
+| `gpt-oss:latest` | 13.8 G | tested under **vLLM** for labelling (§4), never under Ollama for extraction |
+| `qwen3-coder:30b-a3b`, `qwen-coder` | 18.6 / 17.4 G | coding-scoped; untested for memory jobs |
+| `rpmax-22b-16k`, `HammerAI/cydonia-v4.3`, `Cydonia-24B-v4.3-heretic-v3` | 12.9–15.7 G | roleplay/creative builds; untested |
+| `tinyllama` | 0.6 G | in the routing registry as a floor; never benchmarked |
+| `granite4:small-h`, `qwen3.8:27b` for **extraction** | — | 3.8 is tested for probe *generation* only |
+
+### Not obtained, worth obtaining
+
+| candidate | why |
+|---|---|
+| **[NuExtract3](https://huggingface.co/numind/NuExtract3)** ([GGUF](https://huggingface.co/numind/NuExtract3-GGUF)) | a foundation model built **specifically for structured extraction**, from NuMind — the same group as the `NuNER_Zero` model ICE already runs for grounding. Directly targets ICE's weakest measured subsystem. ⚠ VRAM footprint unverified |
+| `qwen3.5:9b` | the 3.5 family shipped 0.8/2/4/9B with 256K context; only the 4B is here, and it ranked 5th with **zero** procedural patterns — the 9B is the untested half of that family |
+| `phi4-mini:3.8b` | dense-per-parameter, competitive at the `granite4:micro` tier which ranked 6th |
+| AWQ/GPTQ build of `qwen3:4b-instruct` | already wanted in §4 so the bg model can run under vLLM |
