@@ -509,11 +509,29 @@ class HybridRetrievalOrchestrator:
                         intent_confidence=round(intent_conf, 3))
             return self._wide_net_fallback(classification, prompt_embedding, conversation_id, scope)
 
-        # Conversation scope filter for episodic legs
-        # Conversation scope filter for episodic legs
+        # ⚑ G53: TWO DIFFERENT QUESTIONS, AND THEY USED TO SHARE ONE VARIABLE.
+        #
+        #   conv_id      — "restrict the search to this conversation". Set only
+        #                  when the SCOPE says so, because that is a scoping
+        #                  decision: `none`/`project` scope it, `auto` does not.
+        #   own_conv_id  — "which conversation are we in". Always known, because
+        #                  the caller passes it, and it is never a filter.
+        #
+        # `resolve_retrieval_scope` returns `{}` for an `auto` conversation —
+        # the DEFAULT mode — so `conv_id` is None there by design. But the
+        # recency bonus and the conversation's own batch summaries were both
+        # gated on `conv_id`, so on the default mode ICE could not tell which
+        # conversation it was in: it never weighted its own recent turns and
+        # never read its own summaries. `conversation_id` was sitting in the
+        # signature unused for exactly this the whole time.
+        #
+        # Search scoping is deliberately unchanged: `auto` still searches
+        # everything. This only restores the "which conversation is mine"
+        # half.
         conv_id = None
         if scope and "conversation_id" in scope:
             conv_id = scope["conversation_id"]
+        own_conv_id = str(conversation_id) if conversation_id else conv_id
 
         # ── Cluster‑scoped retrieval: find the most relevant clusters
         #     and add them to the scope so the episodic legs only search
@@ -578,8 +596,15 @@ class HybridRetrievalOrchestrator:
             # C4: the cross-conversation summary half is a user-global read —
             # gated off under incognito like procedural; the conv-scoped
             # batch half (own context) still runs.
+            # G53: `own_conv_id`, not `conv_id` — "my own summaries" is a
+            # question about which conversation this is, not about how wide the
+            # search may go. Under `auto` (the default) `conv_id` is None, so
+            # this half never ran and `batch_summary` appeared in zero of 15
+            # recorded scoring runs. The cross half's self-exclusion needs the
+            # same id for the same reason: with None it excluded nothing and
+            # could re-inject this conversation's own summary.
             "batch_summary": self._batch_summary_lookup(
-                prompt_embedding, conv_id, include_cross=not incognito),
+                prompt_embedding, own_conv_id, include_cross=not incognito),
             # T3: cold storage joins time-scoped queries only (no-op leg
             # otherwise); fragments are episodic-typed, so budget fairness
             # treats them as memories — the leg name only affects RRF weight.
@@ -597,7 +622,12 @@ class HybridRetrievalOrchestrator:
 
         # Fuse, diversify, deduplicate, trim
         fused = self._apply_rrf(legs, alpha_map=blend_weights)
-        fused = self._apply_bonuses(fused, classification, conv_id, prompt_keywords)
+        # G53: `own_conv_id` — the recency bonus ranks a fragment by its
+        # position within THIS conversation (`_recency_bonus` counts turns in
+        # it), which is meaningless as a scope filter and was dead under `auto`.
+        # `_wide_net_fallback` already passed the parameter here; the main path
+        # did not, and the two disagreed.
+        fused = self._apply_bonuses(fused, classification, own_conv_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
         # G29: no max_per_conversation here — passing the literal 3 is what made
         # settings.retrieval_max_per_conversation unreachable on every live path.
