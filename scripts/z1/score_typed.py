@@ -303,22 +303,61 @@ def main() -> int:
                                          1 for f in frags if f.source_type == "codex")})
 
         elif ptype == "procedural":
-            # The answer is a stored habit; a turn cannot satisfy it.
+            # ⚑ G55. `1.0 if n_proc else 0.0` is a presence test, and the
+            # procedural leg returns its LIMIT on every query: 200 fragments
+            # over 40 probes, 1,160 over 232, 140 over 28 — exactly 5 each,
+            # every time, in every recorded run. So the score was 1.000 by
+            # construction and carried no information about whether the right
+            # habit came back. TRAPS #37 called this out when the candidate
+            # pool was one row; the pool is now 30 (G49 shipped a second
+            # activation path) and the metric is vacuous for a different
+            # reason — the leg is not selective, so presence is guaranteed.
+            #
+            # Scored on gold provenance instead: a procedural pattern carries
+            # `origin_batch_ids` for the turns it was extracted from, so a
+            # pattern built from this probe's gold turns is a hit and one built
+            # from elsewhere is not. `presence` stays in the detail as a
+            # diagnostic — it is what the old score was — so the two runs
+            # remain comparable and the change is visible rather than silent.
             n_proc = sum(1 for f in frags if f.source_type == "procedural")
-            score = 1.0 if n_proc else 0.0
-            bucket["detail"].append({"procedural_frags": n_proc})
+            hit = any(g in _frag_ids(f) for g in gold_ids
+                      for f in frags if f.source_type == "procedural")
+            score = 1.0 if hit else 0.0
+            bucket["detail"].append({"procedural_frags": n_proc,
+                                     "presence_only": 1.0 if n_proc else 0.0,
+                                     "gold_grounded": bool(hit)})
 
         elif ptype == "summary_synthesis":
+            # ⚑ G55. This used to be `max(frac, 1.0 if n_sum else 0.0)`: ANY
+            # batch-summary fragment scored the probe a perfect 1.0, with no
+            # check that the summary covered the gold at all. It was harmless
+            # only by accident — the summary leg was switched off in every
+            # recorded run (G53), so `n_sum` was always 0 and the clause never
+            # fired. The moment G53 made the leg fire, it returned a fragment on
+            # 12 of 12 probes, and this metric would have read 0.303 -> 1.000
+            # and been reported as the fix working. That is TRAPS #21/#37: a
+            # presence test wearing a coverage score's name.
+            #
+            # A summary covering the span IS the right answer here, and that
+            # intent is preserved — but it is now EARNED rather than assumed.
+            # `origin_batch_ids` on a batch_summary fragment carries the turns
+            # it compresses (from `episodic_memory.batch_summary_id`), so
+            # `_frag_ids` already folds them into `returned_ids` and a summary
+            # that genuinely covers a gold turn scores that turn. One that does
+            # not, scores nothing.
             direct = sum(1 for g in gold_ids if g in returned_ids)
             n_sum = sum(1 for f in frags
                         if f.source_type in ("batch_summary", "summary"))
-            frac = direct / len(gold_ids) if gold_ids else 0.0
-            # A summary covering the span counts: that is the RIGHT answer here,
-            # and demanding the raw turns would score the intended behaviour as
-            # a failure.
-            score = max(frac, 1.0 if n_sum else 0.0)
-            bucket["detail"].append({"turn_coverage": round(frac, 3),
-                                     "summary_frags": n_sum})
+            # How much of the gold this probe's summaries actually reach, kept
+            # separately so "the leg fired" and "the leg helped" stay distinct.
+            via_summary = sum(
+                1 for g in gold_ids
+                if any(g in _frag_ids(f) for f in frags
+                       if f.source_type in ("batch_summary", "summary")))
+            score = direct / len(gold_ids) if gold_ids else 0.0
+            bucket["detail"].append({"turn_coverage": round(score, 3),
+                                     "summary_frags": n_sum,
+                                     "gold_via_summary": via_summary})
 
         elif ptype == "temporal":
             gid = gold_ids[0] if gold_ids else None
