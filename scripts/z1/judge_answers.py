@@ -158,9 +158,23 @@ def judge_one(question, source, ans_a, ans_b, *, retries=3):
             # across all five types (summary_synthesis 6.3% coverage -> 92%
             # ties; episodic_lookup 37.5% -> 50%). It was ruling answers
             # unsupported because it had not been shown the support.
+            # ⚑ G56: THE ANSWERS ARE NOT TRUNCATED EITHER, and they used to be.
+            # The SOURCE cap above was removed on 2026-08-20 with the note that
+            # a judge cannot rule on support it was never shown — and an
+            # identical `[:2500]` on both answers was left in place directly
+            # underneath it. The same argument applies with more force: the
+            # SOURCE is evidence, the ANSWERS are the thing being judged.
+            #
+            # Measured across every recorded answer run, the cap was not an
+            # edge case but the normal case: median answer 2,576-3,285 chars,
+            # and on the paired codex ablation 80 of 104 pairs had BOTH answers
+            # cut, 88 of 104 at least one. The system prompt asks the model to
+            # answer "accurately, thoroughly and in deep detail", so the
+            # instrument was amputating the conclusion of the behaviour it had
+            # just requested — and doing it to whichever answer went deepest.
             f"SOURCE\n{source}\n\n"
-            f"ANSWER A\n{(ans_a or '(empty)')[:2500]}\n\n"
-            f"ANSWER B\n{(ans_b or '(empty)')[:2500]}")
+            f"ANSWER A\n{ans_a or '(empty)'}\n\n"
+            f"ANSWER B\n{ans_b or '(empty)'}")
     body = {"model": model,
             # System first and unchanged, variable part last: prefix caching.
             "messages": [{"role": "system", "content": SYSTEM},
