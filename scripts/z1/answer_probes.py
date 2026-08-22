@@ -118,7 +118,9 @@ def main() -> int:
     from src.api.memory_decision import (decide_memory_retrieval,
                                          derive_total_budget,
                                          estimate_recent_window_tokens)
-    from src.api.prompt_assembler import assemble_prompt
+    from scripts.z1 import production_parity as pp
+    from src.api.prompt_assembler import (_recent_turn_rows, assemble_prompt,
+                                          conversation_summary_block)
     from src.classifier.classifier import PyTorchClassifier
     from src.memory.embedder import get_embedder
     from src.memory.models import EpisodicMemory
@@ -158,15 +160,14 @@ def main() -> int:
     # and differs from steady state (measured 2026-08-13).
     first = sample[0]
     if conv_of.get(first["conversation"]):
-        c0 = clf.classify(first["question"][:2000])
-        c0.context_reliance = "Long_Term_Memory"
-        orch.set_budget_from_turn_count(10, total_tokens=1000, classification=c0)
-        orch.retrieve(classification=c0, conversation_id=conv_of[first["conversation"]],
-                      prompt_embedding=embedder.encode(
-                          first["question"], convert_to_tensor=False).tolist(),
-                      scope=None)
+        # G54: warm up through the SAME path, so the cache it primes is the one
+        # the scored calls will use. It also stopped this block passing
+        # `set_budget_from_turn_count(10, total_tokens=1000)` with no
+        # total_budget, which silently fell back to context_total_budget_fallback.
+        pp.retrieve(orch, pp.build(db, first["question"],
+                                   conv_of[first["conversation"]], clf, embedder))
 
-    records = []
+    records, _parity = [], []
     for idx, p in enumerate(sample, 1):
         slug = p["conversation"]
         conv_id = conv_of.get(slug)
@@ -178,38 +179,41 @@ def main() -> int:
         # the same turns, in the other id space
         gold_set |= {gold_batch[str(g)] for g in gold_ids if str(g) in gold_batch}
         q = p["question"]
-        tc, tt = meta[slug]
-        c = clf.classify(q[:2000])
-        emb = embedder.encode(q, convert_to_tensor=False).tolist()
-        model_name, _ = find_best_model(c.topic_tags, c.intent_tags)
-        answer_model = args.answer_model or model_name
-        rw = get_model_context_window(model_name)
-        win = serving_window(model_name, rw) if settings.context_use_serving_window else rw
-        tb = effective_memory_budget(
-            derive_total_budget(win, settings), q,
-            generation_reserve=settings.context_generation_reserve,
-            floor=settings.context_budget_floor)
-        d = decide_memory_retrieval(
-            c, turn_count=tc, total_tokens=tt, settings=settings,
-            recent_window_tokens=estimate_recent_window_tokens(tc, tb),
-            timescope_mode="current", coding_scope=False)
+        # G54: the shared reproduction of main.py, not a fourth local copy.
+        # This block used to classify without the conversation, pass scope=None
+        # and hardcode timescope_mode="current" — see production_parity's
+        # module docstring for what each of those cost.
+        pre = pp.build(db, q, conv_id, clf, embedder, stats=meta[slug])
+        _parity.append(pre)
+        c = pre.classification
+        answer_model = args.answer_model or pre.model_name
 
         frags = []
-        if d.retrieve:
-            c.context_reliance = "Long_Term_Memory"
-            orch.set_budget_from_turn_count(tc, total_tokens=tt, classification=c,
-                                            total_budget=tb)
-            frags = orch.retrieve(classification=c, conversation_id=conv_id,
-                                  prompt_embedding=emb, scope=None)
+        if pre.retrieve:
+            frags = pp.retrieve(orch, pre)
             if _drop_codex:
                 frags = [f for f in frags if f.source_type != "codex"]
 
         # The REAL assembler, not a hand-rolled concatenation — the shape of the
         # prompt is part of what is under test (Z2: "does the assembled context
         # read like something a model can use, or like concatenated fragments").
+        #
+        # ⚑ G56: and now with the arguments production actually passes. This
+        # call omitted five of them, so the assembled prompt was not the one
+        # main.py builds: `scope` (the cluster-name header and project slots
+        # never rendered), `bookmarked_texts`, `session_start_text`,
+        # `conversation_summary_text` (the C4 whole-conversation summary never
+        # reached the answering model at all), and `max_recent_tokens` — which
+        # silently defaulted to 4000 instead of the orchestrator's own
+        # recent-turn budget.
         messages = assemble_prompt(
             memory_slots=[], retrieved_fragments=frags, user_message=q,
-            db_session=db, conversation_id=conv_id, classification=c)
+            db_session=db, conversation_id=conv_id, classification=c,
+            scope=pre.scope,
+            max_recent_tokens=getattr(orch, "recent_token_budget", None) or 4000,
+            conversation_summary_text=conversation_summary_block(
+                db, conv_id, pre.turn_count, pre.total_tokens,
+                getattr(orch, "recent_token_budget", None) or 4000))
 
         answer, err = "", None
         try:
@@ -228,25 +232,60 @@ def main() -> int:
         # 400 procedural and 207 timeline fragments earned ZERO gold credits
         # against 249 for episodic, so every recall number was an episodic score
         # wearing the system's name.
+        def _frag_ids(f):
+            """Every turn this fragment can be attributed to, in both id spaces."""
+            out = set()
+            if f.source_batch_id:
+                out.add(str(f.source_batch_id))
+            out.update(str(b) for b in (getattr(f, "origin_batch_ids", ()) or ()))
+            return out
+
         def _hits(f):
-            if f.source_batch_id and str(f.source_batch_id) in gold_set:
-                return True
-            return any(str(b) in gold_set for b in (getattr(f, "origin_batch_ids", ()) or ()))
+            return bool(_frag_ids(f) & gold_set)
         rank = next((i for i, f in enumerate(frags, 1) if _hits(f)), None)
+
+        # The turns the assembler will inject as "recent context", regardless of
+        # retrieval. Taken from the assembler's own row selector so it cannot
+        # drift; the budget trim inside get_recent_turns may drop a few, so this
+        # slightly OVER-flags — the safe direction for a warning.
+        recent_window_ids = set()
+        try:
+            for t in _recent_turn_rows(
+                    db, conv_id,
+                    getattr(settings, "recent_window_scope", "session"),
+                    int(getattr(settings, "recent_window_bridge_turns", 1)),
+                    int(getattr(settings, "recent_window_max_turns", 40))):
+                recent_window_ids.add(str(getattr(t, "id", "")))
+                recent_window_ids.add(str(getattr(t, "batch_id", "")))
+        except Exception:                                     # noqa: BLE001
+            pass
         records.append({
             "probe_type": p.get("probe_type", "untyped"),
             "question": q,
             "conversation": slug,
             "gold_turns": gold_turns,
             "gold_rank": rank,
-            "gold_covered": len(gold_set & {str(f.source_batch_id)
-                                            for f in frags if f.source_batch_id}),
+            # ⚑ G56: `gold_covered` used only `source_batch_id` while `_hits`
+            # above credits BOTH id spaces — two crediting rules on the same
+            # record, disagreeing by exactly the non-episodic legs. Same rule
+            # now.
+            "gold_covered": len(gold_set & {i for f in frags
+                                            for i in _frag_ids(f)}),
+            # ⚑ G56: is this probe answerable WITHOUT retrieval? The assembler
+            # always injects the conversation's recent turns, so a probe whose
+            # gold sits inside that window can be answered from the window
+            # alone and retrieval gets the credit. Measured across the 444-probe
+            # set: 53 (11.9%) — 37 episodic_lookup, 10 summary_synthesis, 6
+            # procedural. `gold_rank` cannot see this, because it is computed
+            # over `frags` only. Recorded per probe so the judge's verdicts can
+            # be split on it rather than averaged over it.
+            "gold_in_recent_window": bool(recent_window_ids & gold_set),
             "gold_total": len(gold_set),
             "expected_answer": p.get("answer", ""),
             "gold_turn_text": "\n---\n".join(
                 (gold_text.get(g) or "")[:1200] for g in gold_ids[:3]),
             "answer_model": answer_model,
-            "b2_declined": not d.retrieve,
+            "b2_declined": not pre.retrieve,
             "fragment_count": len(frags),
             "legs": sorted({f.source_type for f in frags}),
             # ⚑ Per-fragment identity, not just a list of leg NAMES. The old
@@ -279,7 +318,14 @@ def main() -> int:
         "meta": run_meta(script=__file__, args=vars(args),
                          settings_keys=["codex_relation_canonical_threshold",
                                         "procedural_min_cited_turns",
-                                        "retrieval_strengthen_writes"]),
+                                        "retrieval_strengthen_writes",
+                                        "codex_reinforce_increment",
+                                        "decay_strengthen_amount"],
+                         # ⚑ WHAT WAS ACTUALLY PASSED TO retrieve(). Every run
+                         # recorded resolved settings and a git sha and NONE
+                         # recorded this, which is precisely why a scope=None /
+                         # no-conversation-id harness went nine days unnoticed.
+                         extra={"parity": pp.provenance_fields(_parity[-1])} if _parity else None),
         "utc": stamp, "tag": args.tag, "seed": args.seed,
         "probe_file": str(probe_path), "records": records,
     }, indent=2))

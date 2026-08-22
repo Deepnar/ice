@@ -238,50 +238,32 @@ def main() -> int:
         q = p["question"]
         turn_count, total_tokens = conv_meta[cid]
         try:
-            c = clf.classify(q[:2000])
-            emb = embedder.encode(q, convert_to_tensor=False).tolist()
-
             # ── the production preamble main.py runs before retrieve() ──
-            # Without it this instrument measured a system nobody ships: the
-            # orchestrator sat at its __init__ default of 5,000 tokens (real
-            # budgets here are 8,100-11,350), and the classifier's raw
-            # `Zero_Shot` survived into a defensive guard that main.py's
-            # `context_reliance = "Long_Term_Memory"` means production never
-            # reaches — which returned 0 fragments for 15 probes and scored
-            # them as retrieval misses. C16: the budget comes from the routed
-            # model's real window, then the question's own tokens.
-            model_name, _ = find_best_model(c.topic_tags, c.intent_tags)
-            registry_window = get_model_context_window(model_name)
-            window = (serving_window(model_name, registry_window)
-                      if settings.context_use_serving_window else registry_window)
-            total_budget = effective_memory_budget(
-                derive_total_budget(window, settings), q,
-                generation_reserve=settings.context_generation_reserve,
-                floor=settings.context_budget_floor)
+            # ⚑ G54: this was the FOURTH local copy of it, and like the other
+            # three it classified without the conversation, passed scope=None
+            # and hardcoded timescope_mode="current". `production_parity` is now
+            # the single reproduction of main.py; tests/test_harness_parity.py
+            # fails if it drifts. The original note here is still the reason it
+            # exists at all: without a preamble this instrument measured a
+            # system nobody ships — the orchestrator sat at its __init__ default
+            # of 5,000 tokens against real budgets of 8,100-11,350, and a raw
+            # `Zero_Shot` reached a guard production never touches, returning 0
+            # fragments for 15 probes and scoring them as retrieval misses.
+            pre = pp.build(db, q, conv_of[cid], clf, embedder,
+                           stats=(turn_count, total_tokens))
+            c = pre.classification
 
             # B2 decides whether memory is consulted at all. A turn it declines
             # is NOT a retrieval failure and averaging the two together is how
             # a deliberate decision got counted as a miss.
-            decision = decide_memory_retrieval(
-                c, turn_count=turn_count, total_tokens=total_tokens,
-                settings=settings,
-                recent_window_tokens=estimate_recent_window_tokens(
-                    turn_count, total_budget),
-                timescope_mode="current", coding_scope=False)
-            if not decision.retrieve:
+            if not pre.retrieve:
                 declined.append({"conversation": cid, "gold_turn": p["gold_turn"],
                                  "question": q})
                 continue
 
-            c.context_reliance = "Long_Term_Memory"          # main.py
-            orch.set_budget_from_turn_count(
-                turn_count, total_tokens=total_tokens, classification=c,
-                total_budget=total_budget)
-
             gold_legs.clear()
             _watch["gold"] = str(gold_id)
-            frags = orch.retrieve(classification=c, conversation_id=conv_of[cid],
-                                  prompt_embedding=emb, scope=None)
+            frags = pp.retrieve(orch, pre)
         except Exception as exc:
             print(f"  ! probe {i}: {type(exc).__name__}: {exc}")
             stats["retrieve_failed"] += 1

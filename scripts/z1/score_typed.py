@@ -203,6 +203,8 @@ def main() -> int:
         ).filter_by(conversation_id=cid).scalar() or 0
         meta_conv[slug] = (tc, estimate_from_chars(ch))
 
+    _parity = []
+
     def retrieve_for(question, slug):
         """The production preamble, then retrieval.
 
@@ -215,6 +217,7 @@ def main() -> int:
         """
         pre = pp.build(db, question, conv_of[slug], clf, embedder,
                        stats=meta_conv[slug])
+        _parity.append(pre)
         if not pre.retrieve:
             return None, pre.classification
         _frags = pp.retrieve(orch, pre)
@@ -458,7 +461,11 @@ def main() -> int:
                          settings_keys=list(_TRACKED),
                          inputs=[file_digest(probe_path)],
                          extra={"probe_set_meta": payload.get("meta", {}),
-                                "k": args.k}),
+                                "k": args.k,
+                                # ⚑ What was actually passed to retrieve() —
+                                # the field set whose absence hid G52/G54.
+                                "parity": pp.provenance_fields(_parity[-1])
+                                if _parity else None}),
         "per_type": summary,
         "detail": {t: per_type[t]["detail"] for t in per_type},
     }, indent=1, default=str))

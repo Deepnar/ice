@@ -37,6 +37,7 @@ from sqlalchemy import func, text  # noqa: E402
 
 from src.api.config import settings  # noqa: E402
 from src.api.db import SessionLocal  # noqa: E402
+from scripts.z1 import production_parity as pp  # noqa: E402
 from scripts.z1.run_meta import run_meta  # noqa: E402
 
 PROBES = Path("experiments/curation_files/generated_probes.json")
@@ -119,14 +120,12 @@ def main() -> int:
     # include the instrument's own warm-up.
     first = probes[0]
     if conv_of.get(first["conversation"]):
-        c0 = clf.classify(first["question"][:2000])
-        c0.context_reliance = "Long_Term_Memory"
-        orch.set_budget_from_turn_count(10, total_tokens=1000, classification=c0)
-        orch.retrieve(classification=c0,
-                      conversation_id=conv_of[first["conversation"]],
-                      prompt_embedding=embedder.encode(
-                          first["question"], convert_to_tensor=False).tolist(),
-                      scope=None)
+        # G54: warm up through the SAME path, so the cache it primes is the one
+        # the scored calls will use. It also stopped this block passing
+        # `set_budget_from_turn_count(10, total_tokens=1000)` with no
+        # total_budget, which silently fell back to context_total_budget_fallback.
+        pp.retrieve(orch, pp.build(db, first["question"],
+                                   conv_of[first["conversation"]], clf, embedder))
 
     records, seen = [], 0
     for p in probes:
@@ -151,30 +150,19 @@ def main() -> int:
         seen += 1
         q = p["question"]
         tc, tt = meta[slug]
-        c = clf.classify(q[:2000])
-        emb = embedder.encode(q, convert_to_tensor=False).tolist()
-        model_name, _ = find_best_model(c.topic_tags, c.intent_tags)
-        rw = get_model_context_window(model_name)
-        win = serving_window(model_name, rw) if settings.context_use_serving_window else rw
-        tb = effective_memory_budget(
-            derive_total_budget(win, settings), q,
-            generation_reserve=settings.context_generation_reserve,
-            floor=settings.context_budget_floor)
-        d = decide_memory_retrieval(
-            c, turn_count=tc, total_tokens=tt, settings=settings,
-            recent_window_tokens=estimate_recent_window_tokens(tc, tb),
-            timescope_mode="current", coding_scope=False)
-        if not d.retrieve:
+        # G54: the shared reproduction of main.py, not a local copy. This block
+        # classified without the conversation, passed scope=None and hardcoded
+        # timescope_mode="current" — the same three divergences its three
+        # siblings carried, which is why none of them disagreed with each other.
+        pre = pp.build(db, q, conv_id, clf, embedder, stats=meta[slug])
+        c = pre.classification
+        if not pre.retrieve:
             records.append({"question": q, "conversation": slug,
                             "probe_type": p.get("probe_type", "untyped"),
                             "gold_turns": gold_turns,
                             "b2_declined": True, "fragments": []})
             continue
-        c.context_reliance = "Long_Term_Memory"
-        orch.set_budget_from_turn_count(tc, total_tokens=tt, classification=c,
-                                        total_budget=tb)
-        frags = orch.retrieve(classification=c, conversation_id=conv_id,
-                              prompt_embedding=emb, scope=None)
+        frags = pp.retrieve(orch, pre)
         # Rank of the FIRST gold turn to come back, and how many of them did.
         # For a multi-gold probe rank alone is misleading: a summary probe
         # spanning 17 turns can rank 1 and still have missed 16.
