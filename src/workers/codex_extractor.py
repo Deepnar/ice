@@ -1653,15 +1653,27 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
             ))
         else:
             # Same pair, different relation.
-            # FIX: only expire the old edge if the OLD relation is single-valued.
-            # Previously this branch expired the old edge unconditionally, which
-            # silently broke multi-valued semantics — e.g. if "knows" (multi-valued)
-            # was active between two entities and a later turn asserted "friend"
-            # (also multi-valued) between the same pair, the old "knows" edge was
-            # deleted even though both relations are supposed to coexist.
-            # Multi-valued relations between the same pair should simply add a
-            # second, independent edge instead of replacing the first.
-            if existing_active.relation not in MULTI_VALUED_RELATIONS:
+            # Only expire the old edge if the OLD relation is single-valued —
+            # "knows" (multi-valued) must survive a later "friend" between the
+            # same pair, because both are supposed to coexist.
+            #
+            # ⚑ G51, 2026-08-22: this tests membership of the SINGLE list, not
+            # absence from the MULTI list, and the difference is the whole
+            # point. `07fc689` made exactly that change in the single-valued
+            # branch below and left this twin on the old form — so every
+            # OPEN-VOCABULARY relation, which is by definition on neither closed
+            # list, took the `not in MULTI_VALUED` path and retired its
+            # predecessor. Measured on the arm-B store before the fix: 667 of
+            # 817 expiries (82%) were open-vocabulary relations expired here —
+            # `have` x34, `are` x28, `feels` x13, `in` x12. Silent, because the
+            # row stays in the table with `valid_until` set.
+            #
+            # The default for an unknown relation is KEEP BOTH: losing a
+            # supersession leaves a stale edge, which is visible and
+            # correctable; losing a fact is neither. Do not "fix" this by
+            # growing either list — that is the closed-vocabulary defect G45
+            # removed.
+            if existing_active.relation in SINGLE_VALUED_RELATIONS:
                 existing_active.valid_until = datetime.now(timezone.utc)
                 db.add(CodexEvent(
                     entity_id=subj.id,
