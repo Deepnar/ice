@@ -1732,8 +1732,16 @@ summary-leg number is trusted.
 30 per type (30 is the smallest count that resolves a per-type difference
 against the ~22-probe paired MDE), the production chain end to end, then the
 **real** `assemble_prompt`, then a generated answer. Answering model pinned to
-`gemma4:26b-a4b-it-q4_K_M` for both arms — **A12's top-ranked model and neither
-arm under test**, so it cannot favour its own summaries. Arm 1 147/150 answered,
+`gemma4:26b-a4b-it-q4_K_M` for both arms — **neither arm under test**, so it
+cannot favour its own summaries.
+⚠ **CORRECTION 2026-08-22: this entry called it "A12's top-ranked model" and
+that was wrong twice over.** A12 ranked it **THIRD** — see `:1485-1488` in this
+same file, *"The 26B is NOT the winner"*, behind `gemma4:e4b` and
+`qwen3:4b-instruct` — and A12 ranked models for **background extraction**, not
+for answering, so its ranking does not transfer to this job at all. The
+independence argument above is the real and sufficient justification; the
+appeal to A12 was decoration, and it propagated into `MODELS.md` where it read
+as a measured endorsement. Arm 1 147/150 answered,
 arm 2 149/150.
 
 ### Judging: paired, blind, and the taxonomy is the instrument

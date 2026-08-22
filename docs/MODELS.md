@@ -22,7 +22,7 @@ concurrency** — a 27B at `--workers 3` reached 105 °C ([TRAPS #36](TRAPS.md))
 |---|---|---|---|
 | **background / codex extraction** | `qwen3:4b-instruct` | Ollama | the re-seed's bg model. ⚠ `.env` pins `BACKGROUND_MODEL_NAME=gemma4:26b-a4b-it-q4_K_M`, which `two_arm_seed.sh` calls **STALE, not a decision** — arms pass `--bg-model` |
 | **probe generation** | `qwen3.8:27b` | Ollama | user's preferred local model (2026-08-17); supersedes `qwen3.6:27b` |
-| **probe answering** | `gemma4:26b-a4b-it-q4_K_M` | Ollama | A12's top-ranked; deliberately **neither arm under test**, so it cannot favour its own summaries |
+| **probe answering** | `gemma4:26b-a4b-it-q4_K_M` | Ollama | Chosen because it is deliberately **neither arm under test**, so it cannot favour its own summaries. ⚠ **NOT "A12's top-ranked" — that label was wrong twice over** (corrected 2026-08-22). A12 ranked it **THIRD** (`PROVENANCE.md:1485-1488`: *"The 26B is NOT the winner"*, behind `gemma4:e4b` and `qwen3:4b-instruct`), **and** A12 ranked models for *background extraction*, which is not this job. The independence argument is the real and sufficient reason. |
 | **judging** | `deepseek-v4-flash` | **cloud** | paired A/B judge. ⚠ reasoning model — `reasoning_effort="none"` made it confidently wrong ([TRAPS #34](TRAPS.md)) |
 | **embedding** | `Qwen/Qwen3-Embedding-0.6B` | in-process | native **1024-dim**, frozen. Resident on the same card as everything else |
 | **NER (pre-flight + codex whitelist)** | **MicroNER — ours** | in-process | `models/ner/ner_model.pt`, 234 KB, over the `slice384` MRL prefix |
