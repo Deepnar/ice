@@ -393,6 +393,15 @@ rather than to luck.
 harness must reproduce whatever makes it unreachable.** Otherwise the harness
 measures the guard, and the guard is not the system.
 
+⚠ **Neither endpoint is a retrieval result (added 2026-08-22).** The 2× swing is
+sound evidence about *instruments* — the control reproducing 0.250 to 17 decimal
+places is what makes it attributable — and it is no evidence at all about ICE.
+Both 0.250 and 0.508 credit only episodic fragments ([#32](#32-a-metric-can-be-structurally-blind-to-most-of-the-system)),
+both were taken on a probe set later measured **64% contaminated**, and both came
+from a scorer that classifies without the conversation, moving the fusion weights
+on 65% of probes ([#44](#44-the-harness-classified-without-the-conversation-and-it-moved-65-of-the-fusion-weights)).
+**Cite this entry for the lesson, never for the number.**
+
 ### 25. `.env` keys that Settings does not declare take the whole application down
 
 **2026-08-13.** Three `PROBE_*` lines were added to `.env` for an experiment
