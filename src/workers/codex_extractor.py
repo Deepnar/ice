@@ -534,6 +534,10 @@ _ROLE_TAILS = frozenset({
     "into", "onto", "about", "against", "over", "under", "through",
 })
 
+# `properties` keys that are ICE's own bookkeeping, never a claim about the
+# entity, and so never rendered into a retrieval fragment.
+_INTERNAL_PROPERTY_KEYS = frozenset({"merge_key", "merged_into"})
+
 
 def _is_negated(rel: str) -> bool:
     """Whether a relation word carries its own negation."""
@@ -1353,7 +1357,14 @@ def _regenerate_context_payload(entity: CodexEntity, db) -> None:
     if entity.description:
         parts.append(entity.description.strip())
     if entity.properties:
-        props = "; ".join(f"{k}: {v}" for k, v in entity.properties.items())
+        # ⚑ Internal bookkeeping is not a fact about the entity. `merge_key` is
+        # G50's normalisation key, stamped on every entity at birth, and it was
+        # rendering into 6,271 of 6,271 payloads — so for any entity with no
+        # real properties it was the ONLY `Properties:` line, and the answering
+        # model read a lookup key as a stated attribute:
+        #     jee main | Properties: merge_key: jee main
+        props = "; ".join(f"{k}: {v}" for k, v in entity.properties.items()
+                          if k not in _INTERNAL_PROPERTY_KEYS)
         if props:
             parts.append(f"Properties: {props}")
     # A8: positive edges → Links/Backlinks; negated edges → a Negations section.
