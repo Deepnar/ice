@@ -45,6 +45,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from sqlalchemy import func, text  # noqa: E402
 
+from scripts.z1 import production_parity as pp  # noqa: E402
 from scripts.z1.run_meta import file_digest, run_meta  # noqa: E402
 from src.api.config import settings  # noqa: E402
 from src.api.db import SessionLocal  # noqa: E402
@@ -197,34 +198,26 @@ def main() -> int:
         meta_conv[slug] = (tc, estimate_from_chars(ch))
 
     def retrieve_for(question, slug):
-        """The production preamble, then retrieval. Same path as score_retrieval."""
-        tc, tt = meta_conv[slug]
-        c = clf.classify(question[:2000])
-        emb = embedder.encode(question, convert_to_tensor=False).tolist()
-        model_name, _ = find_best_model(c.topic_tags, c.intent_tags)
-        rw = get_model_context_window(model_name)
-        win = serving_window(model_name, rw) if settings.context_use_serving_window else rw
-        tb = effective_memory_budget(
-            derive_total_budget(win, settings), question,
-            generation_reserve=settings.context_generation_reserve,
-            floor=settings.context_budget_floor)
-        d = decide_memory_retrieval(
-            c, turn_count=tc, total_tokens=tt, settings=settings,
-            recent_window_tokens=estimate_recent_window_tokens(tc, tb),
-            timescope_mode="current", coding_scope=False)
-        if not d.retrieve:
-            return None, c
-        c.context_reliance = "Long_Term_Memory"
-        orch.set_budget_from_turn_count(tc, total_tokens=tt, classification=c,
-                                        total_budget=tb)
-        _frags = orch.retrieve(classification=c, conversation_id=conv_of[slug],
-                               prompt_embedding=emb, scope=None)
+        """The production preamble, then retrieval.
+
+        ⚑ G54: this used to be a LOCAL copy of the preamble, one of four, and
+        all four had drifted the same way — `classify(question[:2000])` with no
+        conversation id, `scope=None`, and `timescope_mode="current"` hardcoded.
+        The classification gap alone changed the RRF blend weights on 65% of
+        probes. The copy is gone; `production_parity` is the one reproduction of
+        `main.py` and `tests/test_harness_parity.py` fails if it drifts again.
+        """
+        pre = pp.build(db, question, conv_of[slug], clf, embedder,
+                       stats=meta_conv[slug])
+        if not pre.retrieve:
+            return None, pre.classification
+        _frags = pp.retrieve(orch, pre)
         if _drop_codex_fragments:
             # Retrieval ran in full — expansion already shaped the BM25 query —
             # and only the codex FRAGMENTS are withheld. That is the isolation
             # the condition needs.
             _frags = [f for f in _frags if f.source_type != "codex"]
-        return _frags, c
+        return _frags, pre.classification
 
     # Warm-up (the first retrieval of a process differs — relation gloss cache).
     for p in probes:
