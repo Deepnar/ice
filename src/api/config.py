@@ -443,6 +443,16 @@ class Settings(BaseSettings):
     # window; the truncation rate is the number to watch after changing it.
     turn_summary_max_tokens: int = 900
 
+    # ⚑ The extraction prompt's DIRECTION rule (2026-08-22). ~25-28% of stored
+    # triplets are reversed — right entities, right relation, backwards — and
+    # the rate did NOT move when 1,611 direction-changing canonicalisation
+    # merges were blocked, which places the cause at generation rather than
+    # downstream. The prompt had no direction instruction at all and every
+    # example was active SVO, while ALLOWED_RELATIONS mixes voices inside one
+    # category. Kept as a setting so the prompt can be A/B'd against itself:
+    # the same turns, the same model, this flag the only variable.
+    codex_extraction_direction_rule: bool = True
+
     # Chunking (A1), shared by the document ingest and the codex extractor.
     chunk_tokens: int = 550
     chunk_overlap_words: int = 50

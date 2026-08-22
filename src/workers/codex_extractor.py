@@ -867,7 +867,36 @@ def extract_triplets(text: str, model_override: str = "",
             "   GOOD: {\"subject\":\"flaw\",...}  {\"subject\":\"emotional validation\",...}\n"
             if settings.codex_extraction_entity_shape_rule else ""
         )
-        + "7. Output ONLY a JSON array. No markdown, no explanation.\n\n"
+        + (
+            # ⚑ DIRECTION. Measured 2026-08-22: ~25-28% of stored triplets are
+            # REVERSED — right entities, right relation, backwards — and that
+            # rate did not move when 1,611 direction-changing canonicalisation
+            # merges were blocked, so the reversals are produced HERE, at
+            # generation, not downstream. Until now this prompt said nothing
+            # about which argument goes in `subject`, and all three examples
+            # below were active SVO, while ALLOWED_RELATIONS mixes voices inside
+            # a single category (`created` active, `founded_by` passive;
+            # `manufactured_by`/`published_by` passive-only). A model asked to
+            # render "Ford manufactured the car" therefore had a passive-only
+            # relation available and no template for using it.
+            "8. DIRECTION — which argument is the subject:\n"
+            "   · With an ACTIVE relation, the subject DOES the action.\n"
+            "     \"Ford manufactured the car\" -> "
+            "{\"subject\":\"ford\",\"relation\":\"created\",\"object\":\"car\"}\n"
+            "   · With a relation ending in _by, the subject RECEIVES the action "
+            "and the object is the doer. These are mirror images — never both.\n"
+            "     \"The car was manufactured by Ford\" -> "
+            "{\"subject\":\"car\",\"relation\":\"manufactured_by\",\"object\":\"ford\"}\n"
+            "   · A passive sentence does NOT mean you must use a passive "
+            "relation. Rewrite it actively if the active word exists.\n"
+            "     \"ICE was written by Deepesh\" -> "
+            "{\"subject\":\"deepesh\",\"relation\":\"created\",\"object\":\"ice\"}\n"
+            "   · Read the fact back before emitting it: subject-relation-object "
+            "must be true IN THAT ORDER. \"car created ford\" is false; "
+            "\"ford created car\" is true.\n"
+            if settings.codex_extraction_direction_rule else ""
+        )
+        + "9. Output ONLY a JSON array. No markdown, no explanation.\n\n"
         "EXAMPLES:\n"
         "Text: \"ICE uses PostgreSQL for memory and Redis for tasks.\"\n"
         "Output: [{\"subject\":\"ice\",\"relation\":\"uses\",\"object\":\"postgresql\"},"
@@ -878,6 +907,16 @@ def extract_triplets(text: str, model_override: str = "",
         "Text: \"FastAPI extends Starlette and depends on Pydantic.\"\n"
         "Output: [{\"subject\":\"fastapi\",\"relation\":\"extends\",\"object\":\"starlette\"},"
         " {\"subject\":\"fastapi\",\"relation\":\"depends_on\",\"object\":\"pydantic\"}]\n"
+        + (
+            # A PASSIVE worked example, because every example above is active
+            # and examples carry more weight than rules.
+            "\nText: \"The paper was reviewed by Dr. Rao, and the grant was "
+            "awarded to our lab.\"\n"
+            "Output: [{\"subject\":\"paper\",\"relation\":\"reviewed_by\","
+            "\"object\":\"dr. rao\"},"
+            " {\"subject\":\"our lab\",\"relation\":\"received\",\"object\":\"grant\"}]\n"
+            if settings.codex_extraction_direction_rule else ""
+        )
     )
 
     # Optional code‑specific instructions
