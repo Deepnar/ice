@@ -484,6 +484,30 @@ def _is_inverse_pair(a: str, b: str) -> bool:
     _ant = globals().get("ANTONYM_OF") or {}
     if b in _ant.get(a, ()) or a in _ant.get(b, ()):
         return True
+    # ⚑ POLARITY — settled here, deterministically, because similarity cannot
+    # see it. `can`/`cannot` score 0.9134 on the live encoder and
+    # `is_the_same_as`/`is_not_the_same_as` 0.9182 — both above the 0.90 merge
+    # threshold, and neither is caught by ANTONYM_OF (a hand list cannot
+    # enumerate an open vocabulary) nor by the passive rule below, which
+    # compares True against True for any `is_*`/`is_*` pair. Merging a relation
+    # into its own negation asserts the opposite of what the turn said.
+    if _is_negated(a) != _is_negated(b):
+        return True
+
+    # ⚑ ARGUMENT ROLE — same reasoning. A trailing preposition names WHICH
+    # argument the object fills, so changing it changes the fact:
+    # `is_used_by`/`is_used_for` 0.9327, `is_needed_by`/`is_needed_for` 0.9547,
+    # `results_from`/`results_in` 0.9266. All three clear 0.90 and all three are
+    # invisible to the passive rule. The worst single case is `is` -> `in`,
+    # which turns a copula into a containment claim.
+    #
+    # Blocking is the safe direction, by the asymmetry the passive rule already
+    # argues: a missed merge leaves two correct relations, a wrong merge writes
+    # a fact backwards.
+    tail_a, tail_b = _role_tail(a), _role_tail(b)
+    if tail_a != tail_b and (tail_a or tail_b):
+        return True
+
     # Blanket direction rule, and deliberately blunt: two relations may not be
     # merged when exactly ONE of them is marked passive. Matching stems was the
     # first attempt and it failed on irregulars — `makes`/`made_by` share no
@@ -491,6 +515,47 @@ def _is_inverse_pair(a: str, b: str) -> bool:
     # at most a missed merge between an active and a passive form, which leaves
     # two correct relations; being clever costs a fact written backwards.
     return _is_passive(a) != _is_passive(b)
+
+
+# Negation carried INSIDE a relation word. G45 opened the vocabulary, so the
+# model now says `is_not`, `cannot`, `does_not`, `lacks` as relation words
+# rather than setting A8's `negated` flag — which is why these have to be
+# recognised as strings here rather than trusted to the flag.
+_NEGATION_TOKENS = frozenset({
+    "not", "no", "never", "cannot", "cant", "without", "lacks", "lack",
+    "isnt", "wasnt", "arent", "werent", "doesnt", "dont", "didnt",
+    "hasnt", "havent", "hadnt", "wont", "shouldnt", "couldnt", "wouldnt",
+})
+
+# Trailing prepositions that name which argument the object fills. A change of
+# tail is a change of meaning, never a synonym.
+_ROLE_TAILS = frozenset({
+    "by", "for", "from", "to", "in", "on", "as", "with", "of", "at",
+    "into", "onto", "about", "against", "over", "under", "through",
+})
+
+
+def _is_negated(rel: str) -> bool:
+    """Whether a relation word carries its own negation."""
+    r = (rel or "").strip().lower()
+    if not r:
+        return False
+    if set(r.split("_")) & _NEGATION_TOKENS:
+        return True
+    # `non`/`un`/`dis` on the FIRST token only, and only when that token is long
+    # enough that the prefix is not a coincidence. `in_` is deliberately absent:
+    # `in` is a role tail and a live relation in its own right.
+    head = r.split("_", 1)[0]
+    return len(head) > 4 and head.startswith(("non", "un", "dis"))
+
+
+def _role_tail(rel: str) -> Optional[str]:
+    """The trailing preposition naming the object's argument role, or None."""
+    r = (rel or "").strip().lower()
+    if not r:
+        return None
+    tail = r.rsplit("_", 1)[-1]
+    return tail if tail in _ROLE_TAILS else None
 
 
 def _is_passive(rel: str) -> bool:
