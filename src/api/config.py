@@ -432,6 +432,16 @@ class Settings(BaseSettings):
     turn_density_lossless_threshold: float = 0.35
     turn_summary_coverage_threshold: float = 0.7
     turn_max_must_terms: int = 25
+    # ⚑ The summariser's generation ceiling, and it BOUND — hard. It was a
+    # literal 300 in post_flight, and on the arm-B seed 84 of 212 summaries
+    # (40%) came back truncated: `bg_model_output_truncated` fired at
+    # max_tokens=300 that many times, and 47 summaries have no `abstract_text`
+    # because the Abstract line the prompt asks for comes AFTER the Key terms
+    # block and a 300-token cut removes it. A ceiling that severs 40% of its
+    # outputs is not a budget, it is a defect. 900 is ~3x the observed
+    # requirement and still an order of magnitude under the background model's
+    # window; the truncation rate is the number to watch after changing it.
+    turn_summary_max_tokens: int = 900
 
     # Chunking (A1), shared by the document ingest and the codex extractor.
     chunk_tokens: int = 550

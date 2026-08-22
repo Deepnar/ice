@@ -169,13 +169,59 @@ def must_terms(key_terms: dict) -> list:
     return out[:settings.turn_max_must_terms]
 
 
+def strip_generated_index(summary: str) -> str:
+    """The summary PROSE, without the `Key terms:` / `Abstract:` lines.
+
+    ⚑ WHY THIS EXISTS (TRAPS #45). `summary_coverage` counts how many of the
+    turn's named entities, figures and identifiers appear in the summary — and
+    the summariser's own prompt ends with:
+
+        "End with two final lines formatted exactly as:
+         Key terms: <comma-separated list of the named entities, figures, and
+         identifiers that appear in the …>"
+
+    The same three categories. So the metric was largely scoring whether the
+    model obeyed a formatting instruction: a poor summary followed by an
+    obedient term list scored the same as a good one. Measured on the arm-B
+    store, 193 of 212 summaries (91%) carry the block, coverage averaged 0.971
+    with **79% at exactly 1.000**, and every stored summary ended in a comma
+    list rather than a sentence.
+
+    That mattered because coverage is the trust gate: `post_flight` uses it to
+    decide whether the summary REPLACES the raw turn in the prompt, and at that
+    distribution the threshold never bound. 99 turns had their raw text
+    replaced by a summary nothing had actually checked.
+
+    Coverage is now measured over the prose only. The index still gets written
+    and stored — it is genuinely useful downstream — it just no longer grades
+    itself.
+    """
+    if not summary:
+        return ""
+    out = []
+    for line in summary.splitlines():
+        head = line.strip().lower()
+        if head.startswith(("key terms:", "keywords:", "key-terms:",
+                            "abstract:")):
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
 def summary_coverage(summary: str, key_terms: dict) -> float:
-    """Fraction of must-terms present in the summary (case-insensitive).
-    No must-terms → vacuously 1.0."""
+    """Fraction of must-terms present in the summary PROSE (case-insensitive).
+
+    No must-terms → vacuously 1.0. The model's own `Key terms:` index is
+    excluded — see `strip_generated_index` for why that is the whole point.
+    """
     terms = must_terms(key_terms)
     if not terms:
         return 1.0
-    low = (summary or "").lower()
+    prose = strip_generated_index(summary)
+    # A summary that is ONLY the index has no prose to score. That is the case
+    # the old metric rated 1.000 (TRAPS #21's `granite4:tiny-h`, 12 of 12), and
+    # it is a failure, not a perfect score.
+    low = prose.lower()
     hit = sum(1 for t in terms if t.lower() in low)
     return round(hit / len(terms), 4)
 

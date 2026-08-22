@@ -86,7 +86,9 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
             {"role": "user", "content": body},
         ],
         temperature=0.0,
-        max_tokens=300,
+        # TRAPS #17: a literal here is a knob nobody can reach. This one was
+        # 300 and bound on 40% of turns — see the setting's note.
+        max_tokens=settings.turn_summary_max_tokens,
         timeout=bg_timeout(300),
     )
     return completion.choices[0].message.content.strip()
