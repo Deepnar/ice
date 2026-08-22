@@ -258,10 +258,35 @@ def main() -> int:
         if ptype == "episodic_lookup":
             gid = gold_ids[0] if gold_ids else None
             want = _ids_for(gid) if gid else set()
-            rank = next((i for i, f in enumerate(frags, 1)
+            # ⚑ A SPAN IS NOT A TURN (2026-08-22, caught by an ablation).
+            #
+            # This asks "did THIS turn come back, and where in the ranking".
+            # Stamping origin_batch_ids onto batch-summary fragments earlier the
+            # same day made a summary creditable — correct for the coverage
+            # metrics below, and WRONG here: one batch summary spans up to **33
+            # turns** on this store, so returning it scored a hit for any gold
+            # turn inside that range. 25% of all turns sit inside some summary's
+            # span, and the inflation measured **0.634 -> 0.754** — a leg
+            # ablation exposed it, because turning the summary leg OFF should
+            # not improve a recall score and it "did".
+            #
+            # Rule: a fragment credits a turn when it IS that turn or was
+            # derived FROM it specifically. A codex or procedural fragment
+            # extracted from the gold turn still counts — that is G48b and it
+            # stands. A range that merely CONTAINS the turn does not.
+            specific = [f for f in frags
+                        if f.source_type not in ("batch_summary", "summary")]
+            rank = next((i for i, f in enumerate(specific, 1)
                          if _frag_ids(f) & want), None)
             score = 1.0 if (rank and rank <= args.k) else 0.0
-            bucket["detail"].append({"rank": rank})
+            # Kept so the span-credit effect stays visible instead of silently
+            # disappearing: what the old, over-generous rule would have scored.
+            span_rank = next((i for i, f in enumerate(frags, 1)
+                              if _frag_ids(f) & want), None)
+            bucket["detail"].append({
+                "rank": rank,
+                "rank_incl_span_credit": span_rank,
+                "span_credited_only": bool(span_rank and not rank)})
 
         elif ptype == "codex_multihop":
             # No single gold turn, so success is: did the material needed to
@@ -362,11 +387,19 @@ def main() -> int:
                                      "gold_via_summary": via_summary})
 
         elif ptype == "temporal":
+            # Same rule as episodic_lookup: this is a "did THIS turn come back,
+            # and did the newer one outrank it" question, so a span that merely
+            # contains either turn credits neither. Worse here than there — one
+            # summary can span BOTH the old value and the turn that superseded
+            # it, which would make the ordering test unanswerable while looking
+            # like a pass.
+            specific = [f for f in frags
+                        if f.source_type not in ("batch_summary", "summary")]
             gid = gold_ids[0] if gold_ids else None
-            rank = next((i for i, f in enumerate(frags, 1)
+            rank = next((i for i, f in enumerate(specific, 1)
                          if _frag_ids(f) & _ids_for(gid)), None)
             sup_id = gold_index.get((slug, p.get("superseded_by")))
-            sup_rank = next((i for i, f in enumerate(frags, 1)
+            sup_rank = next((i for i, f in enumerate(specific, 1)
                              if _frag_ids(f) & _ids_for(sup_id)),
                             None)
             hit = bool(rank and rank <= args.k)
