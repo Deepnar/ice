@@ -223,6 +223,27 @@ small model is best is effectively unmeasured**, and a re-run should use the
 truth judge as the primary metric, one variable at a time, with the NER tier
 pinned (it is a second variable — see `codex_extraction_ner_tier`).
 
+### Paper era (v1/v2) — judging and ground-truth correction, under **SGLang**
+
+⚠ **A third serving stack this file did not mention.** Ollama and vLLM are in
+§2/§4; the paper ran **SGLang on :8003** as well.
+
+| model | stack | job | scale |
+|---|---|---|---|
+| `mattbucci/gemma-4-12B-AWQ` | SGLang, 150k ctx | **the paper's judge**, and ground-truth correction | 657 Exp-1 probes · **all 1,211 Exp-2 probes** · every Exp-3 ablation variant |
+| `gemma4:26b-a4b-it-q4_K_M` | Ollama | the paper run's own model | 858 config references across `experiments/` |
+
+The paper states its own caveat on this judge: it marked correctly-retrieved
+information as hallucinated when the fact was absent from the *condensed
+ground-truth summary* rather than from the conversation. Exp-2 hallucination
+annotations were therefore hand-audited across all 1,211 probes; **Exp-3's were
+not**, so Exp-3's absolute hallucination numbers carry automated-judge error and
+only its relative differences hold.
+
+⇒ These are v2 numbers and frozen. Listed here because **which models ran** is a
+fact about this repo regardless of whether the numbers they produced are still
+trusted.
+
 ### Corpus labelling (B1) — 2026-07-25, under vLLM
 
 Three served and compared, five rejected. Full table with revisions,
@@ -250,14 +271,28 @@ won at 2.34 rows/s and 0.01% degenerate.
 | `deepseek-v4-flash` (cloud) | **current and pinned** — keeping it fixed preserves comparability with existing verdicts. ⚠ reasoning model: leave thinking ON ([TRAPS #34](TRAPS.md)) |
 | CoE gateway `Qwen3.6-35B-A3B` | ❌ rejected for the judge (maintainer, 2026-08-17), fine elsewhere |
 
-### ⚑ ON DISK AND NEVER TESTED FOR ANY ICE JOB
+### ⚑ ON DISK AND NEVER TESTED **FOR A BACKGROUND-MEMORY JOB**
 
-These have never been run through any arm. Nothing below is a rejection — it is
-an absence of evidence, and the distinction is the point of this section.
+⚠ **This heading said "never tested for any ICE job" and that was wrong within
+hours (corrected 2026-08-22).** The maintainer said other disk models had been
+tested and could not remember where; they were right, and the reason I missed it
+is worth keeping: I built this section by grepping `docs/` and `logs/`, and the
+paper-era model arms live in **`experiments/`**, which the same session had been
+told to treat as out of scope for its *numbers*. Out of scope for a number is not
+out of scope for a fact about what ran.
+
+⇒ **Two searches, not one.** `grep -rhoE '"(model|model_name|answer_model)"\s*:\s*"[^"]+"' experiments/`
+returns the config fields — that is what was actually run. A bare name grep does
+not work on this repo: `gemma4:12b` has 3,639 mentions in `experiments/` and
+almost all of them are the **corpus** — the maintainer's own conversations
+discussing models — not configuration. Content and config look identical to grep.
+
+Nothing below is a rejection; it is an absence of evidence **for background
+extraction, summarisation or retrieval**. Several have been used for other jobs.
 
 | model | size | note |
 |---|---|---|
-| **`gemma4:12b`** (+ `64k`/`128k`/`256k`) | 7.6 G | **the most obvious gap** — sits between `e4b` (1st) and `26b` (3rd) in A12 and was never in that run. Long-context variants matter for the batch summariser, which has already blown a 32k window |
+| **`gemma4:12b`** (+ `64k`/`128k`/`256k`) | 7.6 G | ⚠ **NOT untested — corrected 2026-08-22 within hours of first writing this row wrong.** A Gemma-4 12B *was* used heavily, as **the paper's judge**: `mattbucci/gemma-4-12B-AWQ` on **SGLang** at 150k context, judging 657 Exp-1 probes, all 1,211 Exp-2 probes and every Exp-3 ablation variant (`experiments/mature/correct_ground_truths.py:28`, and the paper's own limitations section). Different build (AWQ, not the Ollama GGUF) and a different job (judging, not extraction) — but "never tested for any ICE job" was **false**, and it was written here by grepping the docs rather than the experiments tree. The GGUF is still untested **for background extraction**, and it remains the obvious A12 gap: it sits between `e4b` (1st) and `26b` (3rd) and was not in that run |
 | `granite4:small-h` | 19.5 G | the only Granite above `tiny-h`, and both smaller Granites ranked last |
 | `qwen3-vl:8b-thinking` | 6.1 G | ⚠ reasoning model — [TRAPS #11](TRAPS.md): the whole budget can vanish into a hidden block |
 | `mistral-nemo` | 7.1 G | |
