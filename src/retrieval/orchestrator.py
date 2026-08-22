@@ -2189,11 +2189,14 @@ class HybridRetrievalOrchestrator:
         if conv_id:
             try:
                 query = text("""
-                    SELECT summary_text, created_at,
-                           1 - (embedding <=> :prompt_embedding) as score
-                    FROM batch_summaries
-                    WHERE conversation_id = :conv_id
-                      AND embedding IS NOT NULL
+                    SELECT bs.summary_text, bs.created_at,
+                           1 - (bs.embedding <=> :prompt_embedding) as score,
+                           (SELECT array_agg(em.batch_id::text)
+                              FROM episodic_memory em
+                             WHERE em.batch_summary_id = bs.id) AS covered
+                    FROM batch_summaries bs
+                    WHERE bs.conversation_id = :conv_id
+                      AND bs.embedding IS NOT NULL
                     ORDER BY score DESC
                     LIMIT :bs_limit
                 """).bindparams(bindparam("prompt_embedding", type_=PgVector))
@@ -2202,11 +2205,20 @@ class HybridRetrievalOrchestrator:
                     "bs_limit": settings.retrieval_batch_summary_limit}).fetchall()
                 # T1: summaries are written long after the turns they compress,
                 # so they get a "[summary, <created>]" prefix, not a turn date.
+                #
+                # ⚑ G48/G53: `origin_batch_ids` carries the turns this summary
+                # compresses, taken from `episodic_memory.batch_summary_id`.
+                # Without it a summary fragment is structurally uncreditable in
+                # every recall-style metric in the repo — it can be returned,
+                # spend budget, and answer the question, and still score zero,
+                # which is the TRAPS #32 blindness one leg further on. The link
+                # already existed as an FK; nothing read it.
                 fragments += [ContextFragment(
                     text=(f"[summary, {r.created_at.strftime('%Y-%m-%d')}] " if r.created_at else "") + r.summary_text,
                     source_type="batch_summary",
                     score=r.score,
-                    token_count=count_tokens(r.summary_text)
+                    token_count=count_tokens(r.summary_text),
+                    origin_batch_ids=tuple(r.covered or ()),
                 ) for r in rows]
             except Exception as err:
                 self._leg_degraded("batch_summary.own", err)
