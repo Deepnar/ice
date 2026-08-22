@@ -90,21 +90,91 @@ Return ONLY a JSON object, no prose:
 Include every triplet number exactly once."""
 
 
-def fetch(db, n: int, seed: str):
-    """Live edges joined to their source turn, seeded-random, tier-blind."""
-    rows = db.execute(text("""
-        select e.id::text as eid, s.canonical_name as subj, e.relation as rel,
-               t.canonical_name as obj, e.extraction_confidence as conf,
-               e.negated as neg, m.raw_text as source, m.id::text as turn_id
-        from codex_edges e
-        join codex_entities s on s.id = e.source_id
-        join codex_entities t on t.id = e.target_id
-        join episodic_memory m on m.batch_id = e.source_batch
-        where e.valid_until is null
-        order by md5(e.id::text || :seed)
-        limit :n
-    """), {"n": n, "seed": seed}).fetchall()
+def fetch(db, n: int, seed: str, per_turn: int = 0):
+    """Live edges joined to their source turn, seeded-random, tier-blind.
+
+    ⚑ SAMPLE BY TURN, NOT BY EDGE (2026-08-23). The flat `order by md5(edge_id)`
+    below drew 200 edges from only ~76 turns, and triplets from one turn are NOT
+    independent draws: same source text, same extraction call, often the same
+    subject. So the effective sample size is the number of TURNS, and the
+    interval is set by 76, not 200.
+
+    Measured cost of getting this wrong: two runs of the SAME configuration on
+    content-identical stores returned **20.4%** and **10.0%** correct. At n=200
+    independent triplets that gap is z=2.91 and reads as a real effect; at
+    n≈76 turns it is z=1.80 and is noise. Every graph-quality number this
+    project has published — 20%, 15.8%, 11.0%, 20.4%, 10.0% — carries roughly
+    ±8 points and none of them are distinguishable from each other.
+
+    ⇒ `per_turn=k` takes k edges from EVERY turn instead of n edges from
+    wherever they fall. On this corpus that is ~164 turns of coverage for the
+    same order of judge calls, which is a far tighter interval at no extra
+    cost. Flat sampling is kept for reproducing older runs, and warns.
+    """
+    if per_turn:
+        rows = db.execute(text("""
+            select eid, subj, rel, obj, conf, neg, source, turn_id from (
+              select e.id::text as eid, s.canonical_name as subj,
+                     e.relation as rel, t.canonical_name as obj,
+                     e.extraction_confidence as conf, e.negated as neg,
+                     m.raw_text as source, m.id::text as turn_id,
+                     row_number() over (
+                       partition by m.id
+                       order by md5(e.id::text || :seed)
+                     ) as rn
+              from codex_edges e
+              join codex_entities s on s.id = e.source_id
+              join codex_entities t on t.id = e.target_id
+              join episodic_memory m on m.batch_id = e.source_batch
+              where e.valid_until is null
+            ) q
+            where q.rn <= :k
+            order by md5(q.eid || :seed)
+            limit :n
+        """), {"n": n, "k": per_turn, "seed": seed}).fetchall()
+    else:
+        rows = db.execute(text("""
+            select e.id::text as eid, s.canonical_name as subj, e.relation as rel,
+                   t.canonical_name as obj, e.extraction_confidence as conf,
+                   e.negated as neg, m.raw_text as source, m.id::text as turn_id
+            from codex_edges e
+            join codex_entities s on s.id = e.source_id
+            join codex_entities t on t.id = e.target_id
+            join episodic_memory m on m.batch_id = e.source_batch
+            where e.valid_until is null
+            order by md5(e.id::text || :seed)
+            limit :n
+        """), {"n": n, "seed": seed}).fetchall()
     return rows
+
+
+def report_power(rows, verdicts) -> None:
+    """⚑ A CHECK, NOT A NOTE. Print what this sample can actually resolve.
+
+    Every number this project has argued over was a bare percentage with no
+    interval, which is how 20.4% and 10.0% got read as different results when
+    they were one measurement twice. The tool now states its own resolution, so
+    over-reading it takes deliberate effort rather than being the default.
+    """
+    import math
+    n_edges = len(verdicts)
+    n_turns = len({r.turn_id for r in rows}) or 1
+    if not n_edges:
+        return
+    p = sum(1 for v in verdicts if v == "correct") / n_edges
+    # Turns are the independent unit; edges within a turn are correlated.
+    se = math.sqrt(max(p * (1 - p), 1e-9) / n_turns)
+    ci = 1.96 * se
+    print(f"\nRESOLUTION — what this sample can and cannot tell you")
+    print(f"  triplets judged        {n_edges}")
+    print(f"  DISTINCT TURNS         {n_turns}   <- the independent unit")
+    print(f"  95% interval on a rate ±{100*ci:.1f} points")
+    print(f"  ⇒ two results closer than {2*100*ci:.1f} points apart are THE SAME "
+          f"measurement.")
+    if n_turns < 100:
+        print(f"  ⚠ ONLY {n_turns} TURNS. Use --per-turn to spread the same number "
+              f"of judge calls across every turn in the store; sampling more "
+              f"triplets from these turns will not narrow the interval.")
 
 
 def call_judge(client, turn_text: str, triplets: list, model: str) -> dict:
@@ -130,6 +200,15 @@ def main() -> int:
     ap.add_argument("--n", type=int, default=200)
     ap.add_argument("--seed", default="20260820")
     ap.add_argument("--model", default=None)
+    # ⚑ USE THE CORPUS. The store holds ~164 extractable turns and ~7,400
+    # triplets; flat sampling touched 76 turns and left the rest unused, which
+    # is the whole reason the interval is ±8 points. `--per-turn 3` covers
+    # every turn for roughly the same number of judge calls.
+    ap.add_argument("--per-turn", type=int, default=0, metavar="K",
+                    help="take K triplets from EVERY turn instead of N from "
+                         "wherever they fall. Turns are the independent unit, "
+                         "so this is what narrows the interval — more triplets "
+                         "from the same turns does not.")
     args = ap.parse_args()
 
     model = args.model or settings.probe_model
@@ -137,7 +216,7 @@ def main() -> int:
         print("probe_api_key / probe_api_base_url not set"); return 1
 
     db = SessionLocal()
-    rows = fetch(db, args.n, args.seed)
+    rows = fetch(db, args.n, args.seed, per_turn=args.per_turn)
     db.close()
     by_turn = defaultdict(list)
     for r in rows:
@@ -179,6 +258,7 @@ def main() -> int:
     print(f"judged {len(verdicts)} triplets ({failures} unreturned)")
     for lab in LABELS:
         print(f"  {lab:<12} {tally[lab]:>4}  ({100*tally[lab]/n:5.1f}%)")
+    report_power(rows, [v["label"] for v in verdicts])
 
     print("\nBY STORED CONFIDENCE — does the tier track correctness?")
     for conf, name in ((0.9, "grounded"), (0.7, "ungrounded"), (0.35, "rejected")):
