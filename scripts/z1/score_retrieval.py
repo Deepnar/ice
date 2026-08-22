@@ -292,9 +292,31 @@ def main() -> int:
         frag_counts.append(len(frags))
         budgets.append(orch.max_retrieval_tokens)
 
+        # ⚑ G48b/TRAPS #32: credit BOTH provenance spaces, not just the one
+        # only episodic fragments ever populate.
+        #
+        # This matched `source_batch_id` alone, and `source_batch_id` is set in
+        # exactly three places in the orchestrator, all of them building
+        # `episodic` fragments. Codex, procedural, timeline and batch-summary
+        # fragments could therefore never register a hit — not rarely, never —
+        # so every recall and MRR number this scorer has produced is an
+        # EPISODIC-LEG score reported under the whole system's name. Measured on
+        # one harvest: 4,124 episodic fragments earned 249 gold credits while
+        # 474 codex, 400 procedural and 207 timeline fragments earned zero.
+        #
+        # score_typed, answer_probes and harvest_probe_context all received this
+        # fix on 2026-08-16. This file did not, and nothing noticed because its
+        # numbers still looked like recall.
+        def _frag_ids(f):
+            out = set()
+            if f.source_batch_id:
+                out.add(str(f.source_batch_id))
+            out.update(str(b) for b in (getattr(f, "origin_batch_ids", ()) or ()))
+            return out
+
         rank = None
         for pos, f in enumerate(frags, 1):
-            if f.source_batch_id and str(f.source_batch_id) == str(gold_id):
+            if str(gold_id) in _frag_ids(f):
                 rank = pos
                 per_leg[getattr(f, "leg", None) or f.source_type] += 1
                 break

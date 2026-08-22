@@ -72,12 +72,18 @@ def main() -> int:
                          "scoring branch, which --limit alone cannot)")
     ap.add_argument("--k", type=int, default=10)
     ap.add_argument("--tag", default="typed")
+    # ⚑ `choices` from the class itself, not a list typed here. Without it an
+    # unrecognised name set an override key nothing reads, so the run was
+    # byte-identical to the full system and was written to score_runs/ labelled
+    # as an ablation. The two failure modes it hides are indistinguishable in
+    # the output: "this leg is worth nothing" and "I misspelled the leg".
+    from src.retrieval.configurable_orchestrator import SUPPORTED_FLAGS
     ap.add_argument("--ablate-leg", default=None,
+                    choices=sorted(SUPPORTED_FLAGS),
                     help="disable ONE named leg/feature via "
-                         "ConfigurableOrchestrator (vector, bm25 via rrf, "
-                         "procedural, batch_summary, mera, fuzzy_match, "
-                         "cluster_restrict, session_diversify, keyword_boost, "
-                         "recency_boost, timescope, dynamic_budget)")
+                         "ConfigurableOrchestrator. Choices come from the "
+                         "class's own SUPPORTED_FLAGS, so a name it does not "
+                         "implement is rejected rather than silently ignored.")
     ap.add_argument("--ablate", choices=["none", "fragments", "all"],
                     default="none",
                     help="none=full system; fragments=drop codex "

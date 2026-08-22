@@ -3,10 +3,16 @@
 Inherits from HybridRetrievalOrchestrator and allows individual retrieval legs
 and post‑processing steps to be toggled on/off via an `overrides` dict.
 
-Flags (all default ON):
-    vector, bm25, rrf, cluster_restrict, session_diversify,
-    codex, mera, fuzzy_match, procedural, batch_summary,
-    dynamic_budget, sliding_window, keyword_boost, recency_boost, timescope
+Flags (all default ON) — the authoritative list is `SUPPORTED_FLAGS` below,
+because a list in prose drifts and this one had:
+
+    ⚑ `bm25` and `sliding_window` were advertised here and NOTHING READ THEM.
+    An override dict naming either sets a key no code consults, so the run is
+    byte-identical to the full system — and it is written to `score_runs/`
+    labelled as an ablation. A leg worth a great deal and a leg name that does
+    not exist produce the same output. Same shape as the `hyde` note below,
+    found the same way (2026-08-22): by listing what `_on`/`_off` actually
+    consume instead of trusting the docstring.
 
 (A `hyde` flag, default OFF, was listed here until 2026-08-09 (G36). NOTHING
 read it — `_on("hyde")` had no caller, this class does not override
@@ -25,6 +31,22 @@ from src.api.config import settings
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator, ContextFragment
 
 logger = structlog.get_logger("ice.retrieval.configurable")
+
+# ⚑ The flags this class ACTUALLY consumes, i.e. every name reaching an
+# `_on(...)` / `_off(...)` call below. Callers validate against this rather
+# than against a hand-kept list, because the hand-kept list in the module
+# docstring had drifted: it advertised `bm25` and `sliding_window`, neither of
+# which anything reads.
+#
+# An unrecognised flag is not a harmless no-op. It sets a key nothing consults,
+# so the ablation silently becomes a full-system run and is recorded under an
+# ablation's name — the one output shape an experiment cannot afford, because a
+# leg worth nothing and a leg name that does not exist look identical.
+SUPPORTED_FLAGS = frozenset({
+    "vector", "rrf", "cluster_restrict", "session_diversify", "codex",
+    "mera", "fuzzy_match", "procedural", "batch_summary", "dynamic_budget",
+    "keyword_boost", "recency_boost", "timescope",
+})
 
 
 class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
