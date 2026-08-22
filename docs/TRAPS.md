@@ -1017,15 +1017,19 @@ remove Y" in a session that started less than an hour ago, about a subsystem you
 have only read today. Both sentences are a cue to grep first.
 
 ---
+### 43. Two harnesses disagreed with production about one argument — and the diagnosis of WHY was wrong for a day
+<!-- Rewritten 2026-08-22. The original entry's rule was right and its mechanism
+     was wrong; both halves are kept, because the correction is the lesson. -->
 
-### 43. The harness and production disagreed about one argument, and every retrieval number was wrong
+**2026-08-21, corrected 2026-08-22.** A full day of retrieval measurement — a
+two-arm comparison, a three-condition codex ablation, a five-leg ablation, ~2,000
+scored requests — was declared invalid because the harnesses call
+`orchestrator.retrieve()` with `scope=None` while *"production passes a populated
+scope"*.
 
-**2026-08-21.** A full day of retrieval measurement — a two-arm comparison, a
-three-condition codex ablation, a five-leg ablation, ~2,000 scored requests —
-was taken on a configuration production never uses.
-
-`orchestrator.retrieve()` takes BOTH a `conversation_id` parameter and a `scope`
-dict. It derives its conversation filter from **the scope only**:
+`retrieve()` does take both a `conversation_id` parameter and a `scope` dict, and
+it does derive its conversation filter from **the scope only**
+(`orchestrator.py:515`):
 
 ```python
 conv_id = None
@@ -1033,45 +1037,161 @@ if scope and "conversation_id" in scope:
     conv_id = scope["conversation_id"]
 ```
 
-The `conversation_id` parameter is never used for it. `score_typed.py` and
-`answer_probes.py` both call with **`scope=None`**;
-`services/retrieval_svc.py:152` passes `scope=scope` with `conversation_id`
-populated. Measured side by side, same probe, same store:
+**⚑ But the "production" column of the table that proved it was built BY HAND.**
+It compared `scope=None` against a hand-written `scope={"conversation_id": …}`,
+and cited `services/retrieval_svc.py:152` as the authority — which is the **MCP
+`ice_context` pull**, where the scope is *supplied by the caller*. The evaluation
+harnesses model the **chat proxy**, whose scope comes from
+`resolve_retrieval_scope(db, conv_row)` at `main.py:421`.
 
-| call | fragments |
+Run against the three conversations actually under measurement:
+
+```
+f8192c3f  scope_type='auto'  project=None  ->  scope = {}   conv_id = None
+33681aa4  scope_type='auto'  project=None  ->  scope = {}   conv_id = None
+def5743a  scope_type='auto'  project=None  ->  scope = {}   conv_id = None
+```
+
+`services/scoping.py:114+` sets `conversation_id` for `none` and `project` modes
+and `conversation_ids` for `manual`/project-attached — and for **`auto`, the
+default mode, it sets neither.** The only scope mutation between `main.py:421`
+and `:606` is `scope["timescope"]`. So `conv_id` is `None` in chat production
+too, and the claims the retraction withdrew were **true of ICE as it runs**:
+`_batch_summary_lookup`'s own-conversation half really never fires, and
+`batch_summary` appears in **zero** of the 15 recorded `legs_seen` dicts.
+
+**What the defect actually is.** `scope=None` and `scope={}` differ at exactly
+**one** reachable site — every other scope read is `if scope`-guarded and treats
+them identically:
+
+```python
+# orchestrator.py:534-536
+cluster_ids = self._relevant_cluster_ids(...)
+if cluster_ids and scope is not None:      # <- None skips it; {} applies it
+    scope["cluster_ids"] = cluster_ids
+```
+
+Measured on 30 stratified probes, both ways: production sets cluster ids on
+**90%** of probes and the returned fragment set differs on **17%**. Real, and
+two orders of magnitude smaller than the retraction claimed — bounded here only
+because `_cluster_filter`'s `OR NOT EXISTS` arm keeps unclustered turns and 268
+of 293 turns are unclustered.
+
+**⇒ Two rules, and the second is the one that was missed twice.**
+
+1. **Find the production call site and diff its arguments** — the original rule,
+   and it stands.
+2. **⚑ Diffing a call site's SIGNATURE is not diffing its ARGUMENT'S VALUE.**
+   `retrieval_svc.py` passes `scope=scope`, which reads as "production passes a
+   scope" and is useless; the question is what `scope` *contains* on the path you
+   are modelling. Evaluate it — `resolve_retrieval_scope(db, conv_row)` is one
+   line in a REPL — and do it for the conversations actually under test, because
+   the answer depends on their `memory_scope_type`.
+3. **And when a system has more than one production path, name which one the
+   experiment models.** ICE has two callers of `retrieve()` and they disagree
+   with each other. "Production" was ambiguous, and the ambiguity is what let a
+   hand-built column pass for a measurement.
+
+**The tell, restated.** The original entry ended: *"a zero that clean is nearly
+always a switch, not a design."* Half right. The zero **was** a switch — the
+switch is just also thrown in production, which makes it a design defect in ICE
+rather than a defect in the instrument. Before attributing a perfect zero to the
+harness, check whether production produces the same zero.
+
+---
+
+### 44. The harness classified without the conversation, and it moved 65% of the fusion weights
+
+**2026-08-22, and it is the defect #43 was standing in front of.** Every Z1
+harness calls:
+
+```python
+c = clf.classify(question[:2000])            # score_typed.py:202, and three siblings
+```
+
+Production calls (`main.py:448-451`):
+
+```python
+result = classifier.classify(user_message, conversation_id=str(conversation_id))
+```
+
+That argument is not decoration. It makes the classifier build a **CL7 context
+prefix** from the conversation's recent turns and embed *that*, so the head sees
+a different vector. Measured on 100 stratified probes against the live store:
+
+| | differs |
 |---|---|
-| `scope=None` (both harnesses) | `{episodic: 11, codex: 1, procedural: 5}` |
-| `scope={"conversation_id": …}` (production) | `{episodic: 6, **batch_summary: 2**, procedural: 2}` |
+| `topic_tags` | 69 / 100 |
+| `intent_tags` | 66 / 100 |
+| **RRF leg-blend weights** | **65 / 100** |
+| routed model (⇒ context window ⇒ token budget) | 42 / 100 |
+| B2 retrieve/don't-retrieve decision | 0 / 100 |
 
-`_batch_summary_lookup`'s own-conversation query sits behind `if conv_id:`, so
-the summary leg was **switched off in every measurement**. And the effect was not
-confined to it — every leg returned a different amount.
+The blend weights **are** the fusion ranking (`orchestrator.py:588-596`). So 65%
+of every scored probe fused with weights production would never use, and 42%
+derived their memory budget from the wrong model's context window.
 
-**What it cost.** A whole chain of confident, wrong conclusions: "batch summaries
-never reach the prompt" (they do), "a leg with no cross-leg partner cannot win
-RRF" (a mechanism invented to explain a zero that had another cause),
-"`summary_synthesis` = 0.303" (measured with the summary leg off), and a per-leg
-ablation row that compared *leg off* against *already off*.
+**Three things make this worse than #43, which got all the attention:**
 
-**Why a day of cross-checking did not catch it.** Because **every harness shared
-the defect, so the harnesses agreed with each other.** Two independent
-instruments returning the same answer feels like corroboration and is worthless
-when both call the system the same wrong way. The disagreement only appeared
-against *production*, which nothing was comparing to.
+* It is **~4× the perturbation** of the scope defect (65% vs 17%), and it was
+  invisible while #43 was being written and retracted.
+* The **older paper-era runners get it right** —
+  `experiments/mature/run_mature_experiment.py:547` and both flaw-ablation
+  runners pass `conversation_id=cid`. This is a **regression introduced with the
+  Z1 harnesses**, not an inherited habit.
+* B2 flipped on **0 of 100**, so the one signal anybody would have spot-checked
+  looked perfectly stable while everything downstream of it moved.
 
-**The rule, which CLAUDE.md already states and which this ignored:**
+⇒ **When a production call passes an argument the harness omits, ask what that
+argument CHANGES, not whether the call succeeds without it.** An optional
+parameter that alters an embedding is not optional. And check the *older* code
+before assuming a divergence is inherent: a harness that used to be right and
+is now wrong is a regression with a commit behind it.
 
-> *"Is everything there? Did the harness call what the real path calls? A scorer
-> skipping the budget setter measures something — just not ICE."*
+---
 
-**How to actually check it, once, before a measurement campaign:**
+### 45. A metric measured whether the model obeyed a formatting instruction
 
-1. Find the production call site (`grep -rn "\.retrieve(" src/services src/api`).
-2. Diff its arguments against the harness's, **argument by argument** — not
-   "does it call the same function", but "with the same values".
-3. Run one request each way and diff the returned `source_type` counts. If they
-   differ at all, the harness is measuring something else.
+**2026-08-22, on the write path — the first time it had ever been examined.**
 
-**The tell.** A subsystem scores exactly zero, repeatedly, and the explanation
-you reach for is architectural. Architectural explanations for perfect zeros are
-usually wrong: a zero that clean is nearly always a switch, not a design.
+`summary_coverage` (`turn_density.py:172-180`) is the **trust gate**: its own
+code comment calls it *"precisely the trust gate that decides whether a summary
+may be injected at all"*, and `post_flight.py:228` uses it to decide whether the
+stored summary **replaces the raw turn** in the prompt:
+
+```python
+inject_raw = not (summary and coverage >= settings.turn_summary_coverage_threshold)
+```
+
+It scores the fraction of must-preserve terms — named entities, figures,
+identifiers — appearing anywhere in the summary.
+
+**And the summariser's own prompt orders the model to append them**
+(`post_flight.py:75-78`):
+
+> *"End with two final lines formatted exactly as: `Key terms: <comma-separated
+> list of the named entities, figures, and identifiers that appear in the …>`"*
+
+Same three categories. So the metric largely measures compliance with a
+formatting instruction, and a model that writes a poor summary followed by an
+obedient term list scores the same as one that writes a good summary.
+
+Measured on the live store: **193 of 212 summaries (91%) carry the block**,
+coverage averages **0.971 with 79% at exactly 1.000**, and every stored summary
+ends in a comma-separated list rather than a sentence. At that distribution the
+0.7 threshold effectively never binds — **99 turns have their raw text replaced
+in the prompt** by a summary nothing verified, and 2 of those are bare
+comma-separated lists with no prose at all.
+
+**This is the MECHANISM behind [#21](#21-a-metric-can-be-green-on-output-that-does-not-exist),
+which blamed a weak model.** #21 measured `granite4:tiny-h` emitting
+`Key terms: a, b, c` plus one generic sentence and scoring 0.9375–1.0, and read
+it as that model failing. Every model does it, because the prompt asks for it.
+The scoring bug and the prompt were written to serve each other and nobody read
+them side by side.
+
+⇒ **Read the metric and the prompt that produces its input in the same sitting.**
+A presence metric over terms the generator was told to list is not a measurement,
+it is a receipt. And when a metric saturates — 79% at the ceiling — that is the
+symptom, not a sign of health: ask what it would take to score *low*, and if the
+answer is "disobey the format", the metric is measuring the format.
