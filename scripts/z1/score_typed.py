@@ -383,13 +383,22 @@ def main() -> int:
         b = per_type[ptype]
         sc = b["scores"]
         mean = statistics.mean(sc) if sc else 0.0
+        # ⚑ EVERY TYPE CARRIES ITS STANDARD ERROR. `temporal` runs at n=28,
+        # where the arm-to-arm gap that was read as a result (0.500 vs 0.643)
+        # is ~1.9 SE — indistinguishable from noise. A mean printed without its
+        # spread invites exactly that reading, and got it.
+        se = (round(statistics.pstdev(sc) / (len(sc) ** 0.5), 3)
+              if len(sc) > 1 else None)
         summary[ptype] = {
             "n": b["n"], "scored": len(sc), "declined": b["declined"],
             "mean_score": round(mean, 3),
+            "se": se,
+            "ci95": (round(1.96 * se, 3) if se is not None else None),
             "legs_seen": dict(b["legs"].most_common()),
         }
         print(f"  {ptype:<20} n={b['n']:<4} scored={len(sc):<4} "
-              f"score={mean:.3f}   declined={b['declined']}")
+              f"score={mean:.3f}{f' ±{se}' if se is not None else ''}   "
+              f"declined={b['declined']}")
         print(f"      legs returned: {dict(b['legs'].most_common(6))}")
         # Split the codex population by whether the metric could see the anchor
         # at all. One mean over both answers nothing (see the branch above).
@@ -398,12 +407,44 @@ def main() -> int:
             unanch = [d for d in b["detail"] if not d.get("anchored")]
             summary[ptype]["anchored"] = len(anch)
             summary[ptype]["unanchored"] = len(unanch)
+            # ⚑ THE TWO POPULATIONS GET THEIR OWN MEANS, because they are
+            # scored by different formulas. An anchored probe is
+            # 0.5*anchor + 0.5*coverage; an unanchored one is coverage alone.
+            # The comment on the scoring branch says they "are never averaged
+            # into one figure" — and `mean_score` above averaged them anyway,
+            # which is how 0.531 hid anchored 0.603 and unanchored 0.345 on
+            # arm B. Counting them was never the problem; reporting one number
+            # over them was.
+            def _mean(ds):
+                vals = [(0.5 if d["anchor_via_graph"] else 0.0) + 0.5 * d["turn_coverage"]
+                        if d.get("anchored") else d["turn_coverage"] for d in ds]
+                return round(statistics.mean(vals), 3) if vals else None
+
+            def _se(ds):
+                vals = [(0.5 if d["anchor_via_graph"] else 0.0) + 0.5 * d["turn_coverage"]
+                        if d.get("anchored") else d["turn_coverage"] for d in ds]
+                if len(vals) < 2:
+                    return None
+                return round(statistics.pstdev(vals) / (len(vals) ** 0.5), 3)
+
+            summary[ptype]["anchored_mean"] = _mean(anch)
+            summary[ptype]["anchored_se"] = _se(anch)
+            summary[ptype]["unanchored_mean"] = _mean(unanch)
+            summary[ptype]["unanchored_se"] = _se(unanch)
             if anch:
                 via = sum(1 for d in anch if d["anchor_via_graph"])
+                anywhere = sum(1 for d in anch if d.get("anchor_anywhere"))
                 summary[ptype]["anchor_via_graph"] = f"{via}/{len(anch)}"
-                print(f"      anchored={len(anch)} (anchor via graph {via}/{len(anch)})"
-                      f"  unanchored={len(unanch)} (turn-coverage only)")
+                summary[ptype]["anchor_anywhere"] = f"{anywhere}/{len(anch)}"
+                print(f"      anchored   n={len(anch):<4} score={_mean(anch)} "
+                      f"±{_se(anch)}   anchor via GRAPH {via}/{len(anch)}, "
+                      f"anywhere {anywhere}/{len(anch)}")
+                if anywhere > via:
+                    print(f"      ⚠ {anywhere - via} anchors arrived WITHOUT the graph — "
+                          f"the episodic legs are carrying them")
             if unanch:
+                print(f"      unanchored n={len(unanch):<4} score={_mean(unanch)} "
+                      f"±{_se(unanch)}   (turn coverage alone)")
                 print(f"      ⚠ {len(unanch)} probes carry NO anchor_entity — scored on "
                       f"turn coverage alone, NOT as an anchor failure")
     print("\n  ⚑ These are FIVE DIFFERENT METRICS. They are not averaged, and a "
