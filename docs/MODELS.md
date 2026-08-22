@@ -271,10 +271,27 @@ won at 2.34 rows/s and 0.01% degenerate.
 | `deepseek-v4-flash` (cloud) | **current and pinned** — keeping it fixed preserves comparability with existing verdicts. ⚠ reasoning model: leave thinking ON ([TRAPS #34](TRAPS.md)) |
 | CoE gateway `Qwen3.6-35B-A3B` | ❌ rejected for the judge (maintainer, 2026-08-17), fine elsewhere |
 
-### ⚑ ON DISK AND NEVER TESTED **FOR A BACKGROUND-MEMORY JOB**
+### ⚑ ON DISK, NO RECORD FOUND OF A BACKGROUND-MEMORY TEST
 
-⚠ **This heading said "never tested for any ICE job" and that was wrong within
-hours (corrected 2026-08-22).** The maintainer said other disk models had been
+⚠ **"NO RECORD FOUND", NOT "NEVER TESTED" — and the wording is the finding.**
+This heading has now been wrong twice in one day: first "never tested for any
+ICE job", then "never tested for a background-memory job". Each time the
+maintainer said the models HAD been tested and the record was lost somewhere,
+and each time they were right and I was not. Three confirmed so far:
+
+| model | where the record actually was |
+|---|---|
+| `gemma4:12b` | the **paper's judge** (AWQ build, SGLang) — 1,211 Exp-2 probes |
+| `tinyllama` | a **context-window/budget test** — `ROADMAP_DONE.md`: *"tinyllama serves 2,048 and was handed 4,000"* |
+| `gpt-oss` | a **vLLM labelling arm** (§4), 1.20 rows/s |
+
+⇒ **An absence of evidence in this repo is not evidence of absence.** A model
+here means *I could not find a record*, which on a repo with a gitignored
+corpus, gitignored planning files, `docs/outdated/`, and four years of the
+maintainer's own memory is a weak claim. Treat every row as "check with the
+maintainer before concluding it is untested."
+
+⚠ **This section was originally built wrong (kept as the method note).** The maintainer said other disk models had been
 tested and could not remember where; they were right, and the reason I missed it
 is worth keeping: I built this section by grepping `docs/` and `logs/`, and the
 paper-era model arms live in **`experiments/`**, which the same session had been
@@ -296,19 +313,19 @@ extraction, summarisation or retrieval**. Several have been used for other jobs.
 | `granite4:small-h` | 19.5 G | the only Granite above `tiny-h`, and both smaller Granites ranked last |
 | `qwen3-vl:8b-thinking` | 6.1 G | ⚠ reasoning model — [TRAPS #11](TRAPS.md): the whole budget can vanish into a hidden block |
 | `mistral-nemo` | 7.1 G | |
-| `qwen2.5:7b` | 4.7 G | named in the routing registry, never benchmarked for a background job |
+| `qwen2.5:7b` | 4.7 G | **named in the routing registry** (`models/model_registry.json`), so it is a live routing target; no record of a background-job benchmark |
 | `llama3:8b` | 4.7 G | |
-| `gpt-oss:latest` | 13.8 G | tested under **vLLM** for labelling (§4), never under Ollama for extraction |
+| `gpt-oss:latest` | 13.8 G | ✅ **tested** — vLLM labelling arm, 1.20 rows/s (§4). No record under Ollama for extraction |
 | `qwen3-coder:30b-a3b`, `qwen-coder` | 18.6 / 17.4 G | coding-scoped; untested for memory jobs |
 | `rpmax-22b-16k`, `HammerAI/cydonia-v4.3`, `Cydonia-24B-v4.3-heretic-v3` | 12.9–15.7 G | roleplay/creative builds; untested |
-| `tinyllama` | 0.6 G | in the routing registry as a floor; never benchmarked |
+| `tinyllama` | 0.6 G | ✅ **used** — the routing floor, and the model that proved silent prompt truncation (`predicted=2909 / actual=2047`). No record of a background-job benchmark |
 | `granite4:small-h`, `qwen3.8:27b` for **extraction** | — | 3.8 is tested for probe *generation* only |
 
 ### Not obtained, worth obtaining
 
 | candidate | why |
 |---|---|
-| **[NuExtract3](https://huggingface.co/numind/NuExtract3)** ([GGUF](https://huggingface.co/numind/NuExtract3-GGUF)) | a foundation model built **specifically for structured extraction**, from NuMind — the same group as the `NuNER_Zero` model ICE already runs for grounding. Directly targets ICE's weakest measured subsystem. ⚠ VRAM footprint unverified |
+| **[NuExtract3](https://huggingface.co/numind/NuExtract3)** ([GGUF](https://huggingface.co/numind/NuExtract3-GGUF)) | ⚑ **A12 WAS SCOPED TO TEST THIS AND NEVER DID.** Its opening note (2026-07-29, `docs/outdated/roadmap_session_log.md`) defines the background pipeline as **two families**: *"extraction (**NuExtract-class specialist**; a 4B reportedly matches 27B generalists) and generation (no specialist exists; a model-size question, measurable with ICE's own `summary_coverage`)"*. A12 as run tested **only the generation family** — eight general models scored on `summary_coverage`, the metric [TRAPS #45](TRAPS.md) shows is circular. The specialist half was dropped and never re-opened. Same group as the `NuNER_Zero` model ICE already runs for grounding, and it targets the weakest measured subsystem in the system. The VRAM objection was already answered in that same note — *"a 3 GB specialist only fits beside an 18 GB chat model if ICE controls `keep_alive`"* — so it is a scheduling question, not a blocker. ⚠ exact footprint still unverified |
 | `qwen3.5:9b` | the 3.5 family shipped 0.8/2/4/9B with 256K context; only the 4B is here, and it ranked 5th with **zero** procedural patterns — the 9B is the untested half of that family |
 | `phi4-mini:3.8b` | dense-per-parameter, competitive at the `granite4:micro` tier which ranked 6th |
 | AWQ/GPTQ build of `qwen3:4b-instruct` | already wanted in §4 so the bg model can run under vLLM |
