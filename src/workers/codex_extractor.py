@@ -540,17 +540,73 @@ _INTERNAL_PROPERTY_KEYS = frozenset({"merge_key", "merged_into"})
 
 
 def _is_negated(rel: str) -> bool:
-    """Whether a relation word carries its own negation."""
+    """Whether a relation word carries its own negation.
+
+    ⚑ WHOLE TOKENS ONLY, never a prefix. A `non`/`un`/`dis` prefix rule was
+    written here first and was wrong within minutes of meeting real data: it
+    read `discusses` (20 edges) and `understands` (9) as negations, because
+    English prefixes are not negation markers — they are spelling. That is
+    CLAUDE.md's own rule, that no decision may depend on HOW a thing is
+    written, violated inside the guard added to enforce it.
+
+    The cost of dropping it is that a genuine `unrelated_to` is not recognised.
+    That is the safe direction: an unrecognised negation is stored as an
+    oddly-named positive relation, whereas a false positive here changes what
+    `_is_inverse_pair` blocks and what `_strip_negation` rewrites.
+    """
     r = (rel or "").strip().lower()
     if not r:
         return False
-    if set(r.split("_")) & _NEGATION_TOKENS:
-        return True
-    # `non`/`un`/`dis` on the FIRST token only, and only when that token is long
-    # enough that the prefix is not a coincidence. `in_` is deliberately absent:
-    # `in` is a role tail and a live relation in its own right.
-    head = r.split("_", 1)[0]
-    return len(head) > 4 and head.startswith(("non", "un", "dis"))
+    return bool(set(r.split("_")) & _NEGATION_TOKENS)
+
+
+# Contracted / fused negatives and the positive they carry. Only forms where
+# the positive is mechanical — never a lexical judgement.
+_FUSED_NEGATIVES = {
+    "cannot": "can", "cant": "can", "wont": "will", "isnt": "is",
+    "wasnt": "was", "arent": "are", "werent": "were", "doesnt": "does",
+    "dont": "do", "didnt": "did", "hasnt": "has", "havent": "have",
+    "hadnt": "had", "shouldnt": "should", "couldnt": "could",
+    "wouldnt": "would",
+}
+
+# Bare negation tokens that can simply be deleted from a relation word.
+_STRIPPABLE_NEGATION_TOKENS = frozenset({"not", "never"})
+
+
+def _strip_negation(rel: str) -> Optional[str]:
+    """The positive form of a negation-shaped relation, or None.
+
+    ⚑ MECHANICAL ONLY. Deleting a `not` token or expanding a contraction is a
+    string operation and cannot invent a meaning. LEXICAL negatives are
+    deliberately excluded — `lacks` is not turned into `has`, and `without` is
+    not turned into `with`, because that is a semantic judgement and
+    `handle_triplet`'s A8 branch **expires the matching positive edge**. A
+    wrong positive form would therefore destroy a true fact, which is exactly
+    the failure G51 was just fixed for. A missed normalisation leaves a
+    correctly-stored, if oddly-named, relation; a wrong one deletes evidence.
+    """
+    r = (rel or "").strip().lower()
+    if not r:
+        return None
+    toks = r.split("_")
+    out = []
+    changed = False
+    for tok in toks:
+        if tok in _STRIPPABLE_NEGATION_TOKENS:
+            changed = True
+            continue
+        if tok in _FUSED_NEGATIVES:
+            out.append(_FUSED_NEGATIVES[tok])
+            changed = True
+            continue
+        out.append(tok)
+    if not changed or not out:
+        return None
+    positive = "_".join(out)
+    # `no_longer_uses` → `longer_uses` would be worse than leaving it alone, and
+    # a result that is still negation-shaped means the strip did not finish.
+    return None if (positive == r or _is_negated(positive)) else positive
 
 
 def _role_tail(rel: str) -> Optional[str]:
@@ -927,6 +983,21 @@ def extract_triplets(text: str, model_override: str = "",
             # extraction looked like it ran, and mostly it deleted its own work.
             kept, dropped = [], []
             for t in chunk_triplets:
+                # ⚑ A8/G45: the prompt already asks for a POSITIVE relation
+                # plus `"negated": true`, and the model ignores it — it coins
+                # `is_not`, `cannot`, `does_not` as relation words instead.
+                # Measured on the arm-B store: 686 such edges, **0** of them
+                # flagged, against 11 `negated=True` edges in the whole graph.
+                # They were therefore stored as ordinary positive facts, gained
+                # strength through reinforcement like any other, and rendered
+                # under `Links:` — telling the answering model that the exact
+                # opposite of the turn was true. Normalise here, before
+                # canonicalisation, so the positive form is what gets
+                # canonicalised and `handle_triplet`'s A8 branch does the rest.
+                positive = _strip_negation(t.get("relation", ""))
+                if positive:
+                    t["relation"] = positive
+                    t["negated"] = True
                 # G45: canonicalise, do not gate. This returned None for
                 # anything off a 197-word list and the triplet was destroyed —
                 # 1,259 in one seed, `i --didnt_get--> csi` among them.
