@@ -40,14 +40,16 @@ more time on instruments.
 
 | # | do this | why it is next | cost |
 |---|---|---|---|
-| **1** | **Re-judge `dir-false-run1` / `dir-true-run1` / `dir-true-run2` with `--per-turn 3`** | the direction rule is the ONLY intervention that has ever moved correctness, and its +9.4 pts was measured with the flat sampler. The arms already exist — **no re-seed** | ~30 min |
+| **1** | **Judge the two CONTROL arms at full coverage: `dir-false-run1` and `dir-false-run2`, `--per-turn 3`** | both treatment arms are already measured properly (`dir-true-run1` **17.1%**, `dir-true-run2` **14.4%**); only the controls are missing. `dir-false-run1` has a flat-sampler figure (11.0%) that is not comparable to them, and `dir-false-run2` has never been judged. ⚑ **DO THIS BEFORE TOUCHING THE EXTRACTOR AGAIN** — these arms were seeded with the 2026-08-22/23 code, and any further codex change makes them uninterpretable. | ~20 min |
 | **2** | **Small-model sweep** on the FIXED prompt | A12 compared 8 models on the broken prompt, which likely explains why all 8 failed identically. Now affordable: one run per arm suffices (§3) | ~2 h + judging |
 | **3** | **Let non-lossless turns feed the graph** ([G57](../../docs/ROADMAP.md#g57)) | maintainer decided YES. ⚠ sequence AFTER something moves correctness — at 14–17%, +44% input adds ~4 wrong facts per right one | small |
 | 4 | Stop using `extraction_confidence` as a truth prior | it is uninformative, not inverted (§1). The retrieval trust floor keys on it | small |
-| 5 | [G60](../../docs/ROADMAP.md#g60) relation supersession semantics | 146 declared against ~2,026 in the store. Graph-inference is a measured dead end; use a cached one-shot model call via the maintenance agent | design |
-| 6 | Re-run the five per-leg ablations | the 2026-08-20 set is dead (§3b); needs a clean same-commit baseline | ~1 h |
-| 7 | NuNER vs micro on fixed code | maintainer: **stay on NuNER until the extraction side lands** | ~2 h |
-| 8 | Z2 / answer layer | LAST. Needs the [G56](../../docs/ROADMAP.md#g56) judge fix, which shipped but is unexercised | expensive |
+| 5 | [G61](../../docs/ROADMAP.md#g61) silent extraction drops — four unlogged, plus a failed turn that commits its idempotency key and can never retry | latent but silent by construction; the salvage regex also cannot match a `negated` triplet, and those went 0.11% → ~6% | small |
+| 6 | [G62](../../docs/ROADMAP.md#g62) `check_conflict`'s antonym branch expires edges deterministically, no LLM, no review | never fired (0 of 106 reconciles) — fix BEFORE widening `ANTONYM_OF` | small |
+| 7 | [G60](../../docs/ROADMAP.md#g60) relation supersession semantics | 146 declared against ~2,026 in the store. Graph-inference is a measured dead end; use a cached one-shot model call via the maintenance agent | design |
+| 8 | Re-run the five per-leg ablations | the 2026-08-20 set is dead (§3b); needs a clean same-commit baseline | ~1 h |
+| 9 | NuNER vs micro on fixed code | maintainer: **stay on NuNER until the extraction side lands** | ~2 h |
+| 10 | Z2 / answer layer | LAST. Needs the [G56](../../docs/ROADMAP.md#g56) judge fix, which shipped but is unexercised | expensive |
 
 ⚠ **Not on this list on purpose:** more instrument work, and chasing exact
 reproducibility. The first is done; the second is unreachable ([TRAPS #47](../../docs/TRAPS.md)).
