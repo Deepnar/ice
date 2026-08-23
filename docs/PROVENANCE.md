@@ -2950,3 +2950,56 @@ snapshot `ner-b-postfix`, `logs/reseed_ner-b-postfix.log`,
 **What this does NOT show:** anything about retrieval or answers. This is
 store-level only — the judge reads each stored triplet against its own source
 turn. No retrieval ran, no answering model was involved.
+
+
+---
+
+## 2026-08-23 — ⛔ THE "extraction_confidence IS INVERTED" FINDING IS WITHDRAWN
+
+**It was a small-sample artifact, and it was recorded as settled in three
+places.** The claim — grounded-0.9 triplets are LESS often true than
+rejected-0.35 ones — came from flat judge sampling that drew only 40 grounded
+triplets. One correct in forty read as 2.5% and looked dramatic.
+
+Re-measured with turn-stratified sampling (`--per-turn 3`, 124 distinct turns
+per arm instead of 76), on TWO independent seeds of the same configuration:
+
+| tier | `dir-true-run1` | `dir-true-run2` |
+|---|---|---|
+| grounded (0.9) | **22.3%** (n=94) | **12.2%** (n=115) |
+| ungrounded (0.7) | 21.4% (n=14) | 23.1% (n=13) |
+| rejected (0.35) | **15.0%** (n=260) | **15.0%** (n=240) |
+
+**The two runs disagree on the DIRECTION.** Run 1 makes grounded look better,
+run 2 makes it look worse, and `rejected` is identical at 15.0% both times.
+
+⇒ **`extraction_confidence` carries no reliable signal about correctness — in
+either direction.** Not inverted. Not working. Uninformative. The practical
+advice is unchanged (do not use it as a truth prior) but the reason is
+different, and the difference matters to anyone deciding what to do with the
+field.
+
+⚠ **What produced the error.** A 40-triplet subgroup was quoted as a finding
+without an interval. At that size the 95% interval on a rate near 15% is about
+±11 points, which spans every number in the table above. This is the same
+failure the session was convened to fix, committed by the session fixing it.
+
+### And the RUN-TO-RUN variance question is answered
+
+Same configuration, two independent seeds, full turn coverage:
+
+| | correct | interval |
+|---|---|---|
+| `dir-true-run1` | **17.1%** | ±6.6 |
+| `dir-true-run2` | **14.4%** | ±6.2 |
+
+**2.7 points apart, well inside either interval.** So the aggregate rate is
+stable run to run; the wobble that made 20.4% and 10.0% look like different
+results was SAMPLING, not the model's cross-process nondeterminism.
+
+⇒ **No heavy bootstrap is needed.** One run per arm is adequate **provided
+every run reports its interval and covers turns rather than triplets.** That
+keeps the model sweep affordable.
+
+**Current honest figure for graph correctness: 14–17%, ±6 points.** Not 20%,
+not 11%, not 10% — one number, measured properly, for the first time.

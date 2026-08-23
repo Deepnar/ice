@@ -46,6 +46,7 @@ Full evidence and confidence levels: **[PROVENANCE.md](PROVENANCE.md)**, entries
 - **Only ~20% of stored triplets are TRUE; ~25% are merely REVERSED** (right
   entities, right relation, backwards). n=200 per arm, judged against each
   triplet's own source turn.
+- ~~**`extraction_confidence` is INVERTED against truth**~~ ⛔ **WITHDRAWN 2026-08-23** — a 40-triplet subgroup quoted without an interval. Re-measured over 124 turns on two seeds, the two runs disagree on the DIRECTION (grounded 22.3% vs 12.2%; rejected 15.0% both). The field is UNINFORMATIVE, not inverted. Original text follows:
 - **`extraction_confidence` is INVERTED against truth** — grounded 0.9 is 14–15%
   correct, rejected 0.35 is 22–25%. Independently in both arms.
 - **A9b settled: NuNER improves FORM, not OUTCOME.** Malformed triplets halved

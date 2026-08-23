@@ -27,7 +27,7 @@ it starts. Do not mix them.
 |---|---|---|
 | Does a bigger background model fix extraction? | **No.** 8 models 4B→26B, defects in all 7 viable arms ⇒ prompt/design, not capacity | PROVENANCE `A12` (2026-08-12) |
 | Does NuNER beat micro-NER for codex grounding? | **Form, not outcome.** malformed 25.0→12.5%, non-entity nodes 58.7→40.7%; correctness 18→20% (inside 1 SE) | PROVENANCE 2026-08-20 |
-| Is `extraction_confidence` a usable truth signal? | **No — it is INVERTED.** grounded 0.9 = 2.5% correct, rejected 0.35 = 18.1%. Reproduced in both arms | PROVENANCE 2026-08-20, 2026-08-22 |
+| Is `extraction_confidence` a usable truth signal? | **No — it is UNINFORMATIVE.** ⚠ The earlier "INVERTED" claim is **WITHDRAWN**: it rested on a 40-triplet subgroup quoted without an interval. Re-measured over 124 turns on two seeds, the runs disagree on the DIRECTION (grounded 22.3% vs 12.2%; rejected 15.0% both). Do not use it as a truth prior — because it says nothing, not because it is backwards | PROVENANCE 2026-08-23 |
 | Do the six write-path mechanism fixes make the graph more TRUE? | **No — a null.** Every mechanism moved; correctness did not (z ≤ 1.14) | PROVENANCE 2026-08-22 |
 | Are reversals created by relation canonicalisation? | **No.** Blocking 1,611 direction/polarity merges left the reversal rate flat ⇒ generated, not merged | PROVENANCE 2026-08-22 |
 | Can a closed 197-word relation vocabulary work? | **No.** 67.8% of real relations are out-of-vocabulary; the repair ladder recovers 5.7% | PROVENANCE 2026-08-03/04 |
@@ -49,15 +49,19 @@ it starts. Do not mix them.
 
 - **Judge self-consistency: ±2.5 pts.** Same judge, same store, same seed, same
   200 triplets, run twice → 87.1% identical verdicts.
-- **⚑ Sampling: ±8 pts.** 200 triplets come from only ~76 turns and triplets in
-  a turn are correlated, so the independent unit is the TURN. Two runs of the
-  same configuration on content-identical stores gave **20.4%** and **10.0%**.
-- ⇒ **Every graph-quality number this project has published (20%, 15.8%, 11.0%,
-  20.4%, 10.0%) is one measurement with a ±8 pt interval.** None are
-  distinguishable from each other.
-- **Fix shipped 2026-08-23:** `judge_codex.py --per-turn K` samples every turn;
-  `report_power()` prints the interval and refuses to let a bare percentage
-  stand alone. ⚠ Its benefit is **unverified on a full store** — re-check.
+- **Sampling was the big term, and it is FIXED.** 200 triplets came from only
+  ~76 turns, and triplets in a turn are correlated, so the independent unit is
+  the TURN. `--per-turn 3` now covers **124 turns**, taking the interval from
+  ±8 to **±6.2–6.6**.
+- **Run-to-run variance in the RATE is small — measured 2026-08-23.** Two
+  independent seeds of one configuration, full coverage: **17.1%** and
+  **14.4%**, 2.7 points apart and inside both intervals. ⇒ **no heavy bootstrap
+  is needed**; one run per arm suffices **provided it reports its interval**.
+- ⚠ **The model is nondeterministic ACROSS PROCESSES** (temperature 0 fixes
+  sampling, not logits). Two identical seeds share only 6 of 9 raw responses.
+  That changes WHICH triplets exist; it does not move the aggregate rate much.
+- ⇒ **Current honest figure: 14–17% correct, ±6 pts.** Every earlier number
+  (20%, 15.8%, 11.0%, 20.4%, 10.0%) was one measurement under-sampled.
 
 ## 4. SCRIPTS — what each one is for
 
