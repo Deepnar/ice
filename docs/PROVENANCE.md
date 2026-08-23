@@ -3003,3 +3003,74 @@ keeps the model sweep affordable.
 
 **Current honest figure for graph correctness: 14–17%, ±6 points.** Not 20%,
 not 11%, not 10% — one number, measured properly, for the first time.
+
+---
+
+## 2026-08-23 — ICE cannot reproduce itself, and three of the four causes are fixed
+
+**Nobody had ever run the same seed twice and compared.** Every arm comparison,
+ablation and model ranking assumed it. `scripts/z1/check_reproducible.sh` now
+answers it in ~15 minutes and names the first divergent turn.
+
+**Baseline (no fixes):** two identical 20-turn/conversation seeds — same
+corpus, model, NER tier, config — diverged on **31 of 48 turns**, 2,108 edges
+against 1,740 (**−17%**), starting at **turn 1**. Not noise: run A held
+`attention --affects--> exams` where run B held `9.65 cgpa --does_see-->
+father`. Different facts about different things.
+
+**Three causes found and fixed** (`f76b65c`):
+
+| # | cause | effect of fixing it |
+|---|---|---|
+| 1 | the FIRST extraction call after Ollama loads a model differs — **633 chars cold vs 650 warm**, identical input, temperature 0 | edge gap −17% → **−2.9%** |
+| 2 | `known_relations()` had **no `ORDER BY`**; Postgres row order shifts as the table grows, and `canonical_relation` takes an argmax over that list where real candidates sit thousandths apart (`has`/`have` 0.9469) | turns 1–19 reproduced **exactly**; divergence moved to turn 20 |
+| 3 | three unordered reads in `get_or_create_entity` — alias lookup, the **many-to-one-by-design** merge_key tier, and the promotion scan | (see the caveat below) |
+
+⚠ **Fix 3 did not help and may have hurt** — after it, divergence returned to
+turn 1 and 31 of 48 turns. Ordering by `canonical_name` changed *which* entity
+wins a merge group, which cascades differently. Recorded as applied-but-
+unvalidated: the ordering is still correct in principle (an unordered `.first()`
+over a many-row match is a defect regardless), but it is not what fixes
+reproducibility.
+
+### ⛔ THE FOURTH CAUSE IS NOT FIXABLE AT THIS LAYER
+
+Minimal repro, 3 turns, 90 seconds: **9 raw model responses per pass, 6
+identical, 3 different**, first divergence on call 1 with the model already
+warm.
+
+```
+pass X: [{"object":"detroit","relation":"manufactured_by","subject":"ford"}]
+pass Y: [{"object":"detroit","relation":"lives_in","subject":"ford"}, …]
+```
+
+Within ONE process, 12 alternating warm calls were byte-identical — which is
+why an earlier test wrongly concluded the model was deterministic. **Across
+processes it is not.** Temperature 0 fixes sampling, not logits: batch
+composition and kernel selection differ per process, and two near-tied relation
+words then resolve differently.
+
+⇒ **Exact reproducibility is unreachable. The strategy changes from removing
+variance to measuring it.**
+
+### But the aggregate RATE is stable, which is what actually matters
+
+Two independent seeds of one configuration, judged with full turn coverage:
+
+| | correct | 95% interval |
+|---|---|---|
+| `dir-true-run1` | **17.1%** | ±6.6 (124 turns) |
+| `dir-true-run2` | **14.4%** | ±6.2 (124 turns) |
+
+**2.7 points apart, inside both intervals.** The model's cross-process
+nondeterminism changes WHICH triplets exist without moving the rate much.
+
+⇒ **No heavy bootstrap is needed.** One run per arm suffices **provided it
+reports its interval and samples TURNS rather than triplets**. That keeps the
+model sweep affordable, which was the open question.
+
+**Artifacts:** `logs/reproducibility_check.log`, `logs/repro_after_*.log`,
+`experiments/curation_files/fingerprints/`, judgements `*-perturn`.
+
+**What this does NOT show:** anything about retrieval or answers. Store-level
+only.
