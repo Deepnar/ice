@@ -1,126 +1,113 @@
-# Handoff — 2026-08-21, ~16:45 IST
+# Handoff — 2026-08-23, ~17:00 IST
 
 **State, not a queue.** [ROADMAP.md](ROADMAP.md) is the queue and the only one.
 This file exists for the one thing no other doc holds: **what the last session
 was told to do, against what it actually did.** Overwritten every session,
 committed last; earlier ones are in `git log -p docs/HANDOFF.md`.
 
-> **⚑ READ [G52](ROADMAP.md#g52) AND [TRAPS #43](TRAPS.md) BEFORE TRUSTING ANY
-> RETRIEVAL NUMBER FROM THIS CYCLE.** Both evaluation harnesses call
-> `orchestrator.retrieve()` with `scope=None`; production passes a populated
-> scope. That switched the batch-summary leg **off** in every measurement and
-> changed what every other leg returned. **The fix is small. The re-run is the
-> work, and it comes first.**
+> **⚑ START AT [`scripts/z1/README.md`](../scripts/z1/README.md).** New this
+> session. It indexes every Z1 experiment — what is settled, what is open in
+> priority order, the measurement floor, and **§3b: every number this project
+> has produced with its status** (dead / superseded / suspended / trusted).
+> It exists because three "settled" findings were withdrawn this session.
 
 ---
 
 ## TOLD → DID
 
-**Told:** run the two-arm NER re-seed (A9b), answer the probes, re-score and
-re-judge.
+**Told:** the previous handoff said every retrieval number was measured off the
+production path (G52), the fix was small, and *"the re-run is the work."*
 
-**Did:** all of it, plus far more measurement than was asked for, plus one
-retraction that invalidates the retrieval half. Both arms seeded, drained,
-snapshotted, scored, answered and judged. A codex truth-judge and a codex
-ablation were built and run because the arm comparison kept raising questions the
-existing instruments could not answer. **Then the harness defect was found, and
-it retracts every retrieval table.** The store-level findings survive.
+**Did:** found that diagnosis **wrong**, then found ten more measurement
+defects, fixed eight production bugs, and re-measured. **Three findings were
+withdrawn during the session, two of them produced by this session.** The
+re-run happened and its numbers are lower than everything they replaced.
 
-## ⚑ START HERE — THE STATE OF THE WORLD
+## 1. ⚑ WHAT IS TRUE NOW
 
 | | |
 |---|---|
-| **Store** | arm B (`ner-b-nuner`) live — 293 turns / 6,271 entities / 10,228 edges / 65 procedural / 3 summaries. |
-| **Snapshots** | `ner-a-micro` (arm A, WITH summaries) · `ner-b-nuner` · `ner-a-micro-presummary` · `arm1-post-g50` (the "before"). |
-| **Git** | Clean. **Local only — the Z1 freeze holds.** 17 commits this session. |
-| **Tests** | smoke 183/183 · `test_codex_write_path` 32/32. |
-| **CLAUDE.md** | 408 → 340 lines. Git rules and session-closeout rules moved verbatim into `.claude/skills/ice-git/` and `.claude/skills/ice-session-closeout/`. |
+| **Graph correctness** | **14–17%, ±6 pts** — measured over 124 turns on two seeds. Every earlier figure (20%, 15.8%, 11.0%, 20.4%, 10.0%) was one under-sampled measurement |
+| **Retrieval** (corrected metrics) | episodic **0.599** ±0.032 · codex **0.380** ±0.026 · summary **0.145** ±0.027 · procedural **0.000** · temporal 0.536 ±0.094 |
+| **Store** | `ner-b-postfix` restored — 293 turns / 4,768 entities / 7,413 edges / 3 summaries |
+| **Git** | clean, **39 commits**, local only — the Z1 freeze holds |
+| **Tests** | smoke 183/183 · codex write path 32/32 · harness parity 4/4 · settings freeze 147/147 |
 
-## 1. ⚑ WHAT IS TRUE, AND WHAT WAS RETRACTED
+## 2. WHAT WAS WITHDRAWN, AND BY WHOM
 
-Full evidence and confidence levels: **[PROVENANCE.md](PROVENANCE.md)**, entries
-2026-08-20 and 2026-08-21.
+- **G52's diagnosis** — it blamed `scope=None`, citing the MCP pull as
+  "production". The chat path resolves an `auto` conversation to `{}`, so
+  `conv_id` is None there too. The real invalidator was **G54**: the harnesses
+  classified without the conversation, moving RRF blend weights on **65%** of
+  probes.
+- **"`extraction_confidence` is INVERTED"** — a **40-triplet** subgroup quoted
+  without an interval, written into three tracked docs. Two full-coverage runs
+  disagree on the direction. It is **uninformative**, not inverted.
+- **"the 24% triplet drop was my code"** and **"the noise floor is 1.1%"** —
+  both mine, both stated before the supporting measurement existed.
 
-**SURVIVES — measured against the store directly, not through the orchestrator:**
+⇒ [TRAPS #46](TRAPS.md) is the shape: *a floor measured for one source, applied
+to a comparison it does not cover.* Four instances in one session.
 
-- **Only ~20% of stored triplets are TRUE; ~25% are merely REVERSED** (right
-  entities, right relation, backwards). n=200 per arm, judged against each
-  triplet's own source turn.
-- ~~**`extraction_confidence` is INVERTED against truth**~~ ⛔ **WITHDRAWN 2026-08-23** — a 40-triplet subgroup quoted without an interval. Re-measured over 124 turns on two seeds, the two runs disagree on the DIRECTION (grounded 22.3% vs 12.2%; rejected 15.0% both). The field is UNINFORMATIVE, not inverted. Original text follows:
-- **`extraction_confidence` is INVERTED against truth** — grounded 0.9 is 14–15%
-  correct, rejected 0.35 is 22–25%. Independently in both arms.
-- **A9b settled: NuNER improves FORM, not OUTCOME.** Malformed triplets halved
-  (25.0→12.5%), non-entity nodes 58.7→40.7%, ~1,640 junk nodes vs ~3,400. But
-  correctness 18.0→20.0% (inside 1 SE) and answers 31–30 — both real nulls.
-- **64–68% of entities carry exactly one edge**, and 41–59% of those are not
-  entities at all.
-- **A12 already ruled out "use a bigger model"**: eight models, 4B→26B, the 26B
-  ranked third, defects present in all seven arms ⇒ prompt/design, not capacity.
+## 3. THE FINDINGS THAT SURVIVED
 
-**RETRACTED — measured off the production path (G52):**
+- **The six write-path mechanism fixes are a NULL on truth.** Every mechanism
+  verifiably moved — expiries 7.99%→1.93%, negations 0.11%→6.04%, relation `in`
+  from the #2 slot to **one edge** — and correctness did not (z ≤ 1.14).
+- **Reversals are GENERATED, not merged in.** Blocking 1,611 direction- and
+  polarity-changing merges left the reversal rate flat. That pointed at the
+  prompt, which had **no direction instruction at all** — now [G59](ROADMAP.md#g59).
+- **ICE cannot reproduce itself, and the last cause is physics.** Three
+  order-dependencies fixed; the fourth is the model being nondeterministic
+  **across processes** (temperature 0 fixes sampling, not logits).
+  [TRAPS #47](TRAPS.md).
+- **But the aggregate RATE is stable** — 17.1% vs 14.4% across two seeds. So
+  **no heavy bootstrap**: one run per arm, provided it reports its interval and
+  samples turns rather than triplets.
+- **Everything counted directly against the store survived scrutiny. Everything
+  that passed through a sampler, a metric or a judge needed correcting.**
 
-- ~~batch summaries never reach the prompt~~ — the harness disabled the leg.
-- ~~a partnerless leg cannot win RRF~~ — a mechanism invented to explain that zero.
-- ~~`summary_synthesis` = 0.303~~ — measured with the summary leg off.
-- **The codex ablation's absolute verdict.** Its internal ordering stands (all
-  three conditions shared the defect): dropping codex won 25–14, disabling it
-  won 36–17. **Whether that survives a correct scope is unknown.**
+## 4. WHAT SHIPPED
 
-## 2. WHAT WAS FIXED AND SHIPPED
+**Production (8):** the G51 supersession branch (667 true facts were being
+deleted) · the G45 merge guard (`is`→`in` ×942) · A8 negation routing (686
+edges) · the G50 `merge_key` leak (6,271 payloads) · G53 `conv_id` split (the
+summary leg was dead) · G48 summary provenance · G57 coverage de-circularised +
+token ceiling 300→900 · G59 the direction rule.
 
-| what | commit |
-|---|---|
-| batch summariser — token-budgeted batching + per-batch isolation (it was sending 37,359 tokens at a 32,768 window and one 400 killed the whole pass) | `11fc18f` |
-| codex-grounding NER is a selectable tier | `8babddc` |
-| per-consumer NER labels (`concept`/`object` restored for codex only) | `e027956` |
-| the answer judge saw a **median 12.7%** of the gold — caps removed, source rebuilt from the store | `d2c7944` |
-| `finish_arm.sh` read a pipeline's exit code, so its abort could never fire | `1dea4e5` |
-| CLAUDE.md → skills | `236c396` |
+**Instruments (~11):** one shared production-parity path for all four harnesses
+plus a test that fails on drift · four metrics that were presence tests ·
+judge answer-truncation removed · turn-stratified judge sampling that reports
+its own interval · ablation-flag validation · the two-id-space fix in
+`score_retrieval`.
 
-## 3. NEXT — IN THIS ORDER
+**New tools:** `check_reproducible.sh`, `dump_graph_fingerprint.py`,
+`compare_judgements.py`, `production_parity.py`, and the Z1 index.
 
-1. **[G52](ROADMAP.md#g52) — fix the harness scope and RE-RUN.** Decide first
-   whether to fix the harnesses or make `retrieve()` fall back to its own
-   `conversation_id` parameter — **they are not equivalent; the second changes
-   production and is USER-GATED.** Then re-run: both arms' typed scores, the
-   codex ablation, the per-leg ablation. **Everything else waits on this.**
-2. **Then re-read the codex verdict.** If codex still loses under a correct
-   scope, the graph-repair queue is not the priority. If it wins, it is.
-3. **The graph-repair queue** (only after 2): direction check (~25% of edges) →
-   stop using `extraction_confidence` as a truth prior → junk-entity filter →
-   malformed shape gate → G51 linking (**prune before linking**).
-4. **Cheap and unanswered:** split `wrong` (37–38%) into hallucination vs
-   provenance drift — 14.8% of edges have a subject absent from their source
-   turn. Sets the real cleanup ceiling.
-5. **Old-pipeline comparison** — `score_typed` on `arm1-post-g50`, ~15 min, no
-   LLM. ⚠ Report with the `merge_key` payload asymmetry (~9 redundant tokens per
-   injected entity) and note it conflates the six fixes, G50 and the NER.
-6. **A product idea worth an entry (user, 2026-08-21):** gate legs on whether
-   their data exists yet. A new user's store has no summaries, no clusters, no
-   decay and a thin graph — if those legs cost budget and return nothing, every
-   new user gets worse answers than plain search would give.
+## 5. ⚑ DECISIONS MADE (do not re-litigate)
 
-## 4. WHAT IS STILL UNMEASURED — do not infer these from anything above
+- **Stay on NuNER** until the extraction side lands. Micro is the shipped
+  default, but nothing ships yet and re-opening it adds a second variable.
+- **Never a large model for background** — laptop card, beside the user's chat
+  model. The 26B is out of the candidate set on principle. [G58](ROADMAP.md#g58).
+- **Non-lossless turns SHOULD feed the graph** — a code change waiting, not a
+  question. [G57](ROADMAP.md#g57).
+- **`CLAUDE.md` line 32 is knowingly stale** ("dense enough" — density decides
+  18%). Fix the behaviour first, correct the line in the same change. **Do not
+  edit it before then.**
 
-- **The whole write path.** The earned-lossless density decision (164 of 293
-  turns lossless, 129 summarised), the B2 retrieve/don't-retrieve gate, the
-  context ledger. Never under test.
-- **Decay, reflection, the maintenance agent.** None run during a seed —
-  `decay_score < 1.0` is **0 rows**. Every number describes a store that has
-  never aged.
-- **Graph enumeration.** Cue-gated; no probe in the 444 triggers it. Its 0.000
-  delta is *untested*, not a null — see the two-kinds-of-zero note in PROVENANCE.
+## 6. WHAT IS STILL UNMEASURED
 
-## 5. THE INSTRUMENT RECORD, WHICH BOUNDS EVERYTHING
+The whole answer layer (Z2) · decay, reflection and the maintenance agent
+(never run; `decay_score < 1.0` is 0 rows) · the B2 gate (never once observed
+declining) · the context ledger (0 `context_evicting` events ever) · whether
+the direction rule actually works.
 
-**Eight measurement defects in one cycle, none of which raised an exception** —
-[TRAPS #41](TRAPS.md), [#42](TRAPS.md), [#43](TRAPS.md). Three interpretations
-were written and withdrawn. The answer comparison alone reversed twice.
+## 7. NEXT
 
-**The two rules that actually caught things:** write the assert that would FAIL,
-and prove the instrument DISCRIMINATES before spending the run. **The one that
-would have caught G52 and did not exist:** diff the harness's call against
-production's **argument by argument**, then run one request each way and diff the
-returned `source_type` counts.
+**[`scripts/z1/README.md`](../scripts/z1/README.md) §2 is the ordered plan.**
+It starts with re-judging three arms that already exist — ~30 minutes, no
+re-seed — because the direction rule is the only intervention that has ever
+moved correctness and its result is still unresolved.
 
 **⚑ Do not write this file, or close a session, without the user saying so.**
