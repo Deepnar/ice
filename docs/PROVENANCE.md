@@ -3014,9 +3014,11 @@ answers it in ~15 minutes and names the first divergent turn.
 
 **Baseline (no fixes):** two identical 20-turn/conversation seeds — same
 corpus, model, NER tier, config — diverged on **31 of 48 turns**, 2,108 edges
-against 1,740 (**−17%**), starting at **turn 1**. Not noise: run A held
-`attention --affects--> exams` where run B held `9.65 cgpa --does_see-->
-father`. Different facts about different things.
+against 1,740 (**−17%**), starting at **turn 1**. **Not noise, and not
+near-misses: the two runs held different subjects making different claims**, and
+one run's were visibly worse. The triplets carry personal specifics, so they
+live at **`[PRIVATE:repro-divergence-examples]`** in `docs/PRIVATE_CONTEXT.md`
+(gitignored) — read them before concluding the divergence is harmless.
 
 **Three causes found and fixed** (`f76b65c`):
 
