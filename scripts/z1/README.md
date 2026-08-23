@@ -33,17 +33,24 @@ it starts. Do not mix them.
 | Can a closed 197-word relation vocabulary work? | **No.** 67.8% of real relations are out-of-vocabulary; the repair ladder recovers 5.7% | PROVENANCE 2026-08-03/04 |
 | Is the procedural leg's 1.000 a real score? | **No — a tautology.** It returns its limit (5 fragments) on every query, nonsense included | TRAPS #37 |
 
-## 2. OPEN — the live queue
+## 2. OPEN — the live queue, in order
 
-| question | blocked on | where |
-|---|---|---|
-| **Does the direction rule cut reversals?** +9.4 pts seen, but two same-config runs spanned 10.0–20.4% | judge sampling (below) | ROADMAP `G59` |
-| **Can two identical seeds reproduce each other?** | running 2026-08-23 | `check_reproducible.sh` |
-| Which small background model is best? | the two above | MODELS.md §5 |
-| NuNER vs micro on FIXED code | maintainer: **stay on NuNER for now** | — |
-| Retrieval numbers under the corrected metric | re-score pending | ROADMAP `G52` |
-| Should the 44% of non-lossless turns feed the graph? | **maintainer decided YES** — needs implementing | ROADMAP `G57` |
-| `extraction_confidence` must stop being a truth prior | not started | ROADMAP `G58`-adjacent, PROVENANCE 2026-08-22 |
+**Next session starts at #1.** Gate 1 (can we measure?) is passed; do not spend
+more time on instruments.
+
+| # | do this | why it is next | cost |
+|---|---|---|---|
+| **1** | **Re-judge `dir-false-run1` / `dir-true-run1` / `dir-true-run2` with `--per-turn 3`** | the direction rule is the ONLY intervention that has ever moved correctness, and its +9.4 pts was measured with the flat sampler. The arms already exist — **no re-seed** | ~30 min |
+| **2** | **Small-model sweep** on the FIXED prompt | A12 compared 8 models on the broken prompt, which likely explains why all 8 failed identically. Now affordable: one run per arm suffices (§3) | ~2 h + judging |
+| **3** | **Let non-lossless turns feed the graph** ([G57](../../docs/ROADMAP.md#g57)) | maintainer decided YES. ⚠ sequence AFTER something moves correctness — at 14–17%, +44% input adds ~4 wrong facts per right one | small |
+| 4 | Stop using `extraction_confidence` as a truth prior | it is uninformative, not inverted (§1). The retrieval trust floor keys on it | small |
+| 5 | [G60](../../docs/ROADMAP.md#g60) relation supersession semantics | 146 declared against ~2,026 in the store. Graph-inference is a measured dead end; use a cached one-shot model call via the maintenance agent | design |
+| 6 | Re-run the five per-leg ablations | the 2026-08-20 set is dead (§3b); needs a clean same-commit baseline | ~1 h |
+| 7 | NuNER vs micro on fixed code | maintainer: **stay on NuNER until the extraction side lands** | ~2 h |
+| 8 | Z2 / answer layer | LAST. Needs the [G56](../../docs/ROADMAP.md#g56) judge fix, which shipped but is unexercised | expensive |
+
+⚠ **Not on this list on purpose:** more instrument work, and chasing exact
+reproducibility. The first is done; the second is unreachable ([TRAPS #47](../../docs/TRAPS.md)).
 
 ## 3. ⚑ THE MEASUREMENT FLOOR — read before quoting any number
 
