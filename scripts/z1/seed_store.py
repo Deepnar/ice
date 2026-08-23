@@ -338,6 +338,33 @@ def main() -> int:
     # a tag ("z1-seed") 404s the whole post-flight chain.
     seed_model = get_bg_model_name()
 
+    # ⚑ WARM THE MODEL BEFORE THE FIRST REAL TURN (2026-08-23). Measured: the
+    # FIRST extraction call after Ollama loads a model returns different text
+    # from every call after it — 633 chars cold against 650 warm, on identical
+    # input at temperature 0. Warm calls are then perfectly deterministic (four
+    # in a row byte-identical).
+    #
+    # That one unstable call is not a rounding error, because canonicalisation
+    # feeds accepted relations back into the vocabulary and every entity it
+    # mints changes what later turns resolve against. Measured consequence:
+    # two IDENTICAL seeds diverged on **31 of 48 turns**, 2,108 edges against
+    # 1,740 (-17%), starting at turn 1 — and the divergence was real content,
+    # not noise (`attention --affects--> exams` in one run against
+    # `9.65 cgpa --does_see--> father` in the other).
+    #
+    # ⇒ Every arm comparison this project has run compared two draws from a
+    # process that does not repeat. One throwaway call fixes it, and it is the
+    # same remedy TRAPS #27 already prescribes for retrieval's warm-up.
+    try:
+        from src.workers.codex_extractor import extract_triplets
+        extract_triplets("Warm-up. Ford manufactured the car in Detroit.")
+        print(f"  model warmed ({seed_model}) — first-call instability skipped")
+    except Exception as exc:                                  # noqa: BLE001
+        # Loud, never silent: an unwarmed run is still valid, but its
+        # reproducibility guarantee is gone and the log must say so.
+        print(f"  ⚠ WARM-UP FAILED ({type(exc).__name__}: {str(exc)[:80]}) — "
+              f"this run is NOT reproducible; do not compare it to another arm")
+
     for cid, meta in sorted(convs.items()):
         turns = meta["turns"][:args.limit] if args.limit else meta["turns"]
 

@@ -663,9 +663,27 @@ def known_relations(db=None) -> list:
         from src.api.db import SessionLocal
         db = SessionLocal()
     try:
+        # ⚑ ORDER BY IS LOAD-BEARING, NOT TIDINESS (2026-08-23). Without it
+        # Postgres returns rows in whatever order the plan happens to produce,
+        # and that changes as the table grows and is vacuumed — so the relation
+        # vocabulary arrived in a DIFFERENT ORDER on every run.
+        #
+        # `canonical_relation` scores this list by cosine and takes the argmax.
+        # Real candidates sit within thousandths of each other (`has`/`have`
+        # 0.9469, `fails`/`failed` 0.9431), so list order decides near-ties —
+        # and every accepted relation is fed back into the vocabulary the rest
+        # of the run canonicalises against. One flipped tie on turn 1 therefore
+        # changes what turn 2 sees, and so on.
+        #
+        # Measured: two IDENTICAL seeds diverged on 35 of 48 turns starting at
+        # turn 1, with real content differences (`attention --affects--> exams`
+        # in one run, `9.65 cgpa --does_see--> father` in the other). A model
+        # warm-up cut the edge gap from -17% to -2.9%; this is the remainder.
+        # The model itself is deterministic at temperature 0 — verified 12
+        # alternating warm calls, one distinct output each.
         live = [r[0] for r in db.execute(text(
             "SELECT DISTINCT relation FROM codex_edges "
-            "WHERE relation IS NOT NULL")).all() if r[0]]
+            "WHERE relation IS NOT NULL ORDER BY relation")).all() if r[0]]
     except Exception as err:
         logger.warning("codex_known_relations_failed", error=str(err)[:120])
         live = []
@@ -1205,7 +1223,20 @@ def get_or_create_entity(db, name: str, protect_ids=None) -> CodexEntity:
     if entity:
         return entity
 
-    entity = db.query(CodexEntity).filter(CodexEntity.aliases.any(canonical)).first()
+    # ⚑ ORDERED (2026-08-23). `aliases` is an ARRAY and nothing makes its
+    # contents unique across entities, so two entities can legitimately carry
+    # the same alias — and `.first()` with no ORDER BY then returns whichever
+    # row Postgres' plan happens to yield, which changes as the table grows.
+    # Whichever one wins absorbs the fact, so the graph differs between runs.
+    # Ordered by `canonical_name`, not by time or id: CodexEntity has no
+    # `created_at`, `last_updated` MUTATES on every touch (so it cannot express
+    # "which came first"), and `id` is a random uuid that differs per run —
+    # which would defeat the entire point. `canonical_name` is UNIQUE, so it is
+    # a total order, and it is derived from content rather than from history.
+    entity = (db.query(CodexEntity)
+              .filter(CodexEntity.aliases.any(canonical))
+              .order_by(CodexEntity.canonical_name.asc())
+              .first())
     if entity:
         return entity
 
@@ -1229,10 +1260,23 @@ def get_or_create_entity(db, name: str, protect_ids=None) -> CodexEntity:
     # judgement — and it never deletes a row.
     key = merge_key(canonical)
     if key:
-        hit = db.query(CodexEntity).filter(
+        # ⚑ ORDERED (2026-08-23), and this tier needs it MORE than the alias
+        # lookup above: a merge_key is deliberately many-to-one — that is its
+        # entire purpose, collapsing `gemma-4-e4b q4` and `gemma-4-e4b-q4` onto
+        # one key — so a populated store routinely has SEVERAL rows matching.
+        # `.first()` picked whichever the plan returned, so the surviving name
+        # for a merged group changed between runs, and every later exact-string
+        # lookup then resolved differently.
+        #
+        # This is the residue the ORDER BY on `known_relations` left behind:
+        # after that fix the first 19 turns reproduced exactly and divergence
+        # began at turn 20, once enough entities existed for near-misses to
+        # appear — `a roh --is_pulled_back_in--> aroh` in one run and not the
+        # other. Early turns have too few entities to collide.
+        hit = (db.query(CodexEntity).filter(
             CodexEntity.properties["merge_key"].astext == key,
             CodexEntity.properties["merged_into"].astext.is_(None),
-        ).first()
+        ).order_by(CodexEntity.canonical_name.asc()).first())
         if hit is not None:
             # Record the surface form so the exact-string tiers catch it next
             # time without reaching this query at all.
@@ -1272,8 +1316,20 @@ def get_or_create_entity(db, name: str, protect_ids=None) -> CodexEntity:
             tokens = set(canonical.split())
             if len(tokens) > 1:
                 protected = set(protect_ids or ())
-                for generic in db.query(CodexEntity).filter(
-                        CodexEntity.canonical_name.in_(list(tokens))).all():
+                # ⚑ ORDERED (2026-08-23). `tokens` is a SET, so `list(tokens)`
+                # is already arbitrary — and the loop below mutates the store
+                # (it promotes a stub into this name and deletes the stub), so
+                # which candidate is reached first decides the outcome. Sorting
+                # the tokens and ordering the query makes that choice stable.
+                # Currently latent: promotion is default-OFF and fired 0 times
+                # in a 586-turn run. It is fixed anyway because a dormant
+                # order-dependency is exactly what surfaced at turn 20 once the
+                # earlier ones were removed.
+                for generic in (db.query(CodexEntity)
+                                .filter(CodexEntity.canonical_name.in_(
+                                    sorted(tokens)))
+                                .order_by(CodexEntity.canonical_name.asc())
+                                .all()):
                     if generic.id in protected:
                         logger.info("codex_node_promotion_skipped_in_flight",
                                     generic=generic.canonical_name,
