@@ -1204,3 +1204,100 @@ A presence metric over terms the generator was told to list is not a measurement
 it is a receipt. And when a metric saturates — 79% at the ceiling — that is the
 symptom, not a sign of health: ask what it would take to score *low*, and if the
 answer is "disobey the format", the metric is measuring the format.
+
+---
+
+### 46. A floor measured for one source, applied to a comparison it does not cover
+
+**2026-08-22/23, four times in one session, by the session fixing measurement.**
+
+Each time the shape was identical: measure a variance, establish a floor, then
+apply that floor to a comparison the measurement never touched.
+
+| the floor measured | what it actually covered | what it was applied to |
+|---|---|---|
+| judge self-consistency **±2.5 pts** — same store, same seed, same 200 triplets | the judge alone | a comparison of two DIFFERENT stores, where sampling and extraction also vary |
+| **1.1%** volume spread between two arms | one pair, one configuration | called a "noise floor" for all runs |
+| model deterministic — **12 warm calls identical** | within ONE process | concluded the model was deterministic, full stop. Across processes it is not |
+| **grounded 2.5% correct** | a **40-triplet** subgroup | quoted as a settled finding in three tracked docs |
+
+The last one is the sharpest. At n=40 the 95% interval on a rate near 15% is
+about **±11 points**, which spans every number in that table — and
+`extraction_confidence is INVERTED` was written into PROVENANCE, HANDOFF and
+the Z1 index on that basis. Re-measured over 124 turns on two seeds, the runs
+**disagree on the direction**. Withdrawn.
+
+**Why it keeps happening.** A floor feels like a property of the system once
+you have one number for it. It is not — it is a property of *one comparison
+under one set of held-constant things*. Change what varies and the floor no
+longer applies.
+
+⇒ **Before using an interval, say out loud what varied when you measured it and
+what varies in the comparison you are about to make.** If the second list is
+longer, the interval is too small. And **never quote a subgroup rate without
+its n** — a percentage over 40 rows is not a finding, it is a hint.
+
+---
+
+### 47. Temperature 0 is deterministic WITHIN a process, not across them
+
+**2026-08-23.** Twelve alternating warm calls in one process returned
+byte-identical text, so extraction was declared deterministic. Two seeds in
+separate processes then shared only **6 of 9** raw responses, diverging on
+call 1 with the model already resident:
+
+```
+X: [{"object":"detroit","relation":"manufactured_by","subject":"ford"}]
+Y: [{"object":"detroit","relation":"lives_in","subject":"ford"}, …]
+```
+
+Temperature 0 makes *sampling* deterministic — it does not make the *logits*
+bit-identical. Batch composition, kernel selection and memory layout differ
+between processes, and two near-tied tokens then resolve differently.
+`manufactured_by` against `lives_in` is exactly that kind of tie.
+
+⚠ **It matters more here than the token difference suggests**, because
+canonicalisation feeds accepted relations back into the vocabulary and every
+minted entity changes what later turns resolve against. One flipped token on
+turn 1 changed **31 of 48 turns**.
+
+⇒ **Verify determinism ACROSS PROCESSES, never within one.** And when a system
+turns out to be irreducibly variable, stop trying to remove the variance and
+start reporting it: repeated runs, stated intervals, and no claim that a
+difference is real unless it exceeds the observed spread. ⚠ Check *which*
+quantity is unstable before despairing — here **which triplets exist** varies
+substantially while the **aggregate correctness rate** moves only 2.7 points
+across two seeds, and only the second one most claims depend on.
+
+---
+
+### 48. An unordered SQL read is a coin flip that decides your data
+
+**2026-08-23, three instances in one file.**
+
+`SELECT DISTINCT relation FROM codex_edges` had no `ORDER BY`. Postgres returns
+rows in whatever order the plan produces, and that shifts as the table grows
+and is vacuumed — so the relation vocabulary arrived **in a different order on
+every run**. `canonical_relation` takes an argmax over that list, and real
+candidates sit thousandths apart (`has`/`have` **0.9469**, `fails`/`failed`
+**0.9431**), so list order decides near-ties. Fixing it made turns 1–19
+reproduce exactly where previously turn 1 diverged.
+
+Three more in `get_or_create_entity`, all `.first()` over sets that can hold
+several rows: the alias lookup (`aliases` is an array and nothing makes it
+unique across entities), the merge_key tier (**many-to-one by design** — that
+is its whole purpose), and the promotion scan (which iterates a `set()` *and
+mutates the store as it goes*).
+
+⚠ **Picking the ordering key is its own trap.** The first attempt used
+`created_at`, which does not exist on `CodexEntity` — caught only by a test.
+The obvious substitute, `last_updated`, is **worse than useless**: it MUTATES
+on every touch, so it cannot express "which came first" and would have looked
+stable while silently reordering. `id` is a random uuid that differs per run.
+The right key was `canonical_name` — UNIQUE, so a total order, and derived from
+content rather than from history.
+
+⇒ **`.first()` or an iterated `.all()` without `ORDER BY` is a defect wherever
+more than one row can match**, and doubly so when the loop writes. Order by
+something CONTENT-DERIVED and immutable; a timestamp that mutates and a random
+id are both traps that look like fixes.
