@@ -864,3 +864,22 @@ evidence either way.
 `score_typed.py`, `harvest_probe_context.py`, `run_meta.py`,
 `seed_relation_vocab.py`. `run_meta.py` is the one to reuse — every experiment
 artifact from here carries its provenance block.
+
+## 2026-08-23 — Z1 instrument scripts added (no moves, nothing deleted)
+
+New under `scripts/z1/`, all tracked:
+
+| file | why it exists |
+|---|---|
+| `production_parity.py` | the ONE reproduction of `main.py`'s pre-retrieval path; four harnesses had drifted copies |
+| `check_reproducible.sh` | seeds the same turns twice and compares — a detector, deliberately containing no fix |
+| `dump_graph_fingerprint.py` | compares two stores triplet-by-triplet and localises the FIRST divergent turn |
+| `compare_judgements.py` | two judgement runs compared per TRIPLET rather than per rate |
+| `reseed_postfix.sh` | one arm in arm-B config, varying only the code |
+| `prompt_ab_noisefloor.sh` | four arms: each prompt twice, so effect and spread come from one run |
+| `run_leg_ablations.sh` | the five per-leg ablations, carrying why its first attempt was stopped |
+| `README.md` | the Z1 index — settled questions, open queue, the measurement floor, and §3b's falsification table |
+
+Nothing was moved, renamed or deleted this session. Three score-run artifacts
+were stamped `INVALIDATED` **inside the files** rather than removed, so a later
+session cannot quote them without seeing why.

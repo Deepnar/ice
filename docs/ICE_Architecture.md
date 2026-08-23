@@ -437,7 +437,7 @@ The Codex Extractor (workers/codex_extractor.py::extract_codex, plain callable s
 > coined after it was written. 111 multi-arm candidates ship as
 > `data/relation_seed.json` so a fresh store canonicalises from turn one.
 >
-> **⚑ DIRECTION IS SETTLED DETERMINISTICALLY, BEFORE SIMILARITY IS CONSULTED.**
+> **⚑ DIRECTION IS SETTLED DETERMINISTICALLY, BEFORE SIMILARITY IS CONSULTED — and as of 2026-08-23 that is finally true of POLARITY and ARGUMENT ROLE too. The guard previously checked only a curated antonym map and "exactly one side is passive", which compares True against True for any `is_*`/`is_*` pair and so could never fire on `can`/`cannot` (0.9134), `is_used_by`/`is_used_for` (0.9327) or `results_from`/`results_in` (0.9266). Replaying one seed's 4,012 real merges, the added checks block 1,611 — led by `is` → `in` ×942 — while `has` → `have` ×958 and `is` → `are` ×715 still merge. ⚠ Blocking them did NOT reduce the reversal rate, which is what showed reversals are generated rather than merged in.**
 > Embeddings cannot separate a converse from a synonym — they share every
 > context word. Measured on the live encoder: `before`/`after` **0.8791**,
 > `parent_of`/`child_of` 0.8569, `teaches`/`learns_from` 0.8159, all above the
