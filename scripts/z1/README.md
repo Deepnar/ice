@@ -63,6 +63,41 @@ it starts. Do not mix them.
 - ⇒ **Current honest figure: 14–17% correct, ±6 pts.** Every earlier number
   (20%, 15.8%, 11.0%, 20.4%, 10.0%) was one measurement under-sampled.
 
+## 3b. ⛔ EVERY Z1 NUMBER, WITH ITS STATUS — the falsification table
+
+**Read this before citing ANY figure from this project.** Nothing below is
+deleted; each row says what the number is worth now. Added 2026-08-23 after a
+session in which three separate "settled" findings were withdrawn — two of them
+produced by the session doing the withdrawing.
+
+| number | status | why |
+|---|---|---|
+| **recall@10 = 0.508** (2026-08-13) | ⛔ **DEAD, three ways** | episodic-only crediting (TRAPS #32) · 64% of that probe set is contaminated · the scorer classified without the conversation. Cite the *method* lesson, never the number |
+| the 0.250 legacy control | ⛔ dead | same three defects; it is the other end of the same run |
+| **20% triplet correctness** (2026-08-20) | ⚠ **superseded** | measured over 76 turns with no interval. Current figure is **14–17% ±6** over 124 turns |
+| **25% reversed** (2026-08-20) | ⚠ superseded | same sampling; reversal now 21–37% depending on tier and run |
+| **`extraction_confidence` INVERTED** | ⛔ **WITHDRAWN** | a 40-triplet subgroup. Two full-coverage runs disagree on the direction. The field is **uninformative**, not inverted |
+| **`summary_synthesis` 0.303 / 0.322 / 0.324** | ⛔ dead | the metric was `max(coverage, presence)` — any summary fragment scored 1.0. Also measured with the summary leg switched off |
+| **`procedural` 1.000** | ⛔ dead | presence test; the leg returns its limit on every query, nonsense included. Grounded score is **0.000** |
+| **`episodic_lookup` 0.698 → 0.754** | ⛔ dead | 0.754 credited a 33-turn summary as "this turn came back". Corrected figure **0.599 ±0.032** |
+| **`codex_multihop` 0.531** | ⚠ superseded | averaged two populations scored by different formulas. Split: anchored 0.46, unanchored 0.172. Corrected total **0.380** |
+| **`temporal` 0.500 vs 0.643** | ⛔ never a result | n=28, ~1.9 SE apart. Was read as a difference; it is not one |
+| **A4 grounded expansion "changes nothing"** | ⚠ **suspended** | a null from two conditions that were BOTH mis-called (65% of RRF weights wrong). Re-measure before deleting the feature |
+| **`legoff-batch_summary` ablation** | ⛔ dead | ablated a leg that was already off. Four of five scores byte-identical to baseline |
+| **the five per-leg ablation deltas** | ⛔ dead | same broken metric + no clean same-commit baseline |
+| **codex ablation 25-14 / 36-17** | ⚠ ordering only | all three conditions shared the defect; the *rank order* survives, the absolutes do not |
+| **answer verdicts 31-30, 58%/31% both_failed** | ⛔ dead | the judge truncated BOTH answers at 2,500 chars against a ~3,250 median |
+| **A12's eight-model ranking** | ⚠ **weak** | scored on `summary_coverage`, which TRAPS #45 shows is circular; the ranking itself came from ONE subagent read. Its *conclusion* (defects in all 7 arms ⇒ prompt/design not capacity) stands |
+| **direction rule +9.4 pts** | ⚠ **UNRESOLVED** | measured with the broken sampler; two same-config runs spanned 10.0–20.4%. Re-judge the existing arms with `--per-turn` |
+| **the six write-path mechanism fixes** | ✅ **null, and trustworthy** | every mechanism verifiably moved; correctness did not (z ≤ 1.14) |
+| **store-level counts** (entities, edges, degree-1 %, expiry rate, `in` = 1 edge) | ✅ **TRUSTED** | direct SQL counts, no sampling, no judge, no retrieval |
+| **NuNER halves malformed / non-entity nodes** | ✅ trusted | two independent instruments agree, store-level |
+| **run-to-run rate variance is small** | ✅ trusted | two seeds, full coverage, 17.1% vs 14.4% |
+
+**The pattern worth carrying:** everything measured by **counting the store
+directly** survived. Everything that went through **a sampler, a metric or a
+judge** needed correcting. That is where to be suspicious first.
+
 ## 4. SCRIPTS — what each one is for
 
 **Seeding / arms**
