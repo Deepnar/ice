@@ -827,7 +827,30 @@ class Settings(BaseSettings):
     # time — the whole turn's extraction lost, silently, because the salvage
     # path cannot tell a truncated answer from a thin one. The schema does not
     # help: it guarantees a valid prefix, not a complete document.
-    codex_extraction_max_tokens: int = 1200
+    # ⚑ RAISED 1200 -> 3000 (G68, 2026-08-25). The 500 -> 1200 raise above fixed
+    # the same defect one size too small, and it is still firing:
+    #
+    #   * template mode at 1200: **30 of 60 turns produced nothing** (50%).
+    #     At 3000: 3 of 60 (5%).
+    #   * `bg_model_output_truncated content_chars=3648 max_tokens=1200` was
+    #     logged on **qwen3:4b-instruct** during the same sweep — so this is
+    #     losing facts on the SHIPPED path today, not only on the new one.
+    #
+    # A reasoning model makes it worse: its thinking block consumes the budget
+    # before any fact is emitted, so a low cap returns an empty answer rather
+    # than a short one.
+    #
+    # ⚠ THIS CHANGES THE INSTRUCT PATH TOO, and every published ICE graph
+    # number was produced at 1200. Reproduce those with
+    # `CODEX_EXTRACTION_MAX_TOKENS=1200`. The defect was judged worse than the
+    # drift: [G71](../../docs/ROADMAP.md#g71) already marks those findings as
+    # needing re-test against the new extractor.
+    #
+    # ⚠ COUPLED TO THE TIMEOUT. `bg_timeout()` is base x clamp(max_tokens/500,
+    # 1, 6), so this moves the per-call ceiling 72s -> 180s (the clamp maximum).
+    # A hung background call now blocks three times longer. Costs nothing when
+    # the model answers normally — max_tokens is a cap, not a reservation.
+    codex_extraction_max_tokens: int = 3000
     # 2026-08-17: adds a SHAPE rule for subjects/objects to the extraction
     # prompt (noun phrase naming a thing, never a clause/verb/question span).
     # The entity whitelist constrains WHICH entities are legal, never what shape
@@ -844,9 +867,31 @@ class Settings(BaseSettings):
     # that matters here rather than there: the micro-NER emits 52.7 entities a
     # turn against NuNER's 15.6, and the list becomes a whitelist, so the
     # narrower one pushes triplets from `codex_conf_grounded` down to
-    # `codex_conf_rejected` instead of deleting them. Default reproduces the
+    # `codex_conf_rejected` instead of deleting them. Default reproduced the
     # pre-2026-08-17 behaviour exactly; the two-arm re-seed flips it.
-    codex_extraction_ner_tier: str = "preflight"
+    #
+    # ⚑ FLIPPED TO "background" 2026-08-25 (G63/P4) — this IS that re-seed's
+    # settlement. Over 60 random turns, same turns both tiers, scored by ICE's
+    # own gates:
+    #
+    #                    junk entity names   capitalised subjects
+    #   NuNER            **8.7%**            54.0%
+    #   micro-NER        19.5%               68.7%
+    #
+    # micro-NER produced more facts (838 vs 748) and grounded more of them
+    # (53.7% vs 38.2%) — but grounding is scored against the tagger's OWN list,
+    # so a looser tagger flatters itself. Junk-name rate is the tier-independent
+    # number, and it more than doubles.
+    #
+    # This also aligns the default with reality: EVERY measured arm
+    # (`ner-b-nuner`, `ner-b-postfix`, all four `dir-*`, the whole G63 sweep)
+    # set `CODEX_EXTRACTION_NER_TIER=background` by env var in the seed scripts,
+    # so "stay on NuNER" was a decision that had never reached the default.
+    #
+    # ⚠ DECIDED ON SHAPE, NEVER JUDGED. No blind round has compared the two
+    # tiers for TRUTH — only for name quality and grounding rate. Reproduce the
+    # old behaviour with `CODEX_EXTRACTION_NER_TIER=preflight`.
+    codex_extraction_ner_tier: str = "background"
     # Entity types the CODEX grounding whitelist puts BACK on top of the
     # background tier's default list, comma-separated. Empty = that tier's own
     # list, unchanged. Inert unless `codex_extraction_ner_tier` is "background".
@@ -861,6 +906,58 @@ class Settings(BaseSettings):
 
     codex_constrain_shape: bool = True
     codex_constrain_relation_enum: bool = False
+
+    # ⚑ G63: which SHAPE of prompt the extractor sends.
+    #
+    #   "instruct" — the nine numbered rules + worked examples. Built for a
+    #                general-purpose model that does not know the task.
+    #   "template" — a JSON schema for the model to FILL, and nothing else.
+    #                What extraction specialists (NuExtract-class) are trained on.
+    #
+    # Measured 2026-08-24/25 over 60 random turns, blind maintainer labels:
+    #
+    #   qwen3:4b-instruct  + instruct   15% correct, 30% reversed   (pooled n=20)
+    #   NuExtract3         + template   63% correct,  0% reversed   (pooled n=30)
+    #   NuExtract3         + instruct   garbage (`affordable education --offers--> europe`)
+    #   qwen3:4b-instruct  + template   unusable — clause-triplets, 30% unparseable
+    #
+    # ⇒ each model is usable ONLY in its own shape, and neither survives the
+    # other's. The +48 points is the MODEL, not the removal of ICE's guards:
+    # stripping them from qwen makes it dramatically worse.
+    #
+    # ⚑ DEFAULT IS "instruct" ON PURPOSE. Every published ICE graph number was
+    # produced by that path; changing the default would silently invalidate the
+    # ability to reproduce any of them. Flip it deliberately, per run.
+    codex_extraction_mode: str = "instruct"
+
+    # ⚑ G68/P3: how much TURN TEXT goes into one extraction call.
+    #
+    # The extractor chunked every turn at the shared `chunk_tokens` (550),
+    # a limit from when context windows were small. Measured 2026-08-25: a
+    # 1,178-token turn was split into THREE chunks, so an entity introduced in
+    # chunk 1 and described in chunk 3 is extracted by two calls that cannot
+    # link them. Both models we run report a **262,144**-token window.
+    #
+    # `adaptive` asks the serving stack what the window actually is
+    # (`serving_window`, already used by the request path) and sizes the chunk
+    # to it — minus the prompt and the output budget — then clamps to the
+    # ceiling below.
+    #
+    # ⚠ THE CEILING IS THE POINT, NOT A FORMALITY. Every NuExtract3 measurement
+    # was on whole turns of 600-6,000 chars (~150-1,500 tokens). **Nothing has
+    # been measured at 30,000 tokens**, and long-context extraction is a known
+    # weak spot for small models. 4,096 keeps the current corpus unsplit
+    # (its largest turn is 29,704 chars) while staying near measured ground.
+    # Raise it only after somebody measures extraction quality at that size.
+    #
+    # ⚠ DO NOT set the ceiling so high that chunking effectively disappears:
+    # the frozen ICE-Dev corpus has genuinely massive turns and chunking is
+    # what makes them survivable.
+    #
+    # Falling back: when the probe cannot reach the server, the chunk size is
+    # `chunk_tokens` — i.e. exactly the old behaviour, loudly logged.
+    codex_extraction_chunk_adaptive: bool = True
+    codex_extraction_chunk_max: int = 4096
 
     # num_ctx. Telling the server the window we need costs KV-cache VRAM, so
     # it is opt-in and clamped. "fit" asks for exactly what the assembled

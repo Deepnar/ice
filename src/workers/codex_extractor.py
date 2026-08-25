@@ -309,6 +309,10 @@ from src.memory.chunking import (
 from src.memory.chunking import (
     estimate_tokens as _estimate_tokens,
 )
+# G68/P3: the same probe the request path budgets against — runner allocation
+# from /api/ps, clamped by the GGUF ceiling, cached. Reused rather than
+# re-derived so there is one answer to "how big is this model's window".
+from src.model_registry.runtime_probe import serving_window
 
 # A3 — extraction-confidence seeding (stored on codex_edges.extraction_confidence).
 # G9: settings.codex_conf_* (grounded / ungrounded / rejected)
@@ -954,12 +958,37 @@ def extract_triplets(text: str, model_override: str = "",
     try:
         model_name = model_override if model_override else get_bg_model_name()
 
-        # --- Chunking: sentence/code-aware ~CHUNK_TOKENS windows (roadmap A1).
-        # Short turns come back as a single chunk; the chunker decides.
-        chunks = _chunk_text(text)
-        if len(chunks) > 1:
-            logger.info("extraction_chunking", n_chunks=len(chunks),
-                        estimated_tokens=_estimate_tokens(text))
+        # --- Chunking: sentence/code-aware windows (roadmap A1).
+        # ⚑ G68/P3: sized to the MODEL's window, not a fixed 550. A turn split
+        # into three pieces is a turn whose entities are introduced in one call
+        # and described in another, and nothing can link them across that
+        # boundary. The ceiling exists because large chunks are UNMEASURED —
+        # see `codex_extraction_chunk_max` in config.py.
+        chunk_budget = settings.chunk_tokens
+        window_source = "fixed"
+        if settings.codex_extraction_chunk_adaptive:
+            window = serving_window(model_name, None)
+            if window:
+                reserve = (_estimate_tokens(prompt + code_prompt)
+                           + settings.codex_extraction_max_tokens)
+                usable = window - reserve
+                chunk_budget = max(settings.chunk_tokens,
+                                   min(usable, settings.codex_extraction_chunk_max))
+                window_source = "probe"
+            else:
+                # A silent fallback hides an outage (CLAUDE.md): say so, every
+                # time, because the symptom is "extraction got quietly worse".
+                logger.warning("extraction_chunk_window_unavailable",
+                               model=model_name, falling_back_to=chunk_budget)
+                window_source = "probe_failed"
+
+        chunks = _chunk_text(text, max_tokens=chunk_budget)
+        # ⚑ Log the REASONING, not just the result: n_chunks alone cannot tell
+        # you whether a split was necessary or an artifact of the budget.
+        logger.info("extraction_chunking", n_chunks=len(chunks),
+                    estimated_tokens=_estimate_tokens(text),
+                    chunk_budget=chunk_budget, window_source=window_source,
+                    model=model_name)
 
         all_triplets = []
         log_relation_repairs = []
@@ -985,18 +1014,40 @@ def extract_triplets(text: str, model_override: str = "",
                     f"not in this list):\n{confirmed}"
                 )
 
-            chunk_prompt = prompt + code_prompt + "\nNow process this text:"
+            # ⚑ G63: TWO PROMPT SHAPES, and a model is only usable in its own.
+            # `template` sends a JSON schema to FILL and nothing else — no
+            # rules, no examples, no code block. Sending the nine-rule prompt to
+            # a specialist measurably produces garbage, and sending the bare
+            # template to a generalist produces clause-triplets it cannot parse.
+            # See `codex_extraction_mode` in config.py for the measurements.
+            template_mode = settings.codex_extraction_mode == "template"
+            if template_mode:
+                user_content = (
+                    "<|input|>\n### Template:\n"
+                    '{"facts": [{"subject": "", "relation": "", "object": ""}]}\n'
+                    f"### Text:\n{chunk}{entity_block}\n<|output|>\n"
+                )
+                system_content = None
+            else:
+                chunk_prompt = prompt + code_prompt + "\nNow process this text:"
+                user_content = f"Text:\n{chunk}{entity_block}\n\n{chunk_prompt}"
+                system_content = ("You are a JSON-only fact extraction tool. "
+                                  "Never output anything but JSON.")
+
+            messages = ([] if system_content is None
+                        else [{"role": "system", "content": system_content}])
+            messages.append({"role": "user", "content": user_content})
             call_kwargs = dict(
                 model=model_name,
-                messages=[
-                    {"role": "system", "content": "You are a JSON-only fact extraction tool. Never output anything but JSON."},
-                    {"role": "user", "content": f"Text:\n{chunk}{entity_block}\n\n{chunk_prompt}"}
-                ],
+                messages=messages,
                 temperature=0.0,
                 max_tokens=settings.codex_extraction_max_tokens,
                 timeout=bg_timeout(settings.codex_extraction_max_tokens),
             )
-            if settings.codex_constrain_shape:
+            # ⚑ The schema constraint FIGHTS a template model — it is trained to
+            # emit its own envelope, and forcing a different one is a second
+            # format instruction. Skipped in template mode, unchanged otherwise.
+            if settings.codex_constrain_shape and not template_mode:
                 shape = _TRIPLET_SHAPE
                 if settings.codex_constrain_relation_enum:
                     shape = json.loads(json.dumps(shape))
@@ -1005,6 +1056,13 @@ def extract_triplets(text: str, model_override: str = "",
             completion = bg_client.chat.completions.create(**call_kwargs)
             raw = completion.choices[0].message.content.strip()
             logger.debug("extraction_raw_response", raw=raw[:200])
+
+            # ⚑ G63: a template-mode extractor is a REASONING model — it emits
+            # its chain of thought, then `</think>`, then the JSON. Keeping the
+            # prefix makes every response unparseable. Splitting on the LAST
+            # occurrence because the reasoning text can mention the tag.
+            if template_mode and "</think>" in raw:
+                raw = raw.rsplit("</think>", 1)[-1].strip()
 
             # G29: shared fence-strip. The triplet regex below stays local —
             # it is a domain-specific salvage for THIS schema, not a fifth copy
@@ -1027,8 +1085,26 @@ def extract_triplets(text: str, model_override: str = "",
                 else:
                     chunk_triplets = []
             else:
+                # ⚑ G63: template mode returns the ENVELOPE it was handed —
+                # {"facts": [...]} — while instruct mode returns a bare array.
+                # Accepting both here rather than branching keeps one parse
+                # path, and a stray envelope from either mode still works.
+                if isinstance(parsed, dict):
+                    parsed = parsed.get("facts") or parsed.get("triplets") or []
                 if isinstance(parsed, list):
-                    chunk_triplets = [item for item in parsed if isinstance(item, dict) and all(k in item for k in ("subject","relation","object"))]
+                    # ⚑ REQUIRE STRING VALUES, not just present keys. This read
+                    # `all(k in item ...)`, which admits `{"subject": null}` —
+                    # and two `.strip()` calls downstream then die on None,
+                    # losing the WHOLE turn's extraction, not just that triplet.
+                    # Latent since the schema constraint guaranteed strings for
+                    # the instruct path; a template model emits a null and it
+                    # fires immediately (found 2026-08-25 wiring G63/P1).
+                    chunk_triplets = [
+                        item for item in parsed
+                        if isinstance(item, dict)
+                        and all(isinstance(item.get(k), str) and item.get(k).strip()
+                                for k in ("subject", "relation", "object"))
+                    ]
                 else:
                     chunk_triplets = []
 
