@@ -21,6 +21,42 @@ it starts. Do not mix them.
 
 ---
 
+## 0. ⛔⛔ EVERYTHING BELOW PREDATES THE 2026-08-25 CLEAN BREAK
+
+**Read this before using ANY number in this file.**
+
+Every Z1 arm — `ner-a-micro`, `ner-b-nuner`, `ner-b-postfix`, all four `dir-*` —
+was built by **`qwen3:4b-instruct` on the instruct prompt**. That configuration
+was measured on 2026-08-24 at **15% of stored triplets true, 30% reversed**, and
+has been **replaced** by `NuExtract3-Q8_0` on a template prompt, which measures
+**63% true, 0 reversals in 20 judged facts**.
+
+⇒ **The maintainer has declared the prior arms dead data** (2026-08-25,
+[G72](../../docs/ROADMAP.md#g72)): *"lets just call ALL from before as we have
+no data, we are restarting ALL again."*
+
+**What that means for this file:**
+
+| | |
+|---|---|
+| §1 SETTLED | ⚠ **the answers hold; the NUMBERS do not.** "Does a bigger model fix extraction?" is still No — but all eight models were **generalists**, and a specialist was never tested ([MODELS.md:328](../../docs/MODELS.md)) |
+| §3 measurement floor | ✅ **survives** — sampling, judge self-consistency and cross-process nondeterminism are model-independent |
+| §3b falsification table | ✅ **survives, and the whole table is now historical** |
+| §6 ARMS | ⛔ **all dead.** Kept for reproducing history only |
+
+**The re-measurement register is [G71](../../docs/ROADMAP.md#g71)** — 16
+PROVENANCE entries from 2026-08-11 to 08-24, triaged: 3 survive, 3 already dead,
+**10 to re-measure**. The new baseline comes from
+[docs/specs/RESEED_PLAN.md](../../docs/specs/RESEED_PLAN.md).
+
+⚠ **The judge changed too.** `muse-spark-1.2-contributor` (73% against the
+maintainer's labels) has 500'd on every call since 2026-08-23 — both keys, both
+routes, all sizes, server-side. Calibrate any replacement with
+`scripts/oneoff/calibrate_judge.py` **before** adopting it: `mimo-v2.5` is fast,
+free, available, and scored **27%**, missing 6 of 6 reversals.
+
+---
+
 ## 1. SETTLED — do not re-run these
 
 | question | answer | where |
@@ -32,16 +68,35 @@ it starts. Do not mix them.
 | Are reversals created by relation canonicalisation? | **No.** Blocking 1,611 direction/polarity merges left the reversal rate flat ⇒ generated, not merged | PROVENANCE 2026-08-22 |
 | Can a closed 197-word relation vocabulary work? | **No.** 67.8% of real relations are out-of-vocabulary; the repair ladder recovers 5.7% | PROVENANCE 2026-08-03/04 |
 | Is the procedural leg's 1.000 a real score? | **No — a tautology.** It returns its limit (5 fragments) on every query, nonsense included | TRAPS #37 |
+| Does the **direction rule (G59)** make the graph more true? | **No — a null.** 4 arms, 2 seeds each, full coverage: correct **15.8%** ON vs **15.5%** OFF (delta +0.28, z=0.09); `reversed` — the label it targets — **32.6% vs 32.6%** (delta +0.01). The earlier **+9.4 pts** is **WITHDRAWN**: it came from comparing a flat-sampler control (11.0%) against per-turn treatments. Same store re-judged per-turn is 16.7% | PROVENANCE 2026-08-23 |
 
-## 2. OPEN — the live queue, in order
+## 2. OPEN — ⛔ THIS QUEUE IS SUPERSEDED
 
-**Next session starts at #1.** Gate 1 (can we measure?) is passed; do not spend
-more time on instruments.
+**The live queue is now [docs/specs/RESEED_PLAN.md](../../docs/specs/RESEED_PLAN.md).**
+Everything below was ordered when *"fix the prompt"* was the live theory. It was
+not the prompt — it was the model ([G63](../../docs/ROADMAP.md#g63)), and the
+arms this queue operates on are dead (§0).
+
+**What survives from it, re-homed:**
+
+| old item | now |
+|---|---|
+| #1 "decide what the 14–17% ceiling is" | ✅ **ANSWERED — it was the model.** 15% → 63% |
+| #2 small-model sweep | ⛔ **drop.** Its premise was the broken prompt; a specialist beat all eight generalists anyway |
+| #3 non-lossless turns ([G57](../../docs/ROADMAP.md#g57)) | still open — its gate *"sequence after something moves correctness"* is now **passed** |
+| #4 stop using `extraction_confidence` as a truth prior | folded into the reseed as the **reject-but-keep** decision ([G72](../../docs/ROADMAP.md#g72) §3) |
+| #5–#7 G61 · G62 · G60 | still open, unchanged |
+| #8 per-leg ablations | needs the new store first |
+| #9 NuNER vs micro | ✅ **settled** — NuNER, junk names 8.7% vs 19.5% |
+| #10 Z2 / answer layer | now [G66](../../docs/ROADMAP.md#g66), and the reseed exists to feed it |
+
+*Historical queue below, kept so the reasoning is auditable.*
 
 | # | do this | why it is next | cost |
 |---|---|---|---|
-| **1** | **Judge the two CONTROL arms at full coverage: `dir-false-run1` and `dir-false-run2`, `--per-turn 3`** | both treatment arms are already measured properly (`dir-true-run1` **17.1%**, `dir-true-run2` **14.4%**); only the controls are missing. `dir-false-run1` has a flat-sampler figure (11.0%) that is not comparable to them, and `dir-false-run2` has never been judged. ⚑ **DO THIS BEFORE TOUCHING THE EXTRACTOR AGAIN** — these arms were seeded with the 2026-08-22/23 code, and any further codex change makes them uninterpretable. | ~20 min |
-| **2** | **Small-model sweep** on the FIXED prompt | A12 compared 8 models on the broken prompt, which likely explains why all 8 failed identically. Now affordable: one run per arm suffices (§3) | ~2 h + judging |
+| ~~1~~ | ~~Judge the two CONTROL arms at full coverage~~ | ✅ **DONE 2026-08-23.** G59 is a null (§1). The four `dir-*` arms are now fully judged and closed | — |
+| **1** | **⚑ DECIDE WHAT THE 14–17% CEILING ACTUALLY IS** — a question, not a run. Two prompt-level interventions are now nulls, so pick the next hypothesis before spending compute on one | the queue below was built when "fix the prompt" was the live theory. It isn't. Candidates worth separating: is the ceiling in the **judge** (is 15% even the true rate, or is the judge marking correct facts wrong?), in the **corpus** (are these turns extractable at all?), or in **extraction as a task** for a small local model? A hand-read of ~30 `wrong` verdicts answers the first and costs an hour | ~1 h |
+| 2 | **Small-model sweep** on the FIXED prompt — ⚠ **RE-SCOPE FIRST** | its premise is gone. It was queued because A12's 8 models all failed identically on the broken prompt; the prompt has now been fixed two separate ways and correctness did not move, so this no longer predicts a different outcome. Do **not** run it as written | ~2 h + judging |
 | **3** | **Let non-lossless turns feed the graph** ([G57](../../docs/ROADMAP.md#g57)) | maintainer decided YES. ⚠ sequence AFTER something moves correctness — at 14–17%, +44% input adds ~4 wrong facts per right one | small |
 | 4 | Stop using `extraction_confidence` as a truth prior | it is uninformative, not inverted (§1). The retrieval trust floor keys on it | small |
 | 5 | [G61](../../docs/ROADMAP.md#g61) silent extraction drops — four unlogged, plus a failed turn that commits its idempotency key and can never retry | latent but silent by construction; the salvage regex also cannot match a `negated` triplet, and those went 0.11% → ~6% | small |
@@ -97,7 +152,8 @@ produced by the session doing the withdrawing.
 | **codex ablation 25-14 / 36-17** | ⚠ ordering only | all three conditions shared the defect; the *rank order* survives, the absolutes do not |
 | **answer verdicts 31-30, 58%/31% both_failed** | ⛔ dead | the judge truncated BOTH answers at 2,500 chars against a ~3,250 median |
 | **A12's eight-model ranking** | ⚠ **weak** | scored on `summary_coverage`, which TRAPS #45 shows is circular; the ranking itself came from ONE subagent read. Its *conclusion* (defects in all 7 arms ⇒ prompt/design not capacity) stands |
-| **direction rule +9.4 pts** | ⚠ **UNRESOLVED** | measured with the broken sampler; two same-config runs spanned 10.0–20.4%. Re-judge the existing arms with `--per-turn` |
+| **direction rule +9.4 pts** | ⛔ **WITHDRAWN — resolved as a NULL** | the controls were re-judged at full coverage 2026-08-23. Pooled: 15.8% ON vs 15.5% OFF, z=0.09; `reversed` 32.6% vs 32.6%. The "+9.4" was a flat-sampler control (11.0%) against per-turn treatments — the same store per-turn is **16.7%** |
+| **the six write-path fixes AND the direction rule, together** | ✅ **a trustworthy pair of nulls** | two independent prompt/mechanism interventions, each verifiably changing the mechanism, neither moving truth. ⇒ the 14–17% ceiling is not located at prompt-level instruction |
 | **the six write-path mechanism fixes** | ✅ **null, and trustworthy** | every mechanism verifiably moved; correctness did not (z ≤ 1.14) |
 | **store-level counts** (entities, edges, degree-1 %, expiry rate, `in` = 1 edge) | ✅ **TRUSTED** | direct SQL counts, no sampling, no judge, no retrieval |
 | **NuNER halves malformed / non-entity nodes** | ✅ trusted | two independent instruments agree, store-level |
@@ -145,6 +201,16 @@ judge** needed correcting. That is where to be suspicious first.
 | `production_parity.py` | **the ONE reproduction of `main.py`'s pre-retrieval path** |
 | `run_meta.py` | provenance block stamped into every artifact |
 
+⚠ **Two known gaps in `judge_codex.py`, both deliberate-to-leave, not bugs to
+trip over:**
+1. **Verdicts record `edge_id` but NOT the source turn**, so a judgement
+   artifact cannot be re-clustered by turn afterwards — `scripts/oneoff/g59_compare.py`
+   has to hardcode turn counts read from the run logs. One line in the writer.
+2. **stdout is neither flushed nor written incrementally**, so redirecting to a
+   log shows *nothing* until the run ends (~30 min). That looks exactly like a
+   hang. Check the process instead: an established socket to the judge API and
+   zero CPU time means it is working, not stuck.
+
 ## 5. ARTIFACTS — where output lands
 
 ⚠ **All of `experiments/curation_files/` is GITIGNORED** (it carries the
@@ -178,7 +244,11 @@ session — [TRAPS #40](../../docs/TRAPS.md).
    *subject*, not the item id you have in mind.
 2. **Quote the interval, never the bare percentage.** §3 is why.
 3. **One variable per arm.** Two changes and one number answers neither.
-4. **Same judge, same seed, or the comparison is not a comparison.**
+4. **Same judge, same seed, AND SAME SAMPLER, or the comparison is not a
+   comparison.** The sampler clause was added 2026-08-23 after the "+9.4 pts"
+   direction-rule effect turned out to be a flat-sampler control subtracted from
+   per-turn treatments — same judge, same seed, still meaningless.
+   [TRAPS #46](../../docs/TRAPS.md), fifth instance.
 5. **A number that matters goes into PROVENANCE the same session.** The folder
    it was written to is gitignored.
 6. **Update this file when an experiment lands.** One line. If it takes more

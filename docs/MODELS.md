@@ -329,3 +329,63 @@ extraction, summarisation or retrieval**. Several have been used for other jobs.
 | `qwen3.5:9b` | the 3.5 family shipped 0.8/2/4/9B with 256K context; only the 4B is here, and it ranked 5th with **zero** procedural patterns — the 9B is the untested half of that family |
 | `phi4-mini:3.8b` | dense-per-parameter, competitive at the `granite4:micro` tier which ranked 6th |
 | AWQ/GPTQ build of `qwen3:4b-instruct` | already wanted in §4 so the bg model can run under vLLM |
+
+### NuExtract3 — pulled and working (2026-08-24)
+
+`hf.co/numind/NuExtract3-GGUF:Q8_0` — **5.2 GB on disk**, via Ollama. The
+extraction specialist [MODELS.md §"Not obtained"](#not-obtained-worth-obtaining)
+recorded as *"A12 was scoped to test this and never did"*. Same group as the
+`NuNER_Zero` ICE already runs.
+
+| | |
+|---|---|
+| quant pulled | `Q8_0` (4.48 GB download). `Q4_K_M` is **2.71 GB** — the production-footprint variant, not yet pulled |
+| speed | **7.8 s/turn** on 1–3 KB turns, 11.7 facts/turn, 10/10 parsed |
+| interface | ⚑ **TEMPLATE-FILLING, not instruction-following** |
+| output | reasoning model — **split on `</think>`** |
+| budget | `num_predict` **≥3000**; 1000 truncates mid-JSON |
+| vision | `mmproj-NuExtract3-BF16.gguf` exists; not needed for text, not pulled |
+
+```
+<|input|>
+### Template:
+{"facts": [{"subject": "", "relation": "", "object": ""}]}
+### Text:
+<turn>
+<|output|>
+```
+
+**Why it matters:** direction. See [ROADMAP G63](ROADMAP.md#g63) — on turns where
+ICE stored a reversed fact, this got the direction right. ⚠ That sample was
+selected for ICE's failures and is **not** a fair comparison. It has no
+grounding, no canonicalisation, and its relation vocabulary still explodes.
+
+### Judging — 2026-08-24 correction
+
+⛔ **`muse-spark-1.2-contributor` is unreachable** — 500s on every call, both
+keys, both routes, all sizes. ⛔ **`mimo-v2.5` scored 27%** against the
+maintainer's blind labels and **missed 6 of 6 reversals** — do not adopt it
+despite being fast and free. ⚠ The gateway's `deepseek-v4-flash` scores **60%**,
+and is **not** the same as the DeepSeek web product that scored 80%.
+**Calibrate with `scripts/oneoff/calibrate_judge.py` before adopting any judge.**
+Full detail: [ROADMAP G65](ROADMAP.md#g65).
+
+### ⚑ Background / codex extraction — DECIDED 2026-08-24
+
+| model | verdict |
+|---|---|
+| **`hf.co/numind/NuExtract3-GGUF:Q8_0`** | ⚑ **DECIDED — replaces `qwen3:4b-instruct`.** 60% vs 15% correct over two independent blind rounds (maintainer's labels), Δ +45 pts, 95% CI [+18, +72]; **reversed 0/20 vs 6/20** |
+| `qwen3:4b-instruct` | superseded. Every published ICE graph number was produced by it |
+| `gemma4:26b-a4b-it-q4_K_M` | ⚠ still the `.env` pin ([G58](ROADMAP.md#g58)) and never used for any measurement |
+
+⚠ **NOT a config change — it needs `src/` work.** `--bg-model` cannot do it:
+`extract_triplets()` builds ICE's instruction prompt and would hand it to a
+template model, which measurably produces garbage. Needs a second extraction
+path: template prompt, `</think>` stripping, higher token cap.
+
+⚠ **The config is NOT settled** — one gate remains (spec G12). And the **relation
+vocabulary must never be put in its prompt**: isolated at 22% correct against
+the bare template's 60%.
+
+⚠ **NuNER (`background` tier) beats micro-NER as its entity source** — junk names
+8.7% vs 19.5% — but that was decided on SHAPE only and never judged.

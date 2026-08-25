@@ -883,3 +883,53 @@ New under `scripts/z1/`, all tracked:
 Nothing was moved, renamed or deleted this session. Three score-run artifacts
 were stamped `INVALIDATED` **inside the files** rather than removed, so a later
 session cannot quote them without seeing why.
+
+## 2026-08-23 (evening) — G59 comparison + the `wrong`-verdict review sheet
+
+| file | why it exists |
+|---|---|
+| `scripts/oneoff/g59_compare.py` | pools the four `dir-*` judgement artifacts and computes the treatment-minus-control effect using `report_power`'s OWN interval formula, so the comparison uses the same method the arms were reported with. Written for the G59 null; kept because the next arm comparison needs exactly this. |
+| `scripts/oneoff/dump_wrong_verdicts.py` | joins a judgement artifact's `wrong` verdicts back to their source turns. Needed because the artifact stores `edge_id` only — see the gap noted below. ⚑ the arm's store must be restored first; edge ids are per-store. |
+| `scripts/oneoff/build_wrong_review.py` | renders both control arms' `wrong` verdicts as a human-readable review sheet with evidence windows, the judge's verbatim rubric, and a subject/object presence split. Output is `experiments/curation_files/wrong_review/` — **gitignored, carries raw corpus text.** |
+
+⚠ **A broken presence test was caught here and is worth remembering.**
+`build_wrong_review.py` first classified triplets with a plain substring match
+plus a "last word of a multi-word term" fallback. That let `ending` match inside
+*sending* and put **92%** of triplets in the both-terms-present bucket — a
+presence test that says yes to everything, [TRAPS #37](TRAPS.md)'s exact shape.
+Rewritten with word boundaries and no fallback: **77%**. The conclusion survived
+all three strictness levels, and the sensitivity table is printed **in the
+output file** rather than dropped once it came out clean.
+
+⚠ **It hardcodes the per-arm turn counts** (124 each, read from the run logs).
+That is not laziness: `judge_codex.py` writes `edge_id` into each verdict but
+**not the source turn**, so a judgement artifact cannot be re-clustered by turn
+after the fact. Fixing that is a one-line change to the artifact writer and is
+noted in the Z1 README §4 rather than done mid-measurement.
+
+Nothing was moved, renamed or deleted.
+
+## 2026-08-25 — G63 extractor-decision scripts + the two new specs
+
+All kept under `scripts/oneoff/`, none deleted.
+
+| file | why it exists |
+|---|---|
+| `extractor_head_to_head.py` | ICE's production `extract_triplets()` vs NuExtract3 on the SAME random turns and the SAME NER list. ⚑ its first version was rigged — only ICE got the confirmed-entity block, then both were graded against it |
+| `g63_guard_sweep.py` | the 8-condition guard sweep at 60 turns; checkpoints per condition so a crash late does not cost the early ones |
+| `build_threeway_sheet.py` | N-arm blind labelling sheets from the sweep artifact (`--arms`, `--out`); arm hidden, paired by turn, key held separately |
+| `build_extractor_blind_sheet.py` | the earlier 2-arm version, superseded by the above but kept |
+| `calibrate_judge.py` | ⚑ **the judge gate** — scores any candidate against the maintainer's 15 blind labels. Caught `mimo-v2.5` at 27% (it missed 6 of 6 reversals) which would otherwise have been adopted on speed and price |
+| `probe_direction_binary.py` | forced-choice direction probe; randomises which side the stored direction is on so a position bias cannot pass as understanding |
+| `build_wrong_review.py`, `dump_wrong_verdicts.py` | the `wrong`-bucket review sheet and the judgement→source-turn join |
+| `g59_compare.py` | pooled arm comparison using `report_power`'s own interval formula |
+
+New specs (tracked): **`docs/specs/G63_extractor_decision.md`** (the decision
+protocol and its checklist) and **`docs/specs/RESEED_PLAN.md`** (the clean break).
+
+**Production files touched:** `src/api/config.py` (5 settings added or changed)
+and `src/workers/codex_extractor.py` (template path, `</think>` strip, envelope
+parse, adaptive chunk budget, and a **latent null-value parse bug** that had been
+losing whole turns' extraction whenever any model emitted a null).
+
+Nothing was moved, renamed or deleted.
