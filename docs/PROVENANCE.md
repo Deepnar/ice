@@ -3076,3 +3076,347 @@ model sweep affordable, which was the open question.
 
 **What this does NOT show:** anything about retrieval or answers. Store-level
 only.
+
+---
+
+## 2026-08-23 — ⛔ THE DIRECTION RULE (G59) IS A NULL. "+9.4 pts" IS WITHDRAWN
+
+> ## ⚠⚠ SUSPENDED THE SAME EVENING — DO NOT CITE THE NULL BELOW YET
+>
+> **The judge that produced every number in this entry cannot count reversals,
+> and `reversed` is the exact label the direction rule targets.** Found hours
+> later when the maintainer read a `wrong` verdict and recognised it as an
+> inversion (`villainess --contains--> file 1`; the turn says File 1 contains
+> the villainess). Three defects in the instrument, all measured:
+>
+> 1. **The source was truncated at 6,000 chars** — 40% of turns with a `wrong`
+>    verdict are longer, **30% of all source text was never shown**, and 21
+>    triplets were marked "not supported by the source" while the entity being
+>    asked about sat past the cut. The identical cap had already been removed
+>    from `judge_answers.py` and was never carried across.
+> 2. **Batched calls silently dropped verdicts** — "include every number exactly
+>    once" failed 6 times per arm.
+> 3. **Reversals were labelled `wrong`** despite the rubric explicitly ordering
+>    the opposite.
+>
+> Re-judged with one triplet per call, full turn, `muse-spark-1.2-contributor`
+> (reasoning): **`reversed` is 46.1%, not 32%.** Nearly half the graph has the
+> arrow backwards — the largest defect ICE has, and every prior measurement
+> understated it.
+>
+> ⇒ The null may well survive — both arms ate the same defects, so it is
+> symmetric — but **it was measured by an instrument blind to its own subject**
+> and is not quotable until all four `dir-*` arms are re-judged.
+>
+> ⚠ Also do not substitute the CoE 35B-A3B numbers (`correct` 32–35%). That
+> model is **systematically blind to direction**: on 50 sampled triplets it
+> answered `correct` while its own written justification described the reverse
+> (`structure --built--> creator` → *"the creator built the structure"*). It is
+> a 3B-active MoE with no reasoning and is not a usable judge. See the
+> 2026-08-23 judge-instrument entry below.
+
+**The last intervention that looked like it moved correctness does not.**
+
+G59 added rule 8 to the codex extraction prompt — an explicit instruction about
+which argument goes in `subject`, plus the `_by` passive mirror case and a
+read-back check. It was built because ~25–28% of stored triplets are REVERSED
+(`india --lives_in--> maharashtra`) and blocking 1,611 direction-changing
+canonicalisation merges had left that rate flat, which said reversals are
+GENERATED rather than merged in — and the prompt had no direction instruction
+at all while all three of its examples were active SVO.
+
+Four stores, seeded 2026-08-22 with identical code and config, varying **only**
+the `codex_extraction_direction_rule` flag; two seeds per arm. Judged
+`deepseek-v4-flash`, seed `20260820`, `--per-turn 3` (full turn coverage),
+blind to arm and to confidence tier.
+
+| arm | rule | triplets | turns | correct | reversed |
+|---|---|---|---|---|---|
+| `dir-true-run1` | ON | 368 | 124 | 17.1% ±6.6 | 32.9% ±8.3 |
+| `dir-true-run2` | ON | 368 | 124 | 14.4% ±6.2 | 32.3% ±8.2 |
+| **treatment pooled** | ON | 736 | 248 | **15.8% ±4.5** | **32.6% ±5.8** |
+| `dir-false-run1` | OFF | 365 | 124 | 16.7% ±6.6 | 31.5% ±8.2 |
+| `dir-false-run2` | OFF | 365 | 124 | 14.2% ±6.2 | 33.7% ±8.3 |
+| **control pooled** | OFF | 730 | 248 | **15.5% ±4.5** | **32.6% ±5.8** |
+
+**Effect on correctness: +0.28 points, 95% CI [−6.1, +6.7], z = 0.09.**
+**Effect on `reversed` — the label the rule was built to move: +0.01 points,
+z = 0.001.** The rule changed the reversal rate by essentially nothing.
+
+Intervals use `report_power`'s own formula (`se = sqrt(p(1−p)/n_turns)`, each
+turn one effective observation) so this is the method the arms were reported
+with, not a second one. **Smallest detectable effect at this design: ±6.4 pts.**
+A real effect smaller than that would not be visible here — but +9.4 was, and
+it is not there.
+
+### Where "+9.4 pts" came from — sampling, on an unchanged store
+
+`dir-false-run1` judged two ways, same store, same judge, same seed:
+
+| sampler | triplets | turns | correct |
+|---|---|---|---|
+| flat `--n 200` | 191 | ~76 | **11.0%** |
+| `--per-turn 3` | 365 | **124** | **16.7%** |
+
+**A 5.7-point swing with nothing changed but which turns were sampled.** That
+gap is the whole of the claimed effect. ⇒ [TRAPS #46](TRAPS.md) again: a figure
+from one sampler compared against a figure from another.
+
+### What this means, and what it does not
+
+Two independent interventions on the extractor prompt — the six write-path
+mechanism fixes (2026-08-22) and now the direction rule — **each verifiably
+changed the mechanism and neither moved truth.** That is no longer a
+disappointment; it is a result about location. Prompt-level instruction is not
+where the 14–17% ceiling lives.
+
+⇒ **The Z1 §2 item-2 small-model sweep loses its premise.** It was queued on the
+theory that A12's eight models all failed identically *because* they ran on the
+broken prompt. The prompt is now fixed in two separate ways and correctness did
+not move, so "re-run the sweep on the fixed prompt" no longer predicts a
+different outcome. Re-scope it before spending ~2h + judging.
+
+**What this does NOT show:** nothing about retrieval, answers, or the other
+labels — `wrong` (37.8%/39.7% control) is the largest bucket and is untouched by
+this test. It does not show the rule is *harmful*; it shows the effect is
+indistinguishable from zero at ±6.4 pts. It does not license deleting the flag
+— that is a user decision, not an implication of this measurement.
+
+**Run losses:** four judge turns failed on provider 5xx (run1 turns 58, 108;
+run2 turns 8, 20), costing 6 triplets per arm — 1.6% of turns, symmetric across
+arms, immaterial to the rate.
+
+**Artifacts:** `experiments/curation_files/judgements/codex_quality_dir-false-run{1,2}-perturn.json`,
+`logs/judge_dir-false-run{1,2}-perturn.log`,
+`scripts/oneoff/g59_compare.py`.
+
+---
+
+## 2026-08-24 — ⚑ NuExtract3 vs ICE's extractor: +60 POINTS, AND ZERO REVERSALS
+
+**The first intervention in this project that has moved graph correctness.**
+
+20 random `lossless` turns (600–6,000 chars, seed `ab-nuner-20260824`) drawn from
+the `dir-false-run1` store. Both extractors ran on the **same turns** with the
+**same NuNER-confirmed entity list**. ICE side calls `extract_triplets()` — the
+real production function, not a reimplementation. Flags: direction rule ON,
+entity-shape rule OFF, open vocabulary ON, `max_tokens` 1200, NER tier
+`background`.
+
+Truth labels are the **maintainer's own, written blind** — the extractor was
+hidden, facts from both were shuffled and paired by turn. This is the only human
+ground truth the project has, and it outperformed every model judge tested.
+
+| label | ICE `qwen3:4b-instruct` | `NuExtract3-Q8_0` |
+|---|---:|---:|
+| **correct** | **10%** | **70%** |
+| **reversed** | **40%** | **0%** |
+| wrong | 40% | 10% |
+| vacuous | 10% | — |
+| malformed | — | 20% |
+
+**Δ correct = +60 pts, 95% CI [+26, +94]** (n=10 per side).
+**Δ reversed = −40 pts. NuExtract3 emitted no reversal at all.**
+
+For scale, every prior attempt on this number: six write-path mechanism fixes
+(null) · the direction rule G59 (null) · eight background models 4B→26B (all
+failed identically) · a binary direction-verification pass (57% against a 50%
+coin flip). This is the first non-null.
+
+### Structural counts over the same 20 turns (no judge involved)
+
+| | ICE | NuExtract3 |
+|---|---:|---:|
+| facts | 842 (42/turn) | 224 (11/turn) |
+| grounded by NuNER | 14.6% | **27.2%** |
+| unusable entity names | 130 (15%) | **8 (3.6%)** |
+| distinct relations | 381 | **118** |
+| singleton relations | **64.8%** | 71.2% |
+| sec/turn | 17.5 | **10.3** |
+| turns failed | 0 | 1 |
+
+### What this does NOT show
+
+- **n=10 per side.** The effect clears zero; the *magnitude* does not. Read it
+  as "large", never as "+60 points".
+- **Pre-write-path, both sides.** No canonicalisation, merge keys, dedup or
+  conflict resolution ran. ICE emitted the identical wrong fact twice
+  (`person --is_centerpiece--> building`), which the write path would have
+  merged. ⇒ **do not cross-quote these against the store's ~20%**; the store
+  benefits from cleanup these numbers do not.
+- **Nothing about answers.** Whether truer facts change what a user reads is
+  [G66](ROADMAP.md#g66), still unmeasured.
+- **Nothing about NuExtract3 in production.** It has no grounding of its own, no
+  canonicalisation, and it emitted `nobody`/`no one`/`no body` as three subjects
+  on one turn — three unconnected nodes. Its 20% malformed rate is real.
+
+### The immediate follow-up
+
+`codex_extraction_entity_shape_rule` (prompt rule 7) targets NuExtract3's one
+measured weakness verbatim — *"a subject or object must be a NOUN PHRASE NAMING
+A THING, never a clause"* — against the clause-subject and clause-relation
+cases in `PRIVATE_CONTEXT.md` `[PRIVATE:g63-malformed-examples]`. It is
+**built, OFF by default, and has
+never been measured.** Cheapest available next win.
+
+**Artifacts:** `experiments/curation_files/extractor_ab/head_to_head.json`
+(1,066 facts), `BLIND_SHEET.md`, `BLIND_KEY.md`,
+`logs/head_to_head_nuner.log`, `scripts/oneoff/extractor_head_to_head.py`,
+`scripts/oneoff/build_extractor_blind_sheet.py`.
+
+### 2026-08-24 (same day, later) — IT IS THE MODEL. The format alone does not transfer.
+
+The entry above changed **two variables at once** — model *and* extraction path —
+and I presented it as a model result. It was not cleanly one. The maintainer
+caught it. Two follow-up runs on the **same 20 turns** fill the matrix:
+
+| model | path | result |
+|---|---|---|
+| `qwen3:4b-instruct` | ICE's production path (9 rules, chunking, entity list, 1200 tok) | 10% correct · 40% reversed · 842 facts |
+| `qwen3:4b-instruct` | NuExtract3's template, no rules, no entity list, whole turn | ⛔ **unusable** — 14/20 parsed, **43 facts total**, subjects and relations are clauses |
+| `NuExtract3-Q8_0` | ICE's production path | ⛔ garbage — reversals and nonsense (`affordable education --offers--> europe`; more in `PRIVATE_CONTEXT.md` `[PRIVATE:g63-malformed-examples]`) |
+| `NuExtract3-Q8_0` | its own template + entity list | ✅ **70% correct · 0% reversed** |
+
+**Each model is usable ONLY in its own format, and neither survives the other's.**
+
+qwen given the bare template stops extracting and starts writing analysis:
+`the user's deep-seated doubt about their own suffering --is rooted in--> a fear
+of not being allowed to exist`. Clause subject, clause relation, unusable as a
+node.
+
+⇒ **The +60 points is attributable to the MODEL, not to removing ICE's
+machinery.** The hypothesis that ICE's guards were the problem was tested
+directly and is **false**: strip them from qwen and it gets dramatically worse.
+
+⇒ **⚑ THE REFRAME THAT MATTERS: ICE's extraction machinery is a workaround for
+the wrong model.** The nine-rule prompt, the examples, the entity whitelist —
+all of it compensates for a generalist that was never built for extraction.
+NuExtract3 does not need the *shaping* because it is trained for the task. The
+*checking* machinery keeps its value regardless — grounding, the entity-name
+gate and canonicalisation, because NuExtract3's one measured weakness (20%
+malformed) is exactly what those catch.
+
+**What this does NOT show:** NuExtract3 without the entity list was never run —
+that cell of the matrix is empty by decision, not oversight. And nothing here
+touches whether any of it changes an ANSWER ([G66](ROADMAP.md#g66)).
+
+**Artifacts:** `experiments/curation_files/extractor_ab/qwen_template.json`,
+`logs/qwen_template_test.log`.
+
+### 2026-08-24 — ⛔ THE RELATION VOCABULARY IS WHAT DESTROYS TRUTH. Isolated.
+
+Two blind rounds by the maintainer, same protocol (arm hidden, facts shuffled,
+paired by turn, full source inline), drawn from the 60-turn G63 sweep.
+
+**Round A — three-way, 30 facts:**
+
+| arm | correct | reversed | wrong |
+|---|---:|---:|---:|
+| `ice_baseline` | 20% | 20% | 40% |
+| **`nu_ref`** (bare template + entity list) | **50%** | **0%** | 20% |
+| `nu_combined` (+ vocabulary + canon rule + chunking) | 20% | 20% | 60% |
+
+**Round B — each guard ISOLATED, 29 facts:**
+
+| arm | correct | reversed | vs `nu_ref` pooled (60%) |
+|---|---:|---:|---|
+| **vocabulary only** | **22%** | 11% | **−38 pts, 95% CI [−72, −3] — CLEARS ZERO** |
+| canonicalisation rule only | **80%** | 0% | +20, CI [−13, +53] — no drop |
+| chunking only | **80%** | 0% | +20, CI [−13, +53] — no drop |
+
+⇒ **The relation vocabulary is the cause. Canonicalisation and chunking are
+innocent.** `nu_combined` (20%) ≈ vocabulary alone (22%), because the vocabulary
+dominates the damage.
+
+**The mechanism, visible in the labels:** given a list, the model reaches for a
+listed word when no listed word fits.
+
+```
+MIT/Stanford/CMU --works_at--> Google India        wrong
+MIT/Stanford/CMU --works_at--> OpenAI              wrong
+University of Melbourne --employs--> IBM           reversed
+authors --cites--> authors                         vacuous
+AI/ML paper --writes--> AI/ML paper                vacuous
+```
+
+The last two glue the SAME entity to both ends of a dictionary verb. This is
+[G45](ROADMAP.md#g45)'s 67.8%-out-of-vocabulary finding showing up as *wrong
+facts* rather than as dropped ones.
+
+### ⚑ Pooled headline, two independent rounds
+
+| arm | round 1 | round 2 | pooled (n=20/side) |
+|---|---:|---:|---:|
+| ICE `qwen3:4b` | 10% | 20% | **15%** [−1, 31] |
+| **NuExtract3 bare** | 70% | 50% | **60%** [39, 81] |
+
+**Δ +45 pts, 95% CI [+18, +72] — clears zero.**
+**Reversed: 0 of 20 for NuExtract3, 6 of 20 for ICE.**
+
+### ⚠ What this does NOT show
+
+- **The winning combination was never run.** Best config is bare template +
+  entity list + canonicalisation rule + chunking + 3000 tokens — **no
+  vocabulary**. `nu_combined` included the vocabulary, so that config is
+  untested *as a combination*; its parts each tested at 80% and 80%.
+- **n is 9–10 per arm.** Intervals are ±25–27 pts. The vocabulary drop clears
+  zero; the canon/chunk "improvements" do not and must not be quoted as gains.
+- ⚠ **A verdict was retracted getting here.** The vocabulary was first called a
+  WIN on its own target metric (in-vocab 50.9% → 75.2%). **It hit its target and
+  made the output false.** Hitting the metric you aimed at is not improving the
+  thing. A concentration test run to check the jamming hypothesis found nothing
+  (19.5% vs 18.2%) — because it assumed jamming concentrates on ONE word, while
+  the real pattern spreads across many dictionary words. Wrong test, not
+  exonerating evidence.
+- Nothing here touches ANSWERS ([G66](ROADMAP.md#g66)).
+
+**Artifacts:** `experiments/curation_files/extractor_ab/` — `g63_sweep.json`,
+`THREEWAY_SHEET.md`/`_KEY.md`, `ISOLATE_SHEET.md`/`_KEY.md`.
+
+### 2026-08-24 — Relation-merge safety, measured on the REAL vocabulary
+
+The 0.90 canonicalisation threshold was calibrated on **30 hand-built pairs**
+([FEATURE_INVENTORY](FEATURE_INVENTORY.md), moved 0.82 → 0.90). Re-measured
+against the **700 distinct relations the 60-turn G63 sweep actually produced**
+(`ice_baseline` + `nu_ref` + `nu_chunked`), encoded with the live embedder.
+
+| | |
+|---|---|
+| pairs at or above 0.90 | **76** |
+| blocked by `_is_inverse_pair` | **62 (82%)** |
+| allowed to merge | **14** |
+| of those, unsafe | **3** |
+
+⇒ **Measured wrong-merge rate: 3 of 76 above-threshold pairs (~4%).**
+
+**The 11 safe merges are inflection/spelling variants** — `attracts`/`attract`
+(0.9699), `has`/`have` (0.9523), `participates_in`/`participated_in` (0.9350),
+`makes`/`made` (0.9098). Exactly what canonicalisation exists to collapse.
+
+**The 3 unsafe ones, all at the bottom of the band:**
+
+| sim | pair | why it is not a merge |
+|---|---|---|
+| 0.9118 | `poststudy_work_visa` / `duration_of_post_study_work_visa` | "has a visa" vs "how long it lasts" |
+| 0.9053 | `prioritises` / `can_prioritize` | **modal** — does vs can |
+| 0.9043 | `has_good_job_opportunities` / `has_higher_job_prospects` | absolute vs comparative |
+
+⚠ **Raising the threshold does not fix it.** All three sit in 0.904–0.912, and
+so do legitimate merges (`did`/`does` 0.9174, `makes`/`made` 0.9098,
+`compare`/`compares` 0.9089). Moving to 0.92 would block 3 bad merges and 5
+good ones.
+
+⇒ **The gap is structural, not numeric — and it is the same shape as a rule that
+already exists.** `_is_inverse_pair` handles `can`/`cannot` deterministically
+*because similarity cannot see polarity* (measured there: 0.9134).
+`prioritises`/`can_prioritize` is the same class — a **modal changing the
+claim** — and is not covered. Quantifier/comparative pairs
+(`good`/`higher`) are a second uncovered class.
+
+**What this does NOT show:** only pairs above 0.90 were examined, so nothing is
+said about relations that SHOULD merge and score below it (the false-negative
+side). And `_is_inverse_pair`'s own comment stands — *"a hand list cannot
+enumerate an open vocabulary"* — so the 82% block rate is a property of this
+corpus's relations, not a guarantee.
+
+**Artifact:** computed from `experiments/curation_files/extractor_ab/g63_sweep.json`.

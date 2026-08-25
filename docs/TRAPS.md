@@ -1237,6 +1237,28 @@ what varies in the comparison you are about to make.** If the second list is
 longer, the interval is too small. And **never quote a subgroup rate without
 its n** — a percentage over 40 rows is not a finding, it is a hint.
 
+**⚑ FIFTH INSTANCE, 2026-08-23 — and this one had already been written down as
+a finding.** "The direction rule is worth **+9.4 points**" compared a control
+judged with the **flat sampler** (11.0%, 191 triplets from ~76 turns) against
+treatments judged **`--per-turn 3`** (17.1% / 14.4%, 368 from 124). Two
+samplers, one subtraction. Re-judging the *same control store* — same judge,
+same seed, nothing changed but which turns were sampled — gives **16.7%**. The
+entire claimed effect was the 5.7-point gap between the two samplers, and the
+real effect is **+0.28 pts, z=0.09**.
+
+What makes this instance worth its own paragraph: the previous four were caught
+by the session that made them. This one **survived a session, got written into
+FEATURE_INVENTORY, ROADMAP and the Z1 index as ⚠ UNRESOLVED, and shaped the
+queue** — the small-model sweep was ordered behind it on the theory that fixing
+the prompt was the live lever. It was flagged as unresolved, which is what saved
+it; had it been flagged as *settled* it would have been load-bearing.
+
+⇒ **A number produced by two different instruments is not a difference, it is a
+difference between instruments.** Before subtracting two rates, check they were
+sampled the same way — not just judged by the same model with the same seed.
+Rule 4 in the Z1 README said *"same judge, same seed, or the comparison is not a
+comparison."* That was necessary and **not sufficient**; it now says sampler too.
+
 ---
 
 ### 47. Temperature 0 is deterministic WITHIN a process, not across them
@@ -1301,3 +1323,72 @@ content rather than from history.
 more than one row can match**, and doubly so when the loop writes. Order by
 something CONTENT-DERIVED and immutable; a timestamp that mutates and a random
 id are both traps that look like fixes.
+
+---
+
+### 49. The metric a change was aimed at moved, and the change made things worse
+
+**2026-08-24/25, twice in one day, on the same investigation.**
+
+Two guards were added to the extractor and each **hit its own target metric**:
+
+| guard | its target | result |
+|---|---|---|
+| relation vocabulary in the prompt | in-vocabulary relations | **50.9% → 75.2%** ✅ |
+| canonicalisation rule | capitalised subjects | **54% → 30%** ✅ |
+
+Both were called wins. Then a blind round measured **truth**: the vocabulary
+scored **22% correct against the bare prompt's 60%** — a 38-point drop that
+clears zero. It had hit its target *by forcing facts onto dictionary words that
+did not fit*: `MIT/Stanford/CMU --works_at--> Google India`,
+`authors --cites--> authors`, `AI/ML paper --writes--> AI/ML paper`.
+
+⇒ **Hitting the metric you aimed at is not the same as improving the thing.**
+A guard that optimises a proxy will optimise the proxy.
+
+**And the same day, the mirror of it.** The shape table said
+`ice_baseline` was best on nearly every column — 1.0% capitalised subjects,
+74% in-vocabulary, zero parse failures, most facts per turn. It measured **15%
+correct with 30% reversed**. **Structure is not truth, and a system can top
+every structural column while being mostly wrong.**
+
+⇒ Before believing a table, ask which column would still look good **if the
+thing under test were broken**. Every column in that one would.
+
+**The bad diagnosis this also produced, worth keeping:** the jamming hypothesis
+was checked with a *relation-concentration* test — do a few words dominate? They
+did not (19.5% vs 18.2%), and that was read as exonerating. It was not: the
+jamming spread across **many** dictionary words, which concentration cannot
+detect. **A null from a test that could not have detected the effect is not
+evidence of absence.**
+
+---
+
+### 50. A guard added for one model silently broke the next one
+
+**2026-08-25, wiring G63/P1.**
+
+Three defences, each added for a real measured failure, each firing correctly —
+and together they made a better model look broken:
+
+* **`reasoning_effort: "none"`**, added 2026-08-03 because a reasoning model
+  spent its whole budget thinking and returned empty content. NuExtract3 *is* a
+  reasoning model and needs that budget.
+* **`max_tokens = 1200`**, itself a raise from 500 for exactly this defect —
+  still one size too small. Template mode lost **30 of 60 turns** at 1200.
+* **`chunk_tokens = 550`**, from an era of small context windows, splitting a
+  1,178-token turn into three so entities introduced in one chunk were described
+  in another.
+
+⇒ **A guard encodes an assumption about the thing it guards.** Swap that thing
+and the guard is a bet on a model that is no longer there. **When replacing a
+component, audit what was added to compensate for the old one** — those are the
+first things to break, and they break quietly, looking like the new component's
+fault.
+
+**The corollary that cost the most time here:** the first three hours of
+debugging blamed NuExtract3. The bug was ours — a parse filter testing
+`all(k in item ...)`, key PRESENT rather than value a STRING, so a `null`
+admitted a triplet that killed a `.strip()` two hundred lines later and lost the
+**whole turn's** extraction. Invisible for months because the JSON schema
+guaranteed strings on the only path anyone used.
