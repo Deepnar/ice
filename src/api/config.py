@@ -46,6 +46,19 @@ class Settings(BaseSettings):
     # server: Ollama spins it up on demand, the runtime's idle gating hides
     # the model swap. That replaces the old vLLM side-server for most setups.
     background_model_name: Optional[str] = None
+    # ⚑ ICE MANAGES ITS OWN MODEL RESIDENCY (maintainer, standing requirement:
+    # "dont let default ollama do it"). After the maintenance runtime drains its
+    # queue, the background model is explicitly unloaded rather than left to the
+    # host's `OLLAMA_KEEP_ALIVE`. Measured need, 2026-08-27: three background
+    # models sat resident at ~14 GB of a 24 GB card, `UNTIL: Forever`, for jobs
+    # that had finished hours before — because `/v1/chat/completions` drops
+    # `keep_alive` and ICE therefore had no way to say otherwise.
+    # ⚠ This is the SMALL half of G32(a). Per-request `keep_alive` still needs
+    # the native chat endpoint; this only releases after a drain.
+    # Set False on a machine where the background model is shared with something
+    # else that would pay the reload cost.
+    bg_release_after_drain: bool = True
+    bg_release_timeout_seconds: float = 10.0
     # G12: bg-client calls scale their timeout with the requested output size:
     # timeout = bg_timeout_base_seconds × clamp(max_tokens / 500, 1, 6).
     bg_timeout_base_seconds: float = 30.0

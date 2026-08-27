@@ -204,6 +204,10 @@ class MaintenanceRuntime:
         self.standby = False   # E7 D6: deferred to another process's runtime
 
         self._gpu_lane = asyncio.Semaphore(1)
+        # Set once the background model has been unloaded on this idle stretch;
+        # cleared the moment any job runs, so the next quiet period releases
+        # again. Without it `_pump` would POST an unload on every tick.
+        self._bg_released = False
         self._cpu_lane = asyncio.Semaphore(2)
         self._queue: deque = deque()          # (job_name, kwargs, attempt)
         self._retries: list = []              # heap of (monotonic_due, seq, name, kwargs, attempt)
@@ -414,9 +418,30 @@ class MaintenanceRuntime:
         if force_overdue or self.is_idle():
             # Ledger reads happen in a thread (G24: no sync DB on the loop);
             # task spawning stays on the loop.
-            for name in await asyncio.to_thread(self._overdue_names):
+            overdue = await asyncio.to_thread(self._overdue_names)
+            for name in overdue:
                 self._spawn(name, {}, 0, source="overdue")
             await asyncio.to_thread(self._maybe_session_end_burst)
+            # ⚑ RELEASE THE BACKGROUND MODEL WHEN THE QUEUE IS EMPTY. ICE
+            # manages its own model residency rather than inheriting the host's
+            # OLLAMA_KEEP_ALIVE (which on the dev machine is -1, forever). Only
+            # when there is genuinely nothing to do: no overdue job just
+            # dispatched, nothing running, nothing queued — otherwise we would
+            # unload a model the next job reloads seconds later.
+            if not overdue and not self._tasks and not self._queue:
+                await asyncio.to_thread(self._release_bg_model_once)
+
+    def _release_bg_model_once(self) -> None:
+        """Unload once per idle stretch, not once per tick.
+
+        `_pump` runs on a short cadence, so an unguarded call would POST an
+        unload every tick forever — and a failing release would log a warning
+        every tick with it. The flag is cleared the moment any job runs.
+        """
+        if self._bg_released:
+            return
+        from src.workers.bg_client_factory import release_bg_model
+        self._bg_released = release_bg_model()
 
     def _drain_due_retries(self) -> None:
         now_mono = time.monotonic()
@@ -480,6 +505,9 @@ class MaintenanceRuntime:
                        source: str) -> None:
         spec = self._jobs[name]
         key = _job_key(name, kwargs)
+        # Any job at all means the model is (or is about to be) resident again,
+        # so the next idle stretch must be free to release it.
+        self._bg_released = False
         lane = self._gpu_lane if spec.lane == "gpu" else self._cpu_lane
         try:
             async with lane:

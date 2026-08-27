@@ -7,6 +7,8 @@ separate OpenAI-compatible server on :8002, started manually (./ice no longer
 launches it).
 """
 
+from typing import Optional
+
 import structlog
 from openai import OpenAI
 
@@ -197,6 +199,61 @@ def get_bg_model_name() -> str:
                        fix="set BACKGROUND_MODEL_NAME to pin it")
         return chosen
     return DEDICATED_DEFAULT_MODEL
+
+
+def release_bg_model(model: Optional[str] = None) -> bool:
+    """Unload the background model from VRAM. Returns True if Ollama unloaded it.
+
+    ⚑ WHY THIS EXISTS — the maintainer's standing requirement: *"WE need to work
+    and manage our own ai models memory, dont let default ollama do it."*
+
+    ICE posts background work to Ollama's OpenAI-compatible
+    `/v1/chat/completions`, and that shim **silently drops `keep_alive`** (G32
+    audit, measured). So ICE cannot say how long its own model should stay
+    resident, and inherits whatever the host decided. On the development machine
+    that is `OLLAMA_KEEP_ALIVE=-1` — deliberately, for the owner's personal use —
+    and the observed result during the 2026-08-27 bake-off was **three
+    background models resident at once, ~14 GB of a 24 GB card, all
+    `UNTIL: Forever`**, for jobs that had finished hours earlier. That is not a
+    leak; it is ICE having no opinion.
+
+    **This is the small half of [G32(a)](../../docs/ROADMAP.md#g32).** Setting
+    `keep_alive` per REQUEST needs the native chat endpoint and a translation
+    layer at `_NoReasoningCompletions` — a transport migration. Releasing after
+    a drain needs only this: one native call, no change to the ~17 call sites,
+    nothing to get subtly wrong in the request path. The mechanism was already
+    verified by the G32 audit (`POST /api/generate {"keep_alive": 0}` →
+    `done_reason: "unload"`).
+
+    ⚠ **Deliberately best-effort and LOUD.** A failure here wastes VRAM; it must
+    never break background work, and it must never be silent — a release that
+    quietly stops working would put us straight back to models pinned forever
+    with nothing saying so.
+    """
+    if not settings.bg_release_after_drain:
+        return False
+    name = model or get_bg_model_name()
+    if not name:
+        return False
+    base = str(settings.ollama_base_url).rstrip("/")
+    try:
+        import httpx
+        r = httpx.post(f"{base}/api/generate",
+                       json={"model": name, "keep_alive": 0},
+                       timeout=settings.bg_release_timeout_seconds)
+        r.raise_for_status()
+        done = (r.json() or {}).get("done_reason")
+        if done == "unload":
+            logger.info("bg_model_released", model=name)
+            return True
+        # Not an error, but not what we asked for either — say which.
+        logger.warning("bg_model_release_unexpected", model=name,
+                       done_reason=done)
+        return False
+    except Exception as exc:                                       # noqa: BLE001
+        logger.warning("bg_model_release_failed", model=name,
+                       error=f"{type(exc).__name__}: {str(exc)[:160]}")
+        return False
 
 
 def bg_timeout(max_tokens: int) -> float:
