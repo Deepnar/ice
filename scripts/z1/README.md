@@ -70,44 +70,102 @@ free, available, and scored **27%**, missing 6 of 6 reversals.
 | Is the procedural leg's 1.000 a real score? | **No — a tautology.** It returns its limit (5 fragments) on every query, nonsense included | TRAPS #37 |
 | Does the **direction rule (G59)** make the graph more true? | **No — a null.** 4 arms, 2 seeds each, full coverage: correct **15.8%** ON vs **15.5%** OFF (delta +0.28, z=0.09); `reversed` — the label it targets — **32.6% vs 32.6%** (delta +0.01). The earlier **+9.4 pts** is **WITHDRAWN**: it came from comparing a flat-sampler control (11.0%) against per-turn treatments. Same store re-judged per-turn is 16.7% | PROVENANCE 2026-08-23 |
 
-## 2. OPEN — ⛔ THIS QUEUE IS SUPERSEDED
+## 2. THE RESEED SESSION — the queue, in order
 
-**The live queue is now [docs/specs/RESEED_PLAN.md](../../docs/specs/RESEED_PLAN.md).**
-Everything below was ordered when *"fix the prompt"* was the live theory. It was
-not the prompt — it was the model ([G63](../../docs/ROADMAP.md#g63)), and the
-arms this queue operates on are dead (§0).
+**Everything below is blocked on one thing: a store big enough to measure.**
+That is why the order matters more than the list. Full plan:
+[`docs/specs/RESEED_PLAN.md`](../../docs/specs/RESEED_PLAN.md); the background
+layer's own fixes: [`docs/specs/BG_LAYER_FIXES.md`](../../docs/specs/BG_LAYER_FIXES.md).
 
-**What survives from it, re-homed:**
+### ⚑ WHY THIS IS ORDERED THIS WAY
 
-| old item | now |
-|---|---|
-| #1 "decide what the 14–17% ceiling is" | ✅ **ANSWERED — it was the model.** 15% → 63% |
-| #2 small-model sweep | ⛔ **drop.** Its premise was the broken prompt; a specialist beat all eight generalists anyway |
-| #3 non-lossless turns ([G57](../../docs/ROADMAP.md#g57)) | still open — its gate *"sequence after something moves correctness"* is now **passed** |
-| #4 stop using `extraction_confidence` as a truth prior | folded into the reseed as the **reject-but-keep** decision ([G72](../../docs/ROADMAP.md#g72) §3) |
-| #5–#7 G61 · G62 · G60 | still open, unchanged |
-| #8 per-leg ablations | needs the new store first |
-| #9 NuNER vs micro | ✅ **settled** — NuNER, junk names 8.7% vs 19.5% |
-| #10 Z2 / answer layer | now [G66](../../docs/ROADMAP.md#g66), and the reseed exists to feed it |
+**The post-reseed list is enormous, and Z2 is bigger still.** So the rule is:
+**anything that does NOT need a big store gets done BEFORE the reseed.** Not
+because it is more important — because parking it behind a multi-hour seed and
+a queue of blind judging is how work disappears for three sessions.
 
-*Historical queue below, kept so the reasoning is auditable.*
+Two things make a piece of work "post-reseed", and nothing else does:
+- it needs **more content than 180 turns** can provide (batch summaries,
+  retrieval at realistic scale, answer probes with distractors), or
+- it needs the **graph to be correct** (anything reading codex, since every
+  pre-2026-08-26 graph was built by the 15%-correct extractor).
 
-| # | do this | why it is next | cost |
+Everything else can run now, on turns read straight from
+`simulation_full.jsonl`.
+
+### Step 0 — PRE-RESEED. All of this is doable NOW.
+
+| # | work | needs a store? | instrument |
 |---|---|---|---|
-| ~~1~~ | ~~Judge the two CONTROL arms at full coverage~~ | ✅ **DONE 2026-08-23.** G59 is a null (§1). The four `dir-*` arms are now fully judged and closed | — |
-| **1** | **⚑ DECIDE WHAT THE 14–17% CEILING ACTUALLY IS** — a question, not a run. Two prompt-level interventions are now nulls, so pick the next hypothesis before spending compute on one | the queue below was built when "fix the prompt" was the live theory. It isn't. Candidates worth separating: is the ceiling in the **judge** (is 15% even the true rate, or is the judge marking correct facts wrong?), in the **corpus** (are these turns extractable at all?), or in **extraction as a task** for a small local model? A hand-read of ~30 `wrong` verdicts answers the first and costs an hour | ~1 h |
-| 2 | **Small-model sweep** on the FIXED prompt — ⚠ **RE-SCOPE FIRST** | its premise is gone. It was queued because A12's 8 models all failed identically on the broken prompt; the prompt has now been fixed two separate ways and correctness did not move, so this no longer predicts a different outcome. Do **not** run it as written | ~2 h + judging |
-| **3** | **Let non-lossless turns feed the graph** ([G57](../../docs/ROADMAP.md#g57)) | maintainer decided YES. ⚠ sequence AFTER something moves correctness — at 14–17%, +44% input adds ~4 wrong facts per right one | small |
-| 4 | Stop using `extraction_confidence` as a truth prior | it is uninformative, not inverted (§1). The retrieval trust floor keys on it | small |
-| 5 | [G61](../../docs/ROADMAP.md#g61) silent extraction drops — four unlogged, plus a failed turn that commits its idempotency key and can never retry | latent but silent by construction; the salvage regex also cannot match a `negated` triplet, and those went 0.11% → ~6% | small |
-| 6 | [G62](../../docs/ROADMAP.md#g62) `check_conflict`'s antonym branch expires edges deterministically, no LLM, no review | never fired (0 of 106 reconciles) — fix BEFORE widening `ANTONYM_OF` | small |
-| 7 | [G60](../../docs/ROADMAP.md#g60) relation supersession semantics | 146 declared against ~2,026 in the store. Graph-inference is a measured dead end; use a cached one-shot model call via the maintenance agent | design |
-| 8 | Re-run the five per-leg ablations | the 2026-08-20 set is dead (§3b); needs a clean same-commit baseline | ~1 h |
-| 9 | NuNER vs micro on fixed code | maintainer: **stay on NuNER until the extraction side lands** | ~2 h |
-| 10 | Z2 / answer layer | LAST. Needs the [G56](../../docs/ROADMAP.md#g56) judge fix, which shipped but is unexercised | expensive |
+| 0.1 | **[G32(a)](../../docs/ROADMAP.md#g32) native endpoint + per-request `keep_alive`** ⚠ do first — seeding is hours of background work and would otherwise inherit the host's residency policy. Same pass: `maintenance_agent`'s `json_object` (measured **0/8**) → `json_schema` (**8/8**) | no | — |
+| 0.2 | **Gold turns for the 174 anchorless probes** — safe now the model is settled; feasibility proven at **343/368 = 93%** | no | `derive_retrieval_gt.py` |
+| 0.3 | **[G73](../../docs/ROADMAP.md#g73) conversation fold** — 33-67% fabricated. A/B: fold against ORIGINAL turns · cap depth · apply the §1.1 softening | no | `judge_bg_quality.py --jobs conv_fold` |
+| 0.4 | **[G74](../../docs/ROADMAP.md#g74) cluster naming** — 62-76% wrong; the prompt contradicts itself | no | `--jobs cluster_name --naming-ab` |
+| 0.5 | **[G61](../../docs/ROADMAP.md#g61)** — four silent drops left in `extract_triplets` (1 of 6 fixed 2026-08-27) | no | code + logs |
+| 0.6 | **Reconciler `reject_new`** — 4 uses in 30 chances. ⚠ **build a real gold set first**; the current one is n=9 hand-written | no | `bg_model_bakeoff.py --jobs reconcile` |
+| 0.7 | **[G62](../../docs/ROADMAP.md#g62)** antonym branch — never fired (0 of 106) | no | — |
+| 0.8 | **[G28](../../docs/ROADMAP.md#g28)** style invariance sweep — owns its own probe set | no | style-variant probes |
+| 0.9 | **[G29](../../docs/ROADMAP.md#g29)** drift audit · **[G30](../../docs/ROADMAP.md#g30)** test blind spots | no | code reading |
+| 0.10 | **[G69](../../docs/ROADMAP.md#g69)** relation-vocabulary growth loop (built, inert) · **[G64](../../docs/ROADMAP.md#g64)** fact-as-sentence (design) | no | — |
 
-⚠ **Not on this list on purpose:** more instrument work, and chasing exact
-reproducibility. The first is done; the second is unreachable ([TRAPS #47](../../docs/TRAPS.md)).
+⇒ **Ten items, none blocked.** Clearing these makes the reseed session about the
+reseed, instead of about everything that was parked behind it.
+
+### What the old (pre-2026-08-25) queue said, re-homed — nothing here is lost
+
+| old item | where it went |
+|---|---|
+| #1 "decide what the 14-17% ceiling is" | ✅ **answered — it was the model.** 15% → 63% ([G63](../../docs/ROADMAP.md#g63)) |
+| #2 small-model sweep | ⛔ dropped — its premise was the broken prompt, and a specialist beat all eight generalists |
+| #3 non-lossless turns ([G57](../../docs/ROADMAP.md#g57)) | still open; its gate *"sequence after something moves correctness"* is now **passed** |
+| #4 stop using `extraction_confidence` as a truth prior | folded into reject-but-keep, step 2.2 below |
+| #5-#7 [G61](../../docs/ROADMAP.md#g61) · [G62](../../docs/ROADMAP.md#g62) · [G60](../../docs/ROADMAP.md#g60) | now steps 0.5 / 0.7 / post-reseed |
+| #8 per-leg ablations | post-reseed — ⚠ and `target_leg` exists on **93 of 618** probes only |
+| #9 NuNER vs micro | ✅ settled — NuNER, junk names 8.7% vs 19.5% |
+| #10 Z2 / answer layer | now [G66](../../docs/ROADMAP.md#g66); the reseed exists to feed it |
+
+⚠ **Every NUMBER from that era still needs its status checked before use — that
+is §3b, the falsification table, which is not superseded.**
+
+### Step 1 — Seed
+
+**1,471 turns**, three conversations: `bb558b5f` full (1,119) + `ecc64aab`
+(251) + `355a5709` (101). ⛔ **`cca73c87` is NOT seeded — it IS `bb558b5f`'s
+tail** (turns 1039-1119, verified 81/81; offset **+1038**). Source is
+`data/simulation/simulation_full.jsonl`, the only file with both sides of every
+turn. Config: `gemma4:e4b` background, `NuExtract3-Q8_0` extraction, `template`
+mode, NuNER tier. ⚠ Print the grounded/ungrounded/rejected tier split in the
+run's own output — [RESEED_PLAN §3](../../docs/specs/RESEED_PLAN.md) requires it
+VISIBLE.
+
+### Step 2 — What the store unblocks, and what each answers
+
+| order | item | the question | needs |
+|---|---|---|---|
+| 2.1 | **graph baseline** | is the NuExtract3 graph TRUE at scale? First number of the post-qwen era | judge + blind sample |
+| 2.2 | **reject-but-keep** ([G72](../../docs/ROADMAP.md#g72) §3) | 79% of facts land at `0.35`. Does grounding predict truth? | tier-stratified blind judging |
+| 2.3 | **[G70](../../docs/ROADMAP.md#g70) read-side instrumentation** | is stored memory ever READ? **Plus the substitution counter** [G75](../../docs/ROADMAP.md#g75) needs | a counter at `_choose_representation` |
+| 2.4 | **[G66](../../docs/ROADMAP.md#g66) the ablation** | do better facts produce better ANSWERS? codex leg ON vs OFF | 618 unified probes, blind answer judging |
+| 2.5 | **[G75](../../docs/ROADMAP.md#g75) the trust gate** | ⚠ **decision, not a measurement** — resolved BY 2.3 + 2.4 | rate LOW ⇒ delete substitution · HIGH + harmful ⇒ build the recheck · HIGH + harmless ⇒ record coverage as decorative |
+| 2.6 | **[G71](../../docs/ROADMAP.md#g71) the register** | re-measure everything accepted 2026-08-11 → 08-24 | 16 entries: 3 survive, 3 dead, **10 to redo** |
+
+### Step 3 — *(merged into Step 0)*
+
+The background-layer defects used to be listed here as "post-reseed adjacent".
+They are not: none of them needs a store, so they are **steps 0.3-0.7 above**.
+Keeping two lists of the same work is how one of them goes stale.
+
+### ⚠ Three things that will trip the next session
+
+1. **`summary_coverage` will read ~0.64, not ~0.78.** The summariser prompt is
+   now faithfulness-tuned; the drop is the metric noticing the model stopped
+   padding. **Not a regression.**
+2. **The background prompts are COUPLED to `gemma4:e4b`.** The identical
+   softening measured as a LOSS on `qwen3:4b-instruct` (54% → 34% faithful).
+   Changing the background model means re-measuring the prompts.
+3. **`dir-false-run1` no longer matches its `.counts` file** — the bake-off's
+   store-backed jobs cleared `procedural_memory`, `batch_summaries` and the
+   procedural idempotency keys. Backed up; deliberately not restored.
 
 ## 3. ⚑ THE MEASUREMENT FLOOR — read before quoting any number
 
@@ -193,6 +251,12 @@ judge** needed correcting. That is where to be suspicious first.
 | `answer_probes.py` | retrieve → assemble the REAL prompt → generate an answer |
 | `judge_answers.py` | paired A/B verdicts on answers |
 | `judge_codex.py` | **is the stored graph TRUE?** the only outcome metric here |
+| `judge_summaries.py` | summary faithfulness. ⚑ **Gates the judge first** — plants fabrications AND feeds it a verbatim copy of the source (which cannot fabricate). Without the verbatim arm, a judge that flags everything scores 100% detection and looks excellent |
+| `judge_bg_quality.py` | the quality half for batch summary · conversation fold · cluster naming · procedural. Each job's defect is planted in ITS OWN shape — splice for the summarisation-shaped, **swap** (output belonging to different source material) for naming and procedural. VOIDs rather than ranks when the judge misses >40% |
+| `bg_model_bakeoff.py` | 11 models × 9 background jobs, calling the PRODUCTION functions. Models swap via `settings.background_model_name`, resolved per call |
+| `bakeoff_report.py` | merges every bake-off run. **Disqualifiers, not a composite score** — weighting 9 jobs into one number lets invented weights pick the winner silently |
+| `prompt_ab_fabrication.py` | prompt / must-term A/Bs. Rewrites ONE substring in flight so arm B differs by exactly that, and **aborts** rather than reporting a null if the rewrite failed to bite |
+| `probe_census.py` · `unify_probes.py` · `gt_feasibility.py` | probes across all 3 sources deduped (777 raw → **618 distinct**), unified to one schema, and the gold-turn feasibility check |
 | `compare_judgements.py` | two judgement runs, per TRIPLET not per rate |
 | `dump_graph_fingerprint.py` | compare two stores triplet-by-triplet; localises divergence |
 | `harvest_probe_context.py` | reading instrument, computes no score |

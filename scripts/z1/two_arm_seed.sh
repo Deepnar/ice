@@ -14,8 +14,11 @@
 #   qwen3:4b-instruct  (2.5 GB) — the record's stated "practical pick": tied
 #                                 with e4b on summary quality at a quarter the size
 #   gemma4:e4b         (9.6 GB) — top of the raw ranking
-# ⚠ `.env` pins BACKGROUND_MODEL_NAME=gemma4:26b-a4b-it-q4_K_M. That pin is
-# STALE, not a decision — A12 ranked the 26B third. Each arm passes --bg-model,
+# ⚠ HISTORICAL: when this ran, `.env` pinned BACKGROUND_MODEL_NAME to
+# gemma4:26b-a4b-it-q4_K_M — stale config, never a decision, A12 ranked the 26B
+# third. Corrected 2026-08-26 (G58): the general background pin is now
+# qwen3:4b-instruct, and codex extraction has its own CODEX_EXTRACTION_MODEL.
+# Each arm passes --bg-model,
 # which overrides the setting in-process (seed_store.py sets it before reading
 # it into seed_model, and post_flight forwards model_used to both extractors),
 # so the pin does not affect this run. It affects everything else.
