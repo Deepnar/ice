@@ -1,130 +1,118 @@
-# Handoff — 2026-08-25, ~23:15 IST
+# Handoff — 2026-08-27
 
 **State, not a queue.** [ROADMAP.md](ROADMAP.md) is the queue and the only one.
 This file exists for the one thing no other doc holds: **what the last session
 was told to do, against what it actually did.** Overwritten every session,
 committed last; earlier ones are in `git log -p docs/HANDOFF.md`.
 
-> **⚑ START AT [`docs/specs/RESEED_PLAN.md`](specs/RESEED_PLAN.md).** The next
-> action is the reseed. Everything before it is dead data.
+> **⚑ START AT [`scripts/z1/README.md`](../scripts/z1/README.md) §2.** The
+> reseed is NOT next. **Ten pre-reseed items are, and none of them is blocked.**
 
 ---
 
 ## TOLD → DID
 
-**Told:** the previous handoff said to start at `scripts/z1/README.md` §2 — judge
-the two control arms, then work down a queue built on the theory that the
-extraction *prompt* was what needed fixing.
+**Told:** start at `docs/specs/RESEED_PLAN.md` — seed 1,000–1,500 dense turns
+and judge the new baseline.
 
-**Did:** judged the controls (G59 is a null), then found the queue's premise was
-wrong. **It was never the prompt. It was the model.** Replaced the background
-extractor, and the graph went from **15% correct / 30% reversed** to **63% / 0
-reversals** — the first intervention in this project's history to move graph
-correctness. Shipped five production changes. Then, at the maintainer's
-direction, **declared every prior store and most of the last two weeks' findings
-dead** and wrote the plan to start over.
+**Did:** did not seed. The reseed's *inputs* turned out to be wrong or unproven,
+so the session became: fix what the reseed depends on, then decide the
+background model it would run under. **The reseed is now correctly specified and
+starts from a clean base — which it would not have done yesterday.**
 
 ## 1. ⚑ WHAT IS TRUE NOW
 
 | | |
 |---|---|
-| **Graph correctness** | **63%** (19/30, pooled over 3 blind rounds) with **NuExtract3** · **15%** (3/20) with the old `qwen3:4b-instruct`. Δ **+45 pts, 95% CI [+18, +72]** |
-| **Reversals** | **0 of 20** (NuExtract3) vs **6 of 20** (qwen). The defect that dominated three sessions does not occur |
-| **The judge** | ⛔ `muse-spark` (73% vs human) dead 3 days, server-side. ox-alpha 67% but 37 s/call · deepseek-v4-flash 60% · **mimo-v2.5 27%** |
-| **Ground truth** | the maintainer's own blind labels — 65 facts across 3 rounds. Beat every model judge tested |
-| **Store** | `dir-false-run1` restored, counts verified. ⛔ dead data — see §4 |
+| **General background model** | ⚑ **`gemma4:e4b`** — decided on measurement, 11 candidates × 9 jobs. Wins or ties **every** quality-judged job |
+| **Codex extractor** | `NuExtract3-Q8_0`, unchanged (G63) — now with its **own** setting, `codex_extraction_model` |
+| **Turn summary faithfulness** | **95.7%** (gemma, softened prompt) · 82.9% before · `qwen3:4b-instruct` 54% |
+| **Reseed corpus** | **1,471 turns** — `bb558b5f` (1,119) + `ecc64aab` (251) + `355a5709` (101). ⛔ `cca73c87` dropped: it **IS** `bb558b5f`'s tail |
+| **Probes** | **618 distinct**, one schema, 26 cross-conversation duplicates removed |
+| **Store** | ⚠ `dir-false-run1` no longer matches its `.counts` — see §5 |
+| **Tests** | smoke 183/183 · settings freeze + dynamics invariants 164/164 |
 | **Git** | clean tree except this session's work, local only |
-| **Tests** | smoke 183/183 · settings freeze 147/147 · dynamics invariants 17/17 |
 
-## 2. THE FINDING, AND HOW IT SURVIVED SCRUTINY
+## 2. SHIPPED (`src/`, 6 files)
 
-**It is the MODEL, not ICE's machinery.** The full 2×2 was run because the
-maintainer challenged the first framing:
+1. **`codex_extraction_model`** — extraction gets its own pin. One background
+   setting served **ten** jobs; only extraction wants a specialist. Pointing the
+   shared pin at NuExtract3 would hand a JSON-template filler to the summariser.
+2. **`codex_extraction_mode` default → `template`** — the reproducibility
+   argument for `instruct` expired with G72.
+3. **The summariser prompt is faithfulness-tuned** — must-preserve block **and
+   its retry twin**. gemma fabrication 15.7% → 2.9%. ⚠ **model-coupled.**
+4. **`release_bg_model()` + runtime hook** — ICE unloads its own background
+   model when the queue empties. Verified live.
+5. **Procedural's silent idempotency return now logs** (G61's sixth path).
+6. **Two lying comments fixed** — `extract_key_terms` claimed MicroNER (it has
+   been NuNER since A9b); `.env`/scripts claimed the 26B pin.
 
-| model | path | result |
-|---|---|---|
-| qwen3:4b | ICE's instruct prompt | 15% correct, 30% reversed |
-| qwen3:4b | bare template | ⛔ clause-triplets, 30% unparseable, 43 facts/20 turns |
-| NuExtract3 | ICE's instruct prompt | ⛔ garbage (`affordable education --offers--> europe`) |
-| **NuExtract3** | **its own template** | ✅ **63% correct, 0 reversed** |
+## 3. ⚑ THE THREE FINDINGS THAT MATTER
 
-⇒ **"Remove ICE's guards" was tested and is FALSE** — qwen without them is far
-worse. The guards were a workaround for a model never built for extraction.
+**a. The summary trust gate is INVERTED.** `summary_coverage` decides whether a
+summary REPLACES the raw turn. Judged with a gated judge: **13 of 13 fabricated
+summaries cleared the gate; only 23 of 29 faithful ones did.** Fabricated
+summaries score *higher* coverage inside every model. Moving the threshold
+cannot fix it. ✅ Raw text is never lost — this corrupts one assembled prompt,
+not the store. **Deferred to the reseed on purpose** ([G75](ROADMAP.md#g75)),
+with the decision rule pre-agreed.
 
-⛔ **The relation vocabulary in the prompt is what destroys truth** — isolated at
-**22% correct** against the bare template's 60%. Given a list, the model reaches
-for a listed word when none fits: `MIT/Stanford/CMU --works_at--> Google India`,
-`authors --cites--> authors`.
+**b. The verbatim instruction MANUFACTURED the fabrication.** Ordering a model
+to include terms it cannot ground makes it invent context to carry them — and
+coverage rewards that. Fixed for gemma. ⚠ The same fix is a **loss** on qwen
+(54% → 34% faithful): the background prompts are now **coupled to the model**,
+exactly like extraction is to NuExtract3.
 
-## 3. WHAT SHIPPED (`src/`, 2 files)
+**c. The conversation fold is the worst thing in the layer** —
+[G73](ROADMAP.md#g73), 33–67% fabricated, n=12/model. `qwen3:4b-instruct`
+produced **0 faithful folds of 12**. It **compounds by design**: each step
+re-summarises the previous summary. Runs every 2 h. Nothing had ever looked at
+it.
 
-1. **`codex_extraction_mode`** = `instruct` | `template`. Template sends a JSON
-   schema to fill and nothing else, strips `</think>`, accepts a `{"facts": […]}`
-   envelope, skips the schema constraint. **Default `instruct`.**
-2. **`codex_extraction_max_tokens` 1200 → 3000.** At 1200 template mode lost
-   **30 of 60 turns**; truncation was logged on qwen too.
-3. **Adaptive chunking** — sized from `serving_window()`, ceiling 4096, loud
-   warning + fallback to 550 when the probe fails. Replaced a fixed 550 that
-   split a 1,178-token turn into three.
-4. **NER tier default → `background` (NuNER)** — junk names 8.7% vs 19.5%. The
-   settlement A9b deferred; every measured arm already set it by env var.
-5. ⚑ **A latent bug that had been silently losing whole turns' extraction** —
-   the parse filter tested `all(k in item ...)` (key PRESENT, not value a
-   STRING), so a `null` killed a `.strip()` 200 lines later. Invisible for
-   months because the JSON schema guaranteed strings on the only path used.
+## 4. ⛔ RETRACTED THIS SESSION — read before citing anything
 
-**Verified end-to-end** on 5 turns through `extract_codex`: 94 edges, 76
-entities, **zero expiries**, canonicalisation and merge-key both fired, entity
-gate refused `you` 9 times. **The write path handles the new model.**
+- **Cluster naming (62–76% wrong).** The harness fed the namer *five arbitrary
+  consecutive turns* with `recurring_entities=None`; production passes
+  similarity-grouped **members** plus a recurring-entity hint. It measured the
+  harness. The rate, the model ordering **and** the prompt A/B null are all
+  void ([G74](ROADMAP.md#g74)).
+- **"171 of 174 probes have no lexical signal"** — an invented threshold.
+  Calibrated against known-good probes, it rejected most of those too
+  ([TRAPS #51](TRAPS.md)).
+- **A judge calibration** — `judge_summaries.py` truncated the source at 4,000
+  chars, a bug **this repo had already fixed and documented** in
+  `judge_answers.py` ([TRAPS #41](TRAPS.md) recurrence).
+- **Two prompt A/Bs are nulls** — must-term count (premise wrong: the cap never
+  binds, median demand is 11 not 25) and the naming contradiction.
 
-## 4. ⚑ DECISIONS MADE (do not re-litigate)
+⚑ **The noise floor, measured twice by accident: ±4–5 pts at n=70, ±9.5 at
+n=21.** Identical arms re-run scored 37.1%/32.9% and 0.286/0.381. **Both nulls
+above are exactly that size.** Quote run-to-run variance before quoting a delta.
 
-- **The background extractor is NuExtract3.** Settled on evidence, twice.
-- **The relation vocabulary NEVER goes in the prompt.** Apply it after
-  extraction via `canonical_relation` instead — zero prompt cost.
-- **⛔ EVERY PRE-RESEED STORE IS DEAD DATA** *(maintainer)*: "lets just call ALL
-  from before as we have no data, we are restarting ALL again." All Z1 arms were
-  built by the 15%-correct configuration.
-- **Re-measure the last two weeks**, not just the graph findings.
-  [G71](ROADMAP.md#g71) is the register: 2026-08-11 → 08-24, 16 entries, **3
-  survive · 3 already dead · 10 to re-measure**.
-- **Reseed 1,000–1,500 DENSE turns**, not 180. ⚠ the median turn is 24 tokens;
-  the 14,665 turns ≥100 tokens carry 91% of all content.
-- ⚑ **STANDING RULE: pick a side on evidence, then DELETE the loser** — for what
-  a feature does and for what we do. ⚠ **but commit AFTER measuring, never
-  instead of**: [G51](ROADMAP.md#g51) picked the aggressive side without a
-  measurement and silently destroyed **667 true facts**.
-- **P5 (malformed post-filter) SKIPPED** — its 20% target came from a config we
-  dropped; the shipped one scored 0% malformed. Re-measure before acting.
-- **`CLAUDE.md` line 32 remains knowingly stale** ("dense enough") — unchanged
-  from the previous handoff. Fix the behaviour first ([G57](ROADMAP.md#g57)).
+## 5. STORE + ENVIRONMENT STATE
 
-## 5. NEW ITEMS OPENED
+- `dir-false-run1`: `procedural_memory` 43→0, `batch_summaries` 2→0,
+  `batch_summary_id` cleared, procedural idempotency keys deleted — the
+  store-backed bake-off jobs reset themselves so each model started identical.
+  Episodic/codex/chunks **untouched**. Backup
+  `bakeoff/PRE_RESET_BACKUP.json`; restore `snapshots/dir-false-run1.sql`.
+  **Deliberately not restored** — G72 wipes it.
+- ⚠ **`ollama list` sizes are DISK, not VRAM.** `gemma4:e4b` is 9.6 G on disk
+  and **3.4 G resident** — *smaller* than `qwen3:4b-instruct`'s 4.1 G. A VRAM
+  argument was made backwards on this today.
 
-**G63** model decided · **G64** fact-as-sentence (the one Graphiti idea worth
-taking) · **G65** judge instability + the calibration gate · **G66** do better
-facts improve ANSWERS · **G67** maintenance agent / graph shape · **G68**
-chunking + truncation *(shipped; ceiling sweep deferred)* · **G69** the relation
-vocabulary growth loop is built and inert · **G70** read-side instrumentation
-*(lands with Z2)* · **G71** the re-measurement register · **G72** the clean break.
+## 6. NEXT — ⚑ NOT THE RESEED
 
-## 6. WHAT IS STILL UNMEASURED
+**[`scripts/z1/README.md`](../scripts/z1/README.md) §2 Step 0 — ten items, none
+blocked**, because the post-reseed list is enormous and Z2 is bigger again.
+Highest value first: **G32(a) native endpoint** (seeding is hours of background
+work and would otherwise inherit the host's residency policy) · gold turns for
+the 174 anchorless probes (safe now the model is settled; feasibility proven at
+343/368) · the **fold** A/B (G73) · **re-do cluster naming against real
+members** (G74) · G61's four remaining silent drops · a real reconciler gold set.
 
-Whether better facts improve **answers** (G66 — the one that decides whether any
-of this mattered) · the reject-but-keep tier, **79% of facts land at 0.35** and
-`extraction_confidence` does not predict truth · the chunk ceiling above ~1,500
-tokens · whether NuNER beats micro-NER for **truth** (decided on shape only) ·
-the whole answer layer, decay, reflection, the maintenance agent, the B2 gate.
-
-## 7. NEXT
-
-**[`docs/specs/RESEED_PLAN.md`](specs/RESEED_PLAN.md).** Seed 1,000–1,500 dense
-turns on the settled config → judge the new baseline → settle reject-but-keep
-with a tier-stratified round → **G66** → work the G71 register.
-
-⚠ **Open before step 1: which judge.** muse-spark is gone. For G66's coarser
-question ("is answer A better than B") 60–67% may be enough; for triplet-level
-truth it is not. Calibrate anything new with `scripts/oneoff/calibrate_judge.py`
-before adopting it.
+**Then** the reseed, then what the store unblocks: baseline → reject-but-keep →
+G70 read-side → G66 ablation → G75's decision → the G71 register.
 
 **⚑ Do not write this file, or close a session, without the user saying so.**
