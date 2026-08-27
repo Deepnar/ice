@@ -907,6 +907,29 @@ class Settings(BaseSettings):
     codex_constrain_shape: bool = True
     codex_constrain_relation_enum: bool = False
 
+    # ⚑ G63: WHICH MODEL EXTRACTS. Empty ⇒ fall through to the general
+    # background model (`background_model_name` → registry fallback).
+    #
+    # This exists because ICE had exactly ONE background-model setting and ten
+    # jobs shared it: the turn summary, batch summaries, conversation summary,
+    # cluster naming, reflection, the maintenance agent, procedural extraction,
+    # document-kind classification, the raw slicer — and codex extraction.
+    # Only the last of those is "pull stated facts out of text", and it is the
+    # only one where a specialist beats a generalist (63% vs 15% correct,
+    # G63). Pinning the shared setting to NuExtract3 would hand a
+    # JSON-template filler to the summariser and the cluster namer, which is
+    # not a degradation anyone would see in a log — the summaries would simply
+    # be wrong.
+    #
+    # ⚠ MOVES WITH `codex_extraction_mode`, ALWAYS. Each model is usable only
+    # in its own prompt shape (table below): NuExtract3 on the instruct prompt
+    # emits `affordable education --offers--> europe`. Setting one without the
+    # other is worse than setting neither.
+    #
+    # ⚠ NOT the reconciler. `make_llm_reconciler` in codex_extractor.py is a
+    # one-word reasoning call and deliberately stays on the general model.
+    codex_extraction_model: str = "hf.co/numind/NuExtract3-GGUF:Q8_0"
+
     # ⚑ G63: which SHAPE of prompt the extractor sends.
     #
     #   "instruct" — the nine numbered rules + worked examples. Built for a
@@ -925,10 +948,16 @@ class Settings(BaseSettings):
     # other's. The +48 points is the MODEL, not the removal of ICE's guards:
     # stripping them from qwen makes it dramatically worse.
     #
-    # ⚑ DEFAULT IS "instruct" ON PURPOSE. Every published ICE graph number was
-    # produced by that path; changing the default would silently invalidate the
-    # ability to reproduce any of them. Flip it deliberately, per run.
-    codex_extraction_mode: str = "instruct"
+    # ⚑ DEFAULT WAS "instruct", AND THE REASON IT WAS HAS EXPIRED (2026-08-26).
+    # It read: "every published ICE graph number was produced by that path;
+    # changing the default would silently invalidate the ability to reproduce
+    # any of them." Two things ended that argument — the paper's numbers are
+    # frozen at the `v2-paper-eval` tag and do not depend on main's defaults,
+    # and G72 declared every pre-2026-08-26 store dead data, so there is no
+    # longer a live number this default protects. Default is now the measured
+    # winner, per the standing rule: pick a side on evidence, then delete the
+    # loser.
+    codex_extraction_mode: str = "template"
 
     # ⚑ G68/P3: how much TURN TEXT goes into one extraction call.
     #

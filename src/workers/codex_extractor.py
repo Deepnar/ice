@@ -956,7 +956,14 @@ def extract_triplets(text: str, model_override: str = "",
         )
 
     try:
-        model_name = model_override if model_override else get_bg_model_name()
+        # ⚑ G63: extraction has its OWN model, and this is the only background
+        # job that does. `settings.codex_extraction_model` sits between the
+        # per-call override and the shared background model so a run can pin an
+        # arm from the command line, a deployment can pin the specialist in
+        # .env, and everything else — summaries, cluster names, reflection —
+        # keeps using the general model. Empty ⇒ the old behaviour exactly.
+        model_name = (model_override or settings.codex_extraction_model
+                      or get_bg_model_name())
 
         # --- Chunking: sentence/code-aware windows (roadmap A1).
         # ⚑ G68/P3: sized to the MODEL's window, not a fixed 550. A turn split
@@ -1782,7 +1789,17 @@ def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
 
 def make_llm_reconciler():
     """A bounded reconciler backed by the background model: one word out, five
-    tokens max. Returned as a callable so it can be swapped/stubbed."""
+    tokens max. Returned as a callable so it can be swapped/stubbed.
+
+    ⚑ DELIBERATELY NOT `settings.codex_extraction_model` (G63, 2026-08-26).
+    This function lives in the extractor and is therefore the natural thing to
+    sweep along when "the extractor" is repointed at NuExtract3 — do not. It
+    does not extract anything: it READS two facts and REASONS about which
+    survives, then answers in one word. An extraction specialist is trained to
+    fill a JSON template from stated content and has no path to that judgement,
+    so pointing this at one would turn a decision into a coin flip while every
+    log line still looked healthy. It follows the general background model.
+    """
     def _reconcile(ctx: dict) -> str:
         prompt = (
             "Two facts about the same subject may conflict. Using ONLY the conversation "
