@@ -117,6 +117,17 @@ def extract_procedural(batch_id: str, model_used: str = ""):
         bucket = n_turns // max(1, settings.procedural_session_step)
         idempotency_key = job_key("procedural", f"{turn.session_id}:{bucket}")
         if db.query(IdempotencyKey).filter_by(key=idempotency_key).first():
+            # ⚑ SAY SO. This returned silently until 2026-08-27, and the cost was
+            # a diagnosis, not an outage: deleting every `procedural_memory` row
+            # changed nothing — the KEYS survive — and the job kept declining to
+            # work at DEBUG with **no output whatsoever**. Correct behaviour,
+            # invisible reason. CLAUDE.md's standing rule is that a component
+            # substituting a default for a real answer emits at WARNING with the
+            # reason, every time; INFO is right here because this is the designed
+            # path rather than a fallback, but it must not be mute.
+            log.info("procedural_already_extracted", session_id=str(turn.session_id),
+                     bucket=bucket, turns=n_turns,
+                     note="session unchanged since last extraction at this step")
             return
         # E1 (D1): a pattern observed inside a project-attached conversation
         # is a project convention — scoped by project_id, not a fourth store.
