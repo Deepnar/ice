@@ -3420,3 +3420,81 @@ enumerate an open vocabulary"* — so the 82% block rate is a property of this
 corpus's relations, not a guarantee.
 
 **Artifact:** computed from `experiments/curation_files/extractor_ab/g63_sweep.json`.
+
+---
+
+## 2026-08-26 — ⚑ THE SUMMARY TRUST GATE SELECTS *FOR* FABRICATION, and the background-model bake-off
+
+**Run:** `scripts/z1/bg_model_bakeoff.py` (11 candidate models × 9 background
+jobs) then `scripts/z1/judge_summaries.py` (faithfulness).
+**Corpus:** `data/simulation/simulation_full.jsonl`, 30 dense turns sampled
+deterministically (seed 20260826), median 3,572 chars. Store-backed jobs ran
+against `dir-false-run1`.
+**Artifacts:** `experiments/curation_files/bakeoff/` — `bakeoff_*.json`,
+`judge_calibration_20260826T091214Z.json`,
+`summary_verdicts_20260826T093810Z.json`. ⚠ gitignored.
+
+### The headline, and it is not the model choice
+
+`summary_coverage` is the gate deciding whether a stored summary **replaces the
+raw turn** in the assembled prompt (`inject_raw`, threshold 0.7). Graded by a
+judge that passed its own controls first — planted fabrications caught **15/16**,
+verbatim copies of the source called faithful **16/16**:
+
+| verdict | n | mean coverage | clears the 0.7 gate |
+|---|---|---|---|
+| faithful | 29 | 0.803 | 23/29 = 79% |
+| **fabricated** | 13 | **0.914** | **13/13 = 100%** |
+
+**Every invented summary cleared the gate; a fifth of the honest ones did not.**
+Of everything the gate admits in place of the raw turn, **36% contains
+invention.** The direction holds *inside* every model tested — fabricated
+summaries out-score faithful ones on coverage: `qwen3:4b-instruct` 0.901 vs
+0.729 · `gemma4:e4b` 0.891 vs 0.791 · `ministral-3:8b` 0.933 vs 0.912 — and
+across models the fabrication rate tracks coverage monotonically (0.859→43%,
+0.814→29%, 0.768→21%).
+
+**Mechanism:** `_summary_llm_call` instructs *"every one of these MUST appear
+verbatim"*; a model that cannot ground a must-term invents context to carry it,
+and coverage scores it for having done so. The instruction manufactures the
+defect the metric rewards — the same prompt/metric coupling as
+[TRAPS #45](TRAPS.md), one layer down.
+
+### Model results — 5 of 11 disqualified on deterministic evidence
+
+Disqualified: `nemotron-mini:4b` (coverage 0.160, 59% of slicer output invented,
+fold collapse), `granite4:tiny-h` (0.174, no prose on 24/30),
+`granite4:micro` and `mistral-nemo` (no `Abstract:` line on 29/30 and 26/30),
+`lfm2.5:8b` (prose at **95% of source length** — copying, not summarising — and
+reconciler 0/9).
+
+Finalists, weighted by how often each job actually fires
+(`settings.maintenance_intervals` + `runtime.py:JOBS`): the turn summary and
+procedural extraction run on **every turn**; doc-kind and the raw slicer fire
+only if the user ingests documents; the reconciler fired **0 of 106** in
+production (G62); the maintenance agent has never run (G67).
+
+| model | cov | no-Abstract | procedural | fabricated | VRAM beside NuExtract3 |
+|---|---|---|---|---|---|
+| `gemma4:e4b` | 0.768 | 1/30 | 0.750 | **21%** | 14.8 G |
+| `qwen3:4b-instruct` | 0.814 | **0/30** | **0.750** | 29% | **7.7 G** |
+| `ministral-3:8b` | **0.859** | 2/30 | 0.625 | **43%** | 11.2 G |
+
+⚠ **`ministral-3:8b` had the best coverage and the worst faithfulness** — a
+direct consequence of the defect above, and a warning against reading the
+coverage column as quality.
+
+### What this does NOT show
+
+- **n=14 per model for faithfulness.** 21% vs 29% is **not resolvable**;
+  separating them at 95% confidence needs ~400 per arm. Only the gate finding
+  and the disqualifications are robust at this size.
+- **One judge**, `deepseek-v4-flash`, which missed 1 of 16 planted fabrications
+  ⇒ the true fabrication rate is **at least** these numbers, not at most.
+- **Synthetic corruption is a floor.** A spliced sentence is more obvious than a
+  subtly wrong paraphrase; the judge's real-world sensitivity is likely lower.
+- **Nothing here tests whether removing the must-preserve instruction helps.**
+  That is the experiment the mechanism implies and it has not been run.
+- The three store-backed jobs ran on 180 turns of `dir-false-run1`; `procedural`
+  and `batch_summary` required clearing their own markers first, because both
+  are idempotent and had already run.

@@ -953,6 +953,27 @@ number that would have been reported as a finding.
 | 5 | gold consistency check | `evidence` numbering is type-dependent — absolute for `codex_multihop`, RELATIVE to a 14-turn window for `procedural`; read as absolute it declared **34 of 40 valid probes broken** | the failure pattern was too uniform to be real |
 | 6 | ablation patch | filtered a `(fragments, classification)` TUPLE as if it were a list | read the patched line back |
 
+**⚑ 2026-08-26 — DEFECT 4 RECURRED IN A NEW SCRIPT, AND THE SAME PERSON CAUGHT
+IT THE SAME WAY.** `judge_summaries.py` was written with `source[:4000]` and
+`summary[:2000]`. The sampled turns run to **22,694 chars** (median 3,572), and
+**3 of the 6 turns in the first calibration were over the cut** — two at 9,292
+and 10,655, so the judge read ~38-43% of the source while grading a summary of
+all of it. It returned **13 of 18 clean summaries flagged as `fabricated`**, a
+result that read as a dramatic finding about local models inventing, and was an
+artifact of not showing the judge the evidence.
+
+Worse: the fix already existed *in this repo*, three lines of comment in
+`judge_answers.py:154` beginning **"⚑ NO CAP. This was `source[:4000]`"** — the
+identical constant, in the identical role, with the reasoning written out. The
+maintainer's words on catching it: *"are we giving the judge the truncated
+source truth to compare as we have gone thru this bs before."*
+
+⇒ **A cap on evidence is not a performance detail, it is a silent change to what
+the judge is allowed to know.** Grep any new judge for `[:` before trusting one
+number it produces, and treat a fix recorded in one file as a rule for all of
+them — a lesson written in a comment does not travel to the next script by
+itself.
+
 **What they have in common.** Not one crashed. Each produced output of the right
 SHAPE — a percentage, a count, a table — and the shape is what gets believed.
 Defects 1, 3 and 5 were caught only because a human or an assert found the
@@ -1392,3 +1413,91 @@ debugging blamed NuExtract3. The bug was ours — a parse filter testing
 admitted a triplet that killed a `.strip()` two hundred lines later and lost the
 **whole turn's** extraction. Invisible for months because the JSON schema
 guaranteed strings on the only path anyone used.
+
+### 51. A threshold the tester invented turned a working instrument into a false negative
+
+**2026-08-26, choosing whether 174 probes could be salvaged.**
+
+`gt_feasibility.py` asked whether the anchorless probes have enough lexical
+signal to shortlist a candidate turn. It cut at a top-candidate score of **1.0**
+— a number chosen by the person writing the script, checked against nothing —
+and reported:
+
+> **171 of 174 probes have no lexical signal.**
+
+That would have condemned 171 recoverable probes as needing regeneration. The
+calibration takes one extra query: run the same cut against the probes whose
+gold turns are **already known to be correct**.
+
+| population | median top-candidate score |
+|---|---|
+| anchored (gold known good) | **0.78** |
+| anchorless (under test) | 0.64 |
+
+The threshold rejected most of the *known-good* probes too. And the stage it was
+judging already **recovers the true gold turn in the top 6 for 343 of 368 =
+93%** of the cases where the answer can be checked.
+
+⇒ **A cut-off invented by whoever is running the test is not a measurement.**
+Every threshold needs a population where the right answer is known, run through
+the same cut, before it is allowed to classify anything. Ask *"what would a
+KNOWN-GOOD case score here?"* — and if that is unknown, the threshold is not
+ready to be used.
+
+**Why this shape is expensive:** it fails toward "the data is bad", which feels
+like diligence and quietly discards work. The opposite error announces itself;
+this one is congratulated.
+
+### 52. `summary_coverage` rewards a model for NOT summarising
+
+**2026-08-26, the background-model bake-off. A SECOND hole, after
+[#45](#45-a-metric-measured-whether-the-model-obeyed-a-formatting-instruction).**
+
+#45 caught the metric scoring compliance with a formatting instruction; that was
+fixed by `strip_generated_index`, which scores the prose and ignores the model's
+own `Key terms:` index. The metric is no longer circular. It is still a
+**presence** metric, and presence scales with length:
+
+| model | coverage | prose chars | % of source turn |
+|---|---|---|---|
+| `lfm2.5:8b` | **0.973 — best of 11** | 3,372 | **95%** |
+| `mistral-nemo` | 0.896 | 425 | 12% |
+| `ministral-3:8b` | 0.859 | 866 | 24% |
+| `qwen3:4b-instruct` | 0.814 | 917 | 26% |
+
+Median source turn: 3,553 chars. **The model that summarised least scored
+best**, because a near-verbatim copy contains every must-term by construction.
+
+⚠ **This is the trust gate.** `post_flight` uses coverage to decide whether the
+summary **replaces the raw turn** in the assembled prompt. So the gate cannot
+distinguish a good summary from the absence of summarisation — and the same
+model was independently the worst in the field on the reconciler (0/9), which
+is what prompted the check.
+
+⇒ **A presence metric needs a compression term, or a length bound, or it is
+partly measuring output length.** More generally: when a metric's best scorer is
+also the worst performer elsewhere, look at the metric before crowning it.
+
+**⚑ AND IT IS WORSE THAN BLIND — MEASURED THE SAME DAY.** Once the faithfulness
+judge passed its own controls (planted fabrications caught 15/16, verbatim
+copies called faithful 16/16), 42 real summaries from three models were graded:
+
+| verdict | n | mean coverage | clears the 0.7 trust gate |
+|---|---|---|---|
+| faithful | 29 | 0.803 | 23/29 = 79% |
+| **fabricated** | 13 | **0.914** | **13/13 = 100%** |
+
+Fabricated summaries score **higher** coverage than faithful ones inside every
+model tested, and the fabrication rate tracks coverage across models
+(0.859 → 43%, 0.814 → 29%, 0.768 → 21%). **Every invented summary cleared the
+gate; a fifth of the honest ones did not.**
+
+**The mechanism is the prompt feeding the metric, again.** `_summary_llm_call`
+orders *"every one of these MUST appear verbatim"*. A model that cannot ground a
+must-term invents context to carry it, and coverage then rewards exactly that.
+So the instruction manufactures the defect the metric scores well.
+
+⇒ **A gate can be worse than absent.** An absent gate admits everything; this one
+admits invention preferentially, which is a filter running backwards. Whenever a
+generator is instructed to include terms that a metric then counts, assume the
+pair is coupled and measure the coupling before trusting either.
