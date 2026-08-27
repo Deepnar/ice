@@ -933,3 +933,29 @@ parse, adaptive chunk budget, and a **latent null-value parse bug** that had bee
 losing whole turns' extraction whenever any model emitted a null).
 
 Nothing was moved, renamed or deleted.
+
+## 2026-08-27 — background-model session
+
+**Six new scripts in `scripts/z1/`** (none moved, renamed or deleted):
+
+| script | purpose |
+|---|---|
+| `bg_model_bakeoff.py` | 11 candidate models × 9 background jobs, calling the PRODUCTION functions |
+| `bakeoff_report.py` | merges every bake-off run; applies disqualifiers instead of a composite score |
+| `judge_summaries.py` | summary faithfulness, with the planted-defect + verbatim-copy judge gate |
+| `judge_bg_quality.py` | the quality half for batch summary / fold / cluster naming / procedural |
+| `prompt_ab_fabrication.py` | prompt and must-term A/Bs; rewrites one substring in flight and aborts if it fails to differ |
+| `probe_census.py`, `unify_probes.py`, `gt_feasibility.py` | probe inventory across 3 sources, the unified 618-probe set, and the gold-turn feasibility check |
+
+**One doc written into the gitignored corpus dir:**
+`experiments/curation_files/README.md` — what an `EC-*.json` checkpoint is, the
+filename↔conversation-id mismatch, and where the full originals live
+(`data/simulation/simulation_full.jsonl`).
+
+**Store mutated, recoverably.** `dir-false-run1` no longer matches its `.counts`
+file: `procedural_memory` 43→0, `batch_summaries` 2→0, `batch_summary_id`
+cleared, procedural idempotency keys deleted — the bake-off's store-backed jobs
+reset themselves so each model started from identical state. Episodic, codex and
+chunks untouched. Rows backed up to `bakeoff/PRE_RESET_BACKUP.json`; full restore
+is `snapshots/dir-false-run1.sql`. **Not restored on purpose** — G72 wipes this
+store for the reseed.
