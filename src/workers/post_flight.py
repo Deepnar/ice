@@ -44,17 +44,45 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
     C12: for a document section the instruction says so. Telling the model to
     "summarize the following user/assistant exchange" when it is looking at a
     page of a specification invites it to invent an exchange."""
+    # ⚑ TUNED FOR gemma4:e4b (2026-08-27). Measured, n=70 turns, one changed
+    # substring, blind judge gated on planted defects first:
+    #
+    #   gemma4:e4b   hard "must appear verbatim"  15.7% fabricated, 82.9% faithful
+    #   gemma4:e4b   the wording below             2.9% fabricated, 95.7% faithful
+    #                                              incomplete UNCHANGED (1 -> 1)
+    #
+    # Why the hard form was worse: a model that cannot ground a must-term is
+    # ordered to include it anyway, so it invents context to carry it — and
+    # `summary_coverage` then scores it well for having done so. The order
+    # manufactured the defect the metric rewarded.
+    #
+    # ⚠ THIS IS MODEL-COUPLED, exactly like the extraction prompt is coupled to
+    # NuExtract3 (G63). The SAME change measured on `qwen3:4b-instruct` was a
+    # LOSS — 54% -> 34% faithful, incomplete 7% -> 56%: that model converts the
+    # freedom into omission rather than accuracy. **Changing the background
+    # model means re-measuring this prompt, not editing a config value.**
+    # Protocol + full tables: docs/specs/BG_LAYER_FIXES.md §0, §1.1.
+    #
+    # ⚠ Expect LOWER `summary_coverage` (0.784 -> 0.640). That is the metric
+    # noticing the model stopped padding, not a regression — coverage is a
+    # presence score and cannot see invention (TRAPS #52).
     must_block = ""
     if terms:
         must_block = (
-            "\nMUST-PRESERVE TERMS (every one of these must appear verbatim in "
-            f"your summary): {', '.join(terms)}\n"
+            "\nKEY TERMS from this turn — preserve each one the turn actually "
+            "supports, and simply omit any you cannot state faithfully. Never "
+            f"introduce a fact to accommodate a term: {', '.join(terms)}\n"
         )
     retry_block = ""
     if missing:
+        # ⚑ THE RETRY IS THE HARDER ORDER AND MUST MOVE WITH IT. It fired on
+        # 38 of 70 turns in the measured run, so leaving "include each of them
+        # verbatim this time" here would have kept the strongest form of the
+        # instruction on more than half of all summaries.
         retry_block = (
-            "\nYour previous summary DROPPED these required terms — include "
-            f"each of them verbatim this time: {', '.join(missing)}\n"
+            "\nYour previous summary omitted these key terms. Include any the "
+            "turn genuinely supports; leave out any that would require "
+            f"inventing a detail: {', '.join(missing)}\n"
         )
     if source_kind == "document":
         titled = f" from the document \"{source_title}\"" if source_title else ""

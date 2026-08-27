@@ -70,8 +70,11 @@ _IDENT_RE = re.compile(
 
 
 def extract_key_terms(text: str, embedder, max_chars: int = 2500) -> dict:
-    """MUST-PRESERVE terms of a turn. NER via the shared MicroNER (pass the
-    worker's already-loaded embedder — never instantiate a new one, G13)."""
+    """MUST-PRESERVE terms of a turn. NER via **NuNER Zero** — the background
+    tier, not the micro-NER this docstring claimed until 2026-08-26 (the call
+    below has passed `tier="background"` since A9b; the prose never followed).
+    Pass the worker's already-loaded embedder — never instantiate a new one,
+    G13."""
     from src.retrieval.ner_utils import extract_entities
 
     # A9b: the BACKGROUND tier. Precision is the whole game here — these terms
