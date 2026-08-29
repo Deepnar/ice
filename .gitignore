@@ -89,3 +89,7 @@ docs/PRIVATE_CONTEXT.md
 # Per-session working notes (created 2026-08-17). Local-only: the running
 # task/finding list for ONE session. HANDOFF.md is the durable record.
 docs/SESSION.md
+
+# LongMemEval corpus — external, MIT, 278 MB + 15 MB. Re-fetchable at the pinned
+# revision with experiments/lme/fetch_dataset.py; never committed.
+experiments/lme/data/
