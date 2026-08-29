@@ -214,7 +214,71 @@ and GPU/driver differences are outside our control.
 
 ## Running it yourself
 
-Not yet — the runner is still being written. When it lands this section carries the
-exact commands, and the run is resumable: one answer file per instance, written
-atomically, so the machine can be closed at any point and the next invocation picks
-up where it stopped.
+```bash
+./experiments/lme/run_lme.sh oracle          # the control — do this first
+./experiments/lme/run_lme.sh abstention      # all 30 _abs instances
+./experiments/lme/run_lme.sh stratified 60   # 60, spread across question types
+./experiments/lme/run_lme.sh oracle --plan   # show the plan, touch nothing
+```
+
+**Safe to kill at any point** — Ctrl-C, lid close, power cut. Re-run the same
+command to continue. Progress is one answer file per instance under
+`runs/v2-paper-eval/<phase>/answers/`, written atomically (tmp + `os.replace`), and
+**the presence of that file *is* the state** — there is no progress file to fall out
+of sync. An instance interrupted mid-flight simply has no answer file, so it is
+redone from a full store wipe next time, which is what correctness requires anyway.
+Ctrl-C stops *after* the current instance rather than mid-write. Everything is
+tee'd to `runs/v2-paper-eval/<phase>/run.log`.
+
+`--plan` needs no database, no GPU and no worktree — the heavy imports are deferred
+past it, so it is always safe to run just to see what a phase would cost.
+
+### Measured phase costs
+
+| phase | instances | turns to ingest | notes |
+|---|---|---|---|
+| `oracle` | **500** (all) | **~10,960** | ~22 turns each — evidence sessions only |
+| `abstention` | 30 | ~15,144 | the full `_abs` set, ~505 turns each |
+| `stratified 60` | 60 | ~29,782 | seeded, deterministic, even across the six types |
+
+⚑ **The oracle phase is cheap enough to run in full**, and it is not merely a smoke
+test. Scoring all 500 with only the evidence sessions loaded gives an upper bound —
+it separates *can ICE find and use the evidence* from *can ICE survive the
+haystack*. If the two numbers are far apart, the gap is distractor robustness; if
+oracle itself is low, the problem is retrieval or the adapter, and no haystack run
+would have told you which.
+
+### Guardrail against the embedding trap
+
+The runner **asserts the embedding dimension at startup** and refuses to run if it
+is not 384:
+
+```
+⛔ embedder returned 1024 dims, expected 384.
+   v2 stores Vector(384); `main` embeds at 1024 with the SAME model name.
+```
+
+This is the one failure that would otherwise be silent — no crash, no warning, just
+wrong geometry in every stored vector.
+
+## What the runner deliberately does not do
+
+- **No decay simulation.** LSREP ages memory between checkpoints because it is
+  measuring accumulation. LongMemEval asks once, at the end, so there is nothing to
+  age *between*; simulating decay here would model something the corpus does not
+  contain. Clustering runs once after ingestion so cluster-scoped retrieval has
+  something to scope to.
+- **No Celery, no Redis, no vLLM.** Ingestion calls the post-flight functions
+  in-process, mirroring `experiments/mature/run_mature_experiment.py` — the harness
+  that produced every number in the paper. It needs Postgres and the background
+  model, nothing else. *(An earlier note in this file claimed Redis and a Celery
+  worker were required, on the strength of `evaluate_turn` being a bound task. The
+  mature harness bypasses that task entirely and calls `is_lossless`,
+  `generate_summary`, `extract_triplets` and `handle_triplet` directly. Corrected.)*
+- **The answer pass is not written yet.** Instances currently stop at `"status":
+  "ingested"` with an empty `answers` block. The answer path will mirror the mature
+  harness's in-process probe — `classify` → `find_best_model` →
+  `HybridRetrievalOrchestrator.retrieve` → `set_budget_from_turn_count` →
+  `assemble_prompt` — which is what produced the paper's numbers, and which calls
+  the budget setter that CLAUDE.md warns a scorer must not skip. The `vector_rag`
+  baseline arm comes nearly free from the same loop.
