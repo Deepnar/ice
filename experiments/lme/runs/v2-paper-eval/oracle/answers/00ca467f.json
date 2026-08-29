@@ -11,11 +11,11 @@
   "status": "complete",
   "answers": {
     "full_ice": {
-      "answer": "You had **two** doctor's appointments in March:\n\n1.  **March 3rd**: An appointment with your primary care physician, **Dr. Smith**, where you were diagnosed with bronchitis.\n2.  **March 20th**: A follow-up appointment with your orthopedic surgeon, **Dr. Thompson**, to check on the healing of your knee.\n\n(Note: While you have an EMG test scheduled with Dr. Johnson, that is set for April 1st.)",
+      "answer": "Based on the information provided in our conversation, you had **two** doctor's appointments in March:\n\n1.  **March 3rd**: An appointment with your primary care physician, **Dr. Smith**, where you were diagnosed with bronchitis.\n2.  **March 20th**: A follow-up appointment with your orthopedic surgeon, **Dr. Thompson**, regarding your knee healing.\n\n(Note: While you mentioned an EMG test with Dr. Johnson, that is scheduled for **April 1st**.)",
       "model": "gemma4:26b-a4b-it-q4_K_M",
       "fragments": 3,
-      "tokens_injected": 4236,
-      "seconds": 9.0,
+      "tokens_injected": 4246,
+      "seconds": 10.4,
       "topic_tags": [
         "Lifestyle_&_Health"
       ],
@@ -25,11 +25,11 @@
       "context_reliance": "Long_Term_Memory"
     },
     "vector_rag": {
-      "answer": "You had **two** doctor's appointments in March:\n\n1.  **March 3rd**: An appointment with your primary care physician, Dr. Smith, for your bronchitis diagnosis.\n2.  **March 20th**: A follow-up appointment with your orthopedic surgeon, Dr. Thompson, regarding your knee.",
+      "answer": "You went to **two** doctor's appointments in March:\n\n1.  **March 3rd**: An appointment with your primary care physician, **Dr. Smith**, where you were diagnosed with bronchitis.\n2.  **March 20th**: A follow-up appointment with your orthopedic surgeon, **Dr. Thompson**, to discuss your knee healing.",
       "model": "gemma4:26b-a4b-it-q4_K_M",
       "fragments": 18,
       "tokens_injected": 9913,
-      "seconds": 6.6,
+      "seconds": 7.4,
       "topic_tags": [
         "Lifestyle_&_Health"
       ],
@@ -39,5 +39,5 @@
       "context_reliance": "Long_Term_Memory"
     }
   },
-  "total_seconds": 340.1
+  "total_seconds": 398.8
 }

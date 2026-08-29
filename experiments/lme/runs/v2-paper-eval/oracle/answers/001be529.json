@@ -11,10 +11,10 @@
   "status": "complete",
   "answers": {
     "full_ice": {
-      "answer": "The asylum application approval process took **over a year**.",
+      "answer": "The asylum application approval process took **over a year**, during which you faced significant uncertainty and emotional strain.",
       "model": "gemma4:26b-a4b-it-q4_K_M",
       "fragments": 3,
-      "tokens_injected": 3746,
+      "tokens_injected": 3703,
       "seconds": 5.6,
       "topic_tags": [
         "Lifestyle_&_Health",
@@ -26,11 +26,11 @@
       "context_reliance": "Long_Term_Memory"
     },
     "vector_rag": {
-      "answer": "The asylum application approval process took over a year.",
+      "answer": "The asylum application approval process took **over a year**.",
       "model": "gemma4:26b-a4b-it-q4_K_M",
       "fragments": 6,
-      "tokens_injected": 3033,
-      "seconds": 1.8,
+      "tokens_injected": 3019,
+      "seconds": 2.1,
       "topic_tags": [
         "Lifestyle_&_Health",
         "World_&_Current_Events"
@@ -41,5 +41,5 @@
       "context_reliance": "Zero_Shot"
     }
   },
-  "total_seconds": 19.4
+  "total_seconds": 14.5
 }

@@ -4,13 +4,13 @@
   "seed": 20260829,
   "n_selected": 2,
   "environment": {
-    "captured_utc": "2026-08-29T14:39:46.867209+00:00",
+    "captured_utc": "2026-08-29T16:15:58.103890+00:00",
     "cwd": "/home/deepnar/Programs/ice-worktrees/v2-paper-eval",
     "python": "3.12.13",
     "system_under_test": "ICE v2 @ tag v2-paper-eval",
     "worktree_head": "81500a173a03fe12cce76eb745093b19ccc01eed",
     "worktree_describe": "v2-paper-eval-1-g81500a1",
-    "harness_head": "bc10f74aed7aaf757be87856c5146e36cd4dc06d",
+    "harness_head": "5606cc1808613d9f2a8eb7ef44a7960be0978dee",
     "database_url": "localhost:5432/ice_lme_v2",
     "torch": "2.11.0+cu130",
     "transformers": "5.9.0",
@@ -38,9 +38,9 @@
       "background_model": "qwen3:4b-instruct-bg",
       "probe_reply": "ok",
       "preflight_triplets": 2,
-      "preflight_summary_chars": 117,
+      "preflight_summary_chars": 112,
       "endurance_sample_chars": 3758,
-      "endurance_seconds": 61.6,
+      "endurance_seconds": 2.6,
       "endurance_triplets": 0
     }
   }

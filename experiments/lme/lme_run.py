@@ -67,6 +67,33 @@ def _atomic_write_json(path: Path, payload: dict) -> None:
     os.replace(tmp, path)
 
 
+def _bar(done: int, total: int, width: int = 28) -> str:
+    filled = int(width * done / total) if total else 0
+    return "█" * filled + "░" * (width - filled)
+
+
+def _progress(done: int, total: int, prefix: str, started: float) -> None:
+    """Live bar on STDERR, so it stays a TTY even though stdout is piped to tee.
+
+    Writing it to stdout would fill run.log with thousands of carriage-returned
+    redraws; writing it to stderr keeps the log readable and the screen live.
+    """
+    if not sys.stderr.isatty():
+        return
+    pct = 100 * done / total if total else 0
+    el = time.time() - started
+    eta = (el / done) * (total - done) if done else 0
+    sys.stderr.write(f"\r  {prefix} {_bar(done, total)} {done}/{total} "
+                     f"({pct:5.1f}%)  {_fmt(el)} elapsed  eta {_fmt(eta)}   ")
+    sys.stderr.flush()
+
+
+def _progress_done() -> None:
+    if sys.stderr.isatty():
+        sys.stderr.write("\r" + " " * 110 + "\r")
+        sys.stderr.flush()
+
+
 def _fmt(seconds: float) -> str:
     seconds = int(max(0, seconds))
     h, rem = divmod(seconds, 3600)
@@ -159,7 +186,8 @@ def wipe_store(SessionLocal, Base) -> None:
         db.close()
 
 
-def ingest_instance(inst, cid, classifier, embedder, SessionLocal, models) -> int:
+def ingest_instance(inst, cid, classifier, embedder, SessionLocal, models,
+                    progress_prefix: str = "") -> int:
     """Replay one haystack, mirroring the sequence that produced the paper's
     numbers (experiments/mature/run_mature_experiment.py).
 
@@ -175,6 +203,8 @@ def ingest_instance(inst, cid, classifier, embedder, SessionLocal, models) -> in
     dates = inst.get("haystack_dates") or []
     sids = inst.get("haystack_session_ids") or []
     stored = 0
+    total_pairs = sum(len(_to_pairs(s)) for s in sessions)
+    ing_started = time.time()
     db = SessionLocal()
     try:
         for s_idx, session in enumerate(sessions):
@@ -238,8 +268,20 @@ def ingest_instance(inst, cid, classifier, embedder, SessionLocal, models) -> in
                             handle_triplet(db, s.strip(), r.strip(), o.strip(), str(batch_id))
                 db.commit()
                 stored += 1
+                _progress(stored, total_pairs, progress_prefix, ing_started)
+                if stored % 5 == 0:    # durable line for the log file (the live
+                                       # bar goes to stderr and is not logged)
+                    print(f"           ... {stored}/{total_pairs} pairs "
+                          f"({_fmt(time.time() - ing_started)})", flush=True)
+                if _stop_requested:
+                    # Stop between turns, never mid-write. The instance has no
+                    # answer file yet, so the next run redoes it from a clean wipe.
+                    break
+            if _stop_requested:
+                break
     finally:
         db.close()
+        _progress_done()
     return stored
 
 
@@ -697,7 +739,8 @@ def main() -> int:
                     db.close()
 
                 stored = ingest_instance(inst, cid, classifier, embedder,
-                                         SessionLocal, models)
+                                         SessionLocal, models,
+                                         progress_prefix=f"[{i}/{len(todo)}] {qid}")
 
                 # Clustering once, so cluster-scoped retrieval has something to
                 # scope to. No decay simulation -- see the module docstring.
@@ -708,6 +751,22 @@ def main() -> int:
                 # printing "18/36" read as a 50% loss when it is a complete replay.
                 print(f"           ingested {stored} pairs from {n_turns} turns "
                       f"in {_fmt(time.time() - t0)}", flush=True)
+
+            # ⚑ A stop during ingestion ABANDONS the instance -- it must never fall
+            # through to answering. Without this the runner broke out of the ingest
+            # loop, answered against a PARTIAL haystack, and wrote status="complete":
+            # a wrong number that looked finished. Caught by the SIGINT test.
+            #
+            # Nothing is written, so the instance is simply redone next run. If the
+            # haystack happens to be complete, store_matches() reuses it and the
+            # work is not lost.
+            if _stop_requested:
+                short = stored < expected
+                print(f"           stopped during ingestion ({stored}/{expected} pairs)"
+                      f" — instance abandoned, no answer written."
+                      f"{' Store is complete and will be reused.' if not short else ''}",
+                      flush=True)
+                break
 
             rec.update({
                 "question_id": qid,
