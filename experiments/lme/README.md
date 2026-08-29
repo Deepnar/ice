@@ -129,12 +129,92 @@ The harness lives on `main` and talks to the system under test over HTTP
 in a worktree at `/home/deepnar/Programs/ice-worktrees/v2-paper-eval` on branch
 `lme/v2-paper-eval`.
 
+## ⚑ Why LSREP is not reused, and where the production path still is
+
+LSREP replays **one** conversation chronologically into **one** deployment,
+deliberately *keeping* memory across checkpoints and scoring against an evolving
+ground truth. LongMemEval is 500 **independent** instances, each needing a
+**fresh** store, each one question asked once against a fixed answer. Bending
+LSREP to that shape would mean disabling its checkpoint loop, its evolving-GT
+pipeline and its state retention — everything except the HTTP call — and a
+harness rebuilt that far measures itself ([TRAPS #32](../../docs/TRAPS.md)).
+
+So the **control flow is written fresh**. What is *not* reinvented is the path a
+turn actually takes, per CLAUDE.md's first correctness question — *did the harness
+call what the real path calls?* A harness writing rows into Postgres directly
+would measure storage, not ICE.
+
+**⚑ The split, and why it is where it is.** LongMemEval's haystack carries
+**fixed assistant replies**, and the evidence often lives in them —
+`single-session-assistant` is 56 instances on its own. Regenerating those replies
+with ICE would destroy the haystack. So:
+
+| stage | path | why |
+|---|---|---|
+| haystack turns | v2's **storage/post-flight** path, assistant text supplied verbatim | this is what "a turn happened and was stored" *is* in production; nothing is being answered yet |
+| the question | full **`POST /v1/chat/completions`** | classify → retrieve → fuse → budget → assemble → route, exactly as production serves it |
+
+`post_flight.evaluate_turn(self, batch_id, prompt, response, conversation_id,
+model_used)` takes prompt **and** response explicitly, so verbatim injection is
+supported by the real function rather than by a harness shortcut.
+
+**Consequence for layout:** ingestion must run **in-process inside the v2
+environment** (it imports `src.*`), so the harness cannot be a pure HTTP client.
+It still lives here on `main` as the single copy, and is *executed* from the
+worktree so `uv run` picks up v2's lockfile and `src.*` resolves:
+
+```bash
+cd /home/deepnar/Programs/ice-worktrees/v2-paper-eval
+uv run python /home/deepnar/Programs/ice/experiments/lme/lme_run.py --phase oracle
+```
+
+## Reproducibility — checked, and it holds
+
+The question was whether a run today reproduces the July system, given that
+embeddings silently define every stored vector.
+
+| what | value | how pinned |
+|---|---|---|
+| embedder | `Qwen/Qwen3-Embedding-0.6B`, **`truncate_dim=384`**, `device="cpu"` | identical at all four v2 call sites |
+| HF snapshot | `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3` | present in the local HF cache |
+| `sentence-transformers` | **5.5.1** | `uv.lock` **at the tag** |
+| `torch` | **2.11.0** | `uv.lock` at the tag |
+| `transformers` | **5.9.0** | `uv.lock` at the tag |
+| `pgvector` | **0.4.2** | `uv.lock` at the tag |
+| schema | 12 migrations | `alembic/versions/` at the tag |
+
+**⚑ The trap this closes:** v2 stores **`Vector(384)`**; `main` is 1024-dim. Both
+use the string `Qwen/Qwen3-Embedding-0.6B` — *same model name, different vectors*,
+because v2 matryoshka-truncates. A run that picked up `main`'s embedder would
+produce vectors that are wrong in a way nothing would flag. Always `uv sync`
+**inside the worktree**; never share `main`'s venv or `main`'s database.
+
+Residual risks, recorded rather than solved: the HF repo could be re-fetched at a
+different revision if the cache is cleared (pin `revision=` if that ever happens),
+and GPU/driver differences are outside our control.
+
 ## ⚠ Standing-up v2 — known costs, not yet paid
 
 - **503 commits** between the tag and `main`.
 - **Schema drift: 12 migrations at the tag vs 36 on `main`.** The run needs its
-  **own database at the v2 schema**; it cannot share the current one.
+  **own database at the v2 schema** — plan is a separate `ice_lme_v2` database via
+  `DATABASE_URL`, so the live `ice_db` is never touched.
 - **`background_model_mode` defaults to `"dedicated"` at the tag** — it wants a
   separate vLLM on :8002, which CLAUDE.md calls a manual power-user path.
+- **⚑ v2 STILL HAS CELERY.** `evaluate_turn` is a bound Celery task (`self.retry`),
+  so post-flight at the tag needs **Redis + a Celery worker**. CLAUDE.md's "there is
+  no Celery, no Redis and no separate worker process" describes `main` after C7 —
+  it is **false for the tag**, and this is the single biggest surprise in standing
+  v2 up. Anyone reading CLAUDE.md while working in the worktree will get this wrong.
+- Post-flight carries an `is_gpu_busy()` gate that reschedules with a 15s backoff,
+  and an `is_user_active()` gate in `shared` mode. Both matter for an unattended
+  overnight run: the harness must tolerate ingestion that legitimately stalls.
 - The classifier checkpoint it pins, `models/classifier/ice_classifier_v3_qwen_ft3.pt`,
   **is still present**.
+
+## Running it yourself
+
+Not yet — the runner is still being written. When it lands this section carries the
+exact commands, and the run is resumable: one answer file per instance, written
+atomically, so the machine can be closed at any point and the next invocation picks
+up where it stopped.
