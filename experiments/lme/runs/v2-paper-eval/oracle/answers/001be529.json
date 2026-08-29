@@ -1,0 +1,45 @@
+{
+  "question_id": "001be529",
+  "question_type": "single-session-user",
+  "is_abstention": false,
+  "question": "How long did I wait for the decision on my asylum application?",
+  "question_date": "2023/05/28 (Sun) 19:47",
+  "reference_answer": "over a year",
+  "conversation_id": "22861a1a-facf-5f26-b29e-407861b56f84",
+  "turns_stored": 6,
+  "turns_in_haystack": 12,
+  "status": "complete",
+  "answers": {
+    "full_ice": {
+      "answer": "The asylum application approval process took **over a year**.",
+      "model": "gemma4:26b-a4b-it-q4_K_M",
+      "fragments": 3,
+      "tokens_injected": 3746,
+      "seconds": 5.6,
+      "topic_tags": [
+        "Lifestyle_&_Health",
+        "World_&_Current_Events"
+      ],
+      "intent_tags": [
+        "Factual_Retrieval"
+      ],
+      "context_reliance": "Long_Term_Memory"
+    },
+    "vector_rag": {
+      "answer": "The asylum application approval process took over a year.",
+      "model": "gemma4:26b-a4b-it-q4_K_M",
+      "fragments": 6,
+      "tokens_injected": 3033,
+      "seconds": 1.8,
+      "topic_tags": [
+        "Lifestyle_&_Health",
+        "World_&_Current_Events"
+      ],
+      "intent_tags": [
+        "Factual_Retrieval"
+      ],
+      "context_reliance": "Zero_Shot"
+    }
+  },
+  "total_seconds": 19.4
+}

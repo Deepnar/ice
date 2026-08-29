@@ -34,6 +34,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+# This file lives on `main` but must import `src.*` from the WORKTREE we are run
+# from. Python seeds sys.path with the script's directory, not the cwd, so the
+# worktree root goes on explicitly -- the same thing tests/ does.
+sys.path.insert(0, os.getcwd())
+
 # --- repo layout -------------------------------------------------------------
 HARNESS_DIR = Path(__file__).resolve().parent
 DATA_DIR = HARNESS_DIR / "data"
@@ -238,6 +243,265 @@ def ingest_instance(inst, cid, classifier, embedder, SessionLocal, models) -> in
     return stored
 
 
+# --- answering -----------------------------------------------------------------
+# Pinned to the mature harness so an LME-v2 number is comparable to the paper's
+# own numbers rather than to a differently-answered variant of them.
+# experiments/mature/run_mature_experiment.py:48-49, 636-637.
+SINGLE_MODEL = "gemma4:26b-a4b-it-q4_K_M"
+OLLAMA_URL = "http://localhost:11434/v1"
+ANSWER_TEMPERATURE = 0.7
+ANSWER_MAX_TOKENS = 20000
+CONDITIONS = ("full_ice", "vector_rag")
+
+
+def estimate_tokens(text: str) -> int:
+    """The paper's own estimator (run_mature_experiment.py:226). Kept identical so
+    the budget setter sees the same numbers it saw during the paper run."""
+    return int(len(text.split()) * 1.33)
+
+
+def answer_instance(inst, cid, condition, classifier, embedder, SessionLocal,
+                    client, models, turn_count, total_tokens) -> dict:
+    """Answer one question under one condition.
+
+    ⚑ Mirrors the mature harness's probe path exactly: classify WITH
+    conversation_id -> set_budget_from_turn_count -> retrieve -> assemble_prompt.
+    set_budget_from_turn_count is the budget setter CLAUDE.md warns a scorer must
+    never skip; skipping it would measure retrieval without ICE's curation.
+    """
+    from sqlalchemy import bindparam, text as sql_text
+    from pgvector.sqlalchemy import Vector as PgVector
+    from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+    from src.api.prompt_assembler import assemble_prompt
+    MemorySlot = models["MemorySlot"]
+
+    question = inst["question"]
+    classification = classifier.classify(question, conversation_id=cid)
+    emb = embedder.encode(question, convert_to_tensor=False).tolist()
+
+    db = SessionLocal()
+    try:
+        orchestrator = HybridRetrievalOrchestrator(db, embedder)
+        orchestrator.set_budget_from_turn_count(turn_count, total_tokens,
+                                                classification=classification)
+        if condition == "vector_rag":
+            # The paper's baseline verbatim: single-leg pgvector, top-30, no decay
+            # weighting, no fusion, no classification-driven routing, no budget.
+            query = sql_text("""
+                SELECT raw_text, summary_text, lossless_flag, inject_raw,
+                    1 - (embedding <=> :prompt_embedding) as score
+                FROM episodic_memory
+                WHERE embedding IS NOT NULL AND is_archived = false
+                AND conversation_id = :conv_id
+                ORDER BY score DESC LIMIT 30
+            """).bindparams(bindparam("prompt_embedding", type_=PgVector))
+            rows = db.execute(query, {"prompt_embedding": emb, "conv_id": cid}).fetchall()
+            fragments = [
+                r.raw_text if r.lossless_flag else (r.summary_text or r.raw_text[:300])
+                for r in rows
+            ]
+            context = "\n\n".join(fragments)
+            messages = [{"role": "user",
+                         "content": f"Context:\n{context}\n\nQuestion: {question}"}]
+            n_frags = len(fragments)
+        else:
+            scope = {"conversation_id": cid}
+            retrieved = orchestrator.retrieve(
+                classification=classification,
+                conversation_id=cid,
+                prompt_embedding=emb,
+                scope=scope,
+            )
+            memory_slots = db.query(MemorySlot).filter_by(is_active=True).all()
+            messages = assemble_prompt(
+                memory_slots=memory_slots,
+                retrieved_fragments=retrieved,
+                user_message=question,
+                db_session=db,
+                conversation_id=cid,
+                classification=classification,
+                scope=scope,
+                max_recent_tokens=orchestrator.recent_token_budget,
+            )
+            n_frags = len(retrieved)
+
+        injected = sum(estimate_tokens(m.get("content", "")) for m in messages)
+        t0 = time.time()
+        completion = client.chat.completions.create(
+            model=SINGLE_MODEL,
+            messages=messages,
+            temperature=ANSWER_TEMPERATURE,
+            max_tokens=ANSWER_MAX_TOKENS,
+        )
+        return {
+            "answer": completion.choices[0].message.content,
+            "model": SINGLE_MODEL,
+            "fragments": n_frags,
+            "tokens_injected": injected,
+            "seconds": round(time.time() - t0, 1),
+            "topic_tags": list(classification.topic_tags or []),
+            "intent_tags": list(classification.intent_tags or []),
+            "context_reliance": str(classification.context_reliance),
+        }
+    finally:
+        db.close()
+
+
+def ollama_unload(model: str) -> None:
+    """Evict a model from VRAM by asking Ollama for a zero keep_alive.
+
+    ⚑ WHY THIS IS NECESSARY. Ingestion needs the small background model; answering
+    needs the 17.2 GB answerer. Left to Ollama's own policy the answerer stays
+    resident and starves the background model -- measured: qwen3:4b-instruct-bg
+    held only 0.3 GB of a 2.5 GB footprint, ran largely off-GPU, and blew
+    codex_extractor's 30 s timeout on every real turn. The visible result was
+    `triplet_parsing_failed: Request timed out` and a knowledge graph with ZERO
+    entities, while ingestion still reported success.
+
+    So the run drives residency explicitly, which is this project's stated position
+    anyway: keep_alive is ICE's policy to set, not a host default to inherit.
+    """
+    import urllib.error
+    import urllib.request
+    payload = json.dumps({"model": model, "keep_alive": 0}).encode()
+    req = urllib.request.Request(
+        "http://localhost:11434/api/generate", data=payload,
+        headers={"Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(req, timeout=30).read()
+    except (urllib.error.URLError, TimeoutError, OSError):
+        pass  # eviction is an optimisation; never fail the run over it
+
+
+def preflight(sample_pair: tuple[str, str] | None = None) -> tuple[bool, dict]:
+    """Refuse to start if the background model is dead.
+
+    ⚑ THIS EXISTS BECAUSE THE FAILURE IS SILENT. The tag ships `get_bg_client()`
+    hardcoded to an SGLang server on :8001 (the Experiment 3 ablation config). With
+    nothing on that port, every background call failed *and every call site
+    swallowed it*: summaries were written as empty strings, codex extraction
+    returned zero triplets, and the run completed with plausible row counts. The
+    resulting number would have described ICE with no knowledge graph and no
+    summarisation, labelled as ICE.
+
+    So the pipeline is exercised for real before any instance is processed --
+    CLAUDE.md's "prove each part twice", and its rule that a fallback firing on
+    100% of calls is an outage wearing resilience as a costume.
+    """
+    from src.workers.bg_client_factory import get_bg_client, get_bg_model_name
+    from src.workers.post_flight import generate_summary
+    from src.workers.codex_extractor import extract_triplets
+
+    info: dict = {}
+    model = get_bg_model_name()
+    info["background_model"] = model
+
+    try:
+        r = get_bg_client().chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": "Reply with the single word: ok"}],
+            max_tokens=16,
+        )
+        reply = (r.choices[0].message.content or "").strip()
+    except Exception as exc:  # noqa: BLE001
+        print(f"⛔ PREFLIGHT: background model unreachable ({type(exc).__name__}: {exc})",
+              file=sys.stderr)
+        return False, info
+    if not reply:
+        print(f"⛔ PREFLIGHT: background model {model!r} returned EMPTY at a small\n"
+              f"   token budget. Thinking models do this -- they spend the budget\n"
+              f"   reasoning. Summaries and codex extraction would silently produce\n"
+              f"   nothing. Use a non-thinking instruct model.", file=sys.stderr)
+        return False, info
+    info["probe_reply"] = reply
+
+    # Two SEPARATE checks, because they fail for different reasons and conflating
+    # them produced two wrong verdicts in a row:
+    #   (1) CAPABILITY -- fact-dense text must yield triplets. A short toy sample
+    #       is right here; the question is whether extraction works at all.
+    #   (2) ENDURANCE  -- a real, long LongMemEval turn must complete without
+    #       raising. ZERO triplets is a legitimate outcome for it: haystack turns
+    #       are largely generic chatter (the first oracle turn is a fox-chicken-
+    #       grain river puzzle), so demanding facts from one is simply wrong.
+    # Version one checked (1) with a toy sample only, passed, and then timed out on
+    # every real turn. Version two checked (2) alone and failed a healthy system.
+    sample_p = "I moved to Berlin last March and started working at Vertex Labs."
+    sample_r = "Got it -- Berlin since March, and you're at Vertex Labs now."
+    try:
+        triplets = extract_triplets(f"User: {sample_p}\n\nAssistant: {sample_r}",
+                                    topic_tags=["Personal_Life"])
+    except Exception as exc:  # noqa: BLE001
+        print(f"⛔ PREFLIGHT: extract_triplets raised ({type(exc).__name__}: {exc})",
+              file=sys.stderr)
+        return False, info
+    info["preflight_triplets"] = len(triplets or [])
+    if not triplets:
+        print(f"⛔ PREFLIGHT: codex extraction produced ZERO triplets on a sentence\n"
+              f"   with obvious facts in it. The knowledge graph would stay empty\n"
+              f"   for the whole run and nothing downstream would say so.",
+              file=sys.stderr)
+        return False, info
+
+    try:
+        summary = generate_summary(sample_p, sample_r)
+    except Exception as exc:  # noqa: BLE001
+        print(f"⛔ PREFLIGHT: generate_summary raised ({type(exc).__name__}: {exc})",
+              file=sys.stderr)
+        return False, info
+    if not (summary or "").strip():
+        print("⛔ PREFLIGHT: generate_summary returned an empty string.", file=sys.stderr)
+        return False, info
+    info["preflight_summary_chars"] = len(summary)
+
+    # (2) ENDURANCE on a real turn. Measured: 8.1 s on 1,543 chars but 42.8 s on
+    # 3,512, which is why the tag's 30 s extraction timeout had to be raised. Zero
+    # triplets here is fine; an exception or a timeout is not.
+    if sample_pair:
+        long_p, long_r = sample_pair
+        info["endurance_sample_chars"] = len(long_p) + len(long_r)
+        t0 = time.time()
+        try:
+            long_triplets = extract_triplets(f"User: {long_p}\n\nAssistant: {long_r}",
+                                             topic_tags=["Personal_Life"])
+        except Exception as exc:  # noqa: BLE001
+            print(f"⛔ PREFLIGHT: extraction failed on a real {info['endurance_sample_chars']}-char\n"
+                  f"   turn ({type(exc).__name__}: {exc}). Long turns would silently\n"
+                  f"   contribute nothing to the graph for the whole run.", file=sys.stderr)
+            return False, info
+        info["endurance_seconds"] = round(time.time() - t0, 1)
+        info["endurance_triplets"] = len(long_triplets or [])
+        print(f"  endurance OK: {info['endurance_sample_chars']} chars -> "
+              f"{info['endurance_triplets']} triplets in {info['endurance_seconds']}s")
+
+    print(f"  preflight OK: bg={model} triplets={len(triplets)} "
+          f"summary={len(summary)} chars")
+    return True, info
+
+
+def store_matches(cid, expected_turns, SessionLocal, models) -> bool:
+    """Is the store ALREADY holding exactly this instance's haystack?
+
+    ⚑ This is the mature harness's restart guard, adapted. There, a checkpoint
+    was atomic: it checked whether the checkpoint's last turn was already in the
+    DB and, if so, skipped replay AND the background workers, so the simulated
+    decay loop could never compound across restarts.
+
+    LME cannot compound decay -- every instance starts from a wipe and no decay
+    is simulated -- but the same guard buys resumability: if a run died during the
+    ANSWER pass, the ~500-turn ingestion is still sitting in the store and should
+    not be paid for twice. We require an exact count and no foreign rows, so a
+    partial ingestion is never mistaken for a complete one.
+    """
+    EpisodicMemory = models["EpisodicMemory"]
+    db = SessionLocal()
+    try:
+        mine = db.query(EpisodicMemory).filter_by(conversation_id=cid).count()
+        total = db.query(EpisodicMemory).count()
+        return mine == expected_turns and total == mine and mine > 0
+    finally:
+        db.close()
+
+
 def _to_pairs(session: list[dict]) -> list[tuple[str, str]]:
     """Fold a session's [{role, content}, ...] into (user, assistant) pairs.
     An unpaired trailing user turn is kept with an empty response rather than
@@ -297,7 +561,20 @@ def main() -> int:
     answers_dir = out_dir / "answers"
     answers_dir.mkdir(parents=True, exist_ok=True)
 
-    done = {p.stem for p in answers_dir.glob("*.json")}
+    # Resume at CONDITION granularity: an instance counts as done only when every
+    # condition has an answer. A run that died between conditions resumes into the
+    # missing one instead of redoing the whole instance.
+    def _completed(qid: str) -> bool:
+        path = answers_dir / f"{qid}.json"
+        if not path.exists():
+            return False
+        try:
+            rec = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            return False  # unreadable == not done; it will be rebuilt
+        return rec.get("status") == "complete"
+
+    done = {x["question_id"] for x in instances if _completed(x["question_id"])}
     todo = [x for x in instances if x["question_id"] not in done]
     turns_todo = sum(sum(len(s) for s in x["haystack_sessions"]) for x in todo)
 
@@ -316,9 +593,10 @@ def main() -> int:
         return 0
 
     # Imports deferred until after --plan-only so the planner needs no DB or GPU.
+    from openai import OpenAI
     from src.api.config import settings
     from src.api.db import SessionLocal
-    from src.memory.models import Base, Conversation, EpisodicMemory
+    from src.memory.models import Base, Conversation, EpisodicMemory, MemorySlot
     from src.classifier.classifier import PyTorchClassifier
 
     env = capture_env(settings.database_url)
@@ -327,7 +605,14 @@ def main() -> int:
                                                    "seed": args.seed,
                                                    "n_selected": len(instances),
                                                    "environment": env})
-    classifier = PyTorchClassifier()
+    # ⚑ Paths MUST come from settings, exactly as the mature harness does
+    # (run_mature_experiment.py:342). PyTorchClassifier's own default is a stale
+    # `models/classifier/ice_classifier.pt` — a different, older checkpoint — so
+    # constructing it bare silently evaluates the wrong classifier.
+    classifier = PyTorchClassifier(
+        model_path=settings.classifier_model_path,
+        schema_path=settings.label_schema_path,
+    )
     embedder = classifier.embedder
     dim = len(embedder.encode("dimension probe", convert_to_tensor=False))
     if dim != 384:
@@ -337,9 +622,32 @@ def main() -> int:
               f"   Run this from the worktree so uv resolves v2's lockfile.",
               file=sys.stderr)
         return 2
-    print(f"  embedder OK: {dim} dims\n")
+    print(f"  embedder OK: {dim} dims")
 
-    models = {"EpisodicMemory": EpisodicMemory}
+    # Longest turn among the first few instances -- a worst-ish case, so a pass
+    # here means the real workload is within reach rather than merely a toy.
+    _cand = [pr for x in todo[:3] for sess in x["haystack_sessions"]
+             for pr in _to_pairs(sess)]
+    _sample = max(_cand, key=lambda pr: len(pr[0]) + len(pr[1])) if _cand else None
+    # Evict the answerer BEFORE probing. A leftover 17.2 GB resident from an
+    # earlier pass starves the background model and preflight fails for the wrong
+    # reason -- measured: extraction times out with the answerer loaded, and
+    # returns 3 triplets in 8.1s once the card is clear.
+    ollama_unload(SINGLE_MODEL)
+    ok, pf = preflight(_sample)
+    env["preflight"] = pf
+    _atomic_write_json(out_dir / "MANIFEST.json", {"phase": args.phase,
+                                                   "selection": spec["select"],
+                                                   "seed": args.seed,
+                                                   "n_selected": len(instances),
+                                                   "environment": env})
+    if not ok:
+        print("\n   Nothing has been written. Fix the above and re-run.", file=sys.stderr)
+        return 3
+    print()
+
+    models = {"EpisodicMemory": EpisodicMemory, "MemorySlot": MemorySlot}
+    client = OpenAI(base_url=OLLAMA_URL, api_key="dummy")
     started = time.time()
     durations: list[float] = []
 
@@ -356,26 +664,52 @@ def main() -> int:
               f"{'  eta ' + _fmt(eta) if eta else ''}", flush=True)
 
         try:
-            # Fresh state per instance. Wipe FIRST, so an instance interrupted last
-            # run cannot leak its rows into this one.
-            wipe_store(SessionLocal, Base)
             cid = uuid.uuid5(uuid.NAMESPACE_DNS, f"lme:{args.phase}:{qid}")
-            db = SessionLocal()
-            try:
-                db.add(Conversation(id=cid))
-                db.commit()
-            finally:
-                db.close()
+            rec_path = answers_dir / f"{qid}.json"
+            rec = {}
+            if rec_path.exists():
+                try:
+                    rec = json.loads(rec_path.read_text())
+                except (json.JSONDecodeError, OSError):
+                    rec = {}
 
-            stored = ingest_instance(inst, cid, classifier, embedder, SessionLocal, models)
+            expected = sum(len(_to_pairs(s)) for s in inst["haystack_sessions"])
+            if store_matches(cid, expected, SessionLocal, models):
+                # The haystack from a previous, interrupted pass is still loaded.
+                # Reuse it rather than pay ~500 turns again for a failed answer.
+                stored = expected
+                print(f"           store already holds this haystack "
+                      f"({expected} turns) — skipping ingest", flush=True)
+            else:
+                # Give ingestion the whole card: evict the answerer so the small
+                # background model is fully resident. Without this, extraction runs
+                # off-GPU and times out silently (see ollama_unload).
+                ollama_unload(SINGLE_MODEL)
 
-            # Clustering once, so cluster-scoped retrieval has something to scope
-            # to. No decay simulation -- see the module docstring.
-            from src.workers.clustering import cluster_turns, merge_similar_clusters
-            cluster_turns()
-            merge_similar_clusters()
+                # Fresh state per instance. Wipe FIRST, so an instance interrupted
+                # last run cannot leak its rows into this one.
+                wipe_store(SessionLocal, Base)
+                db = SessionLocal()
+                try:
+                    db.add(Conversation(id=cid))
+                    db.commit()
+                finally:
+                    db.close()
 
-            _atomic_write_json(answers_dir / f"{qid}.json", {
+                stored = ingest_instance(inst, cid, classifier, embedder,
+                                         SessionLocal, models)
+
+                # Clustering once, so cluster-scoped retrieval has something to
+                # scope to. No decay simulation -- see the module docstring.
+                from src.workers.clustering import cluster_turns, merge_similar_clusters
+                cluster_turns()
+                merge_similar_clusters()
+                # `stored` counts user/assistant PAIRS, n_turns counts raw turns;
+                # printing "18/36" read as a 50% loss when it is a complete replay.
+                print(f"           ingested {stored} pairs from {n_turns} turns "
+                      f"in {_fmt(time.time() - t0)}", flush=True)
+
+            rec.update({
                 "question_id": qid,
                 "question_type": inst["question_type"],
                 "is_abstention": qid.endswith("_abs"),
@@ -385,13 +719,37 @@ def main() -> int:
                 "conversation_id": str(cid),
                 "turns_stored": stored,
                 "turns_in_haystack": n_turns,
-                "ingest_seconds": round(time.time() - t0, 1),
-                "answers": {},          # filled by the answer pass
                 "status": "ingested",
             })
+            rec.setdefault("answers", {})
+            _atomic_write_json(rec_path, rec)
+
+            # Total tokens the budget setter sees, computed over what was stored.
+            total_tokens = sum(
+                estimate_tokens(p + " " + r)
+                for s in inst["haystack_sessions"] for p, r in _to_pairs(s)
+            )
+            # Ingestion is done; hand the card back to the answerer.
+            if any(c not in rec["answers"] for c in CONDITIONS):
+                from src.workers.bg_client_factory import get_bg_model_name
+                ollama_unload(get_bg_model_name())
+
+            for cond in CONDITIONS:
+                if cond in rec["answers"]:
+                    continue  # already answered in an earlier pass
+                a0 = time.time()
+                rec["answers"][cond] = answer_instance(
+                    inst, cid, cond, classifier, embedder, SessionLocal,
+                    client, models, stored, total_tokens)
+                _atomic_write_json(rec_path, rec)  # persist per condition
+                print(f"           {cond:10} {rec['answers'][cond]['fragments']:3d} frags "
+                      f"{rec['answers'][cond]['tokens_injected']:6d} tok "
+                      f"{_fmt(time.time() - a0)}", flush=True)
+
+            rec["status"] = "complete"
+            rec["total_seconds"] = round(time.time() - t0, 1)
+            _atomic_write_json(rec_path, rec)
             durations.append(time.time() - t0)
-            print(f"           ingested {stored}/{n_turns} in {_fmt(time.time() - t0)}",
-                  flush=True)
         except Exception as exc:  # noqa: BLE001 -- one bad instance must not end the run
             # No answer file is written, so this instance is simply retried next
             # run. Recorded so a systematic failure is visible rather than silent.
@@ -400,8 +758,7 @@ def main() -> int:
                 fh.write(f"{datetime.now(timezone.utc).isoformat()}\t{qid}\t"
                          f"{type(exc).__name__}\t{exc}\n")
 
-    remaining = len([x for x in instances
-                     if x["question_id"] not in {p.stem for p in answers_dir.glob('*.json')}])
+    remaining = len([x for x in instances if not _completed(x["question_id"])])
     print(f"\ndone this pass. {remaining} instance(s) still outstanding.")
     print(f"artifacts: {out_dir}")
     if remaining:

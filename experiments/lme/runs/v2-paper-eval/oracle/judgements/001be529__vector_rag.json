@@ -1,0 +1,10 @@
+{
+  "question_id": "001be529",
+  "condition": "vector_rag",
+  "question_type": "single-session-user",
+  "is_abstention": false,
+  "label": true,
+  "judge_raw": "Yes",
+  "judge_model": "mistral-nemo:latest",
+  "judged_utc": "2026-08-29T14:50:59.999716+00:00"
+}

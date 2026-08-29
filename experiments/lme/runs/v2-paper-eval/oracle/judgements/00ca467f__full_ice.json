@@ -1,0 +1,10 @@
+{
+  "question_id": "00ca467f",
+  "condition": "full_ice",
+  "question_type": "multi-session",
+  "is_abstention": false,
+  "label": true,
+  "judge_raw": "Yes",
+  "judge_model": "mistral-nemo:latest",
+  "judged_utc": "2026-08-29T14:51:00.200161+00:00"
+}
