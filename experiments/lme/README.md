@@ -214,12 +214,90 @@ and GPU/driver differences are outside our control.
 
 ## Running it yourself
 
+**Setup is already done on this machine** — worktree, venv, database, corpus. It is
+recorded here so it can be rebuilt, not because it needs repeating.
+
+<details>
+<summary>One-time setup (already complete)</summary>
+
 ```bash
-./experiments/lme/run_lme.sh oracle          # the control — do this first
+# 1. worktree at the tag, on its own branch
+git worktree add -b lme/v2-paper-eval /home/deepnar/Programs/ice-worktrees/v2-paper-eval v2-paper-eval
+
+# 2. v2's exact environment from its own lockfile — NOT main's
+cd /home/deepnar/Programs/ice-worktrees/v2-paper-eval && uv sync
+
+# 3. link the gitignored artifacts (models/ and data/ are not in git)
+ln -sfn /home/deepnar/Programs/ice/models models
+mkdir -p data && ln -sfn /home/deepnar/Programs/ice/data/labeled data/labeled
+ln -sfn /home/deepnar/Programs/ice/data/ner data/ner
+
+# 4. isolated database + schema
+docker exec ice_postgres psql -U ice -d postgres -c "CREATE DATABASE ice_lme_v2 OWNER ice;"
+uv run python /home/deepnar/Programs/ice/experiments/lme/setup_v2_db.py
+
+# 5. corpus, pinned
+uv run python /home/deepnar/Programs/ice/experiments/lme/fetch_dataset.py
+```
+
+The worktree's `.env` points at `ice_lme_v2`, and its `alembic.ini` is repointed
+there too — `alembic/env.py` reads the URL only from that file, so left alone every
+alembic command in the worktree targets the **live** `ice_db`.
+</details>
+
+### Before you start a run
+
+1. **Docker postgres up** — `docker ps | grep ice_postgres`
+2. **Ollama up** with `gemma4:26b-a4b-it-q4_K_M` (answerer), `qwen3:4b-instruct-bg`
+   (background) and `gemma4:12b` (judge) pulled. All three are already present.
+3. That is all. **No Redis, no Celery, no vLLM, no SGLang** — ingestion calls the
+   post-flight functions in-process.
+
+### The commands
+
+```bash
+./experiments/lme/run_lme.sh oracle --plan   # costs nothing, needs nothing
+./experiments/lme/run_lme.sh oracle          # the control — run this first
+```
+
+Then score it:
+
+```bash
+cd /home/deepnar/Programs/ice-worktrees/v2-paper-eval
+uv run python /home/deepnar/Programs/ice/experiments/lme/score.py --phase oracle
+```
+
+Later phases, once oracle looks sane:
+
+```bash
 ./experiments/lme/run_lme.sh abstention      # all 30 _abs instances
 ./experiments/lme/run_lme.sh stratified 60   # 60, spread across question types
-./experiments/lme/run_lme.sh oracle --plan   # show the plan, touch nothing
 ```
+
+### Measured throughput, and what a run actually costs
+
+**~17.6 s per user/assistant pair**, measured on real instances (18 pairs in 5m17s),
+dominated by codex extraction and summarisation.
+
+| phase | pairs | rough wall-clock |
+|---|---|---|
+| `oracle` | ~5,480 | **~27 h** |
+| `abstention` | ~7,570 | **~37 h** |
+| `stratified 60` | ~14,900 | ~73 h |
+
+These are days, not evenings — which is why resumability is the design constraint
+rather than a nicety. Start it, close the laptop, run the same command again.
+
+### The judge
+
+Pinned to **`gemma4:12b`**, matching the paper, which judged every Exp-1/2/3 probe
+with a Gemma-4 12B. ⚠ Recorded deviations: this is the **Ollama GGUF** build rather
+than the paper's `mattbucci/gemma-4-12B-AWQ` on SGLang, and the judge token cap is
+raised from LongMemEval's `max_tokens=10` to 256 because this build reasons before
+answering and returns an empty string at 10. The **decision rule is untouched**, and
+reasoning never reaches it — the API returns reasoning separately from
+`message.content`. For exact parity, serve the AWQ build on SGLang and pass
+`--judge`.
 
 **Safe to kill at any point** — Ctrl-C, lid close, power cut. Re-run the same
 command to continue. Progress is one answer file per instance under

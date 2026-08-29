@@ -40,22 +40,35 @@ HARNESS_DIR = Path(__file__).resolve().parent
 DEFAULT_OUT = HARNESS_DIR / "runs" / "v2-paper-eval"
 
 OLLAMA_URL = "http://localhost:11434/v1"
-# ⚑ Disjoint from BOTH the answerer (gemma4:26b) and the background model
-# (qwen3:4b-instruct-bg) -- a different family from each, so nothing grades work it
-# helped produce.
+# ⚑ JUDGE CHOICE IS PINNED TO THE PAPER, NOT TO CONVENIENCE.
+# The paper judged every Exp-1, Exp-2 and Exp-3 probe with a Gemma-4 12B --
+# `mattbucci/gemma-4-12B-AWQ` on SGLang at 150k context, temperature 0.0. Using a
+# different judge here would make an LME-v2 number incomparable to the paper's own
+# numbers, which is half the point of running it at the tag.
 #
-# It must also emit content within LongMemEval's judge token cap of
-# max_tokens=10 (their evaluate_qa.py, not ours -- and unrelated to ICE's own
-# per-query token budget). That cap is not a given:
-# thinking models spend the budget reasoning and return an EMPTY string, which the
-# official decision rule (`'yes' in response.lower()`) silently reads as "no". The
-# first judge tried here, qwen3.8:27b, did exactly that and scored 0.0% on four
-# answers that were all CORRECT. Measured at that cap:
-#     gemma4:12b        -> ''      (thinking, hits length)
-#     granite4.2:8b     -> ''      (thinking, hits length)
-#     qwen3:4b-instruct -> 'yes'
-#     mistral-nemo      -> 'Yes'
-DEFAULT_JUDGE = "mistral-nemo:latest"
+# ⚠ RECORDED DEVIATION: this is the OLLAMA GGUF build of Gemma-4 12B, not the AWQ
+# build on SGLang. Same family and parameter count, different quantization and
+# serving stack. For exact parity, serve mattbucci/gemma-4-12B-AWQ on SGLang and
+# pass --judge with its name.
+#
+# An earlier revision defaulted to mistral-nemo purely because it emitted text at
+# LongMemEval's max_tokens=10 judge cap. That optimised for the cap instead of for
+# judgement quality, and picked a weaker model unrelated to the paper. Corrected.
+DEFAULT_JUDGE = "gemma4:12b"
+
+# ⚑ DEVIATION FROM LongMemEval's max_tokens=10 judge cap, and why it is safe.
+# Gemma-4 12B reasons before answering, so at a 10-token cap it hits `length` and
+# returns an EMPTY content string -- and the official rule `'yes' in
+# response.lower()` reads empty as "no", scoring correct answers wrong. Ollama
+# exposes no way to disable thinking on this build (`chat_template_kwargs` and
+# `think` were both tried and ignored). Raising the cap lets it finish and emit a
+# verdict; measured, content is exactly 'yes' at 256 in ~2.1 s.
+#
+# The DECISION RULE is untouched, and reasoning tokens never reach it: the API
+# returns reasoning separately from `message.content`, so the rule still reads a
+# bare verdict. This changes only whether the judge gets to speak, not how it is
+# scored.
+JUDGE_MAX_TOKENS = 256
 
 _stop = False
 
@@ -159,14 +172,14 @@ def judge_selftest(client, model: str) -> bool:
         try:
             r = client.chat.completions.create(
                 model=model, messages=[{"role": "user", "content": prompt}],
-                n=1, temperature=0, max_tokens=10)
+                n=1, temperature=0, max_tokens=JUDGE_MAX_TOKENS)
             raw = (r.choices[0].message.content or "").strip()
         except Exception as exc:  # noqa: BLE001
             print(f"⛔ JUDGE SELF-TEST: {model} call failed ({type(exc).__name__}: {exc})",
                   file=sys.stderr)
             return False
         if not raw:
-            print(f"⛔ JUDGE SELF-TEST: {model} returned EMPTY at LongMemEval's\n   judge cap of max_tokens=10.\n"
+            print(f"⛔ JUDGE SELF-TEST: {model} returned EMPTY even at\n   max_tokens={JUDGE_MAX_TOKENS}.\n"
                   f"   Thinking models do this -- they spend the budget reasoning.\n"
                   f"   Every label would default to False and the run would report\n"
                   f"   a plausible 0.0%. Pick a non-thinking judge.", file=sys.stderr)
@@ -176,7 +189,7 @@ def judge_selftest(client, model: str) -> bool:
                   f"   expected {'yes' if expected else 'no'}, got {raw!r}",
                   file=sys.stderr)
             return False
-    print(f"  judge self-test OK: {model} discriminates at LongMemEval's max_tokens=10 judge cap")
+    print(f"  judge self-test OK: {model} discriminates at max_tokens={JUDGE_MAX_TOKENS}")
     return True
 
 
@@ -280,7 +293,7 @@ def main() -> int:
             completion = client.chat.completions.create(
                 model=args.judge,
                 messages=[{"role": "user", "content": prompt}],
-                n=1, temperature=0, max_tokens=10,
+                n=1, temperature=0, max_tokens=JUDGE_MAX_TOKENS,
             )
             raw = (completion.choices[0].message.content or "").strip()
         except Exception as exc:  # noqa: BLE001

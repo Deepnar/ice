@@ -4,7 +4,7 @@
   "question_type": "multi-session",
   "is_abstention": false,
   "label": true,
-  "judge_raw": "Yes",
-  "judge_model": "mistral-nemo:latest",
-  "judged_utc": "2026-08-29T14:51:00.383330+00:00"
+  "judge_raw": "yes",
+  "judge_model": "gemma4:12b",
+  "judged_utc": "2026-08-29T14:53:16.086936+00:00"
 }
