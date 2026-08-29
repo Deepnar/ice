@@ -959,3 +959,44 @@ reset themselves so each model started from identical state. Episodic, codex and
 chunks untouched. Rows backed up to `bakeoff/PRE_RESET_BACKUP.json`; full restore
 is `snapshots/dir-false-run1.sql`. **Not restored on purpose** — G72 wipes this
 store for the reseed.
+
+## 2026-08-29 — paper-file NAMING RULE (nothing moved, nothing deleted)
+
+The ACM TIST reject prompted the question "should the paper tex fork to v3?".
+**Answer: no**, and the reasoning is recorded here because the trap it avoids is
+permanent.
+
+**⚑ PAPER DRAFT NUMBERS AND SYSTEM VERSION NUMBERS ARE DIFFERENT SCALES.**
+CLAUDE.md's v1/v2/v3 are *system* versions. `ICE_paper_v2.*` means **paper draft
+2** — the post-TMLR-desk-reject reframe. The two collide on one token and must
+never be read across. The paper happens to report system v2 (tag
+`v2-paper-eval`) because that is the frozen evaluated system; that is a
+coincidence of history, not what the filename asserts.
+
+**⛔ There is no `ICE_paper_v3` and there must never be one.** A future session
+would read "paper v3" as "the paper about system v3" — false. The paper reports
+system-v2 numbers and will keep reporting them as v3 work lands on `main`. The
+two scales are most confusable exactly where they diverge most.
+
+**⛔ `ICE_paper_v2.*` MUST NOT BE RENAMED.** `ICE_paper_v2.pdf` is a *published
+URL*: `README.md:153` links it, and the same GitHub blob URL was sent to an
+external researcher during arXiv endorsement correspondence. Renaming breaks a
+live link someone outside this repo may still click. This outweighs the tidiness
+win of a version-free name.
+
+| file | status from 2026-08-29 |
+|---|---|
+| `ICE_paper_v2.tex` | **CANONICAL.** All substantive edits land here. |
+| `ICE_paper_tist.tex` | **FROZEN RECORD** — exactly what TIST received. Header stamped in-file. Not edited again. |
+| `ICE_paper_tmlr.tex`, `ICE_paper_v2_tmlr.tex` | frozen TMLR submissions |
+| `ICE_paper.tex` | superseded original |
+
+PUBLISHING.md §3's "substantive content changes in BOTH v2 and tist" rule applied
+only while the TIST submission was live. It is now retired: tist is frozen.
+
+**Naming rule for run artifacts that target the frozen system:** name them after
+the **git tag**, not a bare version digit — e.g. `experiments/lme/v2-paper-eval/`.
+`v2-paper-eval` is a unique string in this repo and cannot be misread as "paper
+draft 2".
+
+Nothing was moved, renamed or deleted. Two `.tex` headers were stamped in place.
