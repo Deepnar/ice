@@ -62,13 +62,20 @@ DEFAULT_JUDGE = "gemma4:12b"
 # response.lower()` reads empty as "no", scoring correct answers wrong. Ollama
 # exposes no way to disable thinking on this build (`chat_template_kwargs` and
 # `think` were both tried and ignored). Raising the cap lets it finish and emit a
-# verdict; measured, content is exactly 'yes' at 256 in ~2.1 s.
+# verdict.
+#
+# ⚑ 256 WAS NOT ENOUGH AND THE FIRST FULL RUN WAS VOIDED BY IT. On real answers
+# the judge returned EMPTY for 413 of 1000 judgements (41%), all silently scored
+# 'no'. Worse, the failure was BIASED: ICE's answers are ~1.8x longer than the
+# baseline's (337 vs 188 median chars), so ICE hit the cap more often -- 44.0% vs
+# 38.6% -- and the arm under test was penalised for verbosity. Measured on the
+# actual failing cases: 256 -> 1/6 verdicts, 1024 -> 6/6, 2048 -> 6/6 and slower.
 #
 # The DECISION RULE is untouched, and reasoning tokens never reach it: the API
 # returns reasoning separately from `message.content`, so the rule still reads a
 # bare verdict. This changes only whether the judge gets to speak, not how it is
 # scored.
-JUDGE_MAX_TOKENS = 256
+JUDGE_MAX_TOKENS = 1024
 
 _stop = False
 
@@ -163,9 +170,23 @@ def judge_selftest(client, model: str) -> bool:
     Two cases, not one -- a judge that always says "yes" is as useless as a mute
     one, so the test checks that it DISCRIMINATES.
     """
+    # ⚑ THE LONG CASE IS THE POINT. A short toy case passes at any cap and is what
+    # let a 41%-empty run through: the self-test did not resemble the workload. The
+    # third case below is the length of a real ICE answer, which is exactly what
+    # exhausts a thinking judge's budget.
+    _long_ok = (
+        "Based on what you told me earlier, you had **two** doctor's appointments "
+        "in March. The first was on **March 3rd** with your primary care physician, "
+        "Dr. Smith, where you were diagnosed with bronchitis and prescribed a course "
+        "of antibiotics. The second was a follow-up on **March 20th** with your "
+        "orthopedic surgeon, Dr. Thompson, regarding the knee you injured while "
+        "running in February. You also mentioned rescheduling a dermatology "
+        "appointment out of March entirely, so it does not count toward the total."
+    )
     cases = [
         ("How long did I wait?", "over a year", "The process took over a year.", True),
         ("How long did I wait?", "over a year", "It took about three days.", False),
+        ("How many doctor's appointments did I go to in March?", "2", _long_ok, True),
     ]
     for question, answer, response, expected in cases:
         prompt = get_anscheck_prompt("multi-session", question, answer, response)
@@ -193,12 +214,39 @@ def judge_selftest(client, model: str) -> bool:
     return True
 
 
+# Above this share of mute judgements the table is not reportable. Set low on
+# purpose: mute judgements are not noise, they are one-directional false negatives,
+# and they fall hardest on whichever arm writes longer answers.
+MAX_MUTE_RATE = 0.02
+
+
 def report(judged: list[dict]) -> None:
     """Per-question-type accuracy, per condition -- the table the paper needs."""
     by_cond: dict[str, dict[str, list]] = defaultdict(lambda: defaultdict(list))
+    mute: dict[str, int] = defaultdict(int)
+    tot: dict[str, int] = defaultdict(int)
     for j in judged:
         bucket = "abstention" if j["is_abstention"] else j["question_type"]
         by_cond[j["condition"]][bucket].append(j["label"])
+        tot[j["condition"]] += 1
+        # Older judgement files predate the `spoke` field; fall back to judge_raw.
+        if not j.get("spoke", bool((j.get("judge_raw") or "").strip())):
+            mute[j["condition"]] += 1
+
+    worst = max((mute[c] / tot[c] for c in tot if tot[c]), default=0.0)
+    print("\njudge health — share of judgements where the judge returned NOTHING:")
+    for c in sorted(tot):
+        r = mute[c] / tot[c] if tot[c] else 0
+        flag = "  ⛔" if r > MAX_MUTE_RATE else "  ok"
+        print(f"  {c:12} {mute[c]:5d} / {tot[c]:<5d} ({100*r:5.1f}%){flag}")
+    if worst > MAX_MUTE_RATE:
+        print(f"\n⛔ RESULTS NOT VALID — mute rate {100*worst:.1f}% exceeds "
+              f"{100*MAX_MUTE_RATE:.0f}%.")
+        print("   An empty judgement is scored 'no' by the official rule, so these are")
+        print("   one-directional FALSE NEGATIVES, and they land hardest on whichever")
+        print("   arm writes longer answers — i.e. they do not cancel out between")
+        print("   conditions. Raise JUDGE_MAX_TOKENS, delete judgements/, re-score.")
+        print("   The table below is printed for diagnosis only. DO NOT QUOTE IT.\n")
 
     all_types = sorted({b for c in by_cond.values() for b in c})
     conds = sorted(by_cond)
@@ -218,6 +266,8 @@ def report(judged: list[dict]) -> None:
         xs = [v for vs in by_cond[c].values() for v in vs]
         row += f"{(f'{100*sum(xs)/len(xs):.1f}% ({len(xs)})' if xs else '—'):>16}"
     print(row)
+    if worst > MAX_MUTE_RATE:
+        print(f"\n⛔ ABOVE TABLE IS INVALID — {100*worst:.1f}% of judgements were mute.")
     print("\n⚑ LongMemEval protocol with a LOCAL judge — not directly comparable to")
     print("  published GPT-4o-judged numbers. System under test: ICE v2 @ v2-paper-eval.")
 
@@ -305,6 +355,11 @@ def main() -> int:
             "condition": cond,
             "question_type": rec["question_type"],
             "is_abstention": rec.get("is_abstention", False),
+            # ⚑ `spoke` is the guard that the first run lacked. The official rule
+            # maps an empty string to False, which is indistinguishable from a real
+            # "no" once written. Recording it lets report() refuse to present a
+            # contaminated table as a clean one.
+            "spoke": bool(raw),
             "label": "yes" in raw.lower(),   # official decision rule
             "judge_raw": raw,
             "judge_model": args.judge,
