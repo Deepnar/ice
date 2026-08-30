@@ -227,26 +227,45 @@ def report(judged: list[dict]) -> None:
     tot: dict[str, int] = defaultdict(int)
     for j in judged:
         bucket = "abstention" if j["is_abstention"] else j["question_type"]
-        by_cond[j["condition"]][bucket].append(j["label"])
         tot[j["condition"]] += 1
+        # ⚑ A mute judgement is MISSING DATA, not a wrong answer. Counting it as a
+        # failure is precisely the bug that voided the first run. It is excluded
+        # from the denominator and reported separately, so the reader can bound its
+        # effect instead of silently absorbing it as a loss for the wordier arm.
         # Older judgement files predate the `spoke` field; fall back to judge_raw.
         if not j.get("spoke", bool((j.get("judge_raw") or "").strip())):
             mute[j["condition"]] += 1
+        else:
+            by_cond[j["condition"]][bucket].append(j["label"])
 
     worst = max((mute[c] / tot[c] for c in tot if tot[c]), default=0.0)
-    print("\njudge health — share of judgements where the judge returned NOTHING:")
+    print("\njudge health — judgements EXCLUDED because the judge returned nothing")
+    print("(excluded from the denominator, never counted as wrong):")
     for c in sorted(tot):
         r = mute[c] / tot[c] if tot[c] else 0
-        flag = "  ⛔" if r > MAX_MUTE_RATE else "  ok"
-        print(f"  {c:12} {mute[c]:5d} / {tot[c]:<5d} ({100*r:5.1f}%){flag}")
-    if worst > MAX_MUTE_RATE:
-        print(f"\n⛔ RESULTS NOT VALID — mute rate {100*worst:.1f}% exceeds "
-              f"{100*MAX_MUTE_RATE:.0f}%.")
-        print("   An empty judgement is scored 'no' by the official rule, so these are")
-        print("   one-directional FALSE NEGATIVES, and they land hardest on whichever")
-        print("   arm writes longer answers — i.e. they do not cancel out between")
-        print("   conditions. Raise JUDGE_MAX_TOKENS, delete judgements/, re-score.")
-        print("   The table below is printed for diagnosis only. DO NOT QUOTE IT.\n")
+        print(f"  {c:12} {mute[c]:5d} / {tot[c]:<5d} ({100*r:5.1f}%)")
+
+    # ⚑ Bound the effect instead of merely flagging it. Excluded judgements are
+    # missing, not wrong, so the true accuracy lies between "all excluded were
+    # wrong" and "all excluded were right". If the ordering between conditions
+    # survives both bounds, the missing data cannot have caused it.
+    print("\nworst/best case if every excluded judgement went against / for each arm:")
+    bounds = {}
+    for c in sorted(tot):
+        got = [v for vs in by_cond[c].values() for v in vs]
+        k = sum(got)
+        lo = k / tot[c] if tot[c] else 0                    # all excluded wrong
+        hi = (k + mute[c]) / tot[c] if tot[c] else 0        # all excluded right
+        bounds[c] = (lo, hi)
+        print(f"  {c:12} {100*lo:5.1f}%  ..  {100*hi:5.1f}%   (n={tot[c]})")
+    if len(bounds) == 2:
+        (a, (alo, ahi)), (b, (blo, bhi)) = sorted(bounds.items())
+        if alo > bhi or blo > ahi:
+            hi_arm = a if alo > bhi else b
+            print(f"  → ordering is ROBUST: {hi_arm} leads under every imputation.")
+        else:
+            print("  → ordering is NOT robust to the excluded judgements; "
+                  "the gap is within the missing data.")
 
     all_types = sorted({b for c in by_cond.values() for b in c})
     conds = sorted(by_cond)
@@ -267,7 +286,9 @@ def report(judged: list[dict]) -> None:
         row += f"{(f'{100*sum(xs)/len(xs):.1f}% ({len(xs)})' if xs else '—'):>16}"
     print(row)
     if worst > MAX_MUTE_RATE:
-        print(f"\n⛔ ABOVE TABLE IS INVALID — {100*worst:.1f}% of judgements were mute.")
+        print(f"\n⚠ {100*worst:.1f}% of judgements were excluded as unobtainable "
+              f"(>{100*MAX_MUTE_RATE:.0f}%). Quote the bounds above, not just the point "
+              f"estimates.")
     print("\n⚑ LongMemEval protocol with a LOCAL judge — not directly comparable to")
     print("  published GPT-4o-judged numbers. System under test: ICE v2 @ v2-paper-eval.")
 
@@ -277,6 +298,11 @@ def main() -> int:
     ap.add_argument("--phase", required=True)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     ap.add_argument("--judge", default=DEFAULT_JUDGE)
+    ap.add_argument("--max-tokens", type=int, default=JUDGE_MAX_TOKENS,
+                    help="judge token cap; raise for the tail of long answers "
+                         "that still come back mute at the default")
+    ap.add_argument("--workers", type=int, default=4,
+                    help="concurrent judge requests; the server batches them")
     ap.add_argument("--report-only", action="store_true",
                     help="re-print the table from existing judgements; judges nothing")
     args = ap.parse_args()
@@ -323,6 +349,7 @@ def main() -> int:
             print("  nothing judged yet.")
         return 0
 
+    from concurrent.futures import ThreadPoolExecutor
     from openai import OpenAI
     client = OpenAI(base_url=OLLAMA_URL, api_key="dummy")
     if not judge_selftest(client, args.judge):
@@ -330,9 +357,17 @@ def main() -> int:
         return 3
     started = time.time()
 
-    for i, (rec, cond) in enumerate(pending, 1):
+    def judge_one(item):
+        """One judgement, written atomically by its own worker.
+
+        Judging is I/O-bound on the HTTP call and the server batches internally, so
+        a small pool overlaps requests. The resume guarantee is unchanged: a
+        judgement file exists only once that judgement is complete, so killing this
+        mid-flight loses at most the in-flight few.
+        """
+        rec, cond = item
         if _stop:
-            break
+            return None
         qid = rec["question_id"]
         hyp = (rec["answers"][cond] or {}).get("answer") or ""
         prompt = get_anscheck_prompt(
@@ -343,22 +378,21 @@ def main() -> int:
             completion = client.chat.completions.create(
                 model=args.judge,
                 messages=[{"role": "user", "content": prompt}],
-                n=1, temperature=0, max_tokens=JUDGE_MAX_TOKENS,
+                n=1, temperature=0, max_tokens=args.max_tokens,
             )
             raw = (completion.choices[0].message.content or "").strip()
         except Exception as exc:  # noqa: BLE001
             print(f"  ⛔ {qid} [{cond}] judge failed: {exc}", flush=True)
-            continue
+            return None
 
         entry = {
             "question_id": qid,
             "condition": cond,
             "question_type": rec["question_type"],
             "is_abstention": rec.get("is_abstention", False),
-            # ⚑ `spoke` is the guard that the first run lacked. The official rule
-            # maps an empty string to False, which is indistinguishable from a real
-            # "no" once written. Recording it lets report() refuse to present a
-            # contaminated table as a clean one.
+            # ⚑ `spoke` is the guard the first run lacked. The official rule maps an
+            # empty string to False, indistinguishable from a real "no" once
+            # written. Recording it lets report() refuse a contaminated table.
             "spoke": bool(raw),
             "label": "yes" in raw.lower(),   # official decision rule
             "judge_raw": raw,
@@ -366,9 +400,23 @@ def main() -> int:
             "judged_utc": datetime.now(timezone.utc).isoformat(),
         }
         _atomic_write_json(judge_dir / f"{qid}__{cond}.json", entry)
-        judged.append(entry)
-        if i % 20 == 0 or i == len(pending):
-            print(f"  [{i}/{len(pending)}] {time.time()-started:.0f}s", flush=True)
+        return entry
+
+    done_n = 0
+    mute_n = 0
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        for entry in pool.map(judge_one, pending):
+            done_n += 1
+            if entry is not None:
+                judged.append(entry)
+                if not entry["spoke"]:
+                    mute_n += 1
+            if done_n % 25 == 0 or done_n == len(pending):
+                rate = done_n / max(1e-9, time.time() - started)
+                eta = (len(pending) - done_n) / rate if rate else 0
+                print(f"  [{done_n}/{len(pending)}] {time.time()-started:.0f}s "
+                      f"({rate:.2f}/s, eta {eta/60:.0f}m)  mute so far: {mute_n}",
+                      flush=True)
 
     report(judged)
     print(f"\njudgements: {judge_dir}")
