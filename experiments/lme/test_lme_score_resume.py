@@ -51,3 +51,26 @@ def test_normal_resume_requeues_only_missing_files(tmp_path):
     assert len(judged) == 1  # a mute is existing missing data, not missing work
     assert [(record["question_id"], condition)
             for record, condition in pending] == [("q1", "vector_rag")]
+
+
+def test_disk_reload_restores_mutes_excluded_from_retry_worklist(tmp_path):
+    records = [
+        {"question_id": "q1", "answers": {"full_ice": {}, "vector_rag": {}}},
+    ]
+    mute = {"condition": "full_ice", "spoke": False, "judge_raw": ""}
+    spoken = {"condition": "vector_rag", "spoke": True, "judge_raw": "yes"}
+    _write(tmp_path / "q1__full_ice.json", mute)
+    _write(tmp_path / "q1__vector_rag.json", spoken)
+
+    retained, retry = score.partition_judgements(
+        records, tmp_path, retry_mutes=True, retry_condition="full_ice"
+    )
+    assert retained == [spoken]
+    assert len(retry) == 1
+
+    # This is the post-pool reload: even if the retry was skipped after Ctrl-C,
+    # the original mute remains part of the complete 2-condition report.
+    all_on_disk, missing = score.partition_judgements(records, tmp_path)
+    assert len(all_on_disk) == 2
+    assert mute in all_on_disk
+    assert missing == []

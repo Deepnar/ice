@@ -436,23 +436,34 @@ def main() -> int:
         _atomic_write_json(judge_dir / f"{qid}__{cond}.json", entry)
         return entry
 
-    done_n = 0
+    settled_n = 0
+    written_n = 0
     mute_n = 0
+    progress_every = 5 if len(pending) < 100 else 25
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         for entry in pool.map(judge_one, pending):
-            done_n += 1
+            settled_n += 1
             if entry is not None:
-                judged.append(entry)
+                written_n += 1
                 if not entry["spoke"]:
                     mute_n += 1
-            if done_n % 25 == 0 or done_n == len(pending):
-                rate = done_n / max(1e-9, time.time() - started)
-                eta = (len(pending) - done_n) / rate if rate else 0
-                print(f"  [{done_n}/{len(pending)}] {time.time()-started:.0f}s "
-                      f"({rate:.2f}/s, eta {eta/60:.0f}m)  mute so far: {mute_n}",
+            if settled_n % progress_every == 0 or settled_n == len(pending):
+                rate = settled_n / max(1e-9, time.time() - started)
+                eta = (len(pending) - settled_n) / rate if rate else 0
+                print(f"  [{settled_n}/{len(pending)} settled, {written_n} written] "
+                      f"{time.time()-started:.0f}s ({rate:.2f}/s, eta {eta/60:.0f}m)  "
+                      f"mute responses written: {mute_n}",
                       flush=True)
 
-    report(judged)
+    # Reload the complete on-disk set. On Ctrl-C, queued judge_one calls return
+    # None; reporting only this process's in-memory list omitted their existing
+    # mute files and printed denominators like 485/500 while claiming 33/33 done.
+    # Disk is the resumability source of truth, for reporting as well as startup.
+    all_judged, still_pending = partition_judgements(records, judge_dir)
+    report(all_judged)
+    if still_pending:
+        print(f"\n⚠ {len(still_pending)} judgement file(s) are still missing; "
+              "re-run the same command to resume.")
     print(f"\njudgements: {judge_dir}")
     return 0
 
