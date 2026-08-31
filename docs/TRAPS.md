@@ -1583,3 +1583,19 @@ pipeline is involved.** Either supervise the worker directly and let the journal
 own logging, or signal the worker first, wait for its clean exit, then stop the
 wrapper. Verify the runner's normal stop footer; process absence alone proves
 only that it stopped.
+
+### 57. A resumable scorer reported its process list instead of its disk state
+
+**2026-08-31, 4,096-token retry of 33 mute LME judgements.** `Ctrl-C` set the
+scorer's stop flag while four HTTP calls were active. The remaining queued calls
+returned `None`, but `pool.map` still yielded 33 entries, so progress printed
+`33/33`. The final report used the in-memory list assembled at process start,
+where all 33 mutes had deliberately been removed for retry; 15 skipped files
+were never added back. It printed `full_ice 7 / 485` and looked complete despite
+500 files still existing on disk.
+
+⇒ **When files are the resumability source of truth, reload them before every
+final report.** A work queue reaching its end means every item settled, not that
+every result was written. Progress now distinguishes settled from written, uses
+a five-item cadence for small tails, and the final report repartitions the full
+on-disk judgement set.
