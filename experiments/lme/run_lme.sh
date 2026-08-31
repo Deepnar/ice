@@ -94,7 +94,18 @@ if [[ "$PLAN_ONLY" -eq 0 ]]; then
   fi
 fi
 
-LOG_DIR="$HARNESS/runs/v2-paper-eval/$PHASE"
+# Respect the runner's --out override. Without this, a smoke run writing answers
+# under /tmp still appended its launcher output to the real phase's run.log.
+RUN_ROOT="$HARNESS/runs/v2-paper-eval"
+for ((arg_i = 0; arg_i < ${#EXTRA[@]}; arg_i++)); do
+  if [[ "${EXTRA[$arg_i]}" == "--out" && $((arg_i + 1)) -lt ${#EXTRA[@]} ]]; then
+    RUN_ROOT="${EXTRA[$((arg_i + 1))]}"
+  elif [[ "${EXTRA[$arg_i]}" == --out=* ]]; then
+    RUN_ROOT="${EXTRA[$arg_i]#--out=}"
+  fi
+done
+
+LOG_DIR="$RUN_ROOT/$PHASE"
 mkdir -p "$LOG_DIR"
 
 echo "worktree : $WORKTREE"
@@ -109,7 +120,11 @@ echo
 # dimension at startup and refuses to proceed if it is not 384.
 cd "$WORKTREE"
 
-# stdout is tee'd so progress survives the terminal closing; the live progress bar
-# is written to stderr, which stays a TTY, so run.log holds clean periodic lines
-# instead of thousands of carriage returns.
+# Interactive runs keep a durable clean stdout log. A supervisor already owns a
+# journal and must execute Python directly: stopping a `python | tee` control
+# group killed tee first and turned the runner's signal handler into a
+# BrokenPipeError. Set LME_DIRECT_JOURNAL=1 under systemd.
+if [[ "${LME_DIRECT_JOURNAL:-0}" == "1" ]]; then
+  exec uv run python "$RUNNER" --phase "$PHASE" "${EXTRA[@]}"
+fi
 uv run python "$RUNNER" --phase "$PHASE" "${EXTRA[@]}" | tee -a "$LOG_DIR/run.log"

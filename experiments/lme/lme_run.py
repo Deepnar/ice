@@ -43,6 +43,7 @@ sys.path.insert(0, os.getcwd())
 HARNESS_DIR = Path(__file__).resolve().parent
 DATA_DIR = HARNESS_DIR / "data"
 DEFAULT_OUT = HARNESS_DIR / "runs" / "v2-paper-eval"
+ADAPTER_VERSION = "ice-v2-lme-sessions-v2"
 
 _stop_requested = False
 
@@ -65,6 +66,14 @@ def _atomic_write_json(path: Path, payload: dict) -> None:
         fh.flush()
         os.fsync(fh.fileno())
     os.replace(tmp, path)
+
+
+def _read_json(path: Path) -> dict | None:
+    try:
+        payload = json.loads(path.read_text())
+        return payload if isinstance(payload, dict) else None
+    except (json.JSONDecodeError, OSError):
+        return None
 
 
 def _bar(done: int, total: int, width: int = 28) -> str:
@@ -186,7 +195,7 @@ def wipe_store(SessionLocal, Base) -> None:
         db.close()
 
 
-def ingest_instance(inst, cid, classifier, embedder, SessionLocal, models,
+def ingest_instance(layout, classifier, embedder, SessionLocal, models,
                     progress_prefix: str = "") -> int:
     """Replay one haystack, mirroring the sequence that produced the paper's
     numbers (experiments/mature/run_mature_experiment.py).
@@ -199,21 +208,19 @@ def ingest_instance(inst, cid, classifier, embedder, SessionLocal, models,
     from src.workers.codex_extractor import extract_triplets, handle_triplet
     EpisodicMemory = models["EpisodicMemory"]
 
-    sessions = inst["haystack_sessions"]
-    dates = inst.get("haystack_dates") or []
-    sids = inst.get("haystack_session_ids") or []
     stored = 0
-    total_pairs = sum(len(_to_pairs(s)) for s in sessions)
+    total_pairs = sum(len(spec["pairs"]) for spec in layout["sessions"])
     ing_started = time.time()
     db = SessionLocal()
     try:
-        for s_idx, session in enumerate(sessions):
-            sid = sids[s_idx] if s_idx < len(sids) else f"s{s_idx}"
-            base_ts = _parse_lme_date(dates[s_idx] if s_idx < len(dates) else None)
+        for spec in layout["sessions"]:
+            sid = spec["session_id"]
+            cid = spec["conversation_id"]
+            base_ts = spec["timestamp"]
 
             # Sessions carry ONE date but many turns; nudge within the session so
             # ordering is preserved and the deterministic batch_id stays unique.
-            pairs = _to_pairs(session)
+            pairs = spec["pairs"]
             for t_idx, (prompt, response) in enumerate(pairs):
                 ts = base_ts + timedelta(seconds=t_idx)
                 batch_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"{cid}:{sid}:{t_idx}")
@@ -302,14 +309,13 @@ def estimate_tokens(text: str) -> int:
     return int(len(text.split()) * 1.33)
 
 
-def answer_instance(inst, cid, condition, classifier, embedder, SessionLocal,
-                    client, models, turn_count, total_tokens) -> dict:
+def answer_instance(inst, query_cid, condition, classifier, embedder,
+                    SessionLocal, client, models) -> dict:
     """Answer one question under one condition.
 
-    ⚑ Mirrors the mature harness's probe path exactly: classify WITH
-    conversation_id -> set_budget_from_turn_count -> retrieve -> assemble_prompt.
-    set_budget_from_turn_count is the budget setter CLAUDE.md warns a scorer must
-    never skip; skipping it would measure retrieval without ICE's curation.
+    ⚑ Mirrors v2 production auto memory: classify in a new conversation, derive
+    the budget from that current conversation, retrieve globally with empty
+    scope, then assemble against the same new conversation.
     """
     from sqlalchemy import bindparam, text as sql_text
     from pgvector.sqlalchemy import Vector as PgVector
@@ -318,26 +324,33 @@ def answer_instance(inst, cid, condition, classifier, embedder, SessionLocal,
     MemorySlot = models["MemorySlot"]
 
     question = inst["question"]
-    classification = classifier.classify(question, conversation_id=cid)
+    query_cid_str, auto_scope = auto_query_context(query_cid)
+    classification = classifier.classify(
+        question, conversation_id=query_cid_str
+    )
     emb = embedder.encode(question, convert_to_tensor=False).tolist()
 
     db = SessionLocal()
     try:
         orchestrator = HybridRetrievalOrchestrator(db, embedder)
-        orchestrator.set_budget_from_turn_count(turn_count, total_tokens,
+        # The question is asked in a NEW auto-scoped chat. v2 production derives
+        # its budget from the current chat, not from every historical auto chat.
+        # Passing the whole haystack length here fabricated a ~14k budget that a
+        # real cross-session request never receives.
+        orchestrator.set_budget_from_turn_count(0, 0,
                                                 classification=classification)
         if condition == "vector_rag":
             # The paper's baseline verbatim: single-leg pgvector, top-30, no decay
             # weighting, no fusion, no classification-driven routing, no budget.
+            # Auto memory is global, so search every history-session conversation.
             query = sql_text("""
                 SELECT raw_text, summary_text, lossless_flag, inject_raw,
                     1 - (embedding <=> :prompt_embedding) as score
                 FROM episodic_memory
                 WHERE embedding IS NOT NULL AND is_archived = false
-                AND conversation_id = :conv_id
                 ORDER BY score DESC LIMIT 30
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
-            rows = db.execute(query, {"prompt_embedding": emb, "conv_id": cid}).fetchall()
+            rows = db.execute(query, {"prompt_embedding": emb}).fetchall()
             fragments = [
                 r.raw_text if r.lossless_flag else (r.summary_text or r.raw_text[:300])
                 for r in rows
@@ -347,10 +360,12 @@ def answer_instance(inst, cid, condition, classifier, embedder, SessionLocal,
                          "content": f"Context:\n{context}\n\nQuestion: {question}"}]
             n_frags = len(fragments)
         else:
-            scope = {"conversation_id": cid}
+            # v2 production leaves scope empty for memory_scope_type="auto";
+            # retrieval searches globally across the user's past conversations.
+            scope = auto_scope
             retrieved = orchestrator.retrieve(
                 classification=classification,
-                conversation_id=cid,
+                conversation_id=query_cid_str,
                 prompt_embedding=emb,
                 scope=scope,
             )
@@ -360,7 +375,7 @@ def answer_instance(inst, cid, condition, classifier, embedder, SessionLocal,
                 retrieved_fragments=retrieved,
                 user_message=question,
                 db_session=db,
-                conversation_id=cid,
+                conversation_id=query_cid,
                 classification=classification,
                 scope=scope,
                 max_recent_tokens=orchestrator.recent_token_budget,
@@ -384,6 +399,8 @@ def answer_instance(inst, cid, condition, classifier, embedder, SessionLocal,
             "topic_tags": list(classification.topic_tags or []),
             "intent_tags": list(classification.intent_tags or []),
             "context_reliance": str(classification.context_reliance),
+            "retrieval_budget": orchestrator.max_retrieval_tokens,
+            "recent_budget": orchestrator.recent_token_budget,
         }
     finally:
         db.close()
@@ -520,7 +537,7 @@ def preflight(sample_pair: tuple[str, str] | None = None) -> tuple[bool, dict]:
     return True, info
 
 
-def store_matches(cid, expected_turns, SessionLocal, models) -> bool:
+def store_matches(layout, SessionLocal, models) -> bool:
     """Is the store ALREADY holding exactly this instance's haystack?
 
     ⚑ This is the mature harness's restart guard, adapted. There, a checkpoint
@@ -534,12 +551,31 @@ def store_matches(cid, expected_turns, SessionLocal, models) -> bool:
     not be paid for twice. We require an exact count and no foreign rows, so a
     partial ingestion is never mistaken for a complete one.
     """
+    from sqlalchemy import func
+
+    Conversation = models["Conversation"]
     EpisodicMemory = models["EpisodicMemory"]
+    expected_counts = {
+        spec["conversation_id"]: len(spec["pairs"])
+        for spec in layout["sessions"] if spec["pairs"]
+    }
+    expected_conversations = {
+        layout["query_conversation_id"],
+        *(spec["conversation_id"] for spec in layout["sessions"]),
+    }
     db = SessionLocal()
     try:
-        mine = db.query(EpisodicMemory).filter_by(conversation_id=cid).count()
-        total = db.query(EpisodicMemory).count()
-        return mine == expected_turns and total == mine and mine > 0
+        actual_counts = {
+            cid: count for cid, count in db.query(
+                EpisodicMemory.conversation_id, func.count(EpisodicMemory.id)
+            ).group_by(EpisodicMemory.conversation_id).all()
+        }
+        actual_conversations = {
+            cid for (cid,) in db.query(Conversation.id).all()
+        }
+        return (actual_counts == expected_counts
+                and actual_conversations == expected_conversations
+                and sum(actual_counts.values()) > 0)
     finally:
         db.close()
 
@@ -576,6 +612,53 @@ def _parse_lme_date(raw: str | None) -> datetime:
     return datetime.now(timezone.utc)
 
 
+def instance_layout(inst: dict, phase: str) -> dict:
+    """Map one LongMemEval instance onto v2's real conversation model.
+
+    A benchmark instance is isolated by a full store wipe. Inside it, each
+    timestamped history session is a distinct auto-scoped ICE conversation, and
+    the question is asked in a fresh empty auto-scoped conversation. This is the
+    production shape for cross-session recall; flattening all sessions into one
+    conversation silently measures within-chat memory instead.
+    """
+    qid = inst["question_id"]
+    sessions = inst.get("haystack_sessions") or []
+    dates = inst.get("haystack_dates") or []
+    session_ids = inst.get("haystack_session_ids") or []
+    specs = []
+    for index, messages in enumerate(sessions):
+        session_id = (session_ids[index] if index < len(session_ids)
+                      else f"session-{index}")
+        raw_date = dates[index] if index < len(dates) else None
+        specs.append({
+            "source_index": index,
+            "session_id": session_id,
+            "conversation_id": uuid.uuid5(
+                uuid.NAMESPACE_DNS,
+                f"lme:{phase}:{qid}:session:{index}:{session_id}",
+            ),
+            "timestamp": _parse_lme_date(raw_date),
+            "raw_date": raw_date,
+            "pairs": _to_pairs(messages),
+        })
+
+    # Oracle files do not guarantee chronological ordering. Online memory must
+    # ingest sessions in the order they happened for update/version semantics.
+    specs.sort(key=lambda spec: (spec["timestamp"], spec["source_index"]))
+    return {
+        "adapter_version": ADAPTER_VERSION,
+        "query_conversation_id": uuid.uuid5(
+            uuid.NAMESPACE_DNS, f"lme:{phase}:{qid}:query"
+        ),
+        "sessions": specs,
+    }
+
+
+def auto_query_context(query_conversation_id) -> tuple[str, dict]:
+    """Return the identifier/scope shape v2 production uses for auto memory."""
+    return str(query_conversation_id), {}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -610,17 +693,19 @@ def main() -> int:
         path = answers_dir / f"{qid}.json"
         if not path.exists():
             return False
-        try:
-            rec = json.loads(path.read_text())
-        except (json.JSONDecodeError, OSError):
+        rec = _read_json(path)
+        if rec is None:
             return False  # unreadable == not done; it will be rebuilt
-        return rec.get("status") == "complete"
+        return (rec.get("adapter_version") == ADAPTER_VERSION
+                and rec.get("status") == "complete"
+                and all(cond in (rec.get("answers") or {}) for cond in CONDITIONS))
 
     done = {x["question_id"] for x in instances if _completed(x["question_id"])}
     todo = [x for x in instances if x["question_id"] not in done]
     turns_todo = sum(sum(len(s) for s in x["haystack_sessions"]) for x in todo)
 
     print(f"phase={args.phase}  corpus={spec['corpus']}")
+    print(f"  adapter {ADAPTER_VERSION}")
     print(f"  selected {len(instances)}  done {len(done)}  remaining {len(todo)}")
     print(f"  ~{turns_todo:,} turns to ingest")
     if args.plan_only:
@@ -630,6 +715,18 @@ def main() -> int:
         if len(todo) > 10:
             print(f"    ... and {len(todo) - 10} more")
         return 0
+    mismatched = [
+        x["question_id"] for x in instances
+        if (answers_dir / f"{x['question_id']}.json").exists()
+        and ((_read_json(answers_dir / f"{x['question_id']}.json") or {}).get(
+            "adapter_version") != ADAPTER_VERSION)
+    ]
+    if mismatched:
+        print(f"⛔ {len(mismatched)} answer artifact(s) use the invalid flattened-session adapter.\n"
+              f"   Refusing to reuse or overwrite them. Run the reversible repair first:\n"
+              f"   uv run python {HARNESS_DIR / 'repair_invalid_adapter.py'} "
+              f"--phase {args.phase} --apply", file=sys.stderr)
+        return 4
     if not todo:
         print("  nothing to do -- all selected instances already have answers.")
         return 0
@@ -646,6 +743,7 @@ def main() -> int:
                                                    "selection": spec["select"],
                                                    "seed": args.seed,
                                                    "n_selected": len(instances),
+                                                   "adapter_version": ADAPTER_VERSION,
                                                    "environment": env})
     # ⚑ Paths MUST come from settings, exactly as the mature harness does
     # (run_mature_experiment.py:342). PyTorchClassifier's own default is a stale
@@ -682,13 +780,15 @@ def main() -> int:
                                                    "selection": spec["select"],
                                                    "seed": args.seed,
                                                    "n_selected": len(instances),
+                                                   "adapter_version": ADAPTER_VERSION,
                                                    "environment": env})
     if not ok:
         print("\n   Nothing has been written. Fix the above and re-run.", file=sys.stderr)
         return 3
     print()
 
-    models = {"EpisodicMemory": EpisodicMemory, "MemorySlot": MemorySlot}
+    models = {"Conversation": Conversation, "EpisodicMemory": EpisodicMemory,
+              "MemorySlot": MemorySlot}
     client = OpenAI(base_url=OLLAMA_URL, api_key="dummy")
     started = time.time()
     durations: list[float] = []
@@ -706,7 +806,8 @@ def main() -> int:
               f"{'  eta ' + _fmt(eta) if eta else ''}", flush=True)
 
         try:
-            cid = uuid.uuid5(uuid.NAMESPACE_DNS, f"lme:{args.phase}:{qid}")
+            layout = instance_layout(inst, args.phase)
+            query_cid = layout["query_conversation_id"]
             rec_path = answers_dir / f"{qid}.json"
             rec = {}
             if rec_path.exists():
@@ -716,12 +817,12 @@ def main() -> int:
                     rec = {}
 
             expected = sum(len(_to_pairs(s)) for s in inst["haystack_sessions"])
-            if store_matches(cid, expected, SessionLocal, models):
+            if store_matches(layout, SessionLocal, models):
                 # The haystack from a previous, interrupted pass is still loaded.
                 # Reuse it rather than pay ~500 turns again for a failed answer.
                 stored = expected
                 print(f"           store already holds this haystack "
-                      f"({expected} turns) — skipping ingest", flush=True)
+                    f"({expected} pairs) — skipping ingest", flush=True)
             else:
                 # Give ingestion the whole card: evict the answerer so the small
                 # background model is fully resident. Without this, extraction runs
@@ -733,12 +834,19 @@ def main() -> int:
                 wipe_store(SessionLocal, Base)
                 db = SessionLocal()
                 try:
-                    db.add(Conversation(id=cid))
+                    for session_spec in layout["sessions"]:
+                        db.add(Conversation(
+                            id=session_spec["conversation_id"],
+                            memory_scope_type="auto",
+                        ))
+                    db.add(Conversation(
+                        id=query_cid, memory_scope_type="auto"
+                    ))
                     db.commit()
                 finally:
                     db.close()
 
-                stored = ingest_instance(inst, cid, classifier, embedder,
+                stored = ingest_instance(layout, classifier, embedder,
                                          SessionLocal, models,
                                          progress_prefix=f"[{i}/{len(todo)}] {qid}")
 
@@ -769,13 +877,19 @@ def main() -> int:
                 break
 
             rec.update({
+                "adapter_version": ADAPTER_VERSION,
                 "question_id": qid,
                 "question_type": inst["question_type"],
                 "is_abstention": qid.endswith("_abs"),
                 "question": inst["question"],
                 "question_date": inst.get("question_date"),
                 "reference_answer": inst.get("answer"),
-                "conversation_id": str(cid),
+                "query_conversation_id": str(query_cid),
+                "history_conversation_ids": [
+                    str(session_spec["conversation_id"])
+                    for session_spec in layout["sessions"]
+                ],
+                "memory_scope_type": "auto",
                 "turns_stored": stored,
                 "turns_in_haystack": n_turns,
                 "status": "ingested",
@@ -783,11 +897,15 @@ def main() -> int:
             rec.setdefault("answers", {})
             _atomic_write_json(rec_path, rec)
 
-            # Total tokens the budget setter sees, computed over what was stored.
+            # History size is provenance only. v2's production budget is derived
+            # from the NEW query conversation, which has zero turns.
             total_tokens = sum(
                 estimate_tokens(p + " " + r)
                 for s in inst["haystack_sessions"] for p, r in _to_pairs(s)
             )
+            rec["history_pairs"] = expected
+            rec["history_tokens_estimate"] = total_tokens
+            _atomic_write_json(rec_path, rec)
             # Ingestion is done; hand the card back to the answerer.
             if any(c not in rec["answers"] for c in CONDITIONS):
                 from src.workers.bg_client_factory import get_bg_model_name
@@ -798,8 +916,8 @@ def main() -> int:
                     continue  # already answered in an earlier pass
                 a0 = time.time()
                 rec["answers"][cond] = answer_instance(
-                    inst, cid, cond, classifier, embedder, SessionLocal,
-                    client, models, stored, total_tokens)
+                    inst, query_cid, cond, classifier, embedder, SessionLocal,
+                    client, models)
                 _atomic_write_json(rec_path, rec)  # persist per condition
                 print(f"           {cond:10} {rec['answers'][cond]['fragments']:3d} frags "
                       f"{rec['answers'][cond]['tokens_injected']:6d} tok "

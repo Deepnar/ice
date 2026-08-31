@@ -121,13 +121,16 @@ publish either way was made before the run, not after.
 experiments/lme/
   fetch_dataset.py     pinned fetch + sha256 manifest    [done]
   data/                gitignored corpus                 [fetched]
-  runs/v2-paper-eval/  artifacts for THIS run            [empty]
+  lme_run.py           adapter-v2 resumable runner
+  trace_retrieval.py   read-only per-leg/stage trace
+  repair_invalid_adapter.py  reversible v1 artifact repair
+  runs/v2-paper-eval/  active + archived run evidence
 ```
 
-The harness lives on `main` and talks to the system under test over HTTP
-(`/v1/chat/completions`), so it never has to live inside the frozen tree. v2 runs
-in a worktree at `/home/deepnar/Programs/ice-worktrees/v2-paper-eval` on branch
-`lme/v2-paper-eval`.
+The harness lives on `main` but executes from the v2 worktree at
+`/home/deepnar/Programs/ice-worktrees/v2-paper-eval`, branch
+`lme/v2-paper-eval`. Ingestion calls the frozen storage/post-flight functions
+in-process; answer generation goes through Ollama's OpenAI-compatible endpoint.
 
 ## ⚑ Why LSREP is not reused, and where the production path still is
 
@@ -144,6 +147,28 @@ turn actually takes, per CLAUDE.md's first correctness question — *did the har
 call what the real path calls?* A harness writing rows into Postgres directly
 would measure storage, not ICE.
 
+### ⚑ Adapter v2: what a LongMemEval session means to ICE
+
+LongMemEval provides many timestamped **history sessions** and asks the question
+after all of them. They are not turns in one giant chat. For each independent
+question, adapter `ice-v2-lme-sessions-v2` therefore:
+
+1. truncates every mapped v2 table — no question can leak into the next;
+2. creates one deterministic `memory_scope_type="auto"` ICE conversation per
+   history session and ingests that session's turns into it;
+3. creates a separate empty auto-scoped conversation for the question;
+4. passes the query conversation as a **string** and `scope={}`, matching v2
+   production, so retrieval searches globally across the history conversations;
+5. derives v2's budget from the new query chat (zero turns), not from the sum of
+   all historical sessions.
+
+Adapter v1 flattened all sessions into one conversation and passed a UUID object
+where retrieved fragments carry strings. `_session_diversify` misclassified every
+current fragment as external and collapsed 111 RRF candidates to three. Its 500
+oracle and first 20 stratified ICE answers are invalid. Originals are preserved
+under each phase's `invalidated_adapter_v1/`; valid direct-SQL vector answers stay
+active so adapter v2 reruns only ICE. **Never score or cite adapter-v1 output.**
+
 **⚑ The split, and why it is where it is.** LongMemEval's haystack carries
 **fixed assistant replies**, and the evidence often lives in them —
 `single-session-assistant` is 56 instances on its own. Regenerating those replies
@@ -152,11 +177,11 @@ with ICE would destroy the haystack. So:
 | stage | path | why |
 |---|---|---|
 | haystack turns | v2's **storage/post-flight** path, assistant text supplied verbatim | this is what "a turn happened and was stored" *is* in production; nothing is being answered yet |
-| the question | full **`POST /v1/chat/completions`** | classify → retrieve → fuse → budget → assemble → route, exactly as production serves it |
+| the question | v2's in-process classify → budget → retrieve → assemble components, then the pinned Ollama answerer | preserves the frozen algorithm while allowing paired ICE/vector conditions against one isolated store |
 
-`post_flight.evaluate_turn(self, batch_id, prompt, response, conversation_id,
-model_used)` takes prompt **and** response explicitly, so verbatim injection is
-supported by the real function rather than by a harness shortcut.
+The mature paper harness established the in-process post-flight seam used here:
+`is_lossless`, `generate_summary`, `extract_triplets`, and `handle_triplet` receive
+the corpus's fixed prompt/response rather than regenerating benchmark evidence.
 
 **Consequence for layout:** ingestion must run **in-process inside the v2
 environment** (it imports `src.*`), so the harness cannot be a pure HTTP client.
@@ -193,24 +218,16 @@ Residual risks, recorded rather than solved: the HF repo could be re-fetched at 
 different revision if the cache is cleared (pin `revision=` if that ever happens),
 and GPU/driver differences are outside our control.
 
-## ⚠ Standing-up v2 — known costs, not yet paid
+## Standing-up v2 — resolved run environment
 
-- **503 commits** between the tag and `main`.
-- **Schema drift: 12 migrations at the tag vs 36 on `main`.** The run needs its
-  **own database at the v2 schema** — plan is a separate `ice_lme_v2` database via
-  `DATABASE_URL`, so the live `ice_db` is never touched.
-- **`background_model_mode` defaults to `"dedicated"` at the tag** — it wants a
-  separate vLLM on :8002, which CLAUDE.md calls a manual power-user path.
-- **⚑ v2 STILL HAS CELERY.** `evaluate_turn` is a bound Celery task (`self.retry`),
-  so post-flight at the tag needs **Redis + a Celery worker**. CLAUDE.md's "there is
-  no Celery, no Redis and no separate worker process" describes `main` after C7 —
-  it is **false for the tag**, and this is the single biggest surprise in standing
-  v2 up. Anyone reading CLAUDE.md while working in the worktree will get this wrong.
-- Post-flight carries an `is_gpu_busy()` gate that reschedules with a 15s backoff,
-  and an `is_user_active()` gate in `shared` mode. Both matter for an unattended
-  overnight run: the harness must tolerate ingestion that legitimately stalls.
-- The classifier checkpoint it pins, `models/classifier/ice_classifier_v3_qwen_ft3.pt`,
-  **is still present**.
+- v2 has its own `ice_lme_v2` database at the tag's 12-migration schema. The live
+  v3 `ice_db` is never touched.
+- The branch restores shared-mode background routing to reachable Ollama and
+  records the resolved model in every manifest.
+- No Celery or Redis process is required: the mature paper harness established
+  the in-process path used here (`is_lossless`, `generate_summary`,
+  `extract_triplets`, `handle_triplet`).
+- The v2 classifier checkpoint and 384-dimensional embedder snapshot are present.
 
 ## Running it yourself
 
@@ -276,14 +293,16 @@ Later phases, once oracle looks sane:
 
 ### Measured throughput, and what a run actually costs
 
-**~17.6 s per user/assistant pair**, measured on real instances (18 pairs in 5m17s),
-dominated by codex extraction and summarisation.
+With the recorded CUDA-embedder deviation, full-haystack ingestion measured
+roughly **1.8–2.0 s per user/assistant pair** on this laptop, dominated by Qwen
+background extraction/summarisation rather than embeddings. Model swaps and
+answer generation add phase-level overhead.
 
 | phase | pairs | rough wall-clock |
 |---|---|---|
-| `oracle` | ~5,480 | **~27 h** |
-| `abstention` | ~7,570 | **~37 h** |
-| `stratified 60` | ~14,900 | ~73 h |
+| `oracle` | ~5,480 | hours; rerun preserves 500 valid vector answers |
+| `abstention` | ~7,570 | several hours |
+| `stratified 60` | ~14,900 | most of a day |
 
 These are days, not evenings — which is why resumability is the design constraint
 rather than a nicety. Start it, close the laptop, run the same command again.
@@ -299,14 +318,14 @@ reasoning never reaches it — the API returns reasoning separately from
 `message.content`. For exact parity, serve the AWQ build on SGLang and pass
 `--judge`.
 
-**Safe to kill at any point** — Ctrl-C, lid close, power cut. Re-run the same
-command to continue. Progress is one answer file per instance under
-`runs/v2-paper-eval/<phase>/answers/`, written atomically (tmp + `os.replace`), and
-**the presence of that file *is* the state** — there is no progress file to fall out
-of sync. An instance interrupted mid-flight simply has no answer file, so it is
-redone from a full store wipe next time, which is what correctness requires anyway.
-Ctrl-C stops *after* the current instance rather than mid-write. Everything is
-tee'd to `runs/v2-paper-eval/<phase>/run.log`.
+**Safe to kill at any point** — re-run the same command to continue. Each answer
+condition is persisted atomically (`tmp` + `os.replace`), so a valid vector answer
+can survive while ICE is rerun. An interrupted ingestion writes no answer and is
+redone from a full store wipe; a complete matching store can be reused after an
+answer-side interruption. Interactive stdout is tee'd to the phase log. Under a
+supervisor set `LME_DIRECT_JOURNAL=1`, which executes Python directly; stopping a
+supervised `python | tee` pipeline can close the logger before Python handles its
+signal.
 
 `--plan` needs no database, no GPU and no worktree — the heavy imports are deferred
 past it, so it is always safe to run just to see what a phase would cost.
@@ -353,10 +372,7 @@ wrong geometry in every stored vector.
   worker were required, on the strength of `evaluate_turn` being a bound task. The
   mature harness bypasses that task entirely and calls `is_lossless`,
   `generate_summary`, `extract_triplets` and `handle_triplet` directly. Corrected.)*
-- **The answer pass is not written yet.** Instances currently stop at `"status":
-  "ingested"` with an empty `answers` block. The answer path will mirror the mature
-  harness's in-process probe — `classify` → `find_best_model` →
-  `HybridRetrievalOrchestrator.retrieve` → `set_budget_from_turn_count` →
-  `assemble_prompt` — which is what produced the paper's numbers, and which calls
-  the budget setter that CLAUDE.md warns a scorer must not skip. The `vector_rag`
-  baseline arm comes nearly free from the same loop.
+- **No parallel Ollama requests.** Ingestion is temporally ordered because graph
+  updates can supersede earlier facts, and one laptop GPU was already 95–96%
+  utilised. Parallel calls would add memory/thermal pressure without adding a
+  second compute lane.
