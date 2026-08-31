@@ -158,7 +158,7 @@ def get_anscheck_prompt(task, question, answer, response, abstention=False) -> s
     raise NotImplementedError(f"unknown question_type: {task}")
 
 
-def judge_selftest(client, model: str) -> bool:
+def judge_selftest(client, model: str, max_tokens: int = JUDGE_MAX_TOKENS) -> bool:
     """Refuse to score with a judge that cannot actually judge.
 
     ⚑ THIS EXISTS BECAUSE THE FAILURE IS INVISIBLE IN THE OUTPUT. The official
@@ -193,14 +193,14 @@ def judge_selftest(client, model: str) -> bool:
         try:
             r = client.chat.completions.create(
                 model=model, messages=[{"role": "user", "content": prompt}],
-                n=1, temperature=0, max_tokens=JUDGE_MAX_TOKENS)
+                n=1, temperature=0, max_tokens=max_tokens)
             raw = (r.choices[0].message.content or "").strip()
         except Exception as exc:  # noqa: BLE001
             print(f"⛔ JUDGE SELF-TEST: {model} call failed ({type(exc).__name__}: {exc})",
                   file=sys.stderr)
             return False
         if not raw:
-            print(f"⛔ JUDGE SELF-TEST: {model} returned EMPTY even at\n   max_tokens={JUDGE_MAX_TOKENS}.\n"
+            print(f"⛔ JUDGE SELF-TEST: {model} returned EMPTY even at\n   max_tokens={max_tokens}.\n"
                   f"   Thinking models do this -- they spend the budget reasoning.\n"
                   f"   Every label would default to False and the run would report\n"
                   f"   a plausible 0.0%. Pick a non-thinking judge.", file=sys.stderr)
@@ -210,8 +210,44 @@ def judge_selftest(client, model: str) -> bool:
                   f"   expected {'yes' if expected else 'no'}, got {raw!r}",
                   file=sys.stderr)
             return False
-    print(f"  judge self-test OK: {model} discriminates at max_tokens={JUDGE_MAX_TOKENS}")
+    print(f"  judge self-test OK: {model} discriminates at max_tokens={max_tokens}")
     return True
+
+
+def _judgement_spoke(entry: dict) -> bool:
+    """Read both current and pre-`spoke` judgement records consistently."""
+    return entry.get("spoke", bool((entry.get("judge_raw") or "").strip()))
+
+
+def partition_judgements(records, judge_dir: Path, *, retry_mutes: bool = False,
+                         retry_condition: str | None = None):
+    """Return existing usable judgements and the exact conditions to judge.
+
+    Normal mode resumes missing/unreadable files. ``retry_mutes`` additionally
+    puts existing mute files back into the pending set, optionally for one arm
+    only. Spoken files and non-selected arms are never overwritten.
+    """
+    judged: list[dict] = []
+    pending: list[tuple[dict, str]] = []
+    for rec in records:
+        for cond in (rec.get("answers") or {}):
+            jpath = judge_dir / f"{rec['question_id']}__{cond}.json"
+            existing = None
+            if jpath.exists():
+                try:
+                    existing = json.loads(jpath.read_text())
+                except (json.JSONDecodeError, OSError):
+                    existing = None
+
+            selected = retry_condition is None or cond == retry_condition
+            if (existing is not None and retry_mutes and selected
+                    and not _judgement_spoke(existing)):
+                pending.append((rec, cond))
+            elif existing is not None:
+                judged.append(existing)
+            elif not retry_mutes or selected:
+                pending.append((rec, cond))
+    return judged, pending
 
 
 # Above this share of mute judgements the table is not reportable. Set low on
@@ -303,6 +339,11 @@ def main() -> int:
                          "that still come back mute at the default")
     ap.add_argument("--workers", type=int, default=4,
                     help="concurrent judge requests; the server batches them")
+    ap.add_argument("--retry-mutes", action="store_true",
+                    help="rejudge only existing mute files (plus missing files); "
+                         "spoken judgements are never overwritten")
+    ap.add_argument("--condition", choices=("full_ice", "vector_rag"),
+                    help="limit --retry-mutes/missing work to one condition")
     ap.add_argument("--report-only", action="store_true",
                     help="re-print the table from existing judgements; judges nothing")
     args = ap.parse_args()
@@ -326,18 +367,11 @@ def main() -> int:
         if rec.get("status") == "complete":
             records.append(rec)
 
-    judged: list[dict] = []
-    pending: list[tuple[dict, str]] = []
-    for rec in records:
-        for cond, ans in (rec.get("answers") or {}).items():
-            jpath = judge_dir / f"{rec['question_id']}__{cond}.json"
-            if jpath.exists():
-                try:
-                    judged.append(json.loads(jpath.read_text()))
-                    continue
-                except (json.JSONDecodeError, OSError):
-                    pass
-            pending.append((rec, cond))
+    judged, pending = partition_judgements(
+        records, judge_dir,
+        retry_mutes=args.retry_mutes,
+        retry_condition=args.condition,
+    )
 
     print(f"phase={args.phase}  complete instances={len(records)}")
     print(f"  judged already {len(judged)}  pending {len(pending)}  judge={args.judge}")
@@ -352,7 +386,7 @@ def main() -> int:
     from concurrent.futures import ThreadPoolExecutor
     from openai import OpenAI
     client = OpenAI(base_url=OLLAMA_URL, api_key="dummy")
-    if not judge_selftest(client, args.judge):
+    if not judge_selftest(client, args.judge, args.max_tokens):
         print("\n   Nothing judged. Fix the above and re-run.", file=sys.stderr)
         return 3
     started = time.time()
