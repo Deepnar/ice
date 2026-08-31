@@ -1501,3 +1501,85 @@ So the instruction manufactures the defect the metric scores well.
 admits invention preferentially, which is a filter running backwards. Whenever a
 generator is instructed to include terms that a metric then counts, assume the
 pair is coupled and measure the coupling before trusting either.
+
+### 53. A resident local model can be reachable, deterministic, and still be in a bad generation state
+
+**2026-08-30, resuming the v2 LongMemEval-S run.** The same
+`qwen3:4b-instruct-bg` blob and template that had produced valid triplet objects
+ten minutes earlier began returning this on the extractor's fixed capability
+probe:
+
+`["user","lives_in","berlin","user","works_at","vertex labs"]`
+
+The response was non-empty, valid JSON, semantically recognisable, and identical
+across five `temperature=0.0` calls — but it was a flat list, so the v2 parser
+correctly produced zero triplets. Reachability, a one-word `ok` probe, full GPU
+residency, and deterministic output all looked healthy. A clean
+`ollama stop qwen3:4b-instruct-bg` plus reload restored the expected object array
+immediately, without changing the model definition or code. The root cause of
+the resident bad state remains unknown.
+
+⇒ **Preflight the output contract, not merely model reachability or non-empty
+text, on every resumed run.** When a previously passing local model starts
+failing that fixed contract repeatedly, preserve the raw response, cleanly
+reload that one model, and re-run the same probe before changing prompts,
+parsers, or evaluation code. A coherent response is not proof of a healthy
+structured-output path.
+
+### 54. `nohup` inside an agent shell is not proof that a process survived the shell
+
+**2026-08-31, restarting the v2 LongMemEval-S run under Codex.** A launch using
+`nohup run_lme.sh ... &` returned success, but the process was gone immediately
+and its redirected file was empty. The execution sandbox reaped the background
+process when its shell ended. The previous attached PTY launch had likewise
+disappeared when the assistant turn ended, halfway through an instance.
+
+No completed answers were lost because the runner writes answers atomically and
+rejects partial stores, but hundreds of pair-level model calls were repeated.
+A transient user systemd service survived the launching tool call and exposed a
+stable unit state, PID, journal, and stop operation.
+
+⇒ **Verify liveness after the launching shell has exited.** For a long local
+experiment started by an agent, a returned PID or zero exit status is not the
+test. Query the process from a fresh command and require new durable progress.
+Use an external supervisor (here, `systemd-run --user`) when the run must outlive
+the agent turn; keep the experiment's own resumability as the second line of
+defence.
+
+### 55. Equal identifiers with different Python types turned the current conversation into an external one
+
+**2026-08-31, v2 LongMemEval adapter.** The adapter created its conversation id
+with `uuid.uuid5()` and passed the `UUID` object into `retrieve()`. Retrieved
+fragments carry `conversation_id=str(row.conversation_id)`. The values print
+identically, database filters work, and every scoping check looked healthy — but
+`_session_diversify` used a direct Python comparison.
+
+It therefore saw every current-conversation fragment as external and applied
+the three-per-conversation cap. The live trace was unambiguous: BM25 45 + vector
+100 → RRF 111 unique → diversify **3** → budget 3. Changing only the current id
+to `str` gave diversify 111 → budget 31. This invalidated 500 oracle ICE answers
+and 20 stratified ICE answers while leaving the direct-SQL vector arm untouched.
+
+⇒ **Identifier equality needs a type-invariance control at every in-memory
+boundary.** A UUID that works in SQL is not proof it works in Python. For any
+scope, owner, tenant, conversation, or project id, run the same fixture once as
+the ORM/native type and once as the API/string type and require identical
+decisions — especially before interpreting a suspiciously exact cap as a system
+property.
+
+### 56. Stopping a supervised shell pipeline can kill the logger before the worker handles its signal
+
+**2026-08-31, thermal safety stop.** The systemd unit ran
+`uv run python ... | tee run.log`. `systemctl --user stop` signalled the entire
+control group. `tee` exited while Python's SIGTERM handler was finishing the
+current pair; the next structlog write hit `BrokenPipeError`, and even the
+runner's failure message hit the same closed pipe.
+
+Atomic answer files still protected completed work, but the operation described
+as "graceful stop" was not graceful and its own diagnostics became unavailable.
+
+⇒ **A graceful worker signal and a control-group stop are not equivalent when a
+pipeline is involved.** Either supervise the worker directly and let the journal
+own logging, or signal the worker first, wait for its clean exit, then stop the
+wrapper. Verify the runner's normal stop footer; process absence alone proves
+only that it stopped.
