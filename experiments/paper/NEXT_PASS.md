@@ -1,99 +1,86 @@
-# Paper — what the next pass must do
+# Paper — remaining submission pass
 
-**Written 2026-08-29, after the ACM TIST editorial reject and during the LME-v2
-run. Nothing here is urgent: the LongMemEval numbers land first, then one editing
-pass does all of it together.** Delete this file once the pass is done.
+**Updated 2026-09-03 after the corrected ICE-v2 LongMemEval oracle run.** The
+canonical manuscript is `ICE_paper_v2.tex`; `ICE_paper_tist.tex` remains the
+frozen record of the rejected submission and must not be edited.
 
-The canonical file is `ICE_paper_v2.tex`. `ICE_paper_tist.tex` is a frozen record
-and takes no edits — see [CLEANUP.md](../../docs/CLEANUP.md) 2026-08-29.
+## Completed in the post-TIST repair
 
----
+- The paper is framed protocol-first: LSREP is the first contribution and ICE
+  v2 is the system under test.
+- The abstract and introduction were compressed, the absolute forgetting claim
+  was removed, ChatGPT-style cross-session memory is acknowledged, and the
+  introduction now cites long-context and multi-session work.
+- Related Work now follows a stability-of-knowledge argument rather than a list
+  of systems. LoCoMo, LongMemEval, Zep, HippoRAG, Self-RAG, and LLM-judge work
+  are cited.
+- The private LSREP datasets now have turn, token, probe, checkpoint, and
+  simulated-horizon counts, plus provenance and release-boundary text.
+- Claims that replay, corpus difficulty, or an under-implemented graph produce
+  a guaranteed lower bound were removed. Their direction is not identifiable.
+- The complete 500-question LongMemEval evidence-only oracle is reported as a
+  mixed external diagnostic, including missing-judgement bounds, adapter
+  validation, and the reason the distractor-heavy phase stopped.
 
-## 1. ⚑ TRIM. The front matter is now too long, and that is self-inflicted
+## LongMemEval result that must not drift
 
-Every fix this session ADDED prose and nothing removed any:
+System: frozen ICE v2 at `v2-paper-eval`, adapter
+`ice-v2-lme-sessions-v2`. Judge: official LongMemEval prompts and yes/no rule,
+but local Ollama `gemma4:12b`, so the numbers are not comparable to the
+GPT-4o-judged leaderboard.
 
-| | now | should be |
-|---|---|---|
-| abstract | **446 words** | 150–250 |
-| introduction | **1,068 words** | ~600–700 |
-| total | 37 pp | ≤ 25 pp main body for most venues |
+| Question type | ICE v2 | Vector-RAG |
+|---|---:|---:|
+| Abstention | **96.6%** (29) | 93.3% (30) |
+| Knowledge update | 69.2% (65) | **76.1%** (71) |
+| Multi-session reasoning | 28.3% (120) | **86.6%** (119) |
+| Single-session assistant | 89.3% (56) | **100.0%** (56) |
+| Single-session preference | **89.7%** (29) | 82.8% (29) |
+| Single-session user | 86.9% (61) | **100.0%** (62) |
+| Temporal reasoning | 23.7% (118) | **52.1%** (117) |
+| Overall, obtainable verdicts | **55.2%** (264/478) | **80.2%** (388/484) |
+| All-500 bound | **52.8–57.2%** | **77.6–80.8%** |
 
-This partly *causes* the problem the reject was about. An editor who tunes out in
-the first two pages is the failure mode; a 446-word abstract invites exactly that.
-**Trimming is worth more than adding another paragraph.** Do this pass FIRST, before
-adding the LongMemEval section, or the additions land on top of bloat.
+This is mixed, not uniformly negative: ICE has higher point estimates on
+abstention and preference. It nevertheless loses robustly overall, with the
+largest failures on multi-session and temporal reasoning. Do not call the two
+category point estimates statistically established wins.
 
-## 2. One sentence still reads as the claim the AE called misleading
+LongMemEval-S was **not run**. The evidence-only oracle was the predeclared gate
+for the expensive distractor phase. The oracle is not a mathematical upper
+bound, because adding candidates can change retrieval non-monotonically; the
+stopped phase is a compute decision, not a claim about every unrun answer.
 
-Intro ¶1 opens: *"A language model holds a conversation only for as long as its
-context window holds the conversation; everything older is silently gone."*
+The first flattened-session adapter and its scores are invalid. The admissible
+run gives each supplied history session its own auto-scoped conversation and
+asks from a fresh empty auto-scoped conversation, after a full store wipe per
+question. Exact run identity and invalidation details live in
+`experiments/lme/results/oracle_adapter_v2.md`.
 
-The paragraph qualifies it and §2.1 handles commercial memory properly, but the
-**first sentence read alone** is the same absolute claim the AE flagged in the
-abstract. A skimming editor reads that sentence. Add a five-word qualifier —
-something like *"unless explicitly configured with persistent cross-session
-memory"* — and it is closed.
+## Still required before submission
 
-## 3. Add the LongMemEval section once the numbers exist
+1. **Choose the venue and enforce its format.** The current manuscript remains
+   a long archival version. A conference submission will require a separate
+   venue-formatted cut; do not mutilate the stable archival PDF before the page
+   and appendix policy is known.
+2. **Perform a claim-to-evidence pass.** Check every strong comparative claim,
+   especially system-specific statements in Related Work. Prefer narrower
+   wording where the cited paper does not run the claimed regime.
+3. **Decide the public artifact package.** Publish the aggregate LongMemEval
+   report and adapter/harness, but do not casually commit roughly 1,500 raw
+   answer and judgement files. Preserve them locally as evidence until an
+   artifact archive or release bundle is chosen.
+4. **Re-check tables and appendix duplication after venue compression.** The
+   main paper should carry the argument and headline numbers; reproducibility
+   detail can move to an appendix or artifact report according to the venue.
+5. **Repair the stale citation-checker note.** Its header still says network
+   verification is unavailable even though arXiv/CrossRef checks succeeded in
+   the TIST-repair session.
 
-New subsection in Results. It must carry, in the number's own words:
+## Venue direction
 
-- **System under test: ICE v2 @ tag `v2-paper-eval`**, not `main`.
-- **LongMemEval protocol with a LOCAL judge** (`gemma4:12b`), *not* GPT-4o —
-  so NOT directly comparable to published GPT-4o-judged figures. Say it beside
-  the number, not in a footnote.
-- Judge token cap raised 10 → 256 (the Ollama build reasons before answering);
-  decision rule unchanged.
-- Ollama GGUF build, not the paper's `mattbucci/gemma-4-12B-AWQ` on SGLang.
-- Embedder moved to CUDA: cosine(cpu, cuda) = 0.99986, max elementwise 2.7e-03.
-- Whether it is a **subset**, and the stratification, stated explicitly.
-
-**⚑ Lead with the CONTROLLED comparison, not the headline percentage.** `full_ice`
-vs `vector_rag` ran on identical hardware, base model, judge and prompt — that is
-the only genuinely controlled comparison available. Published mem0/Zep numbers are
-context and a reviewer will discount them correctly (different hardware, base
-model, judge). Report them as context, with the caveat stated.
-
-**⚑ The interesting result is WHERE ICE wins, not by how much overall.** If it wins
-specifically on **knowledge-update** (superseded facts) and **abstention**
-(declining rather than confabulating), that is "memory is curation, not collection"
-demonstrated on third-party public data — a far stronger claim than a marginally
-higher aggregate.
-
-## 4. Reframing already done this session — do NOT redo
-
-A review received 2026-08-29 asked for these. **All were already in the file**; it
-was reading an older draft. Verify before acting on any similar feedback.
-
-- ✅ Title leads with the protocol; ICE named "system under test".
-- ✅ Abstract opens on the measurement gap, not on ICE.
-- ✅ Contribution order swapped — LSREP primary, ICE second.
-- ✅ Intro ¶1 cites `liu2024lost`, `hsieh2024ruler`.
-- ✅ Intro ¶2 bridge cites `xu2022msc`, `jang2023chronicles`, `maharana2024locomo`,
-  `wu2025longmemeval`, `salemi2024lamp`.
-- ✅ Related Work opens on the stability-of-knowledge axis with per-section labels.
-- ✅ §2.1 "Deployed commercial memory, and why it is not a baseline here".
-- ✅ New §2.5 "Evaluating Conversational Memory".
-- ✅ New §5.3 "The Standing of a Purpose-Built Protocol", four falsifiers.
-- ✅ Judge paragraph cites `zheng2023judging`, `liu2023geval`, `wang2024unfair`.
-- ✅ References 15 → 31, all cited, all arXiv-verified and DBLP venue-confirmed.
-
-## 5. Venue
-
-TIST is dead (*"decision is final … no appeals"*). `docs/PUBLISHING.md` has the
-written order: **IP&M → Information Retrieval Journal**. The maintainer has since
-opened this up to **conferences** as well (2026-08-29).
-
-Re-decide once the LongMemEval number exists — it changes which venues are
-realistic, and a conference with a public-benchmark anchor is a different pitch
-from a Q1 IR journal. Do not submit before the trim in §1.
-
-## 6. Smaller things
-
-- Datasets section still has no date spans, token counts, example turns or probes,
-  or a stated anonymisation procedure. The AE's "no details" was exaggerated but
-  pointed at something real.
-- `experiments/citation_check/verify_citations.py`'s header says it cannot run in
-  the sandbox. **That is stale** — arXiv and CrossRef were both reachable this
-  session and all 31 references were verified live.
+TIST is final-reject/no-appeal. The existing journal order is IP&M, then
+Information Retrieval Journal; conferences are now allowed too. Re-select only
+after checking current calls, page limits, deadlines, and fit. The negative
+oracle result makes this primarily a protocol, fidelity-audit, and honest
+boundary-finding paper—not a state-of-the-art LongMemEval system paper.
