@@ -1599,3 +1599,23 @@ final report.** A work queue reaching its end means every item settled, not that
 every result was written. Progress now distinguishes settled from written, uses
 a five-item cadence for small tails, and the final report repartitions the full
 on-disk judgement set.
+
+### 58. “OpenAI-compatible” did not mean both OpenAI endpoint families worked
+
+**2026-09-03, selecting a cloud model for the v2 LongMemEval run.** The
+OpenCode model list advertised `muse-spark-1.3-contributor`, but every minimal
+request to `/chat/completions` returned HTTP 500. That reproduced an earlier,
+much wider test matrix and appeared to confirm that the model itself was down.
+
+The user then supplied the missing control: the identical logical request sent
+to `/responses` completed with HTTP 200 and output exactly `OK`. Nothing about
+the credential, model id, or prompt changed. Only the endpoint family did. The
+successful Responses payload also exposed a different output shape and 393
+hidden reasoning tokens for a two-character visible answer.
+
+⇒ **Compatibility is endpoint-specific, not provider-wide.** When a provider
+calls itself OpenAI-compatible, test every API family the model claims to support
+before declaring the model unreachable. A Chat Completions failure says nothing
+about Responses. The harness must parse each schema explicitly, and a reachability
+pass still does not establish long-context latency, token-budget behaviour, or
+judge quality.

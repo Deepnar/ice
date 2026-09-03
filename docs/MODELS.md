@@ -361,15 +361,22 @@ ICE stored a reversed fact, this got the direction right. ⚠ That sample was
 selected for ICE's failures and is **not** a fair comparison. It has no
 grounding, no canonicalisation, and its relation vocabulary still explodes.
 
-### Judging — 2026-08-24 correction
+### Judging — 2026-09-03 endpoint correction
 
-⛔ **`muse-spark-1.2-contributor` is unreachable** — 500s on every call, both
-keys, both routes, all sizes. ⛔ **`mimo-v2.5` scored 27%** against the
-maintainer's blind labels and **missed 6 of 6 reversals** — do not adopt it
-despite being fast and free. ⚠ The gateway's `deepseek-v4-flash` scores **60%**,
-and is **not** the same as the DeepSeek web product that scored 80%.
-**Calibrate with `scripts/oneoff/calibrate_judge.py` before adopting any judge.**
-Full detail: [ROADMAP G65](ROADMAP.md#g65).
+`muse-spark-1.3-contributor` is reachable through OpenCode Go's
+`/zen/go/v1/responses` endpoint: a minimal request returned HTTP 200 and exactly
+`OK`. The same logical request returns HTTP 500 through `/chat/completions`.
+Earlier tests established only that the Chat Completions and CLI paths were not
+viable; they did not test Responses. The successful two-character answer used
+404 output tokens, including 393 hidden reasoning tokens, so long-input latency
+and token overhead remain open. Muse is a candidate, not an adopted judge.
+
+⛔ **`mimo-v2.5` scored 27%** against the maintainer's blind labels and
+**missed 6 of 6 reversals** — do not adopt it as a judge despite being fast and
+free. ⚠ The gateway's `deepseek-v4-flash` scores **60%**, and is **not** the
+same as the DeepSeek web product that scored 80%. **Calibrate with
+`scripts/oneoff/calibrate_judge.py` before adopting any judge.** Full detail:
+[ROADMAP G65](ROADMAP.md#g65).
 
 ### ⚑ Background / codex extraction — DECIDED 2026-08-24
 

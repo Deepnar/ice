@@ -1064,13 +1064,13 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 
     | judge | vs human | speed | status |
     |---|---:|---|---|
-    | `muse-spark-1.2-contributor` | **73%** | 14 s | ⛔ 500s on every call |
+    | `muse-spark-1.2-contributor` | **73%** | 14 s | ⚠ calibration used a now-superseded access path; Responses endpoint needs re-calibration |
     | `deepseek-v4-flash` (gateway) | 60% | 15 s | works; price rose. ⚠ **not** the DeepSeek web product that scored 80% |
     | `mimo-v2.5` | **27%** | 3 s | ⛔ **missed 6 of 6 reversals** |
 
   - ⚑ **mimo is the lesson: it is fast, free and available, and it would have been adopted on those grounds.** Calibration caught it. Never swap judges on uptime or price.
-  - **muse-spark diagnosis (2026-08-24), so nobody re-runs it:** tested both keys (`.env` and OpenCode's own `opencode-go` credential), both routes (`/zen/go/v1`, `/zen/v1`), all three model ids, five prompt sizes from 20 chars to 16 KB, four user-agents, alternate auth header. **Every contributor variant 500s identically; `deepseek-v4-flash` returns 200 through the same route on the same keys.** Server-side, one model. It is still listed in `/v1/models`, which is why it looks available.
-  - **`opencode` CLI is drivable** (`opencode run -m provider/model`, and `opencode serve` exposes a 162-path HTTP API with `system`/`tools`/`model` fields). A small prompt through `opencode run` **did** return correctly from muse-spark; a 16 KB judge prompt hangs, and the `serve` message endpoint is async with no reply arriving. **Not a viable judge path**, recorded so it is not re-attempted.
+  - **⚑ muse-spark endpoint correction (2026-09-03):** the 2026-08-24 matrix tested Chat Completions and CLI routes, not OpenAI's Responses API. A minimal `muse-spark-1.3-contributor` call returns HTTP 500 at `/zen/go/v1/chat/completions` and HTTP **200** at `/zen/go/v1/responses`, with output exactly `OK`. The successful response used 404 output tokens, including 393 hidden reasoning tokens. Therefore “Muse is unreachable” is retracted; the correct finding is **endpoint-specific incompatibility**. Long LME-shaped input, output caps, structured parsing, and judge calibration through Responses remain open.
+  - **`opencode` CLI is drivable** (`opencode run -m provider/model`, and `opencode serve` exposes a 162-path HTTP API with `system`/`tools`/`model` fields). A small prompt through `opencode run` returned correctly from muse-spark; a 16 KB judge prompt hung, and the `serve` message endpoint was async with no reply arriving. Do not retry those paths. A future Muse judge/answerer adapter must call `/responses` directly and pass the same calibration gate as every other candidate.
   - ⚑ **There is a second route with 93 models** (`/zen/v1`, "OpenCode Zen") against the 29 on `/zen/go/v1`. Unexplored, and the obvious place to look for a replacement judge.
 
 - [ ] <a id="g67"></a>**G67 The maintenance agent has never run, and NuExtract3 may be what makes the graph graph-shaped** `(opened 2026-08-24, maintainer)`. `decay_score < 1.0` is **0 rows** — decay, reflection and the maintenance agent have never executed against real data.
