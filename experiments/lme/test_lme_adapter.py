@@ -12,6 +12,27 @@ sys.path.insert(0, str(LME_DIR))
 import lme_run
 
 
+def test_correct_profile_mute_is_retryable_not_a_profile_mismatch():
+    profile = SimpleNamespace(
+        model="gpt-5.6-luna",
+        name="opencode-luna",
+        endpoint="responses",
+    )
+    mute = {
+        "status": "mute",
+        "answer": "",
+        "model": "gpt-5.6-luna",
+        "provider_profile": "opencode-luna",
+        "provider_endpoint": "responses",
+    }
+
+    assert lme_run.answer_identity_matches(mute, profile)
+    assert not lme_run.answer_complete_for_profile(mute, profile)
+    assert not lme_run.answer_identity_matches(
+        {**mute, "model": "another-model"}, profile
+    )
+
+
 def test_instance_layout_preserves_session_boundaries_and_sorts_time():
     instance = {
         "question_id": "q1",
@@ -106,14 +127,21 @@ def test_answer_path_uses_new_auto_conversation_shape(monkeypatch):
     monkeypatch.setitem(sys.modules, "src.retrieval.orchestrator", orchestrator_module)
     monkeypatch.setitem(sys.modules, "src.api.prompt_assembler", assembler_module)
 
-    completion = SimpleNamespace(
-        choices=[SimpleNamespace(message=SimpleNamespace(content="answer"))]
-    )
-    client = SimpleNamespace(
-        chat=SimpleNamespace(
-            completions=SimpleNamespace(create=lambda **_kwargs: completion)
+    class FakeGenerator:
+        profile = SimpleNamespace(
+            model="answer-model",
+            name="answer-profile",
+            endpoint="responses",
         )
-    )
+
+        def generate(self, _messages, **_kwargs):
+            captured["generation_kwargs"] = _kwargs
+            return SimpleNamespace(
+                text="answer",
+                response_id="response-id",
+                usage={"output_tokens": 7},
+            )
+
     query_cid = uuid.uuid4()
 
     result = lme_run.answer_instance(
@@ -123,8 +151,9 @@ def test_answer_path_uses_new_auto_conversation_shape(monkeypatch):
         FakeClassifier(),
         FakeEmbedder(),
         lambda: FakeDB(),
-        client,
+        FakeGenerator(),
         {"MemorySlot": object()},
+        provider_session_id="stable-answer-session",
     )
 
     assert captured["classify"][1] == str(query_cid)
@@ -136,4 +165,45 @@ def test_answer_path_uses_new_auto_conversation_shape(monkeypatch):
     assert captured["assemble"]["scope"] == {}
     assert result["retrieval_budget"] == 2000
     assert result["recent_budget"] == 4240
+    assert result["model"] == "answer-model"
+    assert result["provider_profile"] == "answer-profile"
+    assert result["provider_endpoint"] == "responses"
+    assert result["provider_usage"] == {"output_tokens": 7}
+    assert result["provider_session_id"] == "stable-answer-session"
+    assert captured["generation_kwargs"]["session_id"] == "stable-answer-session"
     assert captured["db_closed"] is True
+
+
+def test_ollama_background_residency_evicts_other_models_and_pins_qwen(monkeypatch):
+    loaded = iter([["gemma4:26b-a4b-it-q4_K_M"], ["qwen3:4b-instruct-bg"]])
+    evicted = []
+    monkeypatch.setattr(lme_run, "_ollama_loaded_models", lambda: next(loaded))
+    monkeypatch.setattr(lme_run, "ollama_unload", evicted.append)
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b'{"response":"ok"}'
+
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["request"] = request
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    import urllib.request
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    lme_run.ensure_ollama_background_resident()
+
+    assert evicted == ["gemma4:26b-a4b-it-q4_K_M"]
+    assert captured["timeout"] == 120
+    assert captured["request"].full_url.endswith("/api/generate")
+    assert b"qwen3:4b-instruct-bg" in captured["request"].data
+    assert b'"keep_alive": -1' in captured["request"].data

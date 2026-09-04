@@ -122,6 +122,10 @@ PHASES = {
     "abstention": {"corpus": "longmemeval_s", "select": "abstention"},
     # Stratified widening. Only after oracle and abstention look sane.
     "stratified": {"corpus": "longmemeval_s", "select": "stratified"},
+    # Complete public LongMemEval-S.  This is deliberately a separate phase from
+    # the old stratified sample so its artifact root cannot be misread as a full
+    # benchmark run.
+    "full": {"corpus": "longmemeval_s", "select": "all"},
 }
 
 
@@ -301,6 +305,25 @@ OLLAMA_URL = "http://localhost:11434/v1"
 ANSWER_TEMPERATURE = 0.7
 ANSWER_MAX_TOKENS = 20000
 CONDITIONS = ("full_ice", "vector_rag")
+EXPECTED_BACKGROUND_MODEL = "qwen3:4b-instruct-bg"
+
+
+def answer_identity_matches(answer: dict | None, profile) -> bool:
+    if not isinstance(answer, dict) or answer.get("model") != profile.model:
+        return False
+    recorded = answer.get("provider_endpoint")
+    if recorded is None:
+        return profile.name == "local-gemma26"
+    return (recorded == profile.endpoint
+            and answer.get("provider_profile") == profile.name)
+
+
+def answer_complete_for_profile(answer: dict | None, profile) -> bool:
+    return (
+        answer_identity_matches(answer, profile)
+        and answer.get("status") != "mute"
+        and bool((answer.get("answer") or "").strip())
+    )
 
 
 def estimate_tokens(text: str) -> int:
@@ -310,7 +333,9 @@ def estimate_tokens(text: str) -> int:
 
 
 def answer_instance(inst, query_cid, condition, classifier, embedder,
-                    SessionLocal, client, models) -> dict:
+                    SessionLocal, generator, models,
+                    answer_max_tokens: int = ANSWER_MAX_TOKENS,
+                    provider_session_id: str | None = None) -> dict:
     """Answer one question under one condition.
 
     ⚑ Mirrors v2 production auto memory: classify in a new conversation, derive
@@ -384,15 +409,21 @@ def answer_instance(inst, query_cid, condition, classifier, embedder,
 
         injected = sum(estimate_tokens(m.get("content", "")) for m in messages)
         t0 = time.time()
-        completion = client.chat.completions.create(
-            model=SINGLE_MODEL,
-            messages=messages,
+        generation = generator.generate(
+            messages,
             temperature=ANSWER_TEMPERATURE,
-            max_tokens=ANSWER_MAX_TOKENS,
+            max_output_tokens=answer_max_tokens,
+            session_id=provider_session_id,
         )
         return {
-            "answer": completion.choices[0].message.content,
-            "model": SINGLE_MODEL,
+            "answer": generation.text,
+            "status": "complete" if generation.text.strip() else "mute",
+            "model": generator.profile.model,
+            "provider_profile": generator.profile.name,
+            "provider_endpoint": generator.profile.endpoint,
+            "provider_response_id": generation.response_id,
+            "provider_usage": generation.usage,
+            "provider_session_id": provider_session_id,
             "fragments": n_frags,
             "tokens_injected": injected,
             "seconds": round(time.time() - t0, 1),
@@ -422,14 +453,69 @@ def ollama_unload(model: str) -> None:
     """
     import urllib.error
     import urllib.request
-    payload = json.dumps({"model": model, "keep_alive": 0}).encode()
+    ollama_base = os.environ.get("OLLAMA_HOST_URL", "http://localhost:11434").rstrip("/")
+    payload = json.dumps({"model": model, "keep_alive": 0, "stream": False}).encode()
     req = urllib.request.Request(
-        "http://localhost:11434/api/generate", data=payload,
+        f"{ollama_base}/api/generate", data=payload,
         headers={"Content-Type": "application/json"})
     try:
         urllib.request.urlopen(req, timeout=30).read()
     except (urllib.error.URLError, TimeoutError, OSError):
         pass  # eviction is an optimisation; never fail the run over it
+
+
+def _ollama_loaded_models() -> list[str]:
+    import urllib.request
+
+    base = os.environ.get("OLLAMA_HOST_URL", "http://localhost:11434").rstrip("/")
+    with urllib.request.urlopen(f"{base}/api/ps", timeout=15) as response:
+        body = json.loads(response.read())
+    return [
+        model["name"] for model in body.get("models", [])
+        if isinstance(model, dict) and isinstance(model.get("name"), str)
+    ]
+
+
+def ensure_ollama_background_resident(model: str = EXPECTED_BACKGROUND_MODEL) -> None:
+    """Make the final harness use exactly one resident Ollama background model.
+
+    v2's shared-mode factory can reuse whichever model happens to be loaded. That
+    is useful for interactive ICE, but it makes a benchmark depend on the user's
+    previous chat and can select the cloud/local answerer instead of the measured
+    background model. Evict all other Ollama models, then load the pinned model
+    with an infinite keep-alive. The vLLM path remains diagnostic-only and does not
+    call this function.
+    """
+    loaded = _ollama_loaded_models()
+    for loaded_model in loaded:
+        if loaded_model != model:
+            ollama_unload(loaded_model)
+
+    import urllib.request
+
+    base = os.environ.get("OLLAMA_HOST_URL", "http://localhost:11434").rstrip("/")
+    payload = json.dumps({
+        "model": model,
+        "prompt": "Reply with the single word: ok",
+        "stream": False,
+        "keep_alive": -1,
+        "options": {"num_predict": 16},
+    }).encode()
+    request = urllib.request.Request(
+        f"{base}/api/generate", data=payload,
+        headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(request, timeout=120) as response:
+        result = json.loads(response.read())
+    if not (result.get("response") or "").strip():
+        raise RuntimeError(
+            f"Ollama background model {model!r} returned empty content during "
+            "residency preflight"
+        )
+    if model not in _ollama_loaded_models():
+        raise RuntimeError(
+            f"Ollama background model {model!r} did not remain resident after "
+            "the residency preflight"
+        )
 
 
 def preflight(sample_pair: tuple[str, str] | None = None) -> tuple[bool, dict]:
@@ -454,6 +540,13 @@ def preflight(sample_pair: tuple[str, str] | None = None) -> tuple[bool, dict]:
     info: dict = {}
     model = get_bg_model_name()
     info["background_model"] = model
+    if model != EXPECTED_BACKGROUND_MODEL:
+        print(
+            f"⛔ PREFLIGHT: v2 resolved background model {model!r}, expected "
+            f"{EXPECTED_BACKGROUND_MODEL!r}. Refusing a mixed-model run.",
+            file=sys.stderr,
+        )
+        return False, info
 
     try:
         r = get_bg_client().chat.completions.create(
@@ -500,6 +593,29 @@ def preflight(sample_pair: tuple[str, str] | None = None) -> tuple[bool, dict]:
               f"   for the whole run and nothing downstream would say so.",
               file=sys.stderr)
         return False, info
+    observed = {
+        (
+            str(t.get("subject", "")).strip().lower(),
+            str(t.get("relation", "")).strip().lower(),
+            str(t.get("object", "")).strip().lower(),
+        )
+        for t in triplets if isinstance(t, dict)
+    }
+    expected = {
+        ("user", "lives_in", "berlin"),
+        ("user", "works_at", "vertex labs"),
+    }
+    info["preflight_expected_triplets"] = len(expected & observed)
+    if not expected.issubset(observed):
+        print(
+            "⛔ PREFLIGHT: extraction returned JSON but failed the grounded "
+            "direction control.\n"
+            f"   expected both {sorted(expected)!r}\n"
+            f"   observed {sorted(observed)!r}\n"
+            "   A reachable model that reverses facts would poison the whole store.",
+            file=sys.stderr,
+        )
+        return False, info
 
     try:
         summary = generate_summary(sample_p, sample_r)
@@ -509,6 +625,10 @@ def preflight(sample_pair: tuple[str, str] | None = None) -> tuple[bool, dict]:
         return False, info
     if not (summary or "").strip():
         print("⛔ PREFLIGHT: generate_summary returned an empty string.", file=sys.stderr)
+        return False, info
+    if "<think>" in summary.lower():
+        print("⛔ PREFLIGHT: generate_summary leaked reasoning markup into memory.",
+              file=sys.stderr)
         return False, info
     info["preflight_summary_chars"] = len(summary)
 
@@ -666,9 +786,32 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--seed", type=int, default=20260829)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    ap.add_argument(
+        "--answer-profile",
+        default="local-gemma26",
+        help="pinned profile from cloud_provider.py; credentials are read only "
+             "from the profile's environment-variable name",
+    )
+    ap.add_argument(
+        "--background-provider", choices=("ollama", "vllm"), default="ollama",
+        help="ollama is the accepted path; vllm is retained only to reproduce "
+             "the rejected parity experiment on localhost:8002",
+    )
+    ap.add_argument(
+        "--answer-max-tokens", type=int, default=ANSWER_MAX_TOKENS,
+        help="visible+reasoning output cap; cloud wrapper pins 4096",
+    )
     ap.add_argument("--plan-only", action="store_true",
                     help="print what would run and exit -- touches nothing")
     args = ap.parse_args()
+
+    from cloud_provider import PROFILES, TextGenerator, get_profile, load_selected_env
+
+    if args.answer_profile not in PROFILES:
+        print(f"⛔ unknown --answer-profile {args.answer_profile!r}; choose one of: "
+              f"{', '.join(sorted(PROFILES))}", file=sys.stderr)
+        return 2
+    answer_profile = get_profile(args.answer_profile)
 
     signal.signal(signal.SIGINT, _on_signal)
     signal.signal(signal.SIGTERM, _on_signal)
@@ -684,7 +827,6 @@ def main() -> int:
     instances = select_instances(corpus, spec["select"], args.limit, args.seed)
     out_dir = args.out / args.phase
     answers_dir = out_dir / "answers"
-    answers_dir.mkdir(parents=True, exist_ok=True)
 
     # Resume at CONDITION granularity: an instance counts as done only when every
     # condition has an answer. A run that died between conditions resumes into the
@@ -698,7 +840,9 @@ def main() -> int:
             return False  # unreadable == not done; it will be rebuilt
         return (rec.get("adapter_version") == ADAPTER_VERSION
                 and rec.get("status") == "complete"
-                and all(cond in (rec.get("answers") or {}) for cond in CONDITIONS))
+                and all(answer_complete_for_profile(
+                    (rec.get("answers") or {}).get(cond), answer_profile)
+                        for cond in CONDITIONS))
 
     done = {x["question_id"] for x in instances if _completed(x["question_id"])}
     todo = [x for x in instances if x["question_id"] not in done]
@@ -715,6 +859,35 @@ def main() -> int:
         if len(todo) > 10:
             print(f"    ... and {len(todo) - 10} more")
         return 0
+
+    answers_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = out_dir / "MANIFEST.json"
+    existing_manifest = _read_json(manifest_path) if manifest_path.exists() else None
+    if existing_manifest:
+        existing_env = existing_manifest.get("environment") or {}
+        existing_answerer = existing_env.get("answerer") or {}
+        manifest_mismatch = []
+        if existing_manifest.get("adapter_version") not in (None, ADAPTER_VERSION):
+            manifest_mismatch.append("adapter version")
+        if existing_answerer and (
+            existing_answerer.get("profile") != answer_profile.name
+            or existing_answerer.get("model") != answer_profile.model
+            or existing_answerer.get("endpoint") != answer_profile.endpoint
+        ):
+            manifest_mismatch.append("answerer profile/model/endpoint")
+        if not existing_answerer and answer_profile.name != "local-gemma26":
+            manifest_mismatch.append("missing cloud answerer identity")
+        if existing_env.get("background_provider") not in (None, args.background_provider):
+            manifest_mismatch.append("background provider")
+        if manifest_mismatch:
+            print(
+                "⛔ existing run manifest does not match this invocation: "
+                + ", ".join(manifest_mismatch) + ".\n"
+                "   Refusing to mix artifacts; choose a fresh --out root.",
+                file=sys.stderr,
+            )
+            return 5
+
     mismatched = [
         x["question_id"] for x in instances
         if (answers_dir / f"{x['question_id']}.json").exists()
@@ -727,19 +900,73 @@ def main() -> int:
               f"   uv run python {HARNESS_DIR / 'repair_invalid_adapter.py'} "
               f"--phase {args.phase} --apply", file=sys.stderr)
         return 4
+    profile_mismatched = []
+    for instance in instances:
+        path = answers_dir / f"{instance['question_id']}.json"
+        rec = _read_json(path) if path.exists() else None
+        answers = (rec or {}).get("answers") or {}
+        if answers and any(
+            answer is not None and not answer_identity_matches(answer, answer_profile)
+            for answer in answers.values()
+        ):
+            profile_mismatched.append(instance["question_id"])
+    if profile_mismatched:
+        print(
+            f"⛔ {len(profile_mismatched)} answer artifact(s) were produced by a "
+            f"different answer profile.\n"
+            f"   Refusing to mix or overwrite them. Select a fresh --out root for "
+            f"{answer_profile.name}.\n"
+            f"   First ids: {', '.join(profile_mismatched[:5])}",
+            file=sys.stderr,
+        )
+        return 5
     if not todo:
         print("  nothing to do -- all selected instances already have answers.")
         return 0
 
     # Imports deferred until after --plan-only so the planner needs no DB or GPU.
-    from openai import OpenAI
+    # Cloud credentials live in main's .env; load ONLY their selected names so
+    # v3-only settings cannot poison v2's extra-forbid Settings object.
+    load_selected_env()
+    if args.background_provider == "ollama":
+        # v2 reads OLLAMA_BASE_URL from its Settings. The shell-facing
+        # OLLAMA_HOST_URL name is deliberately translated here so the harness
+        # and the v2 client cannot silently probe different Ollama servers.
+        os.environ["OLLAMA_BASE_URL"] = os.environ.get(
+            "OLLAMA_HOST_URL", "http://localhost:11434"
+        ).rstrip("/")
+        try:
+            ensure_ollama_background_resident()
+        except Exception as exc:  # noqa: BLE001 - preflight must fail loudly
+            print(
+                f"⛔ Ollama background residency preflight failed: "
+                f"{type(exc).__name__}: {exc}",
+                file=sys.stderr,
+            )
+            return 3
+    if args.background_provider == "vllm":
+        os.environ["BACKGROUND_MODEL_MODE"] = "dedicated"
     from src.api.config import settings
     from src.api.db import SessionLocal
     from src.memory.models import Base, Conversation, EpisodicMemory, MemorySlot
     from src.classifier.classifier import PyTorchClassifier
 
     env = capture_env(settings.database_url)
-    _atomic_write_json(out_dir / "MANIFEST.json", {"phase": args.phase,
+    env["answerer"] = answer_profile.metadata()
+    env["answer_generation"] = {
+        "temperature_requested": ANSWER_TEMPERATURE,
+        "temperature_supported": answer_profile.supports_temperature,
+        "max_output_tokens": args.answer_max_tokens,
+    }
+    env["background_provider"] = args.background_provider
+    if args.background_provider == "vllm":
+        env["background_actual_model"] = os.environ.get(
+            "LME_BG_ACTUAL_MODEL", "unrecorded"
+        )
+        env["background_revision"] = os.environ.get(
+            "LME_BG_REVISION", "unrecorded"
+        )
+    _atomic_write_json(manifest_path, {"phase": args.phase,
                                                    "selection": spec["select"],
                                                    "seed": args.seed,
                                                    "n_selected": len(instances),
@@ -773,10 +1000,11 @@ def main() -> int:
     # earlier pass starves the background model and preflight fails for the wrong
     # reason -- measured: extraction times out with the answerer loaded, and
     # returns 3 triplets in 8.1s once the card is clear.
-    ollama_unload(SINGLE_MODEL)
+    if answer_profile.name == "local-gemma26":
+        ollama_unload(SINGLE_MODEL)
     ok, pf = preflight(_sample)
     env["preflight"] = pf
-    _atomic_write_json(out_dir / "MANIFEST.json", {"phase": args.phase,
+    _atomic_write_json(manifest_path, {"phase": args.phase,
                                                    "selection": spec["select"],
                                                    "seed": args.seed,
                                                    "n_selected": len(instances),
@@ -789,7 +1017,7 @@ def main() -> int:
 
     models = {"Conversation": Conversation, "EpisodicMemory": EpisodicMemory,
               "MemorySlot": MemorySlot}
-    client = OpenAI(base_url=OLLAMA_URL, api_key="dummy")
+    generator = TextGenerator(answer_profile)
     started = time.time()
     durations: list[float] = []
 
@@ -907,17 +1135,30 @@ def main() -> int:
             rec["history_tokens_estimate"] = total_tokens
             _atomic_write_json(rec_path, rec)
             # Ingestion is done; hand the card back to the answerer.
-            if any(c not in rec["answers"] for c in CONDITIONS):
+            missing_conditions = [
+                c for c in CONDITIONS
+                if not answer_complete_for_profile(
+                    rec["answers"].get(c), answer_profile)
+            ]
+            if (missing_conditions
+                    and args.background_provider == "ollama"
+                    and answer_profile.name == "local-gemma26"):
                 from src.workers.bg_client_factory import get_bg_model_name
                 ollama_unload(get_bg_model_name())
 
             for cond in CONDITIONS:
-                if cond in rec["answers"]:
+                if answer_complete_for_profile(
+                        rec["answers"].get(cond), answer_profile):
                     continue  # already answered in an earlier pass
                 a0 = time.time()
                 rec["answers"][cond] = answer_instance(
                     inst, query_cid, cond, classifier, embedder, SessionLocal,
-                    client, models)
+                    generator, models, args.answer_max_tokens,
+                    provider_session_id=str(uuid.uuid5(
+                        uuid.NAMESPACE_URL,
+                        f"ice-lme-answer:{args.phase}:{qid}:{cond}:"
+                        f"{answer_profile.name}",
+                    )))
                 _atomic_write_json(rec_path, rec)  # persist per condition
                 print(f"           {cond:10} {rec['answers'][cond]['fragments']:3d} frags "
                       f"{rec['answers'][cond]['tokens_injected']:6d} tok "

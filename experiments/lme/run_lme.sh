@@ -5,6 +5,7 @@
 #   experiments/lme/run_lme.sh oracle          # the control -- do this first
 #   experiments/lme/run_lme.sh abstention      # all 30 _abs instances
 #   experiments/lme/run_lme.sh stratified 60   # 60, spread across question types
+#   experiments/lme/run_lme.sh full             # all 500 LongMemEval-S questions
 #   experiments/lme/run_lme.sh oracle --plan   # show the plan, touch nothing
 #
 # Callable by ABSOLUTE PATH from anywhere -- it resolves its own location and cds
@@ -21,14 +22,11 @@ HARNESS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNNER="$HARNESS/lme_run.py"
 PG_CONTAINER="${ICE_PG_CONTAINER:-ice_postgres}"
 OLLAMA="${OLLAMA_HOST_URL:-http://localhost:11434}"
-
-# Models the run needs. Answerer and judge are the paper's; the background model is
-# what shared mode falls back to.
-REQUIRED_MODELS=(gemma4:26b-a4b-it-q4_K_M qwen3:4b-instruct-bg gemma4:12b)
+export OLLAMA_HOST_URL="$OLLAMA"
 
 PHASE="${1:-}"
 if [[ -z "$PHASE" ]]; then
-  echo "usage: $0 {oracle|abstention|stratified} [limit] [--plan]" >&2
+  echo "usage: $0 {oracle|abstention|stratified|full} [limit] [--plan]" >&2
   exit 2
 fi
 shift || true
@@ -36,8 +34,26 @@ shift || true
 EXTRA=()
 if [[ "${1:-}" =~ ^[0-9]+$ ]]; then EXTRA+=(--limit "$1"); shift || true; fi
 PLAN_ONLY=0
-if [[ "${1:-}" == "--plan" ]]; then EXTRA+=(--plan-only); PLAN_ONLY=1; shift || true; fi
-EXTRA+=("$@")
+for arg in "$@"; do
+  case "$arg" in
+    --plan|--plan-only) PLAN_ONLY=1 ;;
+    *) EXTRA+=("$arg") ;;
+  esac
+done
+
+ANSWER_PROFILE="local-gemma26"
+BACKGROUND_PROVIDER="ollama"
+for ((arg_i = 0; arg_i < ${#EXTRA[@]}; arg_i++)); do
+  if [[ "${EXTRA[$arg_i]}" == "--answer-profile" ]]; then
+    ANSWER_PROFILE="${EXTRA[$((arg_i + 1))]:-}"
+  elif [[ "${EXTRA[$arg_i]}" == --answer-profile=* ]]; then
+    ANSWER_PROFILE="${EXTRA[$arg_i]#--answer-profile=}"
+  elif [[ "${EXTRA[$arg_i]}" == "--background-provider" ]]; then
+    BACKGROUND_PROVIDER="${EXTRA[$((arg_i + 1))]:-}"
+  elif [[ "${EXTRA[$arg_i]}" == --background-provider=* ]]; then
+    BACKGROUND_PROVIDER="${EXTRA[$arg_i]#--background-provider=}"
+  fi
+done
 
 die() { echo "⛔ $*" >&2; exit 1; }
 
@@ -77,20 +93,33 @@ if [[ "$PLAN_ONLY" -eq 0 ]]; then
    docker exec $PG_CONTAINER psql -U ice -d postgres -c 'CREATE DATABASE ice_lme_v2 OWNER ice;'
    cd $WORKTREE && uv run python $HARNESS/setup_v2_db.py"
 
-  # Ollama, and every model the run will reach for. Checking now beats discovering
-  # a missing judge after 27 hours of ingestion.
-  curl -sf --max-time 5 "$OLLAMA/api/tags" >/dev/null \
-    || die "Ollama is not responding at $OLLAMA -- start it with: ollama serve"
-  INSTALLED="$(curl -sf --max-time 10 "$OLLAMA/api/tags")"
-  MISSING=()
-  for m in "${REQUIRED_MODELS[@]}"; do
-    grep -q "\"$m\"" <<<"$INSTALLED" || MISSING+=("$m")
-  done
-  if (( ${#MISSING[@]} )); then
-    printf '⛔ missing Ollama model(s):\n' >&2
-    printf '   %s\n' "${MISSING[@]}" >&2
-    printf '   pull with: ollama pull %s\n' "${MISSING[@]}" >&2
-    exit 1
+  REQUIRED_MODELS=()
+  [[ "$ANSWER_PROFILE" == "local-gemma26" ]] \
+    && REQUIRED_MODELS+=(gemma4:26b-a4b-it-q4_K_M)
+  [[ "$BACKGROUND_PROVIDER" == "ollama" ]] \
+    && REQUIRED_MODELS+=(qwen3:4b-instruct-bg)
+
+  if (( ${#REQUIRED_MODELS[@]} )); then
+    curl -sf --max-time 5 "$OLLAMA/api/tags" >/dev/null \
+      || die "Ollama is not responding at $OLLAMA -- start it with: ollama serve"
+    INSTALLED="$(curl -sf --max-time 10 "$OLLAMA/api/tags")"
+    MISSING=()
+    for m in "${REQUIRED_MODELS[@]}"; do
+      grep -q "\"$m\"" <<<"$INSTALLED" || MISSING+=("$m")
+    done
+    if (( ${#MISSING[@]} )); then
+      printf '⛔ missing Ollama model(s):\n' >&2
+      printf '   %s\n' "${MISSING[@]}" >&2
+      printf '   pull with: ollama pull %s\n' "${MISSING[@]}" >&2
+      exit 1
+    fi
+  fi
+
+  if [[ "$BACKGROUND_PROVIDER" == "vllm" ]]; then
+    curl -sf --max-time 5 http://127.0.0.1:8002/v1/models >/dev/null \
+      || die "vLLM background diagnostic is not responding on :8002. The final
+   cloud run uses Ollama. Rejected-path reproduction only:
+   $HARNESS/../../scripts/oneoff/lme_vllm_background_rejected.sh"
   fi
 fi
 
@@ -106,7 +135,13 @@ for ((arg_i = 0; arg_i < ${#EXTRA[@]}; arg_i++)); do
 done
 
 LOG_DIR="$RUN_ROOT/$PHASE"
-mkdir -p "$LOG_DIR"
+if [[ "$PLAN_ONLY" -eq 1 ]]; then
+  EXTRA+=(--plan-only)
+fi
+
+if [[ "$PLAN_ONLY" -eq 0 ]]; then
+  mkdir -p "$LOG_DIR"
+fi
 
 echo "worktree : $WORKTREE"
 echo "phase    : $PHASE"
@@ -125,6 +160,9 @@ cd "$WORKTREE"
 # group killed tee first and turned the runner's signal handler into a
 # BrokenPipeError. Set LME_DIRECT_JOURNAL=1 under systemd.
 if [[ "${LME_DIRECT_JOURNAL:-0}" == "1" ]]; then
-  exec uv run python "$RUNNER" --phase "$PHASE" "${EXTRA[@]}"
+  exec uv run --no-sync python "$RUNNER" --phase "$PHASE" "${EXTRA[@]}"
 fi
-uv run python "$RUNNER" --phase "$PHASE" "${EXTRA[@]}" | tee -a "$LOG_DIR/run.log"
+if [[ "$PLAN_ONLY" -eq 1 ]]; then
+  exec uv run --no-sync python "$RUNNER" --phase "$PHASE" "${EXTRA[@]}"
+fi
+uv run --no-sync python "$RUNNER" --phase "$PHASE" "${EXTRA[@]}" | tee -a "$LOG_DIR/run.log"

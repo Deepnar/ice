@@ -12,13 +12,13 @@ number incomparable to every published LongMemEval result, which is the entire
 reason for running this benchmark.
 
 ⚑ ONE DELIBERATE DEVIATION, AND IT MUST BE STATED WITH THE NUMBER. The official
-evaluator judges with GPT-4o. This runs a LOCAL judge, so results are
-"LongMemEval protocol, local judge" and NOT directly comparable to published
-GPT-4o-judged figures. The judge is also held disjoint from the answerer
-(`gemma4:26b-a4b-it-q4_K_M`) so a model never grades its own output.
+evaluator judges with GPT-4o. This harness accepts a pinned local or cloud judge,
+but either is a controlled within-study result rather than leaderboard-comparable
+unless it is the exact official judge. The run configuration keeps judge and
+answerer families disjoint so a model never grades its own output.
 
-Runs separately from lme_run.py, so the answerer and the judge are never resident
-at once -- both are ~17 GB against a 23.5 GB ceiling.
+Judging runs separately from generation and resumes from one atomic file per
+answer condition.
 
     uv run python experiments/lme/score.py --phase oracle
     uv run python experiments/lme/score.py --phase oracle --report-only
@@ -32,6 +32,7 @@ import os
 import signal
 import sys
 import time
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -96,6 +97,14 @@ def _atomic_write_json(path: Path, payload: dict) -> None:
     os.replace(tmp, path)
 
 
+def _read_json(path: Path) -> dict | None:
+    try:
+        payload = json.loads(path.read_text())
+        return payload if isinstance(payload, dict) else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 # --- official prompts, verbatim ------------------------------------------------
 _T_DEFAULT = (
     "I will give you a question, a correct answer, and a response from a model. "
@@ -158,7 +167,7 @@ def get_anscheck_prompt(task, question, answer, response, abstention=False) -> s
     raise NotImplementedError(f"unknown question_type: {task}")
 
 
-def judge_selftest(client, model: str, max_tokens: int = JUDGE_MAX_TOKENS) -> bool:
+def judge_selftest(generator, max_tokens: int = JUDGE_MAX_TOKENS) -> bool:
     """Refuse to score with a judge that cannot actually judge.
 
     ⚑ THIS EXISTS BECAUSE THE FAILURE IS INVISIBLE IN THE OUTPUT. The official
@@ -188,13 +197,20 @@ def judge_selftest(client, model: str, max_tokens: int = JUDGE_MAX_TOKENS) -> bo
         ("How long did I wait?", "over a year", "It took about three days.", False),
         ("How many doctor's appointments did I go to in March?", "2", _long_ok, True),
     ]
-    for question, answer, response, expected in cases:
+    model = generator.profile.model
+    for case_index, (question, answer, response, expected) in enumerate(cases):
         prompt = get_anscheck_prompt("multi-session", question, answer, response)
         try:
-            r = client.chat.completions.create(
-                model=model, messages=[{"role": "user", "content": prompt}],
-                n=1, temperature=0, max_tokens=max_tokens)
-            raw = (r.choices[0].message.content or "").strip()
+            result = generator.generate(
+                [{"role": "user", "content": prompt}],
+                temperature=0,
+                max_output_tokens=max_tokens,
+                session_id=str(uuid.uuid5(
+                    uuid.NAMESPACE_URL,
+                    f"ice-lme-judge-selftest:{generator.profile.name}:{case_index}",
+                )),
+            )
+            raw = result.text.strip()
         except Exception as exc:  # noqa: BLE001
             print(f"⛔ JUDGE SELF-TEST: {model} call failed ({type(exc).__name__}: {exc})",
                   file=sys.stderr)
@@ -217,6 +233,26 @@ def judge_selftest(client, model: str, max_tokens: int = JUDGE_MAX_TOKENS) -> bo
 def _judgement_spoke(entry: dict) -> bool:
     """Read both current and pre-`spoke` judgement records consistently."""
     return entry.get("spoke", bool((entry.get("judge_raw") or "").strip()))
+
+
+def _judgement_matches_profile(entry: dict, profile) -> bool:
+    """Accept current records and the earlier local record shape only.
+
+    Cloud judgements originally stored provider identity under the nested judge
+    field while local records stored it at top level. Reading both shapes is
+    safe; accepting a different model or endpoint is not.
+    """
+    nested = entry.get("judge") or {}
+    model = entry.get("judge_model", nested.get("model"))
+    endpoint = entry.get("provider_endpoint", nested.get("endpoint"))
+    recorded_profile = entry.get("provider_profile", nested.get("profile"))
+    if model != profile.model:
+        return False
+    if endpoint is not None and endpoint != profile.endpoint:
+        return False
+    if recorded_profile is not None:
+        return recorded_profile == profile.name
+    return profile.name == "local-gemma12-judge"
 
 
 def partition_judgements(records, judge_dir: Path, *, retry_mutes: bool = False,
@@ -325,15 +361,28 @@ def report(judged: list[dict]) -> None:
         print(f"\n⚠ {100*worst:.1f}% of judgements were excluded as unobtainable "
               f"(>{100*MAX_MUTE_RATE:.0f}%). Quote the bounds above, not just the point "
               f"estimates.")
-    print("\n⚑ LongMemEval protocol with a LOCAL judge — not directly comparable to")
-    print("  published GPT-4o-judged numbers. System under test: ICE v2 @ v2-paper-eval.")
+    identities = sorted({
+        (j.get("judge_model", "unknown"),
+         j.get("provider_profile", "legacy-local"),
+         j.get("provider_endpoint", "chat_completions"))
+        for j in judged
+    })
+    rendered = ", ".join(f"{model} [{profile}/{endpoint}]"
+                         for model, profile, endpoint in identities)
+    print(f"\n⚑ Judge identity: {rendered}")
+    print("  LongMemEval prompts/rule with a non-official judge — not directly comparable")
+    print("  to published GPT-4o-judged numbers. System under test: ICE v2 @ v2-paper-eval.")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase", required=True)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
-    ap.add_argument("--judge", default=DEFAULT_JUDGE)
+    ap.add_argument("--judge-profile", default="local-gemma12-judge",
+                    help="pinned profile from cloud_provider.py")
+    ap.add_argument("--judge", default=None,
+                    help="optional model-id override within --judge-profile; "
+                         "kept for legacy local commands")
     ap.add_argument("--max-tokens", type=int, default=JUDGE_MAX_TOKENS,
                     help="judge token cap; raise for the tail of long answers "
                          "that still come back mute at the default")
@@ -347,6 +396,24 @@ def main() -> int:
     ap.add_argument("--report-only", action="store_true",
                     help="re-print the table from existing judgements; judges nothing")
     args = ap.parse_args()
+
+    from dataclasses import replace
+    from cloud_provider import (
+        PROFILES, TextGenerator, get_profile, load_selected_env,
+    )
+
+    if args.judge_profile not in PROFILES:
+        print(f"⛔ unknown --judge-profile {args.judge_profile!r}; choose one of: "
+              f"{', '.join(sorted(PROFILES))}", file=sys.stderr)
+        return 2
+    load_selected_env()
+    judge_profile = get_profile(args.judge_profile)
+    if args.judge:
+        judge_profile = replace(
+            judge_profile,
+            name=f"{judge_profile.name}:{args.judge}",
+            model=args.judge,
+        )
 
     signal.signal(signal.SIGINT, _on_signal)
     signal.signal(signal.SIGTERM, _on_signal)
@@ -367,6 +434,26 @@ def main() -> int:
         if rec.get("status") == "complete":
             records.append(rec)
 
+    profile_mismatched = []
+    for rec in records:
+        for cond in (rec.get("answers") or {}):
+            path = judge_dir / f"{rec['question_id']}__{cond}.json"
+            existing = _read_json(path) if path.exists() else None
+            if not existing:
+                continue
+            if not _judgement_matches_profile(existing, judge_profile):
+                profile_mismatched.append(path.name)
+    if profile_mismatched:
+        print(
+            f"⛔ {len(profile_mismatched)} judgement artifact(s) use a different "
+            f"judge profile.\n"
+            f"   Refusing to mix or overwrite them. Select a fresh --out root for "
+            f"{judge_profile.name}.\n"
+            f"   First files: {', '.join(profile_mismatched[:5])}",
+            file=sys.stderr,
+        )
+        return 5
+
     judged, pending = partition_judgements(
         records, judge_dir,
         retry_mutes=args.retry_mutes,
@@ -374,7 +461,8 @@ def main() -> int:
     )
 
     print(f"phase={args.phase}  complete instances={len(records)}")
-    print(f"  judged already {len(judged)}  pending {len(pending)}  judge={args.judge}")
+    print(f"  judged already {len(judged)}  pending {len(pending)}  "
+          f"judge={judge_profile.model}  profile={judge_profile.name}")
 
     if args.report_only or not pending:
         if judged:
@@ -384,9 +472,8 @@ def main() -> int:
         return 0
 
     from concurrent.futures import ThreadPoolExecutor
-    from openai import OpenAI
-    client = OpenAI(base_url=OLLAMA_URL, api_key="dummy")
-    if not judge_selftest(client, args.judge, args.max_tokens):
+    generator = TextGenerator(judge_profile)
+    if not judge_selftest(generator, args.max_tokens):
         print("\n   Nothing judged. Fix the above and re-run.", file=sys.stderr)
         return 3
     started = time.time()
@@ -408,13 +495,18 @@ def main() -> int:
             rec["question_type"], rec["question"], rec["reference_answer"], hyp,
             abstention=rec.get("is_abstention", False),
         )
+        provider_session_id = str(uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"ice-lme-judge:{args.phase}:{qid}:{cond}:{judge_profile.name}",
+        ))
         try:
-            completion = client.chat.completions.create(
-                model=args.judge,
-                messages=[{"role": "user", "content": prompt}],
-                n=1, temperature=0, max_tokens=args.max_tokens,
+            generation = generator.generate(
+                [{"role": "user", "content": prompt}],
+                temperature=0,
+                max_output_tokens=args.max_tokens,
+                session_id=provider_session_id,
             )
-            raw = (completion.choices[0].message.content or "").strip()
+            raw = generation.text.strip()
         except Exception as exc:  # noqa: BLE001
             print(f"  ⛔ {qid} [{cond}] judge failed: {exc}", flush=True)
             return None
@@ -430,7 +522,12 @@ def main() -> int:
             "spoke": bool(raw),
             "label": "yes" in raw.lower(),   # official decision rule
             "judge_raw": raw,
-            "judge_model": args.judge,
+            "judge_model": judge_profile.model,
+            "provider_profile": judge_profile.name,
+            "provider_endpoint": judge_profile.endpoint,
+            "provider_response_id": generation.response_id,
+            "provider_usage": generation.usage,
+            "provider_session_id": provider_session_id,
             "judged_utc": datetime.now(timezone.utc).isoformat(),
         }
         _atomic_write_json(judge_dir / f"{qid}__{cond}.json", entry)

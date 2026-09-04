@@ -122,6 +122,10 @@ experiments/lme/
   fetch_dataset.py     pinned fetch + sha256 manifest    [done]
   data/                gitignored corpus                 [fetched]
   lme_run.py           adapter-v2 resumable runner
+  cloud_provider.py    pinned Chat-Completions/Responses profiles
+  calibrate_cloud_models.py  bounded public-oracle model selection
+  run_lme_cloud.sh     matched Luna-answer/Ollama-background generation
+  score_lme_cloud.sh   separate Muse judging
   trace_retrieval.py   read-only per-leg/stage trace
   repair_invalid_adapter.py  reversible v1 artifact repair
   runs/v2-paper-eval/  active + archived run evidence
@@ -130,7 +134,9 @@ experiments/lme/
 The harness lives on `main` but executes from the v2 worktree at
 `/home/deepnar/Programs/ice-worktrees/v2-paper-eval`, branch
 `lme/v2-paper-eval`. Ingestion calls the frozen storage/post-flight functions
-in-process; answer generation goes through Ollama's OpenAI-compatible endpoint.
+in-process; answer generation uses an explicit pinned provider profile. The
+historical oracle used local Ollama Gemma; the matched oracle/full-S rerun uses
+GPT-5.6 Luna through OpenCode's Responses API.
 
 ## ⚑ Why LSREP is not reused, and where the production path still is
 
@@ -177,7 +183,7 @@ with ICE would destroy the haystack. So:
 | stage | path | why |
 |---|---|---|
 | haystack turns | v2's **storage/post-flight** path, assistant text supplied verbatim | this is what "a turn happened and was stored" *is* in production; nothing is being answered yet |
-| the question | v2's in-process classify → budget → retrieve → assemble components, then the pinned Ollama answerer | preserves the frozen algorithm while allowing paired ICE/vector conditions against one isolated store |
+| the question | v2's in-process classify → budget → retrieve → assemble components, then one pinned answerer profile | preserves the frozen algorithm while allowing paired ICE/vector conditions against one isolated store |
 
 The mature paper harness established the in-process post-flight seam used here:
 `is_lossless`, `generate_summary`, `extract_triplets`, and `handle_triplet` receive
@@ -262,7 +268,64 @@ there too — `alembic/env.py` reads the URL only from that file, so left alone 
 alembic command in the worktree targets the **live** `ice_db`.
 </details>
 
-### Before you start a run
+### Current matched oracle + full-S run
+
+Selected after the bounded calibration in
+`results/cloud_stack_calibration.md`:
+
+- answerer: `gpt-5.6-luna` through `/responses`;
+- judge: `muse-spark-1.3-contributor` through `/responses`;
+- background: exact `qwen3:4b-instruct-bg` through Ollama, kept resident;
+- output root: `runs/v2-paper-eval-cloud-v1`, separate from the historical
+  local-oracle artifacts.
+
+Luna tied the best answerer point score at 13/14, was fastest among the tied
+models, and passed an 88K-input needle check. Omen Alpha also scored 13/14 and
+passed 88K input, but was about four times more verbose. Muse is the judge
+because it has the strongest prior human-labelled judge calibration and passes
+the LongMemEval discrimination self-test. The official benchmark uses a
+different judge, so these remain controlled within-study numbers rather than
+leaderboard-comparable scores.
+
+The vLLM Qwen3-4B-AWQ substitution was tested and rejected: it reversed the
+fixed extraction control or leaked reasoning depending on template. Cloud
+answering already eliminates local large-model swaps, so the exact evaluated
+Ollama Qwen can stay resident. The strengthened preflight requires both expected
+directed facts, a non-thinking summary, and a real long-turn endurance pass.
+
+From any directory, run in this order:
+
+```bash
+/home/deepnar/Programs/ice/experiments/lme/run_lme_cloud.sh oracle
+/home/deepnar/Programs/ice/experiments/lme/score_lme_cloud.sh oracle
+/home/deepnar/Programs/ice/experiments/lme/run_lme_cloud.sh full
+/home/deepnar/Programs/ice/experiments/lme/score_lme_cloud.sh full
+```
+
+Generation and judging are deliberately separate. Wait for generation to print
+`0 instance(s) still outstanding` before starting its scorer. `Ctrl-C` stops
+after the active pair/instance boundary; rerun the identical command to resume.
+The generation wrapper starts the existing Docker Postgres container if needed,
+checks Ollama, evicts other resident Ollama models, pins
+`qwen3:4b-instruct-bg` with infinite keep-alive, and never requires an activated
+venv. It does not start or use vLLM. Every OpenCode answer and judgement sends
+the required `x-opencode-session` header; the value is a deterministic UUID for
+that phase/question/condition, so a retry is stable while independent benchmark
+conversations never share an id.
+
+Plan-only, with no DB/model/provider work and no output-directory creation:
+
+```bash
+/home/deepnar/Programs/ice/experiments/lme/run_lme_cloud.sh oracle --plan
+/home/deepnar/Programs/ice/experiments/lme/run_lme_cloud.sh full --plan
+```
+
+### Historical local-oracle reproduction
+
+The commands below reproduce the already reported local Gemma answer/judge run;
+they are not the commands for the new matched study.
+
+#### Before you start a run
 
 1. **Docker postgres up** — `docker ps | grep ice_postgres`
 2. **Ollama up** with `gemma4:26b-a4b-it-q4_K_M` (answerer), `qwen3:4b-instruct-bg`
@@ -270,7 +333,7 @@ alembic command in the worktree targets the **live** `ice_db`.
 3. That is all. **No Redis, no Celery, no vLLM, no SGLang** — ingestion calls the
    post-flight functions in-process.
 
-### The commands
+#### The commands
 
 ```bash
 ./experiments/lme/run_lme.sh oracle --plan   # costs nothing, needs nothing
@@ -291,7 +354,7 @@ Later phases, once oracle looks sane:
 ./experiments/lme/run_lme.sh stratified 60   # 60, spread across question types
 ```
 
-### Measured throughput, and what a run actually costs
+#### Measured throughput, and what a run actually costs
 
 With the recorded CUDA-embedder deviation, full-haystack ingestion measured
 roughly **1.8–2.0 s per user/assistant pair** on this laptop, dominated by Qwen
@@ -307,7 +370,7 @@ answer generation add phase-level overhead.
 These are days, not evenings — which is why resumability is the design constraint
 rather than a nicety. Start it, close the laptop, run the same command again.
 
-### The judge
+#### The historical local judge
 
 Pinned to **`gemma4:12b`**, matching the paper, which judged every Exp-1/2/3 probe
 with a Gemma-4 12B. ⚠ Recorded deviations: this is the **Ollama GGUF** build rather
@@ -337,13 +400,14 @@ past it, so it is always safe to run just to see what a phase would cost.
 | `oracle` | **500** (all) | **~10,960** | ~22 turns each — evidence sessions only |
 | `abstention` | 30 | ~15,144 | the full `_abs` set, ~505 turns each |
 | `stratified 60` | 60 | ~29,782 | seeded, deterministic, even across the six types |
+| `full` | **500** (all) | **246,930** | complete LongMemEval-S; matched cloud wrapper only |
 
-⚑ **The oracle phase is cheap enough to run in full**, and it is not merely a smoke
-test. Scoring all 500 with only the evidence sessions loaded gives an upper bound —
-it separates *can ICE find and use the evidence* from *can ICE survive the
-haystack*. If the two numbers are far apart, the gap is distractor robustness; if
-oracle itself is low, the problem is retrieval or the adapter, and no haystack run
-would have told you which.
+⚑ **The oracle phase is cheap enough to run in full**, and it is not merely a
+smoke test. Scoring all 500 with only the evidence sessions loaded tests whether
+ICE can find and use supplied evidence before distractors are introduced. It is
+not a mathematical upper bound: retrieval can change non-monotonically when
+candidates are added. The matched oracle/full-S gap is still the cleanest
+available diagnostic of distractor sensitivity under one fixed stack.
 
 ### Guardrail against the embedding trap
 

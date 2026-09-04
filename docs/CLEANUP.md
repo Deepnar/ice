@@ -1000,3 +1000,16 @@ the **git tag**, not a bare version digit — e.g. `experiments/lme/v2-paper-eva
 draft 2".
 
 Nothing was moved, renamed or deleted. Two `.tex` headers were stamped in place.
+
+## 2026-09-04 — rejected LME vLLM background diagnostic
+
+The temporary vLLM launcher and its chat template were moved out of the active
+LongMemEval harness after semantic parity failed:
+
+| from | to | reason |
+|---|---|---|
+| `experiments/lme/run_bg_vllm.sh` | `scripts/oneoff/lme_vllm_background_rejected.sh` | the AWQ/vLLM model reversed the fixed extraction control; retained only to reproduce the rejected path |
+| `experiments/lme/qwen3_bg_ollama_chat_template.jinja` | `scripts/oneoff/qwen3_bg_ollama_chat_template.jinja` | template used by that diagnostic; an Ollama-like form leaked reasoning into extraction |
+
+The final matched cloud wrapper uses the exact Ollama
+`qwen3:4b-instruct-bg`, kept resident. No production file was changed.
