@@ -368,8 +368,9 @@ grounding, no canonicalisation, and its relation vocabulary still explodes.
 `OK`. The same logical request returns HTTP 500 through `/chat/completions`.
 Earlier tests established only that the Chat Completions and CLI paths were not
 viable; they did not test Responses. The successful two-character answer used
-404 output tokens, including 393 hidden reasoning tokens, so long-input latency
-and token overhead remain open. Muse is a candidate, not an adopted judge.
+404 output tokens, including 393 hidden reasoning tokens. It was subsequently
+selected as the ICE-v2 LongMemEval judge after its role-specific calibration;
+see the final section of this file.
 
 ⛔ **`mimo-v2.5` scored 27%** against the maintainer's blind labels and
 **missed 6 of 6 reversals** — do not adopt it as a judge despite being fast and
@@ -397,3 +398,37 @@ the bare template's 60%.
 
 ⚠ **NuNER (`background` tier) beats micro-NER as its entity source** — junk names
 8.7% vs 19.5% — but that was decided on SHAPE only and never judged.
+
+### ⚑ ICE-v2 LongMemEval cloud roles — decided 2026-09-04
+
+This decision is for the matched rerun of the paper's frozen **v2** system only;
+it does not replace v3's production model choices or FINAL's provider rules.
+
+| role | selected model/path | evidence |
+|---|---|---|
+| **answerer** | **`gpt-5.6-luna`**, OpenCode Go Responses API | 13/14 on a 14-question public oracle calibration, tied best; 3.2 s/answer and 84 output tokens mean; recovered a needle from 88,025 input tokens in 4.1 s |
+| **judge** | **`muse-spark-1.3-contributor`**, OpenCode Go Responses API | strongest prior human-labelled judge calibration (73%); LongMemEval discrimination self-test 3/3; judged all 84 answerer-calibration outputs without a mute |
+| **background** | **`qwen3:4b-instruct-bg`**, exact Ollama model, kept resident | both directed extraction controls correct; 63-character summary; real 6,731-character LME turn → 11 triplets in 3.3 s |
+
+Answerer comparison under the same Muse judge: Luna, Omen Alpha, DeepSeek V4
+Flash, Qwen3.8 Flash, and LongCat 2.0 each scored 13/14; MiMo V2.5 scored 12/14.
+Luna was selected because it tied the best point quality and 3.2-second speed
+while averaging 84 output tokens. Omen Alpha tied Luna's score/speed and passed
+88K input, but averaged 324 output tokens and took 6.6 s on the long-context
+control versus Luna's 4.1 s. Exact aggregate:
+`experiments/lme/results/cloud_stack_calibration.md`.
+
+⚑ Endpoint identity is part of model identity. Muse works at `/responses` and
+500s at `/chat/completions`; Omen Alpha does the reverse. Luna works at
+`/responses` only when the unsupported `temperature` field is omitted. The run
+manifest records profile, endpoint, model, requested output cap, and whether
+temperature is supported; a resume refuses artifacts from a different profile.
+OpenCode's required `x-opencode-session` header is a deterministic UUID per
+phase/question/condition (and per judgement), so retries reuse one conversation
+identity without coupling independent benchmark cases.
+
+⛔ `Qwen/Qwen3-4B-AWQ` on vLLM is **not** the background path. It reversed the
+fixed extraction control under non-thinking mode, while an Ollama-like template
+leaked reasoning and exhausted useful extraction output. Cloud answering already
+removes the local 26B model swap, so the exact 2.5 GB Ollama background can remain
+resident without paying that correctness cost.

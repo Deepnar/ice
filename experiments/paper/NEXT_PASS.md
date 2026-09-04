@@ -51,9 +51,11 @@ for the expensive distractor phase. The oracle is not a mathematical upper
 bound, because adding candidates can change retrieval non-monotonically; the
 stopped phase is a compute decision, not a claim about every unrun answer.
 
-**Subsequent decision, 2026-09-03:** the complete LongMemEval-S run is reopened.
-Because it will use a cloud answerer/judge and a vLLM-served Qwen 4B background
-model, the oracle must also be rerun under that identical stack. Do not combine
+**Subsequent decision, updated 2026-09-04:** the complete LongMemEval-S run is
+reopened. Because it uses a Luna cloud answerer and Muse cloud judge, the oracle
+must also be rerun under that identical stack. Background construction remains
+the exact evaluated Ollama `qwen3:4b-instruct-bg`; a vLLM AWQ substitute failed
+the grounded direction control and was rejected. Do not combine
 the current local oracle with the future cloud S result or rewrite the paper
 before both matched phases finish. `docs/PUBLISHING.md` owns the run design.
 

@@ -1619,3 +1619,25 @@ before declaring the model unreachable. A Chat Completions failure says nothing
 about Responses. The harness must parse each schema explicitly, and a reachability
 pass still does not establish long-context latency, token-budget behaviour, or
 judge quality.
+
+### 59. The same model family on a faster server was not the same memory writer
+
+**2026-09-04, preparing the matched v2 LongMemEval run.** Replacing Ollama's
+`qwen3:4b-instruct-bg` with the official `Qwen/Qwen3-4B-AWQ` on vLLM looked like
+a serving-only optimisation: same 4B family, fixed temperature-zero extraction,
+and a much faster GPU path. Reachability and JSON shape both passed.
+
+The semantic control did not. The Ollama build extracted both directed facts:
+`user --lives_in--> berlin` and `user --works_at--> vertex labs`. The AWQ/vLLM
+build emitted one reversed fact, `vertex labs --works_at--> berlin`. Supplying a
+literal Ollama-style chat template changed the failure instead of fixing it:
+reasoning leaked into the output and exhausted useful extraction space. The
+exact Ollama model then processed a real 6,731-character LongMemEval turn into
+11 triplets in 3.3 seconds, making the speed justification weaker too.
+
+⇒ **A server, quantisation, and chat template are part of model identity when
+the model writes benchmark state.** “Same family” and “valid JSON” are not
+parity. Before accepting an inference optimisation, hold the prompt fixed and
+assert a semantic property with direction—not merely a non-empty parse. If the
+writer changes, every downstream answer changes, so either rerun every control
+under the new writer or reject the substitution.
