@@ -23,6 +23,36 @@ from typing import Any
 MAIN_ENV = Path(__file__).resolve().parents[2] / ".env"
 
 
+class ProviderAccessError(RuntimeError):
+    """Authentication/quota failure that requires operator action before retry."""
+
+    def __init__(self, profile: str, kind: str, status_code: int | None,
+                 message: str):
+        self.profile = profile
+        self.kind = kind
+        self.status_code = status_code
+        super().__init__(
+            f"{profile}: provider {kind} failure"
+            f"{f' (HTTP {status_code})' if status_code else ''}: {message}"
+        )
+
+
+def _access_error(profile: str, exc: Exception) -> ProviderAccessError | None:
+    status = getattr(exc, "status_code", None)
+    message = str(exc)
+    lowered = message.lower()
+    quota_markers = (
+        "quota", "rate limit", "usage limit", "limit reached",
+        "limit exceeded", "insufficient_quota", "billing", "credits",
+        "subscription limit",
+    )
+    if status in (401, 403):
+        return ProviderAccessError(profile, "authentication", status, message)
+    if status in (402, 429) or any(marker in lowered for marker in quota_markers):
+        return ProviderAccessError(profile, "quota/rate-limit", status, message)
+    return None
+
+
 @dataclass(frozen=True)
 class ProviderProfile:
     name: str
@@ -247,34 +277,41 @@ class TextGenerator:
                     "non-empty session id"
                 )
             extra_headers = {"x-opencode-session": session_id.strip()}
-        if self.profile.endpoint == "chat_completions":
-            request = dict(
-                model=self.profile.model,
-                messages=messages,
-                max_tokens=max_output_tokens,
-            )
-            if self.profile.supports_temperature:
-                request["temperature"] = temperature
-            if extra_headers:
-                request["extra_headers"] = extra_headers
-            response = self.client.chat.completions.create(**request)
-            text = (response.choices[0].message.content or "").strip()
-        elif self.profile.endpoint == "responses":
-            request = dict(
-                model=self.profile.model,
-                input=messages,
-                max_output_tokens=max_output_tokens,
-            )
-            if self.profile.supports_temperature:
-                request["temperature"] = temperature
-            if extra_headers:
-                request["extra_headers"] = extra_headers
-            response = self.client.responses.create(**request)
-            text = _responses_text(response)
-        else:
-            raise ValueError(
-                f"{self.profile.name}: unsupported endpoint {self.profile.endpoint!r}"
-            )
+        try:
+            if self.profile.endpoint == "chat_completions":
+                request = dict(
+                    model=self.profile.model,
+                    messages=messages,
+                    max_tokens=max_output_tokens,
+                )
+                if self.profile.supports_temperature:
+                    request["temperature"] = temperature
+                if extra_headers:
+                    request["extra_headers"] = extra_headers
+                response = self.client.chat.completions.create(**request)
+                text = (response.choices[0].message.content or "").strip()
+            elif self.profile.endpoint == "responses":
+                request = dict(
+                    model=self.profile.model,
+                    input=messages,
+                    max_output_tokens=max_output_tokens,
+                )
+                if self.profile.supports_temperature:
+                    request["temperature"] = temperature
+                if extra_headers:
+                    request["extra_headers"] = extra_headers
+                response = self.client.responses.create(**request)
+                text = _responses_text(response)
+            else:
+                raise ValueError(
+                    f"{self.profile.name}: unsupported endpoint "
+                    f"{self.profile.endpoint!r}"
+                )
+        except Exception as exc:
+            access_error = _access_error(self.profile.name, exc)
+            if access_error:
+                raise access_error from exc
+            raise
         return Generation(
             text=text,
             response_id=_field(response, "id"),

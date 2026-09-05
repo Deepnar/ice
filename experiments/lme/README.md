@@ -313,6 +313,14 @@ the required `x-opencode-session` header; the value is a deterministic UUID for
 that phase/question/condition, so a retry is stable while independent benchmark
 conversations never share an id.
 
+If OpenCode returns HTTP 401/403/402/429 or a quota, usage-limit, billing, or
+credit-limit message, generation/scoring stops immediately instead of failing
+every remaining item. Completed atomic files stay valid. Replace only
+`PROBE_API_KEY` in `/home/deepnar/Programs/ice/.env` (currently line 55), then
+rerun the identical command. If the terminal had exported an older value, run
+`unset PROBE_API_KEY` before restarting so the edited `.env` is loaded. Key
+rotation helps only when the replacement key/account has available quota.
+
 Plan-only, with no DB/model/provider work and no output-directory creation:
 
 ```bash

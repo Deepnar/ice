@@ -138,6 +138,62 @@ def test_opencode_profile_refuses_missing_session_header():
         )
 
 
+def test_quota_error_is_promoted_to_operator_action():
+    profile = cloud_provider.get_profile("opencode-omen-alpha")
+
+    class RateLimit(Exception):
+        status_code = 429
+
+    class FakeCompletions:
+        def create(self, **_kwargs):
+            raise RateLimit("request quota reached")
+
+    generator = cloud_provider.TextGenerator(
+        profile,
+        client=SimpleNamespace(
+            chat=SimpleNamespace(completions=FakeCompletions())
+        ),
+    )
+    with pytest.raises(cloud_provider.ProviderAccessError) as raised:
+        generator.generate(
+            [{"role": "user", "content": "probe"}],
+            temperature=0,
+            max_output_tokens=16,
+            session_id="stable-session",
+        )
+
+    assert raised.value.kind == "quota/rate-limit"
+    assert raised.value.status_code == 429
+
+
+def test_transient_server_error_is_not_misclassified_as_quota():
+    profile = cloud_provider.ProviderProfile(
+        name="transient",
+        endpoint="chat_completions",
+        model="model",
+        base_url="https://example.test/v1",
+    )
+
+    class ServerError(Exception):
+        status_code = 500
+
+    client = SimpleNamespace(
+        chat=SimpleNamespace(
+            completions=SimpleNamespace(
+                create=lambda **_kwargs: (_ for _ in ()).throw(
+                    ServerError("internal server error")
+                )
+            )
+        )
+    )
+    with pytest.raises(ServerError):
+        cloud_provider.TextGenerator(profile, client=client).generate(
+            [{"role": "user", "content": "probe"}],
+            temperature=0,
+            max_output_tokens=16,
+        )
+
+
 def test_responses_adapter_accepts_mapping_shaped_output():
     profile = cloud_provider.ProviderProfile(
         name="mapping-responses",

@@ -427,6 +427,12 @@ OpenCode's required `x-opencode-session` header is a deterministic UUID per
 phase/question/condition (and per judgement), so retries reuse one conversation
 identity without coupling independent benchmark cases.
 
+Provider access is fail-fast. Authentication, quota, rate-limit, billing, and
+credit-limit responses stop the LME runner/scorer immediately with completed
+files intact. Rotate `PROBE_API_KEY` in the main repository `.env`, restart the
+same command, and the atomic resume picks up only missing work; do not edit the
+v2 worktree's database-only `.env`.
+
 ⛔ `Qwen/Qwen3-4B-AWQ` on vLLM is **not** the background path. It reversed the
 fixed extraction control under non-thinking mode, while an Ollama-like template
 leaked reasoning and exhausted useful extraction output. Cloud answering already

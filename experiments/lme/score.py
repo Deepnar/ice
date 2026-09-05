@@ -36,6 +36,9 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import Lock
+
+from cloud_provider import ProviderAccessError
 
 HARNESS_DIR = Path(__file__).resolve().parent
 DEFAULT_OUT = HARNESS_DIR / "runs" / "v2-paper-eval"
@@ -211,6 +214,8 @@ def judge_selftest(generator, max_tokens: int = JUDGE_MAX_TOKENS) -> bool:
                 )),
             )
             raw = result.text.strip()
+        except ProviderAccessError:
+            raise
         except Exception as exc:  # noqa: BLE001
             print(f"⛔ JUDGE SELF-TEST: {model} call failed ({type(exc).__name__}: {exc})",
                   file=sys.stderr)
@@ -399,7 +404,7 @@ def main() -> int:
 
     from dataclasses import replace
     from cloud_provider import (
-        PROFILES, TextGenerator, get_profile, load_selected_env,
+        MAIN_ENV, PROFILES, TextGenerator, get_profile, load_selected_env,
     )
 
     if args.judge_profile not in PROFILES:
@@ -473,10 +478,21 @@ def main() -> int:
 
     from concurrent.futures import ThreadPoolExecutor
     generator = TextGenerator(judge_profile)
-    if not judge_selftest(generator, args.max_tokens):
+    try:
+        selftest_ok = judge_selftest(generator, args.max_tokens)
+    except ProviderAccessError as exc:
+        print(
+            f"⛔ PROVIDER {exc.kind.upper()}: {exc}\n"
+            f"   Replace PROBE_API_KEY in {MAIN_ENV}, then rerun the same command.",
+            file=sys.stderr,
+        )
+        return 7
+    if not selftest_ok:
         print("\n   Nothing judged. Fix the above and re-run.", file=sys.stderr)
         return 3
     started = time.time()
+    fatal_provider_errors = []
+    fatal_lock = Lock()
 
     def judge_one(item):
         """One judgement, written atomically by its own worker.
@@ -486,6 +502,7 @@ def main() -> int:
         judgement file exists only once that judgement is complete, so killing this
         mid-flight loses at most the in-flight few.
         """
+        global _stop
         rec, cond = item
         if _stop:
             return None
@@ -507,6 +524,19 @@ def main() -> int:
                 session_id=provider_session_id,
             )
             raw = generation.text.strip()
+        except ProviderAccessError as exc:
+            with fatal_lock:
+                if not fatal_provider_errors:
+                    fatal_provider_errors.append(exc)
+                    print(
+                        f"  ⛔ PROVIDER {exc.kind.upper()}: {exc}\n"
+                        "     Stopping queued judgements; completed files remain valid.\n"
+                        f"     Replace PROBE_API_KEY in {MAIN_ENV}, then rerun the "
+                        "same command.",
+                        flush=True,
+                    )
+            _stop = True
+            return None
         except Exception as exc:  # noqa: BLE001
             print(f"  ⛔ {qid} [{cond}] judge failed: {exc}", flush=True)
             return None
@@ -557,6 +587,10 @@ def main() -> int:
     # mute files and printed denominators like 485/500 while claiming 33/33 done.
     # Disk is the resumability source of truth, for reporting as well as startup.
     all_judged, still_pending = partition_judgements(records, judge_dir)
+    if fatal_provider_errors:
+        print(f"\n⛔ scoring stopped with {len(still_pending)} judgement(s) pending; "
+              "no completed file was lost.")
+        return 7
     report(all_judged)
     if still_pending:
         print(f"\n⚠ {len(still_pending)} judgement file(s) are still missing; "

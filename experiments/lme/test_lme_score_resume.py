@@ -3,12 +3,16 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 
 LME_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(LME_DIR))
 
 import score
+from cloud_provider import ProviderAccessError
 
 
 def _write(path: Path, payload: dict) -> None:
@@ -74,3 +78,16 @@ def test_disk_reload_restores_mutes_excluded_from_retry_worklist(tmp_path):
     assert len(all_on_disk) == 2
     assert mute in all_on_disk
     assert missing == []
+
+
+def test_judge_selftest_propagates_provider_limit():
+    class LimitedGenerator:
+        profile = SimpleNamespace(model="judge", name="judge-profile")
+
+        def generate(self, *_args, **_kwargs):
+            raise ProviderAccessError(
+                "judge-profile", "quota/rate-limit", 429, "quota reached"
+            )
+
+    with pytest.raises(ProviderAccessError):
+        score.judge_selftest(LimitedGenerator(), max_tokens=32)

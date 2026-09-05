@@ -805,7 +805,10 @@ def main() -> int:
                     help="print what would run and exit -- touches nothing")
     args = ap.parse_args()
 
-    from cloud_provider import PROFILES, TextGenerator, get_profile, load_selected_env
+    from cloud_provider import (
+        MAIN_ENV, PROFILES, ProviderAccessError, TextGenerator, get_profile,
+        load_selected_env,
+    )
 
     if args.answer_profile not in PROFILES:
         print(f"⛔ unknown --answer-profile {args.answer_profile!r}; choose one of: "
@@ -1020,6 +1023,7 @@ def main() -> int:
     generator = TextGenerator(answer_profile)
     started = time.time()
     durations: list[float] = []
+    fatal_provider_error = None
 
     for i, inst in enumerate(todo, 1):
         if _stop_requested:
@@ -1168,9 +1172,22 @@ def main() -> int:
             rec["total_seconds"] = round(time.time() - t0, 1)
             _atomic_write_json(rec_path, rec)
             durations.append(time.time() - t0)
+        except ProviderAccessError as exc:
+            fatal_provider_error = exc
+            print(
+                f"           ⛔ PROVIDER {exc.kind.upper()}: {exc}\n"
+                "           Stopping now; completed answer files remain valid.\n"
+                f"           Replace PROBE_API_KEY in {MAIN_ENV}, then rerun the "
+                "same command.",
+                flush=True,
+            )
+            with (out_dir / "failures.log").open("a") as fh:
+                fh.write(f"{datetime.now(timezone.utc).isoformat()}\t{qid}\t"
+                         f"ProviderAccessError[{exc.kind}]\t{exc}\n")
+            break
         except Exception as exc:  # noqa: BLE001 -- one bad instance must not end the run
-            # No answer file is written, so this instance is simply retried next
-            # run. Recorded so a systematic failure is visible rather than silent.
+            # The ingested/partial-condition record remains resumable. Record one
+            # isolated failure and continue; provider-wide failures stop above.
             print(f"           ⛔ FAILED: {type(exc).__name__}: {exc}", flush=True)
             with (out_dir / "failures.log").open("a") as fh:
                 fh.write(f"{datetime.now(timezone.utc).isoformat()}\t{qid}\t"
@@ -1181,7 +1198,7 @@ def main() -> int:
     print(f"artifacts: {out_dir}")
     if remaining:
         print("re-run the same command to continue.")
-    return 0
+    return 7 if fatal_provider_error else 0
 
 
 if __name__ == "__main__":
