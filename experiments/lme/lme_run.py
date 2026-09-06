@@ -46,14 +46,28 @@ DEFAULT_OUT = HARNESS_DIR / "runs" / "v2-paper-eval"
 ADAPTER_VERSION = "ice-v2-lme-sessions-v2"
 
 _stop_requested = False
+_signal_count = 0
+_active_stage = "starting"
 
 
 def _on_signal(signum, _frame):
-    """Stop AFTER the current instance, never mid-write."""
-    global _stop_requested
+    """Stop gracefully once; let a second signal abort the active instance."""
+    global _signal_count, _stop_requested
+    _signal_count += 1
+    if _signal_count > 1:
+        print(
+            f"\n  [signal {signum}] aborting {_active_stage} now. "
+            "Completed answers and ingestion checkpoints remain resumable.",
+            flush=True,
+        )
+        raise SystemExit(128 + signum)
     _stop_requested = True
-    print(f"\n  [signal {signum}] finishing the current instance, then stopping. "
-          f"Re-run the same command to resume.", flush=True)
+    print(
+        f"\n  [signal {signum}] graceful stop requested during {_active_stage}; "
+        "finishing the current instance, then stopping. Press Ctrl-C again to "
+        "abort it now. Re-run the same command to resume.",
+        flush=True,
+    )
 
 
 def _atomic_write_json(path: Path, payload: dict) -> None:
@@ -780,6 +794,11 @@ def auto_query_context(query_conversation_id) -> tuple[str, dict]:
 
 
 def main() -> int:
+    global _active_stage, _signal_count, _stop_requested
+    _stop_requested = False
+    _signal_count = 0
+    _active_stage = "starting"
+
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--phase", required=True, choices=sorted(PHASES))
@@ -1030,6 +1049,7 @@ def main() -> int:
             print("  stopped by request; progress is on disk.")
             break
         qid = inst["question_id"]
+        _active_stage = f"preparing {qid}"
         n_turns = sum(len(s) for s in inst["haystack_sessions"])
         t0 = time.time()
         eta = (sum(durations) / len(durations) * (len(todo) - i + 1)) if durations else None
@@ -1056,6 +1076,7 @@ def main() -> int:
                 print(f"           store already holds this haystack "
                     f"({expected} pairs) — skipping ingest", flush=True)
             else:
+                _active_stage = f"ingesting {qid}"
                 # Give ingestion the whole card: evict the answerer so the small
                 # background model is fully resident. Without this, extraction runs
                 # off-GPU and times out silently (see ollama_unload).
@@ -1085,6 +1106,7 @@ def main() -> int:
                 # Clustering once, so cluster-scoped retrieval has something to
                 # scope to. No decay simulation -- see the module docstring.
                 from src.workers.clustering import cluster_turns, merge_similar_clusters
+                _active_stage = f"clustering {qid}"
                 cluster_turns()
                 merge_similar_clusters()
                 # `stored` counts user/assistant PAIRS, n_turns counts raw turns;
@@ -1155,6 +1177,13 @@ def main() -> int:
                         rec["answers"].get(cond), answer_profile):
                     continue  # already answered in an earlier pass
                 a0 = time.time()
+                _active_stage = f"answering {cond} for {qid}"
+                print(
+                    f"           {_active_stage} with {answer_profile.model} "
+                    f"(timeout {answer_profile.timeout_seconds:g}s, "
+                    f"retries {answer_profile.max_retries})",
+                    flush=True,
+                )
                 rec["answers"][cond] = answer_instance(
                     inst, query_cid, cond, classifier, embedder, SessionLocal,
                     generator, models, args.answer_max_tokens,
@@ -1172,7 +1201,9 @@ def main() -> int:
             rec["total_seconds"] = round(time.time() - t0, 1)
             _atomic_write_json(rec_path, rec)
             durations.append(time.time() - t0)
+            _active_stage = "between instances"
         except ProviderAccessError as exc:
+            _active_stage = "between instances"
             fatal_provider_error = exc
             print(
                 f"           ⛔ PROVIDER {exc.kind.upper()}: {exc}\n"
@@ -1186,6 +1217,7 @@ def main() -> int:
                          f"ProviderAccessError[{exc.kind}]\t{exc}\n")
             break
         except Exception as exc:  # noqa: BLE001 -- one bad instance must not end the run
+            _active_stage = "between instances"
             # The ingested/partial-condition record remains resumable. Record one
             # isolated failure and continue; provider-wide failures stop above.
             print(f"           ⛔ FAILED: {type(exc).__name__}: {exc}", flush=True)
@@ -1193,6 +1225,7 @@ def main() -> int:
                 fh.write(f"{datetime.now(timezone.utc).isoformat()}\t{qid}\t"
                          f"{type(exc).__name__}\t{exc}\n")
 
+    _active_stage = "finished"
     remaining = len([x for x in instances if not _completed(x["question_id"])])
     print(f"\ndone this pass. {remaining} instance(s) still outstanding.")
     print(f"artifacts: {out_dir}")

@@ -62,6 +62,7 @@ class ProviderProfile:
     base_url_env: str | None = None
     api_key_env: str | None = None
     timeout_seconds: float = 600.0
+    max_retries: int = 0
     supports_temperature: bool = True
 
     def metadata(self) -> dict[str, Any]:
@@ -73,6 +74,7 @@ class ProviderProfile:
             "base_url": self.resolved_base_url(),
             "api_key_env": self.api_key_env,
             "timeout_seconds": self.timeout_seconds,
+            "max_retries": self.max_retries,
             "supports_temperature": self.supports_temperature,
             "requires_session_header": self.api_key_env == "PROBE_API_KEY",
         }
@@ -258,6 +260,7 @@ class TextGenerator:
                 base_url=profile.resolved_base_url(),
                 api_key=profile.resolved_api_key(),
                 timeout=profile.timeout_seconds,
+                max_retries=profile.max_retries,
             )
         self.client = client
 

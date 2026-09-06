@@ -13,6 +13,29 @@ sys.path.insert(0, str(LME_DIR))
 import cloud_provider
 
 
+def test_default_client_disables_hidden_sdk_retries(monkeypatch):
+    profile = cloud_provider.ProviderProfile(
+        name="no-hidden-retries",
+        endpoint="responses",
+        model="model-r",
+        base_url="https://example.test/v1",
+    )
+    captured = {}
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    import openai
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+
+    cloud_provider.TextGenerator(profile)
+
+    assert captured["timeout"] == 600.0
+    assert captured["max_retries"] == 0
+    assert profile.metadata()["max_retries"] == 0
+
+
 def test_responses_adapter_extracts_output_and_never_exposes_key(monkeypatch):
     profile = cloud_provider.ProviderProfile(
         name="test-responses",

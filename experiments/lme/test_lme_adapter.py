@@ -1,15 +1,35 @@
 from __future__ import annotations
 
+import signal
 import sys
 import uuid
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+
+import pytest
 
 
 LME_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(LME_DIR))
 
 import lme_run
+
+
+def test_first_signal_is_graceful_and_second_aborts(capsys, monkeypatch):
+    monkeypatch.setattr(lme_run, "_stop_requested", False)
+    monkeypatch.setattr(lme_run, "_signal_count", 0)
+    monkeypatch.setattr(lme_run, "_active_stage", "answering full_ice for q1")
+
+    lme_run._on_signal(signal.SIGINT, None)
+
+    assert lme_run._stop_requested is True
+    assert "Press Ctrl-C again to abort it now" in capsys.readouterr().out
+
+    with pytest.raises(SystemExit) as raised:
+        lme_run._on_signal(signal.SIGINT, None)
+
+    assert raised.value.code == 130
+    assert "aborting answering full_ice for q1 now" in capsys.readouterr().out
 
 
 def test_correct_profile_mute_is_retryable_not_a_profile_mismatch():

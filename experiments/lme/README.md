@@ -303,8 +303,13 @@ From any directory, run in this order:
 ```
 
 Generation and judging are deliberately separate. Wait for generation to print
-`0 instance(s) still outstanding` before starting its scorer. `Ctrl-C` stops
-after the active pair/instance boundary; rerun the identical command to resume.
+`0 instance(s) still outstanding` before starting its scorer. The first
+`Ctrl-C` requests a graceful stop after the active instance; a second `Ctrl-C`
+immediately abandons that instance. Rerun the identical command to resume from
+its last atomic condition answer or complete ingestion checkpoint. Before each
+answer request the runner prints the active condition, model, timeout, and retry
+count. Cloud SDK retries are disabled: a transport failure becomes a visible,
+resumable instance failure instead of silently extending one request.
 The generation wrapper starts the existing Docker Postgres container if needed,
 checks Ollama, evicts other resident Ollama models, pins
 `qwen3:4b-instruct-bg` with infinite keep-alive, and never requires an activated
@@ -393,7 +398,8 @@ reasoning never reaches it — the API returns reasoning separately from
 condition is persisted atomically (`tmp` + `os.replace`), so a valid vector answer
 can survive while ICE is rerun. An interrupted ingestion writes no answer and is
 redone from a full store wipe; a complete matching store can be reused after an
-answer-side interruption. Interactive stdout is tee'd to the phase log. Under a
+answer-side interruption. First `Ctrl-C` is graceful; second `Ctrl-C` exits the
+active instance immediately. Interactive stdout is tee'd to the phase log. Under a
 supervisor set `LME_DIRECT_JOURNAL=1`, which executes Python directly; stopping a
 supervised `python | tee` pipeline can close the logger before Python handles its
 signal.
