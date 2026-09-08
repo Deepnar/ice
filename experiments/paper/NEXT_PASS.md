@@ -65,17 +65,67 @@ asks from a fresh empty auto-scoped conversation, after a full store wipe per
 question. Exact run identity and invalidation details live in
 `experiments/lme/results/oracle_adapter_v2.md`.
 
+## Framing decision: one evaluation-led systems paper
+
+The paper must not become either an ICE architecture paper with LSREP attached,
+or a supposed comparison between LSREP and LongMemEval. Keep one paper, with
+three distinct roles:
+
+| Element | Role in the paper | Question it answers |
+|---|---|---|
+| **LSREP** | Primary methodological contribution | How should an evolving deployed memory state be reconstructed and evaluated repeatedly over time? |
+| **ICE v2** | Architectural contribution and audited system case study | What does a local-first, multi-store memory system do under that protocol, and which mechanisms actually carry its result? |
+| **LongMemEval** | Complementary public transfer diagnostic | Do the conclusions transfer to supplied multi-session histories, fresh-session aggregation, and distractors? |
+
+LSREP and LongMemEval therefore must not have their scores compared as if they
+were two competing benchmarks over the same construct. Their corpora, query
+placement, state lifecycle, answerers, and judging conditions differ. Compare
+their *evaluation dimensions* and interpret disagreement as a scope boundary:
+LSREP measures longitudinal state evolution inside continuing use;
+LongMemEval measures endpoint question answering over externally supplied
+histories. Use “complementary regimes,” “triangulation,” and “transfer
+diagnostic,” not “LSREP outperforms/replaces LongMemEval.”
+
+ICE must remain visible as more than a disposable system under test. Preserve
+the lifecycle, typed stores, retrieval/fusion, dynamic budget, local-first
+constraint, and component-fidelity audit in the main argument. At the same
+time, claim only the mechanisms the audit shows were live: v2's weak or
+unexercised graph, procedural, and cross-conversation paths are findings, not
+architectural wins. A later repaired-v3 systems paper can test those mechanisms
+as system contributions; this paper reports the frozen v2 honestly.
+
+Organise results by research question rather than by artifact:
+
+1. **RQ1 — longitudinal behaviour:** Under LSREP, does ICE preserve answer
+   quality while controlling retrieved context as state accumulates and ages?
+2. **RQ2 — mechanism fidelity:** Which ICE components were live, defective,
+   unexercised, corrective, or neutral, and what actually carried the result?
+3. **RQ3 — external transfer:** Under matched LongMemEval oracle and S runs,
+   which within-conversation findings survive fresh-session aggregation and
+   distractors?
+
+Do not split the current work into an LSREP-only paper and an ICE-only paper.
+LSREP currently has one private, single-user instantiation and needs the audited
+system case study; ICE's strongest contribution is precisely that its apparent
+success can be decomposed and bounded by LSREP plus the public diagnostic. The
+combination is stronger than either half at present. Preserve the 37-page
+canonical report as the full archival account, then express this same argument
+in a separate venue-limited paper rather than deleting ICE detail from the
+archive.
+
 ## Still required before submission
 
 1. **Build the ARR twin without changing the archive.** The current manuscript
    remains a 37-page archival version. The primary target is the 2026-10-12 ARR
    cycle, whose main-content limit is eight pages. Create a separate anonymous
    venue file; do not mutilate or rename the stable archival PDF.
-2. **Make the body genuinely LSREP-first.** Reorder to Introduction → Related
-   Work → LSREP → dataset/protocol instantiation → compact ICE-v2 case study →
-   LSREP and LongMemEval results → fidelity audit/limitations/conclusion. The
-   current title and front matter are LSREP-first, but Architecture still
-   precedes the protocol and most result space is organised around ICE.
+2. **Make the body genuinely evaluation-led.** Reorder to Introduction →
+   Related Work → LSREP → compact ICE-v2 architecture and audit contract →
+   dataset/protocol instantiation → results organised by RQ1/RQ2/RQ3 →
+   limitations/conclusion. The current title and front matter are LSREP-first,
+   but Architecture still precedes the protocol and most result space is
+   organised around ICE. “Evaluation-led” keeps LSREP primary without erasing
+   the system contribution.
 3. **Make LSREP concrete in the main text.** Add one compact protocol algorithm
    and one synthetic worked example: a fact at checkpoint T1, its revision at
    T2, and the corresponding evolving reference answer. No private raw example.
@@ -83,11 +133,12 @@ question. Exact run identity and invalidation details live in
    result table into the main paper. The full per-conversation table may remain
    in the appendix, but a reader must not need the appendix to see that all four
    datasets were evaluated.
-5. **Compress ICE to a case-study description.** Keep roughly one main-text page
-   covering only the lifecycle, stores, retrieval/fusion, and budget needed to
-   interpret LSREP. Add a compact retrieval algorithm or parameter table; move
-   schemas, workers, full configuration, pilot details, and full ablations after
-   the references.
+5. **Compress ICE without demoting it.** Keep one dense main-text section
+   (roughly 1--1.5 pages in an eight-page venue version) covering the lifecycle,
+   typed stores, retrieval/fusion, budget, and auditability needed to interpret
+   the experiments. Retain one compact architecture figure plus a retrieval
+   algorithm or parameter table; move schemas, worker implementation, full
+   configuration, pilot details, and complete ablations after the references.
 6. **Perform a claim-to-evidence pass.** Check every strong comparative claim,
    especially system-specific statements in Related Work. Prefer narrower
    wording where the cited paper does not run the claimed regime. Verify
@@ -116,3 +167,8 @@ commit suitable reviews to NAACL 2027 or COLING 2027. **Fallback: IP&M** if the
 eight-page paper or matched LongMemEval run is not genuinely ready; do not rush
 ICLR 2027's September deadline. The paper is a protocol, fidelity-audit, and
 boundary-finding paper—not a state-of-the-art LongMemEval system paper.
+
+**Venue decision still open:** reconsidering a TMLR resubmission is an explicit
+option, but its current resubmission policy, fit, and the value of returning
+there versus ARR must be checked before choosing it. No TMLR decision has been
+made yet.
