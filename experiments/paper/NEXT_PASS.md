@@ -1,6 +1,6 @@
 # Paper — remaining submission pass
 
-**Updated 2026-09-03 after the corrected ICE-v2 LongMemEval oracle run.** The
+**Updated 2026-09-11 after the matched-cloud ICE-v2 LongMemEval runs.** The
 canonical manuscript is `ICE_paper_v2.tex`; `ICE_paper_tist.tex` remains the
 frozen record of the rejected submission and must not be edited.
 
@@ -24,40 +24,49 @@ frozen record of the rejected submission and must not be edited.
 
 ## LongMemEval result that must not drift
 
-System: frozen ICE v2 at `v2-paper-eval`, adapter
-`ice-v2-lme-sessions-v2`. Judge: official LongMemEval prompts and yes/no rule,
-but local Ollama `gemma4:12b`, so the numbers are not comparable to the
-GPT-4o-judged leaderboard.
+The primary external diagnostic is now the completed, matched cloud run. System:
+frozen ICE v2 at `v2-paper-eval`; adapter `ice-v2-lme-sessions-v2`; 500 questions
+in each phase. Both ICE and vector-RAG answers use OpenCode Go
+`gpt-5.6-luna`; both are judged with the official LongMemEval prompt and yes/no
+rule through `muse-spark-1.3-contributor`. Background memory construction uses
+the evaluated local `qwen3:4b-instruct-bg`. The non-official Muse judge makes
+this a controlled within-study comparison, **not** a score directly comparable
+to GPT-4o-judged leaderboard results.
 
-| Question type | ICE v2 | Vector-RAG |
-|---|---:|---:|
-| Abstention | **96.6%** (29) | 93.3% (30) |
-| Knowledge update | 69.2% (65) | **76.1%** (71) |
-| Multi-session reasoning | 28.3% (120) | **86.6%** (119) |
-| Single-session assistant | 89.3% (56) | **100.0%** (56) |
-| Single-session preference | **89.7%** (29) | 82.8% (29) |
-| Single-session user | 86.9% (61) | **100.0%** (62) |
-| Temporal reasoning | 23.7% (118) | **52.1%** (117) |
-| Overall, obtainable verdicts | **55.2%** (264/478) | **80.2%** (388/484) |
-| All-500 bound | **52.8–57.2%** | **77.6–80.8%** |
+| Question type | Oracle ICE v2 | Oracle vector-RAG | Full-S ICE v2 | Full-S vector-RAG |
+|---|---:|---:|---:|---:|
+| Abstention | **83.3%** (30) | 60.0% (30) | **83.3%** (30) | 63.3% (30) |
+| Knowledge update | 58.3% (72) | **73.6%** (72) | 51.4% (72) | **69.4%** (72) |
+| Multi-session reasoning | 29.8% (121) | **86.0%** (121) | 21.5% (121) | **74.4%** (121) |
+| Single-session assistant | 91.1% (56) | **94.6%** (56) | 75.0% (56) | **94.6%** (56) |
+| Single-session preference | **70.0%** (30) | **70.0%** (30) | 43.3% (30) | **51.7%** (29) |
+| Single-session user | 78.1% (64) | **95.3%** (64) | 71.9% (64) | **93.8%** (64) |
+| Temporal reasoning | 22.8% (127) | **42.5%** (127) | 20.5% (127) | **47.2%** (127) |
+| Overall | **50.8%** (500) | **72.8%** (500) | **43.0%** (500) | **69.5%** (499) |
 
-This is mixed, not uniformly negative: ICE has higher point estimates on
-abstention and preference. It nevertheless loses robustly overall, with the
-largest failures on multi-session and temporal reasoning. Do not call the two
-category point estimates statistically established wins.
+Paired question-level inference is required in the paper, not only point
+estimates. In the oracle, ICE trails vector-RAG by 22.0 percentage points with a
+20,000-resample paired bootstrap 95% CI of [-26.6, -17.4] (n=500). In full-S,
+ICE trails by 26.5 points with CI [-31.3, -21.8] over the 499 questions with both
+verdicts. One full-S vector judgement is excluded; all-500 bounds are ICE
+43.0--43.0% and vector-RAG 69.4--69.6%, so the ordering is robust.
 
-LongMemEval-S was **not run**. The evidence-only oracle was the predeclared gate
-for the expensive distractor phase. The oracle is not a mathematical upper
-bound, because adding candidates can change retrieval non-monotonically; the
-stopped phase is a compute decision, not a claim about every unrun answer.
+Full-S distractors reduce ICE by 7.8 points: 68 oracle-correct answers become
+wrong while 29 oracle-wrong answers become correct. Vector-RAG loses about 3.3
+points (44 correct→wrong, 28 wrong→correct among 499 paired verdicts). The
+distractor phase therefore widens ICE's deficit, but it is not the root cause:
+ICE already trails by 22 points in the evidence-only oracle.
 
-**Subsequent decision, updated 2026-09-04:** the complete LongMemEval-S run is
-reopened. Because it uses a Luna cloud answerer and Muse cloud judge, the oracle
-must also be rerun under that identical stack. Background construction remains
-the exact evaluated Ollama `qwen3:4b-instruct-bg`; a vLLM AWQ substitute failed
-the grounded direction control and was rejected. Do not combine
-the current local oracle with the future cloud S result or rewrite the paper
-before both matched phases finish. `docs/PUBLISHING.md` owns the run design.
+The result is negative overall but not featureless. ICE's clear descriptive
+strength is abstention (83.3% versus 63.3% in full-S); its decisive failures are
+multi-session synthesis (21.5% versus 74.4%) and temporal reasoning (20.5%
+versus 47.2%). Do not call the abstention difference statistically established
+until its paired uncertainty is computed. Do not frame LongMemEval as validating
+ICE. Frame it as an external boundary test showing that LSREP's continuing-use
+results do not imply strong fresh-session aggregation or temporal QA.
+
+The old local-Gemma oracle is historical diagnostic evidence only. Never mix
+its scores with the matched cloud table.
 
 The first flattened-session adapter and its scores are invalid. The admissible
 run gives each supplied history session its own auto-scoped conversation and
@@ -143,11 +152,11 @@ archive.
    especially system-specific statements in Related Work. Prefer narrower
    wording where the cited paper does not run the claimed regime. Verify
    operational numbers such as latency and model recall too.
-7. **Integrate the matched public benchmark only after it finishes.** Report the
-   new oracle and S phases side by side, with exact answerer/judge/background
-   identities, per-type scores, failure bounds, and deviations. Preserve the
-   current local oracle as a separate historical diagnostic. Do not claim
-   leaderboard comparability unless the official judge/protocol are used.
+7. **Integrate the completed matched public benchmark.** Report oracle and S
+   side by side with exact answerer/judge/background identities, paired
+   bootstrap confidence intervals, the one-judgement failure bound, and
+   oracle→S correctness transitions. Preserve the local-Gemma oracle only as a
+   historical diagnostic. Do not claim leaderboard comparability.
 8. **Decide the public artifact package.** Publish the aggregate LongMemEval
    report and adapter/harness, but do not casually commit roughly 1,500 raw
    current answer and judgement files—or the larger matched run that replaces
@@ -159,6 +168,20 @@ archive.
 10. **Repair the stale citation-checker note.** Its header still says network
    verification is unavailable even though arXiv/CrossRef checks succeeded in
    the TIST-repair session.
+11. **Keep the vector baseline visible and contextualise other memory systems
+    honestly.** The pure vector-RAG arm is the matched, same-answerer baseline
+    and must appear in the main results, not be hidden in an appendix. Add a
+    compact table of published LongMemEval memory systems only as external
+    context, clearly separating their official datasets, answerers, judges,
+    prompts, and retrieval budgets. Published GPT-4o-judged scores are not
+    head-to-head comparisons with the Muse-judged ICE run. A defensible direct
+    comparison requires rerunning those systems under this matched stack or
+    rejudging ICE and vector-RAG with the official judge.
+12. **Compute uncertainty beyond the overall score.** Add paired bootstrap CIs
+    for oracle, full-S, and the oracle→S degradation difference. For category
+    claims—especially abstention—report paired counts and uncertainty or label
+    them descriptive because n=30 is small. Bootstrap the question, preserving
+    the ICE/vector pair; do not bootstrap arms independently.
 
 ## Venue direction
 
