@@ -1,5 +1,29 @@
 # Provenance ledger
 
+## 2026-09-12 — frozen-v2 paper final analysis and NORA preparation
+
+No new model run. Existing matched-cloud LongMemEval records reproduce ICE/vector
+50.8/72.8% oracle and 43.0/69.5% full-S. Paired 20,000-resample intervals are
+−22.0 [−26.6,−17.4] and −26.5 [−31.3,−21.8] points; common-question extra
+phase degradation is +4.4 [−0.2,9.2]. Full-S abstention remains descriptive
+(7/1 discordant; exact McNemar p=0.0703125). Aggregate outputs include paired
+cells, four-outcome phase cells, provider-token and generation-time distributions.
+
+LSREP repeats 219 probes into 1,211 observations at 52 checkpoints. Whole-probe
+resampling yields ordinary-density Δ=+0.002 [−0.148,0.158]; without manual
+replacements −0.020 [−0.169,0.136]. Merged vector-generalist scores include 130
+failure assignments and two sibling substitutions. Complete-case all-data
+Δ=+0.046 [−0.101,0.199] removes most density failures and does not replace
+reliability. Paired ordinal ordinary counts are 216 ICE-higher, 215 vector-higher,
+626 ties. These estimates condition on the same single-user histories.
+
+Artifacts and reproducible entry points: `experiments/paper/ARTIFACTS.md`.
+Canonical: `ICE_paper_v2.{tex,pdf}`; anonymous NORA research-track preparation:
+`ICE_paper_arr.{tex,pdf}`. Paired/ordinal controls and PDF compilation validate
+analysis and presentation, not universal system effectiveness or judge correctness.
+Current v3 development state and the frozen architecture report are unchanged.
+
+
 **What produced each artifact, recorded when it was produced.**
 
 This file exists so that writing the paper is a matter of *reading* rather than

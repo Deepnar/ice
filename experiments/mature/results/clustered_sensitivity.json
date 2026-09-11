@@ -1,0 +1,36 @@
+{
+  "system": "ICE v2",
+  "seed": 20260911,
+  "resamples": 20000,
+  "estimand": "observation-weighted mean ICE generalist minus vector generalist; pairs preserved; probe clusters resampled",
+  "limitation": "conditions on four conversations from one author and recorded outcomes; not a user-population CI",
+  "views": {
+    "all": {
+      "observations": 1211,
+      "distinct_probes": 219,
+      "delta": 0.3955408753096614,
+      "ci95": [
+        0.19201268096978139,
+        0.6178675706785702
+      ]
+    },
+    "ordinary": {
+      "observations": 1057,
+      "distinct_probes": 182,
+      "delta": 0.001892147587511826,
+      "ci95": [
+        -0.14780382481982635,
+        0.15804657006245026
+      ]
+    },
+    "density": {
+      "observations": 154,
+      "distinct_probes": 37,
+      "delta": 3.0974025974025974,
+      "ci95": [
+        2.721049571603427,
+        3.4700037313432834
+      ]
+    }
+  }
+}

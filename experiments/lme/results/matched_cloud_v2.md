@@ -88,3 +88,45 @@ are complementary, not interchangeable.
 Every finding here concerns frozen ICE v2. ICE v3 development continues
 separately on `main`; later v3 repairs cannot be attributed retroactively to the
 evaluated system without a new, explicitly versioned experiment.
+
+## Reproducible paired reanalysis and costs (2026-09-11)
+
+Run `uv run python experiments/lme/analyze_matched.py` from the repository root.
+The script reads local evidence without network/model/DB calls and writes only
+`matched_cloud_analysis.json`: paired aggregate cells, uncertainty, transitions,
+and cost distributions by phase, arm, category, and correctness. Seed 20260911;
+20,000 paired question resamples. Raw evidence is excluded from the release.
+
+- Overall CIs reproduce the figures above.
+- On the common 499 four-way-complete questions, extra ICE v2 degradation is
+  **4.4 points, 95% CI [-0.2, 9.2]**. Greater degradation is a point estimate,
+  not an established nonzero effect. ICE loses 7.6 points on this common set;
+  its 7.8-point marginal loss uses all 500.
+- Full-S abstention paired cells: both correct 18, ICE-only 7, vector-only 1,
+  both wrong 4. Difference **+20.0 points [3.3, 36.7]**, n=30. Exact two-sided
+  McNemar p=0.0703; retain the descriptive wording. Oracle abstention:
+  cells 17/8/1/4, **+23.3 [6.7, 40.0]**.
+- Category intervals are exploratory, unadjusted, and conditional on recorded
+  Muse verdicts. They do not measure judge or generation rerun uncertainty.
+
+| Phase / arm | Selected fragments median [IQR] | Provider input tokens median [IQR] | Generation seconds median [IQR] |
+|---|---:|---:|---:|
+| Oracle ICE v2 | 3 [3,4] | 2,006 [1,758,2,118] | 2.8 [2.2,3.4] |
+| Oracle vector | 11.5 [6,12] | 5,529 [3,370,6,732] | 2.0 [1.6,2.8] |
+| Full-S ICE v2 | 5 [4,6] | 2,222 [2,168,2,289] | 3.1 [2.5,3.8] |
+| Full-S vector | 30 [30,30] | 11,718 [10,437,12,923] | 2.6 [2.1,3.5] |
+
+All 2,000 final answers are non-empty and have provider input usage. Final
+answer failure is zero; transient retries are not measured by this statistic.
+`tokens_injected` is a word-based estimate of the complete answer prompt, not
+retrieval-only tokens. `seconds` measures generation, excluding retrieval and
+construction. The vector arm's recorded `retrieval_budget` belongs to an unused
+orchestrator; its actual policy is top-30 without a token cap. Per-leg candidate
+counts, retrieval-only tokens, retrieval latency, and per-arm construction costs
+are unavailable at the required granularity.
+
+Full-S correct/incorrect provider-token medians are ICE v2 2,224/2,219 and vector
+11,650/11,855. More context accompanies vector's much higher accuracy but does
+not guarantee a correct answer; these outcome strata are observational and do
+not estimate the effect of increasing a budget. This remains a quality–cost
+trade-off, not an efficiency victory.

@@ -111,24 +111,32 @@ def main():
         prev, curr = BUILDUP_CHAIN[i - 1], BUILDUP_CHAIN[i]
         step_deltas[curr] = boot_paired_delta(rng, scores, curr, prev)
 
+    # Reuse each contrast: repeated report views must not introduce Monte Carlo drift.
+    cache = {(BUILDUP_CHAIN[i], BUILDUP_CHAIN[i-1]): step_deltas[BUILDUP_CHAIN[i]]
+             for i in range(1, len(BUILDUP_CHAIN))}
+    def contrast(a, b):
+        if (a, b) not in cache:
+            cache[a, b] = boot_paired_delta(rng, scores, a, b)
+        return cache[a, b]
+
     # Paired cumulative deltas (curr vs bare_vector)
     cum_deltas = {}
     for cond in BUILDUP_CHAIN[1:]:
-        cum_deltas[cond] = boot_paired_delta(rng, scores, cond, "bare_vector")
+        cum_deltas[cond] = contrast(cond, "bare_vector")
 
     # Headline contrasts called out explicitly in the paper
     contrasts = {
         # BM25-without-fusion damage, then RRF rescue on top of it
         "bm25_damage (add_bm25 - bare_vector)":
-            boot_paired_delta(rng, scores, "add_bm25", "bare_vector"),
+            contrast("add_bm25", "bare_vector"),
         "rrf_rescue (add_rrf - add_bm25)":
-            boot_paired_delta(rng, scores, "add_rrf", "add_bm25"),
+            contrast("add_rrf", "add_bm25"),
         "rrf_vs_bare (add_rrf - bare_vector)":
-            boot_paired_delta(rng, scores, "add_rrf", "bare_vector"),
+            contrast("add_rrf", "bare_vector"),
         "full_ice_vs_bare (full_ice - bare_vector)":
-            boot_paired_delta(rng, scores, "full_ice", "bare_vector"),
+            contrast("full_ice", "bare_vector"),
         "full_ice_vs_vecbaseline (full_ice - vector_baseline)":
-            boot_paired_delta(rng, scores, "full_ice", REFERENCE),
+            contrast("full_ice", REFERENCE),
     }
 
     report = {
