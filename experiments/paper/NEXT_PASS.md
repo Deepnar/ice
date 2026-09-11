@@ -4,6 +4,24 @@
 canonical manuscript is `ICE_paper_v2.tex`; `ICE_paper_tist.tex` remains the
 frozen record of the rejected submission and must not be edited.
 
+## Version boundary — preserve the ongoing v3 programme
+
+This manuscript reports **frozen ICE v2** at tag `v2-paper-eval`. Real ICE
+product and research development continues independently on **v3**, which is
+`main`. The paper-writing session must preserve that separation:
+
+- Do not change `src/`, the v3 roadmap, current architecture documentation, or
+  the project-level `docs/HANDOFF.md` as part of rewriting this paper.
+- Do not use a v3 fix, feature, configuration, or expected behavior to explain
+  what v2 did. Verify architectural statements against the frozen tag and
+  `docs/ICE_Architecture[real_v2].md`.
+- A weakness found in v2 may motivate future work, but remains a measured v2
+  limitation unless a separately identified v3 experiment evaluates a repair.
+- Keep v2 and v3 names on every number and behavioral claim. Storing the paper
+  on `main` does not make `main` the evaluated system.
+- Keep paper-only plans in this file or the gitignored live session file, not in
+  the v3 roadmap or handoff unless they genuinely change the v3 programme.
+
 ## Completed in the post-TIST repair
 
 - The paper is framed protocol-first: LSREP is the first contribution and ICE
@@ -181,6 +199,14 @@ archive.
     this claim: report median and spread, not only totals or configuration caps.
     Distinguish candidates retrieved, fragments surviving selection, fragments
     injected, and tokens actually presented to the answerer.
+
+    Call ICE **token-efficient** only under a declared quality constraint or an
+    explicit accuracy--token frontier. Defensible measures include tokens per
+    correct answer, accuracy at matched token budgets, or Pareto dominance
+    across budgets. “ICE used fewer tokens” alone establishes context economy,
+    not efficiency, when accuracy is substantially lower. Without matched-budget
+    reruns, report the observed quality--cost trade-off without declaring an
+    efficiency winner.
 
     Add a
     compact table of published LongMemEval memory systems only as external

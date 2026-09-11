@@ -84,3 +84,7 @@ LSREP evaluates longitudinal state evolution inside continuing use;
 LongMemEval evaluates endpoint QA over supplied multi-session histories. Their
 disagreement is evidence that system-fidelity and public end-task evaluation
 are complementary, not interchangeable.
+
+Every finding here concerns frozen ICE v2. ICE v3 development continues
+separately on `main`; later v3 repairs cannot be attributed retroactively to the
+evaluated system without a new, explicitly versioned experiment.
