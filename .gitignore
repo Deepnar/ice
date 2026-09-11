@@ -34,7 +34,9 @@ experiments/unmature/results_phase2
 # Old per-file entries (buildup/*.json, mature/generated_probes.json, mature/_*.txt) were
 # consolidated here after those files moved into intermediates//results/ subfolders.
 experiments/mature/intermediates/
-experiments/mature/results
+experiments/mature/results/*
+!experiments/mature/results/clustered_sensitivity.json
+!experiments/mature/results/scoring_sensitivity.json
 experiments/unmature/intermediates/
 experiments/flaw_ablation/buildup/intermediates/
 # buildup/results/ holds TRACKED exp3_bootstrap_report.{json,md} — ignore only the local files:
@@ -93,3 +95,7 @@ docs/SESSION.md
 # LongMemEval corpus — external, MIT, 278 MB + 15 MB. Re-fetchable at the pinned
 # revision with experiments/lme/fetch_dataset.py; never committed.
 experiments/lme/data/
+
+# Frozen-v2 LongMemEval raw outputs and calibration evidence remain local.
+# Aggregate reports under experiments/lme/results/ stay versioned.
+experiments/lme/runs/
