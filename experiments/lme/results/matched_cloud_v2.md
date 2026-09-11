@@ -69,6 +69,16 @@ failures are multi-session synthesis (21.5% versus 74.4%) and temporal reasoning
 (20.5% versus 47.2%). Category-level differences require paired uncertainty
 before being called statistically established.
 
+Accuracy is not the whole comparison. The pure vector-RAG arm reaches about
+69.5% on full-S while retrieving and injecting substantially more fragments and
+context than ICE. The paper must therefore report per-arm retrieval volume,
+injected-context tokens, answer-prompt tokens where recorded, configured
+top-k/budget, latency, and failures for both phases. Until exact distributions
+are extracted from the artifacts, this report makes no efficiency claim: lower
+context use coupled with lower accuracy is a trade-off, not automatically an
+advantage. Candidate count, selected fragment count, injected fragment count,
+and actual answerer-input tokens must not be conflated.
+
 For the paper, this is an external boundary test rather than validation of ICE.
 LSREP evaluates longitudinal state evolution inside continuing use;
 LongMemEval evaluates endpoint QA over supplied multi-session histories. Their

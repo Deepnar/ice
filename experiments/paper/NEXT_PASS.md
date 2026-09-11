@@ -171,6 +171,18 @@ archive.
 11. **Keep the vector baseline visible and contextualise other memory systems
     honestly.** The pure vector-RAG arm is the matched, same-answerer baseline
     and must appear in the main results, not be hidden in an appendix. Add a
+    retrieval-cost table beside accuracy: fragments retrieved and injected,
+    retrieved-context tokens, total answer-prompt tokens where available,
+    configured top-k/budget, latency, and failure rate for each arm and phase.
+    The vector arm's roughly 69% full-S accuracy is meaningful, but it was
+    achieved by admitting substantially more fragments and tokens than ICE;
+    describe it as a strong high-context baseline, not as an efficiency-neutral
+    comparator. Extract exact distributions from the artifacts before writing
+    this claim: report median and spread, not only totals or configuration caps.
+    Distinguish candidates retrieved, fragments surviving selection, fragments
+    injected, and tokens actually presented to the answerer.
+
+    Add a
     compact table of published LongMemEval memory systems only as external
     context, clearly separating their official datasets, answerers, judges,
     prompts, and retrieval budgets. Published GPT-4o-judged scores are not
@@ -182,6 +194,15 @@ archive.
     claims—especially abstention—report paired counts and uncertainty or label
     them descriptive because n=30 is small. Bootstrap the question, preserving
     the ICE/vector pair; do not bootstrap arms independently.
+13. **Analyse quality jointly with retrieval cost.** For both oracle and full-S,
+    compare accuracy against fragment count, injected tokens, answer-prompt
+    length, and latency. Stratify these quantities by question type and by
+    correct/incorrect outcome so the paper can distinguish “ICE retrieved too
+    little,” “vector succeeded by supplying much more context,” and “more
+    context still failed.” Do not infer causality from correlation, and do not
+    call ICE efficient merely because it injected less context while losing on
+    accuracy. If answerer usage metadata is incomplete, state exactly which
+    token quantity is measured and which is unavailable.
 
 ## Venue direction
 
