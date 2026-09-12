@@ -5,6 +5,11 @@ the production config from the same runs rather than guessing it afterwards.**
 
 Owner item: [ROADMAP G63](../ROADMAP.md#g63). Evidence: [PROVENANCE](../PROVENANCE.md) 2026-08-24.
 
+**v3 repair update, 2026-09-12:** the deployed extractor/model decision stands.
+Extraction eligibility and complete-response/error semantics now follow
+[V3_REPAIR.md](V3_REPAIR.md); historical lossless-only and salvage behavior below
+is superseded. The template default was already promoted on August 27.
+
 ---
 
 ## The rules this protocol runs under

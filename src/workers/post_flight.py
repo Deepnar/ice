@@ -10,18 +10,18 @@ import re
 import uuid
 from datetime import datetime, timezone
 
-from src.api.config import settings
 import structlog
 from sqlalchemy import text
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, IdempotencyKey
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 from src.workers.codex_extractor import embedder as shared_embedder
 from src.workers.codex_extractor import extract_codex
 from src.workers.document_chunker import run_chunk_turn
-from src.workers.procedural_extractor import extract_procedural
 from src.workers.idempotency import job_key
+from src.workers.procedural_extractor import extract_procedural
 from src.workers.turn_density import (
     compute_entropy,
     decide_representation,
@@ -169,17 +169,9 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
     """Density qualification + representation decision, then the derivative
     pipelines (chunking, codex, procedural) as direct calls.
 
-    C12: `source_kind="document"` marks a section of an ingested document
-    rather than a chat exchange. Two things change, both for the same reason —
-    the density machinery was built to protect the graph from conversational
-    chatter, and a document is not chatter:
-      * `lossless` is FORCED true, so the section reaches codex extraction. The
-        normal gate is `has_code or is_creative or entropy >= threshold`, and
-        `has_code` reads the ASSISTANT half, which a document does not have —
-        so a low-entropy page of a specification would silently never enter the
-        knowledge graph, which is precisely what C12 exists to fix;
-      * the summary prompt stops claiming the text is a user/assistant
-        exchange (`source_title` names the document instead).
+    Document sections retain lossless representation eligibility, and their
+    summaries use a document prompt. Extraction is independent of that flag:
+    every non-private turn can contribute facts, even a short correction.
 
     Idempotency layout (C7 rev 2026-07-11): the density/summary stage is
     guarded by this job's own key, but the chained stages run on every entry —
@@ -234,9 +226,8 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
 
             key_terms = extract_key_terms(full_text, shared_embedder)
             entropy = compute_entropy(full_text, key_terms, has_code)
-            # lossless = "valuable enough for lossless treatment" — gates codex
-            # extraction below and exempts from batch summarisation. Generous
-            # by design (codex was historically starved).
+            # Lossless controls representation and batch-summary eligibility.
+            # Every non-private turn can carry facts, including short corrections.
             lossless = (is_doc_source or has_code or is_creative
                         or entropy >= settings.turn_density_lossless_threshold)
 
@@ -297,8 +288,7 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
         if turn.is_private:
             log.info("private_turn_pipelines_skipped")
         else:
-            if turn.lossless_flag:
-                extract_codex(batch_id=batch_id, model_used=model_used)
+            extract_codex(batch_id=batch_id, model_used=model_used)
             extract_procedural(batch_id=batch_id, model_used=model_used)
             # E8: project-attached turns also run cue-gated decision
             # extraction — a direct call in this gpu job (C7 chain style);
@@ -315,8 +305,11 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
                                         origin="turn")
 
     except Exception as exc:
+        from src.workers.runtime import JobYielded
+
         db.rollback()
-        log.error("worker_transaction_execution_failure", error=str(exc))
+        if not isinstance(exc, JobYielded):
+            log.error("worker_transaction_execution_failure", error=str(exc))
         raise
     finally:
         db.close()

@@ -9,8 +9,6 @@ from typing import List, Optional
 import numpy as np
 import structlog
 from sqlalchemy import text
-
-from src.workers.llm_json import strip_fences
 from sqlalchemy.orm.attributes import flag_modified
 
 from src.api.config import settings
@@ -26,7 +24,9 @@ from src.memory.models import (
     ReviewQueue,
 )
 from src.retrieval.ner_utils import extract_entities
+from src.workers.extraction_result import parse_extraction_response
 from src.workers.idempotency import job_key
+
 # G50: shared identity key. Safe at module level — maintenance_agent's own
 # codex_extractor imports are all lazy (inside functions), so there is no cycle,
 # and it pulls in nothing heavier than settings at import time.
@@ -309,6 +309,7 @@ from src.memory.chunking import (
 from src.memory.chunking import (
     estimate_tokens as _estimate_tokens,
 )
+
 # G68/P3: the same probe the request path budgets against — runner allocation
 # from /api/ps, clamped by the GGUF ceiling, cached. Reused rather than
 # re-derived so there is one answer to "how big is this model's window".
@@ -822,7 +823,7 @@ def _grounding_ner_labels() -> Optional[List[str]]:
 def extract_triplets(text: str, model_override: str = "",
                      topic_tags: Optional[List[str]] = None,
                      gaps: Optional[list] = None) -> list:
-    """Extract structured triplets using a controlled relation vocabulary.
+    """Extract complete facts; failures propagate for runtime retry.
 
     `gaps` is an optional sink: when supplied, every triplet whose relation
     cannot be mapped onto the vocabulary is appended to it instead of simply
@@ -1061,59 +1062,12 @@ def extract_triplets(text: str, model_override: str = "",
                     shape["items"]["properties"]["relation"]["enum"] = sorted(ALLOWED_RELATIONS)
                 call_kwargs["response_format"] = json_schema("codex_triplets", shape)
             completion = bg_client.chat.completions.create(**call_kwargs)
-            raw = completion.choices[0].message.content.strip()
-            logger.debug("extraction_raw_response", raw=raw[:200])
-
-            # ⚑ G63: a template-mode extractor is a REASONING model — it emits
-            # its chain of thought, then `</think>`, then the JSON. Keeping the
-            # prefix makes every response unparseable. Splitting on the LAST
-            # occurrence because the reasoning text can mention the tag.
-            if template_mode and "</think>" in raw:
-                raw = raw.rsplit("</think>", 1)[-1].strip()
-
-            # G29: shared fence-strip. The triplet regex below stays local —
-            # it is a domain-specific salvage for THIS schema, not a fifth copy
-            # of the generic one.
-            raw = strip_fences(raw)
-
-            # Parse JSON
-            decoder = json.JSONDecoder()
-            try:
-                parsed, _ = decoder.raw_decode(raw)
-            except json.JSONDecodeError:
-                # Fallback regex for individual triplet objects
-                triplet_pattern = re.compile(
-                    r'\{\s*"subject"\s*:\s*"([^"]+)"\s*,\s*"relation"\s*:\s*"([^"]+)"\s*,\s*"object"\s*:\s*"([^"]+)"\s*\}',
-                    re.DOTALL
-                )
-                matches = triplet_pattern.findall(raw)
-                if matches:
-                    chunk_triplets = [{"subject": s, "relation": r, "object": o} for s, r, o in matches]
-                else:
-                    chunk_triplets = []
-            else:
-                # ⚑ G63: template mode returns the ENVELOPE it was handed —
-                # {"facts": [...]} — while instruct mode returns a bare array.
-                # Accepting both here rather than branching keeps one parse
-                # path, and a stray envelope from either mode still works.
-                if isinstance(parsed, dict):
-                    parsed = parsed.get("facts") or parsed.get("triplets") or []
-                if isinstance(parsed, list):
-                    # ⚑ REQUIRE STRING VALUES, not just present keys. This read
-                    # `all(k in item ...)`, which admits `{"subject": null}` —
-                    # and two `.strip()` calls downstream then die on None,
-                    # losing the WHOLE turn's extraction, not just that triplet.
-                    # Latent since the schema constraint guaranteed strings for
-                    # the instruct path; a template model emits a null and it
-                    # fires immediately (found 2026-08-25 wiring G63/P1).
-                    chunk_triplets = [
-                        item for item in parsed
-                        if isinstance(item, dict)
-                        and all(isinstance(item.get(k), str) and item.get(k).strip()
-                                for k in ("subject", "relation", "object"))
-                    ]
-                else:
-                    chunk_triplets = []
+            choice = completion.choices[0]
+            chunk_triplets = parse_extraction_response(
+                choice.message.content,
+                getattr(choice, "finish_reason", None),
+                template_mode=template_mode,
+            )
 
             # Map each relation onto the vocabulary; keep what maps, RECORD what
             # does not. This line used to be a bare filter with no log, and it
@@ -1173,16 +1127,9 @@ def extract_triplets(text: str, model_override: str = "",
                     gaps.extend(dropped)
             chunk_triplets = kept
 
-            # Sanity filter: remove triplets where object is clearly a verb phrase
-            suspicious_objects = {"blush", "laugh", "cry", "smile", "angry", "sad", "happy", "mad"}
-            chunk_triplets = [t for t in chunk_triplets
-                              if t.get("object", "").strip().lower() not in suspicious_objects]
-
-            # Drop self-referential triplets ("fastapi uses fastapi") — an
-            # attention-dilution artifact the A1/A2 work targets; grounding
-            # alone can't catch it since both terms are confirmed entities.
-            chunk_triplets = [t for t in chunk_triplets
-                              if _normalize_term(t.get("subject", "")) != _normalize_term(t.get("object", ""))]
+            # Source support, not an object-word blacklist or equality of
+            # endpoints, determines whether a claim is meaningful. Reflexive
+            # relations and emotion values can both be valid facts.
 
             # NER grounding → extraction confidence (A3, completing the A2 seam):
             # grounded triplets are trusted high; grounding-REJECTED triplets are
@@ -1241,8 +1188,12 @@ def extract_triplets(text: str, model_override: str = "",
         return list(by_key.values())
 
     except Exception as err:
-        logger.error("triplet_parsing_failed", error=str(err))
-        return []
+        # Cooperative yields must reach the runtime without consuming a retry.
+        from src.workers.runtime import JobYielded
+
+        if not isinstance(err, JobYielded):
+            logger.warning("codex_extraction_incomplete", error=str(err))
+        raise
 
 
 
@@ -2178,10 +2129,14 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
     
     try:
         if db.query(IdempotencyKey).filter_by(key=idempotency_key).first():
+            log.info("codex_already_extracted")
             return
 
-        turn = db.query(EpisodicMemory).filter_by(batch_id=uuid.UUID(batch_id)).first()
-        if not turn or not turn.lossless_flag:
+        turn = db.query(EpisodicMemory).filter_by(batch_id=uuid.UUID(str(batch_id))).first()
+        if turn is None:
+            raise RuntimeError(f"turn for batch {batch_id} not visible yet")
+        if turn.is_private:
+            log.info("codex_private_turn_skipped")
             return
 
         relation_gaps = []
@@ -2211,8 +2166,11 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
         log.info("codex_graph_assertions_committed", extracted_count=len(triplets))
 
     except Exception as exc:
+        from src.workers.runtime import JobYielded
+
         db.rollback()
-        log.error("codex_extraction_aborted", error=str(exc))
+        if not isinstance(exc, JobYielded):
+            log.error("codex_extraction_aborted", error=str(exc))
         raise
     finally:
         db.close()

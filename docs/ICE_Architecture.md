@@ -402,9 +402,18 @@ Every state change emits a CodexEvent; context_payload is rebuilt from the prope
 > ⚠ **Moves with `codex_extraction_mode`.** Each model is usable only in its own prompt shape: NuExtract3 on the instruct prompt emits garbage; qwen on the template emits unparseable clause-triplets.
 
 
-When the task is dispatched from the bookmark endpoint, it receives priority=True, which causes it to skip the GPU‑utilisation gate (is_gpu_busy()) and the shared‑mode user‑activity gate. This is the only code path that overrides the yield‑to‑user constraint (INV‑5), ensuring that a user‑bookmarked turn is immediately processed into the knowledge graph.
+Bookmark dispatch retains the `priority` argument for compatibility. In v3, the runtime owns scheduling and the extractor cooperatively yields at chunk boundaries; the argument does not bypass user-activity gating.
 
-The Codex Extractor (workers/codex_extractor.py::extract_codex, plain callable since C7 — a direct call inside the post-flight job when lossless_flag == True; user_control's bookmark endpoint enqueues it standalone as the "codex_extract" runtime job with priority=True) runs the following pipeline:
+The Codex Extractor (workers/codex_extractor.py::extract_codex, plain callable since C7 — a direct call inside the post-flight job for every non-private turn; user_control's bookmark endpoint enqueues it standalone as the "codex_extract" runtime job with priority=True) runs the following pipeline:
+
+**v3 completion repair (2026-09-12):** extraction accepts complete arrays or
+explicit facts/triplets envelopes with valid string fields and boolean polarity.
+Empty JSON is a successful no-fact result; empty text, malformed output or a
+provider truncation raises to the runtime. No partial graph or completion key
+commits until every chunk succeeds. Cooperative yields propagate. The old
+emotion-object blacklist and equality-of-endpoints filter are removed: “feels
+happy” and reflexive relations can be supported facts. Parser and live writer
+checks cover these mechanics; this is not a new semantic-quality measurement.
 
 > ⚑ **§4 STEPS 4–6 CHANGED ON 2026-08-25 (G63/G68) — read this before the numbered steps below, which describe the pre-change path.**
 >
@@ -412,7 +421,7 @@ The Codex Extractor (workers/codex_extractor.py::extract_codex, plain callable s
 >
 > Four things in §4 are now different:
 >
-> * **Two prompt SHAPES exist** (`codex_extraction_mode`). `instruct` is the nine-rule prompt in step 5 below — built for a generalist that does not know the task. `template` sends a JSON schema to FILL and nothing else, strips a `</think>` reasoning block, and accepts a `{"facts": […]}` envelope. **Each model is usable only in its own shape**: NuExtract3 on the instruct prompt produces garbage, and qwen on the bare template produces clause-triplets it cannot parse 30% of the time. ⚠ **Default is still `instruct`** so every published number reproduces.
+> * **Two prompt SHAPES exist** (`codex_extraction_mode`). `instruct` is the nine-rule prompt in step 5 below — built for a generalist that does not know the task. `template` sends a JSON schema to FILL and nothing else, strips a `</think>` reasoning block, and accepts a `{"facts": […]}` envelope. **Each model is usable only in its own shape**: NuExtract3 on the instruct prompt produces garbage, and qwen on the bare template produces clause-triplets it cannot parse 30% of the time. ⚠ **The v3 default is `template`** (since August 27); historical instruct runs require their original configuration.
 > * ⛔ **The relation vocabulary must NEVER be put in the prompt.** Isolated in a blind round: vocabulary-in-prompt scores **22% correct against the bare template's 60%**. Given a list, the model reaches for a listed word when none fits — `MIT/Stanford/CMU --works_at--> Google India`, `authors --cites--> authors`. It is applied **after** extraction by `canonical_relation` instead, at no prompt cost. See [G69](ROADMAP.md#g69).
 > * **Chunking is no longer a fixed 550.** It is sized from `serving_window()` minus prompt and output budget, clamped by `codex_extraction_chunk_max` (4096), falling back to 550 **with a warning** when the probe fails. Measured over 71,256 turns: at 550, **only 23% of corpus tokens fit in one chunk** — 91% of *turns* did, but the median turn is 24 tokens. ⚠ The ceiling is unresolved; nothing above ~1,500 tokens has been measured ([G68](ROADMAP.md#g68)).
 > * **`codex_extraction_max_tokens` is 3000, not 1200.** At 1200 template mode lost **30 of 60 turns**, and truncation was logged on qwen too. Couples to the timeout: 72s → 180s.
@@ -811,15 +820,15 @@ post_flight.evaluate_turn(batch_id, prompt, response, conversation_id, model_use
 
 - **Document detection** — raw_words \> 2000 AND assistant_count \< 3 ⇒ is_document = True with raw injection — folded into the decision matrix, which also fixed the old **clobber bug** (the document branch's inject_raw=True was previously overwritten by the general assignment two lines later, so documents silently *lost* raw injection).
 
-After the density stage (C7): it calls extract_codex(...) directly (only if lossless), extract_procedural(...) directly (always), and — for is_document turns and all long turns (> ~600 words, C3) — run_chunk_turn(db, turn) directly (runs for private turns too, since chunk visibility is enforced through the parent join); all in the same runtime job, each stage self-idempotent so a retry completes whatever a partial failure skipped. The codex/procedural calls are skipped entirely for private turns (§6.10). The old broker-down JSONL buffer is gone (C7 D8 — see §10.3).
+After the density stage (C7): it calls extract_codex(...) directly (every non-private turn), extract_procedural(...) directly (always), and — for is_document turns and all long turns (> ~600 words, C3) — run_chunk_turn(db, turn) directly (runs for private turns too, since chunk visibility is enforced through the parent join); all in the same runtime job, each stage self-idempotent so a retry completes whatever a partial failure skipped. The codex/procedural calls are skipped entirely for private turns (§6.10). The old broker-down JSONL buffer is gone (C7 D8 — see §10.3).
 
 **§6.1a Read-time representation choice (C1).** _rows_to_fragments no longer follows inject_raw blindly; _choose_representation picks per query, in order of authority: (1) *trust* — no summary, or summary_coverage below 0.7, ⇒ raw (a summary that dropped must-terms is never used; NULL coverage = legacy summary, status-quo trust); (2) *keyword protection* — if the matched prompt keyword lives in raw but not in the summary ⇒ raw, and not degradable (degrading would remove the very term that made the fragment relevant); (3) *intent preference* — Factual_Retrieval/Troubleshooting prefer raw (degradable), Analysis/Strategic_Planning/Ideation/Open_Exploration prefer the trusted summary; (4) otherwise the storage-side hint. Fragments carry **degrade_text** (the trusted summary when raw was chosen) and **abstract_text** (C3: the one-line abstract, generated in the *same* LLM call as the summary and stored in episodic_memory.abstract_text; attached under the same trust and keyword-protection rules, never *preferred*), and _enforce_token_budget performs **degrade-before-drop** in both phases through the full hierarchy — raw → trusted summary → abstract — taking the first level that fits the remaining budget. Word-cap truncation is sentence-aware (C3, _truncate_at_sentence: the cut lands on the last sentence boundary inside the cap when one exists past 60% of it).
 
 ### **8.3 Codex Extractor**
 
-When the task is dispatched from the bookmark endpoint, it receives priority=True, which causes it to skip the GPU‑utilisation gate (is_gpu_busy()) and the shared‑mode user‑activity gate. This is the only code path that overrides the yield‑to‑user constraint (INV‑5), ensuring that a user‑bookmarked turn is immediately processed into the knowledge graph.
+Bookmark dispatch retains the `priority` argument for compatibility. In v3, the runtime owns scheduling and the extractor cooperatively yields at chunk boundaries; the argument does not bypass user-activity gating.
 
-codex_extractor.extract_codex(batch_id, model_used, priority) (§4.4) — plain callable since C7, idempotency key sha256("codex:" + batch_id), called directly from evaluate_turn only when lossless_flag == True (gating/retries live in the runtime). Reads EpisodicMemory by batch_id, calls extract_triplets, validates/deduplicates, and calls handle_triplet per triplet.
+codex_extractor.extract_codex(batch_id, model_used, priority) (§4.4) — plain callable since C7, idempotency key sha256("codex:" + batch_id), called directly from evaluate_turn for every non-private turn (gating/retries live in the runtime). Reads EpisodicMemory by batch_id, calls extract_triplets, validates/deduplicates, and calls handle_triplet per triplet.
 
 ### **8.4 Procedural Extractor**
 

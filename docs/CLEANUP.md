@@ -1025,3 +1025,7 @@ the results ignore rule. Local agent instruction files remain local via
 `.git/info/exclude`; their contents and all v3 work are unchanged. Paper scratch
 work remains under the existing ignored `experiments/curation_files/` directory.
 No source or canonical manuscript path was moved or renamed.
+
+## 2026-09-12 — v3 extraction repair
+
+Removed the order-sensitive triplet salvage regex and unsupported emotion/self-reference filters from `codex_extractor.py`; complete JSON parsing now lives in `workers/extraction_result.py`. This avoids silently discarding negation, valid emotion values and reflexive claims. Updated stale lossless-gate and bookmark-priority comments; sorted imports in touched files.
