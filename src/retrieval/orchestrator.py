@@ -30,6 +30,7 @@ from src.memory.tokens import count as count_tokens
 from src.retrieval import coverage, leg_weights
 from src.retrieval.evolution import build_entity_timeline, history_exists
 from src.retrieval.ner_utils import extract_entities
+from src.retrieval.reranker import rerank
 from src.retrieval.timescope import CURRENT, from_scope
 
 logger = structlog.get_logger("ice.retrieval")
@@ -76,9 +77,7 @@ class ContextFragment:
     # when text already is the summary, no trusted summary exists, or the
     # keyword that matched lives only in the raw.
     degrade_text: Optional[str] = None
-    # C3: the one-line abstract — the LAST degradation step (raw → summary →
-    # abstract); attached whenever the turn's summary is trusted, never
-    # preferred by the chooser.
+    # C3: a source-extractive abstract, independently eligible for degradation.
     abstract_text: Optional[str] = None
     # C16: the SPECIFIC retrieval mechanism, alongside the coarse source_type.
     # Eight legs report as five source_types — bm25, vector, chunks, cold and
@@ -159,10 +158,8 @@ class HybridRetrievalOrchestrator:
     def __init__(self, db: Session, embedder):
         self.db = db
         self.embedder = embedder
-        # (`self.bg_client = get_bg_client()` lived here. Deleted 2026-08-09
-        # with `_hyde_rewrite`, its only consumer — it built an OpenAI client
-        # per orchestrator, i.e. once per retrieving request, for nothing.
-        # Retrieval calls no LLM: query expansion is grounded in the graph.)
+        # Query expansion is graph-grounded. The shared local reranker scores
+        # evidence without generating text or creating a background API client.
         self.max_retrieval_tokens = 5000
         self._coverage_record = None   # C16: last coverage decision, for audit
         # A4: entity resolution mode (ablation `fuzzy_match` flag maps here).
@@ -630,13 +627,15 @@ class HybridRetrievalOrchestrator:
         # did not, and the two disagreed.
         fused = self._apply_bonuses(fused, classification, own_conv_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
+        fused, reranked = rerank(classification.prompt, fused)
         # G29: no max_per_conversation here — passing the literal 3 is what made
         # settings.retrieval_max_per_conversation unreachable on every live path.
         diversified = self._session_diversify(fused, conversation_id)
         deduped = self._deduplicate(diversified)
         deduped = self._collapse_provenance(deduped)
-        deduped = self._apply_coverage(deduped, prompt_embedding)
-        final = self._enforce_token_budget(deduped)
+        if not reranked:
+            deduped = self._apply_coverage(deduped, prompt_embedding)
+        final = self._enforce_token_budget(deduped, relevance_order=reranked)
 
         # T3 honest emptiness: a windowed query with nothing in the window
         # says so — never silently widens.
@@ -2648,7 +2647,7 @@ class HybridRetrievalOrchestrator:
                 unique.append(f)
         return unique
 
-    def _enforce_token_budget(self, fragments, max_tokens=None):
+    def _enforce_token_budget(self, fragments, max_tokens=None, *, relevance_order=False):
         if max_tokens is None:
             max_tokens = self.max_retrieval_tokens
         from collections import deque
@@ -2674,6 +2673,19 @@ class HybridRetrievalOrchestrator:
                     return dc_replace(f, text=alt, token_count=tokens,
                                       degrade_text=None, abstract_text=None)
             return None
+
+        if relevance_order:
+            # The cross-encoder scored every surviving representation. A
+            # memory type earns no quota; oversized candidates do not prevent
+            # later, smaller evidence from fitting.
+            total, result = 0, []
+            for f in fragments:
+                fitted = f if f.token_count <= max_tokens - total else _degraded(f, max_tokens - total)
+                if fitted is not None:
+                    result.append(fitted)
+                    total += fitted.token_count
+            self._log_leg_budget_share(result, total, max_tokens)
+            return result
 
         total, result, used = 0, [], set()
         for f in guaranteed:
@@ -2859,12 +2871,15 @@ class HybridRetrievalOrchestrator:
         prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
         fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
+        fused, reranked = rerank(classification.prompt, fused)
         diversified = self._session_diversify(fused, conversation_id)   # G29: see retrieve()
         # C15: dynamic ceiling — a fraction of the (model-aware, C16) retrieval
         # budget with a floor, replacing the hardcoded 2,000 tokens.
         wide_budget = max(settings.retrieval_wide_net_budget_floor,
                           int(self.max_retrieval_tokens * settings.retrieval_wide_net_budget_fraction))
-        return self._enforce_token_budget(self._deduplicate(diversified), max_tokens=wide_budget)
+        deduped = self._collapse_provenance(self._deduplicate(diversified))
+        return self._enforce_token_budget(deduped, max_tokens=wide_budget,
+                                          relevance_order=reranked)
 
     # ------------------------------------------------------------------
     # Helper: convert raw DB rows to ContextFragment list

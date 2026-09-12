@@ -631,6 +631,27 @@ _apply_rrf(legs, alpha_map, k=60) sorts each leg's fragments by native score, th
 
 where α_ℓ is the blended weight (defaulting to 1.0 for unknown legs) and rank_ℓ(f) starts at 1. Fragments are deduplicated *during* fusion — the first occurrence is registered and subsequent occurrences add to its RRF score. Output is sorted by RRF score descending.
 
+
+**v3 relevance stage (2026-09-12).** After fusion/bonuses and before conversation
+caps and provenance collapse, both normal and wide-net retrieval run
+`retrieval/reranker.py`. It scores up to 64 candidates and each eligible rendered
+alternative using the pinned local Qwen3-Reranker-0.6B. Scores are yes/no logit
+differences, **not factual confidence**. Ordering is ON by default; the optional
+rejection floor is unset because the first controls did not qualify it. A
+successful rerank bypasses geometric coverage selection and source-type budget
+quotas, packing in relevance order and considering each alternative's own score.
+Oversized fragments do not stop smaller later evidence. Exact source identities
+survive replacements. The stage cannot recover facts absent from its bounded
+candidate pool, and unset rejection can still admit irrelevant content with room
+in the budget.
+
+The model loads from local cache only, serializes access, rejects inputs beyond
+4096 template-inclusive tokens instead of silently truncating, computes only
+last-token logits without KV caching, and offloads weights to CPU between calls.
+Load/score failures warn on every call and preserve the original fusion fallback;
+failed loads have a 60-second retry cooldown. No remote inference. The old
+coverage and two-phase budget below describe disabled/degraded fallback behavior.
+
 ### **6.5 Post-fusion processing**
 
 After RRF, the pipeline runs five sequential transforms:
@@ -655,7 +676,7 @@ After RRF, the pipeline runs five sequential transforms:
 
 20. **`_deduplicate`**: SHA-256 of text, first occurrence wins (defensive second pass after RRF).
 
-21. **`_enforce_token_budget`** (A10): two-phase packing against self.max_retrieval_tokens. Phase 1 — **leg-diversity guarantee**: the highest-scoring fragment of each leg (best_per_leg[source_type]) is added first, sorted by score, while it fits. Phase 2 — **round-robin-with-slack across legs** (replaces the old flat greedy fill): each round every leg contributes its next-best fragment (highest-scoring leg first), so a fragment-rich leg (episodic emits dozens) no longer soaks the entire remainder while codex/procedural emit few — yet when other legs are sparse, exhausted legs drop out and their share flows to the rest, so the budget still fills fully. This works with the A10 codex change below (the codex leg now emits *multiple* fragments — one per anchor entity — so it has more than one fragment to contribute per round, fixing its structural under-representation).
+21. **`_enforce_token_budget`** (A10, fusion fallback): two-phase packing against self.max_retrieval_tokens. Phase 1 — **leg-diversity guarantee**: the highest-scoring fragment of each leg (best_per_leg[source_type]) is added first, sorted by score, while it fits. Phase 2 — **round-robin-with-slack across legs** (replaces the old flat greedy fill): each round every leg contributes its next-best fragment (highest-scoring leg first), so a fragment-rich leg (episodic emits dozens) no longer soaks the entire remainder while codex/procedural emit few — yet when other legs are sparse, exhausted legs drop out and their share flows to the rest, so the budget still fills fully. This works with the A10 codex change below (the codex leg now emits *multiple* fragments — one per anchor entity — so it has more than one fragment to contribute per round, fixing its structural under-representation).
 
 22. **`_strengthen_retrieved`**: for each episodic fragment, access_count += 1 and decay_score = min(1.0, decay_score + 0.15) — retrieval acts as a partial reversal of decay.
 

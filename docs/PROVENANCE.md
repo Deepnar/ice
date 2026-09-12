@@ -1,5 +1,37 @@
 # Provenance ledger
 
+## 2026-09-12 — v3 local reranker qualification
+
+One candidate: `Qwen/Qwen3-Reranker-0.6B` at HF revision
+`e61197ed45024b0ed8a2d74b80b4d909f1255473`, downloaded into the local HF cache.
+No corpus upload. Sentence Transformers 5.5.1, Transformers 5.9.0, Torch 2.11.0;
+CUDA float16 on the 24 GB laptop GPU. Exact production instruction in
+`src/retrieval/reranker.py`; no training or threshold sweep.
+
+`uv run python tests/test_reranker_quality.py` scored 60 synthetic pairs:
+five questions (port, discontinued tool, change date, deployment procedure,
+authentication module), each in three forms and against four candidates.
+**Correct item first 15/15; positive at zero 15/15; distractors below zero
+41/45.** Four false admissions changed across phrasings: zero-floor rejection
+is **unqualified and OFF by default**. Ordering is enabled; these controls do
+not establish universal style invariance, multilingual performance, semantic
+truth, multi-hop coverage or end-to-end answer improvement.
+
+Both real `retrieve()` paths, with synthetic leg output and the actual scorer,
+changed a fixed-budget selection from a distractor to the answering fact with
+reranking on versus off (2/2). This tests selection wiring, **not database search
+quality or a vector benchmark**. The final implementation requests only the
+last-token logits, disables KV caching, and returns weights to CPU after scoring.
+Final 60-pair call including lazy load: 2.876 s; process peak CUDA allocation
+1.178 GiB. Not whole-proxy latency or peak under maximum-length inputs.
+
+Artifact: `experiments/v3_repair/results/reranker_qualification.json`.
+Earlier feasibility calls and the initial failed all-distractor rejection
+assertion led to the ordering-only decision; no threshold was fitted to these
+examples. Controlled-score smoke checks cover invalid results, repeated warning
+fallback, representation-specific scoring, provenance and token packing.
+
+
 ## 2026-09-12 — frozen-v2 paper final analysis and NORA preparation
 
 No new model run. Existing matched-cloud LongMemEval records reproduce ICE/vector

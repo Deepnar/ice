@@ -110,6 +110,54 @@ query terms, independent abstract eligibility, and actual retrieval, chat-window
 and service readers. This tranche does not claim to repair rolling summaries or
 replace term coverage with NLI; those remain in this phase below.
 
+### Relevance reranking and token selection (2026-09-12)
+
+Decision: qualify one local instruction-aware cross-encoder,
+`Qwen/Qwen3-Reranker-0.6B`, on bounded synthetic controls before enabling it.
+Compared with the English MS-MARCO MiniLM baseline, its multilingual/code
+coverage and longer context better match ICE's input contract; compared with
+BGE-v2-m3 it also accepts a task instruction. These are selection reasons, not
+ICE benchmark wins. References: the official
+[Qwen card](https://huggingface.co/Qwen/Qwen3-Reranker-0.6B),
+[BGE card](https://huggingface.co/BAAI/bge-reranker-v2-m3),
+[MiniLM card](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L6-v2),
+and [Graphiti search recipes](https://help.getzep.com/graphiti/working-with-data/searching).
+
+Rank scoped candidates after fusion and before conversation caps/provenance
+collapse can discard a better answer. Bound candidate count and model batches.
+Score the **actual rendered text** and every eligible compressed alternative;
+compression may not inherit the original text's relevance. Preserve all source
+identity fields when selecting a representation. Then pack in relevance order,
+without guaranteed source-type shares. Skip oversized candidates and continue
+to smaller candidates, rather than stopping when one round cannot fit.
+
+The model's yes/no logit difference is a relevance score, not a confidence that
+the claim is true. A rejection floor must be explicit and qualified on both
+answer-bearing and irrelevant controls; never apply an embedding-cosine floor to
+this score. All-irrelevant candidates may produce empty context. No claims of
+complete multi-hop reasoning from pairwise ranking. Diversity and redundancy
+remain separate checks after ranking.
+
+Load only local cached weights on the request path, with a pinned revision,
+serialized model access and bounded input tokens; retain only the last-token
+logits, disable generation KV caching, and return weights to CPU after scoring
+so the main generation model does not lose permanent VRAM; do not silently truncate
+unscored evidence. Model unavailable/invalid scores/over-budget inputs produce
+a warning on every degraded call and retain the established fusion fallback.
+No cloud calls or corpus uploads. Confirm memory footprint and latency before
+default activation; add an ablation switch. Both normal and wide-net retrieval
+must reach this stage. Controlled checks establish ordering, negative rejection,
+invariance, actual budget decisions and fallback mechanics; final matched-budget
+answer quality remains an end-stage evaluation.
+
+Qualification decision: the first 15 synthetic queries (five intents, three
+forms each) ranked the answering item first 15/15, but a zero-logit gate admitted
+4/45 distractors and those admissions changed with phrasing. **Activate ordering
+only after integration validation; keep the rejection floor unset by default.**
+Do not tune a threshold to these controls. A configured experimental floor
+remains available, with its rejection result explicitly unqualified. This is
+relevance ordering, not a complete relevance/abstention solution.
+
 Subsequent coherent repairs: conflict/time semantics and separation of evidence
 from usage; shared read preparation, provenance and final-selection tracing;
 source-backed sentence claims and qualified verification; consistent summaries;

@@ -1036,3 +1036,10 @@ Moved duplicate turn-representation decisions into `memory/representation.py`.
 Removed implicit 300-character fallback cuts and the literal reader threshold;
 updated legacy NULL-coverage/abstract test expectations to the new contract.
 Imports sorted in touched production files. No source files moved or deleted.
+
+## 2026-09-12 — v3 relevance selection
+
+Added the shared local reranker before candidate caps/collapse in both retrieval
+paths. Corrected stale no-model/abstract-eligibility comments in the orchestrator.
+Successful reranking bypasses the legacy source-quota packer; that packer remains
+the explicit disabled/degraded fallback. No source files moved or deleted.

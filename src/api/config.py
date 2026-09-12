@@ -1,6 +1,7 @@
 """Configuration for the ICE FastAPI proxy."""
 from typing import Optional
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.paths import REPO_ROOT
@@ -243,6 +244,15 @@ class Settings(BaseSettings):
     # are STARTING values behind named knobs — Z1 is the tuning gate, and Z2's
     # mini-experiment is where they get moved.
     retrieval_coverage_enabled: bool = False
+    # v3: local cross-encoder relevance, after fusion and before selection.
+    retrieval_rerank_enabled: bool = True
+    retrieval_rerank_model: str = "Qwen/Qwen3-Reranker-0.6B"
+    retrieval_rerank_revision: str = "e61197ed45024b0ed8a2d74b80b4d909f1255473"
+    retrieval_rerank_device: str = "auto"
+    retrieval_rerank_candidates: int = Field(default=64, ge=1, le=256)
+    retrieval_rerank_batch_size: int = Field(default=4, ge=1, le=16)
+    retrieval_rerank_max_tokens: int = Field(default=4096, ge=128, le=32768)
+    retrieval_rerank_min_score: Optional[float] = Field(default=None, allow_inf_nan=False)
     coverage_alpha: float = 0.7            # coverage vs retrieval-confidence blend
     coverage_min_gain: float = 0.02        # a pick must cover at least this much
     coverage_min_keep: int = 2             # the knee may never cut below this
