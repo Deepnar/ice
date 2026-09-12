@@ -9,9 +9,9 @@ Checks every entry in references.json against live sources:
   - Everything else: does an HTTP GET and reports status code + <title> tag,
     so you can eyeball whether the page still exists and matches.
 
-This can't be run inside the Claude sandbox (its network is locked to package
-registries only, not arxiv.org / crossref.org / general web). Run it on your
-own machine.
+Requires network access to arXiv, CrossRef, and publisher sites. Live checks
+succeeded in the TIST-repair session; availability depends on the current
+environment. Metadata verification does not establish claim-level support.
 
 Requirements:
     pip install requests
