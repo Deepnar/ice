@@ -1029,3 +1029,10 @@ No source or canonical manuscript path was moved or renamed.
 ## 2026-09-12 — v3 extraction repair
 
 Removed the order-sensitive triplet salvage regex and unsupported emotion/self-reference filters from `codex_extractor.py`; complete JSON parsing now lives in `workers/extraction_result.py`. This avoids silently discarding negation, valid emotion values and reflexive claims. Updated stale lossless-gate and bookmark-priority comments; sorted imports in touched files.
+
+## 2026-09-12 — v3 shared turn readers
+
+Moved duplicate turn-representation decisions into `memory/representation.py`.
+Removed implicit 300-character fallback cuts and the literal reader threshold;
+updated legacy NULL-coverage/abstract test expectations to the new contract.
+Imports sorted in touched production files. No source files moved or deleted.

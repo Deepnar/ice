@@ -85,6 +85,31 @@ may delete another task's rows.
 
 ## 6. Look-ahead
 
+### Shared turn representation repair (2026-09-12)
+
+Retrieval, the recent chat window and the explicit recent-turn service must use
+one eligibility/selection function. A summary needs finite measured coverage in
+the configured interval `[turn_summary_coverage_threshold, 1]`; NULL is unknown,
+not a passing result. Coverage remains term retention, not semantic verification.
+Do not silently cut raw evidence at 300 characters when no summary qualifies.
+The caller's explicit token budget remains responsible for fitting raw text.
+Protect **each** query term present in raw from disappearing during compression,
+not merely any one matching term. Preserve current intent preferences after
+eligibility is established.
+
+Abstracts have no independent support score in the current schema. Until the
+source-verification repair supplies one, allow an abstract as a budget alternative
+only when it is a verbatim source span and preserves the matched query terms;
+never inherit a different summary's coverage score. This verifies extractiveness,
+not completeness or context-independent truth. Generated abstracts remain stored.
+No trustworthy representation and no raw source means no injected text.
+Recent-window degradation must consume only the returned eligible alternatives.
+
+Validate null/invalid/threshold coverage, details after character 300, multiple
+query terms, independent abstract eligibility, and actual retrieval, chat-window
+and service readers. This tranche does not claim to repair rolling summaries or
+replace term coverage with NLI; those remain in this phase below.
+
 Subsequent coherent repairs: conflict/time semantics and separation of evidence
 from usage; shared read preparation, provenance and final-selection tracing;
 source-backed sentence claims and qualified verification; consistent summaries;

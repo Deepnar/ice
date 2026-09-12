@@ -18,13 +18,14 @@ import structlog
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
-from src.memory.tokens import count as count_tokens
 from src.memory.models import (
     Decision,
     EpisodicMemory,
     ProceduralMemory,
     SessionSummary,
 )
+from src.memory.representation import choose_representation
+from src.memory.tokens import count as count_tokens
 from src.services import slots as slots_svc
 
 logger = structlog.get_logger("ice.services.retrieval")
@@ -209,7 +210,7 @@ def recent_turns(db: Session, conversation_id: Optional[str] = None,
             "id": str(t.id),
             "conversation_id": str(t.conversation_id),
             "timestamp": t.timestamp.isoformat() if t.timestamp else None,
-            "text": t.summary_text or t.raw_text[:300],
+            "text": choose_representation(t)[0] or "",
             "topic_tags": t.topic_tags or [],
             "is_bookmarked": t.is_bookmarked,
         }

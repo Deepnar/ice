@@ -42,6 +42,7 @@ from src.memory.models import (
     EpisodicMemory,
     MemorySlot,
 )
+from src.memory.representation import choose_representation
 from src.memory.tokens import count as _estimate_tokens
 from src.retrieval.orchestrator import ContextFragment
 
@@ -70,12 +71,8 @@ def conversation_summary_block(
 
 
 def _turn_text(t) -> str:
-    """The representation to show for one turn (C1's storage-side hint)."""
-    if t.inject_raw and t.raw_text:
-        return t.raw_text
-    if t.summary_text:
-        return t.summary_text
-    return (t.raw_text or "")[:300]
+    """Use shared coverage eligibility before applying the window budget."""
+    return choose_representation(t)[0] or ""
 
 
 def _split_pair(text: str):
@@ -195,11 +192,13 @@ def get_recent_turns(
 
     pairs, used = [], 0
     for t in turns:                              # newest first
-        text = _turn_text(t)
+        text, summary, abstract = choose_representation(t)
+        if not text:
+            continue
         if _estimate_tokens(text) > per_turn_cap:
             # C1/C3 degrade-before-truncate: prefer a form that was written to
             # be short over a sentence cut in half.
-            for alt in (t.summary_text, t.abstract_text):
+            for alt in (summary, abstract):
                 if alt and _estimate_tokens(alt) <= per_turn_cap:
                     text = alt
                     break

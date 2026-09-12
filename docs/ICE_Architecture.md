@@ -822,7 +822,22 @@ post_flight.evaluate_turn(batch_id, prompt, response, conversation_id, model_use
 
 After the density stage (C7): it calls extract_codex(...) directly (every non-private turn), extract_procedural(...) directly (always), and — for is_document turns and all long turns (> ~600 words, C3) — run_chunk_turn(db, turn) directly (runs for private turns too, since chunk visibility is enforced through the parent join); all in the same runtime job, each stage self-idempotent so a retry completes whatever a partial failure skipped. The codex/procedural calls are skipped entirely for private turns (§6.10). The old broker-down JSONL buffer is gone (C7 D8 — see §10.3).
 
-**§6.1a Read-time representation choice (C1).** _rows_to_fragments no longer follows inject_raw blindly; _choose_representation picks per query, in order of authority: (1) *trust* — no summary, or summary_coverage below 0.7, ⇒ raw (a summary that dropped must-terms is never used; NULL coverage = legacy summary, status-quo trust); (2) *keyword protection* — if the matched prompt keyword lives in raw but not in the summary ⇒ raw, and not degradable (degrading would remove the very term that made the fragment relevant); (3) *intent preference* — Factual_Retrieval/Troubleshooting prefer raw (degradable), Analysis/Strategic_Planning/Ideation/Open_Exploration prefer the trusted summary; (4) otherwise the storage-side hint. Fragments carry **degrade_text** (the trusted summary when raw was chosen) and **abstract_text** (C3: the one-line abstract, generated in the *same* LLM call as the summary and stored in episodic_memory.abstract_text; attached under the same trust and keyword-protection rules, never *preferred*), and _enforce_token_budget performs **degrade-before-drop** in both phases through the full hierarchy — raw → trusted summary → abstract — taking the first level that fits the remaining budget. Word-cap truncation is sentence-aware (C3, _truncate_at_sentence: the cut lands on the last sentence boundary inside the cap when one exists past 60% of it).
+**§6.1a Read-time representation choice (C1, v3 repair 2026-09-12).**
+`src/memory/representation.py::choose_representation` is shared by retrieval,
+the recent chat window (including budget degradation), and the explicit
+recent-turn service. Summary eligibility requires finite coverage between
+`settings.turn_summary_coverage_threshold` (default 0.7) and 1 inclusive;
+NULL is unknown, not trusted. **Coverage is term retention, not faithfulness**;
+semantic verification remains open. Every matched query term must survive
+compression. Exactness intents prefer raw, broad intents an eligible summary,
+otherwise `inject_raw` supplies the preference. Missing eligible summaries
+return full raw text; caller budgets, not a hidden 300-character prefix, fit it.
+An abstract cannot inherit its summary's coverage: until independent support
+verification exists it must be a verbatim source span preserving matched terms.
+This establishes extractiveness, not completeness. The retrieval budget still
+degrades before dropping; recent history can explicitly truncate to its budget.
+Rolling and batch summaries remain separate paths requiring repair.
+
 
 ### **8.3 Codex Extractor**
 

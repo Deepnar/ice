@@ -19,14 +19,15 @@ from sqlalchemy.orm import Session
 
 from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
-from src.memory.tokens import count as count_tokens
-from src.retrieval import coverage, leg_weights
 from src.memory.models import (
     CodexEdge,
     CodexEntity,
     EpisodicMemory,
     ProceduralMemory,
 )
+from src.memory.representation import choose_representation
+from src.memory.tokens import count as count_tokens
+from src.retrieval import coverage, leg_weights
 from src.retrieval.evolution import build_entity_timeline, history_exists
 from src.retrieval.ner_utils import extract_entities
 from src.retrieval.timescope import CURRENT, from_scope
@@ -2868,60 +2869,9 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # Helper: convert raw DB rows to ContextFragment list
     # ------------------------------------------------------------------
-    INTENTS_PREFER_RAW = {"Factual_Retrieval", "Troubleshooting"}
-    INTENTS_PREFER_SUMMARY = {"Analysis_&_Summarization", "Strategic_Planning",
-                              "Ideation", "Open_Exploration"}
-
     def _choose_representation(self, row, classification, prompt_keywords):
-        """C1 read-time representation choice (user design: both forms are
-        stored; NOTHING is permanently raw or permanently summary — the query
-        context decides). Returns ``(text, degrade_text)``.
-
-        Order of authority:
-          1. availability/trust — no summary, or coverage below threshold
-             (a summary that dropped must-terms is never used) → raw;
-          2. keyword protection — the matched keyword lives in raw but not in
-             the summary → raw, and NOT degradable (degrading would remove
-             the very term that made this fragment relevant);
-          3. intent preference — exactness intents prefer raw (degradable);
-             compression-tolerant intents prefer the trusted summary;
-          4. otherwise the storage-side default hint (inject_raw), with raw
-             degradable to the trusted summary under budget pressure.
-
-        Returns ``(text, degrade_text, abstract_text)`` — the abstract (C3,
-        the last degradation level) rides along under the same trust and
-        keyword-protection rules; the chooser never *prefers* it.
-        """
-        raw = row.raw_text
-        summ = row.summary_text
-        abstract = getattr(row, "abstract_text", None)
-        if not raw:
-            return (summ, None, abstract) if summ else (None, None, None)
-        if not summ:
-            return (raw if row.inject_raw else raw[:300]), None, None
-        cov = getattr(row, "summary_coverage", None)
-        # NULL coverage = legacy pre-C1 summary → keep status-quo trust
-        trusted = cov is None or cov >= 0.7
-        if not trusted:
-            return raw, None, None
-
-        if prompt_keywords:
-            raw_l, summ_l = raw.lower(), summ.lower()
-            kw_raw = any(kw in raw_l or kw.rstrip('s') in raw_l for kw in prompt_keywords)
-            kw_summ = any(kw in summ_l or kw.rstrip('s') in summ_l for kw in prompt_keywords)
-            if kw_raw and not kw_summ:
-                return raw, None, None
-
-        if classification is not None:
-            intents = set(classification.intent_tags or [])
-            if intents & self.INTENTS_PREFER_SUMMARY and not intents & self.INTENTS_PREFER_RAW:
-                return summ, None, abstract
-            if intents & self.INTENTS_PREFER_RAW:
-                return raw, summ, abstract
-
-        if row.inject_raw:
-            return raw, summ, abstract
-        return summ, None, abstract
+        """Use the same eligible representations as chat and explicit reads."""
+        return choose_representation(row, classification, prompt_keywords)
 
     def _relevant_doc_chunks(self, turn_id, prompt_keywords, limit: int = 2):
         """C2: pick a document's most query-relevant chunks (keyword-hit count,

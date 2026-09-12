@@ -80,7 +80,7 @@ def row(**kw):
     return SimpleNamespace(**base)
 clf = SimpleNamespace(intent_tags=["Casual_Banter"])
 t, dg, ab = orch._choose_representation(row(), clf, set())
-check("trusted → abstract attached", ab == "abs line")
+check("summary coverage cannot qualify an unsupported abstract", ab is None)
 t, dg, ab = orch._choose_representation(row(summary_coverage=0.3), clf, set())
 check("untrusted summary → no abstract either", ab is None)
 t, dg, ab = orch._choose_representation(row(), clf, {"zephyr"})
