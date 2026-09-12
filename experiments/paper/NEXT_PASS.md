@@ -1,8 +1,66 @@
+# Final paper status — NORA 2026 (2026-09-12)
+
+The frozen-v2 writing pass is complete. The selected venue is **NORA at
+AACL-IJCNLP 2026, Research Papers track**, regular submission, deadline September
+14, 2026 AoE. `ICE_paper_arr.pdf` is the anonymous official-ACL-format submission
+manuscript; `ICE_paper_v2.pdf` remains the full venue-neutral archive. The NORA
+submission contains Limitations and a Declaration on Generative AI. The submission PDF
+has six main-content pages, below the eight-page research limit. No submission
+or acceptance is implied. See `NORA_SUBMISSION.md` and `ARTIFACTS.md` for the final
+checks and release scope. The prior task specification and venue deliberations
+below are historical; their open venue language is superseded by this decision.
+
+No v3 source, roadmap, architecture or HANDOFF changes belong to this paper.
+
+---
 # Paper — remaining submission pass
 
 **Updated 2026-09-11 after the matched-cloud ICE-v2 LongMemEval runs.** The
 canonical manuscript is `ICE_paper_v2.tex`; `ICE_paper_tist.tex` remains the
 frozen record of the rejected submission and must not be edited.
+
+## Completed canonical and anonymous pass — 2026-09-12
+
+The checklist below is retained as the task specification. All 13 writing and
+existing-evidence analysis items have now been addressed. The canonical archive
+remains 37 pages; the separate anonymous ACL review twin has six main-content
+pages (below the eight-page limit), followed by limitations/ethics, references,
+and appendices. No manuscript was submitted. Final paper artifacts and aggregate
+analyses were committed for publication; no v3 source, roadmap, architecture,
+or handoff was changed.
+
+| Required work | Evidence / final disposition |
+|---|---|
+| 1, 2, 5: archive, organization, anonymous twin | `ICE_paper_v2.tex` is venue-neutral and LSREP-first; `ICE_paper_arr.tex` is separate, with compact ICE architecture and RQ1/RQ2/RQ3 results. |
+| 3: concrete protocol | Main-text algorithm, validity contract, and synthetic changing-reference example in both versions; canonical additionally has a retrieval algorithm box. |
+| 4: four datasets | Main-text coverage and results show all A–D; corrected 219 probes, 1,211 observations, and 52 checkpoints. |
+| 6: citation/claim audit | `CLAIM_AUDIT.md`; frozen-tag verification; removed unsupported causal, portability, efficiency and graph claims. |
+| 7, 11: public benchmark and baseline | Matched oracle/S side by side; models, adapter, missing bound, transitions, costs and contextual published systems disclosed. |
+| 8: artifact scope | `ARTIFACTS.md` lists aggregate/code release candidates and raw/private exclusions. It is not a publication action. |
+| 9: appendix/layout | Canonical detail retained and duplication reduced; anonymous detail selected for review; PDFs rendered and inspected. Diagram paths and appendix float boundaries corrected. |
+| 10: stale checker note | Citation checker header now distinguishes network metadata checking from claim verification. |
+| 12: uncertainty | Paired overall/category and four-outcome phase analyses; exact abstention McNemar result; probe-cluster LSREP sensitivity. |
+| 13: quality/cost | Provider-token and fragment distributions, category/outcome strata, generation-only latency and explicit unavailable fields. No efficiency winner claimed. |
+
+Additional user-approved checks: manual-replacement sensitivity, complete-case
+selection, score-origin counts, and paired ordinal win/tie/loss. The ordinary
+LSREP mean difference is +0.002 with manual replacements and -0.020 without;
+both clustered intervals span zero. Complete cases remove most density failures,
+so they accompany rather than replace the reliability analysis. The ablation
+analysis now caches repeated contrasts and supplies shared TeX macros, preventing
+contradictory intervals caused by repeated Monte Carlo draws. Ordinary-density
+ICE routing difference is corrected to +0.03.
+
+The matched extra degradation estimate is +4.4 points with CI [-0.2,+9.2] on
+499 common questions: the widening is descriptive, not established as a positive
+population effect. Full-S abstention remains descriptive (7 versus 1 discordant
+successes; exact p=0.0703125) despite a positive bootstrap interval. All matched
+question pairs and cross-phase joint counts are preserved in aggregate outputs.
+
+Author-side submission steps remain separate: upload the anonymous PDF through
+NORA's regular OpenReview portal, complete the portal declarations, and submit.
+The ACL-style twin does not imply an ARR review, submit anything, or supersede
+the canonical archive.
 
 ## Version boundary — preserve the ongoing v3 programme
 

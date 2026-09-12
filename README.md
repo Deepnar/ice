@@ -113,45 +113,36 @@ The system has grown several capabilities that sit alongside the core loop:
 
 ## Evaluation
 
-ICE is evaluated with **LSREP** (Longitudinal State-Replay Evaluation Protocol), a benchmark
-developed for this work. LSREP replays real, long-running conversations turn by turn,
-reconstructs the complete memory state at each of 50 checkpoints, and scores answers against
-a ground truth that *evolves* as facts are superseded — measuring what static benchmarks
-cannot: memory that accumulates, decays, and is revised over months. The reported study
-covers 1,985 turns and 1,211 probes, judged by an independent model.
+The paper evaluates **frozen ICE v2** at `v2-paper-eval`, not current v3 on
+`main`. **LSREP** reconstructs evolving memory during ordered conversational
+replay, with repeated probes, lifecycle schedules and changing reference answers.
+The private single-user study covers 1,985 turns, 219 distinct probes, 1,211
+probe–checkpoint observations and 52 checkpoints. Manual records are merged
+into the historical scores; sensitivity analyses disclose their effect.
 
-Compared against a strong vector-RAG baseline sharing the same embedder, database, and
-budget logic:
-
-| Result | Finding |
+| Frozen-v2 result | Finding |
 | :--- | :--- |
-| **Answer quality** | Statistical tie — paired difference +0.00 (95% CI [−0.07, +0.07]) |
-| **Context efficiency** | **32% fewer fragments** injected for that same quality |
-| **Head-to-head preference** | **30.6%** vs 21.2% of blind tournament wins, non-overlapping CIs |
-| **Fragment quality** | ICE's fragments correlate positively with answer quality (r = +0.19); the baseline's show no relationship (r = −0.02) |
-| **Robustness** | On 8,000+ token turns the unbudgeted baseline fails **94.2%** of probes; ICE holds at a mean score of 4.33 |
+| Ordinary-density LSREP | Mean ICE–vector difference +0.002; probe-cluster 95% CI [−0.148,+0.158]. No detected difference, not equivalence. |
+| Context use | 32% fewer selected fragments, but 6.6% more estimated prompt tokens. |
+| Tournament preference | ICE 30.6%, vector 21.2% first places in four-condition tournaments; not head-to-head win rates. |
+| Density stress | ICE mean score 4.33 versus vector 1.23; the unbudgeted vector arm has 94.2% score-1 observations. This is a full-system reliability contrast. |
+| Matched LongMemEval oracle | ICE 50.8%, pure vector-RAG 72.8%; paired gap −22.0 points [−26.6,−17.4]. |
+| Matched LongMemEval full-S | ICE 43.0%, vector 69.5%; paired gap −26.5 [−31.3,−21.8], n=499. Missing-judgement bounds preserve the ordering. |
 
-A cumulative ablation isolates rank fusion as the mechanism that makes multi-signal retrieval
-*safe*: adding an unfused lexical leg is actively harmful (−0.74, 95% CI [−1.14, −0.36]), and
-fusion recovers it (+0.82, [+0.39, +1.24]).
+Both public-benchmark arms use gpt-5.6-luna and Muse Spark 1.3 Contributor
+judging. ICE v2 loses decisively overall, with descriptive conservative abstention
+and severe multi-session and temporal failures. It supplies less context there
+while answering less accurately: a quality–cost trade-off, not superior efficiency.
+These are within-study comparisons, not official GPT-4o-judged leaderboard scores.
 
-**Read plainly:** ICE does not beat a well-built vector-RAG baseline on raw answer quality.
-It matches it on a third less context, is preferred in blind comparison, and survives
-conditions under which the baseline collapses.
+The fidelity audit finds defective procedural retrieval, an additionally defective
+and unused document leg, unexercised paths, and unconfirmed graph utility.
+An unfused lexical leg harms the ablation score (−0.74 [−1.14,−0.36]); RRF
+recovers it (+0.82 [+0.39,+1.24]) in that buildup, without a general safety claim.
 
-A component-level fidelity audit is published alongside the paper, and it separates three
-things that ablation studies routinely conflate. One component was **genuinely defective** (a
-pgvector binding bug that killed procedural retrieval outright). Several were **never exercised
-by this benchmark** — document retrieval had no documents ingested, nothing decayed far enough
-to trigger batch summarisation or cold storage, every probe asked for *current* truth rather
-than how a fact changed, and every probe was scoped to a single conversation. And the rest
-**worked and carried the result**: the per-query token budget, rank fusion, decay-weighted
-episodic retrieval, post-fusion curation, and a live-but-under-weighted knowledge graph.
-A component that never ran is not a component that failed, and the paper is careful not to
-claim otherwise in either direction.
-
-- 📄 Paper — [`experiments/paper/ICE_paper_v2.pdf`](experiments/paper/ICE_paper_v2.pdf)
-- 🔍 Fidelity audit — [`experiments/paper/notes/FIDELITY_AUDIT.md`](experiments/paper/notes/FIDELITY_AUDIT.md)
+- 📄 Canonical paper — [`ICE_paper_v2.pdf`](experiments/paper/ICE_paper_v2.pdf)
+- 🔍 Fidelity audit — [`FIDELITY_AUDIT.md`](experiments/paper/notes/FIDELITY_AUDIT.md)
+- 📊 Analyses and release scope — [`ARTIFACTS.md`](experiments/paper/ARTIFACTS.md)
 - 🏷 Evaluated snapshot — git tag `v2-paper-eval`
 
 ## Repository layout
@@ -258,10 +249,10 @@ traded away.
 ```bibtex
 @unpublished{sonar2026ice_paper,
   author = {Sonar, Deepesh},
-  title  = {{ICE}: A Local-First Conversational Memory System and a
-            Longitudinal Evaluation Protocol},
+  title  = {{LSREP}: A Longitudinal State-Replay Protocol for Evaluating
+            Conversational Memory, with {ICE v2} as an Audited Local-First Architecture},
   year   = {2026},
-  note   = {Submitted to ACM Transactions on Intelligent Systems and Technology}
+  note   = {Unpublished manuscript}
 }
 ```
 

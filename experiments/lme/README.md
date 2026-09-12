@@ -1,13 +1,19 @@
 # LongMemEval on ICE — the external anchor
 
-**Status: harness under construction. No score has been produced. Do not quote a
-number from this directory until this line says otherwise.**
+**Status: frozen ICE v2 matched oracle and full-S evaluation complete.**
+ICE/vector correctness is 50.8/72.8% in the oracle and 43.0/69.5% in full-S.
+These are matched within-study scores, not official-judge leaderboard scores.
+See [the result report](results/matched_cloud_v2.md),
+[aggregate paired/cost analysis](results/matched_cloud_analysis.json), and
+[paper artifacts](../paper/ARTIFACTS.md). Raw `runs/` and downloaded `data/` stay
+local and gitignored; only code and aggregate reports are released. The old
+local oracle is historical, and flattened-adapter results are invalid.
 
 ## What this is, and which ICE it measures
 
 ⚑ **This measures ICE v2 — the frozen system at git tag `v2-paper-eval` (commit
-`0521df9`, 2026-07-02), which is the system the paper reports.** It does *not*
-measure `main`. Artifacts live under `runs/v2-paper-eval/` and are named after
+`00d3d35eee99843fd12790d2bf704c177f3097d1`), which is the system the paper reports.** It does *not*
+measure `main`. Matched artifacts live under `runs/v2-paper-eval-cloud-v1/`; historical records under `runs/v2-paper-eval/` and are named after
 the git tag on purpose: `v2-paper-eval` is a unique string in this repo and
 cannot be misread the way a bare "v2" can (see [CLEANUP.md](../../docs/CLEANUP.md),
 2026-08-29 naming rule).

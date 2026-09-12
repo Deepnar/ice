@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "ICE: A Local-First Conversational Memory System and a Longitudinal Evaluation Protocol"
+title: "ICE: Infinite Context Engine (v2-paper-eval)"
 message: "If you use this software, please cite it as below."
 type: software
 authors:
@@ -10,16 +10,13 @@ authors:
     affiliation: "Thakur College of Engineering and Technology, Mumbai"
 repository-code: "https://github.com/Deepnar/ice"
 abstract: >-
-  ICE is a local-first memory layer that sits between a chat client and any
-  OpenAI-compatible model, giving it persistent, structured memory of prior
-  conversations entirely on the user's own hardware. It combines a six-leg
-  hybrid retrieval orchestrator fused with weighted Reciprocal Rank Fusion, a
-  bi-temporal knowledge graph in which superseded facts remain retrievable as
-  history, and a multi-head classifier that gates whether long-term retrieval
-  fires at all. The accompanying protocol, LSREP (Longitudinal State-Replay
-  Evaluation Protocol), replays real long-running conversations turn by turn,
-  reconstructs the complete memory state at 50 checkpoints, and scores answers
-  against a ground truth that evolves as facts are superseded.
+  Frozen ICE v2 is a local-first conversational memory middleware with typed
+  stores, retrieval fusion, and dynamic context budgets. The accompanying
+  LSREP paper reports 52 checkpoints and 1,211 observations of 219 distinct
+  probes from four private conversations. Mechanism-fidelity and matched
+  LongMemEval analyses bound the measured capabilities; several defined paths
+  were defective or unexercised, and graph utility is unconfirmed. This software
+  citation identifies the frozen evaluation version, not current ICE v3.
 keywords:
   - information retrieval
   - long-term memory

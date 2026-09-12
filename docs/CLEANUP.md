@@ -1013,3 +1013,15 @@ LongMemEval harness after semantic parity failed:
 
 The final matched cloud wrapper uses the exact Ollama
 `qwen3:4b-instruct-bg`, kept resident. No production file was changed.
+
+
+## 2026-09-12 — frozen-v2 paper release boundary
+
+LongMemEval `runs/` is now ignored in full. The three previously tracked run
+files are removed from the index only and remain on disk; no raw answers,
+judgements or manifests are added by this release, and history is not rewritten.
+Two aggregate mature-run sensitivity JSON reports are explicitly allowed through
+the results ignore rule. Local agent instruction files remain local via
+`.git/info/exclude`; their contents and all v3 work are unchanged. Paper scratch
+work remains under the existing ignored `experiments/curation_files/` directory.
+No source or canonical manuscript path was moved or renamed.
