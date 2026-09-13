@@ -266,23 +266,23 @@ try:
     items = ma._detect_contradictions(db, 50)
     mine_pol = [i for i in items if i.payload["old_edge_id"] == str(pos_id)]
     mine_ant = [i for i in items if i.payload["old_edge_id"] == str(friend_id)]
-    check("polarity clash detected (older positive is the loser)",
+    check("polarity candidate detected (older positive shown first)",
           len(mine_pol) == 1 and mine_pol[0].payload["kind"] == "polarity")
-    check("antonym pair detected (older friend is the loser)",
+    check("opposition candidate detected (older friend shown first)",
           len(mine_ant) == 1 and mine_ant[0].payload["kind"] == "antonym")
     run4 = newrun()
     ctr = {"llm_decisions": 0, "applications": 0, "proposals": 0}
     o1 = ma._process(db, mine_pol[0], None, run4, ctr)
     o2 = ma._process(db, mine_ant[0], None, run4, ctr)
     db.expire_all()
-    check("both contradictions reconciled deterministically",
-          o1 == "applied" and o2 == "applied"
-          and db.query(CodexEdge).get(pos_id).valid_until is not None
+    check("both candidates proposed without automatic expiry",
+          o1 == "proposed" and o2 == "proposed"
+          and db.query(CodexEdge).get(pos_id).valid_until is None
           and db.query(CodexEdge).get(neg_id).valid_until is None
-          and db.query(CodexEdge).get(friend_id).valid_until is not None
+          and db.query(CodexEdge).get(friend_id).valid_until is None
           and db.query(CodexEdge).get(enemy_id).valid_until is None)
-    check("reconciliations journaled under the run id",
-          len(agent_events(run4)) == 2)
+    check("proposals do not fabricate graph mutations",
+          len(agent_events(run4)) == 0 and ctr["proposals"] == 2)
 
     # ═══ 5. Stale pending_items slot → Tier-2 proposal ═════════════════════
     print("── 5. Stale slot: proposal written, blocker respected ──")
@@ -421,7 +421,7 @@ try:
           result["proposals"] == 5
           and result["outcomes"].get("duplicate_entities:skipped_cap") == 3)
 
-    # applications cap: 12 contradictions → 10 applied
+    # contradiction proposal cap: 12 candidates → 5 proposals, no expiry
     app_items, app_edge_ids = [], []
     for i in range(12):
         sx = mkent(f"{MARK} acap s{i}")
@@ -430,21 +430,21 @@ try:
         ne = mkedge(sx, tx, "uses", negated=True, valid_from=NOW - timedelta(days=1))
         db.flush()
         app_edge_ids.append(po.id)
-        app_items.append(ma.WorkItem("contradiction", 1, {
+        app_items.append(ma.WorkItem("contradiction", 2, {
             "kind": "polarity", "old_edge_id": str(po.id),
             "old_relation": "uses", "new_edge_id": str(ne.id),
             "new_relation": "uses", "source_id": str(sx.id),
             "target_id": str(tx.id)}))
     db.commit()
     ma.DETECTORS = {"contradiction": lambda db, cap: app_items[:cap]}
-    result = ma.run_maintenance_agent(db, llm_decider=None)   # deterministic tier 1
+    result = ma.run_maintenance_agent(db, llm_decider=None)   # source-required proposals
     run_ids.append(uuid.UUID(result["agent_run_id"]))
     db.expire_all()
     n_expired = sum(1 for eid in app_edge_ids
                     if db.query(CodexEdge).get(eid).valid_until is not None)
-    check("12 contradictions → exactly 10 applications (cap), 2 deferred",
-          result["applications"] == 10 and n_expired == 10
-          and result["outcomes"].get("contradiction:skipped_cap") == 2)
+    check("12 contradictions → exactly 5 proposals (cap), no expiry",
+          result["applications"] == 0 and result["proposals"] == 5 and n_expired == 0
+          and result["outcomes"].get("contradiction:skipped_cap") == 7)
 
     # ═══ 9. The Sentinel is gone ═══════════════════════════════════════════
     print("── 9. Sentinel removal ──")
@@ -470,7 +470,7 @@ try:
 
     # ═══ 10. Every applied action journaled under its agent_run_id ═════════
     print("── 10. Audit trail ──")
-    applied_runs = [run0, run3, run4, run7]
+    applied_runs = [run0, run3, run7]
     ok = True
     for rid in applied_runs:
         evs = agent_events(rid)

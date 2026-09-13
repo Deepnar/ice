@@ -10,10 +10,9 @@ Three risk tiers govern write authority (D2):
 
   Tier 0 — deterministic, auto-applied: normalization-equal duplicate merges.
   Tier 1 — auto-applied + journaled: reconciliation leftovers re-decided with
-           fuller context (LLM), pending-edge dedupe and contradiction
-           resolution (deterministic, via the A6 machinery).
+           fuller context (LLM), pending-edge dedupe.
   Tier 2 — LLM-proposed, review-queued (≤5/run): near-duplicate entity merges,
-           stale-slot rewrites. The queue stays the safety net.
+           stale-slot rewrites and source-unverified contradiction candidates.
 
 Every run gets an ``agent_run_id``; every graph write journals CodexEvents
 with ``source: "maintenance_agent"`` (G17) and ``batch_source = agent_run_id``
@@ -347,10 +346,11 @@ def _merge_order(db, id_a, id_b):
 
 
 def _detect_contradictions(db, cap: int) -> list:
-    """D3.4: (a) a live positive edge coexisting with a live negated edge for
-    the same (source, relation, target) — A8 residue the in-line retraction
-    missed cross-batch; (b) two live antonym edges for one entity pair — A6
-    cross-batch misses. Resolution is A6's deterministic newer-supersedes."""
+    """Nominate polarity/opposition pairs for source-required review.
+
+    Observation order only stabilizes presentation; it does not decide truth.
+    Converse labels are not contradiction candidates.
+    """
     items = []
     rows = db.execute(text("""
         SELECT p.id AS pos_id, n.id AS neg_id, p.source_id, p.target_id,
@@ -363,13 +363,12 @@ def _detect_contradictions(db, cap: int) -> list:
         LIMIT :cap
     """), {"cap": cap}).fetchall()
     for r in rows:
-        # Newer assertion wins; the negation retracts the positive on a tie
-        # (that is what the in-line A8 path would have done).
+        # Deterministic presentation order, not an expiry decision.
         if r.pos_from and r.neg_from and r.pos_from > r.neg_from:
             old_id, old_rel, new_id, new_rel = r.neg_id, r.relation, r.pos_id, r.relation
         else:
             old_id, old_rel, new_id, new_rel = r.pos_id, r.relation, r.neg_id, r.relation
-        items.append(WorkItem("contradiction", 1, {
+        items.append(WorkItem("contradiction", 2, {
             "kind": "polarity", "old_edge_id": str(old_id),
             "old_relation": old_rel, "new_edge_id": str(new_id),
             "new_relation": new_rel, "source_id": str(r.source_id),
@@ -377,8 +376,8 @@ def _detect_contradictions(db, cap: int) -> list:
 
     if len(items) < cap:
         # Lazy: codex_extractor loads an embedder at import.
-        from src.workers.codex_extractor import _ANTONYM_PAIRS
-        for rel_a, rel_b in _ANTONYM_PAIRS:
+        from src.workers.codex_extractor import _OPPOSITION_PAIRS
+        for rel_a, rel_b in _OPPOSITION_PAIRS:
             if len(items) >= cap:
                 break
             rows = db.execute(text("""
@@ -398,7 +397,7 @@ def _detect_contradictions(db, cap: int) -> list:
                     old_id, old_rel, new_id, new_rel = r.b_id, rel_b, r.a_id, rel_a
                 else:
                     old_id, old_rel, new_id, new_rel = r.a_id, rel_a, r.b_id, rel_b
-                items.append(WorkItem("contradiction", 1, {
+                items.append(WorkItem("contradiction", 2, {
                     "kind": "antonym", "old_edge_id": str(old_id),
                     "old_relation": old_rel, "new_edge_id": str(new_id),
                     "new_relation": new_rel, "source_id": str(r.source_id),
@@ -753,27 +752,34 @@ def _apply_pileup(db, item: WorkItem, run_id) -> str:
 
 
 def _apply_contradiction(db, item: WorkItem, run_id) -> str:
-    """Newer-supersedes through A6's reconcile_conflict (antonym arm — the
-    deterministic path; a polarity clash IS the antonym of its positive)."""
-    from src.memory.models import CodexEdge, CodexEntity
-    from src.workers.codex_extractor import reconcile_conflict
-    old_edge = db.query(CodexEdge).get(uuid.UUID(item.payload["old_edge_id"]))
-    new_edge = db.query(CodexEdge).get(uuid.UUID(item.payload["new_edge_id"]))
-    if old_edge is None or new_edge is None or old_edge.valid_until is not None:
+    """Record an unresolved pair without treating observation order as truth."""
+    from src.memory.models import CodexEdge, ReviewQueue
+
+    old_edge = db.get(CodexEdge, uuid.UUID(item.payload["old_edge_id"]))
+    new_edge = db.get(CodexEdge, uuid.UUID(item.payload["new_edge_id"]))
+    if (old_edge is None or new_edge is None or old_edge.valid_until is not None
+            or new_edge.valid_until is not None):
         return "noop"
-    subj = db.query(CodexEntity).get(new_edge.source_id)
-    obj = db.query(CodexEntity).get(new_edge.target_id)
-    conflict = {"type": "antonym", "old_edge_id": old_edge.id,
-                "old_relation": old_edge.relation,
-                "old_target_id": old_edge.target_id}
-    reconcile_conflict(db, conflict, subj, item.payload["new_relation"], obj,
-                       run_id, None, None, source=SOURCE)
+    pair = sorted([str(old_edge.id), str(new_edge.id)])
+    existing = db.query(ReviewQueue.id).filter(
+        ReviewQueue.item_type == "codex_contradiction",
+        ReviewQueue.item_content["edge_ids"] == pair,
+    ).first()
+    if existing:
+        return "noop"
+    db.add(ReviewQueue(item_type="codex_contradiction", item_content={
+        "edge_ids": pair, "kind": item.payload.get("kind"),
+        "claims": [{"edge_id": str(e.id), "source_id": str(e.source_id),
+                    "target_id": str(e.target_id), "relation": e.relation,
+                    "negated": e.negated, "source_batch": str(e.source_batch)}
+                   for e in (old_edge, new_edge)],
+        "reason": "source_evidence_required", "source": SOURCE,
+        "agent_run_id": str(run_id),
+    }))
     db.commit()
-    logger.info("agent_action", action="contradiction", outcome="applied",
-                kind=item.payload.get("kind"),
-                old_edge_id=item.payload["old_edge_id"],
+    logger.info("agent_action", action="contradiction", outcome="proposed",
                 agent_run_id=str(run_id))
-    return "applied"
+    return "proposed"
 
 
 def _apply_reconciliation(db, item: WorkItem, decision: str, run_id) -> str:
@@ -936,11 +942,11 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
         return outcome
 
     if item.item_type == "contradiction":
-        if counters["applications"] >= settings.agent_max_applications:
+        if counters["proposals"] >= settings.agent_max_tier2_proposals:
             return "skipped_cap"
         outcome = _apply_contradiction(db, item, run_id)
-        if outcome == "applied":
-            counters["applications"] += 1
+        if outcome == "proposed":
+            counters["proposals"] += 1
         return outcome
 
     if item.item_type == "reconciliation_leftover":

@@ -158,6 +158,31 @@ Do not tune a threshold to these controls. A configured experimental floor
 remains available, with its rejection result explicitly unqualified. This is
 relevance ordering, not a complete relevance/abstention solution.
 
+### Relation-name conflict repair (2026-09-13)
+
+Relation canonicalization's anti-merge map protects direction/polarity; it is
+not evidence of contradiction. Separate that map from the small opposition
+candidate map. Converses such as buys/sells and teaches/learns_from must coexist.
+The ordinary writer must match the complete relation and polarity before
+reinforcing; sharing two endpoints with a different relation does not establish
+replacement or justify immediate activation.
+Opposition candidates (for example friend/enemy) use the existing source-aware
+reconciler or review path, never deterministic expiry. Background contradiction
+candidates without original source evidence become review proposals, not expiry
+instructions; deduplicate already reviewed as well as outstanding proposals by
+the old/new edge pair. REST/MCP review approval must accept an explicit
+`keep_edge_ids` subset (both/one/neither); missing choice leaves the item pending
+and raises a validation error. Apply only selected expiries, journal them and
+refresh both endpoint payloads. Never silently approve a no-op unknown action.
+
+Reconciliation must parse an exact complete decision (not a substring), consume
+the full supplied source within an explicit bound, and treat missing source,
+truncation or invalid response as review. This repairs the vocabulary-authorized
+expiry mechanism; attributed claims, source clocks and open-vocabulary conflict
+resolution follow in the same phase. Do not relabel this as full conflict repair.
+Validate coexisting converses, preserved canonical separation, no-source/invalid
+reconciler behavior, and the actual background detector/apply path.
+
 ### Lexical query preservation (2026-09-13)
 
 Normalize the entire parameterized query with the same PostgreSQL `english`

@@ -693,3 +693,34 @@ Order and section headings match ROADMAP.md.
     - **Threshold semantics changed for any non-unit-norm embedding.** The old path compared a raw dot product; the new one compares pgvector cosine, which normalises. For legacy 384-era rows — which the deleted comment itself notes "ran deflated for the whole 384 era" — the new path is strictly **more permissive** at the same threshold. Moot on an empty store; live the moment legacy data is imported ([F10](ROADMAP.md#f10)/LSREP).
   - **Validated:** pytest rails 346/346; live-DB retrieval 3, retrieval_failopen 27, session_scoping 40, timescope 61, relation_gaps 33, codex_write_path 23. Store residue from a crashed intermediate run (4 entities, 2 edges, 2 events, all `test_retrieval_failopen` fixtures) removed and verified 0/0/0 — the suite's cleanup is correct, it simply never ran (TRAPS #6).
   - *(Entry written 2026-08-12, not by the session that did the work. G41 was announced in commit `1af1126`'s subject line "(new G41)" and in a session handoff, and **given no roadmap entry at all** — zero mentions in ROADMAP.md. That is the fourth instance of the phantom-item failure after [G27](ROADMAP.md#g27), [G34](#g34) and [G35](#g35), and the rule against it is in the roadmap's own preamble: **open the item in the same edit that announces it**. The work itself was reviewed line by line and is correct; only the bookkeeping was missing.)*
+
+
+## G62 — relation-name expiry repair (v3, 2026-09-13)
+<a id="g62"></a>
+
+The old relation map served both canonicalization and deterministic expiry.
+Converses such as buys/sells therefore risked retiring coexisting facts. The
+recorded historical extraction arm had no antonym hits; that was absence of
+activation, not proof the rule was correct.
+
+Separated canonical anti-merge pairs from opposition candidates. All opposition
+candidates now require source reconciliation or review. Removed the independent
+same-endpoints/different-relation expiry branch; reinforcement matches relation
+and polarity too. Reconciliation reads complete source within an8192-token
+configurable bound and requires an exact, complete model decision.
+
+Background polarity/opposition candidates produce deduplicated review issues,
+not automatic graph expiry. REST/MCP approval requires explicit keep_edge_ids
+(both/one/neither), journals selected expiries and refreshes endpoint payloads.
+Missing/foreign choices fail before approval. Existing proposal caps apply.
+
+Validated264 smoke/extraction/conflict controls and45 standalone maintenance
+checks in disposable databases. Initial conflict fixtures omitted source_batch;
+fixed fixtures. Two legacy maintenance expectations assumed automatic expiry
+and were corrected before45/45 passed. Controlled model outputs establish
+mechanics, not real-model contradiction accuracy.
+
+**Still open in the repair phase:** source-attributed autonomous reconciliation,
+property/single-valued semantics, explicit-negation temporal ordering and
+open-vocabulary conflict detection. This closes vocabulary-authorized expiry,
+not all graph correctness. Spec: V3_REPAIR.md; D1/D2 override propagated.

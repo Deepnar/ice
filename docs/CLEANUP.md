@@ -1056,3 +1056,11 @@ overrides and does not print database URLs on assertion failure. No files moved.
 Removed the ASCII-only preprocessing, duplicate stopword list and first-30-word
 cut from the lexical query path. Corrected docs that called PostgreSQL ts_rank
 BM25 scoring or described the OR query as AND. No files moved.
+
+## 2026-09-13 — v3 conflict evidence boundary
+
+Renamed the mixed antonym map to relation-separation pairs and separated the
+opposition candidate map. Removed same-endpoints/different-relation expiry and
+its obsolete comments. Removed truncated reconciliation input and substring
+verdict parsing. Updated maintenance expectations to source-required proposals.
+No files moved. Background review issues have REST/MCP decision consumers.

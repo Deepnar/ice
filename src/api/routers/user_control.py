@@ -87,6 +87,7 @@ class ClusterAssign(BaseModel):
     turn_ids: List[str]
 
 class ReviewApprove(BaseModel):
+    keep_edge_ids: Optional[List[str]] = None
     slot_name: Optional[str] = None
     cluster_name: Optional[str] = None
 
@@ -180,7 +181,7 @@ def get_review_queue(status: Optional[str] = "pending", db: Session = Depends(ge
 @router.post("/review-queue/{item_id}/approve")
 def approve_review_item(item_id: str, body: ReviewApprove = None, db: Session = Depends(get_db)):
     with service_errors():
-        return review_svc.approve(db, item_id)
+        return review_svc.approve(db, item_id, keep_edge_ids=body.keep_edge_ids if body else None)
 
 
 # ------------------------------------------------------------------

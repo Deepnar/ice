@@ -568,8 +568,8 @@ Every entry, with its cadence from `settings.maintenance_intervals`. **A job wit
 | Property relations write JSONB + expire old edge | `src/workers/codex_extractor.py:1465` | — | `role`, `age`, `email` etc. update the entity's `properties` and supersede the previous value's edge. | — | — | YES |
 | Single- vs multi-valued edge semantics | `src/workers/codex_extractor.py:1532`–`1635` | — | A new single-valued edge auto-expires the previous one; multi-valued relations coexist. Reinforcement bumps strength +1 and promotes pending→active at 2.0. | — | — | YES |
 | A8 negation | `src/workers/codex_extractor.py:1430` | A8 | "X no longer uses Y" retracts the positive edge and stores a negated edge — a stored negative fact, not a navigable link. | — | — | YES |
-| A6 conflict pre-filter | `src/workers/codex_extractor.py:1270` | A6 | Cheap dict lookup: only relations with a known antonym, or multi-valued relations coinciding with a supersession cue in the turn text, hit the DB. | — (hardcoded `SUPERSESSION_CUES`) | — | YES |
-| Deterministic antonym reconciliation | `src/workers/codex_extractor.py:1325` | A6 | An antonym reversal expires the old edge with no LLM involved. | — | — | YES |
+| A6 conflict pre-filter | `src/workers/codex_extractor.py:1270` | A6 | Opposition candidates (not the canonical anti-merge map), or multi-valued relations coinciding with a legacy supersession cue, hit the DB; this is nomination, never proof. | — (hardcoded `SUPERSESSION_CUES`) | — | YES |
+| Source-aware opposition reconciliation | `src/workers/codex_extractor.py:1325` | A6 | Removed in v3 repair: opposition candidates require source-aware reconciliation or review; converses only block canonical merges. | — | — | YES |
 | Bounded LLM reconciler for ambiguous supersession | `src/workers/codex_extractor.py:1365` | A6 | One-word verdict (`expire_old`/`keep_both`/`reject_new`); anything else queues for human review rather than guessing. | — | — | YES |
 | Bidirectional context payload regeneration | `src/workers/codex_extractor.py:1154`, `:1656` | A7/G33 | Rebuilds an entity's Obsidian-style note (description + properties + Links + Backlinks + Negations) on BOTH ends of every edge write. The `db.flush()` is load-bearing — without it every payload was one write behind. | — | — | YES |
 | Entity-type inference with direction | `src/workers/codex_extractor.py:1111` | A7/G33 | Types an entity from its OUTGOING relations; incoming edges vote only for symmetric relations, so `fire mage` is no longer typed `person`. | — | — | YES |
@@ -716,14 +716,14 @@ Driver: `run_maintenance_agent(db, llm_decider)` at `src/workers/maintenance_age
 | Zero when | (a) the scan budget was consumed by detectors 1–2; (b) no name/alias collisions; (c) no pair ≥0.90; (d) every candidate pair already has a `pair_key` row; (e) `llm_decider is None`; (f) the LLM answers `different`/`unsure` — only `same` proposes |
 | **[queried]** | 7,949 entities, all with embeddings, all `source='conversation'`. **Name-overlap channel: exactly 0 colliding names.** `canonical_name` is UNIQUE and `get_or_create_entity` sets `aliases=[name]` where `name.lower() == canonical_name`, so two distinct rows can essentially never share a normalised name — **Tier 0 auto-merge is dead on conversation-extracted entities.** Cosine channel: **≥200 pairs above 0.90 exist** — candidates are plentiful; the detector simply never got to run. |
 
-**Detector 4 — `contradiction` (Tier 1, deterministic)**
+**Detector 4 — `contradiction` (Tier 2, source-required proposal)**
 
 | Aspect | Detail |
 |---|---|
 | Where | `src/workers/maintenance_agent.py:197` |
 | Arm (a) polarity | A live positive edge coexisting with a live NEGATED edge for the same `(source, relation, target)` — A8 residue the in-line retraction missed across batches |
-| Arm (b) antonym | Two live edges for one entity pair whose relations are a curated antonym/converse pair (`_ANTONYM_PAIRS`, 15 pairs) |
-| Applies | `_apply_contradiction` (`:603`) routes through A6's `reconcile_conflict` antonym arm — newer assertion supersedes, negation wins ties |
+| Arm (b) antonym | Two live edges for one entity pair whose relations are an opposition candidate pair (`_OPPOSITION_PAIRS`); converses excluded |
+| Applies | `_apply_contradiction` records one pending `codex_contradiction` proposal per edge pair. No graph expiry; existing Tier-2 proposal cap applies. |
 | Zero when | No cross-batch polarity residue and no antonym pair coexists live. The in-line A8 path expires the positive at write time, so arm (a) only ever catches cross-batch leakage |
 | **[queried]** | Only 2 live negated edges in the whole graph — arm (a) has almost nothing to find |
 
@@ -1435,3 +1435,7 @@ wins; where it conflicts with the code, the code wins.**
 | In-flight endpoint protection | `src/workers/codex_extractor.py` | G44 | Stops promotion deleting the endpoint of the triplet being written. Fired 98 times in 586 turns. | — | — | YES |
 | Z2-mini answer harness | `scripts/z1/answer_probes.py` | Z2 | Retrieve → assemble → generate an answer. The half no recall number measures. | — | — | N-A |
 | Paired blind judge | `scripts/z1/judge_answers.py` | Z2 | Head-to-head arm comparison with a fixed reason taxonomy; writes partial state after every probe. | — | — | N-A |
+
+| Bounded reconciliation source | `src/workers/codex_extractor.py::make_llm_reconciler` | G62 | Complete source input or explicit review; exact complete decision parsing. | `codex_reconcile_input_tokens` | `8192` | YES |
+
+| Explicit conflict resolution | `src/services/review.py::approve`, REST review approval, MCP `ice_control` | G62 | `keep_edge_ids` explicitly retains both/one/neither; validates pair, journals expiries, refreshes payloads. | — | — | YES |

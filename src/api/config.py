@@ -541,7 +541,7 @@ class Settings(BaseSettings):
     # 1,259 true relations in one seed (`i --didnt_get--> csi` among them).
     # CALIBRATED 2026-08-13 (was a guessed 0.86). Measured on the live encoder
     # over 15 pairs that should merge and 15 that must not:
-    #   * with converses guarded deterministically (_ANTONYM_PAIRS), the highest
+    #   * with converses guarded deterministically (_RELATION_SEPARATION_PAIRS), the highest
     #     scoring pair that MUST NOT merge is `likes`/`dislikes` at **0.787**;
     #   * true synonyms run 0.786–0.954 (`using`/`uses` 0.872,
     #     `carrying`/`carries` 0.911, `needs`/`requires` 0.808).
@@ -814,6 +814,7 @@ class Settings(BaseSettings):
     codex_max_depth: int = 3
     codex_direct_trust_floor: float = 0.5
     codex_deep_strength_floor: float = 1.0
+    codex_reconcile_input_tokens: int = Field(default=8192, ge=256, le=32768)
     codex_reinforce_increment: float = 0.15
     codex_strength_cap: float = 10.0
     codex_promote_strength: float = 2.0

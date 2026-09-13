@@ -484,15 +484,15 @@ def _is_inverse_pair(a: str, b: str) -> bool:
         return False
     # Known converses first — similarity CANNOT distinguish these (measured:
     # before/after 0.8791, above the merge threshold), so the only reliable
-    # signal is the curated map. See _ANTONYM_PAIRS for why this is not
+    # signal is the curated map. See _RELATION_SEPARATION_PAIRS for why this is not
     # optional.
-    _ant = globals().get("ANTONYM_OF") or {}
+    _ant = globals().get("RELATION_SEPARATION_OF") or {}
     if b in _ant.get(a, ()) or a in _ant.get(b, ()):
         return True
     # ⚑ POLARITY — settled here, deterministically, because similarity cannot
     # see it. `can`/`cannot` score 0.9134 on the live encoder and
     # `is_the_same_as`/`is_not_the_same_as` 0.9182 — both above the 0.90 merge
-    # threshold, and neither is caught by ANTONYM_OF (a hand list cannot
+    # threshold, and neither is caught by RELATION_SEPARATION_OF (a hand list cannot
     # enumerate an open vocabulary) nor by the passive rule below, which
     # compares True against True for any `is_*`/`is_*` pair. Merging a relation
     # into its own negation asserts the opposite of what the turn said.
@@ -1591,49 +1591,41 @@ def _regenerate_context_payload(entity: CodexEntity, db) -> None:
 # ===================================================================
 # A6 — Self-correcting graph (bounded reconciliation loop)
 # ===================================================================
-# Fixed rules can't catch cross-turn contradictions ("uses postgres" then
-# "migrated off postgres") or relationship reversals (friend -> enemy). A6
-# adds a CHEAP deterministic conflict check before the fixed rules run;
-# antonym reversals resolve deterministically (newer state supersedes), and
-# only genuinely ambiguous supersessions touch the LLM (or go to review) —
-# so a small model never gets blanket delete/merge authority over the graph.
+# Vocabulary separation prevents wrong canonical merges; it never establishes
+# contradiction. Conflict candidates need source-aware reconciliation.
 SUPERSESSION_CUES = (
     "migrated off", "moved off", "no longer", "stopped using", "switched from",
     "switched to", "replaced", "instead of", "deprecated", "abandoned",
     "dropped", "gave up on", "used to", "moved away from", "ditched",
 )
-_ANTONYM_PAIRS = [
+_RELATION_SEPARATION_PAIRS = [
     ("friend", "enemy"), ("ally", "enemy"),
     ("married_to", "is_divorced_from"), ("is_dating", "is_separated_from"),
     ("endorses", "criticises"),
-    # ── G45: CONVERSES, added 2026-08-13 ────────────────────────────────────
-    # These are not negations, they are DIRECTION REVERSALS: `A parent_of B` is
-    # not "not `A child_of B`", it is the same fact read from the other end.
-    # Two reasons they belong here now:
-    #   1. A6 contradiction detection gets them for free.
-    #   2. ⚑ Canonicalisation MUST NOT merge them, and similarity cannot tell
-    #      them apart. Measured 2026-08-13 on the live encoder:
-    #        before/after         0.8791   ← ABOVE the 0.86 merge threshold
-    #        parent_of/child_of   0.8569
-    #        teaches/learns_from  0.8159
-    #      Embeddings place converses next to each other because they share
-    #      every context word. Left to similarity, `before` would have been
-    #      canonicalised into `after` — silently reversing every temporal fact
-    #      in the graph. This list is what stops that, deterministically.
-    # ⚠ NEGATIONS ARE DELIBERATELY ABSENT (`lacks`, `excludes`, `destroys`).
-    # A8 stores those as `negated=True` on the edge specifically so the
-    # vocabulary does not double; adding them here would re-create by hand the
-    # thing that mechanism exists to avoid.
+    # Converses remain separate even when their embeddings are similar.
+    # The same subject can both buy from and sell to another entity.
     ("before", "after"), ("parent_of", "child_of"),
     ("teaches", "learns_from"), ("follows", "precedes"),
     ("supports", "opposes"), ("above", "below"),
     ("buys", "sells"), ("wins", "loses"),
     ("member_of", "contains"), ("part_of", "has_part"),
-]  # add pairs only for CONVERSES; negation is A8's job, not the vocabulary's
-ANTONYM_OF: dict = {}
-for _a, _b in _ANTONYM_PAIRS:
-    ANTONYM_OF.setdefault(_a, set()).add(_b)
-    ANTONYM_OF.setdefault(_b, set()).add(_a)
+]
+RELATION_SEPARATION_OF: dict = {}
+for _a, _b in _RELATION_SEPARATION_PAIRS:
+    RELATION_SEPARATION_OF.setdefault(_a, set()).add(_b)
+    RELATION_SEPARATION_OF.setdefault(_b, set()).add(_a)
+
+
+# These nominate a question for the reconciler, never an automatic expiry.
+_OPPOSITION_PAIRS = [
+    ("friend", "enemy"), ("ally", "enemy"),
+    ("married_to", "is_divorced_from"), ("is_dating", "is_separated_from"),
+    ("endorses", "criticises"),
+]
+OPPOSITION_OF: dict = {}
+for _a, _b in _OPPOSITION_PAIRS:
+    OPPOSITION_OF.setdefault(_a, set()).add(_b)
+    OPPOSITION_OF.setdefault(_b, set()).add(_a)
 
 
 def _entity_name(db, entity_id) -> str:
@@ -1644,11 +1636,12 @@ def _entity_name(db, entity_id) -> str:
 
 
 def check_conflict(db, subj_id, relation: str, obj_id, turn_text: Optional[str]):
-    """A6 deterministic conflict pre-filter. Returns a conflict dict or None.
-    Runs a DB query only when the relation has a known antonym, or when a
-    multi-valued relation coincides with a supersession cue in the turn — so
-    the ~95% of triplets with neither take a dict-lookup fast path."""
-    antonyms = ANTONYM_OF.get(relation)
+    """Nominate opposition or explicit-cue candidates for source reconciliation.
+
+    The separation map used by canonicalization is deliberately not queried.
+    This legacy candidate filter is incomplete for open-vocabulary changes.
+    """
+    antonyms = OPPOSITION_OF.get(relation)
     if antonyms:
         old = db.query(CodexEdge).filter(
             CodexEdge.source_id == subj_id,
@@ -1692,22 +1685,13 @@ def _expire_edge(db, edge_id, batch_id, reason: str, source: Optional[str] = Non
 def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
                        turn_text: Optional[str], reconciler,
                        source: Optional[str] = None) -> bool:
-    """Resolve a detected conflict. Antonym reversals are deterministic (the
-    newly-asserted state supersedes its opposite — no LLM). Ambiguous
-    supersessions go to *reconciler* (the bounded LLM) if provided, else to
-    human review — never auto-expire on a guess. Returns True if the new edge
-    should still be written. Callable as a unit so Track D's agent can drive
-    it with its own reconciler. *source* rides into the expiry events (D4)."""
-    if conflict["type"] == "antonym":
-        _expire_edge(db, conflict["old_edge_id"], batch_id, "antonym_superseded",
-                     source=source)
-        logger.info("codex_reconcile", type="antonym", decision="expire_old",
-                    relation=relation, old_relation=conflict["old_relation"])
-        return True
+    """Reconcile candidates from source text; relation names alone never expire.
 
-    # supersession — genuinely ambiguous ("migrated off X" vs "considered it").
+    Missing evidence/reconciler retains both claims and records a review item.
+    Returns False only for an explicit, source-backed reject_new decision.
+    """
     decision = "review"
-    if reconciler is not None:
+    if reconciler is not None and turn_text and turn_text.strip():
         try:
             decision = reconciler({
                 "subject": subj.canonical_name, "relation": relation,
@@ -1716,7 +1700,10 @@ def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
                 "turn": turn_text or "",
             }) or "review"
         except Exception as err:
-            logger.error("codex_reconcile_llm_failed", error=str(err))
+            from src.workers.runtime import JobYielded
+            if isinstance(err, JobYielded):
+                raise
+            logger.warning("codex_reconcile_llm_failed", error_type=type(err).__name__)
             decision = "review"
 
     if decision == "expire_old":
@@ -1728,7 +1715,7 @@ def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
     elif decision != "keep_both":  # review / unknown → keep both, flag human
         db.add(ReviewQueue(item_type="codex_reconciliation", item_content={
             "new": {"subject": subj.canonical_name, "relation": relation, "object": obj.canonical_name},
-            "conflict_type": "supersession", "old_edge_id": str(conflict["old_edge_id"]),
+            "conflict_type": conflict["type"], "old_edge_id": str(conflict["old_edge_id"]),
             "old_relation": conflict["old_relation"],
             "old_object": _entity_name(db, conflict.get("old_target_id")),
             "turn_excerpt": (turn_text or "")[:300],
@@ -1757,22 +1744,30 @@ def make_llm_reconciler():
             "text, decide how to reconcile them.\n"
             f"Existing fact: {ctx['subject']} {ctx['old_relation']} {ctx['old_object']}\n"
             f"New fact: {ctx['subject']} {ctx['relation']} {ctx['object']}\n"
-            f"Conversation text: {ctx['turn'][:600]}\n\n"
+            f"Conversation text: {ctx['turn']}\n\n"
             "Reply with exactly ONE word:\n"
             "expire_old  — the new fact replaces/supersedes the old one\n"
             "keep_both   — both are true at the same time\n"
             "reject_new  — the new fact is wrong or not actually asserted"
         )
+        from src.memory.tokens import count
+        if count(prompt) > settings.codex_reconcile_input_tokens:
+            logger.warning("codex_reconcile_source_too_long")
+            return "review"
         resp = bg_client.chat.completions.create(
             model=get_bg_model_name(),
             messages=[{"role": "system", "content": "You output exactly one word."},
                       {"role": "user", "content": prompt}],
             temperature=0.0, max_tokens=10, timeout=bg_timeout(10))  # >5 so 'expire_old' can't truncate
-        out = (resp.choices[0].message.content or "").strip().lower().replace(" ", "_").replace("-", "_")
-        for d in ("expire_old", "keep_both", "reject_new"):
-            if d in out:
-                return d
-        return "review"
+        choice = resp.choices[0]
+        out = (choice.message.content or "").strip().lower()
+        if getattr(choice, "finish_reason", None) not in (None, "stop"):
+            logger.warning("codex_reconcile_incomplete_response")
+            return "review"
+        if out not in {"expire_old", "keep_both", "reject_new"}:
+            logger.warning("codex_reconcile_invalid_response")
+            return "review"
+        return out
     return _reconcile
 
 
@@ -1918,78 +1913,28 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
     existing_active = db.query(CodexEdge).filter(
         CodexEdge.source_id == subj.id,
         CodexEdge.target_id == obj.id,
-        CodexEdge.valid_until == None
+        CodexEdge.relation == relation,
+        CodexEdge.negated == False,
+        CodexEdge.valid_until == None,
     ).first()
 
     if existing_active:
-        # Same source‑target pair, same relation → reinforcement
-        if existing_active.relation == relation:
-            existing_active.strength += 1.0
-            # A3: corroborating re-extraction raises trust to the best seen.
-            existing_active.extraction_confidence = max(
-                existing_active.extraction_confidence or 1.0, extraction_confidence)
-            if existing_active.strength >= 2.0 and existing_active.confidence == "pending":
-                existing_active.confidence = "active"
-            db.add(CodexEvent(
-                entity_id=subj.id,
-                event_type="edge_strengthened",
-                payload={"edge_id": str(existing_active.id), "relation": relation, "target_id": str(obj.id)},
-                timestamp=datetime.now(timezone.utc),
-                batch_source=batch_id
-            ))
-        else:
-            # Same pair, different relation.
-            # Only expire the old edge if the OLD relation is single-valued —
-            # "knows" (multi-valued) must survive a later "friend" between the
-            # same pair, because both are supposed to coexist.
-            #
-            # ⚑ G51, 2026-08-22: this tests membership of the SINGLE list, not
-            # absence from the MULTI list, and the difference is the whole
-            # point. `07fc689` made exactly that change in the single-valued
-            # branch below and left this twin on the old form — so every
-            # OPEN-VOCABULARY relation, which is by definition on neither closed
-            # list, took the `not in MULTI_VALUED` path and retired its
-            # predecessor. Measured on the arm-B store before the fix: 667 of
-            # 817 expiries (82%) were open-vocabulary relations expired here —
-            # `have` x34, `are` x28, `feels` x13, `in` x12. Silent, because the
-            # row stays in the table with `valid_until` set.
-            #
-            # The default for an unknown relation is KEEP BOTH: losing a
-            # supersession leaves a stale edge, which is visible and
-            # correctable; losing a fact is neither. Do not "fix" this by
-            # growing either list — that is the closed-vocabulary defect G45
-            # removed.
-            if existing_active.relation in SINGLE_VALUED_RELATIONS:
-                existing_active.valid_until = datetime.now(timezone.utc)
-                db.add(CodexEvent(
-                    entity_id=subj.id,
-                    event_type="edge_expired",
-                    payload={"edge_id": str(existing_active.id), "relation": existing_active.relation},
-                    timestamp=datetime.now(timezone.utc),
-                    batch_source=batch_id
-                ))
-
-            new_edge_id = uuid.uuid4()
-            db.add(CodexEdge(
-                id=new_edge_id,
-                source_id=subj.id,
-                target_id=obj.id,
-                relation=relation,
-                strength=3.0,
-                source_batch=batch_id,
-                confidence="active",
-                extraction_confidence=extraction_confidence,
-                valid_from=datetime.now(timezone.utc)
-            ))
-            db.add(CodexEvent(
-                entity_id=subj.id,
-                event_type="edge_added",
-                payload={"edge_id": str(new_edge_id), "relation": relation, "target_id": str(obj.id)},
-                timestamp=datetime.now(timezone.utc),
-                batch_source=batch_id
-            ))
+        # Only the same directed relation and polarity can corroborate.
+        existing_active.strength += 1.0
+        # A3: corroborating re-extraction raises trust to the best seen.
+        existing_active.extraction_confidence = max(
+            existing_active.extraction_confidence or 1.0, extraction_confidence)
+        if existing_active.strength >= 2.0 and existing_active.confidence == "pending":
+            existing_active.confidence = "active"
+        db.add(CodexEvent(
+            entity_id=subj.id,
+            event_type="edge_strengthened",
+            payload={"edge_id": str(existing_active.id), "relation": relation, "target_id": str(obj.id)},
+            timestamp=datetime.now(timezone.utc),
+            batch_source=batch_id
+        ))
     else:
-        # No existing edge between this source and target
+        # No live positive edge with this complete directed relation
         # If the relation is single‑valued, expire any other active edge with the same source and relation
         #
         # ⚑ KNOWN single-valued, not "absent from the multi-valued list" (G45/G50).

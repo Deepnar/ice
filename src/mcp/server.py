@@ -309,7 +309,8 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
     pick wins over ICE's automatic one); "excluded_conversation_ids" /
     "excluded_cluster_ids" — never retrieve these, in any mode, without
     deleting them. Each is None = leave unchanged, [] = clear);
-    "review_list"/"review_approve"/"review_reject" → agent proposals;
+    "review_list"/"review_approve"/"review_reject" → agent proposals
+    (contradiction approval requires data.keep_edge_ids: keep both, one or []);
     "registry_view"/"registry_edit" → the model registry.
     Coding core (E1): "project_register" (data: name, root, install_git_hook
     — ASK THE USER before installing the git hook), "project_list",
@@ -353,7 +354,7 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
         if action == "review_list":
             return review_svc.list_items(db, status)
         if action == "review_approve":
-            return review_svc.approve(db, item_id)
+            return review_svc.approve(db, item_id, keep_edge_ids=d.get("keep_edge_ids"))
         if action == "review_reject":
             return review_svc.reject(db, item_id)
         if action == "registry_view":
