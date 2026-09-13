@@ -49,6 +49,15 @@ not bare substrings — `"Negations: NOT uses → x"` legitimately contains
 `"uses → x"`.
 
 ### 6. A crashed or leaky test leaves rows behind, and they fail a *different* test later
+**Re-earned 2026-09-13 — cleanup is not isolation.** The temporal suite cleaned
+its own rows but called whole-store `apply_decay()` twice. Running it on the
+working store changed 180 unrelated seeded scores. Each was verified as exactly
+two cycles from 1.0 and those identifiable score changes were restored. The
+suite now refuses the working database and runs through
+`tests/support/disposable_database.py`, which creates and removes an isolated
+PostgreSQL database. Audit every worker a test calls, not just its INSERT/DELETE
+statements; snapshots and tuning arms must isolate writes as well as fixtures.
+
 `test_documents`' cleanup once selected its rows from a hardcoded filename
 allow-list, so every new fixture leaked.
 **Re-earned 2026-08-03, and this time it broke an unrelated suite:** two orphan

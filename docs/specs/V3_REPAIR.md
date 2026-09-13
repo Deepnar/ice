@@ -158,6 +158,21 @@ Do not tune a threshold to these controls. A configured experimental floor
 remains available, with its rejection result explicitly unqualified. This is
 relevance ordering, not a complete relevance/abstention solution.
 
+### Timestamp presentation and provenance (2026-09-13)
+
+Use existing episodic timestamp/provenance and Codex learned/valid times. Render
+date and clock time with timezone and a current UTC datetime anchor. Recorded
+time is not necessarily the event time described in the source. Label synthetic
+import times; unknown timezone/provenance must not become UTC/original. Do not
+invent event times or rewrite historical records in this presentation repair.
+
+For explicit fact lines, resolve source-batch timestamps in batched queries after
+scope filtering, separately from learned/recorded-validity time. Keep timestamps
+on every eligible episodic alternative, chunks and recent history, and count
+them in budgets. Summary prefixes name creation/update time, not event time.
+Timeline timestamps describe recorded validity. Cold storage lacks timestamp
+provenance today; expose that as unknown until the lifecycle repair preserves it.
+
 Subsequent coherent repairs: conflict/time semantics and separation of evidence
 from usage; shared read preparation, provenance and final-selection tracing;
 source-backed sentence claims and qualified verification; consistent summaries;

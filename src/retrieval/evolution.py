@@ -26,8 +26,9 @@ from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
-from src.memory.tokens import count as count_tokens
 from src.memory.models import CodexEdge, CodexEntity, CodexEvent
+from src.memory.time_format import format_time
+from src.memory.tokens import count as count_tokens
 
 logger = structlog.get_logger("ice.retrieval.evolution")
 
@@ -127,9 +128,9 @@ def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
     for key in sorted(groups, key=lambda k: max((e.valid_from or _EPOCH)
                                                 for e in groups[k])):
         for e in sorted(groups[key], key=lambda e: e.valid_from or _EPOCH):
-            start = e.valid_from.strftime("%Y-%m") if e.valid_from else "?"
+            start = format_time(e.valid_from)
             if e.valid_until is not None:
-                end = e.valid_until.strftime("%Y-%m")
+                end = format_time(e.valid_until)
                 suffix = f"  (superseded: {events[str(e.id)][1]})"
             else:
                 end = "now"
@@ -143,7 +144,7 @@ def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
     if len(lines) > max_transitions:
         lines = lines[-max_transitions:]
         omitted = True
-    header = f"[Timeline: {entity.canonical_name}]"
+    header = f"[Timeline: {entity.canonical_name}; recorded validity times]"
 
     def _render():
         parts = [header] + (["(earlier history omitted)"] if omitted else []) + lines

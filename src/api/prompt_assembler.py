@@ -43,6 +43,7 @@ from src.memory.models import (
     MemorySlot,
 )
 from src.memory.representation import choose_representation
+from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as _estimate_tokens
 from src.retrieval.orchestrator import ContextFragment
 
@@ -203,6 +204,8 @@ def get_recent_turns(
                     text = alt
                     break
         user_part, assistant_part = _split_pair(text)
+        user_part = recorded_stamp(getattr(t, "timestamp", None),
+                                   getattr(t, "ts_provenance", None)) + user_part
         share = min(per_turn_cap, max(64, max_tokens - used))
         if assistant_part is not None:
             u = _fit(user_part, share // 2)
@@ -244,14 +247,13 @@ def assemble_prompt(
     budgeted by the orchestrator).
     """
 
-    # T1 date-grounding: without a today-anchor, even dated fragments can't
-    # resolve relative time ("two years ago"); with it, the [YYYY-MM-DD]
-    # fragment stamps become usable for ordering and era-telling.
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    now = format_time(datetime.now(timezone.utc))
     system_msg = {
         "role": "system",
         "content": (
-            f"Today's date: {today}. "
+            f"Current date and time (UTC): {now}. "
+            "Memory timestamps distinguish source recording, import, learning and validity; "
+            "they are not necessarily the dates of events described in the text. "
             "You have access to the user's conversation history below, shown as a "
             "sequence of earlier user/assistant message pairs, followed by retrieved "
             "background context, followed by the user's CURRENT question as the final "

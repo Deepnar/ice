@@ -11,7 +11,7 @@ data). No LLM needed (the track is fully deterministic); the embedder is a
 stub returning a constant vector, which makes our marker rows perfect-match
 top hits.
 
-Run: uv run python tests/test_timescope.py
+Run: uv run python tests/support/disposable_database.py tests/test_timescope.py
 """
 import os
 import sys
@@ -23,6 +23,17 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from sqlalchemy import text
 
 from src.api.config import settings
+
+# Temporal mechanics are isolated from semantic ranking, qualified separately
+# by tests/test_reranker_quality.py through both production retrieval paths.
+settings.retrieval_rerank_enabled = False
+# This suite invokes whole-store decay. Never run it on the working store.
+from sqlalchemy.engine import make_url
+if (not os.environ.get("ICE_TEST_DATABASE")
+        or make_url(settings.database_url).database != os.environ["ICE_TEST_DATABASE"]
+        or not os.environ["ICE_TEST_DATABASE"].startswith("ice_test_")):
+    raise SystemExit("Use: uv run python tests/support/disposable_database.py tests/test_timescope.py")
+
 from src.api.db import SessionLocal
 from src.api.memory_decision import decide_memory_retrieval
 from src.classifier.schemas import ClassificationResult
@@ -201,8 +212,8 @@ try:
                     f"User: {MARK} report from june 2024\n\nAssistant: noted")
     t_in = mk_turn(datetime(2025, 3, 10, tzinfo=timezone.utc),
                    f"User: {MARK} report from march 2025\n\nAssistant: noted",
-                   summary=f"{MARK} march summary", coverage=0.9,
-                   abstract=f"{MARK} abstract")
+                   summary=f"{MARK} report from march 2025", coverage=0.9,
+                   abstract=f"{MARK} report from march 2025")
     t_now = mk_turn(real_now - timedelta(hours=1),
                     f"User: {MARK} report from right now\n\nAssistant: noted")
 
@@ -250,12 +261,12 @@ try:
     orch._active_timescope = CURRENT
     frags = orch._vector_episodic(EMB, c, None, None)
     fin = next((f for f in frags if f.source_batch_id == str(t_in.id)), None)
-    check("15 fragment text starts with [YYYY-MM-DD]",
-          fin is not None and fin.text.startswith("[2025-03-10] "))
+    check("15 fragment text carries source date and time",
+          fin is not None and fin.text.startswith("[source recorded: 2025-03-10T00:00:00Z] "))
     check("15 degrade_text carries the same stamp",
           fin is not None and fin.degrade_text is not None
-          and fin.degrade_text.startswith("[2025-03-10] ")
-          and fin.abstract_text.startswith("[2025-03-10] "))
+          and fin.degrade_text.startswith("[source recorded: 2025-03-10T00:00:00Z] ")
+          and fin.abstract_text.startswith("[source recorded: 2025-03-10T00:00:00Z] "))
 
     # 16/17: codex valid_at + dated fact line
     eA = CodexEntity(canonical_name=f"{MARK}-alpha", aliases=[], tags=["tool"],
@@ -303,9 +314,9 @@ try:
     # passes None: the fit is then 0.0, strength order is kept, and the fact
     # lines render exactly as before.
     lines, _, _ = orch._relation_facts([eA], None, None)
-    since = ed_new.valid_from.strftime("%Y-%m")
-    check("17 fact line renders (since YYYY-MM)",
-          any(f"(since {since})" in ln for ln in lines))
+    since = ed_new.valid_from.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    check("17 fact line distinguishes recorded validity timestamp",
+          any(f"recorded valid from: {since}" in ln for ln in lines))
 
     # 18: memory decision bump
     md_base = decide_memory_retrieval(clf(p_ltm=0.1), 1, 100.0, settings)
@@ -408,9 +419,9 @@ try:
     # 20: timeline content + D6 discriminator + gate
     tl = build_entity_timeline(db, e_saga)
     check("20 timeline: superseded A (span + reason) and live successor B",
-          tl is not None and tl.startswith(f"[Timeline: {MARK}-saga]")
-          and f"2025-11 – 2026-02: {MARK}-saga --planned_as--> {MARK}-multiverse  (superseded: antonym_superseded)" in tl
-          and f"2026-02 – now: {MARK}-saga --planned_as--> {MARK}-mercy" in tl)
+          tl is not None and tl.startswith(f"[Timeline: {MARK}-saga; recorded validity times]")
+          and f"2025-11-05T00:00:00Z – 2026-02-10T00:00:00Z: {MARK}-saga --planned_as--> {MARK}-multiverse  (superseded: antonym_superseded)" in tl
+          and f"2026-02-10T00:00:00Z – now: {MARK}-saga --planned_as--> {MARK}-mercy" in tl)
     check("20 decay-died edge C excluded (D6); negated edge renders NOT",
           f"{MARK}-oldtool" not in tl and f"--NOT trusts--> {MARK}-multiverse" in tl)
     check("20 history_exists: saga True; decay-only False; source_deleted-only False",
@@ -436,7 +447,7 @@ try:
         orch.use_fuzzy_match = saved_fuzzy
     tl_frags = [f for f in cg if f.source_type == "timeline"]
     check("21 timeline fragment emitted under current mode, history anchors only",
-          len(tl_frags) == 1 and f"[Timeline: {MARK}-saga]" in tl_frags[0].text)
+          len(tl_frags) == 1 and f"[Timeline: {MARK}-saga; recorded validity times]" in tl_frags[0].text)
     saga_frag = next((f for f in cg if f.source_type == "codex"
                       and f"{MARK}-saga payload" in f.text), None)
     check("21 timeline scored 0.9× its anchor",
@@ -461,7 +472,7 @@ try:
     filler = [ContextFragment(text=f"{MARK} filler {i} " + "pad " * 60,
                               source_type="episodic", score=50.0 + i,
                               token_count=80) for i in range(20)]
-    kept = orch._enforce_token_budget(filler + [tl_frags[0]], max_tokens=250)
+    kept = orch._enforce_token_budget(filler + [tl_frags[0]], max_tokens=80 + tl_frags[0].token_count)
     check("21 budget keeps the timeline (own lane)",
           any(f.source_type == "timeline" for f in kept))
 
@@ -545,7 +556,7 @@ try:
     check("26 cold row surfaced under as_of (dated, keyword-matched)",
           str(cold_row.id) in got_ids
           and next(f for f in cold_frags
-                   if f.source_batch_id == str(cold_row.id)).text.startswith("[2025-03-12] "))
+                   if f.source_batch_id == str(cold_row.id)).text.startswith("[recorded; provenance unknown: 2025-03-12T00:00:00Z] "))
     orch._active_timescope = CURRENT
     check("26 cold leg is a no-op under current", orch._cold_lookup({MARK}, None) == [])
 
@@ -630,7 +641,7 @@ try:
     check("30 current: archived still hidden", not has(cur, t_frozen))
     fin = next((f for f in cur if f.source_batch_id == str(t_in.id)), None)
     check("30 current: fragment text = old text modulo date prefix",
-          fin is not None and fin.text == f"[2025-03-10] User: {MARK} report from march 2025\n\nAssistant: noted")
+          fin is not None and fin.text == f"[source recorded: 2025-03-10T00:00:00Z] User: {MARK} report from march 2025\n\nAssistant: noted")
 
 finally:
     # Resilient cleanup: marker-keyed bulk deletes (catches rows created by

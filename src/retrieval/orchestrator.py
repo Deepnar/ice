@@ -26,6 +26,7 @@ from src.memory.models import (
     ProceduralMemory,
 )
 from src.memory.representation import choose_representation
+from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as count_tokens
 from src.retrieval import coverage, leg_weights
 from src.retrieval.evolution import build_entity_timeline, history_exists
@@ -188,6 +189,7 @@ class HybridRetrievalOrchestrator:
         self._active_timescope = CURRENT
         self.timescope_allowed = True
         self._cold_hits = {}
+        self._source_times = {}
         # E1b (D3): the request's attached project (scope["project_id"]) —
         # source-visibility for derived code/fact entities keys off this,
         # same instance-attr pattern as _active_timescope.
@@ -488,6 +490,7 @@ class HybridRetrievalOrchestrator:
         # C6: the exclusion deny sets, resolved once for every leg below.
         self._resolve_exclusion_sets(scope)
         self._cold_hits = {}
+        self._source_times = {}
         if classification.context_reliance == "Zero_Shot":
             return []
         if classification.context_reliance == "Real_Time_Search":
@@ -870,7 +873,7 @@ class HybridRetrievalOrchestrator:
         cluster_filter = self._cluster_filter(scope)
 
         query = text(f"""
-            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp,
+            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
                    ts_rank(
                        to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                        query
@@ -913,7 +916,7 @@ class HybridRetrievalOrchestrator:
             # Final fallback: use plainto_tsquery (AND) if everything fails
             try:
                 query2 = text(f"""
-                    SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp,
+                    SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
                            ts_rank(
                                to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                                plainto_tsquery('english', :prompt_text)
@@ -968,7 +971,7 @@ class HybridRetrievalOrchestrator:
         # GREATEST form for past rows; as_of re-anchors center to the window
         # midpoint. One formula, mode-driven params — never fork the leg SQL.
         query = text(f"""
-            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp,
+            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
                 (1 - (embedding <=> :prompt_embedding)) * COALESCE(decay_score, 1.0)
                   * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (timestamp - :ts_center))) / 86400.0 / :recency_tau)) as score
             FROM episodic_memory
@@ -1065,7 +1068,7 @@ class HybridRetrievalOrchestrator:
         cluster_filter = self._cluster_filter(scope, "e.id")
         query = text(f"""
             SELECT c.chunk_text, c.chunk_index, e.id AS parent_id,
-                   e.conversation_id, e.is_bookmarked, e.timestamp,
+                   e.conversation_id, e.is_bookmarked, e.timestamp, e.ts_provenance,
                    (1 - (c.embedding <=> :prompt_embedding)) * COALESCE(e.decay_score, 1.0)
                      * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (e.timestamp - :ts_center))) / 86400.0 / :recency_tau)) AS score
             FROM episodic_chunks c
@@ -1106,7 +1109,7 @@ class HybridRetrievalOrchestrator:
             # T1: chunks are episodic fragments too — date them from the parent turn.
             chunk_text = row.chunk_text
             if row.timestamp:
-                chunk_text = row.timestamp.strftime("[%Y-%m-%d] ") + chunk_text
+                chunk_text = recorded_stamp(row.timestamp, getattr(row, "ts_provenance", None)) + chunk_text
             fragments.append(ContextFragment(
                 text=chunk_text,
                 source_type="episodic",
@@ -1535,15 +1538,39 @@ class HybridRetrievalOrchestrator:
                     or_(CodexEdge.valid_until.is_(None), CodexEdge.valid_until > ts.t1)]
         return [CodexEdge.valid_until.is_(None)]
 
+    def _prime_edge_times(self, edges):
+        """Fetch source dates in batches, for edges already filtered by scope."""
+        cache = getattr(self, "_source_times", None)
+        if cache is None:
+            cache = self._source_times = {}
+        batches = {e.source_batch for e in edges if getattr(e, "source_batch", None)
+                   and str(e.source_batch) not in cache}
+        if not batches:
+            return
+        rows = self.db.query(EpisodicMemory.batch_id, EpisodicMemory.timestamp,
+                             EpisodicMemory.ts_provenance).filter(
+            EpisodicMemory.batch_id.in_(batches)).all()
+        cache.update({str(b): None for b in batches})
+        cache.update({str(b): (stamp, provenance) for b, stamp, provenance in rows})
+
     def _fact_line(self, src, edge, tgt) -> str:
-        """Render one codex fact. T1: dated with the edge's valid_from at month
-        precision (day precision would imply false exactness); legacy NULL
-        valid_from renders undated. Negated edges render as NOT (the note
-        renderer already did this; fact lines previously lied by omission)."""
+        """Separate source-recorded time from when ICE learned the claim."""
+        self._prime_edge_times([edge])
+        source = self._source_times.get(str(getattr(edge, "source_batch", None)))
+        dates = []
+        if source:
+            dates.append(recorded_stamp(*source).strip().strip("[]"))
+        else:
+            dates.append("source time unknown")
+        learned = getattr(edge, "learned_at", None)
+        valid = getattr(edge, "valid_from", None)
+        if learned:
+            dates.append(f"learned: {format_time(learned)}")
+        if valid and format_time(valid) != format_time(learned):
+            dates.append(f"recorded valid from: {format_time(valid)}")
         rel = f"NOT {edge.relation}" if getattr(edge, "negated", False) else edge.relation
-        vf = getattr(edge, "valid_from", None)
-        since = f" (since {vf.strftime('%Y-%m')})" if vf else ""
-        return f"[Fact: {src.canonical_name} --{rel}--> {tgt.canonical_name}{since}]"
+        return (f"[Fact: {src.canonical_name} --{rel}--> {tgt.canonical_name}"
+                f" ({'; '.join(dates)})]")
 
     def _relation_fit(self, relations: List[str], prompt_embedding):
         """G34: score each of *relations* against the prompt, and report how
@@ -1633,6 +1660,7 @@ class HybridRetrievalOrchestrator:
             pool.sort(key=lambda e: (scores.get(e.relation, 0.0), self._edge_trust(e)),
                       reverse=True)
 
+        self._prime_edge_times(pool[:settings.codex_entity_edge_limit])
         lines, fact_edges = [], []
         for edge in pool[:settings.codex_entity_edge_limit]:
             src = self.db.query(CodexEntity).get(edge.source_id)
@@ -1686,7 +1714,9 @@ class HybridRetrievalOrchestrator:
                     q = q.filter(CodexEdge.source_batch.in_(allowed_batch_ids))
                 if self._denied_batch_ids:   # C6 exclusion
                     q = q.filter(CodexEdge.source_batch.notin_(self._denied_batch_ids))
-                for edge in q.order_by(CodexEdge.strength.desc()).limit(settings.codex_enum_edge_limit).all():
+                edges = q.order_by(CodexEdge.strength.desc()).limit(settings.codex_enum_edge_limit).all()
+                self._prime_edge_times(edges)
+                for edge in edges:
                     if self._edge_trust(edge) < settings.codex_direct_trust_floor:
                         continue
                     src = self.db.query(CodexEntity).get(edge.source_id)
@@ -2214,10 +2244,10 @@ class HybridRetrievalOrchestrator:
                 # which is the TRAPS #32 blindness one leg further on. The link
                 # already existed as an FK; nothing read it.
                 fragments += [ContextFragment(
-                    text=(f"[summary, {r.created_at.strftime('%Y-%m-%d')}] " if r.created_at else "") + r.summary_text,
+                    text=(rendered := f"[summary created: {format_time(r.created_at)}] " + r.summary_text),
                     source_type="batch_summary",
                     score=r.score,
-                    token_count=count_tokens(r.summary_text),
+                    token_count=count_tokens(rendered),
                     origin_batch_ids=tuple(r.covered or ()),
                 ) for r in rows]
             except Exception as err:
@@ -2249,11 +2279,10 @@ class HybridRetrievalOrchestrator:
                 "cs_limit": settings.retrieval_conversation_summary_limit,
             }).fetchall()
             fragments += [ContextFragment(
-                text=(f"[conversation summary, {r.updated_at.strftime('%Y-%m-%d')}] "
-                      if r.updated_at else "[conversation summary] ") + r.summary_text,
+                text=(rendered := f"[conversation summary updated: {format_time(r.updated_at)}] " + r.summary_text),
                 source_type="batch_summary",
                 score=r.score,
-                token_count=count_tokens(r.summary_text)
+                token_count=count_tokens(rendered)
             ) for r in rows]
         except Exception as err:
             self._leg_degraded("batch_summary.cross", err)
@@ -2338,7 +2367,7 @@ class HybridRetrievalOrchestrator:
         fragments = []
         for row in rows:
             body = _truncate_at_sentence(row.summary_text or row.raw_text, 300)
-            stamp = row.timestamp.strftime("[%Y-%m-%d] ") if row.timestamp else ""
+            stamp = recorded_stamp(row.timestamp, getattr(row, "ts_provenance", None)) if row.timestamp else ""
             text_ = stamp + body
             fragments.append(ContextFragment(
                 text=text_, source_type="episodic", score=0.6,
@@ -2834,7 +2863,7 @@ class HybridRetrievalOrchestrator:
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
         try:
             query = text(f"""
-                SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_document, timestamp,
+                SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_document, timestamp, ts_provenance,
                        (1 - (embedding <=> :prompt_embedding))
                          * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (timestamp - :ts_center))) / 86400.0 / :recency_tau)) as score
                 FROM episodic_memory
@@ -2952,13 +2981,9 @@ class HybridRetrievalOrchestrator:
             if getattr(row, "is_bookmarked", False):
                 score_val *= (1.0 + settings.retrieval_bonus_bookmarked)
 
-            # T1 date-grounding: every episodic fragment carries the date its
-            # turn was written, so the model can order events against the
-            # "Today's date" anchor in the system prompt. Dates only, never
-            # clock times; degraded forms keep the stamp (degradation must not
-            # lose the date).
+            # Preserve source time/provenance on every scored representation.
             if getattr(row, "timestamp", None):
-                stamp = row.timestamp.strftime("[%Y-%m-%d] ")
+                stamp = recorded_stamp(row.timestamp, getattr(row, "ts_provenance", None))
                 text = stamp + text
                 if degrade_text:
                     degrade_text = stamp + degrade_text

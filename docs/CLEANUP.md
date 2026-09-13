@@ -1043,3 +1043,10 @@ Added the shared local reranker before candidate caps/collapse in both retrieval
 paths. Corrected stale no-model/abstract-eligibility comments in the orchestrator.
 Successful reranking bypasses the legacy source-quota packer; that packer remains
 the explicit disabled/degraded fallback. No source files moved or deleted.
+
+## 2026-09-13 — v3 timestamp presentation
+
+Centralized timestamp formatting and removed misleading date-only/since comments.
+Temporal tests now require a disposable database because worker calls mutate the
+whole store. The settings-path test isolates file loading from environment
+overrides and does not print database URLs on assertion failure. No files moved.
