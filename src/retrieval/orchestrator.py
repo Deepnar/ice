@@ -841,23 +841,8 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     def _bm25_episodic(self, classification, scope, conv_id=None, search_prompt=None):
         prompt_text = search_prompt if search_prompt else classification.prompt
-        # Remove all non‑alpha characters and split into words
-        clean_prompt = re.sub(r'[^a-zA-Z]', ' ', prompt_text)
-        words = [w.strip().lower() for w in clean_prompt.split() if len(w.strip()) > 2]
-        # Keep only words that look like real English tokens
-        stop_words = {"the","and","for","you","that","this","with","from","have","are","was","were",
-                      "will","would","could","should","about","also","just","like","then","than","over",
-                      "into","only","more","some","such","each","every","other","many","most","its",
-                      "our","his","her","they","them","these","those","not","but","can","all","been",
-                      "had","has","did","does","get","got","very","too","now","how"}
-        valid_words = [w for w in words[:30] if w not in stop_words]
-        # Build individual to_tsquery tokens and join with OR.
-        # (G36: two nested try/excepts guarded this. The inner one wrapped
-        # `tokens.append(w)` — appending a str to a list, which cannot raise —
-        # and the outer wrapped the loop containing it. Both were unreachable
-        # handlers counted among this file's silent swallows; deleted.)
-        search_terms = " | ".join(valid_words) if valid_words else prompt_text
-
+        # Match the stored tsvector normalization without losing numbers,
+        # Unicode or late query terms. Never interpret user text as tsquery.
         topic_filter = ""
         # D11: single conversation OR the project's conversation list.
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
@@ -880,10 +865,10 @@ class HybridRetrievalOrchestrator:
                    ) as score
             FROM episodic_memory,
                  LATERAL (SELECT
-                     CASE WHEN length(:search_terms) > 0
-                          THEN to_tsquery('english', :search_terms)
-                          ELSE plainto_tsquery('english', :prompt_text)
-                     END AS query) AS q
+                     string_agg(quote_literal(lexeme), ' | ')::tsquery AS query
+                     FROM unnest(tsvector_to_array(
+                         to_tsvector('english', :prompt_text))) AS terms(lexeme)
+                 ) AS q
             WHERE to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')) @@ query
               {topic_filter}
               {conv_filter}
@@ -898,7 +883,6 @@ class HybridRetrievalOrchestrator:
         """)
         params = {
             "cand_limit": settings.retrieval_bm25_candidate_limit,
-            "search_terms": search_terms,
             "prompt_text": prompt_text,
             "min_decay": min_decay,
             **ts_params,

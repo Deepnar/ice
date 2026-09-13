@@ -164,7 +164,7 @@ Eight mechanisms report as five `source_type`s. All legs run on every retrieving
 
 | Feature | Where | Roadmap id | What it does (plain) | Setting | Default | On by default? |
 |---|---|---|---|---|---|---|
-| BM25 episodic (full-text) | `src/retrieval/orchestrator.py:782` | — | Postgres full-text search over raw + summary text, OR-joined terms with a 30-word/stopword-filtered query. | `retrieval_bm25_candidate_limit` | `100` | YES |
+| BM25 episodic (full-text) | `src/retrieval/orchestrator.py:782` | — | Postgres `ts_rank` full-text search (historical BM25 name): OR of full-query lexemes normalized by the same `english` configuration as stored text. Digits, Unicode and late terms retained; not true BM25 scoring. | `retrieval_bm25_candidate_limit` | `100` | YES |
 | BM25 AND-fallback | `src/retrieval/orchestrator.py:857` | G36 | If the OR query fails, retries with `plainto_tsquery` (AND) before giving up. | — | — | YES |
 | Vector episodic (pgvector) | `src/retrieval/orchestrator.py:891` | C8/C2 | Cosine similarity over turn embeddings, multiplied by decay and an in-score recency weight. Document turns are excluded (their chunks compete instead). | `retrieval_vector_candidate_limit` | `100` | YES |
 | In-score recency weight | `src/retrieval/orchestrator.py:916` | C8 | Recency is folded into the vector score itself, because the candidate set is cut by score before post-fusion bonuses can rescue anything recent. Skipped for creative topics. | `retrieval_episodic_recency_boost`, `retrieval_episodic_recency_tau_days` | `0.25`, `30.0` | YES |

@@ -158,6 +158,19 @@ Do not tune a threshold to these controls. A configured experimental floor
 remains available, with its rejection result explicitly unqualified. This is
 relevance ordering, not a complete relevance/abstention solution.
 
+### Lexical query preservation (2026-09-13)
+
+Normalize the entire parameterized query with the same PostgreSQL `english`
+text-search configuration used for stored text. OR together the resulting
+quoted lexemes; do not strip digits/Unicode or discard terms after word 30.
+Stopword-only input produces no lexical matches. Query punctuation is data,
+never caller-supplied tsquery syntax. Keep existing scope, privacy, time, decay
+and candidate limits; keep the existing warned AND fallback for database errors.
+NER remains independent of lexical normalization. PostgreSQL `ts_rank` is the
+current ranker, despite the historical BM25 name; do not claim true BM25 scoring.
+Validate numeric, Unicode, punctuation, late-term and negative/scope cases
+through the real database leg, including absence of fallback warnings.
+
 ### Timestamp presentation and provenance (2026-09-13)
 
 Use existing episodic timestamp/provenance and Codex learned/valid times. Render
