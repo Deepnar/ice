@@ -181,6 +181,37 @@ Validate adversarial role-like text, Unicode offsets, malformed/stale spans,
 actual writer/read paths, archive/restoration and migration roundtrip in a
 disposable database before upgrading the working store.
 
+### Preserve retention without manufacturing support (2026-09-13)
+
+User clarification: retain the original useful-memory survival loop, separately
+from support/promotion. The A3 completion record confirms that strength originally
+mixed usage, decay and corroboration. Removing only the read increment leaves
+true quiet facts vulnerable to automatic expiry; that is incomplete repair.
+
+Keep strength as bounded retention priority. Record usage_count/last_accessed_at
+only for edge IDs attributable to rendered fact lines, after chat evidence
+survives final ledger eviction or explicit context is returned. Name the stage
+prompt_prepared/context_returned; neither means answer-used. Candidate lookup
+never reinforces. Preserve origin_edge_ids through fragment replacement and
+serialization. The write-off switch covers this signal too.
+
+Decay retention priority to a nonzero floor, without confidence demotion or
+valid_until/unlearned_at changes. Nonuse does not establish falsehood; quiet facts
+remain queryable. No automatic reinterpretation of already expired legacy edges.
+Explicit supersession/deletion remains separate. A bounded retention bonus ranks
+quality-qualified edges; low source confidence cannot cross the quality floor
+through repeated reads. Retention is not a calibrated probability.
+
+Track distinct observed source batches separately. Repeated extraction of the
+same batch cannot increase strength or promote; another batch may update source
+observation count and extraction confidence. Read strength never triggers that
+promotion. This prevents replay/read inflation, not same-speaker echo or model
+truth errors; attributed sentence evidence will address those next.
+
+Validate quiet-fact survival across accelerated decay, usefulness refresh without
+confidence promotion, replay idempotence, exact served-edge IDs, final-eviction
+exclusion and read-off. Preserve old published v2 behavior only in frozen docs.
+
 ### Reading is not corroboration (2026-09-13)
 
 Remove graph strength/promotion writes from candidate retrieval. A fact does

@@ -232,6 +232,9 @@ class CodexEdge(Base):
     target_id = Column(UUID(as_uuid=True), ForeignKey("codex_entities.id"), nullable=False)
     relation = Column(Text, nullable=False)
     strength = Column(Float, default=1.0)
+    usage_count = Column(Integer, nullable=False, default=0, server_default="0")
+    last_accessed_at = Column(DateTime(timezone=True), nullable=True)
+    observed_batches = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
     source_batch = Column(UUID(as_uuid=True), nullable=False)
     confidence = Column(Text, default="pending")  # pending | active
     # A3: how much the extraction itself is trusted (0-1). Seeded by NER

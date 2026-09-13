@@ -94,6 +94,7 @@ class ContextFragment:
     # do not have today, as a side effect of a measurement change. Conditional
     # legs stay bounded by their own firing conditions.
     leg: Optional[str] = None
+    origin_edge_ids: tuple = ()  # exact rendered fact lines, not traversed candidates
 
 # G9 (2026-08-08): every tunable number in this module moved to settings, so
 # Z1 can sweep it without editing code. What remains here are label SETS —
@@ -1691,6 +1692,7 @@ class HybridRetrievalOrchestrator:
             #     grouped into a single facts fragment (they're a list answer).
             fact_lines = []
             fact_batches: list = []
+            fact_ids: list = []
             if relations:
                 q = self.db.query(CodexEdge).filter(
                     *self._edge_valid_filters(),
@@ -1708,13 +1710,15 @@ class HybridRetrievalOrchestrator:
                     tgt = self.db.query(CodexEntity).get(edge.target_id)
                     if src and tgt:
                         fact_lines.append(self._fact_line(src, edge, tgt))
+                        fact_ids.append(str(edge.id))
                         if edge.source_batch:
                             fact_batches.append(str(edge.source_batch))
             if fact_lines:
                 t = "\n".join(fact_lines)
                 fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
                                                  token_count=count_tokens(t),
-                                                 origin_batch_ids=tuple(fact_batches)))
+                                                 origin_batch_ids=tuple(fact_batches),
+                                                 origin_edge_ids=tuple(fact_ids)))
             if fragments:
                 logger.info("codex_enumeration", entities=len(seen_entities),
                             facts=len(fact_lines), relations=relations)
@@ -1840,7 +1844,8 @@ class HybridRetrievalOrchestrator:
                     # a gold turn, which is why recall has only ever scored the
                     # episodic leg.
                     origin_batch_ids=tuple(
-                        {str(e.source_batch) for e in direct_edges if e.source_batch})))
+                        {str(e.source_batch) for e in direct_edges if e.source_batch}),
+                    origin_edge_ids=tuple({str(e.id) for e in fact_edges})))
 
                 # T4: attach the anchor's evolution timeline whenever it
                 # carries real supersession history (D-U2: provided in any
@@ -1870,11 +1875,17 @@ class HybridRetrievalOrchestrator:
             return []
 
     def _edge_trust(self, edge) -> float:
-        """Effective trust = strength (extraction corroboration/decay) x extraction_confidence
-        (A3 grounding/corroboration) x recency (A11). Legacy edges with NULL
-        confidence count as fully trusted (they predate grounding)."""
+        """Source quality gates entry; bounded retention/recency rank candidates.
+
+        This ranking score is not a calibrated probability of truth. Legacy NULL
+        confidence retains its historical behavior pending evidence migration.
+        """
         conf = edge.extraction_confidence if edge.extraction_confidence is not None else 1.0
-        base = (edge.strength or 0.0) * conf
+        # Usage must never lift a low-support assertion across the quality gate.
+        if conf < settings.codex_direct_trust_floor:
+            return conf
+        retention = min(1.0, max(0.0, edge.strength or 0.0) / settings.codex_retention_cap)
+        base = conf * (1.0 + settings.codex_retention_rank_weight * retention)
         # A11: reward recently-asserted facts; old edges tend to 1.0 (no penalty).
         # T3 (D9): under a window, "recent" means near the window end — the
         # multiplier stays >= 1.0, so A11's never-penalize-age invariant

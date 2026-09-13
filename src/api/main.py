@@ -38,6 +38,7 @@ from src.memory.session import resolve_session_id
 from src.memory.source import chat_provenance
 from src.memory.tokens import count_messages as count_tokens_messages
 from src.memory.tokens import estimate_from_chars as estimate_tokens_from_chars
+from src.memory.usage import evidence_after_eviction, record_graph_access
 from src.model_registry.registry import (
     find_best_model,
     get_fallback_model,
@@ -715,6 +716,10 @@ async def chat_completions(
         )
         prompt_tokens = count_tokens_messages(messages)
     ledger.log(log)
+    fragments = evidence_after_eviction(fragments, plan)
+    episodic_frags = [f for f in fragments if f.source_type == "episodic"]
+    procedural_frags = [f for f in fragments if f.source_type == "procedural"]
+    record_graph_access(db, fragments, stage="prompt_prepared")
 
     log.info("prompt_measured", prompt_tokens=prompt_tokens,
              total_budget=total_budget, model=model_name,

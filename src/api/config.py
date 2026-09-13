@@ -654,12 +654,12 @@ class Settings(BaseSettings):
     # months apart, so the usual "unused means unwanted" inference is wrong.
     decay_creative_floor: float = 0.3
 
-    # Codex edges decay on the same cadence at the creative rate; strength
-    # below the demotion threshold sends an active edge back to pending, and a
-    # pending edge below the expiry threshold is garbage-collected (A3).
+    # Graph usage maintains retention priority, never source support.
     codex_decay_daily: float = 0.99
-    codex_demotion_threshold: float = 0.3
-    codex_expiry_threshold: float = 0.1
+    codex_retention_floor: float = Field(default=0.1, gt=0.0, le=1.0)
+    codex_retention_increment: float = Field(default=0.15, ge=0.0)
+    codex_retention_cap: float = Field(default=10.0, ge=1.0)
+    codex_retention_rank_weight: float = Field(default=0.5, ge=0.0, le=1.0)
 
     # Procedural patterns: unreinforced for this long, with fewer than this
     # many reinforcements, and the pattern is retired.

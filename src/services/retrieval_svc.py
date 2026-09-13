@@ -26,6 +26,7 @@ from src.memory.models import (
 )
 from src.memory.representation import choose_representation
 from src.memory.tokens import count as count_tokens
+from src.memory.usage import record_graph_access
 from src.services import slots as slots_svc
 
 logger = structlog.get_logger("ice.services.retrieval")
@@ -156,6 +157,7 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
         prompt_embedding=prompt_embedding,
         scope=scope,
     )
+    record_graph_access(db, fragments, stage="context_returned")
     # E8: constraints FIRST whenever the task mentions their files — a
     # do-not-touch rule outranks every retrieved fragment by construction.
     constraint_frags = constraints_for_task(
@@ -177,6 +179,9 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
                 "score": f.score,
                 "token_count": f.token_count,
                 "source_batch_id": f.source_batch_id,
+                "origin_batch_ids": list(f.origin_batch_ids),
+                "origin_edge_ids": list(f.origin_edge_ids),
+                "leg": f.leg,
                 "conversation_id": f.conversation_id,
             }
             for f in fragments

@@ -1771,6 +1771,24 @@ def make_llm_reconciler():
     return _reconcile
 
 
+def _observe_edge(edge, batch_id, extraction_confidence):
+    """Count a source batch once; retrieval popularity cannot promote support."""
+    batch = uuid.UUID(str(batch_id))
+    seen = {uuid.UUID(str(b)) for b in (edge.observed_batches or [])}
+    if edge.source_batch:
+        seen.add(uuid.UUID(str(edge.source_batch)))
+    if batch in seen:
+        return False
+    seen.add(batch)
+    edge.observed_batches = sorted(seen, key=str)
+    edge.strength = min(settings.codex_retention_cap, (edge.strength or 0.0) + 1.0)
+    old_conf = edge.extraction_confidence if edge.extraction_confidence is not None else 1.0
+    edge.extraction_confidence = max(old_conf, extraction_confidence)
+    if len(seen) >= 2 and edge.confidence == "pending":
+        edge.confidence = "active"
+    return True
+
+
 def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch_id: str,
                    extraction_confidence: float = 1.0, turn_text: Optional[str] = None,
                    reconciler=None, negated: bool = False):
@@ -1825,9 +1843,7 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
             CodexEdge.valid_until == None,
         ).first()
         if existing_neg:
-            existing_neg.strength += 1.0
-            existing_neg.extraction_confidence = max(
-                existing_neg.extraction_confidence or 1.0, extraction_confidence)
+            _observe_edge(existing_neg, batch_id, extraction_confidence)
         else:
             neg_id = uuid.uuid4()
             db.add(CodexEdge(id=neg_id, source_id=subj.id, target_id=obj.id, relation=relation,
@@ -1920,19 +1936,15 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
 
     if existing_active:
         # Only the same directed relation and polarity can corroborate.
-        existing_active.strength += 1.0
-        # A3: corroborating re-extraction raises trust to the best seen.
-        existing_active.extraction_confidence = max(
-            existing_active.extraction_confidence or 1.0, extraction_confidence)
-        if existing_active.strength >= 2.0 and existing_active.confidence == "pending":
-            existing_active.confidence = "active"
-        db.add(CodexEvent(
-            entity_id=subj.id,
-            event_type="edge_strengthened",
-            payload={"edge_id": str(existing_active.id), "relation": relation, "target_id": str(obj.id)},
-            timestamp=datetime.now(timezone.utc),
-            batch_source=batch_id
-        ))
+        if _observe_edge(existing_active, batch_id, extraction_confidence):
+            db.add(CodexEvent(
+                entity_id=subj.id,
+                event_type="edge_strengthened",
+                payload={"edge_id": str(existing_active.id), "relation": relation,
+                         "target_id": str(obj.id), "reason": "distinct_source_batch"},
+                timestamp=datetime.now(timezone.utc),
+                batch_source=batch_id,
+            ))
     else:
         # No live positive edge with this complete directed relation
         # If the relation is single‑valued, expire any other active edge with the same source and relation

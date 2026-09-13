@@ -182,7 +182,7 @@ Eight mechanisms report as five `source_type`s. All legs run on every retrieving
 | Leg-failure reporting | `src/retrieval/orchestrator.py:190` | G36 | Every leg that swallows an error logs `retrieval_leg_failed` with the leg name, every time. DB errors roll back; Python errors do not (rolling back would expire the request's identity map). | — | — | YES |
 | Honest empty-window note | `src/retrieval/orchestrator.py:2322` | T3 | A windowed query with no episodic matches injects an explicit "no memories between X and Y" note, plus the nearest eras that do have matches. Never silently widens. | — | — | YES (windowed queries only) |
 | Retrieval strengthening (write-on-read) | `src/retrieval/orchestrator.py:2665` | G38/Z1 | Selected episodic row IDs gain access count/decay once per retrieval, even for multiple chunks; one atomic SQL update. The same write switch gates cold restoration. This is retrieval selection, not final-prompt exposure or answer-use proof. | `retrieval_strengthen_writes`, `decay_strengthen_amount` | `True`, `0.15` | YES |
-| Codex evidence promotion on read | Removed from `src/retrieval/orchestrator.py` | G38/G70 | Retrieval never strengthens/promotes graph facts; a match is not independent source evidence. Four obsolete read-promotion settings removed. | — | — | NO — removed |
+| Codex evidence promotion on read | Removed from `src/retrieval/orchestrator.py` | G38/G70 | Candidate lookup never strengthens/promotes graph facts; selected-context usage affects retention only, never source support. Four obsolete read-promotion settings removed. | — | — | NO — removed |
 
 ---
 
@@ -608,7 +608,7 @@ Every entry, with its cadence from `settings.maintenance_intervals`. **A job wit
 | Un-archive on recovery | `src/workers/decay.py:146` | T3 D11 | A row whose score recovered above the archive line comes back — symmetric with archiving, and the automatic probation reversal for resurrected rows. | — | — | YES |
 | Archived rows keep decaying | `src/workers/decay.py:86` (comment) | T3 D11 | The three UPDATEs no longer filter `is_archived=FALSE`; before the fix an archived score froze at ~0.1 and cold storage was unreachable. | — | — | YES |
 | Move to cold storage | `src/workers/decay.py:163` | T3 D12 | Below 0.05 the row is copied to `cold_storage` (with conversation_id, is_private, batch_id, embedding, source_spans and ts_provenance) and deleted from `episodic_memory`. | `settings.decay_cold_threshold` | 0.05 | YES |
-| Codex edge decay + demotion + GC | `src/workers/codex_decay.py:28` | A3 / E1b D3 | All live conversation edges (pending included) decay; below 0.3 an active edge is demoted to pending; below 0.1 a pending edge is expired. Static-analysis/derived edges are decay-EXEMPT. | `codex_decay_daily` / `codex_demotion_threshold` / `codex_expiry_threshold` | 0.99 / 0.3 / 0.1 | YES |
+| Codex retention aging | `src/workers/codex_decay.py:28` | A3 / E1b D3 | Live conversation edges decay to a retention floor; nonuse never demotes confidence or expires validity. Derived edges remain exempt. | `codex_decay_daily` / `codex_retention_floor` | 0.99 / 0.1 | YES |
 | Journal compaction (snapshots) | `src/workers/compaction.py:15` | G10 | An entity with ≥100 uncompacted events gets a state snapshot; events are marked `compacted`, never deleted. | `settings.compaction_event_threshold` | 100 | YES |
 
 ---
@@ -1441,3 +1441,11 @@ wins; where it conflicts with the code, the code wins.**
 | Explicit conflict resolution | `src/services/review.py::approve`, REST review approval, MCP `ice_control` | G62 | `keep_edge_ids` explicitly retains both/one/neither; validates pair, journals expiries, refreshes payloads. | — | — | YES |
 
 | Writer-supplied speaker boundaries | `src/memory/source.py`, API/import/document/note writers; recent prompt reader | G76 | Raw hash plus role offsets prevent quoted role markers from changing authorship. Legacy/malformed metadata yields unknown. Preserved through cold lifecycle. Sentence extraction consumer pending. | — | — | YES for new writes/raw recent reads |
+
+### v3 selected-context retention (2026-09-13)
+
+| Feature | Implementation | Control/default | Active |
+|---|---|---|---|
+| Exact fact exposure | `memory/usage.py`, chat after evidence eviction and explicit context service; unique rendered `origin_edge_ids` increment usage and last-access time | `retrieval_strengthen_writes=True`, `codex_retention_increment=0.15`, `codex_retention_cap=10` | YES; prepared/returned context, not answer use; cached note-only edges not attributed yet |
+| Bounded retention ranking | `_edge_trust`: extraction quality gates entry, then retention/recency ranks; quiet supported edges remain eligible | `codex_retention_rank_weight=0.5` | YES; not calibrated truth |
+| Distinct source observation | `_observe_edge` ignores repeated original/observed batch; another batch may promote pending status | `observed_batches`, separate from usage | YES; source-role independence still requires claim repair |

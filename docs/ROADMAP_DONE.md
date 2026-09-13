@@ -95,6 +95,8 @@ Order and section headings match ROADMAP.md.
   4. **Closed reinforcement loop:** `_reinforce_codex_edges` (+0.15 on anchors, cap 10.0, write-on-read like episodic) now **promotes** pending→active at strength ≥ 2.0 *iff* confidence ≥ 0.5; `codex_decay` decays **all** live edges (was active-only — a reinforced pending edge previously inflated forever) and **expires** never-corroborated pending edges below 0.1 (garbage-collects hallucination residue).
   **Validated 15/15 against the live DB** (scratch functional test: seeding, corroboration-max, both traversal gates, anchor selection, reinforcement, confidence-gated promotion, cleanup verified). Remaining live-usage check: reinforcement/decay balance over real conversations. Per-edge granularity in fusion still awaits A10.
 
+**v3 correction, 2026-09-13:** A3 correctly sought retention of useful facts, but its read-driven confidence promotion and nonuse-driven expiry conflated usage with evidence. Selected fact exposure now maintains bounded retention separately; quiet facts are not expired, and only another source batch may promote ordinary-edge support. The original15 controls tested the old mechanism, not its epistemic correctness.
+
 ## <a id="a4"></a>A4 — Relation-aware retrieval
 
 *DONE 2026-07.* [← back to the queue](ROADMAP.md#a4)

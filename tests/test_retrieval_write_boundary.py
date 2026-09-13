@@ -26,13 +26,16 @@ def test_repeated_graph_candidates_do_not_promote(monkeypatch):
             monkeypatch.setattr(retrieval, "extract_entities", lambda *args: [a.canonical_name])
             monkeypatch.setattr(o, "_match_entities_by_similarity", lambda *args: [a])
             monkeypatch.setattr(o, "_match_entities_exact", lambda *args: [a])
-            monkeypatch.setattr(o, "_relation_facts", lambda *args: ([], [], 0.0))
+            monkeypatch.setattr(o, "_relation_fit", lambda *args: ({}, 0.0))
             monkeypatch.setattr(settings, "codex_max_depth", 0)
             commits = []
             monkeypatch.setattr(db, "commit", lambda: commits.append(True))
             classification = SimpleNamespace(prompt="What does Atlas use?", intent_tags=[])
             for _ in range(5):
-                assert o._codex_graph(classification, None)
+                fragments = o._codex_graph(classification, None)
+                assert fragments
+                assert fragments[0].origin_edge_ids == (str(edge.id),)
+                assert "uses" in fragments[0].text
             db.flush()
             db.refresh(edge)
             assert edge.strength == 1.9 and edge.confidence == "pending"
