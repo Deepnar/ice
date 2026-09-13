@@ -94,6 +94,7 @@ class EpisodicMemory(Base):
     entropy_score = Column(Float, nullable=True)
     lossless_flag = Column(Boolean, nullable=True)  # NULL = not yet evaluated
     raw_text = Column(Text, nullable=False)
+    source_spans = Column(JSONB, nullable=True)  # writer-supplied role offsets + raw hash
     summary_text = Column(Text, nullable=True)
     # C1: measured fraction of the turn's must-preserve terms (NER entities +
     # figures + identifiers) retained by summary_text. Read-time representation
@@ -505,9 +506,11 @@ class ColdStorage(Base):
     id = Column(UUID(as_uuid=True), primary_key=True)  # original episodic turn id
     archived_at = Column(DateTime(timezone=True), default=utcnow)
     raw_text = Column(Text, nullable=False)
+    source_spans = Column(JSONB, nullable=True)  # writer-supplied role offsets + raw hash
     summary_text = Column(Text, nullable=True)
     topic_tags = Column(ARRAY(Text), default=[])
     timestamp = Column(DateTime(timezone=True), nullable=False)
+    ts_provenance = Column(Text, nullable=True)
     # T3 (D12): carried from the episodic row so time-scoped retrieval can
     # honor privacy and resurrection can re-attach the turn. NULL
     # conversation_id = legacy pre-migration row → cite-only, never resurrected.

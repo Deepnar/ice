@@ -14,6 +14,7 @@ import numpy as np
 import structlog
 from pgvector.sqlalchemy import Vector as PgVector
 from sqlalchemy import bindparam, or_, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -2281,7 +2282,7 @@ class HybridRetrievalOrchestrator:
                            "ELSE (embedding <=> :cold_probe) END ASC,")
         query = text(f"""
             SELECT id, conversation_id, batch_id, raw_text, summary_text,
-                   topic_tags, timestamp, is_private, embedding
+                   topic_tags, timestamp, is_private, embedding, source_spans, ts_provenance
             FROM cold_storage
             WHERE timestamp >= :t0 AND timestamp < :t1
               {conv_filter}
@@ -2356,16 +2357,19 @@ class HybridRetrievalOrchestrator:
                         (id, conversation_id, batch_id, timestamp, topic_tags,
                          intent_tags, context_reliance, raw_text, summary_text,
                          embedding, decay_score, access_count, is_archived,
-                         is_private, inject_raw, idempotency_key)
+                         is_private, inject_raw, idempotency_key, source_spans, ts_provenance)
                     VALUES (:id, :conv, :batch, :ts, :tags, :itags,
                             'Long_Term_Memory', :raw, :summary, :emb, :score,
-                            1, FALSE, :priv, TRUE, :ikey)
+                            1, FALSE, :priv, TRUE, :ikey, :source_spans, :ts_provenance)
                     ON CONFLICT (id) DO NOTHING
-                """).bindparams(bindparam("emb", type_=PgVector)), {
+                """).bindparams(bindparam("emb", type_=PgVector),
+                                 bindparam("source_spans", type_=JSONB)), {
                     "id": row.id, "conv": row.conversation_id,
                     "batch": row.batch_id or uuid.uuid4(), "ts": row.timestamp,
                     "tags": list(row.topic_tags or []), "itags": [],
                     "raw": row.raw_text, "summary": row.summary_text,
+                    "source_spans": getattr(row, "source_spans", None),
+                    "ts_provenance": getattr(row, "ts_provenance", None),
                     "emb": emb, "score": settings.timescope_probation_score,
                     "priv": row.is_private,
                     "ikey": f"cold-resurrect-{row.id}",

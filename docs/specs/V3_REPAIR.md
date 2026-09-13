@@ -158,6 +158,29 @@ Do not tune a threshold to these controls. A configured experimental floor
 remains available, with its rejection result explicitly unqualified. This is
 relevance ordering, not a complete relevance/abstention solution.
 
+### Authoritative source boundaries (2026-09-13)
+
+Store compact source spans over immutable raw text: raw SHA256 plus ordered
+role/start/end segments. API and replay writers know user/assistant boundaries;
+document ingestion and explicit notes record document/user roles respectively.
+Do not infer authorship from strings such as "Assistant:" inside user text.
+Validate hash, ranges, nonoverlap and roles before using stored attribution;
+legacy/malformed records return one unknown-speaker source unit. No backfill
+from formatting conventions. The recent chat reader consumes authoritative spans
+when rendering raw pairs; existing legacy rendering is presentation only and
+must not seed verified claims.
+
+Add nullable JSONB source_spans to episodic and cold storage; preserve it through
+archive/restoration. Preserve timestamp provenance through that lifecycle too,
+so imported times cannot silently become original after restoration. Migration
+is additive and does not reinterpret existing records. Sentence-claim extraction
+and verification consume these units next; this boundary alone does not qualify
+summaries or extracted triples.
+
+Validate adversarial role-like text, Unicode offsets, malformed/stale spans,
+actual writer/read paths, archive/restoration and migration roundtrip in a
+disposable database before upgrading the working store.
+
 ### Reading is not corroboration (2026-09-13)
 
 Remove graph strength/promotion writes from candidate retrieval. A fact does

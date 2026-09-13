@@ -37,6 +37,7 @@ from src.memory.models import (
     ImportRun,
 )
 from src.memory.session import resolve_session_id
+from src.memory.source import chat_provenance
 
 logger = structlog.get_logger("ice.ingestion.importer")
 
@@ -331,6 +332,7 @@ def _store_turn(db, conv_id, user_text, assistant_text, turn_ts, idem,
         topic_tags=topic_tags, intent_tags=intent_tags,
         context_reliance=context_reliance,
         raw_text=f"User: {user_text}\n\nAssistant: {assistant_text}",
+        source_spans=chat_provenance(user_text, assistant_text),
         embedding=embedding, decay_score=decay_score,
         decay_immune_until=immune_until, is_archived=is_archived,
         idempotency_key=idem)

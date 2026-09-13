@@ -1071,3 +1071,10 @@ Deleted the candidate-time graph reinforcement method and four settings used
 only by it; removed their live harness/freeze-test references. Updated stale
 relation-switch comments. Episodic access updates are deduplicated and batched;
 cold restoration respects the shared write switch. No files moved.
+
+## 2026-09-13 — v3 authoritative source metadata
+
+Added one shared writer/validator for role offsets rather than parsing message
+labels as evidence of authorship. Recent raw chat rendering consumes validated
+spans. Cold archive/restoration retains source spans and timestamp provenance.
+No backfill or raw-text rewriting; additive migration only. No files moved.

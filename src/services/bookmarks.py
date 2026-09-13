@@ -14,6 +14,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from src.memory.models import Conversation, EpisodicMemory
+from src.memory.source import single_provenance
 from src.services.errors import NotFoundError
 from src.workers.runtime import get_runtime
 
@@ -100,6 +101,7 @@ def remember_note(db: Session, text: str, embedder=None) -> dict:
         intent_tags=[],
         context_reliance="Zero_Shot",
         raw_text=text,
+        source_spans=single_provenance(text, "user"),
         embedding=embedding,
         lossless_flag=True,
         inject_raw=True,

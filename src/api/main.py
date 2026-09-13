@@ -35,6 +35,7 @@ from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
 from src.memory.models import Conversation, EpisodicMemory, MemorySlot
 from src.memory.session import resolve_session_id
+from src.memory.source import chat_provenance
 from src.memory.tokens import count_messages as count_tokens_messages
 from src.memory.tokens import estimate_from_chars as estimate_tokens_from_chars
 from src.model_registry.registry import (
@@ -311,6 +312,7 @@ async def store_turn_async(
             entropy_score=None,          # set by Post‑Flight Evaluator
             lossless_flag=None,          # NULL = not yet evaluated
             raw_text=f"User: {user_message}\n\nAssistant: {full_assistant_text}",
+            source_spans=chat_provenance(user_message, full_assistant_text),
             summary_text=None,
             embedding=embedding_list,
             decay_score=1.0,

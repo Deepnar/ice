@@ -43,6 +43,7 @@ from src.memory.models import (
     MemorySlot,
 )
 from src.memory.representation import choose_representation
+from src.memory.source import source_units
 from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as _estimate_tokens
 from src.retrieval.orchestrator import ContextFragment
@@ -203,7 +204,12 @@ def get_recent_turns(
                 if alt and _estimate_tokens(alt) <= per_turn_cap:
                     text = alt
                     break
-        user_part, assistant_part = _split_pair(text)
+        units = source_units(t) if text == getattr(t, "raw_text", None) else []
+        if [u.role for u in units] == ["user", "assistant"]:
+            user_part, assistant_part = units[0].text, units[1].text
+        else:
+            # Legacy presentation compatibility; never verification of authorship.
+            user_part, assistant_part = _split_pair(text)
         user_part = recorded_stamp(getattr(t, "timestamp", None),
                                    getattr(t, "ts_provenance", None)) + user_part
         share = min(per_turn_cap, max(64, max_tokens - used))

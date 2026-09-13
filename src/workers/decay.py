@@ -10,7 +10,8 @@ exponential, so any gap collapses into a single statement.
 from datetime import datetime, timedelta, timezone
 
 import structlog
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
+from sqlalchemy.dialects.postgresql import JSONB
 
 from src.api.config import settings
 from src.api.db import SessionLocal
@@ -162,7 +163,7 @@ def apply_decay(cycles: int = 1):
         # re-attach the turn.
         cold_rows = db.execute(text("""
             SELECT id, raw_text, summary_text, topic_tags, timestamp,
-                   conversation_id, is_private, batch_id, embedding
+                   conversation_id, is_private, batch_id, embedding, source_spans, ts_provenance
             FROM episodic_memory
             WHERE is_archived = TRUE AND decay_score < :cold_threshold
         """), {"cold_threshold": settings.decay_cold_threshold}).fetchall()
@@ -171,14 +172,16 @@ def apply_decay(cycles: int = 1):
             db.execute(text("""
                 INSERT INTO cold_storage (id, archived_at, raw_text, summary_text,
                                           topic_tags, timestamp, conversation_id,
-                                          is_private, batch_id, embedding)
+                                          is_private, batch_id, embedding, source_spans, ts_provenance)
                 VALUES (:id, :now, :raw, :summary, :tags, :ts, :conv, :priv, :batch,
-                        :emb)
+                        :emb, :source_spans, :ts_provenance)
                 ON CONFLICT (id) DO NOTHING
-            """), {
+            """).bindparams(bindparam("source_spans", type_=JSONB)), {
                 "id": row.id,
                 "now": datetime.now(timezone.utc),
                 "raw": row.raw_text,
+                "source_spans": row.source_spans,
+                "ts_provenance": row.ts_provenance,
                 "summary": row.summary_text,
                 "tags": row.topic_tags,
                 "ts": row.timestamp,
