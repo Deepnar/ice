@@ -556,6 +556,14 @@ The codex_events append log is compacted by workers/compaction.py::compact_entit
 
 Procedural memory captures recurring behavioural patterns ("the user always X after Y") that, once crystallised, can be surfaced to gate or enrich future generation. Its lifecycle is detection → reinforcement → promotion → decay.
 
+**v3 read/evidence separation (2026-09-13).** Graph retrieval no longer changes
+edge strength or promotes pending assertions. Repeated questions do not provide
+new evidence. The four graph read-promotion settings were removed. Episodic
+access/decay strengthening remains selected-item popularity, deduplicated by row
+ID and applied in one atomic update. `retrieval_strengthen_writes=False` also
+prevents cold restoration. Selected items can still be trimmed by the final
+prompt ledger; these counters must not be called final-prompt or answer usage.
+
 ### **5.1 Pattern extraction**
 
 The Procedural Extractor (workers/procedural_extractor.py::extract_procedural, plain callable since C7 — a direct call inside the post-flight job, **unconditionally** on every turn) calls the background model with a one-sentence pattern-detection prompt (temperature=0.0, max_tokens=80, timeout=bg_timeout(80)). If the model returns NONE, the callable exits. Otherwise it embeds the proposed pattern, queries procedural_memory by cosine similarity LIMIT 1, and branches:
@@ -591,7 +599,7 @@ The orchestrator's `retrieve()` is now only *called* when the single memory-retr
 
 11. **Vector** — _vector_episodic. pgvector cosine distance **with decay weighting**: (1 - (embedding \<=\> :prompt_embedding)) * COALESCE(decay_score, 1.0), times the C8 in-score recency factor (origin-parameterized since T3 — §6.11). Same visibility invariant (current-mode filters relax under a window, like BM25), LIMIT 100. The decay multiplier is what distinguishes this leg from a pure semantic search: a high-similarity but decayed turn is down-ranked.
 
-12. **Codex graph traversal** — _codex_graph. NER → three-stage entity resolution (vector fuzzy 0.85 / exact / payload-descriptor fallback) → trust-gated depth-3 BFS (deep hops require trust ≥ 1.0, direct ≥ 0.5) with A5 project-scope isolation, relation-aware fact surfacing with the entity∩relation overlap boost, retrieval-reinforcement of anchor edges, and grounded query expansion feeding the BM25 leg (§4.5, §4.8). Entity-less category queries answered by the enumeration path (re-homed MERA). Score graded 1.0–1.75.
+12. **Codex graph traversal** — _codex_graph. NER → three-stage entity resolution (vector fuzzy 0.85 / exact / payload-descriptor fallback) → trust-gated depth-3 BFS (deep hops require trust ≥ 1.0, direct ≥ 0.5) with A5 project-scope isolation, relation-aware fact surfacing with the entity∩relation overlap boost, candidate trust summaries (no strength/promotion writes on read), and grounded query expansion feeding the BM25 leg (§4.5, §4.8). Entity-less category queries answered by the enumeration path (re-homed MERA). Score graded 1.0–1.75.
 
 13. **Procedural** — _procedural_lookup (§5.4). Always runs since C9: vector top-5 with the confidence floor, conversation-scope and trigger-condition gates (the intent whitelist is gone). **C6/G29 (2026-07-28):** its scope gate resolves through the shared `_codex_scope_sets`, so all four A5 scope forms work — a hand-rolled copy read `scope["conversation_id"]` only, so under *project or manual* scope (ids in `conversation_ids`, no single id) it resolved no batch set at all and every project-less pattern in the store reached the conversation. That copy escaped the G29 sweep because it resolves a batch *set* instead of emitting SQL.
 

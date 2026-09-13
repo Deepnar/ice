@@ -90,7 +90,6 @@ def main() -> int:
 
     db = SessionLocal()
     # Z1/G38: never let a measurement mutate the store it is measuring.
-    settings.codex_reinforce_increment = 0.0
     settings.decay_strengthen_amount = 0.0
     settings.retrieval_strengthen_writes = False
 
@@ -319,7 +318,6 @@ def main() -> int:
                          settings_keys=["codex_relation_canonical_threshold",
                                         "procedural_min_cited_turns",
                                         "retrieval_strengthen_writes",
-                                        "codex_reinforce_increment",
                                         "decay_strengthen_amount"],
                          # ⚑ WHAT WAS ACTUALLY PASSED TO retrieve(). Every run
                          # recorded resolved settings and a git sha and NONE

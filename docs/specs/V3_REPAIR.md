@@ -158,6 +158,24 @@ Do not tune a threshold to these controls. A configured experimental floor
 remains available, with its rejection result explicitly unqualified. This is
 relevance ordering, not a complete relevance/abstention solution.
 
+### Reading is not corroboration (2026-09-13)
+
+Remove graph strength/promotion writes from candidate retrieval. A fact does
+not become better supported because its entity matched repeated questions,
+and rejected candidates must never gain evidence strength. Delete the obsolete
+read-promotion settings and update existing harness callers, without redesigning
+experiments. Extraction corroboration remains a separate writer pending its
+source-ledger repair. Existing candidate provenance is not precise final-prompt
+or answer-use evidence; do not mislabel it.
+
+The retrieval write switch must also cover cold resurrection. Deduplicate
+selected episodic row IDs before recording access, so multiple chunks from one
+turn count as one read; apply their access/decay changes in one transaction.
+Keep this read-popularity effect separate from graph truth. Validate the actual
+graph leg cannot strengthen/promote, multiple chunks count once, and write-off
+prevents both access and cold resurrection. Final-prompt usage tracing follows
+with evidence identities in the same repair phase.
+
 ### Relation-name conflict repair (2026-09-13)
 
 Relation canonicalization's anti-merge map protects direction/polarity; it is

@@ -1789,7 +1789,6 @@ class HybridRetrievalOrchestrator:
             # would otherwise merge connected anchors via a shared visited set).
             fragments: List[ContextFragment] = []
             timeline_frags: List[ContextFragment] = []   # T4: own leg (RRF weight + budget lane)
-            all_anchor_edges = []   # A3: reinforced across all anchors at the end
             best_fit = 0.0   # G34: max across anchors, not the last one's
             anchor_ids = {a.id for a in matched}
             ts = self._active_timescope
@@ -1841,7 +1840,6 @@ class HybridRetrievalOrchestrator:
                     # episodic leg.
                     origin_batch_ids=tuple(
                         {str(e.source_batch) for e in direct_edges if e.source_batch})))
-                all_anchor_edges.extend(direct_edges)
 
                 # T4: attach the anchor's evolution timeline whenever it
                 # carries real supersession history (D-U2: provided in any
@@ -1865,15 +1863,13 @@ class HybridRetrievalOrchestrator:
                 # typically all 197 — so it logged noise as though it were a hit.
                 logger.info("codex_relation_overlap", best_fit=round(best_fit, 4),
                             fragments=len(fragments))
-            # A3: retrieval-reinforcement across every anchor's edges.
-            self._reinforce_codex_edges(all_anchor_edges)
             return fragments + timeline_frags
         except Exception as err:
             self._leg_degraded("codex", err)
             return []
 
     def _edge_trust(self, edge) -> float:
-        """Effective trust = strength (A3 usage dynamics) x extraction_confidence
+        """Effective trust = strength (extraction corroboration/decay) x extraction_confidence
         (A3 grounding/corroboration) x recency (A11). Legacy edges with NULL
         confidence count as fully trusted (they predate grounding)."""
         conf = edge.extraction_confidence if edge.extraction_confidence is not None else 1.0
@@ -1993,14 +1989,10 @@ class HybridRetrievalOrchestrator:
                 continue
             trust = self._edge_trust(edge)
             if depth == 0:
-                # A3 dynamic threshold: a matched entity's edge expands (and is
-                # reinforced as a query anchor) only above the direct floor.
+                # Direct-edge trust gates candidate expansion, never promotion.
                 if trust < settings.codex_direct_trust_floor:
                     continue
-                # ⚠ anchor_edges is deliberately NOT capped. It drives A3
-                # retrieval-reinforcement, and narrowing what gets reinforced is
-                # a different behaviour change from bounding traversal cost —
-                # G35 is the second one only.
+                # Candidate lineage/trust summary, not proof of final exposure.
                 if anchor_edges is not None:
                     anchor_edges.append(edge)
             # A3: trust-gate deep hops — weak/decayed edges don't expand the frontier.
@@ -2042,37 +2034,6 @@ class HybridRetrievalOrchestrator:
                 self._traverse_graph(other, depth + 1, max_depth, visited,
                                      context_texts, anchor_edges,
                                      allowed_entity_ids, allowed_batch_ids, exclude_ids)
-
-    def _reinforce_codex_edges(self, edges):
-        """A3 retrieval-reinforcement (episodic analog): the anchor edges of the
-        matched query entities gain a little strength each time they're surfaced,
-        so repeatedly-useful facts self-promote through use — balanced by the
-        codex_decay worker (which decays ALL live edges, so this loop is closed).
-        A reinforced pending edge is promoted to active once it crosses
-        CODEX_PROMOTE_STRENGTH — but only if its extraction_confidence clears
-        CODEX_PROMOTE_MIN_CONFIDENCE, so a low-trust extraction cannot promote
-        through retrieval popularity alone; it needs corroboration first.
-        Scoped to anchor edges only to avoid diluting the signal across the
-        whole traversed neighborhood. Write-on-read, like _strengthen_retrieved
-        does for episodic turns."""
-        if not edges:
-            return
-        try:
-            seen = set()
-            for e in edges:
-                if e.id in seen:
-                    continue
-                seen.add(e.id)
-                e.strength = min((e.strength or 0.0) + settings.codex_reinforce_increment,
-                                 settings.codex_strength_cap)
-                conf = e.extraction_confidence if e.extraction_confidence is not None else 1.0
-                if (e.confidence == "pending"
-                        and e.strength >= settings.codex_promote_strength
-                        and conf >= settings.codex_promote_min_confidence):
-                    e.confidence = "active"
-            self.db.commit()
-        except Exception as err:
-            self._leg_degraded("codex.reinforce", err)
 
     # ------------------------------------------------------------------
     # Procedural lookup (scoped + trigger‑condition evaluation)
@@ -2365,7 +2326,7 @@ class HybridRetrievalOrchestrator:
         return fragments
 
     def _resurrect_cold_hits(self, final: List[ContextFragment]):
-        """D-U1 second chance: a cold memory that was actually *injected*
+        """D-U1 second chance: a cold memory selected by retrieval budgeting
         (survived the budget — never mere candidacy) moves back into
         episodic_memory on probation: ORIGINAL timestamp (it's an old memory),
         decay just above the archive line — unengaged, normal decay re-archives
@@ -2373,9 +2334,13 @@ class HybridRetrievalOrchestrator:
         restored at full strength. Legacy rows (NULL conversation_id) are
         cite-only. Runs AFTER _strengthen_retrieved (the row isn't episodic
         yet during that pass), so probation starts exactly at 0.12."""
-        if not self._cold_hits:
+        if not settings.retrieval_strengthen_writes or not self._cold_hits:
             return
+        seen = set()
         for f in final:
+            if f.source_batch_id in seen:
+                continue
+            seen.add(f.source_batch_id)
             row = self._cold_hits.get(f.source_batch_id) if f.source_batch_id else None
             if row is None:
                 continue
@@ -2800,21 +2765,20 @@ class HybridRetrievalOrchestrator:
         # result sets with it on, 40/40 with it off, on one store and one config.
         if not settings.retrieval_strengthen_writes:
             return
-        for frag in fragments:
-            if frag.source_type != "episodic" or not frag.source_batch_id:
-                continue
-            try:
-                turn = self.db.query(EpisodicMemory).get(uuid.UUID(frag.source_batch_id))
-                if turn:
-                    turn.access_count = (turn.access_count or 0) + 1
-                    # G9: this literal and decay.STRENGTHEN_AMOUNT were the
-                    # same number in two places, and the decay.py one had no
-                    # readers at all. One value, wired to the live site.
-                    turn.decay_score = min(
-                        1.0, (turn.decay_score or 0.0) + settings.decay_strengthen_amount)
-                    self.db.commit()
-            except Exception as err:
-                self._leg_degraded("strengthen", err)
+        ids = {uuid.UUID(str(f.source_batch_id)) for f in fragments
+               if f.source_type == "episodic" and f.source_batch_id}
+        if not ids:
+            return
+        try:
+            self.db.execute(text("""
+                UPDATE episodic_memory
+                SET access_count = COALESCE(access_count, 0) + 1,
+                    decay_score = LEAST(1.0, COALESCE(decay_score, 0.0) + :amount)
+                WHERE id = ANY(:ids)
+            """), {"ids": list(ids), "amount": settings.decay_strengthen_amount})
+            self.db.commit()
+        except Exception as err:
+            self._leg_degraded("strengthen", err)
 
     # ------------------------------------------------------------------
     # Wide‑net fallback (now uses full vector search)

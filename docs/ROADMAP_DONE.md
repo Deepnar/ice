@@ -724,3 +724,25 @@ mechanics, not real-model contradiction accuracy.
 property/single-valued semantics, explicit-negation temporal ordering and
 open-vocabulary conflict detection. This closes vocabulary-authorized expiry,
 not all graph correctness. Spec: V3_REPAIR.md; D1/D2 override propagated.
+
+
+## G38 — retrieval writes and evidence separation (v3, 2026-09-13)
+<a id="g38"></a>
+
+The original item identified three retrieval commits but called graph promotion
+on read load-bearing. That conflated popularity with independent support: a
+candidate could gain strength and become active without reaching the prompt or
+receiving another source assertion. The authorized v3 repair removes that graph
+writer and its four settings. Extraction corroboration remains a separate writer.
+
+Episodic access/decay changes now deduplicate row IDs (multiple chunks count as
+one access) and use one atomic SQL update. The existing write-off setting also
+covers cold restoration; it no longer relies on an empty cold store. Old harness
+references to the removed settings were updated, without experiment redesign.
+
+Validated390 smoke/settings/database checks, including repeated real graph
+retrieval without promotion, duplicate-chunk access and write-off restoration.
+The61 temporal regression checks also passed in a disposable database.
+These are controlled mechanics, not proof that memory improves answers.
+Final-prompt/answer-use tracing and source-ledger corroboration remain under the
+active repair phase; retrieval selection counters are not final exposure.

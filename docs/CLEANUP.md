@@ -1064,3 +1064,10 @@ opposition candidate map. Removed same-endpoints/different-relation expiry and
 its obsolete comments. Removed truncated reconciliation input and substring
 verdict parsing. Updated maintenance expectations to source-required proposals.
 No files moved. Background review issues have REST/MCP decision consumers.
+
+## 2026-09-13 — v3 retrieval evidence separation
+
+Deleted the candidate-time graph reinforcement method and four settings used
+only by it; removed their live harness/freeze-test references. Updated stale
+relation-switch comments. Episodic access updates are deduplicated and batched;
+cold restoration respects the shared write switch. No files moved.

@@ -809,16 +809,12 @@ class Settings(BaseSettings):
     codex_entity_edge_limit: int = 10
 
     # A3: an edge's effective trust is strength × extraction_confidence.
-    # Strength carries usage dynamics (reinforcement/decay); confidence
+    # Strength carries extraction corroboration/decay; confidence
     # carries extraction trust (NER grounding, corroboration).
     codex_max_depth: int = 3
     codex_direct_trust_floor: float = 0.5
     codex_deep_strength_floor: float = 1.0
     codex_reconcile_input_tokens: int = Field(default=8192, ge=256, le=32768)
-    codex_reinforce_increment: float = 0.15
-    codex_strength_cap: float = 10.0
-    codex_promote_strength: float = 2.0
-    codex_promote_min_confidence: float = 0.5
     # A11: a recently-asserted fact outranks a stale one of equal strength.
     # Rewards recent assertion; never penalises age (decay does that).
     codex_recency_boost: float = 0.3

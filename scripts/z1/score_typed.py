@@ -102,7 +102,6 @@ def main() -> int:
         probes = probes[:args.limit]
 
     db = SessionLocal()
-    settings.codex_reinforce_increment = 0.0
     settings.decay_strengthen_amount = 0.0
     settings.retrieval_strengthen_writes = False
 

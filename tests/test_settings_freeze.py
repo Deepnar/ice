@@ -86,10 +86,6 @@ FROZEN = [
     ("codex_max_depth", ORCH, 181, r"CODEX_MAX_DEPTH = (\d+)"),
     ("codex_direct_trust_floor", ORCH, 182, r"CODEX_DIRECT_TRUST_FLOOR = ([\d.]+)"),
     ("codex_deep_strength_floor", ORCH, 183, r"CODEX_DEEP_STRENGTH_FLOOR = ([\d.]+)"),
-    ("codex_reinforce_increment", ORCH, 184, r"CODEX_REINFORCE_INCREMENT = ([\d.]+)"),
-    ("codex_strength_cap", ORCH, 185, r"CODEX_STRENGTH_CAP = ([\d.]+)"),
-    ("codex_promote_strength", ORCH, 186, r"CODEX_PROMOTE_STRENGTH = ([\d.]+)"),
-    ("codex_promote_min_confidence", ORCH, 187, r"CODEX_PROMOTE_MIN_CONFIDENCE = ([\d.]+)"),
     ("codex_recency_boost", ORCH, 191, r"CODEX_RECENCY_BOOST = ([\d.]+)"),
     ("codex_recency_tau_days", ORCH, 192, r"CODEX_RECENCY_TAU_DAYS = ([\d.]+)"),
 

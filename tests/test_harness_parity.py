@@ -40,7 +40,6 @@ from src.memory.models import Conversation, EpisodicMemory  # noqa: E402
 def env():
     """A live store, a classifier, and the write freeze every harness sets."""
     settings.retrieval_strengthen_writes = False
-    settings.codex_reinforce_increment = 0.0
     settings.decay_strengthen_amount = 0.0
 
     from src.classifier.classifier import PyTorchClassifier
