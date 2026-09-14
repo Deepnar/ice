@@ -12,7 +12,7 @@ from sqlalchemy.engine import make_url
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.claims import store_claims
-from src.memory.models import CodexClaim, Conversation, EpisodicMemory
+from src.memory.models import CodexClaim, ColdStorage, Conversation, EpisodicMemory
 from src.memory.source import chat_provenance
 from src.memory.support import verify_support
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
@@ -73,6 +73,15 @@ def test_independent_search_and_source_visibility(monkeypatch):
         row.is_private=True;db.flush()
         assert not o._codex_claims('PostgreSQL',None,{'conversation_id':str(cid)})
         row.is_private=False
+        # Archive the source without deleting its Codex evidence.
+        db.add(ColdStorage(id=row.id,raw_text=row.raw_text,source_spans=row.source_spans,
+            timestamp=row.timestamp,ts_provenance=row.ts_provenance,
+            conversation_id=row.conversation_id,batch_id=row.batch_id,is_private=False))
+        db.flush()
+        db.delete(row);db.flush()
+        assert len(o._codex_claims('PostgreSQL',None,{'conversation_id':str(cid)}))==1
+        assert not o._codex_claims('PostgreSQL',None,{'exclude_cluster_ids':[str(uuid.uuid4())]})
+        row=db.get(ColdStorage,row.id)
         row.raw_text+=' A later correction.';db.flush()
         assert not o._codex_claims('PostgreSQL',None)
         db.delete(row);db.flush()
@@ -141,6 +150,19 @@ def test_extractor_keeps_source_claims_even_when_graph_names_fail(monkeypatch,su
         assert db.query(IdempotencyKey).filter_by(key=job_key('codex',batch)).count()==1
         o=HybridRetrievalOrchestrator(db,None)
         assert len(o._codex_claims('port',None,{'conversation_id':str(cid)}))==2
+        if expected_edges:
+            from src.memory.models import CodexEntity
+            edge=db.query(CodexEdge).filter_by(source_batch=batch).one()
+            src,tgt=db.get(CodexEntity,edge.source_id),db.get(CodexEntity,edge.target_id)
+            line=o._fact_line(src,edge,tgt)
+            assert all(sentence in line for sentence in statements)
+            assert 'speaker: user' in line and 'speaker: assistant' in line
+            assert '--uses-->' not in line
+            src.context_payload='POISONED cached relationship assertion'
+            texts,rendered=[],[]
+            o._render_codex_entity(src,0,[edge],[],None,texts,rendered)
+            assert 'POISONED' not in '\n'.join(texts)
+            assert {e.id for e in rendered}=={edge.id}
         from src.services.conversations import apply_forget
         turn=db.query(EpisodicMemory).filter_by(batch_id=batch).one()
         apply_forget(db,{'turns':[{'id':str(turn.id)}]})

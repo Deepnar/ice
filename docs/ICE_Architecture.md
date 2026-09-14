@@ -769,7 +769,7 @@ Every retrieval leg and post‑processing step can be independently enabled or d
 
 Storage always recorded time on three layers (episodic `timestamp`, bi-temporal codex edges, the event journal), but retrieval read none of them — every query answered "now." Track T makes the stores answerable *at* a time (T1–T3) and serves how ideas *changed* over time (T4). Spec: docs/specs/T_temporal.md. The journal already gives git's semantics; Track T built only the porcelain — valid_at(T) filtering is `checkout` (T3), the timeline builder is `log` and entity_diff is `diff` (T4).
 
-- **T1 — date/time grounding (v3, 2026-09-13).** `memory/time_format.py` normalizes known zones to UTC with second precision and labels unknown zones. The system prompt supplies a current UTC datetime. Episodic alternatives, chunks and recent history carry source-recorded timestamps; synthetic imports say source time unknown. Codex explicit fact lines batch-resolve source times independently of learned/recorded-validity time. Timeline ranges are labeled recorded validity and use full datetime precision. Summary labels identify creation/update times and count toward budgets. Cold timestamp provenance is unknown until archive metadata is repaired; entity overview notes still have no per-claim timestamps. These timestamps do not assert real event dates or repair out-of-order validity inference.
+- **T1 — date/time grounding (v3, 2026-09-13).** `memory/time_format.py` normalizes known zones to UTC with second precision and labels unknown zones. The system prompt supplies a current UTC datetime. Episodic alternatives, chunks and recent history carry source-recorded timestamps; synthetic imports say source time unknown. Codex explicit fact lines batch-resolve source times independently of learned/recorded-validity time. Timeline ranges are labeled recorded validity and use full datetime precision. Summary labels identify creation/update times and count toward budgets. Cold timestamp provenance is preserved when available; legacy missing provenance stays unknown. Linked graph claims carry source timestamps. These timestamps do not assert real event dates or repair out-of-order validity inference.
 
 - **T2 — TimeScope detection** (`retrieval/timescope.py`, pure, \<1 ms, LLM-free). `detect_timescope` scans a code-stripped prompt against an expression grammar (absolute dates/months/quarters/halves/seasons/years, relatives like "two years ago"/"last summer", open ranges since/before/between, number-words) plus evolution cues ("how did X evolve", "originally", "over time"). **Joint gate** (A4's lesson): a resolvable expression alone never flips the mode — it must co-occur with a recall-shaped prompt (question mark / interrogative opener / DI3 reference_signal / p_ltm ≥ 0.5). Four modes: `current` (default; behavior identical to pre-T), `as_of` (point-in-time window), `range` (flat window), `evolution` (history request, window optional). Guards: future windows → current; vague pasts ("a while back") are never resolved into invented windows; windows are padded per granularity (settings `timescope_pad_*`) and clamped to now. The result travels as `scope["timescope"]` (D1 — zero signature churn); main.py logs `timescope_detected`; a non-current mode adds `ltm_bump_timescope` (+3.0 log-odds) to the B2 memory decision — a decisive bump, never a hard override. Kill switch: `timescope_enabled` (byte-identical rollback).
 
@@ -1267,5 +1267,16 @@ checks current source offsets, and enters the existing codex fusion/reranker/tok
 path. It needs no matched entity. Explicit empty scopes and source exclusions
 remain closed. Each result labels speaker and recorded source time. Conversation
 and turn forgetting physically remove associated claims; source edits invalidate
-old excerpts. Cold-source lookup and graph cached-note replacement remain next,
-so this tranche is not complete archive parity or complete Codex repair.
+old excerpts. Cold sources resolve by stable episodic ID, with warm state taking
+precedence. Cold claims are omitted for cluster scopes until archival membership
+is preserved. Graph and tag-enumeration rendering consume linked source evidence
+and collect only rendered edge IDs; negative facts can answer but are not walked.
+Legacy relations and permitted unscoped stored notes are labeled unverified.
+Cached relationship payloads no longer bypass the filtered edge set. Source claims
+with missing/private/edited evidence cannot fall back to unqualified triples.
+
+Cold restoration preserves the archived embedding, including NULL (with warning),
+without encoding a truncated summary. Missing timestamp provenance becomes
+`unknown`; original recorded timestamp and probation decay remain unchanged.
+Complete archive metadata parity, qualified note generation, summary support and
+semantic conflict resolution remain separate repairs.

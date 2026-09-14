@@ -748,3 +748,39 @@ The61 temporal regression checks also passed in a disposable database.
 These are controlled mechanics, not proof that memory improves answers.
 Final-prompt/answer-use tracing and source-ledger corroboration remain under the
 active repair phase; retrieval selection counters are not final exposure.
+
+## <a id="g64"></a>G64 — searchable attributed source sentences (v3, 2026-09-14)
+
+Implemented CodexClaim plus claim/edge links, exact source offsets/hash and role,
+complete paragraph fallback, pinned NLI compression, direct lexical/vector search
+without entity recognition, and graph/tag rendering from linked evidence.
+Negative facts remain answerable without graph traversal. Original triple columns
+and source notes remain stored; legacy rendered material is labeled unverified.
+Warm and cold source lookup honor source edits/privacy, with warm state winning.
+Conversation/turn deletion removes claims. No automatic legacy reseed.
+
+This item originally described no sentence reader and later kept itself open on
+all semantic-verification work. That conflated delivery with separate repairs:
+summary support and autonomous conflict handling remain G76; cold cluster metadata
+belongs to lifecycle repair; held-out answer benefit remains final evaluation.
+NLI controls compression, not world truth or permission to expire old assertions.
+Cold claims are withheld under cluster inclusion/exclusion until membership exists.
+
+Historical design context follows; its statements of current absence are superseded:
+
+**Historical G64 design — Store each fact as a SENTENCE beside the triple** `(design — opened 2026-08-24, from Graphiti)`. The proposed v3 addition is a full claim sentence with its own searchable representation beside the triple. Current ICE has entity matching, descriptor fallback and entity-less enumeration, but no general sentence-level fact-search path.
+  - **v3 repair 2026-09-14:** source sentence/paragraph storage, authoritative role units, source hashes, graph links and entity-independent lexical/vector search implemented. Qualified adversarial NLI controls sentence shortening with whole-source fallback. New extraction only; cached graph rendering, cold lookup, semantic conflict/summary consumers and broad answer validation still pending. This item remains open until those integration limits are resolved.
+  - **v3 repair, 2026-09-12 — shared relevance ordering shipped, sentence storage still open:** the pinned local Qwen3-Reranker-0.6B scores rendered candidates from all legs and their compressed alternatives in both retrieval paths, before conversation caps. Successful reranking packs by relevance without type quotas. Synthetic answering-item rank 15/15 and 2/2 production selection controls pass; these are not answer-quality/vector-benchmark results. Zero-score rejection admitted 4/45 distractors and stays unset. The candidate cap, summary faithfulness and sentence extraction remain separate repair work. See PROVENANCE and V3_REPAIR spec.
+  - **v3 review, 2026-09-12 — proposed evidence contract:** retain a source-backed claim sentence plus exact evidence references, speaker/assertion status, scope, time and existing triple links. Generate the sentence from source, not by verbalizing a possibly reversed triple. Add direct sentence search under existing visibility rules. Example: “we considered SQLite, then chose PostgreSQL” must retain the difference between proposal and decision. Qualify a replaceable support verifier before using it to authorize substitution; see **G76 — attributed claims and support verification**, e.g. an assistant suggestion must remain a suggestion. No implementation approved by this review.
+  - **Three things this buys, in order of value:**
+    1. **General fact search can work without a matched entity name.** Current v3 already has descriptor fallback and entity-less enumeration; neither is a general semantic search over claim sentences.
+    2. **The prompt can render the sentence instead of the bare triple.** A reversed triple currently becomes a flat false assertion handed to the chat model. ⚑ **ICE's design makes triple correctness MORE load-bearing than Graphiti's**, purely because of how we present it.
+    3. A fact becomes findable by what it says, not only by walking to it.
+  - **Keep the columns.** `subject`/`relation`/`object` stay so `loves` is still walkable — Graphiti cannot do "list everything X loves" without hoping an embedding matches.
+  - ⚑ **A sentence carries direction in its grammar; three slots carry it in slot order.** So this may blunt the reversal damage without fixing extraction. **The cheap test:** ask the model for the same fact as a sentence AND as a triple, and see whether the sentence is right when the triple is backwards.
+  - **KEEP FROM ICE:** source grounding and explicit polarity (`negated`). Name occurrence is not proof that a relation is true. **Correction, 2026-09-12:** the prior example used here was supported by its source, as the repository had already recorded; it cannot justify a hallucination filter. No claim about another framework's current capabilities is needed for this decision.
+  - ⛔ **REFUSE: LLM-chosen `valid_at`/`invalid_at` and LLM-chosen contradiction IDs.** Silently expires the wrong history when it misfires. [G51](#g51) already cost us 667 true facts to a silent expiry bug.
+  - ⛔ **REFUSE: their ENTITY dedup (embed the name → cosine search → LLM tiebreak). [G50](#g50) TESTED THIS AND REJECTED IT ON EVIDENCE, 2026-08-17.** *"High cosine is exactly the condition under which the embedding cannot separate the pair, so a small judge fails the same way; the failures correlate rather than check each other."* At ≥0.98 the band holds `two sagas`/`four sagas` (0.9889), `his father`/`her father` (0.9827), `8 gb`/`4 gb` (0.9852) alongside genuine duplicates. G50 shipped a deterministic **write-time `merge_key` tier** in `get_or_create_entity` instead, and the safe half of that band is caught there with no model at all.
+    - ⚠ **I proposed this Graphiti dedup on 2026-08-24 without checking, and the maintainer caught it — [TRAPS #42](TRAPS.md).** Recorded so the next session does not propose it a third time.
+    - ⚑ **What remains genuinely unsolved:** `merge_key` is deterministic normalisation, so morphological variants of one referent — NuExtract3 emitted `nobody`, `no one` and `no body` as three subjects on ONE turn — still mint three unconnected nodes. That is a real defect of [G63](#g63)'s candidate model, it is **not** closed by G50, and the obvious fix is the one G50 already refused. Needs a new idea, not a re-run.
+  - ⚠ Their fact quality is **mostly model, not philosophy** — gpt-4o-mini vs our local 3B. Their own docs warn small models fail their ingestion.

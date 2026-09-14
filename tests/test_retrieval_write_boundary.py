@@ -73,3 +73,48 @@ def test_multiple_chunks_count_as_one_access_and_off_means_no_writes(monkeypatch
             assert turn.access_count == 1 and abs(turn.decay_score - 0.55) < 1e-9
         finally:
             db.rollback()
+
+
+def test_cold_restoration_preserves_vector_and_unknown_timestamp(monkeypatch):
+    from datetime import datetime, timezone
+
+    import numpy as np
+    from sqlalchemy import text
+
+    from src.memory.models import ColdStorage
+
+    with SessionLocal() as db:
+        try:
+            conv = Conversation(id=uuid.uuid4())
+            db.add(conv)
+            db.flush()
+            monkeypatch.setattr(db, "commit", db.flush)
+            monkeypatch.setattr(settings, "retrieval_strengthen_writes", True)
+            # No encoder: restoration must not generate a new representation.
+            o = retrieval.HybridRetrievalOrchestrator(db, None)
+            for vector in ([0.125] * 1024, None):
+                rid = uuid.uuid4()
+                raw = "Preserve the complete source. " * 200
+                cold = ColdStorage(id=rid, conversation_id=conv.id,
+                    batch_id=uuid.uuid4(), raw_text=raw, summary_text="A short summary.",
+                    timestamp=datetime.now(timezone.utc), embedding=vector,
+                    is_private=False, ts_provenance=None)
+                db.add(cold)
+                db.flush()
+                # Exercise the driver representation used by the actual cold leg.
+                row = db.execute(text("SELECT * FROM cold_storage WHERE id=:id"),
+                                 {"id": rid}).one()
+                o._cold_hits = {str(rid): row}
+                o._resurrect_cold_hits([retrieval.ContextFragment(raw, "episodic", 1.0,
+                    100, source_batch_id=str(rid))])
+                restored = db.get(EpisodicMemory, rid)
+                assert restored is not None
+                assert restored.raw_text == raw and restored.ts_provenance == "unknown"
+                if vector is None:
+                    assert restored.embedding is None
+                else:
+                    np.testing.assert_array_equal(restored.embedding, vector)
+                assert db.execute(text("SELECT id FROM cold_storage WHERE id=:id"),
+                                  {"id": rid}).first() is None
+        finally:
+            db.rollback()

@@ -394,3 +394,37 @@ excerpts. Deleting an edge removes its navigation links, not source evidence.
 Conversation deletion cascades claims; turn-forget deletes by original episodic
 ID, which remains stable through archival. Claim search uses source exclusions;
 entity deny sets derived from excluded batches must not hide unrelated claims.
+
+### Graph rendering consumes source claims (2026-09-14)
+
+Preserve the rich-note purpose: nodes still present useful source information and
+navigate in both directions. Replace cached relationship assertions in retrieval
+with lines built from the actual filtered edge set. A linked, available source
+claim renders its attributed sentence/full evidence selected by the verifier;
+legacy relations are explicitly marked unverified. Do not delete rich notes:
+legacy descriptions/manual payloads remain stored and can appear as labeled
+unverified notes only when unscoped, without exclusions and in current mode.
+Derived project/code pointer payloads keep their existing behavior.
+
+Tag enumeration must use the same filtered renderer, not bypass it through a
+cached payload. Negative relations remain non-navigable, but are eligible factual
+answers; the relevance reranker decides their usefulness. Track exact rendered
+edge identities separately from navigation candidates. Scope/time filtering must
+precede source rendering, and missing/private/edited linked source must not fall
+back to an unqualified triple. Qualified note-summary generation remains later
+within this phase; this change does not claim all legacy descriptions verified.
+
+Cold claim evidence uses the stable episodic ID to resolve warm or archived
+source, with warm state taking precedence (never bypass a new privacy/edit flag
+using an older cold copy). Independent claim search includes cold sources for
+unscoped/conversation/time queries. Until cold cluster membership is preserved,
+cluster inclusion/exclusion queries omit cold candidates explicitly rather than
+pretending missing membership is a pass. This remaining archival metadata repair
+stays in the lifecycle work; no cold-source text is deleted to implement it.
+
+Cold resurrection must preserve the archived vector, including a missing vector,
+without replacing it with an embedding of a truncated generated summary. Missing
+legacy vectors remain lexical-searchable and emit a warning; restoration itself
+must succeed. This avoids changing the represented evidence and adding foreground
+encoder work. Missing timestamp provenance restores as `unknown`, never
+`original`. The existing original timestamp and probation behavior stay intact.

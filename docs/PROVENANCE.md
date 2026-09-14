@@ -3597,3 +3597,19 @@ coverage column as quality.
 - The three store-backed jobs ran on 180 turns of `dir-false-run1`; `procedural`
   and `batch_summary` required clearing their own markers first, because both
   are idempotent and had already run.
+
+## 2026-09-14 — v3 source-rendered graph and cold restoration
+
+Validation: `uv run python tests/support/disposable_database.py -m pytest
+ tests/smoke tests/test_codex_claims.py tests/test_retrieval_write_boundary.py
+ tests/test_graph_retention.py tests/test_source_lifecycle.py -q --tb=short`:
+283 passed. `uv run python tests/support/disposable_database.py
+ tests/test_timescope.py`:61 passed. Disposable databases removed; synthetic
+fixtures only. These exercise source-attributed graph lines, filtered cached-note
+replacement, warm/cold hash checks, privacy/scope/deletion, original/NULL embedding
+restoration without an encoder, and unknown timestamp provenance.
+
+Initial temporal run58/61: one obsolete cached-payload anchor assertion and two
+real restore failures from inserting NULL into required timestamp provenance.
+Updated anchor lookup to rendered entity identity; fixed provenance to unknown.
+No answer-quality, multilingual generalization or vector-baseline claim.

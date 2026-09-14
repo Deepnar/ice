@@ -1440,7 +1440,7 @@ wins; where it conflicts with the code, the code wins.**
 
 | Explicit conflict resolution | `src/services/review.py::approve`, REST review approval, MCP `ice_control` | G62 | `keep_edge_ids` explicitly retains both/one/neither; validates pair, journals expiries, refreshes payloads. | — | — | YES |
 
-| Writer-supplied speaker boundaries | `src/memory/source.py`, API/import/document/note writers; recent prompt reader | G76 | Raw hash plus role offsets prevent quoted role markers from changing authorship. Legacy/malformed metadata yields unknown. Preserved through cold lifecycle. Sentence extraction consumer pending. | — | — | YES for new writes/raw recent reads |
+| Writer-supplied speaker boundaries | `src/memory/source.py`, API/import/document/note writers; recent prompt reader | G76 | Raw hash plus role offsets prevent quoted role markers from changing authorship. Legacy/malformed metadata yields unknown. Preserved through cold lifecycle. Attributed sentence extraction consumes these boundaries. | — | — | YES for new writes/raw recent reads |
 
 ### v3 selected-context retention (2026-09-13)
 
@@ -1455,7 +1455,10 @@ wins; where it conflicts with the code, the code wins.**
 | Feature | Implementation | Control/default | Active |
 |---|---|---|---|
 | Source sentences independent of entity recognition | `CodexClaim`, `CodexClaimLink`; extractor template includes exact `source_sentence`, role units processed independently, paragraph context retained; native1024 embedding + lexical index | `codex_sentence_claims=True` | YES for new extraction; no automatic legacy backfill |
-| Direct claim search | `orchestrator._codex_claims` in normal and wide-net paths, before global reranker/packing; source/hash/privacy/scope checked | `codex_claim_candidate_limit=64`; existing RRF constant | YES for live-source claims; cold lookup and cached-note replacement remain unfinished |
+| Direct claim search | `orchestrator._codex_claims` in normal and wide-net paths, before global reranker/packing; source/hash/privacy/scope checked | `codex_claim_candidate_limit=64`; existing RRF constant | YES for warm/cold sources; cold cluster-scoped claims withheld until archive membership is preserved |
 | Source-support compression | `memory/support.py`, `claims.store_claims` / `claim_representation`; source and claim hashes + pinned verifier; uncertain source stays whole | `source_support_threshold=0.95`, max tokens512, device auto | YES for source-sentence shortening; not yet summary or conflict verification |
-| Claim deletion | Conversation FK cascade; explicit turn-forget by stable episodic ID; absent/edited sources never render | shared conversation/forget services | YES; archive retains claims, cold reader still pending |
+| Claim deletion | Conversation FK cascade; explicit turn-forget by stable episodic ID; absent/edited sources never render | shared conversation/forget services | YES; archive retains claims and reader resolves warm state first |
 | Foreground/extraction model separation | `extract_codex` does not pass foreground `model_used` as extraction override; explicit arm overrides remain in `extract_triplets` | existing specialist setting | YES |
+
+| Graph source rendering | `orchestrator._fact_line`, `_render_codex_entity`, tag enumeration; linked attributed evidence replaces cached relationships; exact rendered edge IDs; negative facts remain non-navigable | Existing graph scope/time/trust controls | YES; legacy relations/notes explicitly unverified |
+| Cold restoration preserves evidence | `_resurrect_cold_hits`; archived vector reused, NULL vector retained with warning; unknown timestamp provenance remains unknown | `retrieval_strengthen_writes=True` | YES for selected cold hits with conversation identity |

@@ -449,7 +449,7 @@ try:
     check("21 timeline fragment emitted under current mode, history anchors only",
           len(tl_frags) == 1 and f"[Timeline: {MARK}-saga; recorded validity times]" in tl_frags[0].text)
     saga_frag = next((f for f in cg if f.source_type == "codex"
-                      and f"{MARK}-saga payload" in f.text), None)
+                      and f"[Entity: {MARK}-saga" in f.text), None)
     check("21 timeline scored 0.9× its anchor",
           saga_frag is not None
           and abs(tl_frags[0].score - 0.9 * saga_frag.score) < 1e-9)
@@ -536,6 +536,7 @@ try:
     cold_row = ColdStorage(
         id=uuid.uuid4(), raw_text=f"User: {MARK} frozen idea\n\nAssistant: ok",
         summary_text=f"{MARK} frozen summary", topic_tags=["Software_&_Tech"],
+        embedding=EMB,
         timestamp=datetime(2025, 3, 12, tzinfo=timezone.utc),
         conversation_id=conv.id, is_private=False, batch_id=uuid.uuid4(),
     )

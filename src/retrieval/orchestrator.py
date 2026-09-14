@@ -22,12 +22,14 @@ from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
 from src.memory.models import (
     CodexClaim,
+    CodexClaimLink,
     CodexEdge,
     CodexEntity,
+    ColdStorage,
     EpisodicMemory,
     ProceduralMemory,
 )
-from src.memory.claims import claim_representation, excerpt_is_current
+from src.memory.claims import claim_representation, excerpt_is_current, source_for_claim
 from src.memory.representation import choose_representation
 from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as count_tokens
@@ -1536,14 +1538,25 @@ class HybridRetrievalOrchestrator:
         if not batches:
             return
         rows = self.db.query(EpisodicMemory.batch_id, EpisodicMemory.timestamp,
-                             EpisodicMemory.ts_provenance).filter(
+                             EpisodicMemory.ts_provenance, EpisodicMemory.is_private).filter(
             EpisodicMemory.batch_id.in_(batches)).all()
+        missing = batches - {row.batch_id for row in rows}
+        if missing:
+            rows += self.db.query(ColdStorage.batch_id, ColdStorage.timestamp,
+                                 ColdStorage.ts_provenance, ColdStorage.is_private).filter(
+                ColdStorage.batch_id.in_(missing)).all()
+        private = getattr(self, "_private_source_batches", None)
+        if private is None:
+            private = self._private_source_batches = set()
+        private.update(str(b) for b, _, _, is_private in rows if is_private)
         cache.update({str(b): None for b in batches})
-        cache.update({str(b): (stamp, provenance) for b, stamp, provenance in rows})
+        cache.update({str(b): (stamp, provenance) for b, stamp, provenance, _ in rows})
 
     def _fact_line(self, src, edge, tgt) -> str:
         """Separate source-recorded time from when ICE learned the claim."""
         self._prime_edge_times([edge])
+        if str(getattr(edge, "source_batch", None)) in getattr(self, "_private_source_batches", set()):
+            return ""
         source = self._source_times.get(str(getattr(edge, "source_batch", None)))
         dates = []
         if source:
@@ -1556,8 +1569,22 @@ class HybridRetrievalOrchestrator:
             dates.append(f"learned: {format_time(learned)}")
         if valid and format_time(valid) != format_time(learned):
             dates.append(f"recorded valid from: {format_time(valid)}")
+        linked = self.db.query(CodexClaim).join(CodexClaimLink,
+            CodexClaimLink.claim_id == CodexClaim.id).filter(
+                CodexClaimLink.edge_id == edge.id,
+                CodexClaim.source_batch == edge.source_batch).order_by(
+                    CodexClaim.start, CodexClaim.id).all() if getattr(edge, "id", None) and self.db is not None else []
+        if linked:
+            lines = []
+            for claim in linked:
+                original = source_for_claim(self.db, claim)
+                if original is None or original.is_private or not excerpt_is_current(original, claim):
+                    continue
+                lines.append(f"[Source excerpt; speaker: {claim.role}; {'; '.join(dates)}] "
+                             f"{claim_representation(claim)}")
+            return "\n".join(dict.fromkeys(lines))
         rel = f"NOT {edge.relation}" if getattr(edge, "negated", False) else edge.relation
-        return (f"[Fact: {src.canonical_name} --{rel}--> {tgt.canonical_name}"
+        return (f"[Unverified graph relation: {src.canonical_name} --{rel}--> {tgt.canonical_name}"
                 f" ({'; '.join(dates)})]")
 
     def _relation_fit(self, relations: List[str], prompt_embedding):
@@ -1633,11 +1660,9 @@ class HybridRetrievalOrchestrator:
         pool = q.order_by(CodexEdge.strength.desc()).limit(
             settings.codex_entity_edge_limit
             * settings.codex_relation_pool_multiplier).all()
-        # A8: a negated edge is a stored fact, not an answer — "X does NOT use Y"
-        # must never rank first on a question about using.
-        pool = [e for e in pool
-                if not getattr(e, "negated", False)
-                and self._edge_trust(e) >= settings.codex_direct_trust_floor]
+        # A negative source statement can answer a question; only navigation
+        # treats negation as a reason not to walk the relationship.
+        pool = [e for e in pool if self._edge_trust(e) >= settings.codex_direct_trust_floor]
         if not pool:
             return [], [], 0.0
 
@@ -1654,8 +1679,10 @@ class HybridRetrievalOrchestrator:
             src = self.db.query(CodexEntity).get(edge.source_id)
             tgt = self.db.query(CodexEntity).get(edge.target_id)
             if src and tgt:
-                lines.append(self._fact_line(src, edge, tgt))
-                fact_edges.append(edge)
+                line = self._fact_line(src, edge, tgt)
+                if line:
+                    lines.append(line)
+                    fact_edges.append(edge)
         return lines, fact_edges, fit
 
     def _codex_enumeration(self, prompt: str, relations: List[str],
@@ -1687,9 +1714,16 @@ class HybridRetrievalOrchestrator:
                         continue
                     if ent.id not in seen_entities and ent.context_payload:
                         seen_entities.add(ent.id)
-                        t = f"[Entity: {ent.canonical_name}]\n{ent.context_payload}"
-                        fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
-                                                         token_count=count_tokens(t)))
+                        texts, rendered = [], []
+                        self._traverse_graph(ent, 0, 0, set(), texts,
+                            allowed_entity_ids=allowed_entity_ids, allowed_batch_ids=allowed_batch_ids,
+                            rendered_edges=rendered)
+                        if texts:
+                            t = "\n\n".join(texts)
+                            fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
+                                token_count=count_tokens(t),
+                                origin_batch_ids=tuple({str(e.source_batch) for e in rendered}),
+                                origin_edge_ids=tuple({str(e.id) for e in rendered})))
             # (b) relation-driven facts: "who inspired ..." → inspired_by edges,
             #     grouped into a single facts fragment (they're a list answer).
             fact_lines = []
@@ -1711,7 +1745,10 @@ class HybridRetrievalOrchestrator:
                     src = self.db.query(CodexEntity).get(edge.source_id)
                     tgt = self.db.query(CodexEntity).get(edge.target_id)
                     if src and tgt:
-                        fact_lines.append(self._fact_line(src, edge, tgt))
+                        line = self._fact_line(src, edge, tgt)
+                        if not line:
+                            continue
+                        fact_lines.append(line)
                         fact_ids.append(str(edge.id))
                         if edge.source_batch:
                             fact_batches.append(str(edge.source_batch))
@@ -1772,7 +1809,13 @@ class HybridRetrievalOrchestrator:
             params["denied"] = list(self._denied_batch_ids)
         if scope and scope.get("cluster_ids"):
             params["cluster_ids"] = scope["cluster_ids"]
-        base = f"""FROM codex_claims c JOIN episodic_memory e ON e.batch_id = c.source_batch
+        cold_allowed = not (scope and (scope.get("cluster_ids") or scope.get("cluster_ids_explicit")
+                                      or scope.get("exclude_cluster_ids")))
+        source_rows = "SELECT id, batch_id, conversation_id, is_private, timestamp FROM episodic_memory"
+        if cold_allowed:
+            source_rows += (" UNION ALL SELECT cold.id, cold.batch_id, cold.conversation_id, cold.is_private, cold.timestamp "
+                            "FROM cold_storage cold WHERE NOT EXISTS (SELECT 1 FROM episodic_memory warm WHERE warm.id = cold.id)")
+        base = f"""FROM codex_claims c JOIN ({source_rows}) e ON e.id = c.episodic_id AND e.batch_id = c.source_batch
             WHERE e.is_private = false {conv_filter} {excl_filter} {cluster_filter}
             {time_filter} {filters}"""
         try:
@@ -1794,7 +1837,7 @@ class HybridRetrievalOrchestrator:
             for ident in sorted(scores, key=lambda k: (-scores[k], str(k)))[:settings.codex_claim_candidate_limit]:
                 claim = self.db.get(CodexClaim, ident)
                 if claim.source_batch not in sources:
-                    sources[claim.source_batch] = self.db.query(EpisodicMemory).filter_by(batch_id=claim.source_batch).first()
+                    sources[claim.source_batch] = source_for_claim(self.db, claim)
                 source = sources[claim.source_batch]
                 if source is None or not excerpt_is_current(source, claim):
                     logger.warning("claim_source_stale", claim_id=str(ident))
@@ -1868,11 +1911,11 @@ class HybridRetrievalOrchestrator:
                     continue
                 if anchor.id in self._denied_entity_ids:   # C6 exclusion
                     continue
-                local_texts, direct_edges = [], []
+                local_texts, direct_edges, rendered_edges = [], [], []
                 self._traverse_graph(anchor, 0, settings.codex_max_depth, set(),
                                      local_texts, direct_edges,
                                      allowed_entity_ids, allowed_batch_ids,
-                                     exclude_ids=anchor_ids - {anchor.id})
+                                     exclude_ids=anchor_ids - {anchor.id}, rendered_edges=rendered_edges)
                 if not local_texts:
                     continue
                 # Per-anchor score from THIS anchor's direct-edge trust (A3).
@@ -1887,7 +1930,8 @@ class HybridRetrievalOrchestrator:
                 fact_lines, fact_edges, fit = self._relation_facts(
                     [anchor], prompt_embedding, allowed_batch_ids)
                 if fact_lines:
-                    local_texts.extend(fact_lines)
+                    existing_text = "\n\n".join(local_texts)
+                    local_texts.extend(line for line in fact_lines if line not in existing_text)
                     direct_edges.extend(fact_edges)
                     # G34: proportional to how sharply one relation stood out,
                     # replacing a flat +0.25 that was applied on every prompt
@@ -1907,8 +1951,8 @@ class HybridRetrievalOrchestrator:
                     # a gold turn, which is why recall has only ever scored the
                     # episodic leg.
                     origin_batch_ids=tuple(
-                        {str(e.source_batch) for e in direct_edges if e.source_batch}),
-                    origin_edge_ids=tuple({str(e.id) for e in fact_edges})))
+                        {str(e.source_batch) for e in rendered_edges + fact_edges if e.source_batch}),
+                    origin_edge_ids=tuple({str(e.id) for e in rendered_edges + fact_edges})))
 
                 # T4: attach the anchor's evolution timeline whenever it
                 # carries real supersession history (D-U2: provided in any
@@ -1967,50 +2011,48 @@ class HybridRetrievalOrchestrator:
         return base
 
     def _render_codex_entity(self, entity, depth, out_edges, in_edges,
-                             allowed_batch_ids, context_texts):
-        """A7.2 depth-graded rendering (Obsidian reading model): the anchor
-        (depth 0) injects its FULL rich note; deeper neighbors inject a compact
-        one-line preview (name + type + a snippet), so navigation is rich but
-        token-efficient."""
-        # E1b: derived entities (code graph / project facts) render their full
-        # pointer payload even under scope — it's built from the project
-        # itself, so the "leaks other conversations" rationale doesn't apply.
+                             allowed_batch_ids, context_texts, rendered_edges=None):
+        """Rich source notes at anchors; compact navigation at deeper nodes."""
         derived = getattr(entity, "source", None) not in (None, "conversation")
-        if depth == 0:
-            if allowed_batch_ids is None or derived:
-                # unscoped: the stored rich note (description + props + links + backlinks).
-                if entity.context_payload:
-                    context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
-            else:
-                # A5 scoped: rebuild from this conversation's edges only (both
-                # directions), no global description — it would leak other convos.
-                lines = []
-                # G29: these two slices were the literal 10 while
-                # settings.codex_entity_edge_limit was already 10 — right number,
-                # unreachable knob, same shape as the diversify/rrf/cluster case.
-                for e in out_edges[:settings.codex_entity_edge_limit]:
-                    t = self.db.query(CodexEntity).get(e.target_id)
-                    if t:
-                        rel = f"NOT {e.relation}" if getattr(e, "negated", False) else e.relation
-                        lines.append(f"{rel} → {t.canonical_name}")
-                for e in in_edges[:settings.codex_entity_edge_limit]:
-                    s = self.db.query(CodexEntity).get(e.source_id)
-                    if s:
-                        rel = f"NOT {e.relation}" if getattr(e, "negated", False) else e.relation
-                        lines.append(f"{s.canonical_name} --{rel}→")
-                if lines:
-                    context_texts.append(f"[Entity: {entity.canonical_name}]\n" + "; ".join(lines))
-        else:
-            etype = getattr(entity, "entity_type", None) or "entity"
-            preview = f"[{entity.canonical_name} ({etype})]"
-            if allowed_batch_ids is None:  # description is global → only show unscoped
-                desc = (entity.description or "").strip()
-                if desc:
-                    preview += ": " + " ".join(desc.split()[:20])
-            context_texts.append(preview)
+        if derived and depth == 0:
+            if entity.context_payload:
+                context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
+            return
+        if depth > 0:
+            context_texts.append(f"[{entity.canonical_name} ({getattr(entity, 'entity_type', None) or 'entity'})]")
+            return
+        lines = []
+        self._prime_edge_times(out_edges + in_edges)
+        has_private_source = any(str(e.source_batch) in self._private_source_batches
+                                 for e in out_edges + in_edges) if hasattr(self, "_private_source_batches") else False
+        unscoped_current = (allowed_batch_ids is None and not self._denied_batch_ids
+                            and not has_private_source and self._active_timescope.mode == "current")
+        if unscoped_current:
+            note = (entity.description or "").strip()
+            if not note and not out_edges and not in_edges:
+                note = (entity.context_payload or "").strip()
+            if note:
+                lines.append(f"[Unverified stored note] {note}")
+        edges = list({e.id: e for e in out_edges + in_edges}.values())
+        edges.sort(key=lambda e: (-self._edge_trust(e), str(e.id)))
+        self._prime_edge_times(edges[:settings.codex_entity_edge_limit])
+        for edge in edges[:settings.codex_entity_edge_limit]:
+            if self._edge_trust(edge) < settings.codex_direct_trust_floor:
+                continue
+            source = self.db.get(CodexEntity, edge.source_id)
+            target = self.db.get(CodexEntity, edge.target_id)
+            if source and target:
+                line = self._fact_line(source, edge, target)
+                if line:
+                    lines.append(line)
+                    if rendered_edges is not None:
+                        rendered_edges.append(edge)
+        if lines:
+            context_texts.append(f"[Entity: {entity.canonical_name}]\n" + "\n".join(dict.fromkeys(lines)))
 
     def _traverse_graph(self, entity, depth, max_depth, visited, context_texts, anchor_edges=None,
-                        allowed_entity_ids=None, allowed_batch_ids=None, exclude_ids=None):
+                        allowed_entity_ids=None, allowed_batch_ids=None, exclude_ids=None,
+                        rendered_edges=None):
         if entity.id in visited or depth > max_depth:
             return
         visited.add(entity.id)
@@ -2039,7 +2081,7 @@ class HybridRetrievalOrchestrator:
             in_edges = [e for e in in_edges if e.source_batch not in self._denied_batch_ids]
 
         self._render_codex_entity(entity, depth, out_edges, in_edges,
-                                  allowed_batch_ids, context_texts)
+                                  allowed_batch_ids, context_texts, rendered_edges)
 
         # A7.2: traverse both directions (into the target of outgoing edges and
         # the source of incoming ones), trust-gated and scope-bounded as before.
@@ -2108,7 +2150,7 @@ class HybridRetrievalOrchestrator:
             if other and self._entity_visible(other):
                 self._traverse_graph(other, depth + 1, max_depth, visited,
                                      context_texts, anchor_edges,
-                                     allowed_entity_ids, allowed_batch_ids, exclude_ids)
+                                     allowed_entity_ids, allowed_batch_ids, exclude_ids, rendered_edges)
 
     # ------------------------------------------------------------------
     # Procedural lookup (scoped + trigger‑condition evaluation)
@@ -2423,9 +2465,16 @@ class HybridRetrievalOrchestrator:
                 logger.info("cold_cited_only", cold_id=str(row.id))
                 continue
             try:
-                emb = self.embedder.encode((row.summary_text or row.raw_text)[:2000],
-                                           convert_to_tensor=False)
-                emb = emb.tolist() if hasattr(emb, "tolist") else list(emb)
+                # Restore the representation that found this memory, not a
+                # newly truncated summary embedding. Legacy NULL stays NULL.
+                emb = getattr(row, "embedding", None)
+                if isinstance(emb, str):
+                    emb = [float(value) for value in emb.strip("[]").split(",")]
+                elif hasattr(emb, "tolist"):
+                    emb = emb.tolist()
+                if emb is None:
+                    logger.warning("cold_restored_without_vector", cold_id=str(row.id),
+                                   reason="archived_vector_missing")
                 res = self.db.execute(text("""
                     INSERT INTO episodic_memory
                         (id, conversation_id, batch_id, timestamp, topic_tags,
@@ -2443,7 +2492,7 @@ class HybridRetrievalOrchestrator:
                     "tags": list(row.topic_tags or []), "itags": [],
                     "raw": row.raw_text, "summary": row.summary_text,
                     "source_spans": getattr(row, "source_spans", None),
-                    "ts_provenance": getattr(row, "ts_provenance", None),
+                    "ts_provenance": getattr(row, "ts_provenance", None) or "unknown",
                     "emb": emb, "score": settings.timescope_probation_score,
                     "priv": row.is_private,
                     "ikey": f"cold-resurrect-{row.id}",

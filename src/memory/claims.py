@@ -114,3 +114,15 @@ def store_claims(db, row, sentences, *, encoder, verifier=None):
             db.flush()
             stored.append(claim)
     return stored
+
+
+def source_for_claim(db, claim):
+    """Resolve preserved source identity; warm edits/privacy override cold copies."""
+    from src.memory.models import ColdStorage, EpisodicMemory
+
+    row = db.get(EpisodicMemory, claim.episodic_id)
+    if row is None:
+        row = db.get(ColdStorage, claim.episodic_id)
+    if row is None or row.batch_id != claim.source_batch:
+        return None
+    return row
