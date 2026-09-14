@@ -14,6 +14,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import declarative_base, relationship
@@ -264,6 +265,34 @@ class CodexEdge(Base):
     # derived memory (decay-exempt, journal-free, regenerable).
     source = Column(Text, nullable=False, default="conversation",
                     server_default="conversation")
+
+
+class CodexClaim(Base):
+    """Attributed source sentences; graph links are navigation, not evidence."""
+    __tablename__ = "codex_claims"
+    __table_args__ = (UniqueConstraint("source_batch", "raw_sha256", "start", "end",
+                                      "sentence_sha256", name="uq_codex_claim_span"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_batch = Column(UUID(as_uuid=True), nullable=False, index=True)
+    episodic_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
+    raw_sha256 = Column(Text, nullable=False)
+    start = Column(Integer, nullable=False)
+    end = Column(Integer, nullable=False)
+    role = Column(Text, nullable=False)
+    sentence = Column(Text, nullable=False)
+    sentence_sha256 = Column(Text, nullable=False)
+    text = Column(Text, nullable=False)  # full evidence paragraph
+    embedding = Column(Vector(1024), nullable=True)
+    verification = Column(JSONB, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class CodexClaimLink(Base):
+    __tablename__ = "codex_claim_links"
+    claim_id = Column(UUID(as_uuid=True), ForeignKey("codex_claims.id", ondelete="CASCADE"), primary_key=True)
+    edge_id = Column(UUID(as_uuid=True), ForeignKey("codex_edges.id", ondelete="CASCADE"), primary_key=True)
 
 
 class CodexEvent(Base):

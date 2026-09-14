@@ -948,6 +948,14 @@ class Settings(BaseSettings):
     #
     # ⚠ NOT the reconciler. `make_llm_reconciler` in codex_extractor.py is a
     # one-word reasoning call and deliberately stays on the general model.
+    source_support_model: str = "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
+    source_support_revision: str = "b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+    source_support_device: str = "auto"
+    source_support_threshold: float = Field(default=0.95, gt=0.5, le=1.0)
+    source_support_max_tokens: int = Field(default=512, ge=16, le=512)
+    codex_sentence_claims: bool = True
+    codex_claim_candidate_limit: int = Field(default=64, ge=1)
+
     codex_extraction_model: str = "hf.co/numind/NuExtract3-GGUF:Q8_0"
 
     # ⚑ G63: which SHAPE of prompt the extractor sends.

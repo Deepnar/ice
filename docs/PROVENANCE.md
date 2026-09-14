@@ -1,3 +1,46 @@
+## 2026-09-14 — v3 adversarial NLI and source-sentence follow-through
+
+`qualify_nli.py --attribution` compares the original multilingual candidate and
+`MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` at
+`b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7` on the same20 controls plus10 attribution
+controls. Artifacts: `experiments/v3_repair/results/nli_multilingual_attribution.json`
+and `nli_adversarial_attribution.json`. The second model accepts13/13 supported
+and0/17 unsupported controls by argmax; it fixes the first model's three failures.
+Complete-input float32 CUDA; short-pair inference+transfer1.397s, peak allocated
+1.762GB. No source uploads. Training differences motivate selection, not a causal
+claim from this comparison. The tiny non-English subset does not establish
+multilingual reliability. Source/correctness labels are hand-authored synthetic
+controls, not representative held-out ICE conversations.
+
+`nli_production_path.json` records the same30 controls through
+`src.memory.support.score_pairs` and `verify_support`:13 supported,17 not supported
+at the explicit0.95 policy cutoff; an807-token input returns unknown before
+inference, without truncation. The cutoff is not calibrated to a population.
+Claim reading uses the shorter quotation only with supported current hashes;
+otherwise it keeps the complete evidence paragraph. This establishes a consumer,
+not a claim that NLI verifies world truth or solves every summary/conflict case.
+
+A bounded live NuExtract3-Q8_0 template check added `source_sentence` to the three
+existing slots. Its three exact source sentences preserved a PostgreSQL choice,
+a hypothetical Redis cache and teaching direction; the Redis triple flattened
+its condition. That motivates source-sentence rendering instead of trusting slot
+order/modal information. This single synthetic response is not a new extractor
+accuracy estimate. The subsequent controlled DB tests exercise the actual writer,
+independent lexical/vector lookup, source roles/hashes, graph links and forgetting.
+
+## 2026-09-13 — v3 NLI candidate diagnostic controls
+
+`experiments/v3_repair/qualify_nli.py` ran the pinned multilingual mDeBERTa
+candidate8adb042d on20 synthetic source/hypothesis pairs, float32 CUDA, complete
+inputs without truncation. Artifact: `experiments/v3_repair/results/nli_qualification.json`.
+Six supported controls were classified entailment; three of14 unsupported
+controls were also classified entailment: hypothetical0.8634, quoted denial0.5722,
+negated reporting0.8286. This disqualifies argmax entailment as an assertion
+authority; no threshold was fitted. Source attribution/context preservation
+remain mandatory. Inference plus GPU transfer1.285s, peak allocated1.136GB for
+these short pairs, excluding model load and unrelated process VRAM. This is
+candidate qualification, not ICE production semantic accuracy. No NLI gate activated.
+
 # Provenance ledger
 
 ## 2026-09-12 — v3 local reranker qualification

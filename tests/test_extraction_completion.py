@@ -34,6 +34,7 @@ from src.workers.runtime import JobYielded
 
 @pytest.fixture
 def turn(monkeypatch):
+    monkeypatch.setattr(settings, "codex_sentence_claims", False)
     cid, batch = uuid.uuid4(), uuid.uuid4()
     names = [f"repair_{uuid.uuid4().hex}", f"repair_{uuid.uuid4().hex}"]
     with SessionLocal() as db:

@@ -1,0 +1,371 @@
+{
+  "version": "ICE v3",
+  "model": "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli",
+  "revision": "8adb042d524ecd5c26d3e3ba0e3fbcf7e2d0864c",
+  "dtype": "float32",
+  "device": "cuda",
+  "seconds": 1.3294275849999622,
+  "peak_allocated_bytes": 1135954432,
+  "controls": [
+    {
+      "name": "direction",
+      "premise": "Mira teaches Niko.",
+      "hypothesis": "Mira teaches Niko.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.9957239627838135,
+        "neutral": 0.0031914268620312214,
+        "contradiction": 0.0010845103533938527
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "reversal",
+      "premise": "Mira teaches Niko.",
+      "hypothesis": "Niko teaches Mira.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.008369253017008305,
+        "neutral": 0.003079357324168086,
+        "contradiction": 0.9885513782501221
+      },
+      "predicted": "contradiction"
+    },
+    {
+      "name": "negation",
+      "premise": "Mira does not use Redis.",
+      "hypothesis": "Mira uses Redis.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.0007886325474828482,
+        "neutral": 0.0006582425558008254,
+        "contradiction": 0.9985530972480774
+      },
+      "predicted": "contradiction"
+    },
+    {
+      "name": "negative_supported",
+      "premise": "Mira does not use Redis.",
+      "hypothesis": "Mira does not use Redis.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.9978844523429871,
+        "neutral": 0.0019136443734169006,
+        "contradiction": 0.0002018153463723138
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "proposal",
+      "premise": "Mira is considering moving to Oslo.",
+      "hypothesis": "Mira lives in Oslo.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.05176167190074921,
+        "neutral": 0.06742852926254272,
+        "contradiction": 0.8808097839355469
+      },
+      "predicted": "contradiction"
+    },
+    {
+      "name": "hypothetical",
+      "premise": "If Mira moved to Oslo, she would cycle to work.",
+      "hypothesis": "Mira cycles to work in Oslo.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.8634118437767029,
+        "neutral": 0.09381202608346939,
+        "contradiction": 0.04277615621685982
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "question",
+      "premise": "Does Mira use Redis?",
+      "hypothesis": "Mira uses Redis.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.09455458074808121,
+        "neutral": 0.7467293739318848,
+        "contradiction": 0.15871600806713104
+      },
+      "predicted": "neutral"
+    },
+    {
+      "name": "correction",
+      "premise": "We considered SQLite but chose PostgreSQL.",
+      "hypothesis": "We chose PostgreSQL.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.992480993270874,
+        "neutral": 0.005503194872289896,
+        "contradiction": 0.0020158435218036175
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "discarded_choice",
+      "premise": "We considered SQLite but chose PostgreSQL.",
+      "hypothesis": "We chose SQLite.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.007390879560261965,
+        "neutral": 0.003868861822411418,
+        "contradiction": 0.9887402653694153
+      },
+      "predicted": "contradiction"
+    },
+    {
+      "name": "numeric",
+      "premise": "The cache limit is 8 GB.",
+      "hypothesis": "The cache limit is 4 GB.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.0008788788109086454,
+        "neutral": 0.0010073306038975716,
+        "contradiction": 0.998113751411438
+      },
+      "predicted": "contradiction"
+    },
+    {
+      "name": "conjunction",
+      "premise": "Mira uses PostgreSQL.",
+      "hypothesis": "Mira uses PostgreSQL and Redis.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.0009398487745784223,
+        "neutral": 0.9979667663574219,
+        "contradiction": 0.0010934105375781655
+      },
+      "predicted": "neutral"
+    },
+    {
+      "name": "paraphrase",
+      "premise": "Mira relocated from Paris to Oslo.",
+      "hypothesis": "Mira moved to Oslo.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.9972922205924988,
+        "neutral": 0.002411650260910392,
+        "contradiction": 0.0002961497229989618
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "attribution",
+      "premise": "Niko suggested that Mira use Redis.",
+      "hypothesis": "Mira uses Redis.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.09865206480026245,
+        "neutral": 0.30924132466316223,
+        "contradiction": 0.5921066403388977
+      },
+      "predicted": "contradiction"
+    },
+    {
+      "name": "quoted_denial",
+      "premise": "Mira said the claim \"I use Redis\" is false.",
+      "hypothesis": "Mira uses Redis.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.5722401738166809,
+        "neutral": 0.3037225604057312,
+        "contradiction": 0.12403729557991028
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "later_reversal",
+      "premise": "Initially we chose PostgreSQL. Later we abandoned it for SQLite.",
+      "hypothesis": "We currently use PostgreSQL.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.20449598133563995,
+        "neutral": 0.04962823539972305,
+        "contradiction": 0.7458757758140564
+      },
+      "predicted": "contradiction"
+    },
+    {
+      "name": "span_context",
+      "premise": "Mira did not say that Niko uses Redis.",
+      "hypothesis": "Niko uses Redis.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.8286136388778687,
+        "neutral": 0.11187954246997833,
+        "contradiction": 0.05950681492686272
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "hindi_support",
+      "premise": "मीरा दिल्ली में रहती है।",
+      "hypothesis": "मीरा दिल्ली में रहती है।",
+      "supported": true,
+      "scores": {
+        "entailment": 0.998210072517395,
+        "neutral": 0.0016526818508282304,
+        "contradiction": 0.00013716149260289967
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "hindi_negative",
+      "premise": "मीरा दिल्ली में नहीं रहती है।",
+      "hypothesis": "मीरा दिल्ली में रहती है।",
+      "supported": false,
+      "scores": {
+        "entailment": 0.0011004693806171417,
+        "neutral": 0.000760435126721859,
+        "contradiction": 0.9981390237808228
+      },
+      "predicted": "contradiction"
+    },
+    {
+      "name": "german_negative",
+      "premise": "Mira wohnt nicht in Berlin.",
+      "hypothesis": "Mira wohnt in Berlin.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.001172126503661275,
+        "neutral": 0.0010255597298964858,
+        "contradiction": 0.9978023171424866
+      },
+      "predicted": "contradiction"
+    },
+    {
+      "name": "style",
+      "premise": "ok so like we thought sqlite but nah chose postgres instead",
+      "hypothesis": "We chose PostgreSQL.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.9276416897773743,
+        "neutral": 0.03915245085954666,
+        "contradiction": 0.033205918967723846
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "conditional_kept",
+      "premise": "If Mira moved to Oslo, she would cycle to work.",
+      "hypothesis": "Mira would cycle to work if she moved to Oslo.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.9958142638206482,
+        "neutral": 0.0037298151291906834,
+        "contradiction": 0.0004560137167572975
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "suggestion_kept",
+      "premise": "Niko suggested that Mira use Redis.",
+      "hypothesis": "Niko suggested Redis to Mira.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.9963371753692627,
+        "neutral": 0.002905898028984666,
+        "contradiction": 0.0007569514564238489
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "question_kept",
+      "premise": "Mira asked whether Niko uses Redis.",
+      "hypothesis": "Mira asked about Niko using Redis.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.9948323965072632,
+        "neutral": 0.003982755821198225,
+        "contradiction": 0.0011848288122564554
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "quote_kept",
+      "premise": "Mira said the claim \"I use Redis\" is false.",
+      "hypothesis": "Mira denied using Redis.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.8046922087669373,
+        "neutral": 0.1788114309310913,
+        "contradiction": 0.016496339812874794
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "reporting_kept",
+      "premise": "Mira did not say that Niko uses Redis.",
+      "hypothesis": "Mira did not state that Niko uses Redis.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.9987109899520874,
+        "neutral": 0.001079632667824626,
+        "contradiction": 0.000209451507544145
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "assistant_not_user",
+      "premise": "User: I am considering SQLite. Assistant: I suggest PostgreSQL.",
+      "hypothesis": "The user chose PostgreSQL.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.11896547675132751,
+        "neutral": 0.6600492596626282,
+        "contradiction": 0.22098524868488312
+      },
+      "predicted": "neutral"
+    },
+    {
+      "name": "assistant_attributed",
+      "premise": "User: I am considering SQLite. Assistant: I suggest PostgreSQL.",
+      "hypothesis": "The assistant suggested PostgreSQL.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.9874196648597717,
+        "neutral": 0.00954431388527155,
+        "contradiction": 0.0030360110104084015
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "tentative_not_final",
+      "premise": "User: Maybe PostgreSQL, but I have not decided.",
+      "hypothesis": "The user decided on PostgreSQL.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.0031413971446454525,
+        "neutral": 0.004758383147418499,
+        "contradiction": 0.992100179195404
+      },
+      "predicted": "contradiction"
+    },
+    {
+      "name": "attributed_decision",
+      "premise": "User: We chose PostgreSQL. Assistant: You could also try SQLite.",
+      "hypothesis": "The user chose PostgreSQL.",
+      "supported": true,
+      "scores": {
+        "entailment": 0.9954479336738586,
+        "neutral": 0.004048265516757965,
+        "contradiction": 0.0005037523224018514
+      },
+      "predicted": "entailment"
+    },
+    {
+      "name": "later_denial",
+      "premise": "User: I previously used Redis. I no longer use it.",
+      "hypothesis": "The user currently uses Redis.",
+      "supported": false,
+      "scores": {
+        "entailment": 0.05532754212617874,
+        "neutral": 0.007222131825983524,
+        "contradiction": 0.9374502897262573
+      },
+      "predicted": "contradiction"
+    }
+  ]
+}

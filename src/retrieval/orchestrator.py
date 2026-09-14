@@ -21,11 +21,13 @@ from sqlalchemy.orm import Session
 from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
 from src.memory.models import (
+    CodexClaim,
     CodexEdge,
     CodexEntity,
     EpisodicMemory,
     ProceduralMemory,
 )
+from src.memory.claims import claim_representation, excerpt_is_current
 from src.memory.representation import choose_representation
 from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as count_tokens
@@ -594,7 +596,7 @@ class HybridRetrievalOrchestrator:
         legs: Dict[str, List[ContextFragment]] = {
             "bm25": self._bm25_episodic(classification, scope, conv_id, search_prompt),
             "vector": self._vector_episodic(prompt_embedding, classification, scope, conv_id),
-            "codex": codex_fragments,
+            "codex": codex_fragments + self._codex_claims(classification.prompt, prompt_embedding, scope, conv_id),
             "procedural": [] if incognito else self._procedural_lookup(prompt_embedding, classification, scope),
             # C4: the cross-conversation summary half is a user-global read —
             # gated off under incognito like procedural; the conv-scoped
@@ -1747,6 +1749,67 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # Codex graph traversal (conversation‑scoped, NER‑powered)
     # ------------------------------------------------------------------
+    def _codex_claims(self, prompt, prompt_embedding, scope=None, conv_id=None):
+        """Search attributed sentences without requiring an entity match."""
+        if (not settings.codex_sentence_claims or self._scope_resolution_failed
+                or (scope and (scope.get("isolated") or scope.get("incognito")))):
+            return []
+        if scope and scope.get("cluster_ids_explicit") and not scope.get("cluster_ids"):
+            return []
+        conv_filter, conv_params, _ = self._conv_scope_filter(
+            scope, (scope or {}).get("conversation_id") or conv_id, "e.conversation_id")
+        excl_filter, excl_params = self._exclusion_filters(scope, "e.conversation_id", "e.id")
+        cluster_filter = self._cluster_filter(scope, "e.id")
+        time_filter, _, ts_params, _ = self._timescope_leg_filters("e.")
+        params = {"prompt": prompt, "limit": settings.codex_claim_candidate_limit,
+                  **conv_params, **excl_params, **ts_params}
+        filters = ""
+        if scope and "batch_ids" in scope:
+            filters += " AND c.source_batch = ANY(:batches)"
+            params["batches"] = list(scope["batch_ids"] or [])
+        if self._denied_batch_ids:
+            filters += " AND c.source_batch <> ALL(:denied)"
+            params["denied"] = list(self._denied_batch_ids)
+        if scope and scope.get("cluster_ids"):
+            params["cluster_ids"] = scope["cluster_ids"]
+        base = f"""FROM codex_claims c JOIN episodic_memory e ON e.batch_id = c.source_batch
+            WHERE e.is_private = false {conv_filter} {excl_filter} {cluster_filter}
+            {time_filter} {filters}"""
+        try:
+            lexical = text(f"""SELECT c.id {base}
+                AND to_tsvector('english', c.text) @@ plainto_tsquery('english', :prompt)
+                ORDER BY ts_rank(to_tsvector('english', c.text), plainto_tsquery('english', :prompt)) DESC, c.id
+                LIMIT :limit""")
+            channels = [list(self.db.execute(lexical, params).scalars())]
+            if prompt_embedding is not None:
+                semantic = text(f"""SELECT c.id {base} AND c.embedding IS NOT NULL
+                    ORDER BY c.embedding <=> :embedding, c.id LIMIT :limit""").bindparams(
+                        bindparam("embedding", type_=PgVector))
+                channels.append(list(self.db.execute(semantic, {**params, "embedding": prompt_embedding}).scalars()))
+            scores = {}
+            for channel in channels:
+                for rank, ident in enumerate(channel, 1):
+                    scores[ident] = scores.get(ident, 0.0) + 1.0 / (settings.retrieval_rrf_k + rank)
+            fragments, sources = [], {}
+            for ident in sorted(scores, key=lambda k: (-scores[k], str(k)))[:settings.codex_claim_candidate_limit]:
+                claim = self.db.get(CodexClaim, ident)
+                if claim.source_batch not in sources:
+                    sources[claim.source_batch] = self.db.query(EpisodicMemory).filter_by(batch_id=claim.source_batch).first()
+                source = sources[claim.source_batch]
+                if source is None or not excerpt_is_current(source, claim):
+                    logger.warning("claim_source_stale", claim_id=str(ident))
+                    continue
+                rendered = (f"[Source excerpt; speaker: {claim.role}] "
+                            f"{recorded_stamp(source.timestamp, source.ts_provenance)}\n"
+                            f"{claim_representation(claim)}")
+                fragments.append(ContextFragment(rendered, "codex", scores[ident],
+                    count_tokens(rendered), conversation_id=str(source.conversation_id),
+                    origin_batch_ids=(str(claim.source_batch),), leg="codex"))
+            return fragments
+        except Exception as exc:
+            self._leg_degraded("codex.claims", exc)
+            return []
+
     def _codex_graph(self, classification, scope: Optional[dict] = None,
                      prompt_embedding=None) -> List[ContextFragment]:
         prompt = classification.prompt
@@ -2859,6 +2922,7 @@ class HybridRetrievalOrchestrator:
         fragments.extend(self._codex_graph(classification, scope,
                                            prompt_embedding=prompt_embedding))
 
+        fragments.extend(self._codex_claims(classification.prompt, prompt_embedding, scope, conversation_id))
         fused = self._apply_rrf({"fallback": fragments}, alpha_map={"fallback": 1.0})
         prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
         fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)

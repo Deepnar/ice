@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 
 from src.memory.models import (
     BatchSummary,
+    CodexClaim,
     CodexEdge,
     CodexEntity,
     CodexEvent,
@@ -526,6 +527,8 @@ def apply_forget(db: Session, item_content: dict) -> dict:
 
     deleted_turns = 0
     if turn_ids:
+        db.query(CodexClaim).filter(CodexClaim.episodic_id.in_(turn_ids)).delete(
+            synchronize_session=False)
         batch_rows = db.query(EpisodicMemory.batch_id).filter(
             EpisodicMemory.id.in_(turn_ids)).all()
         batches = {r.batch_id for r in batch_rows}

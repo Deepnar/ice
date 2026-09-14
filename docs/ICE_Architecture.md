@@ -1240,3 +1240,32 @@ Text extraction sits behind `settings.document_extraction_engine` (`"builtin"` d
 Graph candidate retrieval does not write support. After final evidence eviction, chat records `prompt_prepared`; explicit context retrieval records `context_returned`. Only unique edge IDs attached to rendered fact lines increment `usage_count` and `last_accessed_at`, with retention strength boosted by 0.15 up to10. Cached note-only references are not counted yet. The shared write-off switch disables these updates. Neither stage claims the answer actually used a fact.
 
 Aging reduces conversation-edge strength to0.1 but never expires validity or demotes confidence. Quiet facts remain directly eligible based on extraction quality. Ranking adds at most a0.5 retention multiplier before the existing recency term; low-quality edges cannot use popularity to cross the direct quality gate. A different source batch can raise ordinary-edge support, while the same batch cannot reinforce itself; this is batch independence, not yet speaker/source-claim verification. Existing expired historical rows are not automatically revived. Migration `d9a1f4b72c60` adds usage/observation metadata without guessing old observations.
+
+### v3 source-sentence Codex and NLI compression — 2026-09-14
+
+New extraction processes authoritative speaker units separately with the deployed
+specialist, regardless of the foreground answer model. NuExtract's template adds
+an exact `source_sentence`. CodexClaim stores its source paragraph, sentence,
+role, raw hash/offsets, original episodic ID, conversation, embedding and verifier
+result. CodexClaimLink connects quoted evidence to graph candidates without
+requiring usable graph endpoints: rejected triples can still yield searchable
+source text. Completion and claims remain one transaction. Existing completion
+markers are not automatically replayed.
+
+The local pinned adversarial DeBERTa NLI verifier checks complete paragraph ->
+sentence inputs. Entailment>=0.95 allows shortening; contradiction>=0.95 is
+contradicted; all other/error/overlength cases are unknown and retain full source
+context. Hash/model checks prevent stale verdict reuse. Maximum512 model tokens,
+float32, local-cache-only weights, serialized calls and CPU offload. This is
+source consistency for attributed compression, not truth, author independence,
+summary verification or automatic supersession. The first multilingual candidate
+failed three unsupported controls; the selected model passed the same controls
+plus attribution cases. See PROVENANCE for the limited qualification.
+
+Direct lexical/native-vector claim search joins available nonprivate source rows,
+checks current source offsets, and enters the existing codex fusion/reranker/token
+path. It needs no matched entity. Explicit empty scopes and source exclusions
+remain closed. Each result labels speaker and recorded source time. Conversation
+and turn forgetting physically remove associated claims; source edits invalidate
+old excerpts. Cold-source lookup and graph cached-note replacement remain next,
+so this tranche is not complete archive parity or complete Codex repair.

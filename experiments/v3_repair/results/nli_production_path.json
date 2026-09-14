@@ -1,0 +1,493 @@
+{
+  "version": "ICE v3",
+  "controls": [
+    {
+      "name": "direction",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.99909508228302,
+          "neutral": 0.000799669767729938,
+          "contradiction": 0.00010528611164772883
+        },
+        "reason": "model_score",
+        "source_sha256": "09c9beb00ed58a547ea4beaa933241d45c29da3d86f52d21d39b5721541299bc",
+        "claim_sha256": "09c9beb00ed58a547ea4beaa933241d45c29da3d86f52d21d39b5721541299bc",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "reversal",
+      "expected_supported": false,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.0002817533095367253,
+          "neutral": 0.00042198458686470985,
+          "contradiction": 0.9992963075637817
+        },
+        "reason": "model_score",
+        "source_sha256": "09c9beb00ed58a547ea4beaa933241d45c29da3d86f52d21d39b5721541299bc",
+        "claim_sha256": "a5389803440e4f3fd605bd2a32fa48625b1d99b58a4fc17668cfc5e722a2f65b",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "negation",
+      "expected_supported": false,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.0011591864749789238,
+          "neutral": 0.00033261236967518926,
+          "contradiction": 0.9985082745552063
+        },
+        "reason": "model_score",
+        "source_sha256": "3bc57dbdb6e8db05164945a6140fd44f3f91db99029e5618f22b1ad72b0d387f",
+        "claim_sha256": "69d60589f8b0d97eede6b532f626a21b42d06049fd62345392a1ddd6e8cf5253",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "negative_supported",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9987896084785461,
+          "neutral": 0.0010695676319301128,
+          "contradiction": 0.00014081723929848522
+        },
+        "reason": "model_score",
+        "source_sha256": "3bc57dbdb6e8db05164945a6140fd44f3f91db99029e5618f22b1ad72b0d387f",
+        "claim_sha256": "3bc57dbdb6e8db05164945a6140fd44f3f91db99029e5618f22b1ad72b0d387f",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "proposal",
+      "expected_supported": false,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.00028225540881976485,
+          "neutral": 0.00023655718541704118,
+          "contradiction": 0.9994812607765198
+        },
+        "reason": "model_score",
+        "source_sha256": "d15173f0a8db7a5d9c603a3eb4339002e9578a21a8de089b00dab0a892cd0228",
+        "claim_sha256": "a61c8ee508c12678b25086984a519876845ecf185ba933b482ce39152b8f7175",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "hypothetical",
+      "expected_supported": false,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.0058337063528597355,
+          "neutral": 0.018500421196222305,
+          "contradiction": 0.9756659269332886
+        },
+        "reason": "model_score",
+        "source_sha256": "223b3f4fa15325dc8694f8d47dd54023dec28867e9f5e4074a8dcc373033d11d",
+        "claim_sha256": "eb15f6a3bdc94bdf1201858ac863584efb6ff1f775b91ef1654b26560855f956",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "question",
+      "expected_supported": false,
+      "verdict": {
+        "status": "unknown",
+        "scores": {
+          "entailment": 0.11066877096891403,
+          "neutral": 0.8631412386894226,
+          "contradiction": 0.026190051808953285
+        },
+        "reason": "model_score",
+        "source_sha256": "d4954090238227438e6e9477bef6fb9eee54d1c0247df432e87b9eb55b38c90e",
+        "claim_sha256": "69d60589f8b0d97eede6b532f626a21b42d06049fd62345392a1ddd6e8cf5253",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "correction",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9989346861839294,
+          "neutral": 0.0009285338455811143,
+          "contradiction": 0.00013681176642421633
+        },
+        "reason": "model_score",
+        "source_sha256": "0aa4595ae414101a344e9300e1b90106f50858c430692653b3027f01b4fb4e62",
+        "claim_sha256": "ce84c5ee1cb61ca0fcdd411b293c5570eb0db8e8250df110054fd2d7b5cc8bd5",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "discarded_choice",
+      "expected_supported": false,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.0002784342796076089,
+          "neutral": 0.0001444053341401741,
+          "contradiction": 0.9995771050453186
+        },
+        "reason": "model_score",
+        "source_sha256": "0aa4595ae414101a344e9300e1b90106f50858c430692653b3027f01b4fb4e62",
+        "claim_sha256": "6a73cd615c7113d664bbc9465b1783d052959c6ea4e16ca1c70a74152e73eaec",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "numeric",
+      "expected_supported": false,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.0015635282034054399,
+          "neutral": 0.0034398557618260384,
+          "contradiction": 0.9949965476989746
+        },
+        "reason": "model_score",
+        "source_sha256": "946c0f3558bb171463008b03b1fade643fc4cd6cc99a9992a341c800b69b21b2",
+        "claim_sha256": "09b8e10d7acaa34eb5844d2c570689ba6d474bdd44342853d448386da7db45bc",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "conjunction",
+      "expected_supported": false,
+      "verdict": {
+        "status": "unknown",
+        "scores": {
+          "entailment": 0.0003762987325899303,
+          "neutral": 0.9992043375968933,
+          "contradiction": 0.0004193452186882496
+        },
+        "reason": "model_score",
+        "source_sha256": "01e484e3b78ca07b91157725364d8c7988f6edaddaf512f18ac9389a3a5a95fd",
+        "claim_sha256": "819506c75036118eed5ac67034d04da8b34fc605c3a28589dfd40d99c57b8a67",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "paraphrase",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9991831183433533,
+          "neutral": 0.0006472094682976604,
+          "contradiction": 0.0001696034159976989
+        },
+        "reason": "model_score",
+        "source_sha256": "d28ef28025ea1a750f9e8cb16748dca4a0d5b36f91bef5e9bf6a84dfeda927a7",
+        "claim_sha256": "a2833ba6402bf51b4a9f74508e045865b4d42e714c58cd337ef67a6196ec09ba",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "attribution",
+      "expected_supported": false,
+      "verdict": {
+        "status": "unknown",
+        "scores": {
+          "entailment": 0.006814395543187857,
+          "neutral": 0.9149510860443115,
+          "contradiction": 0.07823451608419418
+        },
+        "reason": "model_score",
+        "source_sha256": "8d0199ad4d30b7b9d719e7d02849c4901b56bc6cd55c00b5793bb7eb36071f9f",
+        "claim_sha256": "69d60589f8b0d97eede6b532f626a21b42d06049fd62345392a1ddd6e8cf5253",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "quoted_denial",
+      "expected_supported": false,
+      "verdict": {
+        "status": "unknown",
+        "scores": {
+          "entailment": 0.00660661468282342,
+          "neutral": 0.044840257614851,
+          "contradiction": 0.948553204536438
+        },
+        "reason": "model_score",
+        "source_sha256": "5a0e694be25b8d45c2470de44bca228379c4beadd4056a3e33a2fb35dc253809",
+        "claim_sha256": "69d60589f8b0d97eede6b532f626a21b42d06049fd62345392a1ddd6e8cf5253",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "later_reversal",
+      "expected_supported": false,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.00030035609961487353,
+          "neutral": 0.0003674901672638953,
+          "contradiction": 0.9993321299552917
+        },
+        "reason": "model_score",
+        "source_sha256": "2be645de64d4ed52c7510cdb0c4b3b4a73477e5c6a8a919c146c40c014b27666",
+        "claim_sha256": "3d236a3c9615738f742deb71ea6dbced5a5e7b4af2cfaad5cc4be8ff0cff745f",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "span_context",
+      "expected_supported": false,
+      "verdict": {
+        "status": "unknown",
+        "scores": {
+          "entailment": 0.0126931918784976,
+          "neutral": 0.9568274617195129,
+          "contradiction": 0.03047933429479599
+        },
+        "reason": "model_score",
+        "source_sha256": "91263592e2b4618d171aa6f124b09635037483ed353ee1177755124ad79c7f75",
+        "claim_sha256": "5c4b0b4e3b83a9799897aaee93de363f5bc7a3ca290236be1b595aaf44c422fe",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "hindi_support",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9890328645706177,
+          "neutral": 0.010094206780195236,
+          "contradiction": 0.0008729686960577965
+        },
+        "reason": "model_score",
+        "source_sha256": "df0d0d2d3b5431861038424dc363ab38697d66239d8861e630f14a26f8451cd8",
+        "claim_sha256": "df0d0d2d3b5431861038424dc363ab38697d66239d8861e630f14a26f8451cd8",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "hindi_negative",
+      "expected_supported": false,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.0017679078737273812,
+          "neutral": 0.00039815649506635964,
+          "contradiction": 0.9978340268135071
+        },
+        "reason": "model_score",
+        "source_sha256": "dcef5cbf1f8610aed06a974928b755afbdfb92a8e07241d07622e8ce8a62928a",
+        "claim_sha256": "df0d0d2d3b5431861038424dc363ab38697d66239d8861e630f14a26f8451cd8",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "german_negative",
+      "expected_supported": false,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.0011330401757732034,
+          "neutral": 0.0002569880452938378,
+          "contradiction": 0.9986099004745483
+        },
+        "reason": "model_score",
+        "source_sha256": "4cc39bb5b58362d6daed78c52f09b4633c77d5fd34465c47e946bc9fc87183ed",
+        "claim_sha256": "d5e1c3d7ce34311ce7bdb46f90a297964e8c8551ab64d7e811b7d611edb90eab",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "style",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.993578314781189,
+          "neutral": 0.00573678920045495,
+          "contradiction": 0.0006848658085800707
+        },
+        "reason": "model_score",
+        "source_sha256": "5014b1b374bf36ab5414cec745dbb6ee88a76c798453863778c063bbcebba9f7",
+        "claim_sha256": "ce84c5ee1cb61ca0fcdd411b293c5570eb0db8e8250df110054fd2d7b5cc8bd5",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "conditional_kept",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9987494945526123,
+          "neutral": 0.0011124517768621445,
+          "contradiction": 0.00013796641724184155
+        },
+        "reason": "model_score",
+        "source_sha256": "223b3f4fa15325dc8694f8d47dd54023dec28867e9f5e4074a8dcc373033d11d",
+        "claim_sha256": "37701a267003c7293c0217731f53d6a99233ad1d0a0b63cce7ee8ac3f4f1d448",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "suggestion_kept",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9990940093994141,
+          "neutral": 0.0008093957439996302,
+          "contradiction": 9.658472117735073e-05
+        },
+        "reason": "model_score",
+        "source_sha256": "8d0199ad4d30b7b9d719e7d02849c4901b56bc6cd55c00b5793bb7eb36071f9f",
+        "claim_sha256": "c1e32e59500978b34547762cf7422b289f321dcd3acbaef98f5046d72a6b1bff",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "question_kept",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9992055296897888,
+          "neutral": 0.0006918222061358392,
+          "contradiction": 0.0001027362814056687
+        },
+        "reason": "model_score",
+        "source_sha256": "338f7de25c0abcd8aaf6ca4b22a91987e5c1f96ccb758318bd6d5a254d7202e8",
+        "claim_sha256": "84372f6bd0b73927ba22fa6000548b34bf11e813b80b09f8ce803b50dd513061",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "quote_kept",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9899299740791321,
+          "neutral": 0.009079919196665287,
+          "contradiction": 0.000990075757727027
+        },
+        "reason": "model_score",
+        "source_sha256": "5a0e694be25b8d45c2470de44bca228379c4beadd4056a3e33a2fb35dc253809",
+        "claim_sha256": "adbd4e75b6dd3ea0a0af3488c2342e970a8feab556de5f5fc5fe858e3da3541f",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "reporting_kept",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9994909763336182,
+          "neutral": 0.00044554550549946725,
+          "contradiction": 6.350393960019574e-05
+        },
+        "reason": "model_score",
+        "source_sha256": "91263592e2b4618d171aa6f124b09635037483ed353ee1177755124ad79c7f75",
+        "claim_sha256": "9925889862cabd0b6cdde65ccac025576fa3e25aa3bd234998c5e699384770b5",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "assistant_not_user",
+      "expected_supported": false,
+      "verdict": {
+        "status": "unknown",
+        "scores": {
+          "entailment": 0.0002741198113653809,
+          "neutral": 0.9987342953681946,
+          "contradiction": 0.0009915580740198493
+        },
+        "reason": "model_score",
+        "source_sha256": "89d26a9251d8c7df84721cde341ceb39fcc9cd41cdd212701a79cbe3b87c2fd0",
+        "claim_sha256": "3be972921a3bed13db85efb244b5aaad2e11997b91c8876ad42805eb8b7669a8",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "assistant_attributed",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9979488253593445,
+          "neutral": 0.0015860049752518535,
+          "contradiction": 0.00046520549221895635
+        },
+        "reason": "model_score",
+        "source_sha256": "89d26a9251d8c7df84721cde341ceb39fcc9cd41cdd212701a79cbe3b87c2fd0",
+        "claim_sha256": "57120612f40df46cb3e31c50a1dd7fbdbdede67c5d8e3e6cca0d696da5fcf233",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "tentative_not_final",
+      "expected_supported": false,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.000407287385314703,
+          "neutral": 0.00045763436355628073,
+          "contradiction": 0.9991350769996643
+        },
+        "reason": "model_score",
+        "source_sha256": "d03f23b190a07eb1784881e31023a795af0a5f5fce06dc769a926c2ecc41dba4",
+        "claim_sha256": "afe99ab7244f3d45bc7e95fd49ee345089de5856327573866efa1a46db24206a",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "attributed_decision",
+      "expected_supported": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9987013339996338,
+          "neutral": 0.0010337139246985316,
+          "contradiction": 0.00026488665025681257
+        },
+        "reason": "model_score",
+        "source_sha256": "0e1b25aa094c8a0e11d04656d4be2390185f691221d551a6676ce656d3979a80",
+        "claim_sha256": "3be972921a3bed13db85efb244b5aaad2e11997b91c8876ad42805eb8b7669a8",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "later_denial",
+      "expected_supported": false,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.0006861292640678585,
+          "neutral": 0.0002531361242290586,
+          "contradiction": 0.9990608096122742
+        },
+        "reason": "model_score",
+        "source_sha256": "769f53ee28d992580fd7319cb56be050ecd507660ea4840c0ad7865007b45458",
+        "claim_sha256": "5095301c89004e239930fc2d9fe113c31bba5bf0fca0c005c86d3531b0950ab1",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    }
+  ],
+  "overlength": {
+    "status": "unknown",
+    "scores": {},
+    "reason": "SupportInputError",
+    "source_sha256": "248354083df2be0adb3a1aa401ed5946c1e1d9e39405985c50c3875eb9cf9d1f",
+    "claim_sha256": "69d60589f8b0d97eede6b532f626a21b42d06049fd62345392a1ddd6e8cf5253",
+    "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+  }
+}

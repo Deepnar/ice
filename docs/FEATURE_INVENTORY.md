@@ -1449,3 +1449,13 @@ wins; where it conflicts with the code, the code wins.**
 | Exact fact exposure | `memory/usage.py`, chat after evidence eviction and explicit context service; unique rendered `origin_edge_ids` increment usage and last-access time | `retrieval_strengthen_writes=True`, `codex_retention_increment=0.15`, `codex_retention_cap=10` | YES; prepared/returned context, not answer use; cached note-only edges not attributed yet |
 | Bounded retention ranking | `_edge_trust`: extraction quality gates entry, then retention/recency ranks; quiet supported edges remain eligible | `codex_retention_rank_weight=0.5` | YES; not calibrated truth |
 | Distinct source observation | `_observe_edge` ignores repeated original/observed batch; another batch may promote pending status | `observed_batches`, separate from usage | YES; source-role independence still requires claim repair |
+
+### v3 attributed sentence claims (2026-09-14)
+
+| Feature | Implementation | Control/default | Active |
+|---|---|---|---|
+| Source sentences independent of entity recognition | `CodexClaim`, `CodexClaimLink`; extractor template includes exact `source_sentence`, role units processed independently, paragraph context retained; native1024 embedding + lexical index | `codex_sentence_claims=True` | YES for new extraction; no automatic legacy backfill |
+| Direct claim search | `orchestrator._codex_claims` in normal and wide-net paths, before global reranker/packing; source/hash/privacy/scope checked | `codex_claim_candidate_limit=64`; existing RRF constant | YES for live-source claims; cold lookup and cached-note replacement remain unfinished |
+| Source-support compression | `memory/support.py`, `claims.store_claims` / `claim_representation`; source and claim hashes + pinned verifier; uncertain source stays whole | `source_support_threshold=0.95`, max tokens512, device auto | YES for source-sentence shortening; not yet summary or conflict verification |
+| Claim deletion | Conversation FK cascade; explicit turn-forget by stable episodic ID; absent/edited sources never render | shared conversation/forget services | YES; archive retains claims, cold reader still pending |
+| Foreground/extraction model separation | `extract_codex` does not pass foreground `model_used` as extraction override; explicit arm overrides remain in `extract_triplets` | existing specialist setting | YES |

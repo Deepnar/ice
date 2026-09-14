@@ -302,3 +302,95 @@ No salvage-regex success: it loses reordered/negative facts and marks truncated
 output complete. No partial graph replay: it can manufacture reinforcement.
 No lossless check hidden in a second caller. No broad exception swallowing a
 cooperative yield. No claim that smoke tests measure semantic quality.
+
+### Source sentences before graph assertions (2026-09-13)
+
+Decision: add extractive sentence claims within Codex, independently searchable
+without a recognized entity. NuExtract's template adds `source_sentence`; this
+must be an exact span of the supplied source, not a verbalized triple. A bounded
+live specialist check preserved a choice, a conditional and direction in three
+source sentences, while the conditional's triple flattened its modality. Thus
+render the attributed source sentence, never infer its truth from the triple.
+The NLI candidate falsely entailed three of14 unsupported controls (conditional,
+quoted denial, negated reporting); it does not authorize assertion/promotion.
+No threshold is fitted to hide those failures. Keep it a diagnostic candidate.
+
+Add `CodexClaim`: source batch, raw SHA256, exact start/end, source role,
+source sentence, native1024 embedding, optional graph edge link, created time.
+Unique source batch/hash/span prevents overlap/retry duplication. It is an
+attributed source excerpt, not an independently verified world fact. No generated
+sentence is accepted without an exact source match. Unknown legacy speaker stays
+unknown. Extract each authoritative role unit independently; retain all units,
+including assistant suggestions as assistant text. Ambiguous repeated matching
+spans are retained independently. Expand an extracted span to its complete source
+paragraph when surrounding text exists, so a chosen sentence does not hide a
+nearby condition or correction. Store/search that context-preserving span.
+
+Claim insertion and existing graph completion remain one transaction. Preserve
+source sentences even when endpoint-name/canonicalization rejects their triples;
+claim retrieval must not inherit NER's blind spots. Existing graph semantics are
+unchanged in this tranche and remain a separate conflict repair. The specialist
+setting wins over the foreground answer's `model_used`; explicit extraction-arm
+overrides remain available only through `extract_triplets`.
+
+Direct sentence lookup combines parameterized PostgreSQL lexical matching and
+native embedding similarity before the existing global reranker and packing.
+Return source_type codex, leg codex, with exact batch and optional edge lineage.
+Respect explicit empty scope, batch/conversation/cluster inclusion, exclusions,
+private/incognito restrictions and source availability. Join live source rows for
+visibility; cold-source support must be explicit before claiming archive parity.
+Date labels identify recorded source time, not event validity. These are historical
+source excerpts; graph retirement does not change what a source said. Never
+render orphan claims after source deletion. Graph navigation remains alongside
+this direct lookup; replacing cached triple notes requires its own follow-up.
+
+Tests: exact quotation and context boundaries; source roles and marker spoofing;
+unknown/mismatched source hash; overlapping duplicate claims; rejected endpoints
+still searchable; real SQL lexical/vector paths with no matched entity; privacy,
+empty scope, exclusion, source deletion, budget packing and provenance. Additive
+migration roundtrip before working-store application. No automatic reseed or
+benchmark claim. Summary verification and autonomous semantic conflict resolution
+remain in the same repair phase.
+
+### Source-support verifier follow-through (2026-09-14)
+
+The first failed NLI candidate does not close source verification. A second,
+`MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` pinned
+`b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7`, passed13 supported and17 unsupported
+controls, including correctly attributed suggestions and conditional claims.
+Select it for the replaceable verifier implementation. Training includes
+adversarial inference; that is a selection rationale, not a production guarantee.
+The tiny Hindi/German subset does not qualify broad multilingual support.
+
+Use local cached weights, float32 as tested, serialized inference and CPU offload
+between calls. Each premise/hypothesis pair must fit512 model tokens in full;
+never truncate a source or maximize over windows and call the whole source
+verified. Oversized, missing, failed or nonfinite scores yield explicit unknown,
+with a warning each degraded call. Return source/claim hashes and model revision
+alongside all three scores. Candidate status: entailment>=0.95 is supported,
+contradiction>=0.95 contradicted, otherwise unknown. These conservative policy
+cutoffs are not calibrated probabilities or benchmark-tuned thresholds.
+
+A source-supported claim remains attributed to its speaker and time; support
+never establishes world truth, author independence, or a correction's effective
+date. Contradicted/unknown does not delete source evidence. The downstream choice
+is faithful source text instead of an unqualified assertion/summary, preserving
+recall. Test both the scorer and each consuming decision; do not count a loaded
+model with no consumer as a finished verification repair.
+
+Verifier consumer refinement: each CodexClaim keeps both the exact selected
+sentence and its complete containing paragraph. Verify paragraph -> sentence.
+Only a supported, hash-current verdict permits the shorter sentence at read time;
+unknown/contradicted uses the whole paragraph. This is faithful compression of
+attributed evidence, never a license to flatten suggestions into user decisions.
+The independent source SHA/offset check still precedes every read. Save both
+texts and the verdict atomically; failure retains the full source representation.
+
+Claim/edge linkage uses a many-to-many CodexClaimLink table: one quoted sentence
+can support several graph candidates and one edge can have multiple attributed
+source excerpts. Graph writes return their edge to the caller; link only the
+matching source_sentence. Rejected graph candidates still keep their source
+excerpts. Deleting an edge removes its navigation links, not source evidence.
+Conversation deletion cascades claims; turn-forget deletes by original episodic
+ID, which remains stable through archival. Claim search uses source exclusions;
+entity deny sets derived from excluded batches must not hide unrelated claims.

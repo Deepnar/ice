@@ -13,8 +13,10 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from src.api.config import settings
 from src.api.db import SessionLocal
+from src.memory.claims import store_claims
 from src.memory.embedder import get_embedder
 from src.memory.models import (
+    CodexClaimLink,
     CodexEdge,
     CodexEntity,
     CodexEvent,
@@ -23,8 +25,9 @@ from src.memory.models import (
     IdempotencyKey,
     ReviewQueue,
 )
+from src.memory.source import source_units
 from src.retrieval.ner_utils import extract_entities
-from src.workers.extraction_result import parse_extraction_response
+from src.workers.extraction_result import ExtractionOutputError, parse_extraction_response
 from src.workers.idempotency import job_key
 
 # G50: shared identity key. Safe at module level — maintenance_agent's own
@@ -822,7 +825,7 @@ def _grounding_ner_labels() -> Optional[List[str]]:
 
 def extract_triplets(text: str, model_override: str = "",
                      topic_tags: Optional[List[str]] = None,
-                     gaps: Optional[list] = None) -> list:
+                     gaps: Optional[list] = None, source_sentences: Optional[list] = None) -> list:
     """Extract complete facts; failures propagate for runtime retry.
 
     `gaps` is an optional sink: when supplied, every triplet whose relation
@@ -1032,12 +1035,15 @@ def extract_triplets(text: str, model_override: str = "",
             if template_mode:
                 user_content = (
                     "<|input|>\n### Template:\n"
-                    '{"facts": [{"subject": "", "relation": "", "object": ""}]}\n'
-                    f"### Text:\n{chunk}{entity_block}\n<|output|>\n"
+                    + (json.dumps({'facts': [dict(subject='', relation='', object='',
+                        **({'source_sentence': ''} if settings.codex_sentence_claims else {}))]}) + '\n')
+                    + f"### Text:\n{chunk}{entity_block}\n<|output|>\n"
                 )
                 system_content = None
             else:
-                chunk_prompt = prompt + code_prompt + "\nNow process this text:"
+                claim_prompt = ("\nInclude source_sentence: an exact quotation of the complete source sentence for each fact."
+                                if settings.codex_sentence_claims else "")
+                chunk_prompt = prompt + code_prompt + claim_prompt + "\nNow process this text:"
                 user_content = f"Text:\n{chunk}{entity_block}\n\n{chunk_prompt}"
                 system_content = ("You are a JSON-only fact extraction tool. "
                                   "Never output anything but JSON.")
@@ -1056,9 +1062,11 @@ def extract_triplets(text: str, model_override: str = "",
             # emit its own envelope, and forcing a different one is a second
             # format instruction. Skipped in template mode, unchanged otherwise.
             if settings.codex_constrain_shape and not template_mode:
-                shape = _TRIPLET_SHAPE
+                shape = json.loads(json.dumps(_TRIPLET_SHAPE))
+                if settings.codex_sentence_claims:
+                    shape["items"]["properties"]["source_sentence"] = {"type": "string"}
+                    shape["items"]["required"].append("source_sentence")
                 if settings.codex_constrain_relation_enum:
-                    shape = json.loads(json.dumps(shape))
                     shape["items"]["properties"]["relation"]["enum"] = sorted(ALLOWED_RELATIONS)
                 call_kwargs["response_format"] = json_schema("codex_triplets", shape)
             completion = bg_client.chat.completions.create(**call_kwargs)
@@ -1068,6 +1076,14 @@ def extract_triplets(text: str, model_override: str = "",
                 getattr(choice, "finish_reason", None),
                 template_mode=template_mode,
             )
+
+            if source_sentences is not None:
+                for fact in chunk_triplets:
+                    sentence = fact.get("source_sentence")
+                    if isinstance(sentence, str) and sentence.strip():
+                        source_sentences.append(sentence.strip())
+                    else:
+                        raise ExtractionOutputError("missing source sentence")
 
             # Map each relation onto the vocabulary; keep what maps, RECORD what
             # does not. This line used to be a bare filter with no log, and it
@@ -1856,7 +1872,7 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
                               timestamp=datetime.now(timezone.utc), batch_source=batch_id))
         _regenerate_context_payload(subj, db)
         _regenerate_context_payload(obj, db)
-        return
+        return existing_neg or db.get(CodexEdge, neg_id)
 
     # ── 1. Property relations: update entity properties, expire previous edges ──
     if relation in PROPERTY_RELATIONS:
@@ -1915,7 +1931,7 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
         # exists for ("who else is a fire mage?").
         _regenerate_context_payload(subj, db)
         _regenerate_context_payload(obj, db)
-        return
+        return db.get(CodexEdge, new_edge_id)
 
     # ── 2. Non‑property relations ──
     # A6: reconcile cross-turn conflicts before the fixed rules apply. Cheap
@@ -2025,6 +2041,7 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
     # reflection reached it. Same bug, other end of the arrow.
     _regenerate_context_payload(subj, db)
     _regenerate_context_payload(obj, db)
+    return existing_active or db.get(CodexEdge, new_edge_id)
 
 
 def _record_relation_gaps(db, dropped: list, turn, log) -> int:
@@ -2097,9 +2114,16 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
             return
 
         relation_gaps = []
-        triplets = extract_triplets(turn.raw_text, model_used,
-                                    topic_tags=turn.topic_tags,
-                                    gaps=relation_gaps)
+        triplets, sentences = [], []
+        for unit in source_units(turn):
+            if not unit.text.strip():
+                continue
+            # Foreground answer model is provenance, not an extraction override.
+            triplets.extend(extract_triplets(unit.text,
+                topic_tags=turn.topic_tags, gaps=relation_gaps,
+                source_sentences=sentences if settings.codex_sentence_claims else None))
+        claims = (store_claims(db, turn, sentences, encoder=embedder)
+                  if settings.codex_sentence_claims else [])
         if relation_gaps:
             _record_relation_gaps(db, relation_gaps, turn, log)
         reconciler = make_llm_reconciler()   # A6: bounded LLM for ambiguous supersessions
@@ -2113,10 +2137,16 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
                     r = r_raw.strip()
                     o = o_raw.strip()
                     if s and r and o:
-                        handle_triplet(db, s, r, o, batch_id,
+                        edge = handle_triplet(db, s, r, o, batch_id,
                                        extraction_confidence=float(triplet.get("confidence", 1.0)),
                                        turn_text=turn.raw_text, reconciler=reconciler,
                                        negated=bool(triplet.get("negated", False)))
+                        if edge is not None:
+                            for claim in claims:
+                                if claim.sentence == triplet.get("source_sentence", "").strip():
+                                    key = {"claim_id": claim.id, "edge_id": edge.id}
+                                    if db.get(CodexClaimLink, (claim.id, edge.id)) is None:
+                                        db.add(CodexClaimLink(**key))
 
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()
