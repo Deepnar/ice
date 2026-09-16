@@ -7,6 +7,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Status: research](https://img.shields.io/badge/status-research%20project-orange.svg)](#status)
+[![arXiv](https://img.shields.io/badge/arXiv-2609.16730-b31b1b.svg)](https://arxiv.org/abs/2609.16730)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21759702.svg)](https://doi.org/10.5281/zenodo.21759702)
 </div>
 
@@ -140,7 +141,8 @@ and unused document leg, unexercised paths, and unconfirmed graph utility.
 An unfused lexical leg harms the ablation score (−0.74 [−1.14,−0.36]); RRF
 recovers it (+0.82 [+0.39,+1.24]) in that buildup, without a general safety claim.
 
-- 📄 Canonical paper — [`ICE_paper_v2.pdf`](experiments/paper/ICE_paper_v2.pdf)
+- 📄 Paper — [arXiv:2609.16730](https://arxiv.org/abs/2609.16730)
+- 📄 Repository copy — [`ICE_paper_v2.pdf`](experiments/paper/ICE_paper_v2.pdf)
 - 🔍 Fidelity audit — [`FIDELITY_AUDIT.md`](experiments/paper/notes/FIDELITY_AUDIT.md)
 - 📊 Analyses and release scope — [`ARTIFACTS.md`](experiments/paper/ARTIFACTS.md)
 - 🏷 Evaluated snapshot — git tag `v2-paper-eval`
@@ -236,25 +238,35 @@ traded away.
 
 ## Citation
 
+If you use **LSREP, its evaluation methodology, or the results reported for ICE v2**, please cite the paper:
+
 ```bibtex
-@software{sonar2026ice_software,
-  author = {Sonar, Deepesh},
-  title  = {{ICE}: Infinite Context Engine},
-  year   = {2026},
-  doi    = {10.5281/zenodo.21759702},
-  url    = {https://github.com/Deepnar/ice}
+@misc{sonar2026lsrep,
+  author        = {Sonar, Deepesh},
+  title         = {{LSREP}: A Longitudinal State-Replay Protocol for Evaluating Conversational Memory, with {ICE v2} as an Audited Local-First Architecture},
+  year          = {2026},
+  eprint        = {2609.16730},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  url           = {https://arxiv.org/abs/2609.16730}
 }
 ```
 
+If you use the **ICE software or frozen evaluation artifact**, please cite the archived software release:
+
 ```bibtex
-@unpublished{sonar2026ice_paper,
-  author = {Sonar, Deepesh},
-  title  = {{LSREP}: A Longitudinal State-Replay Protocol for Evaluating
-            Conversational Memory, with {ICE v2} as an Audited Local-First Architecture},
-  year   = {2026},
-  note   = {Unpublished manuscript}
+@software{sonar2026ice,
+  author  = {Sonar, Deepesh},
+  title   = {{ICE}: Infinite Context Engine},
+  year    = {2026},
+  version = {v2-paper-eval},
+  doi     = {10.5281/zenodo.21759702},
+  url     = {https://doi.org/10.5281/zenodo.21759702}
 }
 ```
+
+The paper evaluates the frozen `v2-paper-eval` snapshot. Development on `main` has continued beyond the evaluated version.
+
 
 ## License
 

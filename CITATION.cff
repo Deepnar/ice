@@ -1,22 +1,34 @@
 cff-version: 1.2.0
-title: "ICE: Infinite Context Engine (v2-paper-eval)"
-message: "If you use this software, please cite it as below."
+
+title: "ICE: Infinite Context Engine"
+
+message: >-
+  If you use LSREP, its evaluation methodology, or the reported ICE v2
+  evaluation results, please cite the paper below. If you use the ICE
+  software or frozen evaluation artifact, please also cite the archived
+  software release.
+
 type: software
+
 authors:
   - given-names: Deepesh
     family-names: Sonar
     email: 18deepnar@gmail.com
     orcid: "https://orcid.org/0009-0008-1762-4246"
     affiliation: "Thakur College of Engineering and Technology, Mumbai"
+
 repository-code: "https://github.com/Deepnar/ice"
+
 abstract: >-
-  Frozen ICE v2 is a local-first conversational memory middleware with typed
-  stores, retrieval fusion, and dynamic context budgets. The accompanying
-  LSREP paper reports 52 checkpoints and 1,211 observations of 219 distinct
-  probes from four private conversations. Mechanism-fidelity and matched
-  LongMemEval analyses bound the measured capabilities; several defined paths
-  were defective or unexercised, and graph utility is unconfirmed. This software
-  citation identifies the frozen evaluation version, not current ICE v3.
+  ICE is a local-first conversational memory middleware with typed stores,
+  retrieval fusion, and dynamic context budgets. The LSREP paper evaluates
+  the frozen v2-paper-eval snapshot using 52 checkpoints and 1,211
+  observations of 219 distinct probes from four private conversations.
+  Mechanism-fidelity and matched LongMemEval analyses bound the measured
+  capabilities; several defined paths were defective or unexercised, and
+  graph utility was not established. This software citation identifies the
+  frozen evaluation version rather than current development on main.
+
 keywords:
   - information retrieval
   - long-term memory
@@ -25,6 +37,27 @@ keywords:
   - knowledge graphs
   - evaluation methodology
   - local-first
+
 license: Apache-2.0
-version: v2-paper-eval
+
+version: "v2-paper-eval"
+
 date-released: "2026-08-01"
+
+doi: "10.5281/zenodo.21759702"
+
+preferred-citation:
+  type: article
+  authors:
+    - given-names: Deepesh
+      family-names: Sonar
+      orcid: "https://orcid.org/0009-0008-1762-4246"
+  title: >-
+    LSREP: A Longitudinal State-Replay Protocol for Evaluating
+    Conversational Memory, with ICE v2 as an Audited Local-First Architecture
+  year: 2026
+  identifiers:
+    - type: other
+      value: "arXiv:2609.16730"
+      description: "The arXiv preprint of the paper."
+  url: "https://arxiv.org/abs/2609.16730"
