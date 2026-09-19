@@ -1291,3 +1291,21 @@ without encoding a truncated summary. Missing timestamp provenance becomes
 `unknown`; original recorded timestamp and probation decay remain unchanged.
 Complete archive metadata parity, qualified note generation, summary support and
 semantic conflict resolution remain separate repairs.
+
+### v3 turn summary substitution — 2026-09-19
+
+`representation_verification` stores separate summary and abstract verdicts.
+Post-flight serializes complete authoritative role units as quoted source text,
+then runs the pinned NLI verifier asynchronously. Shared representation selection
+requires current source/candidate hashes, verifier identity and entailment score;
+summary coverage remains a separate term-retention prerequisite. Abstracts cannot
+borrow summary support, even when they are source substrings. The write-time
+inject_raw decision and all three read adapters consume the same gate; lexical
+and vector SQL carry the verification and source metadata into it.
+
+Unknown legacy role boundaries, missing/stale verdicts, errors and >512-token
+pairs retain raw evidence; no partial source verdict is passed off as full-context
+support. Generated summaries stay stored as metadata. This protects substitution,
+not completeness, real-world truth or long-source compression. Conversation/batch
+summary provenance and recursive fold repair remain active work.
+Migration `f3c8d5e02b19` is additive; no historical reevaluation is automatic.

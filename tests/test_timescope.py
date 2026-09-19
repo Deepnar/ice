@@ -195,6 +195,14 @@ def mk_turn(ts_, text_, decay=1.0, archived=False, summary=None, coverage=None,
         is_private=is_private, access_count=access, inject_raw=True,
         idempotency_key=f"test-t3-{uuid.uuid4()}",
     )
+    if summary or abstract:
+        from src.memory.source import single_provenance
+        from src.memory.representation import verify_representations
+        from src.memory.support import verify_support
+        t.source_spans = single_provenance(t.raw_text, "user")
+        t.representation_verification = verify_representations(t, summary, abstract,
+            verifier=lambda source, claim: verify_support(source, claim,
+                scorer=lambda pairs: [dict(entailment=.99, neutral=.005, contradiction=.005)]))
     db.add(t)
     db.commit()
     created_episodic.append(t.id)

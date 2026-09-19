@@ -107,3 +107,16 @@ def verify_support(source, claim, *, scorer=None):
         logger.warning('source_support_unknown', reason=reason,
                        source_chars=len(source), claim_chars=len(claim))
     return SupportVerdict(status, scores, reason, digest(source), digest(claim), verifier)
+
+
+def supported_current(record, source, claim):
+    """A persisted verdict authorizes only this exact source/candidate/model."""
+    if not isinstance(record, dict) or not source or not claim:
+        return False
+    score = (record.get('scores') or {}).get('entailment') if isinstance(record.get('scores'), dict) else None
+    return (record.get('status') == 'supported'
+            and record.get('source_sha256') == digest(source)
+            and record.get('claim_sha256') == digest(claim)
+            and record.get('verifier') == f'{settings.source_support_model}@{settings.source_support_revision}'
+            and isinstance(score, (int, float)) and not isinstance(score, bool)
+            and math.isfinite(score) and settings.source_support_threshold <= score <= 1.0)

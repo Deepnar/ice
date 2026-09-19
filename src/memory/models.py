@@ -99,9 +99,10 @@ class EpisodicMemory(Base):
     summary_text = Column(Text, nullable=True)
     # C1: measured fraction of the turn's must-preserve terms (NER entities +
     # figures + identifiers) retained by summary_text. Read-time representation
-    # choice and budget degradation never trust a summary below threshold.
+    # choice also requires independent source support; coverage is not truth.
     # NULL = no summary or legacy pre-C1 summary.
     summary_coverage = Column(Float, nullable=True)
+    representation_verification = Column(JSONB, nullable=True)
     # C3: one-line abstract (generated in the same LLM call as the summary) —
     # the third level of the raw → summary → abstract hierarchy. Used only by
     # budget degradation (never *preferred* by the read-time chooser).

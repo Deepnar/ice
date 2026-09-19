@@ -3642,3 +3642,25 @@ Standalone `tests/test_codex_write_path.py` final32/32; run directly through the
 disposable wrapper. An attempted pytest collection of this standalone script
 exited early and is not included in the310 pytest count. Final suite commands
 excluded it and ran it separately.
+
+## 2026-09-19 — v3 turn summary source-support consumer
+
+`experiments/v3_repair/qualify_summary_support.py`:12 synthetic complete dialogue
+source/summary controls using canonical authoritative role quoting and the actual
+pinned DeBERTa verifier at unchanged threshold0.95. Six supported summaries pass;
+six reversed decisions/speaker swaps/negation flips/wrong quantities/quoted-denial
+adoptions/conditional commitments cannot replace raw. Actual shared selector also
+passes12/12. Artifact `experiments/v3_repair/results/summary_support.json` records
+sources, verdict scores, hashes/model identity. No threshold sweep, corpus upload,
+completeness estimate or long-source generalization claim.
+
+288 smoke/SQL tests passed via disposable_database with tests/smoke,
+test_representation_reads.py, test_representation_support.py, test_codex_claims.py,
+and test_source_lifecycle.py.61 standalone temporal checks passed separately.
+Writer controls execute post-flight with controlled summary/verifier responses,
+then actual lexical SQL, chat assembly and MCP recent readers; they establish
+wiring, not model quality. Stale-role/source/model, independent abstract support
+and migration roundtrip covered. Initial failures were outdated eligibility
+fixtures, a wrong test method name, and ORM fixture cleanup; final runs passed.
+Working migration f3c8d5e02b19 applied from checked e2b7c4d91a08 baseline and column
+verified. No legacy marker replay/backfill.

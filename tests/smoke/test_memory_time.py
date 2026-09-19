@@ -40,6 +40,13 @@ def test_date_survives_each_eligible_representation_and_budget():
         timestamp=datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
         ts_provenance="original",
     )
+    from src.memory.source import single_provenance
+    from src.memory.representation import verify_representations
+    from src.memory.support import verify_support
+    row.source_spans = single_provenance(row.raw_text, 'user')
+    row.representation_verification = verify_representations(row, row.summary_text,
+        row.abstract_text, verifier=lambda source, claim: verify_support(source, claim,
+            scorer=lambda pairs: [dict(entailment=.99, neutral=.005, contradiction=.005)]))
     o = HybridRetrievalOrchestrator(None, None)
     f = o._rows_to_fragments([row], "episodic")[0]
     for t in (f.text, f.degrade_text, f.abstract_text):

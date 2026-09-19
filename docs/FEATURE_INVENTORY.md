@@ -111,7 +111,7 @@ Defaults are the code defaults in `src/api/config.py`. `.env` overrides them at 
 | Evolving conversation summary | `src/api/prompt_assembler.py:49`, `:306` | C4/D3a | Once the conversation outgrows the recent-turns window, its rolling summary is injected for global shape, stamped with how many turns behind it runs. | `conversation_summary_max_words` | `250` | YES (once history > window) |
 | Session-bounded recent window | `src/api/prompt_assembler.py:112`, `:158` | C16/C6 | The recent-turns window is bounded by the current sitting, not a turn count, plus the last turn of the previous sitting so a coffee break does not cut the thread. | `recent_window_scope`, `recent_window_bridge_turns`, `recent_window_max_turns` | `"session"`, `1`, `40` | YES |
 | Recent-window filters | `src/api/prompt_assembler.py:132` | C16 | Private turns, document sections and promoted pastes are excluded from the continuity window — matching every retrieval leg's filters. | — | — | YES |
-| Per-turn window cap | `src/api/prompt_assembler.py:193` | C16 | One turn may not eat more than a third of the recent window; an over-large turn degrades to an eligible summary, then a source-extractive abstract, rather than being cut mid-sentence. | `recent_window_max_turn_frac` | `0.35` | YES |
+| Per-turn window cap | `src/api/prompt_assembler.py:193` | C16 | One turn may not eat more than a third of the recent window; an over-large turn degrades to an eligible summary, then a independently source-supported abstract, rather than being cut mid-sentence. | `recent_window_max_turn_frac` | `0.35` | YES |
 | Newest-first budget spend | `src/api/prompt_assembler.py:196`–`226` | C16 | The budget is spent on the newest turns; the oldest fall off. (It used to discard the newest.) | — | — | YES |
 | Cluster names in the header | `src/api/prompt_assembler.py:334` | C5 | When retrieval was cluster-scoped, the retrieved-context header names the clusters. | — | — | YES |
 
@@ -240,7 +240,7 @@ Eight mechanisms report as five `source_type`s. All legs run on every retrieving
 | Fragment vectors fetched, not encoded | `src/retrieval/orchestrator.py:2442` | C16 | Coverage reuses stored embeddings rather than encoding 100 fragments (~380 ms) on the request path. | — | — | NO in practice (coverage off) |
 | Fusion-fallback leg-diversity guarantee | `src/retrieval/orchestrator.py:2561` | A10 | Each leg's single best fragment is admitted first, so no leg is completely crowded out. Keys on `source_type` deliberately, not on `leg`. | `retrieval_leg_guarantee_enabled` | `True` — **but the setting has no reader; see DEAD** | YES (unconditionally) |
 | Fusion-fallback round-robin budget fairness | `src/retrieval/orchestrator.py:2592` | A10 | Each round, every leg contributes its next-best fragment, highest-scoring leg first — so episodic (dozens of fragments) cannot soak the whole remainder. Exhausted legs drop out and their share goes to the rest. | — | — | YES |
-| Degrade-before-drop | `src/retrieval/orchestrator.py:2569` | C1/C3 | A fragment too big for the remaining budget is swapped for its trusted summary, then a source-extractive abstract, before being dropped entirely. | `turn_summary_coverage_threshold` | `0.7` (trust bar) | YES |
+| Degrade-before-drop | `src/retrieval/orchestrator.py:2569` | C1/C3 | A fragment too big for the remaining budget is swapped for its trusted summary, then a independently source-supported abstract, before being dropped entirely. | `turn_summary_coverage_threshold` | `0.7` (term-retention prerequisite) | YES |
 | Leg budget-share telemetry | `src/retrieval/orchestrator.py:2628` | G35 | Logs what share of the injected tokens each leg actually took, on every retrieval, not sampled. Reveals a leg crowding others out *inside* the budget — which a total-tokens check cannot show. | — | — | YES |
 | Dynamic budget split | `src/retrieval/orchestrator.py:372`, `:407` | CL4/G9/C16 | Splits the context budget between the recent-turns window and retrieval, by conversation length, average turn size and active labels. Leftover budget is deliberately left **unspent** — that is what makes ICE token-efficient. | `context_growth_cap_ladder`, `context_recent_fraction_ladder`, `context_recent_density_ladder`, `context_recent_fraction_groups`, `context_overhead_reserve` | 3-row cap ladder; 4-row fraction ladder + default `0.15`; 3-row density ladder; 5 label groups; `1800` | YES |
 
@@ -289,7 +289,7 @@ Eight mechanisms report as five `source_type`s. All legs run on every retrieving
 
 | Feature | Where | Roadmap id | What it does (plain) | Setting | Default | On by default? |
 |---|---|---|---|---|---|---|
-| Read-time raw-vs-summary choice | `src/memory/representation.py:19` | C1/G75 | Shared by retrieval, chat recent history and explicit recent reads. Finite measured coverage required; NULL fails. No hidden raw-prefix truncation. Coverage is not semantic verification. | `turn_summary_coverage_threshold` | `0.7` | YES |
+| Read-time raw-vs-summary choice | `src/memory/representation.py:19` | C1/G75 | Shared by retrieval, chat recent history and explicit recent reads. Finite coverage AND current independent NLI support required. Unknown roles, changed text/model and missing verdicts retain raw. No foreground inference or hidden source prefix. | `turn_summary_coverage_threshold` | `0.7` | YES |
 | Keyword protection | `src/memory/representation.py:19` | C1/G75 | Each matched query term must survive a compressed representation; preserving one name cannot excuse dropping another. | — | — | YES |
 | Date/time stamping | `src/memory/time_format.py`, `orchestrator.py`, `prompt_assembler.py` | T1 | Episodic alternatives, chunks and recent history retain source date/time/timezone. Synthetic import and unknown provenance are explicit. Summary creation/update timestamps are labeled and budgeted. Cold provenance is currently unknown. | — | — | YES |
 | Fact dating | `orchestrator.py::_prime_edge_times`, `_fact_line` | T1 | Batched source-batch lookup separates source-recorded time from learned/recorded-validity time. It does not invent event dates from import clocks. | — | — | YES, explicit fact lines |
@@ -1462,3 +1462,10 @@ wins; where it conflicts with the code, the code wins.**
 
 | Graph source rendering | `orchestrator._fact_line`, `_render_codex_entity`, tag enumeration; linked attributed evidence replaces cached relationships; exact rendered edge IDs; negative facts remain non-navigable | Existing graph scope/time/trust controls | YES; legacy relations/notes explicitly unverified |
 | Cold restoration preserves evidence | `_resurrect_cold_hits`; archived vector reused, NULL vector retained with warning; unknown timestamp provenance remains unknown | `retrieval_strengthen_writes=True` | YES for selected cold hits with conversation identity |
+
+### v3 turn representation support (2026-09-19)
+
+| Feature | Implementation | Setting/default | On by default? |
+|---|---|---|---|
+| Independent summary and abstract verification | Post-flight stores `representation_verification`; shared chat/MCP/retrieval readers check canonical role source hash, candidate hash, model version and score | Existing `source_support_threshold=0.95`, complete pair max512 tokens | YES for newly evaluated turns; legacy missing verdicts use raw |
+| NLI uncertainty preserves evidence | Overlength, missing authority, model error or unsupported summary cannot replace original; generated metadata remains stored | Shared support verifier | YES; long-source/fold compression remains unfinished |

@@ -6,9 +6,16 @@ import pytest
 
 from src.api import prompt_assembler
 from src.api.config import settings
-from src.memory.representation import choose_representation
+from src.memory.representation import choose_representation, verify_representations
+from src.memory.source import chat_provenance, single_provenance
+from src.memory.support import verify_support
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.services import retrieval_svc
+
+
+def supported(source, claim):
+    return verify_support(source, claim, scorer=lambda pairs:[dict(
+        entailment=.99, neutral=.005, contradiction=.005)])
 
 
 def turn(**changes):
@@ -24,8 +31,14 @@ def turn(**changes):
         topic_tags=[],
         is_bookmarked=False,
     )
+    original = fields['raw_text']
     fields.update(changes)
-    return SimpleNamespace(**fields)
+    row = SimpleNamespace(**fields)
+    row.source_spans = (chat_provenance("Atlas uses Redis.", "Keep Redis persistence disabled.")
+                        if row.raw_text == original else single_provenance(row.raw_text or "", "user"))
+    row.representation_verification = verify_representations(row, row.summary_text, None,
+                                                            verifier=supported)
+    return row
 
 
 @pytest.mark.parametrize(
@@ -58,6 +71,10 @@ def test_abstract_needs_own_source_support():
     row = turn(inject_raw=True)
     assert choose_representation(row)[2] is None
     row.abstract_text = "Keep Redis persistence disabled."
+    # Even an exact substring can lose a surrounding denial or condition.
+    assert choose_representation(row)[2] is None
+    row.representation_verification = verify_representations(row, row.summary_text,
+        row.abstract_text, verifier=supported)
     assert choose_representation(row)[2] == row.abstract_text
     assert choose_representation(row, prompt_keywords={"atlas"})[2] is None
 
@@ -105,3 +122,15 @@ def test_explicit_recent_read_uses_same_contract():
 
     db = SimpleNamespace(query=lambda *args: Query())
     assert retrieval_svc.recent_turns(db)[0]["text"] == row.raw_text
+
+
+@pytest.mark.parametrize('change', ['missing', 'raw', 'summary', 'role', 'model'])
+def test_stale_or_missing_support_never_substitutes(change):
+    row = turn()
+    if change == 'missing': row.representation_verification = None
+    elif change == 'raw': row.raw_text += ' A later correction.'
+    elif change == 'summary': row.summary_text = 'Atlas chose SQLite.'
+    elif change == 'role': row.source_spans = single_provenance(row.raw_text, 'assistant')
+    else: row.representation_verification['summary']['verifier'] = 'old-model'
+    assert choose_representation(row)[0] == row.raw_text
+    assert choose_representation(row)[1] is None

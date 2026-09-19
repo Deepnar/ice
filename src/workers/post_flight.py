@@ -16,6 +16,7 @@ from sqlalchemy import text
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, IdempotencyKey
+from src.memory.representation import choose_representation, verify_representations
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 from src.workers.codex_extractor import embedder as shared_embedder
 from src.workers.codex_extractor import extract_codex
@@ -243,14 +244,13 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
                     source_kind=source_kind, source_title=source_title)
                 summary = summary or None
                 if decision["summary_decides"]:
-                    # The retrievability gate: inject the summary only if it
-                    # measurably preserved the key terms — else raw wins and
-                    # the summary remains as metadata.
+                    # Coverage is only a retention prerequisite. Independent
+                    # source support below controls actual substitution.
                     inject_raw = not (summary and coverage >= settings.turn_summary_coverage_threshold)
                 log.info(
                     "summary_quality",
                     coverage=coverage,
-                    injected="summary" if not inject_raw else "raw",
+                    coverage_candidate="summary" if not inject_raw else "raw",
                     reason=decision["reason"],
                     must_terms=len(must_terms(key_terms)),
                 )
@@ -261,7 +261,13 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             turn.summary_text = summary
             turn.summary_coverage = coverage if summary else None
             turn.abstract_text = abstract if summary else None
+            turn.representation_verification = verify_representations(
+                turn, summary, turn.abstract_text)
             turn.inject_raw = inject_raw
+            if not inject_raw:
+                preferred, _, _ = choose_representation(turn)
+                turn.inject_raw = preferred != summary
+            inject_raw = turn.inject_raw
             log.info(
                 "representation_decided",
                 entropy=entropy, lossless=lossless, inject_raw=inject_raw,

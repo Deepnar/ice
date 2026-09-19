@@ -864,7 +864,7 @@ class HybridRetrievalOrchestrator:
         cluster_filter = self._cluster_filter(scope)
 
         query = text(f"""
-            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
+            SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
                    ts_rank(
                        to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                        query
@@ -906,7 +906,7 @@ class HybridRetrievalOrchestrator:
             # Final fallback: use plainto_tsquery (AND) if everything fails
             try:
                 query2 = text(f"""
-                    SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
+                    SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
                            ts_rank(
                                to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                                plainto_tsquery('english', :prompt_text)
@@ -961,7 +961,7 @@ class HybridRetrievalOrchestrator:
         # GREATEST form for past rows; as_of re-anchors center to the window
         # midpoint. One formula, mode-driven params — never fork the leg SQL.
         query = text(f"""
-            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
+            SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
                 (1 - (embedding <=> :prompt_embedding)) * COALESCE(decay_score, 1.0)
                   * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (timestamp - :ts_center))) / 86400.0 / :recency_tau)) as score
             FROM episodic_memory
@@ -2938,7 +2938,7 @@ class HybridRetrievalOrchestrator:
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
         try:
             query = text(f"""
-                SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_document, timestamp, ts_provenance,
+                SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, conversation_id, is_document, timestamp, ts_provenance,
                        (1 - (embedding <=> :prompt_embedding))
                          * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (timestamp - :ts_center))) / 86400.0 / :recency_tau)) as score
                 FROM episodic_memory

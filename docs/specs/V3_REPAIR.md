@@ -464,3 +464,21 @@ Approve as permission to expire the older row automatically. Repeated source-bat
 questions are deduplicated; a later candidate rejection rolls back earlier
 expiries from that candidate's comparison set. Property display projections and
 both endpoint notes refresh after explicit retirement too.
+
+### Turn summary support at the substitution boundary (2026-09-19)
+
+Persist independent support verdicts for the summary and abstract, with canonical
+role-attributed source text/hash and each candidate hash. Coverage remains a
+retention metric; it cannot authorize a representation. All shared readers require
+current supported evidence before summary/abstract substitution. Never inherit
+summary verification for an abstract or a changed source. Legacy verdicts are
+unknown; preserve generated text as metadata and retrieve original evidence.
+
+Use complete authoritative role units as a quoted source for NLI; unknown roles
+cannot authorize compression. Run verification asynchronously in post-flight,
+not during foreground reads. The existing pinned verifier and fixed threshold
+apply without fitting to new controls. Overlength/error/contradiction stays raw;
+no source prefix or independent chunk entailment is accepted as full-context
+verification. This first turn consumer does not complete long-source compression
+or rolling/batch fold verification: those remain active repairs with distinct
+source manifests, not permission to credit coverage as faithfulness.
