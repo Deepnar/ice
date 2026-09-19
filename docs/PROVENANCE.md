@@ -3613,3 +3613,32 @@ Initial temporal run58/61: one obsolete cached-payload anchor assertion and two
 real restore failures from inserting NULL into required timestamp provenance.
 Updated anchor lookup to rendered entity identity; fixed provenance to unknown.
 No answer-quality, multilingual generalization or vector-baseline claim.
+
+## 2026-09-19 — v3 uniform two-source conflict repair
+
+One bounded set of12 synthetic cases, actual deployed `gemma4:e4b` via the
+production background client/reconciler. Explicit replacement, negation and
+move/style correction4/4; coexistence/proposal/denial/conditional/historical
+controls8/8. Script `experiments/v3_repair/qualify_reconciliation.py`, artifacts
+`results/reconciliation_two_sources.json` and `results/reconciliation_database.json`.
+The second run uses a disposable database and the actual handle_triplet writer,
+linked authoritative source claims and real model decisions:12/12 expected state
+transitions. Not a population accuracy estimate, multilingual qualification,
+full extractor benchmark or end-to-end answer gain. First database attempt10/12:
+two pronoun-only subject fixtures were correctly rejected before reconciliation;
+replaced with explicit synthetic entity names and reran, rather than weakening
+the writer's existing entity rule. Original direct-model cases used pronouns;
+this changes fixture reference resolution, not the intended correction/coexistence.
+
+Mechanical coverage:310 smoke/source/conflict/claim/retention/lifecycle pytest
+checks, plus45 standalone maintenance checks, disposable DBs. Controls include
+older/same-time imports, different speakers/conversations, edited sources,
+unknown clocks, full source input, all-candidate rollback after reject_new,
+manual keep-edge choices and maintenance source-gate enforcement. Decision stubs
+in these tests validate mechanics, not semantic model quality. Legacy standalone
+write-path coverage recorded separately after updating unqualified-negation
+expectations. No migration or historical graph rewrite.
+Standalone `tests/test_codex_write_path.py` final32/32; run directly through the
+disposable wrapper. An attempted pytest collection of this standalone script
+exited early and is not included in the310 pytest count. Final suite commands
+excluded it and ran it separately.

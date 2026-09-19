@@ -111,6 +111,12 @@ Order and section headings match ROADMAP.md.
 
 ## <a id="a6"></a>A6 — Self-correcting graph (reconciliation loop) — bounded
 
+**v3 correction, 2026-09-19:** the original reconciler saw only the new raw turn,
+and property/negative/single-valued writers bypassed it. All now use complete
+role-attributed old/new evidence with source chronology; maintenance shares that
+boundary. Candidate detection no longer uses correction phrases or a first-edge
+shortcut. See V3_REPAIR and PROVENANCE for scoped validation and remaining limits.
+
 *DONE 2026-07.* [← back to the queue](ROADMAP.md#a6)
 
 - [x] **A6 Self-correcting graph (reconciliation loop) — bounded** `(new)` — Done 2026-07, **deterministic-first per user direction (less LLM)**; validated 13/13 against the live DB (LLM decision paths via stub — real-model call `make_llm_reconciler` pends the bg model, like A1/A2 extraction). In [codex_extractor.py](../src/workers/codex_extractor.py): `check_conflict` is a cheap deterministic pre-filter (DB query only when the relation has a known **antonym**, or a **multi-valued** relation meets a **supersession cue** in the turn — else dict-lookup fast path). `reconcile_conflict` resolves it: **antonym reversals deterministic** (newer state expires its opposite for the pair, no LLM); **ambiguous supersessions** are the *only* LLM case — a bounded one-word reconciler returns `expire_old`/`keep_both`/`reject_new`, and anything else (or no reconciler) → `review_queue` row with the new edge kept (never auto-expire on a guess). `handle_triplet(turn_text, reconciler)` + standalone `check_conflict`/`reconcile_conflict`/`make_llm_reconciler` are callable units so **Track D's agent can drive the loop with its own reconciler** (look-ahead satisfied). Recency: reconciliation treats the new assertion as newest (deterministic newer-supersedes) — retrieval-scoring recency is separately **A11**. **Caveats carried:** review-queue fallback isn't user-visible until F2; the LLM half needs live-model validation before it's proven; entity-merge conflicts deliberately out of scope (needs candidate-duplicate detection — its own item). Pairs forward with Track D (agent wraps this) and A8 (asserted-negatives will make more supersessions detectable at extraction).
@@ -129,6 +135,11 @@ Order and section headings match ROADMAP.md.
   *Original (superseded) framing follows:* **Scope settled 2026-07 (do A10 first — it benefits A7's retrieval):** build the Graph-RAG *community* layer on the existing conversational codex — community detection over the entity/edge graph + an LLM summary per community, so broad/overview queries ("how does the political system work", "summarize the tech stack") hit a community summary instead of traversing 30 entities — plus an `entity_type` column so entities are typed (character/location/concept/…), which the code graph later reuses. Aim for the robust version (hierarchy-ready communities, proper detection algo, not flat toy clustering). The **code-aware half** (AST entities, deterministic `imports`/`calls`/`inherits` edges from a real codebase) is **moved to Track E** — it can't be meaningfully built without Coding Mode's ingestion/pipeline; A7 only settles the *one-graph* schema so code entities slot into the same `codex_entities`/`codex_edges` tables. Original (superseded) framing follows: Add a deterministic static-analysis layer: AST-level entities (deterministic IDs from definition sites), deterministic edges (`imports`, `calls`, `inherits`, `defined_in`, `tested_by`), and Graph-RAG-style community summarisation (Louvain/Leiden over the import/call graph, LLM summary per community). **Constraint from the notes: there is ONE Codex** serving both conversation and coding modes — not two graphs. OKF is adapted here as design philosophy (typed knowledge units in our tables, not markdown files). Like a real proper graph rag inside our entity type codex that we have. PLUS the coding based if it is ever given a code base then it should be able to make like relations between files, functions and all. do if if not done before.
 
 ## <a id="a8"></a>A8 — Codex relation negation / polarity
+
+**v3 correction, 2026-09-19:** negative facts remain stored and answerable;
+negation alone no longer retires the positive edge. Qualified same-author source
+correction or explicit manual resolution is required. Both polarities use the
+same observation identity and confidence path.
 
 *DONE 2026-07.* [← back to the queue](ROADMAP.md#a8)
 

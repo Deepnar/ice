@@ -428,3 +428,39 @@ legacy vectors remain lexical-searchable and emit a warning; restoration itself
 must succeed. This avoids changing the represented evidence and adding foreground
 encoder work. Missing timestamp provenance restores as `unknown`, never
 `original`. The existing original timestamp and probation behavior stay intact.
+
+### Uniform conflict evidence boundary (2026-09-14)
+
+Property values, negative assertions and named single-valued relations must use
+the same source reconciliation boundary as ordinary relations. A new edge alone
+cannot expire another or gain extra confidence from having displaced it. Enumerate
+all same-relation differing targets/polarities and known opposition candidates;
+do not make candidate detection depend on an English correction phrase or select
+an arbitrary first edge. Preserve unrecognized relation names.
+
+Automatic reconciliation requires current linked old evidence and exact new
+source-claim evidence from the same conversation and authoritative role, with
+known original source timestamps ordered old <= new. Feed complete old and new
+role units plus their exact claim sentences and recorded timestamps to the
+bounded reconciler, never a triple plus only the new raw turn. Unknown authorship,
+missing source, edited offsets, different conversations, synthetic/unknown dates,
+older imports and ambiguous multiple evidence units retain claims for review.
+Same-time source evidence may coexist; it cannot authorize chronological expiry.
+Do not infer event dates from the model: expiry continues to mean the time ICE
+recorded the decision, with source times supplied separately. General event-time
+extraction and cross-conversation identity authority remain separate work.
+
+Positive and negative edges use one identity/observation writer. Property JSON
+remains a display projection of all live positive values (single string or list),
+not a last-write-wins authority. Explicit source-backed correction can still
+retire a previous edge; failed/unknown verification preserves both source claims.
+The semantic reconciler's answer quality must be qualified separately from SQL
+mechanical controls; a stubbed decision is never reported as model validation.
+
+Maintenance must share the same source eligibility and full-context prompt, and
+recheck evidence before applying a delayed result. Manual reconciliation uses an
+explicit keep-edge subset, like contradiction review, rather than interpreting
+Approve as permission to expire the older row automatically. Repeated source-batch
+questions are deduplicated; a later candidate rejection rolls back earlier
+expiries from that candidate's comparison set. Property display projections and
+both endpoint notes refresh after explicit retirement too.

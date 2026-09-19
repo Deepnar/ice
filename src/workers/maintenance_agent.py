@@ -594,39 +594,49 @@ def _ask_enum(llm_decider, prompt: str, key: str, allowed: tuple) -> str:
     return value if value in allowed else "unsure"
 
 
-def _decide_reconciliation(db, item: WorkItem, llm_decider) -> str:
-    """D2 Tier 1: re-run the A6 supersession decision WITH the source turns of
-    both edges (the in-line reconciler only saw the new turn)."""
-    from src.memory.models import CodexEdge  # lazy for symmetry with callables
-
-    content = item.payload["content"]
-    old_edge = db.query(CodexEdge).get(uuid.UUID(content["old_edge_id"]))
-    if old_edge is None or old_edge.valid_until is not None:
-        return "already_resolved"          # someone else settled it
+def _reconciliation_sources(db, content):
+    from src.memory.models import CodexClaim, CodexClaimLink, CodexEdge
+    from src.workers.codex_extractor import _reconciliation_evidence
+    old = db.get(CodexEdge, uuid.UUID(content["old_edge_id"]))
     new = content.get("new") or {}
-    new_edge = _find_edge_by_names(db, new.get("subject"), new.get("relation"),
-                                   new.get("object"))
-    old_turn = _turn_for_batch(db, old_edge.source_batch)
-    new_turn = _turn_for_batch(db, new_edge.source_batch) if new_edge is not None else ""
-    prompt = (
-        "Two stored facts about the same subject may conflict. Decide how to "
-        "reconcile them using ONLY the conversation excerpts.\n"
-        f"OLD fact: {new.get('subject', '?')} {content.get('old_relation', '?')} "
-        f"{content.get('old_object', '?')}\n"
-        f"  from conversation: {old_turn or content.get('turn_excerpt', '')}\n"
-        f"NEW fact: {new.get('subject', '?')} {new.get('relation', '?')} {new.get('object', '?')}\n"
-        f"  from conversation: {new_turn or content.get('turn_excerpt', '')}\n\n"
-        'Reply with one JSON object: {"decision": "<value>"} where <value> is one of:\n'
-        "expire_old — the new fact replaced/superseded the old one\n"
-        "keep_both — both facts are true at the same time\n"
-        "reject_new — the new fact is wrong or was never actually asserted\n"
-        "unsure — the excerpts do not settle it"
-    )
+    edge = _find_edge_by_names(db, new.get("subject"), new.get("relation"),
+                              new.get("object"), new.get("negated", False))
+    if old is None or edge is None:
+        return old, edge, None
+    claims = db.query(CodexClaim).join(CodexClaimLink).filter(
+        CodexClaimLink.edge_id == edge.id)
+    if content.get("new_batch_id"):
+        claims = claims.filter(CodexClaim.source_batch == uuid.UUID(content["new_batch_id"]))
+    return old, edge, _reconciliation_evidence(db, content, claims.all())
+
+
+def _decide_reconciliation(db, item: WorkItem, llm_decider) -> str:
+    """Use the same source authority and complete context as ingestion."""
+    from src.memory.tokens import count
+    from src.workers.codex_extractor import reconciliation_prompt
+    content = item.payload["content"]
+    old, edge, evidence = _reconciliation_sources(db, content)
+    if old is None or old.valid_until is not None:
+        return "already_resolved"
+    if evidence is None:
+        return "unsure"
+    new = content.get("new") or {}
+    prompt = reconciliation_prompt(dict(subject=new.get("subject", "?"),
+        relation=new.get("relation", "?"), object=new.get("object", "?"),
+        old_relation=content.get("old_relation", "?"),
+        old_object=content.get("old_object", "?"), old_negated=old.negated,
+        negated=edge.negated, old_source=evidence[0], new_source=evidence[1],
+        turn=evidence[1]["text"]))
+    prompt = prompt.replace("Reply with exactly ONE word:",
+                            'Reply with one JSON object {"decision": "<value>"}:')
+    if count(prompt) > settings.codex_reconcile_input_tokens:
+        logger.warning("codex_reconcile_source_too_long", consumer="maintenance")
+        return "unsure"
     return _ask_enum(llm_decider, prompt, "decision",
                      ("expire_old", "keep_both", "reject_new", "unsure"))
 
 
-def _find_edge_by_names(db, subject, relation, obj):
+def _find_edge_by_names(db, subject, relation, obj, negated=False):
     """Resolve the reconciliation item's stored triplet names back to the live
     edge (names are canonical — reconcile_conflict wrote them from the
     entities). Lookup only; never creates entities."""
@@ -639,7 +649,7 @@ def _find_edge_by_names(db, subject, relation, obj):
         return None
     return db.query(CodexEdge).filter(
         CodexEdge.source_id == subj_e.id, CodexEdge.target_id == obj_e.id,
-        CodexEdge.relation == relation,
+        CodexEdge.relation == relation, CodexEdge.negated == negated,
         CodexEdge.valid_until == None,  # noqa: E711
     ).first()
 
@@ -789,6 +799,10 @@ def _apply_reconciliation(db, item: WorkItem, decision: str, run_id) -> str:
     if review is None:
         return "noop"
     content = dict(review.item_content or {})
+    if decision in ("expire_old", "reject_new"):
+        _, _, evidence = _reconciliation_sources(db, content)
+        if evidence is None:
+            decision = "unsure"
 
     if decision == "unsure":
         content["agent_attempts"] = int(content.get("agent_attempts", 0)) + 1
@@ -806,7 +820,8 @@ def _apply_reconciliation(db, item: WorkItem, decision: str, run_id) -> str:
     elif decision == "reject_new":
         new = content.get("new") or {}
         new_edge = _find_edge_by_names(db, new.get("subject"),
-                                       new.get("relation"), new.get("object"))
+                                       new.get("relation"), new.get("object"),
+                                       new.get("negated", False))
         if new_edge is not None:
             _expire_edge(db, new_edge.id, run_id, "reconciliation_reject",
                          source=SOURCE)

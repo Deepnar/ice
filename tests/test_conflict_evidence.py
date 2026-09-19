@@ -83,14 +83,18 @@ def test_background_candidates_propose_once_without_expiring(graph, monkeypatch)
 
 
 @pytest.mark.parametrize("keep_count", [0, 1, 2])
-def test_review_requires_explicit_choice_and_applies_it(graph, monkeypatch, keep_count):
+@pytest.mark.parametrize("kind", ["codex_contradiction", "codex_reconciliation"])
+def test_review_requires_explicit_choice_and_applies_it(graph, monkeypatch, keep_count, kind):
     db, a, b = graph
     edges = [CodexEdge(source_batch=uuid.uuid4(), source_id=a.id, target_id=b.id,
                        relation=rel) for rel in ("friend", "enemy")]
     db.add_all(edges)
     db.flush()
     pair = [str(e.id) for e in edges]
-    item = ReviewQueue(item_type="codex_contradiction", item_content={"edge_ids": pair})
+    content = {"edge_ids": pair} if kind == "codex_contradiction" else {
+        "old_edge_id": pair[0], "new": {"subject": a.canonical_name,
+        "relation": "enemy", "object": b.canonical_name}}
+    item = ReviewQueue(item_type=kind, item_content=content)
     db.add(item)
     db.flush()
     monkeypatch.setattr(db, "commit", db.flush)
@@ -131,3 +135,157 @@ def test_reconciler_exact_complete_output(monkeypatch, content, finish, expected
     monkeypatch.setattr(settings, "codex_reconcile_input_tokens", 1)
     assert cx.make_llm_reconciler()(ctx) == "review"
     assert not captured
+
+
+@pytest.mark.parametrize('relation,negative', [('age',False), ('uses',True), ('lives_in',False),
+                                             ('invented_relation',False)])
+def test_all_writers_preserve_unresolved_sources(graph, monkeypatch, relation, negative):
+    db, a, b = graph
+    other = CodexEntity(canonical_name=f'other_{uuid.uuid4().hex}')
+    db.add(other); db.flush()
+    old = CodexEdge(source_batch=uuid.uuid4(), source_id=a.id, target_id=b.id,
+                    relation=relation, negated=False)
+    db.add(old); db.flush()
+    nodes = {n.canonical_name:n for n in (a,b,other)}
+    monkeypatch.setattr(cx,'get_or_create_entity',lambda db,name,**kw:nodes[name])
+    target = b if negative else other
+    calls = []
+    new = cx.handle_triplet(db,a.canonical_name,relation,target.canonical_name,uuid.uuid4(),
+        turn_text='A hypothetical alternative, not a correction.',negated=negative,
+        reconciler=lambda ctx:calls.append(ctx) or 'expire_old')
+    assert old.valid_until is None and new is not None and new.id != old.id
+    assert not calls
+    repeated = cx.handle_triplet(db,a.canonical_name,relation,target.canonical_name,
+                                 new.source_batch,negated=negative)
+    assert repeated.id == new.id and new.valid_until is None
+    assert new.strength == 1.0
+    if relation in cx.PROPERTY_RELATIONS:
+        assert a.properties[relation] == sorted([b.canonical_name,other.canonical_name])
+
+
+def _claim(db, cid, body, when, role='user', provenance='original'):
+    from src.memory.models import CodexClaim, EpisodicMemory
+    from src.memory.source import chat_provenance, digest, source_units
+    user, assistant = (body,'') if role == 'user' else ('',body)
+    raw=f'User: {user}\n\nAssistant: {assistant}'
+    row=EpisodicMemory(conversation_id=cid,batch_id=uuid.uuid4(),raw_text=raw,
+        timestamp=when,ts_provenance=provenance,source_spans=chat_provenance(user,assistant),
+        context_reliance='Long_Term_Memory',idempotency_key=str(uuid.uuid4()))
+    db.add(row);db.flush()
+    unit=next(u for u in source_units(row) if u.role==role)
+    c=CodexClaim(source_batch=row.batch_id,episodic_id=row.id,conversation_id=cid,
+        raw_sha256=digest(raw),start=unit.start,end=unit.end,role=role,
+        sentence=body,sentence_sha256=digest(body),text=body,verification={})
+    db.add(c);db.flush()
+    return row,c
+
+
+@pytest.mark.parametrize('case,expected_calls', [('correction',1),('older_import',0),
+    ('other_speaker',0),('unknown_time',0),('other_conversation',0),('edited',0),('same_time',0)])
+def test_source_authority_and_chronology_reach_writer(graph,monkeypatch,case,expected_calls):
+    from datetime import datetime,timedelta,timezone
+    from src.memory.models import CodexClaimLink,Conversation
+    db,a,b=graph
+    cid=uuid.uuid4();db.add(Conversation(id=cid));db.flush()
+    now=datetime(2026,9,1,tzinfo=timezone.utc)
+    oldrow,oldclaim=_claim(db,cid,'Atlas uses Beacon.',now)
+    edge=CodexEdge(source_batch=oldrow.batch_id,source_id=a.id,target_id=b.id,relation='uses')
+    db.add(edge);db.flush();db.add(CodexClaimLink(claim_id=oldclaim.id,edge_id=edge.id));db.flush()
+    if case=='other_conversation':
+        cid=uuid.uuid4();db.add(Conversation(id=cid));db.flush()
+    delta=-1 if case=='older_import' else 0 if case=='same_time' else 1
+    newrow,newclaim=_claim(db,cid,'Atlas no longer uses Beacon.',now+timedelta(days=delta),
+        role='assistant' if case=='other_speaker' else 'user',
+        provenance='unknown' if case=='unknown_time' else 'original')
+    if case=='edited':oldrow.raw_text+=' Correction outside the saved excerpt.';db.flush()
+    nodes={n.canonical_name:n for n in (a,b)}
+    monkeypatch.setattr(cx,'get_or_create_entity',lambda db,name,**kw:nodes[name])
+    calls=[]
+    def decide(ctx):
+        calls.append(ctx)
+        assert ctx['old_source']['text']=='Atlas uses Beacon.'
+        assert ctx['new_source']['text']=='Atlas no longer uses Beacon.'
+        assert ctx['old_source']['role']==ctx['new_source']['role']=='user'
+        return 'expire_old'
+    new=cx.handle_triplet(db,a.canonical_name,'uses',b.canonical_name,newrow.batch_id,
+        negated=True,source_claims=[newclaim],reconciler=decide)
+    assert new is not None and new.negated
+    assert len(calls)==expected_calls
+    assert (edge.valid_until is not None)==bool(expected_calls)
+
+
+def test_all_candidates_and_rejected_replacement_roll_back_expiries(graph,monkeypatch):
+    from datetime import datetime,timedelta,timezone
+    from src.memory.models import CodexClaimLink,Conversation
+    db,a,b=graph
+    cid=uuid.uuid4();db.add(Conversation(id=cid));db.flush()
+    now=datetime(2026,9,1,tzinfo=timezone.utc)
+    targets=[b]+[CodexEntity(canonical_name=f'alt_{uuid.uuid4().hex}') for _ in range(2)]
+    db.add_all(targets[1:]);db.flush()
+    edges=[]
+    for target in targets[:2]:
+        row,c=_claim(db,cid,'Atlas uses '+target.canonical_name+'.',now)
+        edge=CodexEdge(source_batch=row.batch_id,source_id=a.id,target_id=target.id,relation='uses')
+        db.add(edge);db.flush();db.add(CodexClaimLink(claim_id=c.id,edge_id=edge.id));edges.append(edge)
+    row,c=_claim(db,cid,'Atlas uses the alternative.',now+timedelta(days=1));db.flush()
+    nodes={n.canonical_name:n for n in [a]+targets}
+    monkeypatch.setattr(cx,'get_or_create_entity',lambda db,name,**kw:nodes[name])
+    calls=[]
+    def decide(ctx):
+        calls.append(ctx)
+        return 'expire_old' if len(calls)==1 else 'reject_new'
+    result=cx.handle_triplet(db,a.canonical_name,'uses',targets[2].canonical_name,row.batch_id,
+                             reconciler=decide,source_claims=[c])
+    assert result is None and len(calls)==2
+    assert all(e.valid_until is None for e in edges)
+
+
+def test_maintenance_cannot_bypass_source_boundary(graph,monkeypatch):
+    db,a,b=graph
+    edges=[CodexEdge(source_batch=uuid.uuid4(),source_id=a.id,target_id=b.id,
+                     relation='uses',negated=neg) for neg in (False,True)]
+    db.add_all(edges);db.flush()
+    content={'old_edge_id':str(edges[0].id),'old_relation':'uses','old_object':b.canonical_name,
+             'new':{'subject':a.canonical_name,'relation':'uses','object':b.canonical_name,'negated':True}}
+    row=ReviewQueue(item_type='codex_reconciliation',item_content=content)
+    db.add(row);db.flush()
+    item=ma.WorkItem('reconciliation_leftover',1,{'review_id':str(row.id),'content':content})
+    calls=[]
+    assert ma._decide_reconciliation(db,item,lambda *args:calls.append(args) or {'decision':'expire_old'})=='unsure'
+    assert calls==[]
+    assert ma._find_edge_by_names(db,a.canonical_name,'uses',b.canonical_name,True).id==edges[1].id
+    monkeypatch.setattr(db,'commit',db.flush)
+    assert ma._apply_reconciliation(db,item,'expire_old',uuid.uuid4())=='still_unsure'
+    assert all(e.valid_until is None for e in edges)
+
+
+def test_maintenance_uses_complete_sources_and_applies_qualified_decision(graph,monkeypatch):
+    from datetime import datetime,timedelta,timezone
+    from src.memory.models import CodexClaimLink,Conversation
+    db,a,b=graph
+    cid=uuid.uuid4();db.add(Conversation(id=cid));db.flush()
+    now=datetime(2026,9,1,tzinfo=timezone.utc)
+    edges=[]
+    for days,neg,body in [(0,False,'Atlas uses Beacon.'),(1,True,'Atlas no longer uses Beacon.')]:
+        row,claim=_claim(db,cid,body,now+timedelta(days=days))
+        edge=CodexEdge(source_batch=row.batch_id,source_id=a.id,target_id=b.id,relation='uses',negated=neg)
+        db.add(edge);db.flush();db.add(CodexClaimLink(claim_id=claim.id,edge_id=edge.id));edges.append(edge)
+    db.flush()
+    content={'old_edge_id':str(edges[0].id),'old_relation':'uses','old_object':b.canonical_name,
+             'new_batch_id':str(edges[1].source_batch),
+             'new':{'subject':a.canonical_name,'relation':'uses','object':b.canonical_name,'negated':True}}
+    review_row=ReviewQueue(item_type='codex_reconciliation',item_content=content)
+    db.add(review_row);db.flush()
+    item=ma.WorkItem('reconciliation_leftover',1,{'review_id':str(review_row.id),'content':content})
+    prompts=[]
+    def decide(prompt,max_tokens=200):
+        prompts.append(prompt)
+        return {'decision':'expire_old'}
+    verdict=ma._decide_reconciliation(db,item,decide)
+    assert verdict=='expire_old' and len(prompts)==1
+    assert 'Atlas uses Beacon.' in prompts[0] and 'Atlas no longer uses Beacon.' in prompts[0]
+    assert 'role' in prompts[0] and 'recorded_at' in prompts[0]
+    monkeypatch.setattr(db,'commit',db.flush)
+    assert ma._apply_reconciliation(db,item,verdict,uuid.uuid4())=='applied'
+    assert edges[0].valid_until is not None and edges[1].valid_until is None
+    assert 'NOT' in a.context_payload and review_row.status=='resolved'

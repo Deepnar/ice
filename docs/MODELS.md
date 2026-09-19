@@ -441,3 +441,11 @@ fixed extraction control under non-thinking mode, while an Ollama-like template
 leaked reasoning and exhausted useful extraction output. Cloud answering already
 removes the local 26B model swap, so the exact 2.5 GB Ollama background can remain
 resident without paying that correctness cost.
+
+### v3 reconciliation consumer update — 2026-09-19
+
+Existing background pin `gemma4:e4b` unchanged. Complete old/new role-attributed
+source units and recorded timestamps now reach the reconciler; candidate triple
+polarity is explicit. Bounded12-case qualification and12-case SQL/model writer
+replay passed; no general accuracy claim. Maintenance uses the shared context
+builder and source eligibility. See PROVENANCE and V3_REPAIR.

@@ -347,7 +347,7 @@ try:
     o2 = ma._process(db, mine[0], stub_junk, run6, ctr)
     db.expire_all()
     leftover2 = db.query(ReviewQueue).get(leftover_id)
-    check("unparseable + out-of-enum ⇒ unsure ⇒ NO write, item stays pending",
+    check("missing attributed sources ⇒ unsure ⇒ NO write, item stays pending",
           o1 == "still_unsure" and o2 == "still_unsure"
           and leftover2.status == "pending"
           and db.query(CodexEdge).get(old_edge_id).valid_until is None)
@@ -374,10 +374,10 @@ try:
     o3 = ma._process(db, mine[0], stub_expire, run7,
                      {"llm_decisions": 0, "applications": 0, "proposals": 0})
     db.expire_all()
-    check("expire_old applied: edge expired, item resolved (not 'approved')",
-          o3 == "applied"
-          and db.query(CodexEdge).get(old_edge_id).valid_until is not None
-          and db.query(ReviewQueue).get(leftover3.id).status == "resolved")
+    check("missing attributed sources cannot authorize expiry even with expire_old stub",
+          o3 == "still_unsure"
+          and db.query(CodexEdge).get(old_edge_id).valid_until is None
+          and db.query(ReviewQueue).get(leftover3.id).status == "pending")
 
     # ═══ 7. Caps (run loop with monkeypatched detector registry) ═══════════
     print("── 7. Caps: 25 LLM decisions / 5 proposals / 10 applications ──")
@@ -399,7 +399,15 @@ try:
                                       "content": dict(r.item_content)}))
     ma.DETECTORS = {"reconciliation_leftover": lambda db, cap: cap_items[:cap]}
     stub_keep = lambda prompt, max_tokens=200: {"decision": "keep_both"}  # noqa: E731
-    result = ma.run_maintenance_agent(db, llm_decider=stub_keep)
+    # This fixture measures the decision-call cap; source eligibility has its
+    # own real database suite. Give each item an eligible controlled decision.
+    saved_decide = ma._decide_reconciliation
+    ma._decide_reconciliation = lambda db, item, decider: ma._ask_enum(
+        decider, "Controlled cap decision", "decision", ("keep_both",))
+    try:
+        result = ma.run_maintenance_agent(db, llm_decider=stub_keep)
+    finally:
+        ma._decide_reconciliation = saved_decide
     run_ids.append(uuid.UUID(result["agent_run_id"]))
     check("30 seeded items → exactly 25 LLM decisions, 5 skipped by cap",
           result["llm_decisions"] == 25
@@ -470,7 +478,7 @@ try:
 
     # ═══ 10. Every applied action journaled under its agent_run_id ═════════
     print("── 10. Audit trail ──")
-    applied_runs = [run0, run3, run7]
+    applied_runs = [run0, run3]  # run7 lacks source authority and must not write
     ok = True
     for rid in applied_runs:
         evs = agent_events(rid)

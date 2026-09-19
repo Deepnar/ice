@@ -566,10 +566,10 @@ Every entry, with its cadence from `settings.maintenance_intervals`. **A job wit
 | In-flight-entity protection during promotion | `src/workers/codex_extractor.py:1423` | G44 | The subject of a triplet being written is exempt from being promoted away mid-write — otherwise the edge points at a deleted row and the whole turn's extraction is lost on the FK. | — | — | YES (when promotion is on) |
 | Self-referential + suspicious-object filters | `src/workers/codex_extractor.py:840`, `:847` | A1 | Drops `fastapi uses fastapi` and objects that are bare verbs (`blush`, `laugh`). | — (hardcoded set) | — | YES |
 | Property relations write JSONB + expire old edge | `src/workers/codex_extractor.py:1465` | — | `role`, `age`, `email` etc. update the entity's `properties` and supersede the previous value's edge. | — | — | YES |
-| Single- vs multi-valued edge semantics | `src/workers/codex_extractor.py:1532`–`1635` | — | A new single-valued edge auto-expires the previous one; multi-valued relations coexist. Reinforcement bumps strength +1 and promotes pending→active at 2.0. | — | — | YES |
+| Uniform assertion writer | `codex_extractor.handle_triplet` | G76 | Property, ordinary and negative assertions share source reconciliation; category cannot expire an old fact. New edges pending/strength1; distinct batches promote independently of reads. | — | — | YES |
 | A8 negation | `src/workers/codex_extractor.py:1430` | A8 | "X no longer uses Y" retracts the positive edge and stores a negated edge — a stored negative fact, not a navigable link. | — | — | YES |
-| A6 conflict pre-filter | `src/workers/codex_extractor.py:1270` | A6 | Opposition candidates (not the canonical anti-merge map), or multi-valued relations coinciding with a legacy supersession cue, hit the DB; this is nomination, never proof. | — (hardcoded `SUPERSESSION_CUES`) | — | YES |
-| Source-aware opposition reconciliation | `src/workers/codex_extractor.py:1325` | A6 | Removed in v3 repair: opposition candidates require source-aware reconciliation or review; converses only block canonical merges. | — | — | YES |
+| Conflict candidates | `codex_extractor.conflict_candidates` | G76 | All same-relation target/polarity differences plus known oppositions; no correction lexicon or arbitrary first candidate. Candidates alone authorize no expiry. | — | — | YES |
+| Source authority for reconciliation | `_reconciliation_evidence` | G76 | Current source hashes, same conversation/role, original timestamps strictly ordered; complete role units supplied. Unknown or older input remains reviewable evidence. | — | — | YES |
 | Bounded LLM reconciler for ambiguous supersession | `src/workers/codex_extractor.py:1365` | A6 | One-word verdict (`expire_old`/`keep_both`/`reject_new`); anything else queues for human review rather than guessing. | — | — | YES |
 | Bidirectional context payload regeneration | `src/workers/codex_extractor.py:1154`, `:1656` | A7/G33 | Rebuilds an entity's Obsidian-style note (description + properties + Links + Backlinks + Negations) on BOTH ends of every edge write. The `db.flush()` is load-bearing — without it every payload was one write behind. | — | — | YES |
 | Entity-type inference with direction | `src/workers/codex_extractor.py:1111` | A7/G33 | Types an entity from its OUTGOING relations; incoming edges vote only for symmetric relations, so `fire mage` is no longer typed `person`. | — | — | YES |
@@ -686,8 +686,8 @@ Driver: `run_maintenance_agent(db, llm_decider)` at `src/workers/maintenance_age
 |---|---|
 | Where | `src/workers/maintenance_agent.py:59` |
 | Finds | `review_queue` rows of type `codex_reconciliation`, status `pending`, with `agent_attempts < 2`, oldest first, LIMIT = remaining budget |
-| Decides | LLM re-runs the A6 supersession call WITH both edges' source turns (the in-line pass only saw the new turn): `expire_old` / `keep_both` / `reject_new` / `unsure` |
-| Applies | `expire_old` and `reject_new` expire an edge and mark the review row `resolved`; `unsure` increments `agent_attempts` |
+| Decides | Same source eligibility and complete two-source context as inline reconciliation; bounded input, exact enum. Missing authority returns unsure without a model call. |
+| Applies | Rechecks source evidence before expiry, refreshes property projections and endpoint notes, marks resolved; unsure increments attempts. Manual review requires explicit keep_edge_ids. |
 | Zero when | No pending `codex_reconciliation` rows, or all of them already have ≥2 agent attempts, or `llm_decider is None` (returns `skipped_no_llm`) |
 | **[queried]** | 19 pending + 50 resolved rows on the live store. **This detector alone returned 50 items on the last run and consumed the entire `agent_max_scanned` budget — detectors 2–6 never ran.** That is the direct cause of "scanned 50, zero entity merges proposed". |
 
