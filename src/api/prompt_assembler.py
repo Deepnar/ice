@@ -46,6 +46,7 @@ from src.memory.representation import choose_representation
 from src.memory.source import source_units
 from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as _estimate_tokens
+from src.memory.tokens import count_messages
 from src.retrieval.orchestrator import ContextFragment
 
 
@@ -72,8 +73,20 @@ def conversation_summary_block(
     return f"{stamp}{row.summary_text}"
 
 
+def bookmarked_turn_texts(db_session, conversation_id):
+    """Pinned evidence uses the same verification contract without source cuts."""
+    rows = db_session.query(EpisodicMemory).filter_by(is_bookmarked=True,
+        conversation_id=conversation_id).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
+    result = []
+    for row in rows:
+        selected = choose_representation(row)[0]
+        if selected:
+            result.append(f"{recorded_stamp(row.timestamp, row.ts_provenance)} {selected}")
+    return result
+
+
 def _turn_text(t) -> str:
-    """Use shared coverage eligibility before applying the window budget."""
+    """Use shared source support and coverage before applying the window budget."""
     return choose_representation(t)[0] or ""
 
 
@@ -179,6 +192,8 @@ def get_recent_turns(
     A turn too big for its share degrades through C1/C3's chain (raw → summary
     → abstract) instead of being word-truncated mid-sentence.
     """
+    if max_tokens <= 0:
+        return []
     scope_mode = getattr(settings, "recent_window_scope", "session")
     hard_max = int(max_count or getattr(settings, "recent_window_max_turns", 40))
     turns = _recent_turn_rows(
@@ -247,10 +262,14 @@ def assemble_prompt(
     max_recent_tokens: int = 4000,
     session_start_text: Optional[str] = None,
     conversation_summary_text: Optional[str] = None,
+    constraints_text: Optional[str] = None,
+    block_tokens: Optional[dict] = None,
+    block_counts: Optional[dict] = None,
 ) -> List[dict]:
-    """Build a multi‑message prompt. The caller controls the total budget
-    via *max_recent_tokens*; retrieval fragments are passed as‑is (already
-    budgeted by the orchestrator).
+    """Build messages and optional structured accounting for the budget consumer.
+
+    max_recent_tokens bounds only recent history; assemble_budgeted_prompt
+    enforces the complete prompt budget, including persistent context.
     """
 
     now = format_time(datetime.now(timezone.utc))
@@ -279,6 +298,16 @@ def assemble_prompt(
         ),
     }
 
+    costs = {}
+
+    def append_system(name, content):
+        before = _estimate_tokens(system_msg["content"])
+        system_msg["content"] += content
+        costs[name] = _estimate_tokens(system_msg["content"]) - before
+
+    if constraints_text:
+        append_system("constraints", "\n\n=== PROJECT CONSTRAINTS ===\n" + constraints_text)
+
     # C9 (D6): three slot tiers under one PERSISTENT CONTEXT header, in
     # order global → project → conversation. Project slots render only for
     # the attached project (scope["project_id"] — the E1 payoff: coding
@@ -300,19 +329,20 @@ def assemble_prompt(
                    for s in active if _tier(s) == "conversation"
                    and conv_id_str and str(s.conversation_id) == conv_id_str]
     if slot_lines:
-        system_msg["content"] += "\n\n=== PERSISTENT CONTEXT ===\n" + "\n\n".join(slot_lines)
+        append_system("slots", "\n\n=== PERSISTENT CONTEXT ===\n" + "\n\n".join(slot_lines))
 
     # E4 (D6): coding-scoped conversations open a sitting with the project's
-    # where-was-I block (state + diffstat + constraints + tasks + decisions).
+    # where-was-I block (state + diffstat + tasks + decisions). Required
+    # constraints arrive separately on every request.
     # The caller renders it only at session start — not every turn.
     if session_start_text:
-        system_msg["content"] += "\n\n=== PROJECT SESSION START ===\n" + session_start_text
+        append_system("session_start", "\n\n=== PROJECT SESSION START ===\n" + session_start_text)
 
     # C4 (D3a): global conversation shape once the window can't hold it all —
     # orientation, not evidence (retrieval fragments stay the evidence).
     if conversation_summary_text:
-        system_msg["content"] += ("\n\n=== CONVERSATION SUMMARY ===\n"
-                                  + conversation_summary_text)
+        append_system("conversation_summary", "\n\n=== CONVERSATION SUMMARY ===\n"
+                      + conversation_summary_text)
 
     # C16: bookmarks are INJECTED. This parameter was declared here and never
     # read — the caller queried up to five bookmarked turns, word-capped each
@@ -321,7 +351,7 @@ def assemble_prompt(
     # highest-intent signal in the store and it was reaching the model in
     # exactly none of the requests that reported it.
     if bookmarked_texts:
-        system_msg["content"] += (
+        append_system("bookmarks",
             "\n\n=== BOOKMARKED BY THE USER ===\n"
             "(turns the user pinned as important — treat as standing context)\n"
             + "\n\n".join(bookmarked_texts))
@@ -359,5 +389,16 @@ def assemble_prompt(
             "content": "Understood — I have the background context. What would you like to know?",
         })
 
+    evidence_messages = messages[1 + len(recent_messages):]
     messages.append({"role": "user", "content": user_message})
+    if block_tokens is not None:
+        block_tokens.clear()
+        block_tokens.update(costs)
+        block_tokens["system_prompt"] = count_messages([system_msg]) - sum(costs.values())
+        block_tokens["recent_turns"] = count_messages(recent_messages)
+        block_tokens["evidence"] = count_messages(evidence_messages)
+        block_tokens["user_message"] = count_messages([messages[-1]])
+    if block_counts is not None:
+        block_counts.clear()
+        block_counts.update(slots=len(slot_lines), bookmarks=len(bookmarked_texts or []))
     return messages

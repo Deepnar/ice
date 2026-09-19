@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from src.api.chat_commands import command_sse_stream, try_handle
 from src.api.config import settings
-from src.api.context_ledger import ContextLedger, effective_memory_budget
+from src.api.context_ledger import effective_memory_budget
 from src.api.core import ICECore, create_core
 from src.api.db import SessionLocal, get_db
 from src.api.memory_decision import (
@@ -30,7 +30,8 @@ from src.api.memory_decision import (
     derive_total_budget,
     estimate_recent_window_tokens,
 )
-from src.api.prompt_assembler import assemble_prompt, conversation_summary_block
+from src.api.prompt_assembler import bookmarked_turn_texts, conversation_summary_block
+from src.api.prompt_budget import assemble_budgeted_prompt
 from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
 from src.memory.models import Conversation, EpisodicMemory, MemorySlot
@@ -616,17 +617,8 @@ async def chat_completions(
     # not retrieval results — they must be injected even when B2 decides a
     # confident standalone turn needs no long-term retrieval. Only the retrieval
     # `fragments` are conditional (empty here when we didn't retrieve).
-    bookmarked_turns = await asyncio.to_thread(
-        lambda: db.query(EpisodicMemory).filter_by(
-            is_bookmarked=True, conversation_id=conversation_id
-        ).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
-    )
-    for bt in bookmarked_turns:
-        text = bt.raw_text if bt.inject_raw else (bt.summary_text or bt.raw_text[:300])
-        words = text.split()
-        if len(words) > 500:
-            text = " ".join(words[:500]) + "…"
-        bookmarked_texts.append(text)
+    bookmarked_texts = await asyncio.to_thread(
+        bookmarked_turn_texts, db, conversation_id)
 
     memory_slots_list = await asyncio.to_thread(
         lambda: db.query(MemorySlot).filter_by(is_active=True).all()
@@ -636,15 +628,19 @@ async def chat_completions(
     # block, rendered only when this turn OPENS a sitting (rev 8: the latest
     # stored turn is older than the session gap, or absent).
     session_start_text = None
+    constraints_text = None
     if scope.get("project_id"):
+        from src.services import projects as projects_svc
+        constraints_text = await asyncio.to_thread(
+            projects_svc.chat_constraints, db, scope["project_id"])
         last_ts = prev_tags.timestamp if prev_tags else None
         new_sitting = last_ts is None or (
             datetime.now(timezone.utc) - last_ts
             > timedelta(minutes=settings.session_gap_minutes))
         if new_sitting:
-            from src.services import projects as projects_svc
             session_start_text = await asyncio.to_thread(
-                projects_svc.chat_session_start, db, scope["project_id"])
+                projects_svc.chat_session_start, db, scope["project_id"],
+                include_constraints=False)
             log.info("project_session_start",
                      project_id=scope["project_id"],
                      rendered=bool(session_start_text))
@@ -655,66 +651,27 @@ async def chat_completions(
         conversation_summary_block, db, str(conversation_id),
         turn_count, total_tokens, recent_budget)
 
-    # Separate fragments by type for token trimming (both empty when not retrieving)
-    episodic_frags = [f for f in fragments if f.source_type == "episodic"]
-    procedural_frags = [f for f in fragments if f.source_type == "procedural"]
-
-    messages = assemble_prompt(
-        memory_slots_list, fragments, user_message,
-        db_session=db, conversation_id=str(conversation_id),
-        bookmarked_texts=bookmarked_texts,
-        classification=result,
-        scope=scope,
-        max_recent_tokens=recent_budget,
-        session_start_text=session_start_text,
-        conversation_summary_text=conversation_summary_text,
-    )
-
-    # C16: the prompt is measured, not guessed. What stood here was a loop
-    # that trimmed fragments against a hardcoded 4096-token window, and it was
-    # broken four ways at once: (1) it ignored the model-derived budget
-    # entirely; (2) it measured `messages[0]`, the SYSTEM message, while
-    # fragments are appended as their own user message — so popping a fragment
-    # could never change its own loop condition; (3) `reduced` was built as the
-    # COMPLEMENT of the survivors, i.e. exactly the fragments it had just
-    # decided to drop; and (4) because the condition was invariant it ran until
-    # both lists were empty, at which point `reduced` == every fragment and all
-    # of them were restored. Net behaviour: none. Net cost: one re-assembly per
-    # fragment, each re-running the recent-turns query, on the latency path.
-    prompt_tokens = count_tokens_messages(messages)
-
-    # C16: one account, in one unit, checked against the window the server
-    # actually allocated. When it does not fit, static blocks are shed before
-    # evidence — with E8 constraints exempt, because they are user preferences
-    # and losing one is the failure that feature exists to prevent.
-    ledger = ContextLedger(
+    prepared = assemble_budgeted_prompt(
         serving_window=effective_window or 0,
         generation_reserve=settings.context_generation_reserve,
-        safety_margin=settings.token_count_safety_margin)
-    ledger.add("system_prompt", messages[0]["content"] if messages else "")
-    ledger.add("recent_turns", sum(
-        count_tokens_messages([m]) for m in messages[1:-1]
-        if not m["content"].startswith("=== RETRIEVED CONTEXT")))
-    ledger.add("evidence", sum(f.token_count for f in fragments))
-    ledger.add("user_message", user_message)
-
-    plan = ledger.evict_plan()
+        safety_margin=settings.token_count_safety_margin,
+        memory_slots=memory_slots_list, retrieved_fragments=fragments,
+        user_message=user_message, db_session=db, conversation_id=str(conversation_id),
+        bookmarked_texts=bookmarked_texts, classification=result, scope=scope,
+        max_recent_tokens=recent_budget, session_start_text=session_start_text,
+        conversation_summary_text=conversation_summary_text, constraints_text=constraints_text,
+    )
+    messages, ledger, plan = prepared.messages, prepared.ledger, prepared.removed
+    prompt_tokens = count_tokens_messages(messages)
     if plan:
-        log.warning("context_evicting", plan=plan, overflow=ledger.overflow(),
+        log.warning("context_evicted", plan=plan, remaining_tokens=prompt_tokens,
                     window=effective_window)
-        messages = assemble_prompt(
-            memory_slots_list if "slots" not in plan else [],
-            [] if "evidence" in plan else fragments,
-            user_message,
-            db_session=db, conversation_id=str(conversation_id),
-            bookmarked_texts=None if "bookmarks" in plan else bookmarked_texts,
-            classification=result, scope=scope,
-            max_recent_tokens=64 if "recent_turns" in plan else recent_budget,
-            session_start_text=None if "session_start" in plan else session_start_text,
-            conversation_summary_text=(
-                None if "conversation_summary" in plan else conversation_summary_text),
-        )
-        prompt_tokens = count_tokens_messages(messages)
+    if not ledger.fits():
+        log.warning("context_required_blocks_exceed_window", prompt_tokens=prompt_tokens,
+                    window=effective_window)
+        return JSONResponse(status_code=400, content={"error": {
+            "message": "The current question and required context exceed the model context window.",
+            "type": "invalid_request_error", "code": "context_length_exceeded"}})
     ledger.log(log)
     fragments = evidence_after_eviction(fragments, plan)
     episodic_frags = [f for f in fragments if f.source_type == "episodic"]
@@ -730,8 +687,8 @@ async def chat_completions(
         "context_injection_complete",
         retrieved=mem_decision.retrieve,
         injected_fragments=len(fragments),
-        active_slots=len(memory_slots_list),
-        bookmarked_count=len(bookmarked_texts),
+        active_slots=prepared.item_counts["slots"],
+        bookmarked_count=prepared.item_counts["bookmarks"],
     )
 
     # (Model selection happens above, before budgeting/retrieval — C16.)

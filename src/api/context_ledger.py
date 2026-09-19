@@ -83,15 +83,9 @@ class ContextLedger:
         """
         if not self.serving_window:
             return 0
-        room = self.serving_window - self.generation_reserve
-        if room <= 0:
-            # A window no larger than the reserve (tinyllama serves 2,048 and
-            # the reserve IS 2,048). Returning 0 would make every prompt
-            # infinitely over budget and eviction pointless, which reports
-            # "extreme pressure" for a perfectly ordinary short question. Split
-            # the window instead: half to the prompt, half to the answer.
-            room = max(1, self.serving_window // 2)
-        return room
+        # Do not silently reduce the configured answer reserve: the upstream
+        # generation request still uses it. No room means explicit refusal.
+        return max(0, self.serving_window - self.generation_reserve)
 
     def fits(self) -> bool:
         if not self.serving_window:
@@ -115,6 +109,7 @@ class ContextLedger:
         if need <= 0:
             return []
         plan = []
+        remaining = self.total()
         for name in self.evict_order:
             if need <= 0:
                 break
@@ -125,7 +120,8 @@ class ContextLedger:
                 continue
             plan.append(name)
             self.evictions.append({"block": name, "tokens": size})
-            need -= size
+            remaining -= size
+            need = max(0, with_margin(remaining, self.safety_margin) - self.available())
         if need > 0:
             # Everything sheddable is gone and it still does not fit. The
             # question itself is the remainder — say so loudly rather than

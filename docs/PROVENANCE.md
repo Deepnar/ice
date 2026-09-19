@@ -1,3 +1,16 @@
+## 2026-09-19 — v3 prompt budget and bookmark consumer repair
+
+`uv run python tests/support/disposable_database.py -m pytest tests/smoke
+ tests/test_representation_support.py -q --tb=short` passed288 checks with three
+existing dependency deprecation warnings. The wrapper created/dropped its own
+PostgreSQL database. Actual assembler controls check exact ICE-token accounting,
+static-before-evidence eviction, constraints, unknown capacity and answer reserve.
+Actual chat route with controlled classifier/window reaches HTTP400 before graph
+usage; actual SQL bookmark reader preserves a late correction beyond1200 words
+and rejects an unsupported summary. Project SQL filters active/scoped constraints
+and sees a newly added constraint without a new sitting. No cloud model or paid
+API was used; no answer-quality or tokenizer-calibration result is claimed.
+
 ## 2026-09-14 — v3 adversarial NLI and source-sentence follow-through
 
 `qualify_nli.py --attribution` compares the original multilingual candidate and

@@ -81,3 +81,84 @@ def test_postflight_verdict_changes_substitution_in_actual_readers(monkeypatch,s
             assert all(summary not in text for text in (recent,prompt,selected))
             assert all('disabled' in text for text in (recent,prompt,selected))
         db.delete(row);db.flush();db.delete(db.get(Conversation,cid));db.commit()
+
+
+def test_bookmark_reader_preserves_late_correction_and_refuses_unverified_summary():
+    from src.api.prompt_assembler import bookmarked_turn_texts
+    with SessionLocal() as db:
+        cid=uuid.uuid4();db.add(Conversation(id=cid));db.flush()
+        raw='Earlier discussion. '*600+' Final correction: persistence must remain disabled.'
+        row=EpisodicMemory(conversation_id=cid,batch_id=uuid.uuid4(),raw_text=raw,
+            summary_text='Enable persistence.',summary_coverage=1.0,inject_raw=False,
+            is_bookmarked=True,context_reliance='Long_Term_Memory',idempotency_key=str(uuid.uuid4()))
+        db.add(row);db.flush()
+        rendered=bookmarked_turn_texts(db,cid)
+        assert len(rendered)==1 and rendered[0].endswith('Final correction: persistence must remain disabled.')
+        assert 'Enable persistence.' not in rendered[0]
+        assert bookmarked_turn_texts(db,uuid.uuid4())==[]
+        db.rollback()
+
+
+def test_chat_route_refuses_required_overflow_before_graph_usage(monkeypatch):
+    """Actual v3 route and SQL reads reach the real assembler's refusal."""
+    import asyncio
+    import json
+    from fastapi import BackgroundTasks
+    from src.api import main
+    from src.classifier.schemas import ClassificationResult
+
+    cid = uuid.uuid4()
+    class Request:
+        headers = {'X-ICE-Conversation-ID': str(cid)}
+        async def json(self):
+            return {'model': 'controlled-model', 'messages': [
+                {'role': 'user', 'content': 'Explain the complete record. ' * 400}]}
+    monkeypatch.setattr(main, 'core', None)
+    monkeypatch.setattr(main, 'classifier', SimpleNamespace(classify=lambda *a, **k:
+        ClassificationResult([], [], 'Standalone', [], .99)))
+    monkeypatch.setattr(main, 'get_fallback_model', lambda: 'controlled-model')
+    monkeypatch.setattr(main, 'get_model_context_window', lambda *a: 256)
+    monkeypatch.setattr(main, 'serving_window', lambda *a: 256)
+    monkeypatch.setattr(main, 'log_window_truth', lambda *a: None)
+    monkeypatch.setattr(main, 'decide_memory_retrieval', lambda *a, **k:
+        SimpleNamespace(retrieve=False, breakdown={}))
+    def unexpected_access(*args, **kwargs):
+        raise AssertionError('No evidence was delivered; usage must not be recorded')
+    monkeypatch.setattr(main, 'record_graph_access', unexpected_access)
+    with SessionLocal() as db:
+        try:
+            response = asyncio.run(main.chat_completions(Request(), BackgroundTasks(), db))
+            assert response.status_code == 400
+            assert json.loads(response.body)['error']['code'] == 'context_length_exceeded'
+        finally:
+            db.query(Conversation).filter_by(id=cid).delete()
+            db.commit()
+
+
+def test_project_constraints_are_live_scoped_and_separate_from_session_status():
+    from datetime import datetime, timezone
+    from src.memory.models import Decision, Project
+    from src.services.projects import chat_constraints, render_session_start
+
+    pid, other = uuid.uuid4(), uuid.uuid4()
+    with SessionLocal() as db:
+        try:
+            for ident in (pid, other):
+                db.add(Project(id=ident, name=str(ident), slug=str(ident), roots=[]))
+            db.flush()
+            db.add_all([
+                Decision(project_id=pid, decision='Keep the schema.', decision_type='constraint'),
+                Decision(project_id=pid, decision='Old restriction.', decision_type='constraint',
+                         valid_until=datetime.now(timezone.utc)),
+                Decision(project_id=other, decision='Foreign restriction.', decision_type='constraint'),
+                Decision(project_id=pid, decision='Ordinary decision.', decision_type='decision')])
+            db.flush()
+            assert chat_constraints(db, pid) == '- Keep the schema.'
+            db.add(Decision(project_id=pid, decision='Keep the API.', decision_type='constraint'))
+            db.flush()
+            assert 'Keep the API.' in chat_constraints(db, pid)
+            data = dict(project='Atlas', branch='main', constraints=['Keep the schema.'])
+            assert 'Keep the schema.' in render_session_start(data)
+            assert 'Keep the schema.' not in render_session_start(data, include_constraints=False)
+        finally:
+            db.rollback()

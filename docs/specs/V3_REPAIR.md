@@ -482,3 +482,31 @@ no source prefix or independent chunk entailment is accepted as full-context
 verification. This first turn consumer does not complete long-source compression
 or rolling/batch fold verification: those remain active repairs with distinct
 source manifests, not permission to credit coverage as faithfulness.
+
+### Prompt block accounting and bookmark evidence (2026-09-19)
+
+Bookmarks use the same supported representation selector as other turn readers;
+no unchecked summary and no500-word source prefix. Preserve complete selected
+representations and let the actual prompt budget drop whole optional blocks.
+
+Assembler reports structured token costs while constructing each block, not by
+parsing user-controlled headings afterward. Optional slots/session-start/bookmark/
+conversation-summary costs must not be buried in the essential system block.
+Include actual message envelopes and the retrieval acknowledgement. A shared
+bounded assembly loop remeasures after each eviction and returns final content,
+ledger and removed-block names. Do not send a known-overflow prompt; preserve
+current question/essential instruction/project constraints and return an explicit
+context-length error if even those cannot fit. Unknown provider window remains
+explicitly unmeasured. Apply the safety margin consistently when planning drops.
+
+Fetch active project constraints separately on every request, including within
+an existing sitting; session-start presentation excludes its duplicate constraint
+copy. Project/session-start service keeps its existing complete default for MCP.
+Telemetry and graph usage reflect final survivors, including bookmark/slot counts.
+Validate real assembler+budget consumer with static-before-evidence eviction,
+constraint preservation, exact counted block totals, tiny windows and unknown
+windows; verify bookmarked source late corrections through the SQL reader.
+
+A window no larger than the generation reserve has zero prompt room. Do not
+silently halve the reserve in accounting while sending the unchanged generation
+request. Such requests must be refused until the selected capacity/reserve fits.

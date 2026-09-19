@@ -290,6 +290,13 @@ same observation identity and confidence path.
 
 ## <a id="c16"></a>C16 — Model-aware context budget + need-based filling
 
+**v3 correction, 2026-09-19:** the original static-before-evidence claim below
+was not implemented end-to-end: four optional blocks were counted as essential
+system text. Structured assembly plus bounded reassembly now fixes this, preserves
+separate project constraints each request, and returns an explicit error for known
+required overflow. Bookmarks share supported representation selection without
+prefix cuts. See `PROVENANCE.md` prompt-budget repair for validation limits.
+
 *DONE 2026-07-29.* [← back to the queue](ROADMAP.md#c16)
 
 - [x] **C16 Model-aware context budget + need-based filling** `(new — raised by user 2026-07; model-aware half 2026-07, **need-based half DONE 2026-07-29**)` — ✅ **DONE 2026-07-29** (`3d2ce7d` tokens, `5c38795` window truth, `918b643` GPU embedder, `8ec9a32` coverage, `6b788f1` cold vectors, `c0326e5` recent window, `514e97d` ledger; migrations **`7c4d19ab35e2`** and **`9b3e71c2fa48`** = the new alembic head). **The framing changed before any code**, on the user's statement of the real goal: *"I want my system in terms of context to be BELOW the vector-RAG baseline, but it doesn't happen that nicely at all ever."* So the acceptance criterion is total prompt tokens vs the baseline with quality held — not the entry's narrower "need-based filling".
