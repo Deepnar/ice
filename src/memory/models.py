@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     Text,
     UniqueConstraint,
@@ -170,6 +171,11 @@ class EpisodicClusterLink(Base):
 
 class MemorySlot(Base):
     __tablename__ = "memory_slots"
+    __table_args__ = (
+        Index("uq_memory_slots_name_tier_anchor", "slot_name", "scope_tier",
+              "project_id", "conversation_id", unique=True,
+              postgresql_nulls_not_distinct=True),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     slot_name = Column(Text, nullable=False)  # valid names per tier: services/slots.py
@@ -182,7 +188,7 @@ class MemorySlot(Base):
     # C9 (D5): three-tier slots. 'global' rows keep NULL anchors; 'project'
     # rows carry project_id; 'conversation' rows carry conversation_id.
     # Uniqueness = NULLS NOT DISTINCT index on (slot_name, scope_tier,
-    # project_id, conversation_id) — the migration owns it.
+    # project_id, conversation_id), matching the migration and ORM-created stores.
     scope_tier = Column(Text, nullable=False, default="global", server_default="global")
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
     conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=True)
@@ -608,8 +614,8 @@ class BatchSummary(Base):
 
 class ConversationSummary(Base):
     """C4: ONE evolving summary per conversation — "the whole conversation so
-    far, current" (never a batch_summaries range row). Maintained incrementally
-    by the conversation_summary burst job; consumed by the assembler (active
+    far, current" (never a batch_summaries range row). Source-checked and rebuilt
+    when needed by the conversation_summary burst job; consumed by the assembler (active
     conversation, past the window condition) and the batch-summary retrieval
     leg (cross-conversation hits). T-track era digests read this shape as-is.
     Cascade delete = C10's conversation deletion takes the summary with it."""
@@ -618,6 +624,7 @@ class ConversationSummary(Base):
     conversation_id = Column(UUID(as_uuid=True),
                              ForeignKey("conversations.id", ondelete="CASCADE"),
                              primary_key=True)
+    source_manifest = Column(JSONB, nullable=True)
     summary_text = Column(Text, nullable=False)
     covers_through = Column(DateTime(timezone=True), nullable=True)
     covers_turns = Column(Integer, nullable=False, default=0)

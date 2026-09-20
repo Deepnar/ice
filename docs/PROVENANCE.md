@@ -1,3 +1,17 @@
+## 2026-09-20 — v3 rolling-summary source freshness
+
+317 smoke/SQL checks passed in a disposable database, including10 source-snapshot
+controls and an additive migration roundtrip. Actual writer plus active/cross
+readers reject edited/deleted/backfilled sources, changed output, and legacy NULL
+snapshots; strictly newer additions preserve a dated checkpoint and increment it.
+Generation and embeddings are controlled in these freshness tests: no semantic
+accuracy is inferred. The standalone conversation/slot suite passed28/28 after
+mirroring its migration-owned slot uniqueness index in ORM metadata. Its earlier
+26/28 result was a disposable-schema mismatch, not a production slot regression.
+Working migration a6d4e902b173 applied after checking f3c8d5e02b19 and verifying
+the existing slot index; nullable source_manifest confirmed. No historical
+snapshot backfill or corpus regeneration ran. Recursive fold quality remains open.
+
 ## 2026-09-20 — v3 background role and completion integrity
 
 Fresh resume validation:306 smoke/SQL checks passed (three dependency deprecation

@@ -1650,3 +1650,16 @@ parity. Before accepting an inference optimisation, hold the prompt fixed and
 assert a semantic property with direction—not merely a non-empty parse. If the
 writer changes, every downstream answer changes, so either rerun every control
 under the new writer or reject the substitution.
+
+### 60. ORM-created test stores can omit the production constraint being tested
+
+**v3, 2026-09-20.** The isolated conversation/slot suite reported a failed slot
+uniqueness check and a failed review update. The wrapper correctly used a fresh
+database, but `Base.metadata.create_all` omitted the migration-only NULLS NOT
+DISTINCT index. A deliberately duplicated slot survived, and a later read could
+select that duplicate. The working store already had the correct index.
+
+Mirror the existing index in ORM metadata, then rerun:28/28 passed. Isolation
+prevents cross-suite residue; it does not establish migration/schema parity.
+Before changing a service to fix an isolated-test failure, inspect the actual
+constraints. Keep migration roundtrips separate from ORM-created behavior tests.

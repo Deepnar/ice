@@ -2,13 +2,14 @@
 far, current" — never a batch_summaries range row).
 
 Runs in the session-end burst (quartet member since C4) and on its cadence;
-both are cheap: only conversations with turns newer than their summary's
-``covers_through`` do any work, and a summary row is first created only once
+unchanged source snapshots do no generation work, and a summary row is first created only once
 the conversation outgrows the sliding window (the D3a condition — a 2-turn
 chat never earns one). Maintenance is incremental: prompt = existing summary
 + the NEW turns' C1 representations, folded in bounded chunks, grounded
 C1-style (must-keep terms from the chunk, one retry on coverage miss).
-A failed LLM call leaves the old row untouched — the next burst retries.
+Edited/deleted sources and older imports rebuild from surviving representations;
+strictly newer additions can extend a valid checkpoint. A failed LLM call leaves
+the old row untouched — the next burst retries; stale snapshots are not injected.
 
 Consumers: the assembler (active conversation past the window condition,
 ``=== CONVERSATION SUMMARY ===``) and the batch-summary retrieval leg
@@ -25,12 +26,12 @@ import structlog
 
 from src.api.memory_decision import estimate_recent_window_tokens
 from src.memory.models import ConversationSummary, EpisodicMemory
+from src.memory.summary_snapshot import bind_snapshot, snapshot_matches, source_snapshot
 from src.memory.tokens import estimate_from_chars
 from src.workers.turn_density import (
     extract_key_terms,
     must_terms,
     retry_on_coverage_miss,
-    summary_coverage,
 )
 
 
@@ -131,8 +132,7 @@ def _summarize_chunk(existing: str, chunk_text: str, llm, embedder) -> str:
 
 def run_conversation_summaries(db, llm=None, embedder=None,
                                conversation_ids=None) -> dict:
-    """One pass: for every conversation with turns newer than its summary's
-    covers_through, fold the new turns into the evolving summary. Row
+    """Refresh changed source snapshots, incrementing only strictly newer turns. Row
     creation is gated on the D3a window condition (with the legacy default
     budget — the job doesn't know the routed model; the assembler re-checks
     at injection). *llm*/*embedder* are injectable and *conversation_ids*
@@ -147,7 +147,6 @@ def run_conversation_summaries(db, llm=None, embedder=None,
     from sqlalchemy import text as sql_text
     rows = db.execute(sql_text("""
         SELECT e.conversation_id AS cid, count(*) AS n_turns,
-               max(e.timestamp) AS last_ts,
                coalesce(sum(length(e.raw_text)), 0) AS chars
         FROM episodic_memory e
         GROUP BY e.conversation_id
@@ -159,16 +158,19 @@ def run_conversation_summaries(db, llm=None, embedder=None,
                  for s in db.query(ConversationSummary).all()}
 
     for row in rows:
-        # G4(a): per-conversation boundary, and `covers_through` means a
-        # conversation already folded is not redone on the requeued run.
+        # Yield between conversations; source identity detects unchanged work
+        # as well as edits/deletions/backfills that timestamp cursors missed.
         from src.workers.runtime import yield_if_user_active
         yield_if_user_active("conversation_summary.conversation")
         stats["scanned"] += 1
         existing_row = summaries.get(row.cid)
-        if existing_row is not None and existing_row.covers_through is not None \
-                and row.last_ts is not None \
-                and row.last_ts <= existing_row.covers_through:
-            continue                                  # nothing new
+        sources = source_snapshot(db, row.cid)
+        previous_valid = existing_row is not None and snapshot_matches(
+            existing_row.source_manifest, existing_row.summary_text, sources,
+            allow_newer=True)
+        if previous_valid and snapshot_matches(
+                existing_row.source_manifest, existing_row.summary_text, sources):
+            continue
         if existing_row is None:
             total_tokens = estimate_from_chars(row.chars)
             if total_tokens <= estimate_recent_window_tokens(row.n_turns):
@@ -177,9 +179,10 @@ def run_conversation_summaries(db, llm=None, embedder=None,
 
         q = db.query(EpisodicMemory).filter(
             EpisodicMemory.conversation_id == row.cid)
-        if existing_row is not None and existing_row.covers_through is not None:
-            q = q.filter(EpisodicMemory.timestamp > existing_row.covers_through)
-        new_turns = q.order_by(EpisodicMemory.timestamp.asc()).all()
+        if previous_valid:
+            covered_ids = [item["id"] for item in existing_row.source_manifest["sources"]]
+            q = q.filter(EpisodicMemory.id.notin_(covered_ids))
+        new_turns = q.order_by(EpisodicMemory.timestamp.asc(), EpisodicMemory.id.asc()).all()
         if not new_turns:
             continue
 
@@ -188,7 +191,7 @@ def run_conversation_summaries(db, llm=None, embedder=None,
 
         # Fold in bounded chunks; any failed call aborts THIS conversation
         # with the old row intact (retry next burst — never half-advance).
-        summary = existing_row.summary_text if existing_row else ""
+        summary = existing_row.summary_text if previous_valid else ""
         chunk, chunk_words, ok = [], 0, True
         for turn in new_turns:
             rep = _representation(turn)
@@ -219,9 +222,11 @@ def run_conversation_summaries(db, llm=None, embedder=None,
             db.add(ConversationSummary(
                 conversation_id=row.cid, summary_text=summary,
                 covers_through=new_turns[-1].timestamp,
-                covers_turns=row.n_turns, embedding=embedding, updated_at=now))
+                covers_turns=row.n_turns, embedding=embedding, updated_at=now,
+                source_manifest=bind_snapshot(sources, summary)))
             stats["created"] += 1
         else:
+            existing_row.source_manifest = bind_snapshot(sources, summary)
             existing_row.summary_text = summary
             existing_row.covers_through = new_turns[-1].timestamp
             existing_row.covers_turns = row.n_turns

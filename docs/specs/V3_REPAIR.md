@@ -527,3 +527,28 @@ coverage. A shared parser raises an explicit retryable failure; job boundaries
 log it and retain original source. Post-flight may keep raw on summary failure,
 but must propagate JobYielded to the runtime rather than marking yielded work
 complete. Timeout uses the actual configured summary output budget.
+
+### Rolling-summary source freshness (2026-09-20)
+
+Add a versioned source snapshot to ConversationSummary, binding its exact output
+hash to ordered source row IDs, source fingerprints and recorded timestamps.
+Fingerprints cover every representation input (raw, supplied role boundaries,
+summary/inject_raw fields), batch identity, privacy and timestamp provenance.
+Compute fingerprints in SQL so foreground validation does not transfer raw
+conversation content merely to hash it. This is cache freshness, NOT an NLI
+verdict, semantic coverage, or proof that every source word reached generation.
+
+Both active-conversation and cross-conversation readers check the snapshot.
+Legacy/missing/edited/deleted sources or changed summary output cannot be injected.
+Newer appended turns may retain the explicitly dated previous snapshot; an older
+or same-time import invalidates it. Maintenance compares source identities, not
+only max(timestamp). Rebuild from surviving source representations after a source
+change/backfill; increment only for strictly newer additions. A failed generation
+keeps the old checkpoint unchanged, though readers may withhold it if stale.
+Cold-source parity remains open: a missing warm source is unknown, never guessed.
+No legacy snapshot backfill that falsely certifies a previous generation.
+
+Validation discovered that ORM-created disposable stores omitted the existing
+NULLS NOT DISTINCT slot identity index owned by the C4/C9 migration. Mirror that
+exact index in ORM metadata: tests must exercise the production uniqueness
+contract, not allow duplicate slots and then misdiagnose ambiguous service reads.

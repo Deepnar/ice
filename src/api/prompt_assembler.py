@@ -44,6 +44,7 @@ from src.memory.models import (
 )
 from src.memory.representation import choose_representation
 from src.memory.source import source_units
+from src.memory.summary_snapshot import summary_snapshot_readable
 from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as _estimate_tokens
 from src.memory.tokens import count_messages
@@ -67,6 +68,8 @@ def conversation_summary_block(
     row = db_session.query(ConversationSummary).filter_by(
         conversation_id=_uuid.UUID(str(conversation_id))).first()
     if row is None or not row.summary_text:
+        return None
+    if not summary_snapshot_readable(db_session, row):
         return None
     behind = max(0, int(turn_count) - int(row.covers_turns or 0))
     stamp = f"(as of {behind} turns ago) " if behind > 0 else ""

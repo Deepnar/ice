@@ -200,7 +200,11 @@ try:
     db.add_all([conv_p, conv_c])
     db.commit()
     conv_ids += [conv_p.id, conv_c.id]
+    from src.memory.summary_snapshot import bind_snapshot, source_snapshot
+    add_turn(conv_p, "A private source for the privacy control.", base_ts)
     db.add(ConversationSummary(
+        source_manifest=bind_snapshot(source_snapshot(db, conv_p.id),
+                                      f"{MARK} private things happened"),
         conversation_id=conv_p.id,
         summary_text=f"{MARK} private things happened",
         covers_turns=5, embedding=V1,

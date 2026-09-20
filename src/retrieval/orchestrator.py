@@ -31,6 +31,7 @@ from src.memory.models import (
 )
 from src.memory.claims import claim_representation, excerpt_is_current, source_for_claim
 from src.memory.representation import choose_representation
+from src.memory.summary_snapshot import summary_snapshot_readable
 from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as count_tokens
 from src.retrieval import coverage, leg_weights
@@ -2324,7 +2325,7 @@ class HybridRetrievalOrchestrator:
             return fragments
         try:
             query = text("""
-                SELECT s.summary_text, s.updated_at,
+                SELECT s.summary_text, s.updated_at, s.source_manifest, s.conversation_id,
                        1 - (s.embedding <=> :prompt_embedding) as score
                 FROM conversation_summaries s
                 JOIN conversations c ON c.id = s.conversation_id
@@ -2345,7 +2346,7 @@ class HybridRetrievalOrchestrator:
                 source_type="batch_summary",
                 score=r.score,
                 token_count=count_tokens(rendered)
-            ) for r in rows]
+            ) for r in rows if summary_snapshot_readable(self.db, r)]
         except Exception as err:
             self._leg_degraded("batch_summary.cross", err)
         return fragments
