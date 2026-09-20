@@ -136,7 +136,6 @@ def test_failed_conversation_completion_preserves_previous_checkpoint(monkeypatc
     monkeypatch.setattr(bg_client_factory, 'get_bg_client', lambda:
         client_for(lambda **kw: response('Plausible incomplete replacement.', 'length')))
     monkeypatch.setattr(bg_client_factory, 'get_bg_model_name', lambda: 'local-background')
-    monkeypatch.setattr(worker, 'extract_key_terms', lambda *a: dict(entities=[], figures=[], identifiers=[]))
     with SessionLocal() as db:
         turns = seed_turns(db, cid, sid)
         checkpoint = turns[0].timestamp

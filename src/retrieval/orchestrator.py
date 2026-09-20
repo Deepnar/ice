@@ -2331,6 +2331,10 @@ class HybridRetrievalOrchestrator:
                 JOIN conversations c ON c.id = s.conversation_id
                 WHERE s.embedding IS NOT NULL
                   AND c.memory_scope_type != 'none'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM episodic_memory private_source
+                      WHERE private_source.conversation_id = s.conversation_id
+                        AND private_source.is_private = TRUE)
                   AND (CAST(:conv_id AS uuid) IS NULL
                        OR s.conversation_id != CAST(:conv_id AS uuid))
                 ORDER BY score DESC

@@ -8,7 +8,7 @@ from src.api.config import settings
 from src.memory.source import digest
 
 logger = structlog.get_logger('ice.memory.summary_snapshot')
-SNAPSHOT_VERSION = 2  # v3 complete, supported fold inputs; invalidates prefix-era roots
+SNAPSHOT_VERSION = 3  # v3 independent notes; invalidates recursive roots
 
 
 def source_snapshot(db, conversation_id):
@@ -35,9 +35,16 @@ def representation_policy():
             'coverage_threshold': settings.turn_summary_coverage_threshold}
 
 
-def bind_snapshot(sources, summary):
+def compose_parts(parts):
+    return "\n\n".join(
+        f"[Original-source segment {i}; {part['mode']} evidence; "
+        f"recorded range: {part.get('recorded_range', 'unknown')}]\n{part['text']}"
+        for i, part in enumerate(parts, 1))
+
+
+def bind_snapshot(sources, summary, *, parts=None):
     return {'version': SNAPSHOT_VERSION, 'summary_sha256': digest(summary), 'sources': sources,
-            'representation_policy': representation_policy()}
+            'representation_policy': representation_policy(), 'parts': parts}
 
 
 def snapshot_matches(record, summary, current, *, allow_newer=False):
@@ -56,6 +63,16 @@ def snapshot_matches(record, summary, current, *, allow_newer=False):
     now = {item['id']: item for item in current}
     if len(old) != len(saved) or any(now.get(key) != item for key, item in old.items()):
         return False
+    parts = record.get('parts')
+    if parts is not None:
+        if (not isinstance(parts, list) or not parts
+                or any(not isinstance(p, dict) or p.get('mode') not in ('source', 'supported')
+                       or not isinstance(p.get('text'), str) or not p['text']
+                       or not isinstance(p.get('source_ids'), list) for p in parts)):
+            return False
+        ids = [sid for p in parts for sid in p['source_ids']]
+        if ids != [item['id'] for item in saved] or compose_parts(parts) != summary:
+            return False
     extra = [item for item in current if item['id'] not in old]
     if not extra:
         return True
@@ -70,7 +87,7 @@ def snapshot_matches(record, summary, current, *, allow_newer=False):
 
 def summary_snapshot_readable(db, row):
     current = source_snapshot(db, row.conversation_id)
-    matches = snapshot_matches(row.source_manifest, row.summary_text, current,
+    matches = bool((row.source_manifest or {}).get('parts')) and snapshot_matches(row.source_manifest, row.summary_text, current,
                                allow_newer=True)
     if not matches:
         logger.warning('conversation_summary_source_stale',

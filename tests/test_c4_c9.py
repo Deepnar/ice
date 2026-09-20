@@ -147,10 +147,11 @@ try:
     row_a = db.query(ConversationSummary).filter_by(
         conversation_id=conv_a.id).first()
     new_prompts = llm_calls[n_before:]
-    check("incremental update: old summary carried into the prompt, "
+    check("incremental update: old notes retained without entering the prompt, "
           "covers_through advances",
           stats2["updated"] == 1
-          and any(first_text in p for p in new_prompts)
+          and all(first_text not in p for p in new_prompts)
+          and first_text in row_a.summary_text
           and all("topic 0" not in p for p in new_prompts)
           and row_a.covers_through > first_through
           and row_a.covers_turns == 9)
@@ -200,13 +201,16 @@ try:
     db.add_all([conv_p, conv_c])
     db.commit()
     conv_ids += [conv_p.id, conv_c.id]
-    from src.memory.summary_snapshot import bind_snapshot, source_snapshot
+    from src.memory.summary_snapshot import bind_snapshot, compose_parts, source_snapshot
     add_turn(conv_p, "A private source for the privacy control.", base_ts)
+    private_sources = source_snapshot(db, conv_p.id)
+    private_parts = [dict(source_ids=[s['id'] for s in private_sources],
+                          text=f"{MARK} private things happened", mode='source')]
+    private_summary = compose_parts(private_parts)
     db.add(ConversationSummary(
-        source_manifest=bind_snapshot(source_snapshot(db, conv_p.id),
-                                      f"{MARK} private things happened"),
+        source_manifest=bind_snapshot(private_sources, private_summary, parts=private_parts),
         conversation_id=conv_p.id,
-        summary_text=f"{MARK} private things happened",
+        summary_text=private_summary,
         covers_turns=5, embedding=V1,
         updated_at=datetime.now(timezone.utc)))
     db.commit()

@@ -37,12 +37,12 @@ full-history distractor robustness.
 | Context budget | Actual optional-block accounting and reassembly, static context removed before evidence, protected project constraints, explicit required-overflow refusal | Exact tokenization for every future cloud model |
 | Background outputs | Foreground model names cannot override summary/procedural background jobs; incomplete outputs cannot advance coverage/checkpoints; runtime yield propagates | All runtime/provider-control defects repaired |
 | Summary freshness | Source/output snapshots catch edits, deletion, backfill and changed verification policy; both readers reject stale checkpoints | Fresh output is necessarily faithful |
-| Fold preservation | Complete supported turn representations instead of hidden source heads, whole-unit grouping, bounded complete request, no generated-output word cut | Recursive error compounding solved or overlarge source units compressed |
+| Independent source notes | Original-only generation, NLI-gated note substitution, complete source fallback, cached parts never fed into generation; complete embedding coverage | Compact query-selectable overview, long-source compression or answer-quality improvement |
 
 ## Validation so far
 
-Latest regression selection:465 smoke, SQL and settings checks passed; an
-additional positive provider-boundary check passed1/1. The standalone
+Latest regression selection:467 smoke, SQL and settings checks passed. Independent
+note generation also passed8/8 actual NLI-plus-writer synthetic controls. The standalone
 conversation/slot suite passed28/28. These selections overlap earlier test runs;
 do not sum their counts as unique coverage.
 
@@ -68,12 +68,12 @@ controls informed implementation choices; they are not LME/LSREP answer scores.
   index was already correct.
 - The rolling fold had its own unchecked-summary/raw-prefix reader and output
   word-cut. Complete evidence now reaches its generator, subject to an explicit
-  capacity refusal rather than silent loss. The recursive generator is still an
-  unfinished design repair.
+  capacity refusal rather than silent loss. Recursive generation is now removed;
+  notes use originals and uncertain compression retains source evidence.
 
 ## Repair work still required
 
-1. **Summary quality:** replace recursive generated-summary-as-evidence folding;
+1. **Summary quality:** query-selectable independent notes and bounded overview;
    qualify long-source compression, batch summaries, and richer graph notes.
    Preserve supported detail and temporal corrections without dumping all history.
 2. **Graph semantics:** resolve remaining open-vocabulary relation conflicts,

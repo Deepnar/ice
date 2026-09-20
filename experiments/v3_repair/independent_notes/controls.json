@@ -1,0 +1,179 @@
+{
+  "version": "ICE v3",
+  "model": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli",
+  "revision": "b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7",
+  "threshold": 0.95,
+  "scope": "8 synthetic model-plus-writer decisions; not benchmark or general quality estimate",
+  "passed": 8,
+  "total": 8,
+  "rows": [
+    {
+      "case": "negation",
+      "expected_supported": true,
+      "admitted": true,
+      "candidate": "The user says Redis must remain disabled.",
+      "source": "[source recorded: 2026-09-20T00:00:00Z]  The user said: \"Atlas keeps Redis disabled. Do not enable Redis.\"",
+      "verification": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9851593375205994,
+          "neutral": 0.01341639831662178,
+          "contradiction": 0.0014243703335523605
+        },
+        "reason": "model_score",
+        "source_sha256": "6ce5914805e0adc0de4feb49b6f245a59f0cbc39b3b1ca94a354ed928f4d3599",
+        "claim_sha256": "ba06bc20e9602df6b7f8ebdf4235e064c5bbbe4023ce969a518ca5fbe4c85377",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      },
+      "original_preserved": true,
+      "passed": true
+    },
+    {
+      "case": "negation",
+      "expected_supported": false,
+      "admitted": false,
+      "candidate": "The user says Redis must be enabled.",
+      "source": "[source recorded: 2026-09-20T00:00:00Z]  The user said: \"Atlas keeps Redis disabled. Do not enable Redis.\"",
+      "verification": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.0003384471347089857,
+          "neutral": 0.00020142816356383264,
+          "contradiction": 0.9994600415229797
+        },
+        "reason": "model_score",
+        "source_sha256": "6ce5914805e0adc0de4feb49b6f245a59f0cbc39b3b1ca94a354ed928f4d3599",
+        "claim_sha256": "2737a729cd8c823b562b388c99de6844ed58d43da5d631a362623f4bd68492cc",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      },
+      "original_preserved": true,
+      "passed": true
+    },
+    {
+      "case": "conditional",
+      "expected_supported": true,
+      "admitted": true,
+      "candidate": "The user says deployment on Friday depends on approval, which is still pending.",
+      "source": "[source recorded: 2026-09-20T00:00:00Z]  The user said: \"If Atlas gets approval, Atlas will deploy on Friday. Approval is still pending.\"",
+      "verification": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9987087249755859,
+          "neutral": 0.0011307450477033854,
+          "contradiction": 0.0001604845019755885
+        },
+        "reason": "model_score",
+        "source_sha256": "b05e1afc82f87c4f27366c4bffb5b615df190583cc4ab3818ff0424dce83dc73",
+        "claim_sha256": "254ae5273da45e8905977515155c587222f6848732fcaa3f244c7671a37670ce",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      },
+      "original_preserved": true,
+      "passed": true
+    },
+    {
+      "case": "conditional",
+      "expected_supported": false,
+      "admitted": false,
+      "candidate": "The user says deployment on Friday is approved.",
+      "source": "[source recorded: 2026-09-20T00:00:00Z]  The user said: \"If Atlas gets approval, Atlas will deploy on Friday. Approval is still pending.\"",
+      "verification": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.0010949306888505816,
+          "neutral": 0.0014086063019931316,
+          "contradiction": 0.9974964261054993
+        },
+        "reason": "model_score",
+        "source_sha256": "b05e1afc82f87c4f27366c4bffb5b615df190583cc4ab3818ff0424dce83dc73",
+        "claim_sha256": "4a7d1fb94767fc5e20723fd753fdda2cf7083b33955a91d61e05330c10834276",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      },
+      "original_preserved": true,
+      "passed": true
+    },
+    {
+      "case": "speaker",
+      "expected_supported": true,
+      "admitted": true,
+      "candidate": "The assistant suggests Redis; the user has not agreed.",
+      "source": "[source recorded: 2026-09-20T00:00:00Z]  The assistant said: \"I suggest using Redis, but the user has not agreed.\"",
+      "verification": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9934628009796143,
+          "neutral": 0.005429629236459732,
+          "contradiction": 0.0011075654765591025
+        },
+        "reason": "model_score",
+        "source_sha256": "9279f6ae9f90d9142f9d4cb31771834f73f58bde60ff5a570cb5aee83849436e",
+        "claim_sha256": "cee854f3c079ac6e8c8e19e7a03939fe2a7b0cc091ba6dc0402247338ab2edb0",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      },
+      "original_preserved": true,
+      "passed": true
+    },
+    {
+      "case": "speaker",
+      "expected_supported": false,
+      "admitted": false,
+      "candidate": "The user decided to use Redis.",
+      "source": "[source recorded: 2026-09-20T00:00:00Z]  The assistant said: \"I suggest using Redis, but the user has not agreed.\"",
+      "verification": {
+        "status": "unknown",
+        "scores": {
+          "entailment": 0.002357775578275323,
+          "neutral": 0.06170264631509781,
+          "contradiction": 0.9359396696090698
+        },
+        "reason": "model_score",
+        "source_sha256": "9279f6ae9f90d9142f9d4cb31771834f73f58bde60ff5a570cb5aee83849436e",
+        "claim_sha256": "199299e83a0ff7a1bfadbad62d7450dd10f8f27bb36ba65ddfebce3705e03d31",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      },
+      "original_preserved": true,
+      "passed": true
+    },
+    {
+      "case": "correction",
+      "expected_supported": true,
+      "admitted": true,
+      "candidate": "The user corrected the port from 8391 to 8392.",
+      "source": "[source recorded: 2026-09-20T00:00:00Z]  The user said: \"Atlas initially planned to use port 8391. Correction: Atlas now uses port 8392 instead.\"",
+      "verification": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9962067604064941,
+          "neutral": 0.002731198677793145,
+          "contradiction": 0.0010619923705235124
+        },
+        "reason": "model_score",
+        "source_sha256": "053b9b743c3572c54644b07889bbc1c9a49bcbd0d249602a066925fba1c706f6",
+        "claim_sha256": "18fc33f39dc658ac48444a103b97105f8a55c0743cde838e639a3ce280f37b05",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      },
+      "original_preserved": true,
+      "passed": true
+    },
+    {
+      "case": "correction",
+      "expected_supported": false,
+      "admitted": false,
+      "candidate": "The user says Atlas now uses port 8391.",
+      "source": "[source recorded: 2026-09-20T00:00:00Z]  The user said: \"Atlas initially planned to use port 8391. Correction: Atlas now uses port 8392 instead.\"",
+      "verification": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.003541281446814537,
+          "neutral": 0.0007527728448621929,
+          "contradiction": 0.9957059025764465
+        },
+        "reason": "model_score",
+        "source_sha256": "053b9b743c3572c54644b07889bbc1c9a49bcbd0d249602a066925fba1c706f6",
+        "claim_sha256": "d3ea4fbf0671d78f16266373b31d13e4e0b3b839b425ddbc75e962cf05624753",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      },
+      "original_preserved": true,
+      "passed": true
+    }
+  ]
+}

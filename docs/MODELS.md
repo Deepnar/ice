@@ -456,3 +456,16 @@ Turn summarization and procedural extraction now always resolve their model
 through `get_bg_model_name()`. A foreground cloud model name in `model_used`
 cannot override the background pin. No model promotion or cloud provider setup
 accompanies this repair; the unpinned factory fallback remains explicitly warned.
+
+### v3 long-source NLI candidate — 2026-09-20 (not deployed)
+
+`tasksource/ModernBERT-base-nli`, pinned
+`de4ab7e77845098b7fab7f6ab9d370ddff27b19c`, is being checked as a longer-input
+source-support candidate. Its **actual config says2048 positions**, despite the
+ModernBERT family's larger advertised window. Label order entailment/neutral/
+contradiction verified from that revision. No production setting changed. At the unchanged0.95 cutoff, the same30
+controls passed28: falsely admitted Hindi negation and withheld an informal
+supported paraphrase. It does not qualify as a replacement. Model card includes document/dialogue/context NLI training:
+https://huggingface.co/tasksource/ModernBERT-base-nli . Cached only;30-pair float32 run peaked at0.588GiB allocated and took0.87s
+after load. Long-input qualification is not established. Artifact:
+`experiments/v3_repair/results/nli_modernbert_candidate.json`.

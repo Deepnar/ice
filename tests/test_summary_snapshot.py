@@ -14,6 +14,8 @@ from src.api.config import settings
 from src.api.db import SessionLocal, engine
 from src.api.prompt_assembler import conversation_summary_block
 from src.memory.models import Conversation, ConversationSummary, EpisodicMemory
+from src.memory.source import single_provenance
+from src.memory.support import verify_support
 from src.memory.summary_snapshot import bind_snapshot, source_snapshot, snapshot_matches
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.workers import conversation_summary as worker
@@ -36,14 +38,13 @@ def test_snapshot_migration_roundtrip():
 def context(monkeypatch):
     cid, other = uuid.uuid4(), uuid.uuid4()
     monkeypatch.setattr(worker, 'estimate_recent_window_tokens', lambda *a: 0)
-    monkeypatch.setattr(worker, 'extract_key_terms', lambda *a:
-                        dict(entities=[], figures=[], identifiers=[]))
     db = SessionLocal()
     db.add_all([Conversation(id=cid), Conversation(id=other)]); db.commit()
     base = datetime.now(timezone.utc) - timedelta(days=2)
     def add(body, minutes):
         row = EpisodicMemory(conversation_id=cid, batch_id=uuid.uuid4(),
             timestamp=base + timedelta(minutes=minutes), raw_text=body, inject_raw=True,
+            source_spans=single_provenance(body, 'user'),
             context_reliance='Long_Term_Memory', idempotency_key=str(uuid.uuid4()))
         db.add(row); db.commit()
         return row
@@ -53,7 +54,9 @@ def context(monkeypatch):
         return f'Controlled snapshot number {len(calls)}.'
     def run():
         return worker.run_conversation_summaries(db, llm=llm,
-            embedder=NS(encode=lambda *a, **k: VEC), conversation_ids=[cid])
+            embedder=NS(encode=lambda *a, **k: VEC), conversation_ids=[cid],
+            verifier=lambda p, h: verify_support(p, h, scorer=lambda pairs:
+                [dict(entailment=.99, neutral=.005, contradiction=.005)]))
     first = add('Atlas used port 8391.', 0)
     second = add('Atlas changed the port to 8392.', 10)
     run()
@@ -111,7 +114,8 @@ def test_strictly_newer_append_keeps_dated_snapshot_and_updates_incrementally(co
     assert_readable(ctx, True)
     start = len(ctx.calls)
     assert ctx.run()['updated'] == 1
-    assert any(previous in prompt for prompt in ctx.calls[start:])
+    assert all(previous not in prompt for prompt in ctx.calls[start:])
+    assert previous in ctx.db.query(ConversationSummary).filter_by(conversation_id=ctx.cid).one().summary_text
     assert all('Atlas used port 8391.' not in prompt for prompt in ctx.calls[start:])
 
 
@@ -153,3 +157,71 @@ def test_actual_fold_writer_receives_complete_late_correction(context):
     assert ctx.run()['updated'] == 1
     assert any(full in prompt for prompt in ctx.calls[start:])
     assert all('Deploy Redis.' not in prompt for prompt in ctx.calls[start:])
+
+
+def test_rejected_generation_reaches_both_readers_as_original_evidence(context):
+    ctx = context
+    raw = 'Atlas must not deploy the database. The cancellation remains final.'
+    turn = ctx.add(raw, 20)
+    result = worker.run_conversation_summaries(ctx.db,
+        llm=lambda *a, **k: 'Atlas must deploy the database.',
+        embedder=NS(encode=lambda *a, **k: VEC), conversation_ids=[ctx.cid],
+        verifier=lambda p, h: verify_support(p, h, scorer=lambda pairs:
+            [dict(entailment=.001, neutral=.009, contradiction=.99)]))
+    assert result['updated'] == 1
+    row = ctx.db.query(ConversationSummary).filter_by(conversation_id=ctx.cid).one()
+    part = row.source_manifest['parts'][-1]
+    assert part['mode'] == 'source' and part['source_ids'] == [str(turn.id)]
+    assert raw in row.summary_text
+    assert 'Atlas must deploy the database.' not in row.summary_text
+    own = conversation_summary_block(ctx.db, str(ctx.cid), 3, 10000, 1)
+    cross = HybridRetrievalOrchestrator(ctx.db, NS())._batch_summary_lookup(VEC, str(ctx.other))
+    assert raw in own and any(raw in f.text for f in cross)
+
+
+def test_later_group_failure_does_not_half_advance_or_feed_generated_note(context, monkeypatch):
+    ctx = context
+    row = ctx.db.query(ConversationSummary).filter_by(conversation_id=ctx.cid).one()
+    previous = row.summary_text
+    previous_manifest = row.source_manifest
+    ctx.add('Third independent source group.', 20)
+    ctx.add('Fourth independent source group.', 30)
+    monkeypatch.setattr(settings, 'conversation_summary_chunk_words', 1)
+    calls = []
+    def llm(prompt, **kwargs):
+        calls.append(prompt)
+        return 'An invented intermediate note.' if len(calls) == 1 else ''
+    result = worker.run_conversation_summaries(ctx.db, llm=llm,
+        embedder=NS(encode=lambda *a, **k: VEC), conversation_ids=[ctx.cid],
+        verifier=lambda p, h: verify_support(p, h, scorer=lambda pairs:
+            [dict(entailment=.99, neutral=.005, contradiction=.005)]))
+    assert result['failed'] == 1 and len(calls) == 2
+    assert all('An invented intermediate note.' not in p and previous not in p for p in calls)
+    ctx.db.expire_all()
+    assert row.summary_text == previous and row.source_manifest == previous_manifest
+
+
+def test_changed_cached_part_cannot_be_reused_or_read(context):
+    ctx = context
+    import copy
+    row = ctx.db.query(ConversationSummary).filter_by(conversation_id=ctx.cid).one()
+    manifest = copy.deepcopy(row.source_manifest)
+    manifest['parts'][0]['text'] = 'A planted cached invention.'
+    row.source_manifest = manifest
+    ctx.db.commit()
+    assert_readable(ctx, False)
+    start = len(ctx.calls)
+    ctx.run()
+    assert all('A planted cached invention.' not in p for p in ctx.calls[start:])
+    assert_readable(ctx, True)
+
+
+def test_private_turn_in_public_conversation_stays_own_scope(context):
+    ctx = context
+    assert_readable(ctx, True)
+    ctx.first.is_private = True
+    ctx.db.commit()
+    ctx.run()  # Current valid manifest: privacy, not staleness, must deny cross read.
+    assert conversation_summary_block(ctx.db, str(ctx.cid), 3, 10000, 1)
+    assert not HybridRetrievalOrchestrator(ctx.db, NS())._batch_summary_lookup(
+        VEC, str(ctx.other))

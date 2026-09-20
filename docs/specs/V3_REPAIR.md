@@ -584,3 +584,42 @@ setting is a generation target; actual completion tokens and final prompt budget
 remain bounds. Bump the snapshot policy version so previously prefix-derived
 checkpoints are rebuilt. These changes remove deterministic input/output loss;
 they do not establish faithfulness of recursively generated conversation folds.
+
+### Independent source notes — 2026-09-20
+
+Replace recursive fold generation with independently generated source-group notes.
+The existing JSON source manifest stores each group's source IDs, exact rendered
+note and support verdict; no new table is needed for this cache boundary. A new
+tail generates new groups only. Changed/deleted/backfilled sources rebuild from
+originals. Never put an earlier generated note in a later generation prompt.
+Use complete original role-attributed source units, with recorded timestamps,
+as both generation input and NLI premise. Unknown role metadata remains explicitly
+unknown, never inferred from textual speaker markers. Remove the hard verbatim
+term demand and its coverage retry: preserving a word is not preserving its claim.
+
+Only a current positive NLI verdict allows a generated note to replace its source
+group. Otherwise retain the complete original group, warn with status/reason,
+and mark the part as source evidence. A complete provider failure still leaves
+the previous checkpoint untouched. Compose parts verbatim in source order, with
+explicit segment boundaries and an instruction that later evidence may change
+earlier statements. Bind parts as well as output to snapshot policy version3;
+earlier recursive checkpoints must regenerate. Reuse never treats the cached
+text as a new source of truth. No sentence-prefix or output-word truncation.
+
+This removes error propagation and unsupported substitution, not the long-source
+compression problem: >512-token NLI pairs remain unknown, and lossless fallbacks
+can make the composed context expensive. Query-selectable source segments and a
+bounded overview remain part of G73, alongside actual model qualification; do not
+mark the whole fold repair complete or claim reduced prompt cost from this step.
+The existing final prompt budget continues to count/evict the complete block.
+Because this composition can exceed the encoder's window, its overview vector
+must not silently represent only a prefix. Split only the embedding input into
+complete contiguous spans bounded by that encoder's tokenizer/window; pool their
+length-weighted vectors and normalize. The supplied evidence itself is unchanged.
+This pooling prevents prefix loss, not topic dilution; independently ranked
+source segments remain the retrieval design work above.
+Cross-conversation overview reads also exclude any conversation containing a
+private source turn, even if the conversation itself is not incognito. Whole
+overview scope cannot selectively redact one note without reconstructing it;
+retain own-conversation access, and test a valid-manifest public conversation
+with a private turn so missing provenance cannot mask a privacy failure.

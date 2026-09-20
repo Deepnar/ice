@@ -3720,3 +3720,30 @@ and migration roundtrip covered. Initial failures were outdated eligibility
 fixtures, a wrong test method name, and ORM fixture cleanup; final runs passed.
 Working migration f3c8d5e02b19 applied from checked e2b7c4d91a08 baseline and column
 verified. No legacy marker replay/backfill.
+
+
+## 2026-09-20 — v3 independent-note source support
+
+Script `scripts/oneoff/v3_independent_note_controls.py`, artifact
+`experiments/v3_repair/independent_notes/controls.json`:8 synthetic source/note
+pairs through actual `_source_note` and pinned DeBERTa verifier, threshold0.95,
+float32. Four supported notes accepted; four altered claims rejected, with exact
+original-source preservation. Cases cover negation, conditions, speaker swap and
+late correction; no personal corpus, no threshold fitting, no answering model.
+This is a bounded implementation control, not a quality-rate estimate or proof
+that long sources compress. Generated candidates are controlled, not live LLM
+outputs. Selected model/revision unchanged.467 smoke/SQL/settings checks and28
+standalone conversation/slot checks passed; selections overlap prior runs.
+
+Longer-input candidate: unchanged `qualify_nli.py --attribution`, model
+`tasksource/ModernBERT-base-nli` revisionde4ab7e77845098b7fab7f6ab9d370ddff27b19c,
+artifact `experiments/v3_repair/results/nli_modernbert_candidate.json`. Same30
+controls, float32, no truncation, no threshold fit. At0.95:28/30, one false
+admission (Hindi negation,0.99388) and one supported informal paraphrase withheld
+(0.51189). Actual config2048 positions, not the family's advertised8192. Peak
+allocated630525440bytes;0.87s after load. Candidate cached, **not promoted**;
+this failure does not resolve or cancel long-source verification work.
+
+Valid-manifest privacy control also verifies that a private turn in a public
+conversation prevents cross-conversation overview retrieval while own context
+remains accessible. This is separate from source-staleness rejection.

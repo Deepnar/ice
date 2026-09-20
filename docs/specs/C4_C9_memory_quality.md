@@ -68,15 +68,13 @@ slots flat.
 
 ## v3 execution corrections — 2026-09-20
 
-`V3_REPAIR.md` supersedes the historical fold-input/output mechanics below:
-source snapshots detect edits/deletions/backfills, complete supported turn
-representations replace source prefixes, whole-unit grouping precedes a full
-request capacity check, and complete outputs are never word-cut.250 words is a
-generation target, not a truncation permission. Snapshot policyv2 includes support
-verdict/policy changes. Recursive generated-summary dependence remains unresolved;
-term coverage must not be described as semantic faithfulness.
-
-## 1. Decisions
+`V3_REPAIR.md` supersedes the historical recursive fold mechanics below.
+The v3 worker now generates independent notes from complete original attributed
+source groups; no earlier generated note enters a later prompt. Current full-pair
+NLI support permits compact substitution; uncertainty retains original evidence.
+Policyv3 source snapshots bind independent parts and output. The composed context
+still needs query-selectable segments and a bounded overview; long-source and
+batch-summary verification remain open. The existing final prompt budget applies.
 
 ### C4 — conversation summary object
 - **D1: one evolving summary per conversation**, new table:
