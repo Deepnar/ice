@@ -1,3 +1,19 @@
+## 2026-09-20 — v3 complete fold input/output preservation
+
+465 smoke/SQL/settings checks passed in a disposable database, plus a subsequently
+added positive provider-boundary control (1/1) and the standalone conversation/
+slot suite (28/28). The actual fold writer receives a late correction beyond the
+former400-word cap and rejects an unsupported summary as its input. Unit controls
+retain complete output tails, compact supported inputs, whole-unit grouping and
+explicit pre-provider refusal of oversized complete requests. Snapshot controls
+also invalidate changed support verdicts and verifier/coverage policy.
+
+Provider responses are controlled here; these tests establish preservation and
+integration, not semantic improvement of generated folds. No broad experiment or
+additional model qualification ran. Snapshot policy2 requires regeneration of
+older snapshots; no corpus rewrite/backfill was performed. Evaluation scope is
+now explicitly LME oracle and semi-LSREP only, per the user; no full LME-S campaign.
+
 ## 2026-09-20 — v3 rolling-summary source freshness
 
 317 smoke/SQL checks passed in a disposable database, including10 source-snapshot

@@ -1078,3 +1078,11 @@ Added one shared writer/validator for role offsets rather than parsing message
 labels as evidence of authorship. Recent raw chat rendering consumes validated
 spans. Cold archive/restoration retains source spans and timestamp provenance.
 No backfill or raw-text rewriting; additive migration only. No files moved.
+
+### 2026-09-20 — v3 fold prefix-cap retirement
+
+Removed `conversation_summary_per_turn_words` and its settings-freeze row: it
+silently clipped evidence before generation. Whole-unit grouping and complete
+request token bounds now control input size. Removed generated-summary word cuts;
+`conversation_summary_max_words` remains a generation target. No files moved or
+deleted. Active spec, architecture, inventory and roadmap references updated.

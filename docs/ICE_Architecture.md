@@ -1001,7 +1001,29 @@ A fingerprint proves cache identity only, not faithful meaning or complete word
 coverage. Missing warm sources (including cold-only sources) remain unknown until
 archive-source parity is implemented; there is no guessed historical backfill.
 
-The semantic fold remains under repair: C1 representations (inject_raw ⇒ raw, else the unchecked generated summary, else a raw head; ≤400 words/turn) accumulate into ≤3.5k-word chunks, each folded by one bounded bg-model call — prompt = existing summary + the chunk, **grounded C1-style** (must-keep terms via `turn_density.extract_key_terms`/`must_terms` over the chunk; one retry naming dropped terms on a `summary_coverage` miss), output ≤250 words. A failed generation leaves this conversation checkpoint untouched; provider exceptions propagate to runtime retry. Success updates text + `covers_through` (last folded turn's timestamp) + `covers_turns` + a fresh embedding (the shared codex-extractor embedder, lazily imported — G13). Incognito conversations DO get summaries (their own context — the retrieval consumer's scope join is the privacy shield, §6.1 leg 15); `conversation_ids=` restricts a pass (how tests stay off real conversations). **Two consumers:** the assembler's `=== CONVERSATION SUMMARY ===` block for the active conversation (§7.1/§7.2) and the batch-summary leg's cross-conversation half (§6.1). T-track's era digests read these rows as-is (T4 look-ahead preserved).
+**v3 fold preservation (2026-09-20).** The shared representation selector now
+supplies complete source-supported turn summaries or complete raw evidence, with
+recorded timestamps. The independent unchecked-summary/300-character/400-word
+reader is removed. Whole representations pack before the3500-word soft target;
+a single oversized representation stays whole. Before the real model call,
+complete message tokens plus output reserve and safety margin must fit the
+configured ceiling, clamped by the observed shared-Ollama window. Over-budget
+input raises visibly without advancing the checkpoint. This does not yet compress
+arbitrarily large source units. The250-word summary setting is a generation target,
+not a post-generation cutter; completed final sentences are preserved. Snapshot
+policy version2 includes source verdict fingerprints and current verifier/coverage
+policy, forcing prefix-era roots to rebuild. No schema migration for this version.
+
+**Semantic folding remains open.** The generator still recursively combines the
+previous generated summary and new evidence, with term-coverage retry. Input
+support and source freshness do not certify its output. Success stores the text,
+source snapshot, coverage cursor and embedding atomically; generation failures
+preserve the old checkpoint. Both active-conversation and cross-conversation
+readers enforce source freshness, while final prompt assembly enforces context
+budget. Incognito conversation summaries stay within their conversation through
+the cross-reader privacy join. Full source-grounded fold/long-source verification
+is the next design repair, not completed by these input/output preservation checks.
+
 
 
 ## **9. Model Registry and Mixture-of-Experts Routing**

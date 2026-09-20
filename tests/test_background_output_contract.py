@@ -16,6 +16,13 @@ assert (os.environ.get('ICE_TEST_DATABASE', '').startswith('ice_test_') and
         make_url(settings.database_url).database == os.environ['ICE_TEST_DATABASE'])
 
 
+@pytest.fixture(autouse=True)
+def controlled_background_capacity(monkeypatch):
+    from src.model_registry import registry, runtime_probe
+    monkeypatch.setattr(registry, 'get_model_context_window', lambda *a: 32768)
+    monkeypatch.setattr(runtime_probe, 'serving_window', lambda *a: 32768)
+
+
 def client_for(create):
     return NS(chat=NS(completions=NS(create=create)))
 

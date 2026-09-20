@@ -84,7 +84,7 @@ def test_unchanged_snapshot_skips_generation_and_both_readers_accept(context):
     assert len(ctx.calls) == count
 
 
-@pytest.mark.parametrize('change', ['edit', 'delete', 'backfill', 'output', 'representation'])
+@pytest.mark.parametrize('change', ['edit', 'delete', 'backfill', 'output', 'representation', 'support'])
 def test_changes_block_both_readers_and_rebuild_without_old_generated_text(context, change):
     ctx = context
     old = ctx.db.query(ConversationSummary).filter_by(conversation_id=ctx.cid).one()
@@ -93,6 +93,7 @@ def test_changes_block_both_readers_and_rebuild_without_old_generated_text(conte
     elif change == 'delete': ctx.db.delete(ctx.first)
     elif change == 'backfill': ctx.add('An earlier source imported afterward.', -10)
     elif change == 'output': old.summary_text = 'Edited output without generation.'
+    elif change == 'support': ctx.first.representation_verification = {'summary': {'status': 'unknown'}}
     else: ctx.first.summary_text = 'Changed stored representation.'
     ctx.db.commit()
     assert_readable(ctx, False)
@@ -130,3 +131,25 @@ def test_source_manifest_is_output_bound_and_does_not_contain_source_text(contex
     assert snapshot_matches(record, 'Snapshot.', current)
     assert not snapshot_matches(record, 'Different snapshot.', current)
     assert 'Atlas' not in str(current)
+
+
+def test_changed_representation_policy_invalidates_cached_fold(context, monkeypatch):
+    ctx = context
+    monkeypatch.setattr(settings, 'source_support_threshold', .99)
+    assert_readable(ctx, False)
+    ctx.run()
+    assert_readable(ctx, True)
+
+
+def test_actual_fold_writer_receives_complete_late_correction(context):
+    ctx = context
+    full = 'Discuss the alternatives. ' * 800 + 'Final decision: do not deploy Redis.'
+    ctx.first.raw_text = full
+    ctx.first.inject_raw = False
+    ctx.first.summary_text = 'Deploy Redis.'
+    ctx.first.summary_coverage = 1.0
+    ctx.db.commit()
+    start = len(ctx.calls)
+    assert ctx.run()['updated'] == 1
+    assert any(full in prompt for prompt in ctx.calls[start:])
+    assert all('Deploy Redis.' not in prompt for prompt in ctx.calls[start:])

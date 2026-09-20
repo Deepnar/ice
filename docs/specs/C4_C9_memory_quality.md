@@ -66,6 +66,16 @@ slots flat.
 > takes an injectable `llm=` + `embedder=` (house test pattern) and lazy-loads
 > the shared embedder (no import-time model load).]**
 
+## v3 execution corrections — 2026-09-20
+
+`V3_REPAIR.md` supersedes the historical fold-input/output mechanics below:
+source snapshots detect edits/deletions/backfills, complete supported turn
+representations replace source prefixes, whole-unit grouping precedes a full
+request capacity check, and complete outputs are never word-cut.250 words is a
+generation target, not a truncation permission. Snapshot policyv2 includes support
+verdict/policy changes. Recursive generated-summary dependence remains unresolved;
+term coverage must not be described as semantic faithfulness.
+
 ## 1. Decisions
 
 ### C4 — conversation summary object

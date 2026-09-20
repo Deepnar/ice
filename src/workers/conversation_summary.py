@@ -2,8 +2,8 @@
 far, current" — never a batch_summaries range row).
 
 Runs in the session-end burst (quartet member since C4) and on its cadence;
-unchanged source snapshots do no generation work, and a summary row is first created only once
-the conversation outgrows the sliding window (the D3a condition — a 2-turn
+unchanged source snapshots do no generation work. A summary row is first created
+once the conversation outgrows the sliding window (the D3a condition — a 2-turn
 chat never earns one). Maintenance is incremental: prompt = existing summary
 + the NEW turns' C1 representations, folded in bounded chunks, grounded
 C1-style (must-keep terms from the chunk, one retry on coverage miss).
@@ -20,39 +20,49 @@ as-is later.
 """
 from datetime import datetime, timezone
 
-from src.api.config import settings
-from src.workers.completion_text import complete_text
 import structlog
 
+from src.api.config import settings
 from src.api.memory_decision import estimate_recent_window_tokens
 from src.memory.models import ConversationSummary, EpisodicMemory
+from src.memory.representation import choose_representation
 from src.memory.summary_snapshot import bind_snapshot, snapshot_matches, source_snapshot
+from src.memory.time_format import recorded_stamp
 from src.memory.tokens import estimate_from_chars
+from src.workers.completion_text import complete_text
 from src.workers.turn_density import (
     extract_key_terms,
     must_terms,
     retry_on_coverage_miss,
 )
 
-
 logger = structlog.get_logger("ice.workers.conversation_summary")
 
 
-
 def _representation(turn) -> str:
-    """C1 read-side idiom (same preference as the assembler's recent window):
-    raw when flagged inject_raw, else the grounded summary, else a raw head —
-    capped so documents/monsters can't blow the prompt."""
-    if turn.inject_raw and turn.raw_text:
-        text_ = turn.raw_text
-    elif turn.summary_text:
-        text_ = turn.summary_text
-    else:
-        text_ = (turn.raw_text or "")[:300]
-    words = text_.split()
-    if len(words) > settings.conversation_summary_per_turn_words:
-        text_ = " ".join(words[:settings.conversation_summary_per_turn_words]) + "…"
-    return text_
+    """Complete eligible evidence; neither unchecked summaries nor source heads."""
+    selected = choose_representation(turn)[0]
+    if not selected:
+        return ""
+    return f"{recorded_stamp(turn.timestamp, turn.ts_provenance)} {selected}"
+
+
+def _source_chunks(turns):
+    """Pack whole turn representations; the request boundary checks hard capacity."""
+    chunk, size = [], 0
+    target = settings.conversation_summary_chunk_words
+    for turn in turns:
+        representation = _representation(turn)
+        if not representation:
+            continue
+        words = len(representation.split())
+        if chunk and size + words > target:
+            yield "\n\n".join(chunk)
+            chunk, size = [], 0
+        chunk.append(representation)
+        size += words
+    if chunk:
+        yield "\n\n".join(chunk)
 
 
 def _default_llm(prompt: str, max_tokens: int = 400) -> str:
@@ -61,12 +71,30 @@ def _default_llm(prompt: str, max_tokens: int = 400) -> str:
         get_bg_client,
         get_bg_model_name,
     )
+    from src.memory.tokens import count_messages, with_margin
+    from src.model_registry.registry import get_model_context_window
+    from src.model_registry.runtime_probe import serving_window
+    from src.workers.completion_text import IncompleteCompletion
+
+    model = get_bg_model_name()
+    messages = [
+        {"role": "system", "content": "You are a precise summarisation engine."},
+        {"role": "user", "content": prompt},
+    ]
+    window = int(settings.ollama_num_ctx_max)
+    if settings.background_model_mode == "shared":
+        observed = serving_window(model, get_model_context_window(model))
+        if observed:
+            window = min(window, int(observed)) if window > 0 else int(observed)
+    required = with_margin(count_messages(messages), settings.token_count_safety_margin) + max_tokens
+    if window <= 0 or required > window:
+        logger.warning("conversation_summary_input_over_budget", required=required,
+                       window=window, model=model,
+                       reason="complete evidence cannot fit; retaining previous checkpoint")
+        raise IncompleteCompletion("complete conversation-summary input exceeds known capacity")
     completion = get_bg_client().chat.completions.create(
-        model=get_bg_model_name(),
-        messages=[
-            {"role": "system", "content": "You are a precise summarisation engine."},
-            {"role": "user", "content": prompt},
-        ],
+        model=model,
+        messages=messages,
         temperature=0.0,
         max_tokens=max_tokens,
         # prefill-heavy (existing summary + a turn chunk): keep the 60s floor,
@@ -111,8 +139,10 @@ def _fold_prompt(existing: str, chunk_text: str, terms: list,
 
 
 def _summarize_chunk(existing: str, chunk_text: str, llm, embedder) -> str:
-    """One grounded fold: must-keep terms from the chunk, one retry on a
-    coverage miss (post_flight idiom). Returns "" on an empty/failed call."""
+    """Coverage-guided generation, not a semantic-support verdict.
+
+    Empty custom output returns an empty string; provider failures propagate.
+    """
     key_terms = extract_key_terms(chunk_text, embedder)
     terms = must_terms(key_terms)
     summary = llm(_fold_prompt(existing, chunk_text, terms), max_tokens=400)
@@ -124,9 +154,6 @@ def _summarize_chunk(existing: str, chunk_text: str, llm, embedder) -> str:
         summary, key_terms,
         lambda missing: llm(_fold_prompt(existing, chunk_text, terms, missing),
                             max_tokens=400))
-    words = summary.split()
-    if len(words) > settings.conversation_summary_max_words + 50:      # tolerance, then hard cap
-        summary = " ".join(words[:settings.conversation_summary_max_words])
     return summary
 
 
@@ -192,22 +219,12 @@ def run_conversation_summaries(db, llm=None, embedder=None,
         # Fold in bounded chunks; any failed call aborts THIS conversation
         # with the old row intact (retry next burst — never half-advance).
         summary = existing_row.summary_text if previous_valid else ""
-        chunk, chunk_words, ok = [], 0, True
-        for turn in new_turns:
-            rep = _representation(turn)
-            chunk.append(rep)
-            chunk_words += len(rep.split())
-            if chunk_words >= settings.conversation_summary_chunk_words:
-                summary = _summarize_chunk(summary, "\n\n".join(chunk),
-                                           llm, lazy_embedder)
-                if not summary:
-                    ok = False
-                    break
-                chunk, chunk_words = [], 0
-        if ok and chunk:
-            summary = _summarize_chunk(summary, "\n\n".join(chunk),
-                                       llm, lazy_embedder)
+        ok = False
+        for chunk_text in _source_chunks(new_turns):
+            summary = _summarize_chunk(summary, chunk_text, llm, lazy_embedder)
             ok = bool(summary)
+            if not ok:
+                break
         if not ok:
             stats["failed"] += 1
             logger.warning("conversation_summary_failed",

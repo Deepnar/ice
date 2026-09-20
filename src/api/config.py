@@ -480,12 +480,10 @@ class Settings(BaseSettings):
     chunk_tokens: int = 550
     chunk_overlap_words: int = 50
 
-    # C4 evolving whole-conversation summaries: the revised summary's ceiling,
-    # the bite size new turns are folded in at, and the per-turn contribution
-    # bound that stops one huge turn dominating a fold.
+    # C4: generation word target and soft grouping target for whole evidence
+    # representations. Hard capacity is checked on the complete model request.
     conversation_summary_max_words: int = 250
     conversation_summary_chunk_words: int = 3500
-    conversation_summary_per_turn_words: int = 400
 
     # G11: a turn is batch-summarised once its decay falls below the retrieval
     # floor OR it passes this age, whichever comes first. Handed to G9 by G11.

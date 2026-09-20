@@ -142,7 +142,6 @@ FROZEN = [
     ("chunk_overlap_words", CHUNKING, 22, r"OVERLAP_WORDS = (\d+)"),
     ("conversation_summary_max_words", CONV_SUM, 36, r"SUMMARY_MAX_WORDS = (\d+)"),
     ("conversation_summary_chunk_words", CONV_SUM, 37, r"CHUNK_WORDS = (\d+)"),
-    ("conversation_summary_per_turn_words", CONV_SUM, 38, r"PER_TURN_WORDS = (\d+)"),
     ("reflection_enrich_limit", REFLECTION, 299, r"ENRICH_LIMIT = (\d+)"),
     ("reflection_enrich_refresh_days", REFLECTION, 300, r"ENRICH_REFRESH_DAYS = (\d+)"),
     ("batch_summary_age_days", BATCH_SUM, 22, r"BATCH_SUMMARY_AGE_DAYS = (\d+)"),

@@ -552,3 +552,35 @@ Validation discovered that ORM-created disposable stores omitted the existing
 NULLS NOT DISTINCT slot identity index owned by the C4/C9 migration. Mirror that
 exact index in ORM metadata: tests must exercise the production uniqueness
 contract, not allow duplicate slots and then misdiagnose ambiguous service reads.
+
+### Evaluation scope correction — user, 2026-09-20
+
+After repairs and targeted integration/configuration checks, run ONLY LME oracle
+and semi-LSREP. Full LME-S is outside this campaign. Semi-LSREP retains full ICE
+pre/post-flight reconstruction using recorded historical responses, followed by
+separate cloud answer probes; future responses cannot enter earlier state.
+Optimize supported answers per prompt token; compare answer quality at matched
+context budgets and context cost at matched quality. A smaller prompt with worse
+answers is not success. These two evaluations cannot establish full-history
+distractor robustness or multi-user generalization; do not add extra campaigns
+without a new user instruction.
+
+### Fold input/output preservation — 2026-09-20
+
+Use the shared source-supported representation selector for every turn entering
+conversation summarization, rather than unchecked summary_text or raw prefixes.
+Keep the complete selected representation, with its source-recorded timestamp.
+Remove conversation_summary_per_turn_words: a hidden prefix cannot become a
+summary of the complete turn. Pack whole representations before crossing the
+existing chunk word target; an oversized single representation remains whole.
+Before the real background request, count all messages plus output reserve and
+margin against the configured ceiling, additionally clamped by the observed
+shared-Ollama window. Reject an oversized call explicitly without advancing its
+checkpoint. Splitting/compressing such long units remains the long-source repair;
+never substitute a prefix to make the request fit.
+
+Do not cut an otherwise complete generated summary at a word boundary. The word
+setting is a generation target; actual completion tokens and final prompt budget
+remain bounds. Bump the snapshot policy version so previously prefix-derived
+checkpoints are rebuilt. These changes remove deterministic input/output loss;
+they do not establish faithfulness of recursively generated conversation folds.

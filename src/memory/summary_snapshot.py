@@ -4,9 +4,11 @@ from datetime import datetime
 import structlog
 from sqlalchemy import text
 
+from src.api.config import settings
 from src.memory.source import digest
 
 logger = structlog.get_logger('ice.memory.summary_snapshot')
+SNAPSHOT_VERSION = 2  # v3 complete, supported fold inputs; invalidates prefix-era roots
 
 
 def source_snapshot(db, conversation_id):
@@ -15,7 +17,8 @@ def source_snapshot(db, conversation_id):
         SELECT e.id::text AS id, e.timestamp,
                md5(jsonb_build_array(e.batch_id, e.raw_text, e.source_spans,
                    e.timestamp, e.ts_provenance, e.is_private,
-                   e.summary_text, e.inject_raw, e.summary_coverage)::text) AS fingerprint
+                   e.summary_text, e.inject_raw, e.summary_coverage,
+                   e.representation_verification)::text) AS fingerprint
         FROM episodic_memory e
         WHERE e.conversation_id = :cid
         ORDER BY e.timestamp, e.id
@@ -25,12 +28,22 @@ def source_snapshot(db, conversation_id):
             for row in rows]
 
 
+def representation_policy():
+    return {'model': settings.source_support_model,
+            'revision': settings.source_support_revision,
+            'support_threshold': settings.source_support_threshold,
+            'coverage_threshold': settings.turn_summary_coverage_threshold}
+
+
 def bind_snapshot(sources, summary):
-    return {'version': 1, 'summary_sha256': digest(summary), 'sources': sources}
+    return {'version': SNAPSHOT_VERSION, 'summary_sha256': digest(summary), 'sources': sources,
+            'representation_policy': representation_policy()}
 
 
 def snapshot_matches(record, summary, current, *, allow_newer=False):
-    if not isinstance(record, dict) or record.get('version') != 1:
+    if not isinstance(record, dict) or record.get('version') != SNAPSHOT_VERSION:
+        return False
+    if record.get('representation_policy') != representation_policy():
         return False
     if record.get('summary_sha256') != digest(summary or ''):
         return False
