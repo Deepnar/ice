@@ -20,6 +20,7 @@ as-is later.
 from datetime import datetime, timezone
 
 from src.api.config import settings
+from src.workers.completion_text import complete_text
 import structlog
 
 from src.api.memory_decision import estimate_recent_window_tokens
@@ -31,6 +32,7 @@ from src.workers.turn_density import (
     retry_on_coverage_miss,
     summary_coverage,
 )
+
 
 logger = structlog.get_logger("ice.workers.conversation_summary")
 
@@ -70,7 +72,7 @@ def _default_llm(prompt: str, max_tokens: int = 400) -> str:
         # G12's formula scales with output only.
         timeout=max(60.0, bg_timeout(max_tokens)),
     )
-    return (completion.choices[0].message.content or "").strip()
+    return complete_text(completion)
 
 
 def _shared_embedder():

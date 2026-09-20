@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 
 from src.api.config import settings
+from src.workers.completion_text import complete_text
 import structlog
 from sqlalchemy import or_
 
@@ -11,6 +12,7 @@ from src.memory.embedder import get_embedder
 from src.memory.models import BatchSummary, EpisodicMemory
 from src.memory import tokens
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+
 
 logger = structlog.get_logger("ice.workers.batch_summarizer")
 bg_client = get_bg_client()
@@ -150,9 +152,7 @@ def batch_summarize():
                         # scales with output only.
                         timeout=max(60.0, bg_timeout(settings.batch_summary_max_tokens))
                     )
-                    summary_text = completion.choices[0].message.content.strip()
-                    if not summary_text:
-                        continue
+                    summary_text = complete_text(completion)
 
                     # Store with embedding
                     embedding = embedder.encode(summary_text, convert_to_tensor=False).tolist()

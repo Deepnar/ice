@@ -449,3 +449,10 @@ source units and recorded timestamps now reach the reconciler; candidate triple
 polarity is explicit. Bounded12-case qualification and12-case SQL/model writer
 replay passed; no general accuracy claim. Maintenance uses the shared context
 builder and source eligibility. See PROVENANCE and V3_REPAIR.
+
+### v3 foreground/background role boundary — 2026-09-20
+
+Turn summarization and procedural extraction now always resolve their model
+through `get_bg_model_name()`. A foreground cloud model name in `model_used`
+cannot override the background pin. No model promotion or cloud provider setup
+accompanies this repair; the unpinned factory fallback remains explicitly warned.

@@ -60,6 +60,7 @@ class StubCompletion:
 
     class _Choice:
         message = None
+        finish_reason = "stop"
 
     def create(self, **kw):
         StubCompletion.calls += 1

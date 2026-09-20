@@ -14,6 +14,7 @@ import structlog
 from sqlalchemy import text
 
 from src.api.config import settings
+from src.workers.completion_text import complete_text
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, IdempotencyKey
 from src.memory.representation import choose_representation, verify_representations
@@ -31,6 +32,7 @@ from src.workers.turn_density import (
     retry_on_coverage_miss,
     summary_coverage,
 )
+
 
 logger = structlog.get_logger("ice.workers.post_flight")
 
@@ -118,9 +120,9 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
         # TRAPS #17: a literal here is a knob nobody can reach. This one was
         # 300 and bound on 40% of turns — see the setting's note.
         max_tokens=settings.turn_summary_max_tokens,
-        timeout=bg_timeout(300),
+        timeout=bg_timeout(settings.turn_summary_max_tokens),
     )
-    return completion.choices[0].message.content.strip()
+    return complete_text(completion)
 
 
 def _split_abstract(summary: str):
@@ -142,7 +144,7 @@ def generate_summary(prompt: str, response: str, key_terms: dict,
     abstract (hierarchy level 3) rides in the same call. Returns
     ``(summary_text, coverage, abstract)`` — ("", 0.0, None) on failure so the
     caller's raw-wins fallback engages."""
-    model_name = model_used if model_used else get_bg_model_name()
+    model_name = get_bg_model_name()
     terms = must_terms(key_terms)
     try:
         summary = _summary_llm_call(prompt, response, model_name, terms,
@@ -160,7 +162,11 @@ def generate_summary(prompt: str, response: str, key_terms: dict,
         coverage = summary_coverage(summary, key_terms)
         return summary, coverage, abstract
     except Exception as exc:
-        logger.error("background_summarization_failed", error=str(exc))
+        from src.workers.runtime import JobYielded
+
+        if isinstance(exc, JobYielded):
+            raise
+        logger.warning("background_summarization_failed", error=str(exc))
         return "", 0.0, None
 
 

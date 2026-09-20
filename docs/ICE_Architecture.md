@@ -852,6 +852,16 @@ Assembly is a two-layer budget process. The orchestrator's _enforce_token_budget
 
 **Reworked 2026-07-11 (roadmap C7): Celery + Redis are gone.** ICE's long-term-memory consolidation runs **in-process** inside the core app: `src/workers/runtime.py` defines a `MaintenanceRuntime` (one asyncio tick task, ~60 s + 0–15 s jitter) started by `src/api/core.py::create_core()` from the FastAPI lifespan — the same HTTP-free factory E7's headless `ice-mcp` boot calls (§11.3; `create_core` is lease-checked both directions since E7). Postgres is the only external service left. The workers themselves are now **plain callables** (the `@app.task` wrappers and per-task `self.retry` scaffolding were deleted; names and signatures kept — D1's maintenance agent and the FINAL harness are built against them), executed via `asyncio.to_thread` under two lane semaphores: **gpu(1)** for LLM-calling jobs (bg work serializes against itself — the shared-mode contention fix) and **cpu(2)** for DB-only jobs.
 
+**v3 background output contract, 2026-09-20.** Foreground `model_used` is
+provenance rather than a model override in turn summarization and procedural
+extraction. Both use the configured background factory; its unpinned fallback
+still warns. `completion_text.complete_text` requires nonempty text and explicit
+`finish_reason=stop` for turn, rolling, batch and procedural generation. A partial
+response cannot advance batch coverage or a rolling checkpoint. Turn-summary
+failure logs and retains raw; runtime `JobYielded` propagates rather than being
+recorded as completed summarization. Its timeout follows the configured output
+budget. This is output integrity, not semantic qualification of rolling summaries.
+
 ### **8.1 Runtime infrastructure: triggers, ledger, idle gating**
 
 **Three trigger classes replace beat:** (a) **event** — `runtime.enqueue(job_name, **kwargs)`: turn stored → the post-flight chain; (b) **overdue** — each tick, if the app is idle, the runtime compares the `maintenance_ledger` table against `settings.maintenance_intervals` and runs anything overdue, longest-overdue first (this is what keeps an always-open app maintained *and* what catches up after downtime); (c) **work-unit** — `notify_work_unit(kind, **ctx)` with `"session_gap"` wired (fired from `store_turn_async` when `resolve_session_id` opens a new sitting: enqueues per-conversation cluster freshening and an immediate overdue pass) and — since the E-coding core (2026-07-18) — `"commit"`: `create_core()` registers `reconciler.make_commit_handler` via `register_work_unit_handler` (the C7-reserved seam, zero runtime changes), which enqueues the `project_reconcile` cpu-lane job (§12.3). `"task_done"` remains reserved.

@@ -1,3 +1,16 @@
+## 2026-09-20 — v3 background role and completion integrity
+
+Fresh resume validation:306 smoke/SQL checks passed (three dependency deprecation
+warnings) via the disposable database wrapper, including
+`tests/test_background_output_contract.py` and `tests/test_representation_support.py`.
+Actual worker callers receive controlled provider responses: cloud foreground name
+never selects the background model; length-limited output cannot stamp batch
+coverage, procedural completion, or overwrite the previous rolling checkpoint.
+Runtime yield propagates. Separate standalone batch coverage script passed11/11
+with a stop-completed provider fixture. These are integration/contract checks, not
+LLM summary accuracy results. First fixture run had302 passes/3 errors because its
+key-term fixture omitted required list keys; fixed before the fresh306-pass run.
+
 ## 2026-09-19 — v3 prompt budget and bookmark consumer repair
 
 `uv run python tests/support/disposable_database.py -m pytest tests/smoke

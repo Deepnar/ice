@@ -510,3 +510,20 @@ windows; verify bookmarked source late corrections through the SQL reader.
 A window no larger than the generation reserve has zero prompt room. Do not
 silently halve the reserve in accounting while sending the unchanged generation
 request. Such requests must be refused until the selected capacity/reserve fits.
+
+### Background model identity and complete generation (2026-09-19)
+
+The foreground `model_used` field is provenance, never a background model
+selection override. Turn summarization and procedural extraction select through
+`get_bg_model_name`, just like other background jobs. This preserves local
+background execution when the foreground reader is cloud-hosted. Existing
+explicit background configuration/fallback behavior stays visible; this does not
+configure a cloud provider or claim every unpinned registry entry is local.
+
+Turn, conversation and batch summaries, plus procedural extraction, accept only
+nonempty text from a completion with finish_reason=stop. Length/content-filter/
+missing-choice/missing-finish results cannot become finished summaries or recorded
+coverage. A shared parser raises an explicit retryable failure; job boundaries
+log it and retain original source. Post-flight may keep raw on summary failure,
+but must propagate JobYielded to the runtime rather than marking yielded work
+complete. Timeout uses the actual configured summary output budget.
