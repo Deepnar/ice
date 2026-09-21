@@ -469,3 +469,17 @@ supported paraphrase. It does not qualify as a replacement. Model card includes 
 https://huggingface.co/tasksource/ModernBERT-base-nli . Cached only;30-pair float32 run peaked at0.588GiB allocated and took0.87s
 after load. Long-input qualification is not established. Artifact:
 `experiments/v3_repair/results/nli_modernbert_candidate.json`.
+
+Next long-input candidate (not deployed): `MoritzLaurer/bge-m3-zeroshot-v2.0`,
+revision`9abf1c8aaeb82a2447809c20753ed0b106b76652`. Actual XLM-R config8194 positions
+(8192 content positions); binary entailment/not_entailment, so it cannot provide
+an independently calibrated contradiction probability. Multilingual model card:
+https://huggingface.co/MoritzLaurer/bge-m3-zeroshot-v2.0 . Cache/qualification only;
+production DeBERTa unchanged. Do not map not_entailment to contradiction.
+
+Qualification2026-09-21: BGE short controls29/30 (all17 unsupported rejected,
+12/13 supported admitted); long complete706–4577-token controls13/24 (all12
+unsupported rejected, only1/12 supported admitted). Peak long run2.317GiB. No
+threshold fitting. Cached, **not promoted**: insufficient demonstrated compression
+utility. Artifacts `nli_bge_candidate.json` and `nli_bge_long_candidate.json` under
+`experiments/v3_repair/results/`. DeBERTa remains the deployed verifier.

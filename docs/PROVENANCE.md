@@ -3747,3 +3747,30 @@ this failure does not resolve or cancel long-source verification work.
 Valid-manifest privacy control also verifies that a private turn in a public
 conversation prevents cross-conversation overview retrieval while own context
 remains accessible. This is separate from source-staleness rejection.
+
+
+## 2026-09-21 — v3 summary-scope repair and long-input NLI candidate
+
+Summary reader:478 smoke/SQL/settings checks passed, including the actual
+retrieve→SQL path, closed empty scopes, explicit source batches, cluster exclusions,
+active/search conversation identity separation, exact source credit, and orphan
+batch withholding. The first broader run330passed/1failed caught the configurable
+ablation wrapper signature drift; forwarding fixed before the final run. This is
+instrument compatibility upkeep, not a redesigned experiment or benchmark run.
+
+BGE NLI candidate `MoritzLaurer/bge-m3-zeroshot-v2.0`, revision
+`9abf1c8aaeb82a2447809c20753ed0b106b76652`: unchanged30 controls, float32,
+threshold0.95, artifact `experiments/v3_repair/results/nli_bge_candidate.json`.
+29/30: all17 unsupported rejected,12/13 supported admitted; informal positive
+entailment0.90026. Binary labels do not distinguish contradiction from neutrality.
+
+Long-input script `scripts/oneoff/v3_long_support_controls.py`, artifact
+`experiments/v3_repair/results/nli_bge_long_candidate.json`:24 synthetic pairs,
+complete706–4577-token sources with unrelated middle material, four semantic
+families (late correction, condition denial, speaker attribution, Hindi negation),
+three lengths, supported/unsupported twins. No source truncation or threshold
+fitting. All12 unsupported rejected but only1/12 supported admitted at0.95
+(13/24 total decisions). Peak allocated2.317GiB. This would usually retain raw
+instead of delivering useful compression. **Not promoted**: longer context alone
+has not solved source-grounded compression. Production DeBERTa unchanged. Controls
+are synthetic and are not natural-corpus or answer-quality estimates.
