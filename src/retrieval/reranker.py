@@ -22,10 +22,6 @@ _model_key = None
 _retry_after = 0.0
 
 
-class RerankerInputTooLong(ValueError):
-    """The complete templated input cannot be scored inside the work bound."""
-
-
 def score_pairs(pairs):
     """Score complete inputs using cached weights; serialize GPU model access."""
     global _model, _model_key, _retry_after
@@ -71,26 +67,29 @@ def score_pairs(pairs):
                 raise
 
         try:
-            scores = []
+            scores = [None] * len(pairs)
             batch_size = settings.retrieval_rerank_batch_size
             processing = {"text": {"truncation": False}}
-            for offset in range(0, len(pairs), batch_size):
-                batch = pairs[offset : offset + batch_size]
+            eligible = []
+            for index, pair in enumerate(pairs):
                 # The exact inference template must fit: tokenizing raw strings
                 # alone misses the instruction/chat wrapper. Never score a prefix
                 # and credit the unseen rest with its relevance.
                 features = _model.preprocess(
-                    batch, prompt=INSTRUCTION, processing_kwargs=processing
+                    [pair], prompt=INSTRUCTION, processing_kwargs=processing
                 )
                 if (
                     features["input_ids"].shape[-1]
                     > settings.retrieval_rerank_max_tokens
                 ):
-                    raise RerankerInputTooLong(
-                        "reranker input exceeds configured token limit"
-                    )
-                scores.extend(
-                    _model.predict(
+                    logger.warning("retrieval_rerank_pair_unscored",
+                                   reason="complete_input_over_token_bound")
+                    continue
+                eligible.append(index)
+            for offset in range(0, len(eligible), batch_size):
+                indices = eligible[offset:offset + batch_size]
+                batch = [pairs[index] for index in indices]
+                values = _model.predict(
                         batch,
                         batch_size=batch_size,
                         show_progress_bar=False,
@@ -100,7 +99,8 @@ def score_pairs(pairs):
                         logits_to_keep=1,
                         use_cache=False,
                     ).tolist()
-                )
+                for index, value in zip(indices, values, strict=True):
+                    scores[index] = value
             return scores
         finally:
             if device.startswith("cuda"):
@@ -131,13 +131,21 @@ def rerank(query, fragments, scorer=None):
         pairs = [(query, t) for texts in variants for t in texts]
         scores = list((scorer or score_pairs)(pairs))
         if len(scores) != len(pairs) or any(
-            not math.isfinite(float(s)) for s in scores
+            s is not None and not math.isfinite(float(s)) for s in scores
         ):
             raise ValueError("reranker returned invalid scores")
-        output, offset = [], 0
+        if all(s is None for s in scores):
+            return fragments, False
+        output, unscored, offset = [], [], 0
         for fragment, texts in zip(candidates, variants):
+            values = scores[offset:offset + len(texts)]
+            for text, value in zip(texts, values):
+                if value is None:
+                    unscored.append(replace(fragment, text=text,
+                        token_count=count_tokens(text), degrade_text=None, abstract_text=None,
+                        covers_entire_source=fragment.covers_entire_source and text == fragment.text))
             ranked = sorted(
-                zip(texts, scores[offset : offset + len(texts)]),
+                ((t, s) for t, s in zip(texts, values) if s is not None),
                 key=lambda p: (-p[1], count_tokens(p[0])),
             )
             offset += len(texts)
@@ -156,15 +164,18 @@ def rerank(query, fragments, scorer=None):
                     token_count=tokens,
                     degrade_text=alternatives[0] if alternatives else None,
                     abstract_text=alternatives[1] if len(alternatives) > 1 else None,
+                    covers_entire_source=fragment.covers_entire_source and primary == fragment.text,
                 )
             )
         output.sort(key=lambda f: f.score, reverse=True)
+        output.extend(unscored)
         logger.info(
             "retrieval_reranked",
             candidates=len(candidates),
             omitted_by_cap=max(0, len(fragments) - len(candidates)),
             pairs=len(pairs),
-            accepted=len(output),
+            scored=len(output) - len(unscored),
+            unscored_fallbacks=len(unscored),
             elapsed_ms=round((time.monotonic() - start) * 1000, 1),
         )
         return output, True

@@ -207,3 +207,13 @@ behavior is owned by code and FEATURE_INVENTORY.md.
 - [Z1 Complete live system test](../ROADMAP.md#z1)
 - [Z2 The read-the-output pass — one real conversation, judged by eye, BEFORE the experiments](../ROADMAP.md#z2)
 - [Z3 FINAL redesign — the criticisms the next experiment must answer](../ROADMAP.md#z3)
+
+## Continuation —2026-09-21, retrieval evidence preservation
+
+V3 retains existing long-turn excerpts beside complete parent candidates until
+packing; candidate presence cannot consume a diversity allowance. Removed warm
+and cold prefix cuts. The reranker scores fitting pairs despite an oversized
+neighbor and retains complete unscored fallbacks.510 smoke/SQL/settings controls
+passed; actual local Qwen capacity control4/4. These synthetic mechanism checks
+do not measure LME answer quality. Archive metadata parity, batch-summary support
+and conversation-note selection remain unfinished.

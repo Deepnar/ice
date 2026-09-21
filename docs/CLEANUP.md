@@ -1086,3 +1086,10 @@ silently clipped evidence before generation. Whole-unit grouping and complete
 request token bounds now control input size. Removed generated-summary word cuts;
 `conversation_summary_max_words` remains a generation target. No files moved or
 deleted. Active spec, architecture, inventory and roadmap references updated.
+
+## 2026-09-21 — v3 retrieval prefix-cut retirement
+
+Removed `_truncate_at_sentence` after replacing its last cold-reader caller with
+the shared representation selector; removed obsolete prefix-cut controls.
+Removed `RerankerInputTooLong`: oversized pairs now produce explicit unscored
+fallbacks. No files deleted or moved. Adjacent classifier constants/cache retained.

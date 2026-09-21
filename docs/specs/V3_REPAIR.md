@@ -642,3 +642,41 @@ credit and diversification can see them. Add batch identity to source snapshots;
 old snapshots naturally fail comparison and rebuild. This is scope/provenance,
 not evidence that a summary answers well. Partial-scope queryable independent
 segments remain the follow-on design, rather than hiding the eligibility rule.
+
+### Complete candidates and budget-time alternatives — 2026-09-21
+
+Code re-grounding found an existing all-turn chunk store, so do not add a second
+raw-segment index. The vector leg currently discards chunks whenever it fetched
+the parent, before knowing whether that parent fits; `_rows_to_fragments` also
+clips ordinary parents to500/1500 words. Keep full eligible representations and
+all retrieved chunk alternatives until final packing. Existing query-selected
+document excerpts remain bounded excerpts; legacy documents without chunks keep
+raw evidence rather than a fabricated prefix representation.
+
+Apply per-source and per-conversation caps to actual budget survivors. Preserve
+existing settings and ablation switches by using their shared decision helpers
+at admission. A complete raw source excludes redundant excerpts of the same
+parent; excerpts selected first exclude a later whole-source copy. Supported
+summaries are not complete raw sources and cannot claim to cover every excerpt.
+Degrading or reranking to another representation clears the whole-source marker.
+Skip oversized candidates and continue to later choices even when an entire
+round has no admission; queues still advance and terminate.
+
+Reranker capacity is per complete pair: an oversized pair receives no score and
+must not disable scoring of all smaller candidates. Keep unscored representations
+as explicit lower-priority fallback candidates, never treat them as scored or
+truncate their contents. An all-unscored call retains original order and reports
+no successful ranking. Existing true scorer/model errors preserve the entire
+candidate list and warn. This enables useful raw excerpts without pretending
+long-source NLI has been solved. Query-selectable conversation-note overviews and
+batch-summary faithfulness remain separate open work.
+
+The cold reader has the same bypass (`unchecked summary or raw`, then300-word
+prefix). Route it through the shared representation selector too. Current archive
+rows lack support/coverage metadata, so complete raw evidence wins; metadata parity
+remains archive work. Retire the now-unused sentence-prefix helper rather than
+leaving an alternative that can silently reappear in another reader.
+
+The wide-net fallback must query the existing chunk leg under the same resolved
+scope/time filters too; a broader parent search alone cannot recover a late
+excerpt when that parent exceeds the prompt budget.

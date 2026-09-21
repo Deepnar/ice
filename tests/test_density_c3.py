@@ -1,6 +1,5 @@
 """C3 behavioral test: all-turns chunking, hierarchy (raw→summary→abstract),
-heading-aware chunk boundaries, sentence-boundary truncation, chunk/parent
-dedupe in the vector leg.
+heading-aware chunk boundaries and chunk/parent alternatives until budget packing.
 
 Run: uv run python tests/test_density_c3.py
 """
@@ -47,14 +46,6 @@ check("abstract line extracted", abstract == "A duel between Orien and Kazama is
 check("abstract removed from summary body", "Abstract:" not in body and "Orien defeated" in body)
 body2, abstract2 = pf._split_abstract("No abstract line here.\nKey terms: x")
 check("no abstract → None, body intact", abstract2 is None and body2.startswith("No abstract"))
-
-print("── sentence-boundary truncation ──")
-from src.retrieval.orchestrator import _truncate_at_sentence
-txt = ("Alpha beta gamma delta. " * 40)   # 4-word sentences
-out = _truncate_at_sentence(txt, 50)
-check("truncated under cap", len(out.split()) <= 52)
-check("cut lands on a sentence boundary", out.rstrip("… ").endswith("."))
-check("short text untouched", _truncate_at_sentence("Tiny.", 50) == "Tiny.")
 
 print("── degrade chain: raw → summary → abstract ──")
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator, ContextFragment
@@ -119,8 +110,8 @@ try:
     full_texts = [f.text for f in parents]
     check("parent turn retrieved (non-doc turns stay in turn-level search)",
           len(parents) >= 1)
-    check("DEDUPE: no chunk fragment when its parent is already in results",
-          sum(1 for f in parents) == 1)
+    check("parent and smaller excerpts remain alternatives until packing",
+          len(parents) > 1 and any(f.covers_entire_source for f in parents))
 finally:
     db.rollback()
     db.query(EpisodicChunk).filter_by(turn_id=long_turn.id).delete()

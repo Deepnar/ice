@@ -168,5 +168,24 @@ def test_complete_template_limit_is_checked_before_inference(monkeypatch):
     )
     monkeypatch.setattr(module, "_model", fake)
     monkeypatch.setattr(settings, "retrieval_rerank_max_tokens", 4096)
-    with pytest.raises(module.RerankerInputTooLong):
-        module.score_pairs([("query", "evidence")])
+    assert module.score_pairs([("query", "evidence")]) == [None]
+
+
+def test_overlength_pair_does_not_disable_other_model_scores(monkeypatch):
+    import numpy as np
+    import src.retrieval.reranker as module
+    from src.memory import embedder
+    monkeypatch.setattr(embedder, 'resolve_device', lambda preference: 'cpu')
+    monkeypatch.setattr(module, '_model_key', (settings.retrieval_rerank_model,
+        settings.retrieval_rerank_revision, settings.retrieval_rerank_device))
+    calls=[]
+    def predict(batch, **kwargs):
+        calls.extend(batch)
+        return np.array([2.] * len(batch))
+    fake=SimpleNamespace(preprocess=lambda batch, **kw:
+        {'input_ids': SimpleNamespace(shape=(1, 5000 if batch[0][1]=='large' else 50))},
+        predict=predict)
+    monkeypatch.setattr(module, '_model', fake)
+    monkeypatch.setattr(settings, 'retrieval_rerank_max_tokens', 4096)
+    assert module.score_pairs([('q','large'), ('q','small')]) == [None, 2.]
+    assert calls == [('q','small')]

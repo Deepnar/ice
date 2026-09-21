@@ -1,3 +1,19 @@
+## 2026-09-21 — v3 budget-time source alternatives
+
+Actual cached Qwen3-Reranker-0.6B, revision e61197ed45024b0ed8a2d74b80b4d909f1255473,
+passed4/4 synthetic capacity controls: the deliberately oversized pair remains a
+complete unscored fallback, smaller pairs still rank, and packing selects the
+answer. Script `scripts/oneoff/v3_reranker_capacity_control.py`; artifact
+`experiments/v3_repair/results/reranker_capacity.json`. The control temporarily
+sets a512-token pair ceiling; production default remains4096. No threshold fitted.
+
+510 smoke/SQL/settings checks passed in a disposable database, including real
+normal/wide-net SQL and packing with reranking on/off (controlled scores). Separate
+standalone suites: density13/13, document chunks15/15, temporal61/61. These validate
+mechanisms, not comparative answer quality or a smaller-context benchmark win.
+An earlier final regression failed5/508 after helper deletion also removed
+adjacent constants; restored them and reran. The working corpus was not modified.
+
 ## 2026-09-20 — v3 complete fold input/output preservation
 
 465 smoke/SQL/settings checks passed in a disposable database, plus a subsequently

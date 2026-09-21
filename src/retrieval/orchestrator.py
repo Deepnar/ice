@@ -100,6 +100,7 @@ class ContextFragment:
     # legs stay bounded by their own firing conditions.
     leg: Optional[str] = None
     origin_edge_ids: tuple = ()  # exact rendered fact lines, not traversed candidates
+    covers_entire_source: bool = False  # complete raw turn, not summary/excerpt
 
 # G9 (2026-08-08): every tunable number in this module moved to settings, so
 # Z1 can sweep it without editing code. What remains here are label SETS —
@@ -136,21 +137,6 @@ def _head_confidences(classification):
     mc = getattr(classification, "max_confidence", 1.0)
     return mc, mc
 
-
-def _truncate_at_sentence(text: str, word_cap: int) -> str:
-    """C3 smarter truncation: cap at *word_cap* words but cut on the last
-    sentence boundary inside the cap (when one exists past 60% of it), so
-    fragments stop mid-thought less often. Falls back to the hard word cut."""
-    words = text.split()
-    if len(words) <= word_cap:
-        return text
-    hard = ' '.join(words[:word_cap])
-    best = -1
-    for m in re.finditer(r'[.!?](?:\s|$)', hard):
-        best = m.end()
-    if best > len(hard) * 0.6:
-        return hard[:best].rstrip() + ' …'
-    return hard + '…'
 
 
 # Soft meta‑discussion downweight – classifier‑driven, not string‑matching.
@@ -641,12 +627,11 @@ class HybridRetrievalOrchestrator:
         fused, reranked = rerank(classification.prompt, fused)
         # G29: no max_per_conversation here — passing the literal 3 is what made
         # settings.retrieval_max_per_conversation unreachable on every live path.
-        diversified = self._session_diversify(fused, conversation_id)
-        deduped = self._deduplicate(diversified)
-        deduped = self._collapse_provenance(deduped)
+        deduped = self._deduplicate(fused)
         if not reranked:
             deduped = self._apply_coverage(deduped, prompt_embedding)
-        final = self._enforce_token_budget(deduped, relevance_order=reranked)
+        final = self._enforce_token_budget(deduped, relevance_order=reranked,
+                                           current_conversation_id=own_conv_id)
 
         # T3 honest emptiness: a windowed query with nothing in the window
         # says so — never silently widens.
@@ -1004,13 +989,9 @@ class HybridRetrievalOrchestrator:
             if ts.mode == "evolution":
                 rows = self._stratify_by_era(rows)
             fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt, classification=classification)
-            # C3 dedupe: a chunk drops out when its parent turn is already in
-            # the turn-level results (the parent covers the content); doc
-            # parents are excluded above, so document chunks always compete.
-            parent_ids = {str(r.id) for r in rows}
-            fragments.extend(f for f in self._vector_chunks(prompt_embedding, scope, conv_id,
-                                                            recency_boost=rec_boost)
-                             if f.source_batch_id not in parent_ids)
+            # A candidate parent may never fit. Keep its excerpts until packing.
+            fragments.extend(self._vector_chunks(prompt_embedding, scope, conv_id,
+                                                  recency_boost=rec_boost))
             return fragments
         except Exception as err:
             self._leg_degraded("vector", err)
@@ -2468,11 +2449,12 @@ class HybridRetrievalOrchestrator:
 
         fragments = []
         for row in rows:
-            body = _truncate_at_sentence(row.summary_text or row.raw_text, 300)
+            body = choose_representation(row)[0] or ""
             stamp = recorded_stamp(row.timestamp, getattr(row, "ts_provenance", None)) if row.timestamp else ""
             text_ = stamp + body
             fragments.append(ContextFragment(
                 text=text_, source_type="episodic", score=0.6,
+                covers_entire_source=body == row.raw_text,
                 token_count=count_tokens(text_),
                 source_batch_id=str(row.id),
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
@@ -2643,19 +2625,10 @@ class HybridRetrievalOrchestrator:
         return fused
 
     def _collapse_provenance(self, fragments):
-        """C16: collapse fragments that are the SAME MEMORY, by identity.
+        """Limit per-source survivors at admission, never pre-budget candidates.
 
-        A chunk and its parent turn carry the same `source_batch_id`, and today
-        that is deduped only *within* the vector leg — so a BM25 hit on the
-        parent plus a vector hit on one of its chunks both survive and the same
-        text is injected twice. `_deduplicate` cannot catch it: it hashes the
-        exact string, and a chunk is a substring, not a copy.
-
-        This runs before any similarity math because it is an ID join — a
-        resolver, not a lexicon — so it is exact, free, and cannot be fooled by
-        how anything is written. It is also the only arm in C16 that provably
-        cannot lose information: what it drops is, by construction, already
-        present.
+        Sharing a source ID does not imply identical information: disjoint chunks
+        can both matter. This is a configured diversity bound, not lossless dedup.
         """
         if not getattr(settings, "retrieval_collapse_enabled", True):
             return fragments
@@ -2771,10 +2744,10 @@ class HybridRetrievalOrchestrator:
         counts: Dict[str, int] = {}
         result = []
         for f in fragments:
-            cid = f.conversation_id
+            cid = str(f.conversation_id) if f.conversation_id is not None else None
             if not cid:
                 result.append(f)
-            elif cid == current_id:
+            elif cid == str(current_id):
                 result.append(f)
             else:
                 counts[cid] = counts.get(cid, 0) + 1
@@ -2792,7 +2765,8 @@ class HybridRetrievalOrchestrator:
                 unique.append(f)
         return unique
 
-    def _enforce_token_budget(self, fragments, max_tokens=None, *, relevance_order=False):
+    def _enforce_token_budget(self, fragments, max_tokens=None, *, relevance_order=False,
+                              current_conversation_id=None):
         if max_tokens is None:
             max_tokens = self.max_retrieval_tokens
         from collections import deque
@@ -2816,30 +2790,42 @@ class HybridRetrievalOrchestrator:
                 tokens = count_tokens(alt)
                 if tokens <= budget_left:
                     return dc_replace(f, text=alt, token_count=tokens,
-                                      degrade_text=None, abstract_text=None)
+                                      degrade_text=None, abstract_text=None,
+                                      covers_entire_source=False)
             return None
 
+        total, result = 0, []
+
+        def admit(fragment):
+            nonlocal total
+            fitted = (fragment if fragment.token_count <= max_tokens - total
+                      else _degraded(fragment, max_tokens - total))
+            if fitted is None:
+                return False
+            if settings.retrieval_collapse_enabled and fitted.source_batch_id:
+                same = [f for f in result if f.source_batch_id == fitted.source_batch_id]
+                if same and (fitted.covers_entire_source or
+                             any(f.covers_entire_source for f in same)):
+                    return False
+            trial = result + [fitted]
+            if len(self._collapse_provenance(trial)) != len(trial):
+                return False
+            if len(self._session_diversify(trial, current_conversation_id)) != len(trial):
+                return False
+            result.append(fitted)
+            total += fitted.token_count
+            return True
+
         if relevance_order:
-            # The cross-encoder scored every surviving representation. A
-            # memory type earns no quota; oversized candidates do not prevent
-            # later, smaller evidence from fitting.
-            total, result = 0, []
             for f in fragments:
-                fitted = f if f.token_count <= max_tokens - total else _degraded(f, max_tokens - total)
-                if fitted is not None:
-                    result.append(fitted)
-                    total += fitted.token_count
+                admit(f)
             self._log_leg_budget_share(result, total, max_tokens)
             return result
 
-        total, result, used = 0, [], set()
+        used = set()
         for f in guaranteed:
-            if total + f.token_count <= max_tokens:
-                result.append(f); total += f.token_count; used.add(id(f))
-            else:
-                d = _degraded(f, max_tokens - total)
-                if d:
-                    result.append(d); total += d.token_count; used.add(id(f))
+            admit(f)
+            used.add(id(f))
 
         # Phase 2 – round-robin-with-slack across legs (A10 budget fairness).
         # Each round, every leg contributes its next-best fragment (highest-scoring
@@ -2857,23 +2843,13 @@ class HybridRetrievalOrchestrator:
         active = list(queues.keys())
         while active and total < max_tokens:
             active.sort(key=lambda leg: queues[leg][0].score, reverse=True)
-            progressed = False
             for leg in list(active):
                 q = queues[leg]
-                f = q.popleft()
-                if total + f.token_count <= max_tokens:
-                    result.append(f); total += f.token_count; progressed = True
-                else:
-                    # C1/C3: fragment too big — degrade (summary, then
-                    # abstract) before giving up on it (else skip; the leg's
-                    # next fragment gets its chance next round).
-                    d = _degraded(f, max_tokens - total)
-                    if d:
-                        result.append(d); total += d.token_count; progressed = True
+                admit(q.popleft())
                 if not q:
                     active.remove(leg)
-            if not progressed:
-                break
+            # Every queue advances even if nothing fits this round. A later
+            # smaller excerpt can still fit; do not stop at an oversized head.
         self._log_leg_budget_share(result, total, max_tokens)
         return result
 
@@ -3008,6 +2984,10 @@ class HybridRetrievalOrchestrator:
             self._leg_degraded("wide_net", err)
             fragments = []
 
+        fragments.extend(self._vector_chunks(prompt_embedding, scope, scope_conv,
+            recency_boost=self._recency_params(
+                "Creative_&_Media" in (classification.topic_tags or []))[1]))
+
         fragments.extend(self._codex_graph(classification, scope,
                                            prompt_embedding=prompt_embedding))
 
@@ -3017,14 +2997,14 @@ class HybridRetrievalOrchestrator:
         fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
         fused, reranked = rerank(classification.prompt, fused)
-        diversified = self._session_diversify(fused, conversation_id)   # G29: see retrieve()
         # C15: dynamic ceiling — a fraction of the (model-aware, C16) retrieval
         # budget with a floor, replacing the hardcoded 2,000 tokens.
         wide_budget = max(settings.retrieval_wide_net_budget_floor,
                           int(self.max_retrieval_tokens * settings.retrieval_wide_net_budget_fraction))
-        deduped = self._collapse_provenance(self._deduplicate(diversified))
+        deduped = self._deduplicate(fused)
         return self._enforce_token_budget(deduped, max_tokens=wide_budget,
-                                          relevance_order=reranked)
+                                          relevance_order=reranked,
+                                          current_conversation_id=conversation_id)
 
     # ------------------------------------------------------------------
     # Helper: convert raw DB rows to ContextFragment list
@@ -3069,26 +3049,16 @@ class HybridRetrievalOrchestrator:
             if not text:
                 continue
 
-            # Word cap (keyword-aware). C2: documents are NEVER injected whole
-            # anymore (the old word_cap=999999 bypass) — a doc row found by
-            # BM25/text search injects only its keyword-relevant chunks.
-            is_doc = getattr(row, "is_document", False)
-            word_cap = 500
-            if is_doc:
+            # Query-selected document excerpts are alternatives, never a prefix
+            # of an otherwise complete turn. Legacy/no-chunk rows keep raw text.
+            complete_source = text == getattr(row, "raw_text", None)
+            if getattr(row, "is_document", False):
                 chunk_text_ = self._relevant_doc_chunks(row.id, prompt_keywords)
                 if chunk_text_:
                     text = chunk_text_
                     degrade_text = None
-                    word_cap = 999999   # already a bounded selection (≤2 chunks)
-                # else: legacy doc without chunks (pre-C2, catch-up worker will
-                # heal it) — falls through to the normal 500-word cap instead
-                # of dumping the whole document.
-            elif prompt_keywords:
-                text_lower = text.lower()
-                if any(kw in text_lower or kw.rstrip('s') in text_lower for kw in prompt_keywords):
-                    word_cap = 1500
-
-            text = _truncate_at_sentence(text, word_cap)
+                    abstract_text = None
+                    complete_source = False
 
             if not text:
                 continue
@@ -3115,5 +3085,6 @@ class HybridRetrievalOrchestrator:
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
                 degrade_text=degrade_text,
                 abstract_text=abstract_text,
+                covers_entire_source=complete_source,
             ))
         return fragments
