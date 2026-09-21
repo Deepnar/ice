@@ -277,6 +277,12 @@ def test_own_batch_summary_obeys_scope_and_cannot_survive_without_sources(contex
                          start_turn_index=0, end_turn_index=1, embedding=VEC)
     ctx.db.add(batch); ctx.db.flush()
     ctx.first.batch_summary_id = batch.id
+    ctx.db.flush()
+    from src.memory.summary_snapshot import compose_parts
+    parts = [{'source_ids': [str(ctx.first.id)], 'mode': 'source', 'text': ctx.first.raw_text}]
+    batch.summary_text = compose_parts(parts)
+    batch.source_manifest = bind_snapshot(source_snapshot(ctx.db, ctx.cid,
+        batch_summary_id=batch.id), batch.summary_text, parts=parts)
     ctx.db.commit()
     orch = HybridRetrievalOrchestrator(ctx.db, NS())
     try:

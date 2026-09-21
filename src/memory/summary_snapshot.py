@@ -11,7 +11,7 @@ logger = structlog.get_logger('ice.memory.summary_snapshot')
 SNAPSHOT_VERSION = 3  # v3 independent notes; invalidates recursive roots
 
 
-def source_snapshot(db, conversation_id):
+def source_snapshot(db, conversation_id, *, batch_summary_id=None):
     """Transfer source identities/fingerprints, never full raw text to readers."""
     rows = db.execute(text('''
         SELECT e.id::text AS id, e.batch_id::text AS batch_id, e.timestamp,
@@ -21,8 +21,9 @@ def source_snapshot(db, conversation_id):
                    e.representation_verification)::text) AS fingerprint
         FROM episodic_memory e
         WHERE e.conversation_id = :cid
+          AND (CAST(:summary_id AS uuid) IS NULL OR e.batch_summary_id = CAST(:summary_id AS uuid))
         ORDER BY e.timestamp, e.id
-    '''), {'cid': str(conversation_id)}).fetchall()
+    '''), {'cid': str(conversation_id), 'summary_id': str(batch_summary_id) if batch_summary_id else None}).fetchall()
     return [{'id': row.id, 'batch_id': row.batch_id, 'fingerprint': row.fingerprint,
              'timestamp': row.timestamp.isoformat() if row.timestamp else None}
             for row in rows]
@@ -94,3 +95,13 @@ def summary_snapshot_readable(db, row):
                        conversation_id=str(row.conversation_id),
                        reason='missing, changed or backfilled source snapshot; rebuild required')
     return matches
+
+
+def batch_snapshot_readable(db, row):
+    current = source_snapshot(db, row.conversation_id, batch_summary_id=row.id)
+    readable = bool((row.source_manifest or {}).get('parts')) and snapshot_matches(
+        row.source_manifest, row.summary_text, current)
+    if not readable:
+        logger.warning('batch_summary_source_stale', summary_id=str(row.id),
+                       reason='missing or changed source/output/policy; rebuild required')
+    return readable

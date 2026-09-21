@@ -217,3 +217,10 @@ neighbor and retains complete unscored fallbacks.510 smoke/SQL/settings controls
 passed; actual local Qwen capacity control4/4. These synthetic mechanism checks
 do not measure LME answer quality. Archive metadata parity, batch-summary support
 and conversation-note selection remain unfinished.
+
+Batch-note source support/freshness now implemented: NLI-supported compression
+or original-source fallback, output-bound source manifests, stale-cache rebuilding,
+complete provider bounds and concurrent-edit protection.523 focused checks and
+11 standalone coverage checks passed. Cold archive metadata/source parity and
+query-selectable compact conversation notes remain open. No new semantic model or
+benchmark win is claimed from these controlled writer/reader tests.

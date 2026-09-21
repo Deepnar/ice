@@ -1,3 +1,19 @@
+## 2026-09-21 — v3 batch-note support and source freshness
+
+523 smoke/SQL/settings checks passed in a disposable database; the final loading-
+race review was followed by13/13 batch writer/reader/provider/migration checks.
+Standalone batch coverage11/11 passed. Model outputs/support scores are controlled
+in these batch integration tests; prior actual-model source-note qualification
+covers the reused verifier, not new batch answer-quality evidence.
+
+Controls cover supported/unsupported compression, complete-source fallback,
+source/output/policy/privacy changes, deletion, legacy NULL manifests, idempotence,
+concurrent edits and incomplete generation. Provider controls prove whole input
+and output reserve handling. Nullable migration b7e5f013c284 roundtripped in an
+isolated store and was applied from a6d4e902b173 to the working schema. No corpus
+regeneration or broad evaluation ran. Cold-source manifest parity remains open;
+archival currently invalidates a batch cache rather than trusting missing evidence.
+
 ## 2026-09-21 — v3 budget-time source alternatives
 
 Actual cached Qwen3-Reranker-0.6B, revision e61197ed45024b0ed8a2d74b80b4d909f1255473,

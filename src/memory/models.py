@@ -607,6 +607,7 @@ class BatchSummary(Base):
     # business; do not start trusting them.
     start_turn_index = Column(Integer, nullable=False)
     end_turn_index = Column(Integer, nullable=False)
+    source_manifest = Column(JSONB, nullable=True)
     summary_text = Column(Text, nullable=False)
     embedding = Column(Vector(1024), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)

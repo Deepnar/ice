@@ -112,8 +112,8 @@ def _note_prompt(source):
     )
 
 
-def _source_note(turns, source, known_roles, llm, verifier):
-    generated = llm(_note_prompt(source), max_tokens=400)
+def _source_note(turns, source, known_roles, llm, verifier, *, max_tokens=400):
+    generated = llm(_note_prompt(source), max_tokens=max_tokens)
     if not generated or not generated.strip():
         return None
     verdict = asdict(verifier(source, generated)) if known_roles else None

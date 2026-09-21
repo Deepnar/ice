@@ -680,3 +680,24 @@ leaving an alternative that can silently reappear in another reader.
 The wide-net fallback must query the existing chunk leg under the same resolved
 scope/time filters too; a broader parent search alone cannot recover a late
 excerpt when that parent exceeds the prompt budget.
+
+### Batch-summary source contract — 2026-09-21
+
+Batch summaries must use the same original-source independent notes as rolling
+summaries, never an unchecked concatenation of generated derivatives. Add a
+nullable JSON source_manifest to BatchSummary with an additive migration. Bind
+exact ordered source identities/fingerprints, composed output, note parts and
+current support policy. Readers require a complete matching manifest; legacy,
+edited, partially deleted, reassigned or private sources invalidate the aggregate.
+This does not delete the source turns. The worker unlinks stale aggregates before
+rebuilding eligible original sources; abandoned generated caches may be removed.
+
+Reuse whole-source grouping, source attribution, current NLI support and full
+source fallback from conversation notes; a compact unsupported note cannot replace
+its originals. Keep batch output ceiling configurable. Check the complete provider
+request plus output reserve; never slice evidence to fit. Bind a snapshot before
+generation and verify it again before committing coverage, so concurrent edits
+cannot validate an older generated result against a newer fingerprint. Preserve
+JobYielded and avoid logging provider payloads. Test writer and actual SQL reader,
+including positive/negative support, stale sources/output/policy, legacy manifests,
+provider completion failure and migration roundtrip, in disposable stores only.

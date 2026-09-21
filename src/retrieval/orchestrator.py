@@ -31,7 +31,7 @@ from src.memory.models import (
 )
 from src.memory.claims import claim_representation, excerpt_is_current, source_for_claim
 from src.memory.representation import choose_representation
-from src.memory.summary_snapshot import summary_snapshot_readable
+from src.memory.summary_snapshot import batch_snapshot_readable, summary_snapshot_readable
 from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as count_tokens
 from src.retrieval import coverage, leg_weights
@@ -2280,7 +2280,7 @@ class HybridRetrievalOrchestrator:
         if conv_id:
             try:
                 query = text(f"""
-                    SELECT bs.summary_text, bs.created_at,
+                    SELECT bs.id, bs.conversation_id, bs.source_manifest, bs.summary_text, bs.created_at,
                            1 - (bs.embedding <=> :prompt_embedding) as score,
                            (SELECT array_agg(em.batch_id::text)
                               FROM episodic_memory em
@@ -2318,7 +2318,7 @@ class HybridRetrievalOrchestrator:
                     token_count=count_tokens(rendered),
                     origin_batch_ids=tuple(r.covered or ()),
                     conversation_id=str(conv_id),
-                ) for r in rows]
+                ) for r in rows if batch_snapshot_readable(self.db, r)]
             except Exception as err:
                 self._leg_degraded("batch_summary.own", err)
         # Half 2 (C4 D3b): OTHER conversations' evolving whole-conversation
