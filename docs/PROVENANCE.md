@@ -1,3 +1,17 @@
+## 2026-09-21 — v3 cold cluster visibility
+
+531 combined smoke/SQL/settings checks passed in a disposable database. Three
+new controls exercise cluster inclusion/exclusion, explicit empty/nonempty batch
+lists, unknown versus known-unlinked membership, actual decay→read→restore with
+multiple cluster links and a deleted cluster, and migration roundtrip. These use
+synthetic source text and actual PostgreSQL; no model-quality claim.
+
+Nullable migration d9071335e4a6 applied from c8f60224d395 after isolated roundtrip.
+No inferred historical memberships or corpus regeneration. Legacy unknown cluster
+membership remains available without cluster constraints but is withheld when
+membership is needed to enforce scope. Chunk/parent links and aggregate source
+continuity are unfinished.
+
 ## 2026-09-21 — v3 cold representation/identity round trip
 
 527 smoke/SQL/settings checks passed; standalone temporal suite61/61 passed.

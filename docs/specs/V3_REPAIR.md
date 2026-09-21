@@ -732,3 +732,16 @@ SQLAlchemy exceptions can contain full raw source/verdict parameters. Keep the
 leg, exception class and SQLSTATE (when available); preserve conditional rollback
 and warning on every failure. Validate with an exception carrying planted private
 source text, not only with a benign ValueError.
+
+### Cold cluster visibility —2026-09-21
+
+Preserve nullable `cluster_ids` (all link memberships) and `cluster_id` (original
+primary pointer) on cold rows. New archives record [] for known-unlinked sources;
+NULL denotes legacy unknown. Snapshot links before deleting them and the live row
+in the same transaction. Restore only references to still-existing clusters;
+never recreate a deleted cluster or infer a primary pointer from link ordering.
+Cold queries enforce positive cluster scope, excluded clusters and explicit batch
+allow-lists before ranking/limit. Known-unlinked rows keep the live-path allowance;
+unknown legacy membership is withheld when any cluster constraint applies. Plain
+unconstrained temporal retrieval remains available. Tests cover positive, negative,
+unknown and empty-batch scopes plus actual archive/restore membership preservation.

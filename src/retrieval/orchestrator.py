@@ -2405,8 +2405,18 @@ class HybridRetrievalOrchestrator:
         pats = [f"%{t}%" for t in terms]
 
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
-        # C6: cold rows carry no cluster links — conversation exclusion only.
         excl_filter, excl_params = self._exclusion_filters(scope, id_column=None)
+        if scope and (scope.get("cluster_ids") or scope.get("exclude_cluster_ids")):
+            excl_filter += " AND cluster_ids IS NOT NULL"
+        if scope and scope.get("cluster_ids"):
+            excl_filter += " AND (cardinality(cluster_ids) = 0 OR cluster_ids && CAST(:cold_clusters AS uuid[]))"
+            excl_params["cold_clusters"] = [str(c) for c in scope["cluster_ids"]]
+        if scope and scope.get("exclude_cluster_ids"):
+            excl_filter += " AND NOT (cluster_ids && CAST(:cold_excluded_clusters AS uuid[]))"
+            excl_params["cold_excluded_clusters"] = [str(c) for c in scope["exclude_cluster_ids"]]
+        if scope and scope.get("batch_ids") is not None:
+            excl_filter += " AND batch_id = ANY(CAST(:cold_batches AS uuid[]))"
+            excl_params["cold_batches"] = [str(b) for b in scope["batch_ids"]]
         privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
         # C16: rank by MEANING when the archived row carries a vector, and fall
         # back to the keyword patterns only for rows that predate
@@ -2423,7 +2433,7 @@ class HybridRetrievalOrchestrator:
         query = text(f"""
             SELECT id, conversation_id, batch_id, raw_text, summary_text,
                    topic_tags, timestamp, is_private, embedding, source_spans, ts_provenance,
-                   summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key
+                   summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids
             FROM cold_storage
             WHERE timestamp >= :t0 AND timestamp < :t1
               {conv_filter}
@@ -2508,17 +2518,19 @@ class HybridRetrievalOrchestrator:
                          embedding, decay_score, access_count, is_archived,
                          is_private, inject_raw, idempotency_key, source_spans, ts_provenance,
                          summary_coverage, representation_verification, abstract_text,
-                         lossless_flag, session_id)
+                         lossless_flag, session_id, cluster_id)
                     VALUES (:id, :conv, :batch, :ts, :tags, :itags,
                             :context_reliance, :raw, :summary, :emb, :score,
                             1, FALSE, :priv, :inject_raw, :ikey, :source_spans, :ts_provenance,
                             :summary_coverage, :representation_verification, :abstract_text,
-                            :lossless_flag, :session_id)
+                            :lossless_flag, :session_id,
+                            (SELECT id FROM context_clusters WHERE id = :primary_cluster))
                     ON CONFLICT (id) DO NOTHING
                 """).bindparams(bindparam("emb", type_=PgVector),
                                  bindparam("source_spans", type_=JSONB),
                                  bindparam("representation_verification", type_=JSONB)), {
                     "id": row.id, "conv": row.conversation_id,
+                    "primary_cluster": getattr(row, "cluster_id", None),
                     "batch": row.batch_id or uuid.uuid4(), "ts": row.timestamp,
                     "tags": list(row.topic_tags or []),
                     "itags": list(getattr(row, "intent_tags", None) or []),
@@ -2539,6 +2551,13 @@ class HybridRetrievalOrchestrator:
                     # id somehow still live in episodic — keep the cold row.
                     logger.info("cold_resurrect_conflict", cold_id=str(row.id))
                 else:
+                    self.db.execute(text("""
+                        INSERT INTO episodic_cluster_links (episodic_id, cluster_id)
+                        SELECT :id, id FROM context_clusters
+                        WHERE id = ANY(CAST(:clusters AS uuid[]))
+                        ON CONFLICT DO NOTHING
+                    """), {"id": row.id, "clusters": [str(c) for c in
+                             (getattr(row, "cluster_ids", None) or [])]})
                     self.db.execute(text("DELETE FROM cold_storage WHERE id = :id"),
                                     {"id": row.id})
                     logger.info("cold_resurrected", episodic_id=str(row.id),

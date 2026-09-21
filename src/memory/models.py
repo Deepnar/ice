@@ -556,6 +556,8 @@ class ColdStorage(Base):
     intent_tags = Column(ARRAY(Text), nullable=True)
     context_reliance = Column(Text, nullable=True)
     idempotency_key = Column(Text, nullable=True)
+    cluster_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
+    cluster_id = Column(UUID(as_uuid=True), nullable=True)
     topic_tags = Column(ARRAY(Text), default=[])
     timestamp = Column(DateTime(timezone=True), nullable=False)
     ts_provenance = Column(Text, nullable=True)

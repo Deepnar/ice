@@ -164,21 +164,24 @@ def apply_decay(cycles: int = 1):
         cold_rows = db.execute(text("""
             SELECT id, raw_text, summary_text, topic_tags, timestamp,
                    conversation_id, is_private, batch_id, embedding, source_spans, ts_provenance,
-                   summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key
+                   summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id
             FROM episodic_memory
             WHERE is_archived = TRUE AND decay_score < :cold_threshold
             FOR UPDATE
         """), {"cold_threshold": settings.decay_cold_threshold}).fetchall()
 
         for row in cold_rows:
+            cluster_ids = [linked[0] for linked in db.execute(text(
+                "SELECT cluster_id FROM episodic_cluster_links WHERE episodic_id = :id ORDER BY cluster_id"
+            ), {"id": row.id})]
             db.execute(text("""
                 INSERT INTO cold_storage (id, archived_at, raw_text, summary_text,
                                           topic_tags, timestamp, conversation_id,
                                           is_private, batch_id, embedding, source_spans, ts_provenance,
-                                          summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key)
+                                          summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids)
                 VALUES (:id, :now, :raw, :summary, :tags, :ts, :conv, :priv, :batch,
                         :emb, :source_spans, :ts_provenance,
-                        :summary_coverage, :representation_verification, :abstract_text, :lossless_flag, :inject_raw, :session_id, :intent_tags, :context_reliance, :idempotency_key)
+                        :summary_coverage, :representation_verification, :abstract_text, :lossless_flag, :inject_raw, :session_id, :intent_tags, :context_reliance, :idempotency_key, :cluster_id, :cluster_ids)
                 ON CONFLICT (id) DO UPDATE SET
                     archived_at = EXCLUDED.archived_at,
                     raw_text = EXCLUDED.raw_text,
@@ -199,14 +202,16 @@ def apply_decay(cycles: int = 1):
                     session_id = EXCLUDED.session_id,
                     intent_tags = EXCLUDED.intent_tags,
                     context_reliance = EXCLUDED.context_reliance,
-                    idempotency_key = EXCLUDED.idempotency_key
+                    idempotency_key = EXCLUDED.idempotency_key,
+                    cluster_id = EXCLUDED.cluster_id,
+                    cluster_ids = EXCLUDED.cluster_ids
             """).bindparams(bindparam("source_spans", type_=JSONB),
                             bindparam("representation_verification", type_=JSONB)), {
                 **{key: getattr(row, key) for key in (
                     'summary_coverage', 'representation_verification', 'abstract_text',
                     'lossless_flag', 'inject_raw', 'session_id', 'intent_tags',
                     'context_reliance', 'idempotency_key')},
-                "id": row.id,
+                "id": row.id, "cluster_id": row.cluster_id, "cluster_ids": cluster_ids,
                 "now": datetime.now(timezone.utc),
                 "raw": row.raw_text,
                 "source_spans": row.source_spans,
@@ -222,6 +227,7 @@ def apply_decay(cycles: int = 1):
                 # live row was matched on.
                 "emb": row.embedding,
             })
+            db.execute(text("DELETE FROM episodic_cluster_links WHERE episodic_id = :id"), {"id": row.id})
             db.execute(text("DELETE FROM episodic_memory WHERE id = :id"), {"id": row.id})
 
         db.commit()

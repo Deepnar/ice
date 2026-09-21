@@ -1488,3 +1488,5 @@ wins; where it conflicts with the code, the code wins.**
 
 | v3 cold representation/identity parity | `ColdStorage`, `decay.py`, `_cold_lookup`, `_resurrect_cold_hits` retain current support verdicts, coverage, abstracts, lossless/raw choice, session, intents, context and original idempotency key | nullable archive metadata; legacy defaults preserve raw | YES for newly archived rows; no inferred backfill |
 | Retrieval failure privacy | `_leg_degraded` logs leg, exception class and SQLSTATE, never exception strings containing raw SQL parameters | no flag | YES; still warns every failure and rolls back database errors |
+
+| v3 cold cluster and batch visibility | `decay.py` snapshots link membership/primary cluster; cold retrieval applies positive/excluded cluster and explicit batch constraints before ranking, restoration links only existing clusters | NULL=legacy unknown, []=known-unlinked | YES; unknown membership withheld only under cluster constraints |

@@ -1432,3 +1432,14 @@ existing write switch and probation policy. Migration c8f60224d395 adds columns
 without backfill. Cluster/chunk/parent links and aggregate freshness across storage
 moves remain open. Retrieval failures log class/SQLSTATE, not exception strings
 that may expose source text embedded in SQL parameters.
+
+### v3 cold cluster visibility —2026-09-21
+
+Cold rows retain all cluster-link IDs and their original primary cluster. Decay
+snapshots then deletes warm links transactionally; restoration reattaches only
+clusters that still exist. Cold lookup applies positive cluster scope, exclusions
+and explicit batch allow-lists before ranking/limit. As on the warm path, a known
+unlinked source may pass positive scope; a legacy NULL membership is unknown and
+is withheld under cluster constraints. Unconstrained temporal retrieval remains
+available. Migration d9071335e4a6 adds nullable columns without guessing legacy
+membership. Chunk/parent links and aggregate source-manifest continuity remain open.

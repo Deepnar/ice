@@ -1663,3 +1663,15 @@ Mirror the existing index in ORM metadata, then rerun:28/28 passed. Isolation
 prevents cross-suite residue; it does not establish migration/schema parity.
 Before changing a service to fix an isolated-test failure, inspect the actual
 constraints. Keep migration roundtrips separate from ORM-created behavior tests.
+
+### 61. Exception text can contain the memory a log was meant to protect
+
+**v3,2026-09-21.** An intentional idempotency collision during cold restoration
+returned a SQLAlchemy exception. The shared retrieval warning stringified it,
+which includes SQL parameters: raw evidence, speaker metadata and verification
+records. A log saying only that retrieval failed still copied its input payload.
+
+Keep exception class and SQLSTATE, plus the failing leg; do not stringify database
+or provider errors by default. A control planted private source text in an actual
+StatementError and asserted it never reached the logger while database rollback
+still occurred. Testing with a harmless ValueError would have missed the shape.

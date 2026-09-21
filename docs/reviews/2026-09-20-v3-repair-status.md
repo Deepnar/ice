@@ -234,3 +234,9 @@ and restoration.527 regression checks and61 temporal checks passed; source suppo
 scores were controlled in round-trip tests. No new model promoted. Cluster/chunk/
 parent links and summary freshness across storage moves remain outstanding.
 Retrieval failure logging no longer emits exception strings containing raw memory.
+
+Cold cluster visibility now preserves link membership and primary cluster,
+applies exclusions/positive scope/batch lists before ranking, and does not invent
+legacy membership or recreate deleted clusters. Archive excerpt/parent links and
+aggregate manifest continuity remain open. Retrieval exception-payload privacy
+failure and its control are recorded in TRAPS61.
