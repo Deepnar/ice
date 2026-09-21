@@ -1,3 +1,12 @@
+## 2026-09-21 — v3 archive collision correction
+
+313 smoke plus actual SQL decay controls passed in a disposable database. A newer
+private live source and an older public cold row shared an ID; after a real decay
+cycle the cold copy retained the corrected full text, summary metadata, role hash,
+source timestamp/provenance, conversation/batch identity, privacy and vector, and
+only then was the live copy removed. No model call or answer-quality inference.
+Wider archival metadata/source-manifest parity remains open.
+
 ## 2026-09-21 — v3 batch-note support and source freshness
 
 523 smoke/SQL/settings checks passed in a disposable database; the final loading-

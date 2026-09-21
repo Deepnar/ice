@@ -1411,3 +1411,11 @@ the shared representation selector and no300-word cut; legacy archives lacking
 verification metadata therefore use raw evidence. Archive metadata parity remains
 open. Optional geometric coverage remains off by default and is not qualified by
 this repair. Candidate limits still bound what the reranker can see.
+
+### v3 archive collision contract —2026-09-21
+
+Decay locks selected live source rows and upserts transferred evidence into cold
+storage before deleting the live copy in the same transaction. A duplicate ID
+must not preserve an older cold text/privacy value at the expense of a newer
+live correction. Additional representation/session/cluster/chunk metadata and
+aggregate source-manifest parity remain unfinished.

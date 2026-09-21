@@ -701,3 +701,13 @@ cannot validate an older generated result against a newer fingerprint. Preserve
 JobYielded and avoid logging provider payloads. Test writer and actual SQL reader,
 including positive/negative support, stale sources/output/policy, legacy manifests,
 provider completion failure and migration roundtrip, in disposable stores only.
+
+### Archive collision preserves latest source — 2026-09-21
+
+A warm/cold duplicate ID is a retry/recovery state, not permission to discard the
+current live source. Archive selection locks source rows. Cold insertion must
+update every transferred evidence field on conflict before deleting the live row,
+in the same transaction. Never keep an older cold copy while deleting a newer
+correction or privacy change. Validate an actual decay cycle with an older cold
+copy and a corrected private live source, including raw hash/roles, timestamps,
+vector and source identity. Wider cold metadata and aggregate parity remain open.

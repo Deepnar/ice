@@ -224,3 +224,7 @@ complete provider bounds and concurrent-edit protection.523 focused checks and
 11 standalone coverage checks passed. Cold archive metadata/source parity and
 query-selectable compact conversation notes remain open. No new semantic model or
 benchmark win is claimed from these controlled writer/reader tests.
+
+Archive collision fix: an older cold copy no longer wins over a newer live
+correction/privacy change.313 smoke and actual decay checks passed. This does not
+finish archive metadata, scope or aggregate freshness parity.

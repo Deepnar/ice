@@ -166,6 +166,7 @@ def apply_decay(cycles: int = 1):
                    conversation_id, is_private, batch_id, embedding, source_spans, ts_provenance
             FROM episodic_memory
             WHERE is_archived = TRUE AND decay_score < :cold_threshold
+            FOR UPDATE
         """), {"cold_threshold": settings.decay_cold_threshold}).fetchall()
 
         for row in cold_rows:
@@ -175,7 +176,18 @@ def apply_decay(cycles: int = 1):
                                           is_private, batch_id, embedding, source_spans, ts_provenance)
                 VALUES (:id, :now, :raw, :summary, :tags, :ts, :conv, :priv, :batch,
                         :emb, :source_spans, :ts_provenance)
-                ON CONFLICT (id) DO NOTHING
+                ON CONFLICT (id) DO UPDATE SET
+                    archived_at = EXCLUDED.archived_at,
+                    raw_text = EXCLUDED.raw_text,
+                    summary_text = EXCLUDED.summary_text,
+                    topic_tags = EXCLUDED.topic_tags,
+                    timestamp = EXCLUDED.timestamp,
+                    conversation_id = EXCLUDED.conversation_id,
+                    is_private = EXCLUDED.is_private,
+                    batch_id = EXCLUDED.batch_id,
+                    embedding = EXCLUDED.embedding,
+                    source_spans = EXCLUDED.source_spans,
+                    ts_provenance = EXCLUDED.ts_provenance
             """).bindparams(bindparam("source_spans", type_=JSONB)), {
                 "id": row.id,
                 "now": datetime.now(timezone.utc),
