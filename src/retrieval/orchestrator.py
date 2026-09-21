@@ -612,7 +612,8 @@ class HybridRetrievalOrchestrator:
             # same id for the same reason: with None it excluded nothing and
             # could re-inject this conversation's own summary.
             "batch_summary": self._batch_summary_lookup(
-                prompt_embedding, own_conv_id, include_cross=not incognito),
+                prompt_embedding, own_conv_id, include_cross=not incognito,
+                scope=scope, search_conv_id=conv_id),
             # T3: cold storage joins time-scoped queries only (no-op leg
             # otherwise); fragments are episodic-typed, so budget fairness
             # treats them as memories — the leg name only affects RRF weight.
@@ -2271,30 +2272,53 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
 
     def _batch_summary_lookup(self, prompt_embedding, conv_id: Optional[str] = None,
-                              include_cross: bool = True) -> List[ContextFragment]:
+                              include_cross: bool = True, scope=None,
+                              search_conv_id=None) -> List[ContextFragment]:
         # T3 (D14): skipped under any non-current mode — a summary's created_at
         # is long after its content's period, which is underivable without a
         # turn-index→timestamp join; serving it under a window would mislead.
         if self._active_timescope.mode != "current":
             return []
+        source_scope, source_params, _ = self._conv_scope_filter(
+            scope, search_conv_id, column="covered_source.conversation_id")
+        source_exclusions, exclusion_params = self._exclusion_filters(
+            scope, conv_column="covered_source.conversation_id",
+            id_column="covered_source.id")
+        source_clusters = self._cluster_filter(scope, id_column="covered_source.id")
+        # The active conversation identity has a separate SQL name; the scope
+        # helper may bind :conv_id to a different, explicitly searched conversation.
+        scope_params = {**source_params, **exclusion_params}
+        if scope and scope.get("cluster_ids"):
+            scope_params["cluster_ids"] = scope["cluster_ids"]
+        source_allowed = f"TRUE {source_scope} {source_exclusions} {source_clusters}"
+        if scope and scope.get("batch_ids") is not None:
+            source_allowed += " AND covered_source.batch_id = ANY(:summary_batch_ids)"
+            scope_params["summary_batch_ids"] = [str(b) for b in scope["batch_ids"]]
         fragments: List[ContextFragment] = []
         # Half 1 (as built): this conversation's batch summaries.
         if conv_id:
             try:
-                query = text("""
+                query = text(f"""
                     SELECT bs.summary_text, bs.created_at,
                            1 - (bs.embedding <=> :prompt_embedding) as score,
                            (SELECT array_agg(em.batch_id::text)
                               FROM episodic_memory em
                              WHERE em.batch_summary_id = bs.id) AS covered
                     FROM batch_summaries bs
-                    WHERE bs.conversation_id = :conv_id
+                    WHERE bs.conversation_id = :own_conv_id
                       AND bs.embedding IS NOT NULL
+                      AND EXISTS (SELECT 1 FROM episodic_memory em
+                                  WHERE em.batch_summary_id = bs.id)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM episodic_memory covered_source
+                          WHERE covered_source.batch_summary_id = bs.id
+                            AND NOT ({source_allowed}))
                     ORDER BY score DESC
                     LIMIT :bs_limit
                 """).bindparams(bindparam("prompt_embedding", type_=PgVector))
                 rows = self.db.execute(query, {
-                    "prompt_embedding": prompt_embedding, "conv_id": conv_id,
+                    "prompt_embedding": prompt_embedding, "own_conv_id": conv_id,
+                    **scope_params,
                     "bs_limit": settings.retrieval_batch_summary_limit}).fetchall()
                 # T1: summaries are written long after the turns they compress,
                 # so they get a "[summary, <created>]" prefix, not a turn date.
@@ -2312,6 +2336,7 @@ class HybridRetrievalOrchestrator:
                     score=r.score,
                     token_count=count_tokens(rendered),
                     origin_batch_ids=tuple(r.covered or ()),
+                    conversation_id=str(conv_id),
                 ) for r in rows]
             except Exception as err:
                 self._leg_degraded("batch_summary.own", err)
@@ -2324,7 +2349,7 @@ class HybridRetrievalOrchestrator:
         if not include_cross:
             return fragments
         try:
-            query = text("""
+            query = text(f"""
                 SELECT s.summary_text, s.updated_at, s.source_manifest, s.conversation_id,
                        1 - (s.embedding <=> :prompt_embedding) as score
                 FROM conversation_summaries s
@@ -2335,21 +2360,31 @@ class HybridRetrievalOrchestrator:
                       SELECT 1 FROM episodic_memory private_source
                       WHERE private_source.conversation_id = s.conversation_id
                         AND private_source.is_private = TRUE)
-                  AND (CAST(:conv_id AS uuid) IS NULL
-                       OR s.conversation_id != CAST(:conv_id AS uuid))
+                  AND (CAST(:own_conv_id AS uuid) IS NULL
+                       OR s.conversation_id != CAST(:own_conv_id AS uuid))
+                  AND NOT EXISTS (
+                      SELECT 1 FROM episodic_memory covered_source
+                      WHERE covered_source.conversation_id = s.conversation_id
+                        AND s.source_manifest @> jsonb_build_object(
+                            'sources', jsonb_build_array(jsonb_build_object(
+                                'id', covered_source.id::text)))
+                        AND NOT ({source_allowed}))
                 ORDER BY score DESC
                 LIMIT :cs_limit
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
             rows = self.db.execute(query, {
                 "prompt_embedding": prompt_embedding,
-                "conv_id": conv_id,
+                "own_conv_id": conv_id,
+                **scope_params,
                 "cs_limit": settings.retrieval_conversation_summary_limit,
             }).fetchall()
             fragments += [ContextFragment(
                 text=(rendered := f"[conversation summary updated: {format_time(r.updated_at)}] " + r.summary_text),
                 source_type="batch_summary",
                 score=r.score,
-                token_count=count_tokens(rendered)
+                token_count=count_tokens(rendered),
+                conversation_id=str(r.conversation_id),
+                origin_batch_ids=tuple(item['batch_id'] for item in r.source_manifest['sources'])
             ) for r in rows if summary_snapshot_readable(self.db, r)]
         except Exception as err:
             self._leg_degraded("batch_summary.cross", err)

@@ -14,7 +14,7 @@ SNAPSHOT_VERSION = 3  # v3 independent notes; invalidates recursive roots
 def source_snapshot(db, conversation_id):
     """Transfer source identities/fingerprints, never full raw text to readers."""
     rows = db.execute(text('''
-        SELECT e.id::text AS id, e.timestamp,
+        SELECT e.id::text AS id, e.batch_id::text AS batch_id, e.timestamp,
                md5(jsonb_build_array(e.batch_id, e.raw_text, e.source_spans,
                    e.timestamp, e.ts_provenance, e.is_private,
                    e.summary_text, e.inject_raw, e.summary_coverage,
@@ -23,7 +23,7 @@ def source_snapshot(db, conversation_id):
         WHERE e.conversation_id = :cid
         ORDER BY e.timestamp, e.id
     '''), {'cid': str(conversation_id)}).fetchall()
-    return [{'id': row.id, 'fingerprint': row.fingerprint,
+    return [{'id': row.id, 'batch_id': row.batch_id, 'fingerprint': row.fingerprint,
              'timestamp': row.timestamp.isoformat() if row.timestamp else None}
             for row in rows]
 

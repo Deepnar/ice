@@ -1019,6 +1019,15 @@ never a post-generation cut. Overview embedding covers all text: when necessary,
 exact contiguous spans fit the encoder tokenizer/window, then length-weighted
 vectors are pooled and normalized rather than silently embedding a prefix.
 
+**v3 retrieval scope follow-through (2026-09-21).** The summary leg now receives
+resolved retrieval scope separately from the active conversation ID. Every covered
+source must pass shared conversation, explicit batch, cluster and exclusion filters
+before SQL ranking/limits. Batch coverage comes from its FK; root coverage from
+its source manifest. Orphan batches are withheld. Root fragments now carry exact
+source batch IDs and conversation ID, preserving source credit and diversification.
+The configurable/ablation wrapper forwards the same arguments. Current-conversation
+history/overview remains its own context surface, distinct from a cross-memory read.
+
 **Remaining limits.** This is a composition of source notes, not a globally
 reconciled narrative. Existing NLI's512-token pair limit makes long groups fall
 back to original evidence; the composed context can be large and final prompt

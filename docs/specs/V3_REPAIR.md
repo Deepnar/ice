@@ -623,3 +623,22 @@ private source turn, even if the conversation itself is not incognito. Whole
 overview scope cannot selectively redact one note without reconstructing it;
 retain own-conversation access, and test a valid-manifest public conversation
 with a private turn so missing provenance cannot mask a privacy failure.
+
+### Summary retrieval scope and source credit — 2026-09-20
+
+Independent notes make an existing retrieval bypass more visible: the summary
+leg receives the active conversation ID but not the resolved retrieval scope.
+Pass both identities separately, appending optional parameters to preserve callers.
+Apply the same conversation, cluster inclusion and exclusion predicates used by
+ordinary episodic retrieval to every covered source before summary ranking/limit.
+A whole summary is eligible only when all covered sources are eligible; never
+partially disclose an aggregate containing excluded evidence. Batch summaries use
+their coverage FK; independent-note roots use manifest source IDs. Empty explicit
+conversation sets match nothing. Keep own conversation identity for self-exclusion,
+not as a substitute for the requested search scope.
+
+Cross-note fragments carry conversation_id and exact covered batch IDs, so source
+credit and diversification can see them. Add batch identity to source snapshots;
+old snapshots naturally fail comparison and rebuild. This is scope/provenance,
+not evidence that a summary answers well. Partial-scope queryable independent
+segments remain the follow-on design, rather than hiding the eligibility rule.

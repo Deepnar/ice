@@ -225,3 +225,99 @@ def test_private_turn_in_public_conversation_stays_own_scope(context):
     assert conversation_summary_block(ctx.db, str(ctx.cid), 3, 10000, 1)
     assert not HybridRetrievalOrchestrator(ctx.db, NS())._batch_summary_lookup(
         VEC, str(ctx.other))
+
+
+@pytest.mark.parametrize('scope_kind', ['empty', 'other', 'excluded', 'allowed'])
+def test_cross_summary_obeys_resolved_conversation_scope_and_has_source_credit(context, scope_kind):
+    ctx = context
+    scope = {'empty': {'conversation_ids': []},
+             'other': {'conversation_ids': [ctx.other]},
+             'excluded': {'exclude_conversation_ids': [ctx.cid]},
+             'allowed': {'conversation_ids': [ctx.cid]}}[scope_kind]
+    fragments = HybridRetrievalOrchestrator(ctx.db, NS())._batch_summary_lookup(
+        VEC, str(ctx.other), scope=scope)
+    assert bool(fragments) == (scope_kind == 'allowed')
+    if fragments:
+        assert fragments[0].conversation_id == str(ctx.cid)
+        assert set(fragments[0].origin_batch_ids) == {str(ctx.first.batch_id), str(ctx.second.batch_id)}
+
+
+def test_search_conversation_identity_is_not_active_conversation_identity(context):
+    ctx = context
+    orch = HybridRetrievalOrchestrator(ctx.db, NS())
+    assert orch._batch_summary_lookup(VEC, str(ctx.other), search_conv_id=str(ctx.cid))
+    assert not orch._batch_summary_lookup(VEC, str(ctx.other), search_conv_id=str(ctx.other))
+
+
+def test_summary_cannot_disclose_one_excluded_cluster_source(context):
+    from src.memory.models import ContextCluster, EpisodicClusterLink
+    ctx = context
+    a, b = uuid.uuid4(), uuid.uuid4()
+    ctx.db.add_all([ContextCluster(id=a, name='Allowed synthetic group'),
+                    ContextCluster(id=b, name='Excluded synthetic group')])
+    ctx.db.flush()
+    ctx.db.add_all([EpisodicClusterLink(episodic_id=ctx.first.id, cluster_id=a),
+                    EpisodicClusterLink(episodic_id=ctx.second.id, cluster_id=b)])
+    ctx.db.commit()
+    orch = HybridRetrievalOrchestrator(ctx.db, NS())
+    try:
+        assert orch._batch_summary_lookup(VEC, str(ctx.other), scope={'cluster_ids': [str(a), str(b)]})
+        assert not orch._batch_summary_lookup(VEC, str(ctx.other), scope={'cluster_ids': [str(a)]})
+        assert not orch._batch_summary_lookup(VEC, str(ctx.other), scope={'exclude_cluster_ids': [str(b)]})
+    finally:
+        ctx.db.query(EpisodicClusterLink).filter(EpisodicClusterLink.cluster_id.in_([a,b])).delete()
+        ctx.db.query(ContextCluster).filter(ContextCluster.id.in_([a,b])).delete()
+        ctx.db.commit()
+
+
+def test_own_batch_summary_obeys_scope_and_cannot_survive_without_sources(context):
+    from src.memory.models import BatchSummary
+    ctx = context
+    batch = BatchSummary(conversation_id=ctx.cid, summary_text='Synthetic batch note.',
+                         start_turn_index=0, end_turn_index=1, embedding=VEC)
+    ctx.db.add(batch); ctx.db.flush()
+    ctx.first.batch_summary_id = batch.id
+    ctx.db.commit()
+    orch = HybridRetrievalOrchestrator(ctx.db, NS())
+    try:
+        fragments = orch._batch_summary_lookup(VEC, str(ctx.cid), include_cross=False)
+        assert fragments and fragments[0].origin_batch_ids == (str(ctx.first.batch_id),)
+        assert not orch._batch_summary_lookup(VEC, str(ctx.cid), include_cross=False,
+                                              scope={'conversation_ids': []})
+        assert not orch._batch_summary_lookup(VEC, str(ctx.cid), include_cross=False,
+                                              scope={'exclude_conversation_ids': [ctx.cid]})
+        ctx.first.batch_summary_id = None; ctx.db.commit()
+        assert not orch._batch_summary_lookup(VEC, str(ctx.cid), include_cross=False)
+    finally:
+        ctx.first.batch_summary_id = None
+        ctx.db.flush()
+        ctx.db.delete(batch); ctx.db.commit()
+
+
+@pytest.mark.parametrize('subset', ['all', 'partial', 'empty'])
+def test_aggregate_requires_every_source_in_explicit_batch_scope(context, subset):
+    ctx = context
+    batches = {'all': [ctx.first.batch_id, ctx.second.batch_id],
+               'partial': [ctx.first.batch_id], 'empty': []}[subset]
+    result = HybridRetrievalOrchestrator(ctx.db, NS())._batch_summary_lookup(
+        VEC, str(ctx.other), scope={'batch_ids': batches})
+    assert bool(result) == (subset == 'all')
+
+
+def test_full_retrieve_passes_resolved_scope_to_real_summary_reader(context, monkeypatch):
+    ctx = context
+    orch = HybridRetrievalOrchestrator(ctx.db, NS())
+    for name in ('_codex_graph', '_codex_claims', '_relevant_cluster_ids',
+                 '_bm25_episodic', '_vector_episodic', '_procedural_lookup', '_cold_lookup'):
+        monkeypatch.setattr(orch, name, lambda *a, **kw: [])
+    monkeypatch.setattr(settings, 'retrieval_rerank_enabled', False)
+    monkeypatch.setattr(orch, '_apply_bonuses', lambda f, *a: f)
+    classification = NS(prompt='What changed in Atlas?', context_reliance='Long_Term_Memory',
+                        max_confidence=1., intent_tags=[], topic_tags=[])
+    orch.max_retrieval_tokens = 10000
+    allowed = orch.retrieve(classification, str(ctx.other), VEC,
+                             scope={'conversation_ids': [str(ctx.cid)]})
+    denied = orch.retrieve(classification, str(ctx.other), VEC,
+                            scope={'conversation_ids': []})
+    assert allowed and not denied
+    assert set(allowed[0].origin_batch_ids) == {str(ctx.first.batch_id), str(ctx.second.batch_id)}

@@ -36,12 +36,13 @@ full-history distractor robustness.
 | Cold recovery | Linked claim evidence can resolve cold sources; preserve original vectors and known/unknown timestamp provenance | Complete archive metadata/cluster/source parity |
 | Context budget | Actual optional-block accounting and reassembly, static context removed before evidence, protected project constraints, explicit required-overflow refusal | Exact tokenization for every future cloud model |
 | Background outputs | Foreground model names cannot override summary/procedural background jobs; incomplete outputs cannot advance coverage/checkpoints; runtime yield propagates | All runtime/provider-control defects repaired |
+| Summary scope | All-source conversation/batch/cluster eligibility before ranking; exact batch IDs and conversation identity; matching ablation wrapper | Query-selectable segments or completed batch-summary semantic verification |
 | Summary freshness | Source/output snapshots catch edits, deletion, backfill and changed verification policy; both readers reject stale checkpoints | Fresh output is necessarily faithful |
 | Independent source notes | Original-only generation, NLI-gated note substitution, complete source fallback, cached parts never fed into generation; complete embedding coverage | Compact query-selectable overview, long-source compression or answer-quality improvement |
 
 ## Validation so far
 
-Latest regression selection:467 smoke, SQL and settings checks passed. Independent
+Latest regression selection:478 smoke, SQL and settings checks passed. Independent
 note generation also passed8/8 actual NLI-plus-writer synthetic controls. The standalone
 conversation/slot suite passed28/28. These selections overlap earlier test runs;
 do not sum their counts as unique coverage.
