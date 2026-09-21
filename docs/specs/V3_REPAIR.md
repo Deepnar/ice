@@ -745,3 +745,13 @@ allow-lists before ranking/limit. Known-unlinked rows keep the live-path allowan
 unknown legacy membership is withheld when any cluster constraint applies. Plain
 unconstrained temporal retrieval remains available. Tests cover positive, negative,
 unknown and empty-batch scopes plus actual archive/restore membership preservation.
+
+### Foreground provider selection —2026-09-21 clarification
+
+Cloud answering is an optional selectable backend alongside local answering, not
+a cloud migration. Reuse provider/routing abstractions where they already exist;
+keep memory, embedding, NLI, reranking and background-model selection independent.
+Cloud judge selection is an evaluation setting, not an implicit production switch.
+Verify provider endpoint family, streaming, context budget and error contracts
+before declaring a configured backend usable. No provider account or credential
+is configured by this decision. Final evaluation remains oracle + semi-LSREP only.
