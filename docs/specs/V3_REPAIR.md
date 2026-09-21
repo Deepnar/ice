@@ -711,3 +711,24 @@ in the same transaction. Never keep an older cold copy while deleting a newer
 correction or privacy change. Validate an actual decay cycle with an older cold
 copy and a corrected private live source, including raw hash/roles, timestamps,
 vector and source identity. Wider cold metadata and aggregate parity remain open.
+
+### Cold representation and identity round trip —2026-09-21
+
+Preserve nullable typed cold columns for summary_coverage,
+representation_verification, abstract_text, lossless_flag, inject_raw, session_id,
+intent_tags, context_reliance and idempotency_key. Archive them atomically with the
+source; cold representation reads use the shared support selector. Restore these
+values exactly when present. Legacy missing metadata falls back to complete raw,
+unknown evaluation and existing explicitly labeled restoration defaults; never
+invent a verifier verdict or an original session. Keep the existing read-write
+switch and probation behavior. An idempotency collision must leave the cold source
+intact rather than delete evidence. Additive nullable migration only; no inferred
+backfill. Test actual decay, cold selection and restoration, including all metadata,
+legacy fallback, write-off behavior and collision retention. Cluster/chunk/parent
+links and aggregate manifest parity remain separate unfinished archive work.
+
+Retrieval failure telemetry must not stringify database/provider exceptions:
+SQLAlchemy exceptions can contain full raw source/verdict parameters. Keep the
+leg, exception class and SQLSTATE (when available); preserve conditional rollback
+and warning on every failure. Validate with an exception carrying planted private
+source text, not only with a benign ValueError.

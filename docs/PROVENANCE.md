@@ -1,3 +1,18 @@
+## 2026-09-21 — v3 cold representation/identity round trip
+
+527 smoke/SQL/settings checks passed; standalone temporal suite61/61 passed.
+Actual decay→cold SQL read→restoration controls preserve source-bound verifier
+metadata, coverage/abstract/raw choice, session, intents, context and idempotency
+identity. Write-off prevents restoration; a conflicting original idempotency key
+retains the cold source. Verification scores are controlled here; no semantic
+quality claim. Legacy unverified cold text still uses complete raw evidence.
+
+Nullable migration c8f60224d395 roundtripped in a disposable store, then applied
+from verified b7e5f013c284 to the working schema. No historical values inferred,
+no corpus regeneration. A planted private SQL parameter control additionally
+checks that retrieval failures log only exception class/SQLSTATE. Cluster/chunk/
+parent links and aggregate source-manifest continuity remain unfinished.
+
 ## 2026-09-21 — v3 archive collision correction
 
 313 smoke plus actual SQL decay controls passed in a disposable database. A newer

@@ -58,3 +58,22 @@ def test_reranked_summary_does_not_inherit_whole_source_marker():
     whole = fragment('Raw original.', 100, degrade_text='Compact note.', covers_entire_source=True)
     ranked, success = rerank('Question', [whole], scorer=lambda pairs: [0., 1.])
     assert success and ranked[0].text == 'Compact note.' and not ranked[0].covers_entire_source
+
+
+def test_retrieval_failure_log_excludes_source_parameters(monkeypatch):
+    from types import SimpleNamespace
+    from sqlalchemy.exc import StatementError
+    import src.retrieval.orchestrator as module
+
+    records = []
+    rollbacks = []
+    monkeypatch.setattr(module, 'logger', SimpleNamespace(
+        warning=lambda event, **fields: records.append((event, fields))))
+    orch = module.HybridRetrievalOrchestrator.__new__(module.HybridRetrievalOrchestrator)
+    orch.db = SimpleNamespace(rollback=lambda: rollbacks.append(True))
+    failure = StatementError('private diagnosis', 'INSERT secret source',
+                             {'raw_text': 'private memory evidence'}, ValueError('private detail'))
+    orch._leg_degraded('cold.resurrect', failure)
+    assert rollbacks == [True]
+    assert records[0][1]['error_type'] == 'StatementError'
+    assert 'private' not in str(records) and 'secret source' not in str(records)

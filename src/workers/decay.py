@@ -163,7 +163,8 @@ def apply_decay(cycles: int = 1):
         # re-attach the turn.
         cold_rows = db.execute(text("""
             SELECT id, raw_text, summary_text, topic_tags, timestamp,
-                   conversation_id, is_private, batch_id, embedding, source_spans, ts_provenance
+                   conversation_id, is_private, batch_id, embedding, source_spans, ts_provenance,
+                   summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key
             FROM episodic_memory
             WHERE is_archived = TRUE AND decay_score < :cold_threshold
             FOR UPDATE
@@ -173,9 +174,11 @@ def apply_decay(cycles: int = 1):
             db.execute(text("""
                 INSERT INTO cold_storage (id, archived_at, raw_text, summary_text,
                                           topic_tags, timestamp, conversation_id,
-                                          is_private, batch_id, embedding, source_spans, ts_provenance)
+                                          is_private, batch_id, embedding, source_spans, ts_provenance,
+                                          summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key)
                 VALUES (:id, :now, :raw, :summary, :tags, :ts, :conv, :priv, :batch,
-                        :emb, :source_spans, :ts_provenance)
+                        :emb, :source_spans, :ts_provenance,
+                        :summary_coverage, :representation_verification, :abstract_text, :lossless_flag, :inject_raw, :session_id, :intent_tags, :context_reliance, :idempotency_key)
                 ON CONFLICT (id) DO UPDATE SET
                     archived_at = EXCLUDED.archived_at,
                     raw_text = EXCLUDED.raw_text,
@@ -187,8 +190,22 @@ def apply_decay(cycles: int = 1):
                     batch_id = EXCLUDED.batch_id,
                     embedding = EXCLUDED.embedding,
                     source_spans = EXCLUDED.source_spans,
-                    ts_provenance = EXCLUDED.ts_provenance
-            """).bindparams(bindparam("source_spans", type_=JSONB)), {
+                    ts_provenance = EXCLUDED.ts_provenance,
+                    summary_coverage = EXCLUDED.summary_coverage,
+                    representation_verification = EXCLUDED.representation_verification,
+                    abstract_text = EXCLUDED.abstract_text,
+                    lossless_flag = EXCLUDED.lossless_flag,
+                    inject_raw = EXCLUDED.inject_raw,
+                    session_id = EXCLUDED.session_id,
+                    intent_tags = EXCLUDED.intent_tags,
+                    context_reliance = EXCLUDED.context_reliance,
+                    idempotency_key = EXCLUDED.idempotency_key
+            """).bindparams(bindparam("source_spans", type_=JSONB),
+                            bindparam("representation_verification", type_=JSONB)), {
+                **{key: getattr(row, key) for key in (
+                    'summary_coverage', 'representation_verification', 'abstract_text',
+                    'lossless_flag', 'inject_raw', 'session_id', 'intent_tags',
+                    'context_reliance', 'idempotency_key')},
                 "id": row.id,
                 "now": datetime.now(timezone.utc),
                 "raw": row.raw_text,

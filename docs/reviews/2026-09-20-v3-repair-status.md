@@ -228,3 +228,9 @@ benchmark win is claimed from these controlled writer/reader tests.
 Archive collision fix: an older cold copy no longer wins over a newer live
 correction/privacy change.313 smoke and actual decay checks passed. This does not
 finish archive metadata, scope or aggregate freshness parity.
+
+Cold representation/session/intent/idempotency metadata now survives archival
+and restoration.527 regression checks and61 temporal checks passed; source support
+scores were controlled in round-trip tests. No new model promoted. Cluster/chunk/
+parent links and summary freshness across storage moves remain outstanding.
+Retrieval failure logging no longer emits exception strings containing raw memory.

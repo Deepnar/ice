@@ -231,8 +231,11 @@ class HybridRetrievalOrchestrator:
         anyway expires the whole identity map on a session `main.py` keeps
         using for the rest of the request. So: DB errors only.
         """
+        # SQLAlchemy exception strings include statement parameters (raw memory,
+        # role provenance and verifier inputs). Diagnose without logging evidence.
         logger.warning("retrieval_leg_failed", leg=leg,
-                       error_type=type(err).__name__, error=str(err))
+                       error_type=type(err).__name__,
+                       sqlstate=getattr(getattr(err, "orig", None), "sqlstate", None))
         if isinstance(err, SQLAlchemyError):
             self.db.rollback()
 
@@ -2419,7 +2422,8 @@ class HybridRetrievalOrchestrator:
                            "ELSE (embedding <=> :cold_probe) END ASC,")
         query = text(f"""
             SELECT id, conversation_id, batch_id, raw_text, summary_text,
-                   topic_tags, timestamp, is_private, embedding, source_spans, ts_provenance
+                   topic_tags, timestamp, is_private, embedding, source_spans, ts_provenance,
+                   summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key
             FROM cold_storage
             WHERE timestamp >= :t0 AND timestamp < :t1
               {conv_filter}
@@ -2502,22 +2506,34 @@ class HybridRetrievalOrchestrator:
                         (id, conversation_id, batch_id, timestamp, topic_tags,
                          intent_tags, context_reliance, raw_text, summary_text,
                          embedding, decay_score, access_count, is_archived,
-                         is_private, inject_raw, idempotency_key, source_spans, ts_provenance)
+                         is_private, inject_raw, idempotency_key, source_spans, ts_provenance,
+                         summary_coverage, representation_verification, abstract_text,
+                         lossless_flag, session_id)
                     VALUES (:id, :conv, :batch, :ts, :tags, :itags,
-                            'Long_Term_Memory', :raw, :summary, :emb, :score,
-                            1, FALSE, :priv, TRUE, :ikey, :source_spans, :ts_provenance)
+                            :context_reliance, :raw, :summary, :emb, :score,
+                            1, FALSE, :priv, :inject_raw, :ikey, :source_spans, :ts_provenance,
+                            :summary_coverage, :representation_verification, :abstract_text,
+                            :lossless_flag, :session_id)
                     ON CONFLICT (id) DO NOTHING
                 """).bindparams(bindparam("emb", type_=PgVector),
-                                 bindparam("source_spans", type_=JSONB)), {
+                                 bindparam("source_spans", type_=JSONB),
+                                 bindparam("representation_verification", type_=JSONB)), {
                     "id": row.id, "conv": row.conversation_id,
                     "batch": row.batch_id or uuid.uuid4(), "ts": row.timestamp,
-                    "tags": list(row.topic_tags or []), "itags": [],
+                    "tags": list(row.topic_tags or []),
+                    "itags": list(getattr(row, "intent_tags", None) or []),
+                    "context_reliance": getattr(row, "context_reliance", None) or "Long_Term_Memory",
+                    "inject_raw": (getattr(row, "inject_raw", None)
+                                   if getattr(row, "inject_raw", None) is not None else True),
+                    **{key: getattr(row, key, None) for key in (
+                        "summary_coverage", "representation_verification", "abstract_text",
+                        "lossless_flag", "session_id")},
                     "raw": row.raw_text, "summary": row.summary_text,
                     "source_spans": getattr(row, "source_spans", None),
                     "ts_provenance": getattr(row, "ts_provenance", None) or "unknown",
                     "emb": emb, "score": settings.timescope_probation_score,
                     "priv": row.is_private,
-                    "ikey": f"cold-resurrect-{row.id}",
+                    "ikey": getattr(row, "idempotency_key", None) or f"cold-resurrect-{row.id}",
                 })
                 if res.rowcount == 0:
                     # id somehow still live in episodic — keep the cold row.

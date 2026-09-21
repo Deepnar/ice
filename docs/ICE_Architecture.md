@@ -1417,5 +1417,18 @@ this repair. Candidate limits still bound what the reranker can see.
 Decay locks selected live source rows and upserts transferred evidence into cold
 storage before deleting the live copy in the same transaction. A duplicate ID
 must not preserve an older cold text/privacy value at the expense of a newer
-live correction. Additional representation/session/cluster/chunk metadata and
-aggregate source-manifest parity remain unfinished.
+live correction. Cluster/chunk links and aggregate source-manifest parity remain unfinished.
+
+### v3 cold representation round trip —2026-09-21
+
+Nine nullable cold fields now preserve summary coverage and support records,
+abstracts, lossless/raw choice, original session identity, intent labels, context
+reliance and idempotency keys. Decay transfers them atomically; the shared reader
+can reuse a still-current verified representation. Restoration retains those
+values with the original raw source, roles, time and vector. Legacy missing
+metadata does not gain invented verification or session identity. Original
+idempotency conflicts leave cold evidence intact; restoration stays gated by the
+existing write switch and probation policy. Migration c8f60224d395 adds columns
+without backfill. Cluster/chunk/parent links and aggregate freshness across storage
+moves remain open. Retrieval failures log class/SQLSTATE, not exception strings
+that may expose source text embedded in SQL parameters.
