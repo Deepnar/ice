@@ -227,6 +227,12 @@ def apply_decay(cycles: int = 1):
                 # live row was matched on.
                 "emb": row.embedding,
             })
+            db.execute(text("DELETE FROM cold_chunks WHERE turn_id = :id"), {"id": row.id})
+            db.execute(text("""
+                INSERT INTO cold_chunks (id, turn_id, chunk_index, chunk_text, embedding)
+                SELECT id, turn_id, chunk_index, chunk_text, embedding
+                FROM episodic_chunks WHERE turn_id = :id
+            """), {"id": row.id})
             db.execute(text("DELETE FROM episodic_cluster_links WHERE episodic_id = :id"), {"id": row.id})
             db.execute(text("DELETE FROM episodic_memory WHERE id = :id"), {"id": row.id})
 

@@ -240,3 +240,16 @@ applies exclusions/positive scope/batch lists before ranking, and does not inven
 legacy membership or recreate deleted clusters. Archive excerpt/parent links and
 aggregate manifest continuity remain open. Retrieval exception-payload privacy
 failure and its control are recorded in TRAPS61.
+
+Archived excerpt continuity implemented2026-09-22: original chunks now survive
+archive/restore and compete with eligible cold parents under the token budget.
+536 combined checks passed; no new model or benchmark win. Next is aggregate
+source-manifest continuity, then compact query-selectable conversation notes.
+Cloud is explicitly a selectable foreground backend alongside local answering.
+Checkpoint1046b0d was pushed with authorization; later work continues locally.
+
+The external design comparison uses primary documentation: [Graphiti episodes](https://help.getzep.com/v2/graphiti/core-concepts/adding-episodes)
+retain provenance links; [Letta archival memory](https://docs.letta.com/v1-sdk/memory/archival-memory)
+separates searchable passages from in-context state. The useful shared principle
+for ICE is preserved source evidence plus selective prompt use, not adoption of
+another system's thresholds or claimed benchmark scores.

@@ -1490,3 +1490,5 @@ wins; where it conflicts with the code, the code wins.**
 | Retrieval failure privacy | `_leg_degraded` logs leg, exception class and SQLSTATE, never exception strings containing raw SQL parameters | no flag | YES; still warns every failure and rolls back database errors |
 
 | v3 cold cluster and batch visibility | `decay.py` snapshots link membership/primary cluster; cold retrieval applies positive/excluded cluster and explicit batch constraints before ranking, restoration links only existing clusters | NULL=legacy unknown, []=known-unlinked | YES; unknown membership withheld only under cluster constraints |
+
+| v3 archived excerpts | `ColdChunk`, `decay.py`, `_cold_chunk_candidates`, `_resurrect_cold_hits` preserve original chunk IDs/text/vectors across archival and restoration; up to3 complete excerpts per eligible cold parent compete in packing | existing time/scope/write gates; no generation | YES for new archives; legacy chunks cannot be inferred |

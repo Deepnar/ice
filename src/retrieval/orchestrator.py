@@ -2473,10 +2473,39 @@ class HybridRetrievalOrchestrator:
                 source_batch_id=str(row.id),
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
             ))
+            try:
+                fragments.extend(self._cold_chunk_candidates(row, prompt_keywords, prompt_embedding))
+            except Exception as err:
+                self._leg_degraded("cold.chunks", err)
             self._cold_hits[str(row.id)] = row
         if fragments:
             logger.info("cold_leg_hits", count=len(fragments), mode=ts.mode)
         return fragments
+
+    def _cold_chunk_candidates(self, parent, keywords, prompt_embedding):
+        """Only called for already eligible cold parents; text stays complete."""
+        if prompt_embedding is not None:
+            query = text("""
+                SELECT chunk_text, 1 - (embedding <=> :probe) AS score
+                FROM cold_chunks WHERE turn_id = :id AND embedding IS NOT NULL
+                ORDER BY embedding <=> :probe, chunk_index, id LIMIT 3
+            """).bindparams(bindparam("probe", type_=PgVector))
+            rows = self.db.execute(query, {"id": parent.id, "probe": prompt_embedding}).all()
+        else:
+            rows = self.db.execute(text("""
+                SELECT chunk_text, 0.0 AS score FROM cold_chunks
+                WHERE turn_id = :id ORDER BY chunk_index, id
+            """), {"id": parent.id}).all()
+            terms = {str(k).casefold() for k in keywords if k}
+            rows = sorted(rows, key=lambda r: -sum(k in r.chunk_text.casefold() for k in terms))[:3]
+        stamp = recorded_stamp(parent.timestamp, getattr(parent, "ts_provenance", None))
+        return [ContextFragment(
+            text=(rendered := stamp + row.chunk_text), source_type="episodic",
+            score=float(row.score or 0), token_count=count_tokens(rendered),
+            source_batch_id=str(parent.id),
+            conversation_id=str(parent.conversation_id) if parent.conversation_id else None,
+            leg="cold_chunk", covers_entire_source=False,
+        ) for row in rows]
 
     def _resurrect_cold_hits(self, final: List[ContextFragment]):
         """D-U1 second chance: a cold memory selected by retrieval budgeting
@@ -2551,6 +2580,11 @@ class HybridRetrievalOrchestrator:
                     # id somehow still live in episodic — keep the cold row.
                     logger.info("cold_resurrect_conflict", cold_id=str(row.id))
                 else:
+                    self.db.execute(text("""
+                        INSERT INTO episodic_chunks (id, turn_id, chunk_index, chunk_text, embedding)
+                        SELECT id, turn_id, chunk_index, chunk_text, embedding
+                        FROM cold_chunks WHERE turn_id = :id
+                    """), {"id": row.id})
                     self.db.execute(text("""
                         INSERT INTO episodic_cluster_links (episodic_id, cluster_id)
                         SELECT :id, id FROM context_clusters

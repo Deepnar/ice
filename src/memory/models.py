@@ -575,6 +575,18 @@ class ColdStorage(Base):
     embedding = Column(Vector(1024), nullable=True)
 
 
+class ColdChunk(Base):
+    """Preserved retrieval excerpts; original IDs and vectors survive archival."""
+    __tablename__ = "cold_chunks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    turn_id = Column(UUID(as_uuid=True), ForeignKey("cold_storage.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    chunk_index = Column(Integer, nullable=False)
+    chunk_text = Column(Text, nullable=False)
+    embedding = Column(Vector(1024), nullable=True)
+
+
 class CuratedLabel(Base):
     __tablename__ = "curated_labels"
 

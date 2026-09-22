@@ -1443,3 +1443,16 @@ unlinked source may pass positive scope; a legacy NULL membership is unknown and
 is withheld under cluster constraints. Unconstrained temporal retrieval remains
 available. Migration d9071335e4a6 adds nullable columns without guessing legacy
 membership. Chunk/parent links and aggregate source-manifest continuity remain open.
+
+### v3 archived excerpt continuity —2026-09-22
+
+`cold_chunks` preserves original retrieval chunks when a turn leaves warm storage.
+Archive replacement and restore run in the parent transaction; a conflicting chunk
+ID aborts restoration and leaves cold evidence intact. Cold lookup offers complete
+parent text plus up to3 stored excerpts from each eligible parent, ranked by cosine
+or keyword overlap with deterministic index ties. Scope is enforced on the parent
+first; final packing can select a small late correction instead of losing an
+oversized turn. The parent pool is still bounded and cold retrieval still requires
+a temporal window. This is not independent global chunk recall. No re-embedding
+or legacy chunk reconstruction occurs. Parent-link and aggregate-source continuity
+remain unfinished.

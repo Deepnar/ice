@@ -755,3 +755,20 @@ Cloud judge selection is an evaluation setting, not an implicit production switc
 Verify provider endpoint family, streaming, context budget and error contracts
 before declaring a configured backend usable. No provider account or credential
 is configured by this decision. Final evaluation remains oracle + semi-LSREP only.
+
+### Archived excerpt continuity —2026-09-21
+
+Preserve the existing retrieval-grade chunks when moving a turn to cold storage.
+Add cold_chunks with original chunk ID, cold parent FK (cascade delete), index,
+complete text and unchanged embedding. Atomically replace the cold chunk snapshot
+before deleting live source rows. Restore all chunks in the same transaction as
+the parent; an unexpected identity collision aborts restoration and retains cold
+evidence. No new chunk generation, re-embedding or inferred backfill.
+
+Cold lookup keeps the scoped parent candidate and offers up to3 stored excerpts
+per eligible parent. Rank by stored cosine where query embedding is available;
+otherwise use full prompt keywords against complete chunks, deterministic index
+for ties. Only parents passing existing time/privacy/cluster/batch filters can
+supply excerpts. Final packing chooses parent versus excerpts under the existing
+coverage contract. This improves packing within the bounded parent pool; it does
+not claim independent global cold-chunk recall or normal-mode archive search.

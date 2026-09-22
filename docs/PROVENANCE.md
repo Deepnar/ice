@@ -1,3 +1,13 @@
+## 2026-09-22 — v3 archived excerpt continuity
+
+536 combined smoke/SQL/settings checks passed in disposable databases. New actual
+decay→cold selection→100-token packing→restore controls cover vector and lexical
+ranking, excluded conversations, original chunk identity/text/vector preservation,
+and conflicting chunk IDs retaining the cold source. Migration ea182446f5b7
+roundtripped in isolation, then applied from d9071335e4a6. Logs live at
+`logs/v3-cold-chunks-final.log`; no model inference or benchmark gain claimed.
+Prior interrupted run output under /tmp was absent on resume and not credited.
+
 ## 2026-09-21 — v3 cold cluster visibility
 
 531 combined smoke/SQL/settings checks passed in a disposable database. Three
