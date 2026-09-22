@@ -1492,3 +1492,5 @@ wins; where it conflicts with the code, the code wins.**
 | v3 cold cluster and batch visibility | `decay.py` snapshots link membership/primary cluster; cold retrieval applies positive/excluded cluster and explicit batch constraints before ranking, restoration links only existing clusters | NULL=legacy unknown, []=known-unlinked | YES; unknown membership withheld only under cluster constraints |
 
 | v3 archived excerpts | `ColdChunk`, `decay.py`, `_cold_chunk_candidates`, `_resurrect_cold_hits` preserve original chunk IDs/text/vectors across archival and restoration; up to3 complete excerpts per eligible cold parent compete in packing | existing time/scope/write gates; no generation | YES for new archives; legacy chunks cannot be inferred |
+
+| v3 summary source continuity | `SUMMARY_SOURCES_SQL`, summary readers and rolling-note writer share warm+cold sources; live duplicate ID wins; cold batch coverage FK survives restore | same output/source/policy manifest gate | YES; unchanged storage moves preserve cache, real changes invalidate it |

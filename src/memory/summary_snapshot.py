@@ -11,15 +11,29 @@ logger = structlog.get_logger('ice.memory.summary_snapshot')
 SNAPSHOT_VERSION = 3  # v3 independent notes; invalidates recursive roots
 
 
+# One identity across tiers. Cold metadata absence remains NULL, never invented.
+_SOURCE_FIELDS = (
+    "id", "batch_id", "conversation_id", "timestamp", "raw_text", "source_spans",
+    "ts_provenance", "is_private", "summary_text", "inject_raw", "summary_coverage",
+    "representation_verification", "batch_summary_id",
+)
+SUMMARY_SOURCES_SQL = (
+    "SELECT " + ", ".join("w." + name for name in _SOURCE_FIELDS) + ", "
+    "ARRAY(SELECT l.cluster_id FROM episodic_cluster_links l WHERE l.episodic_id = w.id "
+    "ORDER BY l.cluster_id) AS cluster_ids FROM episodic_memory w UNION ALL SELECT "
+    + ", ".join("c." + name for name in _SOURCE_FIELDS) + ", c.cluster_ids "
+    "FROM cold_storage c WHERE NOT EXISTS (SELECT 1 FROM episodic_memory w WHERE w.id = c.id)"
+)
+
 def source_snapshot(db, conversation_id, *, batch_summary_id=None):
     """Transfer source identities/fingerprints, never full raw text to readers."""
-    rows = db.execute(text('''
+    rows = db.execute(text(f'''
         SELECT e.id::text AS id, e.batch_id::text AS batch_id, e.timestamp,
                md5(jsonb_build_array(e.batch_id, e.raw_text, e.source_spans,
                    e.timestamp, e.ts_provenance, e.is_private,
                    e.summary_text, e.inject_raw, e.summary_coverage,
                    e.representation_verification)::text) AS fingerprint
-        FROM episodic_memory e
+        FROM ({SUMMARY_SOURCES_SQL}) e
         WHERE e.conversation_id = :cid
           AND (CAST(:summary_id AS uuid) IS NULL OR e.batch_summary_id = CAST(:summary_id AS uuid))
         ORDER BY e.timestamp, e.id

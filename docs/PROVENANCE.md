@@ -1,3 +1,20 @@
+## 2026-09-22 — v3 summary source-tier continuity
+
+542 combined smoke/SQL/settings checks passed in disposable databases; the
+subsequent archive-and-restoration extension passed7/7 targeted controls. Actual
+decay + own/cross/active-summary reader controls establish cache continuity,
+unchanged source credit and no regeneration on archive-only moves. Cold source
+edit/delete/privacy changes invalidate old caches; rolling notes rebuild from
+cold originals. Cluster exclusion is enforced through shared filter builders.
+An initial structural test caught a duplicated cluster predicate; the production
+builders were extended instead of bypassing the invariant.
+
+Migration fb29355706c8 roundtripped in isolation and was applied from verified
+ea182446f5b7; it adds nullable cold batch coverage with ON DELETE SET NULL. No
+legacy values inferred or corpus regenerated. Generation/NLI scores are controlled
+in these integration tests, not evidence of a benchmark gain. Batch generation
+still selects warm sources; stale all-cold batch regeneration remains unfinished.
+
 ## 2026-09-22 — v3 archived excerpt continuity
 
 536 combined smoke/SQL/settings checks passed in disposable databases. New actual

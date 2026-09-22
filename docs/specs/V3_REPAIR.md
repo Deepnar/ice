@@ -772,3 +772,28 @@ for ties. Only parents passing existing time/privacy/cluster/batch filters can
 supply excerpts. Final packing chooses parent versus excerpts under the existing
 coverage contract. This improves packing within the bounded parent pool; it does
 not claim independent global cold-chunk recall or normal-mode archive search.
+
+### Summary sources across storage tiers —2026-09-22
+
+Use one SQL source projection over warm and cold rows for summary fingerprints,
+visibility and rolling-note rebuild input. A live duplicate ID takes precedence
+over its cold copy; each source appears once. Preserve cold batch_summary_id with
+a nullable FK/ON DELETE SET NULL; transfer and restore it only while its summary
+exists. The shared projection retains identical fingerprint fields so archival
+alone does not invalidate a supported snapshot. New/changed/deleted sources and
+policy/output changes still do. Legacy missing metadata is not inferred.
+
+Summary reader source membership, source batch credit, privacy and positive/
+negative cluster scope must use the same projection before ranking/limit. Known
+unlinked differs from unknown cold membership. Rolling notes scan and rebuild
+from both tiers' original sources; unchanged archives do not trigger generation.
+Batch generation still operates on eligible warm turns, while existing source-
+current batch caches survive storage moves. Regeneration of stale all-cold batch
+caches remains separate from this continuity fix; rolling notes can rebuild from
+those originals. Test actual archive + own/cross readers, no unnecessary rewrite,
+cold-source edit/delete/private changes, cold cluster exclusion and source credit.
+
+The shared cluster inclusion/exclusion builders gain an optional trusted membership
+column for warm/cold projections. Both direct cold lookup and aggregate readers
+use those builders, preserving the one-predicate contract instead of adding a
+second independently maintained scope implementation.

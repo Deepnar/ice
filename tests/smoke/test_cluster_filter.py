@@ -72,7 +72,7 @@ def test_every_leg_uses_the_builder():
     import inspect
     src = inspect.getsource(HybridRetrievalOrchestrator)
     calls = src.count("self._cluster_filter(")
-    assert calls == 6, f"expected 6 consumers (including claims and summaries), found {calls}"
+    assert calls == 7, f"expected 7 consumers (including claims, summaries and cold), found {calls}"
 
     # The inclusion predicate binds :cluster_ids. C6's EXCLUSION predicate in
     # _exclusion_filters also reads episodic_cluster_links but binds

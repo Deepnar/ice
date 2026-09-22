@@ -556,6 +556,9 @@ class ColdStorage(Base):
     intent_tags = Column(ARRAY(Text), nullable=True)
     context_reliance = Column(Text, nullable=True)
     idempotency_key = Column(Text, nullable=True)
+    batch_summary_id = Column(UUID(as_uuid=True),
+                              ForeignKey("batch_summaries.id", ondelete="SET NULL"),
+                              nullable=True, index=True)
     cluster_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
     cluster_id = Column(UUID(as_uuid=True), nullable=True)
     topic_tags = Column(ARRAY(Text), default=[])

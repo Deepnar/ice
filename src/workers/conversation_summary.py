@@ -13,10 +13,10 @@ import structlog
 
 from src.api.config import settings
 from src.api.memory_decision import estimate_recent_window_tokens
-from src.memory.models import ConversationSummary, EpisodicMemory
+from src.memory.models import ConversationSummary
 from src.memory.representation import representation_source
 from src.memory.summary_snapshot import (
-    bind_snapshot, compose_parts, snapshot_matches, source_snapshot,
+    SUMMARY_SOURCES_SQL, bind_snapshot, compose_parts, snapshot_matches, source_snapshot,
 )
 from src.memory.support import supported_current, verify_support
 from src.memory.time_format import recorded_stamp
@@ -186,10 +186,11 @@ def run_conversation_summaries(db, llm=None, embedder=None,
     lazy_embedder = embedder
 
     from sqlalchemy import text as sql_text
-    rows = db.execute(sql_text("""
+    rows = db.execute(sql_text(f"""
         SELECT e.conversation_id AS cid, count(*) AS n_turns,
                coalesce(sum(length(e.raw_text)), 0) AS chars
-        FROM episodic_memory e
+        FROM ({SUMMARY_SOURCES_SQL}) e
+        WHERE e.conversation_id IS NOT NULL
         GROUP BY e.conversation_id
     """)).fetchall()
     if conversation_ids is not None:
@@ -219,12 +220,14 @@ def run_conversation_summaries(db, llm=None, embedder=None,
                 stats["below_window"] += 1            # still fits the window
                 continue
 
-        q = db.query(EpisodicMemory).filter(
-            EpisodicMemory.conversation_id == row.cid)
-        if previous_valid:
-            covered_ids = [item["id"] for item in existing_row.source_manifest["sources"]]
-            q = q.filter(EpisodicMemory.id.notin_(covered_ids))
-        new_turns = q.order_by(EpisodicMemory.timestamp.asc(), EpisodicMemory.id.asc()).all()
+        covered_ids = ([item["id"] for item in existing_row.source_manifest["sources"]]
+                       if previous_valid else [])
+        new_turns = db.execute(sql_text(f"""
+            SELECT * FROM ({SUMMARY_SOURCES_SQL}) e
+            WHERE e.conversation_id = :cid
+              AND NOT (e.id = ANY(CAST(:covered_ids AS uuid[])))
+            ORDER BY e.timestamp, e.id
+        """), {"cid": row.cid, "covered_ids": covered_ids}).all()
         if not new_turns:
             continue
 

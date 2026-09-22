@@ -253,3 +253,10 @@ retain provenance links; [Letta archival memory](https://docs.letta.com/v1-sdk/m
 separates searchable passages from in-context state. The useful shared principle
 for ICE is preserved source evidence plus selective prompt use, not adoption of
 another system's thresholds or claimed benchmark scores.
+
+Summary continuity across warm/cold tiers implemented2026-09-22: the same source
+fingerprints, scope and attribution survive unchanged storage moves. Rolling
+notes rebuild from cold originals when content changes.542 combined checks passed;
+model outputs were controlled. New batch generation remains warm-only. Next is
+compact query-selectable conversation notes, with source-parent lifecycle and
+stale all-cold batch regeneration still recorded as archive limitations.

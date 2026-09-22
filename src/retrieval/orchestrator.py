@@ -31,7 +31,7 @@ from src.memory.models import (
 )
 from src.memory.claims import claim_representation, excerpt_is_current, source_for_claim
 from src.memory.representation import choose_representation
-from src.memory.summary_snapshot import batch_snapshot_readable, summary_snapshot_readable
+from src.memory.summary_snapshot import SUMMARY_SOURCES_SQL, batch_snapshot_readable, summary_snapshot_readable
 from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as count_tokens
 from src.retrieval import coverage, leg_weights
@@ -712,7 +712,7 @@ class HybridRetrievalOrchestrator:
             return f"AND {column} = :conv_id", {"conv_id": conv_id}, True
         return "", {}, False
 
-    def _cluster_filter(self, scope, id_column="episodic_memory.id") -> str:
+    def _cluster_filter(self, scope, id_column="episodic_memory.id", *, membership_column=None) -> str:
         """C5 cluster scoping as a SQL fragment — G29: written out four times.
 
         The copies were verbatim apart from the row alias (`episodic_memory.id`
@@ -732,6 +732,10 @@ class HybridRetrievalOrchestrator:
         """
         if not (scope and scope.get("cluster_ids")):
             return ""
+        if membership_column:
+            return (f" AND {membership_column} IS NOT NULL AND "
+                    f"(cardinality({membership_column}) = 0 OR "
+                    f"{membership_column} && CAST(:cluster_ids AS uuid[]))")
         return f"""
                 AND (
                     EXISTS (
@@ -747,7 +751,7 @@ class HybridRetrievalOrchestrator:
             """
 
     def _exclusion_filters(self, scope, conv_column="conversation_id",
-                           id_column="episodic_memory.id"):
+                           id_column="episodic_memory.id", *, membership_column=None):
         """C6: the negated scope — "keep this memory, stop retrieving it".
 
         The middle ground that never existed between C6's add-to-scope and
@@ -765,7 +769,11 @@ class HybridRetrievalOrchestrator:
             sql += f"\n              AND {conv_column} <> ALL(:excl_conv_ids)"
             params["excl_conv_ids"] = [str(c) for c in excluded_convs]
         excluded_clusters = scope.get("exclude_cluster_ids")
-        if excluded_clusters and id_column:
+        if excluded_clusters and membership_column:
+            sql += (f" AND {membership_column} IS NOT NULL AND NOT "
+                    f"({membership_column} && CAST(:excl_cluster_ids AS uuid[]))")
+            params["excl_cluster_ids"] = [str(c) for c in excluded_clusters]
+        elif excluded_clusters and id_column:
             sql += (f"\n              AND NOT EXISTS ("
                     f"SELECT 1 FROM episodic_cluster_links xl "
                     f"WHERE xl.episodic_id = {id_column} "
@@ -2266,9 +2274,10 @@ class HybridRetrievalOrchestrator:
         source_scope, source_params, _ = self._conv_scope_filter(
             scope, search_conv_id, column="covered_source.conversation_id")
         source_exclusions, exclusion_params = self._exclusion_filters(
-            scope, conv_column="covered_source.conversation_id",
-            id_column="covered_source.id")
-        source_clusters = self._cluster_filter(scope, id_column="covered_source.id")
+            scope, conv_column="covered_source.conversation_id", id_column=None,
+            membership_column="covered_source.cluster_ids")
+        source_clusters = self._cluster_filter(scope,
+            membership_column="covered_source.cluster_ids")
         # The active conversation identity has a separate SQL name; the scope
         # helper may bind :conv_id to a different, explicitly searched conversation.
         scope_params = {**source_params, **exclusion_params}
@@ -2283,18 +2292,19 @@ class HybridRetrievalOrchestrator:
         if conv_id:
             try:
                 query = text(f"""
+                    WITH summary_sources AS ({SUMMARY_SOURCES_SQL})
                     SELECT bs.id, bs.conversation_id, bs.source_manifest, bs.summary_text, bs.created_at,
                            1 - (bs.embedding <=> :prompt_embedding) as score,
                            (SELECT array_agg(em.batch_id::text)
-                              FROM episodic_memory em
+                              FROM summary_sources em
                              WHERE em.batch_summary_id = bs.id) AS covered
                     FROM batch_summaries bs
                     WHERE bs.conversation_id = :own_conv_id
                       AND bs.embedding IS NOT NULL
-                      AND EXISTS (SELECT 1 FROM episodic_memory em
+                      AND EXISTS (SELECT 1 FROM summary_sources em
                                   WHERE em.batch_summary_id = bs.id)
                       AND NOT EXISTS (
-                          SELECT 1 FROM episodic_memory covered_source
+                          SELECT 1 FROM summary_sources covered_source
                           WHERE covered_source.batch_summary_id = bs.id
                             AND NOT ({source_allowed}))
                     ORDER BY score DESC
@@ -2334,6 +2344,7 @@ class HybridRetrievalOrchestrator:
             return fragments
         try:
             query = text(f"""
+                WITH summary_sources AS ({SUMMARY_SOURCES_SQL})
                 SELECT s.summary_text, s.updated_at, s.source_manifest, s.conversation_id,
                        1 - (s.embedding <=> :prompt_embedding) as score
                 FROM conversation_summaries s
@@ -2341,13 +2352,13 @@ class HybridRetrievalOrchestrator:
                 WHERE s.embedding IS NOT NULL
                   AND c.memory_scope_type != 'none'
                   AND NOT EXISTS (
-                      SELECT 1 FROM episodic_memory private_source
+                      SELECT 1 FROM summary_sources private_source
                       WHERE private_source.conversation_id = s.conversation_id
                         AND private_source.is_private = TRUE)
                   AND (CAST(:own_conv_id AS uuid) IS NULL
                        OR s.conversation_id != CAST(:own_conv_id AS uuid))
                   AND NOT EXISTS (
-                      SELECT 1 FROM episodic_memory covered_source
+                      SELECT 1 FROM summary_sources covered_source
                       WHERE covered_source.conversation_id = s.conversation_id
                         AND s.source_manifest @> jsonb_build_object(
                             'sources', jsonb_build_array(jsonb_build_object(
@@ -2405,15 +2416,11 @@ class HybridRetrievalOrchestrator:
         pats = [f"%{t}%" for t in terms]
 
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
-        excl_filter, excl_params = self._exclusion_filters(scope, id_column=None)
-        if scope and (scope.get("cluster_ids") or scope.get("exclude_cluster_ids")):
-            excl_filter += " AND cluster_ids IS NOT NULL"
+        excl_filter, excl_params = self._exclusion_filters(scope, id_column=None,
+                                                              membership_column="cluster_ids")
+        excl_filter += self._cluster_filter(scope, membership_column="cluster_ids")
         if scope and scope.get("cluster_ids"):
-            excl_filter += " AND (cardinality(cluster_ids) = 0 OR cluster_ids && CAST(:cold_clusters AS uuid[]))"
-            excl_params["cold_clusters"] = [str(c) for c in scope["cluster_ids"]]
-        if scope and scope.get("exclude_cluster_ids"):
-            excl_filter += " AND NOT (cluster_ids && CAST(:cold_excluded_clusters AS uuid[]))"
-            excl_params["cold_excluded_clusters"] = [str(c) for c in scope["exclude_cluster_ids"]]
+            excl_params["cluster_ids"] = [str(c) for c in scope["cluster_ids"]]
         if scope and scope.get("batch_ids") is not None:
             excl_filter += " AND batch_id = ANY(CAST(:cold_batches AS uuid[]))"
             excl_params["cold_batches"] = [str(b) for b in scope["batch_ids"]]
@@ -2433,7 +2440,7 @@ class HybridRetrievalOrchestrator:
         query = text(f"""
             SELECT id, conversation_id, batch_id, raw_text, summary_text,
                    topic_tags, timestamp, is_private, embedding, source_spans, ts_provenance,
-                   summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids
+                   summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids, batch_summary_id
             FROM cold_storage
             WHERE timestamp >= :t0 AND timestamp < :t1
               {conv_filter}
@@ -2547,19 +2554,21 @@ class HybridRetrievalOrchestrator:
                          embedding, decay_score, access_count, is_archived,
                          is_private, inject_raw, idempotency_key, source_spans, ts_provenance,
                          summary_coverage, representation_verification, abstract_text,
-                         lossless_flag, session_id, cluster_id)
+                         lossless_flag, session_id, cluster_id, batch_summary_id)
                     VALUES (:id, :conv, :batch, :ts, :tags, :itags,
                             :context_reliance, :raw, :summary, :emb, :score,
                             1, FALSE, :priv, :inject_raw, :ikey, :source_spans, :ts_provenance,
                             :summary_coverage, :representation_verification, :abstract_text,
                             :lossless_flag, :session_id,
-                            (SELECT id FROM context_clusters WHERE id = :primary_cluster))
+                            (SELECT id FROM context_clusters WHERE id = :primary_cluster),
+                            (SELECT id FROM batch_summaries WHERE id = :batch_summary_id))
                     ON CONFLICT (id) DO NOTHING
                 """).bindparams(bindparam("emb", type_=PgVector),
                                  bindparam("source_spans", type_=JSONB),
                                  bindparam("representation_verification", type_=JSONB)), {
                     "id": row.id, "conv": row.conversation_id,
                     "primary_cluster": getattr(row, "cluster_id", None),
+                    "batch_summary_id": getattr(row, "batch_summary_id", None),
                     "batch": row.batch_id or uuid.uuid4(), "ts": row.timestamp,
                     "tags": list(row.topic_tags or []),
                     "itags": list(getattr(row, "intent_tags", None) or []),
