@@ -80,8 +80,10 @@ class StubEmbedder:
 
 class StubClassifier:
     embedder = StubEmbedder()
+    last_conversation_id = None
 
     def classify(self, prompt, **kw):
+        self.last_conversation_id = kw.get("conversation_id")
         return ClassificationResult(
             topic_tags=["Software_&_Tech"], intent_tags=["Factual_Retrieval"],
             context_reliance="Long_Term_Memory", raw_probs=[0.0] * 25,
@@ -103,6 +105,7 @@ bookmarks.get_runtime = lambda: stub_rt          # stub the enqueue seam
 slot_snapshot = None
 notes_conv_preexisting = True
 lease_row_snapshot = "absent"
+shared_conv = None
 
 try:
     # ═══ Fixtures ════════════════════════════════════════════════════════
@@ -397,6 +400,52 @@ try:
                   set(f.keys()) for f in ctx["fragments"]))
     check("context_for finds the seeded marker turn",
           any(MARK in f["text"] for f in ctx["fragments"]))
+    shared_conv = Conversation(memory_scope_type="auto")
+    db.add(shared_conv)
+    db.flush()
+    shared_turn = EpisodicMemory(
+        conversation_id=shared_conv.id, batch_id=uuid.uuid4(),
+        context_reliance="Long_Term_Memory",
+        raw_text=f"{MARK}shared answer lives in another conversation",
+        embedding=EMB, timestamp=NOW,
+        idempotency_key=f"{MARK}-shared")
+    db.add(shared_turn)
+    db.commit()
+    budget_calls = []
+    original_budget_setter = HybridRetrievalOrchestrator.set_budget_from_turn_count
+
+    def capture_budget(self, turn_count, **kwargs):
+        budget_calls.append((turn_count, kwargs["total_tokens"]))
+        return original_budget_setter(self, turn_count, **kwargs)
+
+    HybridRetrievalOrchestrator.set_budget_from_turn_count = capture_budget
+    try:
+        scoped_ctx = retrieval_svc.context_for(
+            db, f"where is {MARK}shared?", scope={"conversation_id": conv_id})
+    finally:
+        HybridRetrievalOrchestrator.set_budget_from_turn_count = original_budget_setter
+    check("explicit pull uses conversation context and real history pressure",
+          core_mod._active_core.classifier.last_conversation_id == conv_id
+          and budget_calls[-1][0] == 3 and budget_calls[-1][1] > 0)
+    check("auto conversation identity leaves shared non-private search open",
+          any(f["source_batch_id"] == str(shared_turn.id)
+              for f in scoped_ctx["fragments"]))
+    missing_ctx = retrieval_svc.context_for(
+        db, f"where is {MARK}shared?",
+        scope={"conversation_id": str(uuid.uuid4())})
+    check("unknown conversation identity remains closed",
+          not any(f["source_batch_id"] == str(shared_turn.id)
+                  for f in missing_ctx["fragments"]))
+    scoping.set_scope(db, str(shared_conv.id), "none")
+    private_ctx = retrieval_svc.context_for(
+        db, f"where is {MARK}shared?",
+        scope={"conversation_id": str(shared_conv.id)})
+    check("incognito identity still reads only its own private turn",
+          any(f["source_batch_id"] == str(shared_turn.id)
+              for f in private_ctx["fragments"])
+          and not any(f["source_batch_id"] in set(turn_ids)
+                      for f in private_ctx["fragments"]))
+    scoping.set_scope(db, str(shared_conv.id), "auto")
     core_mod._active_core = None
 
     recents = retrieval_svc.recent_turns(db, conversation_id=conv_id, limit=5)
@@ -547,6 +596,9 @@ finally:
         synchronize_session=False)
     db.query(Conversation).filter_by(id=uuid.UUID(conv_id)).delete(
         synchronize_session=False)
+    if shared_conv is not None:
+        db.query(Conversation).filter_by(id=shared_conv.id).delete(
+            synchronize_session=False)
     if slot_snapshot:
         live = db.query(MemorySlot).filter_by(slot_name="session_patterns").first()
         if live:

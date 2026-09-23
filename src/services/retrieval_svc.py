@@ -18,6 +18,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
+from src.memory.conversation_stats import conversation_pressure
 from src.memory.models import (
     Decision,
     EpisodicMemory,
@@ -91,44 +92,51 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
     decision is *reported* in the result, never used to answer empty-handed.
     First call in a headless process loads the classifier (one-time latency).
     """
-    from src.api.memory_decision import decide_memory_retrieval
+    from src.api.memory_decision import (
+        decide_memory_retrieval,
+        estimate_recent_window_tokens,
+    )
     from src.retrieval.orchestrator import HybridRetrievalOrchestrator
     from src.retrieval.timescope import detect_timescope, to_scope_dict
 
+    scope = dict(scope or {})
+    # The caller's conversation is an identity, not necessarily a filter:
+    # auto searches shared non-private memory, while none/manual/project each
+    # resolve their own visibility through the same resolver as chat.
+    own_conv_id = scope.pop("conversation_id", None)
+    if own_conv_id:
+        from src.memory.models import Conversation
+        from src.services.scoping import resolve_retrieval_scope
+        conv_row = db.query(Conversation).filter_by(
+            id=uuid.UUID(str(own_conv_id))).first()
+        if conv_row is None:
+            # Unknown identity stays closed instead of silently searching all.
+            scope["conversation_id"] = str(own_conv_id)
+        else:
+            for key, value in resolve_retrieval_scope(db, conv_row).items():
+                scope.setdefault(key, value)
+
     classifier = _get_classifier()
-    result = classifier.classify(task_text)
+    result = classifier.classify(task_text, conversation_id=str(own_conv_id)
+                                 if own_conv_id else None)
     result.prompt = task_text
     tscope = detect_timescope(
         task_text,
         p_ltm=getattr(result, "p_ltm", 0.0),
         p_temporal=getattr(result, "p_temporal", 0.0),
     )
+    total_budget = budget or settings.context_budget_fallback
+    turn_count, total_tokens = conversation_pressure(db, own_conv_id)
     decision = decide_memory_retrieval(
-        result, turn_count=0, total_tokens=0.0, settings=settings,
+        result, turn_count=turn_count, total_tokens=total_tokens, settings=settings,
+        recent_window_tokens=estimate_recent_window_tokens(turn_count, total_budget),
         timescope_mode=tscope.mode,
+        coding_scope=bool(scope.get("project_id")),
     )
     result.context_reliance = "Long_Term_Memory"   # explicit pull: orchestrate
-    scope = dict(scope or {})
     ts_dict = to_scope_dict(tscope)
     if ts_dict:
-        scope["timescope"] = ts_dict
-
-    # C6: full parity with the chat path — the same resolver builds the scope
-    # from the conversation row. This block used to reproduce the project arm
-    # only, so an ice_context pull inside an incognito conversation missed the
-    # isolated/incognito flags and ran the RAG + procedural legs against
-    # global memory; a manual conversation retrieved as if it were auto.
-    if scope.get("conversation_id") and not scope.get("project_id"):
-        from src.memory.models import Conversation
-        from src.services.scoping import resolve_retrieval_scope
-        conv_row = db.query(Conversation).filter_by(
-            id=uuid.UUID(str(scope["conversation_id"]))).first()
-        if conv_row is not None:
-            resolved = resolve_retrieval_scope(db, conv_row)
-            # Caller-supplied keys (e.g. an explicit timescope) win; the
-            # resolver fills in everything the conversation row implies.
-            for key, value in resolved.items():
-                scope.setdefault(key, value)
+        scope.setdefault("timescope", ts_dict)
 
     # E11: a project-scoped pull freshens that project's working tree first,
     # so retrieved code pointers match the tree being edited right now.
@@ -148,12 +156,12 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
 
     orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
     orchestrator.set_budget_from_turn_count(
-        0, total_tokens=0, classification=result,
-        total_budget=budget or settings.context_budget_fallback,
+        turn_count, total_tokens=total_tokens, classification=result,
+        total_budget=total_budget,
     )
     fragments = orchestrator.retrieve(
         classification=result,
-        conversation_id=scope.get("conversation_id"),
+        conversation_id=str(own_conv_id) if own_conv_id else None,
         prompt_embedding=prompt_embedding,
         scope=scope,
     )

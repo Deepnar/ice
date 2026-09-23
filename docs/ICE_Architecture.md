@@ -778,6 +778,17 @@ never unchecked summaries or500-word prefixes; whole-block budget eviction appli
 
 **One resolver, both request paths (C6, 2026-07-28).** `services/scoping.py::resolve_retrieval_scope(db, conv)` is the single place a conversation row becomes a retrieval scope dict. Both `chat_completions` and `retrieval_svc.context_for` (the MCP `ice_context` pull) call it. They used to build the dict separately and the copies had **drifted**: the service path reproduced only the *project* arm, so an `ice_context` pull inside an incognito conversation missed the isolation flags and ran the RAG and procedural legs against global memory (the RAG leg has since been deleted, C12; the procedural half of that bug was real and is fixed).
 
+**G29 explicit-pull parity (2026-09-23).** The caller's conversation ID is an
+identity for classifier history, B2 pressure, own summaries and recency; it is
+not automatically a conversation filter. An `auto` conversation resolves to an
+open non-private scope in both chat and `ice_context`. Previously the pull kept
+the caller's ID inside `scope`, so it searched only that conversation. None,
+manual and project modes still resolve their intended closed scopes, and an
+unknown conversation ID remains closed. `conversation_pressure` supplies the
+same warm-turn count/approximate token pressure to chat and explicit pulls;
+`/search` passes its conversation ID through this seam. The explicit pull
+continues to orchestrate even when B2 reports `retrieve=false`.
+
 **The vocabulary is closed.** `scoping.VALID_SCOPE_TYPES = (none, auto, project, manual)`, enforced by `set_scope` at every surface (REST, MCP, `/scope`). Before C6 any string was stored verbatim and every unrecognised one retrieved exactly like `auto` — a scope that silently means something else is a privacy surface, not a convenience.
 
 **Precedence, most explicit first:**

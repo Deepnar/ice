@@ -17,7 +17,6 @@ import httpx
 import structlog
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.api.chat_commands import command_sse_stream, try_handle
@@ -34,11 +33,11 @@ from src.api.prompt_assembler import bookmarked_turn_texts, conversation_summary
 from src.api.prompt_budget import assemble_budgeted_prompt
 from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
+from src.memory.conversation_stats import conversation_pressure
 from src.memory.models import Conversation, ConversationSummary, EpisodicMemory, MemorySlot
 from src.memory.session import resolve_session_id
 from src.memory.source import chat_provenance
 from src.memory.tokens import count_messages as count_tokens_messages
-from src.memory.tokens import estimate_from_chars as estimate_tokens_from_chars
 from src.memory.usage import evidence_after_eviction, record_graph_access
 from src.model_registry.registry import (
     find_best_model,
@@ -566,13 +565,7 @@ async def chat_completions(
     # B2: one principled, classifier-trusting decision replaces the old hard
     # overrides (turn_count>10 / conf<0.95 / creative / referential). Prefers
     # memory, never forces it. Weights are settings (re-tuned after B1).
-    turn_count = db.query(EpisodicMemory).filter_by(
-        conversation_id=conversation_id
-    ).count()
-    total_chars = db.query(
-        func.coalesce(func.sum(func.length(EpisodicMemory.raw_text)), 0)
-    ).filter_by(conversation_id=conversation_id).scalar() or 0
-    total_tokens = estimate_tokens_from_chars(total_chars)
+    turn_count, total_tokens = conversation_pressure(db, conversation_id)
 
     mem_decision = decide_memory_retrieval(
         result, turn_count=turn_count, total_tokens=total_tokens, settings=settings,

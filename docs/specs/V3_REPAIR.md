@@ -854,3 +854,21 @@ concurrent archive/edit/delete must retry rather than validate old text against
 new identity. Stale-cache repair clears coverage in both tiers. Validate
 all-cold and mixed batches, race/eligibility changes, cache invalidation,
 archive/restore parity and migration roundtrip in disposable PostgreSQL.
+
+### Explicit context-pull preparation parity —2026-09-23
+
+A caller-supplied conversation ID is the *current conversation identity* for
+classifier history, own-summary/recency ranking and B2 pressure. It is not a
+SQL scope by itself: resolve the conversation row through the chat scope
+resolver, so `auto` can search shared non-private memory while `none`, manual
+and project retain their limits. If the ID is unknown, keep a closed filter
+instead of silently widening. Preserve caller-supplied non-identity scope
+keys. `/search` supplies the current conversation ID through this same path.
+
+Chat and explicit pulls share the warm-turn count and approximate history-token
+query, including the same zero-history result when no identity is supplied.
+Explicit pulls use those values in B2 and dynamic retrieval budgeting but
+continue to retrieve even when the reported B2 decision says no. They return
+structured fragments rather than an assembled answer prompt. Validate an
+`auto` cross-conversation hit, incognito isolation, unknown-ID closure,
+classifier context forwarding, nonzero B2/budget history and `/search` behavior.

@@ -228,7 +228,9 @@ def _cmd_search(db, conv, args: str, body: str, scope: Optional[dict]):
     query = (args + (" " + body if body else "")).strip()
     if not query:
         raise ValidationError("usage: /search <query>")
-    res = retrieval_svc.context_for(db, query, scope=dict(scope or {}))
+    pull_scope = dict(scope or {})
+    pull_scope.setdefault("conversation_id", str(conv.id))
+    res = retrieval_svc.context_for(db, query, scope=pull_scope)
     frags = res["fragments"]
     if not frags:
         return (f"Memory search for “{query}”: no stored memories "
