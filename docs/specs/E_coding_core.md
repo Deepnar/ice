@@ -56,6 +56,12 @@ decisions 1–7 in the roadmap (which this spec turns into DDL and code).
 >    `(None, None)`). `_render_codex_entity` renders the full payload for
 >    non-conversation entities even under scope — the "leaks other convos"
 >    rationale doesn't apply to entities derived from the project itself.
+>    **G29 re-grounding (2026-09-23):** the vector matcher used raw SQL without
+>    `_entity_source_filters()`, unlike exact/payload matching. Current code-graph
+>    and project-fact writers leave derived embeddings NULL, but imported or
+>    externally populated derived vectors can still become unscoped anchors.
+>    Apply the same predicate *inside the ranked SQL query*, before `LIMIT`,
+>    so hidden near matches cannot crowd out a visible conversation entity.
 > 7. **Episodic project scope (D11):** main.py populates
 >    `scope["conversation_ids"]` (the project's non-incognito conversations) +
 >    `scope["project_id"]`; the episodic legs' conversation filter becomes

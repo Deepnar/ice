@@ -1134,25 +1134,23 @@ class HybridRetrievalOrchestrator:
             # threshold that had not already been claimed, and ordering by
             # distance puts it at rank 1 — so `LIMIT 1 + len(seen_ids)` is
             # guaranteed to contain it however many earlier candidates matched.
-            rows = self.db.execute(text("""
-                SELECT id, 1 - (embedding <=> CAST(:emb AS vector)) AS sim
-                FROM codex_entities
-                WHERE embedding IS NOT NULL
-                ORDER BY embedding <=> CAST(:emb AS vector)
-                LIMIT :lim
-            """), {
-                # ⚠ float(), not list(): candidate_emb is a numpy array, and
-                # str(list(ndarray)) renders "[np.float32(-0.019), ...]", which
-                # pgvector rejects as invalid vector syntax.
-                "emb": str([float(x) for x in candidate_emb]),
-                "lim": 1 + len(seen_ids),
-            }).all()
+            # G29: reuse the exact/payload matchers' SQLAlchemy visibility
+            # predicate *before* LIMIT. Filtering the nearest raw result in
+            # Python would let a hidden project entity crowd out a visible one.
+            # Coerce numpy scalars to Python floats for pgvector's binder.
+            vector = [float(x) for x in candidate_emb]
+            distance = CodexEntity.embedding.cosine_distance(vector)
+            rows = (self.db.query(CodexEntity.id, (1 - distance).label("sim"))
+                    .filter(CodexEntity.embedding.is_not(None),
+                            *self._entity_source_filters())
+                    .order_by(distance)
+                    .limit(1 + len(seen_ids)).all())
             best_entity = None
             for row in rows:
                 if row.id in seen_ids:
                     continue
                 if row.sim >= threshold:
-                    best_entity = self.db.query(CodexEntity).get(row.id)
+                    best_entity = self.db.get(CodexEntity, row.id)
                 break   # rank 1 among the unclaimed; a worse one cannot win
             if best_entity is not None:
                 matched.append(best_entity)
