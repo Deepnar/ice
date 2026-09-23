@@ -1045,10 +1045,10 @@ Defaults cross-checked against `src/api/config.py`.
 | Feature | Where | Roadmap id | What it does | Setting | Default | On by default? |
 |---|---|---|---|---|---|---|
 | Review queue listing by status | `src/services/review.py:35` | D8 | Statuses in play: pending, approved, rejected, plus `resolved` (agent-settled) and `stale` (C10). | — (`status="pending"`) | pending | YES |
-| Approval APPLIES the item | `src/services/review.py:44` | D1/D2 D6 | Five live arms: `memory_slot_update` → slots service (proposer recorded as author); `new_cluster_proposal` → creates the cluster; `entity_merge` → `codex_ops.merge_entities`; `codex_reconciliation` → expires the old edge journaled as `supersession`; `forget_request` → `apply_forget`. | — | — | YES |
+| Approval APPLIES the item | `src/services/review.py:44` | D1/D2 D6/G62 | `memory_slot_update` → slots service; `new_cluster_proposal` → creates the cluster; `entity_merge` → `codex_ops.merge_entities`; `forget_request` → `apply_forget`. Codex conflict/reconciliation approval requires explicit `keep_edge_ids` from the two live edges and journals any chosen expiries as manual conflict resolution; it never auto-expires a proposed old edge. | — | — | YES |
 | Reject (feeds the never-re-propose check) | `src/services/review.py:100` | D1 | Flips to rejected without applying; D1's detectors query rejected rows so a proposal is not re-raised. | — | — | YES |
 | Explicit cluster creation | `src/services/clusters.py:12` | C5 | Creates a named `ContextCluster` by hand. | — | — | YES (REST-only) |
-| Explicit turn→cluster assignment | `src/services/clusters.py:21` | C5 | Sets `cluster_id` on the given turns. Note: writes the legacy `cluster_id` column, not `EpisodicClusterLink`. | — | — | YES (REST-only) |
+| Explicit turn→cluster assignment | `src/services/clusters.py:21` | C5/G29 | Writes authoritative `EpisodicClusterLink` membership and retains the legacy primary `cluster_id` pointer. Duplicate input/repeat calls do not duplicate links; `assigned` counts existing distinct turns found. | — | — | YES (REST-only) |
 | fcntl-locked model registry | `src/services/registry_svc.py:19` | E7 spec §4 | The registry JSON is shared mutable state between the app and `ice-mcp`; every load-modify-save (and every read) runs inside one exclusive sidecar-lockfile lock so no reader sees a half-written file. | — | — | YES |
 | Registry read / refresh / update / delete | `src/services/registry_svc.py:31,36,41,54` | — | Refresh re-populates from Ollama; updates are restricted to four fields (`topic_tags`, `intent_tags`, `confirmed`, `base_url`). | — | — | YES |
 | Domain-error vocabulary | `src/services/errors.py:9-22` | E0 | `NotFoundError`/`ValidationError`/`ConflictError`; each adapter maps them (REST 404/400/409, MCP tool error, chat inline reply). Services know nothing about HTTP. | — | — | YES |
@@ -1364,7 +1364,7 @@ and the rendered architecture doc.
 | Non-Python languages in the code graph | `src/coding/code_graph.py:22-24,208` | `iter_python_files` globs `*.py` only; the tree-sitter seam is a comment. |
 | `--http` MCP transport | `src/mcp/server.py:503,511` | Implemented, but stdio is the default and the harness path; nothing else in the repo uses streamable-http. |
 | Review-queue REJECT over REST | `src/api/routers/user_control.py:176-183` | `approve` has an endpoint, `reject` does not. `review_svc.reject` is MCP-only. |
-| `clusters_svc.assign_turns` writes the legacy column | `src/services/clusters.py:28` | Sets `EpisodicMemory.cluster_id`, not `EpisodicClusterLink` rows — the same split C10's deletion code has to handle on both FK paths (`conversations.py:200-208`). A hand-assigned turn may not be visible to link-based cluster logic. |
+| `parent_message_id` branching seam | `src/memory/models.py:75` | Nullable self-FK; no chat/import-ingestion writer or retrieval traversal. State-copy portability can round-trip externally populated links, but provider conversation imports flatten branches. Cold rows do not carry the pointer. v3 working store audit 2026-09-23: 0/180 non-NULL; do not credit it as active lineage. |
 | `install_git_hook` | `src/services/projects.py:86,122` | Default `False`; the MCP description tells the model to ask first. The 10-min poll is what actually runs unless the user opts in. |
 
 ---
@@ -1407,8 +1407,8 @@ and the rendered architecture doc.
 - **`services/documents.py` hosts a runtime job.** `JOBS["ingest_document"]` points at
   `src.services.documents:run_document_ingest` (`runtime.py:111`) — the only place the
   supposedly HTTP-free service layer is also a worker entry point.
-- **`clusters.py` is 30 lines** — the thinnest service by an order of magnitude, and it
-  writes the legacy cluster column (see DEAD OR INERT).
+- **Manual cluster assignment now writes the membership link** used by retrieval
+  and clustering, retaining the legacy primary pointer for compatibility.
 - **The `full_sync` path re-walks the entire tree twice on registration**
   (`code_graph.py:372` then `project_facts.derive_project_facts`, which does its own
   `rglob("*.py")` twice more in `_parse_db_schema` and `_parse_config_surface`) — four

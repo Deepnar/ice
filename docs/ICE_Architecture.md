@@ -257,7 +257,7 @@ The episodic_memory table is the system's primary store of conversational turns.
 | **id** | UUID PK | uuid.uuid4 |
 | **conversation_id** | UUID FK → conversations.id |  |
 | **cluster_id** | UUID FK → context_clusters.id (nullable) | legacy single-cluster pointer; the M2M link table is authoritative |
-| **parent_message_id** | UUID self-FK | threading |
+| **parent_message_id** | UUID self-FK | Dormant branching seam: chat/import ingestion never sets it and retrieval never traverses it; state-copy portability can round-trip externally populated links. Provider conversation imports flatten branches; NULL on current working-store turns. Cold storage does not carry it. |
 | **batch_id** | UUID | groups a user turn + assistant reply; the join key used by Codex/Procedural workers |
 | **session_id** | UUID (nullable, indexed) | C6: one *sitting* — resolved at write time (src/memory/session.py): the previous turn's session is reused while the gap ≤ settings.session_gap_minutes (default 30), else a new one is minted (logged as `session_started`, the C7 trigger seam). NULL on pre-migration rows |
 | **is_private** | Boolean default false (indexed) | G16: incognito flag for none-scoped conversations — see §6.10 |
@@ -1455,8 +1455,9 @@ values with the original raw source, roles, time and vector. Legacy missing
 metadata does not gain invented verification or session identity. Original
 idempotency conflicts leave cold evidence intact; restoration stays gated by the
 existing write switch and probation policy. Migration c8f60224d395 adds columns
-without backfill. Cluster/chunk/parent links and aggregate freshness across storage
-moves remain open. Retrieval failures log class/SQLSTATE, not exception strings
+without backfill. At this checkpoint cluster/chunk links and aggregate freshness
+remained open and were repaired in later sections; parent branching is dormant, not
+an active continuity path. Retrieval failures log class/SQLSTATE, not exception strings
 that may expose source text embedded in SQL parameters.
 
 ### v3 cold cluster visibility —2026-09-21
@@ -1468,7 +1469,8 @@ and explicit batch allow-lists before ranking/limit. As on the warm path, a know
 unlinked source may pass positive scope; a legacy NULL membership is unknown and
 is withheld under cluster constraints. Unconstrained temporal retrieval remains
 available. Migration d9071335e4a6 adds nullable columns without guessing legacy
-membership. Chunk/parent links and aggregate source-manifest continuity remain open.
+membership. At this checkpoint chunks and aggregate source-manifest continuity
+remained open and were repaired later; parent branching is dormant.
 
 ### v3 archived excerpt continuity —2026-09-22
 
@@ -1480,8 +1482,8 @@ or keyword overlap with deterministic index ties. Scope is enforced on the paren
 first; final packing can select a small late correction instead of losing an
 oversized turn. The parent pool is still bounded and cold retrieval still requires
 a temporal window. This is not independent global chunk recall. No re-embedding
-or legacy chunk reconstruction occurs. Parent-link and aggregate-source continuity
-remain unfinished.
+or legacy chunk reconstruction occurs. Aggregate-source continuity was repaired
+later; parent branching has no active writer or reader.
 
 ### v3 summary source continuity —2026-09-22
 
@@ -1494,5 +1496,19 @@ the shared inclusion/exclusion builders; unknown legacy membership remains
 unknown. Rolling notes scan and rebuild from both tiers' originals. Unchanged
 archival or restoration no longer forces regeneration, while edits/deletions,
 privacy or policy/output changes still invalidate old caches. The batch worker
-still generates only from eligible warm sources; stale all-cold batch regeneration
-is not claimed. The rolling writer can rebuild from those cold originals.
+at this checkpoint generated only from eligible warm sources; the 2026-09-23
+all-cold repair added known-eligible cold originals and source locks. The rolling
+writer can rebuild from cold originals too.
+
+### v3 manual cluster membership —2026-09-23
+
+`clusters.assign_turns` writes `EpisodicClusterLink` rows, the same membership
+used by automatic clustering and scoped retrieval, and retains the legacy
+`cluster_id` primary pointer. Repeat requests add no duplicate links. A
+selected-cluster vector lookup includes a manually linked turn and excludes a
+turn linked only to another cluster; this is a mechanics result, not a retrieval
+quality measurement. `parent_message_id` remains a dormant schema seam: no
+v3 chat/import-ingestion writer sets it or retrieval reader follows it (state-copy
+portability can round-trip externally populated links); provider import flattens branches,
+and the working store has 0 linked turns of 180. No cold-parent migration is
+justified until branching's writer, reader and cross-tier identity are designed.

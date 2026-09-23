@@ -754,8 +754,12 @@ invent a verifier verdict or an original session. Keep the existing read-write
 switch and probation behavior. An idempotency collision must leave the cold source
 intact rather than delete evidence. Additive nullable migration only; no inferred
 backfill. Test actual decay, cold selection and restoration, including all metadata,
-legacy fallback, write-off behavior and collision retention. Cluster/chunk/parent
-links and aggregate manifest parity remain separate unfinished archive work.
+legacy fallback, write-off behavior and collision retention. At this checkpoint
+cluster/chunk links and aggregate manifest parity were separate archive work,
+repaired later. The parent pointer was subsequently audited as dormant:
+chat/import ingestion does not set it and retrieval does not traverse it
+(state-copy portability can round-trip externally populated values). A
+cold-parent migration alone is not a branching repair.
 
 Retrieval failure telemetry must not stringify database/provider exceptions:
 SQLAlchemy exceptions can contain full raw source/verdict parameters. Keep the

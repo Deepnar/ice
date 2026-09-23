@@ -31,6 +31,7 @@ from src.memory.models import (
     CodexEntity,
     ContextCluster,
     Conversation,
+    EpisodicClusterLink,
     EpisodicMemory,
     MemorySlot,
     ProceduralMemory,
@@ -209,6 +210,25 @@ try:
     check("cluster create/assign", assigned["assigned"] == 2 and
           db.query(EpisodicMemory).filter_by(cluster_id=uuid.UUID(cl["id"]))
           .count() == 2)
+    other_cl = clusters.create_cluster(db, f"{MARK}_cluster_other", "scope control")
+    clusters.assign_turns(db, other_cl["id"], turn_ids[2:])
+    check("manual assignment writes authoritative membership links",
+          db.query(EpisodicClusterLink).filter(
+              EpisodicClusterLink.cluster_id == uuid.UUID(cl["id"]),
+              EpisodicClusterLink.episodic_id.in_([uuid.UUID(tid) for tid in turn_ids[:2]]),
+          ).count() == 2)
+    from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+    scoped = HybridRetrievalOrchestrator(db, StubEmbedder())._vector_episodic(
+        EMB, StubClassifier().classify("zephyrglass"),
+        {"conversation_id": conv_id, "cluster_ids": [cl["id"]],
+         "cluster_ids_explicit": True}, conv_id=conv_id)
+    scoped_ids = {f.source_batch_id for f in scoped}
+    check("manual cluster choice reaches link-based vector retrieval",
+          set(turn_ids[:2]) <= scoped_ids and turn_ids[2] not in scoped_ids)
+    repeated = clusters.assign_turns(db, cl["id"], turn_ids[:2] + turn_ids[:1])
+    check("repeated manual assignment is idempotent",
+          repeated["assigned"] == 2 and db.query(EpisodicClusterLink).filter_by(
+              cluster_id=uuid.UUID(cl["id"])).count() == 2)
 
     # ═══ 5. Review: slot apply + D1/D2 arms + reject ═════════════════════
     print("── review ──")
@@ -255,29 +275,33 @@ try:
                      aliases=[f"{MARK}_subj"], embedding=EMB)
     e2 = CodexEntity(id=uuid.uuid4(), canonical_name=f"{MARK}_obj",
                      aliases=[f"{MARK}_obj"], embedding=EMB)
-    db.add_all([e1, e2])
+    e3 = CodexEntity(id=uuid.uuid4(), canonical_name=f"{MARK}_newthing",
+                     aliases=[f"{MARK}_newthing"], embedding=EMB)
+    db.add_all([e1, e2, e3])
     db.flush()   # no relationship() on the models — entities must land first
     edge = CodexEdge(source_id=e1.id, target_id=e2.id, relation="uses",
                      source_batch=batch_id, valid_from=NOW - timedelta(days=30))
-    db.add(edge)
+    candidate = CodexEdge(source_id=e1.id, target_id=e3.id, relation="uses",
+                          source_batch=batch_id, valid_from=NOW)
+    db.add_all([edge, candidate])
     db.commit()
     edge_id = edge.id
     rq3 = ReviewQueue(item_type="codex_reconciliation", item_content={
         "new": {"subject": f"{MARK}_subj", "relation": "uses",
-                "object": "newthing"},
+                "object": f"{MARK}_newthing"},
         "conflict_type": "supersession", "old_edge_id": str(edge_id),
         "old_relation": "uses", "old_object": f"{MARK}_obj",
         "turn_excerpt": "moved off it"})
     db.add(rq3)
     db.commit()
-    review.approve(db, str(rq3.id))
+    review.approve(db, str(rq3.id), keep_edge_ids=[str(candidate.id)])
     edge = db.query(CodexEdge).filter_by(id=edge_id).first()
     ev = db.execute(text(
         "SELECT payload FROM codex_events WHERE event_type = 'edge_expired' "
         "AND payload->>'edge_id' = :eid"), {"eid": str(edge_id)}).first()
-    check("approve applies codex_reconciliation (edge expired + journaled)",
-          edge.valid_until is not None and ev is not None
-          and ev.payload["reason"] == "supersession")
+    check("approve applies explicit codex conflict choice (edge expired + journaled)",
+          edge.valid_until is not None and candidate.valid_until is None
+          and ev is not None and ev.payload["reason"] == "manual_conflict_resolution")
 
     rq4 = ReviewQueue(item_type="sentinel_review", item_content={"note": MARK})
     db.add(rq4)
@@ -353,7 +377,7 @@ try:
                              (NOW - timedelta(days=60)).isoformat(),
                              (NOW + timedelta(days=1)).isoformat())
     check("entity_diff reports added+expired with ISO dates",
-          len(diff["added"]) == 1 and len(diff["expired"]) == 1
+          len(diff["added"]) == 2 and len(diff["expired"]) == 1
           and isinstance(diff["expired"][0]["date"], str))
     edges_all = graph.edges_list(db, f"{MARK}_subj", include_expired=True)
     check("edges_list include_expired shows the expired edge",
@@ -458,7 +482,15 @@ try:
               rt.standby is False)
         await rt.stop()
 
-    asyncio.run(lease_checks())
+    # This suite seeds synthetic vectors; lease ownership is independent of
+    # the startup guard that correctly refuses unknown embedding provenance.
+    import src.memory.store_meta as store_meta_mod
+    stamp_guard = store_meta_mod.check_embedding_stamp
+    store_meta_mod.check_embedding_stamp = lambda db: None
+    try:
+        asyncio.run(lease_checks())
+    finally:
+        store_meta_mod.check_embedding_stamp = stamp_guard
 
     # ═══ 10. Grep-gate: services are HTTP-free ═══════════════════════════
     print("── grep-gate ──")
@@ -493,6 +525,9 @@ finally:
         {"m": f"{MARK}%"})
     db.execute(text("DELETE FROM codex_entities WHERE canonical_name LIKE :m"),
                {"m": f"{MARK}%"})
+    db.execute(text("DELETE FROM episodic_cluster_links WHERE episodic_id IN "
+                    "(SELECT id FROM episodic_memory WHERE idempotency_key LIKE :m)"),
+               {"m": f"{MARK}%"})
     db.query(EpisodicMemory).filter(
         EpisodicMemory.idempotency_key.like(f"{MARK}%")).delete(
         synchronize_session=False)
@@ -503,7 +538,7 @@ finally:
     if not notes_conv_preexisting:
         db.query(Conversation).filter_by(
             id=bookmarks.NOTES_CONVERSATION_ID).delete(synchronize_session=False)
-    db.query(ContextCluster).filter_by(name=f"{MARK}_cluster").delete(
+    db.query(ContextCluster).filter(ContextCluster.name.like(f"{MARK}_cluster%")).delete(
         synchronize_session=False)
     db.query(MemorySlot).filter_by(
         slot_name="conversation_focus",
