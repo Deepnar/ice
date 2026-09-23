@@ -158,8 +158,16 @@ pull-discipline measurement).
   touch" / an error→fixed arc for incidents), A6-style: no cue, no LLM call.
   Dedupe/supersession: embedding similarity ≥0.85 against active decisions on
   overlapping files → conflict path (supersede or `review_queue`, reusing D1's
-  tiers). **`ice_context` surfaces `constraint` rows FIRST** whenever the task
-  mentions their files (the do-not-touch payoff).
+  tiers). **`ice_context` surfaces `constraint` rows FIRST** when the task
+  mentions their files *and the pull resolves that same project* (the
+  do-not-touch payoff). A projectless pull cannot claim a project decision:
+  skip constraints rather than scan every registered project's file names.
+  Project-attached conversations still resolve their project through the
+  shared scope resolver. A projectless MCP caller may instead choose a project
+  explicitly; that selector must build a complete closed project scope
+  (eligible project conversations plus their enabled documents), not a
+  constraint-only guess. Reject calls that supply both a conversation and a
+  project selector rather than silently picking one.
 - **D8 (E8): architecture-doc-as-view is a service, not a file.**
   `services/graph.py::render_architecture_doc(db, project_id)` — markdown from:
   module tree w/ per-module one-liners (docstring summaries), key decisions with

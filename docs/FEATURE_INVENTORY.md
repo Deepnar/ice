@@ -922,7 +922,7 @@ Defaults cross-checked against `src/api/config.py`.
 | Timescope detection on the pull | `src/services/retrieval_svc.py:99-112` | T/timescope | `detect_timescope` runs on the task text and its scope dict is merged into the retrieval scope ("last week", "in June"). | — | — | YES |
 | C6 scope parity for pulls | `src/services/retrieval_svc.py:110-128` | C6/G29 | A known caller `conversation_id` is removed from the caller's filter, then its conversation row is resolved through the ONE scope resolver. Incognito/manual/project filters apply; `auto` stays open to shared non-private memory. Caller-supplied non-identity keys win; an unknown identity is kept as a closed single-conversation filter. | — | — | YES |
 | Project pull freshens the working tree | `src/services/retrieval_svc.py:131-142` | E11 | A project-scoped pull calls `freshen_working_tree` first so retrieved code pointers match the tree being edited now. Failure logs a warning and the read continues commit-fresh. | `settings.reconcile_on_read` | `True` | YES |
-| Constraint injection ("do not touch") | `src/services/retrieval_svc.py:36` | E8 (D7) | Active `constraint` decisions whose `files_affected` appear in the task text are prepended to the fragment list with score 10.0, ahead of every retrieved fragment. Path-ish tokens are regex-extracted from the task. | — (cap param `cap=5`) | 5 | YES (only on the explicit-pull path) |
+| Constraint injection ("do not touch") | `src/services/retrieval_svc.py:39` | E8 (D7)/G29 | Active `constraint` decisions from the resolved project whose `files_affected` appear in the task text are prepended with score 10.0. A projectless pull returns no project decisions; path-ish tokens are regex-extracted from the task. | — (cap param `cap=5`) | 5 | YES (project-scoped explicit pulls only) |
 | Recent turns | `src/services/retrieval_svc.py:186` | G16, E1 | Most recent stored turns; unscoped calls honour the privacy invariant (`is_private = FALSE`), `project=` returns all of a project's conversations' turns. | — (`limit=10`) | 10 | YES |
 | Conventions listing | `src/services/retrieval_svc.py:220` | — | Active procedural patterns, strongest confidence first. | — (`limit=15`) | 15 | YES |
 | Session-start block data | `src/services/retrieval_svc.py:236` | E4, C9 | Global-tier slots + the most recent `SessionSummary`. Backs `ice://session-start`. Global tier only by design. | — | — | YES |
@@ -1174,7 +1174,7 @@ Defaults cross-checked against `src/api/config.py`.
 
 | MCP tool / action | Calls | Capabilities reached |
 |---|---|---|
-| `ice_context(task, conversation_id, budget)` | `retrieval_svc.context_for` (`server.py:172`) | The whole retrieval stack: live classifier (27-logit head), timescope detection, B2 memory decision (reported, not obeyed), C6 scope resolution from the conversation row, **E11 working-tree freshen when project-scoped**, the full hybrid orchestrator with RRF fusion and budgeting, and E8 constraint injection. |
+| `ice_context(task, conversation_id, budget, project)` | `mcp/server.py:161`, `retrieval_svc.context_for` | The whole retrieval stack. Optional `conversation_id` resolves that conversation's scope; optional `project` selects one registered project's eligible chats and their enabled documents as a closed set. They cannot both be supplied. A resolved project enables only its own E8 constraints and E11 working-tree freshen; neither selector leaves shared non-private retrieval without project decisions. |
 | `ice_why(name)` | `graph_svc.entity_view` + `graph_svc.entity_timeline` (`server.py:182-183`) | Codex entity note, aliases, properties, ≤20 links + ≤20 backlinks, and T4's supersession timeline. |
 | `ice_recent(conversation_id, limit, project)` | `retrieval_svc.recent_turns` (`server.py:196`) | Recent episodic turns, G16 privacy-guarded; project mode spans all of a project's conversations. |
 | `ice_conventions()` | `retrieval_svc.conventions` (`server.py:206`) | Active procedural patterns with confidence + reinforcement counts. |
@@ -1401,10 +1401,11 @@ and the rendered architecture doc.
   MCP-ONLY; import-start, document-delete, slot-initialize, label correction, cluster CRUD
   and registry refresh/delete are REST-ONLY. Neither adapter is a superset. A Track F UI
   built on REST would be missing the entire coding core.
-- **`constraints_for_task` (E8's do-not-touch payoff) fires only on EXPLICIT pulls.**
-  Its single caller is `context_for` (`retrieval_svc.py:160`), and the live chat path in
-  `main.py` calls the orchestrator directly. A constraint therefore reaches a coding agent
-  via `ice_context` or `/search`, but never an ordinary chat turn.
+- **`constraints_for_task` (E8's do-not-touch payoff) fires only on project-scoped
+  EXPLICIT pulls.** Its single caller is `context_for` in `retrieval_svc.py`, and
+  `main.py` calls the orchestrator directly. A constraint reaches a coding agent
+  via `ice_context` or `/search` when that pull resolves the matching project;
+  projectless pulls and ordinary chat turns do not receive it.
 - **`services/documents.py` hosts a runtime job.** `JOBS["ingest_document"]` points at
   `src.services.documents:run_document_ingest` (`runtime.py:111`) — the only place the
   supposedly HTTP-free service layer is also a worker entry point.

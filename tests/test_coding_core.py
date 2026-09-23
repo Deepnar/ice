@@ -84,6 +84,7 @@ git(REPO, "commit", "-m", "initial fixture commit")
 
 db = SessionLocal()
 project_id = None
+other_project_id = None
 conv_ids: list = []
 turn_ids: list = []
 cold_ids: list = []
@@ -364,13 +365,34 @@ try:
             "alternatives_rejected": [],
             "files_affected": ["minipkg/config.py"], "type": "constraint"}))
     check("constraint row recorded", r3["status"] == "recorded")
+    other_project = Project(name=f"{NAME}-other", slug=f"{SLUG}other",
+                            roots=[])
+    db.add(other_project)
+    db.flush()
+    other_project_id = other_project.id
+    db.add(Decision(
+        project_id=other_project_id,
+        decision=f"{MARK}: other project has a different config rule",
+        files_affected=["minipkg/config.py"], decision_type="constraint"))
+    db.commit()
     cfrags = constraints_for_task(
-        db, "please refactor minipkg/config.py default values")
-    check("ice_context engine surfaces the constraint FIRST for affected file",
-          cfrags and cfrags[0]["source_type"] == "constraint"
-          and MARK in cfrags[0]["text"])
+        db, "please refactor minipkg/config.py default values",
+        project_id=str(project_id))
+    check("project-scoped context surfaces only its own constraint",
+          len(cfrags) == 1 and cfrags[0]["source_type"] == "constraint"
+          and "do not touch" in cfrags[0]["text"])
+    other_frags = constraints_for_task(
+        db, "please refactor minipkg/config.py default values",
+        project_id=str(other_project_id))
+    check("same file path resolves the other project's different constraint",
+          len(other_frags) == 1
+          and "other project" in other_frags[0]["text"])
+    check("projectless context does not read any project's constraint",
+          constraints_for_task(
+              db, "please refactor minipkg/config.py default values") == [])
     check("unrelated task pulls no constraint",
-          constraints_for_task(db, "write a poem about autumn") == [])
+          constraints_for_task(db, "write a poem about autumn",
+                               project_id=str(project_id)) == [])
 
     de._embed = _orig_embed
     de._embed = lambda text_content: [0.0] * 1023 + [1.0]
@@ -561,8 +583,13 @@ finally:
     ma.DETECTORS.clear()
     ma.DETECTORS.update(_orig_detectors)
     try:
+        db.rollback()
+        if other_project_id is not None:
+            db.execute(text("DELETE FROM decisions WHERE project_id = :pid"),
+                       {"pid": other_project_id})
+            db.execute(text("DELETE FROM projects WHERE id = :pid"),
+                       {"pid": other_project_id})
         if project_id is not None:
-            db.rollback()
             db.execute(text(
                 "DELETE FROM review_queue WHERE item_content->>'project_id' = :p "
                 "OR item_content->>'task_id' IN "

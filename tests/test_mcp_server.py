@@ -37,7 +37,16 @@ import src.api.core as core_mod
 import src.mcp.server as server_mod
 from src.api.db import SessionLocal
 from src.classifier.schemas import ClassificationResult
-from src.memory.models import CodexEntity, Conversation, EpisodicMemory, MemorySlot
+from src.memory.models import (
+    CodexEntity,
+    Conversation,
+    Decision,
+    Document,
+    DocumentLink,
+    EpisodicMemory,
+    MemorySlot,
+    Project,
+)
 
 _passed = 0
 _failed = 0
@@ -108,6 +117,9 @@ def _payload_list(result):
 
 db = SessionLocal()
 slot_snapshot = None
+project_ids = []
+extra_conv_ids = []
+document_id = None
 
 # A snapshot-and-restore cannot clean a row that did not exist to be
 # snapshotted. On a clean store there is no `session_patterns` slot, this suite
@@ -145,6 +157,60 @@ try:
     db.add_all([turn, entity])
     db.commit()
     turn_id, entity_id = str(turn.id), str(entity.id)
+
+    project_a = Project(name=f"{MARK} alpha", slug=f"{MARK}alpha", roots=[])
+    project_b = Project(name=f"{MARK} beta", slug=f"{MARK}beta", roots=[])
+    project_empty = Project(name=f"{MARK} empty", slug=f"{MARK}empty", roots=[])
+    db.add_all([project_a, project_b, project_empty])
+    db.flush()
+    project_ids = [project_a.id, project_b.id, project_empty.id]
+    conv_a = Conversation(memory_scope_type="auto", project_id=project_a.id)
+    conv_b = Conversation(memory_scope_type="auto", project_id=project_b.id)
+    doc_conv = Conversation(kind="document", memory_scope_type="auto")
+    db.add_all([conv_a, conv_b, doc_conv])
+    db.flush()
+    extra_conv_ids = [conv_a.id, conv_b.id, doc_conv.id]
+    turn_a = EpisodicMemory(
+        conversation_id=conv_a.id, batch_id=uuid.uuid4(),
+        context_reliance="Long_Term_Memory",
+        raw_text=f"{MARK} alpha config.py constraint source",
+        embedding=EMB, idempotency_key=f"{MARK}-alpha")
+    turn_b = EpisodicMemory(
+        conversation_id=conv_b.id, batch_id=uuid.uuid4(),
+        context_reliance="Long_Term_Memory",
+        raw_text=f"{MARK} beta config.py constraint source",
+        embedding=EMB, idempotency_key=f"{MARK}-beta")
+    doc = Document(conversation_id=doc_conv.id, filename=f"{MARK}.md",
+                   file_type="md", sha256=uuid.uuid4().hex,
+                   source_text=f"{MARK} enabled document", status="ready")
+    db.add_all([turn_a, turn_b, doc])
+    db.flush()
+    document_id = doc.id
+    link = DocumentLink(document_id=doc.id, conversation_id=conv_a.id,
+                        enabled=True)
+    db.add_all([
+        link,
+        Decision(project_id=project_a.id, decision=f"{MARK} alpha: do not touch config.py",
+                 files_affected=["config.py"], decision_type="constraint"),
+        Decision(project_id=project_b.id, decision=f"{MARK} beta: do not touch config.py",
+                 files_affected=["config.py"], decision_type="constraint"),
+    ])
+    db.commit()
+    from src.services.scoping import resolve_project_pull_scope
+    project_scope = resolve_project_pull_scope(db, project_a.slug)
+    check("explicit project scope includes only its chats and enabled documents",
+          str(conv_a.id) in project_scope["conversation_ids"]
+          and str(doc_conv.id) in project_scope["conversation_ids"]
+          and str(conv_b.id) not in project_scope["conversation_ids"])
+    check("empty project selection stays a closed conversation set",
+          resolve_project_pull_scope(db, project_empty.slug)["conversation_ids"] == [])
+    link.enabled = False
+    db.commit()
+    check("disabled document leaves explicit project scope",
+          str(doc_conv.id) not in resolve_project_pull_scope(
+              db, project_a.slug)["conversation_ids"])
+    link.enabled = True
+    db.commit()
 
     # lifespan boot: no model load, no runtime — the real create_core's
     # standby/owner behavior is asserted in test_services.py
@@ -205,6 +271,43 @@ try:
                   and "memory_decision" in payload)
             check("ice_context finds the seeded turn",
                   any(MARK in f["text"] for f in payload["fragments"]))
+            r = await client.call_tool("ice_context", {
+                "task": f"edit config.py {MARK}", "project": project_a.slug})
+            scoped = _payload(r)
+            check("project-selected ice_context returns only its own rule",
+                  not r.isError and any(
+                      f["source_type"] == "constraint" and "alpha" in f["text"]
+                      for f in scoped["fragments"])
+                  and not any("beta" in f["text"] for f in scoped["fragments"]))
+            check("project-selected ice_context keeps episodic scope closed",
+                  any(f["source_batch_id"] == str(turn_a.id)
+                      for f in scoped["fragments"])
+                  and not any(f["source_batch_id"] == str(turn_b.id)
+                              for f in scoped["fragments"]))
+            r = await client.call_tool("ice_context", {
+                "task": f"edit config.py {MARK}", "project": project_empty.slug})
+            check("empty project pull never widens to another project's turns",
+                  not r.isError and not any(
+                      f["source_batch_id"] in (str(turn_a.id), str(turn_b.id))
+                      for f in _payload(r)["fragments"]))
+            r = await client.call_tool("ice_context", {
+                "task": f"edit config.py {MARK}", "project": project_a.slug,
+                "conversation_id": conv_id})
+            check("ice_context rejects simultaneous project and conversation choices",
+                  r.isError)
+            r = await client.call_tool("ice_context", {
+                "task": f"edit config.py {MARK}", "project": f"{MARK}missing"})
+            check("unknown project selection is an error, never a global search",
+                  r.isError)
+            r = await client.call_tool("ice_context", {
+                "task": f"edit config.py {MARK}", "project": " "})
+            check("blank project choice cannot silently widen to global",
+                  r.isError)
+            r = await client.call_tool("ice_context", {
+                "task": f"edit config.py {MARK}"})
+            check("projectless ice_context returns no project's rule",
+                  not any(f["source_type"] == "constraint"
+                          for f in _payload(r)["fragments"]))
 
             # composite reads
             r = await client.call_tool("ice_recent",
@@ -264,6 +367,14 @@ try:
 
 finally:
     db.rollback()
+    if document_id is not None:
+        db.execute(text("DELETE FROM document_links WHERE document_id = :id"),
+                   {"id": document_id})
+        db.execute(text("DELETE FROM documents WHERE id = :id"),
+                   {"id": document_id})
+    if project_ids:
+        db.execute(text("DELETE FROM decisions WHERE project_id = ANY(:ids)"),
+                   {"ids": project_ids})
     db.execute(text(
         "DELETE FROM codex_events WHERE entity_id IN "
         "(SELECT id FROM codex_entities WHERE canonical_name LIKE :m)"),
@@ -274,6 +385,12 @@ finally:
         EpisodicMemory.raw_text.like(f"{MARK}%")).delete(synchronize_session=False)
     db.query(Conversation).filter_by(id=uuid.UUID(conv_id)).delete(
         synchronize_session=False)
+    if extra_conv_ids:
+        db.execute(text("DELETE FROM conversations WHERE id = ANY(:ids)"),
+                   {"ids": extra_conv_ids})
+    if project_ids:
+        db.execute(text("DELETE FROM projects WHERE id = ANY(:ids)"),
+                   {"ids": project_ids})
     live = db.query(MemorySlot).filter_by(slot_name="session_patterns").first()
     if live is not None and slot_snapshot:
         for k, v in slot_snapshot.items():

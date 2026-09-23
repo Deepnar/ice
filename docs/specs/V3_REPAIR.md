@@ -872,3 +872,20 @@ continue to retrieve even when the reported B2 decision says no. They return
 structured fragments rather than an assembled answer prompt. Validate an
 `auto` cross-conversation hit, incognito isolation, unknown-ID closure,
 classifier context forwarding, nonzero B2/budget history and `/search` behavior.
+
+### Project constraint scope —2026-09-23
+
+`Decision.project_id` is required. `constraints_for_task` must require a
+resolved project ID before matching file paths and filter decisions to that
+project in SQL. A projectless explicit pull returns no project constraints;
+neither a basename match nor the existence of only one registered project
+authorizes selecting one. Project-attached conversations continue to surface
+their own constraints first. Validate two projects with the same
+`files_affected` path, plus a projectless pull; keep the explicit tool
+description honest about needing a project-attached conversation ID or an
+explicit project selection. `ice_context(project=...)` resolves a complete
+closed project scope across all retrieval legs: non-incognito chat
+conversations attached to that project and documents enabled in those chats.
+Reject simultaneous `project` and `conversation_id` and blank selectors; an
+empty project scope stays empty. Test project selection through the MCP adapter,
+including a different project's same-path constraint and document visibility.

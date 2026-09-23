@@ -41,7 +41,9 @@ def constraints_for_task(db: Session, task_text: str,
     """E8 (D7): active `constraint` decisions whose files the task mentions —
     the do-not-touch payoff. A constraint hits when one of its files_affected
     appears in the task text, or its basename matches a mentioned path's
-    basename. Surfaced FIRST by context_for."""
+    basename. Surfaced FIRST by context_for, within its resolved project only."""
+    if not project_id:
+        return []  # No project choice may read every project's decisions.
     mentioned = {m.group(0).strip(".,;:") for m in _PATHISH.finditer(task_text or "")}
     if not mentioned:
         return []
@@ -50,9 +52,8 @@ def constraints_for_task(db: Session, task_text: str,
     task_low = (task_text or "").lower()
     q = db.query(Decision).filter(
         Decision.decision_type == "constraint",
-        Decision.valid_until.is_(None))
-    if project_id:
-        q = q.filter(Decision.project_id == uuid.UUID(str(project_id)))
+        Decision.valid_until.is_(None),
+        Decision.project_id == uuid.UUID(str(project_id)))
     hits = []
     for c in q.limit(200).all():
         for f in c.files_affected or []:

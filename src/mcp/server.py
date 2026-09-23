@@ -159,16 +159,30 @@ def _bad_action(tool: str, action: str, valid: tuple) -> ValueError:
 
 @mcp.tool()
 def ice_context(task: str, conversation_id: Optional[str] = None,
-                budget: Optional[int] = None) -> dict:
+                budget: Optional[int] = None,
+                project: Optional[str] = None) -> dict:
     """Pull the user's relevant long-term memory for a task or question —
     call this BEFORE grepping the codebase or asking the user something they
-    may have already told ICE. Returns structured fragments (past turns,
+    may have already told ICE. Pass a project-attached conversation_id or a
+    project name/slug to include that project's do-not-touch constraints;
+    omit both for shared non-private memory without project decisions. Choose
+    only one selector. Returns structured fragments (past turns,
     knowledge-graph notes, procedural patterns, idea timelines) with scores
     and provenance, plus the classifier's read of the task. The first call in
     a fresh session loads the classifier (a few seconds, one-time)."""
+    if conversation_id is not None and not str(conversation_id).strip():
+        raise ValueError("conversation_id cannot be blank")
+    if project is not None and not str(project).strip():
+        raise ValueError("project cannot be blank")
+    if conversation_id is not None and project is not None:
+        raise ValueError("Choose either conversation_id or project for ice_context")
     _journal("ice_context", words=len(task.split()))
-    scope = {"conversation_id": conversation_id} if conversation_id else None
     with _session() as db:
+        if project is not None:
+            from src.services.scoping import resolve_project_pull_scope
+            scope = resolve_project_pull_scope(db, project)
+        else:
+            scope = {"conversation_id": conversation_id} if conversation_id else None
         return retrieval_svc.context_for(db, task, scope=scope, budget=budget)
 
 
