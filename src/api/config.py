@@ -484,6 +484,7 @@ class Settings(BaseSettings):
     # representations. Hard capacity is checked on the complete model request.
     conversation_summary_max_words: int = 250
     conversation_summary_chunk_words: int = 3500
+    conversation_note_prompt_tokens: int = 650
 
     # G11: a turn is batch-summarised once its decay falls below the retrieval
     # floor OR it passes this age, whichever comes first. Handed to G9 by G11.

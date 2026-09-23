@@ -36,9 +36,9 @@ full-history distractor robustness.
 | Cold recovery | Linked claim evidence can resolve cold sources; preserve original vectors and known/unknown timestamp provenance | Complete archive metadata/cluster/source parity |
 | Context budget | Actual optional-block accounting and reassembly, static context removed before evidence, protected project constraints, explicit required-overflow refusal | Exact tokenization for every future cloud model |
 | Background outputs | Foreground model names cannot override summary/procedural background jobs; incomplete outputs cannot advance coverage/checkpoints; runtime yield propagates | All runtime/provider-control defects repaired |
-| Summary scope | All-source conversation/batch/cluster eligibility before ranking; exact batch IDs and conversation identity; matching ablation wrapper | Query-selectable segments or completed batch-summary semantic verification |
+| Summary scope | All-source conversation/batch/cluster eligibility before ranking; indexed cross-conversation notes credit their exact source batch IDs; matching ablation wrapper | Completed all-cold batch generation and semantic verification |
 | Summary freshness | Source/output snapshots catch edits, deletion, backfill and changed verification policy; both readers reject stale checkpoints | Fresh output is necessarily faithful |
-| Independent source notes | Original-only generation, NLI-gated note substitution, complete source fallback, cached parts never fed into generation; complete embedding coverage | Compact query-selectable overview, long-source compression or answer-quality improvement |
+| Independent source notes | Original-only generation, NLI-gated note substitution, complete source fallback, cached parts never fed into generation; complete embedding coverage; query-selectable whole parts with derived vector index | Bounded global overview, long-source compression or answer-quality improvement |
 
 ## Validation so far
 
@@ -46,6 +46,11 @@ Latest regression selection:478 smoke, SQL and settings checks passed. Independe
 note generation also passed8/8 actual NLI-plus-writer synthetic controls. The standalone
 conversation/slot suite passed28/28. These selections overlap earlier test runs;
 do not sum their counts as unique coverage.
+
+The 2026-09-23 note-index repair passed373 combined smoke/SQL/source checks,
+44 focused summary/prompt checks,28 standalone conversation/slot checks,58
+standalone deletion/command checks and an isolated migration round trip.
+These selections overlap and show behavior, not a measured answer-quality gain.
 
 Earlier actual-model qualification in this repair phase: the selected NLI
 accepted13 supported and rejected17 unsupported controls; the summary/NLI selector
@@ -74,8 +79,9 @@ controls informed implementation choices; they are not LME/LSREP answer scores.
 
 ## Repair work still required
 
-1. **Summary quality:** query-selectable independent notes and bounded overview;
-   qualify long-source compression, batch summaries, and richer graph notes.
+1. **Summary quality:** indexed independent notes now select query-relevant complete
+   parts; add a bounded overview, qualify long-source compression, finish all-cold
+   batch generation, and improve richer graph notes.
    Preserve supported detail and temporal corrections without dumping all history.
 2. **Graph semantics:** resolve remaining open-vocabulary relation conflicts,
    event time and cross-conversation speaker authority; check useful connections

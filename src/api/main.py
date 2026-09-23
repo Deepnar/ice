@@ -34,7 +34,7 @@ from src.api.prompt_assembler import bookmarked_turn_texts, conversation_summary
 from src.api.prompt_budget import assemble_budgeted_prompt
 from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
-from src.memory.models import Conversation, EpisodicMemory, MemorySlot
+from src.memory.models import Conversation, ConversationSummary, EpisodicMemory, MemorySlot
 from src.memory.session import resolve_session_id
 from src.memory.source import chat_provenance
 from src.memory.tokens import count_messages as count_tokens_messages
@@ -559,6 +559,7 @@ async def chat_completions(
     # ── Retrieval & prompt assembly ──
     result.prompt = user_message
     fragments = []
+    prompt_embedding = None
     memory_slots_list = []
     bookmarked_texts = []
 
@@ -646,10 +647,21 @@ async def chat_completions(
                      rendered=bool(session_start_text))
 
     # C4 (D3a): once the conversation outgrew the sliding window, its evolving
-    # summary gives the model global shape (stamped when the burst is behind).
-    conversation_summary_text = await asyncio.to_thread(
+    # source notes can provide query-relevant older context. A no-retrieval
+    # decision still needs the query vector to choose those notes.
+    has_summary = (total_tokens > recent_budget and db.query(ConversationSummary.conversation_id)
+                   .filter_by(conversation_id=conversation_id).first() is not None)
+    if has_summary and prompt_embedding is None:
+        embedding_tensor = await asyncio.to_thread(
+            classifier.embedder.encode, user_message, convert_to_tensor=False)
+        prompt_embedding = (embedding_tensor.tolist() if hasattr(embedding_tensor, 'tolist')
+                            else list(embedding_tensor))
+    conversation_summary_options = await asyncio.to_thread(
         conversation_summary_block, db, str(conversation_id),
-        turn_count, total_tokens, recent_budget)
+        turn_count, total_tokens, recent_budget, prompt_embedding,
+        include_options=True)
+    conversation_summary_text = (conversation_summary_options[0]
+                                 if conversation_summary_options else None)
 
     prepared = assemble_budgeted_prompt(
         serving_window=effective_window or 0,
@@ -660,6 +672,7 @@ async def chat_completions(
         bookmarked_texts=bookmarked_texts, classification=result, scope=scope,
         max_recent_tokens=recent_budget, session_start_text=session_start_text,
         conversation_summary_text=conversation_summary_text, constraints_text=constraints_text,
+        conversation_summary_options=conversation_summary_options,
     )
     messages, ledger, plan = prepared.messages, prepared.ledger, prepared.removed
     prompt_tokens = count_tokens_messages(messages)

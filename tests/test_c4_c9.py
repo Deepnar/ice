@@ -182,13 +182,14 @@ try:
                                        recent_window_tokens=6000.0)
     check("past the window ⇒ block injected with staleness stamp "
           "(covers 9 of 10 turns)",
-          block is not None and second_text in block
+          block is not None and "new development alpha" in block
+          and "topic 0" not in block
           and "(as of 1 turns ago)" in block)
     messages = assemble_prompt([], [], "hello",
                                conversation_summary_text=block)
     check("assembler renders the === CONVERSATION SUMMARY === block",
           "=== CONVERSATION SUMMARY ===" in messages[0]["content"]
-          and second_text in messages[0]["content"])
+          and "new development alpha" in messages[0]["content"])
     check("no summary text ⇒ no block header",
           "=== CONVERSATION SUMMARY ===" not in
           assemble_prompt([], [], "hello")[0]["content"])
@@ -220,12 +221,12 @@ try:
     frags = orch._batch_summary_lookup(V1, str(conv_c.id))
     texts = [f.text for f in frags]
     check("another conversation's summary found by embedding",
-          any(MARK in t and "conversation summary" in t for t in texts))
+          any(MARK in t and "conversation note" in t for t in texts))
     check("private conversation's summary never surfaces",
           not any("private things" in t for t in texts))
     frags_self = orch._batch_summary_lookup(V1, str(conv_a.id))
     check("active conversation's own summary excluded (assembler owns it)",
-          not any(second_text in f.text for f in frags_self))
+          not any(f.conversation_id == str(conv_a.id) for f in frags_self))
     frags_incog = orch._batch_summary_lookup(V1, str(conv_c.id),
                                              include_cross=False)
     check("incognito path (include_cross=False) reads no cross summaries",

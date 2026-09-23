@@ -13,7 +13,8 @@ import structlog
 
 from src.api.config import settings
 from src.api.memory_decision import estimate_recent_window_tokens
-from src.memory.models import ConversationSummary
+from src.memory.conversation_notes import indexed_parts, part_batches
+from src.memory.models import ConversationNote, ConversationSummary
 from src.memory.representation import representation_source
 from src.memory.summary_snapshot import (
     SUMMARY_SOURCES_SQL, bind_snapshot, compose_parts, snapshot_matches, source_snapshot,
@@ -170,6 +171,33 @@ def _summary_embedding(summary, embedder):
     return pooled / norm
 
 
+def _index_parts(db, row, parts, embedder):
+    """Materialize a derived search index from the validated source manifest."""
+    old = db.query(ConversationNote).filter_by(conversation_id=row.conversation_id).all()
+    if indexed_parts(row.source_manifest, old):
+        return False
+    reusable = {n.ordinal: n for n in old}
+    db.query(ConversationNote).filter_by(conversation_id=row.conversation_id).delete(
+        synchronize_session='fetch')
+    db.flush()
+    for ordinal, part in enumerate(parts, 1):
+        prior = reusable.get(ordinal)
+        if prior is not None and prior.text == part['text']:
+            embedding = prior.embedding
+        else:
+            if embedder is None:
+                embedder = _shared_embedder()
+            vector = _summary_embedding(part['text'], embedder)
+            embedding = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
+        db.add(ConversationNote(
+            conversation_id=row.conversation_id, ordinal=ordinal,
+            text=part['text'], mode=part['mode'],
+            recorded_range=part.get('recorded_range'),
+            source_ids=part['source_ids'], batch_ids=part_batches(part, row.source_manifest),
+            embedding=embedding))
+    return True
+
+
 def run_conversation_summaries(db, llm=None, embedder=None,
                                conversation_ids=None, verifier=None) -> dict:
     """Refresh independent source notes, incrementing only strictly newer turns. Row
@@ -213,6 +241,8 @@ def run_conversation_summaries(db, llm=None, embedder=None,
             allow_newer=True)
         if previous_valid and snapshot_matches(
                 existing_row.source_manifest, existing_row.summary_text, sources):
+            if _index_parts(db, existing_row, existing_row.source_manifest['parts'], lazy_embedder):
+                db.commit()
             continue
         if existing_row is None:
             total_tokens = estimate_from_chars(row.chars)
@@ -257,11 +287,13 @@ def run_conversation_summaries(db, llm=None, embedder=None,
         embedding = vec.tolist() if hasattr(vec, "tolist") else list(vec)
         now = datetime.now(timezone.utc)
         if existing_row is None:
-            db.add(ConversationSummary(
+            existing_row = ConversationSummary(
                 conversation_id=row.cid, summary_text=summary,
                 covers_through=new_turns[-1].timestamp,
                 covers_turns=row.n_turns, embedding=embedding, updated_at=now,
-                source_manifest=bind_snapshot(sources, summary, parts=parts)))
+                source_manifest=bind_snapshot(sources, summary, parts=parts))
+            db.add(existing_row)
+            db.flush()
             stats["created"] += 1
         else:
             existing_row.source_manifest = bind_snapshot(sources, summary, parts=parts)
@@ -271,6 +303,7 @@ def run_conversation_summaries(db, llm=None, embedder=None,
             existing_row.embedding = embedding
             existing_row.updated_at = now
             stats["updated"] += 1
+        _index_parts(db, existing_row, parts, lazy_embedder)
         db.commit()
 
     if stats["created"] or stats["updated"] or stats["failed"]:

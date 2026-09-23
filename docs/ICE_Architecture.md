@@ -645,7 +645,7 @@ The orchestrator's `retrieve()` is now only *called* when the single memory-retr
 
 14. **~~RAG~~ — DELETED by C12 (2026-07-28).** `_rag_lookup` was triple-gated: `context_reliance == "Long_Term_Memory"` AND `intent_tags ∩ {Factual_Retrieval, Analysis_&_Summarization} ≠ ∅` AND **the prompt containing one of `["document", "pdf", "reference", "manual", "guide"]`** — an inline five-noun list, so "what does the spec say" never fired it. It then read `rag_chunks` **globally, with no scope filter of any kind** (the same leak class G29 found in three other legs), and its only writer was a `watchdog` script nothing had started since C7 deleted Celery. Document content is now ordinary episodic memory in its own conversation (§14), retrieved by legs 1–3 and 5–13 like anything else, so **no lexical trigger remains to be style-dependent** (G28). The leg name, its 1.0 base weight and the ablation flag are gone with it.
 
-15. **Batch summaries** — _batch_summary_lookup, two halves since C4 (2026-07-19). Half 1 (as built): conversation-scoped top-3 from batch_summaries by cosine similarity, each prefixed [summary, YYYY-MM-DD] from created_at (T1). Half 2: cross-conversation top-2 over **conversation_summaries** embeddings (§8.13), prefixed [conversation summary, YYYY-MM-DD] — the active conversation's own row is excluded (the assembler injects it, §7.2 — never double-inject) and private conversations are excluded via the conversations join; the whole half is skipped under incognito (`include_cross=False` — a user-global read, G16). Both halves share source_type batch_summary (leg weights unchanged) and return [] under any non-current TimeScope mode (D14 — a summary is created long after the turns it compresses, so its content period is underivable; serving it under a window would mislead).
+15. **Batch summaries** — `_batch_summary_lookup` has two halves. The first selects the active conversation's source-checked batch rows. The second searches indexed original-source conversation notes (§8.13) by note vector, subject to the whole source snapshot, privacy and resolved source scope; the active conversation is excluded because the assembler handles it. Each indexed note credits only its own source batches and carries its recorded range. Snapshot-valid roots not yet indexed retain the previous complete-aggregate read until maintenance backfills them. Both halves share source_type `batch_summary` and are skipped outside current TimeScope; cross reads are also skipped under incognito.
 
 16. **Cold storage (T3 — time-scoped queries only)** — _cold_lookup. Fires only when the TimeScope carries a window (as_of / range, or evolution *with* a window); never under current mode and never from the wide net. **Since C16 (2026-07-29) it ranks by MEANING**: `cold_storage.embedding` carries the episodic vector across at archive time, so the leg orders by distance and the ILIKE patterns are a fallback for pre-migration rows only — this was the last purely lexical query in retrieval, and the one leg coverage could not reach. Windowed timestamp scan of cold_storage with up to six ILIKE patterns built from prompt keywords + grounded expansion terms (a keyword-less "what was I thinking about in march" browse is allowed — the window itself bounds it), conversation/privacy scoping through the **shared `_conv_scope_filter`** like the live legs (G29, 2026-07-28 — it hand-rolled `if conv_id` until then, so a *project*-scoped query, whose ids live in `scope["conversation_ids"]` with conv_id None, searched the entire global cold store), LIMIT timescope_cold_limit (5). Fragments are episodic-typed (they share the episodic budget lane), date-stamped, base score 0.6. A cold hit that survives the token budget is **resurrected on probation** (§6.11).
 
@@ -852,7 +852,7 @@ Because the system message, slots, and most of the recent-turns prefix change sl
 
 ### **7.2 Per-component rendering**
 
-- **System message + slots** — only slots with is_active AND content are rendered; tier filtering happens here (project slots only when scope["project_id"] matches, conversation slots only for this conversation — a foreign project's slots never render); no per-slot token cap inside assemble_prompt (G14's 300-token cap is enforced at write time in the slots service, §3.5). The C4 summary block is computed by `conversation_summary_block(db, conv_id, turn_count, total_tokens, recent_window_tokens)` — injection only when `total_tokens > recent_window_tokens` (B2's window estimate, C16-aware), so a conversation the window still covers never pays the ~200 tokens.
+- **System message + slots** — only slots with is_active AND content are rendered; tier filtering happens here (project slots only when scope["project_id"] matches, conversation slots only for this conversation — a foreign project's slots never render); no per-slot token cap inside assemble_prompt (G14's 300-token cap is enforced at write time in the slots service, §3.5). The C4 block is computed only when `total_tokens > recent_window_tokens`; it selects complete relevant independent notes against the current question within `conversation_note_prompt_tokens` (650 by default), then the final assembler still checks the whole prompt budget. On overflow it removes the least relevant whole note and reassembles before dropping the block. A too-large complete-source note is omitted rather than cut. Existing valid roots without an index temporarily fall back to the complete aggregate.
 
 - **Recent turns** — per-turn word caps are dynamic: 80 words when max_tokens ≤ 1000, 150 when ≤ 3000, else min(500, max(100, max_tokens // max(1, len(turns)) // 2)). Each turn is split into user/assistant parts by parsing the literal "User: " / "\\n\\nAssistant: " markers in raw_text; parts exceeding the cap are trimmed with _trim_words (appends …). Greedy fill until tokens_used + next_pair_tokens \> max_tokens.
 
@@ -1017,8 +1017,9 @@ snapshots rebuild from surviving representations without reusing the invalid old
 summary. Both active and cross-conversation readers check source freshness;
 newer-tail snapshots remain dated, other mismatches are withheld until rebuilt.
 A fingerprint proves cache identity only, not faithful meaning or complete word
-coverage. Missing warm sources (including cold-only sources) remain unknown until
-archive-source parity is implemented; there is no guessed historical backfill.
+coverage. Since the v3 archive-continuity repair, the snapshot reads one
+warm/cold source projection; moving a turn to cold does not invalidate a
+current aggregate, while a cold-source edit does.
 
 **v3 independent source notes (2026-09-20).** Generation now uses complete
 original role-attributed source groups, never prior generated summaries. New
@@ -1038,6 +1039,18 @@ never a post-generation cut. Overview embedding covers all text: when necessary,
 exact contiguous spans fit the encoder tokenizer/window, then length-weighted
 vectors are pooled and normalized rather than silently embedding a prefix.
 
+**v3 note selection (2026-09-23).** `conversation_notes` is a derived vector
+index over the manifest's independent parts, materialized atomically with the
+root and repaired without regeneration on an unchanged maintenance pass. A
+reader checks both the current source snapshot and exact part/index identity.
+The active conversation ranks whole notes against the current query embedding
+and admits only those fitting the configured650-token block; source fallback
+text is never cut. Cross-conversation retrieval searches part vectors and
+credits only that part's source batches. The index has no authority to update
+source support or freshness. Roots not indexed yet use the previous full-root
+read with a warning until background maintenance catches up. A bounded global
+overview and reliable long-source compression remain open.
+
 **v3 retrieval scope follow-through (2026-09-21).** The summary leg now receives
 resolved retrieval scope separately from the active conversation ID. Every covered
 source must pass shared conversation, explicit batch, cluster and exclusion filters
@@ -1049,9 +1062,9 @@ history/overview remains its own context surface, distinct from a cross-memory r
 
 **Remaining limits.** This is a composition of source notes, not a globally
 reconciled narrative. Existing NLI's512-token pair limit makes long groups fall
-back to original evidence; the composed context can be large and final prompt
-assembly may evict it. Query-selectable segments, a bounded overview, long-source
-verification and batch-summary support are still active repairs. Pooling is not
+back to original evidence; a complete fallback may exceed the active-note
+allowance and rely on separate source/excerpt retrieval. A bounded overview,
+long-source verification and all-cold batch generation are still active repairs. Pooling is not
 proof of useful retrieval ranking. Model-plus-writer controls8/8, regression467,
 standalone conversation/slot28 passed; no answer-quality or context-saving claim.
 

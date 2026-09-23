@@ -681,6 +681,36 @@ The wide-net fallback must query the existing chunk leg under the same resolved
 scope/time filters too; a broader parent search alone cannot recover a late
 excerpt when that parent exceeds the prompt budget.
 
+### Query-selectable conversation notes — 2026-09-23
+
+The original-source note parts and output-bound manifest remain the authority.
+Materialize a derived vector index for each part, with its source turn and batch
+identities, evidence mode, recorded range and ordinal. The writer updates this
+index in the same transaction as the aggregate; an unchanged valid aggregate
+can index its existing parts without calling the generator again. The index is
+never a source of truth: a reader requires the aggregate snapshot to be current
+and the indexed part to match the manifest exactly. Deleted/changed sources
+invalidate the aggregate before any indexed note can be used. Incognito and
+source-scope rules still apply before cross-conversation scoring.
+
+The active conversation selects whole relevant parts against the current prompt
+embedding inside a fixed, configurable token allowance. It may omit an
+oversized complete-source fallback, but must never truncate that fallback or
+pretend it was verified; raw retrieval/excerpts remain separately available.
+Pass progressively smaller whole-note alternatives to the final prompt budget:
+when the complete selected block would overflow, remove the least relevant note
+and reassemble before considering eviction of the remaining note(s).
+The compact block keeps evidence mode, source range and behind-turn stamp.
+Cross-conversation retrieval searches indexed parts, not only a pooled root
+embedding, and credits only the batches represented by each returned part.
+Selection must not treat a good score or repeated read as corroboration. In the
+absence of an index (e.g. existing rows before backfill), readers may use the
+current full aggregate until the normal maintenance pass indexes it; report
+that fallback, and never omit existing evidence silently. Validate real SQL,
+scope/privacy, archive parity and final prompt packing. A short overview and
+long-source semantic compression remain distinct work; do not manufacture them
+from partial source text.
+
 ### Batch-summary source contract — 2026-09-21
 
 Batch summaries must use the same original-source independent notes as rolling

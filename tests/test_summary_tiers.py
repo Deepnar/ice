@@ -142,3 +142,20 @@ def test_tier_coverage_migration_roundtrip():
     command.downgrade(cfg, 'ea182446f5b7')
     assert 'batch_summary_id' not in {c['name'] for c in inspect(engine).get_columns('cold_storage')}
     command.upgrade(cfg, 'fb29355706c8')
+
+
+def test_conversation_note_index_migration_roundtrip():
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import inspect
+    from src.api.db import engine
+    cfg = Config('alembic.ini')
+    cfg.set_main_option('sqlalchemy.url', settings.database_url.replace('%', '%%'))
+    command.stamp(cfg, '77b3d428e591')
+    command.downgrade(cfg, 'fb29355706c8')
+    assert 'conversation_notes' not in inspect(engine).get_table_names()
+    command.upgrade(cfg, '77b3d428e591')
+    inspector = inspect(engine)
+    assert 'conversation_notes' in inspector.get_table_names()
+    assert 'idx_conversation_notes_embedding' in {
+        item['name'] for item in inspector.get_indexes('conversation_notes')}

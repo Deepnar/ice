@@ -12,10 +12,12 @@ from sqlalchemy.engine import make_url
 
 from src.api.config import settings
 from src.api.db import SessionLocal, engine
-from src.api.prompt_assembler import conversation_summary_block
-from src.memory.models import Conversation, ConversationSummary, EpisodicMemory
+from src.api.prompt_assembler import assemble_prompt, conversation_summary_block
+from src.memory.conversation_notes import render_note, select_note_options
+from src.memory.models import Conversation, ConversationNote, ConversationSummary, EpisodicMemory
 from src.memory.source import single_provenance
 from src.memory.support import verify_support
+from src.memory.tokens import count as count_tokens
 from src.memory.summary_snapshot import bind_snapshot, source_snapshot, snapshot_matches
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.workers import conversation_summary as worker
@@ -117,6 +119,74 @@ def test_strictly_newer_append_keeps_dated_snapshot_and_updates_incrementally(co
     assert all(previous not in prompt for prompt in ctx.calls[start:])
     assert previous in ctx.db.query(ConversationSummary).filter_by(conversation_id=ctx.cid).one().summary_text
     assert all('Atlas used port 8391.' not in prompt for prompt in ctx.calls[start:])
+
+
+def test_query_selects_late_note_and_credits_only_its_source_in_final_prompt(context):
+    ctx = context
+    new_turn = ctx.add('The port changed again: use 9010.', 20)
+    def vector(value, **kwargs):
+        return ([0.0, 1.0] + [0.0] * 1022 if '9010' in value else VEC)
+    result = worker.run_conversation_summaries(ctx.db,
+        llm=lambda *a, **k: 'The user changed the port to 9010.',
+        embedder=NS(encode=vector), conversation_ids=[ctx.cid],
+        verifier=lambda p, h: verify_support(p, h, scorer=lambda pairs:
+            [dict(entailment=.99, neutral=.005, contradiction=.005)]))
+    assert result['updated'] == 1
+    notes = ctx.db.query(ConversationNote).filter_by(conversation_id=ctx.cid).order_by(
+        ConversationNote.ordinal).all()
+    assert len(notes) == 2
+    allowance = count_tokens(render_note(notes[-1])) + 2
+    own = conversation_summary_block(ctx.db, str(ctx.cid), 3, 10000, 1,
+                                     [0.0, 1.0] + [0.0] * 1022, allowance)
+    assert '9010' in own and 'Controlled snapshot' not in own
+    cross = HybridRetrievalOrchestrator(ctx.db, NS())._batch_summary_lookup(
+        [0.0, 1.0] + [0.0] * 1022, str(ctx.other))
+    assert cross and '9010' in cross[0].text
+    assert cross[0].origin_batch_ids == (str(new_turn.batch_id),)
+    messages = assemble_prompt(memory_slots=[], retrieved_fragments=[],
+        user_message='Which port now?', conversation_summary_text=own,
+        max_recent_tokens=0)
+    assert '9010' in messages[0]['content']
+    assert 'Controlled snapshot' not in messages[0]['content']
+
+
+def test_complete_source_note_is_skipped_if_it_cannot_fit(context):
+    ctx = context
+    ctx.add('A later small correction.', 20)
+    ctx.run()
+    notes = ctx.db.query(ConversationNote).filter_by(conversation_id=ctx.cid).order_by(
+        ConversationNote.ordinal).all()
+    notes[0].text = 'Complete original evidence. ' * 500
+    notes[0].mode = 'source'
+    selected = select_note_options(notes, count_tokens(render_note(notes[-1])) + 2,
+                                   {notes[0].ordinal: 1.0, notes[-1].ordinal: .5})[0]
+    assert notes[-1].text in selected and notes[0].text not in selected
+
+
+def test_corrupt_derived_note_index_falls_back_to_current_aggregate(context):
+    ctx = context
+    note = ctx.db.query(ConversationNote).filter_by(conversation_id=ctx.cid).one()
+    note.text = 'Corrupt index text.'
+    ctx.db.commit()
+    own = conversation_summary_block(ctx.db, str(ctx.cid), 2, 10000, 1, VEC, 25)
+    cross = HybridRetrievalOrchestrator(ctx.db, NS())._batch_summary_lookup(
+        VEC, str(ctx.other))
+    assert 'Controlled snapshot' in own
+    assert cross and 'Controlled snapshot' in cross[0].text
+    assert all('Corrupt index text.' not in fragment.text for fragment in cross)
+    count = len(ctx.calls)
+    ctx.run()
+    assert len(ctx.calls) == count  # repair the index without regeneration
+    assert ctx.db.query(ConversationNote).filter_by(conversation_id=ctx.cid).one().text != 'Corrupt index text.'
+
+
+def test_conversation_deletion_previews_and_cascades_derived_notes(context):
+    from src.services.conversations import delete_conversation
+    ctx = context
+    preview = delete_conversation(ctx.db, str(ctx.cid), dry_run=True)
+    assert preview['deleted']['conversation_notes'] == 1
+    delete_conversation(ctx.db, str(ctx.cid))
+    assert not ctx.db.query(ConversationNote).filter_by(conversation_id=ctx.cid).all()
 
 
 def test_legacy_manifest_is_unknown_until_regenerated(context):

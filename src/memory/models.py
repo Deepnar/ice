@@ -659,6 +659,31 @@ class ConversationSummary(Base):
     updated_at = Column(DateTime(timezone=True), default=utcnow)
 
 
+class ConversationNote(Base):
+    """Search index for one independently sourced conversation-summary part.
+
+    The output-bound ConversationSummary manifest owns the text and provenance;
+    this derived row is only usable while it matches that manifest.
+    """
+    __tablename__ = "conversation_notes"
+
+    conversation_id = Column(UUID(as_uuid=True),
+                             ForeignKey("conversation_summaries.conversation_id", ondelete="CASCADE"),
+                             primary_key=True)
+    ordinal = Column(Integer, primary_key=True)
+    text = Column(Text, nullable=False)
+    mode = Column(Text, nullable=False)
+    recorded_range = Column(Text, nullable=True)
+    source_ids = Column(JSONB, nullable=False)
+    batch_ids = Column(JSONB, nullable=False)
+    embedding = Column(Vector(1024), nullable=False)
+
+    __table_args__ = (
+        Index("idx_conversation_notes_embedding", embedding,
+              postgresql_using="hnsw", postgresql_ops={"embedding": "vector_cosine_ops"}),
+    )
+
+
 class ImportRun(Base):
     """F10: one replay import of a provider export (or F14 raw dump).
 

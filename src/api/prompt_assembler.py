@@ -33,22 +33,27 @@ import uuid as _uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
+import structlog
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
 from src.memory.models import (
     Conversation,
+    ConversationNote,
     ConversationSummary,
     EpisodicMemory,
     MemorySlot,
 )
 from src.memory.representation import choose_representation
+from src.memory.conversation_notes import indexed_parts, select_note_options
 from src.memory.source import source_units
 from src.memory.summary_snapshot import summary_snapshot_readable
 from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as _estimate_tokens
 from src.memory.tokens import count_messages
 from src.retrieval.orchestrator import ContextFragment
+
+logger = structlog.get_logger('ice.api.prompt_assembler')
 
 
 def conversation_summary_block(
@@ -57,6 +62,9 @@ def conversation_summary_block(
     turn_count: int,
     total_tokens: float,
     recent_window_tokens: float,
+    query_embedding=None,
+    max_tokens: Optional[int] = None,
+    include_options: bool = False,
 ) -> Optional[str]:
     """C4 (D3a): the active conversation's evolving summary, injected only
     once the conversation outgrew the sliding window (B2's memory-pressure
@@ -73,7 +81,39 @@ def conversation_summary_block(
         return None
     behind = max(0, int(turn_count) - int(row.covers_turns or 0))
     stamp = f"(as of {behind} turns ago) " if behind > 0 else ""
-    return f"{stamp}{row.summary_text}"
+    if max_tokens is None:
+        max_tokens = int(settings.conversation_note_prompt_tokens)
+    notes = db_session.query(ConversationNote).filter_by(
+        conversation_id=row.conversation_id).order_by(ConversationNote.ordinal).all()
+    if not indexed_parts(row.source_manifest, notes):
+        # Existing roots are still readable before the maintenance backfill.
+        # The final prompt budget may evict this block, as it did previously.
+        logger.warning('conversation_note_index_missing',
+                       conversation_id=str(row.conversation_id),
+                       reason='falling back to current complete aggregate')
+        options = [f"{stamp}{row.summary_text}"]
+        return options if include_options else options[0]
+    scores = None
+    if query_embedding is not None:
+        scored = db_session.query(
+            ConversationNote.ordinal,
+            (1 - ConversationNote.embedding.cosine_distance(query_embedding)).label('score')
+        ).filter(ConversationNote.conversation_id == row.conversation_id).all()
+        scores = {ordinal: float(score) for ordinal, score in scored}
+    options = select_note_options(notes, max_tokens - _estimate_tokens(stamp), scores)
+    if not options:
+        logger.warning('conversation_note_no_fit',
+                       conversation_id=str(row.conversation_id),
+                       reason='no complete source note fits the prompt allowance')
+        return None
+    stamped = [f"{stamp}{option}" for option in options
+               if _estimate_tokens(f"{stamp}{option}") <= max_tokens]
+    if not stamped:
+        logger.warning('conversation_note_no_fit',
+                       conversation_id=str(row.conversation_id),
+                       reason='date-stamped note exceeds the prompt allowance')
+        return None
+    return stamped if include_options else stamped[0]
 
 
 def bookmarked_turn_texts(db_session, conversation_id):

@@ -20,12 +20,14 @@ from sqlalchemy.orm import Session
 
 from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
+from src.memory.conversation_notes import indexed_parts, note_matches, render_note
 from src.memory.models import (
     CodexClaim,
     CodexClaimLink,
     CodexEdge,
     CodexEntity,
     ColdStorage,
+    ConversationNote,
     EpisodicMemory,
     ProceduralMemory,
 )
@@ -2334,23 +2336,25 @@ class HybridRetrievalOrchestrator:
                 ) for r in rows if batch_snapshot_readable(self.db, r)]
             except Exception as err:
                 self._leg_degraded("batch_summary.own", err)
-        # Half 2 (C4 D3b): OTHER conversations' evolving whole-conversation
-        # summaries — cross-conversation overview hits. The active
+        # Half 2 (C4 D3b): OTHER conversations' independently indexed source
+        # notes. The active
         # conversation's own summary is excluded (the assembler injects it —
         # double-inject trap) and private conversations never leave their
         # scope (memory_scope_type join). Skipped entirely under incognito
         # (a user-global read — G16 "read nothing").
-        if not include_cross:
+        if not include_cross or settings.retrieval_conversation_summary_limit <= 0:
             return fragments
         try:
             query = text(f"""
                 WITH summary_sources AS ({SUMMARY_SOURCES_SQL})
-                SELECT s.summary_text, s.updated_at, s.source_manifest, s.conversation_id,
-                       1 - (s.embedding <=> :prompt_embedding) as score
-                FROM conversation_summaries s
+                SELECT n.ordinal, n.text, n.mode, n.recorded_range, n.source_ids,
+                       n.batch_ids, s.summary_text, s.updated_at,
+                       s.source_manifest, s.conversation_id,
+                       1 - (n.embedding <=> :prompt_embedding) as score
+                FROM conversation_notes n
+                JOIN conversation_summaries s ON s.conversation_id = n.conversation_id
                 JOIN conversations c ON c.id = s.conversation_id
-                WHERE s.embedding IS NOT NULL
-                  AND c.memory_scope_type != 'none'
+                WHERE c.memory_scope_type != 'none'
                   AND NOT EXISTS (
                       SELECT 1 FROM summary_sources private_source
                       WHERE private_source.conversation_id = s.conversation_id
@@ -2365,22 +2369,103 @@ class HybridRetrievalOrchestrator:
                                 'id', covered_source.id::text)))
                         AND NOT ({source_allowed}))
                 ORDER BY score DESC
-                LIMIT :cs_limit
+                LIMIT :cs_candidate_limit
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
             rows = self.db.execute(query, {
                 "prompt_embedding": prompt_embedding,
                 "own_conv_id": conv_id,
                 **scope_params,
-                "cs_limit": settings.retrieval_conversation_summary_limit,
+                "cs_candidate_limit": max(64, settings.retrieval_conversation_summary_limit * 16),
             }).fetchall()
-            fragments += [ContextFragment(
-                text=(rendered := f"[conversation summary updated: {format_time(r.updated_at)}] " + r.summary_text),
-                source_type="batch_summary",
-                score=r.score,
-                token_count=count_tokens(rendered),
-                conversation_id=str(r.conversation_id),
-                origin_batch_ids=tuple(item['batch_id'] for item in r.source_manifest['sources'])
-            ) for r in rows if summary_snapshot_readable(self.db, r)]
+            checked = {}
+            aggregate_fallbacks = set()
+            cross_added = 0
+            for r in rows:
+                cid = str(r.conversation_id)
+                if cid not in checked:
+                    notes = self.db.query(ConversationNote).filter_by(
+                        conversation_id=r.conversation_id).all()
+                    current = summary_snapshot_readable(self.db, r)
+                    checked[cid] = (current, current and indexed_parts(r.source_manifest, notes))
+                current, indexed = checked[cid]
+                if not current:
+                    continue
+                if not indexed:
+                    if cid not in aggregate_fallbacks:
+                        logger.warning('conversation_note_index_mismatch',
+                                       conversation_id=cid,
+                                       reason='using current complete aggregate until index repair')
+                        rendered = (f"[conversation summary updated: {format_time(r.updated_at)}] "
+                                    + r.summary_text)
+                        fragments.append(ContextFragment(
+                            text=rendered, source_type="batch_summary", score=r.score,
+                            token_count=count_tokens(rendered), conversation_id=cid,
+                            origin_batch_ids=tuple(item['batch_id']
+                                                   for item in r.source_manifest['sources'])))
+                        aggregate_fallbacks.add(cid)
+                        cross_added += 1
+                    if cross_added >= settings.retrieval_conversation_summary_limit:
+                        break
+                    continue
+                part = r.source_manifest['parts'][r.ordinal - 1]
+                if not note_matches(r, part, r.source_manifest, r.ordinal):
+                    continue
+                rendered = (f"[conversation note updated: {format_time(r.updated_at)}] "
+                            + render_note(r))
+                fragments.append(ContextFragment(
+                    text=rendered, source_type="batch_summary", score=r.score,
+                    token_count=count_tokens(rendered), conversation_id=cid,
+                    origin_batch_ids=tuple(r.batch_ids)))
+                cross_added += 1
+                if cross_added >= settings.retrieval_conversation_summary_limit:
+                    break
+            # Existing snapshot-valid roots remain available until maintenance
+            # materializes their part index; this branch is a compatibility read.
+            if cross_added < settings.retrieval_conversation_summary_limit:
+                legacy = text(f"""
+                    WITH summary_sources AS ({SUMMARY_SOURCES_SQL})
+                    SELECT s.summary_text, s.updated_at, s.source_manifest,
+                           s.conversation_id,
+                           1 - (s.embedding <=> :prompt_embedding) as score
+                    FROM conversation_summaries s
+                    JOIN conversations c ON c.id = s.conversation_id
+                    WHERE s.embedding IS NOT NULL
+                      AND c.memory_scope_type != 'none'
+                      AND NOT EXISTS (SELECT 1 FROM conversation_notes n
+                                      WHERE n.conversation_id = s.conversation_id)
+                      AND NOT EXISTS (SELECT 1 FROM summary_sources private_source
+                                      WHERE private_source.conversation_id = s.conversation_id
+                                        AND private_source.is_private = TRUE)
+                      AND (CAST(:own_conv_id AS uuid) IS NULL
+                           OR s.conversation_id != CAST(:own_conv_id AS uuid))
+                      AND NOT EXISTS (
+                          SELECT 1 FROM summary_sources covered_source
+                          WHERE covered_source.conversation_id = s.conversation_id
+                            AND s.source_manifest @> jsonb_build_object(
+                                'sources', jsonb_build_array(jsonb_build_object(
+                                    'id', covered_source.id::text)))
+                            AND NOT ({source_allowed}))
+                    ORDER BY score DESC LIMIT :cs_limit
+                """).bindparams(bindparam("prompt_embedding", type_=PgVector))
+                old_rows = self.db.execute(legacy, {
+                    "prompt_embedding": prompt_embedding, "own_conv_id": conv_id,
+                    **scope_params,
+                    "cs_limit": settings.retrieval_conversation_summary_limit - cross_added,
+                }).fetchall()
+                for r in old_rows:
+                    if not summary_snapshot_readable(self.db, r):
+                        continue
+                    logger.warning('conversation_note_index_missing',
+                                   conversation_id=str(r.conversation_id),
+                                   reason='cross read using complete aggregate until backfill')
+                    rendered = (f"[conversation summary updated: {format_time(r.updated_at)}] "
+                                + r.summary_text)
+                    fragments.append(ContextFragment(
+                        text=rendered, source_type="batch_summary", score=r.score,
+                        token_count=count_tokens(rendered),
+                        conversation_id=str(r.conversation_id),
+                        origin_batch_ids=tuple(item['batch_id']
+                                               for item in r.source_manifest['sources'])))
         except Exception as err:
             self._leg_degraded("batch_summary.cross", err)
         return fragments

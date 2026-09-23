@@ -68,3 +68,21 @@ def test_answer_reserve_is_not_silently_halved_for_small_windows():
                                      generation_reserve=256)
     assert result.ledger.available() == 0
     assert not result.ledger.fits()
+
+
+def test_tight_window_keeps_best_complete_note_instead_of_dropping_block():
+    best = '[Original-source segment 2; supported evidence] Current port 9010.'
+    older = '[Original-source segment 1; supported evidence] Old port 8391.'
+    whole = older + '\n\n' + best
+    args = dict(memory_slots=[], retrieved_fragments=[], user_message='Which port?',
+                conversation_summary_text=whole)
+    one = assemble_prompt(**{**args, 'conversation_summary_text': best})
+    result = assemble_budgeted_prompt(**args,
+        conversation_summary_options=[whole, best],
+        serving_window=count_messages(one) + 100, generation_reserve=100)
+    rendered = ' '.join(message['content'] for message in result.messages)
+    assert result.ledger.fits()
+    assert 'Current port 9010.' in rendered and 'Old port 8391.' not in rendered
+    assert 'conversation_summary' not in result.removed
+    assert any(item['block'] == 'conversation_summary_part'
+               for item in result.ledger.evictions)

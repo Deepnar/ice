@@ -39,6 +39,7 @@ from src.memory.models import (
     ColdStorage,
     ContextCluster,
     Conversation,
+    ConversationNote,
     ConversationSummary,
     CuratedLabel,
     Decision,
@@ -248,6 +249,8 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
         conversation_id=conv_uuid).count()
     n_conv_summaries = db.query(ConversationSummary).filter_by(
         conversation_id=conv_uuid).count()
+    n_conv_notes = db.query(ConversationNote).filter_by(
+        conversation_id=conv_uuid).count()
     n_replays = db.query(SessionReplay).filter_by(
         conversation_id=conv_uuid).count()
     n_session_summaries = db.query(SessionSummary).filter_by(
@@ -316,6 +319,7 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
             "cold_storage_rows": n_cold,
             "batch_summaries": n_batch_summaries,
             "conversation_summaries": n_conv_summaries,
+            "conversation_notes": n_conv_notes,
             "session_replays": n_replays,
             "session_summaries": n_session_summaries,
             "conversation_slots": n_conv_slots,

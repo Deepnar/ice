@@ -521,7 +521,7 @@ try:
     check("/search returns the seeded memory",
           r["handled"] and f"{MARK}sear" in r["text"])
     check("/search fragments are date-stamped",
-          re.search(r"\[\d{4}-\d{2}-\d{2}\]", r["text"]) is not None)
+          re.search(r"\[source recorded: \d{4}-\d{2}-\d{2}T", r["text"]) is not None)
     # G36: /search's no-LLM contract, checked at the seam instead of by a
     # runtime trap — retrieval imports no LLM client and holds no bg client.
     check("/search never invoked an LLM (orchestrator imports none)",
