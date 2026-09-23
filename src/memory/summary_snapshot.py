@@ -14,14 +14,16 @@ SNAPSHOT_VERSION = 3  # v3 independent notes; invalidates recursive roots
 # One identity across tiers. Cold metadata absence remains NULL, never invented.
 _SOURCE_FIELDS = (
     "id", "batch_id", "conversation_id", "timestamp", "raw_text", "source_spans",
-    "ts_provenance", "is_private", "summary_text", "inject_raw", "summary_coverage",
-    "representation_verification", "batch_summary_id",
+    "ts_provenance", "is_private", "is_document", "decay_score", "summary_text", "inject_raw", "summary_coverage",
+    "representation_verification", "lossless_flag", "batch_summary_id",
 )
 SUMMARY_SOURCES_SQL = (
     "SELECT " + ", ".join("w." + name for name in _SOURCE_FIELDS) + ", "
     "ARRAY(SELECT l.cluster_id FROM episodic_cluster_links l WHERE l.episodic_id = w.id "
-    "ORDER BY l.cluster_id) AS cluster_ids FROM episodic_memory w UNION ALL SELECT "
-    + ", ".join("c." + name for name in _SOURCE_FIELDS) + ", c.cluster_ids "
+    "ORDER BY l.cluster_id) AS cluster_ids, 'warm'::text AS storage_tier "
+    "FROM episodic_memory w UNION ALL SELECT "
+    + ", ".join("c." + name for name in _SOURCE_FIELDS) + ", c.cluster_ids, "
+    "'cold'::text AS storage_tier "
     "FROM cold_storage c WHERE NOT EXISTS (SELECT 1 FROM episodic_memory w WHERE w.id = c.id)"
 )
 
@@ -115,7 +117,16 @@ def batch_snapshot_readable(db, row):
     current = source_snapshot(db, row.conversation_id, batch_summary_id=row.id)
     readable = bool((row.source_manifest or {}).get('parts')) and snapshot_matches(
         row.source_manifest, row.summary_text, current)
+    if readable:
+        known_excluded = db.execute(text(f'''
+            SELECT 1 FROM ({SUMMARY_SOURCES_SQL}) e
+            WHERE e.batch_summary_id = :summary_id
+              AND (e.is_document IS TRUE OR e.lossless_flag IS TRUE)
+            LIMIT 1
+        '''), {'summary_id': row.id}).first()
+        if known_excluded:
+            readable = False
     if not readable:
         logger.warning('batch_summary_source_stale', summary_id=str(row.id),
-                       reason='missing or changed source/output/policy; rebuild required')
+                       reason='missing, changed or ineligible source/output/policy; rebuild required')
     return readable

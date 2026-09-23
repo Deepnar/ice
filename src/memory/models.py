@@ -551,6 +551,8 @@ class ColdStorage(Base):
     representation_verification = Column(JSONB, nullable=True)
     abstract_text = Column(Text, nullable=True)
     lossless_flag = Column(Boolean, nullable=True)
+    is_document = Column(Boolean, nullable=True)
+    decay_score = Column(Float, nullable=True)  # original pre-archive score, not probation
     inject_raw = Column(Boolean, nullable=True)
     session_id = Column(UUID(as_uuid=True), nullable=True)
     intent_tags = Column(ARRAY(Text), nullable=True)

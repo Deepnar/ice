@@ -3,15 +3,16 @@
 from datetime import datetime, timedelta, timezone
 
 import structlog
-from sqlalchemy import or_
+from sqlalchemy import text
 
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory import tokens
 from src.memory.embedder import get_embedder
-from src.memory.models import BatchSummary, EpisodicMemory
+from src.memory.models import BatchSummary, ColdStorage, EpisodicMemory
 from src.memory.summary_snapshot import (
-    batch_snapshot_readable, bind_snapshot, compose_parts, source_snapshot,
+    SUMMARY_SOURCES_SQL, batch_snapshot_readable, bind_snapshot, compose_parts,
+    source_snapshot,
 )
 from src.memory.support import verify_support
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
@@ -95,8 +96,38 @@ def _repair_stale_caches(db):
             continue
         db.query(EpisodicMemory).filter_by(batch_summary_id=summary.id).update(
             {EpisodicMemory.batch_summary_id: None}, synchronize_session='fetch')
+        db.query(ColdStorage).filter_by(batch_summary_id=summary.id).update(
+            {ColdStorage.batch_summary_id: None}, synchronize_session='fetch')
         db.delete(summary)
     db.commit()
+
+
+def _eligible(turn, conv_id, cutoff):
+    return (str(turn.conversation_id) == conv_id
+            and turn.is_private is False and turn.is_document is False
+            and turn.lossless_flag is False and turn.batch_summary_id is None
+            and ((turn.decay_score is not None and turn.decay_score < .3)
+                 or turn.timestamp < cutoff))
+
+
+def _source_rows(db, ids):
+    return db.execute(text(f'''
+        SELECT * FROM ({SUMMARY_SOURCES_SQL}) e
+        WHERE e.id = ANY(CAST(:ids AS uuid[]))
+    '''), {'ids': list(ids)}).all()
+
+
+def _lock_tier(db, table, ids):
+    if not ids:
+        return
+    if table not in ('episodic_memory', 'cold_storage'):
+        raise ValueError('unknown batch source tier')
+    rows = db.execute(text(f'''
+        SELECT id FROM {table} WHERE id = ANY(CAST(:ids AS uuid[]))
+        ORDER BY id FOR UPDATE
+    '''), {'ids': ids}).all()
+    if {str(row.id) for row in rows} != set(ids):
+        raise ValueError('batch source moved or deleted during generation')
 
 
 def batch_summarize():
@@ -126,14 +157,17 @@ def batch_summarize():
     try:
         _repair_stale_caches(db)
         cutoff = datetime.now(timezone.utc) - timedelta(days=settings.batch_summary_age_days)
-        stale_turns = db.query(EpisodicMemory).filter(
-            EpisodicMemory.is_private == False,   # G16: incognito never summarised into shared stores
-            EpisodicMemory.batch_summary_id.is_(None),   # G11: not already covered
-            or_(EpisodicMemory.decay_score < 0.3,
-                EpisodicMemory.timestamp < cutoff),      # G11: age OR decay
-            EpisodicMemory.lossless_flag == False,
-            EpisodicMemory.is_document == False
-        ).order_by(EpisodicMemory.conversation_id, EpisodicMemory.timestamp, EpisodicMemory.id).all()
+        stale_turns = db.execute(text(f'''
+            SELECT * FROM ({SUMMARY_SOURCES_SQL}) e
+            WHERE e.conversation_id IS NOT NULL
+              AND e.is_private IS FALSE
+              AND e.batch_summary_id IS NULL
+              AND e.lossless_flag IS FALSE
+              AND e.is_document IS FALSE
+              AND ((e.decay_score IS NOT NULL AND e.decay_score < 0.3)
+                   OR e.timestamp < :cutoff)
+            ORDER BY e.conversation_id, e.timestamp, e.id
+        '''), {'cutoff': cutoff}).all()
 
         # Group by conversation; the batching inside is by TOKEN BUDGET,
         # not a turn count — see `_token_batches`.
@@ -166,18 +200,17 @@ def batch_summarize():
                 # summaries while two fitting batches never ran.
                 try:
                     ids = {str(turn.id) for turn in batch}
-                    before = [item for item in source_snapshot(db, conv_id) if item['id'] in ids]
-                    # Bracket refreshes so a source cannot change between loading
-                    # its text and binding a newer fingerprint to that older text.
-                    for turn in batch:
-                        db.refresh(turn)
-                    if any(turn.is_private or str(turn.conversation_id) != conv_id
-                           or turn.batch_summary_id is not None for turn in batch):
+                    # The tier may change between initial selection and this
+                    # refresh. Generate from the refreshed complete originals.
+                    refreshed_batch = _source_rows(db, ids)
+                    if len(refreshed_batch) != len(batch) or any(
+                            not _eligible(turn, conv_id, cutoff) for turn in refreshed_batch):
                         raise ValueError("batch source eligibility changed")
-                    batch.sort(key=lambda turn: (turn.timestamp, str(turn.id)))
-                    refreshed = [item for item in source_snapshot(db, conv_id) if item['id'] in ids]
-                    if before != refreshed or len(before) != len(batch):
-                        raise ValueError("batch sources changed while loading")
+                    batch = sorted(refreshed_batch, key=lambda turn: (turn.timestamp, str(turn.id)))
+                    batch_tokens = sum(tokens.count(turn.raw_text or '') for turn in batch)
+                    before = [item for item in source_snapshot(db, conv_id) if item['id'] in ids]
+                    if len(before) != len(batch):
+                        raise ValueError("batch source identity changed while loading")
                     parts = []
                     for group, source, known_roles in _original_groups(batch):
                         note = _source_note(group, source, known_roles, _batch_llm,
@@ -190,11 +223,19 @@ def batch_summarize():
                     embedding = _summary_embedding(summary_text, embedder)
                     if hasattr(embedding, 'tolist'):
                         embedding = embedding.tolist()
-                    # Lock sources only for the short validation/write transaction.
-                    locked = db.query(EpisodicMemory).filter(
-                        EpisodicMemory.id.in_([turn.id for turn in batch])).with_for_update().populate_existing().all()
-                    if len(locked) != len(batch) or any(t.batch_summary_id is not None for t in locked):
-                        raise ValueError("batch coverage changed during generation")
+                    # Lock both physical tiers before validating source identity
+                    # and writing coverage. A concurrent archive/restore moves
+                    # a row between them and invalidates this attempt.
+                    warm_ids = [str(t.id) for t in batch if t.storage_tier == 'warm']
+                    cold_ids = [str(t.id) for t in batch if t.storage_tier == 'cold']
+                    _lock_tier(db, 'episodic_memory', warm_ids)
+                    _lock_tier(db, 'cold_storage', cold_ids)
+                    locked = _source_rows(db, ids)
+                    if (len(locked) != len(batch)
+                            or {str(t.id): t.storage_tier for t in locked}
+                               != {str(t.id): t.storage_tier for t in batch}
+                            or any(not _eligible(t, conv_id, cutoff) for t in locked)):
+                        raise ValueError("batch source eligibility or tier changed during generation")
                     after = [item for item in source_snapshot(db, conv_id) if item['id'] in ids]
                     if before != after or len(before) != len(batch):
                         raise ValueError("batch sources changed during generation")
@@ -215,8 +256,17 @@ def batch_summarize():
                     # covers, in the SAME transaction as the summary. Committing the
                     # summary without the stamps would recreate the duplicate-work
                     # bug on the next pass, so these cannot be separated.
-                    for t in batch:
-                        t.batch_summary_id = summary.id
+                    for table, tier_ids in (('episodic_memory', warm_ids),
+                                            ('cold_storage', cold_ids)):
+                        if tier_ids:
+                            stamped = db.execute(text(f'''
+                                UPDATE {table} SET batch_summary_id = :summary_id
+                                WHERE id = ANY(CAST(:ids AS uuid[]))
+                                  AND batch_summary_id IS NULL
+                                RETURNING id
+                            '''), {'ids': tier_ids, 'summary_id': summary.id}).all()
+                            if len(stamped) != len(tier_ids):
+                                raise ValueError("batch coverage changed before stamp")
                     db.commit()
                     logger.info("batch_summary_created", conv_id=conv_id,
                                 turns=len(batch), summary_id=str(summary.id))

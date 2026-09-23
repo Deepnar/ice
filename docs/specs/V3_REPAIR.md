@@ -817,9 +817,9 @@ Summary reader source membership, source batch credit, privacy and positive/
 negative cluster scope must use the same projection before ranking/limit. Known
 unlinked differs from unknown cold membership. Rolling notes scan and rebuild
 from both tiers' original sources; unchanged archives do not trigger generation.
-Batch generation still operates on eligible warm turns, while existing source-
-current batch caches survive storage moves. Regeneration of stale all-cold batch
-caches remains separate from this continuity fix; rolling notes can rebuild from
+At this 2026-09-22 checkpoint, batch generation still operated on eligible warm turns,
+while existing source-current batch caches survived storage moves. The separate
+all-cold generation spec below now closes that gap. Rolling notes can rebuild from
 those originals. Test actual archive + own/cross readers, no unnecessary rewrite,
 cold-source edit/delete/private changes, cold cluster exclusion and source credit.
 
@@ -827,3 +827,26 @@ The shared cluster inclusion/exclusion builders gain an optional trusted members
 column for warm/cold projections. Both direct cold lookup and aggregate readers
 use those builders, preserving the one-predicate contract instead of adding a
 second independently maintained scope implementation.
+
+### All-cold batch-summary generation —2026-09-23
+
+Batch writer eligibility must span the same warm/cold source projection used
+by manifest validation. Preserve age-or-decay semantics: cold rows gain nullable
+original `decay_score` and `is_document` metadata through an additive migration
+and exact archive transfer. Legacy NULL means unknown. A cold row can enter a
+new batch only when known non-document, non-private, non-lossless and uncovered;
+an age-qualified legacy row with unknown document status remains raw/searchable
+but is not guessed safe for compression. Existing valid batch caches remain
+readable; known document sources invalidate them. Restoration preserves known
+document status and its existing probation decay policy.
+
+Combine eligible warm and cold originals by conversation and source time,
+deduplicate a transient warm/cold collision in favor of the live row, and keep
+the five-turn floor and complete-token grouping. Bracket generation with
+source snapshots. Before writing coverage, lock both tier sets and require
+their IDs, eligibility and snapshot fingerprints still match. Stamp each
+source's `batch_summary_id` in the same transaction as the aggregate. A
+concurrent archive/edit/delete must retry rather than validate old text against
+new identity. Stale-cache repair clears coverage in both tiers. Validate
+all-cold and mixed batches, race/eligibility changes, cache invalidation,
+archive/restore parity and migration roundtrip in disposable PostgreSQL.

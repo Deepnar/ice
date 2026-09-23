@@ -36,7 +36,7 @@ full-history distractor robustness.
 | Cold recovery | Linked claim evidence can resolve cold sources; preserve original vectors and known/unknown timestamp provenance | Complete archive metadata/cluster/source parity |
 | Context budget | Actual optional-block accounting and reassembly, static context removed before evidence, protected project constraints, explicit required-overflow refusal | Exact tokenization for every future cloud model |
 | Background outputs | Foreground model names cannot override summary/procedural background jobs; incomplete outputs cannot advance coverage/checkpoints; runtime yield propagates | All runtime/provider-control defects repaired |
-| Summary scope | All-source conversation/batch/cluster eligibility before ranking; indexed cross-conversation notes credit their exact source batch IDs; matching ablation wrapper | Completed all-cold batch generation and semantic verification |
+| Summary scope | All-source conversation/batch/cluster eligibility before ranking; indexed cross-conversation notes credit their exact source batch IDs; all-cold batch generation with known eligibility; matching ablation wrapper | Long-source semantic verification and measured answer contribution |
 | Summary freshness | Source/output snapshots catch edits, deletion, backfill and changed verification policy; both readers reject stale checkpoints | Fresh output is necessarily faithful |
 | Independent source notes | Original-only generation, NLI-gated note substitution, complete source fallback, cached parts never fed into generation; complete embedding coverage; query-selectable whole parts with derived vector index | Bounded global overview, long-source compression or answer-quality improvement |
 
@@ -51,6 +51,11 @@ The 2026-09-23 note-index repair passed373 combined smoke/SQL/source checks,
 44 focused summary/prompt checks,28 standalone conversation/slot checks,58
 standalone deletion/command checks and an isolated migration round trip.
 These selections overlap and show behavior, not a measured answer-quality gain.
+
+The 2026-09-23 cold-batch repair passed375 combined smoke/SQL checks,27 focused
+warm/cold batch checks,11 standalone batch-coverage checks and61 temporal
+checks; the additive migration also passed an isolated round trip. Counts
+overlap, and neither test selection establishes answer-quality improvement.
 
 Earlier actual-model qualification in this repair phase: the selected NLI
 accepted13 supported and rejected17 unsupported controls; the summary/NLI selector
@@ -80,8 +85,8 @@ controls informed implementation choices; they are not LME/LSREP answer scores.
 ## Repair work still required
 
 1. **Summary quality:** indexed independent notes now select query-relevant complete
-   parts; add a bounded overview, qualify long-source compression, finish all-cold
-   batch generation, and improve richer graph notes.
+   parts; add a bounded overview, qualify long-source compression and improve
+   richer graph notes. All-cold batch generation now uses known-eligible sources.
    Preserve supported detail and temporal corrections without dumping all history.
 2. **Graph semantics:** resolve remaining open-vocabulary relation conflicts,
    event time and cross-conversation speaker authority; check useful connections
@@ -263,6 +268,6 @@ another system's thresholds or claimed benchmark scores.
 Summary continuity across warm/cold tiers implemented2026-09-22: the same source
 fingerprints, scope and attribution survive unchanged storage moves. Rolling
 notes rebuild from cold originals when content changes.542 combined checks passed;
-model outputs were controlled. New batch generation remains warm-only. Next is
-compact query-selectable conversation notes, with source-parent lifecycle and
-stale all-cold batch regeneration still recorded as archive limitations.
+model outputs were controlled. At this checkpoint new batch generation was
+warm-only; the 2026-09-23 repairs above added all-cold generation and compact
+query-selectable conversation notes. Source-parent lifecycle remains open.

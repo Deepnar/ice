@@ -114,6 +114,10 @@ def test_cold_source_change_invalidates_summaries(source_set, change):
         own, cross, active = readable(ctx)
         assert not own and cross and active
         assert 'Correction: port 8392.' in active
+        batch_worker.batch_summarize()
+        own, cross, active = readable(ctx)
+        assert own and cross and active
+        assert 'Correction: port 8392.' in own[0].text
 
 
 def test_cold_membership_constraints_apply_to_summary_sources(source_set):

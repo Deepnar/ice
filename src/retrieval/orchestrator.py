@@ -2525,7 +2525,7 @@ class HybridRetrievalOrchestrator:
         query = text(f"""
             SELECT id, conversation_id, batch_id, raw_text, summary_text,
                    topic_tags, timestamp, is_private, embedding, source_spans, ts_provenance,
-                   summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids, batch_summary_id
+                   summary_coverage, representation_verification, abstract_text, lossless_flag, is_document, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids, batch_summary_id
             FROM cold_storage
             WHERE timestamp >= :t0 AND timestamp < :t1
               {conv_filter}
@@ -2639,12 +2639,12 @@ class HybridRetrievalOrchestrator:
                          embedding, decay_score, access_count, is_archived,
                          is_private, inject_raw, idempotency_key, source_spans, ts_provenance,
                          summary_coverage, representation_verification, abstract_text,
-                         lossless_flag, session_id, cluster_id, batch_summary_id)
+                         lossless_flag, is_document, session_id, cluster_id, batch_summary_id)
                     VALUES (:id, :conv, :batch, :ts, :tags, :itags,
                             :context_reliance, :raw, :summary, :emb, :score,
                             1, FALSE, :priv, :inject_raw, :ikey, :source_spans, :ts_provenance,
                             :summary_coverage, :representation_verification, :abstract_text,
-                            :lossless_flag, :session_id,
+                            :lossless_flag, :is_document, :session_id,
                             (SELECT id FROM context_clusters WHERE id = :primary_cluster),
                             (SELECT id FROM batch_summaries WHERE id = :batch_summary_id))
                     ON CONFLICT (id) DO NOTHING
@@ -2662,7 +2662,7 @@ class HybridRetrievalOrchestrator:
                                    if getattr(row, "inject_raw", None) is not None else True),
                     **{key: getattr(row, key, None) for key in (
                         "summary_coverage", "representation_verification", "abstract_text",
-                        "lossless_flag", "session_id")},
+                        "lossless_flag", "is_document", "session_id")},
                     "raw": row.raw_text, "summary": row.summary_text,
                     "source_spans": getattr(row, "source_spans", None),
                     "ts_provenance": getattr(row, "ts_provenance", None) or "unknown",

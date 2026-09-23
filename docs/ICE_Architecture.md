@@ -978,6 +978,19 @@ batch_summarizer.batch_summarize (§3.8, runtime-scheduled every 2 h + the sessi
 
 **Selection is age OR decay, and coverage is recorded (G11, 2026-08-08).** A turn qualifies on `decay_score < 0.3` **or** on being older than `BATCH_SUMMARY_AGE_DAYS` (30) — previously decay alone, so an old but frequently-accessed turn in a long conversation never compressed, which is precisely the case compression exists for. The predicate that makes the widening safe is the new **`episodic_memory.batch_summary_id`** marker (NULL = not yet summarised), stamped onto exactly the turns a summary covers **in the same transaction that writes it**. Before that column there was no way to express "already done": nothing excluded summarised turns while the worker's own docstring claimed otherwise, so every 2-hour pass re-ran the LLM over the same turns and appended another row, which the batch-summary retrieval leg injected as duplicates competing for the context budget. ⚠ `start_turn_index`/`end_turn_index` are **write-only** and cannot serve as coverage provenance — they are positions in whatever filtered, decay-ordered list the producing run built, and that list shifts between runs. The FK is `ON DELETE SET NULL`, so deleting a summary (C10's cascade does, per conversation) frees its turns to be summarised again rather than orphaning the reference.
 
+**v3 cold-source generation (2026-09-23).** The writer now selects eligible
+warm and cold originals through the shared deduplicated source projection.
+Cold archive preserves the source's document flag and original decay score;
+legacy NULL document status is not guessed safe for new compression. Known
+private, document, lossless or already-covered rows remain excluded. A batch
+can combine both tiers or consist entirely of cold rows. Generation uses
+complete originals, then locks the physical source rows, rechecks tier,
+eligibility and fingerprints, and stamps warm/cold coverage in the same
+transaction as the summary. Stale-cache repair clears both tiers. Existing
+valid caches with legacy unknown metadata stay readable, while a source known
+to be a document invalidates a cached batch. Cold restoration preserves known
+document status and still uses the separate probation decay policy.
+
 ### **8.9 Memory Maintenance Agent (D1/D2, 2026-07-17 — replaced the Sentinel Monitor)**
 
 `maintenance_agent.run_maintenance_agent(db, llm_decider=default)` (gpu lane, overdue 12 h + the session-end burst) is the graph's self-maintenance pass — **a deterministic worklist + bounded LLM decisions, deliberately NOT a free-roaming tool loop** (a small model gets reliability from constrained choices; enums + tiers + caps are the design, not a v1 compromise). Cheap SQL **detectors** (a pluggable registry, `DETECTORS` — E1's coding-side decisions table reuses the pattern) produce typed work items; the background model decides per item from a **fixed enum** (one JSON-mode completion, temperature 0; unparseable or out-of-enum output ⇒ `unsure` ⇒ **no write**); execution goes through named callables (A6's `reconcile_conflict`, D5's `merge_entities`).

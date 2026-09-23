@@ -164,7 +164,7 @@ def apply_decay(cycles: int = 1):
         cold_rows = db.execute(text("""
             SELECT id, raw_text, summary_text, topic_tags, timestamp,
                    conversation_id, is_private, batch_id, embedding, source_spans, ts_provenance,
-                   summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, batch_summary_id
+                   summary_coverage, representation_verification, abstract_text, lossless_flag, is_document, decay_score, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, batch_summary_id
             FROM episodic_memory
             WHERE is_archived = TRUE AND decay_score < :cold_threshold
             FOR UPDATE
@@ -178,10 +178,10 @@ def apply_decay(cycles: int = 1):
                 INSERT INTO cold_storage (id, archived_at, raw_text, summary_text,
                                           topic_tags, timestamp, conversation_id,
                                           is_private, batch_id, embedding, source_spans, ts_provenance,
-                                          summary_coverage, representation_verification, abstract_text, lossless_flag, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids, batch_summary_id)
+                                          summary_coverage, representation_verification, abstract_text, lossless_flag, is_document, decay_score, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids, batch_summary_id)
                 VALUES (:id, :now, :raw, :summary, :tags, :ts, :conv, :priv, :batch,
                         :emb, :source_spans, :ts_provenance,
-                        :summary_coverage, :representation_verification, :abstract_text, :lossless_flag, :inject_raw, :session_id, :intent_tags, :context_reliance, :idempotency_key, :cluster_id, :cluster_ids, :batch_summary_id)
+                        :summary_coverage, :representation_verification, :abstract_text, :lossless_flag, :is_document, :decay_score, :inject_raw, :session_id, :intent_tags, :context_reliance, :idempotency_key, :cluster_id, :cluster_ids, :batch_summary_id)
                 ON CONFLICT (id) DO UPDATE SET
                     archived_at = EXCLUDED.archived_at,
                     raw_text = EXCLUDED.raw_text,
@@ -198,6 +198,8 @@ def apply_decay(cycles: int = 1):
                     representation_verification = EXCLUDED.representation_verification,
                     abstract_text = EXCLUDED.abstract_text,
                     lossless_flag = EXCLUDED.lossless_flag,
+                    is_document = EXCLUDED.is_document,
+                    decay_score = EXCLUDED.decay_score,
                     inject_raw = EXCLUDED.inject_raw,
                     session_id = EXCLUDED.session_id,
                     intent_tags = EXCLUDED.intent_tags,
@@ -210,7 +212,7 @@ def apply_decay(cycles: int = 1):
                             bindparam("representation_verification", type_=JSONB)), {
                 **{key: getattr(row, key) for key in (
                     'summary_coverage', 'representation_verification', 'abstract_text',
-                    'lossless_flag', 'inject_raw', 'session_id', 'intent_tags',
+                    'lossless_flag', 'is_document', 'decay_score', 'inject_raw', 'session_id', 'intent_tags',
                     'context_reliance', 'idempotency_key')},
                 "batch_summary_id": row.batch_summary_id,
                 "id": row.id, "cluster_id": row.cluster_id, "cluster_ids": cluster_ids,
