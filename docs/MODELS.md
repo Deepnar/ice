@@ -32,6 +32,7 @@ concurrency** — a 27B at `--workers 3` reached 105 °C ([TRAPS #36](TRAPS.md))
 | **NER (pre-flight + codex whitelist)** | **MicroNER — ours** | in-process | `models/ner/ner_model.pt`, 234 KB, over the `slice384` MRL prefix |
 | **NER (background)** | `numind/NuNER_Zero` | in-process | GLiNER-family zero-shot, 448.9M, deberta-v3-large. Clustering + `turn_density` only |
 | **classification** | `ice_classifier_v4_schema2.pt` | in-process | MLP head, 27 logits (11 topic + 12 intent + 4 context) |
+| **typed-decision candidate (not installed, v3)** | `convaiinnovations/laya` / `laya-multilingual` | upstream PyTorch path supports Linux/CUDA; independent `laya-mlx` port targets Apple Silicon/macOS | User-requested 2026-09-23 comparison with hosted Jev: choice/score/yes-no decisions, not generation. Upstream reports 421M/512-token English and 322M/1024-token multilingual checkpoints, and warns raw probabilities need task-specific calibration. Its Jev comparison uses Jev's published results rather than identical measured calls. No ICE classifier, NLI, reranker or answer-quality qualification; do not substitute for the source-support verifier from interface similarity alone. Sources: [upstream Laya](https://github.com/NandhaKishorM/laya), [independent MLX port](https://github.com/mizorewww/laya-mlx), [Jev launch](https://typesafe.ai/blog/introducing-system-one-models-and-jev). |
 
 ---
 
