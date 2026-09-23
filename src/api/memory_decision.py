@@ -58,6 +58,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from src.classifier.schemas import ClassificationResult
+from src.memory.recent_window import estimate_recent_window_tokens
 
 # Referential / anaphoric cues — a *light* signal (a bump, not a slam). Kept
 # here (not in the classifier) so the whole memory decision reads from one place.
@@ -68,13 +69,6 @@ REFERENTIAL_WORDS = {
     "previous", "last", "before", "yesterday", "earlier",
     "again", "still", "same",
 }
-
-# Mirrors the orchestrator's recent-turn budget curve (_compute_recent_fraction
-# base term) so the "beyond the window" estimate matches what actually gets
-# reserved for recent turns. If that curve moves, move this with it.
-_TOTAL_CONTEXT_BUDGET = 23_000
-_OVERHEAD_RESERVE = 1_800
-
 
 def _sigmoid(x: float) -> float:
     if x >= 0:
@@ -117,21 +111,6 @@ def derive_total_budget(context_window, settings) -> int:
         # report it honestly.
         usable = max(1, int(context_window) // 2)
     return min(budget, usable)
-
-
-def estimate_recent_window_tokens(turn_count: int, total_budget: float = None) -> float:
-    """Token budget the orchestrator reserves for recent turns (the sliding
-    window), estimated from conversation length. Mirrors the base fraction in
-    ``HybridRetrievalOrchestrator._compute_recent_fraction``. ``total_budget``
-    is the model-derived total (C16); defaults to the legacy 23k mirror."""
-    total = total_budget if total_budget else _TOTAL_CONTEXT_BUDGET
-    if turn_count < 10:
-        frac = 0.3
-    elif turn_count < 200:
-        frac = 0.2
-    else:
-        frac = 0.15
-    return frac * (total - _OVERHEAD_RESERVE)
 
 
 def memory_pressure(total_tokens: float, window_tokens: float,

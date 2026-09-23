@@ -244,6 +244,7 @@ Eight mechanisms report as five `source_type`s. All legs run on every retrieving
 | Degrade-before-drop | `src/retrieval/orchestrator.py:2569` | C1/C3 | A fragment too big for the remaining budget is swapped for its trusted summary, then a independently source-supported abstract, before being dropped entirely. | `turn_summary_coverage_threshold` | `0.7` (term-retention prerequisite) | YES |
 | Leg budget-share telemetry | `src/retrieval/orchestrator.py:2628` | G35 | Logs what share of the injected tokens each leg actually took, on every retrieval, not sampled. Reveals a leg crowding others out *inside* the budget — which a total-tokens check cannot show. | — | — | YES |
 | Dynamic budget split | `src/retrieval/orchestrator.py:372`, `:407` | CL4/G9/C16 | Splits the context budget between the recent-turns window and retrieval, by conversation length, average turn size and active labels. Leftover budget is deliberately left **unspent** — that is what makes ICE token-efficient. | `context_growth_cap_ladder`, `context_recent_fraction_ladder`, `context_recent_density_ladder`, `context_recent_fraction_groups`, `context_overhead_reserve` | 3-row cap ladder; 4-row fraction ladder + default `0.15`; 3-row density ladder; 5 label groups; `1800` | YES |
+| Shared base recent-window curve | `src/memory/recent_window.py` | G29/B2/C4 | B2, the C4 summary-creation gate and the retrieval allocator read one configurable turn-count ladder. B2/C4 use the base fraction; retrieval can still adjust it for density and labels. | `context_recent_fraction_ladder`, `context_recent_fraction_default`, `context_recent_fraction_min`, `context_recent_fraction_max`, `context_total_budget_fallback`, `context_overhead_reserve` | 4 rows; `0.15`, `0.05`, `0.85`, `23000`, `1800` | YES |
 
 ---
 
@@ -391,8 +392,8 @@ Ordered by how likely each is to be assumed working.
 9. **The temporal arm of the B2 decision is measured inert.**
    `memory_decision.py:237`–`240` adds `ltm_bump_timescope` (3.0). The comment at `:217`–`:236` records the E12 measurement: over 9,441 held-out rows, disabling the whole arm moves **one** decision, because Temporal_Recall rows carry mean `p_ltm` 0.931 and 98.3% already retrieve. This is a subset signal added to its own superset's decision. Sweeping `temporal_label_threshold` (`0.85`) here will not move anything; the earned consumers (T5) are unwired.
 
-10. **`memory_decision.estimate_recent_window_tokens` duplicates the recent-fraction ladder in code, not from settings.**
-    `memory_decision.py:122`–`134` hardcodes `<10 → 0.3`, `<200 → 0.2`, `else 0.15` plus `_TOTAL_CONTEXT_BUDGET = 23_000` and `_OVERHEAD_RESERVE = 1_800` (`:75`–`:76`). The orchestrator reads `settings.context_recent_fraction_ladder` / `context_overhead_reserve` for the same quantity (`orchestrator.py:407`, `:369`). They agree numerically today. A Z1 sweep of the ladder moves the orchestrator's split and leaves B2's memory-pressure window estimate frozen at the old values — the exact "second copy of a value" failure `config.py:245`–`249` warns about.
+10. **RESOLVED v3 2026-09-23: B2's recent-fraction ladder ignored settings.**
+    `src/memory/recent_window.py` now owns the base fraction and overhead calculation. B2, the C4 summary-creation job and retrieval all use it; retrieval alone adds density/label modifiers after the base. Focused two-direction and ladder-edge checks move both B2's input and retrieval's budget. This is wiring validation, not evidence of better answer quality.
 
 11. **`find_best_model(required_tokens=…)` is never exercised.**
     `registry.py:295` filters out models whose context window is too small — but the only caller (`main.py:518`) never passes the argument, so `required_tokens` is always 0 and the filter never applies.

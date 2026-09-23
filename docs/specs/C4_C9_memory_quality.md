@@ -43,6 +43,12 @@ slots flat.
 >    same condition with the legacy default budget (the job doesn't know the
 >    routed model; the assembler re-checks at injection, so a mismatch only
 >    costs an early/late row, never a wrong injection).
+>    **G29 correction (2026-09-23):** the estimate is deliberately the *base*
+>    turn-count fraction, while retrieval may adjust its allocation for turn
+>    density and labels. Both base-fraction readers must share the orchestrator's
+>    configurable ladder/default and overhead reserve. The older hardcoded
+>    estimate made a fraction sweep change retrieval while leaving B2 and this
+>    summary-creation gate fixed. Keep the job's model-budget limitation above.
 > 7. The assembler grew `session_start_text` (E4) since grounding: system-msg
 >    block order is PERSISTENT CONTEXT (tiered slots) → PROJECT SESSION START
 >    → CONVERSATION SUMMARY (still before the retrieved-context message).

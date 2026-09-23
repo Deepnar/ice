@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
+from src.memory.claims import claim_representation, excerpt_is_current, source_for_claim
 from src.memory.conversation_notes import indexed_parts, note_matches, render_note
 from src.memory.models import (
     CodexClaim,
@@ -31,8 +32,8 @@ from src.memory.models import (
     EpisodicMemory,
     ProceduralMemory,
 )
-from src.memory.claims import claim_representation, excerpt_is_current, source_for_claim
 from src.memory.representation import choose_representation
+from src.memory.recent_window import base_recent_fraction
 from src.memory.summary_snapshot import SUMMARY_SOURCES_SQL, batch_snapshot_readable, summary_snapshot_readable
 from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count as count_tokens
@@ -437,11 +438,7 @@ class HybridRetrievalOrchestrator:
         conversations made of very long turns, and label groups that each
         apply at most once however many of their labels are active.
         """
-        base = settings.context_recent_fraction_default
-        for edge, value in settings.context_recent_fraction_ladder:
-            if turn_count < edge:
-                base = value
-                break
+        base = base_recent_fraction(turn_count)
 
         # Token-density adjustment: when the average turn is huge, shift budget
         # toward retrieval so the recent window is not two enormous turns.
