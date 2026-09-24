@@ -247,7 +247,7 @@ reliability. Paired ordinal ordinary counts are 216 ICE-higher, 215 vector-highe
 
 Artifacts and reproducible entry points: `experiments/paper/ARTIFACTS.md`.
 Canonical: `ICE_paper_v2.{tex,pdf}`; anonymous NORA research-track preparation:
-`ICE_paper_arr.{tex,pdf}`. Paired/ordinal controls and PDF compilation validate
+`ICE_paper_arr.{tex,pdf}` (later renamed byte-for-byte to `ICE_paper_NORA.{tex,pdf}`). Paired/ordinal controls and PDF compilation validate
 analysis and presentation, not universal system effectiveness or judge correctness.
 Current v3 development state and the frozen architecture report are unchanged.
 

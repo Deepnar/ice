@@ -1,7 +1,7 @@
 # ICE v2 / LSREP paper artifacts
 
 The canonical archive is `ICE_paper_v2.tex` / `ICE_paper_v2.pdf`.
-`ICE_paper_arr.tex` / `ICE_paper_arr.pdf` is a separate anonymous ACL-style
+`ICE_paper_NORA.tex` / `ICE_paper_NORA.pdf` is a separate anonymous ACL-style
 review version prepared for the NORA 2026 research track (see `NORA_SUBMISSION.md`). Frozen rejected-submission sources are not build targets.
 The evaluated system is ICE **v2**, tag `v2-paper-eval`, not current v3 on main.
 
@@ -18,7 +18,7 @@ uv run python experiments/mature/test_scoring_sensitivity.py
 uv run python experiments/flaw_ablation/buildup/exp3_bootstrap.py
 uv run python experiments/paper/generate_analysis_tables.py
 latexmk -pdf -interaction=nonstopmode -halt-on-error -cd experiments/paper/ICE_paper_v2.tex
-latexmk -pdf -interaction=nonstopmode -halt-on-error -cd experiments/paper/ICE_paper_arr.tex
+latexmk -pdf -interaction=nonstopmode -halt-on-error -cd experiments/paper/ICE_paper_NORA.tex
 ```
 
 These analyses do not call models, modify databases, or repair production code.

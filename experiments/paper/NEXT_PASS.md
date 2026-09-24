@@ -2,7 +2,7 @@
 
 The frozen-v2 writing pass is complete. The selected venue is **NORA at
 AACL-IJCNLP 2026, Research Papers track**, regular submission, deadline September
-14, 2026 AoE. `ICE_paper_arr.pdf` is the anonymous official-ACL-format submission
+14, 2026 AoE. `ICE_paper_NORA.pdf` is the anonymous official-ACL-format submission
 manuscript; `ICE_paper_v2.pdf` remains the full venue-neutral archive. The NORA
 submission contains Limitations and a Declaration on Generative AI. The submission PDF
 has six main-content pages, below the eight-page research limit. No submission
@@ -31,7 +31,7 @@ or handoff was changed.
 
 | Required work | Evidence / final disposition |
 |---|---|
-| 1, 2, 5: archive, organization, anonymous twin | `ICE_paper_v2.tex` is venue-neutral and LSREP-first; `ICE_paper_arr.tex` is separate, with compact ICE architecture and RQ1/RQ2/RQ3 results. |
+| 1, 2, 5: archive, organization, anonymous twin | `ICE_paper_v2.tex` is venue-neutral and LSREP-first; the separate anonymous twin is now named `ICE_paper_NORA.tex`, with compact ICE architecture and RQ1/RQ2/RQ3 results. |
 | 3: concrete protocol | Main-text algorithm, validity contract, and synthetic changing-reference example in both versions; canonical additionally has a retrieval algorithm box. |
 | 4: four datasets | Main-text coverage and results show all A–D; corrected 219 probes, 1,211 observations, and 52 checkpoints. |
 | 6: citation/claim audit | `CLAIM_AUDIT.md`; frozen-tag verification; removed unsupported causal, portability, efficiency and graph claims. |

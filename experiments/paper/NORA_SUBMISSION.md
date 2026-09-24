@@ -1,8 +1,8 @@
 # NORA 2026 submission preparation — frozen ICE v2
 
 **Selected target:** third NORA workshop, co-located with **AACL-IJCNLP 2026**,
-Research Papers track. Submit `ICE_paper_arr.pdf` through regular OpenReview;
-the filename reflects the ACL-style twin's origin, not completed ARR review.
+Research Papers track. The prepared file is `ICE_paper_NORA.pdf` for regular OpenReview;
+the ACL-style twin has not completed ARR review.
 The venue-neutral archive remains `ICE_paper_v2.pdf`; the submission PDF is 11
 pages including references and appendices. The venue-required AI declaration
 appears only in the NORA manuscript.
@@ -16,7 +16,7 @@ No paper has been submitted by this preparation workflow.
 | Research paper, at most 8 main-body pages | Six pages through conclusion; even including the following limitations, ethics and AI declaration, prose ends within eight pages. |
 | Official unmodified ACL template | `acl.sty` / `acl_natbib.bst`, review option, 11pt article; no altered margins or style file. |
 | Double-blind | Anonymous author block; no identifying author/contact/repository metadata in submission PDF. |
-| Single PDF, references and appendices included | `ICE_paper_arr.pdf`; appendices are inside the PDF. |
+| Single PDF, references and appendices included | `ICE_paper_NORA.pdf`; appendices are inside the PDF. |
 | Limitations after conclusion, before references | Present. |
 | Declaration on Generative AI | Present, including writing, analytical/code assistance and methodological model use. |
 | Ethical considerations | Present. |
