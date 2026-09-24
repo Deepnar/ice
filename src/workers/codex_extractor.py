@@ -3,6 +3,7 @@
 import json
 import re
 import uuid
+from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -26,6 +27,7 @@ from src.memory.models import (
     IdempotencyKey,
     ReviewQueue,
 )
+from src.memory.relation_support import relation_proposition, verify_relation_pairs
 from src.memory.source import source_units
 from src.retrieval.ner_utils import extract_entities
 from src.workers.extraction_result import ExtractionOutputError, parse_extraction_response
@@ -2025,36 +2027,89 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
                   if settings.codex_sentence_claims else [])
         if relation_gaps:
             _record_relation_gaps(db, relation_gaps, turn, log)
-        reconciler = make_llm_reconciler()   # A6: bounded LLM for ambiguous supersessions
+        if not settings.codex_sentence_claims:
+            log.warning("codex_relation_support_disabled",
+                        reason="sentence claims disabled; legacy graph writes are unverified")
+        # Verify the RELATION, not merely that the selected sentence appears in
+        # its paragraph. Source spans are kept even when a proposed triple is
+        # withheld. One NLI lease covers this turn's independent proposals.
+        candidates, support_pairs = [], []
+        withheld = {"unattributed": 0, "unsupported": 0, "unknown": 0}
         for triplet in triplets:
-            if isinstance(triplet, dict):
-                s_raw = triplet.get("subject")
-                r_raw = triplet.get("relation")
-                o_raw = triplet.get("object")
-                if isinstance(s_raw, str) and isinstance(r_raw, str) and isinstance(o_raw, str):
-                    s = s_raw.strip()
-                    r = r_raw.strip()
-                    o = o_raw.strip()
-                    if s and r and o:
-                        matched_claims = [c for c in claims if
-                            c.sentence == triplet.get("source_sentence", "").strip()
-                            and c.role == triplet.get("_source_role")
-                            and triplet["_source_start"] <= c.start
-                            and c.end <= triplet["_source_end"]]
-                        edge = handle_triplet(db, s, r, o, batch_id,
-                                       extraction_confidence=float(triplet.get("confidence", 1.0)),
-                                       turn_text=turn.raw_text, reconciler=reconciler,
-                                       negated=bool(triplet.get("negated", False)),
-                                       source_claims=matched_claims)
-                        if edge is not None:
-                            for claim in matched_claims:
-                                key = {"claim_id": claim.id, "edge_id": edge.id}
-                                if db.get(CodexClaimLink, (claim.id, edge.id)) is None:
-                                    db.add(CodexClaimLink(**key))
+            if not isinstance(triplet, dict):
+                continue
+            s, r, o = (triplet.get(k) for k in ("subject", "relation", "object"))
+            if any(not isinstance(value, str) or not value.strip() for value in (s, r, o)):
+                continue
+            s, r, o = s.strip(), r.strip(), o.strip()
+            proposition = relation_proposition(s, r, o,
+                negated=bool(triplet.get("negated", False)))
+            source_sentence = triplet.get("source_sentence")
+            matched_claims = [c for c in claims if
+                isinstance(source_sentence, str)
+                and c.sentence == source_sentence.strip()
+                and c.role == triplet.get("_source_role")
+                and c.role != "unknown"
+                and triplet["_source_start"] <= c.start
+                and c.end <= triplet["_source_end"]]
+            if not settings.codex_sentence_claims:
+                candidates.append((triplet, s, r, o, [], []))
+                continue
+            if not proposition or not matched_claims:
+                withheld["unattributed"] += 1
+                continue
+            pair_indices = []
+            for claim in matched_claims:
+                pair_indices.append(len(support_pairs))
+                support_pairs.append((claim.text, proposition))
+            candidates.append((triplet, s, r, o, matched_claims, pair_indices))
+
+        verdicts = verify_relation_pairs(support_pairs)
+        reconciler = make_llm_reconciler()   # A6: bounded LLM for ambiguous supersessions
+        accepted = 0
+        for triplet, s, r, o, matched_claims, pair_indices in candidates:
+            if not settings.codex_sentence_claims:
+                if handle_triplet(db, s, r, o, batch_id,
+                        extraction_confidence=float(triplet.get("confidence", 1.0)),
+                        turn_text=turn.raw_text, reconciler=reconciler,
+                        negated=bool(triplet.get("negated", False)),
+                        source_claims=[]) is not None:
+                    accepted += 1
+                continue
+            supported = [(claim, verdicts[index])
+                for claim, index in zip(matched_claims, pair_indices)
+                if verdicts[index].status == "supported"]
+            if not supported:
+                if any(verdicts[index].status == "unknown" for index in pair_indices):
+                    withheld["unknown"] += 1
+                else:
+                    withheld["unsupported"] += 1
+                continue
+            edge = handle_triplet(db, s, r, o, batch_id,
+                extraction_confidence=float(triplet.get("confidence", 1.0)),
+                turn_text=turn.raw_text, reconciler=reconciler,
+                negated=bool(triplet.get("negated", False)),
+                source_claims=[claim for claim, _ in supported])
+            if edge is None:
+                continue
+            accepted += 1
+            for claim, verdict in supported:
+                key = {"claim_id": claim.id, "edge_id": edge.id}
+                link = db.get(CodexClaimLink, (claim.id, edge.id))
+                if link is None:
+                    db.add(CodexClaimLink(**key,
+                        relation_verification=asdict(verdict)))
+                else:
+                    link.relation_verification = asdict(verdict)
+
+        if any(withheld.values()):
+            log.warning("codex_relations_withheld", counts=withheld,
+                        proposed=len(triplets), accepted=accepted)
 
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()
-        log.info("codex_graph_assertions_committed", extracted_count=len(triplets))
+        log.info("codex_graph_assertions_committed", extracted_count=len(triplets),
+                 accepted_count=accepted, claim_count=len(claims))
 
     except Exception as exc:
         from src.workers.runtime import JobYielded

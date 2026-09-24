@@ -409,6 +409,63 @@ Conversation deletion cascades claims; turn-forget deletes by original episodic
 ID, which remains stable through archival. Claim search uses source exclusions;
 entity deny sets derived from excluded batches must not hide unrelated claims.
 
+### Edge-proposition support before a new Codex assertion (2026-09-24)
+
+The sentence-level verifier above checks a quote against its containing source
+paragraph. That is faithful compression, not proof of the extractor's proposed
+`subject --relation--> object`. The live writer currently calls `handle_triplet`
+even when no quoted claim matched. G51's source-backed relation recovery needs
+this missing boundary first.
+
+For each proposed triple, match the exact `source_sentence` to an attributed
+`CodexClaim` in the same role unit. Render a bounded proposition from the open
+relation by replacing underscores with spaces: `Mira --lives_in--> Berlin`
+becomes `Mira lives in Berlin.`; a negated edge becomes `It is false that Mira
+lives in Berlin.` Preserve direction, polarity and exact entity names. Verify
+the *complete containing paragraph* → this proposition with the configured
+local NLI model, without truncation. No exact claim, unknown role, incomplete
+paragraph, uncertain/contradicted NLI or absent relation text ⇒ do not call
+`handle_triplet`; retain the quoted claim and raw turn for retrieval and later
+reprocessing. A supported assistant assertion keeps its assistant attribution;
+an assistant suggestion is not converted to a project decision merely because
+the graph writer saw the sentence. NLI support is source consistency, not world
+truth or independent corroboration.
+
+`codex_sentence_claims=False` is an explicit opt-out from this source-claim
+path. Preserve its previous graph-writing behavior and warn on every batch that
+these legacy writes are unverified; never silently turn that setting into an
+empty graph. The default remains `True`.
+
+Persist the per-edge/per-claim verdict (including hashes/model revision) on the
+existing `CodexClaimLink`, not on `CodexEdge` (one edge can have multiple source
+claims) and not on `CodexClaim.verification` (one sentence can propose several
+relations). Batch independent NLI pairs in one inference lease to avoid one
+model transfer per triplet. An overlong pair returns explicit unknown; a
+verifier outage aborts the transaction for retry instead of marking a partial
+graph as extracted. Qualified unsupported
+relations may be skipped while the source claim remains. All candidate writes
+and the completion key stay in one transaction. Legacy edges without link
+verdicts remain labeled unverified; do not delete or silently promote them.
+
+Qualification: bounded ordinary, reversed, negated, conditional, assistant-
+suggestion and wrong-relation pairs under the actual local scorer, followed by
+the same cases through a disposable writer/reader path. The initial seven-pair
+probe admitted clear positive relations (0.9992 and 0.9993 entailment),
+rejected a reversal (0.0012) and a suggestion (0.0004); two additional negative
+surface forms scored 0.9885–0.9887 entailment. These are feasibility controls,
+not a precision/recall estimate. Include awkward open-relation phrasing and
+record withheld true edges in a representative replay before claiming a graph
+recall or answer-quality gain; raw source recall must stay available.
+
+The next twelve-pair local probe covered `works_at`, `role`, passive `manufactured_by`,
+`uses`, `didnt_get`, a correction and an assistant suggestion. The awkward true
+`Kael role fire mage` scored 0.9831 entailment (above the unchanged 0.95
+threshold). A real-model correction-to-added proposal scored 0.0007; a
+suggestion-to-decision scored 0.0019. This is still a bounded control, not an
+estimate of graph recall on organic conversations. The disposable writer/reader
+control uses known scores to isolate the transaction and source-preservation
+contract; model-score and writer controls are reported separately.
+
 ### Graph rendering consumes source claims (2026-09-14)
 
 Preserve the rich-note purpose: nodes still present useful source information and

@@ -1,3 +1,33 @@
+## 2026-09-24 — v3 Codex relation-level support gate
+
+Configured local `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli`
+at pinned revision `b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7`, unchanged
+0.95 entailment gate, complete-input scoring. A hand-written 12-pair direct
+probe returned entailment 0.9992 for exact `lives in`, 0.0012 for its reversal,
+0.9993 for `works at`, 0.9831 for the awkward true `role` phrasing, 0.9988
+for passive `manufactured by`, 0.9971 for `uses`, 0.9994 for negative
+`didnt get`, 0.0006 for its positive contradiction, 0.0007 for a refused
+conditional proposal and 0.0019 for an assistant suggestion recast as a
+project decision. The other two controls were an `employer` paraphrase (0.9966)
+and an exact role sentence (0.9994). This small synthetic probe tests
+feasibility and direction/polarity, **not graph precision, graph recall or
+answer quality**. Direct scorer invocation used no threshold tuning.
+
+Disposable PostgreSQL writer/reader control in
+`tests/smoke/test_codex_relation_support.py` supplies known scores to isolate
+the transaction: one supported edge/link, three withheld proposals with
+lexically retrievable source sentences, same-batch idempotency, overlong-pair
+abstention and verifier-outage propagation. The existing claim-writer suite
+roundtrips migration `7e4c9d2a0b65` and exercises the two-role link path with
+controlled verdicts. These integration tests do not use model inference; the
+direct model probe above does not exercise the writer. The current working
+store's pre-v3 Codex edges were not backfilled or rescored. Full disposable
+smoke passed 335/335 after fixing a new test's row leakage and covering the
+explicit claims-off legacy path; focused claim
+writer 5/5 passed in a separate disposable database. Migration roundtrip
+passed in that suite and the working DB advanced from `c742a88eeb19` to
+`7e4c9d2a0b65` without rewriting legacy links.
+
 ## 2026-09-24 — v3 procedural source contract and graph-link premise audit
 
 Procedural evidence: disposable ORM/PostgreSQL writer control in

@@ -1402,6 +1402,22 @@ summary verification or automatic supersession. The first multilingual candidate
 failed three unsupported controls; the selected model passed the same controls
 plus attribution cases. See PROVENANCE for the limited qualification.
 
+New graph assertions have a second, relation-level source check. The writer
+matches the extractor's exact quotation to a claim in the same attributed role
+unit, verbalizes the proposed subject/relation/object and polarity, and scores
+the complete containing paragraph against that proposition in one NLI lease per
+turn. Only supported proposals reach `handle_triplet`. Each supported
+claim-to-edge link stores its own model verdict and source/proposition hashes
+(`CodexClaimLink.relation_verification`, migration `7e4c9d2a0b65`); one quoted
+sentence can support multiple relations. An unmatched, contradicted, uncertain
+or overlong proposal leaves its sentence claim searchable without creating a
+new graph edge. A verifier outage rolls the extraction back for retry. The
+explicit `codex_sentence_claims=False` mode retains prior unverified graph
+writes with a per-batch warning. Legacy edges are not backfilled or promoted.
+The graph reader still checks source existence, privacy and current offsets;
+it does not re-score old links when the NLI model changes. This protects source
+recall but does not establish semantic graph recall or answer improvement.
+
 Direct lexical/native-vector claim search joins available nonprivate source rows,
 checks current source offsets, and enters the existing codex fusion/reranker/token
 path. It needs no matched entity. Explicit empty scopes and source exclusions

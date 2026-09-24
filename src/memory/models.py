@@ -300,6 +300,10 @@ class CodexClaimLink(Base):
     __tablename__ = "codex_claim_links"
     claim_id = Column(UUID(as_uuid=True), ForeignKey("codex_claims.id", ondelete="CASCADE"), primary_key=True)
     edge_id = Column(UUID(as_uuid=True), ForeignKey("codex_edges.id", ondelete="CASCADE"), primary_key=True)
+    # One sentence can propose several edges, and an edge can have several
+    # independent sources. Its relation support belongs to this link, not to
+    # the sentence-level compression verdict on CodexClaim.
+    relation_verification = Column(JSONB, nullable=True)
 
 
 class CodexEvent(Base):

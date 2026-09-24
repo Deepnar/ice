@@ -36,9 +36,9 @@ def verified(source, claim):
 def test_migration_roundtrip():
     cfg=Config('alembic.ini')
     cfg.set_main_option('sqlalchemy.url',settings.database_url.replace('%','%%'))
-    command.stamp(cfg,'e2b7c4d91a08')
-    command.downgrade(cfg,'d9a1f4b72c60')
-    command.upgrade(cfg,'e2b7c4d91a08')
+    command.stamp(cfg,'7e4c9d2a0b65')
+    command.downgrade(cfg,'c742a88eeb19')
+    command.upgrade(cfg,'7e4c9d2a0b65')
 
 
 def test_independent_search_and_source_visibility(monkeypatch):
@@ -130,8 +130,10 @@ def test_extractor_keeps_source_claims_even_when_graph_names_fail(monkeypatch,su
         return SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',
             message=SimpleNamespace(content=json.dumps({'facts':[dict(subject=subject,relation='uses',object='9',source_sentence=sentence)]})))])
     monkeypatch.setattr(cx,'bg_client',SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))))
-    import src.memory.support as support
-    monkeypatch.setattr(support,'verify_support',verified)
+    monkeypatch.setattr(cx,'store_claims',lambda db,row,sentences,*,encoder:
+        store_claims(db,row,sentences,encoder=encoder,verifier=verified))
+    monkeypatch.setattr(cx,'verify_relation_pairs',lambda pairs:[verified(source,claim)
+        for source,claim in pairs])
     with SessionLocal() as db:
         cid,batch=uuid.uuid4(),uuid.uuid4();db.add(Conversation(id=cid));db.flush()
         db.add(EpisodicMemory(conversation_id=cid,batch_id=batch,
