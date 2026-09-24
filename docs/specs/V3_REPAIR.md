@@ -419,6 +419,19 @@ conversation does not count as independent support. The historical maximum
 extraction confidence cannot yet be decomposed by source; G76's future
 per-source trust record must preserve that information at write time.
 
+Scoped graph reading must use the same source set. A conversational edge can
+have an original primary batch in conversation A and a later independent
+observation in conversation B. Under B-only scope, read B's current attributed
+claim and credit B's batch; do not reject the edge because A was first. Warm
+and cold originals participate in explicit allow and deny sets. An excluded or
+private batch never supplies the rendered quote or origin credit, even when a
+different observation keeps the edge visible. A derived code-graph edge keeps
+its separate project-batch rule. A source-free/stale linked edge contributes no
+unverified quote from a deleted source. Scope tests must cover traversal,
+relation-fact and enumeration routes plus the production graph leg. Historical
+time windows must not cite a later source observation for an older valid edge;
+select a source recorded by the window end or abstain.
+
 ### Edge-proposition support before a new Codex assertion (2026-09-24)
 
 The sentence-level verifier above checks a quote against its containing source

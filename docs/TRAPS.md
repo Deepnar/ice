@@ -1712,3 +1712,14 @@ two-source edges expired when their first conversation was deleted. Inspect the
 writer's event vocabulary and a surviving original warm/cold source, then test
 both source orders through deletion and the actual reader. Reading the edge is
 not a new source observation.
+
+### 65. The first source of a graph edge is not its only visible source
+
+**v3, 2026-09-24.** The Codex writer correctly put a second independent batch
+in `observed_batches`, but scoped graph paths filtered on the primary
+`source_batch`. Conversation B could contain its own supporting sentence yet
+fail to retrieve the edge because A first created it; archiving B made it
+invisible to the scope resolver too. Resolve graph scope from warm and cold
+source batches, filter by the selected visible original, and render and credit
+that same source. A stronger source writer alone does not fix a reader that
+still assumes one immutable source.

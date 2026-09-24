@@ -3955,3 +3955,16 @@ fitting. All12 unsupported rejected but only1/12 supported admitted at0.95
 instead of delivering useful compression. **Not promoted**: longer context alone
 has not solved source-grounded compression. Production DeBERTa unchanged. Controls
 are synthetic and are not natural-corpus or answer-quality estimates.
+
+## 2026-09-24 — v3 Codex source-scope reader control
+
+`tests/test_codex_source_scope.py` runs on a disposable PostgreSQL database.
+One edge is first attributed to conversation A and independently observed in
+conversation B; B is tested as both warm and cold storage. B-only graph and
+enumeration reads render B's linked quote and credit B's batch, while A-only
+reads credit A. Exclusion, private B, and a historical read before B's recorded
+time withhold B. The focused suite passed 2/2 and the disposable smoke suite
+passed 335/335; the combined source-scope/deletion suite passed 7/7. These are
+source visibility and wiring controls, not a natural
+conversation graph-recall or answer-quality result. The working pre-v3 graph
+was not replayed or repaired by this reader change.

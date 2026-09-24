@@ -39,6 +39,14 @@ from src.api.config import settings  # noqa: E402
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _stub_source_visibility(monkeypatch):
+    # This suite isolates frontier ordering with source-free scripted edges.
+    # Source admission has its own disposable SQL/reader control.
+    monkeypatch.setattr(HybridRetrievalOrchestrator, "_edge_source_batch",
+                        lambda self, edge, allowed_batch_ids=None: "stub-source")
+
+
 class _Entity:
     source = "conversation"
     project_id = None
