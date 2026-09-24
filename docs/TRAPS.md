@@ -1687,3 +1687,19 @@ and final model identity in mutable generation state; a route control times out
 an external model, succeeds locally, and checks the model handed to maintenance.
 Whenever a value can change inside a lazy stream, test what the later callback
 receives, not what the request handler set before returning its response.
+
+### 63. Two citation numbers can counterfeit ten supporting turns
+
+**v3, 2026-09-24.** Procedural extraction accepted `EVIDENCE: 99,100` when
+only ten messages were shown. It then attached *every* batch in the sitting as
+support and activated a pattern when the sitting contained ten turns, even if
+the model cited only two. A separate periodic reflection writer could reinforce
+the same uncited pattern on repeated passes. The working store held zero
+procedural rows, so this was a live code-contract defect, not a measured
+contamination count.
+
+Map every citation to an in-range, writer-attributed user source before storing
+it. Count only cited batches and independently resolved sittings; retain
+observations without promoting them when provenance is unavailable. A valid
+number is still not proof that the cited message supports the proposed habit —
+semantic support needs its own check.

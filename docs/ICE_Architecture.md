@@ -299,7 +299,7 @@ The Codex store is a versioned knowledge graph spread over four tables (full sch
 
 The procedural_memory table stores recurring behavioural patterns (e.g. "the user always asks for tests after code generation"). Its schema:
 
-> **⚑ EXTRACTION IS SESSION-SCOPED SINCE 2026-08-13 (G42).** It previously showed the model ONE turn and asked it to name a *recurring* workflow — an instruction that cannot be satisfied honestly, so it was answered dishonestly: **all 247 stored patterns were evidenced by exactly one turn**, and because one-per-turn generation makes near-duplicates rather than genuine repeats, only 2 ever reached the `reinforcement_count >= 3` promotion gate. Extraction now reads a whole session of the **user's own prompts** (`procedural_min_session_turns`=3, re-run every `procedural_session_step` turns as a session grows), requires the model to cite **two or more** messages as evidence — enforced in code, not merely requested in the prompt — and counts reinforcement only when a match comes from a **different session**, so re-reading one sitting cannot inflate the count. ⚠ Promotion is still effectively unreachable for a second reason: two extractions of the SAME habit score **0.708** cosine against a 0.85 match threshold (`procedural_similarity_threshold`, now a swept setting).
+> **⚑ EXTRACTION IS SESSION-SCOPED SINCE 2026-08-13 (G42).** It previously showed the model ONE turn and asked it to name a *recurring* workflow — an instruction that cannot be satisfied honestly, so it was answered dishonestly: **all 247 stored patterns were evidenced by exactly one turn**, and because one-per-turn generation makes near-duplicates rather than genuine repeats, only 2 ever reached the `reinforcement_count >= 3` promotion gate. v3 now reads only writer-attributed user spans from non-private, non-document turns in one conversation's sitting; unknown-speaker rows abstain. It maps **two or more distinct in-range numbered citations** back to actual batch IDs and stores only those as support. Session length alone cannot activate a pattern. Reinforcement resolves all prior cited batches through warm/cold originals and requires a different session; unknown prior provenance abstains. This verifies the citation *boundary*, not the semantic truth of the habit. Two phrasings of the SAME habit previously scored **0.708** cosine against the 0.85 similarity threshold, so cross-session matching is still uncalibrated.
 
 | **Column** | **Type** | **Notes** |
 | - | - | - |
@@ -311,11 +311,11 @@ The procedural_memory table stores recurring behavioural patterns (e.g. "the use
 | **confidence_score** | Float | 0.3 for new patterns, promoted to 0.8 at reinforcement_count ≥ 3 |
 | **first_observed / last_observed** | DateTime(tz) |  |
 | **is_active** | Boolean | schema default True, but extractors create with False until promoted |
-| **source_batch_ids** | ARRAY(UUID) | conversation-scoped retrieval key |
+| **source_batch_ids** | ARRAY(UUID) | cited user-turn support and conversation-scoped retrieval key |
 | **embedding** | Vector(1024) | of pattern_description |
 
 
-It is populated by the Procedural Extractor (§5.2) and the Reflection worker's _crystallize_patterns step, and queried by the procedural retrieval leg (§5.4).
+It is populated only by the Procedural Extractor (§5.1) and queried by the procedural retrieval leg (§5.4). Reflection retains `patterns_observed` in session summaries but cannot write or reinforce retrievable habits from uncited snippets.
 
 ### **3.4 Documents (C12, 2026-07-28)**
 
@@ -606,13 +606,13 @@ prompt ledger; these counters must not be called final-prompt or answer usage.
 
 ### **5.1 Pattern extraction**
 
-The Procedural Extractor (workers/procedural_extractor.py::extract_procedural, plain callable since C7 — a direct call inside the post-flight job, **unconditionally** on every turn) calls the background model with a one-sentence pattern-detection prompt (temperature=0.0, max_tokens=80, timeout=bg_timeout(80)). If the model returns NONE, the callable exits. Otherwise it embeds the proposed pattern, queries procedural_memory by cosine similarity LIMIT 1, and branches:
+The Procedural Extractor (workers/procedural_extractor.py::extract_procedural, plain callable since C7 — invoked inside post-flight on non-private turns) waits for at least three user-authored prompts in a sitting and re-extracts as it grows in five-turn buckets. It sends numbered, writer-attributed user prompts to the background model (temperature=0.0, max_tokens=160, timeout=bg_timeout(160)). `NONE`, incomplete output, absent citations, out-of-range citations and fewer than two distinct cited messages cannot write a pattern. Only the cited turns' batch IDs count as support. An accepted candidate is embedded and compared with existing patterns **inside the same project identity**:
 
-- **Match (`sim \> 0.85`).** Reinforce the existing pattern: reinforcement_count += 1, last_observed = now. If reinforcement_count ≥ 3 AND confidence_score \< 0.8, promote to confidence_score = 0.8, is_active = True.
+- **Match (`sim \> procedural_similarity_threshold`, default 0.85).** Resolve every prior cited batch to its sitting through warm or cold originals. A new sitting reinforces and refreshes `last_observed`; re-reading the same sitting or failing to resolve prior support does neither. Activate at three independent sittings or ten distinct cited turns total, with confidence 0.8.
 
-- **No match.** Insert a new pattern with confidence_score = 0.3, is_active = False, reinforcement_count = 1, source_batch_ids = [batch_id].
+- **No match.** Insert a new pattern with only the cited batch IDs. It is pending at confidence 0.3 unless it already cites at least `procedural_min_cited_turns` (default 10) distinct turns, in which case it is active at 0.8.
 
-The Reflection worker's _crystallize_patterns step runs the same workflow at session granularity, feeding on cross-turn patterns observed over the last 200 turns of each conversation.
+Reflection may report `patterns_observed` in a session summary; it is not a second writer of `procedural_memory`.
 
 ### **5.2 Trigger-condition gating for retrieval**
 
@@ -620,7 +620,7 @@ Even active patterns are filtered at retrieval time by _procedural_trigger_match
 
 ### **5.3 Decay and confidence promotion**
 
-workers/procedural_decay.py::decay_procedural_patterns (runtime-scheduled every 1.5 h; takes the uniform `cycles` param as a no-op — staleness is an absolute-age cutoff) runs a single boolean deactivation: SET is_active = FALSE WHERE is_active = TRUE AND last_observed \< now() - 180 days AND reinforcement_count \< 3. The two conditions are conjunctive — a pattern that has been promoted (≥3 reinforcements) is permanently immune to time-based decay. Confidence promotion is *not* in the decay worker; it happens in the extractors at the moment reinforcement_count crosses 3. Patterns are never hard-deleted, only deactivated.
+workers/procedural_decay.py::decay_procedural_patterns (runtime-scheduled every 1.5 h; takes the uniform `cycles` param as a no-op — staleness is an absolute-age cutoff) runs a single boolean deactivation: SET is_active = FALSE WHERE is_active = TRUE AND last_observed \< now() - 180 days AND reinforcement_count \< 3. The two conditions are conjunctive — a pattern with ≥3 independent-session observations is permanently immune to time-based decay; a pattern activated by ten citations in one sitting is not. Confidence promotion is *not* in the decay worker; it happens in the extractor when support qualifies. Patterns are never hard-deleted, only deactivated.
 
 ### **5.4 Retrieval (widened by C9, 2026-07-19)**
 

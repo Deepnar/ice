@@ -589,14 +589,14 @@ Every entry, with its cadence from `settings.maintenance_intervals`. **A job wit
 
 | Feature | Where | Roadmap id | What it does | Setting | Default | On by default? |
 |---|---|---|---|---|---|---|
-| Session-scoped habit extraction | `src/workers/procedural_extractor.py:61` | G42 | Reads a whole sitting of the USER's own prompts (not one turn, not the assistant's words) and asks for one repeated habit. | `settings.procedural_min_session_turns` | 3 | YES |
+| Session-scoped habit extraction | `src/workers/procedural_extractor.py::extract_procedural` | G42 | Reads only writer-attributed user spans from non-private, non-document turns in one conversation's sitting; unknown speaker text abstains. | `settings.procedural_min_session_turns` | 3 | YES |
 | Re-extract in steps as a session grows | `src/workers/procedural_extractor.py:117` | G42 | Buckets by `n_turns // step` so a 20-turn session costs 5 model calls, not 20. | `settings.procedural_session_step` | 5 | YES |
 | Prompt-block cap, trimmed from the front | `src/workers/procedural_extractor.py:137` | G42 | The most recent behaviour survives the character cap. | `settings.procedural_max_prompt_chars` | 12000 | YES |
-| Two-message evidence requirement | `src/workers/procedural_extractor.py:187` | G42 | A pattern citing fewer than two numbered messages is rejected outright — enforced in code, not asked for in the prompt. | — | — | YES |
-| Cross-session reinforcement only | `src/workers/procedural_extractor.py:216` | G42 | Re-reading the same sitting cannot reinforce a pattern against itself; `source_batch_ids` must be disjoint. | — | — | YES |
-| Pattern dedupe by embedding similarity | `src/workers/procedural_extractor.py:207` | G42 | Above the threshold a new extraction counts as the same habit. Measured 2026-08-13: two phrasings of the same habit score 0.708, so the default probably misses real repeats. | `settings.procedural_similarity_threshold` | 0.85 | YES |
-| Promotion to active | `src/workers/procedural_extractor.py:219` | — | 3 cross-session reinforcements ⇒ confidence 0.8 and `is_active=True` (the state the retrieval leg requires). | — (hardcoded 3 / 0.8) | — | YES |
-| Project-scoped patterns | `src/workers/procedural_extractor.py:123` | E1 D1 | A habit observed in a project-attached conversation is stored with `project_id` — coding conventions are not a fourth store. | — | — | YES |
+| Valid cited-source requirement | `src/workers/procedural_extractor.py::extract_procedural` | G42 | At least two distinct in-range numbered messages are required; only their batch IDs become source support. Valid numbering alone does not prove the proposed habit is semantically true. | — | — | YES |
+| Cross-session reinforcement only | `src/workers/procedural_extractor.py::_source_session_ids` | G42 | Resolves every prior cited batch through warm/cold originals and reinforces only from a new session; same-session/unknown support does not refresh `last_observed` or postpone decay. | — | — | YES |
+| Pattern dedupe by embedding similarity | `src/workers/procedural_extractor.py::extract_procedural` | G42 | Above the threshold a new extraction counts as the same habit, within one project identity. Measured 2026-08-13: two phrasings of the same habit score 0.708, so the default probably misses real repeats. | `settings.procedural_similarity_threshold` | 0.85 | YES |
+| Promotion to active | `src/workers/procedural_extractor.py::extract_procedural` | G42/G49 | Three independent sessions or at least 10 actually cited turns ⇒ confidence 0.8 and `is_active=True`. Session length alone cannot promote. | `settings.procedural_min_cited_turns` | 10 | YES |
+| Project-scoped patterns | `src/workers/procedural_extractor.py::extract_procedural` | E1 D1 | A habit observed in a project-attached conversation is stored and deduplicated only within that project. | — | — | YES |
 | Staleness retirement | `src/workers/procedural_decay.py:14` | — | A pattern unobserved for 180 days with fewer than 3 reinforcements is deactivated. | `settings.procedural_stale_days` / `procedural_min_reinforcement` | 180 / 3 | YES |
 
 ---
@@ -659,14 +659,14 @@ Every entry, with its cadence from `settings.maintenance_intervals`. **A job wit
 
 ---
 
-### 8. Reflection (the five-part pass)
+### 8. Reflection (the four-part pass)
 
 | Feature | Where | Roadmap id | What it does | Setting | Default | On by default? |
 |---|---|---|---|---|---|---|
-| Reflection driver | `src/workers/reflection.py:98` | — | For each of up to 200 recent conversations with ≥10 non-private turns: synthesis, crystallisation, slot evolution, motif detection. Then one global codex enrichment pass. | — (hardcoded 200 / 10) | — | YES |
+| Reflection driver | `src/workers/reflection.py::run_reflection` | — | For each of up to 200 recent conversations with ≥10 non-private turns: synthesis, slot evolution, motif detection. Then one global codex enrichment pass. | — (hardcoded 200 / 10) | — | YES |
 | Session synthesis | `src/workers/reflection.py:139` | — | Writes a `SessionSummary` row (topics, decisions, unresolved items, entities, patterns) via a schema-constrained JSON call. | — | — | YES |
 | Pending-items slot append | `src/workers/reflection.py:176` | — | Unresolved items are appended to the `pending_items` memory slot. **[queried] `memory_slots` is empty, so this is a no-op today.** | — | — | YES (but inert, see DEAD) |
-| Pattern crystallisation | `src/workers/reflection.py:190` | — | A SECOND writer of `procedural_memory`, from conversation snippets, with a **hardcoded 0.85** similarity threshold and no evidence requirement. | — (hardcoded, ignores `procedural_similarity_threshold`) | 0.85 | YES |
+| Reflection pattern observations | `src/workers/reflection.py::_synthesize_session` | G42 | `patterns_observed` remains in the session summary, but reflection no longer writes or reinforces retrievable procedural rows from uncited snippets. | — | — | YES (summary only) |
 | Memory-slot evolution proposals | `src/workers/reflection.py:246` | — | Proposes updates to `project_context` / `user_preferences` / `guidance` into the review queue — never writes a slot directly. | — | — | YES |
 | Codex entity enrichment | `src/workers/reflection.py:281` | A7.3 | Fills empty entity `description`s first (richest-mentioned first), then refreshes stale well-mentioned ones, from the turns that mention them. | `reflection_enrich_limit` / `reflection_enrich_refresh_days` | 25 / 14 | YES |
 | Description-update journalling | `src/workers/reflection.py:358` | T4 D13 | Every overwrite of the one mutable-in-place field leaves a `description_updated` event. | — | — | YES |

@@ -289,6 +289,20 @@ source-backed sentence claims and qualified verification; consistent summaries;
 procedural evidence, lifecycle/scoping/adapter controls; inference/runtime and
 remaining operational defects; then the minimal user correction surface.
 
+**Procedural evidence re-grounding (2026-09-24):** `extract_procedural`
+currently accepts any two citation integers, uses all turns in the session as
+support, and activates on their count; `_user_half` can treat unknown-role raw
+text as the user's words. The separate reflection writer has no cited evidence
+at all. The repair resolves only in-range citations against writer-attributed
+user turns, persists just those cited batches, gates activation on the cited
+count, and counts independent sessions by resolving cited batch IDs through warm
+or cold originals. Project-scoped patterns match only their project. Unknown
+speaker and unavailable support abstain. Reflection may report observed
+patterns in its session summary, but does not write `procedural_memory` from
+uncited snippets. Test invalid citations, two of ten cited
+messages, same-session re-extraction and cross-project matching through the
+actual database writer; do not infer semantic truth from a valid citation.
+
 The future recorded-response replay must run pre-flight for every historical
 prompt and post-flight on its recorded answer, preserving chronological state,
 scoping and reinforcement. This is state reconstruction, not a measurement of

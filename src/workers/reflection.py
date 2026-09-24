@@ -1,33 +1,30 @@
-"""Reflection Worker – full implementation: session synthesis, pattern crystallization,
-   memory slot evolution, Codex enrichment, motif detection."""
+"""Reflection Worker – session synthesis, slot evolution, Codex enrichment,
+   and motif detection. Procedural patterns have one cited-source writer."""
 
 import json
 from datetime import datetime, timezone
 
-from src.api.config import settings
 import structlog
-
-from src.workers.llm_json import parse_array, parse_object
 from sqlalchemy import text
 
+from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import (
     CodexEntity,
     EpisodicMemory,
     MemorySlot,
-    ProceduralMemory,
     SessionSummary,
 )
 from src.retrieval.evolution import log_description_update
-
-logger = structlog.get_logger("ice.workers.reflection")
 from src.workers.bg_client_factory import (
     bg_timeout,
     get_bg_client,
     get_bg_model_name,
     json_schema,
 )
+from src.workers.llm_json import parse_array, parse_object
 
+logger = structlog.get_logger("ice.workers.reflection")
 bg_client = get_bg_client()
 # ------------------------------------------------------------------
 # Prompts
@@ -42,13 +39,6 @@ SUMMARY_PROMPT = (
     "  - \"patterns_observed\": a list of strings describing observed behavioural patterns\n\n"
     "If a field has no content, use an empty list [] for lists, or an empty string \"\" for strings.\n"
     "Do NOT include markdown or additional text."
-)
-
-CRYSTALLIZATION_PROMPT = (
-    "Below are snippets from multiple recent conversation sessions. Identify any recurring "
-    "behavioural patterns or workflows that the user consistently follows. For each pattern, "
-    "output a single descriptive sentence. Return ONLY a JSON array of strings. If no patterns "
-    "are found, return an empty array []."
 )
 
 SLOT_EVOLUTION_PROMPT = (
@@ -95,7 +85,7 @@ def _robust_list(raw: str, *, where: str = "?") -> list:
 # Main task
 # ------------------------------------------------------------------
 def run_reflection():
-    """Execute a full reflection pass: synthesis, patterns, slots, enrichment,
+    """Execute a full reflection pass: synthesis, slots, enrichment,
     motifs. Plain callable since C7 — gating/retries live in the runtime."""
     db = SessionLocal()
     try:
@@ -114,7 +104,10 @@ def run_reflection():
                 continue
             recent.reverse()
             _synthesize_session(db, recent)
-            _crystallize_patterns(db, recent)
+            # The session summary retains patterns_observed as non-authoritative
+            # observations. Only extract_procedural may write retrievable habits:
+            # this periodic pass has no numbered, writer-attributed citations and
+            # used to reinforce the same sitting on every run.
             _evolve_memory_slots(db, recent)
             _detect_motifs(db, recent)
 
@@ -181,68 +174,6 @@ def _synthesize_session(db, turns):
             slot.version += 1
             slot.last_updated = datetime.now(timezone.utc)
             slot.updated_by = "reflection_worker"
-
-
-# ------------------------------------------------------------------
-# Pattern Crystallization
-# ------------------------------------------------------------------
-def _crystallize_patterns(db, turns):
-    # Build a compact representation (last 1500 words)
-    txt = "\n".join([t.raw_text[:200] for t in turns])
-    if len(txt.split()) > 1500:
-        txt = " ".join(txt.split()[-1500:])
-    completion = bg_client.chat.completions.create(
-        model=get_bg_model_name(),
-        messages=[
-            {"role": "system", "content": "You are a behavioural pattern detector."},
-            {"role": "user", "content": f"{CRYSTALLIZATION_PROMPT}\n\n{txt}"}
-        ],
-        temperature=0.0, max_tokens=200, timeout=bg_timeout(200),
-        response_format=json_schema("patterns", {"type": "array", "items": {"type": "string"}}),
-    )
-    raw = (completion.choices[0].message.content or "").strip()
-    patterns = _robust_list(raw, where="crystallization")
-    for desc in patterns:
-        if not isinstance(desc, str) or not desc.strip():
-            continue
-        # Check for existing pattern by embedding similarity
-        from src.workers.procedural_extractor import encode_pattern
-        emb = encode_pattern(desc)
-        try:
-            similar = db.execute(
-                text("SELECT id, 1 - (embedding <=> CAST(:emb AS vector)) AS sim FROM procedural_memory WHERE embedding IS NOT NULL ORDER BY sim DESC LIMIT 1"),
-                {"emb": str(emb)}
-            ).first()
-            # Reflection is the SECOND writer of procedural_memory, and it was
-            # hardcoded at 0.85 while procedural_extractor read the setting —
-            # so recalibrating the threshold (G49: two extractions of the same
-            # habit measure 0.708 against a bar of 0.85, which is why nothing
-            # ever activates) would have moved one writer and not the other.
-            # Identical value today; the point is that they cannot diverge.
-            if similar and similar.sim > settings.procedural_similarity_threshold:
-                existing = db.query(ProceduralMemory).get(similar.id)
-                existing.reinforcement_count += 1
-                existing.last_observed = datetime.now(timezone.utc)
-                if existing.reinforcement_count >= 3 and existing.confidence_score < 0.8:
-                    existing.confidence_score = 0.8
-                    existing.is_active = True
-            else:
-                new_pat = ProceduralMemory(
-                    pattern_name=desc[:80],
-                    pattern_description=desc,
-                    topic_tags=turns[0].topic_tags if turns else [],
-                    trigger_conditions={},
-                    reinforcement_count=1,
-                    confidence_score=0.3,
-                    first_observed=datetime.now(timezone.utc),
-                    last_observed=datetime.now(timezone.utc),
-                    is_active=False,
-                    source_batch_ids=[t.batch_id for t in turns[:10]],
-                    embedding=emb
-                )
-                db.add(new_pat)
-        except Exception as e:
-            logger.error("pattern_crystallization_error", error=str(e))
 
 
 # ------------------------------------------------------------------
