@@ -1703,3 +1703,12 @@ it. Count only cited batches and independently resolved sittings; retain
 observations without promoting them when provenance is unavailable. A valid
 number is still not proof that the cited message supports the proposed habit —
 semantic support needs its own check.
+### 64. A second observation may have a different event type from the first
+The v3 Codex writer emits `edge_added` for the first source batch and
+`edge_strengthened` for a distinct later batch. C10 deletion looked only for
+an external second `edge_added`; its test created precisely that artificial
+event, so it reported that corroborated edges survived while ordinary
+two-source edges expired when their first conversation was deleted. Inspect the
+writer's event vocabulary and a surviving original warm/cold source, then test
+both source orders through deletion and the actual reader. Reading the edge is
+not a new source observation.

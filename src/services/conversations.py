@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from src.memory.models import (
     BatchSummary,
     CodexClaim,
+    CodexClaimLink,
     CodexEdge,
     CodexEntity,
     CodexEvent,
@@ -63,23 +64,105 @@ LOGS_CAVEAT = (
 )
 
 
-def _external_evidence(db: Session, edge_ids: list, batches: set) -> set:
-    """Edge ids (str) corroborated by at least one `edge_added` event whose
-    batch_source lies OUTSIDE the deleted conversation's batches — the fact
-    stands on other conversations (spec rev 2: raw event counts would let a
-    double-extraction inside the deleted conversation immunize its own edge).
+def _edge_source_plan(db: Session, removed_batches: set) -> tuple[list, list]:
+    """Plan expiry/rebase from actual surviving warm or cold observations.
+
+    `edge_added` records the first observation; repeated independent source
+    batches produce `edge_strengthened`. Reads never produce either event.
+    The old delete path checked only a second `edge_added`, which normal
+    reinforcement cannot emit, and left true edges pointing at deleted turns.
     """
-    if not edge_ids:
-        return set()
+    from src.memory.claims import excerpt_is_current, source_for_claim
+
+    if not removed_batches:
+        return [], []
     rows = db.execute(text("""
-        SELECT DISTINCT payload->>'edge_id' AS eid
+        SELECT id FROM codex_edges
+        WHERE source = 'conversation' AND valid_until IS NULL
+          AND (source_batch = ANY(:batches)
+               OR observed_batches && CAST(:batches AS uuid[]))
+    """), {"batches": list(removed_batches)}).fetchall()
+    edges = db.query(CodexEdge).filter(CodexEdge.id.in_([r.id for r in rows])).all()
+    if not edges:
+        return [], []
+    event_sources: dict = {}
+    for row in db.execute(text("""
+        SELECT payload->>'edge_id' AS edge_id, batch_source
         FROM codex_events
-        WHERE event_type = 'edge_added'
-          AND payload->>'edge_id' = ANY(:ids)
-          AND NOT (batch_source = ANY(:batches))
-    """), {"ids": [str(i) for i in edge_ids],
-           "batches": [str(b) for b in batches]}).fetchall()
-    return {r.eid for r in rows}
+        WHERE event_type IN ('edge_added', 'edge_strengthened')
+          AND payload->>'edge_id' = ANY(:edge_ids)
+          AND batch_source IS NOT NULL
+    """), {"edge_ids": [str(edge.id) for edge in edges]}):
+        event_sources.setdefault(row.edge_id, set()).add(row.batch_source)
+    candidates = {batch for edge in edges
+                  for batch in ({edge.source_batch} | set(edge.observed_batches or [])
+                                | event_sources.get(str(edge.id), set()))}
+    source_times = {}
+    for row in db.execute(text("""
+        SELECT batch_id, timestamp FROM episodic_memory
+        WHERE batch_id = ANY(:batches) AND is_private = FALSE
+        UNION
+        SELECT batch_id, timestamp FROM cold_storage
+        WHERE batch_id = ANY(:batches) AND is_private = FALSE
+    """), {"batches": list(candidates)}):
+        stamp = row.timestamp or datetime.min.replace(tzinfo=timezone.utc)
+        source_times[row.batch_id] = max(
+            stamp, source_times.get(row.batch_id, stamp))
+    available = set(source_times)
+    sole, surviving = [], []
+    for edge in edges:
+        sources = ({edge.source_batch} | set(edge.observed_batches or [])
+                   | event_sources.get(str(edge.id), set()))
+        remaining = list((sources & available) - removed_batches)
+        if not remaining:
+            sole.append(edge)
+        else:
+            # The reader renders the primary source's linked quote. Rebase to
+            # current attributed evidence when possible; otherwise prefer the
+            # newest surviving original. UUID ordering has no semantic value.
+            linked = set()
+            if edge.source_batch in removed_batches:
+                claims = db.query(CodexClaim).join(
+                    CodexClaimLink, CodexClaimLink.claim_id == CodexClaim.id).filter(
+                        CodexClaimLink.edge_id == edge.id,
+                        CodexClaim.source_batch.in_(remaining)).all()
+                for claim in claims:
+                    original = source_for_claim(db, claim)
+                    if (original is not None and not original.is_private
+                            and excerpt_is_current(original, claim)):
+                        linked.add(claim.source_batch)
+            remaining.sort(key=lambda batch: (
+                batch in linked, source_times[batch].timestamp(), str(batch)),
+                reverse=True)
+            surviving.append((edge, remaining, len(sources & removed_batches)))
+    return sole, surviving
+
+
+def _apply_edge_source_plan(db: Session, sole: list, surviving: list,
+                            removed_batches: set, event_batch,
+                            *, reason="source_deleted", source="user_deletion") -> set:
+    """Remove deleted support and point each retained edge at a real source."""
+    from src.workers.codex_extractor import _expire_edge
+
+    touched = set()
+    for edge in sole:
+        _expire_edge(db, edge.id, event_batch, reason, source=source)
+        touched.update((edge.source_id, edge.target_id))
+    for edge, remaining, removed_count in surviving:
+        if not removed_count:
+            continue
+        old_batch = edge.source_batch
+        if old_batch in removed_batches:
+            edge.source_batch = remaining[0]
+            db.add(CodexEvent(entity_id=edge.source_id,
+                event_type="edge_source_rebased", batch_source=event_batch,
+                payload={"edge_id": str(edge.id), "old_batch": str(old_batch),
+                         "new_batch": str(edge.source_batch), "reason": reason}))
+        edge.observed_batches = remaining
+        edge.confidence = "active" if len(remaining) >= 2 else "pending"
+        edge.strength = max(0.1, (edge.strength or 1.0) - removed_count)
+        touched.update((edge.source_id, edge.target_id))
+    return touched
 
 
 def _user_authored_entities(db: Session, entity_ids: list) -> set:
@@ -128,10 +211,7 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
     manifest (identical for dry_run and real runs); one transaction, one
     commit at the end. Refused mid-generation (the live stream's post-flight
     would write into the void)."""
-    from src.workers.codex_extractor import (  # lazy: embedder at import
-        _expire_edge,
-        _regenerate_context_payload,
-    )
+    from src.workers.codex_extractor import _regenerate_context_payload  # lazy
     from src.workers.runtime import get_runtime
 
     conv_uuid = uuid.UUID(str(conv_id))
@@ -149,18 +229,14 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
         conversation_id=conv_uuid).all()
     turn_ids = [r.id for r in turn_rows]
     batches = {r.batch_id for r in turn_rows}
+    batches.update(r.batch_id for r in db.query(ColdStorage.batch_id).filter_by(
+        conversation_id=conv_uuid).all() if r.batch_id is not None)
 
-    # Codex: live conversation-source edges born from this conversation.
-    edges = []
-    if batches:
-        edges = db.query(CodexEdge).filter(
-            CodexEdge.source_batch.in_(batches),
-            CodexEdge.valid_until.is_(None),
-            CodexEdge.source == "conversation",
-        ).all()
-    corroborated = _external_evidence(db, [e.id for e in edges], batches)
-    sole_edges = [e for e in edges if str(e.id) not in corroborated]
-    kept_edges = len(edges) - len(sole_edges)
+    # Include secondary observations too: their support must be pruned when
+    # this conversation goes, even if the edge's first source lives elsewhere.
+    sole_edges, surviving_edges = _edge_source_plan(db, batches)
+    kept_edges = sum(edge.source_batch in batches
+                     for edge, _remaining, _removed in surviving_edges)
     sole_ids = {e.id for e in sole_edges}
 
     # Entities the sole-support expiries may orphan: conversation-source,
@@ -168,7 +244,6 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
     touched_entity_ids = ({e.source_id for e in sole_edges}
                           | {e.target_id for e in sole_edges})
     entities_to_expire: list = []
-    surviving_touched: list = []
     if touched_entity_ids:
         user_authored = _user_authored_entities(db, list(touched_entity_ids))
         for ent in db.query(CodexEntity).filter(
@@ -182,8 +257,6 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
             if (remaining == 0 and ent.source == "conversation"
                     and str(ent.id) not in user_authored):
                 entities_to_expire.append(ent)
-            else:
-                surviving_touched.append(ent)
 
     # Episodic-side counts.
     n_chunks = 0
@@ -328,6 +401,8 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
         "codex": {
             "edges_expired": len(sole_edges),
             "edges_kept_corroborated": kept_edges,
+            "edges_support_pruned": sum(removed > 0 for _edge, _remaining, removed
+                                        in surviving_edges),
             "entities_expired": len(entities_to_expire),
             "relation_gaps_deleted": n_relation_gaps,
         },
@@ -346,12 +421,14 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
 
     # ── Phase B: apply, FK-safe order, one commit ──
     deletion_batch = uuid.uuid4()
-    for e in sole_edges:
-        _expire_edge(db, e.id, deletion_batch, "source_deleted",
-                     source="user_deletion")
+    changed_entities = _apply_edge_source_plan(
+        db, sole_edges, surviving_edges, batches, deletion_batch)
     for ent in entities_to_expire:
         _expire_entity(db, ent, deletion_batch)
-    for ent in surviving_touched:
+    for ent in db.query(CodexEntity).filter(
+            CodexEntity.id.in_(changed_entities)).all():
+        if ent in entities_to_expire:
+            continue
         _regenerate_context_payload(ent, db)
     db.flush()
 
@@ -530,12 +607,17 @@ def apply_forget(db: Session, item_content: dict) -> dict:
     source = item_content.get("proposed_by", "chat_command")
 
     deleted_turns = 0
+    batches = set()
+    sole_edges, surviving_edges = [], []
     if turn_ids:
-        db.query(CodexClaim).filter(CodexClaim.episodic_id.in_(turn_ids)).delete(
-            synchronize_session=False)
         batch_rows = db.query(EpisodicMemory.batch_id).filter(
             EpisodicMemory.id.in_(turn_ids)).all()
         batches = {r.batch_id for r in batch_rows}
+        batches.update(r.batch_id for r in db.query(ColdStorage.batch_id).filter(
+            ColdStorage.id.in_(turn_ids)).all() if r.batch_id is not None)
+        sole_edges, surviving_edges = _edge_source_plan(db, batches)
+        db.query(CodexClaim).filter(CodexClaim.episodic_id.in_(turn_ids)).delete(
+            synchronize_session=False)
         db.query(EpisodicClusterLink).filter(
             EpisodicClusterLink.episodic_id.in_(turn_ids)).delete(
             synchronize_session=False)
@@ -546,12 +628,13 @@ def apply_forget(db: Session, item_content: dict) -> dict:
             db.query(CuratedLabel).filter(
                 CuratedLabel.batch_id.in_(batches)).delete(
                 synchronize_session=False)
-        db.query(ColdStorage).filter(ColdStorage.id.in_(turn_ids)).delete(
-            synchronize_session=False)
+        deleted_turns += db.query(ColdStorage).filter(
+            ColdStorage.id.in_(turn_ids)).delete(synchronize_session=False)
 
     forget_batch = uuid.uuid4()
-    expired = 0
-    touched: set = set()
+    touched = _apply_edge_source_plan(db, sole_edges, surviving_edges, batches,
+        forget_batch, reason="user_forget", source=source)
+    expired = len(sole_edges)
     for eid in edge_ids:
         edge = db.query(CodexEdge).filter_by(id=eid).first()
         if edge is not None and edge.valid_until is None:

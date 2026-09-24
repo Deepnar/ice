@@ -10,6 +10,23 @@ anywhere). Grounded at commit `b8c2122`: episodic_chunks CASCADE from parent
 evidence = distinct `batch_source` count on an edge's `edge_added` events,
 CuratedLabel carries batch_id, EpisodicClusterLink composite-PK link rows.
 
+> **[rev 2026-09-24 — v3 source-deletion re-grounding at `f9cdd4c` (rule 12):**
+> The earlier `edge_added`-only corroboration test disagrees with the current
+> writer: the first assertion emits `edge_added`; a distinct later batch emits
+> `edge_strengthened` and enters `observed_batches`. Deletion must inspect both
+> observation events and the stored batch IDs, confirm that each surviving
+> batch still has a non-private warm/cold original, and never count reads.
+> Collect warm **and cold** batches for conversation deletion and `/forget`.
+> If the first source goes but an independent source survives, rebase
+> `source_batch` to a current linked attributed quote when available, otherwise
+> the newest original, and remove deleted observations; if none
+> survives, expire the edge. A secondary-source deletion also removes its
+> support. Keep the claim link to the surviving source so the reader can
+> render its exact sentence. `strength` may still contain usage/decay history;
+> this operation removes only deleted observation contributions. The previous
+> spec's second-`edge_added` fixture tested a path ordinary reinforcement
+> never takes.**]
+
 > **[rev 2026-07-19 — implementation-session re-grounding at `e02b21b` (rule 12);
 > the `b8c2122` grounding predates E0/E7, D1/D2, the E-core, E11 AND C4/C9.
 > Fifteen refinements, none reversing a decision:**
@@ -21,13 +38,9 @@ CuratedLabel carries batch_id, EpisodicClusterLink composite-PK link rows.
 >    no event journal by design). `conversation_summaries` now CASCADEs at the
 >    DB level (C4) — the manifest counts it and the service still deletes it
 >    explicitly so the count is collected before the FK fires.
-> 2. **Corroboration = external evidence, not raw event count.** "≥2 distinct
->    `batch_source`" read literally would keep an edge double-extracted inside
->    the *deleted* conversation. The decision's own rationale ("the fact stands
->    on other conversations") is the rule: keep iff an `edge_added` event exists
->    with `batch_source ∉ batches`; otherwise expire. Verified payload shape:
->    `edge_added` events carry `payload->>'edge_id'`, provenance in the event's
->    `batch_source` column.
+> 2. **Superseded by the 2026-09-24 re-grounding above.** The intended rule
+>    was external source survival, but ordinary independent reinforcement emits
+>    `edge_strengthened`, not a second `edge_added`.
 > 3. **Entity "expiry" mechanics pinned** (CodexEntity has no liveness column —
 >    D1/D2 rev 4): mirror the merge-husk pattern — canonical_name +
 >    ` [deleted:<id8>]`, aliases emptied, `properties.deleted_reason=
@@ -106,10 +119,13 @@ CuratedLabel carries batch_id, EpisodicClusterLink composite-PK link rows.
   dialog (F) and the C11 `/delete-conversation` confirm step. One transaction.
 - **D2: cascade order and rules:**
   1. Collect the conversation's `batch_ids`.
-  2. **Codex:** for each live edge whose `source_batch ∈ batches`: corroborated
-     (≥2 distinct `batch_source` values across its `edge_added` events) → keep
-     (the fact stands on other conversations); sole-support → **expire** with an
-     `edge_expired` event, reason `source_deleted` (journaled, auditable).
+  2. **Codex:** for every live conversation edge whose primary or observed
+     source lies in the deleted warm/cold batches, gather independent source
+     batches from `source_batch`, `observed_batches`, and its `edge_added` /
+     `edge_strengthened` events. A surviving non-private original keeps the
+     edge; rebase a deleted primary to one such batch, prune deleted
+     observations and journal the rebase. Without surviving original support,
+     **expire** with an `edge_expired` event, reason `source_deleted`.
      Entities left with zero live edges, `source='conversation'`, and no
      user-authored description → expired the same way. **T-track amendment
      (recorded in T_temporal.md too): timeline rendering EXCLUDES reason
@@ -167,10 +183,10 @@ conversation resolution, it needs `conv`) · T_temporal.md §2.7 amendment line
 ## 3. Edge cases
 
 Sole-support check with legacy edges that predate the event journal (no
-edge_added event rows): treat as sole-support only if `source_batch ∈ batches`
-(their own provenance is the only evidence — expire; conservative is keeping
-facts, but unprovenanced facts from a deleted conversation violate the
-deletion's meaning; decision: expire, journaled). Conversation mid-stream
+edge_added event rows): use `source_batch` and any remaining observed batches
+only when their warm/cold originals still exist and are non-private. If none
+remain after deletion, expire the edge; unprovenanced facts from a deleted
+conversation must not survive on a journal count alone. Conversation mid-stream
 (active generation) → deletion refused with a clear error. `/search` in an
 incognito conversation → scope rules apply unchanged (own-conversation only).
 `/remember @project` with no attached project → error naming the fix. Command
@@ -190,6 +206,14 @@ LLM call (assert no bg/chat client invocation); 7) `/forget` creates a
 review-queue proposal, applies on approve via D6's dispatch; 8) unknown command
 → help hint, never forwarded to the model; 9) `/delete-conversation` two-step
 confirm works, single-step refused.
+
+v3 source-continuity control: `tests/test_codex_source_deletion.py` crosses
+first-source A/B with warm/cold surviving B, uses the actual
+`edge_strengthened` event, checks the dry-run and real manifests, the reader's
+surviving attributed sentence, and `/forget` of B's last turn. A third-source
+control checks that a current linked quote wins over a newer unlinked batch.
+The older C10
+fixture's second `edge_added` is a legacy control, not proof of this path.
 
 ## 5. Look-ahead constraints
 

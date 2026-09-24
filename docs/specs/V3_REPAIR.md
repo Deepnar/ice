@@ -408,6 +408,16 @@ excerpts. Deleting an edge removes its navigation links, not source evidence.
 Conversation deletion cascades claims; turn-forget deletes by original episodic
 ID, which remains stable through archival. Claim search uses source exclusions;
 entity deny sets derived from excluded batches must not hide unrelated claims.
+Deletion of one of several graph sources also changes the edge: the shared
+conversation/forget service confirms surviving non-private warm/cold originals
+across the primary, observed and `edge_added`/`edge_strengthened` batches. It
+rebases a deleted primary to a surviving batch so the corresponding claim link
+continues to render (prefer a current linked quote, else the newest original);
+it prunes deleted secondary observations, and expires an
+edge whose last original is gone. A read or a second event in the same deleted
+conversation does not count as independent support. The historical maximum
+extraction confidence cannot yet be decomposed by source; G76's future
+per-source trust record must preserve that information at write time.
 
 ### Edge-proposition support before a new Codex assertion (2026-09-24)
 

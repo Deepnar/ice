@@ -1,3 +1,25 @@
+## 2026-09-24 — v3 Codex source-deletion continuity
+
+Code audit found that the C10 deletion cascade recognized corroboration only
+through an external `edge_added` event. The current v3 writer emits
+`edge_strengthened` for a distinct second batch, so the old C10 fixture's
+second `edge_added` measured a path the writer does not take. A source-plan
+repair now checks primary, observed and journaled batches against surviving
+non-private warm/cold originals before it expires or rebases a graph edge.
+
+`tests/test_codex_source_deletion.py` uses disposable PostgreSQL, controlled
+claim-support verdicts and the actual graph reader. Four controls cross first
+source A/B with warm/cold surviving B; one further three-source control
+checks that a current linked quote outranks a newer unlinked original; each deletes A, checks manifest/edge
+state, B's exact attributed quote, then forgets B and checks expiry. These
+checks do **not** run an extractor model or establish semantic truth, graph
+recall or answer quality. The five focused controls passed 5/5; the existing
+C10/C11 cascade passed 58/58 and full disposable smoke passed 335/335 after
+the source-selection refinement.
+The working pre-v3 corpus was not replayed. Historical `strength` and
+`extraction_confidence` mix source and usage effects; source removal cannot
+fully reconstruct those scores from legacy events.
+
 ## 2026-09-24 — v3 Codex relation-level support gate
 
 Configured local `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli`
