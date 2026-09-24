@@ -95,6 +95,8 @@ Order and section headings match ROADMAP.md.
   4. **Closed reinforcement loop:** `_reinforce_codex_edges` (+0.15 on anchors, cap 10.0, write-on-read like episodic) now **promotes** pending→active at strength ≥ 2.0 *iff* confidence ≥ 0.5; `codex_decay` decays **all** live edges (was active-only — a reinforced pending edge previously inflated forever) and **expires** never-corroborated pending edges below 0.1 (garbage-collects hallucination residue).
   **Validated 15/15 against the live DB** (scratch functional test: seeding, corroboration-max, both traversal gates, anchor selection, reinforcement, confidence-gated promotion, cleanup verified). Remaining live-usage check: reinforcement/decay balance over real conversations. Per-edge granularity in fusion still awaits A10.
 
+**v3 correction, 2026-09-13:** A3 correctly sought retention of useful facts, but its read-driven confidence promotion and nonuse-driven expiry conflated usage with evidence. Selected fact exposure now maintains bounded retention separately; quiet facts are not expired, and only another source batch may promote ordinary-edge support. The original15 controls tested the old mechanism, not its epistemic correctness.
+
 ## <a id="a4"></a>A4 — Relation-aware retrieval
 
 *DONE 2026-07.* [← back to the queue](ROADMAP.md#a4)
@@ -108,6 +110,12 @@ Order and section headings match ROADMAP.md.
 - [x] **A5 Codex conversation-scoping division (retrieval side)** `(bug)` — Done 2026-07 (validated in the A4 test run: in-scope edge present, out-of-scope edge excluded, global payload not leaked). Under a project-scoped conversation, `_codex_scope_sets` resolves the batch + entity sets once and traversal honors them throughout: edges filtered by `source_batch`, expansion never leaves the conversation's entity set, and per-entity payloads are **rendered on the fly from the conversation's own edges** instead of the stored global context_payload — a shared entity ("ice") no longer leaks other conversations' facts. Auto/none conversations keep global traversal (per the scoping semantics in main.py). *Extraction-side division (per-project graphs / entity namespacing) deliberately deferred to A7's unified-graph design — retrieval isolation was the bleeding wound; storage partitioning is an A7 schema decision.* **Look-ahead vs C6 (scoping rework):** A5's filtering primitive is a *set of batch_ids* — and C6's cross-chat (N conversations), session_id, and @-mention scoping all resolve to exactly that set, so the traversal filters never need to change. `_codex_scope_sets` was generalised now to accept `scope["batch_ids"]` / `["conversation_ids"]` / `["conversation_id"]` / `["isolated"]` (empty-set = true incognito, the C6/G16 'none' semantics) so C6 only has to populate the scope in main.py — no orchestrator rework. **No conflict; A5 is forward-compatible.** (main.py still only sets `conversation_id` for project scope — populating the richer forms is C6's job.)
 
 ## <a id="a6"></a>A6 — Self-correcting graph (reconciliation loop) — bounded
+
+**v3 correction, 2026-09-19:** the original reconciler saw only the new raw turn,
+and property/negative/single-valued writers bypassed it. All now use complete
+role-attributed old/new evidence with source chronology; maintenance shares that
+boundary. Candidate detection no longer uses correction phrases or a first-edge
+shortcut. See V3_REPAIR and PROVENANCE for scoped validation and remaining limits.
 
 *DONE 2026-07.* [← back to the queue](ROADMAP.md#a6)
 
@@ -127,6 +135,11 @@ Order and section headings match ROADMAP.md.
   *Original (superseded) framing follows:* **Scope settled 2026-07 (do A10 first — it benefits A7's retrieval):** build the Graph-RAG *community* layer on the existing conversational codex — community detection over the entity/edge graph + an LLM summary per community, so broad/overview queries ("how does the political system work", "summarize the tech stack") hit a community summary instead of traversing 30 entities — plus an `entity_type` column so entities are typed (character/location/concept/…), which the code graph later reuses. Aim for the robust version (hierarchy-ready communities, proper detection algo, not flat toy clustering). The **code-aware half** (AST entities, deterministic `imports`/`calls`/`inherits` edges from a real codebase) is **moved to Track E** — it can't be meaningfully built without Coding Mode's ingestion/pipeline; A7 only settles the *one-graph* schema so code entities slot into the same `codex_entities`/`codex_edges` tables. Original (superseded) framing follows: Add a deterministic static-analysis layer: AST-level entities (deterministic IDs from definition sites), deterministic edges (`imports`, `calls`, `inherits`, `defined_in`, `tested_by`), and Graph-RAG-style community summarisation (Louvain/Leiden over the import/call graph, LLM summary per community). **Constraint from the notes: there is ONE Codex** serving both conversation and coding modes — not two graphs. OKF is adapted here as design philosophy (typed knowledge units in our tables, not markdown files). Like a real proper graph rag inside our entity type codex that we have. PLUS the coding based if it is ever given a code base then it should be able to make like relations between files, functions and all. do if if not done before.
 
 ## <a id="a8"></a>A8 — Codex relation negation / polarity
+
+**v3 correction, 2026-09-19:** negative facts remain stored and answerable;
+negation alone no longer retires the positive edge. Qualified same-author source
+correction or explicit manual resolution is required. Both polarities use the
+same observation identity and confidence path.
 
 *DONE 2026-07.* [← back to the queue](ROADMAP.md#a8)
 
@@ -276,6 +289,13 @@ Order and section headings match ROADMAP.md.
 - [x] **C15 Wide-net fallback budget + honest trigger** `(bug)` — Done 2026-07, validated in `tests/test_c8_c15.py` (6 pure checks). (1) **Budget:** the hardcoded 2,000-token ceiling is gone — wide net now takes `max(1500, 0.3 × max_retrieval_tokens)`, so it scales with the C16 model-aware budget while staying deliberately tighter than normal retrieval. (2) **Trigger migrated off the legacy `max_confidence`** (max over all 25 probs — dominated by whichever head was peaked): `_head_confidences` splits topic/intent maxima from `raw_probs`, and the wide net fires only when **both** heads are weak (< threshold) — it's a degraded single-leg mode, so a peaked topic with a fuzzy intent no longer trips it, and a genuinely lost classification still does. DI3 fast-path results (all-zero probs) fall back to their explicitly-set confidence.
 
 ## <a id="c16"></a>C16 — Model-aware context budget + need-based filling
+
+**v3 correction, 2026-09-19:** the original static-before-evidence claim below
+was not implemented end-to-end: four optional blocks were counted as essential
+system text. Structured assembly plus bounded reassembly now fixes this, preserves
+separate project constraints each request, and returns an explicit error for known
+required overflow. Bookmarks share supported representation selection without
+prefix cuts. See `PROVENANCE.md` prompt-budget repair for validation limits.
 
 *DONE 2026-07-29.* [← back to the queue](ROADMAP.md#c16)
 
@@ -693,3 +713,92 @@ Order and section headings match ROADMAP.md.
     - **Threshold semantics changed for any non-unit-norm embedding.** The old path compared a raw dot product; the new one compares pgvector cosine, which normalises. For legacy 384-era rows — which the deleted comment itself notes "ran deflated for the whole 384 era" — the new path is strictly **more permissive** at the same threshold. Moot on an empty store; live the moment legacy data is imported ([F10](ROADMAP.md#f10)/LSREP).
   - **Validated:** pytest rails 346/346; live-DB retrieval 3, retrieval_failopen 27, session_scoping 40, timescope 61, relation_gaps 33, codex_write_path 23. Store residue from a crashed intermediate run (4 entities, 2 edges, 2 events, all `test_retrieval_failopen` fixtures) removed and verified 0/0/0 — the suite's cleanup is correct, it simply never ran (TRAPS #6).
   - *(Entry written 2026-08-12, not by the session that did the work. G41 was announced in commit `1af1126`'s subject line "(new G41)" and in a session handoff, and **given no roadmap entry at all** — zero mentions in ROADMAP.md. That is the fourth instance of the phantom-item failure after [G27](ROADMAP.md#g27), [G34](#g34) and [G35](#g35), and the rule against it is in the roadmap's own preamble: **open the item in the same edit that announces it**. The work itself was reviewed line by line and is correct; only the bookkeeping was missing.)*
+
+
+## G62 — relation-name expiry repair (v3, 2026-09-13)
+<a id="g62"></a>
+
+The old relation map served both canonicalization and deterministic expiry.
+Converses such as buys/sells therefore risked retiring coexisting facts. The
+recorded historical extraction arm had no antonym hits; that was absence of
+activation, not proof the rule was correct.
+
+Separated canonical anti-merge pairs from opposition candidates. All opposition
+candidates now require source reconciliation or review. Removed the independent
+same-endpoints/different-relation expiry branch; reinforcement matches relation
+and polarity too. Reconciliation reads complete source within an8192-token
+configurable bound and requires an exact, complete model decision.
+
+Background polarity/opposition candidates produce deduplicated review issues,
+not automatic graph expiry. REST/MCP approval requires explicit keep_edge_ids
+(both/one/neither), journals selected expiries and refreshes endpoint payloads.
+Missing/foreign choices fail before approval. Existing proposal caps apply.
+
+Validated264 smoke/extraction/conflict controls and45 standalone maintenance
+checks in disposable databases. Initial conflict fixtures omitted source_batch;
+fixed fixtures. Two legacy maintenance expectations assumed automatic expiry
+and were corrected before45/45 passed. Controlled model outputs establish
+mechanics, not real-model contradiction accuracy.
+
+**Still open in the repair phase:** source-attributed autonomous reconciliation,
+property/single-valued semantics, explicit-negation temporal ordering and
+open-vocabulary conflict detection. This closes vocabulary-authorized expiry,
+not all graph correctness. Spec: V3_REPAIR.md; D1/D2 override propagated.
+
+
+## G38 — retrieval writes and evidence separation (v3, 2026-09-13)
+<a id="g38"></a>
+
+The original item identified three retrieval commits but called graph promotion
+on read load-bearing. That conflated popularity with independent support: a
+candidate could gain strength and become active without reaching the prompt or
+receiving another source assertion. The authorized v3 repair removes that graph
+writer and its four settings. Extraction corroboration remains a separate writer.
+
+Episodic access/decay changes now deduplicate row IDs (multiple chunks count as
+one access) and use one atomic SQL update. The existing write-off setting also
+covers cold restoration; it no longer relies on an empty cold store. Old harness
+references to the removed settings were updated, without experiment redesign.
+
+Validated390 smoke/settings/database checks, including repeated real graph
+retrieval without promotion, duplicate-chunk access and write-off restoration.
+The61 temporal regression checks also passed in a disposable database.
+These are controlled mechanics, not proof that memory improves answers.
+Final-prompt/answer-use tracing and source-ledger corroboration remain under the
+active repair phase; retrieval selection counters are not final exposure.
+
+## <a id="g64"></a>G64 — searchable attributed source sentences (v3, 2026-09-14)
+
+Implemented CodexClaim plus claim/edge links, exact source offsets/hash and role,
+complete paragraph fallback, pinned NLI compression, direct lexical/vector search
+without entity recognition, and graph/tag rendering from linked evidence.
+Negative facts remain answerable without graph traversal. Original triple columns
+and source notes remain stored; legacy rendered material is labeled unverified.
+Warm and cold source lookup honor source edits/privacy, with warm state winning.
+Conversation/turn deletion removes claims. No automatic legacy reseed.
+
+This item originally described no sentence reader and later kept itself open on
+all semantic-verification work. That conflated delivery with separate repairs:
+summary support and autonomous conflict handling remain G76; cold cluster metadata
+belongs to lifecycle repair; held-out answer benefit remains final evaluation.
+NLI controls compression, not world truth or permission to expire old assertions.
+Cold claims are withheld under cluster inclusion/exclusion until membership exists.
+
+Historical design context follows; its statements of current absence are superseded:
+
+**Historical G64 design — Store each fact as a SENTENCE beside the triple** `(design — opened 2026-08-24, from Graphiti)`. The proposed v3 addition is a full claim sentence with its own searchable representation beside the triple. Current ICE has entity matching, descriptor fallback and entity-less enumeration, but no general sentence-level fact-search path.
+  - **v3 repair 2026-09-14:** source sentence/paragraph storage, authoritative role units, source hashes, graph links and entity-independent lexical/vector search implemented. Qualified adversarial NLI controls sentence shortening with whole-source fallback. New extraction only; cached graph rendering, cold lookup, semantic conflict/summary consumers and broad answer validation still pending. This item remains open until those integration limits are resolved.
+  - **v3 repair, 2026-09-12 — shared relevance ordering shipped, sentence storage still open:** the pinned local Qwen3-Reranker-0.6B scores rendered candidates from all legs and their compressed alternatives in both retrieval paths, before conversation caps. Successful reranking packs by relevance without type quotas. Synthetic answering-item rank 15/15 and 2/2 production selection controls pass; these are not answer-quality/vector-benchmark results. Zero-score rejection admitted 4/45 distractors and stays unset. The candidate cap, summary faithfulness and sentence extraction remain separate repair work. See PROVENANCE and V3_REPAIR spec.
+  - **v3 review, 2026-09-12 — proposed evidence contract:** retain a source-backed claim sentence plus exact evidence references, speaker/assertion status, scope, time and existing triple links. Generate the sentence from source, not by verbalizing a possibly reversed triple. Add direct sentence search under existing visibility rules. Example: “we considered SQLite, then chose PostgreSQL” must retain the difference between proposal and decision. Qualify a replaceable support verifier before using it to authorize substitution; see **G76 — attributed claims and support verification**, e.g. an assistant suggestion must remain a suggestion. No implementation approved by this review.
+  - **Three things this buys, in order of value:**
+    1. **General fact search can work without a matched entity name.** Current v3 already has descriptor fallback and entity-less enumeration; neither is a general semantic search over claim sentences.
+    2. **The prompt can render the sentence instead of the bare triple.** A reversed triple currently becomes a flat false assertion handed to the chat model. ⚑ **ICE's design makes triple correctness MORE load-bearing than Graphiti's**, purely because of how we present it.
+    3. A fact becomes findable by what it says, not only by walking to it.
+  - **Keep the columns.** `subject`/`relation`/`object` stay so `loves` is still walkable — Graphiti cannot do "list everything X loves" without hoping an embedding matches.
+  - ⚑ **A sentence carries direction in its grammar; three slots carry it in slot order.** So this may blunt the reversal damage without fixing extraction. **The cheap test:** ask the model for the same fact as a sentence AND as a triple, and see whether the sentence is right when the triple is backwards.
+  - **KEEP FROM ICE:** source grounding and explicit polarity (`negated`). Name occurrence is not proof that a relation is true. **Correction, 2026-09-12:** the prior example used here was supported by its source, as the repository had already recorded; it cannot justify a hallucination filter. No claim about another framework's current capabilities is needed for this decision.
+  - ⛔ **REFUSE: LLM-chosen `valid_at`/`invalid_at` and LLM-chosen contradiction IDs.** Silently expires the wrong history when it misfires. [G51](#g51) already cost us 667 true facts to a silent expiry bug.
+  - ⛔ **REFUSE: their ENTITY dedup (embed the name → cosine search → LLM tiebreak). [G50](#g50) TESTED THIS AND REJECTED IT ON EVIDENCE, 2026-08-17.** *"High cosine is exactly the condition under which the embedding cannot separate the pair, so a small judge fails the same way; the failures correlate rather than check each other."* At ≥0.98 the band holds `two sagas`/`four sagas` (0.9889), `his father`/`her father` (0.9827), `8 gb`/`4 gb` (0.9852) alongside genuine duplicates. G50 shipped a deterministic **write-time `merge_key` tier** in `get_or_create_entity` instead, and the safe half of that band is caught there with no model at all.
+    - ⚠ **I proposed this Graphiti dedup on 2026-08-24 without checking, and the maintainer caught it — [TRAPS #42](TRAPS.md).** Recorded so the next session does not propose it a third time.
+    - ⚑ **What remains genuinely unsolved:** `merge_key` is deterministic normalisation, so morphological variants of one referent — NuExtract3 emitted `nobody`, `no one` and `no body` as three subjects on ONE turn — still mint three unconnected nodes. That is a real defect of [G63](#g63)'s candidate model, it is **not** closed by G50, and the obvious fix is the one G50 already refused. Needs a new idea, not a re-run.
+  - ⚠ Their fact quality is **mostly model, not philosophy** — gpt-4o-mini vs our local 3B. Their own docs warn small models fail their ingestion.

@@ -2,29 +2,31 @@
 
 from datetime import datetime, timedelta, timezone
 
-from src.api.config import settings
 import structlog
-from sqlalchemy import or_
+from sqlalchemy import text
 
+from src.api.config import settings
 from src.api.db import SessionLocal
-from src.memory.embedder import get_embedder
-from src.memory.models import BatchSummary, EpisodicMemory
 from src.memory import tokens
+from src.memory.embedder import get_embedder
+from src.memory.models import BatchSummary, ColdStorage, EpisodicMemory
+from src.memory.summary_snapshot import (
+    SUMMARY_SOURCES_SQL, batch_snapshot_readable, bind_snapshot, compose_parts,
+    source_snapshot,
+)
+from src.memory.support import verify_support
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+from src.workers.completion_text import IncompleteCompletion, complete_text
+from src.workers.conversation_summary import _original_groups, _source_note, _summary_embedding
+
 
 logger = structlog.get_logger("ice.workers.batch_summarizer")
 bg_client = get_bg_client()
 # The process-shared native-width embedder (G13/G23).
 embedder = get_embedder()
 
-# G11: a turn this old compresses regardless of decay score. Decay alone left
-# old-but-accessed turns in long conversations uncompressed forever, and long
-# conversations are the case compression exists for. A module constant for now,
-# like the other worker tuning constants; G9 sweeps these into settings.
-
-# The prompt + system message + chat-template envelope, generously rounded. Kept
-# as a constant rather than measured so the prompt text below stays the single
-# place it is written; `token_count_safety_margin` already covers the slack.
+# Rough sizing for initial grouping only. _batch_llm checks the complete
+# attributed request plus output reserve against the serving window.
 _PROMPT_OVERHEAD_TOKENS = 128
 
 
@@ -65,6 +67,69 @@ def _token_batches(turns, budget):
         yield start, batch
 
 
+def _batch_llm(prompt, max_tokens):
+    messages = [
+        {"role": "system", "content": "You are a precise summarisation engine."},
+        {"role": "user", "content": prompt},
+    ]
+    from src.model_registry.registry import get_model_context_window
+    from src.model_registry.runtime_probe import serving_window
+    model = get_bg_model_name()
+    window = int(settings.ollama_num_ctx_max)
+    if settings.background_model_mode == "shared":
+        observed = serving_window(model, get_model_context_window(model))
+        if observed:
+            window = min(window, int(observed)) if window > 0 else int(observed)
+    required = tokens.with_margin(tokens.count_messages(messages),
+                                  settings.token_count_safety_margin) + max_tokens
+    if window <= 0 or required > window:
+        logger.warning("batch_summary_input_over_budget", required=required, window=window)
+        raise IncompleteCompletion("complete batch-summary input exceeds known capacity")
+    return complete_text(bg_client.chat.completions.create(
+        model=model, messages=messages, temperature=0.0, max_tokens=max_tokens,
+        timeout=max(60.0, bg_timeout(max_tokens))))
+
+
+def _repair_stale_caches(db):
+    for summary in db.query(BatchSummary).order_by(BatchSummary.created_at, BatchSummary.id):
+        if batch_snapshot_readable(db, summary):
+            continue
+        db.query(EpisodicMemory).filter_by(batch_summary_id=summary.id).update(
+            {EpisodicMemory.batch_summary_id: None}, synchronize_session='fetch')
+        db.query(ColdStorage).filter_by(batch_summary_id=summary.id).update(
+            {ColdStorage.batch_summary_id: None}, synchronize_session='fetch')
+        db.delete(summary)
+    db.commit()
+
+
+def _eligible(turn, conv_id, cutoff):
+    return (str(turn.conversation_id) == conv_id
+            and turn.is_private is False and turn.is_document is False
+            and turn.lossless_flag is False and turn.batch_summary_id is None
+            and ((turn.decay_score is not None and turn.decay_score < .3)
+                 or turn.timestamp < cutoff))
+
+
+def _source_rows(db, ids):
+    return db.execute(text(f'''
+        SELECT * FROM ({SUMMARY_SOURCES_SQL}) e
+        WHERE e.id = ANY(CAST(:ids AS uuid[]))
+    '''), {'ids': list(ids)}).all()
+
+
+def _lock_tier(db, table, ids):
+    if not ids:
+        return
+    if table not in ('episodic_memory', 'cold_storage'):
+        raise ValueError('unknown batch source tier')
+    rows = db.execute(text(f'''
+        SELECT id FROM {table} WHERE id = ANY(CAST(:ids AS uuid[]))
+        ORDER BY id FOR UPDATE
+    '''), {'ids': ids}).all()
+    if {str(row.id) for row in rows} != set(ids):
+        raise ValueError('batch source moved or deleted during generation')
+
+
 def batch_summarize():
     """Compress old turns into per-conversation batch summaries. Plain callable
     since C7 — gating/retries live in the maintenance runtime.
@@ -90,15 +155,19 @@ def batch_summarize():
     """
     db = SessionLocal()
     try:
+        _repair_stale_caches(db)
         cutoff = datetime.now(timezone.utc) - timedelta(days=settings.batch_summary_age_days)
-        stale_turns = db.query(EpisodicMemory).filter(
-            EpisodicMemory.is_private == False,   # G16: incognito never summarised into shared stores
-            EpisodicMemory.batch_summary_id.is_(None),   # G11: not already covered
-            or_(EpisodicMemory.decay_score < 0.3,
-                EpisodicMemory.timestamp < cutoff),      # G11: age OR decay
-            EpisodicMemory.lossless_flag == False,
-            EpisodicMemory.is_document == False
-        ).order_by(EpisodicMemory.conversation_id, EpisodicMemory.timestamp).all()
+        stale_turns = db.execute(text(f'''
+            SELECT * FROM ({SUMMARY_SOURCES_SQL}) e
+            WHERE e.conversation_id IS NOT NULL
+              AND e.is_private IS FALSE
+              AND e.batch_summary_id IS NULL
+              AND e.lossless_flag IS FALSE
+              AND e.is_document IS FALSE
+              AND ((e.decay_score IS NOT NULL AND e.decay_score < 0.3)
+                   OR e.timestamp < :cutoff)
+            ORDER BY e.conversation_id, e.timestamp, e.id
+        '''), {'cutoff': cutoff}).all()
 
         # Group by conversation; the batching inside is by TOKEN BUDGET,
         # not a turn count — see `_token_batches`.
@@ -130,32 +199,46 @@ def batch_summarize():
                 # is precisely how a single 400 produced an arm with zero
                 # summaries while two fitting batches never ran.
                 try:
-                    # Assemble the raw text
-                    combined = "\n\n".join(t.raw_text for t in batch)
-                    prompt = (
-                        "Summarise the following conversation excerpt in 2‑3 paragraphs. "
-                        "Preserve all names, numbers, decisions, and specific facts. "
-                        "Output only the summary."
-                    )
-                    completion = bg_client.chat.completions.create(
-                        model=get_bg_model_name(),
-                        messages=[
-                            {"role": "system", "content": "You are a concise summarisation engine."},
-                            {"role": "user", "content": f"{prompt}\n\n{combined}"}
-                        ],
-                        temperature=0.0,
-                        max_tokens=settings.batch_summary_max_tokens,
-                        # prefill-heavy (a budget's worth of turns in the
-                        # prompt): keep the old 60s floor — G12's formula
-                        # scales with output only.
-                        timeout=max(60.0, bg_timeout(settings.batch_summary_max_tokens))
-                    )
-                    summary_text = completion.choices[0].message.content.strip()
-                    if not summary_text:
-                        continue
-
-                    # Store with embedding
-                    embedding = embedder.encode(summary_text, convert_to_tensor=False).tolist()
+                    ids = {str(turn.id) for turn in batch}
+                    # The tier may change between initial selection and this
+                    # refresh. Generate from the refreshed complete originals.
+                    refreshed_batch = _source_rows(db, ids)
+                    if len(refreshed_batch) != len(batch) or any(
+                            not _eligible(turn, conv_id, cutoff) for turn in refreshed_batch):
+                        raise ValueError("batch source eligibility changed")
+                    batch = sorted(refreshed_batch, key=lambda turn: (turn.timestamp, str(turn.id)))
+                    batch_tokens = sum(tokens.count(turn.raw_text or '') for turn in batch)
+                    before = [item for item in source_snapshot(db, conv_id) if item['id'] in ids]
+                    if len(before) != len(batch):
+                        raise ValueError("batch source identity changed while loading")
+                    parts = []
+                    for group, source, known_roles in _original_groups(batch):
+                        note = _source_note(group, source, known_roles, _batch_llm,
+                                            verify_support,
+                                            max_tokens=settings.batch_summary_max_tokens)
+                        if note is None:
+                            raise IncompleteCompletion("empty batch source note")
+                        parts.append(note)
+                    summary_text = compose_parts(parts)
+                    embedding = _summary_embedding(summary_text, embedder)
+                    if hasattr(embedding, 'tolist'):
+                        embedding = embedding.tolist()
+                    # Lock both physical tiers before validating source identity
+                    # and writing coverage. A concurrent archive/restore moves
+                    # a row between them and invalidates this attempt.
+                    warm_ids = [str(t.id) for t in batch if t.storage_tier == 'warm']
+                    cold_ids = [str(t.id) for t in batch if t.storage_tier == 'cold']
+                    _lock_tier(db, 'episodic_memory', warm_ids)
+                    _lock_tier(db, 'cold_storage', cold_ids)
+                    locked = _source_rows(db, ids)
+                    if (len(locked) != len(batch)
+                            or {str(t.id): t.storage_tier for t in locked}
+                               != {str(t.id): t.storage_tier for t in batch}
+                            or any(not _eligible(t, conv_id, cutoff) for t in locked)):
+                        raise ValueError("batch source eligibility or tier changed during generation")
+                    after = [item for item in source_snapshot(db, conv_id) if item['id'] in ids]
+                    if before != after or len(before) != len(batch):
+                        raise ValueError("batch sources changed during generation")
                     summary = BatchSummary(
                         conversation_id=batch[0].conversation_id,
                         # ⚠ Write-only legacy (see models.py): positions in THIS
@@ -164,7 +247,8 @@ def batch_summarize():
                         start_turn_index=start,
                         end_turn_index=start + len(batch) - 1,
                         summary_text=summary_text,
-                        embedding=embedding
+                        embedding=embedding,
+                        source_manifest=bind_snapshot(before, summary_text, parts=parts)
                     )
                     db.add(summary)
                     db.flush()          # need the id before stamping the turns
@@ -172,8 +256,17 @@ def batch_summarize():
                     # covers, in the SAME transaction as the summary. Committing the
                     # summary without the stamps would recreate the duplicate-work
                     # bug on the next pass, so these cannot be separated.
-                    for t in batch:
-                        t.batch_summary_id = summary.id
+                    for table, tier_ids in (('episodic_memory', warm_ids),
+                                            ('cold_storage', cold_ids)):
+                        if tier_ids:
+                            stamped = db.execute(text(f'''
+                                UPDATE {table} SET batch_summary_id = :summary_id
+                                WHERE id = ANY(CAST(:ids AS uuid[]))
+                                  AND batch_summary_id IS NULL
+                                RETURNING id
+                            '''), {'ids': tier_ids, 'summary_id': summary.id}).all()
+                            if len(stamped) != len(tier_ids):
+                                raise ValueError("batch coverage changed before stamp")
                     db.commit()
                     logger.info("batch_summary_created", conv_id=conv_id,
                                 turns=len(batch), summary_id=str(summary.id))
@@ -183,16 +276,22 @@ def batch_summarize():
                     # hides an outage). rollback() first: the batch may have
                     # already added and flushed its summary row.
                     db.rollback()
+                    from src.workers.runtime import JobYielded
+                    if isinstance(exc, JobYielded):
+                        raise
                     logger.warning(
                         "batch_summary_batch_failed", conv_id=conv_id,
                         turns=len(batch), tokens=batch_tokens, budget=budget,
-                        error=str(exc)[:300],
+                        error=type(exc).__name__,
                     )
                     continue
 
     except Exception as exc:
         db.rollback()
-        logger.error("batch_summarization_failed", error=str(exc))
+        from src.workers.runtime import JobYielded
+        if isinstance(exc, JobYielded):
+            raise
+        logger.error("batch_summarization_failed", error=type(exc).__name__)
         raise
     finally:
         db.close()

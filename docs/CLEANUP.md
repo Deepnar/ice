@@ -1025,3 +1025,71 @@ the results ignore rule. Local agent instruction files remain local via
 `.git/info/exclude`; their contents and all v3 work are unchanged. Paper scratch
 work remains under the existing ignored `experiments/curation_files/` directory.
 No source or canonical manuscript path was moved or renamed.
+
+## 2026-09-12 — v3 extraction repair
+
+Removed the order-sensitive triplet salvage regex and unsupported emotion/self-reference filters from `codex_extractor.py`; complete JSON parsing now lives in `workers/extraction_result.py`. This avoids silently discarding negation, valid emotion values and reflexive claims. Updated stale lossless-gate and bookmark-priority comments; sorted imports in touched files.
+
+## 2026-09-12 — v3 shared turn readers
+
+Moved duplicate turn-representation decisions into `memory/representation.py`.
+Removed implicit 300-character fallback cuts and the literal reader threshold;
+updated legacy NULL-coverage/abstract test expectations to the new contract.
+Imports sorted in touched production files. No source files moved or deleted.
+
+## 2026-09-12 — v3 relevance selection
+
+Added the shared local reranker before candidate caps/collapse in both retrieval
+paths. Corrected stale no-model/abstract-eligibility comments in the orchestrator.
+Successful reranking bypasses the legacy source-quota packer; that packer remains
+the explicit disabled/degraded fallback. No source files moved or deleted.
+
+## 2026-09-13 — v3 timestamp presentation
+
+Centralized timestamp formatting and removed misleading date-only/since comments.
+Temporal tests now require a disposable database because worker calls mutate the
+whole store. The settings-path test isolates file loading from environment
+overrides and does not print database URLs on assertion failure. No files moved.
+
+## 2026-09-13 — v3 lexical normalization
+
+Removed the ASCII-only preprocessing, duplicate stopword list and first-30-word
+cut from the lexical query path. Corrected docs that called PostgreSQL ts_rank
+BM25 scoring or described the OR query as AND. No files moved.
+
+## 2026-09-13 — v3 conflict evidence boundary
+
+Renamed the mixed antonym map to relation-separation pairs and separated the
+opposition candidate map. Removed same-endpoints/different-relation expiry and
+its obsolete comments. Removed truncated reconciliation input and substring
+verdict parsing. Updated maintenance expectations to source-required proposals.
+No files moved. Background review issues have REST/MCP decision consumers.
+
+## 2026-09-13 — v3 retrieval evidence separation
+
+Deleted the candidate-time graph reinforcement method and four settings used
+only by it; removed their live harness/freeze-test references. Updated stale
+relation-switch comments. Episodic access updates are deduplicated and batched;
+cold restoration respects the shared write switch. No files moved.
+
+## 2026-09-13 — v3 authoritative source metadata
+
+Added one shared writer/validator for role offsets rather than parsing message
+labels as evidence of authorship. Recent raw chat rendering consumes validated
+spans. Cold archive/restoration retains source spans and timestamp provenance.
+No backfill or raw-text rewriting; additive migration only. No files moved.
+
+### 2026-09-20 — v3 fold prefix-cap retirement
+
+Removed `conversation_summary_per_turn_words` and its settings-freeze row: it
+silently clipped evidence before generation. Whole-unit grouping and complete
+request token bounds now control input size. Removed generated-summary word cuts;
+`conversation_summary_max_words` remains a generation target. No files moved or
+deleted. Active spec, architecture, inventory and roadmap references updated.
+
+## 2026-09-21 — v3 retrieval prefix-cut retirement
+
+Removed `_truncate_at_sentence` after replacing its last cold-reader caller with
+the shared representation selector; removed obsolete prefix-cut controls.
+Removed `RerankerInputTooLong`: oversized pairs now produce explicit unscored
+fallbacks. No files deleted or moved. Adjacent classifier constants/cache retained.

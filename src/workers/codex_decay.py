@@ -1,7 +1,7 @@
 """Codex Edge Decay – periodically reduces strength of unreinforced edges.
 
 Runs on the maintenance runtime's cadence; ``cycles`` compresses missed runs
-closed-form (C7 D5), with demotion/expiry thresholds applied once at the end —
+closed-form (C7 D5), with a retention floor applied once at the end —
 identical to N sequential runs.
 """
 
@@ -26,44 +26,19 @@ def decay_rate() -> float:
 
 
 def decay_codex_edges(cycles: int = 1):
-    """Decay strength of live Codex edges, demote weak ones."""
+    """Decay retention priority; preserve confidence and historical validity."""
     cycles = max(1, min(int(cycles), settings.runtime_cycles_cap))
     db = SessionLocal()
     try:
-        # 1. Decay ALL live conversation edges — pending included (A3).
-        #    Previously only active edges decayed, so a retrieval-reinforced
-        #    pending edge could inflate forever without ever entering the
-        #    decay cycle. E1b (D3): derived memory (static_analysis/derived
-        #    sources) is decay-EXEMPT — the code graph is regenerated from
-        #    source, not earned through use; forgetting it would just desync
-        #    the map from the repo.
+        # Nonuse reduces retention priority, not support or temporal validity.
+        # A quiet true fact stays queryable; correction/deletion owns retirement.
         db.execute(text("""
             UPDATE codex_edges
-            SET strength = strength * POWER(:rate, :cycles)
+            SET strength = GREATEST(:floor, strength * POWER(:rate, :cycles))
             WHERE valid_until IS NULL
               AND source = 'conversation'
-        """), {"rate": decay_rate(), "cycles": cycles})
-        # 2. Demote active edges that fell below threshold
-        db.execute(text("""
-            UPDATE codex_edges
-            SET confidence = 'pending'
-            WHERE confidence = 'active'
-              AND valid_until IS NULL
-              AND source = 'conversation'
-              AND strength < :thresh
-        """), {"thresh": settings.codex_demotion_threshold})
-        # 3. A3 garbage collection: pending edges that decayed to near-zero
-        #    without ever being corroborated or retrieved are expired —
-        #    uncorroborated low-trust residue (e.g. grounding-rejected
-        #    triplets) leaves the live graph instead of accumulating.
-        db.execute(text("""
-            UPDATE codex_edges
-            SET valid_until = NOW()
-            WHERE confidence = 'pending'
-              AND valid_until IS NULL
-              AND source = 'conversation'
-              AND strength < :expiry
-        """), {"expiry": settings.codex_expiry_threshold})
+        """), {"rate": decay_rate(), "cycles": cycles,
+               "floor": settings.codex_retention_floor})
 
         db.commit()
         logger.info("codex_decay_cycle_complete", cycles=cycles)

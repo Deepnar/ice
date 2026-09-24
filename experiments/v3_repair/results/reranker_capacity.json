@@ -1,0 +1,17 @@
+{
+  "version": "ICE v3",
+  "model": "Qwen/Qwen3-Reranker-0.6B",
+  "revision": "e61197ed45024b0ed8a2d74b80b4d909f1255473",
+  "max_pair_tokens": 512,
+  "synthetic_control": true,
+  "controls": {
+    "ranking_succeeded": true,
+    "answer_first": true,
+    "oversized_source_preserved": true,
+    "packing_selects_answer": true
+  },
+  "scored_order": [
+    "Atlas listens on port 8391.",
+    "Boreal listens on port 4422."
+  ]
+}

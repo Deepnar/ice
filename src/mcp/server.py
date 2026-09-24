@@ -159,16 +159,30 @@ def _bad_action(tool: str, action: str, valid: tuple) -> ValueError:
 
 @mcp.tool()
 def ice_context(task: str, conversation_id: Optional[str] = None,
-                budget: Optional[int] = None) -> dict:
+                budget: Optional[int] = None,
+                project: Optional[str] = None) -> dict:
     """Pull the user's relevant long-term memory for a task or question —
     call this BEFORE grepping the codebase or asking the user something they
-    may have already told ICE. Returns structured fragments (past turns,
+    may have already told ICE. Pass a project-attached conversation_id or a
+    project name/slug to include that project's do-not-touch constraints;
+    omit both for shared non-private memory without project decisions. Choose
+    only one selector. Returns structured fragments (past turns,
     knowledge-graph notes, procedural patterns, idea timelines) with scores
     and provenance, plus the classifier's read of the task. The first call in
     a fresh session loads the classifier (a few seconds, one-time)."""
+    if conversation_id is not None and not str(conversation_id).strip():
+        raise ValueError("conversation_id cannot be blank")
+    if project is not None and not str(project).strip():
+        raise ValueError("project cannot be blank")
+    if conversation_id is not None and project is not None:
+        raise ValueError("Choose either conversation_id or project for ice_context")
     _journal("ice_context", words=len(task.split()))
-    scope = {"conversation_id": conversation_id} if conversation_id else None
     with _session() as db:
+        if project is not None:
+            from src.services.scoping import resolve_project_pull_scope
+            scope = resolve_project_pull_scope(db, project)
+        else:
+            scope = {"conversation_id": conversation_id} if conversation_id else None
         return retrieval_svc.context_for(db, task, scope=scope, budget=budget)
 
 
@@ -309,7 +323,8 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
     pick wins over ICE's automatic one); "excluded_conversation_ids" /
     "excluded_cluster_ids" — never retrieve these, in any mode, without
     deleting them. Each is None = leave unchanged, [] = clear);
-    "review_list"/"review_approve"/"review_reject" → agent proposals;
+    "review_list"/"review_approve"/"review_reject" → agent proposals
+    (contradiction approval requires data.keep_edge_ids: keep both, one or []);
     "registry_view"/"registry_edit" → the model registry.
     Coding core (E1): "project_register" (data: name, root, install_git_hook
     — ASK THE USER before installing the git hook), "project_list",
@@ -353,7 +368,7 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
         if action == "review_list":
             return review_svc.list_items(db, status)
         if action == "review_approve":
-            return review_svc.approve(db, item_id)
+            return review_svc.approve(db, item_id, keep_edge_ids=d.get("keep_edge_ids"))
         if action == "review_reject":
             return review_svc.reject(db, item_id)
         if action == "registry_view":

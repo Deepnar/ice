@@ -49,6 +49,15 @@ not bare substrings — `"Negations: NOT uses → x"` legitimately contains
 `"uses → x"`.
 
 ### 6. A crashed or leaky test leaves rows behind, and they fail a *different* test later
+**Re-earned 2026-09-13 — cleanup is not isolation.** The temporal suite cleaned
+its own rows but called whole-store `apply_decay()` twice. Running it on the
+working store changed 180 unrelated seeded scores. Each was verified as exactly
+two cycles from 1.0 and those identifiable score changes were restored. The
+suite now refuses the working database and runs through
+`tests/support/disposable_database.py`, which creates and removes an isolated
+PostgreSQL database. Audit every worker a test calls, not just its INSERT/DELETE
+statements; snapshots and tuning arms must isolate writes as well as fixtures.
+
 `test_documents`' cleanup once selected its rows from a hardcoded filename
 allow-list, so every new fixture leaked.
 **Re-earned 2026-08-03, and this time it broke an unrelated suite:** two orphan
@@ -1641,3 +1650,40 @@ parity. Before accepting an inference optimisation, hold the prompt fixed and
 assert a semantic property with direction—not merely a non-empty parse. If the
 writer changes, every downstream answer changes, so either rerun every control
 under the new writer or reject the substitution.
+
+### 60. ORM-created test stores can omit the production constraint being tested
+
+**v3, 2026-09-20.** The isolated conversation/slot suite reported a failed slot
+uniqueness check and a failed review update. The wrapper correctly used a fresh
+database, but `Base.metadata.create_all` omitted the migration-only NULLS NOT
+DISTINCT index. A deliberately duplicated slot survived, and a later read could
+select that duplicate. The working store already had the correct index.
+
+Mirror the existing index in ORM metadata, then rerun:28/28 passed. Isolation
+prevents cross-suite residue; it does not establish migration/schema parity.
+Before changing a service to fix an isolated-test failure, inspect the actual
+constraints. Keep migration roundtrips separate from ORM-created behavior tests.
+
+### 61. Exception text can contain the memory a log was meant to protect
+
+**v3,2026-09-21.** An intentional idempotency collision during cold restoration
+returned a SQLAlchemy exception. The shared retrieval warning stringified it,
+which includes SQL parameters: raw evidence, speaker metadata and verification
+records. A log saying only that retrieval failed still copied its input payload.
+
+Keep exception class and SQLSTATE, plus the failing leg; do not stringify database
+or provider errors by default. A control planted private source text in an actual
+StatementError and asserted it never reached the logger while database rollback
+still occurred. Testing with a harmless ValueError would have missed the shape.
+
+### 62. A background task captures arguments before a streaming fallback chooses its model
+
+**v3, 2026-09-23.** The chat route added its post-flight task before the
+`StreamingResponse` generator ran. `model_used=model_to_use` therefore captured
+the *primary* model even if a timeout switched to the local fallback while
+streaming. The user saw and ICE stored fallback text, while post-flight was told
+the primary wrote it. The G32 native-transport repair now carries completion
+and final model identity in mutable generation state; a route control times out
+an external model, succeeds locally, and checks the model handed to maintenance.
+Whenever a value can change inside a lazy stream, test what the later callback
+receives, not what the request handler set before returning its response.

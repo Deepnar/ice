@@ -138,20 +138,15 @@ try:
     check("object payload is regenerated as well (A7 backlinks)",
           bool((obj.context_payload or "").strip()), repr(obj.context_payload))
 
-    # ── 3. negation expires the edge AND stops rendering it as current ────
-    # The A8 bug was that a retracted fact rendered as `Links: uses -> x`, i.e.
-    # the negation made the fact APPEAR. Two-sided assertion on purpose.
-    # A negation does NOT simply delete: it expires the positive edge AND
-    # writes an active edge carrying negated=True, so "we decided against X" is
-    # itself a retrievable fact rather than an absence. Both halves are asserted
-    # — an absence-only check would pass if negation wrote nothing at all.
-    print("── negation expires the positive edge and asserts the negative one ──")
+    # v3: polarity alone is not source evidence of retraction. Both assertions
+    # remain visible here; qualified retirement is tested in conflict_evidence.
+    print("── unqualified negation preserves both source assertions ──")
     handle_triplet(db, PROJ, "uses", DB1, BATCH, negated=True)
     db.commit()
     db.refresh(subj)
     actives = active_edges(db, PROJ)
-    check("no active POSITIVE edge remains",
-          not [e for e in actives if not e.negated],
+    check("the unsupported retraction leaves the positive edge live",
+          bool([e for e in actives if not e.negated]),
           f"{len([e for e in actives if not e.negated])} positive still active")
     check("an active NEGATED edge was written (the retraction is a fact)",
           any(e.negated for e in actives), f"{len(actives)} edges, none negated")
@@ -160,8 +155,8 @@ try:
     # contains "uses → x".
     payload = subj.context_payload or ""
     links = payload.split("Negations:")[0]
-    check("the retracted fact is NOT in the Links section (the A8 bug)",
-          DB1 not in links, repr(payload))
+    check("the unresolved positive assertion remains in the Links section",
+          DB1 in links, repr(payload))
     check("the retraction IS rendered under Negations (stated, not silent)",
           "Negations:" in payload and DB1 in payload.split("Negations:", 1)[1],
           repr(payload))

@@ -100,7 +100,7 @@ Everything else can run now, on turns read straight from
 | 0.1 | **[G32(a)](../../docs/ROADMAP.md#g32) native endpoint + per-request `keep_alive`** ⚠ do first — seeding is hours of background work and would otherwise inherit the host's residency policy. Same pass: `maintenance_agent`'s `json_object` (measured **0/8**) → `json_schema` (**8/8**) | no | — |
 | 0.2 | **Gold turns for the 174 anchorless probes** — safe now the model is settled; feasibility proven at **343/368 = 93%** | no | `derive_retrieval_gt.py` |
 | 0.3 | **[G73](../../docs/ROADMAP.md#g73) conversation fold** — 33-67% fabricated. A/B: fold against ORIGINAL turns · cap depth · apply the §1.1 softening | no | `judge_bg_quality.py --jobs conv_fold` |
-| 0.4 | **[G74](../../docs/ROADMAP.md#g74) cluster naming** — 62-76% wrong; the prompt contradicts itself | no | `--jobs cluster_name --naming-ab` |
+| 0.4 | **[G74](../../docs/ROADMAP.md#g74) cluster naming** — prior quality numbers RETRACTED; inspect real similarity-grouped members with recurring-entity hints | no | repair input parity before `--jobs cluster_name` |
 | 0.5 | **[G61](../../docs/ROADMAP.md#g61)** — four silent drops left in `extract_triplets` (1 of 6 fixed 2026-08-27) | no | code + logs |
 | 0.6 | **Reconciler `reject_new`** — 4 uses in 30 chances. ⚠ **build a real gold set first**; the current one is n=9 hand-written | no | `bg_model_bakeoff.py --jobs reconcile` |
 | 0.7 | **[G62](../../docs/ROADMAP.md#g62)** antonym branch — never fired (0 of 106) | no | — |

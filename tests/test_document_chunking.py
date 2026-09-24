@@ -3,7 +3,7 @@
 Covers: shared-chunker extraction (codex aliases intact), chunking worker
 (idempotency + catch-up), vector leg (doc rows excluded, chunks compete,
 privacy through the parent join), BM25 doc rows injecting relevant chunks,
-and the legacy no-chunks fallback (500-word cap, no more whole-doc dumps).
+and the complete legacy no-chunks candidate awaiting final token packing.
 
 Inserts its own rows, deletes them after. Run:
     uv run python tests/test_document_chunking.py
@@ -150,8 +150,8 @@ try:
     frags = orch._rows_to_fragments([row_legacy], "episodic",
                                     prompt_text="legacy words",
                                     classification=clf)
-    check("legacy doc without chunks: capped at ~500 words (no whole-dump)",
-          frags and len(frags[0].text.split()) <= 501)
+    check("legacy doc without chunks: complete evidence awaits budget decision",
+          frags and legacy.raw_text in frags[0].text and frags[0].covers_entire_source)
 
 finally:
     db.rollback()

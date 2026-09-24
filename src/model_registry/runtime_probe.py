@@ -9,11 +9,12 @@ machine for one loaded model, three sources disagreed three ways:
     the GGUF's own max    262,144
     derive_total_budget    40,000      <- 22% ABOVE what the server allocated
 
-Nothing reserved room for the answer either, and ICE never sends `num_ctx`, so
-the server applies its own default and truncates silently. Truncation keeps the
-newest messages, which means the most likely casualty is the retrieved-memory
-block ICE just spent a request building. The only reason this has not been
-catastrophic is that `growth_cap` accidentally kept retrieval tiny.
+Nothing reserved room for the answer either, and ICE historically sent
+`num_ctx` through Ollama's OpenAI-compatible shim, which discarded it. G32(b)
+now sends it on local native foreground requests. An external provider still
+controls its own window, and a model's architectural ceiling can still cut an
+oversized prompt. Truncation keeps the newest messages, so retrieved memory
+can be the casualty.
 
 This module reads the truth. It changes no decision on its own — it exists so
 that the budget can be reconciled against reality before anything starts

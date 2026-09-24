@@ -16,13 +16,17 @@
 
 ## 1. The configuration being seeded
 
-Everything below is now the shipped default except `codex_extraction_mode`,
-which is opt-in until the reseed proves itself.
+**v3 configuration correction, 2026-09-12:** template extraction is now the
+source default. The August 27 handoff separates the general background model
+from the extraction specialist; the reseed must preserve that separation.
+The general background selection below is the decided run pin, not a claim
+that `background_model_name` has a non-null source default.
 
 | setting | value | why |
 |---|---|---|
-| `codex_extraction_mode` | **`template`** ⚠ must be set explicitly | 63% vs 15% correct |
-| background model | **`hf.co/numind/NuExtract3-GGUF:Q8_0`** | G63 |
+| `codex_extraction_mode` | **`template`** (source default) | specialist template path |
+| general background model | **`gemma4:e4b`** (decided run pin) | summaries and other general background jobs; August 27 handoff |
+| `codex_extraction_model` | **`hf.co/numind/NuExtract3-GGUF:Q8_0`** | dedicated extraction pin, e.g. template-filling facts rather than summarizing |
 | `codex_extraction_ner_tier` | `background` (**NuNER**) | junk names 8.7% vs 19.5% |
 | `codex_extraction_max_tokens` | `3000` | 1200 lost 30 of 60 turns |
 | `codex_extraction_chunk_adaptive` | `True` | 550 split a 1,178-token turn into three |

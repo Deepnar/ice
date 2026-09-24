@@ -56,6 +56,12 @@ decisions 1–7 in the roadmap (which this spec turns into DDL and code).
 >    `(None, None)`). `_render_codex_entity` renders the full payload for
 >    non-conversation entities even under scope — the "leaks other convos"
 >    rationale doesn't apply to entities derived from the project itself.
+>    **G29 re-grounding (2026-09-23):** the vector matcher used raw SQL without
+>    `_entity_source_filters()`, unlike exact/payload matching. Current code-graph
+>    and project-fact writers leave derived embeddings NULL, but imported or
+>    externally populated derived vectors can still become unscoped anchors.
+>    Apply the same predicate *inside the ranked SQL query*, before `LIMIT`,
+>    so hidden near matches cannot crowd out a visible conversation entity.
 > 7. **Episodic project scope (D11):** main.py populates
 >    `scope["conversation_ids"]` (the project's non-incognito conversations) +
 >    `scope["project_id"]`; the episodic legs' conversation filter becomes
@@ -158,8 +164,16 @@ pull-discipline measurement).
   touch" / an error→fixed arc for incidents), A6-style: no cue, no LLM call.
   Dedupe/supersession: embedding similarity ≥0.85 against active decisions on
   overlapping files → conflict path (supersede or `review_queue`, reusing D1's
-  tiers). **`ice_context` surfaces `constraint` rows FIRST** whenever the task
-  mentions their files (the do-not-touch payoff).
+  tiers). **`ice_context` surfaces `constraint` rows FIRST** when the task
+  mentions their files *and the pull resolves that same project* (the
+  do-not-touch payoff). A projectless pull cannot claim a project decision:
+  skip constraints rather than scan every registered project's file names.
+  Project-attached conversations still resolve their project through the
+  shared scope resolver. A projectless MCP caller may instead choose a project
+  explicitly; that selector must build a complete closed project scope
+  (eligible project conversations plus their enabled documents), not a
+  constraint-only guess. Reject calls that supply both a conversation and a
+  project selector rather than silently picking one.
 - **D8 (E8): architecture-doc-as-view is a service, not a file.**
   `services/graph.py::render_architecture_doc(db, project_id)` — markdown from:
   module tree w/ per-module one-liners (docstring summaries), key decisions with

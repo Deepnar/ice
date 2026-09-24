@@ -1,19 +1,8 @@
 """G34: codex_relation_detection_enabled must make the A4 relation path inert.
 
-Why this exists. The obvious way to neutralise A4 for a run is to set
-`codex_relation_overlap_boost = 0.0`, and it does not work. That setting is read
-at exactly one site — the per-anchor score bump in `_codex_lookup` — while a
-detected relation has three OTHER effects that survive it:
-
-  1. its fact lines are appended to the anchor's fragment text, so they still
-     consume context budget and still change what the model reads;
-  2. its fact edges join `all_anchor_edges`, which `_reinforce_codex_edges`
-     writes to the store (strength +=, `pending` -> `active`) and COMMITS, so a
-     read mutates the graph;
-  3. it is passed to `_codex_enumeration` as half of that leg's grounded gate.
-
-So the kill-switch is placed at the source instead: `_detect_relations` returns
-an empty list, and every downstream site is guarded by `if detected_relations:`.
+The relation detector's switch must avoid its candidate work. Graph retrieval
+no longer writes evidence strength or promotes pending edges (v3 repair).
+This tests the detector boundary, not every downstream relation-fact path.
 
 No DB and no model. The gloss vocabulary is stubbed and the embedding channel is
 skipped (`prompt_embedding=None`), because the question here is whether the flag

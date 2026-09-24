@@ -1,0 +1,350 @@
+{
+  "version": "v3",
+  "model": "gemma4:e4b",
+  "limitation": "Synthetic qualification only; source eligibility tested separately in SQL.",
+  "passed": 12,
+  "total": 12,
+  "rows": [
+    {
+      "name": "replacement",
+      "context": {
+        "subject": "Atlas",
+        "old_relation": "uses",
+        "old_object": "SQLite",
+        "relation": "uses",
+        "object": "PostgreSQL",
+        "old_negated": false,
+        "negated": false,
+        "turn": "Atlas has replaced SQLite with PostgreSQL. SQLite is no longer used.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "Atlas uses SQLite."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "Atlas has replaced SQLite with PostgreSQL. SQLite is no longer used."
+        }
+      },
+      "expected": [
+        "expire_old"
+      ],
+      "decision": "expire_old",
+      "passed": true
+    },
+    {
+      "name": "addition",
+      "context": {
+        "subject": "Atlas",
+        "old_relation": "uses",
+        "old_object": "SQLite",
+        "relation": "uses",
+        "object": "PostgreSQL",
+        "old_negated": false,
+        "negated": false,
+        "turn": "Atlas also uses PostgreSQL for production.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "Atlas uses SQLite for local tests."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "Atlas also uses PostgreSQL for production."
+        }
+      },
+      "expected": [
+        "keep_both"
+      ],
+      "decision": "keep_both",
+      "passed": true
+    },
+    {
+      "name": "proposal",
+      "context": {
+        "subject": "Atlas",
+        "old_relation": "uses",
+        "old_object": "SQLite",
+        "relation": "uses",
+        "object": "PostgreSQL",
+        "old_negated": false,
+        "negated": false,
+        "turn": "We might replace SQLite with PostgreSQL, but have not decided.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "Atlas uses SQLite."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "We might replace SQLite with PostgreSQL, but have not decided."
+        }
+      },
+      "expected": [
+        "keep_both",
+        "reject_new"
+      ],
+      "decision": "keep_both",
+      "passed": true
+    },
+    {
+      "name": "negation",
+      "context": {
+        "subject": "Atlas",
+        "old_relation": "uses",
+        "old_object": "SQLite",
+        "relation": "uses",
+        "object": "SQLite",
+        "old_negated": false,
+        "negated": true,
+        "turn": "Atlas no longer uses SQLite. We removed it yesterday.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "Atlas uses SQLite."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "Atlas no longer uses SQLite. We removed it yesterday."
+        }
+      },
+      "expected": [
+        "expire_old"
+      ],
+      "decision": "expire_old",
+      "passed": true
+    },
+    {
+      "name": "quoted_denial",
+      "context": {
+        "subject": "Atlas",
+        "old_relation": "uses",
+        "old_object": "SQLite",
+        "relation": "uses",
+        "object": "SQLite",
+        "old_negated": false,
+        "negated": true,
+        "turn": "Someone claimed \"Atlas no longer uses SQLite\". That claim is false; Atlas still uses it.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "Atlas uses SQLite."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "Someone claimed \"Atlas no longer uses SQLite\". That claim is false; Atlas still uses it."
+        }
+      },
+      "expected": [
+        "keep_both",
+        "reject_new"
+      ],
+      "decision": "keep_both",
+      "passed": true
+    },
+    {
+      "name": "two_locations",
+      "context": {
+        "subject": "I",
+        "old_relation": "lives_in",
+        "old_object": "Paris",
+        "relation": "lives_in",
+        "object": "Rome",
+        "old_negated": false,
+        "negated": false,
+        "turn": "I live in Rome during summer and Paris during winter.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "I live in Paris during winter."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "I live in Rome during summer and Paris during winter."
+        }
+      },
+      "expected": [
+        "keep_both"
+      ],
+      "decision": "keep_both",
+      "passed": true
+    },
+    {
+      "name": "move",
+      "context": {
+        "subject": "I",
+        "old_relation": "lives_in",
+        "old_object": "Paris",
+        "relation": "lives_in",
+        "object": "Rome",
+        "old_negated": false,
+        "negated": false,
+        "turn": "I moved to Rome permanently and no longer live in Paris.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "I live in Paris."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "I moved to Rome permanently and no longer live in Paris."
+        }
+      },
+      "expected": [
+        "expire_old"
+      ],
+      "decision": "expire_old",
+      "passed": true
+    },
+    {
+      "name": "multiple_properties",
+      "context": {
+        "subject": "Atlas",
+        "old_relation": "color",
+        "old_object": "blue",
+        "relation": "color",
+        "object": "red",
+        "old_negated": false,
+        "negated": false,
+        "turn": "The Atlas logo includes both blue and red.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "The Atlas logo includes blue."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "The Atlas logo includes both blue and red."
+        }
+      },
+      "expected": [
+        "keep_both"
+      ],
+      "decision": "keep_both",
+      "passed": true
+    },
+    {
+      "name": "old_event",
+      "context": {
+        "subject": "Atlas",
+        "old_relation": "uses",
+        "old_object": "SQLite",
+        "relation": "uses",
+        "object": "PostgreSQL",
+        "old_negated": false,
+        "negated": false,
+        "turn": "Historical note: Atlas used PostgreSQL in 2020, before switching to SQLite.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "Atlas uses SQLite now."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "Historical note: Atlas used PostgreSQL in 2020, before switching to SQLite."
+        }
+      },
+      "expected": [
+        "keep_both",
+        "reject_new"
+      ],
+      "decision": "keep_both",
+      "passed": true
+    },
+    {
+      "name": "conditional_denied",
+      "context": {
+        "subject": "Atlas",
+        "old_relation": "uses",
+        "old_object": "SQLite",
+        "relation": "uses",
+        "object": "PostgreSQL",
+        "old_negated": false,
+        "negated": false,
+        "turn": "If the migration were approved Atlas would use PostgreSQL. Approval was denied.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "Atlas uses SQLite."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "If the migration were approved Atlas would use PostgreSQL. Approval was denied."
+        }
+      },
+      "expected": [
+        "keep_both",
+        "reject_new"
+      ],
+      "decision": "keep_both",
+      "passed": true
+    },
+    {
+      "name": "style_correction",
+      "context": {
+        "subject": "Atlas",
+        "old_relation": "uses",
+        "old_object": "SQLite",
+        "relation": "uses",
+        "object": "PostgreSQL",
+        "old_negated": false,
+        "negated": false,
+        "turn": "ok so atlas runs postgres now, sqlite got removed. by postgres i mean PostgreSQL.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "Atlas uses SQLite."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "ok so atlas runs postgres now, sqlite got removed. by postgres i mean PostgreSQL."
+        }
+      },
+      "expected": [
+        "expire_old"
+      ],
+      "decision": "expire_old",
+      "passed": true
+    },
+    {
+      "name": "reported_suggestion",
+      "context": {
+        "subject": "Atlas",
+        "old_relation": "uses",
+        "old_object": "SQLite",
+        "relation": "uses",
+        "object": "PostgreSQL",
+        "old_negated": false,
+        "negated": false,
+        "turn": "The assistant suggested PostgreSQL. I rejected that suggestion; we still use SQLite.",
+        "old_source": {
+          "role": "user",
+          "recorded_at": "2026-09-01T12:00:00Z",
+          "text": "Atlas uses SQLite."
+        },
+        "new_source": {
+          "role": "user",
+          "recorded_at": "2026-09-02T12:00:00Z",
+          "text": "The assistant suggested PostgreSQL. I rejected that suggestion; we still use SQLite."
+        }
+      },
+      "expected": [
+        "keep_both",
+        "reject_new"
+      ],
+      "decision": "keep_both",
+      "passed": true
+    }
+  ]
+}

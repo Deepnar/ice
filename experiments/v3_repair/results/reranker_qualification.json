@@ -1,0 +1,127 @@
+{
+  "version": "v3",
+  "kind": "synthetic model qualification, not end-to-end answers",
+  "queries": 15,
+  "pairs": 60,
+  "gold_rank_first": 15,
+  "gold_pass_zero_floor": 15,
+  "distractors_below_zero": 41,
+  "scores": [
+    [
+      1.53125,
+      -5.734375,
+      -7.37109375,
+      -10.5625
+    ],
+    [
+      3.171875,
+      -4.6640625,
+      -8.1015625,
+      -9.5
+    ],
+    [
+      2.5546875,
+      -5.3984375,
+      -6.828125,
+      -7.1015625
+    ],
+    [
+      7.734375,
+      -2.90625,
+      -0.84375,
+      -7.8359375
+    ],
+    [
+      6.1015625,
+      -2.0859375,
+      -3.078125,
+      -8.671875
+    ],
+    [
+      7.59375,
+      -4.5234375,
+      -5.2734375,
+      -7.984375
+    ],
+    [
+      5.34375,
+      -5.7109375,
+      1.6875,
+      -8.796875
+    ],
+    [
+      2.4375,
+      -5.8984375,
+      -2.1875,
+      -7.83203125
+    ],
+    [
+      4.171875,
+      -5.203125,
+      -2.4375,
+      -10.359375
+    ],
+    [
+      7.7109375,
+      1.5625,
+      -1.671875,
+      -8.5
+    ],
+    [
+      6.875,
+      -0.28125,
+      -4.609375,
+      -7.046875
+    ],
+    [
+      7.2265625,
+      1.8125,
+      -1.21875,
+      -6.625
+    ],
+    [
+      6.40625,
+      -3.3984375,
+      -4.5078125,
+      -4.453125
+    ],
+    [
+      3.625,
+      -4.96875,
+      -4.03125,
+      -3.78125
+    ],
+    [
+      6.4765625,
+      0.140625,
+      -4.515625,
+      -2.9140625
+    ]
+  ],
+  "elapsed_seconds_including_load": 2.876,
+  "production_selection_controls": [
+    {
+      "path": "normal",
+      "selection_changed_to_answer": true
+    },
+    {
+      "path": "wide",
+      "selection_changed_to_answer": true
+    }
+  ],
+  "peak_cuda_allocated_gib": 1.178,
+  "ranking_qualified": true,
+  "zero_floor_qualified": false,
+  "model": "Qwen/Qwen3-Reranker-0.6B",
+  "revision": "e61197ed45024b0ed8a2d74b80b4d909f1255473",
+  "device": "cuda",
+  "dtype": "float16",
+  "candidate_source": "synthetic; database leg outputs controlled",
+  "sentence_transformers": "5.5.1",
+  "transformers": "5.9.0",
+  "torch": "2.11.0",
+  "min_score_default": null,
+  "logits_to_keep": 1,
+  "use_cache": false,
+  "cpu_offload_after_call": true
+}

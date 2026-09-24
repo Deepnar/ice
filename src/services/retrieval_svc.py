@@ -18,13 +18,16 @@ import structlog
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
-from src.memory.tokens import count as count_tokens
+from src.memory.conversation_stats import conversation_pressure
 from src.memory.models import (
     Decision,
     EpisodicMemory,
     ProceduralMemory,
     SessionSummary,
 )
+from src.memory.representation import choose_representation
+from src.memory.tokens import count as count_tokens
+from src.memory.usage import record_graph_access
 from src.services import slots as slots_svc
 
 logger = structlog.get_logger("ice.services.retrieval")
@@ -38,7 +41,9 @@ def constraints_for_task(db: Session, task_text: str,
     """E8 (D7): active `constraint` decisions whose files the task mentions —
     the do-not-touch payoff. A constraint hits when one of its files_affected
     appears in the task text, or its basename matches a mentioned path's
-    basename. Surfaced FIRST by context_for."""
+    basename. Surfaced FIRST by context_for, within its resolved project only."""
+    if not project_id:
+        return []  # No project choice may read every project's decisions.
     mentioned = {m.group(0).strip(".,;:") for m in _PATHISH.finditer(task_text or "")}
     if not mentioned:
         return []
@@ -47,9 +52,8 @@ def constraints_for_task(db: Session, task_text: str,
     task_low = (task_text or "").lower()
     q = db.query(Decision).filter(
         Decision.decision_type == "constraint",
-        Decision.valid_until.is_(None))
-    if project_id:
-        q = q.filter(Decision.project_id == uuid.UUID(str(project_id)))
+        Decision.valid_until.is_(None),
+        Decision.project_id == uuid.UUID(str(project_id)))
     hits = []
     for c in q.limit(200).all():
         for f in c.files_affected or []:
@@ -89,44 +93,51 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
     decision is *reported* in the result, never used to answer empty-handed.
     First call in a headless process loads the classifier (one-time latency).
     """
-    from src.api.memory_decision import decide_memory_retrieval
+    from src.api.memory_decision import (
+        decide_memory_retrieval,
+        estimate_recent_window_tokens,
+    )
     from src.retrieval.orchestrator import HybridRetrievalOrchestrator
     from src.retrieval.timescope import detect_timescope, to_scope_dict
 
+    scope = dict(scope or {})
+    # The caller's conversation is an identity, not necessarily a filter:
+    # auto searches shared non-private memory, while none/manual/project each
+    # resolve their own visibility through the same resolver as chat.
+    own_conv_id = scope.pop("conversation_id", None)
+    if own_conv_id:
+        from src.memory.models import Conversation
+        from src.services.scoping import resolve_retrieval_scope
+        conv_row = db.query(Conversation).filter_by(
+            id=uuid.UUID(str(own_conv_id))).first()
+        if conv_row is None:
+            # Unknown identity stays closed instead of silently searching all.
+            scope["conversation_id"] = str(own_conv_id)
+        else:
+            for key, value in resolve_retrieval_scope(db, conv_row).items():
+                scope.setdefault(key, value)
+
     classifier = _get_classifier()
-    result = classifier.classify(task_text)
+    result = classifier.classify(task_text, conversation_id=str(own_conv_id)
+                                 if own_conv_id else None)
     result.prompt = task_text
     tscope = detect_timescope(
         task_text,
         p_ltm=getattr(result, "p_ltm", 0.0),
         p_temporal=getattr(result, "p_temporal", 0.0),
     )
+    total_budget = budget or settings.context_budget_fallback
+    turn_count, total_tokens = conversation_pressure(db, own_conv_id)
     decision = decide_memory_retrieval(
-        result, turn_count=0, total_tokens=0.0, settings=settings,
+        result, turn_count=turn_count, total_tokens=total_tokens, settings=settings,
+        recent_window_tokens=estimate_recent_window_tokens(turn_count, total_budget),
         timescope_mode=tscope.mode,
+        coding_scope=bool(scope.get("project_id")),
     )
     result.context_reliance = "Long_Term_Memory"   # explicit pull: orchestrate
-    scope = dict(scope or {})
     ts_dict = to_scope_dict(tscope)
     if ts_dict:
-        scope["timescope"] = ts_dict
-
-    # C6: full parity with the chat path — the same resolver builds the scope
-    # from the conversation row. This block used to reproduce the project arm
-    # only, so an ice_context pull inside an incognito conversation missed the
-    # isolated/incognito flags and ran the RAG + procedural legs against
-    # global memory; a manual conversation retrieved as if it were auto.
-    if scope.get("conversation_id") and not scope.get("project_id"):
-        from src.memory.models import Conversation
-        from src.services.scoping import resolve_retrieval_scope
-        conv_row = db.query(Conversation).filter_by(
-            id=uuid.UUID(str(scope["conversation_id"]))).first()
-        if conv_row is not None:
-            resolved = resolve_retrieval_scope(db, conv_row)
-            # Caller-supplied keys (e.g. an explicit timescope) win; the
-            # resolver fills in everything the conversation row implies.
-            for key, value in resolved.items():
-                scope.setdefault(key, value)
+        scope.setdefault("timescope", ts_dict)
 
     # E11: a project-scoped pull freshens that project's working tree first,
     # so retrieved code pointers match the tree being edited right now.
@@ -146,15 +157,16 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
 
     orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
     orchestrator.set_budget_from_turn_count(
-        0, total_tokens=0, classification=result,
-        total_budget=budget or settings.context_budget_fallback,
+        turn_count, total_tokens=total_tokens, classification=result,
+        total_budget=total_budget,
     )
     fragments = orchestrator.retrieve(
         classification=result,
-        conversation_id=scope.get("conversation_id"),
+        conversation_id=str(own_conv_id) if own_conv_id else None,
         prompt_embedding=prompt_embedding,
         scope=scope,
     )
+    record_graph_access(db, fragments, stage="context_returned")
     # E8: constraints FIRST whenever the task mentions their files — a
     # do-not-touch rule outranks every retrieved fragment by construction.
     constraint_frags = constraints_for_task(
@@ -176,6 +188,9 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
                 "score": f.score,
                 "token_count": f.token_count,
                 "source_batch_id": f.source_batch_id,
+                "origin_batch_ids": list(f.origin_batch_ids),
+                "origin_edge_ids": list(f.origin_edge_ids),
+                "leg": f.leg,
                 "conversation_id": f.conversation_id,
             }
             for f in fragments
@@ -209,7 +224,8 @@ def recent_turns(db: Session, conversation_id: Optional[str] = None,
             "id": str(t.id),
             "conversation_id": str(t.conversation_id),
             "timestamp": t.timestamp.isoformat() if t.timestamp else None,
-            "text": t.summary_text or t.raw_text[:300],
+            "timestamp_provenance": getattr(t, "ts_provenance", None),
+            "text": choose_representation(t)[0] or "",
             "topic_tags": t.topic_tags or [],
             "is_bookmarked": t.is_bookmarked,
         }

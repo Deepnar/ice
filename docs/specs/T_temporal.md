@@ -2,6 +2,12 @@
 
 Assumes decided specs: none (first S1 spec; grounded in source at commit `ef6f735`, 2026-07-10).
 
+> **v3 repair revision, 2026-09-13:** the requested date-and-time presentation
+> supersedes the day/month-only rendering below. See `V3_REPAIR.md` timestamp
+> contract: source-recorded, learned, summary-created and recorded-validity
+> timestamps have different labels. Unknown timezone/provenance is explicit.
+> This does not infer real event dates from ingestion clocks or change filters.
+
 > **[rev 2026-07-12 — implementation-session grounding corrections (rule 12); recorded before coding T1–T3]**
 > 1. **§2.9 now lands on C7's cycles-parameterized decay.py** (C7 shipped 2026-07-11,
 >    after this spec was written): the three decay UPDATEs use `POWER(:rate, :cycles)`

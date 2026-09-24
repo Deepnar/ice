@@ -1,3 +1,9 @@
+> **v3 repair override, 2026-09-13:** relation labels and processing-time order
+> do not authorize contradiction expiry. Background candidates become deduplicated
+> review proposals pending source evidence; converse labels are anti-merge guards
+> only. See V3_REPAIR.md, relation-name conflict repair. This supersedes the
+> deterministic contradiction application below.
+
 # D1/D2 — Memory Maintenance Agent + Sentinel removal
 
 Assumes decided specs: `C7_scheduling.md` (the agent is a runtime job — session-end

@@ -1,0 +1,132 @@
+"""Rolling-summary cache freshness, distinct from semantic source support."""
+from datetime import datetime
+
+import structlog
+from sqlalchemy import text
+
+from src.api.config import settings
+from src.memory.source import digest
+
+logger = structlog.get_logger('ice.memory.summary_snapshot')
+SNAPSHOT_VERSION = 3  # v3 independent notes; invalidates recursive roots
+
+
+# One identity across tiers. Cold metadata absence remains NULL, never invented.
+_SOURCE_FIELDS = (
+    "id", "batch_id", "conversation_id", "timestamp", "raw_text", "source_spans",
+    "ts_provenance", "is_private", "is_document", "decay_score", "summary_text", "inject_raw", "summary_coverage",
+    "representation_verification", "lossless_flag", "batch_summary_id",
+)
+SUMMARY_SOURCES_SQL = (
+    "SELECT " + ", ".join("w." + name for name in _SOURCE_FIELDS) + ", "
+    "ARRAY(SELECT l.cluster_id FROM episodic_cluster_links l WHERE l.episodic_id = w.id "
+    "ORDER BY l.cluster_id) AS cluster_ids, 'warm'::text AS storage_tier "
+    "FROM episodic_memory w UNION ALL SELECT "
+    + ", ".join("c." + name for name in _SOURCE_FIELDS) + ", c.cluster_ids, "
+    "'cold'::text AS storage_tier "
+    "FROM cold_storage c WHERE NOT EXISTS (SELECT 1 FROM episodic_memory w WHERE w.id = c.id)"
+)
+
+def source_snapshot(db, conversation_id, *, batch_summary_id=None):
+    """Transfer source identities/fingerprints, never full raw text to readers."""
+    rows = db.execute(text(f'''
+        SELECT e.id::text AS id, e.batch_id::text AS batch_id, e.timestamp,
+               md5(jsonb_build_array(e.batch_id, e.raw_text, e.source_spans,
+                   e.timestamp, e.ts_provenance, e.is_private,
+                   e.summary_text, e.inject_raw, e.summary_coverage,
+                   e.representation_verification)::text) AS fingerprint
+        FROM ({SUMMARY_SOURCES_SQL}) e
+        WHERE e.conversation_id = :cid
+          AND (CAST(:summary_id AS uuid) IS NULL OR e.batch_summary_id = CAST(:summary_id AS uuid))
+        ORDER BY e.timestamp, e.id
+    '''), {'cid': str(conversation_id), 'summary_id': str(batch_summary_id) if batch_summary_id else None}).fetchall()
+    return [{'id': row.id, 'batch_id': row.batch_id, 'fingerprint': row.fingerprint,
+             'timestamp': row.timestamp.isoformat() if row.timestamp else None}
+            for row in rows]
+
+
+def representation_policy():
+    return {'model': settings.source_support_model,
+            'revision': settings.source_support_revision,
+            'support_threshold': settings.source_support_threshold,
+            'coverage_threshold': settings.turn_summary_coverage_threshold}
+
+
+def compose_parts(parts):
+    return "\n\n".join(
+        f"[Original-source segment {i}; {part['mode']} evidence; "
+        f"recorded range: {part.get('recorded_range', 'unknown')}]\n{part['text']}"
+        for i, part in enumerate(parts, 1))
+
+
+def bind_snapshot(sources, summary, *, parts=None):
+    return {'version': SNAPSHOT_VERSION, 'summary_sha256': digest(summary), 'sources': sources,
+            'representation_policy': representation_policy(), 'parts': parts}
+
+
+def snapshot_matches(record, summary, current, *, allow_newer=False):
+    if not isinstance(record, dict) or record.get('version') != SNAPSHOT_VERSION:
+        return False
+    if record.get('representation_policy') != representation_policy():
+        return False
+    if record.get('summary_sha256') != digest(summary or ''):
+        return False
+    saved = record.get('sources')
+    if not isinstance(saved, list) or not saved:
+        return False
+    if any(not isinstance(item, dict) or not item.get('id') for item in saved):
+        return False
+    old = {item['id']: item for item in saved}
+    now = {item['id']: item for item in current}
+    if len(old) != len(saved) or any(now.get(key) != item for key, item in old.items()):
+        return False
+    parts = record.get('parts')
+    if parts is not None:
+        if (not isinstance(parts, list) or not parts
+                or any(not isinstance(p, dict) or p.get('mode') not in ('source', 'supported')
+                       or not isinstance(p.get('text'), str) or not p['text']
+                       or not isinstance(p.get('source_ids'), list) for p in parts)):
+            return False
+        ids = [sid for p in parts for sid in p['source_ids']]
+        if ids != [item['id'] for item in saved] or compose_parts(parts) != summary:
+            return False
+    extra = [item for item in current if item['id'] not in old]
+    if not extra:
+        return True
+    if not allow_newer:
+        return False
+    try:
+        latest = max(datetime.fromisoformat(item['timestamp']) for item in saved)
+        return all(datetime.fromisoformat(item['timestamp']) > latest for item in extra)
+    except (TypeError, ValueError, KeyError):
+        return False
+
+
+def summary_snapshot_readable(db, row):
+    current = source_snapshot(db, row.conversation_id)
+    matches = bool((row.source_manifest or {}).get('parts')) and snapshot_matches(row.source_manifest, row.summary_text, current,
+                               allow_newer=True)
+    if not matches:
+        logger.warning('conversation_summary_source_stale',
+                       conversation_id=str(row.conversation_id),
+                       reason='missing, changed or backfilled source snapshot; rebuild required')
+    return matches
+
+
+def batch_snapshot_readable(db, row):
+    current = source_snapshot(db, row.conversation_id, batch_summary_id=row.id)
+    readable = bool((row.source_manifest or {}).get('parts')) and snapshot_matches(
+        row.source_manifest, row.summary_text, current)
+    if readable:
+        known_excluded = db.execute(text(f'''
+            SELECT 1 FROM ({SUMMARY_SOURCES_SQL}) e
+            WHERE e.batch_summary_id = :summary_id
+              AND (e.is_document IS TRUE OR e.lossless_flag IS TRUE)
+            LIMIT 1
+        '''), {'summary_id': row.id}).first()
+        if known_excluded:
+            readable = False
+    if not readable:
+        logger.warning('batch_summary_source_stale', summary_id=str(row.id),
+                       reason='missing, changed or ineligible source/output/policy; rebuild required')
+    return readable

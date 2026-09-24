@@ -1,6 +1,7 @@
 """Configuration for the ICE FastAPI proxy."""
-from typing import Optional
+from typing import Literal, Optional
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.paths import REPO_ROOT
@@ -243,6 +244,15 @@ class Settings(BaseSettings):
     # are STARTING values behind named knobs — Z1 is the tuning gate, and Z2's
     # mini-experiment is where they get moved.
     retrieval_coverage_enabled: bool = False
+    # v3: local cross-encoder relevance, after fusion and before selection.
+    retrieval_rerank_enabled: bool = True
+    retrieval_rerank_model: str = "Qwen/Qwen3-Reranker-0.6B"
+    retrieval_rerank_revision: str = "e61197ed45024b0ed8a2d74b80b4d909f1255473"
+    retrieval_rerank_device: str = "auto"
+    retrieval_rerank_candidates: int = Field(default=64, ge=1, le=256)
+    retrieval_rerank_batch_size: int = Field(default=4, ge=1, le=16)
+    retrieval_rerank_max_tokens: int = Field(default=4096, ge=128, le=32768)
+    retrieval_rerank_min_score: Optional[float] = Field(default=None, allow_inf_nan=False)
     coverage_alpha: float = 0.7            # coverage vs retrieval-confidence blend
     coverage_min_gain: float = 0.02        # a pick must cover at least this much
     coverage_min_keep: int = 2             # the knee may never cut below this
@@ -470,12 +480,11 @@ class Settings(BaseSettings):
     chunk_tokens: int = 550
     chunk_overlap_words: int = 50
 
-    # C4 evolving whole-conversation summaries: the revised summary's ceiling,
-    # the bite size new turns are folded in at, and the per-turn contribution
-    # bound that stops one huge turn dominating a fold.
+    # C4: generation word target and soft grouping target for whole evidence
+    # representations. Hard capacity is checked on the complete model request.
     conversation_summary_max_words: int = 250
     conversation_summary_chunk_words: int = 3500
-    conversation_summary_per_turn_words: int = 400
+    conversation_note_prompt_tokens: int = 650
 
     # G11: a turn is batch-summarised once its decay falls below the retrieval
     # floor OR it passes this age, whichever comes first. Handed to G9 by G11.
@@ -531,7 +540,7 @@ class Settings(BaseSettings):
     # 1,259 true relations in one seed (`i --didnt_get--> csi` among them).
     # CALIBRATED 2026-08-13 (was a guessed 0.86). Measured on the live encoder
     # over 15 pairs that should merge and 15 that must not:
-    #   * with converses guarded deterministically (_ANTONYM_PAIRS), the highest
+    #   * with converses guarded deterministically (_RELATION_SEPARATION_PAIRS), the highest
     #     scoring pair that MUST NOT merge is `likes`/`dislikes` at **0.787**;
     #   * true synonyms run 0.786–0.954 (`using`/`uses` 0.872,
     #     `carrying`/`carries` 0.911, `needs`/`requires` 0.808).
@@ -644,12 +653,12 @@ class Settings(BaseSettings):
     # months apart, so the usual "unused means unwanted" inference is wrong.
     decay_creative_floor: float = 0.3
 
-    # Codex edges decay on the same cadence at the creative rate; strength
-    # below the demotion threshold sends an active edge back to pending, and a
-    # pending edge below the expiry threshold is garbage-collected (A3).
+    # Graph usage maintains retention priority, never source support.
     codex_decay_daily: float = 0.99
-    codex_demotion_threshold: float = 0.3
-    codex_expiry_threshold: float = 0.1
+    codex_retention_floor: float = Field(default=0.1, gt=0.0, le=1.0)
+    codex_retention_increment: float = Field(default=0.15, ge=0.0)
+    codex_retention_cap: float = Field(default=10.0, ge=1.0)
+    codex_retention_rank_weight: float = Field(default=0.5, ge=0.0, le=1.0)
 
     # Procedural patterns: unreinforced for this long, with fewer than this
     # many reinforcements, and the pattern is retired.
@@ -799,15 +808,12 @@ class Settings(BaseSettings):
     codex_entity_edge_limit: int = 10
 
     # A3: an edge's effective trust is strength × extraction_confidence.
-    # Strength carries usage dynamics (reinforcement/decay); confidence
+    # Strength carries extraction corroboration/decay; confidence
     # carries extraction trust (NER grounding, corroboration).
     codex_max_depth: int = 3
     codex_direct_trust_floor: float = 0.5
     codex_deep_strength_floor: float = 1.0
-    codex_reinforce_increment: float = 0.15
-    codex_strength_cap: float = 10.0
-    codex_promote_strength: float = 2.0
-    codex_promote_min_confidence: float = 0.5
+    codex_reconcile_input_tokens: int = Field(default=8192, ge=256, le=32768)
     # A11: a recently-asserted fact outranks a stale one of equal strength.
     # Rewards recent assertion; never penalises age (decay does that).
     codex_recency_boost: float = 0.3
@@ -941,6 +947,14 @@ class Settings(BaseSettings):
     #
     # ⚠ NOT the reconciler. `make_llm_reconciler` in codex_extractor.py is a
     # one-word reasoning call and deliberately stays on the general model.
+    source_support_model: str = "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
+    source_support_revision: str = "b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+    source_support_device: str = "auto"
+    source_support_threshold: float = Field(default=0.95, gt=0.5, le=1.0)
+    source_support_max_tokens: int = Field(default=512, ge=16, le=512)
+    codex_sentence_claims: bool = True
+    codex_claim_candidate_limit: int = Field(default=64, ge=1)
+
     codex_extraction_model: str = "hf.co/numind/NuExtract3-GGUF:Q8_0"
 
     # ⚑ G63: which SHAPE of prompt the extractor sends.
@@ -1001,12 +1015,13 @@ class Settings(BaseSettings):
     codex_extraction_chunk_adaptive: bool = True
     codex_extraction_chunk_max: int = 4096
 
-    # num_ctx. Telling the server the window we need costs KV-cache VRAM, so
-    # it is opt-in and clamped. "fit" asks for exactly what the assembled
-    # prompt needs plus the generation reserve.
-    ollama_send_num_ctx: bool = False
-    ollama_num_ctx_mode: str = "fit"
+    # G32(b): the native local foreground path explicitly owns its window.
+    # "fit" sizes to the guarded prompt + generation reserve; "max" allocates
+    # the known serving ceiling. Opting out restores the host's Ollama default.
+    ollama_send_num_ctx: bool = True
+    ollama_num_ctx_mode: Literal["fit", "max"] = "fit"
     ollama_num_ctx_max: int = 32_768
+    foreground_read_timeout_seconds: float = 120.0
 
     # ── B2: principled memory-retrieval decision (log-odds combination) ──
     # These REPLACE the scattered hard LTM overrides. Every weight lives here

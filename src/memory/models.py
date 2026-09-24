@@ -12,8 +12,10 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import declarative_base, relationship
@@ -94,12 +96,14 @@ class EpisodicMemory(Base):
     entropy_score = Column(Float, nullable=True)
     lossless_flag = Column(Boolean, nullable=True)  # NULL = not yet evaluated
     raw_text = Column(Text, nullable=False)
+    source_spans = Column(JSONB, nullable=True)  # writer-supplied role offsets + raw hash
     summary_text = Column(Text, nullable=True)
     # C1: measured fraction of the turn's must-preserve terms (NER entities +
     # figures + identifiers) retained by summary_text. Read-time representation
-    # choice and budget degradation never trust a summary below threshold.
+    # choice also requires independent source support; coverage is not truth.
     # NULL = no summary or legacy pre-C1 summary.
     summary_coverage = Column(Float, nullable=True)
+    representation_verification = Column(JSONB, nullable=True)
     # C3: one-line abstract (generated in the same LLM call as the summary) —
     # the third level of the raw → summary → abstract hierarchy. Used only by
     # budget degradation (never *preferred* by the read-time chooser).
@@ -167,6 +171,11 @@ class EpisodicClusterLink(Base):
 
 class MemorySlot(Base):
     __tablename__ = "memory_slots"
+    __table_args__ = (
+        Index("uq_memory_slots_name_tier_anchor", "slot_name", "scope_tier",
+              "project_id", "conversation_id", unique=True,
+              postgresql_nulls_not_distinct=True),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     slot_name = Column(Text, nullable=False)  # valid names per tier: services/slots.py
@@ -179,7 +188,7 @@ class MemorySlot(Base):
     # C9 (D5): three-tier slots. 'global' rows keep NULL anchors; 'project'
     # rows carry project_id; 'conversation' rows carry conversation_id.
     # Uniqueness = NULLS NOT DISTINCT index on (slot_name, scope_tier,
-    # project_id, conversation_id) — the migration owns it.
+    # project_id, conversation_id), matching the migration and ORM-created stores.
     scope_tier = Column(Text, nullable=False, default="global", server_default="global")
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
     conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=True)
@@ -231,6 +240,9 @@ class CodexEdge(Base):
     target_id = Column(UUID(as_uuid=True), ForeignKey("codex_entities.id"), nullable=False)
     relation = Column(Text, nullable=False)
     strength = Column(Float, default=1.0)
+    usage_count = Column(Integer, nullable=False, default=0, server_default="0")
+    last_accessed_at = Column(DateTime(timezone=True), nullable=True)
+    observed_batches = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
     source_batch = Column(UUID(as_uuid=True), nullable=False)
     confidence = Column(Text, default="pending")  # pending | active
     # A3: how much the extraction itself is trusted (0-1). Seeded by NER
@@ -260,6 +272,34 @@ class CodexEdge(Base):
     # derived memory (decay-exempt, journal-free, regenerable).
     source = Column(Text, nullable=False, default="conversation",
                     server_default="conversation")
+
+
+class CodexClaim(Base):
+    """Attributed source sentences; graph links are navigation, not evidence."""
+    __tablename__ = "codex_claims"
+    __table_args__ = (UniqueConstraint("source_batch", "raw_sha256", "start", "end",
+                                      "sentence_sha256", name="uq_codex_claim_span"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_batch = Column(UUID(as_uuid=True), nullable=False, index=True)
+    episodic_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
+    raw_sha256 = Column(Text, nullable=False)
+    start = Column(Integer, nullable=False)
+    end = Column(Integer, nullable=False)
+    role = Column(Text, nullable=False)
+    sentence = Column(Text, nullable=False)
+    sentence_sha256 = Column(Text, nullable=False)
+    text = Column(Text, nullable=False)  # full evidence paragraph
+    embedding = Column(Vector(1024), nullable=True)
+    verification = Column(JSONB, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class CodexClaimLink(Base):
+    __tablename__ = "codex_claim_links"
+    claim_id = Column(UUID(as_uuid=True), ForeignKey("codex_claims.id", ondelete="CASCADE"), primary_key=True)
+    edge_id = Column(UUID(as_uuid=True), ForeignKey("codex_edges.id", ondelete="CASCADE"), primary_key=True)
 
 
 class CodexEvent(Base):
@@ -505,9 +545,27 @@ class ColdStorage(Base):
     id = Column(UUID(as_uuid=True), primary_key=True)  # original episodic turn id
     archived_at = Column(DateTime(timezone=True), default=utcnow)
     raw_text = Column(Text, nullable=False)
+    source_spans = Column(JSONB, nullable=True)  # writer-supplied role offsets + raw hash
     summary_text = Column(Text, nullable=True)
+    summary_coverage = Column(Float, nullable=True)
+    representation_verification = Column(JSONB, nullable=True)
+    abstract_text = Column(Text, nullable=True)
+    lossless_flag = Column(Boolean, nullable=True)
+    is_document = Column(Boolean, nullable=True)
+    decay_score = Column(Float, nullable=True)  # original pre-archive score, not probation
+    inject_raw = Column(Boolean, nullable=True)
+    session_id = Column(UUID(as_uuid=True), nullable=True)
+    intent_tags = Column(ARRAY(Text), nullable=True)
+    context_reliance = Column(Text, nullable=True)
+    idempotency_key = Column(Text, nullable=True)
+    batch_summary_id = Column(UUID(as_uuid=True),
+                              ForeignKey("batch_summaries.id", ondelete="SET NULL"),
+                              nullable=True, index=True)
+    cluster_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
+    cluster_id = Column(UUID(as_uuid=True), nullable=True)
     topic_tags = Column(ARRAY(Text), default=[])
     timestamp = Column(DateTime(timezone=True), nullable=False)
+    ts_provenance = Column(Text, nullable=True)
     # T3 (D12): carried from the episodic row so time-scoped retrieval can
     # honor privacy and resurrection can re-attach the turn. NULL
     # conversation_id = legacy pre-migration row → cite-only, never resurrected.
@@ -519,6 +577,18 @@ class ColdStorage(Base):
     # table C17 never gave a vector, which is why the cold leg was still
     # querying `raw_text ILIKE ANY(%keyword%)` against a hardcoded English
     # stoplist: the last purely lexical query in retrieval.
+    embedding = Column(Vector(1024), nullable=True)
+
+
+class ColdChunk(Base):
+    """Preserved retrieval excerpts; original IDs and vectors survive archival."""
+    __tablename__ = "cold_chunks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    turn_id = Column(UUID(as_uuid=True), ForeignKey("cold_storage.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    chunk_index = Column(Integer, nullable=False)
+    chunk_text = Column(Text, nullable=False)
     embedding = Column(Vector(1024), nullable=True)
 
 
@@ -565,6 +635,7 @@ class BatchSummary(Base):
     # business; do not start trusting them.
     start_turn_index = Column(Integer, nullable=False)
     end_turn_index = Column(Integer, nullable=False)
+    source_manifest = Column(JSONB, nullable=True)
     summary_text = Column(Text, nullable=False)
     embedding = Column(Vector(1024), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
@@ -572,8 +643,8 @@ class BatchSummary(Base):
 
 class ConversationSummary(Base):
     """C4: ONE evolving summary per conversation — "the whole conversation so
-    far, current" (never a batch_summaries range row). Maintained incrementally
-    by the conversation_summary burst job; consumed by the assembler (active
+    far, current" (never a batch_summaries range row). Source-checked and rebuilt
+    when needed by the conversation_summary burst job; consumed by the assembler (active
     conversation, past the window condition) and the batch-summary retrieval
     leg (cross-conversation hits). T-track era digests read this shape as-is.
     Cascade delete = C10's conversation deletion takes the summary with it."""
@@ -582,11 +653,37 @@ class ConversationSummary(Base):
     conversation_id = Column(UUID(as_uuid=True),
                              ForeignKey("conversations.id", ondelete="CASCADE"),
                              primary_key=True)
+    source_manifest = Column(JSONB, nullable=True)
     summary_text = Column(Text, nullable=False)
     covers_through = Column(DateTime(timezone=True), nullable=True)
     covers_turns = Column(Integer, nullable=False, default=0)
     embedding = Column(Vector(1024), nullable=True)
     updated_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class ConversationNote(Base):
+    """Search index for one independently sourced conversation-summary part.
+
+    The output-bound ConversationSummary manifest owns the text and provenance;
+    this derived row is only usable while it matches that manifest.
+    """
+    __tablename__ = "conversation_notes"
+
+    conversation_id = Column(UUID(as_uuid=True),
+                             ForeignKey("conversation_summaries.conversation_id", ondelete="CASCADE"),
+                             primary_key=True)
+    ordinal = Column(Integer, primary_key=True)
+    text = Column(Text, nullable=False)
+    mode = Column(Text, nullable=False)
+    recorded_range = Column(Text, nullable=True)
+    source_ids = Column(JSONB, nullable=False)
+    batch_ids = Column(JSONB, nullable=False)
+    embedding = Column(Vector(1024), nullable=False)
+
+    __table_args__ = (
+        Index("idx_conversation_notes_embedding", embedding,
+              postgresql_using="hnsw", postgresql_ops={"embedding": "vector_cosine_ops"}),
+    )
 
 
 class ImportRun(Base):

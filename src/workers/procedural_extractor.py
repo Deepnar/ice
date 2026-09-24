@@ -8,11 +8,13 @@ import structlog
 from sqlalchemy import text
 
 from src.api.config import settings
+from src.workers.completion_text import complete_text
 from src.api.db import SessionLocal
 from src.memory.embedder import get_embedder
 from src.memory.models import EpisodicMemory, IdempotencyKey, ProceduralMemory
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 from src.workers.idempotency import job_key
+
 
 logger = structlog.get_logger("ice.workers.procedural")
 bg_client = get_bg_client()
@@ -172,7 +174,7 @@ def extract_procedural(batch_id: str, model_used: str = ""):
             "- If no habit repeats across messages, output exactly: NONE\n"
             "Output nothing else."
         )
-        model_name = model_used if model_used else get_bg_model_name()
+        model_name = get_bg_model_name()
         completion = bg_client.chat.completions.create(
             model=model_name,
             messages=[
@@ -183,8 +185,8 @@ def extract_procedural(batch_id: str, model_used: str = ""):
             max_tokens=160,
             timeout=bg_timeout(160)
         )
-        raw_reply = completion.choices[0].message.content.strip()
-        if raw_reply.upper().startswith("NONE") or not raw_reply:
+        raw_reply = complete_text(completion)
+        if raw_reply.upper().startswith("NONE"):
             return
 
         pattern_text, evidence = _parse_pattern(raw_reply)

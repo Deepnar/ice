@@ -8,15 +8,16 @@ from typing import List, Optional
 
 import numpy as np
 import structlog
-from sqlalchemy import text
-
-from src.workers.llm_json import strip_fences
+from sqlalchemy import and_, or_, text
 from sqlalchemy.orm.attributes import flag_modified
 
 from src.api.config import settings
 from src.api.db import SessionLocal
+from src.memory.claims import excerpt_is_current, source_for_claim, store_claims
 from src.memory.embedder import get_embedder
 from src.memory.models import (
+    CodexClaim,
+    CodexClaimLink,
     CodexEdge,
     CodexEntity,
     CodexEvent,
@@ -25,8 +26,11 @@ from src.memory.models import (
     IdempotencyKey,
     ReviewQueue,
 )
+from src.memory.source import source_units
 from src.retrieval.ner_utils import extract_entities
+from src.workers.extraction_result import ExtractionOutputError, parse_extraction_response
 from src.workers.idempotency import job_key
+
 # G50: shared identity key. Safe at module level — maintenance_agent's own
 # codex_extractor imports are all lazy (inside functions), so there is no cycle,
 # and it pulls in nothing heavier than settings at import time.
@@ -309,6 +313,7 @@ from src.memory.chunking import (
 from src.memory.chunking import (
     estimate_tokens as _estimate_tokens,
 )
+
 # G68/P3: the same probe the request path budgets against — runner allocation
 # from /api/ps, clamped by the GGUF ceiling, cached. Reused rather than
 # re-derived so there is one answer to "how big is this model's window".
@@ -483,15 +488,15 @@ def _is_inverse_pair(a: str, b: str) -> bool:
         return False
     # Known converses first — similarity CANNOT distinguish these (measured:
     # before/after 0.8791, above the merge threshold), so the only reliable
-    # signal is the curated map. See _ANTONYM_PAIRS for why this is not
+    # signal is the curated map. See _RELATION_SEPARATION_PAIRS for why this is not
     # optional.
-    _ant = globals().get("ANTONYM_OF") or {}
+    _ant = globals().get("RELATION_SEPARATION_OF") or {}
     if b in _ant.get(a, ()) or a in _ant.get(b, ()):
         return True
     # ⚑ POLARITY — settled here, deterministically, because similarity cannot
     # see it. `can`/`cannot` score 0.9134 on the live encoder and
     # `is_the_same_as`/`is_not_the_same_as` 0.9182 — both above the 0.90 merge
-    # threshold, and neither is caught by ANTONYM_OF (a hand list cannot
+    # threshold, and neither is caught by RELATION_SEPARATION_OF (a hand list cannot
     # enumerate an open vocabulary) nor by the passive rule below, which
     # compares True against True for any `is_*`/`is_*` pair. Merging a relation
     # into its own negation asserts the opposite of what the turn said.
@@ -821,8 +826,8 @@ def _grounding_ner_labels() -> Optional[List[str]]:
 
 def extract_triplets(text: str, model_override: str = "",
                      topic_tags: Optional[List[str]] = None,
-                     gaps: Optional[list] = None) -> list:
-    """Extract structured triplets using a controlled relation vocabulary.
+                     gaps: Optional[list] = None, source_sentences: Optional[list] = None) -> list:
+    """Extract complete facts; failures propagate for runtime retry.
 
     `gaps` is an optional sink: when supplied, every triplet whose relation
     cannot be mapped onto the vocabulary is appended to it instead of simply
@@ -1031,12 +1036,15 @@ def extract_triplets(text: str, model_override: str = "",
             if template_mode:
                 user_content = (
                     "<|input|>\n### Template:\n"
-                    '{"facts": [{"subject": "", "relation": "", "object": ""}]}\n'
-                    f"### Text:\n{chunk}{entity_block}\n<|output|>\n"
+                    + (json.dumps({'facts': [dict(subject='', relation='', object='',
+                        **({'source_sentence': ''} if settings.codex_sentence_claims else {}))]}) + '\n')
+                    + f"### Text:\n{chunk}{entity_block}\n<|output|>\n"
                 )
                 system_content = None
             else:
-                chunk_prompt = prompt + code_prompt + "\nNow process this text:"
+                claim_prompt = ("\nInclude source_sentence: an exact quotation of the complete source sentence for each fact."
+                                if settings.codex_sentence_claims else "")
+                chunk_prompt = prompt + code_prompt + claim_prompt + "\nNow process this text:"
                 user_content = f"Text:\n{chunk}{entity_block}\n\n{chunk_prompt}"
                 system_content = ("You are a JSON-only fact extraction tool. "
                                   "Never output anything but JSON.")
@@ -1055,65 +1063,28 @@ def extract_triplets(text: str, model_override: str = "",
             # emit its own envelope, and forcing a different one is a second
             # format instruction. Skipped in template mode, unchanged otherwise.
             if settings.codex_constrain_shape and not template_mode:
-                shape = _TRIPLET_SHAPE
+                shape = json.loads(json.dumps(_TRIPLET_SHAPE))
+                if settings.codex_sentence_claims:
+                    shape["items"]["properties"]["source_sentence"] = {"type": "string"}
+                    shape["items"]["required"].append("source_sentence")
                 if settings.codex_constrain_relation_enum:
-                    shape = json.loads(json.dumps(shape))
                     shape["items"]["properties"]["relation"]["enum"] = sorted(ALLOWED_RELATIONS)
                 call_kwargs["response_format"] = json_schema("codex_triplets", shape)
             completion = bg_client.chat.completions.create(**call_kwargs)
-            raw = completion.choices[0].message.content.strip()
-            logger.debug("extraction_raw_response", raw=raw[:200])
+            choice = completion.choices[0]
+            chunk_triplets = parse_extraction_response(
+                choice.message.content,
+                getattr(choice, "finish_reason", None),
+                template_mode=template_mode,
+            )
 
-            # ⚑ G63: a template-mode extractor is a REASONING model — it emits
-            # its chain of thought, then `</think>`, then the JSON. Keeping the
-            # prefix makes every response unparseable. Splitting on the LAST
-            # occurrence because the reasoning text can mention the tag.
-            if template_mode and "</think>" in raw:
-                raw = raw.rsplit("</think>", 1)[-1].strip()
-
-            # G29: shared fence-strip. The triplet regex below stays local —
-            # it is a domain-specific salvage for THIS schema, not a fifth copy
-            # of the generic one.
-            raw = strip_fences(raw)
-
-            # Parse JSON
-            decoder = json.JSONDecoder()
-            try:
-                parsed, _ = decoder.raw_decode(raw)
-            except json.JSONDecodeError:
-                # Fallback regex for individual triplet objects
-                triplet_pattern = re.compile(
-                    r'\{\s*"subject"\s*:\s*"([^"]+)"\s*,\s*"relation"\s*:\s*"([^"]+)"\s*,\s*"object"\s*:\s*"([^"]+)"\s*\}',
-                    re.DOTALL
-                )
-                matches = triplet_pattern.findall(raw)
-                if matches:
-                    chunk_triplets = [{"subject": s, "relation": r, "object": o} for s, r, o in matches]
-                else:
-                    chunk_triplets = []
-            else:
-                # ⚑ G63: template mode returns the ENVELOPE it was handed —
-                # {"facts": [...]} — while instruct mode returns a bare array.
-                # Accepting both here rather than branching keeps one parse
-                # path, and a stray envelope from either mode still works.
-                if isinstance(parsed, dict):
-                    parsed = parsed.get("facts") or parsed.get("triplets") or []
-                if isinstance(parsed, list):
-                    # ⚑ REQUIRE STRING VALUES, not just present keys. This read
-                    # `all(k in item ...)`, which admits `{"subject": null}` —
-                    # and two `.strip()` calls downstream then die on None,
-                    # losing the WHOLE turn's extraction, not just that triplet.
-                    # Latent since the schema constraint guaranteed strings for
-                    # the instruct path; a template model emits a null and it
-                    # fires immediately (found 2026-08-25 wiring G63/P1).
-                    chunk_triplets = [
-                        item for item in parsed
-                        if isinstance(item, dict)
-                        and all(isinstance(item.get(k), str) and item.get(k).strip()
-                                for k in ("subject", "relation", "object"))
-                    ]
-                else:
-                    chunk_triplets = []
+            if source_sentences is not None:
+                for fact in chunk_triplets:
+                    sentence = fact.get("source_sentence")
+                    if isinstance(sentence, str) and sentence.strip():
+                        source_sentences.append(sentence.strip())
+                    else:
+                        raise ExtractionOutputError("missing source sentence")
 
             # Map each relation onto the vocabulary; keep what maps, RECORD what
             # does not. This line used to be a bare filter with no log, and it
@@ -1173,16 +1144,9 @@ def extract_triplets(text: str, model_override: str = "",
                     gaps.extend(dropped)
             chunk_triplets = kept
 
-            # Sanity filter: remove triplets where object is clearly a verb phrase
-            suspicious_objects = {"blush", "laugh", "cry", "smile", "angry", "sad", "happy", "mad"}
-            chunk_triplets = [t for t in chunk_triplets
-                              if t.get("object", "").strip().lower() not in suspicious_objects]
-
-            # Drop self-referential triplets ("fastapi uses fastapi") — an
-            # attention-dilution artifact the A1/A2 work targets; grounding
-            # alone can't catch it since both terms are confirmed entities.
-            chunk_triplets = [t for t in chunk_triplets
-                              if _normalize_term(t.get("subject", "")) != _normalize_term(t.get("object", ""))]
+            # Source support, not an object-word blacklist or equality of
+            # endpoints, determines whether a claim is meaningful. Reflexive
+            # relations and emotion values can both be valid facts.
 
             # NER grounding → extraction confidence (A3, completing the A2 seam):
             # grounded triplets are trusted high; grounding-REJECTED triplets are
@@ -1241,8 +1205,12 @@ def extract_triplets(text: str, model_override: str = "",
         return list(by_key.values())
 
     except Exception as err:
-        logger.error("triplet_parsing_failed", error=str(err))
-        return []
+        # Cooperative yields must reach the runtime without consuming a retry.
+        from src.workers.runtime import JobYielded
+
+        if not isinstance(err, JobYielded):
+            logger.warning("codex_extraction_incomplete", error=str(err))
+        raise
 
 
 
@@ -1640,49 +1608,37 @@ def _regenerate_context_payload(entity: CodexEntity, db) -> None:
 # ===================================================================
 # A6 — Self-correcting graph (bounded reconciliation loop)
 # ===================================================================
-# Fixed rules can't catch cross-turn contradictions ("uses postgres" then
-# "migrated off postgres") or relationship reversals (friend -> enemy). A6
-# adds a CHEAP deterministic conflict check before the fixed rules run;
-# antonym reversals resolve deterministically (newer state supersedes), and
-# only genuinely ambiguous supersessions touch the LLM (or go to review) —
-# so a small model never gets blanket delete/merge authority over the graph.
-SUPERSESSION_CUES = (
-    "migrated off", "moved off", "no longer", "stopped using", "switched from",
-    "switched to", "replaced", "instead of", "deprecated", "abandoned",
-    "dropped", "gave up on", "used to", "moved away from", "ditched",
-)
-_ANTONYM_PAIRS = [
+# Vocabulary separation prevents wrong canonical merges; it never establishes
+# contradiction. Conflict candidates need source-aware reconciliation.
+
+_RELATION_SEPARATION_PAIRS = [
     ("friend", "enemy"), ("ally", "enemy"),
     ("married_to", "is_divorced_from"), ("is_dating", "is_separated_from"),
     ("endorses", "criticises"),
-    # ── G45: CONVERSES, added 2026-08-13 ────────────────────────────────────
-    # These are not negations, they are DIRECTION REVERSALS: `A parent_of B` is
-    # not "not `A child_of B`", it is the same fact read from the other end.
-    # Two reasons they belong here now:
-    #   1. A6 contradiction detection gets them for free.
-    #   2. ⚑ Canonicalisation MUST NOT merge them, and similarity cannot tell
-    #      them apart. Measured 2026-08-13 on the live encoder:
-    #        before/after         0.8791   ← ABOVE the 0.86 merge threshold
-    #        parent_of/child_of   0.8569
-    #        teaches/learns_from  0.8159
-    #      Embeddings place converses next to each other because they share
-    #      every context word. Left to similarity, `before` would have been
-    #      canonicalised into `after` — silently reversing every temporal fact
-    #      in the graph. This list is what stops that, deterministically.
-    # ⚠ NEGATIONS ARE DELIBERATELY ABSENT (`lacks`, `excludes`, `destroys`).
-    # A8 stores those as `negated=True` on the edge specifically so the
-    # vocabulary does not double; adding them here would re-create by hand the
-    # thing that mechanism exists to avoid.
+    # Converses remain separate even when their embeddings are similar.
+    # The same subject can both buy from and sell to another entity.
     ("before", "after"), ("parent_of", "child_of"),
     ("teaches", "learns_from"), ("follows", "precedes"),
     ("supports", "opposes"), ("above", "below"),
     ("buys", "sells"), ("wins", "loses"),
     ("member_of", "contains"), ("part_of", "has_part"),
-]  # add pairs only for CONVERSES; negation is A8's job, not the vocabulary's
-ANTONYM_OF: dict = {}
-for _a, _b in _ANTONYM_PAIRS:
-    ANTONYM_OF.setdefault(_a, set()).add(_b)
-    ANTONYM_OF.setdefault(_b, set()).add(_a)
+]
+RELATION_SEPARATION_OF: dict = {}
+for _a, _b in _RELATION_SEPARATION_PAIRS:
+    RELATION_SEPARATION_OF.setdefault(_a, set()).add(_b)
+    RELATION_SEPARATION_OF.setdefault(_b, set()).add(_a)
+
+
+# These nominate a question for the reconciler, never an automatic expiry.
+_OPPOSITION_PAIRS = [
+    ("friend", "enemy"), ("ally", "enemy"),
+    ("married_to", "is_divorced_from"), ("is_dating", "is_separated_from"),
+    ("endorses", "criticises"),
+]
+OPPOSITION_OF: dict = {}
+for _a, _b in _OPPOSITION_PAIRS:
+    OPPOSITION_OF.setdefault(_a, set()).add(_b)
+    OPPOSITION_OF.setdefault(_b, set()).add(_a)
 
 
 def _entity_name(db, entity_id) -> str:
@@ -1692,36 +1648,72 @@ def _entity_name(db, entity_id) -> str:
     return e.canonical_name if e else "?"
 
 
-def check_conflict(db, subj_id, relation: str, obj_id, turn_text: Optional[str]):
-    """A6 deterministic conflict pre-filter. Returns a conflict dict or None.
-    Runs a DB query only when the relation has a known antonym, or when a
-    multi-valued relation coincides with a supersession cue in the turn — so
-    the ~95% of triplets with neither take a dict-lookup fast path."""
-    antonyms = ANTONYM_OF.get(relation)
-    if antonyms:
-        old = db.query(CodexEdge).filter(
-            CodexEdge.source_id == subj_id,
-            CodexEdge.target_id == obj_id,
-            CodexEdge.relation.in_(list(antonyms)),
-            CodexEdge.valid_until == None,
-        ).first()
-        if old:
-            return {"type": "antonym", "old_edge_id": old.id, "old_relation": old.relation,
-                    "old_target_id": old.target_id}
+def conflict_candidates(db, subj_id, relation: str, obj_id, negated=False):
+    """Candidate identity is structural; source evidence decides replacement."""
+    alternatives = [and_(CodexEdge.relation == relation,
+        or_(CodexEdge.target_id != obj_id, CodexEdge.negated != negated))]
+    oppositions = OPPOSITION_OF.get(relation)
+    if oppositions:
+        alternatives.append(and_(CodexEdge.target_id == obj_id,
+                                  CodexEdge.relation.in_(sorted(oppositions))))
+    return [{"type": "source_comparison", "old_edge_id": e.id,
+             "old_relation": e.relation, "old_target_id": e.target_id,
+             "old_negated": e.negated}
+            for e in db.query(CodexEdge).filter(CodexEdge.source_id == subj_id,
+                CodexEdge.valid_until.is_(None), or_(*alternatives))
+                .order_by(CodexEdge.id).all()]
 
-    if relation in MULTI_VALUED_RELATIONS and turn_text:
-        tl = turn_text.lower()
-        if any(cue in tl for cue in SUPERSESSION_CUES):
-            old = db.query(CodexEdge).filter(
-                CodexEdge.source_id == subj_id,
-                CodexEdge.relation == relation,
-                CodexEdge.target_id != obj_id,
-                CodexEdge.valid_until == None,
-            ).first()
-            if old:
-                return {"type": "supersession", "old_edge_id": old.id,
-                        "old_relation": old.relation, "old_target_id": old.target_id}
-    return None
+
+def check_conflict(db, subj_id, relation: str, obj_id, turn_text: Optional[str]):
+    """Compatibility lookup; the writer processes every candidate."""
+    return next(iter(conflict_candidates(db, subj_id, relation, obj_id)), None)
+
+
+def _reconciliation_evidence(db, conflict, new_claims):
+    """Resolve complete authoritative units; unknown authority cannot expire."""
+    old_claims = db.query(CodexClaim).join(CodexClaimLink).filter(
+        CodexClaimLink.edge_id == conflict["old_edge_id"]).all()
+
+    def units(claims):
+        found = {}
+        for claim in claims or []:
+            row = source_for_claim(db, claim)
+            if (row is None or not excerpt_is_current(row, claim)
+                    or claim.role == "unknown" or row.ts_provenance != "original"
+                    or row.timestamp is None):
+                return None
+            unit = next((u for u in source_units(row) if u.role == claim.role
+                         and u.start <= claim.start and claim.end <= u.end), None)
+            if unit is None:
+                return None
+            key = (str(row.conversation_id), claim.role, row.timestamp, unit.text)
+            found[key] = dict(conversation_id=str(row.conversation_id), role=claim.role,
+                              recorded_at=row.timestamp, text=unit.text)
+        return next(iter(found.values())) if len(found) == 1 else None
+
+    old, new = units(old_claims), units(new_claims)
+    if (old is None or new is None or old["conversation_id"] != new["conversation_id"]
+            or old["role"] != new["role"] or old["recorded_at"] >= new["recorded_at"]):
+        return None
+    return old, new
+
+
+def _refresh_property_projection(db, subj, relation):
+    """Derive displayed property values from every live positive edge."""
+    if relation in PROPERTY_RELATIONS:
+        # Preserve every live value. This JSON is a display projection, not
+        # an independent last-write-wins assertion or an expiry authority.
+        values = sorted({name for (name,) in db.query(CodexEntity.canonical_name)
+            .join(CodexEdge, CodexEdge.target_id == CodexEntity.id)
+            .filter(CodexEdge.source_id == subj.id, CodexEdge.relation == relation,
+                    CodexEdge.negated.is_(False), CodexEdge.valid_until.is_(None)).all()})
+        props = dict(subj.properties or {})
+        if values:
+            props[relation] = values[0] if len(values) == 1 else values
+        else:
+            props.pop(relation, None)
+        subj.properties = props
+        subj.last_updated = datetime.now(timezone.utc)
 
 
 def _expire_edge(db, edge_id, batch_id, reason: str, source: Optional[str] = None):
@@ -1736,36 +1728,40 @@ def _expire_edge(db, edge_id, batch_id, reason: str, source: Optional[str] = Non
         db.add(CodexEvent(entity_id=edge.source_id, event_type="edge_expired",
                           payload=payload,
                           timestamp=datetime.now(timezone.utc), batch_source=batch_id))
+        db.flush()
+        for entity_id in (edge.source_id, edge.target_id):
+            entity = db.get(CodexEntity, entity_id)
+            if entity is not None:
+                if entity_id == edge.source_id:
+                    _refresh_property_projection(db, entity, edge.relation)
+                _regenerate_context_payload(entity, db)
 
 
 def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
                        turn_text: Optional[str], reconciler,
-                       source: Optional[str] = None) -> bool:
-    """Resolve a detected conflict. Antonym reversals are deterministic (the
-    newly-asserted state supersedes its opposite — no LLM). Ambiguous
-    supersessions go to *reconciler* (the bounded LLM) if provided, else to
-    human review — never auto-expire on a guess. Returns True if the new edge
-    should still be written. Callable as a unit so Track D's agent can drive
-    it with its own reconciler. *source* rides into the expiry events (D4)."""
-    if conflict["type"] == "antonym":
-        _expire_edge(db, conflict["old_edge_id"], batch_id, "antonym_superseded",
-                     source=source)
-        logger.info("codex_reconcile", type="antonym", decision="expire_old",
-                    relation=relation, old_relation=conflict["old_relation"])
-        return True
+                       source: Optional[str] = None, source_claims=None, negated=False) -> bool:
+    """Reconcile candidates from source text; relation names alone never expire.
 
-    # supersession — genuinely ambiguous ("migrated off X" vs "considered it").
+    Missing evidence/reconciler retains both claims and records a review item.
+    Returns False only for an explicit, source-backed reject_new decision.
+    """
     decision = "review"
-    if reconciler is not None:
+    evidence = _reconciliation_evidence(db, conflict, source_claims)
+    if reconciler is not None and evidence is not None:
         try:
             decision = reconciler({
                 "subject": subj.canonical_name, "relation": relation,
                 "object": obj.canonical_name, "old_relation": conflict["old_relation"],
                 "old_object": _entity_name(db, conflict.get("old_target_id")),
-                "turn": turn_text or "",
+                "turn": evidence[1]["text"], "old_source": evidence[0],
+                "new_source": evidence[1], "negated": negated,
+                "old_negated": conflict.get("old_negated", False),
             }) or "review"
         except Exception as err:
-            logger.error("codex_reconcile_llm_failed", error=str(err))
+            from src.workers.runtime import JobYielded
+            if isinstance(err, JobYielded):
+                raise
+            logger.warning("codex_reconcile_llm_failed", error_type=type(err).__name__)
             decision = "review"
 
     if decision == "expire_old":
@@ -1775,20 +1771,50 @@ def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
         logger.info("codex_reconcile", type="supersession", decision="reject_new")
         return False
     elif decision != "keep_both":  # review / unknown → keep both, flag human
-        db.add(ReviewQueue(item_type="codex_reconciliation", item_content={
-            "new": {"subject": subj.canonical_name, "relation": relation, "object": obj.canonical_name},
-            "conflict_type": "supersession", "old_edge_id": str(conflict["old_edge_id"]),
+        content = {
+            "new": {"subject": subj.canonical_name, "relation": relation,
+                    "object": obj.canonical_name, "negated": negated},
+            "conflict_type": conflict["type"], "old_edge_id": str(conflict["old_edge_id"]),
             "old_relation": conflict["old_relation"],
             "old_object": _entity_name(db, conflict.get("old_target_id")),
-            "turn_excerpt": (turn_text or "")[:300],
-        }))
+            "new_batch_id": str(batch_id),
+            "reason": "source_comparison_unresolved",
+        }
+        # Repeating an observed batch is not a new review question.
+        identity = {k: content[k] for k in ("old_edge_id", "new_batch_id", "new")}
+        if not db.query(ReviewQueue.id).filter(
+                ReviewQueue.item_type == "codex_reconciliation",
+                ReviewQueue.item_content.contains(identity)).first():
+            db.add(ReviewQueue(item_type="codex_reconciliation", item_content=content))
         decision = "review"
     logger.info("codex_reconcile", type="supersession", decision=decision)
     return True
 
 
+def reconciliation_prompt(ctx):
+    """Complete source context shared by inline and maintenance consumers."""
+    return (
+        "Two facts about the same subject may conflict. Using ONLY the conversation "
+        "text, decide how to reconcile them. Proposals, hypotheticals and quoted "
+        "denials are not adopted facts. Different dates or contexts can coexist. "
+        "Expire only if the same speaker clearly replaces the old assertion; "
+        "otherwise keep both.\n"
+        f"Existing candidate (negated={ctx.get('old_negated', False)}): "
+        f"{ctx['subject']} {ctx['old_relation']} {ctx['old_object']}\n"
+        f"New candidate (negated={ctx.get('negated', False)}): "
+        f"{ctx['subject']} {ctx['relation']} {ctx['object']}\n"
+        f"Original source with role and recorded time: {ctx.get('old_source')}\n"
+        f"New source with role and recorded time: {ctx.get('new_source')}\n"
+        f"Conversation text: {ctx['turn']}\n\n"
+        "Reply with exactly ONE word:\n"
+        "expire_old  — the new fact replaces/supersedes the old one\n"
+        "keep_both   — both are true at the same time\n"
+        "reject_new  — the new fact is wrong or not actually asserted"
+    )
+
+
 def make_llm_reconciler():
-    """A bounded reconciler backed by the background model: one word out, five
+    """A bounded reconciler backed by the background model: one word out, ten
     tokens max. Returned as a callable so it can be swapped/stubbed.
 
     ⚑ DELIBERATELY NOT `settings.codex_extraction_model` (G63, 2026-08-26).
@@ -1801,36 +1827,51 @@ def make_llm_reconciler():
     log line still looked healthy. It follows the general background model.
     """
     def _reconcile(ctx: dict) -> str:
-        prompt = (
-            "Two facts about the same subject may conflict. Using ONLY the conversation "
-            "text, decide how to reconcile them.\n"
-            f"Existing fact: {ctx['subject']} {ctx['old_relation']} {ctx['old_object']}\n"
-            f"New fact: {ctx['subject']} {ctx['relation']} {ctx['object']}\n"
-            f"Conversation text: {ctx['turn'][:600]}\n\n"
-            "Reply with exactly ONE word:\n"
-            "expire_old  — the new fact replaces/supersedes the old one\n"
-            "keep_both   — both are true at the same time\n"
-            "reject_new  — the new fact is wrong or not actually asserted"
-        )
+        prompt = reconciliation_prompt(ctx)
+        from src.memory.tokens import count
+        if count(prompt) > settings.codex_reconcile_input_tokens:
+            logger.warning("codex_reconcile_source_too_long")
+            return "review"
         resp = bg_client.chat.completions.create(
             model=get_bg_model_name(),
             messages=[{"role": "system", "content": "You output exactly one word."},
                       {"role": "user", "content": prompt}],
             temperature=0.0, max_tokens=10, timeout=bg_timeout(10))  # >5 so 'expire_old' can't truncate
-        out = (resp.choices[0].message.content or "").strip().lower().replace(" ", "_").replace("-", "_")
-        for d in ("expire_old", "keep_both", "reject_new"):
-            if d in out:
-                return d
-        return "review"
+        choice = resp.choices[0]
+        out = (choice.message.content or "").strip().lower()
+        if getattr(choice, "finish_reason", None) not in (None, "stop"):
+            logger.warning("codex_reconcile_incomplete_response")
+            return "review"
+        if out not in {"expire_old", "keep_both", "reject_new"}:
+            logger.warning("codex_reconcile_invalid_response")
+            return "review"
+        return out
     return _reconcile
+
+
+def _observe_edge(edge, batch_id, extraction_confidence):
+    """Count a source batch once; retrieval popularity cannot promote support."""
+    batch = uuid.UUID(str(batch_id))
+    seen = {uuid.UUID(str(b)) for b in (edge.observed_batches or [])}
+    if edge.source_batch:
+        seen.add(uuid.UUID(str(edge.source_batch)))
+    if batch in seen:
+        return False
+    seen.add(batch)
+    edge.observed_batches = sorted(seen, key=str)
+    edge.strength = min(settings.codex_retention_cap, (edge.strength or 0.0) + 1.0)
+    old_conf = edge.extraction_confidence if edge.extraction_confidence is not None else 1.0
+    edge.extraction_confidence = max(old_conf, extraction_confidence)
+    if len(seen) >= 2 and edge.confidence == "pending":
+        edge.confidence = "active"
+    return True
 
 
 def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch_id: str,
                    extraction_confidence: float = 1.0, turn_text: Optional[str] = None,
-                   reconciler=None, negated: bool = False):
+                   reconciler=None, negated: bool = False, source_claims=None):
     """Integrates extraction assertions into the transaction context,
-    with property‑aware updates, auto‑expiry, multi‑valued support,
-    and immediate contradiction activation. *extraction_confidence* (A3)
+    with source-qualified reconciliation and polarity-aware observation. *extraction_confidence* (A3)
     is the grounding-seeded trust stored on new edges; on reinforcement the
     edge keeps the highest confidence seen (corroboration raises trust).
     *turn_text* / *reconciler* drive the A6 reconciliation loop (below).
@@ -1857,266 +1898,44 @@ def handle_triplet(db, subject_name: str, relation: str, object_name: str, batch
     # exempts it. See the promotion block in get_or_create_entity.
     obj  = get_or_create_entity(db, object_name, protect_ids={subj.id})
 
-    # ── A8: negated assertion ("X no longer uses Y", "X distrusts Y") ──
-    # A negation retracts the matching POSITIVE edge (the fact stopped being
-    # true), and is itself stored as a negative fact so retrieval can surface
-    # "X does NOT relate to Y". Handled up front, separate from the positive
-    # write rules below.
-    if negated:
-        for pos in db.query(CodexEdge).filter(
-            CodexEdge.source_id == subj.id, CodexEdge.target_id == obj.id,
-            CodexEdge.relation == relation, CodexEdge.negated == False,
-            CodexEdge.valid_until == None,
-        ).all():
-            pos.valid_until = datetime.now(timezone.utc)
-            db.add(CodexEvent(entity_id=subj.id, event_type="edge_expired",
-                              payload={"edge_id": str(pos.id), "relation": relation,
-                                       "reason": "negated"},
-                              timestamp=datetime.now(timezone.utc), batch_source=batch_id))
-        existing_neg = db.query(CodexEdge).filter(
-            CodexEdge.source_id == subj.id, CodexEdge.target_id == obj.id,
-            CodexEdge.relation == relation, CodexEdge.negated == True,
-            CodexEdge.valid_until == None,
-        ).first()
-        if existing_neg:
-            existing_neg.strength += 1.0
-            existing_neg.extraction_confidence = max(
-                existing_neg.extraction_confidence or 1.0, extraction_confidence)
-        else:
-            neg_id = uuid.uuid4()
-            db.add(CodexEdge(id=neg_id, source_id=subj.id, target_id=obj.id, relation=relation,
-                             strength=1.0, source_batch=batch_id, confidence="active",
-                             extraction_confidence=extraction_confidence, negated=True,
-                             valid_from=datetime.now(timezone.utc)))
-            db.add(CodexEvent(entity_id=subj.id, event_type="edge_added",
-                              payload={"edge_id": str(neg_id), "relation": relation,
-                                       "target_id": str(obj.id), "negated": True},
-                              timestamp=datetime.now(timezone.utc), batch_source=batch_id))
-        _regenerate_context_payload(subj, db)
-        _regenerate_context_payload(obj, db)
-        return
-
-    # ── 1. Property relations: update entity properties, expire previous edges ──
-    if relation in PROPERTY_RELATIONS:
-        # Expire any existing active edge of the same relation for this source
-        for old_edge in db.query(CodexEdge).filter(
-            CodexEdge.source_id == subj.id,
-            CodexEdge.relation == relation,
-            CodexEdge.valid_until == None
-        ).all():
-            old_edge.valid_until = datetime.now(timezone.utc)
-            db.add(CodexEvent(
-                entity_id=subj.id,
-                event_type="edge_expired",
-                payload={"edge_id": str(old_edge.id), "relation": relation},
-                timestamp=datetime.now(timezone.utc),
-                batch_source=batch_id
-            ))
-
-        # Create a new active edge with strength 3.0
-        new_edge_id = uuid.uuid4()
-        db.add(CodexEdge(
-            id=new_edge_id,
-            source_id=subj.id,
-            target_id=obj.id,
-            relation=relation,
-            strength=3.0,
-            source_batch=batch_id,
-            confidence="active",
-            extraction_confidence=extraction_confidence,
-            valid_from=datetime.now(timezone.utc)
-        ))
-        db.add(CodexEvent(
-            entity_id=subj.id,
-            event_type="edge_added",
-            payload={"edge_id": str(new_edge_id), "relation": relation, "target_id": str(obj.id)},
-            timestamp=datetime.now(timezone.utc),
-            batch_source=batch_id
-        ))
-
-        # Update entity properties
-        # Update entity properties (JSONB requires explicit flagging for in‑place changes)
-        if subj.properties is None:
-            subj.properties = {}
-        subj.properties[relation] = object_name.strip()
-        flag_modified(subj, "properties")          # tell SQLAlchemy the JSONB changed
-        subj.last_updated = datetime.now(timezone.utc)
-
-        # Regenerate context payload — BOTH ends (G33, 2026-08-08).
-        # This branch was the only one of the three that refreshed the subject
-        # alone; the negation branch above and the non-property branch below
-        # always did both. The consequence was the property VALUE's node sitting
-        # with an empty `context_payload` forever, which made it a matchable
-        # pre-flight anchor that `orchestrator.py:1530` then skipped for being
-        # empty — an anchor slot spent on nothing, possibly displacing a real
-        # entity. With the backlink rendered it answers the question the node
-        # exists for ("who else is a fire mage?").
-        _regenerate_context_payload(subj, db)
-        _regenerate_context_payload(obj, db)
-        return
-
-    # ── 2. Non‑property relations ──
-    # A6: reconcile cross-turn conflicts before the fixed rules apply. Cheap
-    # unless a real conflict is detected; may expire a superseded edge, or
-    # reject this assertion entirely (reject_new → don't write).
-    conflict = check_conflict(db, subj.id, relation, obj.id, turn_text)
-    if conflict and not reconcile_conflict(db, conflict, subj, relation, obj,
-                                           batch_id, turn_text, reconciler):
-        return
+    # All assertion types use the same source boundary. Neither a property
+    # category nor polarity establishes that a different assertion became false.
+    with db.begin_nested() as changes:
+        for conflict in conflict_candidates(db, subj.id, relation, obj.id, negated):
+            if not reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
+                                      turn_text, reconciler, source_claims=source_claims,
+                                      negated=negated):
+                # A later comparison may reject the candidate. Do not leave
+                # earlier expiries behind without the proposed replacement.
+                changes.rollback()
+                return
 
     existing_active = db.query(CodexEdge).filter(
-        CodexEdge.source_id == subj.id,
-        CodexEdge.target_id == obj.id,
-        CodexEdge.valid_until == None
-    ).first()
-
+        CodexEdge.source_id == subj.id, CodexEdge.target_id == obj.id,
+        CodexEdge.relation == relation, CodexEdge.negated == negated,
+        CodexEdge.valid_until.is_(None)).first()
     if existing_active:
-        # Same source‑target pair, same relation → reinforcement
-        if existing_active.relation == relation:
-            existing_active.strength += 1.0
-            # A3: corroborating re-extraction raises trust to the best seen.
-            existing_active.extraction_confidence = max(
-                existing_active.extraction_confidence or 1.0, extraction_confidence)
-            if existing_active.strength >= 2.0 and existing_active.confidence == "pending":
-                existing_active.confidence = "active"
-            db.add(CodexEvent(
-                entity_id=subj.id,
-                event_type="edge_strengthened",
-                payload={"edge_id": str(existing_active.id), "relation": relation, "target_id": str(obj.id)},
-                timestamp=datetime.now(timezone.utc),
-                batch_source=batch_id
-            ))
-        else:
-            # Same pair, different relation.
-            # Only expire the old edge if the OLD relation is single-valued —
-            # "knows" (multi-valued) must survive a later "friend" between the
-            # same pair, because both are supposed to coexist.
-            #
-            # ⚑ G51, 2026-08-22: this tests membership of the SINGLE list, not
-            # absence from the MULTI list, and the difference is the whole
-            # point. `07fc689` made exactly that change in the single-valued
-            # branch below and left this twin on the old form — so every
-            # OPEN-VOCABULARY relation, which is by definition on neither closed
-            # list, took the `not in MULTI_VALUED` path and retired its
-            # predecessor. Measured on the arm-B store before the fix: 667 of
-            # 817 expiries (82%) were open-vocabulary relations expired here —
-            # `have` x34, `are` x28, `feels` x13, `in` x12. Silent, because the
-            # row stays in the table with `valid_until` set.
-            #
-            # The default for an unknown relation is KEEP BOTH: losing a
-            # supersession leaves a stale edge, which is visible and
-            # correctable; losing a fact is neither. Do not "fix" this by
-            # growing either list — that is the closed-vocabulary defect G45
-            # removed.
-            if existing_active.relation in SINGLE_VALUED_RELATIONS:
-                existing_active.valid_until = datetime.now(timezone.utc)
-                db.add(CodexEvent(
-                    entity_id=subj.id,
-                    event_type="edge_expired",
-                    payload={"edge_id": str(existing_active.id), "relation": existing_active.relation},
-                    timestamp=datetime.now(timezone.utc),
-                    batch_source=batch_id
-                ))
-
-            new_edge_id = uuid.uuid4()
-            db.add(CodexEdge(
-                id=new_edge_id,
-                source_id=subj.id,
-                target_id=obj.id,
-                relation=relation,
-                strength=3.0,
-                source_batch=batch_id,
-                confidence="active",
-                extraction_confidence=extraction_confidence,
-                valid_from=datetime.now(timezone.utc)
-            ))
-            db.add(CodexEvent(
-                entity_id=subj.id,
-                event_type="edge_added",
-                payload={"edge_id": str(new_edge_id), "relation": relation, "target_id": str(obj.id)},
-                timestamp=datetime.now(timezone.utc),
-                batch_source=batch_id
-            ))
+        if _observe_edge(existing_active, batch_id, extraction_confidence):
+            db.add(CodexEvent(entity_id=subj.id, event_type="edge_strengthened",
+                payload={"edge_id": str(existing_active.id), "relation": relation,
+                         "target_id": str(obj.id), "reason": "distinct_source_batch"},
+                timestamp=datetime.now(timezone.utc), batch_source=batch_id))
+        edge = existing_active
     else:
-        # No existing edge between this source and target
-        # If the relation is single‑valued, expire any other active edge with the same source and relation
-        #
-        # ⚑ KNOWN single-valued, not "absent from the multi-valued list" (G45/G50).
-        # This read `relation not in MULTI_VALUED_RELATIONS`, so every relation
-        # the OPEN vocabulary invented — anything outside the 88 known words —
-        # was treated as single-valued and each new object retired the previous
-        # one. Measured on the live arm: `deepesh --lists_components_of-->`
-        # code / algo / advantages / disadvantages / complexity / dry run /
-        # example / application — eight genuine components of one explanation,
-        # SEVEN retired by the eighth. Silent, because the edges stay in the
-        # table with `valid_until` set; nothing reads as lost until you count.
-        #
-        # The default for an unknown relation must be KEEP BOTH. Losing a
-        # supersession leaves a stale edge, which is visible and correctable;
-        # losing a fact is neither. Do not "fix" this by growing the list —
-        # that is the closed-vocabulary defect G45 removed.
-        previous_expired = False
-        if relation in SINGLE_VALUED_RELATIONS:
-            previous = db.query(CodexEdge).filter(
-                CodexEdge.source_id == subj.id,
-                CodexEdge.relation == relation,
-                CodexEdge.valid_until == None
-            ).first()
-            if previous:
-                previous.valid_until = datetime.now(timezone.utc)
-                previous_expired = True
-                db.add(CodexEvent(
-                    entity_id=subj.id,
-                    event_type="edge_expired",
-                    payload={"edge_id": str(previous.id), "relation": relation},
-                    timestamp=datetime.now(timezone.utc),
-                    batch_source=batch_id
-                ))
-
-        # Create a new edge – immediately active if a previous edge was expired
-        new_edge_id = uuid.uuid4()
-        new_strength = 3.0 if previous_expired else 1.0
-        new_confidence = "active" if previous_expired else "pending"
-        db.add(CodexEdge(
-            id=new_edge_id,
-            source_id=subj.id,
-            target_id=obj.id,
-            relation=relation,
-            strength=new_strength,
-            source_batch=batch_id,
-            confidence=new_confidence,
-            extraction_confidence=extraction_confidence,
-            valid_from=datetime.now(timezone.utc)
-        ))
-        db.add(CodexEvent(
-            entity_id=subj.id,
-            event_type="edge_added",
-            payload={"edge_id": str(new_edge_id), "relation": relation, "target_id": str(obj.id)},
-            timestamp=datetime.now(timezone.utc),
-            batch_source=batch_id
-        ))
-
-    # ⚠ This call was MISSING from the non-property branch — the main path, and
-    # the one every ordinary relation takes (`uses`, `knows`, `built`, …). Only
-    # the property branch and A8's negation branch regenerated, so an entity
-    # whose relations are all ordinary carried an EMPTY `context_payload`.
-    #
-    # That matters because `context_payload` is exactly what the codex leg
-    # injects (`orchestrator.py:1532` — `[Entity: name]\n{context_payload}`, and
-    # `:1530` skips the entity entirely when it is empty). So a freshly
-    # extracted entity contributed NOTHING to retrieval until the reflection
-    # worker happened to enrich it on its 2-hour cadence — and reflection only
-    # touches entities it selects, so the rest stayed empty indefinitely.
-    # Worth weighing against Exp 2's finding that Codex supplied 3.3% of
-    # fragments; this is not proof of the cause, but it is a mechanism that
-    # would produce exactly that symptom.
-    #
-    # BOTH ends, not just the subject: A7's payload has a `Backlinks:` section
-    # and it is what makes the note bidirectional, but only the subject was
-    # ever regenerated — so the target of every edge showed no backlink until
-    # reflection reached it. Same bug, other end of the arrow.
+        edge = CodexEdge(id=uuid.uuid4(), source_id=subj.id, target_id=obj.id,
+            relation=relation, negated=negated, strength=1.0, source_batch=batch_id,
+            confidence="pending", extraction_confidence=extraction_confidence,
+            valid_from=datetime.now(timezone.utc))
+        db.add(edge)
+        db.add(CodexEvent(entity_id=subj.id, event_type="edge_added",
+            payload={"edge_id": str(edge.id), "relation": relation,
+                     "target_id": str(obj.id), "negated": negated},
+            timestamp=datetime.now(timezone.utc), batch_source=batch_id))
+    db.flush()
+    _refresh_property_projection(db, subj, relation)
     _regenerate_context_payload(subj, db)
     _regenerate_context_payload(obj, db)
+    return edge
 
 
 def _record_relation_gaps(db, dropped: list, turn, log) -> int:
@@ -2178,16 +1997,32 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
     
     try:
         if db.query(IdempotencyKey).filter_by(key=idempotency_key).first():
+            log.info("codex_already_extracted")
             return
 
-        turn = db.query(EpisodicMemory).filter_by(batch_id=uuid.UUID(batch_id)).first()
-        if not turn or not turn.lossless_flag:
+        turn = db.query(EpisodicMemory).filter_by(batch_id=uuid.UUID(str(batch_id))).first()
+        if turn is None:
+            raise RuntimeError(f"turn for batch {batch_id} not visible yet")
+        if turn.is_private:
+            log.info("codex_private_turn_skipped")
             return
 
         relation_gaps = []
-        triplets = extract_triplets(turn.raw_text, model_used,
-                                    topic_tags=turn.topic_tags,
-                                    gaps=relation_gaps)
+        triplets, sentences = [], []
+        for unit in source_units(turn):
+            if not unit.text.strip():
+                continue
+            # Foreground answer model is provenance, not an extraction override.
+            extracted = extract_triplets(unit.text,
+                topic_tags=turn.topic_tags, gaps=relation_gaps,
+                source_sentences=sentences if settings.codex_sentence_claims else None)
+            for triplet in extracted:
+                triplet["_source_role"] = unit.role
+                triplet["_source_start"] = unit.start
+                triplet["_source_end"] = unit.end
+            triplets.extend(extracted)
+        claims = (store_claims(db, turn, sentences, encoder=embedder)
+                  if settings.codex_sentence_claims else [])
         if relation_gaps:
             _record_relation_gaps(db, relation_gaps, turn, log)
         reconciler = make_llm_reconciler()   # A6: bounded LLM for ambiguous supersessions
@@ -2201,18 +2036,32 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
                     r = r_raw.strip()
                     o = o_raw.strip()
                     if s and r and o:
-                        handle_triplet(db, s, r, o, batch_id,
+                        matched_claims = [c for c in claims if
+                            c.sentence == triplet.get("source_sentence", "").strip()
+                            and c.role == triplet.get("_source_role")
+                            and triplet["_source_start"] <= c.start
+                            and c.end <= triplet["_source_end"]]
+                        edge = handle_triplet(db, s, r, o, batch_id,
                                        extraction_confidence=float(triplet.get("confidence", 1.0)),
                                        turn_text=turn.raw_text, reconciler=reconciler,
-                                       negated=bool(triplet.get("negated", False)))
+                                       negated=bool(triplet.get("negated", False)),
+                                       source_claims=matched_claims)
+                        if edge is not None:
+                            for claim in matched_claims:
+                                key = {"claim_id": claim.id, "edge_id": edge.id}
+                                if db.get(CodexClaimLink, (claim.id, edge.id)) is None:
+                                    db.add(CodexClaimLink(**key))
 
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()
         log.info("codex_graph_assertions_committed", extracted_count=len(triplets))
 
     except Exception as exc:
+        from src.workers.runtime import JobYielded
+
         db.rollback()
-        log.error("codex_extraction_aborted", error=str(exc))
+        if not isinstance(exc, JobYielded):
+            log.error("codex_extraction_aborted", error=str(exc))
         raise
     finally:
         db.close()

@@ -1,55 +1,31 @@
-"""C4 — one evolving summary per conversation ("the whole conversation so
-far, current" — never a batch_summaries range row).
+"""Original-source conversation notes, composed without recursive generation.
 
-Runs in the session-end burst (quartet member since C4) and on its cadence;
-both are cheap: only conversations with turns newer than their summary's
-``covers_through`` do any work, and a summary row is first created only once
-the conversation outgrows the sliding window (the D3a condition — a 2-turn
-chat never earns one). Maintenance is incremental: prompt = existing summary
-+ the NEW turns' C1 representations, folded in bounded chunks, grounded
-C1-style (must-keep terms from the chunk, one retry on coverage miss).
-A failed LLM call leaves the old row untouched — the next burst retries.
-
-Consumers: the assembler (active conversation past the window condition,
-``=== CONVERSATION SUMMARY ===``) and the batch-summary retrieval leg
-(cross-conversation hits; excludes private conversations and the active one).
-Incognito conversations DO get summaries — their own context; the retrieval
-consumer's join is the privacy shield. T-track era digests read these rows
-as-is later.
+Unchanged source groups reuse their output-bound cache. Appends create independent
+notes; edits, deletions and backfills rebuild from originals. Only supported
+compression replaces a group; uncertainty retains its complete source evidence.
+The composed block still obeys foreground budgeting, and can be large when
+long-source verification is unavailable. It is not a globally reconciled narrative.
 """
+from dataclasses import asdict
 from datetime import datetime, timezone
 
-from src.api.config import settings
 import structlog
 
+from src.api.config import settings
 from src.api.memory_decision import estimate_recent_window_tokens
-from src.memory.models import ConversationSummary, EpisodicMemory
-from src.memory.tokens import estimate_from_chars
-from src.workers.turn_density import (
-    extract_key_terms,
-    must_terms,
-    retry_on_coverage_miss,
-    summary_coverage,
+from src.memory.conversation_notes import indexed_parts, part_batches
+from src.memory.models import ConversationNote, ConversationSummary
+from src.memory.representation import representation_source
+from src.memory.summary_snapshot import (
+    SUMMARY_SOURCES_SQL, bind_snapshot, compose_parts, snapshot_matches, source_snapshot,
 )
+from src.memory.support import supported_current, verify_support
+from src.memory.time_format import recorded_stamp
+from src.memory.tokens import estimate_from_chars
+from src.workers.completion_text import complete_text
+
 
 logger = structlog.get_logger("ice.workers.conversation_summary")
-
-
-
-def _representation(turn) -> str:
-    """C1 read-side idiom (same preference as the assembler's recent window):
-    raw when flagged inject_raw, else the grounded summary, else a raw head —
-    capped so documents/monsters can't blow the prompt."""
-    if turn.inject_raw and turn.raw_text:
-        text_ = turn.raw_text
-    elif turn.summary_text:
-        text_ = turn.summary_text
-    else:
-        text_ = (turn.raw_text or "")[:300]
-    words = text_.split()
-    if len(words) > settings.conversation_summary_per_turn_words:
-        text_ = " ".join(words[:settings.conversation_summary_per_turn_words]) + "…"
-    return text_
 
 
 def _default_llm(prompt: str, max_tokens: int = 400) -> str:
@@ -58,19 +34,37 @@ def _default_llm(prompt: str, max_tokens: int = 400) -> str:
         get_bg_client,
         get_bg_model_name,
     )
+    from src.memory.tokens import count_messages, with_margin
+    from src.model_registry.registry import get_model_context_window
+    from src.model_registry.runtime_probe import serving_window
+    from src.workers.completion_text import IncompleteCompletion
+
+    model = get_bg_model_name()
+    messages = [
+        {"role": "system", "content": "You are a precise summarisation engine."},
+        {"role": "user", "content": prompt},
+    ]
+    window = int(settings.ollama_num_ctx_max)
+    if settings.background_model_mode == "shared":
+        observed = serving_window(model, get_model_context_window(model))
+        if observed:
+            window = min(window, int(observed)) if window > 0 else int(observed)
+    required = with_margin(count_messages(messages), settings.token_count_safety_margin) + max_tokens
+    if window <= 0 or required > window:
+        logger.warning("conversation_summary_input_over_budget", required=required,
+                       window=window, model=model,
+                       reason="complete evidence cannot fit; retaining previous checkpoint")
+        raise IncompleteCompletion("complete conversation-summary input exceeds known capacity")
     completion = get_bg_client().chat.completions.create(
-        model=get_bg_model_name(),
-        messages=[
-            {"role": "system", "content": "You are a precise summarisation engine."},
-            {"role": "user", "content": prompt},
-        ],
+        model=model,
+        messages=messages,
         temperature=0.0,
         max_tokens=max_tokens,
         # prefill-heavy (existing summary + a turn chunk): keep the 60s floor,
         # G12's formula scales with output only.
         timeout=max(60.0, bg_timeout(max_tokens)),
     )
-    return (completion.choices[0].message.content or "").strip()
+    return complete_text(completion)
 
 
 def _shared_embedder():
@@ -80,57 +74,133 @@ def _shared_embedder():
     return embedder
 
 
-def _fold_prompt(existing: str, chunk_text: str, terms: list,
-                 missing: list = None) -> str:
-    must_block = ""
-    if terms:
-        must_block = (
-            "\nMUST-PRESERVE TERMS (every one of these must appear verbatim "
-            f"in your summary): {', '.join(terms)}\n")
-    retry_block = ""
-    if missing:
-        retry_block = (
-            "\nYour previous summary DROPPED these required terms — include "
-            f"each of them verbatim this time: {', '.join(missing)}\n")
-    existing_block = (
-        f"EXISTING SUMMARY OF THE CONVERSATION SO FAR:\n{existing}\n\n"
-        if existing else "")
+def _original_source(turn):
+    """Do not make a generated representation the premise for another summary."""
+    source = representation_source(turn)
+    known_roles = source is not None
+    if source is None:
+        import json
+        source = "Source with unknown speaker attribution: " + json.dumps(
+            turn.raw_text or "", ensure_ascii=False)
+    return f"{recorded_stamp(turn.timestamp, turn.ts_provenance)} {source}", known_roles
+
+
+def _original_groups(turns):
+    group, texts, size, known = [], [], 0, True
+    for turn in turns:
+        source, roles_known = _original_source(turn)
+        words = len(source.split())
+        if group and size + words > settings.conversation_summary_chunk_words:
+            yield group, "\n\n".join(texts), known
+            group, texts, size, known = [], [], 0, True
+        group.append(turn)
+        texts.append(source)
+        size += words
+        known = known and roles_known
+    if group:
+        yield group, "\n\n".join(texts), known
+
+
+def _note_prompt(source):
     return (
-        "You maintain ONE evolving summary of a whole conversation. Revise "
-        "the existing summary to also cover the new turns below — do not "
-        "drop information the existing summary carries unless the new turns "
-        "supersede it (then state what changed). Preserve names, numbers, "
-        "decisions, and open questions. Output ONLY the revised summary, "
-        f"at most {settings.conversation_summary_max_words} words."
-        f"{must_block}{retry_block}\n\n"
-        f"{existing_block}NEW TURNS:\n{chunk_text}"
+        "Summarize only the original source group below. Preserve who said what, "
+        "uncertainty, conditions, negation, corrections, decisions and open questions. "
+        "An assistant suggestion is not a user decision. Do not invent a connection "
+        "to include a name or number. Do not resolve changes using recorded time "
+        "as if it were event time. Output only the source-grounded note, aiming for "
+        f"at most {settings.conversation_summary_max_words} words.\n\n"
+        f"ORIGINAL SOURCE GROUP:\n{source}"
     )
 
 
-def _summarize_chunk(existing: str, chunk_text: str, llm, embedder) -> str:
-    """One grounded fold: must-keep terms from the chunk, one retry on a
-    coverage miss (post_flight idiom). Returns "" on an empty/failed call."""
-    key_terms = extract_key_terms(chunk_text, embedder)
-    terms = must_terms(key_terms)
-    summary = llm(_fold_prompt(existing, chunk_text, terms), max_tokens=400)
-    if not summary:
-        return ""
-    # G29: shared with post_flight — this copy used to adopt a better retry
-    # without updating its coverage.
-    summary, _coverage = retry_on_coverage_miss(
-        summary, key_terms,
-        lambda missing: llm(_fold_prompt(existing, chunk_text, terms, missing),
-                            max_tokens=400))
-    words = summary.split()
-    if len(words) > settings.conversation_summary_max_words + 50:      # tolerance, then hard cap
-        summary = " ".join(words[:settings.conversation_summary_max_words])
-    return summary
+def _source_note(turns, source, known_roles, llm, verifier, *, max_tokens=400):
+    generated = llm(_note_prompt(source), max_tokens=max_tokens)
+    if not generated or not generated.strip():
+        return None
+    verdict = asdict(verifier(source, generated)) if known_roles else None
+    supported = supported_current(verdict, source, generated)
+    if not supported:
+        logger.warning("conversation_note_source_fallback",
+                       reason=verdict["reason"] if verdict else "source_roles_unknown",
+                       status=verdict["status"] if verdict else "unknown",
+                       source_turns=len(turns))
+    return {"source_ids": [str(t.id) for t in turns],
+            "mode": "supported" if supported else "source",
+            "recorded_range": (f"{recorded_stamp(turns[0].timestamp, turns[0].ts_provenance)} to "
+                               f"{recorded_stamp(turns[-1].timestamp, turns[-1].ts_provenance)}"),
+            "text": generated if supported else source,
+            "verification": verdict}
+
+
+def _summary_embedding(summary, embedder):
+    """Cover the complete composition even when it exceeds the encoder window."""
+    import numpy as np
+
+    tokenizer = getattr(embedder, "tokenizer", None)
+    capacity = getattr(embedder, "max_seq_length", None)
+    # Injected encoders without a tokenizer own their input contract (tests).
+    if tokenizer is None or not isinstance(capacity, int):
+        return embedder.encode(summary, convert_to_tensor=False)
+    if capacity < 16:
+        raise ValueError("summary encoder capacity is unusable")
+
+    def fits(value):
+        return len(tokenizer(value, truncation=False)["input_ids"]) <= capacity
+
+    if fits(summary):
+        return embedder.encode(summary, convert_to_tensor=False)
+    spans, start = [], 0
+    while start < len(summary):
+        low, high = 1, len(summary) - start
+        if not fits(summary[start:start + 1]):
+            raise ValueError("single summary character exceeds encoder capacity")
+        while low < high:
+            mid = (low + high + 1) // 2
+            if fits(summary[start:start + mid]):
+                low = mid
+            else:
+                high = mid - 1
+        spans.append(summary[start:start + low])
+        start += low
+    vectors = [np.asarray(embedder.encode(span, convert_to_tensor=False), dtype=float)
+               for span in spans]
+    pooled = np.average(vectors, axis=0, weights=[len(span) for span in spans])
+    norm = float(np.linalg.norm(pooled))
+    if not np.isfinite(norm) or norm == 0:
+        raise ValueError("invalid pooled summary embedding")
+    return pooled / norm
+
+
+def _index_parts(db, row, parts, embedder):
+    """Materialize a derived search index from the validated source manifest."""
+    old = db.query(ConversationNote).filter_by(conversation_id=row.conversation_id).all()
+    if indexed_parts(row.source_manifest, old):
+        return False
+    reusable = {n.ordinal: n for n in old}
+    db.query(ConversationNote).filter_by(conversation_id=row.conversation_id).delete(
+        synchronize_session='fetch')
+    db.flush()
+    for ordinal, part in enumerate(parts, 1):
+        prior = reusable.get(ordinal)
+        if prior is not None and prior.text == part['text']:
+            embedding = prior.embedding
+        else:
+            if embedder is None:
+                embedder = _shared_embedder()
+            vector = _summary_embedding(part['text'], embedder)
+            embedding = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
+        db.add(ConversationNote(
+            conversation_id=row.conversation_id, ordinal=ordinal,
+            text=part['text'], mode=part['mode'],
+            recorded_range=part.get('recorded_range'),
+            source_ids=part['source_ids'], batch_ids=part_batches(part, row.source_manifest),
+            embedding=embedding))
+    return True
 
 
 def run_conversation_summaries(db, llm=None, embedder=None,
-                               conversation_ids=None) -> dict:
-    """One pass: for every conversation with turns newer than its summary's
-    covers_through, fold the new turns into the evolving summary. Row
+                               conversation_ids=None, verifier=None) -> dict:
+    """Refresh independent source notes, incrementing only strictly newer turns. Row
     creation is gated on the D3a window condition (with the legacy default
     budget — the job doesn't know the routed model; the assembler re-checks
     at injection). *llm*/*embedder* are injectable and *conversation_ids*
@@ -140,14 +210,15 @@ def run_conversation_summaries(db, llm=None, embedder=None,
              "below_window": 0, "failed": 0}
     if llm is None:
         llm = _default_llm
+    verifier = verifier or verify_support
     lazy_embedder = embedder
 
     from sqlalchemy import text as sql_text
-    rows = db.execute(sql_text("""
+    rows = db.execute(sql_text(f"""
         SELECT e.conversation_id AS cid, count(*) AS n_turns,
-               max(e.timestamp) AS last_ts,
                coalesce(sum(length(e.raw_text)), 0) AS chars
-        FROM episodic_memory e
+        FROM ({SUMMARY_SOURCES_SQL}) e
+        WHERE e.conversation_id IS NOT NULL
         GROUP BY e.conversation_id
     """)).fetchall()
     if conversation_ids is not None:
@@ -157,75 +228,82 @@ def run_conversation_summaries(db, llm=None, embedder=None,
                  for s in db.query(ConversationSummary).all()}
 
     for row in rows:
-        # G4(a): per-conversation boundary, and `covers_through` means a
-        # conversation already folded is not redone on the requeued run.
+        # Yield between conversations; source identity detects unchanged work
+        # as well as edits/deletions/backfills that timestamp cursors missed.
         from src.workers.runtime import yield_if_user_active
         yield_if_user_active("conversation_summary.conversation")
         stats["scanned"] += 1
         existing_row = summaries.get(row.cid)
-        if existing_row is not None and existing_row.covers_through is not None \
-                and row.last_ts is not None \
-                and row.last_ts <= existing_row.covers_through:
-            continue                                  # nothing new
+        sources = source_snapshot(db, row.cid)
+        previous_valid = existing_row is not None and bool(
+            (existing_row.source_manifest or {}).get("parts")) and snapshot_matches(
+            existing_row.source_manifest, existing_row.summary_text, sources,
+            allow_newer=True)
+        if previous_valid and snapshot_matches(
+                existing_row.source_manifest, existing_row.summary_text, sources):
+            if _index_parts(db, existing_row, existing_row.source_manifest['parts'], lazy_embedder):
+                db.commit()
+            continue
         if existing_row is None:
             total_tokens = estimate_from_chars(row.chars)
             if total_tokens <= estimate_recent_window_tokens(row.n_turns):
                 stats["below_window"] += 1            # still fits the window
                 continue
 
-        q = db.query(EpisodicMemory).filter(
-            EpisodicMemory.conversation_id == row.cid)
-        if existing_row is not None and existing_row.covers_through is not None:
-            q = q.filter(EpisodicMemory.timestamp > existing_row.covers_through)
-        new_turns = q.order_by(EpisodicMemory.timestamp.asc()).all()
+        covered_ids = ([item["id"] for item in existing_row.source_manifest["sources"]]
+                       if previous_valid else [])
+        new_turns = db.execute(sql_text(f"""
+            SELECT * FROM ({SUMMARY_SOURCES_SQL}) e
+            WHERE e.conversation_id = :cid
+              AND NOT (e.id = ANY(CAST(:covered_ids AS uuid[])))
+            ORDER BY e.timestamp, e.id
+        """), {"cid": row.cid, "covered_ids": covered_ids}).all()
         if not new_turns:
             continue
 
         if lazy_embedder is None:
             lazy_embedder = _shared_embedder()
 
-        # Fold in bounded chunks; any failed call aborts THIS conversation
-        # with the old row intact (retry next burst — never half-advance).
-        summary = existing_row.summary_text if existing_row else ""
-        chunk, chunk_words, ok = [], 0, True
-        for turn in new_turns:
-            rep = _representation(turn)
-            chunk.append(rep)
-            chunk_words += len(rep.split())
-            if chunk_words >= settings.conversation_summary_chunk_words:
-                summary = _summarize_chunk(summary, "\n\n".join(chunk),
-                                           llm, lazy_embedder)
-                if not summary:
-                    ok = False
-                    break
-                chunk, chunk_words = [], 0
-        if ok and chunk:
-            summary = _summarize_chunk(summary, "\n\n".join(chunk),
-                                       llm, lazy_embedder)
-            ok = bool(summary)
+        # Reuse output-bound notes, never their text as a generation premise.
+        parts = list(existing_row.source_manifest["parts"]) if previous_valid else []
+        ok = True
+        for turns, source, known_roles in _original_groups(new_turns):
+            from src.workers.runtime import yield_if_user_active
+            yield_if_user_active("conversation_summary.source_group")
+            part = _source_note(turns, source, known_roles, llm, verifier)
+            if part is None:
+                ok = False
+                break
+            parts.append(part)
         if not ok:
             stats["failed"] += 1
             logger.warning("conversation_summary_failed",
                            conversation_id=str(row.cid))
             db.rollback()
             continue
+        summary = compose_parts(parts)
 
-        vec = lazy_embedder.encode(summary, convert_to_tensor=False)
+        vec = _summary_embedding(summary, lazy_embedder)
         embedding = vec.tolist() if hasattr(vec, "tolist") else list(vec)
         now = datetime.now(timezone.utc)
         if existing_row is None:
-            db.add(ConversationSummary(
+            existing_row = ConversationSummary(
                 conversation_id=row.cid, summary_text=summary,
                 covers_through=new_turns[-1].timestamp,
-                covers_turns=row.n_turns, embedding=embedding, updated_at=now))
+                covers_turns=row.n_turns, embedding=embedding, updated_at=now,
+                source_manifest=bind_snapshot(sources, summary, parts=parts))
+            db.add(existing_row)
+            db.flush()
             stats["created"] += 1
         else:
+            existing_row.source_manifest = bind_snapshot(sources, summary, parts=parts)
             existing_row.summary_text = summary
             existing_row.covers_through = new_turns[-1].timestamp
             existing_row.covers_turns = row.n_turns
             existing_row.embedding = embedding
             existing_row.updated_at = now
             stats["updated"] += 1
+        _index_parts(db, existing_row, parts, lazy_embedder)
         db.commit()
 
     if stats["created"] or stats["updated"] or stats["failed"]:

@@ -46,11 +46,11 @@ _PROBE = textwrap.dedent(
 )
 
 
-def _probe(cwd: str) -> dict:
+def _probe(cwd: str, *, env=None) -> dict:
     """Import ICE in a subprocess rooted at *cwd* and report what it resolved."""
     proc = subprocess.run(
         [sys.executable, "-c", _PROBE.format(root=str(REPO_ROOT))],
-        cwd=cwd, capture_output=True, text=True, timeout=180,
+        cwd=cwd, capture_output=True, text=True, timeout=180, env=env,
     )
     assert proc.returncode == 0, (
         f"probe from {cwd} exited {proc.returncode}\n"
@@ -98,13 +98,17 @@ def test_env_file_is_read_from_outside_the_repo():
         k, v = raw.split("=", 1)
         declared[k.strip().lower()] = v.strip()
 
-    away = _probe("/tmp")
-    for key in ("confidence_fallback_threshold", "database_url"):
+    # Isolate the file-loading check from legitimate process overrides (such
+    # as the disposable test database). The probe only imports settings.
+    keys = ("confidence_fallback_threshold", "database_url")
+    env = {k: v for k, v in os.environ.items() if k.lower() not in keys}
+    away = _probe("/tmp", env=env)
+    for key in keys:
         if key in declared:
             expected = declared[key]
             actual = str(away[key])
             assert actual == expected or float_eq(actual, expected), (
-                f"{key} from /tmp is {actual!r}, but .env declares {expected!r}"
+                f"{key} from /tmp differs from the .env declaration"
                 " — the .env file is not being read outside the repo root"
             )
 

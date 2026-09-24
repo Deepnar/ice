@@ -1,4 +1,7 @@
-"""G29: the grounded-summary coverage retry, once, for both callers.
+"""G29: term-coverage retry controls (retained for the turn-summary caller).
+
+The v3 independent conversation notes no longer use this metric or retry.
+Historical reason for this helper follows.
 
 `post_flight.generate_summary` and `conversation_summary._summarize_chunk` each
 wrote the same block out longhand — measure coverage, name the dropped terms,

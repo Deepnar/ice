@@ -111,9 +111,8 @@ def test_creative_floor_sits_above_the_archive_line():
     assert settings.decay_creative_floor > settings.decay_archive_threshold
 
 
-def test_codex_demotion_sits_above_expiry():
-    """An edge demotes to pending before it is garbage-collected (A3)."""
-    assert settings.codex_demotion_threshold > settings.codex_expiry_threshold
+def test_codex_retention_bounds_preserve_quiet_facts():
+    assert 0 < settings.codex_retention_floor <= settings.codex_retention_cap
 
 
 # ── the fallback is observable, per the standing rule ──────────────────────

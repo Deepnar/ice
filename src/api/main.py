@@ -17,26 +17,33 @@ import httpx
 import structlog
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.api.chat_commands import command_sse_stream, try_handle
 from src.api.config import settings
-from src.api.context_ledger import ContextLedger, effective_memory_budget
+from src.api.context_ledger import effective_memory_budget
 from src.api.core import ICECore, create_core
 from src.api.db import SessionLocal, get_db
+from src.api.foreground_transport import (
+    UpstreamGenerationError,
+    build_generation_request,
+    stream_generation_response,
+)
 from src.api.memory_decision import (
     decide_memory_retrieval,
     derive_total_budget,
     estimate_recent_window_tokens,
 )
-from src.api.prompt_assembler import assemble_prompt, conversation_summary_block
+from src.api.prompt_assembler import bookmarked_turn_texts, conversation_summary_block
+from src.api.prompt_budget import assemble_budgeted_prompt
 from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
-from src.memory.models import Conversation, EpisodicMemory, MemorySlot
+from src.memory.conversation_stats import conversation_pressure
+from src.memory.models import Conversation, ConversationSummary, EpisodicMemory, MemorySlot
 from src.memory.session import resolve_session_id
+from src.memory.source import chat_provenance
 from src.memory.tokens import count_messages as count_tokens_messages
-from src.memory.tokens import estimate_from_chars as estimate_tokens_from_chars
+from src.memory.usage import evidence_after_eviction, record_graph_access
 from src.model_registry.registry import (
     find_best_model,
     get_fallback_model,
@@ -81,32 +88,6 @@ app.include_router(user_control.router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-
-def _ollama_body(model: str, messages: list,
-                 prompt_tokens: int = 0) -> dict:
-    """The generation request body.
-
-    C16: `stream_options.include_usage` asks the server to append a final
-    chunk carrying `usage.prompt_eval_count` — the model server's OWN count of
-    the prompt it received. That is the only ground truth for how many tokens
-    ICE actually spends, and it is what calibrates the embedder-tokenizer
-    prediction (`memory/tokens.py`) against the generation model's vocabulary
-    instead of arguing about the difference. The chunk has no
-    `choices[0].delta`, so the storage parser already skips it.
-    """
-    body = {"model": model, "messages": messages, "stream": True}
-    if settings.token_usage_reconciliation:
-        body["stream_options"] = {"include_usage": True}
-    # C16: ask for the window this prompt actually needs. Off by default —
-    # a bigger KV cache costs VRAM and can evict the generation model, which
-    # trades ~300 ms of prompt handling for something worse. Only safe now
-    # that the prompt is bounded and measured.
-    if settings.ollama_send_num_ctx and prompt_tokens:
-        want = prompt_tokens + settings.context_generation_reserve
-        body["options"] = {"num_ctx": min(int(settings.ollama_num_ctx_max),
-                                          int(want))}
-    return body
 
 
 def _salvage_content(line: str) -> Optional[str]:
@@ -221,6 +202,7 @@ async def store_turn_async(
     model_used: str = "",
     is_private: bool = False,
     predicted_prompt_tokens: int = 0,
+    generation_state: Optional[dict] = None,
 ):
     """Async post-flight task.
 
@@ -228,6 +210,11 @@ async def store_turn_async(
     via thread pool offloading, and commits write-once transactions.
     """
     log = logger.bind(correlation_id=correlation_id)
+    if generation_state is not None:
+        model_used = generation_state.get("model_used", model_used)
+    if generation_state is not None and not generation_state.get("complete"):
+        log.warning("turn_not_stored_incomplete_generation", model=model_used)
+        return
 
     # 1. Join raw fragments FIRST to repair broken line boundaries from socket
     #    splits — but only WITHIN one upstream stream. G5: a turn can involve
@@ -258,6 +245,9 @@ async def store_turn_async(
                  model=model_used)
 
     full_assistant_text, sse_stats = _parse_sse_text(full_raw_stream)
+    if not full_assistant_text.strip():
+        log.warning("turn_not_stored_empty_generation", model=model_used)
+        return
 
     # G5: say so, every time. A dropped line means `raw_text` is short by
     # however much the model had already generated, and every triplet, summary
@@ -311,6 +301,7 @@ async def store_turn_async(
             entropy_score=None,          # set by Post‑Flight Evaluator
             lossless_flag=None,          # NULL = not yet evaluated
             raw_text=f"User: {user_message}\n\nAssistant: {full_assistant_text}",
+            source_spans=chat_provenance(user_message, full_assistant_text),
             summary_text=None,
             embedding=embedding_list,
             decay_score=1.0,
@@ -352,7 +343,8 @@ async def store_turn_async(
 
     except Exception as exc:
         write_db.rollback()
-        log.error("failed_to_store_turn", error=str(exc))
+        # SQL/provider exception text can include raw prompt parameters.
+        log.error("failed_to_store_turn", error_type=type(exc).__name__)
     finally:
         write_db.close()
 
@@ -520,10 +512,13 @@ async def chat_completions(
             conv_row.consecutive_shifts = 0
             log.info("mini_moe_routing", selected_model=model_name,
                      topic_tags=result.topic_tags, intent_tags=result.intent_tags)
-        ollama_url = f"{model_base_url or settings.ollama_base_url}/v1/chat/completions"
+        generation_base_url = model_base_url or settings.ollama_base_url
+        local_ollama = (model_base_url is None or
+                        model_base_url.rstrip("/") == settings.ollama_base_url.rstrip("/"))
     else:
         model_name = body.get("model", get_fallback_model())
-        ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
+        generation_base_url = settings.ollama_base_url
+        local_ollama = True
     db.commit()  # persist the stickiness state (shift counter + sticky model)
 
     # C16: total context budget from the window the SERVER actually allocated,
@@ -555,19 +550,14 @@ async def chat_completions(
     # ── Retrieval & prompt assembly ──
     result.prompt = user_message
     fragments = []
+    prompt_embedding = None
     memory_slots_list = []
     bookmarked_texts = []
 
     # B2: one principled, classifier-trusting decision replaces the old hard
     # overrides (turn_count>10 / conf<0.95 / creative / referential). Prefers
     # memory, never forces it. Weights are settings (re-tuned after B1).
-    turn_count = db.query(EpisodicMemory).filter_by(
-        conversation_id=conversation_id
-    ).count()
-    total_chars = db.query(
-        func.coalesce(func.sum(func.length(EpisodicMemory.raw_text)), 0)
-    ).filter_by(conversation_id=conversation_id).scalar() or 0
-    total_tokens = estimate_tokens_from_chars(total_chars)
+    turn_count, total_tokens = conversation_pressure(db, conversation_id)
 
     mem_decision = decide_memory_retrieval(
         result, turn_count=turn_count, total_tokens=total_tokens, settings=settings,
@@ -613,17 +603,8 @@ async def chat_completions(
     # not retrieval results — they must be injected even when B2 decides a
     # confident standalone turn needs no long-term retrieval. Only the retrieval
     # `fragments` are conditional (empty here when we didn't retrieve).
-    bookmarked_turns = await asyncio.to_thread(
-        lambda: db.query(EpisodicMemory).filter_by(
-            is_bookmarked=True, conversation_id=conversation_id
-        ).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
-    )
-    for bt in bookmarked_turns:
-        text = bt.raw_text if bt.inject_raw else (bt.summary_text or bt.raw_text[:300])
-        words = text.split()
-        if len(words) > 500:
-            text = " ".join(words[:500]) + "…"
-        bookmarked_texts.append(text)
+    bookmarked_texts = await asyncio.to_thread(
+        bookmarked_turn_texts, db, conversation_id)
 
     memory_slots_list = await asyncio.to_thread(
         lambda: db.query(MemorySlot).filter_by(is_active=True).all()
@@ -633,86 +614,67 @@ async def chat_completions(
     # block, rendered only when this turn OPENS a sitting (rev 8: the latest
     # stored turn is older than the session gap, or absent).
     session_start_text = None
+    constraints_text = None
     if scope.get("project_id"):
+        from src.services import projects as projects_svc
+        constraints_text = await asyncio.to_thread(
+            projects_svc.chat_constraints, db, scope["project_id"])
         last_ts = prev_tags.timestamp if prev_tags else None
         new_sitting = last_ts is None or (
             datetime.now(timezone.utc) - last_ts
             > timedelta(minutes=settings.session_gap_minutes))
         if new_sitting:
-            from src.services import projects as projects_svc
             session_start_text = await asyncio.to_thread(
-                projects_svc.chat_session_start, db, scope["project_id"])
+                projects_svc.chat_session_start, db, scope["project_id"],
+                include_constraints=False)
             log.info("project_session_start",
                      project_id=scope["project_id"],
                      rendered=bool(session_start_text))
 
     # C4 (D3a): once the conversation outgrew the sliding window, its evolving
-    # summary gives the model global shape (stamped when the burst is behind).
-    conversation_summary_text = await asyncio.to_thread(
+    # source notes can provide query-relevant older context. A no-retrieval
+    # decision still needs the query vector to choose those notes.
+    has_summary = (total_tokens > recent_budget and db.query(ConversationSummary.conversation_id)
+                   .filter_by(conversation_id=conversation_id).first() is not None)
+    if has_summary and prompt_embedding is None:
+        embedding_tensor = await asyncio.to_thread(
+            classifier.embedder.encode, user_message, convert_to_tensor=False)
+        prompt_embedding = (embedding_tensor.tolist() if hasattr(embedding_tensor, 'tolist')
+                            else list(embedding_tensor))
+    conversation_summary_options = await asyncio.to_thread(
         conversation_summary_block, db, str(conversation_id),
-        turn_count, total_tokens, recent_budget)
+        turn_count, total_tokens, recent_budget, prompt_embedding,
+        include_options=True)
+    conversation_summary_text = (conversation_summary_options[0]
+                                 if conversation_summary_options else None)
 
-    # Separate fragments by type for token trimming (both empty when not retrieving)
-    episodic_frags = [f for f in fragments if f.source_type == "episodic"]
-    procedural_frags = [f for f in fragments if f.source_type == "procedural"]
-
-    messages = assemble_prompt(
-        memory_slots_list, fragments, user_message,
-        db_session=db, conversation_id=str(conversation_id),
-        bookmarked_texts=bookmarked_texts,
-        classification=result,
-        scope=scope,
-        max_recent_tokens=recent_budget,
-        session_start_text=session_start_text,
-        conversation_summary_text=conversation_summary_text,
-    )
-
-    # C16: the prompt is measured, not guessed. What stood here was a loop
-    # that trimmed fragments against a hardcoded 4096-token window, and it was
-    # broken four ways at once: (1) it ignored the model-derived budget
-    # entirely; (2) it measured `messages[0]`, the SYSTEM message, while
-    # fragments are appended as their own user message — so popping a fragment
-    # could never change its own loop condition; (3) `reduced` was built as the
-    # COMPLEMENT of the survivors, i.e. exactly the fragments it had just
-    # decided to drop; and (4) because the condition was invariant it ran until
-    # both lists were empty, at which point `reduced` == every fragment and all
-    # of them were restored. Net behaviour: none. Net cost: one re-assembly per
-    # fragment, each re-running the recent-turns query, on the latency path.
-    prompt_tokens = count_tokens_messages(messages)
-
-    # C16: one account, in one unit, checked against the window the server
-    # actually allocated. When it does not fit, static blocks are shed before
-    # evidence — with E8 constraints exempt, because they are user preferences
-    # and losing one is the failure that feature exists to prevent.
-    ledger = ContextLedger(
+    prepared = assemble_budgeted_prompt(
         serving_window=effective_window or 0,
         generation_reserve=settings.context_generation_reserve,
-        safety_margin=settings.token_count_safety_margin)
-    ledger.add("system_prompt", messages[0]["content"] if messages else "")
-    ledger.add("recent_turns", sum(
-        count_tokens_messages([m]) for m in messages[1:-1]
-        if not m["content"].startswith("=== RETRIEVED CONTEXT")))
-    ledger.add("evidence", sum(f.token_count for f in fragments))
-    ledger.add("user_message", user_message)
-
-    plan = ledger.evict_plan()
+        safety_margin=settings.token_count_safety_margin,
+        memory_slots=memory_slots_list, retrieved_fragments=fragments,
+        user_message=user_message, db_session=db, conversation_id=str(conversation_id),
+        bookmarked_texts=bookmarked_texts, classification=result, scope=scope,
+        max_recent_tokens=recent_budget, session_start_text=session_start_text,
+        conversation_summary_text=conversation_summary_text, constraints_text=constraints_text,
+        conversation_summary_options=conversation_summary_options,
+    )
+    messages, ledger, plan = prepared.messages, prepared.ledger, prepared.removed
+    prompt_tokens = count_tokens_messages(messages)
     if plan:
-        log.warning("context_evicting", plan=plan, overflow=ledger.overflow(),
+        log.warning("context_evicted", plan=plan, remaining_tokens=prompt_tokens,
                     window=effective_window)
-        messages = assemble_prompt(
-            memory_slots_list if "slots" not in plan else [],
-            [] if "evidence" in plan else fragments,
-            user_message,
-            db_session=db, conversation_id=str(conversation_id),
-            bookmarked_texts=None if "bookmarks" in plan else bookmarked_texts,
-            classification=result, scope=scope,
-            max_recent_tokens=64 if "recent_turns" in plan else recent_budget,
-            session_start_text=None if "session_start" in plan else session_start_text,
-            conversation_summary_text=(
-                None if "conversation_summary" in plan else conversation_summary_text),
-        )
-        prompt_tokens = count_tokens_messages(messages)
+    if not ledger.fits():
+        log.warning("context_required_blocks_exceed_window", prompt_tokens=prompt_tokens,
+                    window=effective_window)
+        return JSONResponse(status_code=400, content={"error": {
+            "message": "The current question and required context exceed the model context window.",
+            "type": "invalid_request_error", "code": "context_length_exceeded"}})
     ledger.log(log)
+    fragments = evidence_after_eviction(fragments, plan)
+    episodic_frags = [f for f in fragments if f.source_type == "episodic"]
+    procedural_frags = [f for f in fragments if f.source_type == "procedural"]
+    record_graph_access(db, fragments, stage="prompt_prepared")
 
     log.info("prompt_measured", prompt_tokens=prompt_tokens,
              total_budget=total_budget, model=model_name,
@@ -723,8 +685,8 @@ async def chat_completions(
         "context_injection_complete",
         retrieved=mem_decision.retrieve,
         injected_fragments=len(fragments),
-        active_slots=len(memory_slots_list),
-        bookmarked_count=len(bookmarked_texts),
+        active_slots=prepared.item_counts["slots"],
+        bookmarked_count=prepared.item_counts["bookmarks"],
     )
 
     # (Model selection happens above, before budgeting/retrieval — C16.)
@@ -735,9 +697,24 @@ async def chat_completions(
     # truncated tail splice onto the fallback's first line.
     raw_stream_segments: list[list[str]] = []
     model_to_use = model_name
+    generation_state = {"complete": False, "model_used": model_to_use}
 
     async def generate():
         nonlocal model_to_use
+
+        async def forward(model: str, base_url: str, native: bool,
+                          window: int | None, segment: list[str]):
+            request_spec = build_generation_request(
+                model, messages, prompt_tokens, window, base_url, native)
+            timeout = httpx.Timeout(settings.foreground_read_timeout_seconds,
+                                    connect=10.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                async with client.stream("POST", request_spec.url,
+                                         json=request_spec.body) as response:
+                    async for chunk in stream_generation_response(
+                            response, request_spec, generation_state):
+                        segment.append(chunk)
+                        yield chunk
 
         # C7 D7: the in-flight flag is the shared-mode contention gate — no
         # background gpu job dispatches while a generation streams.
@@ -773,46 +750,54 @@ async def chat_completions(
         # SSE: generating
         yield sse_event("generating", {"model": model_to_use})
 
-        # Primary request with tight timeout. The outer try/finally guarantees
+        # The outer try/finally guarantees
         # generation_finished fires even on a client disconnect mid-stream.
         try:
             try:
                 primary_segment: list[str] = []
                 raw_stream_segments.append(primary_segment)
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    async with client.stream(
-                        "POST",
-                        ollama_url,
-                        json=_ollama_body(model_to_use, messages,
-                                          prompt_tokens),
-                    ) as response:
-                        async for chunk in response.aiter_text():
-                            primary_segment.append(chunk)
-                            yield chunk
+                async for chunk in forward(model_to_use, generation_base_url,
+                                           local_ollama, effective_window,
+                                           primary_segment):
+                    yield chunk
             except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError) as e:
-                log.warning("primary_model_timeout", model=model_to_use, error=str(e))
+                log.warning("primary_model_timeout", model=model_to_use,
+                            error_type=type(e).__name__)
                 yield sse_event("degraded", {"reason": "primary_model_timeout", "fallback": get_fallback_model()})
                 model_to_use = get_fallback_model()
+                generation_state["model_used"] = model_to_use
                 yield sse_event("generating", {"model": model_to_use})
                 fallback_segment: list[str] = []
                 raw_stream_segments.append(fallback_segment)
-                async with httpx.AsyncClient(timeout=30.0) as client2:
-                    async with client2.stream(
-                        "POST",
-                        ollama_url,
-                        json=_ollama_body(model_to_use, messages,
-                                          prompt_tokens),
-                    ) as response2:
-                        async for chunk in response2.aiter_text():
-                            fallback_segment.append(chunk)
-                            yield chunk
+                try:
+                    fallback_window = await asyncio.to_thread(
+                        serving_window, model_to_use,
+                        get_model_context_window(model_to_use))
+                    async for chunk in forward(model_to_use, settings.ollama_base_url,
+                                               True, fallback_window,
+                                               fallback_segment):
+                        yield chunk
+                except Exception as fallback_error:
+                    log.error("fallback_streaming_failed", model=model_to_use,
+                              error_type=type(fallback_error).__name__)
+                    yield sse_event("degraded", {"reason": "fallback_streaming_error"})
+            except UpstreamGenerationError as e:
+                log.error("upstream_generation_failed", model=model_to_use,
+                          reason=e.reason, status=e.status_code,
+                          prompt_tokens=e.prompt_tokens,
+                          context_tokens=e.context_tokens)
+                yield sse_event("degraded", {
+                    "reason": e.reason, "status": e.status_code,
+                    "prompt_tokens": e.prompt_tokens,
+                    "context_tokens": e.context_tokens,
+                })
             except Exception as e:
                 # G5: this told the CLIENT and not the logs, so a generation
                 # that died server-side left a short turn in the store and no
                 # record of why.
                 log.error("streaming_failed", model=model_to_use,
-                          error=str(e), error_type=type(e).__name__)
-                yield sse_event("degraded", {"reason": "streaming_error", "error": str(e)})
+                          error_type=type(e).__name__)
+                yield sse_event("degraded", {"reason": "streaming_error"})
         finally:
             if core is not None and core.runtime is not None:
                 core.runtime.generation_finished()
@@ -830,6 +815,7 @@ async def chat_completions(
         model_used=model_to_use,
         is_private=is_private_conversation,
         predicted_prompt_tokens=prompt_tokens,
+        generation_state=generation_state,
     )
 
     return StreamingResponse(

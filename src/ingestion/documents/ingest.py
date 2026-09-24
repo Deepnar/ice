@@ -28,6 +28,7 @@ from src.ingestion.documents import parsers
 from src.memory.chunking import chunk_text
 from src.memory.models import Conversation, EpisodicMemory
 from src.memory.session import resolve_session_id
+from src.memory.source import single_provenance
 
 logger = structlog.get_logger("ice.ingestion.documents.ingest")
 
@@ -206,6 +207,7 @@ def _store_section(db, doc, conv_id, body: str, ts: datetime, index: int,
         is_private=False, timestamp=ts, ts_provenance="document_ingest",
         topic_tags=topic_tags, intent_tags=intent_tags,
         context_reliance=context_reliance, raw_text=body,
+        source_spans=single_provenance(body, "document"),
         embedding=embedding, idempotency_key=idem))
     db.commit()
     return batch_id

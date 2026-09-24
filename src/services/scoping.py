@@ -11,7 +11,13 @@ from typing import List, Optional
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
-from src.memory.models import Conversation, CuratedLabel, EpisodicMemory
+from src.memory.models import (
+    Conversation,
+    CuratedLabel,
+    Document,
+    DocumentLink,
+    EpisodicMemory,
+)
 from src.services.errors import NotFoundError, ValidationError
 
 #: C6: the scope vocabulary is CLOSED. `set_scope` used to accept any string
@@ -20,6 +26,35 @@ from src.services.errors import NotFoundError, ValidationError
 #: only honest option: a scope that quietly means something else is a privacy
 #: surface, not a convenience.
 VALID_SCOPE_TYPES = ("none", "auto", "project", "manual")
+
+
+def resolve_project_pull_scope(db: Session, project_ref: str) -> dict:
+    """Explicit MCP project choice, closed over eligible chats and their docs.
+
+    The empty conversation list is intentional: a registered project with no
+    memory may still expose its code graph, but must not search global turns.
+    """
+    from src.services.projects import resolve_project
+
+    project = resolve_project(db, project_ref)
+    chat_ids = [row.id for row in db.query(Conversation.id).filter(
+        Conversation.project_id == project.id,
+        Conversation.kind == "chat",
+        Conversation.memory_scope_type != "none",
+    ).all()]
+    document_ids = [row.conversation_id for row in db.query(
+        Document.conversation_id,
+    ).join(DocumentLink, DocumentLink.document_id == Document.id).join(
+        Conversation, Conversation.id == Document.conversation_id,
+    ).filter(
+        DocumentLink.conversation_id.in_(chat_ids),
+        DocumentLink.enabled.is_(True),
+        Conversation.memory_scope_type != "none",
+    ).distinct().all()]
+    return {
+        "project_id": str(project.id),
+        "conversation_ids": sorted({str(cid) for cid in chat_ids + document_ids}),
+    }
 
 
 def _uuid_list(values: Optional[List[str]]) -> Optional[List[uuid.UUID]]:

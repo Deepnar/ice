@@ -7,6 +7,11 @@ END of this session, in one batch.**
 > `NuExtract3-Q8_0` remains the codex extractor ([G63](../ROADMAP.md#g63)).
 > Everything below is written **for gemma4:e4b specifically** — see §0.
 
+**2026-09-12 v3 repair authorization:** the later whole-system repair decision
+supersedes this document's pre-reseed/per-change sequencing gates. Its model
+choices and historical measurements remain evidence, not new measurements.
+Current execution contract: [V3_REPAIR.md](V3_REPAIR.md).
+
 ---
 
 ## 0. ⚑ THE COUPLING, STATED BEFORE IT IS CREATED

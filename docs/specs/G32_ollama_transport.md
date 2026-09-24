@@ -1,9 +1,11 @@
 # G32 — ICE↔Ollama control surface: the audit, and what it implies
 Assumes decided specs: none
 
-> **Status: §0 (the audit) is COMPLETE and factual — measured 2026-08-03 against
-> Ollama 0.30.7 on the maintainer's machine. §1 carries one open user decision.
-> No production code has been written.**
+> **Status:** §0 is the historical Ollama 0.30.7 audit. The user subsequently
+> authorized whole-system v3 repair and asked the implementation session to
+> choose routine designs; (a1) shipped on the compatibility SDK, while native
+> background residency control remains with G4. §2 below settles G32(b), the
+> foreground transport, against the running Ollama 0.32.13 API.
 >
 > The roadmap made the audit G32's *first deliverable* on the grounds that the
 > known list of dropped parameters was "what was TESTED, not the control
@@ -180,3 +182,46 @@ models still land on the SDK branch and inherit it.
 
 *(Everything below is written for whichever option is chosen; §2–§5 pend that
 decision.)*
+
+## 2. v3 foreground transport decision — 2026-09-23
+
+**Chosen split:** keep the existing OpenAI-compatible path for a registry model
+with a nonlocal `base_url` (and the later optional cloud-answering switch). The
+default local Ollama foreground path uses `/api/chat`, whose native stream is
+newline-delimited JSON. A focused live 0.32.13 request confirmed content chunks
+and a final `done=true` object with `prompt_eval_count`, `eval_count` and
+`done_reason`. [Ollama's API reference](https://github.com/ollama/ollama/blob/main/docs/api.md)
+confirms native `options`, and its [OpenAI compatibility guide](https://github.com/ollama/ollama/blob/main/docs/api/openai-compatibility.mdx)
+says the compatibility endpoint cannot set context size per request.
+
+The transport adapter converts native content chunks into the same OpenAI SSE
+delta frames the client and post-flight parser already consume. Its final frame
+carries translated usage, followed by `[DONE]`; reasoning/thinking content is
+never inserted into the answer text. Unknown/invalid native frames or a stream
+ending without `done=true` are failures, not completed turns. Compatibility SSE
+passes through unchanged but must also end with `[DONE]`. A failed generation
+does not write an empty or partial assistant turn to the memory store.
+
+For local Ollama, `ollama_send_num_ctx` defaults on. `fit` requests the estimated
+prompt with the configured tokenizer safety margin plus generation reserve;
+`max` requests the configured ceiling. Both are capped by the known serving
+window and `ollama_num_ctx_max`; the native endpoint makes over-context errors
+typed rather than silently truncating. Keep the opt-out for constrained hosts,
+but log when it is used. Never send Ollama-native `options` through `/v1`.
+The selected fallback model uses the local transport and base URL, even when
+the primary model was configured on an external provider.
+
+**Validation:** parser controls for split NDJSON, content/thinking separation,
+terminal usage and missing/invalid terminal frames; mocked HTTP status errors;
+two-sided request-body controls for `fit`, `max`, cap and compat; in-process chat
+control for SSE and post-flight success/failure; one live native completion on
+the running Ollama instance. Preserve the existing G5 truncated-SSE and C16
+usage tests. G4 still owns foreground/background model residency policy.
+
+**v3 implementation check, 2026-09-24:** a live Ollama 0.32.13 native request
+returned a complete answer, terminal usage and the requested `num_ctx`; the
+in-process foreground route exercised successful storage, refusal to store a
+failed stream, and external-primary-to-local fallback model attribution.
+Disposable-database smoke/source regression passed 339/339 and settings freeze
+passed 140/140. These are transport and lifecycle checks, not an answer-quality
+measurement or a guarantee against a model's architectural context ceiling.

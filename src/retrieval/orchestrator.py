@@ -14,21 +14,33 @@ import numpy as np
 import structlog
 from pgvector.sqlalchemy import Vector as PgVector
 from sqlalchemy import bindparam, or_, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
-from src.memory.tokens import count as count_tokens
-from src.retrieval import coverage, leg_weights
+from src.memory.claims import claim_representation, excerpt_is_current, source_for_claim
+from src.memory.conversation_notes import indexed_parts, note_matches, render_note
 from src.memory.models import (
+    CodexClaim,
+    CodexClaimLink,
     CodexEdge,
     CodexEntity,
+    ColdStorage,
+    ConversationNote,
     EpisodicMemory,
     ProceduralMemory,
 )
+from src.memory.representation import choose_representation
+from src.memory.recent_window import base_recent_fraction
+from src.memory.summary_snapshot import SUMMARY_SOURCES_SQL, batch_snapshot_readable, summary_snapshot_readable
+from src.memory.time_format import format_time, recorded_stamp
+from src.memory.tokens import count as count_tokens
+from src.retrieval import coverage, leg_weights
 from src.retrieval.evolution import build_entity_timeline, history_exists
 from src.retrieval.ner_utils import extract_entities
+from src.retrieval.reranker import rerank
 from src.retrieval.timescope import CURRENT, from_scope
 
 logger = structlog.get_logger("ice.retrieval")
@@ -75,9 +87,7 @@ class ContextFragment:
     # when text already is the summary, no trusted summary exists, or the
     # keyword that matched lives only in the raw.
     degrade_text: Optional[str] = None
-    # C3: the one-line abstract — the LAST degradation step (raw → summary →
-    # abstract); attached whenever the turn's summary is trusted, never
-    # preferred by the chooser.
+    # C3: a source-extractive abstract, independently eligible for degradation.
     abstract_text: Optional[str] = None
     # C16: the SPECIFIC retrieval mechanism, alongside the coarse source_type.
     # Eight legs report as five source_types — bm25, vector, chunks, cold and
@@ -92,6 +102,8 @@ class ContextFragment:
     # do not have today, as a side effect of a measurement change. Conditional
     # legs stay bounded by their own firing conditions.
     leg: Optional[str] = None
+    origin_edge_ids: tuple = ()  # exact rendered fact lines, not traversed candidates
+    covers_entire_source: bool = False  # complete raw turn, not summary/excerpt
 
 # G9 (2026-08-08): every tunable number in this module moved to settings, so
 # Z1 can sweep it without editing code. What remains here are label SETS —
@@ -129,21 +141,6 @@ def _head_confidences(classification):
     return mc, mc
 
 
-def _truncate_at_sentence(text: str, word_cap: int) -> str:
-    """C3 smarter truncation: cap at *word_cap* words but cut on the last
-    sentence boundary inside the cap (when one exists past 60% of it), so
-    fragments stop mid-thought less often. Falls back to the hard word cut."""
-    words = text.split()
-    if len(words) <= word_cap:
-        return text
-    hard = ' '.join(words[:word_cap])
-    best = -1
-    for m in re.finditer(r'[.!?](?:\s|$)', hard):
-        best = m.end()
-    if best > len(hard) * 0.6:
-        return hard[:best].rstrip() + ' …'
-    return hard + '…'
-
 
 # Soft meta‑discussion downweight – classifier‑driven, not string‑matching.
 # The label sets stay here (schema); the factor is settings.
@@ -158,10 +155,8 @@ class HybridRetrievalOrchestrator:
     def __init__(self, db: Session, embedder):
         self.db = db
         self.embedder = embedder
-        # (`self.bg_client = get_bg_client()` lived here. Deleted 2026-08-09
-        # with `_hyde_rewrite`, its only consumer — it built an OpenAI client
-        # per orchestrator, i.e. once per retrieving request, for nothing.
-        # Retrieval calls no LLM: query expansion is grounded in the graph.)
+        # Query expansion is graph-grounded. The shared local reranker scores
+        # evidence without generating text or creating a background API client.
         self.max_retrieval_tokens = 5000
         self._coverage_record = None   # C16: last coverage decision, for audit
         # A4: entity resolution mode (ablation `fuzzy_match` flag maps here).
@@ -190,6 +185,7 @@ class HybridRetrievalOrchestrator:
         self._active_timescope = CURRENT
         self.timescope_allowed = True
         self._cold_hits = {}
+        self._source_times = {}
         # E1b (D3): the request's attached project (scope["project_id"]) —
         # source-visibility for derived code/fact entities keys off this,
         # same instance-attr pattern as _active_timescope.
@@ -238,8 +234,11 @@ class HybridRetrievalOrchestrator:
         anyway expires the whole identity map on a session `main.py` keeps
         using for the rest of the request. So: DB errors only.
         """
+        # SQLAlchemy exception strings include statement parameters (raw memory,
+        # role provenance and verifier inputs). Diagnose without logging evidence.
         logger.warning("retrieval_leg_failed", leg=leg,
-                       error_type=type(err).__name__, error=str(err))
+                       error_type=type(err).__name__,
+                       sqlstate=getattr(getattr(err, "orig", None), "sqlstate", None))
         if isinstance(err, SQLAlchemyError):
             self.db.rollback()
 
@@ -439,11 +438,7 @@ class HybridRetrievalOrchestrator:
         conversations made of very long turns, and label groups that each
         apply at most once however many of their labels are active.
         """
-        base = settings.context_recent_fraction_default
-        for edge, value in settings.context_recent_fraction_ladder:
-            if turn_count < edge:
-                base = value
-                break
+        base = base_recent_fraction(turn_count)
 
         # Token-density adjustment: when the average turn is huge, shift budget
         # toward retrieval so the recent window is not two enormous turns.
@@ -490,6 +485,7 @@ class HybridRetrievalOrchestrator:
         # C6: the exclusion deny sets, resolved once for every leg below.
         self._resolve_exclusion_sets(scope)
         self._cold_hits = {}
+        self._source_times = {}
         if classification.context_reliance == "Zero_Shot":
             return []
         if classification.context_reliance == "Real_Time_Search":
@@ -591,7 +587,7 @@ class HybridRetrievalOrchestrator:
         legs: Dict[str, List[ContextFragment]] = {
             "bm25": self._bm25_episodic(classification, scope, conv_id, search_prompt),
             "vector": self._vector_episodic(prompt_embedding, classification, scope, conv_id),
-            "codex": codex_fragments,
+            "codex": codex_fragments + self._codex_claims(classification.prompt, prompt_embedding, scope, conv_id),
             "procedural": [] if incognito else self._procedural_lookup(prompt_embedding, classification, scope),
             # C4: the cross-conversation summary half is a user-global read —
             # gated off under incognito like procedural; the conv-scoped
@@ -604,7 +600,8 @@ class HybridRetrievalOrchestrator:
             # same id for the same reason: with None it excluded nothing and
             # could re-inject this conversation's own summary.
             "batch_summary": self._batch_summary_lookup(
-                prompt_embedding, own_conv_id, include_cross=not incognito),
+                prompt_embedding, own_conv_id, include_cross=not incognito,
+                scope=scope, search_conv_id=conv_id),
             # T3: cold storage joins time-scoped queries only (no-op leg
             # otherwise); fragments are episodic-typed, so budget fairness
             # treats them as memories — the leg name only affects RRF weight.
@@ -629,13 +626,14 @@ class HybridRetrievalOrchestrator:
         # did not, and the two disagreed.
         fused = self._apply_bonuses(fused, classification, own_conv_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
+        fused, reranked = rerank(classification.prompt, fused)
         # G29: no max_per_conversation here — passing the literal 3 is what made
         # settings.retrieval_max_per_conversation unreachable on every live path.
-        diversified = self._session_diversify(fused, conversation_id)
-        deduped = self._deduplicate(diversified)
-        deduped = self._collapse_provenance(deduped)
-        deduped = self._apply_coverage(deduped, prompt_embedding)
-        final = self._enforce_token_budget(deduped)
+        deduped = self._deduplicate(fused)
+        if not reranked:
+            deduped = self._apply_coverage(deduped, prompt_embedding)
+        final = self._enforce_token_budget(deduped, relevance_order=reranked,
+                                           current_conversation_id=own_conv_id)
 
         # T3 honest emptiness: a windowed query with nothing in the window
         # says so — never silently widens.
@@ -713,7 +711,7 @@ class HybridRetrievalOrchestrator:
             return f"AND {column} = :conv_id", {"conv_id": conv_id}, True
         return "", {}, False
 
-    def _cluster_filter(self, scope, id_column="episodic_memory.id") -> str:
+    def _cluster_filter(self, scope, id_column="episodic_memory.id", *, membership_column=None) -> str:
         """C5 cluster scoping as a SQL fragment — G29: written out four times.
 
         The copies were verbatim apart from the row alias (`episodic_memory.id`
@@ -733,6 +731,10 @@ class HybridRetrievalOrchestrator:
         """
         if not (scope and scope.get("cluster_ids")):
             return ""
+        if membership_column:
+            return (f" AND {membership_column} IS NOT NULL AND "
+                    f"(cardinality({membership_column}) = 0 OR "
+                    f"{membership_column} && CAST(:cluster_ids AS uuid[]))")
         return f"""
                 AND (
                     EXISTS (
@@ -748,7 +750,7 @@ class HybridRetrievalOrchestrator:
             """
 
     def _exclusion_filters(self, scope, conv_column="conversation_id",
-                           id_column="episodic_memory.id"):
+                           id_column="episodic_memory.id", *, membership_column=None):
         """C6: the negated scope — "keep this memory, stop retrieving it".
 
         The middle ground that never existed between C6's add-to-scope and
@@ -766,7 +768,11 @@ class HybridRetrievalOrchestrator:
             sql += f"\n              AND {conv_column} <> ALL(:excl_conv_ids)"
             params["excl_conv_ids"] = [str(c) for c in excluded_convs]
         excluded_clusters = scope.get("exclude_cluster_ids")
-        if excluded_clusters and id_column:
+        if excluded_clusters and membership_column:
+            sql += (f" AND {membership_column} IS NOT NULL AND NOT "
+                    f"({membership_column} && CAST(:excl_cluster_ids AS uuid[]))")
+            params["excl_cluster_ids"] = [str(c) for c in excluded_clusters]
+        elif excluded_clusters and id_column:
             sql += (f"\n              AND NOT EXISTS ("
                     f"SELECT 1 FROM episodic_cluster_links xl "
                     f"WHERE xl.episodic_id = {id_column} "
@@ -838,23 +844,8 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     def _bm25_episodic(self, classification, scope, conv_id=None, search_prompt=None):
         prompt_text = search_prompt if search_prompt else classification.prompt
-        # Remove all non‑alpha characters and split into words
-        clean_prompt = re.sub(r'[^a-zA-Z]', ' ', prompt_text)
-        words = [w.strip().lower() for w in clean_prompt.split() if len(w.strip()) > 2]
-        # Keep only words that look like real English tokens
-        stop_words = {"the","and","for","you","that","this","with","from","have","are","was","were",
-                      "will","would","could","should","about","also","just","like","then","than","over",
-                      "into","only","more","some","such","each","every","other","many","most","its",
-                      "our","his","her","they","them","these","those","not","but","can","all","been",
-                      "had","has","did","does","get","got","very","too","now","how"}
-        valid_words = [w for w in words[:30] if w not in stop_words]
-        # Build individual to_tsquery tokens and join with OR.
-        # (G36: two nested try/excepts guarded this. The inner one wrapped
-        # `tokens.append(w)` — appending a str to a list, which cannot raise —
-        # and the outer wrapped the loop containing it. Both were unreachable
-        # handlers counted among this file's silent swallows; deleted.)
-        search_terms = " | ".join(valid_words) if valid_words else prompt_text
-
+        # Match the stored tsvector normalization without losing numbers,
+        # Unicode or late query terms. Never interpret user text as tsquery.
         topic_filter = ""
         # D11: single conversation OR the project's conversation list.
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
@@ -870,17 +861,17 @@ class HybridRetrievalOrchestrator:
         cluster_filter = self._cluster_filter(scope)
 
         query = text(f"""
-            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp,
+            SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
                    ts_rank(
                        to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                        query
                    ) as score
             FROM episodic_memory,
                  LATERAL (SELECT
-                     CASE WHEN length(:search_terms) > 0
-                          THEN to_tsquery('english', :search_terms)
-                          ELSE plainto_tsquery('english', :prompt_text)
-                     END AS query) AS q
+                     string_agg(quote_literal(lexeme), ' | ')::tsquery AS query
+                     FROM unnest(tsvector_to_array(
+                         to_tsvector('english', :prompt_text))) AS terms(lexeme)
+                 ) AS q
             WHERE to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')) @@ query
               {topic_filter}
               {conv_filter}
@@ -895,7 +886,6 @@ class HybridRetrievalOrchestrator:
         """)
         params = {
             "cand_limit": settings.retrieval_bm25_candidate_limit,
-            "search_terms": search_terms,
             "prompt_text": prompt_text,
             "min_decay": min_decay,
             **ts_params,
@@ -913,7 +903,7 @@ class HybridRetrievalOrchestrator:
             # Final fallback: use plainto_tsquery (AND) if everything fails
             try:
                 query2 = text(f"""
-                    SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp,
+                    SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
                            ts_rank(
                                to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                                plainto_tsquery('english', :prompt_text)
@@ -968,7 +958,7 @@ class HybridRetrievalOrchestrator:
         # GREATEST form for past rows; as_of re-anchors center to the window
         # midpoint. One formula, mode-driven params — never fork the leg SQL.
         query = text(f"""
-            SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp,
+            SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
                 (1 - (embedding <=> :prompt_embedding)) * COALESCE(decay_score, 1.0)
                   * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (timestamp - :ts_center))) / 86400.0 / :recency_tau)) as score
             FROM episodic_memory
@@ -1009,13 +999,9 @@ class HybridRetrievalOrchestrator:
             if ts.mode == "evolution":
                 rows = self._stratify_by_era(rows)
             fragments = self._rows_to_fragments(rows, "episodic", prompt_text=classification.prompt, classification=classification)
-            # C3 dedupe: a chunk drops out when its parent turn is already in
-            # the turn-level results (the parent covers the content); doc
-            # parents are excluded above, so document chunks always compete.
-            parent_ids = {str(r.id) for r in rows}
-            fragments.extend(f for f in self._vector_chunks(prompt_embedding, scope, conv_id,
-                                                            recency_boost=rec_boost)
-                             if f.source_batch_id not in parent_ids)
+            # A candidate parent may never fit. Keep its excerpts until packing.
+            fragments.extend(self._vector_chunks(prompt_embedding, scope, conv_id,
+                                                  recency_boost=rec_boost))
             return fragments
         except Exception as err:
             self._leg_degraded("vector", err)
@@ -1065,7 +1051,7 @@ class HybridRetrievalOrchestrator:
         cluster_filter = self._cluster_filter(scope, "e.id")
         query = text(f"""
             SELECT c.chunk_text, c.chunk_index, e.id AS parent_id,
-                   e.conversation_id, e.is_bookmarked, e.timestamp,
+                   e.conversation_id, e.is_bookmarked, e.timestamp, e.ts_provenance,
                    (1 - (c.embedding <=> :prompt_embedding)) * COALESCE(e.decay_score, 1.0)
                      * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (e.timestamp - :ts_center))) / 86400.0 / :recency_tau)) AS score
             FROM episodic_chunks c
@@ -1106,7 +1092,7 @@ class HybridRetrievalOrchestrator:
             # T1: chunks are episodic fragments too — date them from the parent turn.
             chunk_text = row.chunk_text
             if row.timestamp:
-                chunk_text = row.timestamp.strftime("[%Y-%m-%d] ") + chunk_text
+                chunk_text = recorded_stamp(row.timestamp, getattr(row, "ts_provenance", None)) + chunk_text
             fragments.append(ContextFragment(
                 text=chunk_text,
                 source_type="episodic",
@@ -1148,25 +1134,23 @@ class HybridRetrievalOrchestrator:
             # threshold that had not already been claimed, and ordering by
             # distance puts it at rank 1 — so `LIMIT 1 + len(seen_ids)` is
             # guaranteed to contain it however many earlier candidates matched.
-            rows = self.db.execute(text("""
-                SELECT id, 1 - (embedding <=> CAST(:emb AS vector)) AS sim
-                FROM codex_entities
-                WHERE embedding IS NOT NULL
-                ORDER BY embedding <=> CAST(:emb AS vector)
-                LIMIT :lim
-            """), {
-                # ⚠ float(), not list(): candidate_emb is a numpy array, and
-                # str(list(ndarray)) renders "[np.float32(-0.019), ...]", which
-                # pgvector rejects as invalid vector syntax.
-                "emb": str([float(x) for x in candidate_emb]),
-                "lim": 1 + len(seen_ids),
-            }).all()
+            # G29: reuse the exact/payload matchers' SQLAlchemy visibility
+            # predicate *before* LIMIT. Filtering the nearest raw result in
+            # Python would let a hidden project entity crowd out a visible one.
+            # Coerce numpy scalars to Python floats for pgvector's binder.
+            vector = [float(x) for x in candidate_emb]
+            distance = CodexEntity.embedding.cosine_distance(vector)
+            rows = (self.db.query(CodexEntity.id, (1 - distance).label("sim"))
+                    .filter(CodexEntity.embedding.is_not(None),
+                            *self._entity_source_filters())
+                    .order_by(distance)
+                    .limit(1 + len(seen_ids)).all())
             best_entity = None
             for row in rows:
                 if row.id in seen_ids:
                     continue
                 if row.sim >= threshold:
-                    best_entity = self.db.query(CodexEntity).get(row.id)
+                    best_entity = self.db.get(CodexEntity, row.id)
                 break   # rank 1 among the unclaimed; a worse one cannot win
             if best_entity is not None:
                 matched.append(best_entity)
@@ -1535,15 +1519,64 @@ class HybridRetrievalOrchestrator:
                     or_(CodexEdge.valid_until.is_(None), CodexEdge.valid_until > ts.t1)]
         return [CodexEdge.valid_until.is_(None)]
 
+    def _prime_edge_times(self, edges):
+        """Fetch source dates in batches, for edges already filtered by scope."""
+        cache = getattr(self, "_source_times", None)
+        if cache is None:
+            cache = self._source_times = {}
+        batches = {e.source_batch for e in edges if getattr(e, "source_batch", None)
+                   and str(e.source_batch) not in cache}
+        if not batches:
+            return
+        rows = self.db.query(EpisodicMemory.batch_id, EpisodicMemory.timestamp,
+                             EpisodicMemory.ts_provenance, EpisodicMemory.is_private).filter(
+            EpisodicMemory.batch_id.in_(batches)).all()
+        missing = batches - {row.batch_id for row in rows}
+        if missing:
+            rows += self.db.query(ColdStorage.batch_id, ColdStorage.timestamp,
+                                 ColdStorage.ts_provenance, ColdStorage.is_private).filter(
+                ColdStorage.batch_id.in_(missing)).all()
+        private = getattr(self, "_private_source_batches", None)
+        if private is None:
+            private = self._private_source_batches = set()
+        private.update(str(b) for b, _, _, is_private in rows if is_private)
+        cache.update({str(b): None for b in batches})
+        cache.update({str(b): (stamp, provenance) for b, stamp, provenance, _ in rows})
+
     def _fact_line(self, src, edge, tgt) -> str:
-        """Render one codex fact. T1: dated with the edge's valid_from at month
-        precision (day precision would imply false exactness); legacy NULL
-        valid_from renders undated. Negated edges render as NOT (the note
-        renderer already did this; fact lines previously lied by omission)."""
+        """Separate source-recorded time from when ICE learned the claim."""
+        self._prime_edge_times([edge])
+        if str(getattr(edge, "source_batch", None)) in getattr(self, "_private_source_batches", set()):
+            return ""
+        source = self._source_times.get(str(getattr(edge, "source_batch", None)))
+        dates = []
+        if source:
+            dates.append(recorded_stamp(*source).strip().strip("[]"))
+        else:
+            dates.append("source time unknown")
+        learned = getattr(edge, "learned_at", None)
+        valid = getattr(edge, "valid_from", None)
+        if learned:
+            dates.append(f"learned: {format_time(learned)}")
+        if valid and format_time(valid) != format_time(learned):
+            dates.append(f"recorded valid from: {format_time(valid)}")
+        linked = self.db.query(CodexClaim).join(CodexClaimLink,
+            CodexClaimLink.claim_id == CodexClaim.id).filter(
+                CodexClaimLink.edge_id == edge.id,
+                CodexClaim.source_batch == edge.source_batch).order_by(
+                    CodexClaim.start, CodexClaim.id).all() if getattr(edge, "id", None) and self.db is not None else []
+        if linked:
+            lines = []
+            for claim in linked:
+                original = source_for_claim(self.db, claim)
+                if original is None or original.is_private or not excerpt_is_current(original, claim):
+                    continue
+                lines.append(f"[Source excerpt; speaker: {claim.role}; {'; '.join(dates)}] "
+                             f"{claim_representation(claim)}")
+            return "\n".join(dict.fromkeys(lines))
         rel = f"NOT {edge.relation}" if getattr(edge, "negated", False) else edge.relation
-        vf = getattr(edge, "valid_from", None)
-        since = f" (since {vf.strftime('%Y-%m')})" if vf else ""
-        return f"[Fact: {src.canonical_name} --{rel}--> {tgt.canonical_name}{since}]"
+        return (f"[Unverified graph relation: {src.canonical_name} --{rel}--> {tgt.canonical_name}"
+                f" ({'; '.join(dates)})]")
 
     def _relation_fit(self, relations: List[str], prompt_embedding):
         """G34: score each of *relations* against the prompt, and report how
@@ -1618,11 +1651,9 @@ class HybridRetrievalOrchestrator:
         pool = q.order_by(CodexEdge.strength.desc()).limit(
             settings.codex_entity_edge_limit
             * settings.codex_relation_pool_multiplier).all()
-        # A8: a negated edge is a stored fact, not an answer — "X does NOT use Y"
-        # must never rank first on a question about using.
-        pool = [e for e in pool
-                if not getattr(e, "negated", False)
-                and self._edge_trust(e) >= settings.codex_direct_trust_floor]
+        # A negative source statement can answer a question; only navigation
+        # treats negation as a reason not to walk the relationship.
+        pool = [e for e in pool if self._edge_trust(e) >= settings.codex_direct_trust_floor]
         if not pool:
             return [], [], 0.0
 
@@ -1633,13 +1664,16 @@ class HybridRetrievalOrchestrator:
             pool.sort(key=lambda e: (scores.get(e.relation, 0.0), self._edge_trust(e)),
                       reverse=True)
 
+        self._prime_edge_times(pool[:settings.codex_entity_edge_limit])
         lines, fact_edges = [], []
         for edge in pool[:settings.codex_entity_edge_limit]:
             src = self.db.query(CodexEntity).get(edge.source_id)
             tgt = self.db.query(CodexEntity).get(edge.target_id)
             if src and tgt:
-                lines.append(self._fact_line(src, edge, tgt))
-                fact_edges.append(edge)
+                line = self._fact_line(src, edge, tgt)
+                if line:
+                    lines.append(line)
+                    fact_edges.append(edge)
         return lines, fact_edges, fit
 
     def _codex_enumeration(self, prompt: str, relations: List[str],
@@ -1671,13 +1705,21 @@ class HybridRetrievalOrchestrator:
                         continue
                     if ent.id not in seen_entities and ent.context_payload:
                         seen_entities.add(ent.id)
-                        t = f"[Entity: {ent.canonical_name}]\n{ent.context_payload}"
-                        fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
-                                                         token_count=count_tokens(t)))
+                        texts, rendered = [], []
+                        self._traverse_graph(ent, 0, 0, set(), texts,
+                            allowed_entity_ids=allowed_entity_ids, allowed_batch_ids=allowed_batch_ids,
+                            rendered_edges=rendered)
+                        if texts:
+                            t = "\n\n".join(texts)
+                            fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
+                                token_count=count_tokens(t),
+                                origin_batch_ids=tuple({str(e.source_batch) for e in rendered}),
+                                origin_edge_ids=tuple({str(e.id) for e in rendered})))
             # (b) relation-driven facts: "who inspired ..." → inspired_by edges,
             #     grouped into a single facts fragment (they're a list answer).
             fact_lines = []
             fact_batches: list = []
+            fact_ids: list = []
             if relations:
                 q = self.db.query(CodexEdge).filter(
                     *self._edge_valid_filters(),
@@ -1686,20 +1728,27 @@ class HybridRetrievalOrchestrator:
                     q = q.filter(CodexEdge.source_batch.in_(allowed_batch_ids))
                 if self._denied_batch_ids:   # C6 exclusion
                     q = q.filter(CodexEdge.source_batch.notin_(self._denied_batch_ids))
-                for edge in q.order_by(CodexEdge.strength.desc()).limit(settings.codex_enum_edge_limit).all():
+                edges = q.order_by(CodexEdge.strength.desc()).limit(settings.codex_enum_edge_limit).all()
+                self._prime_edge_times(edges)
+                for edge in edges:
                     if self._edge_trust(edge) < settings.codex_direct_trust_floor:
                         continue
                     src = self.db.query(CodexEntity).get(edge.source_id)
                     tgt = self.db.query(CodexEntity).get(edge.target_id)
                     if src and tgt:
-                        fact_lines.append(self._fact_line(src, edge, tgt))
+                        line = self._fact_line(src, edge, tgt)
+                        if not line:
+                            continue
+                        fact_lines.append(line)
+                        fact_ids.append(str(edge.id))
                         if edge.source_batch:
                             fact_batches.append(str(edge.source_batch))
             if fact_lines:
                 t = "\n".join(fact_lines)
                 fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
                                                  token_count=count_tokens(t),
-                                                 origin_batch_ids=tuple(fact_batches)))
+                                                 origin_batch_ids=tuple(fact_batches),
+                                                 origin_edge_ids=tuple(fact_ids)))
             if fragments:
                 logger.info("codex_enumeration", entities=len(seen_entities),
                             facts=len(fact_lines), relations=relations)
@@ -1728,6 +1777,73 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # Codex graph traversal (conversation‑scoped, NER‑powered)
     # ------------------------------------------------------------------
+    def _codex_claims(self, prompt, prompt_embedding, scope=None, conv_id=None):
+        """Search attributed sentences without requiring an entity match."""
+        if (not settings.codex_sentence_claims or self._scope_resolution_failed
+                or (scope and (scope.get("isolated") or scope.get("incognito")))):
+            return []
+        if scope and scope.get("cluster_ids_explicit") and not scope.get("cluster_ids"):
+            return []
+        conv_filter, conv_params, _ = self._conv_scope_filter(
+            scope, (scope or {}).get("conversation_id") or conv_id, "e.conversation_id")
+        excl_filter, excl_params = self._exclusion_filters(scope, "e.conversation_id", "e.id")
+        cluster_filter = self._cluster_filter(scope, "e.id")
+        time_filter, _, ts_params, _ = self._timescope_leg_filters("e.")
+        params = {"prompt": prompt, "limit": settings.codex_claim_candidate_limit,
+                  **conv_params, **excl_params, **ts_params}
+        filters = ""
+        if scope and "batch_ids" in scope:
+            filters += " AND c.source_batch = ANY(:batches)"
+            params["batches"] = list(scope["batch_ids"] or [])
+        if self._denied_batch_ids:
+            filters += " AND c.source_batch <> ALL(:denied)"
+            params["denied"] = list(self._denied_batch_ids)
+        if scope and scope.get("cluster_ids"):
+            params["cluster_ids"] = scope["cluster_ids"]
+        cold_allowed = not (scope and (scope.get("cluster_ids") or scope.get("cluster_ids_explicit")
+                                      or scope.get("exclude_cluster_ids")))
+        source_rows = "SELECT id, batch_id, conversation_id, is_private, timestamp FROM episodic_memory"
+        if cold_allowed:
+            source_rows += (" UNION ALL SELECT cold.id, cold.batch_id, cold.conversation_id, cold.is_private, cold.timestamp "
+                            "FROM cold_storage cold WHERE NOT EXISTS (SELECT 1 FROM episodic_memory warm WHERE warm.id = cold.id)")
+        base = f"""FROM codex_claims c JOIN ({source_rows}) e ON e.id = c.episodic_id AND e.batch_id = c.source_batch
+            WHERE e.is_private = false {conv_filter} {excl_filter} {cluster_filter}
+            {time_filter} {filters}"""
+        try:
+            lexical = text(f"""SELECT c.id {base}
+                AND to_tsvector('english', c.text) @@ plainto_tsquery('english', :prompt)
+                ORDER BY ts_rank(to_tsvector('english', c.text), plainto_tsquery('english', :prompt)) DESC, c.id
+                LIMIT :limit""")
+            channels = [list(self.db.execute(lexical, params).scalars())]
+            if prompt_embedding is not None:
+                semantic = text(f"""SELECT c.id {base} AND c.embedding IS NOT NULL
+                    ORDER BY c.embedding <=> :embedding, c.id LIMIT :limit""").bindparams(
+                        bindparam("embedding", type_=PgVector))
+                channels.append(list(self.db.execute(semantic, {**params, "embedding": prompt_embedding}).scalars()))
+            scores = {}
+            for channel in channels:
+                for rank, ident in enumerate(channel, 1):
+                    scores[ident] = scores.get(ident, 0.0) + 1.0 / (settings.retrieval_rrf_k + rank)
+            fragments, sources = [], {}
+            for ident in sorted(scores, key=lambda k: (-scores[k], str(k)))[:settings.codex_claim_candidate_limit]:
+                claim = self.db.get(CodexClaim, ident)
+                if claim.source_batch not in sources:
+                    sources[claim.source_batch] = source_for_claim(self.db, claim)
+                source = sources[claim.source_batch]
+                if source is None or not excerpt_is_current(source, claim):
+                    logger.warning("claim_source_stale", claim_id=str(ident))
+                    continue
+                rendered = (f"[Source excerpt; speaker: {claim.role}] "
+                            f"{recorded_stamp(source.timestamp, source.ts_provenance)}\n"
+                            f"{claim_representation(claim)}")
+                fragments.append(ContextFragment(rendered, "codex", scores[ident],
+                    count_tokens(rendered), conversation_id=str(source.conversation_id),
+                    origin_batch_ids=(str(claim.source_batch),), leg="codex"))
+            return fragments
+        except Exception as exc:
+            self._leg_degraded("codex.claims", exc)
+            return []
+
     def _codex_graph(self, classification, scope: Optional[dict] = None,
                      prompt_embedding=None) -> List[ContextFragment]:
         prompt = classification.prompt
@@ -1775,7 +1891,6 @@ class HybridRetrievalOrchestrator:
             # would otherwise merge connected anchors via a shared visited set).
             fragments: List[ContextFragment] = []
             timeline_frags: List[ContextFragment] = []   # T4: own leg (RRF weight + budget lane)
-            all_anchor_edges = []   # A3: reinforced across all anchors at the end
             best_fit = 0.0   # G34: max across anchors, not the last one's
             anchor_ids = {a.id for a in matched}
             ts = self._active_timescope
@@ -1787,11 +1902,11 @@ class HybridRetrievalOrchestrator:
                     continue
                 if anchor.id in self._denied_entity_ids:   # C6 exclusion
                     continue
-                local_texts, direct_edges = [], []
+                local_texts, direct_edges, rendered_edges = [], [], []
                 self._traverse_graph(anchor, 0, settings.codex_max_depth, set(),
                                      local_texts, direct_edges,
                                      allowed_entity_ids, allowed_batch_ids,
-                                     exclude_ids=anchor_ids - {anchor.id})
+                                     exclude_ids=anchor_ids - {anchor.id}, rendered_edges=rendered_edges)
                 if not local_texts:
                     continue
                 # Per-anchor score from THIS anchor's direct-edge trust (A3).
@@ -1806,7 +1921,8 @@ class HybridRetrievalOrchestrator:
                 fact_lines, fact_edges, fit = self._relation_facts(
                     [anchor], prompt_embedding, allowed_batch_ids)
                 if fact_lines:
-                    local_texts.extend(fact_lines)
+                    existing_text = "\n\n".join(local_texts)
+                    local_texts.extend(line for line in fact_lines if line not in existing_text)
                     direct_edges.extend(fact_edges)
                     # G34: proportional to how sharply one relation stood out,
                     # replacing a flat +0.25 that was applied on every prompt
@@ -1826,8 +1942,8 @@ class HybridRetrievalOrchestrator:
                     # a gold turn, which is why recall has only ever scored the
                     # episodic leg.
                     origin_batch_ids=tuple(
-                        {str(e.source_batch) for e in direct_edges if e.source_batch})))
-                all_anchor_edges.extend(direct_edges)
+                        {str(e.source_batch) for e in rendered_edges + fact_edges if e.source_batch}),
+                    origin_edge_ids=tuple({str(e.id) for e in rendered_edges + fact_edges})))
 
                 # T4: attach the anchor's evolution timeline whenever it
                 # carries real supersession history (D-U2: provided in any
@@ -1851,19 +1967,23 @@ class HybridRetrievalOrchestrator:
                 # typically all 197 — so it logged noise as though it were a hit.
                 logger.info("codex_relation_overlap", best_fit=round(best_fit, 4),
                             fragments=len(fragments))
-            # A3: retrieval-reinforcement across every anchor's edges.
-            self._reinforce_codex_edges(all_anchor_edges)
             return fragments + timeline_frags
         except Exception as err:
             self._leg_degraded("codex", err)
             return []
 
     def _edge_trust(self, edge) -> float:
-        """Effective trust = strength (A3 usage dynamics) x extraction_confidence
-        (A3 grounding/corroboration) x recency (A11). Legacy edges with NULL
-        confidence count as fully trusted (they predate grounding)."""
+        """Source quality gates entry; bounded retention/recency rank candidates.
+
+        This ranking score is not a calibrated probability of truth. Legacy NULL
+        confidence retains its historical behavior pending evidence migration.
+        """
         conf = edge.extraction_confidence if edge.extraction_confidence is not None else 1.0
-        base = (edge.strength or 0.0) * conf
+        # Usage must never lift a low-support assertion across the quality gate.
+        if conf < settings.codex_direct_trust_floor:
+            return conf
+        retention = min(1.0, max(0.0, edge.strength or 0.0) / settings.codex_retention_cap)
+        base = conf * (1.0 + settings.codex_retention_rank_weight * retention)
         # A11: reward recently-asserted facts; old edges tend to 1.0 (no penalty).
         # T3 (D9): under a window, "recent" means near the window end — the
         # multiplier stays >= 1.0, so A11's never-penalize-age invariant
@@ -1882,50 +2002,48 @@ class HybridRetrievalOrchestrator:
         return base
 
     def _render_codex_entity(self, entity, depth, out_edges, in_edges,
-                             allowed_batch_ids, context_texts):
-        """A7.2 depth-graded rendering (Obsidian reading model): the anchor
-        (depth 0) injects its FULL rich note; deeper neighbors inject a compact
-        one-line preview (name + type + a snippet), so navigation is rich but
-        token-efficient."""
-        # E1b: derived entities (code graph / project facts) render their full
-        # pointer payload even under scope — it's built from the project
-        # itself, so the "leaks other conversations" rationale doesn't apply.
+                             allowed_batch_ids, context_texts, rendered_edges=None):
+        """Rich source notes at anchors; compact navigation at deeper nodes."""
         derived = getattr(entity, "source", None) not in (None, "conversation")
-        if depth == 0:
-            if allowed_batch_ids is None or derived:
-                # unscoped: the stored rich note (description + props + links + backlinks).
-                if entity.context_payload:
-                    context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
-            else:
-                # A5 scoped: rebuild from this conversation's edges only (both
-                # directions), no global description — it would leak other convos.
-                lines = []
-                # G29: these two slices were the literal 10 while
-                # settings.codex_entity_edge_limit was already 10 — right number,
-                # unreachable knob, same shape as the diversify/rrf/cluster case.
-                for e in out_edges[:settings.codex_entity_edge_limit]:
-                    t = self.db.query(CodexEntity).get(e.target_id)
-                    if t:
-                        rel = f"NOT {e.relation}" if getattr(e, "negated", False) else e.relation
-                        lines.append(f"{rel} → {t.canonical_name}")
-                for e in in_edges[:settings.codex_entity_edge_limit]:
-                    s = self.db.query(CodexEntity).get(e.source_id)
-                    if s:
-                        rel = f"NOT {e.relation}" if getattr(e, "negated", False) else e.relation
-                        lines.append(f"{s.canonical_name} --{rel}→")
-                if lines:
-                    context_texts.append(f"[Entity: {entity.canonical_name}]\n" + "; ".join(lines))
-        else:
-            etype = getattr(entity, "entity_type", None) or "entity"
-            preview = f"[{entity.canonical_name} ({etype})]"
-            if allowed_batch_ids is None:  # description is global → only show unscoped
-                desc = (entity.description or "").strip()
-                if desc:
-                    preview += ": " + " ".join(desc.split()[:20])
-            context_texts.append(preview)
+        if derived and depth == 0:
+            if entity.context_payload:
+                context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
+            return
+        if depth > 0:
+            context_texts.append(f"[{entity.canonical_name} ({getattr(entity, 'entity_type', None) or 'entity'})]")
+            return
+        lines = []
+        self._prime_edge_times(out_edges + in_edges)
+        has_private_source = any(str(e.source_batch) in self._private_source_batches
+                                 for e in out_edges + in_edges) if hasattr(self, "_private_source_batches") else False
+        unscoped_current = (allowed_batch_ids is None and not self._denied_batch_ids
+                            and not has_private_source and self._active_timescope.mode == "current")
+        if unscoped_current:
+            note = (entity.description or "").strip()
+            if not note and not out_edges and not in_edges:
+                note = (entity.context_payload or "").strip()
+            if note:
+                lines.append(f"[Unverified stored note] {note}")
+        edges = list({e.id: e for e in out_edges + in_edges}.values())
+        edges.sort(key=lambda e: (-self._edge_trust(e), str(e.id)))
+        self._prime_edge_times(edges[:settings.codex_entity_edge_limit])
+        for edge in edges[:settings.codex_entity_edge_limit]:
+            if self._edge_trust(edge) < settings.codex_direct_trust_floor:
+                continue
+            source = self.db.get(CodexEntity, edge.source_id)
+            target = self.db.get(CodexEntity, edge.target_id)
+            if source and target:
+                line = self._fact_line(source, edge, target)
+                if line:
+                    lines.append(line)
+                    if rendered_edges is not None:
+                        rendered_edges.append(edge)
+        if lines:
+            context_texts.append(f"[Entity: {entity.canonical_name}]\n" + "\n".join(dict.fromkeys(lines)))
 
     def _traverse_graph(self, entity, depth, max_depth, visited, context_texts, anchor_edges=None,
-                        allowed_entity_ids=None, allowed_batch_ids=None, exclude_ids=None):
+                        allowed_entity_ids=None, allowed_batch_ids=None, exclude_ids=None,
+                        rendered_edges=None):
         if entity.id in visited or depth > max_depth:
             return
         visited.add(entity.id)
@@ -1954,7 +2072,7 @@ class HybridRetrievalOrchestrator:
             in_edges = [e for e in in_edges if e.source_batch not in self._denied_batch_ids]
 
         self._render_codex_entity(entity, depth, out_edges, in_edges,
-                                  allowed_batch_ids, context_texts)
+                                  allowed_batch_ids, context_texts, rendered_edges)
 
         # A7.2: traverse both directions (into the target of outgoing edges and
         # the source of incoming ones), trust-gated and scope-bounded as before.
@@ -1979,14 +2097,10 @@ class HybridRetrievalOrchestrator:
                 continue
             trust = self._edge_trust(edge)
             if depth == 0:
-                # A3 dynamic threshold: a matched entity's edge expands (and is
-                # reinforced as a query anchor) only above the direct floor.
+                # Direct-edge trust gates candidate expansion, never promotion.
                 if trust < settings.codex_direct_trust_floor:
                     continue
-                # ⚠ anchor_edges is deliberately NOT capped. It drives A3
-                # retrieval-reinforcement, and narrowing what gets reinforced is
-                # a different behaviour change from bounding traversal cost —
-                # G35 is the second one only.
+                # Candidate lineage/trust summary, not proof of final exposure.
                 if anchor_edges is not None:
                     anchor_edges.append(edge)
             # A3: trust-gate deep hops — weak/decayed edges don't expand the frontier.
@@ -2027,38 +2141,7 @@ class HybridRetrievalOrchestrator:
             if other and self._entity_visible(other):
                 self._traverse_graph(other, depth + 1, max_depth, visited,
                                      context_texts, anchor_edges,
-                                     allowed_entity_ids, allowed_batch_ids, exclude_ids)
-
-    def _reinforce_codex_edges(self, edges):
-        """A3 retrieval-reinforcement (episodic analog): the anchor edges of the
-        matched query entities gain a little strength each time they're surfaced,
-        so repeatedly-useful facts self-promote through use — balanced by the
-        codex_decay worker (which decays ALL live edges, so this loop is closed).
-        A reinforced pending edge is promoted to active once it crosses
-        CODEX_PROMOTE_STRENGTH — but only if its extraction_confidence clears
-        CODEX_PROMOTE_MIN_CONFIDENCE, so a low-trust extraction cannot promote
-        through retrieval popularity alone; it needs corroboration first.
-        Scoped to anchor edges only to avoid diluting the signal across the
-        whole traversed neighborhood. Write-on-read, like _strengthen_retrieved
-        does for episodic turns."""
-        if not edges:
-            return
-        try:
-            seen = set()
-            for e in edges:
-                if e.id in seen:
-                    continue
-                seen.add(e.id)
-                e.strength = min((e.strength or 0.0) + settings.codex_reinforce_increment,
-                                 settings.codex_strength_cap)
-                conf = e.extraction_confidence if e.extraction_confidence is not None else 1.0
-                if (e.confidence == "pending"
-                        and e.strength >= settings.codex_promote_strength
-                        and conf >= settings.codex_promote_min_confidence):
-                    e.confidence = "active"
-            self.db.commit()
-        except Exception as err:
-            self._leg_degraded("codex.reinforce", err)
+                                     allowed_entity_ids, allowed_batch_ids, exclude_ids, rendered_edges)
 
     # ------------------------------------------------------------------
     # Procedural lookup (scoped + trigger‑condition evaluation)
@@ -2178,30 +2261,55 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
 
     def _batch_summary_lookup(self, prompt_embedding, conv_id: Optional[str] = None,
-                              include_cross: bool = True) -> List[ContextFragment]:
+                              include_cross: bool = True, scope=None,
+                              search_conv_id=None) -> List[ContextFragment]:
         # T3 (D14): skipped under any non-current mode — a summary's created_at
         # is long after its content's period, which is underivable without a
         # turn-index→timestamp join; serving it under a window would mislead.
         if self._active_timescope.mode != "current":
             return []
+        source_scope, source_params, _ = self._conv_scope_filter(
+            scope, search_conv_id, column="covered_source.conversation_id")
+        source_exclusions, exclusion_params = self._exclusion_filters(
+            scope, conv_column="covered_source.conversation_id", id_column=None,
+            membership_column="covered_source.cluster_ids")
+        source_clusters = self._cluster_filter(scope,
+            membership_column="covered_source.cluster_ids")
+        # The active conversation identity has a separate SQL name; the scope
+        # helper may bind :conv_id to a different, explicitly searched conversation.
+        scope_params = {**source_params, **exclusion_params}
+        if scope and scope.get("cluster_ids"):
+            scope_params["cluster_ids"] = scope["cluster_ids"]
+        source_allowed = f"TRUE {source_scope} {source_exclusions} {source_clusters}"
+        if scope and scope.get("batch_ids") is not None:
+            source_allowed += " AND covered_source.batch_id = ANY(:summary_batch_ids)"
+            scope_params["summary_batch_ids"] = [str(b) for b in scope["batch_ids"]]
         fragments: List[ContextFragment] = []
         # Half 1 (as built): this conversation's batch summaries.
         if conv_id:
             try:
-                query = text("""
-                    SELECT bs.summary_text, bs.created_at,
+                query = text(f"""
+                    WITH summary_sources AS ({SUMMARY_SOURCES_SQL})
+                    SELECT bs.id, bs.conversation_id, bs.source_manifest, bs.summary_text, bs.created_at,
                            1 - (bs.embedding <=> :prompt_embedding) as score,
                            (SELECT array_agg(em.batch_id::text)
-                              FROM episodic_memory em
+                              FROM summary_sources em
                              WHERE em.batch_summary_id = bs.id) AS covered
                     FROM batch_summaries bs
-                    WHERE bs.conversation_id = :conv_id
+                    WHERE bs.conversation_id = :own_conv_id
                       AND bs.embedding IS NOT NULL
+                      AND EXISTS (SELECT 1 FROM summary_sources em
+                                  WHERE em.batch_summary_id = bs.id)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM summary_sources covered_source
+                          WHERE covered_source.batch_summary_id = bs.id
+                            AND NOT ({source_allowed}))
                     ORDER BY score DESC
                     LIMIT :bs_limit
                 """).bindparams(bindparam("prompt_embedding", type_=PgVector))
                 rows = self.db.execute(query, {
-                    "prompt_embedding": prompt_embedding, "conv_id": conv_id,
+                    "prompt_embedding": prompt_embedding, "own_conv_id": conv_id,
+                    **scope_params,
                     "bs_limit": settings.retrieval_batch_summary_limit}).fetchall()
                 # T1: summaries are written long after the turns they compress,
                 # so they get a "[summary, <created>]" prefix, not a turn date.
@@ -2214,47 +2322,145 @@ class HybridRetrievalOrchestrator:
                 # which is the TRAPS #32 blindness one leg further on. The link
                 # already existed as an FK; nothing read it.
                 fragments += [ContextFragment(
-                    text=(f"[summary, {r.created_at.strftime('%Y-%m-%d')}] " if r.created_at else "") + r.summary_text,
+                    text=(rendered := f"[summary created: {format_time(r.created_at)}] " + r.summary_text),
                     source_type="batch_summary",
                     score=r.score,
-                    token_count=count_tokens(r.summary_text),
+                    token_count=count_tokens(rendered),
                     origin_batch_ids=tuple(r.covered or ()),
-                ) for r in rows]
+                    conversation_id=str(conv_id),
+                ) for r in rows if batch_snapshot_readable(self.db, r)]
             except Exception as err:
                 self._leg_degraded("batch_summary.own", err)
-        # Half 2 (C4 D3b): OTHER conversations' evolving whole-conversation
-        # summaries — cross-conversation overview hits. The active
+        # Half 2 (C4 D3b): OTHER conversations' independently indexed source
+        # notes. The active
         # conversation's own summary is excluded (the assembler injects it —
         # double-inject trap) and private conversations never leave their
         # scope (memory_scope_type join). Skipped entirely under incognito
         # (a user-global read — G16 "read nothing").
-        if not include_cross:
+        if not include_cross or settings.retrieval_conversation_summary_limit <= 0:
             return fragments
         try:
-            query = text("""
-                SELECT s.summary_text, s.updated_at,
-                       1 - (s.embedding <=> :prompt_embedding) as score
-                FROM conversation_summaries s
+            query = text(f"""
+                WITH summary_sources AS ({SUMMARY_SOURCES_SQL})
+                SELECT n.ordinal, n.text, n.mode, n.recorded_range, n.source_ids,
+                       n.batch_ids, s.summary_text, s.updated_at,
+                       s.source_manifest, s.conversation_id,
+                       1 - (n.embedding <=> :prompt_embedding) as score
+                FROM conversation_notes n
+                JOIN conversation_summaries s ON s.conversation_id = n.conversation_id
                 JOIN conversations c ON c.id = s.conversation_id
-                WHERE s.embedding IS NOT NULL
-                  AND c.memory_scope_type != 'none'
-                  AND (CAST(:conv_id AS uuid) IS NULL
-                       OR s.conversation_id != CAST(:conv_id AS uuid))
+                WHERE c.memory_scope_type != 'none'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM summary_sources private_source
+                      WHERE private_source.conversation_id = s.conversation_id
+                        AND private_source.is_private = TRUE)
+                  AND (CAST(:own_conv_id AS uuid) IS NULL
+                       OR s.conversation_id != CAST(:own_conv_id AS uuid))
+                  AND NOT EXISTS (
+                      SELECT 1 FROM summary_sources covered_source
+                      WHERE covered_source.conversation_id = s.conversation_id
+                        AND s.source_manifest @> jsonb_build_object(
+                            'sources', jsonb_build_array(jsonb_build_object(
+                                'id', covered_source.id::text)))
+                        AND NOT ({source_allowed}))
                 ORDER BY score DESC
-                LIMIT :cs_limit
+                LIMIT :cs_candidate_limit
             """).bindparams(bindparam("prompt_embedding", type_=PgVector))
             rows = self.db.execute(query, {
                 "prompt_embedding": prompt_embedding,
-                "conv_id": conv_id,
-                "cs_limit": settings.retrieval_conversation_summary_limit,
+                "own_conv_id": conv_id,
+                **scope_params,
+                "cs_candidate_limit": max(64, settings.retrieval_conversation_summary_limit * 16),
             }).fetchall()
-            fragments += [ContextFragment(
-                text=(f"[conversation summary, {r.updated_at.strftime('%Y-%m-%d')}] "
-                      if r.updated_at else "[conversation summary] ") + r.summary_text,
-                source_type="batch_summary",
-                score=r.score,
-                token_count=count_tokens(r.summary_text)
-            ) for r in rows]
+            checked = {}
+            aggregate_fallbacks = set()
+            cross_added = 0
+            for r in rows:
+                cid = str(r.conversation_id)
+                if cid not in checked:
+                    notes = self.db.query(ConversationNote).filter_by(
+                        conversation_id=r.conversation_id).all()
+                    current = summary_snapshot_readable(self.db, r)
+                    checked[cid] = (current, current and indexed_parts(r.source_manifest, notes))
+                current, indexed = checked[cid]
+                if not current:
+                    continue
+                if not indexed:
+                    if cid not in aggregate_fallbacks:
+                        logger.warning('conversation_note_index_mismatch',
+                                       conversation_id=cid,
+                                       reason='using current complete aggregate until index repair')
+                        rendered = (f"[conversation summary updated: {format_time(r.updated_at)}] "
+                                    + r.summary_text)
+                        fragments.append(ContextFragment(
+                            text=rendered, source_type="batch_summary", score=r.score,
+                            token_count=count_tokens(rendered), conversation_id=cid,
+                            origin_batch_ids=tuple(item['batch_id']
+                                                   for item in r.source_manifest['sources'])))
+                        aggregate_fallbacks.add(cid)
+                        cross_added += 1
+                    if cross_added >= settings.retrieval_conversation_summary_limit:
+                        break
+                    continue
+                part = r.source_manifest['parts'][r.ordinal - 1]
+                if not note_matches(r, part, r.source_manifest, r.ordinal):
+                    continue
+                rendered = (f"[conversation note updated: {format_time(r.updated_at)}] "
+                            + render_note(r))
+                fragments.append(ContextFragment(
+                    text=rendered, source_type="batch_summary", score=r.score,
+                    token_count=count_tokens(rendered), conversation_id=cid,
+                    origin_batch_ids=tuple(r.batch_ids)))
+                cross_added += 1
+                if cross_added >= settings.retrieval_conversation_summary_limit:
+                    break
+            # Existing snapshot-valid roots remain available until maintenance
+            # materializes their part index; this branch is a compatibility read.
+            if cross_added < settings.retrieval_conversation_summary_limit:
+                legacy = text(f"""
+                    WITH summary_sources AS ({SUMMARY_SOURCES_SQL})
+                    SELECT s.summary_text, s.updated_at, s.source_manifest,
+                           s.conversation_id,
+                           1 - (s.embedding <=> :prompt_embedding) as score
+                    FROM conversation_summaries s
+                    JOIN conversations c ON c.id = s.conversation_id
+                    WHERE s.embedding IS NOT NULL
+                      AND c.memory_scope_type != 'none'
+                      AND NOT EXISTS (SELECT 1 FROM conversation_notes n
+                                      WHERE n.conversation_id = s.conversation_id)
+                      AND NOT EXISTS (SELECT 1 FROM summary_sources private_source
+                                      WHERE private_source.conversation_id = s.conversation_id
+                                        AND private_source.is_private = TRUE)
+                      AND (CAST(:own_conv_id AS uuid) IS NULL
+                           OR s.conversation_id != CAST(:own_conv_id AS uuid))
+                      AND NOT EXISTS (
+                          SELECT 1 FROM summary_sources covered_source
+                          WHERE covered_source.conversation_id = s.conversation_id
+                            AND s.source_manifest @> jsonb_build_object(
+                                'sources', jsonb_build_array(jsonb_build_object(
+                                    'id', covered_source.id::text)))
+                            AND NOT ({source_allowed}))
+                    ORDER BY score DESC LIMIT :cs_limit
+                """).bindparams(bindparam("prompt_embedding", type_=PgVector))
+                old_rows = self.db.execute(legacy, {
+                    "prompt_embedding": prompt_embedding, "own_conv_id": conv_id,
+                    **scope_params,
+                    "cs_limit": settings.retrieval_conversation_summary_limit - cross_added,
+                }).fetchall()
+                for r in old_rows:
+                    if not summary_snapshot_readable(self.db, r):
+                        continue
+                    logger.warning('conversation_note_index_missing',
+                                   conversation_id=str(r.conversation_id),
+                                   reason='cross read using complete aggregate until backfill')
+                    rendered = (f"[conversation summary updated: {format_time(r.updated_at)}] "
+                                + r.summary_text)
+                    fragments.append(ContextFragment(
+                        text=rendered, source_type="batch_summary", score=r.score,
+                        token_count=count_tokens(rendered),
+                        conversation_id=str(r.conversation_id),
+                        origin_batch_ids=tuple(item['batch_id']
+                                               for item in r.source_manifest['sources'])))
         except Exception as err:
             self._leg_degraded("batch_summary.cross", err)
         return fragments
@@ -2290,8 +2496,14 @@ class HybridRetrievalOrchestrator:
         pats = [f"%{t}%" for t in terms]
 
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
-        # C6: cold rows carry no cluster links — conversation exclusion only.
-        excl_filter, excl_params = self._exclusion_filters(scope, id_column=None)
+        excl_filter, excl_params = self._exclusion_filters(scope, id_column=None,
+                                                              membership_column="cluster_ids")
+        excl_filter += self._cluster_filter(scope, membership_column="cluster_ids")
+        if scope and scope.get("cluster_ids"):
+            excl_params["cluster_ids"] = [str(c) for c in scope["cluster_ids"]]
+        if scope and scope.get("batch_ids") is not None:
+            excl_filter += " AND batch_id = ANY(CAST(:cold_batches AS uuid[]))"
+            excl_params["cold_batches"] = [str(b) for b in scope["batch_ids"]]
         privacy_filter = "" if conv_scoped else "AND is_private = FALSE"
         # C16: rank by MEANING when the archived row carries a vector, and fall
         # back to the keyword patterns only for rows that predate
@@ -2307,7 +2519,8 @@ class HybridRetrievalOrchestrator:
                            "ELSE (embedding <=> :cold_probe) END ASC,")
         query = text(f"""
             SELECT id, conversation_id, batch_id, raw_text, summary_text,
-                   topic_tags, timestamp, is_private, embedding
+                   topic_tags, timestamp, is_private, embedding, source_spans, ts_provenance,
+                   summary_coverage, representation_verification, abstract_text, lossless_flag, is_document, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids, batch_summary_id
             FROM cold_storage
             WHERE timestamp >= :t0 AND timestamp < :t1
               {conv_filter}
@@ -2337,22 +2550,52 @@ class HybridRetrievalOrchestrator:
 
         fragments = []
         for row in rows:
-            body = _truncate_at_sentence(row.summary_text or row.raw_text, 300)
-            stamp = row.timestamp.strftime("[%Y-%m-%d] ") if row.timestamp else ""
+            body = choose_representation(row)[0] or ""
+            stamp = recorded_stamp(row.timestamp, getattr(row, "ts_provenance", None)) if row.timestamp else ""
             text_ = stamp + body
             fragments.append(ContextFragment(
                 text=text_, source_type="episodic", score=0.6,
+                covers_entire_source=body == row.raw_text,
                 token_count=count_tokens(text_),
                 source_batch_id=str(row.id),
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
             ))
+            try:
+                fragments.extend(self._cold_chunk_candidates(row, prompt_keywords, prompt_embedding))
+            except Exception as err:
+                self._leg_degraded("cold.chunks", err)
             self._cold_hits[str(row.id)] = row
         if fragments:
             logger.info("cold_leg_hits", count=len(fragments), mode=ts.mode)
         return fragments
 
+    def _cold_chunk_candidates(self, parent, keywords, prompt_embedding):
+        """Only called for already eligible cold parents; text stays complete."""
+        if prompt_embedding is not None:
+            query = text("""
+                SELECT chunk_text, 1 - (embedding <=> :probe) AS score
+                FROM cold_chunks WHERE turn_id = :id AND embedding IS NOT NULL
+                ORDER BY embedding <=> :probe, chunk_index, id LIMIT 3
+            """).bindparams(bindparam("probe", type_=PgVector))
+            rows = self.db.execute(query, {"id": parent.id, "probe": prompt_embedding}).all()
+        else:
+            rows = self.db.execute(text("""
+                SELECT chunk_text, 0.0 AS score FROM cold_chunks
+                WHERE turn_id = :id ORDER BY chunk_index, id
+            """), {"id": parent.id}).all()
+            terms = {str(k).casefold() for k in keywords if k}
+            rows = sorted(rows, key=lambda r: -sum(k in r.chunk_text.casefold() for k in terms))[:3]
+        stamp = recorded_stamp(parent.timestamp, getattr(parent, "ts_provenance", None))
+        return [ContextFragment(
+            text=(rendered := stamp + row.chunk_text), source_type="episodic",
+            score=float(row.score or 0), token_count=count_tokens(rendered),
+            source_batch_id=str(parent.id),
+            conversation_id=str(parent.conversation_id) if parent.conversation_id else None,
+            leg="cold_chunk", covers_entire_source=False,
+        ) for row in rows]
+
     def _resurrect_cold_hits(self, final: List[ContextFragment]):
-        """D-U1 second chance: a cold memory that was actually *injected*
+        """D-U1 second chance: a cold memory selected by retrieval budgeting
         (survived the budget — never mere candidacy) moves back into
         episodic_memory on probation: ORIGINAL timestamp (it's an old memory),
         decay just above the archive line — unengaged, normal decay re-archives
@@ -2360,9 +2603,13 @@ class HybridRetrievalOrchestrator:
         restored at full strength. Legacy rows (NULL conversation_id) are
         cite-only. Runs AFTER _strengthen_retrieved (the row isn't episodic
         yet during that pass), so probation starts exactly at 0.12."""
-        if not self._cold_hits:
+        if not settings.retrieval_strengthen_writes or not self._cold_hits:
             return
+        seen = set()
         for f in final:
+            if f.source_batch_id in seen:
+                continue
+            seen.add(f.source_batch_id)
             row = self._cold_hits.get(f.source_batch_id) if f.source_batch_id else None
             if row is None:
                 continue
@@ -2370,32 +2617,70 @@ class HybridRetrievalOrchestrator:
                 logger.info("cold_cited_only", cold_id=str(row.id))
                 continue
             try:
-                emb = self.embedder.encode((row.summary_text or row.raw_text)[:2000],
-                                           convert_to_tensor=False)
-                emb = emb.tolist() if hasattr(emb, "tolist") else list(emb)
+                # Restore the representation that found this memory, not a
+                # newly truncated summary embedding. Legacy NULL stays NULL.
+                emb = getattr(row, "embedding", None)
+                if isinstance(emb, str):
+                    emb = [float(value) for value in emb.strip("[]").split(",")]
+                elif hasattr(emb, "tolist"):
+                    emb = emb.tolist()
+                if emb is None:
+                    logger.warning("cold_restored_without_vector", cold_id=str(row.id),
+                                   reason="archived_vector_missing")
                 res = self.db.execute(text("""
                     INSERT INTO episodic_memory
                         (id, conversation_id, batch_id, timestamp, topic_tags,
                          intent_tags, context_reliance, raw_text, summary_text,
                          embedding, decay_score, access_count, is_archived,
-                         is_private, inject_raw, idempotency_key)
+                         is_private, inject_raw, idempotency_key, source_spans, ts_provenance,
+                         summary_coverage, representation_verification, abstract_text,
+                         lossless_flag, is_document, session_id, cluster_id, batch_summary_id)
                     VALUES (:id, :conv, :batch, :ts, :tags, :itags,
-                            'Long_Term_Memory', :raw, :summary, :emb, :score,
-                            1, FALSE, :priv, TRUE, :ikey)
+                            :context_reliance, :raw, :summary, :emb, :score,
+                            1, FALSE, :priv, :inject_raw, :ikey, :source_spans, :ts_provenance,
+                            :summary_coverage, :representation_verification, :abstract_text,
+                            :lossless_flag, :is_document, :session_id,
+                            (SELECT id FROM context_clusters WHERE id = :primary_cluster),
+                            (SELECT id FROM batch_summaries WHERE id = :batch_summary_id))
                     ON CONFLICT (id) DO NOTHING
-                """).bindparams(bindparam("emb", type_=PgVector)), {
+                """).bindparams(bindparam("emb", type_=PgVector),
+                                 bindparam("source_spans", type_=JSONB),
+                                 bindparam("representation_verification", type_=JSONB)), {
                     "id": row.id, "conv": row.conversation_id,
+                    "primary_cluster": getattr(row, "cluster_id", None),
+                    "batch_summary_id": getattr(row, "batch_summary_id", None),
                     "batch": row.batch_id or uuid.uuid4(), "ts": row.timestamp,
-                    "tags": list(row.topic_tags or []), "itags": [],
+                    "tags": list(row.topic_tags or []),
+                    "itags": list(getattr(row, "intent_tags", None) or []),
+                    "context_reliance": getattr(row, "context_reliance", None) or "Long_Term_Memory",
+                    "inject_raw": (getattr(row, "inject_raw", None)
+                                   if getattr(row, "inject_raw", None) is not None else True),
+                    **{key: getattr(row, key, None) for key in (
+                        "summary_coverage", "representation_verification", "abstract_text",
+                        "lossless_flag", "is_document", "session_id")},
                     "raw": row.raw_text, "summary": row.summary_text,
+                    "source_spans": getattr(row, "source_spans", None),
+                    "ts_provenance": getattr(row, "ts_provenance", None) or "unknown",
                     "emb": emb, "score": settings.timescope_probation_score,
                     "priv": row.is_private,
-                    "ikey": f"cold-resurrect-{row.id}",
+                    "ikey": getattr(row, "idempotency_key", None) or f"cold-resurrect-{row.id}",
                 })
                 if res.rowcount == 0:
                     # id somehow still live in episodic — keep the cold row.
                     logger.info("cold_resurrect_conflict", cold_id=str(row.id))
                 else:
+                    self.db.execute(text("""
+                        INSERT INTO episodic_chunks (id, turn_id, chunk_index, chunk_text, embedding)
+                        SELECT id, turn_id, chunk_index, chunk_text, embedding
+                        FROM cold_chunks WHERE turn_id = :id
+                    """), {"id": row.id})
+                    self.db.execute(text("""
+                        INSERT INTO episodic_cluster_links (episodic_id, cluster_id)
+                        SELECT :id, id FROM context_clusters
+                        WHERE id = ANY(CAST(:clusters AS uuid[]))
+                        ON CONFLICT DO NOTHING
+                    """), {"id": row.id, "clusters": [str(c) for c in
+                             (getattr(row, "cluster_ids", None) or [])]})
                     self.db.execute(text("DELETE FROM cold_storage WHERE id = :id"),
                                     {"id": row.id})
                     logger.info("cold_resurrected", episodic_id=str(row.id),
@@ -2498,19 +2783,10 @@ class HybridRetrievalOrchestrator:
         return fused
 
     def _collapse_provenance(self, fragments):
-        """C16: collapse fragments that are the SAME MEMORY, by identity.
+        """Limit per-source survivors at admission, never pre-budget candidates.
 
-        A chunk and its parent turn carry the same `source_batch_id`, and today
-        that is deduped only *within* the vector leg — so a BM25 hit on the
-        parent plus a vector hit on one of its chunks both survive and the same
-        text is injected twice. `_deduplicate` cannot catch it: it hashes the
-        exact string, and a chunk is a substring, not a copy.
-
-        This runs before any similarity math because it is an ID join — a
-        resolver, not a lexicon — so it is exact, free, and cannot be fooled by
-        how anything is written. It is also the only arm in C16 that provably
-        cannot lose information: what it drops is, by construction, already
-        present.
+        Sharing a source ID does not imply identical information: disjoint chunks
+        can both matter. This is a configured diversity bound, not lossless dedup.
         """
         if not getattr(settings, "retrieval_collapse_enabled", True):
             return fragments
@@ -2626,10 +2902,10 @@ class HybridRetrievalOrchestrator:
         counts: Dict[str, int] = {}
         result = []
         for f in fragments:
-            cid = f.conversation_id
+            cid = str(f.conversation_id) if f.conversation_id is not None else None
             if not cid:
                 result.append(f)
-            elif cid == current_id:
+            elif cid == str(current_id):
                 result.append(f)
             else:
                 counts[cid] = counts.get(cid, 0) + 1
@@ -2647,7 +2923,8 @@ class HybridRetrievalOrchestrator:
                 unique.append(f)
         return unique
 
-    def _enforce_token_budget(self, fragments, max_tokens=None):
+    def _enforce_token_budget(self, fragments, max_tokens=None, *, relevance_order=False,
+                              current_conversation_id=None):
         if max_tokens is None:
             max_tokens = self.max_retrieval_tokens
         from collections import deque
@@ -2671,17 +2948,42 @@ class HybridRetrievalOrchestrator:
                 tokens = count_tokens(alt)
                 if tokens <= budget_left:
                     return dc_replace(f, text=alt, token_count=tokens,
-                                      degrade_text=None, abstract_text=None)
+                                      degrade_text=None, abstract_text=None,
+                                      covers_entire_source=False)
             return None
 
-        total, result, used = 0, [], set()
+        total, result = 0, []
+
+        def admit(fragment):
+            nonlocal total
+            fitted = (fragment if fragment.token_count <= max_tokens - total
+                      else _degraded(fragment, max_tokens - total))
+            if fitted is None:
+                return False
+            if settings.retrieval_collapse_enabled and fitted.source_batch_id:
+                same = [f for f in result if f.source_batch_id == fitted.source_batch_id]
+                if same and (fitted.covers_entire_source or
+                             any(f.covers_entire_source for f in same)):
+                    return False
+            trial = result + [fitted]
+            if len(self._collapse_provenance(trial)) != len(trial):
+                return False
+            if len(self._session_diversify(trial, current_conversation_id)) != len(trial):
+                return False
+            result.append(fitted)
+            total += fitted.token_count
+            return True
+
+        if relevance_order:
+            for f in fragments:
+                admit(f)
+            self._log_leg_budget_share(result, total, max_tokens)
+            return result
+
+        used = set()
         for f in guaranteed:
-            if total + f.token_count <= max_tokens:
-                result.append(f); total += f.token_count; used.add(id(f))
-            else:
-                d = _degraded(f, max_tokens - total)
-                if d:
-                    result.append(d); total += d.token_count; used.add(id(f))
+            admit(f)
+            used.add(id(f))
 
         # Phase 2 – round-robin-with-slack across legs (A10 budget fairness).
         # Each round, every leg contributes its next-best fragment (highest-scoring
@@ -2699,23 +3001,13 @@ class HybridRetrievalOrchestrator:
         active = list(queues.keys())
         while active and total < max_tokens:
             active.sort(key=lambda leg: queues[leg][0].score, reverse=True)
-            progressed = False
             for leg in list(active):
                 q = queues[leg]
-                f = q.popleft()
-                if total + f.token_count <= max_tokens:
-                    result.append(f); total += f.token_count; progressed = True
-                else:
-                    # C1/C3: fragment too big — degrade (summary, then
-                    # abstract) before giving up on it (else skip; the leg's
-                    # next fragment gets its chance next round).
-                    d = _degraded(f, max_tokens - total)
-                    if d:
-                        result.append(d); total += d.token_count; progressed = True
+                admit(q.popleft())
                 if not q:
                     active.remove(leg)
-            if not progressed:
-                break
+            # Every queue advances even if nothing fits this round. A later
+            # smaller excerpt can still fit; do not stop at an oversized head.
         self._log_leg_budget_share(result, total, max_tokens)
         return result
 
@@ -2774,21 +3066,20 @@ class HybridRetrievalOrchestrator:
         # result sets with it on, 40/40 with it off, on one store and one config.
         if not settings.retrieval_strengthen_writes:
             return
-        for frag in fragments:
-            if frag.source_type != "episodic" or not frag.source_batch_id:
-                continue
-            try:
-                turn = self.db.query(EpisodicMemory).get(uuid.UUID(frag.source_batch_id))
-                if turn:
-                    turn.access_count = (turn.access_count or 0) + 1
-                    # G9: this literal and decay.STRENGTHEN_AMOUNT were the
-                    # same number in two places, and the decay.py one had no
-                    # readers at all. One value, wired to the live site.
-                    turn.decay_score = min(
-                        1.0, (turn.decay_score or 0.0) + settings.decay_strengthen_amount)
-                    self.db.commit()
-            except Exception as err:
-                self._leg_degraded("strengthen", err)
+        ids = {uuid.UUID(str(f.source_batch_id)) for f in fragments
+               if f.source_type == "episodic" and f.source_batch_id}
+        if not ids:
+            return
+        try:
+            self.db.execute(text("""
+                UPDATE episodic_memory
+                SET access_count = COALESCE(access_count, 0) + 1,
+                    decay_score = LEAST(1.0, COALESCE(decay_score, 0.0) + :amount)
+                WHERE id = ANY(:ids)
+            """), {"ids": list(ids), "amount": settings.decay_strengthen_amount})
+            self.db.commit()
+        except Exception as err:
+            self._leg_degraded("strengthen", err)
 
     # ------------------------------------------------------------------
     # Wide‑net fallback (now uses full vector search)
@@ -2821,7 +3112,7 @@ class HybridRetrievalOrchestrator:
         time_filter, archived_filter, ts_params, min_decay = self._timescope_leg_filters()
         try:
             query = text(f"""
-                SELECT id, raw_text, summary_text, summary_coverage, abstract_text, lossless_flag, inject_raw, conversation_id, is_document, timestamp,
+                SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, conversation_id, is_document, timestamp, ts_provenance,
                        (1 - (embedding <=> :prompt_embedding))
                          * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (timestamp - :ts_center))) / 86400.0 / :recency_tau)) as score
                 FROM episodic_memory
@@ -2851,77 +3142,34 @@ class HybridRetrievalOrchestrator:
             self._leg_degraded("wide_net", err)
             fragments = []
 
+        fragments.extend(self._vector_chunks(prompt_embedding, scope, scope_conv,
+            recency_boost=self._recency_params(
+                "Creative_&_Media" in (classification.topic_tags or []))[1]))
+
         fragments.extend(self._codex_graph(classification, scope,
                                            prompt_embedding=prompt_embedding))
 
+        fragments.extend(self._codex_claims(classification.prompt, prompt_embedding, scope, conversation_id))
         fused = self._apply_rrf({"fallback": fragments}, alpha_map={"fallback": 1.0})
         prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
         fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
-        diversified = self._session_diversify(fused, conversation_id)   # G29: see retrieve()
+        fused, reranked = rerank(classification.prompt, fused)
         # C15: dynamic ceiling — a fraction of the (model-aware, C16) retrieval
         # budget with a floor, replacing the hardcoded 2,000 tokens.
         wide_budget = max(settings.retrieval_wide_net_budget_floor,
                           int(self.max_retrieval_tokens * settings.retrieval_wide_net_budget_fraction))
-        return self._enforce_token_budget(self._deduplicate(diversified), max_tokens=wide_budget)
+        deduped = self._deduplicate(fused)
+        return self._enforce_token_budget(deduped, max_tokens=wide_budget,
+                                          relevance_order=reranked,
+                                          current_conversation_id=conversation_id)
 
     # ------------------------------------------------------------------
     # Helper: convert raw DB rows to ContextFragment list
     # ------------------------------------------------------------------
-    INTENTS_PREFER_RAW = {"Factual_Retrieval", "Troubleshooting"}
-    INTENTS_PREFER_SUMMARY = {"Analysis_&_Summarization", "Strategic_Planning",
-                              "Ideation", "Open_Exploration"}
-
     def _choose_representation(self, row, classification, prompt_keywords):
-        """C1 read-time representation choice (user design: both forms are
-        stored; NOTHING is permanently raw or permanently summary — the query
-        context decides). Returns ``(text, degrade_text)``.
-
-        Order of authority:
-          1. availability/trust — no summary, or coverage below threshold
-             (a summary that dropped must-terms is never used) → raw;
-          2. keyword protection — the matched keyword lives in raw but not in
-             the summary → raw, and NOT degradable (degrading would remove
-             the very term that made this fragment relevant);
-          3. intent preference — exactness intents prefer raw (degradable);
-             compression-tolerant intents prefer the trusted summary;
-          4. otherwise the storage-side default hint (inject_raw), with raw
-             degradable to the trusted summary under budget pressure.
-
-        Returns ``(text, degrade_text, abstract_text)`` — the abstract (C3,
-        the last degradation level) rides along under the same trust and
-        keyword-protection rules; the chooser never *prefers* it.
-        """
-        raw = row.raw_text
-        summ = row.summary_text
-        abstract = getattr(row, "abstract_text", None)
-        if not raw:
-            return (summ, None, abstract) if summ else (None, None, None)
-        if not summ:
-            return (raw if row.inject_raw else raw[:300]), None, None
-        cov = getattr(row, "summary_coverage", None)
-        # NULL coverage = legacy pre-C1 summary → keep status-quo trust
-        trusted = cov is None or cov >= 0.7
-        if not trusted:
-            return raw, None, None
-
-        if prompt_keywords:
-            raw_l, summ_l = raw.lower(), summ.lower()
-            kw_raw = any(kw in raw_l or kw.rstrip('s') in raw_l for kw in prompt_keywords)
-            kw_summ = any(kw in summ_l or kw.rstrip('s') in summ_l for kw in prompt_keywords)
-            if kw_raw and not kw_summ:
-                return raw, None, None
-
-        if classification is not None:
-            intents = set(classification.intent_tags or [])
-            if intents & self.INTENTS_PREFER_SUMMARY and not intents & self.INTENTS_PREFER_RAW:
-                return summ, None, abstract
-            if intents & self.INTENTS_PREFER_RAW:
-                return raw, summ, abstract
-
-        if row.inject_raw:
-            return raw, summ, abstract
-        return summ, None, abstract
+        """Use the same eligible representations as chat and explicit reads."""
+        return choose_representation(row, classification, prompt_keywords)
 
     def _relevant_doc_chunks(self, turn_id, prompt_keywords, limit: int = 2):
         """C2: pick a document's most query-relevant chunks (keyword-hit count,
@@ -2959,26 +3207,16 @@ class HybridRetrievalOrchestrator:
             if not text:
                 continue
 
-            # Word cap (keyword-aware). C2: documents are NEVER injected whole
-            # anymore (the old word_cap=999999 bypass) — a doc row found by
-            # BM25/text search injects only its keyword-relevant chunks.
-            is_doc = getattr(row, "is_document", False)
-            word_cap = 500
-            if is_doc:
+            # Query-selected document excerpts are alternatives, never a prefix
+            # of an otherwise complete turn. Legacy/no-chunk rows keep raw text.
+            complete_source = text == getattr(row, "raw_text", None)
+            if getattr(row, "is_document", False):
                 chunk_text_ = self._relevant_doc_chunks(row.id, prompt_keywords)
                 if chunk_text_:
                     text = chunk_text_
                     degrade_text = None
-                    word_cap = 999999   # already a bounded selection (≤2 chunks)
-                # else: legacy doc without chunks (pre-C2, catch-up worker will
-                # heal it) — falls through to the normal 500-word cap instead
-                # of dumping the whole document.
-            elif prompt_keywords:
-                text_lower = text.lower()
-                if any(kw in text_lower or kw.rstrip('s') in text_lower for kw in prompt_keywords):
-                    word_cap = 1500
-
-            text = _truncate_at_sentence(text, word_cap)
+                    abstract_text = None
+                    complete_source = False
 
             if not text:
                 continue
@@ -2987,13 +3225,9 @@ class HybridRetrievalOrchestrator:
             if getattr(row, "is_bookmarked", False):
                 score_val *= (1.0 + settings.retrieval_bonus_bookmarked)
 
-            # T1 date-grounding: every episodic fragment carries the date its
-            # turn was written, so the model can order events against the
-            # "Today's date" anchor in the system prompt. Dates only, never
-            # clock times; degraded forms keep the stamp (degradation must not
-            # lose the date).
+            # Preserve source time/provenance on every scored representation.
             if getattr(row, "timestamp", None):
-                stamp = row.timestamp.strftime("[%Y-%m-%d] ")
+                stamp = recorded_stamp(row.timestamp, getattr(row, "ts_provenance", None))
                 text = stamp + text
                 if degrade_text:
                     degrade_text = stamp + degrade_text
@@ -3009,5 +3243,6 @@ class HybridRetrievalOrchestrator:
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
                 degrade_text=degrade_text,
                 abstract_text=abstract_text,
+                covers_entire_source=complete_source,
             ))
         return fragments

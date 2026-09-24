@@ -27,29 +27,14 @@ retrieval only sees the question, so **74% of these probes have another turn
 matching the question at least as well** (G46): a "miss" may be ICE returning an
 equally good turn. Both caps are on the probe set, not on retrieval.
 
-**Why this can be a fast loop at all.** Retrieval has no LLM in it. Given a
-fixed store and a fixed question the ranking is deterministic, and scoring is
-exact (the gold turn is known by construction, not judged), so a configuration
-can be evaluated in seconds with no model call and no judge. That is the whole
-reason the probe set was rebuilt forwards — see `generate_probes.py`.
+**v3 repair boundary:** this scorer measures retrieval evidence presence, not
+answer quality or semantic support. The local reranker is a model call. Existing
+probe labels and final experiment design still require the end-stage audit.
 
-**⚑ G38: RETRIEVAL WRITES TO THE STORE, and this neutralises it with settings
-rather than surgery.** `retrieve()` commits in three places — codex edge
-strength and pending→active promotion, episodic `access_count`/`decay_score`,
-and cold-storage resurrection which physically moves rows. Left alone, probe N
-changes the store probe N+1 sees, so probe ORDER changes the score and a noise
-floor would absorb the drift as if it were noise.
-
-`--freeze-writes` (default ON) zeroes `codex_reinforce_increment` and
-`decay_strengthen_amount`. Two properties make this the right fix rather than a
-compromise:
-
-  * it cannot change what the CURRENT probe retrieves — both values only affect
-    *later* retrievals, so the measurement is untouched and only the
-    contamination is removed;
-  * the third write, cold resurrection, cannot fire here at all: a freshly
-    seeded store has no `cold_storage` rows. Asserted at startup rather than
-    assumed, because "cannot happen" is how it will happen.
+`--freeze-writes` (default ON) disables episodic access/decay strengthening and
+cold restoration with `retrieval_strengthen_writes=False`. Graph retrieval no
+longer strengthens or promotes edges. The no-cold-row startup check is retained
+as an explicit corpus assumption, although the write gate now covers restoration.
 
 **Resolved settings are dumped with every run.** `test_settings_freeze.py` now
 compares DECLARATIONS, so an `.env` override is caught by nothing else — and a
@@ -99,7 +84,7 @@ _TRACKED = (
     # name that does not exist. These are the knobs that actually set the window.
     "context_budget_min", "context_budget_max", "context_budget_fallback",
     "context_budget_floor",
-    "decay_strengthen_amount", "codex_reinforce_increment",
+    "decay_strengthen_amount",
     "retrieval_coverage_enabled", "retrieval_set_floor_enabled",
 )
 
@@ -158,9 +143,8 @@ def main() -> int:
               f"--freeze-writes does not gate it. Scores will drift across probes.")
 
     if args.freeze:
-        settings.codex_reinforce_increment = 0.0
         settings.decay_strengthen_amount = 0.0
-        # The two above are AMOUNTS; this is the write. Without it the
+        # The amount alone does not stop writes. Without this gate the
         # access_count increment still fires on every retrieval, and that alone
         # made two identical runs disagree on 14 of 40 probes — the freeze
         # looked like it held because decay_score stopped moving.

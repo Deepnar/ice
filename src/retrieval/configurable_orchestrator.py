@@ -93,14 +93,14 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
             return []
         return super()._procedural_lookup(prompt_embedding, classification, scope)
 
-    def _batch_summary_lookup(self, prompt_embedding, conv_id=None, include_cross=True):
-        # `include_cross` mirrors the parent, which gained it with C6's
-        # incognito rule. Without it every ablation run died with TypeError at
-        # this leg — retrieve() calls it by keyword.
+    def _batch_summary_lookup(self, prompt_embedding, conv_id=None, include_cross=True,
+                              scope=None, search_conv_id=None):
+        # Mirror the real reader's visibility contract in every ablation arm.
         if self._off("batch_summary"):
             return []
         return super()._batch_summary_lookup(prompt_embedding, conv_id,
-                                             include_cross=include_cross)
+                                             include_cross=include_cross, scope=scope,
+                                             search_conv_id=search_conv_id)
 
     # (C12: the `rag` flag and its override are gone with the leg itself.
     # Document content is retrieved by the vector/bm25/codex legs, so ablating

@@ -115,6 +115,10 @@ the same authority as the frontend edit button).
   prompt. It is `ice_context`'s engine, F1's preview-retrieval endpoint, and C11's
   "search specifically for Y" backend. It reuses the live classifier/embedder via
   the core object (no second model load — G13's lesson).
+  The v3 repair adds an optional `project` selector to the MCP adapter, exclusive
+  with `conversation_id`: it resolves a closed project scope over non-incognito
+  attached chats and documents enabled in those chats. A projectless call does
+  not read any registered project's decisions by a same-name file match.
 - **D5: ice-mcp is a thin additional entrypoint over the same install.**
   `[project.scripts] ice-mcp = "src.mcp.server:main"`, built on the official
   `mcp` Python SDK (FastMCP), stdio transport (harness default) + optional

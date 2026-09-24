@@ -27,7 +27,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from src.memory.models import ContextCluster, ReviewQueue
-from src.services.errors import NotFoundError
+from src.services.errors import NotFoundError, ValidationError
 
 logger = structlog.get_logger("ice.services.review")
 
@@ -41,10 +41,41 @@ def list_items(db: Session, status: Optional[str] = "pending") -> list[dict]:
     ]
 
 
-def approve(db: Session, item_id: str) -> dict:
+def approve(db: Session, item_id: str, *, keep_edge_ids: Optional[list[str]] = None) -> dict:
     item = db.query(ReviewQueue).filter_by(id=uuid.UUID(item_id)).first()
     if not item:
         raise NotFoundError("Item not found")
+    if item.item_type in ("codex_contradiction", "codex_reconciliation"):
+        if item.status != "pending":
+            raise ValidationError("This conflict has already been reviewed.")
+        pair = set((item.item_content or {}).get("edge_ids", []))
+        if item.item_type == "codex_reconciliation":
+            from src.workers.maintenance_agent import _find_edge_by_names
+            content = item.item_content or {}
+            new = content.get("new") or {}
+            candidate = _find_edge_by_names(db, new.get("subject"), new.get("relation"),
+                                           new.get("object"), new.get("negated", False))
+            pair = {content.get("old_edge_id"), str(candidate.id)} if candidate else set()
+        if (keep_edge_ids is None or not isinstance(keep_edge_ids, list)
+                or any(not isinstance(e, str) for e in keep_edge_ids)
+                or not set(keep_edge_ids).issubset(pair) or len(pair) != 2):
+            raise ValidationError("Choose keep_edge_ids from the two conflict edges; use [] to retract both.")
+        from src.memory.models import CodexEdge, CodexEntity
+        from src.workers.codex_extractor import _expire_edge, _regenerate_context_payload
+        edges = [db.get(CodexEdge, uuid.UUID(e)) for e in sorted(pair)]
+        if any(e is None or e.valid_until is not None for e in edges):
+            raise ValidationError("Conflict edges changed; refresh before resolving.")
+        batch = uuid.uuid4()
+        touched = set()
+        for edge in edges:
+            if str(edge.id) not in keep_edge_ids:
+                _expire_edge(db, edge.id, batch, "manual_conflict_resolution", source="user_review")
+                touched.update((edge.source_id, edge.target_id))
+        db.flush()
+        for entity_id in touched:
+            entity = db.get(CodexEntity, entity_id)
+            if entity is not None:
+                _regenerate_context_payload(entity, db)
     item.status = "approved"
 
     if item.item_type == "memory_slot_update":
@@ -78,14 +109,6 @@ def approve(db: Session, item_id: str) -> dict:
             absorb_id=uuid.UUID(item.item_content["absorb_id"]),
             agent_run_id=item.item_content.get("agent_run_id"),
         )
-
-    elif item.item_type == "codex_reconciliation":
-        from src.workers.codex_extractor import _expire_edge  # lazy: embedder at import
-        _expire_edge(db, uuid.UUID(item.item_content["old_edge_id"]),
-                     batch_id=uuid.uuid4(), reason="supersession")
-        logger.info("codex_reconcile", type="supersession",
-                    decision="expire_old_approved",
-                    old_edge_id=item.item_content["old_edge_id"])
 
     elif item.item_type == "forget_request":
         # C10/C11 arm: /forget queues, approval applies — turn deletes +

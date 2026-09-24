@@ -10,18 +10,20 @@ import re
 import uuid
 from datetime import datetime, timezone
 
-from src.api.config import settings
 import structlog
 from sqlalchemy import text
 
+from src.api.config import settings
+from src.workers.completion_text import complete_text
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, IdempotencyKey
+from src.memory.representation import choose_representation, verify_representations
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 from src.workers.codex_extractor import embedder as shared_embedder
 from src.workers.codex_extractor import extract_codex
 from src.workers.document_chunker import run_chunk_turn
-from src.workers.procedural_extractor import extract_procedural
 from src.workers.idempotency import job_key
+from src.workers.procedural_extractor import extract_procedural
 from src.workers.turn_density import (
     compute_entropy,
     decide_representation,
@@ -30,6 +32,7 @@ from src.workers.turn_density import (
     retry_on_coverage_miss,
     summary_coverage,
 )
+
 
 logger = structlog.get_logger("ice.workers.post_flight")
 
@@ -117,9 +120,9 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
         # TRAPS #17: a literal here is a knob nobody can reach. This one was
         # 300 and bound on 40% of turns — see the setting's note.
         max_tokens=settings.turn_summary_max_tokens,
-        timeout=bg_timeout(300),
+        timeout=bg_timeout(settings.turn_summary_max_tokens),
     )
-    return completion.choices[0].message.content.strip()
+    return complete_text(completion)
 
 
 def _split_abstract(summary: str):
@@ -141,7 +144,7 @@ def generate_summary(prompt: str, response: str, key_terms: dict,
     abstract (hierarchy level 3) rides in the same call. Returns
     ``(summary_text, coverage, abstract)`` — ("", 0.0, None) on failure so the
     caller's raw-wins fallback engages."""
-    model_name = model_used if model_used else get_bg_model_name()
+    model_name = get_bg_model_name()
     terms = must_terms(key_terms)
     try:
         summary = _summary_llm_call(prompt, response, model_name, terms,
@@ -159,7 +162,11 @@ def generate_summary(prompt: str, response: str, key_terms: dict,
         coverage = summary_coverage(summary, key_terms)
         return summary, coverage, abstract
     except Exception as exc:
-        logger.error("background_summarization_failed", error=str(exc))
+        from src.workers.runtime import JobYielded
+
+        if isinstance(exc, JobYielded):
+            raise
+        logger.warning("background_summarization_failed", error=str(exc))
         return "", 0.0, None
 
 
@@ -169,17 +176,9 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
     """Density qualification + representation decision, then the derivative
     pipelines (chunking, codex, procedural) as direct calls.
 
-    C12: `source_kind="document"` marks a section of an ingested document
-    rather than a chat exchange. Two things change, both for the same reason —
-    the density machinery was built to protect the graph from conversational
-    chatter, and a document is not chatter:
-      * `lossless` is FORCED true, so the section reaches codex extraction. The
-        normal gate is `has_code or is_creative or entropy >= threshold`, and
-        `has_code` reads the ASSISTANT half, which a document does not have —
-        so a low-entropy page of a specification would silently never enter the
-        knowledge graph, which is precisely what C12 exists to fix;
-      * the summary prompt stops claiming the text is a user/assistant
-        exchange (`source_title` names the document instead).
+    Document sections retain lossless representation eligibility, and their
+    summaries use a document prompt. Extraction is independent of that flag:
+    every non-private turn can contribute facts, even a short correction.
 
     Idempotency layout (C7 rev 2026-07-11): the density/summary stage is
     guarded by this job's own key, but the chained stages run on every entry —
@@ -234,9 +233,8 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
 
             key_terms = extract_key_terms(full_text, shared_embedder)
             entropy = compute_entropy(full_text, key_terms, has_code)
-            # lossless = "valuable enough for lossless treatment" — gates codex
-            # extraction below and exempts from batch summarisation. Generous
-            # by design (codex was historically starved).
+            # Lossless controls representation and batch-summary eligibility.
+            # Every non-private turn can carry facts, including short corrections.
             lossless = (is_doc_source or has_code or is_creative
                         or entropy >= settings.turn_density_lossless_threshold)
 
@@ -252,14 +250,13 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
                     source_kind=source_kind, source_title=source_title)
                 summary = summary or None
                 if decision["summary_decides"]:
-                    # The retrievability gate: inject the summary only if it
-                    # measurably preserved the key terms — else raw wins and
-                    # the summary remains as metadata.
+                    # Coverage is only a retention prerequisite. Independent
+                    # source support below controls actual substitution.
                     inject_raw = not (summary and coverage >= settings.turn_summary_coverage_threshold)
                 log.info(
                     "summary_quality",
                     coverage=coverage,
-                    injected="summary" if not inject_raw else "raw",
+                    coverage_candidate="summary" if not inject_raw else "raw",
                     reason=decision["reason"],
                     must_terms=len(must_terms(key_terms)),
                 )
@@ -270,7 +267,13 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             turn.summary_text = summary
             turn.summary_coverage = coverage if summary else None
             turn.abstract_text = abstract if summary else None
+            turn.representation_verification = verify_representations(
+                turn, summary, turn.abstract_text)
             turn.inject_raw = inject_raw
+            if not inject_raw:
+                preferred, _, _ = choose_representation(turn)
+                turn.inject_raw = preferred != summary
+            inject_raw = turn.inject_raw
             log.info(
                 "representation_decided",
                 entropy=entropy, lossless=lossless, inject_raw=inject_raw,
@@ -297,8 +300,7 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
         if turn.is_private:
             log.info("private_turn_pipelines_skipped")
         else:
-            if turn.lossless_flag:
-                extract_codex(batch_id=batch_id, model_used=model_used)
+            extract_codex(batch_id=batch_id, model_used=model_used)
             extract_procedural(batch_id=batch_id, model_used=model_used)
             # E8: project-attached turns also run cue-gated decision
             # extraction — a direct call in this gpu job (C7 chain style);
@@ -315,8 +317,11 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
                                         origin="turn")
 
     except Exception as exc:
+        from src.workers.runtime import JobYielded
+
         db.rollback()
-        log.error("worker_transaction_execution_failure", error=str(exc))
+        if not isinstance(exc, JobYielded):
+            log.error("worker_transaction_execution_failure", error=str(exc))
         raise
     finally:
         db.close()

@@ -1,0 +1,236 @@
+{
+  "version": "v3",
+  "limitation": "Synthetic qualification; not summary completeness or long-source validation.",
+  "passed": 12,
+  "total": 12,
+  "rows": [
+    {
+      "name": "decision",
+      "source": "The user said: \"We chose PostgreSQL instead of SQLite.\"\nThe assistant said: \"Acknowledged.\"",
+      "summary": "The user chose PostgreSQL rather than SQLite.",
+      "expected_supported": true,
+      "passed": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9970412850379944,
+          "neutral": 0.0022873040288686752,
+          "contradiction": 0.0006714722258038819
+        },
+        "reason": "model_score",
+        "source_sha256": "40bbde96fc7f8d338cf24d00fd9d55d2e1541db94942299c7aa676658aa4420c",
+        "claim_sha256": "04a37d04a371500c673417e6a4b7bdc6a9657a5bf0722092c9fe4a225314c7fd",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "reversed_decision",
+      "source": "The user said: \"We chose PostgreSQL instead of SQLite.\"\nThe assistant said: \"Acknowledged.\"",
+      "summary": "The user chose SQLite rather than PostgreSQL.",
+      "expected_supported": false,
+      "passed": true,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.0003080042661167681,
+          "neutral": 0.0002861779648810625,
+          "contradiction": 0.9994058609008789
+        },
+        "reason": "model_score",
+        "source_sha256": "40bbde96fc7f8d338cf24d00fd9d55d2e1541db94942299c7aa676658aa4420c",
+        "claim_sha256": "e61f65c16c4c197f9842bad6a347e2d4042a50ff859cb040a672475f74e38d36",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "suggestion",
+      "source": "The user said: \"We have not selected a cache.\"\nThe assistant said: \"I suggest Redis.\"",
+      "summary": "The assistant suggested Redis.",
+      "expected_supported": true,
+      "passed": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9964852333068848,
+          "neutral": 0.002666700864210725,
+          "contradiction": 0.0008480744436383247
+        },
+        "reason": "model_score",
+        "source_sha256": "b8205f83c1990149aec3a725efcf9edbfe2256f586855be08e6ed231c876032f",
+        "claim_sha256": "92fc9d97fceea0945d68a4a1d3e077264e71d7a626805725e76222365df501ab",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "speaker_swap",
+      "source": "The user said: \"We have not selected a cache.\"\nThe assistant said: \"I suggest Redis.\"",
+      "summary": "The user selected Redis.",
+      "expected_supported": false,
+      "passed": true,
+      "verdict": {
+        "status": "unknown",
+        "scores": {
+          "entailment": 0.002178913215175271,
+          "neutral": 0.951284646987915,
+          "contradiction": 0.04653641954064369
+        },
+        "reason": "model_score",
+        "source_sha256": "b8205f83c1990149aec3a725efcf9edbfe2256f586855be08e6ed231c876032f",
+        "claim_sha256": "413fdafbc3be103e6b157f0b5c8b3d2792f4a1b9574821fe1a3831096b9d8774",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "negation",
+      "source": "The user said: \"Keep persistence disabled.\"\nThe assistant said: \"Understood.\"",
+      "summary": "The user requested that persistence remain disabled.",
+      "expected_supported": true,
+      "passed": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9981155395507812,
+          "neutral": 0.001602104865014553,
+          "contradiction": 0.0002823327376972884
+        },
+        "reason": "model_score",
+        "source_sha256": "7f9c1fdc64f8340f38ec31e0b8c00b0ed7f5b23e367f353d4d2bd82e9219a4ec",
+        "claim_sha256": "efa39b088ce4718998de06b5d569a850d8d3b59754e546b73d055d499a91ed89",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "negation_flip",
+      "source": "The user said: \"Keep persistence disabled.\"\nThe assistant said: \"Understood.\"",
+      "summary": "The user requested that persistence be enabled.",
+      "expected_supported": false,
+      "passed": true,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.00018263078527525067,
+          "neutral": 0.00010287698387401178,
+          "contradiction": 0.9997145533561707
+        },
+        "reason": "model_score",
+        "source_sha256": "7f9c1fdc64f8340f38ec31e0b8c00b0ed7f5b23e367f353d4d2bd82e9219a4ec",
+        "claim_sha256": "591d66eba4b99f8bdc67be3546078cc409f3832d56d30cb6701f99ec2364fa60",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "quoted_denial",
+      "source": "The user said: \"The claim \\\"we use Redis\\\" is false.\"\nThe assistant said: \"Understood.\"",
+      "summary": "The user denied using Redis.",
+      "expected_supported": true,
+      "passed": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9919737577438354,
+          "neutral": 0.006545718293637037,
+          "contradiction": 0.0014804762322455645
+        },
+        "reason": "model_score",
+        "source_sha256": "23e4b4636b8c8a0abe662c52b9804a2a909bcd9365a056199fc51a1a5af3f45b",
+        "claim_sha256": "28ca0d1e12a8ab784ad4c7f0dfaa01981d3f57531976e29c16379fd6db10342c",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "quoted_adoption",
+      "source": "The user said: \"The claim \\\"we use Redis\\\" is false.\"\nThe assistant said: \"Understood.\"",
+      "summary": "The user uses Redis.",
+      "expected_supported": false,
+      "passed": true,
+      "verdict": {
+        "status": "unknown",
+        "scores": {
+          "entailment": 0.009665822610259056,
+          "neutral": 0.16927950084209442,
+          "contradiction": 0.8210547566413879
+        },
+        "reason": "model_score",
+        "source_sha256": "23e4b4636b8c8a0abe662c52b9804a2a909bcd9365a056199fc51a1a5af3f45b",
+        "claim_sha256": "b1c41b1b4bf97f8d275b433cba795bc9eccf8085b11c12843beb01c77211bfcf",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "quantity",
+      "source": "The user said: \"The deployment has 3 replicas on port 8391.\"\nThe assistant said: \"Noted.\"",
+      "summary": "The user described 3 replicas on port 8391.",
+      "expected_supported": true,
+      "passed": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9971613883972168,
+          "neutral": 0.002103885868564248,
+          "contradiction": 0.0007347468053922057
+        },
+        "reason": "model_score",
+        "source_sha256": "824fdede251cfa2f9231dfe931d5679ef9e47c6fcdd23969c49ac2e2208ee38a",
+        "claim_sha256": "6dec24d4b96e028d8a80c6cbf9c722495f82a86b4b17eaf4acc370b0f95dc825",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "wrong_quantity",
+      "source": "The user said: \"The deployment has 3 replicas on port 8391.\"\nThe assistant said: \"Noted.\"",
+      "summary": "The user described 8 replicas on port 8391.",
+      "expected_supported": false,
+      "passed": true,
+      "verdict": {
+        "status": "contradicted",
+        "scores": {
+          "entailment": 0.00027135832351632416,
+          "neutral": 0.0003348346217535436,
+          "contradiction": 0.9993937015533447
+        },
+        "reason": "model_score",
+        "source_sha256": "824fdede251cfa2f9231dfe931d5679ef9e47c6fcdd23969c49ac2e2208ee38a",
+        "claim_sha256": "98b7d7e159d8f5418ebdf2f2932841691f1cedffb240d642ea7cf33d0c1b66d2",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "conditional",
+      "source": "The user said: \"If approval arrives we may use Redis. Approval was denied.\"\nThe assistant said: \"Understood.\"",
+      "summary": "The user said Redis was conditional on approval, which was denied.",
+      "expected_supported": true,
+      "passed": true,
+      "verdict": {
+        "status": "supported",
+        "scores": {
+          "entailment": 0.9982568621635437,
+          "neutral": 0.0015227942494675517,
+          "contradiction": 0.00022034750145394355
+        },
+        "reason": "model_score",
+        "source_sha256": "6cb3ca17d4bc35ed085905aaff5e7979c5c70d73eb064854d9d099d3acbe6699",
+        "claim_sha256": "058c5ebf02346c0ba65f66bde2e53552a1682f992b3d3fa81a24f8cd0bb3a6f5",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    },
+    {
+      "name": "invented_commitment",
+      "source": "The user said: \"If approval arrives we may use Redis. Approval was denied.\"\nThe assistant said: \"Understood.\"",
+      "summary": "The user committed to Redis after approval.",
+      "expected_supported": false,
+      "passed": true,
+      "verdict": {
+        "status": "unknown",
+        "scores": {
+          "entailment": 0.0010599384550005198,
+          "neutral": 0.2436065375804901,
+          "contradiction": 0.7553336024284363
+        },
+        "reason": "model_score",
+        "source_sha256": "6cb3ca17d4bc35ed085905aaff5e7979c5c70d73eb064854d9d099d3acbe6699",
+        "claim_sha256": "a0e0af344e9e12178eba1f62addf10009bcb042e818f098ffd31aea79b8315b9",
+        "verifier": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli@b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
+      }
+    }
+  ]
+}

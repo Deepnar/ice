@@ -1,4 +1,232 @@
+## 2026-09-22 — v3 summary source-tier continuity
+
+542 combined smoke/SQL/settings checks passed in disposable databases; the
+subsequent archive-and-restoration extension passed7/7 targeted controls. Actual
+decay + own/cross/active-summary reader controls establish cache continuity,
+unchanged source credit and no regeneration on archive-only moves. Cold source
+edit/delete/privacy changes invalidate old caches; rolling notes rebuild from
+cold originals. Cluster exclusion is enforced through shared filter builders.
+An initial structural test caught a duplicated cluster predicate; the production
+builders were extended instead of bypassing the invariant.
+
+Migration fb29355706c8 roundtripped in isolation and was applied from verified
+ea182446f5b7; it adds nullable cold batch coverage with ON DELETE SET NULL. No
+legacy values inferred or corpus regenerated. Generation/NLI scores are controlled
+in these integration tests, not evidence of a benchmark gain. Batch generation
+still selects warm sources; stale all-cold batch regeneration remains unfinished.
+
+## 2026-09-22 — v3 archived excerpt continuity
+
+536 combined smoke/SQL/settings checks passed in disposable databases. New actual
+decay→cold selection→100-token packing→restore controls cover vector and lexical
+ranking, excluded conversations, original chunk identity/text/vector preservation,
+and conflicting chunk IDs retaining the cold source. Migration ea182446f5b7
+roundtripped in isolation, then applied from d9071335e4a6. Logs live at
+`logs/v3-cold-chunks-final.log`; no model inference or benchmark gain claimed.
+Prior interrupted run output under /tmp was absent on resume and not credited.
+
+## 2026-09-21 — v3 cold cluster visibility
+
+531 combined smoke/SQL/settings checks passed in a disposable database. Three
+new controls exercise cluster inclusion/exclusion, explicit empty/nonempty batch
+lists, unknown versus known-unlinked membership, actual decay→read→restore with
+multiple cluster links and a deleted cluster, and migration roundtrip. These use
+synthetic source text and actual PostgreSQL; no model-quality claim.
+
+Nullable migration d9071335e4a6 applied from c8f60224d395 after isolated roundtrip.
+No inferred historical memberships or corpus regeneration. Legacy unknown cluster
+membership remains available without cluster constraints but is withheld when
+membership is needed to enforce scope. Chunk/parent links and aggregate source
+continuity are unfinished.
+
+## 2026-09-21 — v3 cold representation/identity round trip
+
+527 smoke/SQL/settings checks passed; standalone temporal suite61/61 passed.
+Actual decay→cold SQL read→restoration controls preserve source-bound verifier
+metadata, coverage/abstract/raw choice, session, intents, context and idempotency
+identity. Write-off prevents restoration; a conflicting original idempotency key
+retains the cold source. Verification scores are controlled here; no semantic
+quality claim. Legacy unverified cold text still uses complete raw evidence.
+
+Nullable migration c8f60224d395 roundtripped in a disposable store, then applied
+from verified b7e5f013c284 to the working schema. No historical values inferred,
+no corpus regeneration. A planted private SQL parameter control additionally
+checks that retrieval failures log only exception class/SQLSTATE. Cluster/chunk/
+parent links and aggregate source-manifest continuity remain unfinished.
+
+## 2026-09-21 — v3 archive collision correction
+
+313 smoke plus actual SQL decay controls passed in a disposable database. A newer
+private live source and an older public cold row shared an ID; after a real decay
+cycle the cold copy retained the corrected full text, summary metadata, role hash,
+source timestamp/provenance, conversation/batch identity, privacy and vector, and
+only then was the live copy removed. No model call or answer-quality inference.
+Wider archival metadata/source-manifest parity remains open.
+
+## 2026-09-21 — v3 batch-note support and source freshness
+
+523 smoke/SQL/settings checks passed in a disposable database; the final loading-
+race review was followed by13/13 batch writer/reader/provider/migration checks.
+Standalone batch coverage11/11 passed. Model outputs/support scores are controlled
+in these batch integration tests; prior actual-model source-note qualification
+covers the reused verifier, not new batch answer-quality evidence.
+
+Controls cover supported/unsupported compression, complete-source fallback,
+source/output/policy/privacy changes, deletion, legacy NULL manifests, idempotence,
+concurrent edits and incomplete generation. Provider controls prove whole input
+and output reserve handling. Nullable migration b7e5f013c284 roundtripped in an
+isolated store and was applied from a6d4e902b173 to the working schema. No corpus
+regeneration or broad evaluation ran. Cold-source manifest parity remains open;
+archival currently invalidates a batch cache rather than trusting missing evidence.
+
+## 2026-09-21 — v3 budget-time source alternatives
+
+Actual cached Qwen3-Reranker-0.6B, revision e61197ed45024b0ed8a2d74b80b4d909f1255473,
+passed4/4 synthetic capacity controls: the deliberately oversized pair remains a
+complete unscored fallback, smaller pairs still rank, and packing selects the
+answer. Script `scripts/oneoff/v3_reranker_capacity_control.py`; artifact
+`experiments/v3_repair/results/reranker_capacity.json`. The control temporarily
+sets a512-token pair ceiling; production default remains4096. No threshold fitted.
+
+510 smoke/SQL/settings checks passed in a disposable database, including real
+normal/wide-net SQL and packing with reranking on/off (controlled scores). Separate
+standalone suites: density13/13, document chunks15/15, temporal61/61. These validate
+mechanisms, not comparative answer quality or a smaller-context benchmark win.
+An earlier final regression failed5/508 after helper deletion also removed
+adjacent constants; restored them and reran. The working corpus was not modified.
+
+## 2026-09-20 — v3 complete fold input/output preservation
+
+465 smoke/SQL/settings checks passed in a disposable database, plus a subsequently
+added positive provider-boundary control (1/1) and the standalone conversation/
+slot suite (28/28). The actual fold writer receives a late correction beyond the
+former400-word cap and rejects an unsupported summary as its input. Unit controls
+retain complete output tails, compact supported inputs, whole-unit grouping and
+explicit pre-provider refusal of oversized complete requests. Snapshot controls
+also invalidate changed support verdicts and verifier/coverage policy.
+
+Provider responses are controlled here; these tests establish preservation and
+integration, not semantic improvement of generated folds. No broad experiment or
+additional model qualification ran. Snapshot policy2 requires regeneration of
+older snapshots; no corpus rewrite/backfill was performed. Evaluation scope is
+now explicitly LME oracle and semi-LSREP only, per the user; no full LME-S campaign.
+
+## 2026-09-20 — v3 rolling-summary source freshness
+
+317 smoke/SQL checks passed in a disposable database, including10 source-snapshot
+controls and an additive migration roundtrip. Actual writer plus active/cross
+readers reject edited/deleted/backfilled sources, changed output, and legacy NULL
+snapshots; strictly newer additions preserve a dated checkpoint and increment it.
+Generation and embeddings are controlled in these freshness tests: no semantic
+accuracy is inferred. The standalone conversation/slot suite passed28/28 after
+mirroring its migration-owned slot uniqueness index in ORM metadata. Its earlier
+26/28 result was a disposable-schema mismatch, not a production slot regression.
+Working migration a6d4e902b173 applied after checking f3c8d5e02b19 and verifying
+the existing slot index; nullable source_manifest confirmed. No historical
+snapshot backfill or corpus regeneration ran. Recursive fold quality remains open.
+
+## 2026-09-20 — v3 background role and completion integrity
+
+Fresh resume validation:306 smoke/SQL checks passed (three dependency deprecation
+warnings) via the disposable database wrapper, including
+`tests/test_background_output_contract.py` and `tests/test_representation_support.py`.
+Actual worker callers receive controlled provider responses: cloud foreground name
+never selects the background model; length-limited output cannot stamp batch
+coverage, procedural completion, or overwrite the previous rolling checkpoint.
+Runtime yield propagates. Separate standalone batch coverage script passed11/11
+with a stop-completed provider fixture. These are integration/contract checks, not
+LLM summary accuracy results. First fixture run had302 passes/3 errors because its
+key-term fixture omitted required list keys; fixed before the fresh306-pass run.
+
+## 2026-09-19 — v3 prompt budget and bookmark consumer repair
+
+`uv run python tests/support/disposable_database.py -m pytest tests/smoke
+ tests/test_representation_support.py -q --tb=short` passed288 checks with three
+existing dependency deprecation warnings. The wrapper created/dropped its own
+PostgreSQL database. Actual assembler controls check exact ICE-token accounting,
+static-before-evidence eviction, constraints, unknown capacity and answer reserve.
+Actual chat route with controlled classifier/window reaches HTTP400 before graph
+usage; actual SQL bookmark reader preserves a late correction beyond1200 words
+and rejects an unsupported summary. Project SQL filters active/scoped constraints
+and sees a newly added constraint without a new sitting. No cloud model or paid
+API was used; no answer-quality or tokenizer-calibration result is claimed.
+
+## 2026-09-14 — v3 adversarial NLI and source-sentence follow-through
+
+`qualify_nli.py --attribution` compares the original multilingual candidate and
+`MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` at
+`b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7` on the same20 controls plus10 attribution
+controls. Artifacts: `experiments/v3_repair/results/nli_multilingual_attribution.json`
+and `nli_adversarial_attribution.json`. The second model accepts13/13 supported
+and0/17 unsupported controls by argmax; it fixes the first model's three failures.
+Complete-input float32 CUDA; short-pair inference+transfer1.397s, peak allocated
+1.762GB. No source uploads. Training differences motivate selection, not a causal
+claim from this comparison. The tiny non-English subset does not establish
+multilingual reliability. Source/correctness labels are hand-authored synthetic
+controls, not representative held-out ICE conversations.
+
+`nli_production_path.json` records the same30 controls through
+`src.memory.support.score_pairs` and `verify_support`:13 supported,17 not supported
+at the explicit0.95 policy cutoff; an807-token input returns unknown before
+inference, without truncation. The cutoff is not calibrated to a population.
+Claim reading uses the shorter quotation only with supported current hashes;
+otherwise it keeps the complete evidence paragraph. This establishes a consumer,
+not a claim that NLI verifies world truth or solves every summary/conflict case.
+
+A bounded live NuExtract3-Q8_0 template check added `source_sentence` to the three
+existing slots. Its three exact source sentences preserved a PostgreSQL choice,
+a hypothetical Redis cache and teaching direction; the Redis triple flattened
+its condition. That motivates source-sentence rendering instead of trusting slot
+order/modal information. This single synthetic response is not a new extractor
+accuracy estimate. The subsequent controlled DB tests exercise the actual writer,
+independent lexical/vector lookup, source roles/hashes, graph links and forgetting.
+
+## 2026-09-13 — v3 NLI candidate diagnostic controls
+
+`experiments/v3_repair/qualify_nli.py` ran the pinned multilingual mDeBERTa
+candidate8adb042d on20 synthetic source/hypothesis pairs, float32 CUDA, complete
+inputs without truncation. Artifact: `experiments/v3_repair/results/nli_qualification.json`.
+Six supported controls were classified entailment; three of14 unsupported
+controls were also classified entailment: hypothetical0.8634, quoted denial0.5722,
+negated reporting0.8286. This disqualifies argmax entailment as an assertion
+authority; no threshold was fitted. Source attribution/context preservation
+remain mandatory. Inference plus GPU transfer1.285s, peak allocated1.136GB for
+these short pairs, excluding model load and unrelated process VRAM. This is
+candidate qualification, not ICE production semantic accuracy. No NLI gate activated.
+
 # Provenance ledger
+
+## 2026-09-12 — v3 local reranker qualification
+
+One candidate: `Qwen/Qwen3-Reranker-0.6B` at HF revision
+`e61197ed45024b0ed8a2d74b80b4d909f1255473`, downloaded into the local HF cache.
+No corpus upload. Sentence Transformers 5.5.1, Transformers 5.9.0, Torch 2.11.0;
+CUDA float16 on the 24 GB laptop GPU. Exact production instruction in
+`src/retrieval/reranker.py`; no training or threshold sweep.
+
+`uv run python tests/test_reranker_quality.py` scored 60 synthetic pairs:
+five questions (port, discontinued tool, change date, deployment procedure,
+authentication module), each in three forms and against four candidates.
+**Correct item first 15/15; positive at zero 15/15; distractors below zero
+41/45.** Four false admissions changed across phrasings: zero-floor rejection
+is **unqualified and OFF by default**. Ordering is enabled; these controls do
+not establish universal style invariance, multilingual performance, semantic
+truth, multi-hop coverage or end-to-end answer improvement.
+
+Both real `retrieve()` paths, with synthetic leg output and the actual scorer,
+changed a fixed-budget selection from a distractor to the answering fact with
+reranking on versus off (2/2). This tests selection wiring, **not database search
+quality or a vector benchmark**. The final implementation requests only the
+last-token logits, disables KV caching, and returns weights to CPU after scoring.
+Final 60-pair call including lazy load: 2.876 s; process peak CUDA allocation
+1.178 GiB. Not whole-proxy latency or peak under maximum-length inputs.
+
+Artifact: `experiments/v3_repair/results/reranker_qualification.json`.
+Earlier feasibility calls and the initial failed all-distractor rejection
+assertion led to the ordering-only decision; no threshold was fitted to these
+examples. Controlled-score smoke checks cover invalid results, repeated warning
+fallback, representation-specific scoring, provenance and token packing.
+
 
 ## 2026-09-12 — frozen-v2 paper final analysis and NORA preparation
 
@@ -3522,3 +3750,124 @@ coverage column as quality.
 - The three store-backed jobs ran on 180 turns of `dir-false-run1`; `procedural`
   and `batch_summary` required clearing their own markers first, because both
   are idempotent and had already run.
+
+## 2026-09-14 — v3 source-rendered graph and cold restoration
+
+Validation: `uv run python tests/support/disposable_database.py -m pytest
+ tests/smoke tests/test_codex_claims.py tests/test_retrieval_write_boundary.py
+ tests/test_graph_retention.py tests/test_source_lifecycle.py -q --tb=short`:
+283 passed. `uv run python tests/support/disposable_database.py
+ tests/test_timescope.py`:61 passed. Disposable databases removed; synthetic
+fixtures only. These exercise source-attributed graph lines, filtered cached-note
+replacement, warm/cold hash checks, privacy/scope/deletion, original/NULL embedding
+restoration without an encoder, and unknown timestamp provenance.
+
+Initial temporal run58/61: one obsolete cached-payload anchor assertion and two
+real restore failures from inserting NULL into required timestamp provenance.
+Updated anchor lookup to rendered entity identity; fixed provenance to unknown.
+No answer-quality, multilingual generalization or vector-baseline claim.
+
+## 2026-09-19 — v3 uniform two-source conflict repair
+
+One bounded set of12 synthetic cases, actual deployed `gemma4:e4b` via the
+production background client/reconciler. Explicit replacement, negation and
+move/style correction4/4; coexistence/proposal/denial/conditional/historical
+controls8/8. Script `experiments/v3_repair/qualify_reconciliation.py`, artifacts
+`results/reconciliation_two_sources.json` and `results/reconciliation_database.json`.
+The second run uses a disposable database and the actual handle_triplet writer,
+linked authoritative source claims and real model decisions:12/12 expected state
+transitions. Not a population accuracy estimate, multilingual qualification,
+full extractor benchmark or end-to-end answer gain. First database attempt10/12:
+two pronoun-only subject fixtures were correctly rejected before reconciliation;
+replaced with explicit synthetic entity names and reran, rather than weakening
+the writer's existing entity rule. Original direct-model cases used pronouns;
+this changes fixture reference resolution, not the intended correction/coexistence.
+
+Mechanical coverage:310 smoke/source/conflict/claim/retention/lifecycle pytest
+checks, plus45 standalone maintenance checks, disposable DBs. Controls include
+older/same-time imports, different speakers/conversations, edited sources,
+unknown clocks, full source input, all-candidate rollback after reject_new,
+manual keep-edge choices and maintenance source-gate enforcement. Decision stubs
+in these tests validate mechanics, not semantic model quality. Legacy standalone
+write-path coverage recorded separately after updating unqualified-negation
+expectations. No migration or historical graph rewrite.
+Standalone `tests/test_codex_write_path.py` final32/32; run directly through the
+disposable wrapper. An attempted pytest collection of this standalone script
+exited early and is not included in the310 pytest count. Final suite commands
+excluded it and ran it separately.
+
+## 2026-09-19 — v3 turn summary source-support consumer
+
+`experiments/v3_repair/qualify_summary_support.py`:12 synthetic complete dialogue
+source/summary controls using canonical authoritative role quoting and the actual
+pinned DeBERTa verifier at unchanged threshold0.95. Six supported summaries pass;
+six reversed decisions/speaker swaps/negation flips/wrong quantities/quoted-denial
+adoptions/conditional commitments cannot replace raw. Actual shared selector also
+passes12/12. Artifact `experiments/v3_repair/results/summary_support.json` records
+sources, verdict scores, hashes/model identity. No threshold sweep, corpus upload,
+completeness estimate or long-source generalization claim.
+
+288 smoke/SQL tests passed via disposable_database with tests/smoke,
+test_representation_reads.py, test_representation_support.py, test_codex_claims.py,
+and test_source_lifecycle.py.61 standalone temporal checks passed separately.
+Writer controls execute post-flight with controlled summary/verifier responses,
+then actual lexical SQL, chat assembly and MCP recent readers; they establish
+wiring, not model quality. Stale-role/source/model, independent abstract support
+and migration roundtrip covered. Initial failures were outdated eligibility
+fixtures, a wrong test method name, and ORM fixture cleanup; final runs passed.
+Working migration f3c8d5e02b19 applied from checked e2b7c4d91a08 baseline and column
+verified. No legacy marker replay/backfill.
+
+
+## 2026-09-20 — v3 independent-note source support
+
+Script `scripts/oneoff/v3_independent_note_controls.py`, artifact
+`experiments/v3_repair/independent_notes/controls.json`:8 synthetic source/note
+pairs through actual `_source_note` and pinned DeBERTa verifier, threshold0.95,
+float32. Four supported notes accepted; four altered claims rejected, with exact
+original-source preservation. Cases cover negation, conditions, speaker swap and
+late correction; no personal corpus, no threshold fitting, no answering model.
+This is a bounded implementation control, not a quality-rate estimate or proof
+that long sources compress. Generated candidates are controlled, not live LLM
+outputs. Selected model/revision unchanged.467 smoke/SQL/settings checks and28
+standalone conversation/slot checks passed; selections overlap prior runs.
+
+Longer-input candidate: unchanged `qualify_nli.py --attribution`, model
+`tasksource/ModernBERT-base-nli` revisionde4ab7e77845098b7fab7f6ab9d370ddff27b19c,
+artifact `experiments/v3_repair/results/nli_modernbert_candidate.json`. Same30
+controls, float32, no truncation, no threshold fit. At0.95:28/30, one false
+admission (Hindi negation,0.99388) and one supported informal paraphrase withheld
+(0.51189). Actual config2048 positions, not the family's advertised8192. Peak
+allocated630525440bytes;0.87s after load. Candidate cached, **not promoted**;
+this failure does not resolve or cancel long-source verification work.
+
+Valid-manifest privacy control also verifies that a private turn in a public
+conversation prevents cross-conversation overview retrieval while own context
+remains accessible. This is separate from source-staleness rejection.
+
+
+## 2026-09-21 — v3 summary-scope repair and long-input NLI candidate
+
+Summary reader:478 smoke/SQL/settings checks passed, including the actual
+retrieve→SQL path, closed empty scopes, explicit source batches, cluster exclusions,
+active/search conversation identity separation, exact source credit, and orphan
+batch withholding. The first broader run330passed/1failed caught the configurable
+ablation wrapper signature drift; forwarding fixed before the final run. This is
+instrument compatibility upkeep, not a redesigned experiment or benchmark run.
+
+BGE NLI candidate `MoritzLaurer/bge-m3-zeroshot-v2.0`, revision
+`9abf1c8aaeb82a2447809c20753ed0b106b76652`: unchanged30 controls, float32,
+threshold0.95, artifact `experiments/v3_repair/results/nli_bge_candidate.json`.
+29/30: all17 unsupported rejected,12/13 supported admitted; informal positive
+entailment0.90026. Binary labels do not distinguish contradiction from neutrality.
+
+Long-input script `scripts/oneoff/v3_long_support_controls.py`, artifact
+`experiments/v3_repair/results/nli_bge_long_candidate.json`:24 synthetic pairs,
+complete706–4577-token sources with unrelated middle material, four semantic
+families (late correction, condition denial, speaker attribution, Hindi negation),
+three lengths, supported/unsupported twins. No source truncation or threshold
+fitting. All12 unsupported rejected but only1/12 supported admitted at0.95
+(13/24 total decisions). Peak allocated2.317GiB. This would usually retain raw
+instead of delivering useful compression. **Not promoted**: longer context alone
+has not solved source-grounded compression. Production DeBERTa unchanged. Controls
+are synthetic and are not natural-corpus or answer-quality estimates.

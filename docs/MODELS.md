@@ -25,10 +25,14 @@ concurrency** — a 27B at `--workers 3` reached 105 °C ([TRAPS #36](TRAPS.md))
 | **probe generation** | `qwen3.8:27b` | Ollama | user's preferred local model (2026-08-17); supersedes `qwen3.6:27b` |
 | **probe answering** | `gemma4:26b-a4b-it-q4_K_M` | Ollama | Chosen because it is deliberately **neither arm under test**, so it cannot favour its own summaries. ⚠ **NOT "A12's top-ranked" — that label was wrong twice over** (corrected 2026-08-22). A12 ranked it **THIRD** (`PROVENANCE.md:1485-1488`: *"The 26B is NOT the winner"*, behind `gemma4:e4b` and `qwen3:4b-instruct`), **and** A12 ranked models for *background extraction*, which is not this job. The independence argument is the real and sufficient reason. |
 | **judging** | `deepseek-v4-flash` | **cloud** | paired A/B judge. ⚠ reasoning model — `reasoning_effort="none"` made it confidently wrong ([TRAPS #34](TRAPS.md)) |
+| **retrieval reranking (v3)** | `Qwen/Qwen3-Reranker-0.6B` @ `e61197ed45024b0ed8a2d74b80b4d909f1255473` | local cached CrossEncoder | ON by default for ordering; rejection floor unset. CUDA float16 when available, CPU between calls. Short synthetic controls peak 1.178 GiB; not maximum-input footprint. Provision the pinned Hugging Face snapshot before use; request path is local-files-only and warns/falls back to fusion if unavailable. Qualified only on the controls in PROVENANCE 2026-09-12. |
+| **source-support verifier (v3)** | `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` @ `b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7` | local HF cache, float32; CPU between calls | Selected 2026-09-14 after13 supported/17 unsupported synthetic controls; same30 pass production scorer/decision. Claim compression consumer uses0.95 policy threshold, complete512-token maximum, unknown retains full evidence. Broader language/long-source reliability unqualified. Short-pair peak1.762GB, transfer+inference1.397s, not whole-stack footprint. |
+| **source-support NLI candidate (v3)** | `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli` @ `8adb042d524ecd5c26d3e3ba0e3fbcf7e2d0864c` | local HF cache | Downloaded and bounded-tested 2026-09-13; diagnostic only, not activated. Argmax falsely entailed3/14 unsupported controls; no threshold fit. Multilingual entailment/neutral/contradiction candidate; source attribution remains a separate structural requirement. Model card warns about float16 support; use float32 qualification. |
 | **embedding** | `Qwen/Qwen3-Embedding-0.6B` | in-process | native **1024-dim**, frozen. Resident on the same card as everything else |
 | **NER (pre-flight + codex whitelist)** | **MicroNER — ours** | in-process | `models/ner/ner_model.pt`, 234 KB, over the `slice384` MRL prefix |
 | **NER (background)** | `numind/NuNER_Zero` | in-process | GLiNER-family zero-shot, 448.9M, deberta-v3-large. Clustering + `turn_density` only |
 | **classification** | `ice_classifier_v4_schema2.pt` | in-process | MLP head, 27 logits (11 topic + 12 intent + 4 context) |
+| **typed-decision candidate (not installed, v3)** | `convaiinnovations/laya` / `laya-multilingual` | upstream PyTorch path supports Linux/CUDA; independent `laya-mlx` port targets Apple Silicon/macOS | User-requested 2026-09-23 comparison with hosted Jev: choice/score/yes-no decisions, not generation. Upstream reports 421M/512-token English and 322M/1024-token multilingual checkpoints, and warns raw probabilities need task-specific calibration. Its Jev comparison uses Jev's published results rather than identical measured calls. No ICE classifier, NLI, reranker or answer-quality qualification; do not substitute for the source-support verifier from interface similarity alone. Sources: [upstream Laya](https://github.com/NandhaKishorM/laya), [independent MLX port](https://github.com/mizorewww/laya-mlx), [Jev launch](https://typesafe.ai/blog/introducing-system-one-models-and-jev). |
 
 ---
 
@@ -438,3 +442,45 @@ fixed extraction control under non-thinking mode, while an Ollama-like template
 leaked reasoning and exhausted useful extraction output. Cloud answering already
 removes the local 26B model swap, so the exact 2.5 GB Ollama background can remain
 resident without paying that correctness cost.
+
+### v3 reconciliation consumer update — 2026-09-19
+
+Existing background pin `gemma4:e4b` unchanged. Complete old/new role-attributed
+source units and recorded timestamps now reach the reconciler; candidate triple
+polarity is explicit. Bounded12-case qualification and12-case SQL/model writer
+replay passed; no general accuracy claim. Maintenance uses the shared context
+builder and source eligibility. See PROVENANCE and V3_REPAIR.
+
+### v3 foreground/background role boundary — 2026-09-20
+
+Turn summarization and procedural extraction now always resolve their model
+through `get_bg_model_name()`. A foreground cloud model name in `model_used`
+cannot override the background pin. No model promotion or cloud provider setup
+accompanies this repair; the unpinned factory fallback remains explicitly warned.
+
+### v3 long-source NLI candidate — 2026-09-20 (not deployed)
+
+`tasksource/ModernBERT-base-nli`, pinned
+`de4ab7e77845098b7fab7f6ab9d370ddff27b19c`, is being checked as a longer-input
+source-support candidate. Its **actual config says2048 positions**, despite the
+ModernBERT family's larger advertised window. Label order entailment/neutral/
+contradiction verified from that revision. No production setting changed. At the unchanged0.95 cutoff, the same30
+controls passed28: falsely admitted Hindi negation and withheld an informal
+supported paraphrase. It does not qualify as a replacement. Model card includes document/dialogue/context NLI training:
+https://huggingface.co/tasksource/ModernBERT-base-nli . Cached only;30-pair float32 run peaked at0.588GiB allocated and took0.87s
+after load. Long-input qualification is not established. Artifact:
+`experiments/v3_repair/results/nli_modernbert_candidate.json`.
+
+Next long-input candidate (not deployed): `MoritzLaurer/bge-m3-zeroshot-v2.0`,
+revision`9abf1c8aaeb82a2447809c20753ed0b106b76652`. Actual XLM-R config8194 positions
+(8192 content positions); binary entailment/not_entailment, so it cannot provide
+an independently calibrated contradiction probability. Multilingual model card:
+https://huggingface.co/MoritzLaurer/bge-m3-zeroshot-v2.0 . Cache/qualification only;
+production DeBERTa unchanged. Do not map not_entailment to contradiction.
+
+Qualification2026-09-21: BGE short controls29/30 (all17 unsupported rejected,
+12/13 supported admitted); long complete706–4577-token controls13/24 (all12
+unsupported rejected, only1/12 supported admitted). Peak long run2.317GiB. No
+threshold fitting. Cached, **not promoted**: insufficient demonstrated compression
+utility. Artifacts `nli_bge_candidate.json` and `nli_bge_long_candidate.json` under
+`experiments/v3_repair/results/`. DeBERTa remains the deployed verifier.

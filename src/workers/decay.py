@@ -10,7 +10,8 @@ exponential, so any gap collapses into a single statement.
 from datetime import datetime, timedelta, timezone
 
 import structlog
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
+from sqlalchemy.dialects.postgresql import JSONB
 
 from src.api.config import settings
 from src.api.db import SessionLocal
@@ -162,23 +163,63 @@ def apply_decay(cycles: int = 1):
         # re-attach the turn.
         cold_rows = db.execute(text("""
             SELECT id, raw_text, summary_text, topic_tags, timestamp,
-                   conversation_id, is_private, batch_id, embedding
+                   conversation_id, is_private, batch_id, embedding, source_spans, ts_provenance,
+                   summary_coverage, representation_verification, abstract_text, lossless_flag, is_document, decay_score, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, batch_summary_id
             FROM episodic_memory
             WHERE is_archived = TRUE AND decay_score < :cold_threshold
+            FOR UPDATE
         """), {"cold_threshold": settings.decay_cold_threshold}).fetchall()
 
         for row in cold_rows:
+            cluster_ids = [linked[0] for linked in db.execute(text(
+                "SELECT cluster_id FROM episodic_cluster_links WHERE episodic_id = :id ORDER BY cluster_id"
+            ), {"id": row.id})]
             db.execute(text("""
                 INSERT INTO cold_storage (id, archived_at, raw_text, summary_text,
                                           topic_tags, timestamp, conversation_id,
-                                          is_private, batch_id, embedding)
+                                          is_private, batch_id, embedding, source_spans, ts_provenance,
+                                          summary_coverage, representation_verification, abstract_text, lossless_flag, is_document, decay_score, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids, batch_summary_id)
                 VALUES (:id, :now, :raw, :summary, :tags, :ts, :conv, :priv, :batch,
-                        :emb)
-                ON CONFLICT (id) DO NOTHING
-            """), {
-                "id": row.id,
+                        :emb, :source_spans, :ts_provenance,
+                        :summary_coverage, :representation_verification, :abstract_text, :lossless_flag, :is_document, :decay_score, :inject_raw, :session_id, :intent_tags, :context_reliance, :idempotency_key, :cluster_id, :cluster_ids, :batch_summary_id)
+                ON CONFLICT (id) DO UPDATE SET
+                    archived_at = EXCLUDED.archived_at,
+                    raw_text = EXCLUDED.raw_text,
+                    summary_text = EXCLUDED.summary_text,
+                    topic_tags = EXCLUDED.topic_tags,
+                    timestamp = EXCLUDED.timestamp,
+                    conversation_id = EXCLUDED.conversation_id,
+                    is_private = EXCLUDED.is_private,
+                    batch_id = EXCLUDED.batch_id,
+                    embedding = EXCLUDED.embedding,
+                    source_spans = EXCLUDED.source_spans,
+                    ts_provenance = EXCLUDED.ts_provenance,
+                    summary_coverage = EXCLUDED.summary_coverage,
+                    representation_verification = EXCLUDED.representation_verification,
+                    abstract_text = EXCLUDED.abstract_text,
+                    lossless_flag = EXCLUDED.lossless_flag,
+                    is_document = EXCLUDED.is_document,
+                    decay_score = EXCLUDED.decay_score,
+                    inject_raw = EXCLUDED.inject_raw,
+                    session_id = EXCLUDED.session_id,
+                    intent_tags = EXCLUDED.intent_tags,
+                    context_reliance = EXCLUDED.context_reliance,
+                    idempotency_key = EXCLUDED.idempotency_key,
+                    cluster_id = EXCLUDED.cluster_id,
+                    cluster_ids = EXCLUDED.cluster_ids,
+                    batch_summary_id = EXCLUDED.batch_summary_id
+            """).bindparams(bindparam("source_spans", type_=JSONB),
+                            bindparam("representation_verification", type_=JSONB)), {
+                **{key: getattr(row, key) for key in (
+                    'summary_coverage', 'representation_verification', 'abstract_text',
+                    'lossless_flag', 'is_document', 'decay_score', 'inject_raw', 'session_id', 'intent_tags',
+                    'context_reliance', 'idempotency_key')},
+                "batch_summary_id": row.batch_summary_id,
+                "id": row.id, "cluster_id": row.cluster_id, "cluster_ids": cluster_ids,
                 "now": datetime.now(timezone.utc),
                 "raw": row.raw_text,
+                "source_spans": row.source_spans,
+                "ts_provenance": row.ts_provenance,
                 "summary": row.summary_text,
                 "tags": row.topic_tags,
                 "ts": row.timestamp,
@@ -190,6 +231,13 @@ def apply_decay(cycles: int = 1):
                 # live row was matched on.
                 "emb": row.embedding,
             })
+            db.execute(text("DELETE FROM cold_chunks WHERE turn_id = :id"), {"id": row.id})
+            db.execute(text("""
+                INSERT INTO cold_chunks (id, turn_id, chunk_index, chunk_text, embedding)
+                SELECT id, turn_id, chunk_index, chunk_text, embedding
+                FROM episodic_chunks WHERE turn_id = :id
+            """), {"id": row.id})
+            db.execute(text("DELETE FROM episodic_cluster_links WHERE episodic_id = :id"), {"id": row.id})
             db.execute(text("DELETE FROM episodic_memory WHERE id = :id"), {"id": row.id})
 
         db.commit()

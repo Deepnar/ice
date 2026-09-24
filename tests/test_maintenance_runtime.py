@@ -295,7 +295,7 @@ async def test_post_flight_chain():
 
     stub_client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=_StubCompletions()))
     orig_triplets, orig_px, orig_pf = cx.extract_triplets, px.bg_client, pf.bg_client
-    cx.extract_triplets = lambda text_, model_override="", topic_tags=None, gaps=None: []
+    cx.extract_triplets = lambda text_, model_override="", topic_tags=None, gaps=None, source_sentences=None: []
     px.bg_client = stub_client
     pf.bg_client = stub_client
     # extract_procedural returns "NONE" (stubbed LLM) and — pre-existing

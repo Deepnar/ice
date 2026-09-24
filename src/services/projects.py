@@ -370,7 +370,7 @@ def session_start_data(db: Session, project: Project) -> dict:
     return data
 
 
-def render_session_start(data: dict) -> str:
+def render_session_start(data: dict, *, include_constraints=True) -> str:
     """Markdown renderer shared by the chat assembler and E7's
     ice://session-start resource (same block, two adapters)."""
     lines = [f"## Project: {data['project']} (branch: {data['branch'] or '?'})"]
@@ -380,7 +380,7 @@ def render_session_start(data: dict) -> str:
         lines.append(f"Last worked task: {data['last_task']}")
     if data.get("diffstat"):
         lines.append("Changes since last session:\n" + data["diffstat"])
-    if data.get("constraints"):
+    if include_constraints and data.get("constraints"):
         lines.append("Constraints (do not violate):")
         lines += [f"- {c}" for c in data["constraints"]]
     if data.get("tasks"):
@@ -396,9 +396,16 @@ def render_session_start(data: dict) -> str:
     return "\n".join(lines)
 
 
-def chat_session_start(db: Session, project_id) -> Optional[str]:
+def chat_session_start(db: Session, project_id, *, include_constraints=True) -> Optional[str]:
     """The assembler's one-call entry: rendered block or None."""
     project = db.query(Project).filter_by(id=uuid.UUID(str(project_id))).first()
     if project is None:
         return None
-    return render_session_start(session_start_data(db, project))
+    return render_session_start(session_start_data(db, project), include_constraints=include_constraints)
+
+
+def chat_constraints(db: Session, project_id) -> str:
+    """Standing constraints are required every request, independent of a sitting."""
+    rows = db.query(Decision).filter(Decision.project_id == uuid.UUID(str(project_id)),
+        Decision.decision_type == "constraint", Decision.valid_until.is_(None))
+    return "\n".join(f"- {row.decision}" for row in rows.order_by(Decision.valid_from.desc()).limit(5))

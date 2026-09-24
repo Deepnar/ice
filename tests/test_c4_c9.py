@@ -147,10 +147,11 @@ try:
     row_a = db.query(ConversationSummary).filter_by(
         conversation_id=conv_a.id).first()
     new_prompts = llm_calls[n_before:]
-    check("incremental update: old summary carried into the prompt, "
+    check("incremental update: old notes retained without entering the prompt, "
           "covers_through advances",
           stats2["updated"] == 1
-          and any(first_text in p for p in new_prompts)
+          and all(first_text not in p for p in new_prompts)
+          and first_text in row_a.summary_text
           and all("topic 0" not in p for p in new_prompts)
           and row_a.covers_through > first_through
           and row_a.covers_turns == 9)
@@ -181,13 +182,14 @@ try:
                                        recent_window_tokens=6000.0)
     check("past the window ⇒ block injected with staleness stamp "
           "(covers 9 of 10 turns)",
-          block is not None and second_text in block
+          block is not None and "new development alpha" in block
+          and "topic 0" not in block
           and "(as of 1 turns ago)" in block)
     messages = assemble_prompt([], [], "hello",
                                conversation_summary_text=block)
     check("assembler renders the === CONVERSATION SUMMARY === block",
           "=== CONVERSATION SUMMARY ===" in messages[0]["content"]
-          and second_text in messages[0]["content"])
+          and "new development alpha" in messages[0]["content"])
     check("no summary text ⇒ no block header",
           "=== CONVERSATION SUMMARY ===" not in
           assemble_prompt([], [], "hello")[0]["content"])
@@ -200,9 +202,16 @@ try:
     db.add_all([conv_p, conv_c])
     db.commit()
     conv_ids += [conv_p.id, conv_c.id]
+    from src.memory.summary_snapshot import bind_snapshot, compose_parts, source_snapshot
+    add_turn(conv_p, "A private source for the privacy control.", base_ts)
+    private_sources = source_snapshot(db, conv_p.id)
+    private_parts = [dict(source_ids=[s['id'] for s in private_sources],
+                          text=f"{MARK} private things happened", mode='source')]
+    private_summary = compose_parts(private_parts)
     db.add(ConversationSummary(
+        source_manifest=bind_snapshot(private_sources, private_summary, parts=private_parts),
         conversation_id=conv_p.id,
-        summary_text=f"{MARK} private things happened",
+        summary_text=private_summary,
         covers_turns=5, embedding=V1,
         updated_at=datetime.now(timezone.utc)))
     db.commit()
@@ -212,12 +221,12 @@ try:
     frags = orch._batch_summary_lookup(V1, str(conv_c.id))
     texts = [f.text for f in frags]
     check("another conversation's summary found by embedding",
-          any(MARK in t and "conversation summary" in t for t in texts))
+          any(MARK in t and "conversation note" in t for t in texts))
     check("private conversation's summary never surfaces",
           not any("private things" in t for t in texts))
     frags_self = orch._batch_summary_lookup(V1, str(conv_a.id))
     check("active conversation's own summary excluded (assembler owns it)",
-          not any(second_text in f.text for f in frags_self))
+          not any(f.conversation_id == str(conv_a.id) for f in frags_self))
     frags_incog = orch._batch_summary_lookup(V1, str(conv_c.id),
                                              include_cross=False)
     check("incognito path (include_cross=False) reads no cross summaries",
