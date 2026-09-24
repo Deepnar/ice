@@ -157,8 +157,9 @@ that rate cannot be observed.
 
 ⚠ **Do not "fix" the gate before those two numbers exist.** A compression term
 or a length bound would be a change with no measured frequency behind it — the
-[G51](../ROADMAP.md#g51) shape, which destroyed 667 true facts by committing
-without measuring.
+old unknown-relation supersession shape diagnosed in [G51](../ROADMAP.md#g51),
+which retired real multi-valued facts by committing without measuring. The
+previously repeated “667 true facts” count lacks a retained measurement.
 
 ### 2.2 The conversation fold — the worst number on the board
 

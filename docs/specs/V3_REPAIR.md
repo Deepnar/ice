@@ -289,11 +289,11 @@ source-backed sentence claims and qualified verification; consistent summaries;
 procedural evidence, lifecycle/scoping/adapter controls; inference/runtime and
 remaining operational defects; then the minimal user correction surface.
 
-**Procedural evidence re-grounding (2026-09-24):** `extract_procedural`
-currently accepts any two citation integers, uses all turns in the session as
-support, and activates on their count; `_user_half` can treat unknown-role raw
-text as the user's words. The separate reflection writer has no cited evidence
-at all. The repair resolves only in-range citations against writer-attributed
+**Procedural evidence re-grounding (2026-09-24, shipped in v3):** `extract_procedural`
+previously accepted any two citation integers, used all turns in the session as
+support, and activated on their count; `_user_half` treated unknown-role raw
+text as the user's words. The separate reflection writer had no cited evidence
+at all. The repaired writer resolves only in-range citations against writer-attributed
 user turns, persists just those cited batches, gates activation on the cited
 count, and counts independent sessions by resolving cited batch IDs through warm
 or cold originals. Project-scoped patterns match only their project. Unknown

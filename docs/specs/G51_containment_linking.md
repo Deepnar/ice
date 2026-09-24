@@ -1,294 +1,61 @@
-# G51 — The graph is disconnected because entities were never LINKED, not because duplicates were never merged
-Assumes decided specs: G50_entity_consolidation.md, D1_D2_maintenance_agent.md, G45_open_relation_vocabulary.md
+# G51 — Source-backed containment recovery, not inferred graph edges
+Assumes decided specs: G50_entity_consolidation.md, D1_D2_maintenance_agent.md, G45_open_relation_vocabulary.md, V3_REPAIR.md (G76 source claims and verification)
 
 ## 1. Decisions
 
-**D0 — What this item exists to fix.** Measured on arm 1 (`fixed-qwen3-4b-instruct`,
-8,280 entities / 9,662 live edges), 2026-08-17:
+**v3 re-grounding, 2026-09-24. This document replaces the earlier G51 implementation plan.** That plan proposed writing a `CodexEdge(confidence="pending", extraction_confidence=0.6, source_batch=<agent run id>)` from name containment alone. In v3, pending edges are traversed whenever their trust clears the direct floor; `pending` is not a quarantine. The agent run ID is not a real episode and cannot identify an evidence passage, survive source deletion correctly, or receive fair origin-batch credit. A deterministic guard can reject a bad candidate; it cannot prove the remaining relationship. The old plan would therefore make plausible names into unsupported asserted facts.
 
-| | |
-|---|---|
-| degree 0 (no live edge at all) | **608** (7.3%) |
-| degree 1 | **5,611** (67.8%) |
-| **dead ends (0 or 1)** | **6,219 (75.1%)** |
-| short entity names appearing inside a longer entity name | **5,616 pairs** |
-| …of those, joined by a live edge | **129 (2.3%)** |
-| …**not connected at all** | **5,487** |
+The historical arm-1 count (8,280 nodes, 75.1% at degree 0–1, 5,487 unjoined containment pairs) described the old extractor. A read-only count on the current v3 working store found 4,380 conversation nodes, 6,603 live edges (5,314 pending), 3,037 nodes at degree 0–1, and 2,136 whole-token containment pairs, 42 with direct live edges. That store has zero `codex_claims` and zero writer-attributed episodic turns: it is older data, not evidence that the v3 sentence-claim writer is poor. These are structural counts, not retrieval or answer-quality scores.
 
-The whole item in one cluster — `validation`, degree 8, and eleven satellites
-**none of which are connected to it**: `emotional validation`, `external
-validation`, `seeking validation`, `a lack of validation`, `false validation`,
-`needs validation`, `get validation` (degree 0), `validation loss`, `whose
-validation`, `only validation`, `more validation`.
+**Decision:** containment is a *candidate generator*, not a relation or identity signal. `emotional validation` and `validation loss` both contain `validation` but need different treatment. G51 may recover an edge only from a complete, writer-attributed original source that supports the proposed directed relation. The edge uses the actual source batch and the existing Codex source-claim/write contract. An unsupported pair stays unlinked and its source is retained. No synthetic `source_batch`, no name-only `pending` edge, no automatic merge. A `same_entity` proposal goes to G50's existing identity route. Reflection, maintenance and retrieval do not silently turn a navigation hint into a fact.
 
-⇒ **The extractor mints a new entity per surface phrase and never relates it to
-its head noun.** That is what produces isolated triplets instead of a graph, and
-no merge policy addresses it.
-
-**D1 — Containment produces a LINK, not a merge.** This is the decision the
-whole spec turns on, and the codebase already tried the other way:
-`get_or_create_entity`'s promotion block (`codex_extractor.py:1012`) folds a
-stored generic into an arriving specific — `plan` into `master plan`. It is
-**off by default** (`codex_node_promotion`) and fired **0 times in 586 turns**.
-Merging is the wrong operation because the pairs are usually not the same thing:
-`validation loss` is an ML training metric, `emotional validation` is a
-psychological concept, `a lack of validation` is the negation. A merge destroys
-three distinctions to gain one node; a link keeps all three and connects them.
-
-**D2 — The model classifies FOUR ways, and a structural guard authorises the
-write.** This is where the model auto-merger the user asked for actually belongs
-(2026-08-17). Over a cosine pair the model is asked "same or different?" about
-`two sagas` / `four sagas` — a question the embedding already failed and the
-strings do not help with. Over a containment pair it is asked a well-posed
-question with visible structure:
-
-| verdict | example (live, arm 1) | action |
-|---|---|---|
-| `merge` | `podar` / `rn podar school santacruz` | hand to G50's `merge_entities` |
-| `link` | `emotional validation` / `validation` | write one edge, relation from the model |
-| `unrelated` | `validation loss` / `validation` | memo, never re-ask |
-| `junk` | `what the flaw` / `flaw` | memo + report to G44; **never linked** |
-
-⚑ **`junk` IS THE VERDICT THIS DESIGN CANNOT SHIP WITHOUT, and it was missing
-from the first draft.** A large share of satellites are not entities but
-sentence fragments the extractor minted: `what the flaw`, `began flaw`, `after
-flaw`, `when orien`, `named orien`, `to krishna`, `way krishna`, `everything
-krishna`. Given only three options a model classifies every one of these as
-`link` — they *are* about their head — and the pass would cement fragments into
-the graph as structure. **Degree-1 share would fall sharply, the headline number
-would look excellent, and the graph would be worse.** That is [TRAPS #37](../TRAPS.md)
-in a new costume: an improvement a broken implementation produces just as well.
-
-⚠ **Some HEADS are not entities either.** `first` (degree 29) carries 39
-satellites — `first brick`, `first author`, `first message`, `first two volumes`
-— which share an ordinal and nothing else. A head whose satellites have no
-common referent must be rejected wholesale, not linked satellite by satellite.
-The prompt therefore asks about a **cluster**, not a pair (D7), which is the
-only framing in which this is visible.
-
-⚠ **Do NOT trust a hand-written lexicon to pre-filter fragments.** One was tried
-2026-08-17 (wh-words, function words, a verb list) and reported 10.8% fragments;
-reading its own output shows it passing `get validation`, `needs validation` and
-`to stress or trauma` as plausible links. **10.8% is a floor, not an estimate.**
-A rule keyed on which words appear is exactly the style-dependent bet CLAUDE.md
-forbids, and it fails the same way here. The true share comes from the
-USER-REQUIRED hand-read sample in §5, and nowhere else.
-
-⚑ **The model narrows; it never authorises** (getzep/graphiti [#1728](https://github.com/getzep/graphiti/issues/1728)).
-Candidates are found deterministically by string containment — the model never
-scans the store, it only answers about pairs handed to it — and every verdict
-passes a structural guard (§2) before anything is written.
-
-**D3 — A `merge` verdict is downgraded to `link` unless it ALSO passes G50's
-deterministic test.** The model may propose a merge; it may not cause one on its
-own word. If `difference_kind(a, b) != "merge"`, the pair is linked instead. So
-`podar` / `rn podar school santacruz` becomes a link, not a merge, until an
-alias or a `merge_key` match justifies more. **Losing a merge is recoverable;
-losing a distinction is not.**
-
-**D4 — The relation comes from the open vocabulary, not a fixed list.** G45
-removed the closed relation list and CLAUDE.md forbids re-introducing one, so
-the model returns a relation string and it goes through `canonical_relation`'s
-existing three-tier ladder like any other. **Do not add an `is_a` constant.**
-The common case will converge to `is_a` / `kind_of` on its own; if it does not,
-that is data about the corpus, not a bug to hard-code away.
-
-**D5 — `unmerge_entities()` ships BEFORE this item's writes are enabled.** G50
-D5 defers it on the grounds that deterministic merges are re-derivable. That
-argument does not extend here: a model-authorised link is not re-derivable from
-the two names. Reversal is a prerequisite, per the user's inverse-ranking
-principle (2026-08-17) — undo scales with how much judgement authorised the
-write.
-
-**D7 — Candidates are batched BY HEAD CLUSTER, not pair by pair.** Measured
-funnel on arm 1: 8,280 entities → **5,616** raw containment pairs → 5,603 after
-dropping stopword/relation-name heads (that filter removes only **13** — it is
-not where the noise is) → **5,474** after dropping the 129 already joined →
-**1,558 distinct heads**, median cluster size 2, max **47** (`flaw`), with
-**412** satellites at degree 0 that would gain their first edge.
-
-One call per head, all its satellites in the prompt. Three reasons, and the
-second is the important one:
-
-1. **Amortises the call** — `flaw`'s 47 pairs are one request, not 47.
-2. **⚑ Gives the model contrastive context, which is what the hard cases need.**
-   `validation loss` is only recognisable as a different *sense* of the word
-   when it appears beside `emotional validation`, `external validation` and
-   `seeking validation`. Asked in isolation it looks exactly like a link.
-3. **Produces a connected neighbourhood per call** rather than edges scattered
-   across the graph, so partial progress is still structurally useful.
-
-**Cluster order: by `head_degree × satellite_count`, descending** — attach the
-most orphans to the largest existing hubs first. Top of that ranking today:
-`flaw` (degree 137, 47 satellites), `orien` (113, 22), `krishna` (84, 22),
-`observer` (101, 18), `universe` (72, 21), `lethe` (71, 21). `agent_link_pairs_per_run`
-becomes a **cluster** cap, default **5**.
-
-**D6 — Degree-0 entities are NOT deleted by this item.** 608 of them contribute
-nothing to graph traversal today, and deleting them is tempting. But this spec
-is about to give many of them a first edge, which changes the population.
-**Measure after the linking pass, decide then**, and ask the user — a designed
-entity that turns out unused is evidence, not permission (CLAUDE.md).
+Graph degree is a diagnostic, not the acceptance metric. The success question is whether source-supported answers improve per context token without extra false relations. A degree-1 node can be a perfectly valid isolated fact. [Graphiti](https://github.com/getzep/graphiti) attaches facts to episodes, and [Neo4j's graph builder](https://neo4j.com/docs/neo4j-graphrag-python/current/user_guide_kg_builder.html) extracts entities and relations from chunks with source links; neither motivates treating lexical containment itself as evidence.
 
 ## 2. Algorithm & data model
 
-**Stage 1 — candidate generation (deterministic, no model, no embedding).**
+1. Generate whole-token containment candidates among live conversation entities with the same project identity (including two global/NULL nodes). Skip identical IDs, existing live direct edges, previously rejected pair revisions and G50 `difference_kind` rejections. Dedupe by ordered `(specific_id, general_id)`; prefer adjacent names in a nested chain but do not create transitive edges. Cap work by 5 head clusters / 50 pairs per pass; count both values explicitly. Candidate generation performs no write to `codex_edges`.
+2. Resolve candidate evidence from the original warm/cold source batches attached to either endpoint's existing edges or source claims. A candidate is processable only when a current, complete source unit has an authoritative role and an excerpt that actually mentions the specific entity. Never truncate a passage to fit a model. Unknown-role legacy sources remain available for raw retrieval but do not authorize a new relationship. Under project identity, sources from another project do not qualify; document visibility follows the existing enabled/shared-document policy.
+3. Ask a bounded typed decision model about a *source excerpt plus the candidate pair*, not the names alone. Allowed outcomes: `relation` (directed relation + exact supporting source sentence), `same_entity`, `unrelated`, `junk`, `unknown`. An unparseable/partial output is `unknown` with a warning, never `relation`. `junk` informs G44 entity-quality work without deleting nodes. `same_entity` delegates to G50 and never downgrades to a link.
+4. Resolve the returned sentence as an exact source span and run G76's source→proposition support check, including speaker, assertion/hypothesis, polarity, direction and temporal scope. Only a qualified supported relation enters the existing `handle_triplet`/`CodexClaimLink` transaction with the **real turn batch ID**. Canonicalize the model's relation through the open-vocabulary ladder; do not hard-code `is_a` or create a separate edge writer. Source uncertainty, an unrelated verdict or model failure leaves both nodes and all original facts untouched.
+5. Record detector counters: candidates, source-resolvable, source-qualified, accepted edges, unsupported, unknown, rejected and actual extra context tokens. Keep rejection memos keyed by pair plus source revision, so genuinely new evidence can reopen a pair. No new durable navigation-edge table is justified until a read-path benefit is demonstrated.
 
-```python
-def containment_candidates(db, *, max_short_tokens=2, max_long_tokens=5):
-    """Short entity name occurring as a whole-token span inside a longer one.
-
-    Whole-token only: 'val' must not match 'validation'. Anchored at a token
-    boundary on both sides, which is what `f" {short} " in f" {long} "` gives.
-    """
-```
-
-Guards, each of which removes a measured false candidate:
-* skip `short` shorter than 4 characters — `u.s`, `ai`, `ml` generate noise
-* skip when `short` is a stopword-only name (`with`, `the`, `outer`) — these are
-  G44 category errors and are **reported**, not linked (§4)
-* skip pairs already joined by a live edge in either direction (129 today)
-* skip pairs with a `merge_rejected` or `link_rejected` memo
-* cap per run at `agent_link_pairs_per_run` (new setting, default **50**)
-
-**Stage 2 — the model classifies.** One call per pair, batched 10 per prompt.
-
-```
-Two entities from a personal knowledge graph. One name contains the other.
-
-  A: "emotional validation"      (appears in 3 facts)
-  B: "validation"                (appears in 8 facts)
-
-Answer with exactly one word:
-  merge      — A and B refer to the SAME thing, one is an abbreviation or
-               alternate spelling of the other
-  link       — A and B are DIFFERENT things, and A is a kind/instance/part of B
-  unrelated  — A and B are different things that merely share a word,
-               including the same word used in two different senses
-
-If B is a negation, opposite, or a different technical sense of A, answer
-unrelated.
-```
-
-⚠ **The last line is load-bearing.** Without it `a lack of validation` and
-`validation loss` classify as `link` — both are "about" validation. The failure
-is silent and writes a false relation.
-
-**Stage 3 — the structural guard (deterministic, authorises).** A verdict is
-acted on only if **all** hold:
-
-| guard | why |
-|---|---|
-| `difference_kind(a,b) != "reject:*"` | G50's typed rejections bind here too — a digit/gender/tense/permutation difference is never a link |
-| both entities live (`merged_into` NULL) | concurrent runs |
-| the proposed edge does not already exist in either direction | idempotency |
-| the edge would not create a self-loop after any pending merge | `merge_entities` expires self-loops; do not create them |
-| for `merge`: `difference_kind(a,b) == "merge"` | D3 — the model may not authorise a merge |
-| for `link`: `short` is not stopword-only | G44 category errors are reported, not wired in |
-
-**Stage 4 — write.** `link` ⇒ one `CodexEdge`, `source_id` = specific,
-`target_id` = general, `relation` = model's word through `canonical_relation`,
-`confidence` = `pending`, `extraction_confidence` = `settings.codex_conf_inferred`
-(new, default **0.6**), `source_batch` = the agent run id.
-
-⚑ **The edge is `pending`, not `active`, and that is deliberate.** It was
-inferred from two names, not read from a turn. `_apply_pileup` already expires a
-pending edge that duplicates a live active one, so a later real extraction of
-the same fact supersedes the inference cleanly.
-
-**Schema.** No new table. One new `CodexEvent` type, `link_rejected`, mirroring
-G50's `merge_rejected`.
+G76's edge-level proposition verification is a dependency, not something this detector duplicates. The current `CodexClaim.verification` verifies an exact source sentence against its containing paragraph; it does **not** by itself prove the relation inferred from that sentence. G51 must not call that exact-quote check a relation verdict.
 
 ## 3. Files & integration points
 
 | File | Change |
 |---|---|
-| `src/workers/maintenance_agent.py` | new detector `_detect_containment_links` registered in the `JOBS`-adjacent detector map beside `duplicate_entities`; new applier `_apply_link`; Tier 2 for `merge` verdicts, **Tier 1** (auto + journalled) for `link` verdicts that clear the guard |
-| `src/workers/codex_ops.py` | new `unmerge_entities(db, absorbed_id)` driven by the `CodexEvent` journal (D5) |
-| `src/workers/codex_extractor.py` | none. **Leave the promotion block alone** — it is off, it is G44's, and deleting it is user-gated |
-| `src/api/config.py` | `agent_link_pairs_per_run: int = 50`, `codex_conf_inferred: float = 0.6`, `agent_containment_linking: bool = False` (ships OFF; see §5) |
-| `docs/FEATURE_INVENTORY.md` | new row, `On by default? NO` |
-| `tests/test_g51_containment.py` | new, see §5 |
-
-⚠ **Register the detector in the existing map; do not add a second agent loop.**
-The runtime's `JOBS` is the source of truth for what runs and how often
-(CLAUDE.md code map).
+| `src/workers/maintenance_agent.py` | Register a bounded, read-only containment detector in `DETECTORS`; type only candidates with attributed original source. Reuse the existing job loop and warning conventions. |
+| `src/workers/codex_extractor.py` and `src/memory/claims.py` | Reuse G76's source-qualified relation acceptance and existing edge/claim write transaction; do not fork an agent-specific edge writer. |
+| `src/api/config.py` | One off-by-default containment-recovery switch and explicit cluster/pair caps; no `codex_conf_inferred` setting. |
+| `docs/FEATURE_INVENTORY.md` / architecture | Show default OFF and distinguish candidate detection from source-qualified edge writes. |
+| `tests/test_g51_containment.py` | Disposable SQL/writer and reader controls below. |
 
 ## 4. Edge cases & failure modes
 
-| case | handling |
-|---|---|
-| `short` is a stopword-only entity (`with`, `outer`, `the middle`) | never linked. Emit `codex_entity_category_error` at WARNING with the name, and count them — this is G44 evidence, and burying it in a skip would lose the signal |
-| `short` is a relation name minted as an entity (`leans_toward`, `has parents`) | same handling — detect by `"_" in name` or a leading auxiliary verb, report, never link |
-| one name contains the other twice (`validation validation`) | whole-token match is idempotent; dedupe candidates by `(short_id, long_id)` |
-| chain: `trauma` ⊂ `developmental trauma` ⊂ `complex developmental trauma` | link each adjacent pair; do **not** transitively close. Two edges, not three — the graph derives the third |
-| model returns something outside the enum | count as `unrelated`, log at WARNING with the raw string. ⚠ Check the **rate** before shipping (CLAUDE.md: a fallback firing on 100% of calls is an outage in costume) |
-| model is unreachable | detector returns `[]` and logs `_leg_degraded`-style; **never** default to linking |
-| the pair spans two conversations | allowed. Entities are global; this is not a retrieval-scope decision |
-| linking makes a hub even bigger | accepted and expected — `validation` is *supposed* to be a hub. G50's degree ceiling guards **merges**, not links, because a link re-attributes nothing |
+- `validation loss` / `validation`, `a lack of validation` / `validation`, and `emotional validation` / `validation` must not receive the same unsupported default relation. A fragmentary or stopword-like node may be reported but not deleted by G51.
+- Cross-project pairs and private or unshared-document sources cannot authorize another project's conversational graph edge. Existing source scoping and deletion must continue to work.
+- Repeated name pairs, duplicate aliases, nested chains and concurrent runs must not produce duplicate edges or reinforcement from the same batch.
+- If only an assistant hypothesis or unknown-speaker legacy text supports the pair, preserve it as source material but do not turn it into a user assertion. The source can be reprocessed if later attribution or correction becomes available.
+- Missing, stale, overlong or hash-mismatched source spans, verifier failure and incomplete model output abstain without marking the pair permanently rejected. Never log raw source or provider exception parameters.
+- A relation already asserted from another batch follows the existing source-qualified reinforcement and conflict logic; a repeated read is not corroboration.
 
 ## 5. Validation checklist
 
-`tests/test_g51_containment.py` — standalone, live DB, own rows, never truncates,
-LLM stubbed.
-
-1. `containment_candidates` finds `('trauma','developmental trauma')` and does **not** find `('val','validation')` (whole-token guard).
-2. Does not propose a pair already joined by a live edge.
-3. Stopword-only short name (`with`) is excluded and emits `codex_entity_category_error`.
-4. Stubbed `link` verdict writes exactly one edge, `pending`, specific→general, and is idempotent across two runs.
-5. Stubbed `merge` verdict on a pair where `difference_kind != "merge"` writes a **link**, not a merge (D3).
-6. Stubbed `merge` verdict on a `merge_key`-equal pair calls `merge_entities`.
-7. Stubbed `unrelated` writes a `link_rejected` memo and a second run skips the pair.
-8. Guard rejects a `link` when `difference_kind` returns `reject:digits`.
-9. `unmerge_entities` restores edge endpoints and clears `merged_into` after a `merge_entities` round-trip; assert edge count and endpoints match pre-merge.
-10. Chain case: three nested names produce two edges, not three.
-11. Regressions: `tests/test_maintenance_agent.py`, `tests/test_codex_write_path.py`, `uv run pytest tests/smoke -q`.
-
-**USER-REQUIRED — dry run before the flag goes on (~20 min).** Ships behind
-`agent_containment_linking=False`. Run the detector in report-only mode over the
-arm-1 snapshot, then **read 40 sampled verdicts by hand** and confirm the
-`unrelated` calls are genuinely unrelated. The `validation loss` / `emotional
-validation` distinction is the one to check — it is the failure this design is
-most exposed to. Done = 40 verdicts read and the flag flipped, or the prompt
-revised and re-sampled.
-
-⚑ **Do not measure this with a presence metric.** "Did the graph gain edges" is
-answerable by a broken implementation writing garbage. The number that means
-something is **degree-1 share before and after** (75.1% today) **plus** the
-hand-read sample above. TRAPS #37 is the worked case of a presence test reading
-1.000 over a pool of one.
+1. Read-only v3 candidate count and a small stratified sample, recording the store/extractor version. Do not compare the 2026-08-17 arm-1 percentage to the current store as an improvement.
+2. Disposable DB: whole-token containment, nested-chain dedupe, project boundary and existing-edge skip. The detector itself writes zero `CodexEdge` rows.
+3. Real writer path with stubbed typed decision and G76 verifier: exact, attributed, supported directed source writes one edge with the source turn's batch and a linked claim; missing/assistant-hypothesis/negated/unknown source writes none and preserves originals.
+4. Same-source rerun is idempotent; a new independent source may corroborate; rejection memo reopens only on a source revision. Deletion of the sole source retires the edge through the existing cascade.
+5. Actual local model on a bounded gold set spanning kind/part, wrong sense, fragment, negation, reversed relation and style variants. Report unsupported-edge precision **and** missed supported relations before enabling the switch. Do not accept a mere rise in edges or degree.
+6. One complete recorded conversation through production retrieval, comparing matched answer evidence and context tokens with the switch off/on. If extra context displaces better evidence or the asserted-edge false-positive count is nonzero, leave the switch off and retain the candidates for diagnosis.
 
 ## 6. Look-ahead constraints
 
-* **[G50](G50_entity_consolidation.md)** owns `difference_kind` and `merge_key`;
-  this spec imports both and must not fork them.
-* **FINAL / Z1** — this changes edge counts substantially. A store seeded before
-  it is not comparable on graph metrics; record which side a snapshot is on.
-* **G48b leg attribution** — inferred edges carry the agent run id as
-  `source_batch`, **not a turn batch id**, so a codex fragment built from one
-  cannot be credited to a gold turn. ⚠ Recall may *drop* when this ships, purely
-  because inferred edges displace attributable ones in the budget. Report it as
-  such; it is not a regression.
-* **H1 cross-conversation retrieval** — linking creates cross-conversation edges
-  for the first time at volume. H1's measurement should postdate this.
+G50 owns identity decisions and `difference_kind`; G44 owns unusable entity repair. G76 owns source proposition support and G64 searchable sentence claims. G48 leg attribution requires a real turn batch on every new edge. G70 usage accounting must distinguish candidate discovery from final-prompt inclusion. Later LME oracle and semi-LSREP runs should use the same frozen answerer/context budget for the on/off comparison. There is no reason to implement `unmerge_entities` inside a feature that never merges.
 
 ## 7. Traps
 
-* **⚑ "Merge them, it's simpler."** The obvious simpler version, already built
-  (`codex_node_promotion`), already off, and it fired 0 times in 586 turns.
-  `validation loss` / `emotional validation` / `a lack of validation` are three
-  different things sharing a token.
-* **⚑ "Add an `is_a` relation constant."** That is the closed vocabulary G45
-  removed and CLAUDE.md's invariance rule forbids. Let the model's word go
-  through `canonical_relation`.
-* **"Transitively close the chains."** Produces `complex developmental trauma
-  --is_a--> trauma` alongside the two real edges, inflating both edge count and
-  fan-out while adding nothing traversal cannot derive.
-* **"Link everything above the containment test — it's deterministic, so it's
-  safe."** Deterministic *detection* is safe; the **classification** is not, and
-  5,487 unreviewed inferred edges would be the largest single write this graph
-  has ever taken. Hence the flag, the cap of 50/run, and the hand-read sample.
-* **"Fan-out will finally drop."** It should — that is the point — but the
-  roadmap's 80.5% figure came from cosine nearest-neighbours, an instrument
-  shown on 2026-08-17 to be a poor proxy for identity. **Re-measure degree
-  distribution directly; do not compare against the cosine-derived number.**
+- `pending` is eligible for graph traversal under the trust floor; it is not a safe container for guessed edges.
+- A model's `link` verdict over names is still an inference over names. Even a perfect enum parse does not supply a supporting episode.
+- More connected nodes, a higher degree score, or more fact lines can all be produced by false relations. Judge source support and answer evidence, including token displacement.
+- The current store's zero attributed turns makes a write-side qualification vacuous; prepare the code against v3 writer fixtures, then judge it on a properly replayed v3 conversation. Do not backfill speaker roles from a raw delimiter guess.

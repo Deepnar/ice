@@ -1,10 +1,10 @@
 # G50 — Entity consolidation: deterministic merges, typed rejections
 Assumes decided specs: D1_D2_maintenance_agent.md, G45_open_relation_vocabulary.md
 
-> **Scope note.** This spec owns the **merge** half only. The half that actually
-> connects the graph — 5,487 missing containment links — is [G51](G51_containment_linking.md),
-> and it is the larger item. Read G50's roadmap entry with that split in mind:
-> the entry was written believing consolidation would fix fan-out, and it does not.
+> **Scope note, revised for v3 on 2026-09-24.** This spec owns **identity** only.
+> [G51](G51_containment_linking.md) now treats name containment as a candidate
+> for source-backed relation recovery; 5,487 historical unjoined pairs were not
+> 5,487 proven missing facts. Consolidation does not fix graph fan-out.
 
 ## 1. Decisions
 
@@ -20,8 +20,8 @@ Measured on arm 1 (`fixed-qwen3-4b-instruct`), every entity pair above cosine
 | gender word (`his father`/`her father`) | 40 | 1.8% | **REJECT** |
 | tense word (`is rare`/`was rare`) | 121 | 5.4% | **REJECT** |
 | same tokens reordered (`shiva without brahma`/`brahma without shiva`) | 6 | 0.3% | **REJECT** |
-| strict token superset (`a 3d diagonal plane`/`3d diagonal plane`) | 535 | 23.8% | **DEFER → G51** |
-| other token substitution (`villainess`/`villain`) | 1,087 | 48.4% | **DEFER → G51** |
+| strict token superset (`a 3d diagonal plane`/`3d diagonal plane`) | 535 | 23.8% | **DEFER → review**; G51 may independently examine source-backed containment |
+| other token substitution (`villainess`/`villain`) | 1,087 | 48.4% | **DEFER → review**; not a G51 containment candidate by default |
 
 ⚑ **Cosine magnitude does not track merge safety, and the top of the band is
 where it is worst.** At ≥0.98 the population is a coin flip between the safest
@@ -50,17 +50,15 @@ at write time they are never minted in the first place.
 re-proposes the same pairs on every pass otherwise; at 2,247 pairs that is the
 real cost, not the merging.
 
-**D5 — `unmerge_entities()` is NOT a prerequisite for this item.** User's
-inverse-ranking logic (2026-08-17): undo need tracks how much *judgement*
-authorised the write. Deterministic merges are reproducible from the two names,
-so a wrong one is re-derivable rather than lost. ⇒ Undo becomes a **prerequisite
-of [G51](G51_containment_linking.md)**, where a model authorises writes, and it
-stops blocking this spec.
+**D5 — `unmerge_entities()` is NOT a prerequisite for this item.** Deterministic
+merges are reproducible from the two names. The revised G51 performs no merge;
+it routes any identity proposal back to G50's existing review path. Reversal of
+identity edits remains G50's separate concern, not a G51 prerequisite.
 
 **D6 — `agent_dup_cosine_threshold` is not tuned, and not removed.** Raising it
 concentrates the reject buckets (they live at the top); lowering it buys volume
-in the defer buckets. It stays at 0.90 as a **recall** knob for G51's candidate
-generation, and stops being a safety knob. Both roles were previously conflated.
+in the review-defer buckets. It stays at 0.90 as an identity-review recall knob,
+not a safety knob or G51's lexical containment generator.
 
 ## 2. Algorithm & data model
 
@@ -156,7 +154,7 @@ has one. Cheap, journalled, and already the table the merge path writes to.
 
 | File | Change |
 |---|---|
-| `src/workers/maintenance_agent.py` | add `difference_kind()` beside `merge_key()`; `_detect_duplicate_entities` calls it on every cosine-channel pair — `merge` ⇒ Tier 0, `reject:*` ⇒ write the memo and drop, `defer` ⇒ hand to G51's queue (until G51 ships, keep today's Tier 2 review behaviour) |
+| `src/workers/maintenance_agent.py` | add `difference_kind()` beside `merge_key()`; `_detect_duplicate_entities` calls it on every cosine-channel pair — `merge` ⇒ Tier 0, `reject:*` ⇒ write the memo and drop, `defer` ⇒ Tier 2 identity review. G51 separately generates lexical containment candidates and requires source support. |
 | `src/workers/codex_extractor.py` | `get_or_create_entity` gains the merge_key tier above; every create path stamps `properties["merge_key"]` |
 | `alembic/versions/*` | backfill `properties.merge_key` + partial index |
 | `src/api/config.py` | no new setting. `agent_dup_cosine_threshold` docstring updated to say it is a **recall** knob, not a safety knob (D6) |
@@ -225,9 +223,10 @@ name. This is the same shape as [TRAPS #32](../TRAPS.md), one level up.
 
 ## 6. Look-ahead constraints
 
-* **[G51](G51_containment_linking.md)** consumes the `defer` bucket as its
-  candidate set. `difference_kind` must therefore return `defer` rather than
-  silently dropping — a pair G50 discards is a link G51 never sees.
+* **[G51](G51_containment_linking.md)** uses `difference_kind` to reject unsafe
+  relation-recovery candidates, but generates them independently from name
+  containment and source evidence. `defer` remains visible to identity review;
+  it is not permission to create an edge.
 * **G44's promotion block stays where it is and stays off.** G51 decides its
   fate; this spec must not delete it (`ask before deleting planned work`).
 * **FINAL / Z1** re-scores against a re-seeded store. The write-time tier
@@ -243,7 +242,7 @@ name. This is the same shape as [TRAPS #32](../TRAPS.md), one level up.
 * **⚑ "Just raise the cosine threshold."** The measured reason it fails: the
   destructive pairs are at the TOP of the band, not the bottom. 0.98+ contains
   `two sagas`/`four sagas` and `8 gb`/`4 gb`. Raising the threshold concentrates
-  the danger and discards the defer bucket G51 needs.
+  the danger and discards identity-review candidates.
 * **⚑ "Sort the tokens before comparing."** Adds 11 groups on the gemma arm, of
   which two are converses. `shiva without brahma` is live in the store.
 * **"Send the top band to the LLM and auto-accept — they're vectorially
@@ -257,8 +256,8 @@ name. This is the same shape as [TRAPS #32](../TRAPS.md), one level up.
   This is G44's promotion idea and it is why promotion is off by default and
   fired 0 times in 586 turns. `validation loss` is an ML metric, `emotional
   validation` is a psychological concept, `a lack of validation` is the
-  negation. Merging destroys three distinctions to gain one node. → G51 links
-  them instead.
+  negation. Merging destroys three distinctions to gain one node. G51 now asks
+  for source evidence before recovering any relation; some pairs stay unlinked.
 * **"The 1,094 (2,247 here) pair backlog proves review cannot scale."** It is a
   backlog of pending **rejections**, not pending merges — 98.1% of it should
   never merge. The cosine threshold manufactures the queue; it does not discover

@@ -1,3 +1,35 @@
+## 2026-09-24 — v3 procedural source contract and graph-link premise audit
+
+Procedural evidence: disposable ORM/PostgreSQL writer control in
+`tests/smoke/test_procedural_evidence.py` covered invalid citation `99,100`
+against ten shown prompts; exactly two stored sources for `1,2`; no activation
+or staleness refresh on a same-session re-read; cross-session reinforcement;
+project separation; ten-citation activation; cold and missing prior-source
+resolution; and repeated reflection passes. Full disposable smoke 331/331.
+This proves mechanics, not semantic habit truth or an answer-quality delta.
+Read-only working-store count on 2026-09-24 found **zero** procedural rows.
+
+Diagnostic NLI probe: six hand-written short source→habit pairs through the
+configured local DeBERTa `score_pairs`, float32/no truncation, no threshold
+tuning. A true imperative `Review the plan before making changes.` → `The
+user asks for a plan review before changes.` scored entailment **0.0027**;
+explicit self-description `I like to review the plan before making changes.`
+→ `The user reviews plans before changes.` scored **0.9961**. These examples
+only show that raw imperative→third-person habit is unsafe as a direct gate;
+they are not a model comparison or a procedural benchmark.
+
+G51 read-only working-store audit: 4,380 live conversation entities; 6,603
+live Codex edges, 5,314 pending; 26 degree-zero and 3,011 degree-one nodes.
+Whole-token containment enumeration over 1–2-token heads and 2–5-token longer
+names produced 2,136 pairs, 42 with a direct live edge. All 6,603 live edge
+`source_batch` values resolved to warm/cold originals, but `codex_claims` was
+empty and all 180 warm episodic rows lacked writer-attributed `source_spans`:
+this is a pre-v3 source store. The containment count is a candidate pool,
+**not 2,094 missing facts** or a graph-quality score. It does not compare to
+the older 8,280-node arm-1 percentage. The old G51 name-inferred `pending`
+edge plan is rejected because v3 retrieval traverses pending edges above its
+trust floor and the synthetic agent batch would not identify a real source.
+
 ## 2026-09-22 — v3 summary source-tier continuity
 
 542 combined smoke/SQL/settings checks passed in disposable databases; the

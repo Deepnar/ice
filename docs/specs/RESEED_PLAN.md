@@ -105,11 +105,12 @@ a blind round, a decision, and the loser is gone rather than parked behind a
 flag.
 
 ⚠ **The one correction, and it is not a hedge — it is the failure this rule must
-avoid.** [G51](../ROADMAP.md#g51) picked the aggressive side *without* a
-measurement: its default expired the previous fact, and it **silently destroyed
-667 true facts**. Being decisive in the wrong direction cost more than hedging
-would have. ⇒ **the rule is "commit after measuring", never "commit instead of
-measuring".** A side picked from a preference is the G51 failure wearing this
+avoid.** The old open-relation default, later diagnosed under
+[G51](../ROADMAP.md#g51), picked supersession without a measurement and silently
+retired real multi-valued facts. The retained [PROVENANCE](../PROVENANCE.md)
+documents eight components with seven retired; a separate “667 true facts”
+number was repeated without a retained measurement and is withdrawn. ⇒ **the
+rule is "commit after measuring", never "commit instead of measuring".** A side picked from a preference is that failure wearing this
 rule's clothes.
 
 ## 5. Order of work
