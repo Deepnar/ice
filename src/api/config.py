@@ -1,5 +1,5 @@
 """Configuration for the ICE FastAPI proxy."""
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -1015,12 +1015,13 @@ class Settings(BaseSettings):
     codex_extraction_chunk_adaptive: bool = True
     codex_extraction_chunk_max: int = 4096
 
-    # num_ctx. Telling the server the window we need costs KV-cache VRAM, so
-    # it is opt-in and clamped. "fit" asks for exactly what the assembled
-    # prompt needs plus the generation reserve.
-    ollama_send_num_ctx: bool = False
-    ollama_num_ctx_mode: str = "fit"
+    # G32(b): the native local foreground path explicitly owns its window.
+    # "fit" sizes to the guarded prompt + generation reserve; "max" allocates
+    # the known serving ceiling. Opting out restores the host's Ollama default.
+    ollama_send_num_ctx: bool = True
+    ollama_num_ctx_mode: Literal["fit", "max"] = "fit"
     ollama_num_ctx_max: int = 32_768
+    foreground_read_timeout_seconds: float = 120.0
 
     # ── B2: principled memory-retrieval decision (log-odds combination) ──
     # These REPLACE the scattered hard LTM overrides. Every weight lives here

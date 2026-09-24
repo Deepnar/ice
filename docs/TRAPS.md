@@ -1675,3 +1675,15 @@ Keep exception class and SQLSTATE, plus the failing leg; do not stringify databa
 or provider errors by default. A control planted private source text in an actual
 StatementError and asserted it never reached the logger while database rollback
 still occurred. Testing with a harmless ValueError would have missed the shape.
+
+### 62. A background task captures arguments before a streaming fallback chooses its model
+
+**v3, 2026-09-23.** The chat route added its post-flight task before the
+`StreamingResponse` generator ran. `model_used=model_to_use` therefore captured
+the *primary* model even if a timeout switched to the local fallback while
+streaming. The user saw and ICE stored fallback text, while post-flight was told
+the primary wrote it. The G32 native-transport repair now carries completion
+and final model identity in mutable generation state; a route control times out
+an external model, succeeds locally, and checks the model handed to maintenance.
+Whenever a value can change inside a lazy stream, test what the later callback
+receives, not what the request handler set before returning its response.

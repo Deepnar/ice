@@ -24,6 +24,11 @@ from src.api.config import settings
 from src.api.context_ledger import effective_memory_budget
 from src.api.core import ICECore, create_core
 from src.api.db import SessionLocal, get_db
+from src.api.foreground_transport import (
+    UpstreamGenerationError,
+    build_generation_request,
+    stream_generation_response,
+)
 from src.api.memory_decision import (
     decide_memory_retrieval,
     derive_total_budget,
@@ -83,32 +88,6 @@ app.include_router(user_control.router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-
-def _ollama_body(model: str, messages: list,
-                 prompt_tokens: int = 0) -> dict:
-    """The generation request body.
-
-    C16: `stream_options.include_usage` asks the server to append a final
-    chunk carrying `usage.prompt_eval_count` — the model server's OWN count of
-    the prompt it received. That is the only ground truth for how many tokens
-    ICE actually spends, and it is what calibrates the embedder-tokenizer
-    prediction (`memory/tokens.py`) against the generation model's vocabulary
-    instead of arguing about the difference. The chunk has no
-    `choices[0].delta`, so the storage parser already skips it.
-    """
-    body = {"model": model, "messages": messages, "stream": True}
-    if settings.token_usage_reconciliation:
-        body["stream_options"] = {"include_usage": True}
-    # C16: ask for the window this prompt actually needs. Off by default —
-    # a bigger KV cache costs VRAM and can evict the generation model, which
-    # trades ~300 ms of prompt handling for something worse. Only safe now
-    # that the prompt is bounded and measured.
-    if settings.ollama_send_num_ctx and prompt_tokens:
-        want = prompt_tokens + settings.context_generation_reserve
-        body["options"] = {"num_ctx": min(int(settings.ollama_num_ctx_max),
-                                          int(want))}
-    return body
 
 
 def _salvage_content(line: str) -> Optional[str]:
@@ -223,6 +202,7 @@ async def store_turn_async(
     model_used: str = "",
     is_private: bool = False,
     predicted_prompt_tokens: int = 0,
+    generation_state: Optional[dict] = None,
 ):
     """Async post-flight task.
 
@@ -230,6 +210,11 @@ async def store_turn_async(
     via thread pool offloading, and commits write-once transactions.
     """
     log = logger.bind(correlation_id=correlation_id)
+    if generation_state is not None:
+        model_used = generation_state.get("model_used", model_used)
+    if generation_state is not None and not generation_state.get("complete"):
+        log.warning("turn_not_stored_incomplete_generation", model=model_used)
+        return
 
     # 1. Join raw fragments FIRST to repair broken line boundaries from socket
     #    splits — but only WITHIN one upstream stream. G5: a turn can involve
@@ -260,6 +245,9 @@ async def store_turn_async(
                  model=model_used)
 
     full_assistant_text, sse_stats = _parse_sse_text(full_raw_stream)
+    if not full_assistant_text.strip():
+        log.warning("turn_not_stored_empty_generation", model=model_used)
+        return
 
     # G5: say so, every time. A dropped line means `raw_text` is short by
     # however much the model had already generated, and every triplet, summary
@@ -355,7 +343,8 @@ async def store_turn_async(
 
     except Exception as exc:
         write_db.rollback()
-        log.error("failed_to_store_turn", error=str(exc))
+        # SQL/provider exception text can include raw prompt parameters.
+        log.error("failed_to_store_turn", error_type=type(exc).__name__)
     finally:
         write_db.close()
 
@@ -523,10 +512,13 @@ async def chat_completions(
             conv_row.consecutive_shifts = 0
             log.info("mini_moe_routing", selected_model=model_name,
                      topic_tags=result.topic_tags, intent_tags=result.intent_tags)
-        ollama_url = f"{model_base_url or settings.ollama_base_url}/v1/chat/completions"
+        generation_base_url = model_base_url or settings.ollama_base_url
+        local_ollama = (model_base_url is None or
+                        model_base_url.rstrip("/") == settings.ollama_base_url.rstrip("/"))
     else:
         model_name = body.get("model", get_fallback_model())
-        ollama_url = f"{settings.ollama_base_url}/v1/chat/completions"
+        generation_base_url = settings.ollama_base_url
+        local_ollama = True
     db.commit()  # persist the stickiness state (shift counter + sticky model)
 
     # C16: total context budget from the window the SERVER actually allocated,
@@ -705,9 +697,24 @@ async def chat_completions(
     # truncated tail splice onto the fallback's first line.
     raw_stream_segments: list[list[str]] = []
     model_to_use = model_name
+    generation_state = {"complete": False, "model_used": model_to_use}
 
     async def generate():
         nonlocal model_to_use
+
+        async def forward(model: str, base_url: str, native: bool,
+                          window: int | None, segment: list[str]):
+            request_spec = build_generation_request(
+                model, messages, prompt_tokens, window, base_url, native)
+            timeout = httpx.Timeout(settings.foreground_read_timeout_seconds,
+                                    connect=10.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                async with client.stream("POST", request_spec.url,
+                                         json=request_spec.body) as response:
+                    async for chunk in stream_generation_response(
+                            response, request_spec, generation_state):
+                        segment.append(chunk)
+                        yield chunk
 
         # C7 D7: the in-flight flag is the shared-mode contention gate — no
         # background gpu job dispatches while a generation streams.
@@ -743,46 +750,54 @@ async def chat_completions(
         # SSE: generating
         yield sse_event("generating", {"model": model_to_use})
 
-        # Primary request with tight timeout. The outer try/finally guarantees
+        # The outer try/finally guarantees
         # generation_finished fires even on a client disconnect mid-stream.
         try:
             try:
                 primary_segment: list[str] = []
                 raw_stream_segments.append(primary_segment)
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    async with client.stream(
-                        "POST",
-                        ollama_url,
-                        json=_ollama_body(model_to_use, messages,
-                                          prompt_tokens),
-                    ) as response:
-                        async for chunk in response.aiter_text():
-                            primary_segment.append(chunk)
-                            yield chunk
+                async for chunk in forward(model_to_use, generation_base_url,
+                                           local_ollama, effective_window,
+                                           primary_segment):
+                    yield chunk
             except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError) as e:
-                log.warning("primary_model_timeout", model=model_to_use, error=str(e))
+                log.warning("primary_model_timeout", model=model_to_use,
+                            error_type=type(e).__name__)
                 yield sse_event("degraded", {"reason": "primary_model_timeout", "fallback": get_fallback_model()})
                 model_to_use = get_fallback_model()
+                generation_state["model_used"] = model_to_use
                 yield sse_event("generating", {"model": model_to_use})
                 fallback_segment: list[str] = []
                 raw_stream_segments.append(fallback_segment)
-                async with httpx.AsyncClient(timeout=30.0) as client2:
-                    async with client2.stream(
-                        "POST",
-                        ollama_url,
-                        json=_ollama_body(model_to_use, messages,
-                                          prompt_tokens),
-                    ) as response2:
-                        async for chunk in response2.aiter_text():
-                            fallback_segment.append(chunk)
-                            yield chunk
+                try:
+                    fallback_window = await asyncio.to_thread(
+                        serving_window, model_to_use,
+                        get_model_context_window(model_to_use))
+                    async for chunk in forward(model_to_use, settings.ollama_base_url,
+                                               True, fallback_window,
+                                               fallback_segment):
+                        yield chunk
+                except Exception as fallback_error:
+                    log.error("fallback_streaming_failed", model=model_to_use,
+                              error_type=type(fallback_error).__name__)
+                    yield sse_event("degraded", {"reason": "fallback_streaming_error"})
+            except UpstreamGenerationError as e:
+                log.error("upstream_generation_failed", model=model_to_use,
+                          reason=e.reason, status=e.status_code,
+                          prompt_tokens=e.prompt_tokens,
+                          context_tokens=e.context_tokens)
+                yield sse_event("degraded", {
+                    "reason": e.reason, "status": e.status_code,
+                    "prompt_tokens": e.prompt_tokens,
+                    "context_tokens": e.context_tokens,
+                })
             except Exception as e:
                 # G5: this told the CLIENT and not the logs, so a generation
                 # that died server-side left a short turn in the store and no
                 # record of why.
                 log.error("streaming_failed", model=model_to_use,
-                          error=str(e), error_type=type(e).__name__)
-                yield sse_event("degraded", {"reason": "streaming_error", "error": str(e)})
+                          error_type=type(e).__name__)
+                yield sse_event("degraded", {"reason": "streaming_error"})
         finally:
             if core is not None and core.runtime is not None:
                 core.runtime.generation_finished()
@@ -800,6 +815,7 @@ async def chat_completions(
         model_used=model_to_use,
         is_private=is_private_conversation,
         predicted_prompt_tokens=prompt_tokens,
+        generation_state=generation_state,
     )
 
     return StreamingResponse(
