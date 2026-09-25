@@ -133,6 +133,14 @@ PROFILES: dict[str, ProviderProfile] = {
         api_key_env="PROBE_API_KEY",
         supports_temperature=False,
     ),
+    "opencode-luna6": ProviderProfile(
+        name="opencode-luna6",
+        endpoint="responses",
+        model="gpt-6-luna",
+        base_url_env="PROBE_API_BASE_URL",
+        api_key_env="PROBE_API_KEY",
+        supports_temperature=False,
+    ),
     "opencode-mimo25": ProviderProfile(
         name="opencode-mimo25",
         endpoint="chat_completions",

@@ -677,6 +677,12 @@ answers is not success. These two evaluations cannot establish full-history
 distractor robustness or multi-user generalization; do not add extra campaigns
 without a new user instruction.
 
+**v3 answerer update, 2026-09-25:** new cloud answer probes use `gpt-6-luna`
+through OpenCode Go Responses after its model listing and a minimal completion
+both succeeded. Keep prior `gpt-5.6-luna` artifacts labeled as such; this is a
+forward model choice, not a retroactive change to a measured run. The general
+background model remains local and separately pinned.
+
 ### Fold input/output preservation — 2026-09-20
 
 Use the shared source-supported representation selector for every turn entering

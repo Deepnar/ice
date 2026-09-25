@@ -45,20 +45,57 @@ def paired_messages(before, after):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--before", required=True)
-    parser.add_argument("--after", required=True)
+    parser.add_argument("--before")
+    parser.add_argument("--after")
+    parser.add_argument("--probe-report", help="One trace with full/no-Codex/vector probe arms")
     parser.add_argument("--out", required=True)
-    parser.add_argument("--turns", type=int, nargs="+", required=True,
+    parser.add_argument("--turns", type=int, nargs="+",
                         help="One-based turn indexes from the trace")
+    parser.add_argument("--profile", default="opencode-luna6",
+                        choices=("opencode-luna6", "opencode-luna"))
     args = parser.parse_args()
+    output = private_path(args.out)
+    if bool(args.probe_report) == bool(args.before or args.after):
+        raise ValueError("Choose either a probe report or a before/after pair")
+    load_selected_env()
+    profile = PROFILES[args.profile]
+    answerer = TextGenerator(profile)
+    if args.probe_report:
+        source = json.loads(private_path(args.probe_report).read_text())
+        result = {"profile": profile.metadata(), "source": source["source"],
+                  "source_start": source["source_start"], "probes": []}
+        for probe in source.get("probes", []):
+            arms = probe["arms"]
+            if set(arms) != {"full", "no_codex", "vector_only"}:
+                raise ValueError("Probe report lacks a retrieval arm")
+            messages = {"full": paired_messages(
+                arms["full"]["prompt_messages"],
+                arms["no_codex"]["prompt_messages"])[0]}
+            for arm in ("no_codex", "vector_only"):
+                _, messages[arm] = paired_messages(
+                    arms["full"]["prompt_messages"], arms[arm]["prompt_messages"])
+            entry = {"question": probe["question"], "gold": probe.get("gold"),
+                     "source_pair": probe.get("source_pair"), "answers": {}}
+            result["probes"].append(entry)
+            for arm in ("full", "no_codex", "vector_only"):
+                response = answerer.generate(
+                    messages[arm], temperature=0, max_output_tokens=768,
+                    session_id=f"ice-v3-probe-{uuid.uuid4()}")
+                entry["answers"][arm] = {"text": response.text,
+                                         "usage": response.usage,
+                                         "response_id": response.response_id,
+                                         "prompt_tokens": arms[arm]["prompt_tokens"]}
+                output.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+            print(f"probe source pair {entry['source_pair']}: three answers saved",
+                  flush=True)
+        return
+
+    if not (args.before and args.after and args.turns):
+        raise ValueError("Before/after mode needs both reports and turn indexes")
     before = json.loads(private_path(args.before).read_text())
     after = json.loads(private_path(args.after).read_text())
-    output = private_path(args.out)
     if before["source"] != after["source"] or before["source_start"] != after["source_start"]:
         raise ValueError("Traces do not share a source window")
-    load_selected_env()
-    profile = PROFILES["opencode-luna"]
-    answerer = TextGenerator(profile)
     result = {"profile": profile.metadata(), "source": before["source"],
               "source_start": before["source_start"], "turns": []}
     for turn_number in args.turns:
