@@ -9,12 +9,14 @@ class ExtractionOutputError(ValueError):
     """Incomplete or invalid extraction; callers must not mark work complete."""
 
 
-def parse_extraction_response(content, finish_reason=None, *, template_mode=False):
+def parse_extraction_response(content, finish_reason=None, *, template_mode=False,
+                              allow_source_only=False):
     """Return complete facts, preserving polarity and arbitrary JSON key order.
 
     Errors carry structure/reasons only, never source text or model responses.
     A partially recoverable response is still incomplete: committing its prefix
-    would make omissions permanent or count replay as fresh corroboration.
+    would make omissions permanent or count replay as fresh corroboration. The
+    explicit source-only form retains an exact quote without asserting a triple.
     """
     if finish_reason not in (None, "stop"):
         raise ExtractionOutputError(f"incomplete completion: {finish_reason}")
@@ -39,10 +41,21 @@ def parse_extraction_response(content, finish_reason=None, *, template_mode=Fals
     if not isinstance(facts, list):
         raise ExtractionOutputError("extraction must be a fact array")
     for index, fact in enumerate(facts):
-        if not isinstance(fact, dict) or not all(
-            isinstance(fact.get(key), str) and fact[key].strip()
-            for key in ("subject", "relation", "object")
-        ):
+        if not isinstance(fact, dict):
+            raise ExtractionOutputError(f"invalid fact fields at index {index}")
+        # A template model can express an exact source sentence for a unary
+        # assertion while leaving the triple's object null. Keep the sentence
+        # as evidence, never as a graph relation. The caller still has to
+        # confirm that the quote occurs in the original source chunk.
+        source_only = (allow_source_only and fact.get("object") is None
+                       and isinstance(fact.get("source_sentence"), str)
+                       and bool(fact["source_sentence"].strip())
+                       and all(isinstance(fact.get(key), str) and fact[key].strip()
+                               for key in ("subject", "relation")))
+        if source_only:
+            fact["_source_only"] = True
+        elif not all(isinstance(fact.get(key), str) and fact[key].strip()
+                     for key in ("subject", "relation", "object")):
             raise ExtractionOutputError(f"invalid fact fields at index {index}")
         if "negated" in fact and not isinstance(fact["negated"], bool):
             raise ExtractionOutputError(f"non-boolean polarity at index {index}")

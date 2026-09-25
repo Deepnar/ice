@@ -1078,15 +1078,25 @@ def extract_triplets(text: str, model_override: str = "",
                 choice.message.content,
                 getattr(choice, "finish_reason", None),
                 template_mode=template_mode,
+                allow_source_only=template_mode and source_sentences is not None,
             )
 
             if source_sentences is not None:
                 for fact in chunk_triplets:
                     sentence = fact.get("source_sentence")
                     if isinstance(sentence, str) and sentence.strip():
+                        if fact.get("_source_only") and sentence not in chunk:
+                            raise ExtractionOutputError("source-only quote not in original chunk")
                         source_sentences.append(sentence.strip())
                     else:
                         raise ExtractionOutputError("missing source sentence")
+            source_only_count = sum(bool(fact.get("_source_only")) for fact in chunk_triplets)
+            if source_only_count:
+                logger.warning("codex_source_only_extraction",
+                               count=source_only_count,
+                               reason="null object; exact sentence retained without graph edge")
+                chunk_triplets = [fact for fact in chunk_triplets
+                                  if not fact.get("_source_only")]
 
             # Map each relation onto the vocabulary; keep what maps, RECORD what
             # does not. This line used to be a bare filter with no log, and it

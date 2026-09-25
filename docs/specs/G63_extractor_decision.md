@@ -237,6 +237,11 @@ that risk. *Phase 3 does not start until G12 is ticked.*
       once required a letter and destroyed **94 true numeric entities**
       (`3.80 --score--> maths`) — not worth tightening against a stale number.
       **Re-measure the malformed rate in the next judged round; act only if real.**
+      **v3 correction 2026-09-25:** the 0% rate above describes that judged
+      configuration and is not a guarantee for the later sentence-claim
+      template. An organic attributed replay emitted `object: null` with an
+      exact source sentence. V3_REPAIR now treats only that exact-quote unary
+      shape as a source-only claim; it never becomes a graph triple.
 - [x] **P6. Docs in step with the code** — FEATURE_INVENTORY rows for the output
       budget, prompt shape, adaptive chunking, NER tier and the relation
       threshold; MODELS.md background-extractor decision; ROADMAP G63/G68.

@@ -2,6 +2,7 @@
 
 import os
 import uuid
+from types import SimpleNamespace as NS
 
 import numpy as np
 import pytest
@@ -63,6 +64,61 @@ def test_relation_pairs_keep_polarity_and_isolate_overlong_source():
     with pytest.raises(RuntimeError, match="model unavailable"):
         verify_relation_pairs([("Mira lives in Berlin.", "Mira lives in Berlin.")],
                               scorer=outage)
+
+
+@pytest.mark.skipif(not os.getenv("ICE_TEST_DATABASE"),
+                    reason="requires a disposable PostgreSQL database")
+def test_nullable_template_object_retains_exact_claim_without_graph_edge(monkeypatch):
+    sentence = "The timer was disabled."
+    response = '{"facts":[{"subject":"timer","relation":"was disabled",' \
+               '"object":null,"source_sentence":"The timer was disabled."}]}'
+    completion = NS(choices=[NS(message=NS(content=response), finish_reason="stop")])
+    monkeypatch.setattr(settings, "codex_sentence_claims", True)
+    monkeypatch.setattr(settings, "codex_extraction_mode", "template")
+    monkeypatch.setattr(worker, "bg_client", NS(chat=NS(completions=NS(
+        create=lambda **_kwargs: completion))))
+    monkeypatch.setattr(worker, "embedder", Encoder())
+    monkeypatch.setattr(worker, "extract_entities", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(worker, "serving_window", lambda *_args: 8192)
+    monkeypatch.setattr(worker, "make_llm_reconciler", lambda: None)
+    monkeypatch.setattr(worker, "store_claims", lambda db, row, sentences, *, encoder:
+        store_claims(db, row, sentences, encoder=encoder,
+            verifier=lambda source, claim: support.verify_support(source, claim,
+                scorer=lambda _pairs: [_scores(0.99)])))
+    batch = uuid.uuid4()
+    with SessionLocal() as db:
+        conversation = Conversation()
+        db.add(conversation)
+        db.flush()
+        conversation_id = conversation.id
+        db.add(EpisodicMemory(conversation_id=conversation_id, batch_id=batch,
+            idempotency_key=f"source-only-{batch}", context_reliance="Long_Term_Memory",
+            raw_text=sentence, source_spans=single_provenance(sentence, "user")))
+        db.commit()
+    try:
+        worker.extract_codex(str(batch))
+        with SessionLocal() as db:
+            assert db.query(CodexClaim).filter_by(source_batch=batch).count() == 1
+            assert db.query(CodexEdge).filter_by(source_batch=batch).count() == 0
+            assert db.query(IdempotencyKey).filter_by(key=job_key("codex", batch)).count() == 1
+            reader = HybridRetrievalOrchestrator(db, None)
+            assert reader._codex_claims("timer", None,
+                                        {"conversation_id": str(conversation_id)})
+        completion.choices[0].message.content = response.replace(
+            "The timer was disabled.", "The timer was enabled.")
+        with pytest.raises(worker.ExtractionOutputError):
+            worker.extract_triplets(sentence, source_sentences=[])
+    finally:
+        with SessionLocal() as db:
+            db.query(IdempotencyKey).filter_by(key=job_key("codex", batch)).delete(
+                synchronize_session=False)
+            db.query(CodexClaim).filter_by(source_batch=batch).delete(
+                synchronize_session=False)
+            db.query(EpisodicMemory).filter_by(batch_id=batch).delete(
+                synchronize_session=False)
+            db.query(Conversation).filter_by(id=conversation_id).delete(
+                synchronize_session=False)
+            db.commit()
 
 
 @pytest.mark.skipif(not os.getenv("ICE_TEST_DATABASE"),

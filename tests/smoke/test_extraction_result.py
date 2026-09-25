@@ -25,6 +25,22 @@ def test_negative_fact_survives_key_order_and_escaped_strings():
     assert parse_extraction_response(content, "stop", template_mode=True) == facts
 
 
+def test_null_object_is_source_only_only_with_attributed_sentence_mode():
+    row = {"subject": "timer", "relation": "was disabled", "object": None,
+           "source_sentence": "The timer was disabled."}
+    content = json.dumps({"facts": [row]})
+    with pytest.raises(ExtractionOutputError):
+        parse_extraction_response(content, "stop", template_mode=True)
+    accepted = parse_extraction_response(content, "stop", template_mode=True,
+                                         allow_source_only=True)
+    assert accepted == [dict(row, _source_only=True)]
+    for invalid in (dict(row, subject=None), dict(row, relation=None),
+                    dict(row, source_sentence=""), dict(row, object="")):
+        with pytest.raises(ExtractionOutputError):
+            parse_extraction_response(json.dumps({"facts": [invalid]}), "stop",
+                                      template_mode=True, allow_source_only=True)
+
+
 @pytest.mark.parametrize(
     "content",
     [
