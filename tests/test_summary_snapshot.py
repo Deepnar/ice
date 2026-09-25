@@ -163,6 +163,61 @@ def test_complete_source_note_is_skipped_if_it_cannot_fit(context):
     assert notes[-1].text in selected and notes[0].text not in selected
 
 
+def test_unknown_group_keeps_complete_turns_and_selects_the_small_source(context):
+    ctx = context
+    large = 'The user described background context. ' * 550
+    correction = 'The user settled on the violet 742 protocol.'
+    ctx.first.raw_text = large
+    ctx.first.source_spans = single_provenance(large, 'user')
+    ctx.second.raw_text = correction
+    ctx.second.source_spans = single_provenance(correction, 'user')
+    ctx.db.commit()
+    result = worker.run_conversation_summaries(ctx.db,
+        llm=lambda *a, **k: 'An unsupported short note.',
+        embedder=NS(encode=lambda *a, **k: VEC), conversation_ids=[ctx.cid],
+        verifier=lambda p, h: verify_support(p, h, scorer=lambda pairs:
+            [dict(entailment=.01, neutral=.98, contradiction=.01)]))
+    assert result['updated'] == 1
+    row = ctx.db.query(ConversationSummary).filter_by(conversation_id=ctx.cid).one()
+    notes = ctx.db.query(ConversationNote).filter_by(conversation_id=ctx.cid).order_by(
+        ConversationNote.ordinal).all()
+    assert len(notes) == 2
+    assert [n.source_ids for n in notes] == [[str(ctx.first.id)], [str(ctx.second.id)]]
+    assert all(n.mode == 'source' for n in notes)
+    assert large in row.summary_text and correction in row.summary_text
+    assert 'An unsupported short note.' not in row.summary_text
+    own = conversation_summary_block(ctx.db, str(ctx.cid), 3, 10000, 1, VEC, 650)
+    assert correction in own and large not in own
+    cross = HybridRetrievalOrchestrator(ctx.db, NS())._batch_summary_lookup(
+        VEC, str(ctx.other))
+    assert any(correction in f.text and f.origin_batch_ids == (str(ctx.second.batch_id),)
+               for f in cross)
+
+
+def test_valid_legacy_grouped_fallback_is_rebuilt_from_originals(context):
+    from src.memory.summary_snapshot import compose_parts
+    ctx = context
+    row = ctx.db.query(ConversationSummary).filter_by(conversation_id=ctx.cid).one()
+    source = '\n\n'.join(worker._original_source(t)[0]
+                         for t in (ctx.first, ctx.second))
+    old_part = {'source_ids': [str(ctx.first.id), str(ctx.second.id)],
+                'mode': 'source', 'text': source, 'recorded_range': 'old group'}
+    row.summary_text = compose_parts([old_part])
+    row.source_manifest = bind_snapshot(source_snapshot(ctx.db, ctx.cid),
+                                        row.summary_text, parts=[old_part])
+    ctx.db.commit()
+    result = worker.run_conversation_summaries(ctx.db,
+        llm=lambda *a, **k: 'An unsupported short note.',
+        embedder=NS(encode=lambda *a, **k: VEC), conversation_ids=[ctx.cid],
+        verifier=lambda p, h: verify_support(p, h, scorer=lambda pairs:
+            [dict(entailment=.01, neutral=.98, contradiction=.01)]))
+    assert result['updated'] == 1
+    notes = ctx.db.query(ConversationNote).filter_by(conversation_id=ctx.cid).order_by(
+        ConversationNote.ordinal).all()
+    assert len(notes) == 2
+    assert all(n.mode == 'source' and len(n.source_ids) == 1 for n in notes)
+
+
 def test_corrupt_derived_note_index_falls_back_to_current_aggregate(context):
     ctx = context
     note = ctx.db.query(ConversationNote).filter_by(conversation_id=ctx.cid).one()

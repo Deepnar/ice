@@ -182,6 +182,12 @@ def test_unsupported_compression_keeps_original_evidence(batch_context, monkeypa
     assert len(hits) == 1 and '9999' not in hits[0].text
     for i in range(5):
         assert f'Source observation {i}.' in hits[0].text
+    with SessionLocal() as db:
+        parts = db.query(BatchSummary).filter_by(
+            conversation_id=batch_context.cid).one().source_manifest['parts']
+        assert len(parts) == 5
+        assert all(part['mode'] == 'source' and len(part['source_ids']) == 1
+                   for part in parts)
 
 
 @pytest.mark.parametrize('change', ['source', 'delete', 'output', 'legacy', 'policy',

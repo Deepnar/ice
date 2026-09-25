@@ -132,6 +132,28 @@ def _source_note(turns, source, known_roles, llm, verifier, *, max_tokens=400):
             "verification": verdict}
 
 
+def _readable_parts(part, turns):
+    """Keep each original turn whole when a generated group cannot be trusted.
+
+    The verifier checks the full group, but its fallback must be selectable
+    within the smaller foreground note allowance. Never split a single turn.
+    """
+    if part['mode'] != 'source' or len(turns) == 1:
+        return [part]
+    result = []
+    for turn in turns:
+        source, _ = _original_source(turn)
+        result.append({"source_ids": [str(turn.id)], "mode": "source",
+                       "recorded_range": recorded_stamp(turn.timestamp, turn.ts_provenance),
+                       "text": source, "verification": part['verification']})
+    return result
+
+
+def _has_grouped_source_fallback(row):
+    return any(part.get('mode') == 'source' and len(part.get('source_ids', [])) > 1
+               for part in (row.source_manifest or {}).get('parts', []))
+
+
 def _summary_embedding(summary, embedder):
     """Cover the complete composition even when it exceeds the encoder window."""
     import numpy as np
@@ -238,7 +260,7 @@ def run_conversation_summaries(db, llm=None, embedder=None,
         previous_valid = existing_row is not None and bool(
             (existing_row.source_manifest or {}).get("parts")) and snapshot_matches(
             existing_row.source_manifest, existing_row.summary_text, sources,
-            allow_newer=True)
+            allow_newer=True) and not _has_grouped_source_fallback(existing_row)
         if previous_valid and snapshot_matches(
                 existing_row.source_manifest, existing_row.summary_text, sources):
             if _index_parts(db, existing_row, existing_row.source_manifest['parts'], lazy_embedder):
@@ -274,7 +296,7 @@ def run_conversation_summaries(db, llm=None, embedder=None,
             if part is None:
                 ok = False
                 break
-            parts.append(part)
+            parts.extend(_readable_parts(part, turns))
         if not ok:
             stats["failed"] += 1
             logger.warning("conversation_summary_failed",

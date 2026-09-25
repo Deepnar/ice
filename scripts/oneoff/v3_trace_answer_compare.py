@@ -16,6 +16,8 @@ from experiments.lme.cloud_provider import PROFILES, TextGenerator, load_selecte
 
 LOG_ROOT = (Path(__file__).resolve().parents[2] / "logs").resolve()
 CONTEXT_PREFIX = "=== RETRIEVED CONTEXT ==="
+SUMMARY_SECTION = "\n\n=== CONVERSATION SUMMARY ===\n"
+BOOKMARK_SECTION = "\n\n=== BOOKMARKED BY THE USER ===\n"
 ACK = "Understood — I have the background context. What would you like to know?"
 
 
@@ -34,10 +36,22 @@ def paired_messages(before, after):
             r"Current date and time \(UTC\): [^\n]+",
             "Current date and time (UTC): 2026-09-25T00:00:00Z.",
             messages[0]["content"], count=1)
+    def without_summary(content):
+        start = content.find(SUMMARY_SECTION)
+        if start < 0:
+            return content
+        end = content.find(BOOKMARK_SECTION, start + len(SUMMARY_SECTION))
+        return content[:start] + (content[end:] if end >= 0 else "")
     def without_evidence(messages):
-        return [m for m in messages
-                if not m["content"].startswith(CONTEXT_PREFIX)
-                and m["content"] != ACK]
+        kept = []
+        for index, message in enumerate(messages):
+            if message["content"].strip().startswith(CONTEXT_PREFIX) or message["content"] == ACK:
+                continue
+            item = dict(message)
+            if index == 0:
+                item["content"] = without_summary(item["content"])
+            kept.append(item)
+        return kept
     if without_evidence(left) != without_evidence(right):
         raise ValueError("Paired prompt differs outside retrieved evidence")
     return left, right
@@ -53,6 +67,9 @@ def main():
                         help="One-based turn indexes from the trace")
     parser.add_argument("--profile", default="opencode-luna6",
                         choices=("opencode-luna6", "opencode-luna"))
+    parser.add_argument("--probe-arms", nargs="+",
+                        choices=("full", "no_codex", "vector_only", "no_summary"),
+                        help="Probe arms to answer; default is every recorded arm")
     args = parser.parse_args()
     output = private_path(args.out)
     if bool(args.probe_report) == bool(args.before or args.after):
@@ -66,18 +83,24 @@ def main():
                   "source_start": source["source_start"], "probes": []}
         for probe in source.get("probes", []):
             arms = probe["arms"]
-            if set(arms) != {"full", "no_codex", "vector_only"}:
+            arm_order = ("full", "no_codex", "vector_only") + (
+                ("no_summary",) if "no_summary" in arms else ())
+            if set(arms) != set(arm_order):
                 raise ValueError("Probe report lacks a retrieval arm")
             messages = {"full": paired_messages(
                 arms["full"]["prompt_messages"],
                 arms["no_codex"]["prompt_messages"])[0]}
-            for arm in ("no_codex", "vector_only"):
+            for arm in arm_order[1:]:
                 _, messages[arm] = paired_messages(
                     arms["full"]["prompt_messages"], arms[arm]["prompt_messages"])
             entry = {"question": probe["question"], "gold": probe.get("gold"),
                      "source_pair": probe.get("source_pair"), "answers": {}}
             result["probes"].append(entry)
-            for arm in ("full", "no_codex", "vector_only"):
+            selected_arms = args.probe_arms or arm_order
+            if len(set(selected_arms)) != len(selected_arms) or any(
+                    arm not in arm_order for arm in selected_arms):
+                raise ValueError("Requested probe arm is duplicate or absent")
+            for arm in selected_arms:
                 response = answerer.generate(
                     messages[arm], temperature=0, max_output_tokens=768,
                     session_id=f"ice-v3-probe-{uuid.uuid4()}")
@@ -86,7 +109,7 @@ def main():
                                          "response_id": response.response_id,
                                          "prompt_tokens": arms[arm]["prompt_tokens"]}
                 output.write_text(json.dumps(result, ensure_ascii=False, indent=2))
-            print(f"probe source pair {entry['source_pair']}: three answers saved",
+            print(f"probe source pair {entry['source_pair']}: {len(selected_arms)} answers saved",
                   flush=True)
         return
 

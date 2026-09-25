@@ -17,7 +17,9 @@ from src.memory.summary_snapshot import (
 from src.memory.support import verify_support
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 from src.workers.completion_text import IncompleteCompletion, complete_text
-from src.workers.conversation_summary import _original_groups, _source_note, _summary_embedding
+from src.workers.conversation_summary import (
+    _original_groups, _readable_parts, _source_note, _summary_embedding,
+)
 
 
 logger = structlog.get_logger("ice.workers.batch_summarizer")
@@ -218,7 +220,7 @@ def batch_summarize():
                                             max_tokens=settings.batch_summary_max_tokens)
                         if note is None:
                             raise IncompleteCompletion("empty batch source note")
-                        parts.append(note)
+                        parts.extend(_readable_parts(note, group))
                     summary_text = compose_parts(parts)
                     embedding = _summary_embedding(summary_text, embedder)
                     if hasattr(embedding, 'tolist'):

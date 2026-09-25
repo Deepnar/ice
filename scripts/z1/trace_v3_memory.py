@@ -25,7 +25,9 @@ from src.api.prompt_assembler import bookmarked_turn_texts, conversation_summary
 from src.api.prompt_budget import assemble_budgeted_prompt
 from src.classifier.classifier import PyTorchClassifier
 from src.ingestion.importer import _store_turn
-from src.memory.models import Conversation, CodexClaim, CodexEdge, MemorySlot
+from src.memory.models import (BatchSummary, Conversation, ConversationNote,
+                               ConversationSummary, CodexClaim, CodexEdge,
+                               MemorySlot)
 from src.memory.tokens import count_messages
 from src.memory.usage import evidence_after_eviction, record_graph_access
 from src.model_registry.registry import get_model_context_window
@@ -87,14 +89,16 @@ def _gate_fields(pre) -> dict:
             "breakdown": decision.breakdown}
 
 
-def _prepare(db, pre, orchestrator, question, conversation_id, fragments):
+def _prepare(db, pre, orchestrator, question, conversation_id, fragments,
+             *, include_summary=True):
     recent_budget = getattr(orchestrator, "recent_token_budget", None)
     if not pre.retrieve or recent_budget is None:
         from src.api.memory_decision import estimate_recent_window_tokens
         recent_budget = estimate_recent_window_tokens(pre.turn_count, pre.total_budget)
-    summary_options = conversation_summary_block(
+    summary_options = (conversation_summary_block(
         db, str(conversation_id), pre.turn_count, pre.total_tokens,
         recent_budget, pre.prompt_embedding, include_options=True)
+        if include_summary else [])
     window = (serving_window(pre.model_name, get_model_context_window(pre.model_name))
               if settings.context_use_serving_window
               else get_model_context_window(pre.model_name))
@@ -128,6 +132,10 @@ def _disable_nonvector(orchestrator):
         setattr(orchestrator, name, lambda *_args, **_kwargs: [])
 
 
+def _disable_summaries(orchestrator):
+    orchestrator._batch_summary_lookup = lambda *_args, **_kwargs: []
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", required=True)
@@ -136,6 +144,8 @@ def main() -> None:
     parser.add_argument("--out", required=True)
     parser.add_argument("--probes", help="Private JSON list of post-replay questions under logs/")
     parser.add_argument("--gate-probes", help="Private JSON list of B2-only style/control questions")
+    parser.add_argument("--maintenance", action="store_true",
+                        help="Run the actual rolling and batch-summary jobs after replay")
     args = parser.parse_args()
     output = _private_output(args.out)
     test_database = os.environ.get("ICE_TEST_DATABASE", "")
@@ -220,6 +230,22 @@ def main() -> None:
             print(f"pair {index + 1}/{args.pairs}: matched={turn['matched_graph_entities']} "
                   f"selected={len(survivors)} edges+={turn['postflight']['new_edges']} "
                   f"claims+={turn['postflight']['new_claims']}", flush=True)
+        if args.maintenance:
+            from src.workers.batch_summarizer import batch_summarize
+            from src.workers.conversation_summary import run_conversation_summaries
+
+            rolling_stats = run_conversation_summaries(
+                db, conversation_ids=[conversation_id])
+            batch_summarize()
+            db.expire_all()
+            report["maintenance"] = {
+                "rolling": rolling_stats,
+                "conversation_summaries": db.query(ConversationSummary).count(),
+                "conversation_notes": db.query(ConversationNote).count(),
+                "batch_summaries": db.query(BatchSummary).count(),
+            }
+            output.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+            print(f"maintenance: {report['maintenance']}", flush=True)
         if args.probes:
             probe_rows = json.loads(_private_output(args.probes).read_text())
             if not isinstance(probe_rows, list) or not all(
@@ -237,16 +263,22 @@ def main() -> None:
                              "source_pair": row.get("source_pair"),
                              "preflight": pp.provenance_fields(pre),
                              "gate": _gate_fields(pre), "arms": {}}
-                    for arm in ("full", "no_codex", "vector_only"):
+                    arms = ("full", "no_codex", "vector_only") + (
+                        ("no_summary",) if args.maintenance else ())
+                    for arm in arms:
                         scoped_pre = replace(pre, scope=copy.deepcopy(pre.scope))
                         orchestrator = HybridRetrievalOrchestrator(db, embedder)
                         if arm == "no_codex":
                             _disable_codex(orchestrator)
                         elif arm == "vector_only":
                             _disable_nonvector(orchestrator)
+                        elif arm == "no_summary":
+                            _disable_summaries(orchestrator)
                         fragments = pp.retrieve(orchestrator, scoped_pre) if pre.retrieve else []
                         prepared, survivors = _prepare(db, scoped_pre, orchestrator,
-                                                       question, conversation_id, fragments)
+                                                       question, conversation_id, fragments,
+                                                       include_summary=arm not in (
+                                                           "vector_only", "no_summary"))
                         entry["arms"][arm] = {
                             "selected": [_fragment_record(f) for f in survivors],
                             "prompt_messages": prepared.messages,
