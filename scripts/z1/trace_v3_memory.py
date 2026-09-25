@@ -7,9 +7,11 @@ This is a development diagnostic, not the LME or LSREP evaluation harness.
 """
 
 import argparse
+import copy
 import json
 import os
 import uuid
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,6 +20,7 @@ from sqlalchemy.engine import make_url
 from scripts.z1 import production_parity as pp
 from src.api.config import settings
 from src.api.db import SessionLocal
+from src.api.memory_decision import decide_memory_retrieval, estimate_recent_window_tokens
 from src.api.prompt_assembler import bookmarked_turn_texts, conversation_summary_block
 from src.api.prompt_budget import assemble_budgeted_prompt
 from src.classifier.classifier import PyTorchClassifier
@@ -67,12 +70,72 @@ def _fragment_record(fragment) -> dict:
     }
 
 
+def _gate_fields(pre) -> dict:
+    """Record the actual B2 terms for private, same-state style diagnostics."""
+    decision = decide_memory_retrieval(
+        pre.classification, turn_count=pre.turn_count,
+        total_tokens=pre.total_tokens, settings=settings,
+        recent_window_tokens=estimate_recent_window_tokens(
+            pre.turn_count, pre.total_budget),
+        timescope_mode=pre.timescope_mode,
+        coding_scope=bool(pre.scope.get("project_id")))
+    if decision.retrieve != pre.retrieve or abs(decision.p_need_mem - pre.p_need_mem) > 1e-8:
+        raise RuntimeError("B2 diagnostic does not match production-parity preflight")
+    return {"decision": pp.provenance_fields(pre),
+            "topic_tags": pre.classification.topic_tags,
+            "intent_tags": pre.classification.intent_tags,
+            "breakdown": decision.breakdown}
+
+
+def _prepare(db, pre, orchestrator, question, conversation_id, fragments):
+    recent_budget = getattr(orchestrator, "recent_token_budget", None)
+    if not pre.retrieve or recent_budget is None:
+        from src.api.memory_decision import estimate_recent_window_tokens
+        recent_budget = estimate_recent_window_tokens(pre.turn_count, pre.total_budget)
+    summary_options = conversation_summary_block(
+        db, str(conversation_id), pre.turn_count, pre.total_tokens,
+        recent_budget, pre.prompt_embedding, include_options=True)
+    window = (serving_window(pre.model_name, get_model_context_window(pre.model_name))
+              if settings.context_use_serving_window
+              else get_model_context_window(pre.model_name))
+    prepared = assemble_budgeted_prompt(
+        serving_window=window or 0,
+        generation_reserve=settings.context_generation_reserve,
+        safety_margin=settings.token_count_safety_margin,
+        memory_slots=db.query(MemorySlot).filter_by(is_active=True).all(),
+        retrieved_fragments=fragments, user_message=question, db_session=db,
+        conversation_id=str(conversation_id),
+        bookmarked_texts=bookmarked_turn_texts(db, conversation_id),
+        classification=pre.classification, scope=pre.scope,
+        max_recent_tokens=recent_budget,
+        conversation_summary_text=summary_options[0] if summary_options else None,
+        conversation_summary_options=summary_options)
+    if not prepared.ledger.fits():
+        raise RuntimeError("Required prompt exceeds context window")
+    return prepared, evidence_after_eviction(fragments, prepared.removed)
+
+
+def _disable_codex(orchestrator):
+    orchestrator._last_matched_entities = []
+    orchestrator._codex_graph = lambda *_args, **_kwargs: []
+    orchestrator._codex_claims = lambda *_args, **_kwargs: []
+
+
+def _disable_nonvector(orchestrator):
+    _disable_codex(orchestrator)
+    for name in ("_bm25_episodic", "_procedural_lookup", "_batch_summary_lookup",
+                 "_cold_lookup"):
+        setattr(orchestrator, name, lambda *_args, **_kwargs: [])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", required=True)
     parser.add_argument("--start", type=int, required=True)
     parser.add_argument("--pairs", type=int, required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--probes", help="Private JSON list of post-replay questions under logs/")
+    parser.add_argument("--gate-probes", help="Private JSON list of B2-only style/control questions")
     args = parser.parse_args()
     output = _private_output(args.out)
     test_database = os.environ.get("ICE_TEST_DATABASE", "")
@@ -112,32 +175,9 @@ def main() -> None:
             pre = pp.build(db, question, conversation_id, classifier, embedder)
             orchestrator = HybridRetrievalOrchestrator(db, embedder)
             fragments = pp.retrieve(orchestrator, pre) if pre.retrieve else []
-            recent_budget = getattr(orchestrator, "recent_token_budget", None)
-            if not pre.retrieve or recent_budget is None:
-                from src.api.memory_decision import estimate_recent_window_tokens
-                recent_budget = estimate_recent_window_tokens(pre.turn_count, pre.total_budget)
-            summary_options = conversation_summary_block(
-                db, str(conversation_id), pre.turn_count, pre.total_tokens,
-                recent_budget, pre.prompt_embedding, include_options=True)
-            window = (serving_window(pre.model_name, get_model_context_window(pre.model_name))
-                      if settings.context_use_serving_window
-                      else get_model_context_window(pre.model_name))
-            prepared = assemble_budgeted_prompt(
-                serving_window=window or 0,
-                generation_reserve=settings.context_generation_reserve,
-                safety_margin=settings.token_count_safety_margin,
-                memory_slots=db.query(MemorySlot).filter_by(is_active=True).all(),
-                retrieved_fragments=fragments, user_message=question, db_session=db,
-                conversation_id=str(conversation_id),
-                bookmarked_texts=bookmarked_turn_texts(db, conversation_id),
-                classification=pre.classification, scope=pre.scope,
-                max_recent_tokens=recent_budget,
-                conversation_summary_text=summary_options[0] if summary_options else None,
-                conversation_summary_options=summary_options)
-            survivors = evidence_after_eviction(fragments, prepared.removed)
+            prepared, survivors = _prepare(db, pre, orchestrator, question,
+                                           conversation_id, fragments)
             record_graph_access(db, survivors, stage="prompt_prepared")
-            if not prepared.ledger.fits():
-                raise RuntimeError(f"Required prompt exceeds context window at pair {index}")
             before_edges = db.query(CodexEdge).count()
             before_claims = db.query(CodexClaim).count()
             turn = {"index": index, "source_row": args.start + 2 * index,
@@ -180,6 +220,62 @@ def main() -> None:
             print(f"pair {index + 1}/{args.pairs}: matched={turn['matched_graph_entities']} "
                   f"selected={len(survivors)} edges+={turn['postflight']['new_edges']} "
                   f"claims+={turn['postflight']['new_claims']}", flush=True)
+        if args.probes:
+            probe_rows = json.loads(_private_output(args.probes).read_text())
+            if not isinstance(probe_rows, list) or not all(
+                    isinstance(row, dict) and isinstance(row.get("question"), str)
+                    and row["question"].strip() for row in probe_rows):
+                raise ValueError("Probe file must contain question objects")
+            report["probes"] = []
+            old_strengthen = settings.retrieval_strengthen_writes
+            settings.retrieval_strengthen_writes = False
+            try:
+                for row in probe_rows:
+                    question = row["question"]
+                    pre = pp.build(db, question, conversation_id, classifier, embedder)
+                    entry = {"question": question, "gold": row.get("gold"),
+                             "source_pair": row.get("source_pair"),
+                             "preflight": pp.provenance_fields(pre),
+                             "gate": _gate_fields(pre), "arms": {}}
+                    for arm in ("full", "no_codex", "vector_only"):
+                        scoped_pre = replace(pre, scope=copy.deepcopy(pre.scope))
+                        orchestrator = HybridRetrievalOrchestrator(db, embedder)
+                        if arm == "no_codex":
+                            _disable_codex(orchestrator)
+                        elif arm == "vector_only":
+                            _disable_nonvector(orchestrator)
+                        fragments = pp.retrieve(orchestrator, scoped_pre) if pre.retrieve else []
+                        prepared, survivors = _prepare(db, scoped_pre, orchestrator,
+                                                       question, conversation_id, fragments)
+                        entry["arms"][arm] = {
+                            "selected": [_fragment_record(f) for f in survivors],
+                            "prompt_messages": prepared.messages,
+                            "prompt_tokens": count_messages(prepared.messages),
+                            "evicted": prepared.removed,
+                            "matched_graph_entities": len(orchestrator._last_matched_entities),
+                        }
+                    report["probes"].append(entry)
+                    output.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+                    print(f"probe {len(report['probes'])}/{len(probe_rows)}: "
+                          f"retrieval={pre.retrieve}", flush=True)
+            finally:
+                settings.retrieval_strengthen_writes = old_strengthen
+        if args.gate_probes:
+            gate_rows = json.loads(_private_output(args.gate_probes).read_text())
+            if not isinstance(gate_rows, list) or not all(
+                    isinstance(row, dict) and isinstance(row.get("question"), str)
+                    and row["question"].strip() for row in gate_rows):
+                raise ValueError("Gate probes must contain question objects")
+            report["gate_probes"] = []
+            for row in gate_rows:
+                pre = pp.build(db, row["question"], conversation_id,
+                               classifier, embedder)
+                report["gate_probes"].append({
+                    "label": row.get("label"), "question": row["question"],
+                    "gate": _gate_fields(pre)})
+                output.write_text(json.dumps(report, ensure_ascii=False, indent=2))
+                print(f"gate probe {len(report['gate_probes'])}/{len(gate_rows)}: "
+                      f"retrieval={pre.retrieve}", flush=True)
     finally:
         db.close()
 

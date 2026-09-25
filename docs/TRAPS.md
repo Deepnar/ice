@@ -1735,3 +1735,18 @@ verbatim in selected episodic text, costing 14,600 claim tokens. Check the
 *admitted prompt* for exact same-source containment, not only candidate counts
 or a shared-looking provenance field. A summary or another source does not
 prove that an excerpt is present.
+
+### 67. A correct answer can conceal that memory never ran
+
+**v3, 2026-09-25.** In a three-arm source-to-answer development probe, B2
+suppressed retrieval for an explicit question about an earlier action. Every
+arm had zero selected memory fragments, yet the cloud answerer gave the
+expected command because it was common world knowledge. Two arms explicitly
+said they could not verify that this was what the user had done. A lexical
+answer check alone would have counted all three as memory successes while the
+memory system contributed nothing. Record the gate, admitted source evidence
+and source-specificity of the gold before assigning answer credit. The same
+question phrased five ways yielded four retrieve and two no-retrieve decisions;
+a global bias that removed those flips also added 26 false retrievals on the
+existing 655-negative calibration set. Fix the decision with both positive and
+negative controls, not just the one missed phrasing.

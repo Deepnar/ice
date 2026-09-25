@@ -4020,3 +4020,50 @@ inconsistent interval arithmetic, one command answer was equivalent in both,
 and the script-producing pair exhausted the output cap in both arms. Hence no
 paired answer-quality score or causal improvement claim is made. The artifact
 contains private answers and stays ignored; this is not LME oracle or LSREP.
+
+## 2026-09-25 — v3 three-arm source-to-answer development probe and B2 style check
+
+The same 20-pair disposable source replay was run through
+`scripts/z1/trace_v3_memory.py --probes` with three source-verified questions
+whose source turns preceded the final prompt. Private input, prompt and answer
+artifacts stay under ignored `logs/`: `v3-memory-probes.json`,
+`v3-memory-probe-3arm.json`, `v3-memory-probe-answers-6luna.json`, and the
+follow-up `v3-memory-b2-diagnostic.json`. Each recorded assistant reply entered
+memory only after that turn's preflight; probe arms read the same final store
+with read-time strengthening disabled. The arms were full hybrid retrieval,
+graph-and-sentence-Codex disabled, and vector-only episodic retrieval. They
+shared classification, scope, recent history, prompt assembly and context
+budget. This trace did **not** run periodic maintenance or generate the 20
+historical replies, so it is neither full ICE end-to-end nor a population test.
+
+One historical-action question had `b2_retrieve=False` (`p_ltm=.2261`,
+`p_need_mem=.3613`), so every arm selected zero evidence despite the answer
+being in an earlier user source and absent from recent history. The other two
+retrieved their supporting source in every arm. Full selected 14 and 13
+fragments respectively, versus 8 and 10 without Codex; the evidence ceilings
+were ~5,000 local-count tokens. `gpt-6-luna`, pinned through the OpenCode Go
+Responses profile `opencode-luna6`, received the three arms for each question
+with the system clock normalized and all non-evidence messages asserted equal.
+One completion per arm, 768 maximum output tokens, no blind judge. All nine
+answers contained the expected short value. For the no-retrieval question,
+the value was common world knowledge and two replies explicitly disclaimed
+verification of what happened in the conversation: that is **not memory
+success**. The two source-backed questions were correct in all six arms, so
+this probe establishes no Codex or hybrid-over-vector answer advantage.
+Provider `input_tokens` and ICE's local prompt-token estimate use different
+meters; no cross-meter cost delta is claimed.
+
+On the same replayed store, the historical question and five meaning-preserving
+paraphrases produced four retrieve and two no-retrieve decisions. The
+referential-word bump fired on the four passing variants and neither miss;
+three self-contained/general control questions stayed no-retrieve. A separate
+read-only B2 candidate scoring pass used the existing 256-positive/655-negative
+calibration corpus (`scripts/classifier/pipeline/tune_b2.py` classifier outputs,
+then pure `decide_memory_retrieval` at the script's 2–4-turn operating points).
+Shipped defaults: TP236, FP127, specificity .806. Replacing the referential
+bump with `ltm_prior_bias +0.8` admitted all six style variants and kept the
+three same-store controls out, but changed that larger set to TP241, FP153,
+specificity .766. A +0.6 replacement gave TP240, FP138 and still missed one
+variant. These calibration rows do **not** represent long-context traffic;
+they are a negative control against a cost-free global-bias claim. Neither
+candidate was promoted. No production B2 setting changed.
