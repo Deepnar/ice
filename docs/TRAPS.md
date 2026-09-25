@@ -1769,3 +1769,22 @@ words and truncates at 384. A real replay warned that a 622-model-word piece
 was truncated to 384, hiding tail entities from downstream decisions. A
 configured word count is not the model's bound; window with that loaded model's
 splitter and prove tail coverage through the actual caller.
+
+### 70. NLI can import a true-sounding relation that the source never asserted
+
+**v3, 2026-09-25.** A G51 containment candidate over `emotional validation`
+and `validation` seemed safe after NLI gave 0.998 entailment to “emotional
+validation is a kind of validation” on a source that explicitly called it a
+preferred kind. Earlier `validation loss` and hypothetical controls stayed
+out. The matched opposing source — “I track emotional validation in the model,
+and validation matters to me” — gave the *same proposition* 0.991 entailment
+despite saying nothing about their relationship. In an actual disposable
+writer test, that score created a false graph edge. The candidate was removed
+before shipping. A local Laya typed-choice shadow also called the unrelated,
+hypothetical and former-relation sources `asserted`.
+
+When names themselves suggest a plausible world relation, an NLI entailment
+score can reflect that prior rather than the source's assertion. Hold the
+proposition fixed and vary only the *source*, including a same-name parallel
+mention, before letting a verifier authorize a graph write. A positive-only
+source test proves nothing about this failure shape.

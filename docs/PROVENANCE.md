@@ -4135,3 +4135,49 @@ background failures and all three pairs complete. Reports and source text
 stay in ignored `logs/v3-memory-ner-boundary-3*`. This demonstrates input
 coverage and operational parity on that span, not better graph truth or
 answer quality. A larger run is unnecessary for the bounded truncation claim.
+
+## 2026-09-25 — v3 G51 containment recovery NO-GO
+
+Question: can the v3 Codex maintenance pass recover a missing, source-backed
+category relation between names that share words, without inventing edges?
+All texts here are authored public controls, not the maintainer's corpus.
+The local writer prototype was **off by default** and was removed before
+commit; no production writer was enabled. It located a current user-attributed
+`CodexClaim`, passed a bounded pair to the pinned NuExtract3-Q8_0 specialist,
+checked its relation against the pinned DeBERTa source-support NLI at 0.95,
+and used the existing Codex edge/claim transaction. Six disposable SQL/model
+controls passed after the unsafe candidate was removed, including current
+source, idempotency, rejected relation, real model link and scoped retrieval.
+
+The mechanically successful source, “Emotional validation is a form of
+validation,” was **already extracted by ordinary Codex** as
+`emotional validation --is_a_form_of--> validation`; it cannot demonstrate
+incremental recovery. In a true ordinary-extraction miss, “I use emotional
+validation as my preferred kind of validation,” the ordinary extractor made
+only `I --use--> emotional validation` and the pair-specialist proposed `is`.
+NLI scored `emotional validation is validation` at 0.949, below the existing
+0.95 floor, so the prototype left the edge absent. A fixed `is_a_kind_of`
+candidate scored 0.998 and was briefly tried in the disposable writer. The
+matched negative “I track emotional validation in the model, and validation
+matters to me” scored 0.991 for that candidate and **wrote a false edge**;
+the candidate was removed and the negative SQL control passed. Five other
+source controls (direct, definition, hypothetical, denial, former relation)
+helped diagnose the issue but did not substitute for the matched negative.
+
+For a single local typed-choice shadow, `laya==0.3.20` was installed with
+`--no-deps` under `/tmp/ice-laya-shadow`, so ICE's dependency lock was not
+changed. The `convaiinnovations/laya-typed-decisions` checkpoint ran on CUDA
+with `source_sentence`, subject, candidate relation and object as state and
+four choices: asserted, not stated, denied, hypothetical. It selected
+`asserted` on the three supported sources and also on the unrelated,
+hypothetical and former-relation negatives; `denied` was correct on the direct
+denial. The loader warned that a saved choice calibration temperature was
+outside its valid range and clamped it; probabilities are unqualified. No
+threshold or production adapter is justified by this seven-case probe. Model
+card accuracy is for four other workflows, not ICE source-explicit support.
+
+No cloud answer calls were made for G51. The successful positive graph read
+was redundant with ordinary extraction and a source sentence claim, so there
+is no supported answer-per-token delta to report. The v3 decision is to keep
+G51 open but skip it until an explicit-source judge passes opposing pairs and
+a fresh conversation shows incremental answer value beyond current readers.
