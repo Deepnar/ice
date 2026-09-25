@@ -767,6 +767,70 @@ These are controlled mechanics, not proof that memory improves answers.
 Final-prompt/answer-use tracing and source-ledger corroboration remain under the
 active repair phase; retrieval selection counters are not final exposure.
 
+## <a id="g52"></a>G52 — retrieval-harness scope parity (v3, 2026-09-25)
+
+The four Z1 harnesses now call one `production_parity` preflight. It resolves
+chat scope as a dict, detects time scope and applies the real retrieval budget.
+No harness passes a missing scope or a 5,000-token constructor default as if it
+were a production request. The live parity suite compared source-type counts
+against an independent reproduction of `main.py` and confirmed that `scope=None`
+produces a detectably different result on the seeded store. Four tests passed
+on 2026-09-25; this checks path parity, not the quality of the returned facts.
+The G55 typed metrics and G56 answer assembly/judging remain separate work.
+
+Original entry, retained as historical diagnosis:
+
+- [ ] <a id="g52"></a>**G52 The evaluation harnesses do not call retrieval the way production does** `(bug — found 2026-08-21; DIAGNOSIS CORRECTED 2026-08-22)` → **[TRAPS #43](TRAPS.md), [#44](TRAPS.md)**. ⚑ **The original entry named the wrong cause and was itself wrong about production.** It claimed `score_typed.py` and `answer_probes.py` pass `scope=None` while production passes a populated scope, citing `services/retrieval_svc.py:152` — which is the **MCP `ice_context` pull**, where the scope is *caller-supplied*. The harnesses model the **chat proxy**, whose scope is `resolve_retrieval_scope(db, conv_row)` (`main.py:421`), and that returns **`{}` for an `auto` conversation** — the default mode, and what all three evaluated conversations are. Verified by running it: `conv_id` at `orchestrator.py:515` is **`None` in chat production too**. The table that "proved" the defect compared `scope=None` against a **hand-built** scope no chat request produces.
+  - **v3 status 2026-09-24:** G53's production identity fix is complete, so the historical "own summary leg off in production" diagnosis below no longer describes current v3. The harness parity and classifier-history defects here and in G54 remain open; old scores are still invalid as current behavior.
+  - **⇒ What this REINSTATES (they were right about ICE as it runs):** `_batch_summary_lookup`'s own-conversation half genuinely never fires — `conversation_summaries` is 0 rows so its cross half is dead too, and `batch_summary` appears in **zero of the 15** recorded `legs_seen` dicts. `summary_synthesis` 0.303 / 0.324 *was* measured with the summary leg off, which is how production runs. `legoff-batch_summary` really did ablate an already-off leg (four of its five scores byte-identical to baseline). **These are ICE defects, not instrument defects**, and the fix belongs in [G53](#g53).
+  - **⇒ What the `scope=None` defect ACTUALLY is:** one line. `orchestrator.py:534-536` applies cluster ids only `if cluster_ids and scope is not None`; every other scope read is `if scope`-guarded and treats `None` and `{}` identically. Measured on 30 stratified probes both ways: production sets cluster ids on **90%** of probes and the returned fragment set differs on **17%** — bounded only because `_cluster_filter`'s `OR NOT EXISTS` arm exempts unclustered turns and **268 of 293** turns are unclustered.
+  - **⚑ THE REAL INVALIDATOR IS [G54](#g54), NOT THIS.** Every Z1 harness calls `clf.classify(question)` while production calls `classify(user_message, conversation_id=…)`. Measured n=100: **RRF blend weights differ on 65%**, topic 69%, intent 66%, routed model 42%. That is ~4× this item's perturbation and it went unrecorded through the whole retraction.
+  - **What is genuinely invalidated:** the 2026-08-20 typed scores, the codex ablation and the per-leg ablation — chiefly by G54, plus the metric defects in [G55](#g55) and the judge truncation in [G56](#g56). **And the affected range starts 2026-08-12, not 2026-08-20**: `scripts/z1/score_retrieval.py:283` (`83bde86`) has always passed `scope=None`, which puts **recall@10 = 0.508** in the same class. Comparisons where both sides shared a defect stay internally fair; absolutes do not.
+  - **Fix:** one shared production-parity preamble for all four harnesses (scope from the resolver, never `None`), plus a parity test that fails when harness and production return different `source_type` counts. **Not** a fallback inside `retrieve()` — that is [G53](#g53) and it is a separate, production-behaviour change.
+
+## <a id="g53"></a>G53 — own-conversation identity under auto retrieval (v3, 2026-09-24)
+
+`retrieve()` now keeps search scope separate from the active conversation id.
+Own batch summaries and recency use the active id even when `auto` searches all
+visible conversations. The wide-net path uses the passed active id for recency
+and budget while keeping its scope-derived search filter. The cold and
+empty-window readers retain search scope, which is the identity they need.
+
+The v3 writer/summary follow-through on 2026-09-21 was verified by real SQL
+summary readers. The 2026-09-24 disposable test exercises normal `retrieve()`
+with `scope={}` and the wide-net branch: both receive active identity for
+recency, while normal summary lookup and wide-net search remain unscoped.
+Three focused tests passed. Old `summary_synthesis` scores were measured with
+the own-summary leg inactive and must not be reused as current v3 evidence.
+The G52/G54/G55 instrument corrections and G66 answer-quality comparison remain
+open; this completion is a production behavior correction, not an answer win.
+
+Original entry, retained as historical diagnosis:
+
+- [ ] <a id="g53"></a>**G53 `conv_id` means two different things and `auto` mode silently loses one of them** `(production bug — found 2026-08-22; USER-APPROVED to fix)` → **[TRAPS #43](TRAPS.md)**. Inside `retrieve()`, `conv_id` (derived from the scope at `orchestrator.py:515`) is used both as *"restrict the search to this conversation"* and as *"this is the conversation we are in"*. `auto` mode correctly wants the first **off** — it searches everything — but it thereby loses the second, and nothing supplies it even though `retrieve()` already receives `conversation_id` as a parameter. Verified: `resolve_retrieval_scope` returns `{}` for `auto`, so on the default mode ICE **never applies a recency bonus** (`orchestrator.py:329-331`, gated on `conv_id`) and **never retrieves the conversation's own batch summaries** (`:2159`). `_cold_lookup` and `_append_empty_window_note` take it too.
+  - **v3 follow-through2026-09-21:** summary reader now gets active and searched conversation IDs separately, plus resolved scope. Both UUID and string scope IDs work in SQL controls; returned overview fragments carry conversation identity and original batch IDs.478 regression checks passed; wider recency/time scope remains owned by this item.
+
+  - **The fix, as decided with the user:** key the *current-conversation* behaviours on the `conversation_id` parameter, and leave the search filter exactly as it is — **`auto` keeps searching everything**. Do NOT make `resolve_retrieval_scope` set `conversation_id` for `auto`; that would restrict retrieval, which is the opposite of what the mode means.
+  - **Second instance, same shape:** `_wide_net_fallback` (`orchestrator.py:2754`) is *handed* `conversation_id` at `:510` and never reads it — it re-derives from the scope at `:2764`. Dead parameter; fix in the same change.
+  - **⚠ This changes what the prompt contains**, so every number taken before it is a measurement of a different system. It lands before the [G52](#g52) re-run, not after.
+
+## <a id="g54"></a>G54 — conversation-aware classification parity (v3, 2026-09-25)
+
+All four Z1 harnesses use `production_parity.build`, which classifies each
+question with its conversation id and full prompt before routing and retrieval.
+The live parity suite's negative control confirmed that removing conversation
+history changes classifier labels; its positive control matched retrieval
+source-type counts against the current chat preflight. Four tests passed on
+2026-09-25. This corrects a call-path defect; it does not validate the old
+scores or make an out-of-band probe identical to a historical turn-time query.
+
+Original entry, retained as historical diagnosis:
+
+- [ ] <a id="g54"></a>**G54 The harnesses classify without the conversation, and it moves 65% of the fusion weights** `(bug — found 2026-08-22; THE REAL INVALIDATOR)` → **[TRAPS #44](TRAPS.md)**. Every Z1 harness calls `clf.classify(question[:2000])`; production calls `classify(user_message, conversation_id=str(conversation_id))` (`main.py:448-451`), which builds a CL7 context prefix from the conversation and embeds *that*. Measured on 100 stratified probes against the live store: `topic_tags` differ **69/100**, `intent_tags` **66/100**, **RRF leg-blend weights 65/100**, routed model **42/100** (⇒ different context window ⇒ different token budget). B2's decision flipped **0/100**, which is why nothing noticed.
+  - The blend weights *are* the fusion ranking (`orchestrator.py:588-596`), so 65% of scored probes fused with weights production would never use.
+  - **It is a REGRESSION, with older code to compare against:** `experiments/mature/run_mature_experiment.py:547` and both flaw-ablation runners pass `conversation_id=cid` correctly. The Z1 harnesses dropped it.
+  - Fix inside the shared preamble of [G52](#g52). ⚠ Note in the write-up that a probe about turn 50 gets turn 145's context either way — passing `conversation_id` models *"the user asks this now"*, which is the only regime production ever occupies, but it is a choice and it should be stated.
+
 ## <a id="g64"></a>G64 — searchable attributed source sentences (v3, 2026-09-14)
 
 Implemented CodexClaim plus claim/edge links, exact source offsets/hash and role,

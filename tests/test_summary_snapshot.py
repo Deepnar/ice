@@ -397,3 +397,47 @@ def test_full_retrieve_passes_resolved_scope_to_real_summary_reader(context, mon
                             scope={'conversation_ids': []})
     assert allowed and not denied
     assert set(allowed[0].origin_batch_ids) == {str(ctx.first.batch_id), str(ctx.second.batch_id)}
+
+
+def test_auto_retrieve_keeps_current_identity_without_narrowing_search(context, monkeypatch):
+    ctx = context
+    orch = HybridRetrievalOrchestrator(ctx.db, NS())
+    for name in ('_codex_graph', '_codex_claims', '_relevant_cluster_ids',
+                 '_bm25_episodic', '_vector_episodic', '_procedural_lookup', '_cold_lookup'):
+        monkeypatch.setattr(orch, name, lambda *a, **kw: [])
+    monkeypatch.setattr(settings, 'retrieval_rerank_enabled', False)
+    seen = {}
+    summary_lookup = orch._batch_summary_lookup
+
+    def capture_summary(*args, **kwargs):
+        seen['summary_current'] = args[1]
+        seen['summary_search'] = kwargs['search_conv_id']
+        return summary_lookup(*args, **kwargs)
+
+    def capture_bonuses(fragments, classification, current_id, keywords):
+        seen['recency_current'] = current_id
+        return fragments
+
+    monkeypatch.setattr(orch, '_batch_summary_lookup', capture_summary)
+    monkeypatch.setattr(orch, '_apply_bonuses', capture_bonuses)
+    classification = NS(prompt='What changed in Atlas?', context_reliance='Long_Term_Memory',
+                        max_confidence=1., intent_tags=[], topic_tags=[])
+    orch.max_retrieval_tokens = 10000
+    orch.retrieve(classification, str(ctx.cid), VEC, scope={})
+    assert seen == {'summary_current': str(ctx.cid), 'summary_search': None,
+                    'recency_current': str(ctx.cid)}
+
+    # The low-confidence path must also use current identity for recency,
+    # while retaining the global auto-mode search filter.
+    monkeypatch.setattr(orch, '_vector_chunks', lambda *a, **kw: [])
+    scope_filter = orch._conv_scope_filter
+
+    def capture_scope(scope, search_id):
+        seen['wide_search'] = search_id
+        return scope_filter(scope, search_id)
+
+    monkeypatch.setattr(orch, '_conv_scope_filter', capture_scope)
+    classification.max_confidence = 0.0
+    orch.retrieve(classification, str(ctx.cid), VEC, scope={})
+    assert seen['wide_search'] is None
+    assert seen['recency_current'] == str(ctx.cid)
