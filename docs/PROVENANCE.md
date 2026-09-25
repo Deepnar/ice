@@ -3968,3 +3968,55 @@ passed 335/335; the combined source-scope/deletion suite passed 7/7. These are
 source visibility and wiring controls, not a natural
 conversation graph-recall or answer-quality result. The working pre-v3 graph
 was not replayed or repaired by this reader change.
+
+## 2026-09-25 — v3 development source-to-prompt trace (pre-containment baseline)
+
+`scripts/z1/trace_v3_memory.py` on a disposable PostgreSQL database, source
+`data/labeled/v2/icedev_stitched_dialogue.jsonl` rows 2885–2924 (20 consecutive
+user/assistant pairs), output `logs/v3-memory-trace-20.json` and run log under
+gitignored `logs/`. The source is personal; neither output nor dialogue text is
+committed. This was run from `main` with local repair edits uncommitted,
+`BACKGROUND_MODEL_NAME=gemma4:e4b`, classifier
+`models/classifier/ice_classifier_v4_schema2.pt`, NuExtract3 Q8 extractor,
+pinned DeBERTa source verifier and pinned Qwen3 0.6B reranker at the configured
+defaults. The trace uses the production-parity preflight, actual hybrid
+retrieval and prompt assembler, then imports the *recorded* assistant reply and
+runs postflight. Each answer enters state only after its prompt. It does not
+run periodic maintenance or generate/judge answers, so it is a development
+diagnostic, not full ICE end-to-end or a v3 answer-quality score.
+
+All 20 pairs completed. Across the 20 selected contexts: 560 attributed Codex
+sentence excerpts, four graph-fact fragments and 54 episodic fragments; median
+assembled prompt 5,873 tokens, maximum 8,829. Of the selected sentence excerpts,
+236 were exact-text duplicates of selected episodic fragments, spending 14,600
+claim-fragment tokens. This checks final selected text, not just candidate hits.
+The Codex direct-claim path activates even with zero graph entity matches, but
+these counts do not establish relevance, truth, answer use or improvement over
+vector retrieval. The trace motivated exact same-source containment at budget
+admission.
+
+Same-window replay after containment: `logs/v3-memory-trace-20-dedup.json`,
+same source rows/configuration and 20/20 completed. The two runs produced the
+same new-edge/new-claim counts at every step and the same source questions;
+the system clock in the prompt differed. Selected claim fragments fell
+560→242 and episodic fragments rose 54→87; graph fragments were four→five.
+Exact-text claim/episodic overlap fell 236→one (14,600→51 duplicate claim
+tokens). Total selected evidence fell 64,918→62,065 tokens across all 20
+prompts; total assembled prompt 114,519→111,584. This is a 2.6% aggregate
+prompt-token reduction, with a much larger composition change because freed
+space admitted other episodic sources. It does not prove those replacements are
+relevant or improve answers. Both reports are private, ignored artifacts; no
+held-out answerer or judge ran for these counts.
+
+Paired development answer diagnostic:
+`scripts/oneoff/v3_trace_answer_compare.py`, private artifact
+`logs/v3-memory-answer-pairs.json`. Turns 2, 4, 13 and 20 of that same replay
+were submitted before/after to OpenCode Go `gpt-5.6-luna` through its Responses
+endpoint, with the system clock normalized and all non-evidence messages checked
+identical within each pair. Maximum output was 1,200 tokens; there was one
+completion per arm and no blind judge. One pair gave a more qualified distinction
+of recency signals after containment, one after answer gave internally
+inconsistent interval arithmetic, one command answer was equivalent in both,
+and the script-producing pair exhausted the output cap in both arms. Hence no
+paired answer-quality score or causal improvement claim is made. The artifact
+contains private answers and stays ignored; this is not LME oracle or LSREP.

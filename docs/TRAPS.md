@@ -1723,3 +1723,15 @@ invisible to the scope resolver too. Resolve graph scope from warm and cold
 source batches, filter by the selected visible original, and render and credit
 that same source. A stronger source writer alone does not fix a reader that
 still assumes one immutable source.
+
+### 66. Two evidence paths can show the same turn without sharing a budget identity
+
+**v3, 2026-09-25.** Codex sentence fragments carried the originating batch ID,
+while episodic fragments carried the row ID. Both correctly attributed their
+source, but the per-source collapse could not compare them. In a 20-pair
+development replay, one follow-up selected 17 sentences alongside their
+containing source turn; across all prompts 236 selected claim excerpts appeared
+verbatim in selected episodic text, costing 14,600 claim tokens. Check the
+*admitted prompt* for exact same-source containment, not only candidate counts
+or a shared-looking provenance field. A summary or another source does not
+prove that an excerpt is present.
