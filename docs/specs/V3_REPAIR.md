@@ -32,6 +32,24 @@ unjustified emotion-object and self-reference filters: “Alex feels happy” an
 “service monitors service” can be real claims. Existing source/name/polarity
 checks still apply.
 
+**v3 divergence and source-only decision, 2026-09-25:** a recorded-conversation
+replay exposed a NuExtract template row with a nonempty subject/relation,
+`object: null` and an exact `source_sentence`. The strict parser aborted the
+whole turn; a repeat without the sentence field still produced a null object
+in a later chunk. This is an attempted unary relation that cannot enter ICE's
+three-slot graph, but its exact sentence is usable evidence. With attributed
+sentence claims enabled, accept only this *typed source-only row* when its
+source sentence occurs exactly in the current original chunk. Store that
+sentence through the normal role-aware claim writer and omit the invalid
+triple from graph canonicalization, reinforcement and NLI relation approval.
+Count and warn on the fallback so a run cannot mistake it for graph coverage.
+Any missing/blank/unsupported quote, null subject or relation, other invalid
+field, or the same null-object row with sentence claims disabled still raises
+and remains retryable. A source-only row is not an empty extraction or a
+corroborating graph observation. This narrower output contract preserves the
+original strict-failure rule for malformed graph assertions while allowing a
+source sentence to survive when the specialist cannot express it as a triple.
+
 ## 2. Algorithm and data model
 
 Parse one complete JSON value (with optional fences and template thinking prefix).
@@ -755,6 +773,21 @@ summaries are not complete raw sources and cannot claim to cover every excerpt.
 Degrading or reranking to another representation clears the whole-source marker.
 Skip oversized candidates and continue to later choices even when an entire
 round has no admission; queues still advance and terminate.
+
+**v3 divergence and resolution, 2026-09-25:** the sentence-claim search path
+added after this packing rule emits Codex excerpts with only a source *batch*
+origin, while episodic fragments identify the source *row*. The existing
+same-row collapse therefore cannot see their overlap. In a 20-pair development
+replay, 236 of 560 selected claim excerpts repeated exact text already present
+in a selected episodic fragment, spending 14,600 claim tokens. Carry the source
+row ID and exact rendered source excerpt on claim fragments. At admission,
+remove a claim only when a selected episodic representation from that same row
+literally contains its exact excerpt; if the episodic representation arrives
+later, reclaim the duplicated claim tokens only when the episodic candidate
+fits. A summary or unrelated row never implies coverage. Preserve the claim
+when its source fragment is too large or its excerpt is absent. This is an
+exact, evidence-preserving budget repair, not a relevance or answer-quality
+claim; re-run the same trace and then compare supported answers.
 
 Reranker capacity is per complete pair: an oversized pair receives no score and
 must not disable scoring of all smaller candidates. Keep unscored representations

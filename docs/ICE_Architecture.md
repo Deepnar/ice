@@ -1403,6 +1403,15 @@ requiring usable graph endpoints: rejected triples can still yield searchable
 source text. Completion and claims remain one transaction. Existing completion
 markers are not automatically replayed.
 
+In v3 template mode, NuExtract can return an exact attributed sentence for a
+unary statement with a nonempty subject/relation but `object: null`. Repeating
+without the sentence field did not remove the null-object shape on the first
+organic replay. With sentence claims enabled, the extractor validates that the
+quote occurs exactly in the original chunk, records it as a source-only
+CodexClaim and skips graph canonicalization/reinforcement for that row. Other
+malformed fields remain retryable failures. This keeps a useful sentence
+searchable without inventing a graph object or treating the read as support.
+
 The local pinned adversarial DeBERTa NLI verifier checks complete paragraph ->
 sentence inputs. Entailment>=0.95 allows shortening; contradiction>=0.95 is
 contradicted; all other/error/overlength cases are unknown and retain full source
@@ -1432,8 +1441,15 @@ recall but does not establish semantic graph recall or answer improvement.
 Direct lexical/native-vector claim search joins available nonprivate source rows,
 checks current source offsets, and enters the existing codex fusion/reranker/token
 path. It needs no matched entity. Explicit empty scopes and source exclusions
-remain closed. Each result labels speaker and recorded source time. Conversation
-and turn forgetting physically remove associated claims; source edits invalidate
+remain closed. Each result labels speaker and recorded source time.
+At budget admission, a claim also carries its source row ID and exact displayed
+excerpt. If an admitted episodic representation from that same row contains the
+excerpt literally, the claim consumes no separate budget; an episodic candidate
+arriving later may reclaim those exact duplicate tokens if it then fits. A
+summary, partial excerpt without the quote, or another source cannot erase the
+claim. The 20-pair development trace found 236 such duplicates before this
+repair; answer quality has not been inferred from that count. Conversation and
+turn forgetting physically remove associated claims; source edits invalidate
 old excerpts. Cold sources resolve by stable episodic ID, with warm state taking
 precedence. Cold claims are omitted for cluster scopes until archival membership
 is preserved. Graph and tag-enumeration rendering consume linked source evidence

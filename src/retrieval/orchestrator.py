@@ -104,6 +104,11 @@ class ContextFragment:
     leg: Optional[str] = None
     origin_edge_ids: tuple = ()  # exact rendered fact lines, not traversed candidates
     covers_entire_source: bool = False  # complete raw turn, not summary/excerpt
+    # Sentence claims need the source row and exact displayed excerpt for
+    # budget-time containment. Their source_batch_id remains unset: it is an
+    # episodic-fragment cap key, not an attribution field for Codex claims.
+    claim_source_row_id: Optional[str] = None
+    claim_excerpt: Optional[str] = None
 
 # G9 (2026-08-08): every tunable number in this module moved to settings, so
 # Z1 can sweep it without editing code. What remains here are label SETS —
@@ -1905,12 +1910,14 @@ class HybridRetrievalOrchestrator:
                 if source is None or not excerpt_is_current(source, claim):
                     logger.warning("claim_source_stale", claim_id=str(ident))
                     continue
+                excerpt = claim_representation(claim)
                 rendered = (f"[Source excerpt; speaker: {claim.role}] "
                             f"{recorded_stamp(source.timestamp, source.ts_provenance)}\n"
-                            f"{claim_representation(claim)}")
+                            f"{excerpt}")
                 fragments.append(ContextFragment(rendered, "codex", scores[ident],
                     count_tokens(rendered), conversation_id=str(source.conversation_id),
-                    origin_batch_ids=(str(claim.source_batch),), leg="codex"))
+                    origin_batch_ids=(str(claim.source_batch),), leg="codex",
+                    claim_source_row_id=str(source.id), claim_excerpt=excerpt))
             return fragments
         except Exception as exc:
             self._leg_degraded("codex.claims", exc)
@@ -2996,6 +3003,14 @@ class HybridRetrievalOrchestrator:
                 unique.append(f)
         return unique
 
+    @staticmethod
+    def _episodic_contains_claim(source, claim):
+        return (source.source_type == "episodic" and source.source_batch_id
+                and claim.claim_source_row_id
+                and str(source.source_batch_id) == claim.claim_source_row_id
+                and claim.claim_excerpt
+                and claim.claim_excerpt in source.text)
+
     def _enforce_token_budget(self, fragments, max_tokens=None, *, relevance_order=False,
                               current_conversation_id=None):
         if max_tokens is None:
@@ -3029,22 +3044,36 @@ class HybridRetrievalOrchestrator:
 
         def admit(fragment):
             nonlocal total
-            fitted = (fragment if fragment.token_count <= max_tokens - total
+            if fragment.claim_source_row_id and any(
+                    self._episodic_contains_claim(source, fragment)
+                    for source in result):
+                return False
+            redundant = [claim for claim in result
+                         if self._episodic_contains_claim(fragment, claim)]
+            reclaimable = sum(claim.token_count for claim in redundant)
+            fitted = (fragment if fragment.token_count <= max_tokens - total + reclaimable
                       else _degraded(fragment, max_tokens - total))
             if fitted is None:
+                return False
+            # A degraded summary need not contain the excerpt that the raw
+            # source contained. Recheck against the exact admitted text.
+            redundant = [claim for claim in result
+                         if self._episodic_contains_claim(fitted, claim)]
+            if fitted.token_count > max_tokens - total + sum(
+                    claim.token_count for claim in redundant):
                 return False
             if settings.retrieval_collapse_enabled and fitted.source_batch_id:
                 same = [f for f in result if f.source_batch_id == fitted.source_batch_id]
                 if same and (fitted.covers_entire_source or
                              any(f.covers_entire_source for f in same)):
                     return False
-            trial = result + [fitted]
+            trial = [f for f in result if f not in redundant] + [fitted]
             if len(self._collapse_provenance(trial)) != len(trial):
                 return False
             if len(self._session_diversify(trial, current_conversation_id)) != len(trial):
                 return False
-            result.append(fitted)
-            total += fitted.token_count
+            result[:] = trial
+            total += fitted.token_count - sum(claim.token_count for claim in redundant)
             return True
 
         if relevance_order:

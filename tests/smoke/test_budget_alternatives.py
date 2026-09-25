@@ -41,6 +41,31 @@ def test_degraded_summary_cannot_claim_to_contain_every_source_detail():
     assert len(selected) == 2 and not selected[0].covers_entire_source
 
 
+@pytest.mark.parametrize('source_first', [False, True])
+def test_attributed_claim_and_same_source_text_spend_budget_once(source_first):
+    claim = ContextFragment('[Source excerpt]\nThe correction was applied.',
+                            'codex', 2., 6, claim_source_row_id='turn-1',
+                            claim_excerpt='The correction was applied.')
+    source = fragment('Earlier plan. The correction was applied.', 9,
+                      source='turn-1', covers_entire_source=True)
+    candidates = [source, claim] if source_first else [claim, source]
+    selected = HybridRetrievalOrchestrator(None, None)._enforce_token_budget(
+        candidates, max_tokens=10, relevance_order=True)
+    assert selected == [source]
+
+
+def test_claim_survives_when_source_is_different_or_too_large():
+    claim = ContextFragment('[Source excerpt]\nThe correction was applied.',
+                            'codex', 2., 6, claim_source_row_id='turn-1',
+                            claim_excerpt='The correction was applied.')
+    unrelated = fragment('The correction was applied.', 3, source='turn-2')
+    oversized = fragment('The correction was applied. Full surrounding source.',
+                         100, source='turn-1')
+    selected = HybridRetrievalOrchestrator(None, None)._enforce_token_budget(
+        [claim, unrelated, oversized], max_tokens=10, relevance_order=True)
+    assert claim in selected and unrelated in selected and oversized not in selected
+
+
 def test_reranker_skips_only_unscorable_pair_and_retains_complete_fallback():
     whole = fragment('An oversized original.', 1000, covers_entire_source=True)
     excerpt = fragment('An answer excerpt.', 5)
