@@ -4067,3 +4067,71 @@ specificity .766. A +0.6 replacement gave TP240, FP138 and still missed one
 variant. These calibration rows do **not** represent long-context traffic;
 they are a negative control against a cost-free global-bias claim. Neither
 candidate was promoted. No production B2 setting changed.
+
+## 2026-09-25 — v3 maintenance-backed note usability diagnostic
+
+The preceding 20-pair replay omitted periodic maintenance, so its answer
+probe could not speak to rolling or batch-summary reads. The same recorded
+source window was replayed into a new disposable database with each recorded
+assistant reply stored only after that turn's preflight and postflight. Then
+the production rolling and batch-summary jobs ran before the same three
+source-specific questions. Private prompts and source text remain only in
+ignored `logs/v3-memory-maintenance-probe.json` and its run log.
+
+Maintenance reported one rolling root and two indexed notes, with zero batch
+summaries. Both rolling notes were exact original-source fallback groups (13
+and seven turns): complete-pair NLI exceeded its 512-token bound and returned
+unknown. Six `conversation_note_no_fit` warnings followed. The 650-token own
+note allowance admitted neither group, so zero of three full-arm prompts
+included an own-conversation note. The four prepared arms (full, Codex-off,
+vector-only and summary-off) had no summary-content difference. This is a
+source-to-prompt result, **not** an answer-model comparison; no provider calls
+were made on these four-arm prompts. It shows the safe write fallback was
+unusable at the read boundary on this conversation, not that NLI or the
+retriever produced an incorrect claim. A production-code repair now splits an
+unsupported group into complete original-turn source parts and retains the
+full originals. In a same-window rerun, the rolling writer created 20 indexed
+source-turn notes. The full prompts selected three, two and two notes on the
+three questions, respectively, versus none with the summary-off arm. For the
+historical-action question, B2 still declined retrieval and both arms selected
+zero retrieval fragments; the full arm nevertheless supplied the exact earlier
+source through its own note. Its local prompt count rose 2,851→3,352 tokens.
+The other two full prompts rose 6,745→7,391 and 6,722→7,374 relative to
+summary-off, while retaining their retrieved fragments. This checks actual
+prompt composition and source presence, not answer use.
+
+Six pinned `gpt-6-luna` development calls compared full with summary-off on
+those same three questions (`logs/v3-memory-maintenance-split-answers.json`,
+ignored). One completion per arm, 768 maximum output tokens, no blind judge.
+Both arms gave the expected short values for all three questions. On the
+historical-action question, the summary-off reply said it could not see the
+earlier command and offered the usual command; the full reply gave the
+recorded command directly. This is one source-grounding improvement, not a
+three-question accuracy gain or an estimate of population effect. On the two
+other questions, answers were effectively equivalent. The provider's input
+token counts differ from ICE's local meter; within-provider costs rose with
+the note as expected. The no-Codex/vector arms were prepared but not sent to
+the answerer in this follow-up. Batch summarization created no batch summary
+on this source window, so this result speaks to rolling notes only.
+
+## 2026-09-25 — v3 background NuNER model-word boundary
+
+The 20-pair maintenance replay warned 11 times that the installed GLiNER
+processor truncated inputs above its 384-model-word `config.max_len`; one
+piece counted 622 model words despite ICE's 250-whitespace-word pre-chunk.
+The `words_splitter` in the installed model's processor is also what
+`predict_entities` uses, so the background caller now further windows coarse
+pieces at that model boundary with overlap and exact character offsets.
+Missing bounds produce a warning and micro-NER fallback rather than an
+unchecked background call. Neither model, label set nor threshold changed.
+
+Three synthetic caller controls passed, including punctuation-heavy long
+text with a late entity and a missing-bound fallback. With actual cached
+`numind/NuNER_Zero` on CUDA, 444-whitespace-word synthetic prose produced
+zero truncation warnings and the tail city was detected. The same first three
+recorded source pairs previously produced two truncation warnings; in a fresh
+three-pair disposable preflight/postflight trace they produced zero, with zero
+background failures and all three pairs complete. Reports and source text
+stay in ignored `logs/v3-memory-ner-boundary-3*`. This demonstrates input
+coverage and operational parity on that span, not better graph truth or
+answer quality. A larger run is unnecessary for the bounded truncation claim.

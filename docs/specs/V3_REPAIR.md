@@ -761,6 +761,28 @@ old snapshots naturally fail comparison and rebuild. This is scope/provenance,
 not evidence that a summary answers well. Partial-scope queryable independent
 segments remain the follow-on design, rather than hiding the eligibility rule.
 
+### Background NER model-token boundary — 2026-09-25
+
+**v3 divergence:** A9b's background NuNER path already divides input into
+`background_ner_chunk_words=250` whitespace-word pieces, but NuNER's GLiNER
+processor splits punctuation/code further and has `config.max_len=384` model
+words. A real 20-pair replay emitted `Sentence of length 622 has been truncated
+to 384`: the model silently never sees that piece's tail. The roadmap's old
+"no length cap" candidate description cannot describe this installed runtime.
+
+Retain the configured 250-word coarse chunks, then split each through the
+loaded model's own `data_processor.words_splitter` into windows no longer than
+`config.max_len`, with a small overlap across boundaries. Build each subpiece
+from the splitter's original character offsets and deduplicate the resulting
+entity names as the path already does. If the model cannot report its splitter
+or positive limit, warn and use the micro-NER fallback; never call the
+background model on a piece it will truncate. Do not alter the preflight
+micro-NER, label set, confidence threshold or extraction contract. Validate
+complete token coverage and model-bound lengths on long punctuation-heavy
+text, a tail entity through the actual background caller, and the ordinary
+short-piece path; rerun the source-to-prompt trace to check that the warning
+ceases. This is input preservation, not a proven answer-quality gain.
+
 ### Complete candidates and budget-time alternatives — 2026-09-21
 
 Code re-grounding found an existing all-turn chunk store, so do not add a second
@@ -843,6 +865,29 @@ that fallback, and never omit existing evidence silently. Validate real SQL,
 scope/privacy, archive parity and final prompt packing. A short overview and
 long-source semantic compression remain distinct work; do not manufacture them
 from partial source text.
+
+### Unsupported source-group granularity — 2026-09-25
+
+**v3 divergence from the intended query-selectable read:** a 20-pair replay
+created two rolling notes, each a complete 7–13-turn source fallback after
+the 512-token NLI verifier returned unknown. Neither fit the 650-token note
+allowance, so the real prompt read zero rolling-note evidence. The original
+sources were safe, but grouping made the whole layer inert.
+
+Keep generation and full-source verification at the existing group boundary.
+If a group is unsupported/unknown, materialize one **complete, attributed,
+timestamped original turn** per source part, in original order, instead of one
+multi-turn source part. This is a derived packing boundary, not a claim that
+each turn's generated summary is supported. Apply the same rule to rolling
+and batch writers. Do not cut a single oversized turn; its original remains
+available to episodic/chunk retrieval. Keep exact source IDs and batch credit
+on every part. Rebuild existing multi-turn **rolling** fallback manifests from
+the originals on the next maintenance pass; do not re-label cached generated
+text as evidence. Existing batch rows still read as whole aggregates, so
+batch-part selection and regeneration of older batch rows remain separate
+open work. Verify actual writer, source snapshot, indexed-note selection,
+and prompt inclusion on a long replay. This should raise usable evidence at
+bounded context, but does not prove answer gain or solve long-turn compression.
 
 ### Batch-summary source contract — 2026-09-21
 

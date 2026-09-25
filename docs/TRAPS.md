@@ -1750,3 +1750,22 @@ question phrased five ways yielded four retrieve and two no-retrieve decisions;
 a global bias that removed those flips also added 26 false retrievals on the
 existing 655-negative calibration set. Fix the decision with both positive and
 negative controls, not just the one missed phrasing.
+
+### 68. A safe write fallback can be completely unreadable at the prompt budget
+
+**v3, 2026-09-25.** A 20-pair replay wrote two complete-source rolling notes
+after long NLI pairs returned unknown. The notes covered 13 and seven turns;
+neither fit the 650-token own-note allowance. All three subsequent prompts
+received zero notes despite a healthy writer and vector index. Check the
+*selected prompt*, not the count of stored summaries. Keeping original evidence
+is necessary, but the fallback packing unit must be small enough to select
+without cutting an original turn.
+
+### 69. The model's input unit can be smaller than the application's chunk unit
+
+**v3, 2026-09-25.** Background NuNER received 250-whitespace-word pieces, but
+its installed GLiNER processor counts punctuation/code as additional model
+words and truncates at 384. A real replay warned that a 622-model-word piece
+was truncated to 384, hiding tail entities from downstream decisions. A
+configured word count is not the model's bound; window with that loaded model's
+splitter and prove tail coverage through the actual caller.
