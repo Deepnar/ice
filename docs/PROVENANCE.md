@@ -4181,3 +4181,57 @@ was redundant with ordinary extraction and a source sentence claim, so there
 is no supported answer-per-token delta to report. The v3 decision is to keep
 G51 open but skip it until an explicit-source judge passes opposing pairs and
 a fresh conversation shows incremental answer value beyond current readers.
+
+## 2026-09-25 — v3 G28/B2 style and self-containedness starter
+
+`scripts/classifier/pipeline/style_variants.py` is an eval-only authored
+instrument run through `tests/support/disposable_database.py` with a fresh
+five-turn synthetic conversation. Two source facts (an invented GPU command and
+port) occur before three recent filler turns, so the live classifier's
+last-three-turn prefix cannot already answer the historical questions. The
+script calls `PyTorchClassifier.classify(prompt, conversation_id=...)`, the
+current timescope detector and `decide_memory_retrieval` for every style
+variant. This is the production decision logic with a disposable store; it
+does not run the downstream retriever or answerer. The frozen operating point
+is five turns and about 73 locally estimated history tokens, so length
+pressure is neutral. The 24 authored rows are four meaning groups (historical
+GPU command, historical indexer port, general GPU command and a current
+message that itself states the indexer port), each in six punctuation, order,
+casual and typo forms. They were not trained on or used to tune a knob.
+
+Shipped v3 checkpoint `ice_classifier_v4_schema2.pt` plus default B2:
+historical GPU 5/6 correct with one decision flip; historical port 6/6;
+general GPU 6/6; self-contained port **0/6**. Overall 17/24, one of four
+groups flips. The self-contained prompt has its answer in the current message
+yet `p_ltm` stayed 0.812–0.905 and B2 retrieved in every form. The original
+source-specific command miss from the recorded 20-pair trace remains a
+separate, private case. This starter identifies a semantic boundary problem;
+it is too small and authored to estimate the population false-retrieval rate.
+
+The isolated local `convaiinnovations/laya-typed-decisions` shadow read each
+latest prompt with a two-way criterion “older unseen memory required” versus
+“current message or general knowledge suffices.” It classified all 12
+historical prompts as needing memory, but gave 4/6 false-memory calls to the
+general GPU group and 6/6 to the self-contained port group: **14/24 correct**.
+The checkpoint's invalid-temperature warning still applies to displayed
+probabilities. This input/model is not qualified as a replacement. The next
+design step is to separate in-prompt answerability from historical-reference
+need and qualify it on independent positive/negative controls, not add a flat
+B2 bias or promote Laya from this shadow.
+
+A single unpromoted head-row candidate was trained after freezing the 24
+evaluation rows. The scratch trainer `/tmp/ice_g28_candidate.py` used fixed
+seed 2801, 120 authored development rows from 12 domains unrelated to GPU
+commands/indexer ports (four earlier-fact, four self-contained-answer, two
+general forms per domain), a three-turn recent context, the live Qwen
+embedding/template, and 1,800 sampled original labeled training rows per epoch
+for 12 epochs. It froze the encoder, classifier trunk and other output labels;
+only the `Needs_Memory` row of the context head received gradients, with 0.25
+squared drift regularization. The candidate `/tmp/ice-g28-candidate.pt` is not
+a live or versioned artifact. Original validation Needs_Memory BCE improved
+0.25766→0.23206, while the same disposable production-path held-out probe
+fell from 17/24 to **14/24**: historical GPU 5/6→2/6 and self-contained port
+remained 0/6. The candidate failed the first qualification, so no broader
+calibration run or answer test was justified. Live v3 weights and gate are
+unchanged. This is a concrete case where a better old-label score does not
+imply a better source-need decision.
