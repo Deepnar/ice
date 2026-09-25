@@ -63,12 +63,8 @@ _load_attempted = False
 #   actually wants and where the maintenance runtime's gpu lane already
 #   serialises the work — so it is loaded for a drain and released again.
 #
-# Note what did NOT move: the codex grounding whitelist stays on the micro-NER.
-# That list is PERMISSIVE ("use ONLY these as subjects"), so over-firing is
-# load-bearing there — a long noisy list gives the model more legal subjects
-# and it discards the junk itself, while a clean short list forbids real facts.
-# Measured 166 triplets against NuNER's 84; the union scored 170, which is
-# inside the run-to-run noise (the same arm scored 104 and 166 on two runs).
+# Codex grounding later switched to the background tier by default; its
+# separate setting still controls that choice without changing this seam.
 _bg_ner = None
 _bg_ner_attempted = False
 
@@ -172,6 +168,37 @@ def _background_labels(extra_types: Sequence[str] = ()) -> List[str]:
     return sorted(t.lower() for t in _KNOWN_TYPES if t not in keep)
 
 
+def _background_model_windows(piece: str, model) -> List[str]:
+    """Cover every GLiNER word without exceeding its internal word limit."""
+    splitter = getattr(getattr(model, "data_processor", None), "words_splitter", None)
+    limit = getattr(getattr(model, "config", None), "max_len", None)
+    if not callable(splitter) or type(limit) is not int or limit <= 0:
+        raise ValueError("background model word splitter or positive limit unavailable")
+    spans = list(splitter(piece))
+    if len(spans) <= limit:
+        return [piece]
+    if any(len(span) != 3 or type(span[1]) is not int or type(span[2]) is not int
+           or not 0 <= span[1] < span[2] <= len(piece)
+           for span in spans):
+        raise ValueError("background model word offsets invalid")
+    overlap = min(16, max(0, limit // 4))
+    windows, start = [], 0
+    while start < len(spans):
+        end = min(start + limit, len(spans))
+        while end > start:
+            window = piece[spans[start][1]:spans[end - 1][2]]
+            if len(list(splitter(window))) <= limit:
+                break
+            end -= 1
+        if end == start:
+            raise ValueError("one background model word exceeds its window")
+        windows.append(window)
+        if end == len(spans):
+            break
+        start = max(start + 1, end - overlap)
+    return windows
+
+
 def _extract_background(text: str,
                         labels: Optional[Sequence[str]] = None) -> Optional[List[str]]:
     """Entities via the background model, or None if it is unavailable.
@@ -192,9 +219,10 @@ def _extract_background(text: str,
     try:
         for i in range(0, len(words), chunk):
             piece = " ".join(words[i:i + chunk])
-            spans = model.predict_entities(piece, labels, threshold=threshold)
-            found.extend(s["text"].strip()
-                         for s in _merge_word_spans(spans, piece))
+            for window in _background_model_windows(piece, model):
+                spans = model.predict_entities(window, labels, threshold=threshold)
+                found.extend(s["text"].strip()
+                             for s in _merge_word_spans(spans, window))
     except Exception as exc:
         logger.warning("background_ner_failed", error=str(exc),
                        falling_back_to="micro_ner")
