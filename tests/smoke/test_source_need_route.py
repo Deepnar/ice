@@ -11,6 +11,7 @@ from src.api import main, memory_preparation
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.api.source_need import SourceNeed
+from src.api.source_proof import SourceProof
 from src.classifier.schemas import ClassificationResult
 from src.memory.models import Conversation, EpisodicMemory
 from src.retrieval.orchestrator import ContextFragment
@@ -31,8 +32,8 @@ def test_actual_handler_source_decisions(monkeypatch, mode):
     monkeypatch.setattr(main, "serving_window", lambda *_a: 8192)
     monkeypatch.setattr(main, "log_window_truth", lambda *_a: None)
     monkeypatch.setattr(main, "record_graph_access", lambda *_a, **_k: None)
-    exposed, judged = [], []
-    fragment = ContextFragment("User: For this setup I checked GPU memory with gpu-scan --mem --device 7.", "episodic", 1, 25)
+    exposed, judged, proved = [], [], []
+    fragment = ContextFragment("User: For this setup I checked GPU memory with gpu-scan --mem --device 7.", "episodic", 1, 25, covers_entire_source=True)
     class Orchestrator:
         def __init__(self, *_a): self.recent_token_budget = 1000
         def set_budget_from_turn_count(self, *_a, **_k): pass
@@ -45,10 +46,13 @@ def test_actual_handler_source_decisions(monkeypatch, mode):
         assert current_only == (mode == "skip")
         judged.append(messages)
         if mode == "skip": return SourceNeed("visible_evidence", "Our port is 7813.")
-        if len(judged) == 1: return SourceNeed("older_memory")
-        return (SourceNeed("visible_evidence", "gpu-scan --mem --device 7")
-                if mode == "rescue" else SourceNeed("general_knowledge"))
+        return SourceNeed("older_memory")
     monkeypatch.setattr(memory_preparation, "judge_source_need", judge)
+    def prove(question, source):
+        proved.append((question, source))
+        return (SourceProof("supported", "gpu-scan --mem --device 7")
+                if mode == "rescue" else SourceProof("not_supplied"))
+    monkeypatch.setattr(memory_preparation, "prove_source_fact", prove)
     async def run(db, conversation_id):
         class Request:
             headers = {"X-ICE-Conversation-ID": str(conversation_id)}
@@ -72,9 +76,9 @@ def test_actual_handler_source_decisions(monkeypatch, mode):
             db.query(Conversation).filter_by(id=conversation_id).delete()
             db.commit()
     if mode == "rescue":
-        assert len(judged) == 2 and exposed == [fragment]
+        assert len(judged) == 1 and exposed == [fragment]
         assert "gpu-scan" not in "\n".join(m["content"] for m in judged[0])
-        assert "gpu-scan" in "\n".join(m["content"] for m in judged[1])
+        assert proved[0][1] == fragment.text
         assert '"fragments_count": 1' in events
     else:
         assert not exposed and '"fragments_count": 0' in events

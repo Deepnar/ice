@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from src.api import source_need as sn
+from src.api import source_proof as sp
 from src.api.config import settings
 
 
@@ -39,22 +40,16 @@ def test_recent_excerpt_cannot_suppress_positive_prior():
     assert sn.source_action(True, sn.SourceNeed("visible_evidence", "Our port is 7813."), prompt) == "skip"
 
 
-def test_current_proof_missing_is_normal_and_cannot_suppress_prior(caplog):
+def test_current_proof_missing_is_normal_and_cannot_suppress_prior(monkeypatch, caplog):
     messages = [{"role": "user", "content": "Which port did we choose before?"}]
-    verdict = sn.parse_verdict(encoded("not_supplied"), "stop", messages,
-                               current_only=True)
+    monkeypatch.setattr(sp, "prove_source_fact", lambda *_a: sp.SourceProof("not_supplied"))
+    verdict = sn.judge_source_need(messages, current_only=True)
     assert verdict == sn.SourceNeed("not_supplied")
     assert sn.source_action(True, verdict, messages[0]["content"]) == "keep"
     assert "memory_source_need_unknown" not in caplog.text
-    assert sn.parse_verdict(encoded("general_knowledge"), "stop", messages,
-                            current_only=True).reason == "invalid_shape"
 
 
-def test_rescue_requires_quote_in_admitted_retrieval_not_question():
-    verdict = sn.SourceNeed("visible_evidence", "port is 7813")
-    assert not sn.rescue_has_source(verdict, [SimpleNamespace(text="Port used previously.")])
-    assert not sn.rescue_has_source(verdict, [])
-    assert sn.rescue_has_source(verdict, [SimpleNamespace(text="User: Our port is 7813.")])
+def test_negative_search_still_requires_private_source_decision():
     assert sn.source_action(False, sn.SourceNeed("older_memory"), "Which port did we choose?") == "rescue"
 
 
@@ -88,18 +83,22 @@ def test_complete_overlength_input_never_calls_provider_or_truncates(monkeypatch
     assert messages[-1]["content"].endswith("intact.")
 
 
-def test_positive_proof_uses_binary_task_and_only_current_message(monkeypatch):
+def test_positive_proof_freezes_frames_using_only_current_message(monkeypatch):
     calls = []
     def post(_url, **kwargs):
         calls.append(kwargs["json"])
         return SimpleNamespace(raise_for_status=lambda: None, json=lambda: dict(
             done=True, done_reason="stop", prompt_eval_count=321,
-            message=dict(content=encoded("not_supplied"))))
+            message=dict(content=json.dumps(dict(frame=None, assertion_frame=None,
+                                                 reason="unframeable")))))
     monkeypatch.setattr(sn.httpx, "post", post)
     assert sn.judge_source_need([dict(role="user", content="What was our choice?")],
                                 current_only=True).decision == "not_supplied"
-    assert calls[0]["format"]["properties"]["decision"]["enum"] == ["visible_evidence", "not_supplied"]
-    assert calls[0]["messages"][0]["content"] == sn.CURRENT_INSTRUCTIONS
+    assert calls[0]["format"] == sp.FRAME_SCHEMA
+    assert json.loads(calls[0]["messages"][1]["content"]) == {
+        "latest_user_request": "What was our choice?"}
+    assert calls[0]["think"] is True
+    assert calls[0]["options"]["num_predict"] == settings.memory_source_proof_output_tokens
     assert sn.judge_source_need([dict(role="system", content="Prior source."),
         dict(role="user", content="Question")], current_only=True).reason == "invalid_current_source_messages"
     assert len(calls) == 1

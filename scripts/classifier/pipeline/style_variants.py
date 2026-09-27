@@ -111,7 +111,7 @@ def main():
     parser = argparse.ArgumentParser(description="G28 production-path style probes")
     parser.add_argument("--checkpoint", default=settings.classifier_model_path)
     parser.add_argument("--source-gate", action="store_true",
-                        help="Run qualified current-source proof at a controlled window")
+                        help="Evaluate unpromoted current-source proof at a controlled window")
     parser.add_argument("--source-rescue", action="store_true",
                         help="Also qualify the unpromoted negative-rescue branch")
     parser.add_argument("--window", type=int, default=8192)

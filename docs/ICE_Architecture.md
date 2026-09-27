@@ -180,24 +180,34 @@ chat preparation, shared with answer/replay instruments through
 `production_parity.prepare`. The B2 score remains the baseline probability;
 `memory_source_gate_enabled=False` leaves current-source proof unpromoted;
 `memory_source_rescue_enabled=False` also leaves the failed negative-rescue candidate OFF.
-With it enabled, a fitted baseline prompt retains standing slots, bookmarks,
-source notes and constraints. An existing positive is suppressed only by a
-binary current-message complete-evidence verdict with an exact quote. A
-general-knowledge verdict or partial recent source cannot suppress it.
-With negative rescue explicitly enabled for qualification, the four-choice
-judge inspects the full fitted prompt for a baseline negative.
-A missing-source verdict provisionally searches through the existing scoped,
-budgeted, reranked path. Rescue admission needs a second verdict citing a quote
-in retrieved evidence that survives final eviction; otherwise restore the
-baseline prompt and classification. Exact quotation is a prerequisite, not semantic proof: the current-source
-branch falsely suppressed7/22 same-speaker unrelated-source controls, sometimes
-quoting the question itself; rescue admitted2/22 unrelated excerpts. Neither
-model branch is active by default. Answer-claim, question coverage and question-first declarative/source NLI
-qualification continue outside production; claim entailment alone cannot prove
-that every requested question qualifier was answered. Unknown/malformed/overlength verdicts retain B2 and
-warn with the reason. The native local `gemma4:e4b` call owns a 32768-token context and 256 output
-tokens. Complete input caps are 8192 estimated tokens and 16384 UTF-8 bytes
-(instructions plus payload), leaving template/tokenizer headroom; no source cut.
+With it explicitly enabled for qualification, a fitted baseline retains standing
+slots, bookmarks, source notes and constraints. Existing positives use only the
+complete current request as original evidence. `source_proof.py` freezes two
+question-derived factual forms (typed attribute and direct assertion), then
+fills one common source value with an unchanged attributed citation. Both forms
+must pass the unchanged source verifier against BOTH full original and original leading context through citation
+end; missing/unknown retains B2. The old binary quote-only path is superseded,
+not a second suppression rule. No probability or stored fact is changed.
+Negative rescue first uses the four-choice full-fitted-context source judge,
+then provisionally searches through the existing scoped, budgeted, reranked
+path. Final admission calls factual proof only on complete original episodic
+turns surviving eviction; graph prose, summaries and excerpts cannot prove
+themselves. Failure restores the original prompt and classification. This is a
+partial candidate scope, not verified cross-leg rescue or a solved intent head.
+Earlier quote-only checks falsely suppressed7/22 and admitted2/22 unrelated
+controls. Paired question-first proof passed13 reused DEVELOPMENT controls with
+detached sources, then the actual combined current request passed10/13: NLI
+imported unsupported date/body-part conditions from the question; one valid
+supplied fact got malformed frames. A citation-local candidate is now under
+qualification; bare answer spans lose necessary speaker context. The complete source plus cited-leading-context development replay remains
+11/13. Actual final preparation starter22/24 still has two style flips
+(historical command5/6, supplied port5/6). Neither switch is active. Unknown/malformed/overlength calls warn with their reason and retain
+B2. Native local `gemma4:e4b` owns32768 context; intent calls use256 output tokens
+with thinking OFF, question-frame/source-fill calls use2048 with thinking ON.
+Complete caps remain8192 estimated tokens and16384 UTF-8 bytes (instructions
+plus payload), leaving template/tokenizer headroom; no source cut. Source NLI
+retains its512 complete-pair bound and.95 threshold. The generative/NLI cost
+belongs in qualification; fewer foreground tokens alone is no latency gain.
 Chat candidate reads defer episodic retention and cold restoration until final
 admission. Direct search callers keep their prior behaviour, and reading never
 adds graph corroboration. The Laya source-need prototypes remain unpromoted;

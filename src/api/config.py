@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     memory_source_gate_input_tokens: int = Field(default=8192, gt=0)
     memory_source_gate_context_tokens: int = Field(default=32768, gt=0)
     memory_source_gate_output_tokens: int = Field(default=256, gt=0)
+    memory_source_proof_output_tokens: int = Field(default=2048, gt=0)
 
     # ── G23/C17: store-level embedding identity (fail-loud) ──
     # The ONE embedder every writer and retrieval path shares

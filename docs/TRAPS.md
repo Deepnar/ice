@@ -1808,6 +1808,16 @@ can miss ambiguity just as substring-based labeling does; retain the failed
 instrument, exclude disputed gold from clean binary scoring and do not make
 the deployed threshold fit those labels.
 
+The question can also contaminate the verifier's premise. Paired frozen forms
+passed13/13 with detached original sources, then10/13 when the COMPLETE current
+message included the source and appended question: conditions asserted only in
+the question became apparent entailments. Quote-local checks rejected those
+conditions but lost original speaker/date context and rejected valid answers.
+Check the actual joined request, keep the complete source check and retain
+original citation context; conservative non-admission is not evidence that the
+memory fact is false or should be removed. Reused development passes cannot
+activate a semantic gate or stand in for an independent negative panel.
+
 ### 71. A sourced answer does not validate a counterfactual training label
 
 **v3, 2026-09-27.** A source-need dataset contained the correct original

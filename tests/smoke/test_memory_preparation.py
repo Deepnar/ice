@@ -1,4 +1,5 @@
 """Final prompt and admission, rather than classifier prefix or candidate read."""
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from src.api import memory_preparation as mp
 from src.api.config import settings
 from src.api.source_need import SourceNeed
+from src.api.source_proof import SourceProof
 from src.retrieval.orchestrator import ContextFragment
 
 
@@ -13,8 +15,8 @@ from src.retrieval.orchestrator import ContextFragment
 def harness(monkeypatch):
     monkeypatch.setattr(settings, "memory_source_gate_enabled", True)
     monkeypatch.setattr(settings, "memory_source_rescue_enabled", True)
-    fragment = ContextFragment("User: We chose port 7813.", "episodic", 1, 9)
-    captures = dict(judged=[], exposed=[], retrieved=[], fragments=[fragment], removed=[])
+    fragment = ContextFragment("User: We chose port 7813.", "episodic", 1, 9, covers_entire_source=True)
+    captures = dict(proved=[], proofs=[], judged=[], exposed=[], retrieved=[], fragments=[fragment], removed=[])
     db = SimpleNamespace(query=lambda *_a: SimpleNamespace(
         filter_by=lambda **_k: SimpleNamespace(first=lambda: None)))
     classifier = SimpleNamespace(embedder=SimpleNamespace(encode=lambda *_a, **_k: [1.0]))
@@ -45,6 +47,10 @@ def harness(monkeypatch):
         captures["judged"].append(messages)
         return verdicts.pop(0)
     monkeypatch.setattr(mp, "judge_source_need", judge)
+    def prove(question, source):
+        captures["proved"].append((question, source))
+        return captures["proofs"].pop(0)
+    monkeypatch.setattr(mp, "prove_source_fact", prove)
     args = dict(db=db, classifier=classifier,
         classification=SimpleNamespace(context_reliance="Zero_Shot"),
         conversation_id="test-conversation", user_message="Which port did we choose?",
@@ -54,22 +60,24 @@ def harness(monkeypatch):
     return args, captures, verdicts
 
 
-def test_source_rescue_admits_only_after_actual_retrieved_quote(harness):
+def test_source_rescue_admits_only_after_complete_original_proof(harness):
     args, captures, verdicts = harness
-    verdicts.extend([SourceNeed("older_memory"), SourceNeed("visible_evidence", "We chose port 7813.")])
+    verdicts.append(SourceNeed("older_memory"))
+    captures["proofs"].append(SourceProof("supported", "We chose port 7813."))
     result = mp.prepare_memory_context(**args)
     assert result.retrieve and result.action == "rescue"
     assert result.source_checked
     assert captures["exposed"] == result.fragments == captures["fragments"]
     assert "7813" not in captures["judged"][0][0]["content"]
-    assert "7813" in captures["judged"][1][0]["content"]
+    assert captures["proved"] == [(args["user_message"], captures["fragments"][0].text)]
     assert "Standing preference blue" in captures["judged"][0][0]["content"]
 
 
-@pytest.mark.parametrize("decision", ["general_knowledge", "unknown"])
+@pytest.mark.parametrize("decision", ["not_supplied", "unknown"])
 def test_rescue_failure_preserves_original_decision_and_credits_nothing(harness, decision):
     args, captures, verdicts = harness
-    verdicts.extend([SourceNeed("older_memory"), SourceNeed(decision)])
+    verdicts.append(SourceNeed("older_memory"))
+    captures["proofs"].append(SourceProof(decision))
     result = mp.prepare_memory_context(**args)
     assert not result.retrieve and not result.fragments and not captures["exposed"]
     assert args["classification"].context_reliance == "Zero_Shot"
@@ -132,3 +140,13 @@ def test_positive_evicted_candidates_receive_no_exposure(harness, monkeypatch):
     result = mp.prepare_memory_context(**args)
     assert result.retrieve and not result.fragments
     assert not captures["judged"] and not captures["exposed"]
+
+
+@pytest.mark.parametrize("kind,complete", [("codex", True), ("episodic", False), ("procedural", True)])
+def test_generated_or_partial_fragment_cannot_prove_itself(harness, kind, complete):
+    args, captures, verdicts = harness
+    captures["fragments"][0] = replace(captures["fragments"][0],
+        source_type=kind, covers_entire_source=complete)
+    verdicts.append(SourceNeed("older_memory"))
+    result = mp.prepare_memory_context(**args)
+    assert not result.retrieve and not captures["proved"] and not captures["exposed"]

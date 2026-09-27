@@ -1237,3 +1237,79 @@ make a true weak claim, then native final preparation before promotion. A source
 block with an unresolved antecedent does not ground a more specific question
 merely because the dataset answer is a literal span; mark uncertain rather than
 rewrite source history or retrain on misqualified labels.
+
+
+**Retain the answer category in the frame, 2026-09-27:** the first frame prototype
+preserved date/event but replaced the whole interrogative noun phrase: "what
+digestive issue" became "Sam experienced {{answer}} lately", admitting phone
+frustration. Preserve the requested attribute/category OUTSIDE the placeholder
+(e.g. "The digestive issue Sam experienced lately was {{answer}}"), with all
+other requested qualifiers. Fill only the most-specific explicit value of that
+category. Do not confuse a vague health scare with the named condition even
+when an admission mask passes. Check returned value quality as well as admission;
+no hardcoded medical/port vocabulary or threshold changes.
+
+
+**Qualifier robustness within NLI, 2026-09-27:** typed relative-clause frames
+can let a verifier overlook the date. The same unsupported onset proposition
+scored.998 in "The hobby ... in October was photography" and.063 in the direct
+"Dave picked up photography in October" formulation. Question-only generation
+therefore proposes two equivalent hypotheses: an explicit typed-attribute form
+and a direct event assertion containing the same answer category and ALL
+requested qualifiers as asserted predicates. Freeze both before source reading,
+fill one common source value, and require BOTH complete-source entailment scores
+at the unchanged.95 threshold. Batch the two pairs; no extra generative call.
+Validate semantic equivalence/qualifier retention as well as final source
+admission and answer value. This is a bounded conservative candidate, not a
+claim that two correlated NLI formulations are an independent truth oracle.
+Unknown still preserves B2 and the original evidence; do not alter the global
+summary/graph verifier solely from this QA-specific diagnostic.
+
+**Disabled shared-path integration, 2026-09-27:** expose the qualified-development
+mechanism in `src/api/source_proof.py`, retaining BOTH feature defaults OFF.
+Current-message suppression uses the full latest request as both question and
+original source. Post-search negative rescue may use only final, un-evicted,
+complete ORIGINAL episodic turns (`covers_entire_source=True`); summaries,
+excerpts, graph assertions and procedural prose cannot prove themselves. This
+is a deliberately partial candidate scope, not full cross-leg rescue. Native
+frame/fill calls own reasoning mode and 2048 output tokens, shared full-input
+8192-token/32768-context bounds, exact source binding and paired unchanged NLI.
+Verifier uncertainty/capacity failure returns unknown. The previous quote-only
+current binary prompt and post-search quote check are superseded, not parallel
+admission paths. Model/transport failure retains B2 and earns no new exposure.
+Controlled tests must reach the real preparation and chat route; native tests
+must include the joined latest request, not just detached question/source pairs.
+No default activation from the 13 reused developmental controls alone.
+
+**Current-message presupposition contamination, 2026-09-27:** the actual combined
+latest request supplies the NLI premise with the QUESTION as well as evidence;
+paired full-message entailment alone falsely establishes a date/body-part only
+mentioned in that question. Require paired support from BOTH complete source
+and an unchanged contiguous evidential unit selected from it. The unit retains
+original speaker/date labels and necessary antecedents; a bare value span loses
+attribution and rejects otherwise supported answers. It must establish the
+whole filled proposition from assertions, never from a question's presupposed
+conditions. Freeze grammatical frames with the unknown value only in its slot;
+do not copy a supplied answer into a background condition or duplicate the
+category after that slot. Null/unknown/capacity failure still preserves B2.
+This citation-locality candidate must be tested for lost positives as well as
+false admissions; the cached short-quote guard rejected both unsupported date/
+body-part claims but also three true named-speaker claims, so short quotes are
+NOT a qualified default. No punctuation/closed intent lexicon substitute.
+
+**Preserve the citation's original leading context, 2026-09-27:** a correct
+citation retained the named speaker but omitted the source's leading recorded
+header, making a dated sharing claim unverifiable. Do not manufacture metadata
+or relax NLI. The second premise is the unchanged original prefix through the
+END of the exact citation's first occurrence (`source[:start+len(quote)]`),
+retaining leading original speaker/date/antecedent context while excluding
+later material, including the appended question. The FULL original is still
+independently scored under its complete-input bound; this is a cited context
+alternative, not clipping an overlength full input to pass NLI. If the citation
+comes from the question itself this rule supplies no new authority; paired
+support/negative qualification still apply. Reuse retained native outputs to
+measure this isolated context change before any new generative probe. Check
+both unsupported qualifiers and dated/speaker-attributed positives. The short
+quote-only guard is superseded, not a third condition that would retain its
+known false rejections. This remains a disabled candidate until independent
+negative, same-path intent/style, latency and answer-benefit qualification.

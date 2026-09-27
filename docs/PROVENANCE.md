@@ -4503,3 +4503,99 @@ studies this use of NLI for QA verification. A question-first declarative frame
 can bind the requested event/time before source reading; source filling may
 supply only the answer slot. This is the next bounded candidate, not yet
 production integration or evidence of broad ICE improvement.
+
+
+Question-first prototype with a fixed value slot passed12/13 policy-admission
+controls after removing an instrument-only rejection of informational frame
+reasons. Raw responses now persist before validation; the initial abort did not
+retain its response and is an instrument mistake. Cached valid frames and the
+two completed news-source calls were reused, not silently replaced. Its semantic
+failure retained date/event but dropped the requested ANSWER CATEGORY: the
+digestive-issue question became "Sam experienced {{answer}} lately", so phone
+frustration filled the slot and was genuinely entailed. The positive also filled
+a vague health scare rather than the explicit named condition; binary admission
+alone concealed wrong answer-value quality. Next typed-attribute frames retain
+the category outside the slot and fill only its most-specific explicit source
+value. Separate ignored native13-control candidate running; no activation.
+
+
+Typed-attribute question-first DEVELOPMENT controls again passed12/13; value
+quality now correctly returned the named digestive condition and rejected phone
+frustration, but the unsupported October onset was admitted. The full hypothesis
+DID retain October: unchanged DeBERTa gave.99827 to the attribute/relative-clause
+form versus.06330 to the equivalent direct event assertion. This is verifier
+form sensitivity, not a reason to lower the threshold or delete date metadata.
+A paired-hypothesis candidate now freezes both a typed-attribute and direct
+assertion from the question, fills one common value from the complete source,
+and requires both unchanged.95 judgments. Both pairs are batched; the second
+form adds no generative call. Native same13 development controls are running;
+no live integration or independent accuracy claim. Global summary/graph source
+policy has not changed from this QA-specific finding.
+
+
+Paired-question-hypothesis native DEVELOPMENT panel completed13/13 admission
+controls with complete outputs, correct specific digestive answer and all three
+supplied-port forms. The missing-month native filler returned null, so its
+control alone does not demonstrate that the second NLI form changes admission.
+The separately retained wrong photography fill is injected only for an isolated
+landed-signal diagnostic; the candidate itself never receives gold answers.
+These are development controls after inspected failures, not independent source
+accuracy, source-gate default activation or final chat-path qualification.
+
+**Actual combined-current boundary and disabled integration, 2026-09-27.**
+The paired-form landed-signal diagnostic rejected the retained false onset
+fill: typed form.99894 versus direct.11366; requiring both changed admission.
+However, native `source_proof.py` over the COMPLETE joined source+question
+passed only10/13 reused developmental admission controls. The question's date
+and body-part presuppositions contaminated the full NLI premise, admitting both
+unsupported qualifiers. A supplied-port variant also generated malformed
+frames. Actual calls own32768 context,2048 output, temperature0, thinking ON,
+keep_alive0, no input clipping; model pin unchanged. Every original response
+is preserved under ignored `logs/g28_candidate/joined-source-proof-native.jsonl`.
+Artifact/report: `joined-source-proof-qualification.json`. This supersedes the
+scope of the earlier detached-source13/13; neither is heldout accuracy.
+
+An isolated unchanged-output NLI comparison added exact-quote premises. It
+rejected both unsupported qualifiers but also three true named-speaker/date
+claims after dropping their context. Native revised intact-citation/grammatical
+instructions passed11/13 (`evidence-local-source-proof-qualification.json`):
+all opposing/missing controls rejected, dated sharing and one supplied-port
+variant retained B2. Reusing these saved native frame/fill outputs through the
+actual production proof with original prefix through citation end also passed
+11/13 (`cited-prefix-proof-qualification.json`), not a qualified promotion. No
+additional generation, lowered threshold or training data changed that arm.
+The FULL original remains independently bound-checked/scored; cited leading
+context is an evidence alternative, never clipping a long input to pass NLI.
+The classifier and original evidence remain unchanged; misses preserve B2.
+
+Shared final preparation and actual-route controlled tests now call the new
+factual proof only on final complete original episodic turns for rescue;
+derived/partial/evicted fragments cannot self-verify or receive exposure.
+Current-only reads the complete latest request. Old quote-only binary/native
+and post-search quote paths are superseded. Both flags remain OFF. Controlled
+checks:41/41 focused disposable tests after cited-context integration; the prior
+full attributed-span version388/388 disposable smoke. Final full-prefix and
+real24-style shared-path qualification are pending, not credited here.
+
+This failure is consistent with published distinctions between entailment and
+projecting presuppositions; it is an inference explaining a measured ICE v3
+failure, not an imported gain. Primary references:
+[IMPPRES](https://aclanthology.org/2020.acl-main.768/),
+[presupposition verification for QA](https://arxiv.org/abs/2101.00391),
+[Q² source-answer verification](https://aclanthology.org/2021.emnlp-main.619/).
+No final LME oracle/semi-LSREP, answer-generation repeat, runtime model promotion,
+dependency change, personal corpus regeneration or push occurred.
+
+**Final shared-path starter completed, same candidate settings.** Actual v3
+classifier→B2→full preparation→retrieval/reranker→proof→budget path at controlled
+8192 window, explicit source gate/rescue ON only in the disposable instrument,
+retention writes OFF:22/24, two of four style groups still flip. Historical
+command5/6, historical port6/6, public command6/6, supplied port5/6. Original
+prior-only starter17/24 and prior quote-only23/24/full-rescue24/24 are different
+arms, not current defaults. Artifact `cited-prefix-final-style.log`; no answer
+generation or extraction/maintenance, so22/24 is retrieval-decision quality,
+not supported-answer quality. Final full default-OFF regression389/389 in
+18.44s (`cited-prefix-final-smoke.log`);41 focused actual-route/preparation/proof
+checks also pass. No branch activated. Next isolate source-intent reasoning
+using the ORIGINAL63 full-panel native requests, with only thinking/output
+changed in the ignored instrument; do not fit another lexical bump.

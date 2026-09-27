@@ -8,7 +8,8 @@ from src.api.config import settings
 from src.api.memory_decision import estimate_recent_window_tokens
 from src.api.prompt_assembler import conversation_summary_block
 from src.api.prompt_budget import BudgetedPrompt, assemble_budgeted_prompt
-from src.api.source_need import judge_source_need, rescue_has_source, source_action
+from src.api.source_need import judge_source_need, source_action
+from src.api.source_proof import prove_source_fact
 from src.memory.models import ConversationSummary
 from src.memory.usage import evidence_after_eviction
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
@@ -98,7 +99,15 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
     if action == "rescue":
         supported = False
         if selected and prepared.ledger.fits():
-            supported = rescue_has_source(judge_source_need(prepared.messages), selected)
+            # Only complete original turns qualify this candidate branch.
+            # Generated/legacy graph prose must not prove its own assertion.
+            for fragment in selected:
+                if fragment.source_type != "episodic" or not fragment.covers_entire_source:
+                    continue
+                proof = prove_source_fact(user_message, fragment.text)
+                if proof.status == "supported":
+                    supported = True
+                    break
         if not supported:
             classification.context_reliance = original_context
             logger.warning("memory_source_rescue_withheld", candidates=len(fragments),
