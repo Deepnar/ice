@@ -34,12 +34,12 @@ from src.api.memory_decision import (
     derive_total_budget,
     estimate_recent_window_tokens,
 )
-from src.api.prompt_assembler import bookmarked_turn_texts, conversation_summary_block
-from src.api.prompt_budget import assemble_budgeted_prompt
+from src.api.memory_preparation import prepare_memory_context
+from src.api.prompt_assembler import bookmarked_turn_texts
 from src.api.routers import memory_slots, user_control
 from src.classifier.classifier import PyTorchClassifier
 from src.memory.conversation_stats import conversation_pressure
-from src.memory.models import Conversation, ConversationSummary, EpisodicMemory, MemorySlot
+from src.memory.models import Conversation, EpisodicMemory, MemorySlot
 from src.memory.session import resolve_session_id
 from src.memory.source import chat_provenance
 from src.memory.tokens import count_messages as count_tokens_messages
@@ -50,7 +50,6 @@ from src.model_registry.registry import (
     get_model_context_window,
 )
 from src.model_registry.runtime_probe import log_window_truth, serving_window
-from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.retrieval.timescope import detect_timescope, to_scope_dict
 from src.services.scoping import resolve_retrieval_scope
 
@@ -549,8 +548,6 @@ async def chat_completions(
 
     # ── Retrieval & prompt assembly ──
     result.prompt = user_message
-    fragments = []
-    prompt_embedding = None
     memory_slots_list = []
     bookmarked_texts = []
 
@@ -566,38 +563,6 @@ async def chat_completions(
         coding_scope=bool(scope.get("project_id")),
     )
     log.info("memory_decision", retrieve=mem_decision.retrieve, **mem_decision.breakdown)
-    # Recent-turn budget for prompt assembly — principled default that also
-    # applies when we don't retrieve (a long convo we chose not to search still
-    # deserves a scaled recent window).
-    recent_budget = estimate_recent_window_tokens(turn_count, total_budget)
-
-    if mem_decision.retrieve:
-        # Downstream (orchestrator gates, episodic storage, telemetry) still
-        # keys off the label, so reflect the decision there.
-        result.context_reliance = "Long_Term_Memory"
-
-        embedding_tensor = await asyncio.to_thread(
-            classifier.embedder.encode, user_message, convert_to_tensor=False
-        )
-        prompt_embedding = embedding_tensor.tolist() if hasattr(embedding_tensor, "tolist") else list(embedding_tensor)
-
-        orchestrator = HybridRetrievalOrchestrator(db, classifier.embedder)
-        # CL4: dynamic token budget from conversation length, ceiling from the
-        # routed model's context window (C16).
-        orchestrator.set_budget_from_turn_count(
-            turn_count, total_tokens=total_tokens, classification=result,
-            total_budget=total_budget,
-        )
-        fragments = await asyncio.to_thread(
-            orchestrator.retrieve,
-            classification=result,
-            conversation_id=str(conversation_id),
-            prompt_embedding=prompt_embedding,
-            scope=scope,
-        )
-
-        recent_budget = getattr(orchestrator, "recent_token_budget", recent_budget)
-
     # ── Persistent memory + assembly run on EVERY turn ──
     # Memory slots (standing user memory) and bookmarks are user-level context,
     # not retrieval results — they must be injected even when B2 decides a
@@ -631,34 +596,15 @@ async def chat_completions(
                      project_id=scope["project_id"],
                      rendered=bool(session_start_text))
 
-    # C4 (D3a): once the conversation outgrew the sliding window, its evolving
-    # source notes can provide query-relevant older context. A no-retrieval
-    # decision still needs the query vector to choose those notes.
-    has_summary = (total_tokens > recent_budget and db.query(ConversationSummary.conversation_id)
-                   .filter_by(conversation_id=conversation_id).first() is not None)
-    if has_summary and prompt_embedding is None:
-        embedding_tensor = await asyncio.to_thread(
-            classifier.embedder.encode, user_message, convert_to_tensor=False)
-        prompt_embedding = (embedding_tensor.tolist() if hasattr(embedding_tensor, 'tolist')
-                            else list(embedding_tensor))
-    conversation_summary_options = await asyncio.to_thread(
-        conversation_summary_block, db, str(conversation_id),
-        turn_count, total_tokens, recent_budget, prompt_embedding,
-        include_options=True)
-    conversation_summary_text = (conversation_summary_options[0]
-                                 if conversation_summary_options else None)
-
-    prepared = assemble_budgeted_prompt(
-        serving_window=effective_window or 0,
-        generation_reserve=settings.context_generation_reserve,
-        safety_margin=settings.token_count_safety_margin,
-        memory_slots=memory_slots_list, retrieved_fragments=fragments,
-        user_message=user_message, db_session=db, conversation_id=str(conversation_id),
-        bookmarked_texts=bookmarked_texts, classification=result, scope=scope,
-        max_recent_tokens=recent_budget, session_start_text=session_start_text,
-        conversation_summary_text=conversation_summary_text, constraints_text=constraints_text,
-        conversation_summary_options=conversation_summary_options,
-    )
+    memory = await asyncio.to_thread(
+        prepare_memory_context, db=db, classifier=classifier, classification=result,
+        conversation_id=conversation_id, user_message=user_message, scope=scope,
+        turn_count=turn_count, total_tokens=total_tokens, total_budget=total_budget,
+        serving_window=effective_window, base_retrieve=mem_decision.retrieve,
+        memory_slots=memory_slots_list, bookmarked_texts=bookmarked_texts,
+        session_start_text=session_start_text, constraints_text=constraints_text)
+    prepared, fragments = memory.prepared, memory.fragments
+    mem_decision.retrieve = memory.retrieve
     messages, ledger, plan = prepared.messages, prepared.ledger, prepared.removed
     prompt_tokens = count_tokens_messages(messages)
     if plan:

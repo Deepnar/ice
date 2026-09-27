@@ -476,10 +476,11 @@ class HybridRetrievalOrchestrator:
         conversation_id: str,
         prompt_embedding: list[float],
         scope: Optional[dict] = None,
+        *, defer_exposure: bool = False,
     ) -> List[ContextFragment]:
         # The retrieve/no-retrieve decision is now made upstream in one place
-        # (B2, src/api/memory_decision.py) — retrieve() is only called when that
-        # decision says so, and main.py sets context_reliance accordingly. The
+        # (B2 plus optional source refinement) — the caller sets
+        # context_reliance before a normal or provisional search. The
         # old Zero_Shot+conversation and Creative belt-and-suspenders forces
         # (which silently overrode that decision) are gone. These early returns
         # stay purely as a defensive guard if retrieve() is ever called directly.
@@ -645,14 +646,21 @@ class HybridRetrievalOrchestrator:
         final = self._append_empty_window_note(final, prompt_embedding, conv_id, scope)
 
         # Strengthen retrieved turns (access count + decay boost)
-        self._strengthen_retrieved(final)
+        if not defer_exposure:
+            self._strengthen_retrieved(final)
 
         # T3 (D-U1): budget-surviving cold hits get their probation
         # resurrection (after strengthening — probation starts exactly at
         # the configured score, not score+0.15).
-        self._resurrect_cold_hits(final)
+        if not defer_exposure:
+            self._resurrect_cold_hits(final)
 
         return final
+
+    def record_exposure(self, fragments):
+        """Credit admitted surviving sources after a provisional retrieval."""
+        self._strengthen_retrieved(fragments)
+        self._resurrect_cold_hits(fragments)
 
     def _resolve_timescope(self, scope):
         """T2: the request's TimeScope from scope["timescope"], forced to

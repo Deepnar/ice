@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     classifier_model_path: str = "models/classifier/ice_classifier_v4_schema2.pt"
     label_schema_path: str = "data/labeled/label_schema.json"
     default_fallback_model: str = "qwen2.5:7b"
+    # G28: conservative current-source skip and source-backed negative rescue.
+    # The model's enum is never substituted for a calibrated classifier prior.
+    memory_source_gate_enabled: bool = False  # complete answer proof still qualifying
+    memory_source_rescue_enabled: bool = False  # quote-only rescue not qualified
+    memory_source_gate_model: str = "gemma4:e4b"
+    memory_source_gate_input_tokens: int = Field(default=8192, gt=0)
+    memory_source_gate_context_tokens: int = Field(default=32768, gt=0)
+    memory_source_gate_output_tokens: int = Field(default=256, gt=0)
 
     # ── G23/C17: store-level embedding identity (fail-loud) ──
     # The ONE embedder every writer and retrieval path shares

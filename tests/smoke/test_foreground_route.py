@@ -10,7 +10,7 @@ import httpx
 import pytest
 from fastapi import BackgroundTasks
 
-from src.api import main
+from src.api import main, memory_preparation
 from src.api.db import SessionLocal
 from src.classifier.schemas import ClassificationResult
 from src.memory.models import Conversation, EpisodicMemory
@@ -29,6 +29,7 @@ class _Request:
 @pytest.mark.skipif(not os.getenv("ICE_TEST_DATABASE"),
                     reason="requires a disposable PostgreSQL database")
 def test_route_native_stream_and_failure_postflight(monkeypatch):
+    monkeypatch.setattr(main.settings, "memory_source_gate_enabled", False)
     model_vector = [1.0] + [0.0] * 1023
     enqueued = []
     runtime = SimpleNamespace(
@@ -49,7 +50,7 @@ def test_route_native_stream_and_failure_postflight(monkeypatch):
     monkeypatch.setattr(main, "serving_window", lambda *_a: 8192)
     monkeypatch.setattr(main, "log_window_truth", lambda *_a: None)
     monkeypatch.setattr(main, "get_fallback_model", lambda: "controlled-local")
-    monkeypatch.setattr(main, "conversation_summary_block", lambda *_a, **_k: None)
+    monkeypatch.setattr(memory_preparation, "conversation_summary_block", lambda *_a, **_k: None)
     monkeypatch.setattr(main, "record_graph_access", lambda *_a, **_k: None)
 
     class _Ledger:
@@ -59,7 +60,7 @@ def test_route_native_stream_and_failure_postflight(monkeypatch):
         def log(self, _log):
             pass
 
-    monkeypatch.setattr(main, "assemble_budgeted_prompt", lambda **_k:
+    monkeypatch.setattr(memory_preparation, "assemble_budgeted_prompt", lambda **_k:
                         SimpleNamespace(messages=[{"role": "user", "content": "What is one plus one?"}],
                                         ledger=_Ledger(), removed=[],
                                         item_counts={"slots": 0, "bookmarks": 0}))
