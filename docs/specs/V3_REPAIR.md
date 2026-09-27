@@ -1313,3 +1313,27 @@ both unsupported qualifiers and dated/speaker-attributed positives. The short
 quote-only guard is superseded, not a third condition that would retain its
 known false rejections. This remains a disabled candidate until independent
 negative, same-path intent/style, latency and answer-benefit qualification.
+
+**One frozen question per preparation, 2026-09-27:** negative-rescue candidates
+share the SAME immutable `SourceQuestion` created once lazily after an eligible
+original survives eviction. Reuse those two forms for each complete source;
+never regenerate a subtly different question interpretation for each fragment.
+This removes repeated question-model calls (two sources:3 rather than4 native
+calls) without caching private requests globally or changing source/NLI policy.
+Bind the object to its exact original question; a mismatch is unknown. Current
+suppression still makes one frame and one fill call. Unframeable/failed framing
+cannot authorize the factual rescue branch. This addresses avoidable cost and
+source-dependent interpretation; it does not qualify task intent or claim that
+a single factual slot can recover whole omitted material. Contextual-source
+utility for those tasks remains separate open G28 repair work.
+
+**Factual rescue packs its proven original, 2026-09-27:** one complete source
+proving the requested factual answer cannot authorize injecting every other
+candidate. Reassemble with only that original, recheck actual fit/eviction,
+and admit/credit it only if it survives as the same complete source. Standing
+slots/bookmarks/constraints remain. This changes factual negative rescue only;
+normal prior-positive retrieval keeps its existing candidate/packing behaviour.
+Test a rejected unrelated original followed by a supported original through
+final preparation: one frozen question, two source fills, only the supported
+source in the final prompt/exposure. This is a supported-context-cost repair,
+not broader contextual-task utility or a default activation.

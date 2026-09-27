@@ -4599,3 +4599,55 @@ not supported-answer quality. Final full default-OFF regression389/389 in
 checks also pass. No branch activated. Next isolate source-intent reasoning
 using the ORIGINAL63 full-panel native requests, with only thinking/output
 changed in the ignored instrument; do not fit another lexical bump.
+
+**Source-intent reasoning-only candidate not promoted.** The same ORIGINAL63
+complete source-intent requests, original instructions/schema, native caller
+with only thinking ON/output2048 in the ignored probe completed63 responses.
+Binary search-decision agreement: general32/36, supplied15/19, old-source5/8,
+total52/63. Original non-thinking/256:34/36,18/19,2/8 =54/63. Improved missed-source
+recall cost five additional needless searches, three recovered old requests;
+no net qualification or runtime change. This binary result does NOT measure
+four-way label accuracy (general versus visible can differ without a search).
+Artifacts `reasoned-source-need-qualification.json`, native requests/responses
+`reasoned-source-need-native.jsonl`; same reused development panel, no clean
+holdout claim. Do not promote reasoning everywhere or abandon memory-need
+repair: contextual-material utility is different from a single factual proof.
+
+**Frozen question/repacking mechanics.** Sources now share one request-local
+immutable interpretation; a different request cannot reuse it. Two attempted
+sources need three native calls rather than four. After a complete original
+proves the factual answer, only it is repacked and credited, with actual final
+fit/eviction rechecked. Standing context survives.44 focused disposable tests
+pass, including real route and a rejected unrelated source followed by a
+supported source; no real model/corpus answer-quality gain claimed from them.
+Final full disposable smoke392/392 in16.80s (shared-question-proof-smoke.log). Both defaults remain OFF.
+
+**Missed-command diagnostic instrument correction.** A copied legacy narrowed
+trace failed to explicitly enable rescue; it made ZERO native calls and tested
+the default baseline twice. It also reused the ignored old
+`narrow-source-gate-framing-trace.json` path, overwriting that aggregate summary;
+old raw/native responses and its log survive, but the aggregate is marked
+UNUSABLE and not reconstructed from another arm. Misconfigured trace saved
+separately. Corrected instrument explicitly enables both flags and uses new
+`frozen-missed-*` paths; actual private command still withheld. Captured native
+output shows why: source intent correctly selects older memory and filling
+finds the exact original command, but the QUESTION frames append an unrequested
+`list` after the answer slot. NLI correctly rejects that malformed proposition
+(.01015/.00783). Shared framing made one question call plus six fills rather
+than six question calls; no speed/answer win is credited from the failed task.
+Next ignored positive-grammatical-example frame candidate reuses complete17
+controls (all six supplied styles and actual scoped command), with same source
+binding/NLI policy; no new label, threshold or runtime prompt change.
+
+**Fluent frame candidate rejected.** Positive grammatical examples, native
+original bound/scorer,17 inspected development controls:13/17. Three positives
+(dated sharing and two supplied styles) failed; an absent-source private-command
+question received NULL frames, falsely treating missing facts as unframeability.
+Artifact `fluent-frame-proof-qualification.json` plus full native responses.
+No runtime prompt edit or new generative answer. Stop iterating this prompt
+into production. The installed `gemma4:12b` (native thinking capability confirmed
+with `/api/show`) now tests ONLY question framing on the three diagnosed
+failures, with original runtime prompt, E4B filling, unchanged NLI/bounds and
+both switches OFF; local general-background pin stays E4B. Different task from
+the earlier12B source-intent prototype; no claim that a model winning nine
+background tasks must be best at this new structured projection task.

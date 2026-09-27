@@ -49,6 +49,14 @@ class SourceProof:
     reason: str | None = None
 
 
+@dataclass(frozen=True)
+class SourceQuestion:
+    question: str
+    frames: tuple[str, str] | None = None
+    status: str = "unknown"
+    reason: str | None = None
+
+
 class ProofError(ValueError):
     pass
 
@@ -89,7 +97,26 @@ def _call(instructions, schema, payload):
     return value
 
 
-def prove_source_fact(question, source):
+def freeze_source_question(question):
+    """Interpret once per request; no global or persisted private-input cache."""
+    try:
+        if not isinstance(question, str) or not question.strip():
+            raise ProofError("missing_question")
+        value = _call(FRAME_INSTRUCTIONS, FRAME_SCHEMA, {"latest_user_request": question})
+        frames = (value["frame"], value["assertion_frame"])
+        if all(f is None for f in frames):
+            return SourceQuestion(question, status="not_supplied", reason="unframeable_request")
+        if any(not isinstance(f, str) or f.count("{{answer}}") != 1 for f in frames):
+            raise ProofError("invalid_frame")
+        return SourceQuestion(question, frames, "ready")
+    except Exception as exc:
+        reason = str(exc) if isinstance(exc, ProofError) else type(exc).__name__
+        logger.warning("memory_source_proof_unknown", reason=reason,
+                       model=settings.memory_source_gate_model)
+        return SourceQuestion(question, reason=reason)
+
+
+def prove_source_fact(question, source, *, framed=None):
     """Unknown/unsupported proof preserves B2 and never modifies stored sources.
 
     Source must be a complete original unit, not a generated graph assertion.
@@ -97,13 +124,17 @@ def prove_source_fact(question, source):
     only external source context is withheld from the first frame call.
     """
     try:
-        if not isinstance(question, str) or not question.strip() or not isinstance(source, str) or not source.strip():
+        if (not isinstance(question, str) or not question.strip()
+                or not isinstance(source, str) or not source.strip()):
             raise ProofError("missing_question_or_source")
-        value = _call(FRAME_INSTRUCTIONS, FRAME_SCHEMA, {"latest_user_request": question})
-        frames = (value["frame"], value["assertion_frame"])
-        if all(f is None for f in frames):
-            return SourceProof("not_supplied", reason="unframeable_request")
-        if any(not isinstance(f, str) or f.count("{{answer}}") != 1 for f in frames):
+        framed = freeze_source_question(question) if framed is None else framed
+        if not isinstance(framed, SourceQuestion) or framed.question != question:
+            raise ProofError("question_frame_mismatch")
+        if framed.status in {"unknown", "not_supplied"} and framed.frames is None:
+            return SourceProof(framed.status, reason=framed.reason)
+        frames = framed.frames
+        if (framed.status != "ready" or not isinstance(frames, tuple) or len(frames) != 2
+                or any(not isinstance(f, str) or f.count("{{answer}}") != 1 for f in frames)):
             raise ProofError("invalid_frame")
         value = _call(FILL_INSTRUCTIONS, FILL_SCHEMA, {
             "frame": frames[0], "assertion_frame": frames[1], "source": source})
@@ -123,7 +154,7 @@ def prove_source_fact(question, source):
         if len(scores) != len(pairs):
             raise ProofError("invalid_verifier_result")
         # The shared verifier validates probabilities and retains its exact
-        # policy threshold. Reuse the batch instead of transferring twice.
+        # policy threshold. Reuse this batch instead of transferring four times.
         verdicts = [verify_support(premise, claim, scorer=lambda _pairs, sc=score: [sc])
                     for (premise, claim), score in zip(pairs, scores)]
         if any(v.status == "unknown" for v in verdicts):

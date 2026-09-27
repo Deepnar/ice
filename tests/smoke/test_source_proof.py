@@ -108,3 +108,22 @@ def test_citation_context_keeps_original_header_and_excludes_later_question(nati
     whole = original + "\nWhich glaze did Mira use in March?"
     assert sp.prove_source_fact(QUESTION, whole).status == "supported"
     assert [p for p, _ in native["scores"][0]] == [whole, whole, original, original]
+
+
+def test_two_sources_share_one_frozen_interpretation_and_three_native_calls(native):
+    native["replies"] = [FRAMES, dict(answer=None, evidence_quote=None), FILL]
+    frozen = sp.freeze_source_question(QUESTION)
+    assert sp.prove_source_fact(QUESTION, "User: An unrelated event.",
+                                framed=frozen).status == "not_supplied"
+    assert sp.prove_source_fact(QUESTION, SOURCE, framed=frozen).status == "supported"
+    assert len(native["calls"]) == 3
+    assert [body["format"] for _, body in native["calls"]] == [
+        sp.FRAME_SCHEMA, sp.FILL_SCHEMA, sp.FILL_SCHEMA]
+
+
+def test_frozen_interpretation_cannot_be_reused_for_another_question(native):
+    frozen = sp.freeze_source_question(QUESTION)
+    result = sp.prove_source_fact("Which glaze did Mira use for the later test?",
+                                  SOURCE, framed=frozen)
+    assert result.status == "unknown" and result.reason == "question_frame_mismatch"
+    assert len(native["calls"]) == 1 and not native["scores"]

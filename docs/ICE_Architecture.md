@@ -192,7 +192,10 @@ Negative rescue first uses the four-choice full-fitted-context source judge,
 then provisionally searches through the existing scoped, budgeted, reranked
 path. Final admission calls factual proof only on complete original episodic
 turns surviving eviction; graph prose, summaries and excerpts cannot prove
-themselves. Failure restores the original prompt and classification. This is a
+themselves. Eligible sources share one request-local immutable question frame,
+bound to its exact request, so another source cannot change its interpretation.
+One proof admits only its original: reassemble with that source alone, recheck
+fit/eviction, then expose it. No global/private-request cache. Failure restores the original prompt and classification. This is a
 partial candidate scope, not verified cross-leg rescue or a solved intent head.
 Earlier quote-only checks falsely suppressed7/22 and admitted2/22 unrelated
 controls. Paired question-first proof passed13 reused DEVELOPMENT controls with

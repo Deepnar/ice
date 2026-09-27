@@ -9,7 +9,7 @@ from src.api.memory_decision import estimate_recent_window_tokens
 from src.api.prompt_assembler import conversation_summary_block
 from src.api.prompt_budget import BudgetedPrompt, assemble_budgeted_prompt
 from src.api.source_need import judge_source_need, source_action
-from src.api.source_proof import prove_source_fact
+from src.api.source_proof import freeze_source_question, prove_source_fact
 from src.memory.models import ConversationSummary
 from src.memory.usage import evidence_after_eviction
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
@@ -98,20 +98,27 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
     selected = evidence_after_eviction(fragments, prepared.removed)
     if action == "rescue":
         supported = False
+        framed = None
         if selected and prepared.ledger.fits():
             # Only complete original turns qualify this candidate branch.
             # Generated/legacy graph prose must not prove its own assertion.
             for fragment in selected:
                 if fragment.source_type != "episodic" or not fragment.covers_entire_source:
                     continue
-                proof = prove_source_fact(user_message, fragment.text)
+                if framed is None:
+                    framed = freeze_source_question(user_message)
+                proof = prove_source_fact(user_message, fragment.text, framed=framed)
                 if proof.status == "supported":
-                    supported = True
+                    # One proven factual source cannot license unrelated
+                    # candidates. Pack and credit only its surviving original.
+                    prepared = assemble([fragment], orchestrator.recent_token_budget)
+                    selected = evidence_after_eviction([fragment], prepared.removed)
+                    supported = bool(selected and prepared.ledger.fits())
                     break
         if not supported:
             classification.context_reliance = original_context
             logger.warning("memory_source_rescue_withheld", candidates=len(fragments),
-                           surviving=len(selected), reason="no_qualified_retrieved_quote")
+                           surviving=len(selected), reason="no_qualified_original_source_proof")
             return PreparedMemory(base_prompt, [], False, "rescue_withheld", source_checked)
     if prepared.ledger.fits():
         orchestrator.record_exposure(selected)

@@ -16,7 +16,8 @@ def harness(monkeypatch):
     monkeypatch.setattr(settings, "memory_source_gate_enabled", True)
     monkeypatch.setattr(settings, "memory_source_rescue_enabled", True)
     fragment = ContextFragment("User: We chose port 7813.", "episodic", 1, 9, covers_entire_source=True)
-    captures = dict(proved=[], proofs=[], judged=[], exposed=[], retrieved=[], fragments=[fragment], removed=[])
+    captures = dict(frames=[], proved=[], proofs=[], judged=[], exposed=[],
+                    retrieved=[], fragments=[fragment], removed=[])
     db = SimpleNamespace(query=lambda *_a: SimpleNamespace(
         filter_by=lambda **_k: SimpleNamespace(first=lambda: None)))
     classifier = SimpleNamespace(embedder=SimpleNamespace(encode=lambda *_a, **_k: [1.0]))
@@ -47,7 +48,13 @@ def harness(monkeypatch):
         captures["judged"].append(messages)
         return verdicts.pop(0)
     monkeypatch.setattr(mp, "judge_source_need", judge)
-    def prove(question, source):
+    frozen = object()
+    def freeze(question):
+        captures["frames"].append(question)
+        return frozen
+    monkeypatch.setattr(mp, "freeze_source_question", freeze)
+    def prove(question, source, *, framed):
+        assert framed is frozen
         captures["proved"].append((question, source))
         return captures["proofs"].pop(0)
     monkeypatch.setattr(mp, "prove_source_fact", prove)
@@ -150,3 +157,20 @@ def test_generated_or_partial_fragment_cannot_prove_itself(harness, kind, comple
     verdicts.append(SourceNeed("older_memory"))
     result = mp.prepare_memory_context(**args)
     assert not result.retrieve and not captures["proved"] and not captures["exposed"]
+    assert not captures["frames"]
+
+
+def test_rescue_shares_question_and_packs_only_proven_original(harness):
+    args, captures, verdicts = harness
+    original = captures["fragments"][0]
+    unrelated = replace(original, text="User: The other kiln used amber glaze.")
+    captures["fragments"] = [unrelated, original]
+    verdicts.append(SourceNeed("older_memory"))
+    captures["proofs"] = [SourceProof("not_supplied"),
+                          SourceProof("supported", "We chose port 7813.")]
+    result = mp.prepare_memory_context(**args)
+    assert captures["frames"] == [args["user_message"]]
+    assert len(captures["proved"]) == 2
+    assert result.retrieve and result.fragments == captures["exposed"] == [original]
+    assert "7813" in result.prepared.messages[0]["content"]
+    assert "amber" not in result.prepared.messages[0]["content"]

@@ -48,7 +48,8 @@ def test_actual_handler_source_decisions(monkeypatch, mode):
         if mode == "skip": return SourceNeed("visible_evidence", "Our port is 7813.")
         return SourceNeed("older_memory")
     monkeypatch.setattr(memory_preparation, "judge_source_need", judge)
-    def prove(question, source):
+    monkeypatch.setattr(memory_preparation, "freeze_source_question", lambda _q: object())
+    def prove(question, source, *, framed):
         proved.append((question, source))
         return (SourceProof("supported", "gpu-scan --mem --device 7")
                 if mode == "rescue" else SourceProof("not_supplied"))
