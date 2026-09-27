@@ -1789,6 +1789,25 @@ proposition fixed and vary only the *source*, including a same-name parallel
 mention, before letting a verifier authorize a graph write. A positive-only
 source test proves nothing about this failure shape.
 
+**Re-earned in read-side source proof, v3 2026-09-27.** A native source-need
+judge accepted21/22 original QA source blocks but also2/22 same-speaker
+other-event blocks. An inspiring future collaboration became a cause for
+earlier work; one speaker's positive remark became shared agreement. Every
+quote was literal. A current-message binary proof initially passed50/50 easy
+controls, then falsely suppressed7/22 unrelated-source controls, sometimes
+citing the question itself as answering evidence. Both switches stayed OFF.
+Holding speaker names fixed while changing the event caught what absent-source
+and supplied-positive controls missed. Proof must concern the complete answer
+claim and every question qualifier, not merely an exact relevant quotation.
+
+A further claim+NLI revision dropped a requested October qualifier: the claim
+was true yet did not establish the full answer. Source entailment and question
+coverage need separate checks. A broad agreement question also allowed a
+plausible alternative answer in its supposedly opposing source. Manual review
+can miss ambiguity just as substring-based labeling does; retain the failed
+instrument, exclude disputed gold from clean binary scoring and do not make
+the deployed threshold fit those labels.
+
 ### 71. A sourced answer does not validate a counterfactual training label
 
 **v3, 2026-09-27.** A source-need dataset contained the correct original

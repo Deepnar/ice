@@ -123,7 +123,7 @@ The input is the **native 1024-dim embedding** from the process-shared embedder 
 
 **Zero_Shot is no longer a label.** It is the derived state "all reliance signals low".
 
-The output is wrapped in a ClassificationResult dataclass (topic_tags, intent_tags, context_reliance, raw_probs (schema-wide: 27 under v2, 25 under a v1 checkpoint), max_confidence, prompt, plus the B2 scalars p_ltm / p_rts / ctx_confidence / reference_signal, B1's p_temporal / p_complex, and head_confidences).
+The output is wrapped in a ClassificationResult dataclass (topic_tags, intent_tags, context_reliance, raw_probs (schema-wide: 27 under schema v2, 25 under a schema v1 checkpoint), max_confidence, prompt, plus the B2 scalars p_ltm / p_rts / ctx_confidence, B1's p_temporal / p_complex, and head_confidences). The retired DI3 reference_signal is not a current field.
 
 **Both checkpoint generations load.** A checkpoint records its own schema_version, template_version, input_dim and label names; `load_checkpoint` dispatches on them, returning the v2 network or LegacyICEClassifierV1. This is not politeness — D5's non-regression gate has to *run* the old model to compare against it, and it is what makes a **rollback a file swap rather than a code change**. Since B1's promotion (2026-07-27) `settings.classifier_model_path` is `models/classifier/ice_classifier_v4_schema2.pt`; the displaced v1 model keeps its own name, `ice_classifier_v3_qwen_ft3.pt`, and is the rollback artifact. The live path was renamed in the same session — it had been the v3_qwen_ft3 filename holding a v2 model, which is harmless to code that reads `schema_version` and misleading to a human.
 
@@ -149,7 +149,7 @@ The measurement is preserved in `scripts/classifier/pipeline/eval_di3.py`, which
 
 ### **2.3 Context-aware classification**
 
-When a conversation_id is supplied, the MLP path queries the **last three `episodic_memory` turns** for that conversation (_get_context_turns, n=3, max_total_words=500), preferring summary_text and falling back to the first 150 words of raw_text with an ellipsis. The context is prepended to the prompt as natural-language text under a fixed template ("Conversation context (summarized):\\n\{context\}\\n\\n… User prompt: \{prompt\}") before embedding — there is no separate context vector or pooling. The same embedder is used with or without context.
+When a conversation_id is supplied, the MLP path queries the **last three `episodic_memory` turns** for that conversation (_get_context_turns, n=3, max_total_words=500). Current v3 applies shared `choose_representation` eligibility first: only current independently supported, coverage-qualified summaries can supply the summary-preferred prefix. Unsupported/stale/unknown summaries retain raw text under the existing 150-word raw prefix cap. The classifier does not run NLI or generate a new summary; source-read failure warns by error class before standalone classification. The context is prepended to the prompt as natural-language text under a fixed template ("Conversation context (summarized):\\n\{context\}\\n\\n… User prompt: \{prompt\}") before embedding — there is no separate context vector or pooling. The same embedder is used with or without context.
 
 **B1 (2026-07-25) made the templates shared and versioned.** They live in src/classifier/templates.py and are imported by *both* the inference path and the training pipeline. Before this, inference rendered the template inline while the trainer embedded bare prompt text — the model was trained on one distribution and served another, which was the single biggest known defect in the v1 classifier. Now the mismatch is impossible by construction: if training stops calling `templates.render`, nothing silently drifts because there is only one renderer. The `truncate_context` budget helper is shared the same way, so an offline context prefix can't be longer than the live one.
 
@@ -162,18 +162,46 @@ Templates are versioned alongside the schema — the v1 strings are frozen verba
 ```
 logit(P_need_mem) = logit(P_ltm) + ltm_prior_bias
                     + ltm_length_weight · logit(P_len)      # memory pressure
-                    + Σ bumps (creative / reference / referential / low-confidence)
+                    + Σ bumps (creative / referential / low-confidence / temporal / coding)
 retrieve  ⇔  P_need_mem > ltm_decision_threshold
 ```
 
-- **`P_ltm`** is read directly from the context-reliance softmax mass (not the old `max(all 25 probs)`, which measured topic peakedness, not reliance), along with a `ctx_confidence` = top1−top2 margin. Both are populated by `classifier._finalize_confidence`; for DI3 fast-path results (no ML probs) a prior is derived from the label DI3 chose.
+- **`P_ltm`** in current v3 is the schema-v2 `Needs_Memory` sigmoid, with `ctx_confidence` the top1−top2 margin of the derived Zero_Shot/memory/live states. The legacy schema-v1 loader uses softmax mass. Both pass through shared `finalize_context_scalars`; DI3 is retired, and label-only fallback is defensive rather than a live classification path.
 - **`P_len` (memory pressure)** is a *one-sided* logistic in how much conversation history sits **beyond the sliding window** (the recent-turn token budget, §6.3) — neutral while the window still covers the conversation, rising only as unseen history accumulates. This is the "sliding window + total turns + total context" signal: no `turn_count>10` cliff.
-- **Bumps** are the old hard signals, demoted to additive nudges: Creative topic, DI3 anaphora (`reference_signal`), referential-word presence, and a low topic/intent-confidence safety net. **T2 adds `ltm_bump_timescope` (+3.0)** when a non-current TimeScope was detected (passed as a kwarg, not a ClassificationResult field — an explicit "what did I think in 2025" is definitionally a memory query, but it stays a log-odds term with breakdown telemetry, never an early-return override).
+- **Bumps** in current v3 are Creative topic, referential-word presence, low-confidence, temporal and attached-project nudges; DI3 anaphora was removed. **T2 adds `ltm_bump_timescope` (+3.0)** when a non-current TimeScope was detected (passed as a kwarg, not a ClassificationResult field — an explicit "what did I think in 2025" is definitionally a memory query, but it stays a log-odds term with breakdown telemetry, never an early-return override).
 - **B1 D7 — the detector and the `Temporal_Recall` label are equivalent evidence for that bump: OR, never AND, never counted twice.** Either a fired detector or `p_temporal ≥ settings.temporal_label_threshold` (**0.85** since 2026-07-27, raised from 0.6) adds `ltm_bump_timescope` exactly once. The raise is measured, not cosmetic: the v2 `Temporal_Recall` head does not fire as an independent time signal but as a **shadow of `Needs_Memory`**, with which it co-occurs in 79% of its training positives — mean p_temporal 0.87 across hand-authored memory-needing prompts carrying no temporal content at all. Because the two evidences are OR'd, a low threshold makes the deterministic parser redundant and drags the decision toward always-retrieve, which is the failure B2 exists to prevent. They catch different things: the classifier catches "what was I leaning towards back then" (no parseable date, detector silent), the detector catches "in March 2026" on a prompt the head reads as ordinary. Note what the label explicitly does *not* do: **only the deterministic detector ever sets a time window.** A sigmoid inventing "two years ago" would be a hallucinated filter, so the label gates and boosts while the parser resolves.
 - **⚠ E12 (2026-07-27) measured that temporal arm and it is inert.** Over 9,441 held-out rows the label fires without the detector on 175 and is right about them (85% genuinely need memory, against the detector's own 52%) — but those rows carry mean `p_ltm` **0.931**, so 172 of 175 already retrieve, and disabling the arm moves **one decision in 9,441**. The cause is structural rather than a threshold: measured on gold labels, **78.1%** of `Temporal_Recall` rows are also `Needs_Memory`, because a question about the past needs memory by definition. **A signal that is a subset of another cannot improve that signal's own decision**, so no value of `temporal_label_threshold` rescues this and Z1-prep should not sweep it expecting movement. The label is not wasted — only **20.3%** of memory queries are time-shaped, so it is the only "is this about the past" signal ICE has — but its earned consumers are both in Track T and both unwired: tightening §2.6's joint gate (precision 84% → 93%) and flattening the ranker's recency preference for the 250-of-557 time questions carrying no parseable date. Roadmap **T5**, scheduled post-Z1.
 - **All weights are settings** (`ltm_decision_threshold`, `ltm_prior_bias`, `ltm_length_weight`, `ltm_pressure_midpoint_tokens`, `ltm_pressure_scale_tokens`, `ltm_bump_*`). This is deliberate: B2 sits on top of the *current* classifier, which roadmap B1 will retrain — so `P_ltm` is consumed as a scalar (surviving a softmax-3 → multi-label-sigmoid change) and the decision is re-tuned, not rewritten. The full `breakdown` dict is logged (`memory_decision` event) and is a candidate for the F5 SSE attribution layer.
 
-When the decision is to retrieve, main.py sets `context_reliance = "Long_Term_Memory"` so downstream gates/storage/telemetry still key off the label. **Persistent memory is not gated by this decision:** memory slots and bookmarks are user-level standing context, so they (and prompt assembly generally) run on *every* turn — only the retrieval `fragments` are conditional. This matters because B2 genuinely skips retrieval on confident standalone turns, where the old design (which forced retrieval on nearly every turn) had incidentally always injected slots too.
+When the final decision is to retrieve, the shared preparation called by main.py sets `context_reliance = "Long_Term_Memory"` so downstream gates/storage/telemetry still key off the label. **Persistent memory is not gated by this decision:** memory slots and bookmarks are user-level standing context, so they (and prompt assembly generally) run on *every* turn — only the retrieval `fragments` are conditional. This matters because B2 genuinely skips retrieval on confident standalone turns, where the old design (which forced retrieval on nearly every turn) had incidentally always injected slots too.
+
+**v3 source refinement, 2026-09-27:** `memory_preparation.py` now owns final
+chat preparation, shared with answer/replay instruments through
+`production_parity.prepare`. The B2 score remains the baseline probability;
+`memory_source_gate_enabled=False` leaves current-source proof unpromoted;
+`memory_source_rescue_enabled=False` also leaves the failed negative-rescue candidate OFF.
+With it enabled, a fitted baseline prompt retains standing slots, bookmarks,
+source notes and constraints. An existing positive is suppressed only by a
+binary current-message complete-evidence verdict with an exact quote. A
+general-knowledge verdict or partial recent source cannot suppress it.
+With negative rescue explicitly enabled for qualification, the four-choice
+judge inspects the full fitted prompt for a baseline negative.
+A missing-source verdict provisionally searches through the existing scoped,
+budgeted, reranked path. Rescue admission needs a second verdict citing a quote
+in retrieved evidence that survives final eviction; otherwise restore the
+baseline prompt and classification. Exact quotation is a prerequisite, not semantic proof: the current-source
+branch falsely suppressed7/22 same-speaker unrelated-source controls, sometimes
+quoting the question itself; rescue admitted2/22 unrelated excerpts. Neither
+model branch is active by default. Answer-claim, question coverage and question-first declarative/source NLI
+qualification continue outside production; claim entailment alone cannot prove
+that every requested question qualifier was answered. Unknown/malformed/overlength verdicts retain B2 and
+warn with the reason. The native local `gemma4:e4b` call owns a 32768-token context and 256 output
+tokens. Complete input caps are 8192 estimated tokens and 16384 UTF-8 bytes
+(instructions plus payload), leaving template/tokenizer headroom; no source cut.
+Chat candidate reads defer episodic retention and cold restoration until final
+admission. Direct search callers keep their prior behaviour, and reading never
+adds graph corroboration. The Laya source-need prototypes remain unpromoted;
+the complete G28 sweep and final answer-per-token comparisons remain open.
 
 ### **2.5 Training pipeline (v2, B1 — `scripts/classifier/pipeline/`)**
 

@@ -1067,3 +1067,173 @@ conversations attached to that project and documents enabled in those chats.
 Reject simultaneous `project` and `conversation_id` and blank selectors; an
 empty project scope stays empty. Test project selection through the MCP adapter,
 including a different project's same-path constraint and document visibility.
+
+
+### Semantic source-need gate qualification —2026-09-27
+
+The v3 G28 repair concerns whether an answer needs an older source, not a
+personal-reference lexicon. Keep topic/intent classification, source-support NLI,
+retrieval and reranking independent. Task-specific Laya prototypes can supply
+a candidate memory-need prior, but two supervised runs still made confident
+supplied-answer mistakes. Neither is active in production. Continue with an
+explicit visible-source adjudicator using the existing pinned local general
+background model; do not change cloud answering or train on final inputs.
+
+A candidate must distinguish supplied evidence, general knowledge, missing
+older personal evidence and unknown. A supplied-evidence verdict must return an
+exact quote from the latest prompt or one of the actual recent messages, and
+answer the requested attribution/value/time rather than a different current
+value. Unknown, incomplete JSON, unsupported quote or model failure retains the
+existing decision and reports why. An exact quote is a structural prerequisite,
+not proof that it answers the question. Qualify against matched missing-source,
+current-versus-old and generic controls before trusting the decision.
+
+Before production integration, assemble the no-retrieval prompt with the actual
+answerer's window allowance, standing slots, bookmarks, source notes, constraints
+and final prompt-ceiling eviction. Adjudicate that exact prepared evidence and
+the latest prompt. If older evidence is required, run the existing retrieval and
+reassemble under the same ceiling. Do not substitute the classifier's shorter
+prefix or the pre-eviction recent allowance for what the answerer will see.
+Persistent blocks are not retrieval results and must remain in both arms. The eval-only starter now
+uses authoritative separate sittings and checks the real recent reader excludes
+the two old answers; previous five-turn results measured the classifier view
+only. Model input must be complete within its verified bound; overlength is
+unknown, never a silent source cut. No fabricated probability from an enum or
+unqualified confidence should become a calibrated B2 prior.
+
+Development supervision preserves exact named original source blocks, parent
+dialogue IDs and recorded time. Source-literal answers alone do not validate
+question qualifiers; teacher-approved dates, tense and preferences still need
+inspection. Split full source conversations before use. Public-source tags do
+not prove origin: reused-v1 rows without a traceable conversation must not be
+credited as fresh human supervision. LoCoMo adaptations here are noncommercial
+research development, not a LoCoMo benchmark or deployable general artifact.
+
+Promotion requires corrected same-path invariance/semantic controls, independent
+general and source-location negatives, full-call bounded cost, and source-backed
+answer benefit without extra spurious prompt spending on a v3 replay. Inspect the
+decisions that actually change. A failed model candidate leaves the defect open;
+revise data, source handling or the gate design rather than mark it fixed. The
+final broad tuning/combined Z1/Z2 and only LME oracle/semi-LSREP runs remain later.
+
+**Conservative integration revision, 2026-09-27:** a source-plan autorater fixes
+the starter and gives a supported invented-command answer, but a fresh public
+qualification exposes missing-material errors: partial earlier equations/lists
+are mistaken for the whole requested source. Do not give this judge authority
+to replace all B2 decisions. Preserve every existing positive unless a supported
+verbatim fact in the current user prompt itself supplies the request. A
+general-knowledge verdict does not suppress a B2 positive; supplied recent
+excerpts are not enough to prove an entire earlier model/list is present.
+For this positive-prior exception, judge the current question as a standalone
+source after the full baseline prompt has been assembled and fit-checked. This
+asks the stronger question "does the current message alone supply its requested
+fact?" and avoids irrelevant earlier instructions changing a simple supplied
+value into a generic-method classification. The answerer still receives every
+standing/recent block in its fitted baseline. A non-sourced verdict retains the
+positive; this view is never used to decide that a negative needs no memory.
+Negative rescue and post-search qualification always inspect the full fitted
+prepared evidence, not the classifier prefix or a current-only substitute.
+
+A missing-source verdict may initiate a provisional rescue of a B2 negative.
+Fetch through the existing scope, budgets, fusion and reranker, assemble within
+the same answer ceiling, and judge the actual candidate prompt. Admit a rescue
+only if the judge identifies an exact supporting quote in a surviving retrieved
+fragment. A related topic, quote from the original question/recent window, or
+unknown/incomplete verdict cannot admit it. This checks evidence after search
+rather than pretending the judge knows what is in a store it has never read.
+Unknown/error preserves the B2 arm, with a warning and reason. Existing positives
+keep their existing retrieval path and do not undergo this rescue rejection.
+
+Provisional reads must defer episodic retention and cold restoration until final
+admission/eviction. Candidate fetches are not exposures to the answerer. Graph
+access already belongs after final assembly; do not promote any fact's truth
+from a read. Preserve the ordinary orchestrator caller's existing behavior.
+Qualification includes opposing unrelated source controls and actual rescued
+answers, current-supplied token savings, prior-positive recall preservation,
+and complete bounded input through the chosen real provider path. The full
+G28 invariance sweep remains open; this narrower repair must not claim to solve
+all classifier labels or all context-sufficiency decisions.
+
+**Native-provider divergence, 2026-09-27:** the four-choice native judge
+passes historical/general starter forms but calls explicitly supplied facts
+`general_knowledge`, even in a current-only view. That overlapping category
+cannot qualify suppression. Use a separate binary current-source proof task:
+`visible_evidence` with an exact complete supporting quote, or `not_supplied`.
+Public knowledge, new generation, partial sources and missing earlier values
+are ordinary `not_supplied` outcomes; they retain the prior and do not emit an
+outage warning. Malformed/incomplete responses still warn and preserve it.
+Three unrelated source-location examples distinguish complete current facts,
+missing old values and incomplete reports. The negative/rescue task retains
+its four choices and full prepared evidence. Qualify the actual native caller,
+not an earlier compatible-endpoint prototype; keep the switch OFF until then.
+
+**Provisional qualification invalidated, 2026-09-27:** the initial50 current
+source controls were insufficient. Before committing activation, stronger
+same-speaker other-event controls exposed7/22 false suppressions, including a
+question quoted as evidence. Keep both source gate and rescue OFF; current-only
+23/24 and full-rescue24/24 are development arms, not repaired production.
+Post-search quote-only qualification also admitted2/22 unrelated blocks. A quote
+alone never authorizes admission or suppression. The repair continues below.
+
+### Classifier context consumes source-supported representations —2026-09-27
+
+Before this repair, `_get_context_turns` preferred `summary_text` directly,
+bypassing the shared current support/coverage verdict used by answer retrieval.
+Use `choose_representation` before rendering the prefix: a supported shorter
+summary may remain preferred; unsupported, stale or unknown summaries fall
+back to the original raw turn. Preserve the existing three-turn/global-word
+budgets and raw-turn cap, shared template and trained checkpoint. No new
+generation/verifier call in classification. Log context-read failure by error
+class before retaining standalone classification, never SQL/source payload.
+Validate the actual SQL reader and classify→render→encoder path with controlled
+head/encoder and supported/unsupported/stale/unknown verdicts; then a real
+loaded classifier input capture. This repairs input authority, not a claim of
+improved label accuracy or final answer quality.
+
+
+**Answer-claim development refinement, 2026-09-27:** test source support and
+private-memory intent as separate targets. Source proof needs a minimal factual
+answer claim retaining every requested qualifier, an exact source quote and
+independent support from the COMPLETE attributed source; do not verify against
+the question or a clipped excerpt. Avoid extraneous narrative/chronology that
+can make a valid short answer unsupported. A relative date must still clear the
+unchanged source verifier; unknown retains the prior, never lowers its threshold.
+A vague recent report does not ground a precise onset month. Correct that gold
+label explicitly and preserve the old artifact. A supplied fact can support a
+generic question but does not prove that the task requires private memory.
+Keep semantic development reports separate from independent qualification;
+no new live Laya head or source-gate default yet.
+
+
+**Question coverage is separate, 2026-09-27:** a supported claim can answer a
+weaker question after dropping a requested date/event. Prototype a source-blind
+coverage decision over the actual question and proposed claim; it assumes the
+claim true and checks all requested subjects, events, relationships, time/status
+and parts. It must not invent extra qualifiers or consult source/world facts.
+Unknown/incomplete coverage cannot authorize suppression/rescue. NLI separately
+checks source truth at its unchanged bound/threshold. Compare the pinned generic
+Laya typed choices with the existing local model on actual candidate outputs and
+matched qualifier controls. Measure final admission change, not merely emitted
+labels. No trained-head, dependency or default activation before qualification.
+Keep reasoning-mode source adjudication separate from global background
+non-thinking generation policy. A broad QA question permitting another valid
+sourced answer is ambiguous gold; preserve its artifact and exclude it from
+clean opposing scoring rather than redefine truth around the benchmark answer.
+
+
+**Question-first hypothesis refinement, 2026-09-27:** separate coverage scoring
+still confuses recent music with future collaboration and can invent a required
+person's name. Before reading any source, form a declarative frame from the
+complete actual question with exactly one answer placeholder, preserving every
+requested event/time/relationship/subject/status and part without adding facts.
+Then read the COMPLETE attributed source to fill only that slot, with exact
+source evidence. Never let source prose rewrite the frame into a weaker true
+statement. Verify the filled hypothesis against the original source, under the
+unchanged verifier bound/threshold. Unframeable generation/whole-material tasks,
+missing answer/quote, changed frame, uncertainty or capacity failure retain B2.
+This is a bounded factual-proof candidate; private-memory intent remains a
+separate decision. Test opposing sources where dropping one qualifier would
+make a true weak claim, then native final preparation before promotion. A source
+block with an unresolved antecedent does not ground a more specific question
+merely because the dataset answer is a literal span; mark uncertain rather than
+rewrite source history or retrain on misqualified labels.

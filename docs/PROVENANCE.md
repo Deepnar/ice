@@ -4286,3 +4286,220 @@ and downstream answer quality were **not run**. Neither threshold adjustment
 nor authored aggregate accuracy qualifies this candidate. The next repair work
 is independent source/evidence and diverse general supervision, preserving
 conversation splits and keeping final LME oracle/semi-LSREP inputs untouched.
+
+## 2026-09-27 — v3 source-qualified Laya and native source refinement
+
+The next Laya shadow used the same pinned typed-decisions base/package and four
+weighted supervised-CE epochs, not RLCD. Complete input limit1024, encoder
+LR2.5e-5/head1e-4, bf16, microbatch4/accumulation4, seed280927. Counts:
+2565train/390dev/306holdout. Best dev-CE epoch1, dev-only temperature1.0093946,
+305/306 grouped holdout,7.7876GiB peak training allocation,283.33s training.
+The actual corrected classifier→timescope→B2 starter gave20/24: historical
+12/12, general6/6, supplied2/6. Four supplied-answer false retrievals included
+probabilities.994/1.0/1.0/.462 (the last lifted by existing B2 nudges).
+No promotion, runtime dependency or live checkpoint change followed.
+
+Data qualification added118 reviewed LoCoMo QA/source blocks, split60/36/22 by
+whole conversation after126 teacher acceptances and8 further manual exclusions.
+Official revision `3eb6f2c585f5e1699204e3c3bdf7adc5c28cb376`; JSON SHA256
+`79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`.
+These generated dialogues are not human-chat observations. CC BY-NC4.0 adapted
+data/weights remain ignored research artifacts, not a LoCoMo benchmark.
+Public rehearsal excluded369 reused-v1 rows without traceable parent
+conversations; fresh sources exclude original validation/test conversations.
+An independent128 public panel and later64 disjoint inputs were frozen before
+teacher/model calls. The latter had only13 fresh originally positive rows,
+not the proposed16;13+51 was frozen before results. Teacher labels are not
+unquestioned gold, and substring answers do not validate event-date/tense claims.
+
+The starter instrument itself now stores six original turns across two
+authoritative sittings with a neutral bridge. The real recent reader must
+exclude both historical answers. Live17/24 still reproduces. The old five-turn
+fixture only established absence from the classifier prefix and did not prove
+absence from the answerer's larger recent view.
+
+Existing local `gemma4:e4b` source-plan prototypes used four decisions with a
+short required-information field and exact quote membership. An initial
+independent198 panel gave165/198, then179/198 and195/198 after prompt revisions;
+these later figures are DEVELOPMENT results. Controlled prefix/B2149/198 gave
+49 gains/3 regressions against the last prototype. The same targeted58 rows
+gave e4b55/58 versus12b51/58; larger model was not promoted. A fresh64 source
+panel gave53/63 determinate decisions, including partial-source errors and
+invalid/completion failures. Therefore no wholesale B2 replacement is qualified.
+[Primary source-sufficiency research](https://research.google/blog/deeper-insights-into-retrieval-augmented-generation-the-role-of-sufficient-context/)
+motivated separating answering evidence from related topics; its scores do
+not transfer to ICE.
+
+Native integration implements a narrower recall floor: current-message binary
+proof may suppress an existing positive; negative rescue first reads the full
+fitted baseline and then needs a quote in final surviving retrieved evidence.
+No enum becomes a fabricated probability. Native Ollama owns num_ctx32768,
+num_predict256, think:false and keep_alive:0; conservative complete-input caps
+reject overlength instead of cutting evidence. Ordinary short cold calls were
+about3–3.5s, not a qualified whole-pipeline latency or cost saving. Fitting
+standing slots/bookmarks/notes/constraints remain present. Admission precedes
+episodic retention/cold restoration; graph truth is not strengthened by reading.
+
+Actual native eight-control disposable trace passed8/8 before the final binary
+positive-proof task; three cases forced baseline decisions to isolate recall
+preservation. Fixed8192 answer window and real scoped retrieval/budget/reranker/
+final preparation were used, not extraction or maintenance. Four paired
+`gpt-6-luna`/OpenCode Go answers recovered the invented old GPU command
+447→711 prompt tokens; the supplied-port pair stayed correct at716→452.
+These are local-tokenizer prompt counts, not provider usage equivalence or
+population answer quality. An earlier six-case compatible prototype trace
+included a misnamed passing terse case; the formal command question was the
+real miss. Its slot fixture initially lacked required updated_by; only that
+control was rerun after fixing the fixture.
+
+The native four-choice full-context starter passed22/24; a current-only
+four-choice view passed18/24 by calling every supplied fact general_knowledge.
+Overlapping source categories caused suppression to fail. A separate binary
+complete-current-evidence task with three unrelated examples then passed24/24
+through actual shared preparation, zero group flips. This is DEVELOPMENT
+qualification after inspecting the failures, not independent heldout accuracy.
+Focused parser/preparation/actual-chat-handler tests passed25/25 with controlled
+verdicts; full disposable smoke passed366/366. These tests qualify wiring and
+preservation, not model semantics. The native panel finished113 controls: binary current proof22/22 supplied,
+22/22 missing and6/6 current-versus-old; the negative task got general34/36,
+visible18/19 and older2/8. These are policy change masks against reviewed teacher
+labels, not universal four-way accuracy: unknown preserves a negative and is
+not credited as a correct semantic class. Fallbacks: six unsupported quotes,
+three incomplete outputs and two genuinely ambiguous outputs. Reused inputs
+are development qualification after prior prototype inspection.
+
+A subsequent paired source-admission panel used22 original source blocks and
+22 same-speaker other-event blocks. Decoys were manually inspected for missing
+requested material, not validated solely by gold-string absence. Native quote
+admission accepted21/22 supported sources but also two of22 unrelated sources:
+an inspiring planned collaboration became a cause for earlier work, and one
+speaker's positive description became a shared agreement. A supplied recording
+date plus an explicit yesterday relation was conservatively missed. Thus the
+negative-rescue setting remains OFF and its semantic defect remains open.
+Current-source proof alone passed50/50 easy controls and the actual shared
+development starter passed23/24, versus baseline17/24, with all six supplied
+forms fixed and the old historical command miss retained. Before committing
+activation, the same22 manually reviewed unrelated blocks were supplied in the
+current user message:7/22 falsely suppressed an existing positive, including
+question-as-evidence quotes. Both switches therefore remain OFF. A provisional
+default activation was reversed uncommitted;23/24 is not shipped behaviour. The full-rescue
+24/24 starter is an unpromoted development arm, not current default behaviour. Artifacts, exact inputs, responses and
+cloud usage remain under ignored `logs/g28_candidate/`; final oracle and
+semi-LSREP questions have not been used.
+
+
+Classifier source authority was a separate genuine consumer bypass: its prefix
+reader preferred summary_text directly, without current support eligibility.
+It now calls choose_representation before existing prefix budgets; no fresh NLI
+at classification. Five disposable SQL→classify→render→encoder tests use a
+controlled head/encoder across supported,contradicted,unknown,stale,legacy states.
+Four additional actual loaded classifier/current pinned NLI controls captured
+the encoded template and passed4/4 (supported,contradicted,stale,legacy). This
+qualifies source authority, not label accuracy. Full disposable smoke passed
+372/372 and focused caller controls31/31 before the uncommitted switch reversal;
+final default-OFF regression also passed372/372 before commit. No source or paper corpus
+was regenerated and no final campaign has started.
+
+
+Answer-claim/source development qualification: a complete declarative claim plus
+exact source quote and unchanged full-source DeBERTa NLI rejected22/22 manually
+reviewed same-speaker unrelated excerpts, accepted18/22 intended positives and
+3/3 synthetic supplied facts, and rejected2/2 missing-source controls. The four
+positive misses were inspected rather than treated as unexplained model noise:
+one answer added unnecessary chronology; two involved explicit relative timing
+or group attribution; a purported October hobby onset was not actually asserted
+by the complete source ("recently" plus an October recording date is insufficient).
+The latter label is corrected as an unsupported date qualifier in subsequent
+DEVELOPMENT qualification; the original report is retained. A generic command
+control's supplied personal fact was correctly entailed: source sufficiency is
+not the same target as private-memory intent and must not independently authorize
+public-task rescue. Minimal claims for the digestive issue and shared goal
+scored>.998 entailment; explicit relative-date resolution scored.897 and remains
+unknown at the unchanged.95 threshold. No runtime claim integration/default
+activation at this checkpoint.
+
+[QAFactEval](https://aclanthology.org/2022.naacl-main.187/) and
+[Q²](https://aclanthology.org/2021.emnlp-main.619/) support combining question/answer
+consistency with entailment rather than treating either signal as complete.
+This motivates the bounded answer-claim qualification; their reported gains
+are not ICE measurements.
+
+
+Minimal-answer prompt DEVELOPMENT revision did not qualify:17/21 audited
+supported cases admitted;1/22 unrelated source and the unsupported onset-month
+case falsely admitted. In the latter, the generated claim dropped October
+entirely, so NLI correctly entailed a weaker claim which did not establish the
+question's requested timing. Complete question coverage is an independent
+requirement, not a property guaranteed by entailment. One output also altered
+its quote with an added escaped quote character and was structurally rejected.
+Both original and revised reports remain ignored, and both runtime switches OFF.
+
+The native local model reports a thinking capability through /api/show; an
+isolated candidate uses the ORIGINAL answer-claim prompt with thinking=True
+and2048 total output tokens, retaining stop/complete-output checks, unchanged
+source NLI and corrected audited targets. This checks the semantic reasoning
+task separately from the deliberately non-thinking background generators.
+Completion, input/output counts and nonempty thinking-channel status are
+recorded; no global background/client or production model policy has changed.
+[Gemma thinking documentation](https://ai.google.dev/gemma/docs/capabilities/thinking)
+permits this mode but does not establish that it improves ICE.
+
+
+Final shared-preparation regression after fixture cleanup and two additional
+prior-preservation/exposure controls passed374/374. Disabled refinement makes
+no source-model call, preserves the baseline positive and standing blocks;
+evicted positive candidates receive no retention/cold-restoration credit.
+Actual-route fixtures delete their own turns/conversation even on failure.
+Local concern commits: e65dd9f classifier support consumer,09e7a1b shared
+preparation/exposure with BOTH candidate switches OFF,8c333f0 source-boundary
+and final-stage instruments. No push and no whole G28 completion claimed.
+
+
+Reasoning-mode source-claim DEVELOPMENT panel completed50/50 with stop finish
+and nonempty thinking channels. Audited supported sources20/21 admitted,
+three supplied controls3/3, sourced public fact1/1, missing2/2 rejected and
+unsupported onset-month1/1 rejected. Explicit relative-date resolution stayed
+unknown(.897 entailment), at unchanged.95 threshold. Against the retained
+opposing labels,20/22 were rejected: a future-collaboration claim was entailed
+but did not establish inspiration for recent music; the other broad agreement
+question could permit a different source-grounded collaboration answer. The
+latter is ambiguous gold, not a clean binary opposing control. Retain the
+original report/count, exclude it from later clean coverage scoring; the earlier
+manual-inspection statement was too strong. Gold-string absence never proves
+no valid answer, including after manual review.
+
+The next bounded DEVELOPMENT check compares a source-blind question+claim
+coverage decision with existing source entailment, separately. It receives no
+source and assumes the claim true: preserve subjects/events/relationships,
+requested time/status and all requested parts. Generic pinned Laya typed
+choices and local E4B reasoning are compared on26 reasoned/NLI-admitted
+candidates plus12 authored qualifier controls; one ambiguous agreement is
+unscored. This is38 total/37 scorable controls, no fresh independent accuracy
+claim, new training or live integration. Both source switches remain OFF.
+
+
+Separate source-blind coverage DEVELOPMENT check completed: generic Laya24/37
+scorable, with one false complete verdict on an omitted explicit date;
+local E4B reasoning35/37, with one false complete on a future collaboration
+instead of inspiration for recent music and one false rejection requiring an
+unrequested specific person's name. Unknown on a good claim is a failed
+coverage classification, not an accuracy credit. These checks do not qualify
+a live coverage guard, and no new weights/dependency are promoted.
+
+A five-pair unchanged-NLI diagnostic instead bound the hypothesis to the exact
+question: recent-music inspiration entailed.99896 on its correct source but
+.00371 on the future-collaboration source; explicit October hobby onset.06330
+versus the previously accepted weaker recent-hobby claim.999. An explicit
+healing-knee qualifier scored.03810: the three-turn source describes PT and
+exercising "it" without independently identifying that body part. Original
+teacher/manual qualification also missed this antecedent gap. Its weaker
+watercolor claim is supported but cannot ground every question qualifier.
+Thus subsequent development must retain uncertain full-source labels rather
+than treating all teacher-approved blocks as exact-question positives.
+
+[QA2D](https://arxiv.org/abs/1809.02922) transforms question/answer pairs into
+declaratives; [Can NLI Models Verify QA Systems' Predictions?](https://aclanthology.org/2021.findings-emnlp.324/)
+studies this use of NLI for QA verification. A question-first declarative frame
+can bind the requested event/time before source reading; source filling may
+supply only the answer slot. This is the next bounded candidate, not yet
+production integration or evidence of broad ICE improvement.
