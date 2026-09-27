@@ -1,8 +1,10 @@
-import structlog
-import torch
 from typing import List, Optional
 
+import structlog
+import torch
+
 from src.memory.embedder import fit_width, get_embedder
+from src.memory.representation import choose_representation
 from src.paths import resolve
 
 from . import templates
@@ -86,7 +88,7 @@ class PyTorchClassifier:
 
     def _get_context_turns(self, conversation_id: str, n: int = None,
                            max_total_words: int = None) -> str:
-        """Return a truncated, summary‑preferring context string from the last *n* turns.
+        """Return bounded context from current supported summaries or raw turns.
 
         G9: both default to None and resolve from settings in the body — as
         default arguments they were evaluated once at import, so a Z1 sweep of
@@ -114,8 +116,13 @@ class PyTorchClassifier:
             turns.reverse()
             texts = []
             for t in turns:
-                # Prefer summary, fall back to raw text (truncated)
-                text = t.summary_text or templates.cap_turn(t.raw_text or "")
+                # A generated summary is not evidence without its current
+                # source-support record. Preserve the summary preference and
+                # existing raw prefix budget after shared eligibility.
+                preferred, shorter, _ = choose_representation(t)
+                text = shorter or preferred or ""
+                if text == (t.raw_text or ""):
+                    text = templates.cap_turn(text)
                 if text:
                     texts.append(text)
             # Shared budget logic — the offline pipeline truncates identically.
@@ -156,7 +163,9 @@ class PyTorchClassifier:
             if conversation_id:
                 try:
                     context_text = self._get_context_turns(conversation_id)
-                except Exception:
+                except Exception as exc:
+                    logger.warning("classifier_context_unavailable",
+                                   reason=type(exc).__name__)
                     context_text = None
 
             if context_text:
