@@ -4687,3 +4687,59 @@ NuNER release helper is already inventoried as uncalled; general drain release
 does not release NuExtract; clustering'sCPUlane callsCUDA NuNER; component
 locks do not provide global GPU scheduling. No working corpus reset or final
 oracle/semi-LSREP campaign was performed.
+
+
+## 2026-09-27 — v3 owned-model idle drain
+
+**Question:** does the actual local shared-client→NuNER→idle-runtime path
+release the models it loaded, including the separate extraction override?
+This is residency/scheduling verification, not a memory or answer benchmark.
+No working memory rows changed and no additional model was installed.
+
+**Contract repair:** the factory registers actual local call identities before
+requests, including failures and reasoning-enabled calls. Native source judges
+share the per-model call/unload lock. Idle empty cleanup tries only owned
+inactive identities, retaining failed/busy targets, and invokes guarded NuNER
+cache release. Both clustering jobs and long-turn chunk catch-up now use the
+existing GPU lane. A job rechecks readiness after acquiring that lane and
+defers before ledger claim if the user returned, without burning a retry.
+
+**First live check failed:** `logs/g28_candidate/owned-model-drain-live.json`
+and `.log` preserve the acknowledgement-only version. Ollama returned unload
+acknowledgements but NuExtract was still listed in the immediate residency
+query; the registry had incorrectly forgotten it. Initial global GPU snapshots
+overlapped a separate runtime test process, so they are not an isolated peak.
+Release now confirms exact-name absence from `/api/ps` within the existing
+10-second total release budget. A timeout warns and retains ownership.
+
+**Corrected isolated live check passed:**
+`logs/g28_candidate/check_owned_model_drain.py`,
+`owned-model-drain-confirmed.json` and `.log`. Two synthetic 16-token,
+temperature-zero compatible calls used the exact deployed `gemma4:e4b` and
+`hf.co/numind/NuExtract3-GGUF:Q8_0`; both completed with `stop`. Actual cached
+`numind/NuNER_Zero` extracted two entities and loaded on CUDA. Its label path
+also loaded the existing shared Qwen encoder. Before: no Ollama residents or
+GPU compute process,71MiB. Loaded-point snapshot:14,185MiB, with only this
+Python process plus the two Ollama runners. After actual idle `_pump`: no
+Ollama residents, empty ownership registry and released/reset NuNER cache;
+1,615MiB with the Python encoder process still present. This is a load/drain
+control with32768 Ollama context, not peak sampling, concurrent answering,
+local/cloud complete-stack fit, or a new numerical GPU budget.
+
+**Regression:**21 focused residency cases are included in413/413 disposable
+smoke checks (`model-residency-complete-smoke.log`); the standalone runtime
+passes49/49 (`model-residency-final-runtime.log`). These cover actual factory
+ownership→idle pump, active-call deferral, failed unload retry, dedicated-server
+exclusion, new native calls after an earlier drain, actual NuNER inference
+guarding, all three corrected lane registrations and user return during a
+lane wait. The initial runtime48/49 used an obsolete bare post-flight hash
+assertion; it now queries the writer's existing namespaced `job_key`. The
+initial new warning assertion used stdlib caplog while structlog emitted to
+stdout; the structured warning contract is now captured directly. These were
+instrument fixes, not changes to production idempotency or logging policy.
+
+**Limits/remaining:** source refinement remains enabled and request NLI stays
+on CPU. Background generation remains on the compatible SDK. Per-model locks
+and maintenance lanes are not a global GPU manager: foreground, encoder and
+reranker overlap and the declared whole-stack budget remain existingG4 work.
+The fullG4/G32 boxes stay open. No final campaign, answer-quality claim or push.

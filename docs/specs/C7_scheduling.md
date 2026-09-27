@@ -19,6 +19,42 @@ entries), `gpu_check.py`, `memory/session.py`, `main.py::store_turn_async`
 
 ## 1. Decisions
 
+**v3 re-grounding2026-09-27 (G4 model residency, G32 owned transport):**
+the CPU-only classification of both clustering jobs below is obsolete.
+They call NuNER onCUDA and general-model naming; put both on the existing
+GPUlane and its idle gate. Long-turn/document chunk catch-up also calls the
+shared CUDA encoder; move that existing job from CPU to GPUlane. Recheck
+that gate AFTER acquiring the lane, so a
+job that waited behind another cannot start after the user returned. Defer
+without stamping a run or consuming a retry. Existing retry/lease behavior
+otherwise stays unchanged.
+
+Idle cleanup must unload actual local background model identities used
+through the shared client, not merely the configured general pin. Track calls
+before sending them, including failed calls and reasoning-disabled clients;
+never register dedicated-server calls or enumerate/unload unrelated Ollama
+models. Use a per-model synchronous call lock, shared by native source judges,
+so cleanup cannot unload a model currently serving those calls. Cleanup tries
+each owned inactive model, forgets successful releases, retains failed/busy
+identities for a later tick, and preserves the existing release setting and
+loud failure behavior. A live check found that an unload acknowledgement can
+precede disappearance from APIps; confirm the exact named model absent within
+the existing release timeout before forgetting ownership. Poll only as part
+of that bounded release, not as a new background monitor. Release the
+already-existing process NuNER cache on
+the same genuinely idle/empty drain, guarded against inference. An absent
+NuNER cache is successful cleanup, not a reason to retry forever.
+
+This repairs idle ownership and maintenance scheduling; it is not a measured
+whole-GPU budget or global serialization of foreground/embedding/reranking.
+Keep the shared encoder resident, selected source refinement enabled, local
+and cloud answering choices, all worker outputs and memory data unchanged.
+Numerical whole-stack budgeting remains G4/Z1; no model is added.
+Validate actual client→idle-pump ownership, unrelated-model exclusion,
+active-call/retry behavior, NuNER cache release/reload and a waiting-job
+returning-user transition, then a bounded live local-model drain. Use a
+disposableDB for runtime regressions; never reset the working store.
+
 - **D1: Celery + Redis DO NOT survive. Replaced by an in-process maintenance
   runtime inside the core app process.** Rationale: single-user local product; a
   broker + beat + unused result backend (G18) + two extra OS processes exist to
@@ -137,9 +173,9 @@ status=error (tick retries next interval anyway). Job errors never propagate.
 | callable (kept, `@app.task` wrapper deleted) | trigger | lane |
 |---|---|---|
 | `post_flight.evaluate_turn` → chains `codex_extractor.extract_codex` → `procedural_extractor` **as direct calls in one job** (**[rev 2026-07-11]** the density stage's early-return on its own idempotency key must NOT skip the chained stages — a retry after a partial chain failure re-enters the job; each stage is self-idempotent: codex + procedural have their own keys, the chunker checks existing chunks. Restructure: density stage guarded by its key, chain stages always attempted. The `is_document`/long-turn chunk dispatch becomes a direct `run_chunk_turn(db, turn)` call in the same job — the "document stored" event needs no queue hop when the discoverer already holds the turn.) | event (turn stored) | gpu |
-| `document_chunker.chunk_turn` / `run_pending_documents` | event + overdue 2h | cpu |
-| `clustering.run_cluster_assignment` | overdue 30m + session-gap | cpu |
-| `clustering.run_cluster_merge` | overdue 3h | cpu |
+| `document_chunker.chunk_turn` / `run_pending_documents` | event + overdue 2h | gpu (shared encoder; direct chunk_turn rides post-flight) |
+| `clustering.run_cluster_assignment` | overdue 30m + session-gap | gpu (v3: NuNER + naming) |
+| `clustering.run_cluster_merge` | overdue 3h | gpu (v3: NuNER + naming) |
 | `compaction.compact_entities` | **overdue 24h (newly scheduled — settles G10; lossless per Track-T constraint)** | cpu |
 | `decay.apply_decay(cycles)` / `codex_decay` / `procedural_decay` | overdue 1.5h + session-gap catch-up | cpu |
 | `reflection.run_reflection` (incl. A7.3 enrichment backlog) | session-end burst + overdue 2h | gpu |

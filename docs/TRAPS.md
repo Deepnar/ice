@@ -1833,3 +1833,18 @@ and only reviewed old-value questions retained current-value distractors.
 Validate the entire constructed input and its question, not just whether the
 answer occurs in the original source. A transformation can change which fact
 is authoritative even when every original string remains intact.
+
+
+### 72. An unload acknowledgement can precede actual model release
+
+**v3,2026-09-27.** The first real shared-client→NuNER→idle-runtime drain
+received Ollama `done_reason: unload` for the general model and extraction
+override, cleared ownership, and logged success. An immediate `/api/ps` still
+listed NuExtract as resident. The mocks exercised the acknowledgement but
+could not see the asynchronous runner exit.
+
+Confirm exact named-model absence within the existing timeout before forgetting
+its ownership. Keep failed or still-resident models due for a later idle retry.
+A bounded real rerun confirmed both Ollama models absent and NuNER cache
+released, with only the shared encoder process remaining. Control-plane success
+is not the resource postcondition it was intended to establish.

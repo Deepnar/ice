@@ -7,6 +7,9 @@ separate OpenAI-compatible server on :8002, started manually (./ice no longer
 launches it).
 """
 
+import threading
+import time
+from contextlib import contextmanager
 from typing import Optional
 
 import structlog
@@ -20,6 +23,40 @@ logger = structlog.get_logger("ice.workers.bg_client")
 # documented manual vLLM invocation in ./ice.
 DEDICATED_DEFAULT_MODEL = "Qwen/Qwen2.5-3B-Instruct-AWQ"
 DEDICATED_BASE_URL = "http://localhost:8002/v1"
+
+_owned_models = set()
+_model_locks = {}
+_ownership_lock = threading.Lock()
+
+
+def _model_call_lock(model):
+    with _ownership_lock:
+        return _model_locks.setdefault(model, threading.Lock())
+
+
+@contextmanager
+def local_model_call(model):
+    """Own a named local call; serialize it against idle unload of that model."""
+    with _model_call_lock(model):
+        with _ownership_lock:
+            # A failed call may already have loaded weights on the server.
+            _owned_models.add(model)
+        yield
+
+
+class _OwnedCompletions:
+    def __init__(self, inner):
+        self._inner = inner
+
+    def create(self, *args, **kwargs):
+        model = kwargs.get("model")
+        if not isinstance(model, str) or not model.strip():
+            return self._inner.create(*args, **kwargs)
+        with local_model_call(model):
+            return self._inner.create(*args, **kwargs)
+
+    def __getattr__(self, item):
+        return getattr(self._inner, item)
 
 
 class _NoReasoningCompletions:
@@ -102,18 +139,20 @@ class _NoReasoningCompletions:
 
 
 class _Chat:
-    def __init__(self, inner):
+    def __init__(self, inner, *, owned=False, disable_reasoning=True):
         self._inner = inner
-        self.completions = _NoReasoningCompletions(inner.completions)
+        completions = _OwnedCompletions(inner.completions) if owned else inner.completions
+        self.completions = (_NoReasoningCompletions(completions)
+                            if disable_reasoning else completions)
 
     def __getattr__(self, item):
         return getattr(self._inner, item)
 
 
 class _BgClient:
-    def __init__(self, inner: OpenAI):
+    def __init__(self, inner: OpenAI, *, owned=False, disable_reasoning=True):
         self._inner = inner
-        self.chat = _Chat(inner.chat)
+        self.chat = _Chat(inner.chat, owned=owned, disable_reasoning=disable_reasoning)
 
     def __getattr__(self, item):
         return getattr(self._inner, item)
@@ -163,9 +202,10 @@ def get_bg_client():
     else:
         base_url = DEDICATED_BASE_URL
     client = OpenAI(base_url=base_url, api_key="dummy")
-    if not settings.bg_disable_reasoning:
+    shared = settings.background_model_mode == "shared"
+    if not shared and not settings.bg_disable_reasoning:
         return client
-    return _BgClient(client)
+    return _BgClient(client, owned=shared, disable_reasoning=settings.bg_disable_reasoning)
 
 
 def get_bg_model_name() -> str:
@@ -217,13 +257,11 @@ def release_bg_model(model: Optional[str] = None) -> bool:
     `UNTIL: Forever`**, for jobs that had finished hours earlier. That is not a
     leak; it is ICE having no opinion.
 
-    **This is the small half of [G32(a)](../../docs/ROADMAP.md#g32).** Setting
-    `keep_alive` per REQUEST needs the native chat endpoint and a translation
-    layer at `_NoReasoningCompletions` — a transport migration. Releasing after
-    a drain needs only this: one native call, no change to the ~17 call sites,
-    nothing to get subtly wrong in the request path. The mechanism was already
-    verified by the G32 audit (`POST /api/generate {"keep_alive": 0}` →
-    `done_reason: "unload"`).
+    The shared client registers actual model identities, including extractor
+    overrides. Idle cleanup calls this under the same per-model lock used by
+    completions and native source judges. An unload acknowledgement is not
+    enough: confirm the model has disappeared from `/api/ps` within the timeout.
+    This does not migrate background generation or impose a whole-GPU budget.
 
     ⚠ **Deliberately best-effort and LOUD.** A failure here wastes VRAM; it must
     never break background work, and it must never be silent — a release that
@@ -238,14 +276,30 @@ def release_bg_model(model: Optional[str] = None) -> bool:
     base = str(settings.ollama_base_url).rstrip("/")
     try:
         import httpx
+        deadline = time.monotonic() + settings.bg_release_timeout_seconds
         r = httpx.post(f"{base}/api/generate",
                        json={"model": name, "keep_alive": 0},
                        timeout=settings.bg_release_timeout_seconds)
         r.raise_for_status()
         done = (r.json() or {}).get("done_reason")
         if done == "unload":
-            logger.info("bg_model_released", model=name)
-            return True
+            # Ollama can acknowledge before its runner disappears. Do not
+            # forget ownership based on the acknowledgement alone.
+            while (remaining := deadline - time.monotonic()) > 0:
+                state = httpx.get(f"{base}/api/ps", timeout=remaining)
+                state.raise_for_status()
+                residents = state.json().get("models")
+                if not isinstance(residents, list) or any(
+                        not isinstance(m, dict) or not isinstance(m.get("name"), str)
+                        for m in residents):
+                    raise ValueError("invalid Ollama residency response")
+                if not any(m["name"] == name for m in residents):
+                    logger.info("bg_model_released", model=name)
+                    return True
+                time.sleep(min(.05, max(0, deadline - time.monotonic())))
+            logger.warning("bg_model_release_unconfirmed", model=name,
+                           reason="still_resident_at_deadline")
+            return False
         # Not an error, but not what we asked for either — say which.
         logger.warning("bg_model_release_unexpected", model=name,
                        done_reason=done)
@@ -254,6 +308,32 @@ def release_bg_model(model: Optional[str] = None) -> bool:
         logger.warning("bg_model_release_failed", model=name,
                        error=f"{type(exc).__name__}: {str(exc)[:160]}")
         return False
+
+
+def release_owned_models() -> bool:
+    """Release only identities ICE called locally; busy/failed ones remain due."""
+    if not settings.bg_release_after_drain:
+        return False
+    with _ownership_lock:
+        models = sorted(_owned_models)
+    for model in models:
+        lock = _model_call_lock(model)
+        if not lock.acquire(blocking=False):
+            logger.info("bg_release_deferred", model=model, reason="call_in_flight")
+            continue
+        try:
+            if release_bg_model(model):
+                with _ownership_lock:
+                    _owned_models.discard(model)
+        finally:
+            lock.release()
+    with _ownership_lock:
+        return not _owned_models
+
+
+def owned_models_pending() -> bool:
+    with _ownership_lock:
+        return bool(_owned_models)
 
 
 def bg_timeout(max_tokens: int) -> float:

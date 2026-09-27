@@ -32,6 +32,7 @@ from sqlalchemy.orm import sessionmaker
 from src.api.config import settings
 from src.api.db import SessionLocal, engine
 from src.memory.models import Conversation, EpisodicMemory
+from src.workers.idempotency import job_key
 from src.workers.runtime import (
     BURST_STAMP,
     JOBS,
@@ -211,7 +212,8 @@ async def test_tick_crash_isolation():
 
 async def test_work_units():
     print("── 8. work-unit dispatch table ──")
-    rt = _mk_runtime({"cluster_assignment": JobSpec("ice_c7_test_stubs:noop", "cpu")})
+    rt = _mk_runtime({"cluster_assignment": JobSpec(
+        "ice_c7_test_stubs:noop", JOBS["cluster_assignment"].lane)})
     rt.notify_work_unit("task_done", sha="abc")  # reserved, unregistered
     check("unregistered kind → logged, no crash", True)
     rt.register_work_unit_handler("commit", lambda **ctx: stub.calls["wu"].append(ctx))
@@ -337,10 +339,10 @@ async def test_post_flight_chain():
         row = db.query(EpisodicMemory).filter_by(batch_id=batch_id).first()
         check("density stage ran (lossless set — has_code)", row.lossless_flag is True)
         check("representation decided (inject_raw set)", row.inject_raw is not None)
-        keys = {k: db.execute(text("SELECT 1 FROM idempotency_keys WHERE key = "
-                                   "encode(sha256(convert_to(:s,'UTF8')),'hex')"),
-                              {"s": s}).first() is not None
-                for k, s in [("main", str(batch_id)), ("codex", f"codex:{batch_id}")]}
+        keys = {k: db.execute(text("SELECT 1 FROM idempotency_keys WHERE key = :key"),
+                              {"key": key}).first() is not None
+                for k, key in [("main", job_key("post_flight", batch_id)),
+                               ("codex", job_key("codex", batch_id))]}
         check("post-flight idempotency key committed", keys["main"])
         check("chained codex stage ran (own idempotency key)", keys["codex"])
         check("chained procedural stage ran (call recorded; NONE writes no key)",
@@ -446,6 +448,8 @@ def test_session_end_burst():
     rt = _mk_runtime({
         "reflection": JobSpec("ice_c7_test_stubs:noop", "gpu"),
         "batch_summarize": JobSpec("ice_c7_test_stubs:noop", "gpu"),
+        "maintenance_agent": JobSpec("ice_c7_test_stubs:noop", "gpu"),
+        "conversation_summary": JobSpec("ice_c7_test_stubs:noop", "gpu"),
         "fine_tune": JobSpec("ice_c7_test_stubs:noop", "gpu"),
     })
     db = SessionLocal()
@@ -454,9 +458,10 @@ def test_session_end_burst():
     try:
         db.execute(text("DELETE FROM maintenance_ledger WHERE job_name = :n"),
                    {"n": BURST_STAMP})
-        # make the heavy pair look stale for this sitting
+        # Make every burst member stale for this sitting.
         db.execute(text("UPDATE maintenance_ledger SET last_finished = :old "
-                        "WHERE job_name IN ('reflection','batch_summarize')"),
+                        "WHERE job_name IN ('reflection','batch_summarize',"
+                        "'maintenance_agent','conversation_summary')"),
                    {"old": NOW - timedelta(days=1)})
         db.commit()
 
@@ -464,7 +469,8 @@ def test_session_end_burst():
             minutes=settings.session_gap_minutes + 1)
         rt._maybe_session_end_burst()
         queued = {n for n, _, _ in rt._queue}
-        check("burst enqueued the heavy pair", {"reflection", "batch_summarize"} <= queued)
+        check("burst enqueued the quartet", {"reflection", "batch_summarize",
+              "maintenance_agent", "conversation_summary"} <= queued)
         stamp = db.execute(text("SELECT last_started FROM maintenance_ledger "
                                 "WHERE job_name = :n"), {"n": BURST_STAMP}).first()
         check("burst stamped the ledger", stamp is not None and stamp.last_started is not None)

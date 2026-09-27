@@ -1,41 +1,15 @@
-"""Shared micro-NER entity extraction — used by BOTH the retrieval
-orchestrator (pre-flight: extracting entities from a live user prompt to
-match against the Codex graph) and the clustering worker (post-flight:
-extracting entities from a completed turn's raw_text to decide cluster
-membership).
+"""Shared entity extraction with separate request and background tiers.
 
-WHY THIS IS A SEPARATE MODULE
-  Previously, the orchestrator had its own _extract_entities_with_ner
-  method, and the clustering worker used a much weaker regex-only fallback
-  ("capitalized word, not in a small stoplist") instead of the real model.
-  The stated reason for the regex fallback was an assumption that the NER
-  model "may not be available in worker context" — but the model loading
-  is just torch.load() of a local .pt file plus a HuggingFace tokenizer by
-  name, with no dependency on request/API context at all. There was no
-  real obstacle; clustering.py already loads its own SentenceTransformer
-  at module level the same way. Using the real model here means narrative
-  clustering benefits from the SAME entity-recognition quality used for
-  Codex graph matching, instead of a weaker proxy that has known false
-  positives (sentence-initial capitalized words, chapter headers, etc —
-  the old regex version needed an explicit stoplist to work around this).
-
-WHY THIS GENERALIZES BEYOND NARRATIVE CONTENT
-  Entity overlap as a clustering signal isn't narrative-specific: a
-  technical conversation that repeatedly mentions "Codex", "FastAPI",
-  "PostgreSQL" across different turns has the same kind of recurring-named-
-  thing continuity that character names provide in a story. The mechanism
-  was already general-purpose; only the extraction QUALITY needed fixing.
-
-LOADED ONCE, MODULE-LEVEL
-  Both the orchestrator and the clustering worker get a singleton model/
-  tokenizer instance via get_ner_extractor(), rather than each maintaining
-  its own copy — avoids loading the model twice in the same process and
-  keeps the loading code in exactly one place to prevent the two callers
-  from drifting apart again in the future.
+The request tier uses the tiny MicroNER head and shared embedding encoder.
+Clustering, key-term extraction and default Codex grounding use lazy NuNER.
+Its inference and idle cache release share a lock so cleanup cannot remove
+weights during an extraction. Both tiers reuse process-wide model instances;
+an unavailable background model warns and falls back to the request tier.
 """
 
 import os
 import re
+import threading
 from typing import List, Optional, Sequence
 
 import structlog
@@ -67,6 +41,7 @@ _load_attempted = False
 # separate setting still controls that choice without changing this seam.
 _bg_ner = None
 _bg_ner_attempted = False
+_bg_ner_lock = threading.RLock()
 
 
 def _bg_device() -> str:
@@ -76,6 +51,11 @@ def _bg_device() -> str:
 
 
 def _load_background_ner():
+    with _bg_ner_lock:
+        return _load_background_ner_locked()
+
+
+def _load_background_ner_locked():
     """Lazy, and failure is NOT silent (CLAUDE.md: a silent fallback hides an
     outage — a NER that quietly degrades is exactly how the micro-NER's regex
     fallback went unnoticed for months)."""
@@ -108,6 +88,11 @@ def release_background_ner() -> bool:
     across that gap is the residency problem G4 exists to stop. Returns True if
     something was actually released, so a caller can log it.
     """
+    with _bg_ner_lock:
+        return _release_background_ner_locked()
+
+
+def _release_background_ner_locked():
     global _bg_ner, _bg_ner_attempted
     if _bg_ner is None:
         _bg_ner_attempted = False
@@ -201,6 +186,11 @@ def _background_model_windows(piece: str, model) -> List[str]:
 
 def _extract_background(text: str,
                         labels: Optional[Sequence[str]] = None) -> Optional[List[str]]:
+    with _bg_ner_lock:
+        return _extract_background_locked(text, labels)
+
+
+def _extract_background_locked(text, labels):
     """Entities via the background model, or None if it is unavailable.
 
     *labels* overrides the label set NuNER conditions on. None means the

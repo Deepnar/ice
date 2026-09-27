@@ -13,7 +13,7 @@ import structlog
 from src.api.config import settings
 from src.memory.support import score_pairs, verify_support
 from src.memory.tokens import count_messages
-from src.workers.bg_client_factory import bg_timeout
+from src.workers.bg_client_factory import bg_timeout, local_model_call
 
 logger = structlog.get_logger("ice.api.source_proof")
 
@@ -72,12 +72,13 @@ def _call(instructions, schema, payload):
             or len((instructions + messages[-1]["content"]).encode("utf-8"))
             > context_tokens // 2):
         raise ProofError("complete_input_exceeds_proof_bound")
-    response = httpx.post(settings.ollama_base_url.rstrip("/") + "/api/chat", json={
-        "model": settings.memory_source_gate_model, "messages": messages,
-        "stream": False, "think": True, "format": schema, "keep_alive": 0,
-        "options": {"temperature": 0, "num_ctx": context_tokens,
-                    "num_predict": output_tokens},
-    }, timeout=bg_timeout(output_tokens))
+    with local_model_call(settings.memory_source_gate_model):
+        response = httpx.post(settings.ollama_base_url.rstrip("/") + "/api/chat", json={
+            "model": settings.memory_source_gate_model, "messages": messages,
+            "stream": False, "think": True, "format": schema, "keep_alive": 0,
+            "options": {"temperature": 0, "num_ctx": context_tokens,
+                        "num_predict": output_tokens},
+        }, timeout=bg_timeout(output_tokens))
     response.raise_for_status()
     data = response.json()
     if not isinstance(data, dict) or data.get("done") is not True or data.get("done_reason") != "stop":

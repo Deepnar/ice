@@ -30,8 +30,8 @@ concurrency** — a 27B at `--workers 3` reached 105 °C ([TRAPS #36](TRAPS.md))
 | **source-support verifier (v3)** | `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` @ `b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7` | local HF cache, float32; CPU between calls | Selected 2026-09-14 after13 supported/17 unsupported synthetic controls; same30 pass production scorer/decision. Claim compression consumer uses0.95 policy threshold, complete512-token maximum, unknown retains full evidence. Broader language/long-source reliability unqualified. Short-pair peak1.762GB, transfer+inference1.397s, not whole-stack footprint. |
 | **source-support NLI candidate (v3)** | `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli` @ `8adb042d524ecd5c26d3e3ba0e3fbcf7e2d0864c` | local HF cache | Downloaded and bounded-tested 2026-09-13; diagnostic only, not activated. Argmax falsely entailed3/14 unsupported controls; no threshold fit. Multilingual entailment/neutral/contradiction candidate; source attribution remains a separate structural requirement. Model card warns about float16 support; use float32 qualification. |
 | **embedding** | `Qwen/Qwen3-Embedding-0.6B` | in-process | native **1024-dim**, frozen. Resident on the same card as everything else |
-| **NER (pre-flight + codex whitelist)** | **MicroNER — ours** | in-process | `models/ner/ner_model.pt`, 234 KB, over the `slice384` MRL prefix |
-| **NER (background)** | `numind/NuNER_Zero` | in-process | GLiNER-family zero-shot, 448.9M, deberta-v3-large. Clustering + `turn_density` only |
+| **NER (pre-flight)** | **MicroNER — ours** | in-process | `models/ner/ner_model.pt`, 234 KB, over the `slice384` MRL prefix |
+| **NER (background)** | `numind/NuNER_Zero` | in-process | GLiNER-family zero-shot, 448.9M, deberta-v3-large. Clustering, key-term extraction and default Codex grounding; guarded idle release |
 | **classification** | `ice_classifier_v4_schema2.pt` | in-process | MLP head, 27 logits (11 topic + 12 intent + 4 context) |
 | **typed-decision shadow, not in ICE runtime (v3)** | `convaiinnovations/laya-typed-decisions` (421M, 1024 total input), revision `1a793eb568e6718f15941d08f85432581df534e3`; base `laya` / `laya-multilingual` also available | PyTorch/CUDA; package 0.3.20 isolated under ignored `logs/g28_candidate/vendor`, weights in HF cache; independent `laya-mlx` port targets Apple Silicon | Generic relation choice falsely asserted unrelated/hypothetical/former relations. Three-choice source-need training gave authored174/174 but actual starter21/24; later original-source-qualified training gave grouped305/306 but starter20/24, including four supplied-answer false retrievals. **Unpromoted**; latest7.7876GiB peak training allocation is not whole-stack/runtime footprint. Research-only adapted weights stay ignored; no production integration, lock change or NLI replacement. [Run details](PROVENANCE.md#2026-09-27--v3-source-qualified-laya-and-native-source-refinement), [Laya upstream](https://github.com/NandhaKishorM/laya), [typed checkpoint](https://huggingface.co/convaiinnovations/laya-typed-decisions), [MLX port](https://github.com/mizorewww/laya-mlx). |
 | **source-need/factual proof (v3)** | `gemma4:e4b`, existing local background pin | Native Ollama;32768 context, intent256/non-thinking, frame/fill2048/thinking; complete8192 estimated-token/16384-byte caps, no cuts; keep_alive=0 | Both switches **ON** after user's2026-09-27 best-current implementation decision. Fixed question forms, common source value and full-source/cited-leading-context NLI; request-time existing NLI runs onCPU. Actual preparation DEVELOPMENT22/24 versus original17/24; saved joined proof11/13, two known misses. Earlier quote-only false suppression remains superseded. No new model and no population/answer-quality claim; added native reasoning latency is unresolved. [Run details](PROVENANCE.md#2026-09-27--v3-source-qualified-laya-and-native-source-refinement). |
@@ -51,14 +51,16 @@ Laya and larger framing candidates are not runtime components.
 | shared encoder | process singleton, remains on configured device (auto choosesCUDA) |
 | reranker | cachedCPUweights, temporaryCUDA inference, thenCPU |
 | NLI | cachedCPUweights; request proof alwaysCPU; background follows device setting and returnsCPU |
-| NuNER | lazy configured-device model; release helper has no production caller |
-| E4B | general BG released when queue drains; native request judges use keep_alive=0 |
-| NuExtract | separate extraction override; general BG drain release does not release this model |
+| NuNER | lazy configured-device model; inference-guarded cache release on idle empty drain |
+| E4B | actual shared-client/native calls register ownership; idle drain confirms unload; native request judges use keep_alive=0 |
+| NuExtract | separate extraction override tracked by the same shared client; idle drain confirms unload |
 
 Per-component locks are not a shared GPU residency budget. The maintenance
-GPUlane serializes its own jobs, but clustering is registered on theCPUlane
-while calling NuNER onCUDA by default, and request-time inference is outside
-that lane. Therefore six components is a role count, not a measured concurrent
+GPUlane serializes its registered jobs, including both clustering jobs and
+long-turn chunk catch-up since2026-09-27, and rechecks readiness after a lane
+wait. Request-time inference is outside that lane. Per-model call locks stop
+idle cleanup from unloading an active shared-client/native judge call; they
+do not serialize different models against each other. Therefore six components is a role count, not a measured concurrent
 peak or a guarantee they fit. The audit's idle snapshot had no compute process,
 no Ollama residents and71MiB GPUusage; it proves no loaded probe remained,
 not real-time capacity. Isolated historical peaks and disk sizes cannot be

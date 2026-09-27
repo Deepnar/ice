@@ -1,6 +1,13 @@
 # G32 — ICE↔Ollama control surface: the audit, and what it implies
 Assumes decided specs: none
 
+> **v3 residency revision2026-09-27:** C7_scheduling.md's current re-grounding
+> owns idle cleanup and model-call locks. Keep the existing compatible
+> background request contract; track actual shared-client model identities
+> (including extraction overrides), release only those at idle, and share
+> per-model call guards with the already-native source judges. This is not
+> another native transport migration or a new inference model.
+
 > **Status:** §0 is the historical Ollama 0.30.7 audit. The user subsequently
 > authorized whole-system v3 repair and asked the implementation session to
 > choose routine designs; (a1) shipped on the compatibility SDK, while native

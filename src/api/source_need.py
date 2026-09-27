@@ -13,7 +13,7 @@ import structlog
 
 from src.api.config import settings
 from src.memory.tokens import count_messages
-from src.workers.bg_client_factory import bg_timeout
+from src.workers.bg_client_factory import bg_timeout, local_model_call
 
 logger = structlog.get_logger("ice.api.source_need")
 
@@ -124,9 +124,10 @@ def judge_source_need(messages, *, current_only=False):
                     "num_predict": settings.memory_source_gate_output_tokens},
     }
     try:
-        response = httpx.post(
-            settings.ollama_base_url.rstrip("/") + "/api/chat", json=body,
-            timeout=bg_timeout(settings.memory_source_gate_output_tokens))
+        with local_model_call(settings.memory_source_gate_model):
+            response = httpx.post(
+                settings.ollama_base_url.rstrip("/") + "/api/chat", json=body,
+                timeout=bg_timeout(settings.memory_source_gate_output_tokens))
         response.raise_for_status()
         data = response.json()
         if not isinstance(data, dict) or data.get("done") is not True:

@@ -76,9 +76,9 @@ JOBS: dict[str, JobSpec] = {
     # Standalone codex extraction (user_control's bookmark endpoint) — the
     # normal path is the direct call inside post_flight.
     "codex_extract":           JobSpec("src.workers.codex_extractor:extract_codex", "gpu"),
-    "chunk_pending_documents": JobSpec("src.workers.document_chunker:run_pending_documents", "cpu", needs_db=True),
-    "cluster_assignment":      JobSpec("src.workers.clustering:run_cluster_assignment", "cpu", needs_db=True),
-    "cluster_merge":           JobSpec("src.workers.clustering:run_cluster_merge", "cpu", needs_db=True),
+    "chunk_pending_documents": JobSpec("src.workers.document_chunker:run_pending_documents", "gpu", needs_db=True),
+    "cluster_assignment":      JobSpec("src.workers.clustering:run_cluster_assignment", "gpu", needs_db=True),
+    "cluster_merge":           JobSpec("src.workers.clustering:run_cluster_merge", "gpu", needs_db=True),
     "compaction":              JobSpec("src.workers.compaction:compact_entities", "cpu"),
     "decay_episodic":          JobSpec("src.workers.decay:apply_decay", "cpu", pass_cycles=True),
     "decay_codex":             JobSpec("src.workers.codex_decay:decay_codex_edges", "cpu", pass_cycles=True),
@@ -435,13 +435,21 @@ class MaintenanceRuntime:
         """Unload once per idle stretch, not once per tick.
 
         `_pump` runs on a short cadence, so an unguarded call would POST an
-        unload every tick forever — and a failing release would log a warning
-        every tick with it. The flag is cleared the moment any job runs.
+        unload every tick forever. Successful cleanup is remembered until a
+        job or local call runs; busy or failed releases remain due for retry.
         """
-        if self._bg_released:
+        from src.workers.bg_client_factory import owned_models_pending, release_owned_models
+        # Native request calls can occur after the previous idle drain, without
+        # starting a maintenance job to clear this flag.
+        if self._bg_released and not owned_models_pending():
             return
-        from src.workers.bg_client_factory import release_bg_model
-        self._bg_released = release_bg_model()
+        if not settings.bg_release_after_drain or not self.is_idle():
+            return
+        from src.retrieval.ner_utils import release_background_ner
+        released = release_owned_models()
+        # False from this helper means no model was loaded, not failed cleanup.
+        release_background_ner()
+        self._bg_released = released
 
     def _drain_due_retries(self) -> None:
         now_mono = time.monotonic()
@@ -511,6 +519,15 @@ class MaintenanceRuntime:
         lane = self._gpu_lane if spec.lane == "gpu" else self._cpu_lane
         try:
             async with lane:
+                if spec.lane == "gpu" and not self._gpu_ready(for_event=source == "event"):
+                    # Dispatch can precede a long wait for the lane. The user
+                    # may return meanwhile; this job has not started or failed.
+                    with self._lock:
+                        self._queue.append((name, kwargs, attempt))
+                        self._queued_keys.add(key)
+                    logger.info("maintenance_job_deferred", job=name,
+                                reason="gpu_not_ready_after_lane_wait")
+                    return
                 interval = self._intervals.get(name) or 0
                 call_kwargs = dict(kwargs)
                 if spec.pass_cycles:
