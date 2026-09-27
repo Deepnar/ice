@@ -1,7 +1,6 @@
-"""Current-source proof plus an unpromoted source-rescue qualification seam.
+"""Current-source proof plus bounded, source-supported memory rescue.
 
-Prototype prompts use gemma4:e4b; semantic qualification has not passed.
-Both model branches remain off by default while stronger proof is developed.
+Uses the existing gemma4:e4b pin; uncertainty preserves the existing decision.
 B2 remains the fallback and recall floor, never a manufactured probability.
 """
 

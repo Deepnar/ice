@@ -20,8 +20,9 @@ from src.retrieval.orchestrator import ContextFragment
 @pytest.mark.skipif(not os.getenv("ICE_TEST_DATABASE"), reason="disposable DB required")
 @pytest.mark.parametrize("mode", ["rescue", "withhold", "skip"])
 def test_actual_handler_source_decisions(monkeypatch, mode):
-    monkeypatch.setattr(settings, "memory_source_gate_enabled", True)
-    monkeypatch.setattr(settings, "memory_source_rescue_enabled", True)
+    # Exercise shipped defaults, rather than an opt-in-only qualification arm.
+    assert settings.memory_source_gate_enabled
+    assert settings.memory_source_rescue_enabled
     monkeypatch.setattr(main, "core", None)
     monkeypatch.setattr(main, "classifier", SimpleNamespace(
         classify=lambda *_a, **_k: ClassificationResult([], [], "Zero_Shot", [], .99, p_ltm=.01),

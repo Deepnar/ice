@@ -18,15 +18,16 @@ GOOD = dict(entailment=.999, neutral=.0005, contradiction=.0005)
 
 @pytest.fixture
 def native(monkeypatch):
-    state = dict(calls=[], scores=[], replies=[FRAMES, FILL], verdicts=[GOOD, GOOD, GOOD, GOOD])
+    state = dict(calls=[], scores=[], devices=[], replies=[FRAMES, FILL], verdicts=[GOOD, GOOD, GOOD, GOOD])
     def post(url, **kw):
         state["calls"].append((url, kw["json"]))
         value = state["replies"].pop(0)
         return SimpleNamespace(raise_for_status=lambda: None, json=lambda: dict(
             done=True, done_reason="stop", prompt_eval_count=700, eval_count=55,
             message=dict(content=json.dumps(value))))
-    def score(pairs):
+    def score(pairs, *, device):
         state["scores"].append(pairs)
+        state["devices"].append(device)
         return state["verdicts"]
     monkeypatch.setattr(sp.httpx, "post", post)
     monkeypatch.setattr(sp, "score_pairs", score)
@@ -43,6 +44,7 @@ def test_question_is_frozen_before_complete_source_and_both_assertions_land(nati
     assert native["scores"] == [[(premise, f.replace("{{answer}}", "cobalt"))
         for premise in (SOURCE, SOURCE[:SOURCE.index(FILL["evidence_quote"]) + len(FILL["evidence_quote"])])
         for f in (FRAMES["frame"], FRAMES["assertion_frame"])]]
+    assert native["devices"] == ["cpu"]
     assert all(b["think"] is True and b["keep_alive"] == 0
                and b["options"]["num_predict"] == settings.memory_source_proof_output_tokens
                for _, b in native["calls"])
@@ -88,7 +90,7 @@ def test_overlength_original_is_rejected_whole_not_clipped(native, monkeypatch):
 
 
 def test_verifier_capacity_error_preserves_unknown_without_source_logging(native, monkeypatch, caplog):
-    def unavailable(_pairs): raise ValueError("private source secret must not be logged")
+    def unavailable(_pairs, **_kwargs): raise ValueError("private source secret must not be logged")
     monkeypatch.setattr(sp, "score_pairs", unavailable)
     proof = sp.prove_source_fact(QUESTION, SOURCE)
     assert proof.status == "unknown" and proof.reason == "ValueError"

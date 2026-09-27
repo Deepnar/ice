@@ -34,9 +34,37 @@ concurrency** — a 27B at `--workers 3` reached 105 °C ([TRAPS #36](TRAPS.md))
 | **NER (background)** | `numind/NuNER_Zero` | in-process | GLiNER-family zero-shot, 448.9M, deberta-v3-large. Clustering + `turn_density` only |
 | **classification** | `ice_classifier_v4_schema2.pt` | in-process | MLP head, 27 logits (11 topic + 12 intent + 4 context) |
 | **typed-decision shadow, not in ICE runtime (v3)** | `convaiinnovations/laya-typed-decisions` (421M, 1024 total input), revision `1a793eb568e6718f15941d08f85432581df534e3`; base `laya` / `laya-multilingual` also available | PyTorch/CUDA; package 0.3.20 isolated under ignored `logs/g28_candidate/vendor`, weights in HF cache; independent `laya-mlx` port targets Apple Silicon | Generic relation choice falsely asserted unrelated/hypothetical/former relations. Three-choice source-need training gave authored174/174 but actual starter21/24; later original-source-qualified training gave grouped305/306 but starter20/24, including four supplied-answer false retrievals. **Unpromoted**; latest7.7876GiB peak training allocation is not whole-stack/runtime footprint. Research-only adapted weights stay ignored; no production integration, lock change or NLI replacement. [Run details](PROVENANCE.md#2026-09-27--v3-source-qualified-laya-and-native-source-refinement), [Laya upstream](https://github.com/NandhaKishorM/laya), [typed checkpoint](https://huggingface.co/convaiinnovations/laya-typed-decisions), [MLX port](https://github.com/mizorewww/laya-mlx). |
-| **source-need/factual-proof candidate (v3)** | `gemma4:e4b`, existing local background pin | Native Ollama;32768 context, intent256/non-thinking, frame/fill2048/thinking; complete8192 estimated-token/16384-byte caps, no cuts | Both switches **OFF**. Prior quote-only current proof falsely suppressed7/22; rescue admitted2/22 unrelated sources. Question-first paired NLI passed13 reused detached-source DEVELOPMENT controls but actual combined-message proof10/13: question presuppositions contaminated source and one frame was malformed. Full-source plus attributed-citation proof now under qualification, not a repaired/promoted runtime model. Classifier prior unchanged; foreground token savings do not establish pipeline latency savings. [Run details](PROVENANCE.md#2026-09-27--v3-source-qualified-laya-and-native-source-refinement). |
+| **source-need/factual proof (v3)** | `gemma4:e4b`, existing local background pin | Native Ollama;32768 context, intent256/non-thinking, frame/fill2048/thinking; complete8192 estimated-token/16384-byte caps, no cuts; keep_alive=0 | Both switches **ON** after user's2026-09-27 best-current implementation decision. Fixed question forms, common source value and full-source/cited-leading-context NLI; request-time existing NLI runs onCPU. Actual preparation DEVELOPMENT22/24 versus original17/24; saved joined proof11/13, two known misses. Earlier quote-only false suppression remains superseded. No new model and no population/answer-quality claim; added native reasoning latency is unresolved. [Run details](PROVENANCE.md#2026-09-27--v3-source-qualified-laya-and-native-source-refinement). |
 | **typed-decision larger candidates (not installed, v3)** | `Mapika/decider-4b` v2/v2.1, `decider-2b` v10/v11; `bespokelabs/Bespoke-Nimble-9B` | local CUDA choices; ~8.4 GB / 4 GB for Decider, Nimble 9B weights alone ~18 GB before runtime | Potential bounded choice/score models for relation selection, entity update, conflict/cardinality and temporal status, never generators of open evidence quotes. The upstream 2026-09-24 v2.1/v11 releases trade higher hard-set accuracy for worse hard-item calibration than 4B v2; no ICE source-explicit qualification. Do not promote by published aggregate score. [Decider source](https://github.com/Mapika/decider), [Nimble source](https://github.com/bespokelabsai/nimble). |
 | **typed-logit baseline (not installed, v3)** | SemIf on pinned `Qwen/Qwen3.5-4B` | local CUDA, model + wrapper; no fine-tuned decision weights | Open typed option-logit wrapper and useful baseline against a trained decision model. It reads fixed options without generating JSON, but its published speed and scores are workload-specific; no ICE semantic seam is qualified. [SemIf source](https://github.com/TheoLeeCJ/SemIf-OpenJev). |
+
+### v3 simultaneous residency — audit2026-09-27
+
+The six substantial local components are the shared Qwen encoder, Qwen
+reranker, DeBERTa NLI, NuNER, E4B and NuExtract. Classifier and MicroNER are
+two smallCPUheads using the shared encoder, not additional transformer copies.
+Cloud answering adds no local model; local answering adds its chosen model.
+Laya and larger framing candidates are not runtime components.
+
+| component | actual residency policy |
+|---|---|
+| shared encoder | process singleton, remains on configured device (auto choosesCUDA) |
+| reranker | cachedCPUweights, temporaryCUDA inference, thenCPU |
+| NLI | cachedCPUweights; request proof alwaysCPU; background follows device setting and returnsCPU |
+| NuNER | lazy configured-device model; release helper has no production caller |
+| E4B | general BG released when queue drains; native request judges use keep_alive=0 |
+| NuExtract | separate extraction override; general BG drain release does not release this model |
+
+Per-component locks are not a shared GPU residency budget. The maintenance
+GPUlane serializes its own jobs, but clustering is registered on theCPUlane
+while calling NuNER onCUDA by default, and request-time inference is outside
+that lane. Therefore six components is a role count, not a measured concurrent
+peak or a guarantee they fit. The audit's idle snapshot had no compute process,
+no Ollama residents and71MiB GPUusage; it proves no loaded probe remained,
+not real-time capacity. Isolated historical peaks and disk sizes cannot be
+added into a trustworthy whole-stack budget. ExistingG4 owns these gaps;
+reuse/replace components before adding another model, and include context/cache,
+activations, local answerer and OS headroom in the eventual measured budget.
 
 ---
 

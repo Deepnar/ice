@@ -1,4 +1,4 @@
-"""Unpromoted question-first factual proof over a complete original source.
+"""Question-first factual proof over a complete original source.
 
 Freeze equivalent typed and direct hypotheses before source reading. A source
 value must support both; model enums or literal quotes alone are not proof.
@@ -150,7 +150,10 @@ def prove_source_fact(question, source, *, framed=None):
         # The complete original remains a separate bound-checked premise.
         cited_context = source[:source.index(quote) + len(quote)]
         pairs = [(premise, claim) for premise in (source, cited_context) for claim in claims]
-        scores = score_pairs(pairs)
+        # Request-time proof must not add a GPU-resident verifier beside the
+        # encoder, local answerer or a still-finishing background model call.
+        # Reuse the same pinned float32 verifier and policy on CPU.
+        scores = score_pairs(pairs, device="cpu")
         if len(scores) != len(pairs):
             raise ProofError("invalid_verifier_result")
         # The shared verifier validates probabilities and retains its exact

@@ -178,9 +178,10 @@ When the final decision is to retrieve, the shared preparation called by main.py
 **v3 source refinement, 2026-09-27:** `memory_preparation.py` now owns final
 chat preparation, shared with answer/replay instruments through
 `production_parity.prepare`. The B2 score remains the baseline probability;
-`memory_source_gate_enabled=False` leaves current-source proof unpromoted;
-`memory_source_rescue_enabled=False` also leaves the failed negative-rescue candidate OFF.
-With it explicitly enabled for qualification, a fitted baseline retains standing
+`memory_source_gate_enabled=True` enables current-source proof;
+`memory_source_rescue_enabled=True` enables bounded negative rescue. The user
+selected the best measured complete E4B version on2026-09-27, ending candidate
+search rather than returning to the older baseline. A fitted baseline retains standing
 slots, bookmarks, source notes and constraints. Existing positives use only the
 complete current request as original evidence. `source_proof.py` freezes two
 question-derived factual forms (typed attribute and direct assertion), then
@@ -201,15 +202,19 @@ Earlier quote-only checks falsely suppressed7/22 and admitted2/22 unrelated
 controls. Paired question-first proof passed13 reused DEVELOPMENT controls with
 detached sources, then the actual combined current request passed10/13: NLI
 imported unsupported date/body-part conditions from the question; one valid
-supplied fact got malformed frames. A citation-local candidate is now under
-qualification; bare answer spans lose necessary speaker context. The complete source plus cited-leading-context development replay remains
+supplied fact got malformed frames. The selected cited-leading-context repair
+preserves attribution; bare answer spans lose necessary speaker context. The complete source plus cited-leading-context development replay remains
 11/13. Actual final preparation starter22/24 still has two style flips
-(historical command5/6, supplied port5/6). Neither switch is active. Unknown/malformed/overlength calls warn with their reason and retain
+(historical command5/6, supplied port5/6). This is development decision quality,
+not heldout answer accuracy or whole-style invariance. Both switches now defaultON;
+the earlier quote-only version remains superseded. Unknown/malformed/overlength calls warn with their reason and retain
 B2. Native local `gemma4:e4b` owns32768 context; intent calls use256 output tokens
 with thinking OFF, question-frame/source-fill calls use2048 with thinking ON.
 Complete caps remain8192 estimated tokens and16384 UTF-8 bytes (instructions
 plus payload), leaving template/tokenizer headroom; no source cut. Source NLI
-retains its512 complete-pair bound and.95 threshold. The generative/NLI cost
+retains its512 complete-pair bound and.95 threshold; request-time proof forces
+this existing float32 verifier ontoCPU, while background consumers retain their
+configured device. Native proof calls unload E4B with keep_alive=0. The generative/NLI cost
 belongs in qualification; fewer foreground tokens alone is no latency gain.
 Chat candidate reads defer episodic retention and cold restoration until final
 admission. Direct search callers keep their prior behaviour, and reading never
@@ -618,7 +623,7 @@ either impossible or itself a legal answer.
 
 ### **4.6 Entity extraction — two models, split by path (A9b, 2026-08-03)**
 
-`retrieval/ner_utils.py::extract_entities(text, embedder, max_chars=None, tier="preflight"|"background")` serves two latency classes. **Pre-flight (`tier="preflight"`, the default) keeps the micro-NER** on the synchronous user-prompt path. **Background (`tier="background"`) uses NuNER Zero** (`settings.background_ner_model`, default `numind/NuNER_Zero`) for post-flight key-term extraction, clustering and, by the current `codex_extraction_ner_tier` default, Codex grounding. The Codex tier is independently configurable; earlier micro-vs-NuNER grounding counts were judged on their own whitelists and do not measure graph truth. NuNER is loaded for a background drain and released via `release_background_ner()`. It uses ICE's entity labels, excluding `concept` and `object` by default but restoring them for the permissive Codex grounding list. Adjacent word spans are merged before entity cleanup.
+`retrieval/ner_utils.py::extract_entities(text, embedder, max_chars=None, tier="preflight"|"background")` serves two latency classes. **Pre-flight (`tier="preflight"`, the default) keeps the micro-NER** on the synchronous user-prompt path. **Background (`tier="background"`) uses NuNER Zero** (`settings.background_ner_model`, default `numind/NuNER_Zero`) for post-flight key-term extraction, clustering and, by the current `codex_extraction_ner_tier` default, Codex grounding. The Codex tier is independently configurable; earlier micro-vs-NuNER grounding counts were judged on their own whitelists and do not measure graph truth. NuNER is loaded lazily on its configured device; `release_background_ner()` has no production caller, so automatic drain release is an unresolved residency gap already recorded in FEATURE_INVENTORY. It uses ICE's entity labels, excluding `concept` and `object` by default but restoring them for the permissive Codex grounding list. Adjacent word spans are merged before entity cleanup.
 
 The background caller keeps its configured 250-whitespace-word coarse pieces, then windows each piece using the loaded model's **own** word splitter and `config.max_len`, with overlap. This matters because punctuation/code can make 250 whitespace words exceed NuNER's 384 model-word limit; the earlier path silently truncated the tail inside the model. Missing model-token bounds cause a warned micro-NER fallback. This preserves input coverage, not proof that the added entities improve Codex facts or answers. The micro-NER's poor short-prompt recall remains a separate pre-flight activation problem; see [PROVENANCE.md](PROVENANCE.md).
 

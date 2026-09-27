@@ -1071,13 +1071,31 @@ including a different project's same-path constraint and document visibility.
 
 ### Semantic source-need gate qualification —2026-09-27
 
+**Final implementation decision, user clarification 2026-09-27:** stop the
+open-ended model/prompt search and deploy the best complete version already
+measured, rather than return to the earlier baseline. Enable the existing
+E4B question-first paired full-source/cited-context proof and bounded rescue
+by default. The matched actual-preparation development panel was22/24 versus
+the original17/24; the earlier apparent24/24 quote-only arm was invalidated by
+false suppression and must not be revived. This supersedes the earlier
+all-starter-cases promotion requirement for this bounded refinement, not the
+need to report failures. Two style misses, long-source limits, contextual
+utility and answer-quality/latency qualification remain open. Keep the prior
+on missing/uncertain proof; admit only a proven fitting original. No new local
+model: use the existing E4B and pinned NLI; request-time NLI stays on CPU.
+Native calls retain keep_alive=0. Verify the CPU change with saved native
+responses, then test default activation through the actual handler. Do not
+repeat model training or another candidate hunt before moving on.
+
 The v3 G28 repair concerns whether an answer needs an older source, not a
 personal-reference lexicon. Keep topic/intent classification, source-support NLI,
 retrieval and reranking independent. Task-specific Laya prototypes can supply
 a candidate memory-need prior, but two supervised runs still made confident
-supplied-answer mistakes. Neither is active in production. Continue with an
-explicit visible-source adjudicator using the existing pinned local general
-background model; do not change cloud answering or train on final inputs.
+supplied-answer mistakes. Neither is active in production. The final bounded
+visible-source adjudicator reuses the existing pinned local general background
+model; do not change cloud answering or train on final inputs. Earlier
+qualification notes below retain their original run status; the final
+implementation decision above owns current activation and next work.
 
 A candidate must distinguish supplied evidence, general knowledge, missing
 older personal evidence and unknown. A supplied-evidence verdict must return an

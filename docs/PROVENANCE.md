@@ -4646,8 +4646,44 @@ question received NULL frames, falsely treating missing facts as unframeability.
 Artifact `fluent-frame-proof-qualification.json` plus full native responses.
 No runtime prompt edit or new generative answer. Stop iterating this prompt
 into production. The installed `gemma4:12b` (native thinking capability confirmed
-with `/api/show`) now tests ONLY question framing on the three diagnosed
-failures, with original runtime prompt, E4B filling, unchanged NLI/bounds and
-both switches OFF; local general-background pin stays E4B. Different task from
-the earlier12B source-intent prototype; no claim that a model winning nine
-background tasks must be best at this new structured projection task.
+with `/api/show`) tested ONLY question framing on the three diagnosed
+failures, with original runtime prompt, E4B filling and unchanged NLI/bounds.
+All3 ended unknown from incomplete native responses:0/3 correct admissions,
+no promotion. Artifacts larger-frame-proof-qualification.json and native/log
+companions remain ignored. The probe had already finished when the user's
+VRAM concern arrived; no process remained to interrupt. Subsequent APIps was
+empty and nvidia-smi showed no compute process,71MiB used of24463MiB total.
+This is an idle/unloaded check, not whole-stack peak or real-time fit evidence.
+
+## 2026-09-27 — v3 best-current source refinement activation
+
+The user explicitly requests the strongest complete version already measured
+be implemented, rather than reverting to the morning baseline or continuing
+an open-ended model/prompt search. Selected the E4B question-first paired
+full-source/cited-leading-context mechanism: actual final-preparation
+development22/24 versus original17/24, not the earlier apparent24/24 quote-only
+arm invalidated by false suppression. Both feature defaults nowTrue. Existing
+B2 is the uncertainty fallback; provisional negative search admits only its
+proven original after final repacking/eviction. No model, checkpoint or
+dependency added. E4B native calls keep keep_alive=0. Source-intent reasoning,
+Laya and larger framing candidates remain unpromoted.
+
+Request-time proof uses the same pinned float32 DeBERTa onCPU so proof does
+not temporarily load another GPU verifier. replay_final_proof_cpu.py reused
+the exact13 saved native frame/fill sequences through actual production
+proof/NLI:13/13 admission decisions match the previousGPU-scored replay,
+semantic correctness remains11/13. No new LLM generation or threshold change.
+Artifacts final-proof-cpu-replay.json/.log remain ignored. Default-enabled
+actual-handler/focused controls44/44 passed; full disposable smoke392/392
+in16.39s, five existing warnings. These counts overlap and establish mechanics
+and backend continuity, not population accuracy or better answers per token.
+
+Two starter style misses remain, and older-command framing, contextual-source
+utility, long-source limits and extra native inference latency are declared
+limitations. The source-gate candidate search is concluded under the user's
+best-current decision; the whole invariance item is not marked done. Next use
+existingG4/G32 for residency gaps already present, not another model candidate:
+NuNER release helper is already inventoried as uncalled; general drain release
+does not release NuExtract; clustering'sCPUlane callsCUDA NuNER; component
+locks do not provide global GPU scheduling. No working corpus reset or final
+oracle/semi-LSREP campaign was performed.
