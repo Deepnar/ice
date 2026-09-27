@@ -4235,3 +4235,54 @@ remained 0/6. The candidate failed the first qualification, so no broader
 calibration run or answer test was justified. Live v3 weights and gate are
 unchanged. This is a concrete case where a better old-label score does not
 imply a better source-need decision.
+
+
+## 2026-09-27 — v3 source-need specialization NO-GO
+
+All candidates were development-only shadows under ignored `logs/g28_candidate/`;
+no live classifier, gate, lockfile or runtime integration changed. The prior
+pooled-head prototype used 448 authored training rows /112 domain-separated
+dev /112 holdout with baseline-logit rehearsal. Its first recent-source fixture
+incorrectly contained four exchanges instead of production's three; those
+artifacts were invalidated. The corrected holdout improved 49/112→93/112, but
+the actual 24-row classify→timescope→B2 starter scored 18/24 while historical
+recall fell 11/12→6/12. That candidate was not promoted.
+
+Pinned `gpt-6-luna` (`opencode-luna6`) generated 64 invented source/question/answer
+seeds in four families: actions, preferences/relations, temporal changes and
+plans/reasons/constraints. Seed-grouped splits were 48 train /8 dev /8 holdout;
+all forms of a seed stayed together. The source-location transformations made
+the same question depend on an unseen source or have its answer in the prompt
+or three visible recent exchanges. A later field audit found three non-temporal
+`current_distractor` values were old values, incorrectly labeled memory-needed
+when presented as current for a current-value question. The binary candidate
+trained on nine such bad rows: its authored 78/78 and starter 16/24 are not
+clean semantic qualification. The first partial three-way run was interrupted
+and invalidated; revised old-value distractors use only reviewed temporal seeds.
+
+The corrected three-way run separates `visible_evidence`, `general_knowledge`
+and `older_memory`. It adds matched general controls and source-first, source-last,
+Given and casual supplied evidence. Generated general variants are same-class
+controls, not a strict meaning-preserving invariance benchmark. Original public
+training-data rehearsal retained 256 negatives with a partial visible/general
+label and 91 memory positives after full-input filtering. Counts: **1,391 train
+/174 dev /174 holdout**. Base is `convaiinnovations/laya-typed-decisions` revision
+`1a793eb568e6718f15941d08f85432581df534e3`, isolated package 0.3.20, ModernBERT-large
+421M. Complete serialized input must fit 1,024 tokens; no silent truncation.
+Four epochs of weighted supervised CE (not upstream RLCD) used encoder LR
+2.5e-5, head LR1e-4, AdamW, bf16, microbatch4/accumulation4 and gradient/head
+checkpointing. Best dev-CE epoch2; temperature **1.4713**, fitted only on authored
+dev, does not establish general probability calibration. Peak allocated training
+VRAM **7.78 GiB**, not whole-stack footprint. Trainer, data, reports and weights
+remain ignored and unpromoted.
+
+Authored holdout: **174/174**. The unchanged disposable production decision
+probe: **21/24**, versus live v3 **17/24**; historical GPU6/6, historical port6/6,
+general GPU4/6, supplied port5/6. Wrong older-memory probabilities were **.837**
+for a casual general command query, **.998** for the terse general query, and
+**.979** for an inverted prompt that supplied the port itself. The predeclared
+all-24 starter gate failed. Larger 256-positive/655-negative regression calibration
+and downstream answer quality were **not run**. Neither threshold adjustment
+nor authored aggregate accuracy qualifies this candidate. The next repair work
+is independent source/evidence and diverse general supervision, preserving
+conversation splits and keeping final LME oracle/semi-LSREP inputs untouched.

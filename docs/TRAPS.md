@@ -1788,3 +1788,19 @@ score can reflect that prior rather than the source's assertion. Hold the
 proposition fixed and vary only the *source*, including a same-name parallel
 mention, before letting a verifier authorize a graph write. A positive-only
 source test proves nothing about this failure shape.
+
+### 71. A sourced answer does not validate a counterfactual training label
+
+**v3, 2026-09-27.** A source-need dataset contained the correct original
+statement: pickup moved from 2:10 to 2:45, with a question asking for the
+revised time and a gold answer of 2:45. Its generated `current_distractor`
+field was 2:10. The builder presented that as **the current value**, hid the
+original source and labeled the question as needing old memory. The supplied
+current fact now answers the current-value question; the old gold answer no
+longer defines that counterfactual. Two other revised-value rows had the same
+mistake. All source/gold substring checks passed. Training was interrupted,
+and only reviewed old-value questions retained current-value distractors.
+
+Validate the entire constructed input and its question, not just whether the
+answer occurs in the original source. A transformation can change which fact
+is authoritative even when every original string remains intact.
