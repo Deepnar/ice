@@ -1,4 +1,9 @@
-"""The ONE place a harness reproduces the chat proxy's pre-retrieval path.
+"""Shared chat preamble and final preparation for v3 evaluation instruments.
+
+`build` returns the B2 prior; `retrieve` returns budgeted search candidates.
+Neither includes the optional source refinement or final prompt eviction.
+Answer/replay instruments must use `prepare` with the same standing context
+and serving window as the chat route before claiming final-path parity.
 
 ⚑ WHY THIS FILE EXISTS (G52, G54, TRAPS #43, TRAPS #44)
 
@@ -62,7 +67,7 @@ from src.services.scoping import resolve_retrieval_scope
 
 @dataclass
 class Preamble:
-    """Everything production computes before it calls `retrieve()`."""
+    """Classification, scope, routing and B2 prior before final preparation."""
     classification: object
     scope: dict
     prompt_embedding: list
@@ -158,7 +163,11 @@ def build(db, question: str, conversation_id, classifier, embedder,
 
 
 def retrieve(orchestrator, pre: Preamble):
-    """Budget then retrieve, exactly as `main.py:597-606` does."""
+    """Raw budgeted candidates; does not apply final source refinement.
+
+    Answer/replay callers should use prepare() for final admitted evidence.
+    A raw retrieval metric is not the final v3 gate or prompt metric.
+    """
     orchestrator.set_budget_from_turn_count(
         pre.turn_count, total_tokens=pre.total_tokens,
         classification=pre.classification, total_budget=pre.total_budget)
@@ -169,13 +178,33 @@ def retrieve(orchestrator, pre: Preamble):
         scope=pre.scope)
 
 
-def provenance_fields(pre: Preamble) -> dict:
+def prepare(db, pre: Preamble, classifier, *, memory_slots, bookmarked_texts,
+            serving_window, session_start_text=None, constraints_text=None):
+    """The shared final chat preparation with caller-supplied standing context."""
+    from src.api.memory_preparation import prepare_memory_context
+    return prepare_memory_context(
+        db=db, classifier=classifier, classification=pre.classification,
+        conversation_id=pre.conversation_id, user_message=pre.classification.prompt,
+        scope=pre.scope, turn_count=pre.turn_count, total_tokens=pre.total_tokens,
+        total_budget=pre.total_budget, serving_window=serving_window,
+        base_retrieve=pre.retrieve, memory_slots=memory_slots,
+        bookmarked_texts=bookmarked_texts, session_start_text=session_start_text,
+        constraints_text=constraints_text)
+
+
+def provenance_fields(pre: Preamble, memory=None) -> dict:
     """The fields whose ABSENCE let G52 and G54 survive nine days of runs.
 
     Every harness records resolved settings and a git sha, and not one recorded
     what it actually passed to `retrieve()`. These go in the run's `extra`.
     """
     return {
+        "memory_gate_stage": "B2_prior_only" if memory is None else "final_preparation",
+        "source_refinement_applied": memory is not None and memory.source_checked,
+        "source_refinement_enabled": settings.memory_source_gate_enabled,
+        "source_rescue_enabled": settings.memory_source_rescue_enabled,
+        "final_retrieve": None if memory is None else memory.retrieve,
+        "source_action": None if memory is None else memory.action,
         "scope_keys": sorted(pre.scope.keys()),
         "scope_is_none": False,
         "classify_had_conversation_id": True,
