@@ -5,6 +5,16 @@ stop a session re-running something already settled, or re-deriving a number
 already recorded. Both have happened repeatedly — [TRAPS #42](../../docs/TRAPS.md)
 is the entry for it, and it names two cases from a single afternoon.
 
+**v3 instrument update, 2026-09-28:** `score_typed.py` measures final
+source-gated prompt evidence, while `score_retrieval.py` measures only raw
+retrieval candidates; do not compare their recall numbers as the same metric.
+`answer_probes.py` uses the final prompt and defaults to cloud gpt-6-luna,
+with a local answer switch. The paired judge requires complete gold source and
+matching answer models. The 180-turn working seed is incomplete, and the
+29 anchorless Codex probes plus 15 temporal probes without successor pairs
+remain unscored for their intended metrics. The earlier runs indexed below
+were made with older instruments and are historical.
+
 **This file is an INDEX, not a record.** One line per thing, with a pointer.
 Nothing is explained here; everything lives in its normal home:
 

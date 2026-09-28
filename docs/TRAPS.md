@@ -682,6 +682,13 @@ scoring zero gold credits — read exactly like a substantive finding: *"the gra
 does not cover the gold turns."* That sentence was one step from being written
 into the roadmap.
 
+**Recurrence, 2026-09-28:** the typed scorer already built a row→batch lookup
+and used it for episodic/temporal hits, but its codex, procedural and summary
+coverage branches still compared gold **row** IDs directly to derived **batch**
+IDs. The top-level "two ID spaces fixed" comment hid branch-level blindness.
+The correction applies the same row-or-batch identity to every branch and
+checks a derived fragment from the matching batch against an unrelated one.
+
 What separated bug from finding was asking the cheap structural question — *do
 these two columns even live in the same space?* — rather than interpreting the
 zero.

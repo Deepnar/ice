@@ -102,20 +102,23 @@ _GOLD_IDX = None
 
 
 def _full_source(rec) -> str:
-    """The COMPLETE gold turns for a record, read from the store.
+    """The COMPLETE gold turns from the answer record or seeded store.
 
-    The `gold_turn_text` baked into an answer file is already truncated (3
-    turns, 1,200 chars each), so re-judging an existing run cannot recover the
-    source by reading it back — it has to be rebuilt. The answers themselves are
-    unaffected: they were generated from RETRIEVED fragments, never from this
-    field, so only the judge's view was ever short.
+    Current v3 answer files include the complete gold source. Older files kept
+    only three 1,200-character prefixes; for those, rebuild it from the seeded
+    store before judging. An unresolved older source is an error, not a prompt
+    that silently shows the judge incomplete evidence.
 
     Keyed on (conversation, turn_number) via the seed manifest rather than on
     episodic ids, because ids are regenerated per seed and differ between arms
     while the corpus text is identical — so one loaded store serves both arms'
-    records. Falls back to the stored text if a turn cannot be resolved, and
-    says so rather than silently shortening.
+    records.
     """
+    if rec.get("gold_source_complete"):
+        source = rec.get("gold_turn_text")
+        if not source:
+            raise RuntimeError("Answer record declares complete gold but has none")
+        return source
     global _GOLD_IDX
     if _GOLD_IDX is None:
         _GOLD_IDX = {}
@@ -135,13 +138,13 @@ def _full_source(rec) -> str:
                         _GOLD_IDX[(cid, int(turn["turn_number"]))] = txt
         except Exception as exc:                              # noqa: BLE001
             print(f"  ! could not build gold index ({type(exc).__name__}) — "
-                  f"falling back to the TRUNCATED stored text")
+                  "old answer records cannot be judged without a complete source")
     conv = rec.get("conversation")
     turns = rec.get("gold_turns") or []
     parts = [_GOLD_IDX.get((conv, int(t))) for t in turns]
     got = [p for p in parts if p]
-    if not got:
-        return rec.get("gold_turn_text", "")
+    if len(got) != len(turns):
+        raise RuntimeError("Complete gold source unavailable for answer judgement")
     return "\n\n".join(got)
 
 
@@ -242,12 +245,40 @@ def main() -> int:
 
     da, db = json.loads(Path(args.a).read_text()), json.loads(Path(args.b).read_text())
     name_a, name_b = da.get("tag", "A"), db.get("tag", "B")
-    # Pair on the question text — the two runs used the same probes and seed,
-    # but pairing by index would silently mis-align if either skipped a probe.
-    by_q = {r["question"]: r for r in db["records"]}
-    pairs = [(r, by_q[r["question"]]) for r in da["records"] if r["question"] in by_q]
+    # Question text alone can repeat in different conversations or gold-turn
+    # groups. Index both arms by the actual probe identity and reject missing
+    # or duplicate pairs before spending a cloud judgement call.
+    def probe_key(record):
+        return (record.get("conversation"), tuple(record.get("gold_turns") or ()),
+                record["question"])
+
+    def index(records):
+        keyed = {}
+        for record in records:
+            key = probe_key(record)
+            if key in keyed:
+                raise ValueError("Duplicate answer probe identity in one arm")
+            keyed[key] = record
+        return keyed
+
+    arm_a, arm_b = index(da["records"]), index(db["records"])
+    if set(arm_a) != set(arm_b):
+        raise ValueError("Answer arms have different probe identities")
+    pairs = [(record, arm_b[probe_key(record)]) for record in da["records"]]
     if args.limit:
         pairs = pairs[:args.limit]
+    sources = []
+    for left, right in pairs:
+        if (left.get("error") or right.get("error") or not left.get("answer")
+                or not right.get("answer")):
+            raise ValueError("Answer arm contains a failed or empty answer")
+        if (left.get("answer_model") != right.get("answer_model")
+                or left.get("answer_profile") != right.get("answer_profile")):
+            raise ValueError("Answer arms used different answering models")
+        source = _full_source(left)
+        if source != _full_source(right):
+            raise ValueError("Answer arms disagree on the complete gold source")
+        sources.append(source)
     print(f"{name_a}  vs  {name_b}")
     print(f"paired on question text: {len(pairs)} of "
           f"{len(da['records'])}/{len(db['records'])}\n")
@@ -257,11 +288,11 @@ def main() -> int:
     global STAMP, PARTIAL
     STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     PARTIAL = OUT / f"{STAMP}_{args.tag}.partial.json"
-    for i, (ra, rb) in enumerate(pairs, 1):
+    for i, ((ra, rb), source) in enumerate(zip(pairs, sources), 1):
         # Randomise the slot so position bias cannot align with an arm.
         a_is_first = rng.random() < 0.5
         first, second = (ra, rb) if a_is_first else (rb, ra)
-        v = judge_one(ra["question"], _full_source(ra),
+        v = judge_one(ra["question"], source,
                       first.get("answer", ""), second.get("answer", ""))
         # Translate the blind slot back to the arm.
         winner = v["verdict"]

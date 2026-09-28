@@ -18,8 +18,8 @@ sweep would drive them to zero and call it an improvement (G48).
 | type | metric | rationale |
 |---|---|---|
 | `episodic_lookup`   | recall@k on the gold turn | one fact, one turn |
-| `codex_multihop`    | **entity coverage** — did the anchor entity and the required turns' content reach the prompt, by any leg | no single gold turn exists |
-| `procedural`        | **pattern presence** — did any procedural fragment come back at all | the answer is a stored habit, not a turn |
+| `codex_multihop`    | **graph anchor + source coverage** — did a Codex fragment carry the anchor, and did the required turns reach the prompt by any leg | no single gold turn exists |
+| `procedural`        | **gold-source coverage** — did a habit derived from a required turn arrive | any unrelated habit is not a hit |
 | `summary_synthesis` | **turn-set coverage** — what fraction of the required turn set is represented, directly or via a summary covering it | one turn cannot answer it |
 | `temporal`          | recall@k **plus** the superseding turn not outranking it | returning only the current value is the failure mode |
 
@@ -40,6 +40,7 @@ import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
@@ -47,6 +48,8 @@ from sqlalchemy import func, text  # noqa: E402
 
 from scripts.z1 import production_parity as pp  # noqa: E402
 from scripts.z1.run_meta import file_digest, run_meta  # noqa: E402
+from scripts.z1.source_credit import (covered_gold_turns, fragment_source_ids,
+                                      gold_source_ids)  # noqa: E402
 from src.api.config import settings  # noqa: E402
 from src.api.db import SessionLocal  # noqa: E402
 
@@ -110,27 +113,20 @@ def main() -> int:
     # hold the turn's BATCH id — 9,662 edges join on batch_id and 0 on row id.
     # Without carrying both, codex/procedural/timeline fragments can never be
     # credited and this scorer measures the episodic leg alone.
-    conv_of, gold_index, turn_text_by_id, gold_batch = {}, {}, {}, {}
-    for rid, bid, cid, key, raw in db.execute(text(
-            "select id, batch_id, conversation_id, idempotency_key, raw_text "
+    conv_of, gold_index, gold_batch = {}, {}, {}
+    for rid, bid, cid, key in db.execute(text(
+            "select id, batch_id, conversation_id, idempotency_key "
             "from episodic_memory where idempotency_key like :m"),
             {"m": f"{SEED_MARKER}-%"}):
         _, slug, turn = key.split("-", 2)
         conv_of[slug] = str(cid)
         gold_index[(slug, int(turn))] = str(rid)
         gold_batch[str(rid)] = str(bid)
-        turn_text_by_id[str(rid)] = raw or ""
-
-    def _frag_ids(f):
-        """Every turn this fragment can be attributed to, in both id spaces."""
-        out = set()
-        if f.source_batch_id:
-            out.add(str(f.source_batch_id))
-        out.update(str(b) for b in (getattr(f, "origin_batch_ids", ()) or ()))
-        return out
 
     def _ids_for(gid):
-        return {str(gid)} | ({gold_batch[str(gid)]} if str(gid) in gold_batch else set())
+        return gold_source_ids(gid, gold_batch)
+
+    _frag_ids = fragment_source_ids
     if not conv_of:
         print("store not seeded — nothing to score against")
         return 1
@@ -150,15 +146,13 @@ def main() -> int:
               "TRIVIALLY SATISFIED at this size and must not be reported as "
               "results. Re-seed before believing anything below.\n")
 
-    from src.api.context_ledger import effective_memory_budget
-    from src.api.memory_decision import (decide_memory_retrieval,
-                                         derive_total_budget,
-                                         estimate_recent_window_tokens)
+    from src.api import memory_preparation as mp
+    from src.api.prompt_assembler import bookmarked_turn_texts
     from src.classifier.classifier import PyTorchClassifier
     from src.memory.embedder import get_embedder
-    from src.memory.models import EpisodicMemory
+    from src.memory.models import EpisodicMemory, MemorySlot
     from src.memory.tokens import estimate_from_chars
-    from src.model_registry.registry import find_best_model, get_model_context_window
+    from src.model_registry.registry import get_model_context_window
     from src.model_registry.runtime_probe import serving_window
     from src.retrieval.orchestrator import HybridRetrievalOrchestrator
     from src.retrieval.configurable_orchestrator import ConfigurableOrchestrator
@@ -178,20 +172,6 @@ def main() -> int:
     #                 never populated and expansion dies with it.
     # The GAP between `fragments` and `all` IS the expansion contribution — the
     # leading explanation for arm A's episodic win, and currently untested.
-    if args.ablate == "all":
-        orch = ConfigurableOrchestrator(db, embedder, overrides={"codex": False})
-    elif args.ablate_leg:
-        # ⚑ THE GENERAL QUESTION, not just codex: what is EACH leg worth?
-        # `procedural` scores a constant 1.000 because its metric asks only
-        # whether any procedural fragment came back (TRAPS #37), so its
-        # contribution has never been measured at all; `batch_summary` sits at
-        # 0.303 and IMPROVED when codex was removed. Turning one leg off at a
-        # time against the same 444 probes is the only thing that separates a
-        # leg that works from a leg nobody has checked.
-        orch = ConfigurableOrchestrator(
-            db, embedder, overrides={args.ablate_leg: False})
-    else:
-        orch = HybridRetrievalOrchestrator(db, embedder)
     _drop_codex_fragments = (args.ablate == "fragments")
 
     meta_conv = {}
@@ -205,7 +185,7 @@ def main() -> int:
     _parity = []
 
     def retrieve_for(question, slug):
-        """The production preamble, then retrieval.
+        """The production preamble, source decision, and final prompt packing.
 
         ⚑ G54: this used to be a LOCAL copy of the preamble, one of four, and
         all four had drifted the same way — `classify(question[:2000])` with no
@@ -216,16 +196,41 @@ def main() -> int:
         """
         pre = pp.build(db, question, conv_of[slug], clf, embedder,
                        stats=meta_conv[slug])
-        _parity.append(pre)
-        if not pre.retrieve:
-            return None, pre.classification
-        _frags = pp.retrieve(orch, pre)
-        if _drop_codex_fragments:
-            # Retrieval ran in full — expansion already shaped the BM25 query —
-            # and only the codex FRAGMENTS are withheld. That is the isolation
-            # the condition needs.
-            _frags = [f for f in _frags if f.source_type != "codex"]
-        return _frags, pre.classification
+        if pre.scope.get("project_id"):
+            raise RuntimeError("Typed scorer needs project standing context for coding scope")
+
+        def orchestrator_factory(session, encoder):
+            if args.ablate == "all":
+                orchestrator = ConfigurableOrchestrator(
+                    session, encoder, overrides={"codex": False})
+            elif args.ablate_leg:
+                orchestrator = ConfigurableOrchestrator(
+                    session, encoder, overrides={args.ablate_leg: False})
+            else:
+                orchestrator = HybridRetrievalOrchestrator(session, encoder)
+            if _drop_codex_fragments:
+                original_retrieve = orchestrator.retrieve
+
+                def without_codex(*positional, **keyword):
+                    return [f for f in original_retrieve(*positional, **keyword)
+                            if f.source_type != "codex"]
+
+                orchestrator.retrieve = without_codex
+            return orchestrator
+
+        window = (serving_window(pre.model_name, get_model_context_window(pre.model_name))
+                  if settings.context_use_serving_window
+                  else get_model_context_window(pre.model_name))
+        with patch.object(mp, "HybridRetrievalOrchestrator", orchestrator_factory):
+            memory = pp.prepare(
+                db, pre, clf,
+                memory_slots=db.query(MemorySlot).filter_by(is_active=True).all(),
+                bookmarked_texts=bookmarked_turn_texts(db, conv_of[slug]),
+                serving_window=window)
+        if not memory.prepared.ledger.fits():
+            raise RuntimeError("Typed scorer final prompt exceeds serving window")
+        _parity.append((pre, memory))
+        return (memory.fragments if memory.retrieve else None), pre.classification
 
     # Warm-up (the first retrieval of a process differs — relation gloss cache).
     for p in probes:
@@ -234,24 +239,37 @@ def main() -> int:
             break
 
     per_type = defaultdict(lambda: {"n": 0, "scores": [], "declined": 0,
+                                    "missing_gold": 0, "missing_temporal_pair": 0,
                                     "legs": Counter(), "detail": []})
     for p in probes:
         slug = p["conversation"]
         if slug not in conv_of:
             continue
         ptype = p["probe_type"]
-        frags, _c = retrieve_for(p["question"], slug)
         bucket = per_type[ptype]
         bucket["n"] += 1
+        requested_turns = p.get("gold_turns") or []
+        gold_ids = [gold_index.get((slug, tn)) for tn in requested_turns]
+        if not requested_turns or any(g is None for g in gold_ids):
+            # Partial gold is not a shorter, easier version of the probe.
+            # Scoring its surviving turn(s) would inflate coverage.
+            bucket["missing_gold"] += 1
+            continue
+        if ptype == "temporal":
+            successor = p.get("superseded_by")
+            if successor is None or gold_index.get((slug, successor)) is None:
+                # A temporal ordering score needs both sides of the pair.
+                # Historical probes without this field are not ordinary hits.
+                bucket["missing_temporal_pair"] += 1
+                continue
+        frags, _c = retrieve_for(p["question"], slug)
         if frags is None:
             bucket["declined"] += 1
             continue
         for f in frags:
             bucket["legs"][f.source_type] += 1
 
-        gold_ids = [gold_index.get((slug, tn)) for tn in (p.get("gold_turns") or [])]
-        gold_ids = [g for g in gold_ids if g]
-        returned_ids = [i for f in frags for i in _frag_ids(f)]
+        returned_ids = {i for f in frags for i in _frag_ids(f)}
         blob = " ".join((f.text or "") for f in frags).lower()
 
         if ptype == "episodic_lookup":
@@ -303,7 +321,7 @@ def main() -> int:
                                   if f.source_type in ("codex", "timeline")).lower()
             anchor_via_graph = bool(anchor and anchor in codex_blob)
             anchor_anywhere = bool(anchor and anchor in blob)
-            covered = sum(1 for g in gold_ids if g in returned_ids)
+            covered = covered_gold_turns(gold_ids, frags, gold_batch)
             frac = covered / len(gold_ids) if gold_ids else 0.0
             # ⚑ A MISSING FIELD IS NOT A GRAPH FAILURE (2026-08-17).
             # The TRAPS #35 salvage recovered `question` and `gold_turns` but not
@@ -346,7 +364,7 @@ def main() -> int:
             # diagnostic — it is what the old score was — so the two runs
             # remain comparable and the change is visible rather than silent.
             n_proc = sum(1 for f in frags if f.source_type == "procedural")
-            hit = any(g in _frag_ids(f) for g in gold_ids
+            hit = any(_ids_for(g) & _frag_ids(f) for g in gold_ids
                       for f in frags if f.source_type == "procedural")
             score = 1.0 if hit else 0.0
             bucket["detail"].append({"procedural_frags": n_proc,
@@ -371,14 +389,14 @@ def main() -> int:
             # `_frag_ids` already folds them into `returned_ids` and a summary
             # that genuinely covers a gold turn scores that turn. One that does
             # not, scores nothing.
-            direct = sum(1 for g in gold_ids if g in returned_ids)
+            direct = covered_gold_turns(gold_ids, frags, gold_batch)
             n_sum = sum(1 for f in frags
                         if f.source_type in ("batch_summary", "summary"))
             # How much of the gold this probe's summaries actually reach, kept
             # separately so "the leg fired" and "the leg helped" stay distinct.
             via_summary = sum(
                 1 for g in gold_ids
-                if any(g in _frag_ids(f) for f in frags
+                if any(_ids_for(g) & _frag_ids(f) for f in frags
                        if f.source_type in ("batch_summary", "summary")))
             score = direct / len(gold_ids) if gold_ids else 0.0
             bucket["detail"].append({"turn_coverage": round(score, 3),
@@ -426,14 +444,24 @@ def main() -> int:
               if len(sc) > 1 else None)
         summary[ptype] = {
             "n": b["n"], "scored": len(sc), "declined": b["declined"],
+            "missing_gold": b["missing_gold"],
+            "missing_temporal_pair": b["missing_temporal_pair"],
             "mean_score": round(mean, 3),
             "se": se,
             "ci95": (round(1.96 * se, 3) if se is not None else None),
             "legs_seen": dict(b["legs"].most_common()),
         }
+        if ptype == "codex_multihop":
+            # Anchored and unanchored scores have different denominators and
+            # meanings. Their pooled mean is not a valid headline result.
+            for key in ("mean_score", "se", "ci95"):
+                summary[ptype].pop(key)
+        displayed = ("split below" if ptype == "codex_multihop" else
+                     f"{mean:.3f}{f' ±{se}' if se is not None else ''}")
         print(f"  {ptype:<20} n={b['n']:<4} scored={len(sc):<4} "
-              f"score={mean:.3f}{f' ±{se}' if se is not None else ''}   "
-              f"declined={b['declined']}")
+              f"score={displayed}   declined={b['declined']} "
+              f"missing_gold={b['missing_gold']} "
+              f"missing_temporal_pair={b['missing_temporal_pair']}")
         print(f"      legs returned: {dict(b['legs'].most_common(6))}")
         # Split the codex population by whether the metric could see the anchor
         # at all. One mean over both answers nothing (see the branch above).
@@ -496,7 +524,7 @@ def main() -> int:
                                 "k": args.k,
                                 # ⚑ What was actually passed to retrieve() —
                                 # the field set whose absence hid G52/G54.
-                                "parity": pp.provenance_fields(_parity[-1])
+                                "parity": pp.provenance_fields(*_parity[-1])
                                 if _parity else None}),
         "per_type": summary,
         "detail": {t: per_type[t]["detail"] for t in per_type},

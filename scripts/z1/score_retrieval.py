@@ -3,7 +3,9 @@
 
 **What it measures.** For each probe — a question written FROM a known turn —
 run the real orchestrator against the seeded store and ask: did that turn come
-back, and where in the ranking? Recall@k and MRR, plus which legs found it.
+back among raw budgeted retrieval candidates, and where in the ranking?
+Recall@k and MRR here are candidate-generation diagnostics; final source
+refinement and prompt eviction are measured by `score_typed.py` instead.
 
 **⚑ IT RUNS THE PRODUCTION PREAMBLE, and G46 is why (fixed 2026-08-12).** This
 instrument used to call `retrieve()` directly with the raw classification. That
@@ -62,6 +64,9 @@ from sqlalchemy import text  # noqa: E402
 
 from src.api.config import settings  # noqa: E402
 from src.api.db import SessionLocal  # noqa: E402
+from scripts.z1 import production_parity as pp  # noqa: E402
+from scripts.z1.source_credit import (fragment_source_ids,
+                                      gold_source_ids)  # noqa: E402
 
 PROBES = Path("experiments/curation_files/generated_probes.json")
 MANIFEST = Path("experiments/curation_files/seeded_store.json")
@@ -125,13 +130,14 @@ def main() -> int:
     #
     # `source_batch_id` on a fragment holds the episodic PRIMARY KEY (see
     # _strengthen_retrieved, which does .get() on it), despite the name.
-    gold_index, conv_of = {}, {}
-    for row_id, conv_id, key in db.execute(text(
-            "SELECT id, conversation_id, idempotency_key FROM episodic_memory "
+    gold_index, conv_of, gold_batch = {}, {}, {}
+    for row_id, batch_id, conv_id, key in db.execute(text(
+            "SELECT id, batch_id, conversation_id, idempotency_key FROM episodic_memory "
             "WHERE idempotency_key LIKE :m"), {"m": f"{SEED_MARKER}-%"}):
         _, slug, turn = key.split("-", 2)
         conv_of[slug] = str(conv_id)
         gold_index[(slug, int(turn))] = str(row_id)
+        gold_batch[str(row_id)] = str(batch_id)
     if not conv_of:
         print(f"no '{SEED_MARKER}-' rows in the store — seed it first")
         return 1
@@ -139,8 +145,9 @@ def main() -> int:
           f"{len(gold_index)} turns")
     cold = db.execute(text("SELECT count(*) FROM cold_storage")).scalar()
     if cold and args.freeze:
-        print(f"⚠ {cold} cold_storage rows present — resurrection CAN fire and "
-              f"--freeze-writes does not gate it. Scores will drift across probes.")
+        print(f"⚠ {cold} cold_storage rows present; this run does not match "
+              "the original no-cold-row seed assumption. Write freeze covers "
+              "restoration, but compare only against runs with the same corpus.")
 
     if args.freeze:
         settings.decay_strengthen_amount = 0.0
@@ -192,8 +199,7 @@ def main() -> int:
             out = fn(*a, **kw)
             try:
                 want = _watch.get("gold")
-                if want and any(f.source_batch_id and str(f.source_batch_id) == want
-                                for f in out):
+                if want and any(fragment_source_ids(f) & want for f in out):
                     gold_legs.add(name)
             except Exception:
                 pass
@@ -246,7 +252,7 @@ def main() -> int:
                 continue
 
             gold_legs.clear()
-            _watch["gold"] = str(gold_id)
+            _watch["gold"] = gold_source_ids(gold_id, gold_batch)
             frags = pp.retrieve(orch, pre)
         except Exception as exc:
             print(f"  ! probe {i}: {type(exc).__name__}: {exc}")
@@ -270,19 +276,11 @@ def main() -> int:
         # one harvest: 4,124 episodic fragments earned 249 gold credits while
         # 474 codex, 400 procedural and 207 timeline fragments earned zero.
         #
-        # score_typed, answer_probes and harvest_probe_context all received this
-        # fix on 2026-08-16. This file did not, and nothing noticed because its
-        # numbers still looked like recall.
-        def _frag_ids(f):
-            out = set()
-            if f.source_batch_id:
-                out.add(str(f.source_batch_id))
-            out.update(str(b) for b in (getattr(f, "origin_batch_ids", ()) or ()))
-            return out
-
+        # Both episodic row and derived batch IDs must be compared.
+        want = gold_source_ids(gold_id, gold_batch)
         rank = None
         for pos, f in enumerate(frags, 1):
-            if str(gold_id) in _frag_ids(f):
+            if fragment_source_ids(f) & want:
                 rank = pos
                 per_leg[getattr(f, "leg", None) or f.source_type] += 1
                 break

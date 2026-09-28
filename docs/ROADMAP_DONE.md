@@ -837,6 +837,43 @@ Original entry, retained as historical diagnosis:
   - **It is a REGRESSION, with older code to compare against:** `experiments/mature/run_mature_experiment.py:547` and both flaw-ablation runners pass `conversation_id=cid` correctly. The Z1 harnesses dropped it.
   - Fix inside the shared preamble of [G52](#g52). ⚠ Note in the write-up that a probe about turn 50 gets turn 145's context either way — passing `conversation_id` models *"the user asks this now"*, which is the only regime production ever occupies, but it is a choice and it should be stated.
 
+## <a id="g56"></a>G56 — complete answer and source-credit instruments (v3, 2026-09-28)
+
+The answer-judge `[:2500]` caps had already been removed when revisited; the
+roadmap's original line was stale. `answer_probes.py` was still assembling
+before the v3 source-aware skip/rescue decision, without the final budget
+eviction, active slots or bookmarks. It now uses shared final preparation and
+records the admitted fragments, B2 and final decisions, the complete prompt,
+complete gold turns and unique gold-turn coverage. It defaults to the pinned
+gpt-6-luna cloud profile and retains an explicit local-answer switch. The
+recent-window flag is explicitly a *possible* confound because the row selector
+can overstate which turns survived trimming. Coding-scope probes fail openly
+until project standing context is reproduced.
+
+`judge_answers.py` now prefers the complete source carried by current answer
+records and refuses an old truncated fallback when the seeded store cannot
+reconstruct all gold turns. It checks paired probe identity, source and answer
+model before any judging call, including repeated question wording in different
+conversations. `score_retrieval.py` now credits the episodic row or derived
+batch source through the same helper used by typed and answer probes; an
+already-missing `production_parity` import was found when its first live path
+control failed and was repaired. This scorer remains **raw candidate recall**,
+not final prompt admission; `score_typed.py` and answer probes own final-path
+measurement. The batch-summary reader now carries source batches and the typed
+ablation flag has validated choices, so those original sibling findings no
+longer describe current code.
+
+A one-probe live answer-prompt control used actual classification, source gate,
+reranker and final prompt, then a stubbed answer endpoint: final action `keep`,
+six admitted fragments, one unique gold turn covered, and a complete 75,062-byte
+private prompt/4,333-byte gold source recorded under ignored output. This is a
+path check, **not** an answer-quality result or a cloud-answer test. A separate
+two-probe candidate-scorer control completed after the import repair; its
+0.5 recall@1/1.0 recall@10 are invalid as population estimates on the
+incomplete 180-turn seed. Three focused source/judge controls and full
+disposable smoke **418/418** passed; no historical paired result is promoted as current
+v3 evidence. Remaining probe-label gaps belong to G55 and the combined Z phase.
+
 ## <a id="g64"></a>G64 — searchable attributed source sentences (v3, 2026-09-14)
 
 Implemented CodexClaim plus claim/edge links, exact source offsets/hash and role,

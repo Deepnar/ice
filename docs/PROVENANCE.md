@@ -1,3 +1,53 @@
+## 2026-09-28 — v3 answer-probe and candidate-scorer path controls
+
+`answer_probes.py` now prepares the final prompt through the same v3 source
+decision, slots, bookmarks and budget as chat, and records full prompt/gold
+text under ignored output. It defaults to the pinned gpt-6-luna cloud profile;
+the single path control used an explicit local stub endpoint, so **no cloud
+answer was generated** in this control. The actual classifier, local source
+gate, reranker and final prompt admitted six fragments, covered one unique gold
+turn, and recorded final action `keep`; the private prompt was 75,062 bytes and
+the complete gold source 4,333 bytes. That is execution parity on one probe,
+not supported-answer quality. The cloud adapter itself was already exercised
+by the six Luna answers in the 20-pair trace below.
+
+`score_retrieval.py` initially failed before retrieving because it lacked its
+`production_parity` import; the failure was not a low recall result. After
+repair, a two-probe control completed against the incomplete 180-turn seed.
+Its 0.5 candidate recall@1 and 1.0 candidate recall@10 are **path controls,
+not population metrics**. The scorer now compares both source ID spaces and
+labels its number as raw candidate recall, before source refinement/prompt
+eviction. The paired judge rejects different probe identities, answer models,
+incomplete gold sources and failed answers before cloud calls. Focused
+source-credit/judge controls passed 3/3. Final disposable smoke passed
+**418/418** after the last instrument edits.
+
+## 2026-09-28 — v3 typed-score instrument path control
+
+`scripts/z1/score_typed.py` already used gold provenance for procedural
+patterns, turn coverage for summaries, separate anchored/unanchored Codex
+details, and per-type standard errors; the old G55 finding described an
+earlier revision. A branch-level review found its derived-memory coverage
+still compared episodic **row** IDs directly with Codex, procedural and
+summary **batch** IDs, despite a row→batch map being present. The scorer now
+compares both identities in those branches and omits a pooled Codex mean.
+It scores fragments that survive v3 source refinement and final prompt packing
+through shared `production_parity.prepare`, including active slots/bookmarks;
+coding-scope probes fail explicitly until their project standing context is
+reproduced. Missing gold turns and missing temporal successor pairs are
+unscored rather than silently turning into easier probes.
+
+One live two-probe path control on the existing incomplete 180-turn seed
+completed with the actual classifier, source gate, reranker and final prompt:
+two episodic probes scored, 12 episodic fragments admitted, and the prior
+memory decision and source refinement both ran. This verifies execution,
+**not** typed memory quality: the store lacks many gold turns and the probe
+file still has 29/104 graph probes without anchors and 15/28 temporal probes
+without a successor field. A focused row/batch positive-and-negative control
+passed for episodic, Codex, procedural and summary fragments. Any earlier
+typed result is from a different instrument and must not be compared as a v3
+answer-quality gain.
+
 ## 2026-09-28 — v3 current-gate source-to-answer development replay
 
 A disposable 20-pair conversation replay used recorded assistant outputs only
@@ -14,6 +64,24 @@ vector-only 6,656/6,729. Codex added six/twelve selected fragments without a
 demonstrated answer gain on these two probes. These are development cases,
 not an answer-accuracy estimate or a verdict on Codex across other questions.
 Private prompt/answer artifacts remain under ignored `logs/g28_candidate/`.
+
+After that run, the full prompts' six and twelve Codex fragments consumed 373
+and 782 local-count tokens. All were sentence excerpts, none from the gold
+source batch or containing the requested value; the graph had one matched
+entity per question but supplied no graph fact fragment. Re-scoring these
+admitted fragments with the pinned Qwen reranker put every Codex excerpt below
+zero (range -4.008 to -10.258). The strongest answer-bearing episodic source
+scored +4.969/+6.164, but a second answer-bearing original scored -4.062 on
+one question. [Qwen's model card](https://huggingface.co/Qwen/Qwen3-Reranker-0.6B)
+defines these as raw logit differences, not a task-calibrated memory threshold;
+the existing optional rejection floor stays OFF. This diagnoses budget use on
+two questions, not a general Codex relevance rate. A separate disposable
+one-turn writer check produced six graph edges/seven sentence claims from the
+relevant source, with no edge expressing the user-to-OS relation needed by
+the probe and one vague edge from colloquial phrasing. That points to writer
+coverage/precision as well as reader admission. Prior G51 opposing-source
+controls already rejected automatic inferred links; this new case does not
+reverse that NO-GO.
 
 The bounded one-original factual proof was also checked against the four
 selected complete originals. All returned unknown: three source-support
