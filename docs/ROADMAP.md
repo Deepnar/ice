@@ -48,10 +48,10 @@ production gates and pre-reseed sequencing are superseded within this scope;
 privacy, frozen v2 history and the public-push freeze remain. No new G-number
 for the phase. [Execution contract](specs/V3_REPAIR.md).
 
-**Current count, 2026-09-25:** 160 anchored top-level entries, 90 checked and
-70 unchecked. The 58/51 counts in the dated 2026-08-10 position below are
+**Current count, 2026-09-28:** 160 anchored top-level entries, 91 checked and
+69 unchecked. The 58/51 counts in the dated 2026-08-10 position below are
 historical, not the current queue size. Fourteen open Track F entries are
-product work, five Track H entries are longer-term research, and Z1/Z2/Z3 are
+product work, four Track H entries are longer-term research, and Z1/Z2/Z3 are
 gates; the other open entries mix active core work, parked work and partial
 repairs. See the entries themselves for ownership; this count is not a list
 of 73 independent memory defects.
@@ -387,6 +387,8 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 - [x] <a id="a10"></a>**A10 Codex leg representation + budget fairness** — DONE 2026-07. → [full record](ROADMAP_DONE.md#a10)
 - [x] <a id="a11"></a>**A11 Recency-weighted edge scoring** — DONE 2026-07. → [full record](ROADMAP_DONE.md#a11)
 - [ ] <a id="a12"></a>**A12 Background-model specialisation — the whole background pipeline runs on ONE 26B general model, and it need not** `(new — user, 2026-07-29; THIS IS AN EVALUATION ITEM, NOT A BUILD)` — ⚠ **The next session that picks this up writes NO production code.** It weighs and tests options and produces a decision; any adoption is a separate, later item. That is the user's explicit framing and it is what keeps a benchmark from turning into a half-migration.
+
+  **v3 status audit, 2026-09-28:** the opening sentence is historical: v3 now uses `gemma4:e4b` as its general background model and NuExtract3 for Codex extraction, with idle-release controls. This is a deployed family decision, not an open invitation to try more models before the memory repair. The original acceptance also asks for a same-machine VRAM/latency profile of **each candidate** and a comparable per-family recommendation; the later E4B/NuExtract decisions did not produce that whole grid. Keep the original box open by the full-scope checkmark rule, but place that residual profiling with combined Z1/Z2 tuning, **not** in the pre-tuning core-repair count. Re-evaluate only if the selected two-model residency proves unaffordable or the seeded quality gate changes the ranking; do not restart a broad model tournament to close a bookkeeping box. The current default unpinned background fallback remains G27's separate issue.
 
   **The observation.** Every background call — codex triplets, decision extraction (E8), procedural patterns, document kind detection, post-flight summaries, batch summaries, conversation summaries, reflection's entity descriptions — goes to the shared chat model (`gemma4:26b` class, ~18 GB resident). Nothing about those tasks needs a 26B generalist, and the GPU cost is paid on the same card the user's chat model sits on.
 
@@ -1179,7 +1181,7 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   **⚑ n=1 IS A LIMITATION, NOT SOMETHING THE EXTERNAL BENCHMARKS DISCHARGE (settled 2026-08-04).** The absence of an organic public corpus *explains* why n=1; it does not remove the risk that results are specific to how one person writes and thinks — which is precisely what CLAUDE.md's style-invariance rule warns about. **The honest structure is also the strongest**: (1) state it as a limitation, (2) explain the cause is structural — organic longitudinal history cannot be crowd-sourced without waiting years, (3) show partial mitigation — the `synth` and `lme` arms are **not** n=1, so some results generalise even where Dataset B does not, and (4) point at the reproduction path: **LSREP ingests anyone's export**, so a reader can rerun the protocol on their own history. **(4) is the actual contribution** — "you cannot replicate my data, but you can replicate my protocol on yours" beats any claim about what does not exist.
 - [ ] <a id="h3"></a>**H3 Year-scale memory studies** `(open)` — 93 days max simulated so far. Saturation, retrieval drift, decay convergence/cold-start (does everything but bookmarks decay to zero?), compaction cadence.
 - [ ] <a id="h4"></a>**H4 Probe realism** `(open)` — LLM-generated probes under-represent anaphoric/ambiguous human questions; grow the manually-authored probe set. **S1 note: FINAL's taxonomy reserves 15% for human-authored anaphoric/ambiguous probes — this is that growth.**
-- [ ] <a id="h5"></a>**H5 Fine-tune scheduling on user machines** `(open)` — No good answer yet for when to run expensive fine-tunes for users who close the app (tail of C7). **S1 note: SETTLED by C7 D6 — consent-gated proposals (session-end + threshold + `auto_finetune` default OFF), never unattended, no cron.**
+- [x] <a id="h5"></a>**H5 Fine-tune scheduling on user machines** — DONE by C7/D6; audited 2026-09-28. → [full record](ROADMAP_DONE.md#h5)
 
 ---
 

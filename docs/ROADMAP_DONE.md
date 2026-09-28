@@ -628,6 +628,12 @@ prefix cuts. See `PROVENANCE.md` prompt-budget repair for validation limits.
 
 # Track H — Research follow-ups & open questions
 
+## <a id="h5"></a>H5 — Fine-tune scheduling on user machines
+
+*DONE by C7/D6; stale open box audited 2026-09-28.* [← back to the queue](ROADMAP.md#h5)
+
+- [x] **H5 Fine-tune scheduling on user machines** — Original question: how to schedule expensive fine-tunes for users who close the app (tail of C7). The entry itself recorded the S1 answer: C7/D6 settled this with session-end + curated-label threshold, one consent-gated review proposal when `auto_finetune` is OFF by default, no cron, and an opt-in automatic run. Code audit found `fine_tune` in `src/workers/runtime.py::JOBS` with no maintenance cadence; `_maybe_propose_finetune` checks the threshold and deduplicates the pending proposal, and `src/api/config.py` defaults `auto_finetune=False`. `tests/test_maintenance_runtime.py` passed **49/49** in a disposable database, including below-threshold no-op, pending-proposal deduplication and the opted-in run decision. The previous `[ ]` contradicted both its own settled note and the running design. This closes the scheduling question, not B4's feedback UI or a live fine-tune promotion test. Look-ahead: F2 can surface the already-created proposal; B4 retains promotion validation.
+
 ## <a id="g36"></a>G36 — The retrieval legs swallow their own failures
 
 *DONE 2026-08-09.* [← back to the queue](ROADMAP.md#g36)
