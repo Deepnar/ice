@@ -440,7 +440,11 @@ parent snapshot and the exact index/manifest match before reading any part.
 An unindexed but current parent retains its complete-aggregate fallback until
 maintenance backfills it; a stale parent is withheld. A single oversized
 original stays available through episodic/chunk retrieval, never shortened
-inside a batch note. Batch lookup is skipped outside current TimeScope.
+inside a batch note. A validated `source`-mode note with exactly one original
+row shares one final-budget slot with that row's complete episodic fragment;
+the attributed note is preferred when it fits, otherwise the episodic original
+remains. Supported generated notes and partial source excerpts stay separate.
+Batch lookup is skipped outside current TimeScope.
 Source-current caches survive archival through the shared warm/cold projection;
 known-eligible all-cold sources also participate in normal regeneration.
 
@@ -1506,12 +1510,13 @@ checks current source offsets, and enters the existing codex fusion/reranker/tok
 path. It needs no matched entity. Explicit empty scopes and source exclusions
 remain closed. Each result labels speaker and recorded source time.
 At budget admission, a claim also carries its source row ID and exact displayed
-excerpt. If an admitted episodic representation from that same row contains the
-excerpt literally, the claim consumes no separate budget; an episodic candidate
-arriving later may reclaim those exact duplicate tokens if it then fits. A
-summary, partial excerpt without the quote, or another source cannot erase the
-claim. The 20-pair development trace found 236 such duplicates before this
-repair; answer quality has not been inferred from that count. Conversation and
+excerpt. If an admitted episodic representation or complete-original
+single-source note from that same row contains the excerpt literally, the
+claim consumes no separate budget; a later complete source candidate may
+reclaim those exact duplicate tokens if it fits. A supported compression,
+partial excerpt without the quote, or another source cannot erase the claim.
+The 20-pair development trace found 236 claim/episodic duplicates before the
+first repair; answer quality has not been inferred from that count. Conversation and
 turn forgetting physically remove associated claims; source edits invalidate
 old excerpts. Cold sources resolve by stable episodic ID, with warm state taking
 precedence. Cold claims are omitted for cluster scopes until archival membership

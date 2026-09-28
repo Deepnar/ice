@@ -111,7 +111,16 @@ def test_supported_writer_reader_and_idempotence(batch_context):
     hits = read(ctx.cid)
     assert len(hits) == 1 and 'port 8391' in hits[0].text
     assert len(hits[0].origin_batch_ids) == 5
+    assert hits[0].source_note_row_id is None
     assert 'The user said: "Atlas port is 8391.' in ctx.calls[0]
+    with SessionLocal() as db:
+        orch = HybridRetrievalOrchestrator(db, NS())
+        episode = orch._bm25_episodic(NS(prompt='Atlas port', intent_tags=[],
+                                         topic_tags=[]), scope=None, conv_id=str(ctx.cid))[0]
+        selected = orch._enforce_token_budget([episode, hits[0]],
+            max_tokens=episode.token_count + hits[0].token_count,
+            current_conversation_id=str(ctx.cid))
+        assert len(selected) == 2  # supported compression is not the original
     before = len(ctx.calls)
     worker.batch_summarize()
     assert len(ctx.calls) == before
@@ -283,6 +292,42 @@ def test_actual_shared_encoder_finds_the_late_source_part(batch_context, monkeyp
         root = db.query(BatchSummary).filter_by(conversation_id=ctx.cid).one()
         from src.memory.tokens import count
         assert hits[0].token_count < count(root.summary_text)
+
+
+def test_complete_source_note_does_not_duplicate_its_episodic_turn(batch_context,
+                                                                  monkeypatch):
+    ctx = batch_context
+    monkeypatch.setattr(worker, '_batch_llm', lambda *a, **k: 'Unsupported port 9999.')
+    monkeypatch.setattr(worker, 'verify_support', lambda p, h: verify_support(p, h,
+        scorer=lambda pairs: [dict(entailment=.001, neutral=.009, contradiction=.99)]))
+    worker.batch_summarize()
+    with SessionLocal() as db:
+        orch = HybridRetrievalOrchestrator(db, NS())
+        note = orch._batch_summary_lookup(VEC, str(ctx.cid), include_cross=False)[0]
+        source_id = db.query(BatchNote).order_by(BatchNote.ordinal).first().source_ids[0]
+        assert note.source_note_row_id == source_id
+        episodes = orch._bm25_episodic(NS(prompt='Atlas port', intent_tags=[],
+                                          topic_tags=[]), scope=None, conv_id=str(ctx.cid))
+        matching = [f for f in episodes if f.source_batch_id == source_id]
+        assert len(matching) == 1 and matching[0].covers_entire_source
+        selected = orch._enforce_token_budget(
+            [matching[0], note], max_tokens=matching[0].token_count + note.token_count,
+            current_conversation_id=str(ctx.cid))
+        assert selected == [note]
+        reversed_rank = orch._enforce_token_budget(
+            [matching[0], note], max_tokens=matching[0].token_count + note.token_count,
+            relevance_order=True, current_conversation_id=str(ctx.cid))
+        assert reversed_rank == [note]
+        tight = orch._enforce_token_budget(
+            [matching[0], note], max_tokens=matching[0].token_count,
+            relevance_order=True, current_conversation_id=str(ctx.cid))
+        assert tight == [matching[0]]
+        claim = ContextFragment(text='Atlas port is 8391.', source_type='codex', score=2.,
+            token_count=8, claim_source_row_id=source_id,
+            claim_excerpt='Atlas port is 8391.')
+        assert orch._enforce_token_budget(
+            [claim, note], max_tokens=claim.token_count + note.token_count,
+            relevance_order=True, current_conversation_id=str(ctx.cid)) == [note]
 
 
 def test_part_scope_selects_only_visible_sources_from_a_mixed_parent(batch_context, monkeypatch):

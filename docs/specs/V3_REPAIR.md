@@ -947,6 +947,29 @@ without generation, stale parent/index handling and migration roundtrip. Use
 disposable databases. This closes batch packing granularity, not long-source
 semantic compression, factual answer quality or the final benchmark campaign.
 
+### Complete original notes share one prompt slot with episodic originals — 2026-09-28
+
+**Observed through the production SQL readers:** a current batch part in
+`source` mode covering exactly one turn and that turn's complete episodic raw
+fragment were both admitted by the final token budget. The five-turn disposable
+control spent151 tokens for a112-token attributed note plus its39-token
+original; both described the same source. This is prompt duplication, not
+independent corroboration.
+
+Carry the exact source row ID on an indexed batch or conversation note only
+when its manifest part is `source` mode with exactly one source ID. A supported
+generated note, multi-source part and aggregate fallback have no such marker.
+At final budget packing, a complete episodic fragment and such a note for the
+same row share one slot. Prefer the attributed note when it fits, replacing an
+already admitted complete episodic fragment; otherwise retain the episodic
+original. If the note is admitted first, skip the later episodic duplicate.
+An exact sentence claim from that same row can also be omitted only when its
+literal excerpt appears in the admitted complete note. This extends the
+existing claim/episodic containment rule without inferring semantic equality.
+Do not collapse an excerpt, a supported compression, two source rows, or a
+note whose parent/index validity failed. Check both candidate orders through
+the real SQL readers and budget method; quantify token savings, not answer gain.
+
 ### Archive collision preserves latest source — 2026-09-21
 
 A warm/cold duplicate ID is a retry/recovery state, not permission to discard the

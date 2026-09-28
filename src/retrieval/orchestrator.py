@@ -110,6 +110,9 @@ class ContextFragment:
     # episodic-fragment cap key, not an attribution field for Codex claims.
     claim_source_row_id: Optional[str] = None
     claim_excerpt: Optional[str] = None
+    # An indexed, manifest-checked note that contains exactly one complete
+    # original turn. Final packing can share its slot with that episodic row.
+    source_note_row_id: Optional[str] = None
 
 # G9 (2026-08-08): every tunable number in this module moved to settings, so
 # Z1 can sweep it without editing code. What remains here are label SETS —
@@ -2446,7 +2449,9 @@ class HybridRetrievalOrchestrator:
                     fragments.append(ContextFragment(
                         text=rendered, source_type="batch_summary", score=r.score,
                         token_count=count_tokens(rendered), origin_batch_ids=batches,
-                        conversation_id=str(conv_id)))
+                        conversation_id=str(conv_id),
+                        source_note_row_id=(r.source_ids[0] if indexed and r.mode == 'source'
+                                            and len(r.source_ids) == 1 else None)))
                     if len(fragments) >= own_limit:
                         break
                 if len(fragments) < own_limit:
@@ -2556,7 +2561,9 @@ class HybridRetrievalOrchestrator:
                 fragments.append(ContextFragment(
                     text=rendered, source_type="batch_summary", score=r.score,
                     token_count=count_tokens(rendered), conversation_id=cid,
-                    origin_batch_ids=tuple(r.batch_ids)))
+                    origin_batch_ids=tuple(r.batch_ids),
+                    source_note_row_id=(r.source_ids[0] if r.mode == 'source'
+                                        and len(r.source_ids) == 1 else None)))
                 cross_added += 1
                 if cross_added >= settings.retrieval_conversation_summary_limit:
                     break
@@ -3070,12 +3077,20 @@ class HybridRetrievalOrchestrator:
         return unique
 
     @staticmethod
-    def _episodic_contains_claim(source, claim):
-        return (source.source_type == "episodic" and source.source_batch_id
-                and claim.claim_source_row_id
-                and str(source.source_batch_id) == claim.claim_source_row_id
+    def _complete_source_contains_claim(source, claim):
+        source_id = (source.source_batch_id if source.source_type == "episodic"
+                     else source.source_note_row_id if source.source_type == "batch_summary"
+                     else None)
+        return (source_id and claim.claim_source_row_id
+                and str(source_id) == claim.claim_source_row_id
                 and claim.claim_excerpt
                 and claim.claim_excerpt in source.text)
+
+    @staticmethod
+    def _source_note_contains_episodic(note, episodic):
+        return (note.source_type == "batch_summary" and note.source_note_row_id
+                and episodic.source_type == "episodic" and episodic.covers_entire_source
+                and str(episodic.source_batch_id) == note.source_note_row_id)
 
     def _enforce_token_budget(self, fragments, max_tokens=None, *, relevance_order=False,
                               current_conversation_id=None):
@@ -3111,11 +3126,16 @@ class HybridRetrievalOrchestrator:
         def admit(fragment):
             nonlocal total
             if fragment.claim_source_row_id and any(
-                    self._episodic_contains_claim(source, fragment)
+                    self._complete_source_contains_claim(source, fragment)
                     for source in result):
                 return False
+            if fragment.source_type == "episodic" and any(
+                    self._source_note_contains_episodic(note, fragment)
+                    for note in result):
+                return False
             redundant = [claim for claim in result
-                         if self._episodic_contains_claim(fragment, claim)]
+                         if self._complete_source_contains_claim(fragment, claim)
+                         or self._source_note_contains_episodic(fragment, claim)]
             reclaimable = sum(claim.token_count for claim in redundant)
             fitted = (fragment if fragment.token_count <= max_tokens - total + reclaimable
                       else _degraded(fragment, max_tokens - total))
@@ -3124,7 +3144,8 @@ class HybridRetrievalOrchestrator:
             # A degraded summary need not contain the excerpt that the raw
             # source contained. Recheck against the exact admitted text.
             redundant = [claim for claim in result
-                         if self._episodic_contains_claim(fitted, claim)]
+                         if self._complete_source_contains_claim(fitted, claim)
+                         or self._source_note_contains_episodic(fitted, claim)]
             if fitted.token_count > max_tokens - total + sum(
                     claim.token_count for claim in redundant):
                 return False

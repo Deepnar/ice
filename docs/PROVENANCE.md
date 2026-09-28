@@ -1,3 +1,23 @@
+## 2026-09-28 — v3 complete-source prompt containment
+
+A disposable five-turn writer→actual batch-SQL reader→BM25 episodic reader→
+final-budget control found the same original row admitted twice: a112-token
+attributed `source`-mode note and a39-token complete episodic fragment. The
+final ledger reported151/151 tokens and one fragment from each leg. This is
+one directly observed duplicate, not a measured corpus-wide overlap rate.
+
+After marking only validated one-row original notes, final packing admitted
+one representation of that row: the112-token attributed note when it fit,
+or the39-token episodic original under the tight budget. Both candidate
+orders passed; an exact same-row sentence claim was also omitted only when
+its literal excerpt appeared in the admitted note. Generated `supported`
+notes and multi-source/aggregate parts carry no completeness marker. Focused
+summary checks passed **73/73** (one separate live-encoder control skipped);
+disposable full smoke passed **413/413**. The change does not show whether
+the newly available tokens improve an answer or how often the overlap occurs
+outside this fixture. No model, migration, corpus replay or final evaluation
+was run for this follow-up.
+
 ## 2026-09-28 — v3 batch source-part retrieval, structural controls
 
 An own-conversation batch summary previously returned one aggregate for five
