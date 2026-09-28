@@ -1497,6 +1497,7 @@ wins; where it conflicts with the code, the code wins.**
 |---|---|---|---|
 | Batch semantic support and freshness | `batch_summarizer`, `summary_snapshot::batch_snapshot_readable`; output-bound source manifest plus original note parts, source changes during generation abort coverage writes | existing support policy, `batch_summary_max_tokens=1200` per note | YES for rebuilt/new caches; legacy withheld |
 | Complete batch requests and embeddings | Full provider request plus output bound; whole evidence or no checkpoint. Long composed embeddings pool all spans | existing serving/token settings | YES; compression of long uncertain sources remains open |
+| Query-selectable own batch parts | `BatchNote`, `batch_summarizer::_index_summary_parts`, `orchestrator::_batch_summary_lookup`; derived per-part vectors and source IDs are checked against the current complete parent manifest before ranking/reading. A valid unindexed parent temporarily retains the complete aggregate. | `retrieval_batch_summary_limit=3`; shared Qwen encoder | YES after migration; complete originals are never cut |
 
 | v3 archive collision preservation | `workers/decay.py::apply_decay` locks selected sources and updates every transferred cold field before deleting live evidence | no flag | YES; broader archive metadata parity still open |
 

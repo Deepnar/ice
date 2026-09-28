@@ -99,7 +99,7 @@ def test_archive_preserves_both_summary_readers_without_regeneration(source_set,
 
 
 @pytest.mark.parametrize('change', ['edit', 'delete', 'private'])
-def test_cold_source_change_invalidates_summaries(source_set, change):
+def test_cold_source_change_invalidates_summaries(source_set, change, monkeypatch):
     ctx = source_set
     apply_decay()
     with SessionLocal() as db:
@@ -115,9 +115,12 @@ def test_cold_source_change_invalidates_summaries(source_set, change):
         assert not own and cross and active
         assert 'Correction: port 8392.' in active
         batch_worker.batch_summarize()
+        # Every fixture vector ties. Inspect all five rebuilt source parts;
+        # query ranking is checked separately with distinguishable vectors.
+        monkeypatch.setattr(settings, 'retrieval_batch_summary_limit', 5)
         own, cross, active = readable(ctx)
         assert own and cross and active
-        assert 'Correction: port 8392.' in own[0].text
+        assert any('Correction: port 8392.' in hit.text for hit in own)
 
 
 def test_cold_membership_constraints_apply_to_summary_sources(source_set):

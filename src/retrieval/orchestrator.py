@@ -23,6 +23,7 @@ from src.classifier.schemas import ClassificationResult
 from src.memory.claims import claim_representation, excerpt_is_current, source_for_claim
 from src.memory.conversation_notes import indexed_parts, note_matches, render_note
 from src.memory.models import (
+    BatchNote,
     CodexClaim,
     CodexClaimLink,
     CodexEdge,
@@ -2373,50 +2374,107 @@ class HybridRetrievalOrchestrator:
             source_allowed += " AND covered_source.batch_id = ANY(:summary_batch_ids)"
             scope_params["summary_batch_ids"] = [str(b) for b in scope["batch_ids"]]
         fragments: List[ContextFragment] = []
-        # Half 1 (as built): this conversation's batch summaries.
-        if conv_id:
+        # Own batch parts use the same manifest-bound indexing contract as
+        # rolling notes. Keep full valid roots available until index backfill.
+        own_limit = settings.retrieval_batch_summary_limit
+        if conv_id and own_limit > 0:
             try:
+                parent_eligible = """
+                    bs.conversation_id = :own_conv_id
+                    AND EXISTS (SELECT 1 FROM summary_sources em
+                                WHERE em.batch_summary_id = bs.id)
+                """
+                allowed_root = f"""
+                    {parent_eligible}
+                    AND NOT EXISTS (
+                        SELECT 1 FROM summary_sources covered_source
+                        WHERE covered_source.batch_summary_id = bs.id
+                          AND NOT ({source_allowed}))
+                """
+                allowed_part = f"""
+                    {parent_eligible}
+                    AND NOT EXISTS (
+                        SELECT 1 FROM summary_sources covered_source
+                        WHERE covered_source.batch_summary_id = bs.id
+                          AND n.source_ids @> jsonb_build_array(covered_source.id::text)
+                          AND NOT ({source_allowed}))
+                """
+                params = {"prompt_embedding": prompt_embedding, "own_conv_id": conv_id,
+                          **scope_params, "candidate_limit": max(64, own_limit * 16)}
                 query = text(f"""
                     WITH summary_sources AS ({SUMMARY_SOURCES_SQL})
-                    SELECT bs.id, bs.conversation_id, bs.source_manifest, bs.summary_text, bs.created_at,
-                           1 - (bs.embedding <=> :prompt_embedding) as score,
-                           (SELECT array_agg(em.batch_id::text)
-                              FROM summary_sources em
-                             WHERE em.batch_summary_id = bs.id) AS covered
-                    FROM batch_summaries bs
-                    WHERE bs.conversation_id = :own_conv_id
-                      AND bs.embedding IS NOT NULL
-                      AND EXISTS (SELECT 1 FROM summary_sources em
-                                  WHERE em.batch_summary_id = bs.id)
-                      AND NOT EXISTS (
-                          SELECT 1 FROM summary_sources covered_source
-                          WHERE covered_source.batch_summary_id = bs.id
-                            AND NOT ({source_allowed}))
-                    ORDER BY score DESC
-                    LIMIT :bs_limit
+                    SELECT bs.id, bs.conversation_id, bs.source_manifest, bs.summary_text,
+                           bs.created_at, n.ordinal, n.text, n.mode, n.recorded_range,
+                           n.source_ids, n.batch_ids,
+                           ({allowed_root}) AS root_scope_ok,
+                           1 - (n.embedding <=> :prompt_embedding) AS score
+                    FROM batch_notes n JOIN batch_summaries bs ON bs.id = n.summary_id
+                    WHERE {allowed_part}
+                    ORDER BY score DESC, bs.id, n.ordinal
+                    LIMIT :candidate_limit
                 """).bindparams(bindparam("prompt_embedding", type_=PgVector))
-                rows = self.db.execute(query, {
-                    "prompt_embedding": prompt_embedding, "own_conv_id": conv_id,
-                    **scope_params,
-                    "bs_limit": settings.retrieval_batch_summary_limit}).fetchall()
-                # T1: summaries are written long after the turns they compress,
-                # so they get a "[summary, <created>]" prefix, not a turn date.
-                #
-                # ⚑ G48/G53: `origin_batch_ids` carries the turns this summary
-                # compresses, taken from `episodic_memory.batch_summary_id`.
-                # Without it a summary fragment is structurally uncreditable in
-                # every recall-style metric in the repo — it can be returned,
-                # spend budget, and answer the question, and still score zero,
-                # which is the TRAPS #32 blindness one leg further on. The link
-                # already existed as an FK; nothing read it.
-                fragments += [ContextFragment(
-                    text=(rendered := f"[summary created: {format_time(r.created_at)}] " + r.summary_text),
-                    source_type="batch_summary",
-                    score=r.score,
-                    token_count=count_tokens(rendered),
-                    origin_batch_ids=tuple(r.covered or ()),
-                    conversation_id=str(conv_id),
-                ) for r in rows if batch_snapshot_readable(self.db, r)]
+                rows = self.db.execute(query, params).fetchall()
+                checked, aggregate_fallbacks = {}, set()
+                for r in rows:
+                    if r.id not in checked:
+                        current = batch_snapshot_readable(self.db, r)
+                        notes = self.db.query(BatchNote).filter_by(summary_id=r.id).all()
+                        checked[r.id] = (current, current and indexed_parts(r.source_manifest, notes))
+                    current, indexed = checked[r.id]
+                    if not current:
+                        continue
+                    if not indexed:
+                        if r.id in aggregate_fallbacks:
+                            continue
+                        # The compatibility aggregate covers every parent source.
+                        # A part-scoped query must never expose hidden siblings.
+                        if not r.root_scope_ok:
+                            continue
+                        logger.warning('batch_note_index_mismatch', summary_id=str(r.id),
+                                       reason='using current complete aggregate until index repair')
+                        rendered = (f"[summary created: {format_time(r.created_at)}] "
+                                    + r.summary_text)
+                        batches = tuple(item['batch_id'] for item in r.source_manifest['sources'])
+                        aggregate_fallbacks.add(r.id)
+                    else:
+                        part = r.source_manifest['parts'][r.ordinal - 1]
+                        if not note_matches(r, part, r.source_manifest, r.ordinal):
+                            continue
+                        rendered = (f"[batch note created: {format_time(r.created_at)}] "
+                                    + render_note(r))
+                        batches = tuple(r.batch_ids)
+                    fragments.append(ContextFragment(
+                        text=rendered, source_type="batch_summary", score=r.score,
+                        token_count=count_tokens(rendered), origin_batch_ids=batches,
+                        conversation_id=str(conv_id)))
+                    if len(fragments) >= own_limit:
+                        break
+                if len(fragments) < own_limit:
+                    fallback = text(f"""
+                        WITH summary_sources AS ({SUMMARY_SOURCES_SQL})
+                        SELECT bs.id, bs.conversation_id, bs.source_manifest,
+                               bs.summary_text, bs.created_at,
+                               1 - (bs.embedding <=> :prompt_embedding) AS score
+                        FROM batch_summaries bs
+                        WHERE {allowed_root} AND bs.embedding IS NOT NULL
+                          AND NOT EXISTS (SELECT 1 FROM batch_notes n WHERE n.summary_id = bs.id)
+                        ORDER BY score DESC
+                        LIMIT :candidate_limit
+                    """).bindparams(bindparam("prompt_embedding", type_=PgVector))
+                    for r in self.db.execute(fallback, params).fetchall():
+                        if not batch_snapshot_readable(self.db, r):
+                            continue
+                        logger.warning('batch_note_index_missing', summary_id=str(r.id),
+                                       reason='using current complete aggregate until index backfill')
+                        rendered = (f"[summary created: {format_time(r.created_at)}] "
+                                    + r.summary_text)
+                        fragments.append(ContextFragment(
+                            text=rendered, source_type="batch_summary", score=r.score,
+                            token_count=count_tokens(rendered), conversation_id=str(conv_id),
+                            origin_batch_ids=tuple(item['batch_id']
+                                                   for item in r.source_manifest['sources'])))
+                        if len(fragments) >= own_limit:
+                            break
             except Exception as err:
                 self._leg_degraded("batch_summary.own", err)
         # Half 2 (C4 D3b): OTHER conversations' independently indexed source

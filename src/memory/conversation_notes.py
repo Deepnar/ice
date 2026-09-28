@@ -25,6 +25,27 @@ def indexed_parts(manifest, notes):
                     for i, note in enumerate(sorted(notes, key=lambda n: n.ordinal))))
 
 
+def index_parts(db, row, *, note_model, owner, embedding_for_text):
+    """Rebuild derived part rows, reusing unchanged text embeddings."""
+    parts = row.source_manifest['parts']
+    old = db.query(note_model).filter_by(**owner).all()
+    if indexed_parts(row.source_manifest, old):
+        return False
+    reusable = {n.ordinal: n for n in old}
+    db.query(note_model).filter_by(**owner).delete(synchronize_session='fetch')
+    db.flush()
+    for ordinal, part in enumerate(parts, 1):
+        prior = reusable.get(ordinal)
+        vector = (prior.embedding if prior is not None and prior.text == part['text']
+                  else embedding_for_text(part['text']))
+        embedding = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
+        db.add(note_model(
+            **owner, ordinal=ordinal, text=part['text'], mode=part['mode'],
+            recorded_range=part.get('recorded_range'), source_ids=part['source_ids'],
+            batch_ids=part_batches(part, row.source_manifest), embedding=embedding))
+    return True
+
+
 def render_note(note):
     return (f"[Original-source segment {note.ordinal}; {note.mode} evidence; "
             f"recorded range: {note.recorded_range or 'unknown'}]\n{note.text}")

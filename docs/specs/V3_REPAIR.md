@@ -910,6 +910,43 @@ JobYielded and avoid logging provider payloads. Test writer and actual SQL reade
 including positive/negative support, stale sources/output/policy, legacy manifests,
 provider completion failure and migration roundtrip, in disposable stores only.
 
+### Query-selectable batch parts — 2026-09-27
+
+**Reader divergence:** rolling notes have a part-level vector index, but own
+batch lookup still ranks and returns the complete aggregate. A fallback that
+contains five intact originals can exceed the available prompt budget even
+when its one relevant original fits. Keep the source/support contract and
+materialize the same derived index for batch parts, without adding a model.
+
+Add `BatchNote`, keyed by batch-summary ID and ordinal, with the same text,
+evidence mode, recorded range, source IDs, batch IDs and1024-vector fields as
+ConversationNote. The parent FK cascades derived rows. An additive migration
+creates the table and cosine HNSW index. Reuse the shared part-index builder;
+the source manifest remains the authority, never the index. New writes index
+parts atomically with the aggregate and coverage stamps. A valid existing
+aggregate may backfill/rebuild its index during maintenance without generation.
+
+Own batch lookup ranks indexed parts directly, with a candidate bound matching
+rolling-note retrieval (max64 or16× configured result limit), then verifies
+the complete parent snapshot and exact part/index correspondence. Return at
+most `retrieval_batch_summary_limit` whole parts, crediting only each selected
+part's source batches. Keep original mode/range labels and creation time.
+Apply source-scope/batch/cluster constraints to every source of each indexed
+part before ranking, while still checking the full parent's source freshness;
+an unrelated excluded part must not hide a visible part. A full-aggregate
+fallback remains readable only when ALL its sources are allowed. Privacy and
+time rules still apply before ranking. Missing/mismatched
+indexes warn and retain a current complete aggregate as a compatibility read
+until maintenance repairs the index; never serve edited index text. An invalid
+parent stays unreadable. Never slice an oversized original to fit.
+
+Validate writer→SQL ranking→budget packing with a late relevant source in an
+oversized aggregate, source-credit precision and a subset batch/cluster scope,
+warm/cold sources, index backfill
+without generation, stale parent/index handling and migration roundtrip. Use
+disposable databases. This closes batch packing granularity, not long-source
+semantic compression, factual answer quality or the final benchmark campaign.
+
 ### Archive collision preserves latest source — 2026-09-21
 
 A warm/cold duplicate ID is a retry/recovery state, not permission to discard the

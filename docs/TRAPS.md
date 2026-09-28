@@ -1848,3 +1848,15 @@ its ownership. Keep failed or still-resident models due for a later idle retry.
 A bounded real rerun confirmed both Ollama models absent and NuNER cache
 released, with only the shared encoder process remaining. Control-plane success
 is not the resource postcondition it was intended to establish.
+
+### 73. A safe fallback for one scope can leak another source's text
+
+**v3, 2026-09-28.** Batch summaries gained individually scoped source parts,
+but the first compatibility path for a mismatched part index returned the full
+parent aggregate. When only one of five parent sources passed an explicit batch
+or cluster scope, that fallback could include all five. The ordinary index and
+full-aggregate tests passed because neither combined a subset scope with a
+damaged index. Before shipping, the reader was changed to require every parent
+source to pass scope before using the aggregate, and the combined control was
+added. A fallback must satisfy the access contract of the *representation it
+returns*, not merely the candidate that led the reader to it.

@@ -645,6 +645,26 @@ class BatchSummary(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
 
+class BatchNote(Base):
+    """Derived vector index for a manifest-bound batch-summary source part."""
+    __tablename__ = "batch_notes"
+
+    summary_id = Column(UUID(as_uuid=True),
+                        ForeignKey("batch_summaries.id", ondelete="CASCADE"), primary_key=True)
+    ordinal = Column(Integer, primary_key=True)
+    text = Column(Text, nullable=False)
+    mode = Column(Text, nullable=False)
+    recorded_range = Column(Text, nullable=True)
+    source_ids = Column(JSONB, nullable=False)
+    batch_ids = Column(JSONB, nullable=False)
+    embedding = Column(Vector(1024), nullable=False)
+
+    __table_args__ = (
+        Index("idx_batch_notes_embedding", embedding,
+              postgresql_using="hnsw", postgresql_ops={"embedding": "vector_cosine_ops"}),
+    )
+
+
 class ConversationSummary(Base):
     """C4: ONE evolving summary per conversation — "the whole conversation so
     far, current" (never a batch_summaries range row). Source-checked and rebuilt

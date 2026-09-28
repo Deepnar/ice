@@ -1,3 +1,29 @@
+## 2026-09-28 — v3 batch source-part retrieval, structural controls
+
+An own-conversation batch summary previously returned one aggregate for five
+independently sourced notes. In a disposable PostgreSQL store, a late relevant
+original fit a small prompt budget while the aggregate did not. The repair adds
+`batch_notes` as a derived vector index over the existing source-manifest parts;
+the current complete parent snapshot and exact index correspondence remain
+mandatory. A mixed-source parent can expose a scoped part without exposing its
+sibling; an unindexed or edited index only permits the complete parent as a
+compatibility read when all parent sources satisfy scope. A stale parent is
+withheld. Existing valid parents backfill vectors without another LLM call.
+
+The opt-in real `Qwen/Qwen3-Embedding-0.6B` control used five synthetic source
+topics with the API gateway port in the last part; the v3 SQL reader selected
+that part from a question about the port and credited its one batch. This is
+one development ranking example, **not measured answer accuracy, recall over
+a corpus, or a compression-quality score**. A controlled-vector late-source
+test separately verified actual prompt-budget acceptance, and a migration
+roundtrip verified table and cosine index creation/removal. After the final
+scope fix, disposable focused summary checks passed **72/72** with the opt-in
+real-encoder control skipped; full smoke passed **413/413**. The real-encoder
+control was run separately and selected the late part. No LME oracle or
+semi-LSREP run was performed. The additive migration
+`80f1ac593d72` was applied to the working store after verifying the previous
+head `7e4c9d2a0b65`; no historical corpus was regenerated.
+
 ## 2026-09-24 — v3 Codex source-deletion continuity
 
 Code audit found that the C10 deletion cascade recognized corroboration only

@@ -8,8 +8,9 @@ from sqlalchemy import text
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory import tokens
+from src.memory.conversation_notes import index_parts
 from src.memory.embedder import get_embedder
-from src.memory.models import BatchSummary, ColdStorage, EpisodicMemory
+from src.memory.models import BatchNote, BatchSummary, ColdStorage, EpisodicMemory
 from src.memory.summary_snapshot import (
     SUMMARY_SOURCES_SQL, batch_snapshot_readable, bind_snapshot, compose_parts,
     source_snapshot,
@@ -95,6 +96,7 @@ def _batch_llm(prompt, max_tokens):
 def _repair_stale_caches(db):
     for summary in db.query(BatchSummary).order_by(BatchSummary.created_at, BatchSummary.id):
         if batch_snapshot_readable(db, summary):
+            _index_summary_parts(db, summary)
             continue
         db.query(EpisodicMemory).filter_by(batch_summary_id=summary.id).update(
             {EpisodicMemory.batch_summary_id: None}, synchronize_session='fetch')
@@ -102,6 +104,12 @@ def _repair_stale_caches(db):
             {ColdStorage.batch_summary_id: None}, synchronize_session='fetch')
         db.delete(summary)
     db.commit()
+
+
+def _index_summary_parts(db, summary):
+    return index_parts(db, summary, note_model=BatchNote,
+                       owner={'summary_id': summary.id},
+                       embedding_for_text=lambda text: _summary_embedding(text, embedder))
 
 
 def _eligible(turn, conv_id, cutoff):
@@ -254,6 +262,7 @@ def batch_summarize():
                     )
                     db.add(summary)
                     db.flush()          # need the id before stamping the turns
+                    _index_summary_parts(db, summary)
                     # G11: close the loop — mark exactly the turns this summary
                     # covers, in the SAME transaction as the summary. Committing the
                     # summary without the stamps would recreate the duplicate-work

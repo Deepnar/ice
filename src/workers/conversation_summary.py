@@ -13,7 +13,7 @@ import structlog
 
 from src.api.config import settings
 from src.api.memory_decision import estimate_recent_window_tokens
-from src.memory.conversation_notes import indexed_parts, part_batches
+from src.memory.conversation_notes import index_parts
 from src.memory.models import ConversationNote, ConversationSummary
 from src.memory.representation import representation_source
 from src.memory.summary_snapshot import (
@@ -193,31 +193,12 @@ def _summary_embedding(summary, embedder):
     return pooled / norm
 
 
-def _index_parts(db, row, parts, embedder):
+def _index_parts(db, row, embedder):
     """Materialize a derived search index from the validated source manifest."""
-    old = db.query(ConversationNote).filter_by(conversation_id=row.conversation_id).all()
-    if indexed_parts(row.source_manifest, old):
-        return False
-    reusable = {n.ordinal: n for n in old}
-    db.query(ConversationNote).filter_by(conversation_id=row.conversation_id).delete(
-        synchronize_session='fetch')
-    db.flush()
-    for ordinal, part in enumerate(parts, 1):
-        prior = reusable.get(ordinal)
-        if prior is not None and prior.text == part['text']:
-            embedding = prior.embedding
-        else:
-            if embedder is None:
-                embedder = _shared_embedder()
-            vector = _summary_embedding(part['text'], embedder)
-            embedding = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
-        db.add(ConversationNote(
-            conversation_id=row.conversation_id, ordinal=ordinal,
-            text=part['text'], mode=part['mode'],
-            recorded_range=part.get('recorded_range'),
-            source_ids=part['source_ids'], batch_ids=part_batches(part, row.source_manifest),
-            embedding=embedding))
-    return True
+    return index_parts(db, row, note_model=ConversationNote,
+                       owner={'conversation_id': row.conversation_id},
+                       embedding_for_text=lambda text: _summary_embedding(
+                           text, embedder if embedder is not None else _shared_embedder()))
 
 
 def run_conversation_summaries(db, llm=None, embedder=None,
@@ -263,7 +244,7 @@ def run_conversation_summaries(db, llm=None, embedder=None,
             allow_newer=True) and not _has_grouped_source_fallback(existing_row)
         if previous_valid and snapshot_matches(
                 existing_row.source_manifest, existing_row.summary_text, sources):
-            if _index_parts(db, existing_row, existing_row.source_manifest['parts'], lazy_embedder):
+            if _index_parts(db, existing_row, lazy_embedder):
                 db.commit()
             continue
         if existing_row is None:
@@ -325,7 +306,7 @@ def run_conversation_summaries(db, llm=None, embedder=None,
             existing_row.embedding = embedding
             existing_row.updated_at = now
             stats["updated"] += 1
-        _index_parts(db, existing_row, parts, lazy_embedder)
+        _index_parts(db, existing_row, lazy_embedder)
         db.commit()
 
     if stats["created"] or stats["updated"] or stats["failed"]:
