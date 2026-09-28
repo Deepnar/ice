@@ -999,6 +999,19 @@ a different packing policy. Check the trace helper against the same disposable
 writer/reader fixture before interpreting new trace numbers; historical trace
 artifacts retain their original instrument version.
 
+The same verified single-source `source` note may also duplicate a complete
+episodic original from its own row. The note's source ID and current manifest
+establish complete-source identity even though its attributed role rendering
+differs from the episodic fragment's rendering, so literal body containment is
+not required for this one pair. Share their prompt slot only when the episodic
+fragment is marked `covers_entire_source`, has the same source row and active
+conversation, and that source note is in the currently selected option.
+Generated/compressed notes, partial excerpts, and different rows remain
+independent. Reconsider the original after every note shrink or eviction and
+credit only the final visible representation. Validate actual rolling writer
+plus selected complete-original fragment, tight-budget restoration and an
+unrelated-source guard; record token savings without inferring answer gain.
+
 The trace must also call `production_parity.prepare` for every replayed turn
 and probe arm. Calling the B2 prior's raw `retrieve` directly bypasses the
 enabled v3 source-aware skip/rescue decision and can answer from a prompt that

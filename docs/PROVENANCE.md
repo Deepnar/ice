@@ -1,3 +1,36 @@
+## 2026-09-28 — v3 current-gate source-to-answer development replay
+
+A disposable 20-pair conversation replay used recorded assistant outputs only
+AFTER each production-path preflight and final prompt. It ran the default-ON
+source-aware gate, then rolling-note maintenance and two older-source factual
+questions through full ICE, no-Codex and vector-only arms at the same configured
+window. One of 20 replayed turns went from B2-positive to final skip; the rest
+kept retrieval. Maintenance produced one rolling root with 20 indexed notes;
+this fixture had zero eligible batch summaries, so it does not measure that leg.
+Both probe answers appeared in selected episodic originals in every arm. Six
+pinned gpt-6-luna answers gave the exact supported values in all three arms.
+Local prompt-token counts were full 7,184/7,218, no-Codex 7,183/7,250 and
+vector-only 6,656/6,729. Codex added six/twelve selected fragments without a
+demonstrated answer gain on these two probes. These are development cases,
+not an answer-accuracy estimate or a verdict on Codex across other questions.
+Private prompt/answer artifacts remain under ignored `logs/g28_candidate/`.
+
+The bounded one-original factual proof was also checked against the four
+selected complete originals. All returned unknown: three source-support
+uncertain and one invalid source quote/value. On one source, the pinned NLI
+scored the full typed/direct hypotheses .9993/.9987 and the cited typed
+hypothesis .9971, but cited direct .4666. A semantically equivalent manual
+speaker-attributed direct wording scored .9913 on the same cited premise.
+The prior two-form and citation requirements catch actual false admissions;
+this diagnostic does not justify relaxing them, and the full source stayed
+available. A later prompt showed the same original in an active `source` note
+and complete episodic evidence, motivating the source-ID slot-sharing follow-up
+under G75. A disposable five-turn writer/reader control confirmed complete
+episodic omission while the active source note is selected, restoration after
+note eviction, and preservation of partial/different-row evidence. Combined
+focused/full disposable checks passed **416/416**. This structural control
+does not measure answer gain or a corpus-wide overlap rate.
+
 ## 2026-09-28 — v3 active-note / retrieved-source overlap
 
 In a disposable five-turn writer→rolling-summary reader→batch-note SQL reader→

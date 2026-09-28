@@ -19,6 +19,19 @@ class BudgetedPrompt:
     visible_fragments: list
 
 
+def _covered_by_active_original(fragment, source_ids, conversation_id, summary_text):
+    if str(fragment.conversation_id) != conversation_id:
+        return False
+    if (fragment.source_type == 'episodic' and fragment.covers_entire_source
+            and str(fragment.source_batch_id) in source_ids):
+        # The indexed source-mode note is the complete original rendered with
+        # role attribution; the episodic renderer uses a different wrapper.
+        return True
+    return bool(fragment.source_note_row_id in source_ids
+                and fragment.source_note_body
+                and fragment.source_note_body in (summary_text or ''))
+
+
 def assemble_budgeted_prompt(*, serving_window, generation_reserve,
                              safety_margin=1.0, **kwargs):
     arguments = dict(kwargs)
@@ -35,10 +48,9 @@ def assemble_budgeted_prompt(*, serving_window, generation_reserve,
         active_conv = str(arguments.get('conversation_id') or '')
         arguments['retrieved_fragments'] = ([
             fragment for fragment in source_fragments
-            if not (fragment.source_note_row_id in active_sources
-                    and fragment.source_note_body
-                    and str(fragment.conversation_id) == active_conv
-                    and fragment.source_note_body in (arguments.get('conversation_summary_text') or ''))
+            if not _covered_by_active_original(
+                fragment, active_sources, active_conv,
+                arguments.get('conversation_summary_text'))
         ] if evidence_enabled else [])
         costs, counts = {}, {}
         messages = assemble_prompt(**arguments, block_tokens=costs, block_counts=counts)

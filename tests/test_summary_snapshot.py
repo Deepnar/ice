@@ -356,6 +356,7 @@ def test_active_original_note_dedup_restores_batch_part_after_eviction(context, 
     from src.workers import batch_summarizer as batch_worker
     from src.api.prompt_budget import assemble_budgeted_prompt
     from src.memory.models import BatchSummary
+    from src.retrieval.orchestrator import ContextFragment
     ctx = context
     for i in range(3):
         ctx.add(f'Atlas observation {i}.', 20 + i)
@@ -395,6 +396,35 @@ def test_active_original_note_dedup_restores_batch_part_after_eviction(context, 
         assert repeated[0] not in large.visible_fragments
         assert sum(message['content'].count(repeated[0].source_note_body)
                    for message in large.messages) == 1
+        original_row = ctx.db.query(EpisodicMemory).filter_by(
+            id=uuid.UUID(repeated[0].source_note_row_id)).one()
+        original_text = f'[recorded original] {original_row.raw_text}'
+        original = ContextFragment(original_text, 'episodic', 1.,
+            count_tokens(original_text), source_batch_id=str(original_row.id),
+            conversation_id=str(ctx.cid), covers_entire_source=True)
+        duplicated = assemble_budgeted_prompt(serving_window=10000,
+            conversation_summary_text=active,
+            conversation_summary_options=[text for text, _ in choices],
+            conversation_summary_source_ids={text: ids for text, ids in choices},
+            **{**common, 'retrieved_fragments': own + [original]})
+        assert original not in duplicated.visible_fragments
+        assert duplicated.ledger.total() == large.ledger.total()
+        partial = ContextFragment(original_text, 'episodic', 1.,
+            count_tokens(original_text), source_batch_id=str(original_row.id),
+            conversation_id=str(ctx.cid), covers_entire_source=False)
+        partial_prompt = assemble_budgeted_prompt(serving_window=10000,
+            conversation_summary_text=active,
+            conversation_summary_source_ids={text: ids for text, ids in choices},
+            **{**common, 'retrieved_fragments': [partial]})
+        assert partial in partial_prompt.visible_fragments
+        other_row = ContextFragment(original_text, 'episodic', 1.,
+            count_tokens(original_text), source_batch_id=str(uuid.uuid4()),
+            conversation_id=str(ctx.cid), covers_entire_source=True)
+        other_prompt = assemble_budgeted_prompt(serving_window=10000,
+            conversation_summary_text=active,
+            conversation_summary_source_ids={text: ids for text, ids in choices},
+            **{**common, 'retrieved_fragments': [other_row]})
+        assert other_row in other_prompt.visible_fragments
         from scripts.z1 import trace_v3_memory as trace
         from src.api import memory_preparation as mp
         monkeypatch.setattr(trace, 'get_model_context_window', lambda _name: 10000)
@@ -437,6 +467,17 @@ def test_active_original_note_dedup_restores_batch_part_after_eviction(context, 
             conversation_summary_source_ids={active: choices[0][1]}, **common)
         assert 'conversation_summary' in tight.removed
         assert repeated[0] in tight.visible_fragments
+        no_note_original = assemble_budgeted_prompt(serving_window=10000,
+            conversation_summary_text=None,
+            **{**common, 'retrieved_fragments': own + [original]})
+        restored = assemble_budgeted_prompt(
+            serving_window=no_note_original.ledger.total() + 64,
+            conversation_summary_text=active,
+            conversation_summary_options=[active],
+            conversation_summary_source_ids={active: choices[0][1]},
+            **{**common, 'retrieved_fragments': own + [original]})
+        assert 'conversation_summary' in restored.removed
+        assert original in restored.visible_fragments
     finally:
         ctx.db.query(EpisodicMemory).filter_by(conversation_id=ctx.cid).update(
             {EpisodicMemory.batch_summary_id: None}, synchronize_session=False)

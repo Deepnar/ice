@@ -95,16 +95,20 @@ def test_shrinking_active_note_restores_its_retrieved_original():
     part = ContextFragment(original, 'batch_summary', 1., 12,
         conversation_id='conv-a', source_note_row_id='row-a',
         source_note_body=original)
-    args = dict(memory_slots=[], retrieved_fragments=[part],
-                conversation_id='conv-a', user_message='Which port?',
-                conversation_summary_text=full)
-    small = assemble_prompt(**{**args, 'conversation_summary_text': short})
-    result = assemble_budgeted_prompt(**args,
-        conversation_summary_options=[full, short],
-        conversation_summary_source_ids={full: ('row-a',), short: ()},
-        serving_window=count_messages(small) + 100, generation_reserve=100)
-    assert result.ledger.fits() and result.visible_fragments == [part]
-    assert 'conversation_summary' not in result.removed
-    assert any(item['block'] == 'conversation_summary_part'
-               for item in result.ledger.evictions)
-    assert sum(message['content'].count(original) for message in result.messages) == 1
+    episodic = ContextFragment(original, 'episodic', 1., 12,
+        conversation_id='conv-a', source_batch_id='row-a',
+        covers_entire_source=True)
+    for fragment in (part, episodic):
+        args = dict(memory_slots=[], retrieved_fragments=[fragment],
+                    conversation_id='conv-a', user_message='Which port?',
+                    conversation_summary_text=full)
+        small = assemble_prompt(**{**args, 'conversation_summary_text': short})
+        result = assemble_budgeted_prompt(**args,
+            conversation_summary_options=[full, short],
+            conversation_summary_source_ids={full: ('row-a',), short: ()},
+            serving_window=count_messages(small) + 100, generation_reserve=100)
+        assert result.ledger.fits() and result.visible_fragments == [fragment]
+        assert 'conversation_summary' not in result.removed
+        assert any(item['block'] == 'conversation_summary_part'
+                   for item in result.ledger.evictions)
+        assert sum(message['content'].count(original) for message in result.messages) == 1
