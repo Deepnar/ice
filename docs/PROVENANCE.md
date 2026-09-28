@@ -21,6 +21,23 @@ control plus full disposable smoke passed **416/416** after the final helper
 change. No replay or cloud answer calls were made for this instrument
 correction.
 
+A further parity review found that the same trace still bypassed the v3
+default-ON source-aware skip/rescue gate entirely: it called the B2 prior's
+raw retrieval before assembly. Its reported `full`/ablation prompts could
+therefore differ from the chat route even after the visibility fix. The trace
+now calls shared `production_parity.prepare` on every replayed turn and probe
+arm, with arm-specific reader omissions injected at that preparation seam;
+each arm records both the B2 prior and final source decision, fetched and
+actually selected evidence. The disposable writer/reader fixture exercises a
+kept source, an explicit source-gate skip, and no-summary restoration. No
+previous three-arm answer result is promoted as current-v3 source-gate evidence.
+Combined focused/full disposable regression passed **416/416**. A separate
+one-pair run with the actual classifier, local source gate, retrieval and
+recorded-answer postflight completed in an isolated database: final action
+`keep`, zero first-turn retrieval candidates, and 12 new graph edges/19 source
+claims after postflight. It is a path/lifecycle check, not graph precision,
+answer quality or a rerun of the three-arm probe.
+
 ## 2026-09-28 — v3 complete-source prompt containment
 
 A disposable five-turn writer→actual batch-SQL reader→BM25 episodic reader→

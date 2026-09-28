@@ -999,6 +999,15 @@ a different packing policy. Check the trace helper against the same disposable
 writer/reader fixture before interpreting new trace numbers; historical trace
 artifacts retain their original instrument version.
 
+The trace must also call `production_parity.prepare` for every replayed turn
+and probe arm. Calling the B2 prior's raw `retrieve` directly bypasses the
+enabled v3 source-aware skip/rescue decision and can answer from a prompt that
+chat would never send. Apply arm-specific retrieval omissions through the
+orchestrator factory used by shared preparation, preserving the same source
+decision and final budget/exposure path. Report base and final decisions
+separately; compare answer arms only when their actual selected prompts are
+recorded. Do not relabel older raw-B2 traces as current-v3 evidence.
+
 ### Archive collision preserves latest source — 2026-09-21
 
 A warm/cold duplicate ID is a retry/recovery state, not permission to discard the

@@ -11,9 +11,11 @@ import copy
 import json
 import os
 import uuid
+from contextlib import nullcontext
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from sqlalchemy.engine import make_url
 
@@ -21,15 +23,14 @@ from scripts.z1 import production_parity as pp
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.api.memory_decision import decide_memory_retrieval, estimate_recent_window_tokens
-from src.api.prompt_assembler import bookmarked_turn_texts, conversation_summary_block
-from src.api.prompt_budget import assemble_budgeted_prompt
+from src.api.prompt_assembler import bookmarked_turn_texts
 from src.classifier.classifier import PyTorchClassifier
 from src.ingestion.importer import _store_turn
 from src.memory.models import (BatchSummary, Conversation, ConversationNote,
                                ConversationSummary, CodexClaim, CodexEdge,
                                MemorySlot)
 from src.memory.tokens import count_messages
-from src.memory.usage import evidence_after_eviction, record_graph_access
+from src.memory.usage import record_graph_access
 from src.model_registry.registry import get_model_context_window
 from src.model_registry.runtime_probe import serving_window
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
@@ -89,39 +90,49 @@ def _gate_fields(pre) -> dict:
             "breakdown": decision.breakdown}
 
 
-def _prepare(db, pre, orchestrator, question, conversation_id, fragments,
-             *, include_summary=True):
-    recent_budget = getattr(orchestrator, "recent_token_budget", None)
-    if not pre.retrieve or recent_budget is None:
-        from src.api.memory_decision import estimate_recent_window_tokens
-        recent_budget = estimate_recent_window_tokens(pre.turn_count, pre.total_budget)
-    choices = (conversation_summary_block(
-        db, str(conversation_id), pre.turn_count, pre.total_tokens,
-        recent_budget, pre.prompt_embedding, include_options=True,
-        include_source_ids=True) or []
-        if include_summary else [])
-    summary_options = [text for text, _ in choices]
-    summary_sources = {text: ids for text, ids in choices}
+def _prepare(db, pre, classifier, conversation_id, *, arm="full"):
+    """Use chat's final source decision and budget with one ablated reader."""
+    from src.api import memory_preparation as mp
+
     window = (serving_window(pre.model_name, get_model_context_window(pre.model_name))
               if settings.context_use_serving_window
               else get_model_context_window(pre.model_name))
-    prepared = assemble_budgeted_prompt(
-        serving_window=window or 0,
-        generation_reserve=settings.context_generation_reserve,
-        safety_margin=settings.token_count_safety_margin,
-        memory_slots=db.query(MemorySlot).filter_by(is_active=True).all(),
-        retrieved_fragments=fragments, user_message=question, db_session=db,
-        conversation_id=str(conversation_id),
-        bookmarked_texts=bookmarked_turn_texts(db, conversation_id),
-        classification=pre.classification, scope=pre.scope,
-        max_recent_tokens=recent_budget,
-        conversation_summary_text=summary_options[0] if summary_options else None,
-        conversation_summary_options=summary_options,
-        conversation_summary_source_ids=summary_sources)
-    if not prepared.ledger.fits():
+    fetched = []
+    constructed = []
+
+    def orchestrator_factory(session, embedder):
+        orchestrator = HybridRetrievalOrchestrator(session, embedder)
+        if arm == "no_codex":
+            _disable_codex(orchestrator)
+        elif arm == "vector_only":
+            _disable_nonvector(orchestrator)
+        elif arm == "no_summary":
+            _disable_summaries(orchestrator)
+        elif arm != "full":
+            raise ValueError(f"Unknown trace arm: {arm}")
+        original_retrieve = orchestrator.retrieve
+
+        def capture_retrieve(*args, **kwargs):
+            candidates = original_retrieve(*args, **kwargs)
+            fetched.extend(candidates)
+            return candidates
+
+        orchestrator.retrieve = capture_retrieve
+        constructed.append(orchestrator)
+        return orchestrator
+
+    summary_override = (patch.object(mp, "conversation_summary_block", return_value=None)
+                        if arm in ("vector_only", "no_summary") else nullcontext())
+    with patch.object(mp, "HybridRetrievalOrchestrator", orchestrator_factory), summary_override:
+        memory = pp.prepare(
+            db, pre, classifier,
+            memory_slots=db.query(MemorySlot).filter_by(is_active=True).all(),
+            bookmarked_texts=bookmarked_turn_texts(db, conversation_id),
+            serving_window=window)
+    if not memory.prepared.ledger.fits():
         raise RuntimeError("Required prompt exceeds context window")
-    return prepared, evidence_after_eviction(prepared.visible_fragments,
-                                            prepared.removed)
+    matched = (len(constructed[0]._last_matched_entities) if constructed else 0)
+    return memory, fetched, matched
 
 
 def _disable_codex(orchestrator):
@@ -188,18 +199,17 @@ def main() -> None:
             question = user["content"]
             recorded_answer = assistant["content"]
             pre = pp.build(db, question, conversation_id, classifier, embedder)
-            orchestrator = HybridRetrievalOrchestrator(db, embedder)
-            fragments = pp.retrieve(orchestrator, pre) if pre.retrieve else []
-            prepared, survivors = _prepare(db, pre, orchestrator, question,
-                                           conversation_id, fragments)
+            memory, fragments, matched = _prepare(
+                db, pre, classifier, conversation_id)
+            prepared, survivors = memory.prepared, memory.fragments
             record_graph_access(db, survivors, stage="prompt_prepared")
             before_edges = db.query(CodexEdge).count()
             before_claims = db.query(CodexClaim).count()
             turn = {"index": index, "source_row": args.start + 2 * index,
                     "question": question, "recorded_answer": recorded_answer,
                     "source_timestamp": user.get("timestamp"),
-                    "preflight": pp.provenance_fields(pre),
-                    "matched_graph_entities": len(orchestrator._last_matched_entities),
+                    "preflight": pp.provenance_fields(pre, memory),
+                    "matched_graph_entities": matched,
                     "retrieved": [_fragment_record(f) for f in fragments],
                     "selected": [_fragment_record(f) for f in survivors],
                     "prompt_messages": prepared.messages,
@@ -232,8 +242,9 @@ def main() -> None:
             }
             turn["complete"] = True
             output.write_text(json.dumps(report, ensure_ascii=False, indent=2))
-            print(f"pair {index + 1}/{args.pairs}: matched={turn['matched_graph_entities']} "
-                  f"selected={len(survivors)} edges+={turn['postflight']['new_edges']} "
+            print(f"pair {index + 1}/{args.pairs}: action={memory.action} "
+                  f"matched={matched} selected={len(survivors)} "
+                  f"edges+={turn['postflight']['new_edges']} "
                   f"claims+={turn['postflight']['new_claims']}", flush=True)
         if args.maintenance:
             from src.workers.batch_summarizer import batch_summarize
@@ -271,30 +282,25 @@ def main() -> None:
                     arms = ("full", "no_codex", "vector_only") + (
                         ("no_summary",) if args.maintenance else ())
                     for arm in arms:
-                        scoped_pre = replace(pre, scope=copy.deepcopy(pre.scope))
-                        orchestrator = HybridRetrievalOrchestrator(db, embedder)
-                        if arm == "no_codex":
-                            _disable_codex(orchestrator)
-                        elif arm == "vector_only":
-                            _disable_nonvector(orchestrator)
-                        elif arm == "no_summary":
-                            _disable_summaries(orchestrator)
-                        fragments = pp.retrieve(orchestrator, scoped_pre) if pre.retrieve else []
-                        prepared, survivors = _prepare(db, scoped_pre, orchestrator,
-                                                       question, conversation_id, fragments,
-                                                       include_summary=arm not in (
-                                                           "vector_only", "no_summary"))
+                        scoped_pre = replace(pre, scope=copy.deepcopy(pre.scope),
+                                             classification=copy.deepcopy(pre.classification))
+                        memory, fragments, matched = _prepare(
+                            db, scoped_pre, classifier, conversation_id, arm=arm)
+                        prepared, survivors = memory.prepared, memory.fragments
                         entry["arms"][arm] = {
+                            "preflight": pp.provenance_fields(scoped_pre, memory),
+                            "retrieved": [_fragment_record(f) for f in fragments],
                             "selected": [_fragment_record(f) for f in survivors],
                             "prompt_messages": prepared.messages,
                             "prompt_tokens": count_messages(prepared.messages),
                             "evicted": prepared.removed,
-                            "matched_graph_entities": len(orchestrator._last_matched_entities),
+                            "matched_graph_entities": matched,
                         }
                     report["probes"].append(entry)
                     output.write_text(json.dumps(report, ensure_ascii=False, indent=2))
                     print(f"probe {len(report['probes'])}/{len(probe_rows)}: "
-                          f"retrieval={pre.retrieve}", flush=True)
+                          f"prior={pre.retrieve} final={entry['arms']['full']['preflight']['final_retrieve']}",
+                          flush=True)
             finally:
                 settings.retrieval_strengthen_writes = old_strengthen
         if args.gate_probes:

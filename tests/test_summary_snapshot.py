@@ -396,18 +396,38 @@ def test_active_original_note_dedup_restores_batch_part_after_eviction(context, 
         assert sum(message['content'].count(repeated[0].source_note_body)
                    for message in large.messages) == 1
         from scripts.z1 import trace_v3_memory as trace
+        from src.api import memory_preparation as mp
         monkeypatch.setattr(trace, 'get_model_context_window', lambda _name: 10000)
         monkeypatch.setattr(trace, 'serving_window', lambda *_args: 10000)
+        monkeypatch.setattr(HybridRetrievalOrchestrator,
+            'set_budget_from_turn_count',
+            lambda self, *_a, **_k: setattr(self, 'recent_token_budget', 0))
+        monkeypatch.setattr(HybridRetrievalOrchestrator, 'retrieve',
+            lambda self, *_a, **_k: own)
+        monkeypatch.setattr(HybridRetrievalOrchestrator, 'record_exposure',
+            lambda self, *_a, **_k: None)
+        monkeypatch.setattr(settings, 'memory_source_gate_enabled', True)
+        monkeypatch.setattr(mp, 'judge_source_need', lambda *_a, **_k: object())
+        monkeypatch.setattr(mp, 'source_action', lambda *_a, **_k: 'keep')
         pre = NS(turn_count=5, total_tokens=10000, total_budget=10000,
                  prompt_embedding=VEC, retrieve=True, model_name='fixture',
-                 classification=None, scope={})
-        traced, credited = trace._prepare(ctx.db, pre, NS(recent_token_budget=0),
-            'What was the Atlas port?', ctx.cid, own)
-        assert repeated[0] not in traced.visible_fragments
-        assert repeated[0] not in credited
-        _, no_note_credit = trace._prepare(ctx.db, pre, NS(recent_token_budget=0),
-            'What was the Atlas port?', ctx.cid, own, include_summary=False)
-        assert repeated[0] in no_note_credit
+                 classification=NS(prompt='What was the Atlas port?',
+                                   context_reliance='Long_Term_Memory'),
+                 scope={}, conversation_id=str(ctx.cid))
+        classifier = NS(embedder=NS(encode=lambda *_a, **_k: VEC))
+        traced, fetched, _ = trace._prepare(ctx.db, pre, classifier, ctx.cid)
+        assert traced.source_checked and traced.action == 'keep'
+        assert repeated[0] in fetched
+        assert repeated[0] not in traced.prepared.visible_fragments
+        assert repeated[0] not in traced.fragments
+        monkeypatch.setattr(mp, 'source_action', lambda *_a, **_k: 'skip')
+        skipped, skipped_fetch, _ = trace._prepare(ctx.db, pre, classifier, ctx.cid)
+        assert skipped.source_checked and not skipped.retrieve
+        assert skipped_fetch == [] and skipped.fragments == []
+        monkeypatch.setattr(mp, 'source_action', lambda *_a, **_k: 'keep')
+        no_note, _, _ = trace._prepare(ctx.db, pre, classifier, ctx.cid,
+                                      arm='no_summary')
+        assert repeated[0] in no_note.fragments
         no_summary = assemble_budgeted_prompt(serving_window=10000,
             conversation_summary_text=None, **common)
         tight = assemble_budgeted_prompt(
