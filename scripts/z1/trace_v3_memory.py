@@ -95,10 +95,13 @@ def _prepare(db, pre, orchestrator, question, conversation_id, fragments,
     if not pre.retrieve or recent_budget is None:
         from src.api.memory_decision import estimate_recent_window_tokens
         recent_budget = estimate_recent_window_tokens(pre.turn_count, pre.total_budget)
-    summary_options = (conversation_summary_block(
+    choices = (conversation_summary_block(
         db, str(conversation_id), pre.turn_count, pre.total_tokens,
-        recent_budget, pre.prompt_embedding, include_options=True)
+        recent_budget, pre.prompt_embedding, include_options=True,
+        include_source_ids=True) or []
         if include_summary else [])
+    summary_options = [text for text, _ in choices]
+    summary_sources = {text: ids for text, ids in choices}
     window = (serving_window(pre.model_name, get_model_context_window(pre.model_name))
               if settings.context_use_serving_window
               else get_model_context_window(pre.model_name))
@@ -113,10 +116,12 @@ def _prepare(db, pre, orchestrator, question, conversation_id, fragments,
         classification=pre.classification, scope=pre.scope,
         max_recent_tokens=recent_budget,
         conversation_summary_text=summary_options[0] if summary_options else None,
-        conversation_summary_options=summary_options)
+        conversation_summary_options=summary_options,
+        conversation_summary_source_ids=summary_sources)
     if not prepared.ledger.fits():
         raise RuntimeError("Required prompt exceeds context window")
-    return prepared, evidence_after_eviction(fragments, prepared.removed)
+    return prepared, evidence_after_eviction(prepared.visible_fragments,
+                                            prepared.removed)
 
 
 def _disable_codex(orchestrator):

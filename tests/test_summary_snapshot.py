@@ -395,6 +395,19 @@ def test_active_original_note_dedup_restores_batch_part_after_eviction(context, 
         assert repeated[0] not in large.visible_fragments
         assert sum(message['content'].count(repeated[0].source_note_body)
                    for message in large.messages) == 1
+        from scripts.z1 import trace_v3_memory as trace
+        monkeypatch.setattr(trace, 'get_model_context_window', lambda _name: 10000)
+        monkeypatch.setattr(trace, 'serving_window', lambda *_args: 10000)
+        pre = NS(turn_count=5, total_tokens=10000, total_budget=10000,
+                 prompt_embedding=VEC, retrieve=True, model_name='fixture',
+                 classification=None, scope={})
+        traced, credited = trace._prepare(ctx.db, pre, NS(recent_token_budget=0),
+            'What was the Atlas port?', ctx.cid, own)
+        assert repeated[0] not in traced.visible_fragments
+        assert repeated[0] not in credited
+        _, no_note_credit = trace._prepare(ctx.db, pre, NS(recent_token_budget=0),
+            'What was the Atlas port?', ctx.cid, own, include_summary=False)
+        assert repeated[0] in no_note_credit
         no_summary = assemble_budgeted_prompt(serving_window=10000,
             conversation_summary_text=None, **common)
         tight = assemble_budgeted_prompt(

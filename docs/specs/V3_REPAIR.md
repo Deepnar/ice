@@ -991,6 +991,14 @@ semantic similarity decision is needed. Validate actual rolling/batch writers,
 SQL readers, large-window omission and tight-window restoration in a disposable
 store, then the chat preparation path's visibility contract.
 
+The existing v3 development source-to-answer trace must request the same
+active-note option/source-ID pairs and report the final visible fragments as
+chat preparation. Otherwise its full/no-Codex/vector arms can credit a batch
+part omitted from the actual prompt, and any paired answer comparison measures
+a different packing policy. Check the trace helper against the same disposable
+writer/reader fixture before interpreting new trace numbers; historical trace
+artifacts retain their original instrument version.
+
 ### Archive collision preserves latest source — 2026-09-21
 
 A warm/cold duplicate ID is a retry/recovery state, not permission to discard the

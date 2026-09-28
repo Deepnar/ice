@@ -12,6 +12,15 @@ checks passed **58/58** including the note-shrink route; final full disposable
 smoke passed **415/415**. This control observed one overlap
 in one synthetic conversation, not a population rate or answer improvement.
 
+The development source-to-answer trace helper was then aligned with chat's
+new active-note source-ID options and final visible-fragment credit. A
+disposable writer/reader control exercised the trace helper on the same
+repeated batch source and passed **1/1**; earlier trace JSON remains a record
+of its prior packing policy, not a current-v3 parity result. The focused
+control plus full disposable smoke passed **416/416** after the final helper
+change. No replay or cloud answer calls were made for this instrument
+correction.
+
 ## 2026-09-28 — v3 complete-source prompt containment
 
 A disposable five-turn writer→actual batch-SQL reader→BM25 episodic reader→
