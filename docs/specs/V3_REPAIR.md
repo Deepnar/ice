@@ -970,6 +970,27 @@ Do not collapse an excerpt, a supported compression, two source rows, or a
 note whose parent/index validity failed. Check both candidate orders through
 the real SQL readers and budget method; quantify token savings, not answer gain.
 
+### Active note and retrieved original overlap — 2026-09-28
+
+The current conversation's independently indexed rolling note enters the
+system block after retrieval has already budgeted batch parts. A disposable
+five-turn control with source-mode fallbacks selected the same original in
+both places. Do not suppress a batch part at retrieval time: the final prompt
+may shrink or evict the active note, and that part must then return.
+
+Carry the exact complete-original note body alongside the row ID on a
+manifest-checked single-source `source` part. During each
+`assemble_budgeted_prompt` iteration, omit a retrieved part only when its
+entire source-note body is a literal substring of the currently selected
+active-conversation block. Recompute from the original candidate list after
+every summary-option shrink or eviction. Return the final visible fragment
+list from the budget result and use it for exposure/answer-proof accounting;
+filtered candidates must not receive credit. An active generated compression
+that merely shares names does not suppress original evidence. No parsing or
+semantic similarity decision is needed. Validate actual rolling/batch writers,
+SQL readers, large-window omission and tight-window restoration in a disposable
+store, then the chat preparation path's visibility contract.
+
 ### Archive collision preserves latest source — 2026-09-21
 
 A warm/cold duplicate ID is a retry/recovery state, not permission to discard the

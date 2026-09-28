@@ -37,6 +37,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
+from src.memory.conversation_notes import indexed_parts, render_note, select_note_options
 from src.memory.models import (
     Conversation,
     ConversationNote,
@@ -45,7 +46,6 @@ from src.memory.models import (
     MemorySlot,
 )
 from src.memory.representation import choose_representation
-from src.memory.conversation_notes import indexed_parts, select_note_options
 from src.memory.source import source_units
 from src.memory.summary_snapshot import summary_snapshot_readable
 from src.memory.time_format import format_time, recorded_stamp
@@ -65,12 +65,14 @@ def conversation_summary_block(
     query_embedding=None,
     max_tokens: Optional[int] = None,
     include_options: bool = False,
-) -> Optional[str]:
+    include_source_ids: bool = False,
+) -> str | list[str] | tuple[str, tuple[str, ...]] | list[tuple[str, tuple[str, ...]]] | None:
     """C4 (D3a): the active conversation's evolving summary, injected only
     once the conversation outgrew the sliding window (B2's memory-pressure
     condition — the window's reach is `recent_window_tokens`). A summary the
     burst hasn't caught up with is still injected, stamped with how far
-    behind it runs. Returns the block text or None."""
+    behind it runs. Optional output forms include whole-note alternatives and
+    their complete-original source IDs for final prompt packing."""
     if not conversation_id or total_tokens <= recent_window_tokens:
         return None
     row = db_session.query(ConversationSummary).filter_by(
@@ -92,6 +94,8 @@ def conversation_summary_block(
                        conversation_id=str(row.conversation_id),
                        reason='falling back to current complete aggregate')
         options = [f"{stamp}{row.summary_text}"]
+        if include_source_ids:
+            return [(options[0], ())] if include_options else (options[0], ())
         return options if include_options else options[0]
     scores = None
     if query_embedding is not None:
@@ -113,6 +117,13 @@ def conversation_summary_block(
                        conversation_id=str(row.conversation_id),
                        reason='date-stamped note exceeds the prompt allowance')
         return None
+    if include_source_ids:
+        selections = [(option, tuple(
+            source_id for note in notes
+            if note.mode == 'source' and len(note.source_ids) == 1
+            and render_note(note) in option
+            for source_id in note.source_ids)) for option in stamped]
+        return selections if include_options else selections[0]
     return stamped if include_options else stamped[0]
 
 

@@ -17,18 +17,22 @@ def harness(monkeypatch):
     monkeypatch.setattr(settings, "memory_source_rescue_enabled", True)
     fragment = ContextFragment("User: We chose port 7813.", "episodic", 1, 9, covers_entire_source=True)
     captures = dict(frames=[], proved=[], proofs=[], judged=[], exposed=[],
-                    retrieved=[], fragments=[fragment], removed=[])
+                    retrieved=[], fragments=[fragment], removed=[], visible=None)
     db = SimpleNamespace(query=lambda *_a: SimpleNamespace(
         filter_by=lambda **_k: SimpleNamespace(first=lambda: None)))
     classifier = SimpleNamespace(embedder=SimpleNamespace(encode=lambda *_a, **_k: [1.0]))
     monkeypatch.setattr(mp, "conversation_summary_block", lambda *_a, **_k: [])
     def assemble(**kw):
         text = "Standing preference blue; required constraint keep source identity."
-        if kw["retrieved_fragments"] and not captures["removed"]:
-            text += "\n" + "\n".join(f.text for f in kw["retrieved_fragments"])
+        visible = (list(captures["visible"])
+                   if captures["visible"] is not None
+                   else list(kw["retrieved_fragments"])
+                   if "evidence" not in captures["removed"] else [])
+        if visible:
+            text += "\n" + "\n".join(f.text for f in visible)
         return SimpleNamespace(messages=[dict(role="system", content=text),
             dict(role="user", content=kw["user_message"])], removed=list(captures["removed"]),
-            ledger=SimpleNamespace(fits=lambda: True))
+            ledger=SimpleNamespace(fits=lambda: True), visible_fragments=visible)
     monkeypatch.setattr(mp, "assemble_budgeted_prompt", assemble)
     class Orchestrator:
         def __init__(self, *_a): self.recent_token_budget = 100
@@ -147,6 +151,15 @@ def test_positive_evicted_candidates_receive_no_exposure(harness, monkeypatch):
     result = mp.prepare_memory_context(**args)
     assert result.retrieve and not result.fragments
     assert not captures["judged"] and not captures["exposed"]
+
+
+def test_part_already_in_active_summary_receives_no_retrieval_credit(harness, monkeypatch):
+    args, captures, _ = harness
+    monkeypatch.setattr(settings, "memory_source_gate_enabled", False)
+    args["base_retrieve"] = True
+    captures["visible"] = []  # final assembler contained this source elsewhere
+    result = mp.prepare_memory_context(**args)
+    assert result.retrieve and not result.fragments and not captures["exposed"]
 
 
 @pytest.mark.parametrize("kind,complete", [("codex", True), ("episodic", False), ("procedural", True)])

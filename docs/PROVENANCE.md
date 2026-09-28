@@ -1,3 +1,17 @@
+## 2026-09-28 — v3 active-note / retrieved-source overlap
+
+In a disposable five-turn writer→rolling-summary reader→batch-note SQL reader→
+final prompt-budget control, unsupported generated notes fell back to complete
+originals. One source was present in both the active note and retrieved own
+batch evidence. The final assembler now compares its manifest-checked row ID,
+complete source body and conversation before suppressing the retrieved copy;
+each budget reassembly starts from the original candidates, so note shrink or
+eviction restores the retrieved part. The final visible-fragment set, not the
+initial candidates, controls exposure credit. Focused disposable prompt/summary
+checks passed **58/58** including the note-shrink route; final full disposable
+smoke passed **415/415**. This control observed one overlap
+in one synthetic conversation, not a population rate or answer improvement.
+
 ## 2026-09-28 — v3 complete-source prompt containment
 
 A disposable five-turn writer→actual batch-SQL reader→BM25 episodic reader→

@@ -352,6 +352,65 @@ def test_private_turn_in_public_conversation_stays_own_scope(context):
         VEC, str(ctx.other))
 
 
+def test_active_original_note_dedup_restores_batch_part_after_eviction(context, monkeypatch):
+    from src.workers import batch_summarizer as batch_worker
+    from src.api.prompt_budget import assemble_budgeted_prompt
+    from src.memory.models import BatchSummary
+    ctx = context
+    for i in range(3):
+        ctx.add(f'Atlas observation {i}.', 20 + i)
+    for row in ctx.db.query(EpisodicMemory).filter_by(conversation_id=ctx.cid):
+        row.lossless_flag = False
+        row.is_document = False
+        row.is_private = False
+        row.decay_score = .1
+    ctx.db.commit()
+    bad = lambda p, h: verify_support(p, h, scorer=lambda pairs:
+        [dict(entailment=.001, neutral=.009, contradiction=.99)])
+    worker.run_conversation_summaries(ctx.db, llm=lambda *a, **k: 'Unsupported port 9999.',
+        embedder=NS(encode=lambda *a, **k: VEC), conversation_ids=[ctx.cid], verifier=bad)
+    monkeypatch.setattr(settings, 'batch_summary_age_days', 0)
+    monkeypatch.setattr(batch_worker, '_batch_llm', lambda *a, **k: 'Unsupported port 9999.')
+    monkeypatch.setattr(batch_worker, 'verify_support', bad)
+    monkeypatch.setattr(batch_worker, 'embedder', NS(encode=lambda *a, **k: VEC))
+    batch_worker.batch_summarize()
+    try:
+        choices = conversation_summary_block(ctx.db, str(ctx.cid), 5, 10000, 0,
+            query_embedding=VEC, include_options=True, include_source_ids=True)
+        assert choices
+        active = choices[0][0]
+        own = HybridRetrievalOrchestrator(ctx.db, NS())._batch_summary_lookup(
+            VEC, str(ctx.cid), include_cross=False)
+        repeated = [f for f in own if f.source_note_body
+                    and f.source_note_body in active]
+        assert len(repeated) == 1
+        common = dict(generation_reserve=64, safety_margin=1., memory_slots=[],
+            retrieved_fragments=own, user_message='What was the Atlas port?',
+            db_session=ctx.db, conversation_id=str(ctx.cid), max_recent_tokens=0)
+        large = assemble_budgeted_prompt(serving_window=10000,
+            conversation_summary_text=active,
+            conversation_summary_options=[text for text, _ in choices],
+            conversation_summary_source_ids={text: ids for text, ids in choices},
+            **common)
+        assert repeated[0] not in large.visible_fragments
+        assert sum(message['content'].count(repeated[0].source_note_body)
+                   for message in large.messages) == 1
+        no_summary = assemble_budgeted_prompt(serving_window=10000,
+            conversation_summary_text=None, **common)
+        tight = assemble_budgeted_prompt(
+            serving_window=no_summary.ledger.total() + 64,
+            conversation_summary_text=active,
+            conversation_summary_options=[active],
+            conversation_summary_source_ids={active: choices[0][1]}, **common)
+        assert 'conversation_summary' in tight.removed
+        assert repeated[0] in tight.visible_fragments
+    finally:
+        ctx.db.query(EpisodicMemory).filter_by(conversation_id=ctx.cid).update(
+            {EpisodicMemory.batch_summary_id: None}, synchronize_session=False)
+        ctx.db.query(BatchSummary).filter_by(conversation_id=ctx.cid).delete()
+        ctx.db.commit()
+
+
 @pytest.mark.parametrize('scope_kind', ['empty', 'other', 'excluded', 'allowed'])
 def test_cross_summary_obeys_resolved_conversation_scope_and_has_source_credit(context, scope_kind):
     ctx = context

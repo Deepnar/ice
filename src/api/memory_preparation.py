@@ -51,9 +51,11 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
     def assemble(fragments, recent_budget):
         if summary_exists and total_tokens > recent_budget:
             embedding()
-        options = conversation_summary_block(
+        choices = conversation_summary_block(
             db, str(conversation_id), turn_count, total_tokens, recent_budget,
-            prompt_embedding, include_options=True) or []
+            prompt_embedding, include_options=True, include_source_ids=True) or []
+        options = [text for text, _ in choices]
+        source_ids = {text: ids for text, ids in choices}
         return assemble_budgeted_prompt(
             serving_window=serving_window or 0,
             generation_reserve=settings.context_generation_reserve,
@@ -64,7 +66,8 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
             classification=classification, scope=scope,
             max_recent_tokens=recent_budget, session_start_text=session_start_text,
             conversation_summary_text=options[0] if options else None,
-            constraints_text=constraints_text, conversation_summary_options=options)
+            constraints_text=constraints_text, conversation_summary_options=options,
+            conversation_summary_source_ids=source_ids)
 
     recent_budget = estimate_recent_window_tokens(turn_count, total_budget)
     base_prompt = assemble([], recent_budget)
@@ -95,7 +98,7 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
         classification=classification, conversation_id=str(conversation_id),
         prompt_embedding=embedding(), scope=scope, defer_exposure=True)
     prepared = assemble(fragments, getattr(orchestrator, "recent_token_budget", recent_budget))
-    selected = evidence_after_eviction(fragments, prepared.removed)
+    selected = evidence_after_eviction(prepared.visible_fragments, prepared.removed)
     if action == "rescue":
         supported = False
         framed = None
@@ -112,7 +115,8 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
                     # One proven factual source cannot license unrelated
                     # candidates. Pack and credit only its surviving original.
                     prepared = assemble([fragment], orchestrator.recent_token_budget)
-                    selected = evidence_after_eviction([fragment], prepared.removed)
+                    selected = evidence_after_eviction(prepared.visible_fragments,
+                                                       prepared.removed)
                     supported = bool(selected and prepared.ledger.fits())
                     break
         if not supported:

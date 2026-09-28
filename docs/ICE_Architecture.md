@@ -1149,7 +1149,12 @@ root and repaired without regeneration on an unchanged maintenance pass. A
 reader checks both the current source snapshot and exact part/index identity.
 The active conversation ranks whole notes against the current query embedding
 and admits only those fitting the configured650-token block; source fallback
-text is never cut. Cross-conversation retrieval searches part vectors and
+text is never cut. At final prompt assembly, a retrieved, manifest-checked
+single-source original already present with the same row ID and complete body
+in the selected active note shares that note's prompt slot. If the note shrinks
+or is evicted under budget pressure, the retrieved original is reconsidered;
+only the final visible retrieval fragments receive exposure credit. Supported
+compressions and independent sources do not share this slot. Cross-conversation retrieval searches part vectors and
 credits only that part's source batches. The index has no authority to update
 source support or freshness. Roots not indexed yet use the previous full-root
 read with a warning until background maintenance catches up. A bounded global

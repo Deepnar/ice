@@ -16,17 +16,30 @@ class BudgetedPrompt:
     ledger: ContextLedger
     removed: list[str]
     item_counts: dict
+    visible_fragments: list
 
 
 def assemble_budgeted_prompt(*, serving_window, generation_reserve,
                              safety_margin=1.0, **kwargs):
     arguments = dict(kwargs)
     summary_options = arguments.pop('conversation_summary_options', None) or []
+    summary_sources = arguments.pop('conversation_summary_source_ids', None) or {}
+    source_fragments = list(arguments.get('retrieved_fragments') or [])
+    evidence_enabled = True
     removed = []
     evictions = []
     if not serving_window:
         logger.warning("context_window_unknown", reason="Provider capacity unavailable; prompt fit is unmeasured")
     while True:
+        active_sources = set(summary_sources.get(arguments.get('conversation_summary_text'), ()))
+        active_conv = str(arguments.get('conversation_id') or '')
+        arguments['retrieved_fragments'] = ([
+            fragment for fragment in source_fragments
+            if not (fragment.source_note_row_id in active_sources
+                    and fragment.source_note_body
+                    and str(fragment.conversation_id) == active_conv
+                    and fragment.source_note_body in (arguments.get('conversation_summary_text') or ''))
+        ] if evidence_enabled else [])
         costs, counts = {}, {}
         messages = assemble_prompt(**arguments, block_tokens=costs, block_counts=counts)
         ledger = ContextLedger(serving_window=serving_window,
@@ -35,10 +48,12 @@ def assemble_budgeted_prompt(*, serving_window, generation_reserve,
             ledger.add(name, tokens)
         ledger.evictions = list(evictions)
         if ledger.fits():
-            return BudgetedPrompt(messages, ledger, removed, counts)
+            return BudgetedPrompt(messages, ledger, removed, counts,
+                                  arguments['retrieved_fragments'])
         plan = [name for name in ledger.evict_plan() if name not in removed]
         if not plan:
-            return BudgetedPrompt(messages, ledger, removed, counts)
+            return BudgetedPrompt(messages, ledger, removed, counts,
+                                  arguments['retrieved_fragments'])
         # Reassemble after EACH change. A source-note block has whole-note
         # alternatives, so a small overflow need not discard every note.
         name = plan[0]
@@ -60,7 +75,7 @@ def assemble_budgeted_prompt(*, serving_window, generation_reserve,
         elif name == 'bookmarks': arguments['bookmarked_texts'] = None
         elif name == 'conversation_summary': arguments['conversation_summary_text'] = None
         elif name == 'recent_turns': arguments['max_recent_tokens'] = 0
-        elif name == 'evidence': arguments['retrieved_fragments'] = []
+        elif name == 'evidence': evidence_enabled = False
         else: raise ValueError(f'Unknown evictable prompt block: {name}')
         removed.append(name)
         evictions.append({'block': name, 'tokens': costs.get(name, 0)})

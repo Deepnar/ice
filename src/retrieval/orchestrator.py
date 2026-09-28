@@ -113,6 +113,7 @@ class ContextFragment:
     # An indexed, manifest-checked note that contains exactly one complete
     # original turn. Final packing can share its slot with that episodic row.
     source_note_row_id: Optional[str] = None
+    source_note_body: Optional[str] = None
 
 # G9 (2026-08-08): every tunable number in this module moved to settings, so
 # Z1 can sweep it without editing code. What remains here are label SETS —
@@ -2451,7 +2452,9 @@ class HybridRetrievalOrchestrator:
                         token_count=count_tokens(rendered), origin_batch_ids=batches,
                         conversation_id=str(conv_id),
                         source_note_row_id=(r.source_ids[0] if indexed and r.mode == 'source'
-                                            and len(r.source_ids) == 1 else None)))
+                                            and len(r.source_ids) == 1 else None),
+                        source_note_body=(r.text if indexed and r.mode == 'source'
+                                          and len(r.source_ids) == 1 else None)))
                     if len(fragments) >= own_limit:
                         break
                 if len(fragments) < own_limit:
@@ -2563,7 +2566,9 @@ class HybridRetrievalOrchestrator:
                     token_count=count_tokens(rendered), conversation_id=cid,
                     origin_batch_ids=tuple(r.batch_ids),
                     source_note_row_id=(r.source_ids[0] if r.mode == 'source'
-                                        and len(r.source_ids) == 1 else None)))
+                                        and len(r.source_ids) == 1 else None),
+                    source_note_body=(r.text if r.mode == 'source'
+                                      and len(r.source_ids) == 1 else None)))
                 cross_added += 1
                 if cross_added >= settings.retrieval_conversation_summary_limit:
                     break
