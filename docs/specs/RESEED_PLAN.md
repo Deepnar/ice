@@ -1,6 +1,20 @@
 # The reseed — plan, and the clean break
 
-**Written 2026-08-25. Executes 2026-08-26.**
+**Written 2026-08-25. The dated execution claim below is historical.**
+
+**v3 correction, 2026-09-29:** the agreed development corpus is 1,471 ordered
+turns from three full conversations, but `seed_store.py` still imports the old
+293-turn curated-checkpoint loader. It also writes rows directly before calling
+post-flight, rather than running each historical prompt through v3 preflight
+and then supplying its recorded answer. `snapshot.py` saves only 14 hardcoded
+tables and omits current source-backed graph and note tables. Thus this plan is
+**not executable as a complete v3 reseed yet**. The required repair and
+verification order is in [the current harness audit](../reviews/2026-09-29-v3-reseed-harness-audit.md).
+Local `gemma4:e4b` remains the general background pin, NuExtract3 the separate
+Codex extractor, cloud `gpt-6-luna` the default *probe* answerer, and a cloud
+answer judge needs current answer-pair calibration. The August tier/delete
+decision and 1,000–1,500-turn sizing notes below are historical proposals,
+not permission to delete v3 facts or call a partial seed complete.
 
 > **⚑ EVERYTHING BEFORE THIS RESEED IS DEAD DATA (maintainer, 2026-08-25).**
 > *"lets just call ALL from before as we have no data, we are restarting ALL

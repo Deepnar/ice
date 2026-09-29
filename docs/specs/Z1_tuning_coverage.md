@@ -1,5 +1,17 @@
 # Z1-prep — Staged parameter tuning + whole-system coverage matrix
 
+**v3 execution overlay, 2026-09-29:** Z1 and Z2 now run as one inspect/tune/fix
+phase, after the complete seed and snapshot pass the
+[current harness audit](../reviews/2026-09-29-v3-reseed-harness-audit.md).
+The 150-ledger/40-flaw fast loop, four-night ceiling, old FINAL runner and
+standalone Z2 sequence below describe the 2026-07 design, not an already
+validated current instrument. Keep the stage-wise shortlist and interaction
+check, but judge current v3 changes on **supported answers at matched prompt
+budgets**, typed source/answer coverage and direct output inspection on
+development probes. Freeze the configuration before LME oracle and semi-LSREP;
+no full LME-S campaign is planned. A paired cloud judge needs answer-pair
+calibration; local background writing remains separate from cloud answering.
+
 Assumes decided specs: ALL earlier S1 specs (this pass runs against the system
 they describe, after implementation); `FINAL_experiments.md` (the synthetic
 ledger auto-scorer is the fast tuning loop — built there, used here FIRST);

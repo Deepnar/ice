@@ -20,7 +20,11 @@ the independent repair work has reached the combined Z1/Z2 phase. The
 10-item pre-reseed list below records its 2026-08 state and must not be run
 as a fresh queue. `test_retrieval_quality.py` now guards the current reader
 with 30 competing synthetic turns and 15 single-/two-source questions; it
-does not score answers or Codex value. Start the combined phase with a
+does not score answers or Codex value. **Before a complete seed, repair the
+harness:** `seed_store.py` currently selects only 293 curated turns, not the
+agreed 1,471 full-history turns; direct insertion skips per-turn preflight;
+`snapshot.py` omits current claim/note tables. [Exact audit and acceptance
+order](../../docs/reviews/2026-09-29-v3-reseed-harness-audit.md). Then make a
 versioned complete v3 seed and validated gold/source mapping, complete the
 missing typed anchor and temporal-pair labels, then run production-parity
 retrieval and gpt-6-luna answer probes with matched-budget vector/recent-

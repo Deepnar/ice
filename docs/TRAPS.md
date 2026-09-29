@@ -1867,3 +1867,15 @@ damaged index. Before shipping, the reader was changed to require every parent
 source to pass scope before using the aggregate, and the combined control was
 added. A fallback must satisfy the access contract of the *representation it
 returns*, not merely the candidate that led the reader to it.
+
+### 74. A complete-seed plan can still call the old small loader and restore an incomplete store
+
+The 2026-09-29 v3 entry audit found a 1,471-turn reseed plan beside a seeder
+that still calls the curated-checkpoint loader, which currently returns only
+293 turns. The snapshot module says its table list is ORM-derived, but it is a
+hardcoded list of 14 tables that omits current Codex claims/links and batch and
+conversation notes. A successful seed and matching counts over those 14 tables
+would certify the wrong corpus and an incomplete restore without an exception.
+**Check the actual loader output and compare a restored store's reader-visible
+source links, not just its selected table counts, before tuning.** The code
+audit caught this before a new scored run; no invalid v3 score was published.
