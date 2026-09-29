@@ -70,8 +70,28 @@ what caught every finding a metric missed on 2026-08-12.
 
 **⚑ [Z1](#z1) HAS STARTED — declared by the user 2026-08-10. Z1-prep is not a
 separate phase; it is Z1's first work.** [G9](#g9) · [G36](#g36) · [G37](#g37) done,
-[G30](#g30) in progress as Z1's instrument-building step, [G28](#g28) inside the
-coverage matrix as always.
+[G30](#g30)'s real-reader quality fixture now done and its actual-model/answer
+coverage inside combined Z, [G28](#g28)'s style variants inside that coverage
+matrix as always.
+
+**v3 pre-tuning checkpoint, 2026-09-29:** the independent core-repair and
+instrument work has reached the combined Z1/Z2 entry. This is a queue boundary,
+not a claim that ICE now beats vector or that all memory-quality defects are
+solved. Of **160 anchored entries, 93 checked / 67 open**: the earlier 10
+"pre-Z candidates" are now placed by their actual remaining work. Nine belong
+inside reseeding, configuration/VRAM tuning, or the combined Z coverage/answer
+review: [A9](#a9) (current NER activation on representative queries),
+[G4](#g4) (numerical GPU budget), [G27](#g27) (background default),
+[G28](#g28) (style variants), [G29](#g29) (deferred drift questions),
+[G30](#g30) (actual-model/answer coverage), [G48](#g48) (leg value),
+[G55](#g55) (typed labels/complete seed), and [G76](#g76) (graph precision,
+source use and answer gain). [G32](#g32)'s remaining native background
+transport is conditional later work under its revised spec: schema output and
+idle model release already work through the compatible path. The resulting
+open partition is **29 Z/reseed/tuning-dependent, 35 later/product/research,
+and 3 Z gates**, with no separately demonstrated pre-Z code blocker. A Z
+failure can and should reopen a concrete repair. After combined Z, the agreed
+end-stage runs are LME oracle and semi-LSREP only, not a full LME-S campaign.
 
 **⚑ THE PUSH FREEZE IS ON.** Per CLAUDE.md's experiment-phase rule: commit
 locally, **do not push to the public remote** until the user lifts it. This is
@@ -743,6 +763,7 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
   - **Method:** consolidate onto the canonical implementation, delete the copies, and add a regression assertion per cluster. **Look-ahead:** [G28](#g28) sweeps the same tree for a different defect (style bets) and [G30](#g30) for a third (test blind spots) — do all three in one pass over each file rather than three passes over the tree.
 
 - [ ] <a id="g30"></a>**G30 Test-suite blind spots — the suite proves things connect, not that they work** `(new — 2026-07-28, from a full test audit; THIS ENTRY IS THE SPEC)` — ~760 assertions across 21 standalone scripts + the pytest smoke set. The verdict is **better than feared overall and worse than feared on exactly the two things that matter**. Roughly 40% are genuine behavioural checks, and several files are properly good engineering (C10's cascade distinguishes sole-support from corroborated edges; `test_coding_core` drives a real git repo through commit → incremental reparse; `test_maintenance_runtime` exercises lease claiming and GPU-lane serialization under real async timing; `test_c10_c11:500` uses a booby-trapped LLM client that raises if touched). But the centre of gravity is **state and structure, not judgement**. Four concrete gaps:
+  - **v3 current status, 2026-09-29:** the old claim that `main.py` has no runtime test is stale: `tests/smoke/test_foreground_route.py` drives stream/post-flight and `test_source_need_route.py` drives the actual preflight rescue/skip handler, with stubs for external generation. `tests/test_retrieval_quality.py` now seeds 30 invented, competing turns across six conversations and asks 12 single-source plus three two-source questions through the real v3 embedder, full orchestrator, local reranker and a 220-token final evidence budget. All 12 golds ranked first and all six required sources in the paired questions survived in the disposable control. `test_retrieval.py` already labels itself a smoke test, and `test_codex_write_path.py` uses real model output, so the original "no LLM test" claim is also stale. This is a deliberately small synthetic regression, not real-conversation answer quality or evidence that Codex beats vector. The remaining G30 work is the combined Z coverage matrix and actual-model/answer path; do not repeat the obsolete "no main test" or "no real quality assertion" diagnosis. The following bullets are preserved as the 2026-07 audit, not current counts.
   - **⚠ `src/api/main.py` — 651 lines containing the entire classify → decide → retrieve → assemble → route → stream → post-flight path — has NO test.** Only `compileall` and the import sweep touch it. Every subsystem it orchestrates is tested in isolation; the orchestration itself is invisible to the suite. **This is the product's request path.**
   - **Retrieval QUALITY has 3 assertions in the whole suite** (`test_longevity.py:387`, `test_document_chunking.py:109`, `test_density_c3.py:113`). ~12 test files stub the embedder with a constant vector (`[0.05] * 1024`), so every similarity is an exact tie by construction. **Nothing seeds N plausible competing memories and asserts the right one ranks first.** Nothing covers RRF fusion weights, codex-vs-episodic balance, or whether the wide-net fallback returns anything useful. **Highest-value single addition:** a fixture of ~30 semantically diverse memories + ~12 natural-language queries with a known correct answer each, asserted top-k through the **real embedder and the full orchestrator**. That one file converts most retrieval coverage from mechanics to quality and is the only thing that would notice a scoring-weight change making ICE quietly worse. **↳ START FROM `tests/test_retrieval_failopen.py` (G36, 2026-08-09):** it is the first suite to seed codex entities with *real* embeddings and drive the real NER, precisely because the constant-stub fixture made its first draft pass vacuously — the failure mode this bullet describes, caught in the act. Copy its seed/cleanup shape and its positive-control discipline.
   - **⚠ NO test uses a real LLM, so answer quality is unmeasured** (user, 2026-07-28). Every LLM in `tests/` is a canned lambda, a `_FakeBG`, or a client that raises if called; `test_codex_extractor.py` has **0 assertions** and `test_codex_2_0.py` skips when the model is down. Summary quality in particular is never checked — `test_c4_c9` asserts only that the stub's marker string round-trips. Stubbing is correct for *speed* in the default suite, so the fix is a **separate opt-in lane** (`RUN_LLM_TESTS=1`) that exercises extraction, summarisation and reconciliation against the real bg model with tolerant assertions (must-contain terms, not exact strings), not a rewrite of the fast suite.

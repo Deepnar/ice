@@ -15,6 +15,19 @@ matching answer models. The 180-turn working seed is incomplete, and the
 remain unscored for their intended metrics. The earlier runs indexed below
 were made with older instruments and are historical.
 
+**v3 entry checkpoint, 2026-09-29 — supersedes §2's old Step 0 order:**
+the independent repair work has reached the combined Z1/Z2 phase. The
+10-item pre-reseed list below records its 2026-08 state and must not be run
+as a fresh queue. `test_retrieval_quality.py` now guards the current reader
+with 30 competing synthetic turns and 15 single-/two-source questions; it
+does not score answers or Codex value. Start the combined phase with a
+versioned complete v3 seed and validated gold/source mapping, complete the
+missing typed anchor and temporal-pair labels, then run production-parity
+retrieval and gpt-6-luna answer probes with matched-budget vector/recent-
+history controls. Read individual outputs while tuning on development data;
+keep the final LME oracle and semi-LSREP conversations separate. The roadmap
+owns remaining items and the current count.
+
 **This file is an INDEX, not a record.** One line per thing, with a pointer.
 Nothing is explained here; everything lives in its normal home:
 
@@ -26,8 +39,8 @@ Nothing is explained here; everything lives in its normal home:
 | which feature is on, off, or inert | [`docs/FEATURE_INVENTORY.md`](../../docs/FEATURE_INVENTORY.md) |
 | which model did which job, and what was tested | [`docs/MODELS.md`](../../docs/MODELS.md) §5 |
 
-⚠ **Z1 ONLY.** Z2 (the whole-system / answer-level test) gets its own index when
-it starts. Do not mix them.
+**Z1/Z2 are one combined phase** for the current v3 work. This index includes
+the retrieval instrument and points to the roadmap for answer-level checks.
 
 ---
 
@@ -80,7 +93,7 @@ free, available, and scored **27%**, missing 6 of 6 reversals.
 | Is the procedural leg's 1.000 a real score? | **No — a tautology.** It returns its limit (5 fragments) on every query, nonsense included | TRAPS #37 |
 | Does the **direction rule (G59)** make the graph more true? | **No — a null.** 4 arms, 2 seeds each, full coverage: correct **15.8%** ON vs **15.5%** OFF (delta +0.28, z=0.09); `reversed` — the label it targets — **32.6% vs 32.6%** (delta +0.01). The earlier **+9.4 pts** is **WITHDRAWN**: it came from comparing a flat-sampler control (11.0%) against per-turn treatments. Same store re-judged per-turn is 16.7% | PROVENANCE 2026-08-23 |
 
-## 2. THE RESEED SESSION — the queue, in order
+## 2. Historical 2026-08 reseed order — superseded by the v3 entry checkpoint
 
 **Everything below is blocked on one thing: a store big enough to measure.**
 That is why the order matters more than the list. Full plan:
@@ -103,7 +116,7 @@ Two things make a piece of work "post-reseed", and nothing else does:
 Everything else can run now, on turns read straight from
 `simulation_full.jsonl`.
 
-### Step 0 — PRE-RESEED. All of this is doable NOW.
+### Historical Step 0 — PRE-RESEED (2026-08; do not rerun as a queue)
 
 | # | work | needs a store? | instrument |
 |---|---|---|---|
@@ -118,8 +131,8 @@ Everything else can run now, on turns read straight from
 | 0.9 | **[G29](../../docs/ROADMAP.md#g29)** drift audit · **[G30](../../docs/ROADMAP.md#g30)** test blind spots | no | code reading |
 | 0.10 | **[G69](../../docs/ROADMAP.md#g69)** relation-vocabulary growth loop (built, inert) · **[G64](../../docs/ROADMAP.md#g64)** fact-as-sentence (design) | no | — |
 
-⇒ **Ten items, none blocked.** Clearing these makes the reseed session about the
-reseed, instead of about everything that was parked behind it.
+⇒ **Historical 2026-08 count: ten items, none then blocked.** Their current
+status and remaining conditions are in the roadmap's 2026-09-29 checkpoint.
 
 ### What the old (pre-2026-08-25) queue said, re-homed — nothing here is lost
 

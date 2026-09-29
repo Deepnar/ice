@@ -1,3 +1,17 @@
+## 2026-09-29 — v3 competing-memory reader control
+
+`tests/test_retrieval_quality.py` uses a disposable store of 30 invented
+original turns across six conversations, real Qwen3 embedding and the pinned
+Qwen3 reranker. Twelve natural single-source prompts include paraphrases and
+nearby wrong people/projects/values; three prompts require two different
+originals. Every request uses the full `HybridRetrievalOrchestrator` with a
+220-token evidence cap and no read-strengthening. All **12/12** single golds
+ranked first; all **3/3** paired questions retained both required turns in
+the final 5–6 fragments. This is a small synthetic behavior regression on an
+empty store, not a real-conversation answer score, model comparison or proof
+that graph/summary/procedural legs help. It leaves the answer-quality and
+memory-per-token question for the combined Z phase.
+
 ## 2026-09-29 — v3 timeline source-credit path checks
 
 The T4 timeline now carries the batch IDs of the exact displayed lines after
