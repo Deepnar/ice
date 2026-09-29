@@ -56,8 +56,15 @@ the selected histories, exact quote verification, a corrected question-only
 ambiguity screen, and placement at the first real checkpoint at least 40 turns
 later, 113 are candidates. The ambiguity weights are fitted only on history
 available at each checkpoint. Together with the 11 native mapped questions,
-these 124 form the default existing-question panel. They span 11 checkpoint
-times; the 1,119-turn conversation has only 14 candidates, all at its final
+these 124 form the source-linked candidate panel. The default replay also
+captures the 131 unlabeled native questions at their real section times,
+for **255 frozen as-of prompts**. Those 131 have no gold-fragment credit or
+answer score until a reviewed source packet supplies older necessary turns;
+the frozen prompts can then be reused without a second full seed. The trace
+pins the resolved recent-history window, and a native source packet
+must match it before its reviewed labels can join the trace. The 124
+source-linked candidates span 11 checkpoint times; the 1,119-turn conversation
+has only 14 candidates, all at its final
 checkpoint, so this panel cannot establish retention across its earlier
 sections. The native catalog spans 39 in-history checkpoint times; 131
 additional questions need source-turn review, and 32 curated cutoffs exceed
@@ -76,10 +83,12 @@ passed. `build_longterm_label_review.py` now creates a private
 gold-plus-intervening-turn packet balanced by conversation and checkpoint;
 its current 30-candidate sample has no verdicts yet.
 `build_checkpoint_source_review.py` prepares the 131 unlabeled native
-questions for source-turn review. `answer_as_of.py` can plan cloud
-Luna answers from frozen prompts and requires valid reviewed rows from the
-matching packet before a full cloud campaign. No
-full seed, new cloud answers, blind judge or quality claim has been made. The old
+questions for source-turn review. Its reviewed `valid` rows may supply gold
+to the frozen prompts through `answer_as_of.py --validated-native-sources`;
+source turns must all be outside recent history. `answer_as_of.py` can plan
+cloud Luna answers from frozen prompts and requires reviewed rows before a
+full cloud campaign. No full seed, new cloud answers, blind judge or quality
+claim has been made. The old
 `seed_store.py`/final-store answer path cannot substitute for chronological
 as-of scoring.
 

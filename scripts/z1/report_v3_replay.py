@@ -96,6 +96,9 @@ def summarize(path: Path) -> dict:
                     arm_coverage = arm_stage.get("gold_fragment_coverage") or {}
                     for metric in ("gold_turns", "generated", "budgeted", "selected"):
                         controls[f"{arm}:gold_{metric}"] += arm_coverage.get(metric, 0)
+                if not row.get("gold_turns"):
+                    gold_funnel["unlabeled_section_prompts"] += 1
+                    continue
                 coverage = stage.get("gold_fragment_coverage")
                 if coverage is None:
                     gold_funnel["not_instrumented"] += 1

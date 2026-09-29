@@ -98,6 +98,28 @@ def load_native_checkpoint_probes(unified, conversations, recent_gap):
     return selected
 
 
+def load_unlabeled_native_checkpoints(unified, conversations, mapped_ids):
+    """Capture original section-time prompts without assigning false gold."""
+    selected = []
+    for row in unified:
+        if row.get("source") == "typed":
+            continue
+        slug, split = row["conversation"], row.get("split_turn")
+        if not isinstance(split, int) or not 1 <= split <= len(conversations[slug]):
+            continue
+        identity = canonical_probe_id(row)
+        if identity in mapped_ids:
+            continue
+        probe = dict(row)
+        probe.update(probe_id=identity, catalog_probe_id=row["probe_id"],
+                     probe_type=f"unlabeled_{row['source']}_{row.get('target_leg') or 'general'}",
+                     gold_turns=[], source_split_turn=None,
+                     cutoff_kind="native_unlabeled_checkpoint",
+                     label_status="needs_source_turn_and_answer_review")
+        selected.append(probe)
+    return selected
+
+
 def load_generated_checkpoint_probes(unified, conversations, recent_gap):
     """Reuse old source-first questions only after the corrected ambiguity guard.
 
@@ -170,7 +192,8 @@ def load_generated_checkpoint_probes(unified, conversations, recent_gap):
 
 
 def load_plan(*, probe_timing="delayed", include_native=True,
-              include_typed=False, include_generated=True):
+              include_typed=False, include_generated=True,
+              capture_unlabeled_native=False):
     """Reject bad sources and schedule questions outside direct recent history.
 
     The default panel uses existing questions at later section checkpoints.
@@ -249,8 +272,15 @@ def load_plan(*, probe_timing="delayed", include_native=True,
             at_turn[(slug, cutoff)].append(probe)
     if typed_scheduled + len(ineligible_typed) != 444:
         raise ValueError("typed catalog is incomplete")
+    native = (load_native_checkpoint_probes(unified, conversations, recent_gap)
+              if include_native or capture_unlabeled_native else [])
     if include_native:
-        for probe in load_native_checkpoint_probes(unified, conversations, recent_gap):
+        for probe in native:
+            at_turn[(probe["conversation"], probe["split_turn"])].append(probe)
+    if capture_unlabeled_native:
+        mapped_ids = {probe["probe_id"] for probe in native}
+        for probe in load_unlabeled_native_checkpoints(unified, conversations,
+                                                        mapped_ids):
             at_turn[(probe["conversation"], probe["split_turn"])].append(probe)
     if include_generated:
         for probe in load_generated_checkpoint_probes(unified, conversations,
@@ -502,6 +532,7 @@ def run(args, conversations, probes) -> int:
                                        schema_path=settings.label_schema_path)
         background_model = get_bg_model_name()
         meta = run_meta(script=__file__, args=vars(args),
+                        settings_keys=["recent_window_max_turns"],
                         inputs=[file_digest(CORPUS), file_digest(UNIFIED),
                                 file_digest(TYPED), file_digest(DERIVED),
                                 file_digest(GENERATED)],
@@ -700,15 +731,19 @@ def main() -> int:
         probe_timing=timing,
         include_typed=args.probe_panel in {"typed_delayed", "all", "immediate"},
         include_native=args.probe_panel in {"existing", "all"},
-        include_generated=args.probe_panel in {"existing", "all"})
+        include_generated=args.probe_panel in {"existing", "all"},
+        capture_unlabeled_native=args.probe_panel in {"existing", "all"})
     native_count = sum(p["cutoff_kind"] == "native_checkpoint"
                        for group in probes.values() for p in group)
     generated_count = sum(p["cutoff_kind"] == "generated_at_checkpoint"
                           for group in probes.values() for p in group)
+    unlabeled_count = sum(p["cutoff_kind"] == "native_unlabeled_checkpoint"
+                          for group in probes.values() for p in group)
     print(f"full source: {sum(map(len, conversations.values()))} turns / {len(conversations)} conversations; "
-          f"typed {timing} probes: {sum(map(len, probes.values())) - native_count - generated_count}; "
+          f"typed {timing} probes: {sum(map(len, probes.values())) - native_count - generated_count - unlabeled_count}; "
           f"native long-term checkpoints: {native_count}; "
           f"generated source-first checkpoints: {generated_count}; "
+          f"unscored native section prompts: {unlabeled_count}; "
           f"no delayed window: {len(ineligible)}; "
           f"quarantined other cutoffs: {len(quarantined)}")
     if args.check:

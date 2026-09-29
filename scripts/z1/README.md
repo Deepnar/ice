@@ -7,20 +7,24 @@ until the short live gates and the full-run design review pass. `--check`
 validates the full source and probe mappings without loading models. All 444
 typed catalog cutoffs equal their latest gold turn, so those questions cannot
 establish long-term-memory quality at their original cutoffs. The default
-`--probe-panel existing` schedules 124 candidates: 11 source-mapped
+`--probe-panel existing` schedules 124 source-linked candidates: 11 source-mapped
 mature/curated questions at their real section checkpoint, plus 113 existing
 source-first questions at the first later section checkpoint outside the
 40-turn recent window. The 113 pass an exact-quote and question-only ambiguity
 screen using only history before that checkpoint, not a semantic label review.
-These 124 candidates cover 11 checkpoint
-times, but the 1,119-turn history is represented only at its final section.
-The larger native catalog spans 39 in-history section checkpoints: 131 other
-questions need source-turn review, and 32 curated cutoffs lie beyond the
-selected history. `build_checkpoint_source_review.py --out
-logs/source-review.json` prepares the private source-label packet; its lexical
+These 124 candidates cover 11 checkpoint times, but the 1,119-turn history is
+represented only at its final section.
+The same replay also freezes **131 unscored native questions** at their
+original section times, for 255 as-of prompts in total. This preserves their
+real query-time state before source labeling; a zero-gold trace is never
+credited as a successful retrieval. The larger native catalog spans 39
+in-history section checkpoints, and 32 curated cutoffs lie beyond the
+selected history. `build_checkpoint_source_review.py` prepares the private
+source-label packet under `logs/`; its lexical
 suggestions are navigation aids, never gold. `--probe-panel all` adds 378
-delayed typed candidates (502 total); `typed_delayed` and `immediate` are
-diagnostic alternatives. Every answer label needs source and intervening-turn
+delayed typed candidates (502 source-linked and 131 unscored, 633 captured);
+`typed_delayed` and `immediate` are diagnostic alternatives. Every answer label
+needs source and intervening-turn
 review. Catalog IDs repeat, so scheduled probes use unique stable identities
 and retain the original ID as metadata. A short immediate development run uses
 `--conversation 355a5709 --limit 1 --probe-panel immediate`; its
@@ -29,13 +33,16 @@ aggregate generated → budgeted → final fragment credit, write counts,
 maintenance calls, lineage and failures. `snapshot.py` now covers every ORM
 table and verifies restored row identities. The replay stores recorded answers,
 so it does **not** provide an answer-quality number. Its as-of records include
-full/vector-only/recent-only final prompts and complete gold sources for a
-later paired cloud-answer pass. `build_longterm_label_review.py --n 30 --out
-logs/review.json` creates a private packet balanced by conversation and
-checkpoint, with complete gold and all intervening turns; a reviewed `valid`
+full/vector-only/recent-only final prompts. Source-linked records also carry
+complete gold sources for a later paired cloud-answer pass.
+`build_longterm_label_review.py` creates a private packet under `logs/`
+balanced by conversation and checkpoint, with complete gold and all intervening
+turns; a reviewed `valid`
 verdict needs a concrete reason.
 `answer_as_of.py --plan` validates saved prompts, and its full cloud run
-accepts only valid rows from that matching packet. The old answer judge can
+accepts only valid rows from that matching packet. A reviewed native source
+packet can be supplied with `--validated-native-sources` to attach complete
+gold to its frozen checkpoint prompt without reseeding. The old answer judge can
 pair the generated arm files, after answer-pair calibration.
 The full seed, answer pass, judge calibration
 and combined Z have **not** run yet; the old scripts and results below remain

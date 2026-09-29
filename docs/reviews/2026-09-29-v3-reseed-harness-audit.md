@@ -45,10 +45,14 @@ The v3 runner includes the 11 at their original checkpoints. A separate
 existing source-first pool yields 113 more candidates after exact source-quote
 verification, as-of question-only ambiguity screening and placement at
 the first real checkpoint at least 40 turns after gold. The default panel is
-124 unreviewed candidates, at 11 checkpoint times. Its 1,119-turn history has
-only 14 questions, all at the final checkpoint. The optional delayed typed
-panel adds 378 candidates (502 combined), but these require 40 intervening
-turns of answer review. Across the original native catalog, 39 in-history
+124 unreviewed source-linked candidates, at 11 checkpoint times. The replay
+also freezes the 131 unlabeled native questions at their original section
+times, for 255 as-of prompts; they receive no gold or answer credit until a
+source review joins complete older turns to the frozen trace. The 1,119-turn
+history has only 14 source-linked questions, all at the final checkpoint. The
+optional delayed typed panel adds 378 candidates (502 source-linked plus 131
+unscored captured), all requiring 40 intervening turns of answer review.
+Across the original native catalog, 39 in-history
 checkpoint times hold 142 questions: 11 source-mapped and 131 requiring
 source-turn review. Thirty-two other curated cutoffs exceed the selected
 history. A private source packet makes the 131 reviewable; lexical turn ranks

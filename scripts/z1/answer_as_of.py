@@ -15,6 +15,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from experiments.lme.cloud_provider import PROFILES, TextGenerator, load_selected_env
+from scripts.z1.seed_v3 import CORPUS, gold_fragment_coverage
 
 
 LOGS = (Path(__file__).resolve().parents[2] / "logs").resolve()
@@ -31,6 +32,10 @@ def load_probes(path: Path, *, allow_partial: bool) -> list[dict]:
     rows = [json.loads(line) for line in path.open()]
     if not rows or rows[0].get("event") != "run":
         raise ValueError("not a v3 seed trace")
+    gap = rows[0].get("meta", {}).get("settings_resolved", {}).get(
+        "recent_window_max_turns")
+    if not allow_partial and (type(gap) is not int or gap < 1):
+        raise ValueError("full trace lacks its resolved recent-history window")
     completed = next((r for r in rows if r.get("event") == "complete"
                       and r.get("complete_selected_corpus")), None)
     if not allow_partial and completed is None:
@@ -46,10 +51,14 @@ def load_probes(path: Path, *, allow_partial: bool) -> list[dict]:
         keys.add(key)
         if probe["state_turns"] != probe["split_turn"]:
             raise ValueError("probe state and historical cutoff disagree")
-        if not allow_partial and (probe.get("cutoff_kind") not in
-                                  {"delayed", "native_checkpoint",
-                                   "generated_at_checkpoint"}
-                                  or probe["split_turn"] - max(probe["gold_turns"]) < 40):
+        unlabelled = probe.get("cutoff_kind") == "native_unlabeled_checkpoint"
+        if unlabelled and (probe["gold_turns"] or probe["gold_sources"]):
+            raise ValueError("unlabeled checkpoint has unexpected gold")
+        if not allow_partial and not unlabelled and (
+                probe.get("cutoff_kind") not in
+                {"delayed", "native_checkpoint", "generated_at_checkpoint"}
+                or not probe["gold_turns"]
+                or probe["split_turn"] - max(probe["gold_turns"]) < gap):
             raise ValueError("answer campaign includes a recent-history-confounded probe")
         if set(probe.get("controls", {})) != {"vector_only", "recent_only"}:
             raise ValueError("as-of probe lacks matched prompt controls")
@@ -65,6 +74,70 @@ def load_probes(path: Path, *, allow_partial: bool) -> list[dict]:
             if stage["lineage"]["future_source_ids"]:
                 raise ValueError("future source in an as-of prompt")
     return probes
+
+
+def reviewed_native_probes(trace: Path, audit_path: Path,
+                           all_probes: list[dict]) -> list[dict]:
+    """Attach reviewed source turns to frozen unlabeled section prompts."""
+    audit = json.loads(audit_path.read_text())
+    rows = [json.loads(line) for line in trace.open()]
+    if (audit.get("kind") != "native_checkpoint_source_review"
+            or audit.get("inputs") != rows[0]["meta"]["inputs"][:4]
+            or audit.get("recent_window_turns") != rows[0]["meta"]
+            .get("settings_resolved", {}).get("recent_window_max_turns")):
+        raise ValueError("native source review belongs to different corpus/catalog")
+    gap = rows[0]["meta"]["settings_resolved"]["recent_window_max_turns"]
+    by_id = {p["probe_id"]: p for p in all_probes
+             if p["cutoff_kind"] == "native_unlabeled_checkpoint"}
+    written = {(r["conversation"], r["turn"]):
+               {r["episodic_id"], r["batch_id"]}
+               for r in rows if r.get("event") == "written"}
+    source = defaultdict(list)
+    for line in CORPUS.open():
+        row = json.loads(line)
+        slug = row["conversation_id"][:8]
+        if slug in {p["conversation"] for p in by_id.values()}:
+            source[slug].append(row)
+    chosen = []
+    seen = set()
+    for record in audit.get("records", []):
+        identity = record["probe_id"]
+        if identity in seen or identity not in by_id:
+            raise ValueError("native review has duplicate or unknown probe")
+        seen.add(identity)
+        probe = by_id[identity]
+        if (record["conversation"] != probe["conversation"]
+                or record["cutoff_turn"] != probe["split_turn"]
+                or record["question"] != probe["question"]):
+            raise ValueError("native review identity differs from replay")
+        verdict = record.get("answer_verdict")
+        if verdict not in ("valid", "invalid", "uncertain", None):
+            raise ValueError("native review has unknown verdict")
+        if verdict != "valid":
+            continue
+        gold = record.get("reviewed_gold_turns") or []
+        cutoff = probe["split_turn"]
+        if (not record.get("reason", "").strip() or not gold
+                or any(type(turn) is not int for turn in gold)
+                or len(gold) != len(set(gold))
+                or min(gold) < 1 or max(gold) > cutoff - gap):
+            raise ValueError("valid native review needs old source turns and a reason")
+        if any((probe["conversation"], turn) not in written for turn in gold):
+            raise ValueError("reviewed source turn is missing from trace")
+        gold_ids = {turn: written[(probe["conversation"], turn)] for turn in gold}
+        admitted = dict(probe)
+        admitted["gold_turns"] = sorted(gold)
+        admitted["gold_sources"] = [{"turn": turn,
+                                      "recorded_at": source[probe["conversation"]][turn - 1]["timestamp"],
+                                      "prompt": source[probe["conversation"]][turn - 1]["prompt"],
+                                      "response": source[probe["conversation"]][turn - 1]["response"],
+                                      "source_ids": sorted(gold_ids[turn])}
+                                     for turn in sorted(gold)]
+        for stage in [admitted["preflight"], *admitted["controls"].values()]:
+            stage["gold_fragment_coverage"] = gold_fragment_coverage(stage, gold_ids)
+        admitted["label_status"] = "reviewed_source_and_answer"
+        chosen.append(admitted)
+    return chosen
 
 
 def stratified(probes: list[dict], n: int, seed: int) -> list[dict]:
@@ -107,13 +180,16 @@ def main() -> int:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--validated-probes", type=Path,
                         help="reviewed private long-term packet from build_longterm_label_review.py")
+    parser.add_argument("--validated-native-sources", type=Path,
+                        help="reviewed private packet from build_checkpoint_source_review.py")
     args = parser.parse_args()
     if args.n < 0:
         raise ValueError("--n cannot be negative")
     source, output = private_path(args.trace), private_path(args.out)
     trace_hash = hashlib.sha256(source.read_bytes()).hexdigest()
-    available = load_probes(source, allow_partial=args.allow_partial)
-    audit_hash = None
+    all_probes = load_probes(source, allow_partial=args.allow_partial)
+    available = [p for p in all_probes if p["gold_turns"]]
+    audit_hashes = {}
     if args.validated_probes:
         audit_path = private_path(args.validated_probes)
         audit = json.loads(audit_path.read_text())
@@ -139,14 +215,20 @@ def main() -> int:
                     raise ValueError("valid label needs a concrete review reason")
                 valid.add(probe_id)
         available = [p for p in available if p["probe_id"] in valid]
-        audit_hash = hashlib.sha256(audit_path.read_bytes()).hexdigest()
-    elif not args.allow_partial and not args.plan:
-        raise ValueError("long-term expected answers need --validated-probes before cloud calls")
+        audit_hashes["existing"] = hashlib.sha256(audit_path.read_bytes()).hexdigest()
+    elif args.validated_native_sources or (not args.allow_partial and not args.plan):
+        available = []
+    if args.validated_native_sources:
+        native_path = private_path(args.validated_native_sources)
+        available += reviewed_native_probes(source, native_path, all_probes)
+        audit_hashes["native"] = hashlib.sha256(native_path.read_bytes()).hexdigest()
+    if not args.allow_partial and not args.plan and not audit_hashes:
+        raise ValueError("long-term answers need reviewed labels before cloud calls")
     probes = stratified(available, args.n, args.seed)
     identifiers = [p["probe_id"] for p in probes]
     if args.plan:
         print(json.dumps({"version": "v3", "arm": args.arm, "probes": len(probes),
-                          "label_audit_applied": bool(args.validated_probes),
+                          "label_audit_applied": bool(audit_hashes),
                           "types": {kind: sum(p["type"] == kind for p in probes)
                                     for kind in sorted({p["type"] for p in probes})},
                           "prompt_tokens": sum((p["preflight"] if args.arm == "full"
@@ -160,7 +242,7 @@ def main() -> int:
     profile = PROFILES[args.profile]
     identity = {"version": "v3", "tag": args.arm,
                 "trace_sha256": trace_hash, "probe_ids": identifiers,
-                "label_audit_sha256": audit_hash,
+                "label_audit_sha256": audit_hashes,
                 "answer_profile": profile.name, "answer_model": profile.model,
                 "development_partial": args.allow_partial,
                 "sample_seed": args.seed}
