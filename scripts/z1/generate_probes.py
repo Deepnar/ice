@@ -155,7 +155,11 @@ def better_elsewhere(question: str, answer: str, gold_turn: int,
         return None
 
     def score(t):
-        return sum(idf.get(w, 1.0) for w in terms & set(words(turn_text(t))))
+        # A set's hash order changes between processes. Summing floats in that
+        # order made borderline equal-score probes pass in one run and fail in
+        # another, so score the same terms in a stable order.
+        return sum(idf.get(w, 1.0)
+                   for w in sorted(terms & set(words(turn_text(t)))))
 
     by_num = {t.get("turn_number"): t for t in turns}
     gold = by_num.get(gold_turn)

@@ -1,24 +1,19 @@
 #!/usr/bin/env python3
-"""Z1: snapshot and restore the seeded store, one snapshot per model arm.
+"""Z1: complete v3 isolated-store snapshots for tuning and comparison.
 
-**Why this exists.** Population is slow (~1.2 h) and non-deterministic — it runs
-a background model over 293 turns. Tuning is the opposite: it must be fast and
-byte-identical across runs, or a score difference cannot be attributed to the
-setting that was changed. The resolution is to pay the LLM cost once per arm,
-snapshot the result, and have every scoring run restore that snapshot.
+Population is slow and model-dependent. A restored snapshot lets later scoring
+use the exact same rows, including claims, notes, links and operational state.
+The older 293-turn snapshots lack this complete identity contract and cannot
+be restored with this version.
 
 **It is also the answer to [G38](../../docs/ROADMAP.md).** Retrieval commits in
 three places, so probe N mutates the store probe N+1 sees. `score_retrieval.py`
 neutralises two of those with settings; restoring before each run removes the
 question entirely, including anything a future change adds.
 
-**Why `pg_dump` of specific tables and not the whole database.** The store shares
-its database with `alembic_version` and the operational tables. Restoring a full
-dump would roll those back too, so a snapshot taken before a migration would
-silently revert the schema underneath the code. The table list is derived from
-the ORM metadata rather than typed out, for the same reason `seed_store.py`
-discovers its dependents from the live schema: a hand-maintained list is a list
-that goes stale the next time a table joins the pipeline.
+Only `alembic_version` is excluded. The table list comes from current ORM
+metadata and includes operational state. Restore is limited to a dedicated
+test database and verifies both the dump bytes and every restored row.
 
 Run:
   uv run python scripts/z1/snapshot.py save   --arm gemma4-26b
@@ -28,28 +23,37 @@ Run:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from sqlalchemy.engine import make_url
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
+from scripts.z1.run_meta import run_meta
+from src.api.config import settings
+from src.memory.models import Base
+
 SNAPDIR = Path("experiments/curation_files/snapshots")
 CONTAINER = "ice_postgres"
-DB, USER = "ice_db", "ice"
+DB = make_url(settings.database_url).database
+USER = "ice"
 
-# Tables the store lives in. Everything the seeder or post-flight writes, plus
-# the cluster link table; deliberately NOT alembic_version or the runtime's
-# operational tables — see the module docstring.
-TABLES = [
-    "conversations", "episodic_memory", "episodic_chunks",
-    "episodic_cluster_links", "context_clusters",
-    "codex_entities", "codex_edges", "codex_events", "codex_relation_gaps",
-    "procedural_memory", "batch_summaries", "conversation_summaries",
-    "memory_slots", "cold_storage",
-]
+# All current ORM tables, including operational rows; alembic_version is not
+# an ORM table and is deliberately outside a data-only snapshot.
+TABLES = sorted(Base.metadata.tables)
+
+
+def _isolated_database() -> None:
+    """A snapshot restore may truncate tables; refuse the normal user store."""
+    marker = os.environ.get("ICE_TEST_DATABASE")
+    if not marker or marker != DB or DB == "ice_db":
+        raise RuntimeError("Z1 snapshots require DATABASE_URL and ICE_TEST_DATABASE "
+                           "to name the same dedicated non-ice_db database")
 
 
 def _docker(cmd: list[str], **kw):
@@ -61,6 +65,8 @@ def counts() -> dict:
     sql = " UNION ALL ".join(
         f"SELECT '{t}', count(*) FROM {t}" for t in TABLES)
     r = _docker(["psql", "-U", USER, "-d", DB, "-tAc", sql])
+    if r.returncode != 0:
+        raise RuntimeError(f"snapshot counts failed: {r.stderr[:300]}")
     out = {}
     for line in r.stdout.strip().splitlines():
         if "|" in line:
@@ -69,7 +75,22 @@ def counts() -> dict:
     return out
 
 
+def fingerprints() -> dict[str, str]:
+    """Identity of *all* ORM rows, including claims, notes and source links."""
+    out = {}
+    for name in TABLES:
+        table = Base.metadata.tables[name]
+        order = ", ".join(f'"{c.name}"' for c in table.primary_key.columns)
+        sql = f'SELECT row_to_json(t)::text FROM "{name}" t ORDER BY {order}'
+        r = _docker(["psql", "-U", USER, "-d", DB, "-tA", "-c", sql])
+        if r.returncode != 0:
+            raise RuntimeError(f"snapshot fingerprint failed for {name}: {r.stderr[:300]}")
+        out[name] = hashlib.sha256(r.stdout.encode("utf-8")).hexdigest()
+    return out
+
+
 def save(arm: str) -> int:
+    _isolated_database()
     SNAPDIR.mkdir(parents=True, exist_ok=True)
     dest = SNAPDIR / f"{arm}.sql"
     args = ["pg_dump", "-U", USER, "-d", DB, "--data-only", "--no-owner"]
@@ -81,6 +102,12 @@ def save(arm: str) -> int:
         return 1
     dest.write_text(r.stdout)
     c = counts()
+    identity = fingerprints()
+    manifest = {"format": "ice-v3-z1-snapshot-2", "database": DB,
+                "tables": TABLES, "counts": c, "sha256_by_table": identity,
+                "dump_sha256": hashlib.sha256(r.stdout.encode()).hexdigest(),
+                "meta": run_meta(script=__file__, args={"action": "save", "arm": arm})}
+    (SNAPDIR / f"{arm}.manifest.json").write_text(json.dumps(manifest, indent=2))
     (SNAPDIR / f"{arm}.counts").write_text(
         f"{datetime.now(timezone.utc).isoformat()}\n" +
         "\n".join(f"{k}={v}" for k, v in sorted(c.items())))
@@ -91,31 +118,45 @@ def save(arm: str) -> int:
 
 
 def restore(arm: str) -> int:
+    _isolated_database()
     src = SNAPDIR / f"{arm}.sql"
     if not src.exists():
         print(f"no snapshot at {src}")
         return 1
-    # Truncate ONLY the store tables, then reload. CASCADE is required because
-    # the tables reference each other, and RESTART IDENTITY keeps nothing behind.
-    tr = _docker(["psql", "-U", USER, "-d", DB, "-c",
-                  f"TRUNCATE {', '.join(TABLES)} RESTART IDENTITY CASCADE;"])
-    if tr.returncode != 0:
-        print(f"truncate failed:\n{tr.stderr[:600]}")
+    manifest_path = SNAPDIR / f"{arm}.manifest.json"
+    if not manifest_path.exists():
+        print("old snapshot has no complete v3 manifest; refusing restore")
         return 1
+    manifest = json.loads(manifest_path.read_text())
+    if (manifest.get("format") != "ice-v3-z1-snapshot-2"
+            or manifest.get("database") != DB or manifest.get("tables") != TABLES):
+        print("snapshot database/schema differs from the current isolated store")
+        return 1
+    dump = src.read_bytes()
+    if hashlib.sha256(dump).hexdigest() != manifest.get("dump_sha256"):
+        print("snapshot dump changed since manifest; refusing restore")
+        return 1
+    # One transaction: a failed COPY rolls back the truncate as well. No
+    # CASCADE: an omitted dependent table is a manifest defect, not expendable.
+    quoted_tables = ", ".join('"' + t + '"' for t in TABLES)
+    truncate = f"TRUNCATE {quoted_tables} RESTART IDENTITY;"
     p = subprocess.run(["docker", "exec", "-i", CONTAINER,
                         "psql", "-U", USER, "-d", DB, "-v", "ON_ERROR_STOP=1"],
-                       input=src.read_text(), capture_output=True, text=True)
+                       input=f"BEGIN;\n{truncate}\n{dump.decode()}\nCOMMIT;\n",
+                       capture_output=True, text=True)
     if p.returncode != 0:
         print(f"restore failed:\n{p.stderr[:800]}")
         return 1
-    live = {k: v for k, v in counts().items() if v}
+    actual_counts = counts()
+    actual_identity = fingerprints()
+    bad = [t for t in TABLES if actual_counts.get(t) != manifest["counts"].get(t)
+           or actual_identity.get(t) != manifest["sha256_by_table"].get(t)]
+    if bad:
+        print("restore identity mismatch in: " + ", ".join(bad))
+        return 1
+    live = {k: v for k, v in actual_counts.items() if v}
     print(f"restored {arm}\n  {live}")
-    expect = SNAPDIR / f"{arm}.counts"
-    if expect.exists():
-        want = dict(l.split("=", 1) for l in expect.read_text().splitlines() if "=" in l)
-        bad = [k for k, v in want.items() if str(counts().get(k, 0)) != v]
-        print("  ⚠ mismatch vs saved counts: " + ", ".join(bad) if bad
-              else "  counts match the snapshot exactly")
+    print("  every table count and row fingerprint matches")
     return 0
 
 
