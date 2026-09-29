@@ -1446,7 +1446,7 @@ wins; where it conflicts with the code, the code wins.**
 
 | Feature | Where | Roadmap id | What it does | Setting | Default | On by default? |
 |---|---|---|---|---|---|---|
-| Fragment origin provenance | `src/retrieval/orchestrator.py:71` | G48b | Carries the turns a codex/procedural fragment was derived from, so recall can credit legs other than episodic. Timeline still unwired. | — | — | YES |
+| Fragment origin provenance | `src/retrieval/orchestrator.py:84`, `src/retrieval/evolution.py:75` | G48b | Carries source-turn IDs on codex, procedural and timeline fragments. A timeline credits only visible originals behind its displayed lines after length caps and scope filtering. The typed scorer records the first earning leg at its actual final-prompt rank. | — | — | YES |
 | Clause-shaped relation demotion | `src/workers/codex_extractor.py` | G49 | A relation longer than N words is demoted, never dropped. | `codex_relation_max_words` | `5` | YES |
 | Deterministic entity merge key | `src/workers/maintenance_agent.py` | G50 | Tier-0 auto-merge of spelling variants with no model and no review. | — | — | YES |
 | In-flight endpoint protection | `src/workers/codex_extractor.py` | G44 | Stops promotion deleting the endpoint of the triplet being written. Fired 98 times in 586 turns. | — | — | YES |

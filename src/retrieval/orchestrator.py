@@ -2045,14 +2045,17 @@ class HybridRetrievalOrchestrator:
                 # own score; capped per D7 so a life story can't eat the
                 # window.
                 if len(timeline_frags) < timeline_cap and history_exists(self.db, anchor.id):
-                    tl = build_entity_timeline(
+                    tl, timeline_batches = build_entity_timeline(
                         self.db, anchor, allowed_batch_ids,
                         t0=ts.t0, t1=ts.t1,
-                        max_transitions=settings.timeline_max_transitions)
+                        max_transitions=settings.timeline_max_transitions,
+                        source_batch_for_edge=lambda edge: self._edge_source_batch(
+                            edge, allowed_batch_ids), return_sources=True)
                     if tl:
                         timeline_frags.append(ContextFragment(
                             text=tl, source_type="timeline", score=0.9 * score,
-                            token_count=count_tokens(tl)))
+                            token_count=count_tokens(tl),
+                            origin_batch_ids=timeline_batches))
 
             if best_fit > 0.0:
                 # G34: reports the measured fit rather than a list of "detected"

@@ -19,7 +19,6 @@ Do NOT add REST endpoints here (E0's job).
 """
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 import structlog
 from sqlalchemy import or_, text
@@ -73,7 +72,8 @@ def history_exists(db: Session, entity_id) -> bool:
 
 
 def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
-                          t0=None, t1=None, max_transitions=8) -> Optional[str]:
+                          t0=None, t1=None, max_transitions=8,
+                          source_batch_for_edge=None, return_sources=False):
     """Render an entity's supersession history as a compact dated block:
 
         [Timeline: saga 2 ending]
@@ -89,29 +89,33 @@ def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
     be established by t1 and still alive at t0 (span overlap). Output keeps
     the most recent `max_transitions` lines and is word-trimmed to
     `settings.timeline_max_tokens`; truncation is announced, never silent.
+    The optional source resolver filters lines lacking a visible original and
+    lets the caller credit only batches whose lines survive both caps.
     """
     until = t1 or datetime.now(timezone.utc)
     q = db.query(CodexEdge).filter(
         or_(CodexEdge.source_id == entity.id, CodexEdge.target_id == entity.id),
         or_(CodexEdge.valid_from.is_(None), CodexEdge.valid_from <= until),
     )
-    if allowed_batch_ids is not None:
+    if allowed_batch_ids is not None and source_batch_for_edge is None:
         q = q.filter(CodexEdge.source_batch.in_(allowed_batch_ids))
     if t0 is not None:
         q = q.filter(or_(CodexEdge.valid_until.is_(None), CodexEdge.valid_until >= t0))
     candidates = q.all()
     if not candidates:
-        return None
+        return (None, ()) if return_sources else None
 
     events = _expiry_events(db, [e.id for e in candidates if e.valid_until is not None])
-    members = [e for e in candidates
-               if e.valid_until is None or str(e.id) in events]
+    members = [(e, source_batch_for_edge(e) if source_batch_for_edge else e.source_batch)
+               for e in candidates if e.valid_until is None or str(e.id) in events]
+    if source_batch_for_edge is not None:
+        members = [(e, batch) for e, batch in members if batch is not None]
     # No event-backed expired member = no supersession history (D-U2: real
     # history only) — the anchor's live edges are already in its codex note.
-    if not any(e.valid_until is not None for e in members):
-        return None
+    if not any(e.valid_until is not None for e, _ in members):
+        return (None, ()) if return_sources else None
 
-    ent_ids = {e.source_id for e in members} | {e.target_id for e in members}
+    ent_ids = {e.source_id for e, _ in members} | {e.target_id for e, _ in members}
     names = {en.id: en.canonical_name for en in
              db.query(CodexEntity).filter(CodexEntity.id.in_(ent_ids)).all()}
 
@@ -120,14 +124,14 @@ def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
     # a group oldest→newest, so the block reads chronologically while chains
     # stay adjacent.
     groups: dict = {}
-    for e in members:
+    for e, batch in members:
         direction = "out" if e.source_id == entity.id else "in"
-        groups.setdefault((e.relation, direction), []).append(e)
+        groups.setdefault((e.relation, direction), []).append((e, batch))
 
     lines = []
     for key in sorted(groups, key=lambda k: max((e.valid_from or _EPOCH)
-                                                for e in groups[k])):
-        for e in sorted(groups[key], key=lambda e: e.valid_from or _EPOCH):
+                                                for e, _ in groups[k])):
+        for e, batch in sorted(groups[key], key=lambda pair: pair[0].valid_from or _EPOCH):
             start = format_time(e.valid_from)
             if e.valid_until is not None:
                 end = format_time(e.valid_until)
@@ -138,7 +142,7 @@ def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
             rel = f"NOT {e.relation}" if e.negated else e.relation
             src = names.get(e.source_id, "?")
             tgt = names.get(e.target_id, "?")
-            lines.append(f"{start} – {end}: {src} --{rel}--> {tgt}{suffix}")
+            lines.append((f"{start} – {end}: {src} --{rel}--> {tgt}{suffix}", batch))
 
     omitted = False
     if len(lines) > max_transitions:
@@ -147,7 +151,8 @@ def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
     header = f"[Timeline: {entity.canonical_name}; recorded validity times]"
 
     def _render():
-        parts = [header] + (["(earlier history omitted)"] if omitted else []) + lines
+        parts = [header] + (["(earlier history omitted)"] if omitted else []) \
+            + [line for line, _ in lines]
         return "\n".join(parts)
 
     # Token cap (D7: a life story must not eat the window) — drop the oldest
@@ -155,7 +160,11 @@ def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
     while len(lines) > 1 and count_tokens(_render()) > settings.timeline_max_tokens:
         lines.pop(0)
         omitted = True
-    return _render()
+    rendered = _render()
+    if return_sources:
+        return rendered, tuple(dict.fromkeys(str(batch) for _, batch in lines
+                                             if batch is not None))
+    return rendered
 
 
 def entity_diff(db: Session, entity, t0, t1) -> dict:

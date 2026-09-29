@@ -1,3 +1,17 @@
+## 2026-09-29 — v3 timeline source-credit path checks
+
+The T4 timeline now carries the batch IDs of the exact displayed lines after
+both length caps. Production retrieval resolves each edge to a surviving
+visible original under the active scope; a scoped independent observation
+can support an older edge, while an out-of-scope primary cannot. The typed
+episodic scorer reports the credited leg and actual final-prompt rank.
+Disposable `tests/test_timescope.py` passed **66/66**, including positive and
+opposing scope and cap cases; smoke passed **405 with 14 skips**. Three older
+temporal fixtures initially failed because they had graph edges without any
+source turn; those fixtures were corrected before the passing rerun. These
+checks verify provenance and scoring behavior, not answer quality or a
+population temporal-recall number. The complete-seed run remains in combined Z.
+
 ## 2026-09-28 — v3 answer-probe and candidate-scorer path controls
 
 `answer_probes.py` now prepares the final prompt through the same v3 source

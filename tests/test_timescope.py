@@ -52,6 +52,7 @@ from src.retrieval.evolution import (
     history_exists,
     log_description_update,
 )
+from src.memory.tokens import count as count_tokens
 from src.retrieval.orchestrator import ContextFragment, HybridRetrievalOrchestrator
 from src.retrieval.timescope import (
     CURRENT,
@@ -286,14 +287,19 @@ try:
     db.add_all([eA, eB, eC])
     db.commit()
     created_codex_entities += [eA.id, eB.id, eC.id]
-    batch = uuid.uuid4()
+    old_source = mk_turn(real_now - D * 100,
+                         f"User: {MARK}-alpha used {MARK}-beta.\n\nAssistant: noted")
+    new_source = mk_turn(real_now - D * 2,
+                         f"User: {MARK}-alpha now uses {MARK}-gamma.\n\nAssistant: noted")
     # expired yesterday (was valid for the last ~100 days)
     ed_expired = CodexEdge(source_id=eA.id, target_id=eB.id, relation="uses",
-                           strength=5.0, extraction_confidence=1.0, source_batch=batch,
+                           strength=5.0, extraction_confidence=1.0,
+                           source_batch=old_source.batch_id,
                            valid_from=real_now - D * 100, valid_until=real_now - D * 1)
     # born after the as_of window (2 days ago), still live
     ed_new = CodexEdge(source_id=eA.id, target_id=eC.id, relation="uses",
-                       strength=5.0, extraction_confidence=1.0, source_batch=batch,
+                       strength=5.0, extraction_confidence=1.0,
+                       source_batch=new_source.batch_id,
                        valid_from=real_now - D * 2, valid_until=None)
     db.add_all([ed_expired, ed_new])
     db.commit()
@@ -383,9 +389,14 @@ try:
                                e_lone.id, e_del.id, e_saga2.id]
     saga_id, lone_id, del_id = e_saga.id, e_lone.id, e_del.id   # plain-value capture
 
-    batch2 = uuid.uuid4()
     T_A0 = datetime(2025, 11, 5, tzinfo=TZ)
     T_A1 = datetime(2026, 2, 10, tzinfo=TZ)
+    original_old = mk_turn(T_A0,
+        f"User: I planned the {MARK}-saga as {MARK}-multiverse.\n\nAssistant: noted")
+    original_new = mk_turn(T_A1,
+        f"User: I used to plan the {MARK}-saga as {MARK}-multiverse, "
+        f"but now plan it as {MARK}-mercy.\n\nAssistant: noted")
+    batch1, batch2 = original_old.batch_id, original_new.batch_id
 
     def mk_edge(src, tgt, rel, vf, vu, negated=False):
         e = CodexEdge(source_id=src.id, target_id=tgt.id, relation=rel,
@@ -396,6 +407,7 @@ try:
         return e
 
     edge_A = mk_edge(e_saga, e_mv, "planned_as", T_A0, T_A1)
+    edge_A.source_batch = batch1
     edge_B = mk_edge(e_saga, e_mercy, "planned_as", T_A1, None)
     edge_C = mk_edge(e_saga, e_old2, "uses",
                      datetime(2025, 1, 1, tzinfo=TZ), datetime(2025, 6, 1, tzinfo=TZ))
@@ -406,6 +418,7 @@ try:
     edge_E = mk_edge(e_del, e_old2, "uses",
                      datetime(2025, 1, 1, tzinfo=TZ), datetime(2025, 6, 1, tzinfo=TZ))
     edge_D = mk_edge(e_saga2, e_mv, "planned_as", T_A0, T_A1)
+    edge_D.source_batch = batch1
     edge_B2 = mk_edge(e_saga2, e_mercy, "planned_as", T_A1, None)
     db.commit()
     created_codex_edges += [edge_A.id, edge_B.id, edge_C.id, edge_N.id,
@@ -461,6 +474,45 @@ try:
     check("21 timeline scored 0.9× its anchor",
           saga_frag is not None
           and abs(tl_frags[0].score - 0.9 * saga_frag.score) < 1e-9)
+    check("21 timeline credits both displayed original turns",
+          set(tl_frags[0].origin_batch_ids) == {str(batch1), str(batch2)})
+
+    resolved = lambda edge: orch._edge_source_batch(edge, {batch2})
+    hidden, hidden_batches = build_entity_timeline(
+        db, e_saga, {batch2}, source_batch_for_edge=resolved,
+        return_sources=True)
+    check("21 scoped timeline cannot borrow another conversation's old fact",
+          hidden is None and hidden_batches == ())
+    edge_A.observed_batches = [batch2]
+    db.commit()
+    supported, supported_batches = build_entity_timeline(
+        db, e_saga, {batch2}, source_batch_for_edge=resolved,
+        return_sources=True)
+    check("21 scoped timeline can use an independently observed original",
+          supported is not None and str(batch1) not in supported_batches
+          and supported_batches == (str(batch2),))
+
+    shortened, shortened_batches = build_entity_timeline(
+        db, e_saga, source_batch_for_edge=lambda edge: edge.source_batch,
+        return_sources=True, max_transitions=1)
+    check("21 transition cap credits only the remaining line",
+          shortened is not None and f"{MARK}-saga --planned_as--> {MARK}-multiverse" not in shortened
+          and shortened_batches == (str(batch2),))
+    full, _ = build_entity_timeline(
+        db, e_saga, source_batch_for_edge=lambda edge: edge.source_batch,
+        return_sources=True)
+    saved_token_cap = settings.timeline_max_tokens
+    try:
+        settings.timeline_max_tokens = count_tokens(full) - 1
+        token_clipped, token_batches = build_entity_timeline(
+            db, e_saga, source_batch_for_edge=lambda edge: edge.source_batch,
+            return_sources=True)
+    finally:
+        settings.timeline_max_tokens = saved_token_cap
+    check("21 token cap cannot credit a removed old line",
+          token_clipped is not None and "(earlier history omitted)" in token_clipped
+          and f"{MARK}-saga --planned_as--> {MARK}-multiverse" not in token_clipped
+          and token_batches == (str(batch2),))
 
     saved_cap = settings.timeline_max_fragments
     try:

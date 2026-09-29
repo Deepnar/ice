@@ -398,7 +398,8 @@ sentence only when the unwindowed probe found anything.) Never silently widen.
 
 ```python
 def build_entity_timeline(db, entity, allowed_batch_ids=None,
-                          t0=None, t1=None, max_transitions=8) -> Optional[str]
+                          t0=None, t1=None, max_transitions=8,
+                          source_batch_for_edge=None, return_sources=False)
 def entity_diff(db, entity, t0, t1) -> dict   # {"added": [...], "expired": [...], "retracted": [...]}
 def history_exists(db, entity_id) -> bool     # cheap EXISTS gate (see below)
 def log_description_update(db, entity, old, new, source) -> None   # D13 helper
@@ -406,6 +407,16 @@ def log_description_update(db, entity, old, new, source) -> None   # D13 helper
 
 - Candidate edges: `CodexEdge` where `source_id = e OR target_id = e`
   (+ `source_batch ∈ allowed_batch_ids` when scoped), `valid_from <= (t1 or now)`.
+- **v3 source-credit extension (2026-09-29):** retrieval passes
+  `source_batch_for_edge`, which resolves a visible, surviving original for each
+  edge under the current scope. When supplied, this resolver replaces the
+  primary-batch SQL scope filter: an independently corroborating batch in the
+  selected conversation may support an edge first written elsewhere. Edges
+  without a visible original are omitted. `return_sources=True` returns the
+  rendered text plus only the resolved batch IDs of lines that survive both
+  transition and token caps. The default call remains text-only for existing
+  service consumers. The timeline fragment carries these IDs as provenance;
+  the scorer can credit the contributing leg without crediting clipped lines.
 - **Inclusion rule (D6):** live edges always; expired edges only if an `edge_expired`
   event exists with `payload->>'edge_id' = str(edge.id)` (one query for all candidate
   ids: `SELECT payload->>'edge_id', timestamp, batch_source, payload->>'reason'

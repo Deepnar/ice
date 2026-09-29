@@ -67,6 +67,16 @@ _TRACKED = (
 )
 
 
+def first_specific_gold_hit(frags, wanted_ids):
+    """Return the final-prompt rank and producing leg of a specific source."""
+    for rank, fragment in enumerate(frags, 1):
+        if fragment.source_type in ("batch_summary", "summary"):
+            continue
+        if fragment_source_ids(fragment) & wanted_ids:
+            return rank, fragment.source_type
+    return None, None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
@@ -291,10 +301,7 @@ def main() -> int:
             # derived FROM it specifically. A codex or procedural fragment
             # extracted from the gold turn still counts — that is G48b and it
             # stands. A range that merely CONTAINS the turn does not.
-            specific = [f for f in frags
-                        if f.source_type not in ("batch_summary", "summary")]
-            rank = next((i for i, f in enumerate(specific, 1)
-                         if _frag_ids(f) & want), None)
+            rank, credited_leg = first_specific_gold_hit(frags, want)
             score = 1.0 if (rank and rank <= args.k) else 0.0
             # Kept so the span-credit effect stays visible instead of silently
             # disappearing: what the old, over-generous rule would have scored.
@@ -302,6 +309,7 @@ def main() -> int:
                               if _frag_ids(f) & want), None)
             bucket["detail"].append({
                 "rank": rank,
+                "credited_leg": credited_leg,
                 "rank_incl_span_credit": span_rank,
                 "span_credited_only": bool(span_rank and not rank)})
 
