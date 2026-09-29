@@ -16,6 +16,73 @@ answer judge needs current answer-pair calibration. The August tier/delete
 decision and 1,000–1,500-turn sizing notes below are historical proposals,
 not permission to delete v3 facts or call a partial seed complete.
 
+**v3 execution contract, 2026-09-29:** replay the three full conversations
+in source order with their original timestamps. Before each recorded reply is
+stored, prepare that user's prompt through shared v3 preflight; then write the
+existing reply with source-role spans and run the real post-flight chain. Log
+candidate, selected and final-prompt evidence separately, including source
+IDs, legs, token costs, gate decisions and failures. Periodic jobs need an
+explicit recorded cadence and failure ledger, not a silent end-of-run catch-up.
+The unified 618-probe catalog carries `split_turn` for the 444 typed probes,
+although `typed_probes.json` does not. **The original typed cutoff equals the
+latest gold turn on all 444 rows.** Those immediate prompts are diagnostics,
+not a long-term-memory quality test: their gold can still be in the 40-turn
+recent window. An optional delayed typed panel asks at original cutoff + the
+live recent-window maximum; 378 fit the selected histories and 66 do not. The
+default panel uses existing questions at later section checkpoints. Capture
+each prompt before any later turn is inserted, then validate its expected
+answer against source and intervening turns before cloud scoring. Thirty-two
+non-typed curated rows have a split beyond the selected full conversation;
+quarantine them until their cutoff is corrected. A final-store scorer is
+end-of-history only, never a chronological score. Save a complete,
+identity-checked snapshot including
+claims, notes and all source links before tuning; keep answer generation and
+cloud judgment separate from recorded-response reconstruction.
+
+**Existing long-term checkpoint pool, recovered on 2026-09-29:** the unified
+catalog also holds 93 mature and 81 curated questions for the selected three
+histories. Their `split_turn` is a designed checkpoint, unlike the typed file's
+latest-gold proxy. The older `derived_gt.json` supplies source-turn mappings for
+a subset: 11 questions already have an in-corpus source at least 40 turns
+before their checkpoint (six curated, five mature). They are scheduled at
+their native cutoffs. The remaining
+checkpoint questions lack reliable gold mapping or chronology and need source
+labeling; do not silently convert an expected answer into a gold turn. The 11
+derived mappings themselves still require source-support review.
+
+**Source-first checkpoint expansion:** `generated_probes.json` has 592 older
+questions with a known original gold turn and evidence quote. After remap to
+the selected histories, exact quote verification, a corrected question-only
+ambiguity screen, and placement at the first real checkpoint at least 40 turns
+later, 113 are candidates. The ambiguity weights are fitted only on history
+available at each checkpoint. Together with the 11 native mapped questions,
+these 124 form the default existing-question panel. They span 11 checkpoint
+times; the 1,119-turn conversation has only 14 candidates, all at its final
+checkpoint, so this panel cannot establish retention across its earlier
+sections. The native catalog spans 39 in-history checkpoint times; 131
+additional questions need source-turn review, and 32 curated cutoffs exceed
+the selected history. The private source-review packet ranks possible turns
+for navigation, not as labels. Catalog IDs repeat across files; the replay
+uses unique stable IDs and preserves each old ID as metadata.
+
+**Implementation checkpoint (not a scored run):** `scripts/z1/seed_v3.py`
+implements the sequential replay and captures full, vector-only and
+recent-history prompt arms at each selected **long-term checkpoint** cutoff;
+`report_v3_replay.py` reports
+fragment-stage gold coverage, provenance and failure stages. The new snapshot
+covers all ORM tables. A 3-turn disposable replay without periodic jobs passed;
+one-turn disposable replay with all six due periodic jobs and matched arms also
+passed. `build_longterm_label_review.py` now creates a private
+gold-plus-intervening-turn packet balanced by conversation and checkpoint;
+its current 30-candidate sample has no verdicts yet.
+`build_checkpoint_source_review.py` prepares the 131 unlabeled native
+questions for source-turn review. `answer_as_of.py` can plan cloud
+Luna answers from frozen prompts and requires valid reviewed rows from the
+matching packet before a full cloud campaign. No
+full seed, new cloud answers, blind judge or quality claim has been made. The old
+`seed_store.py`/final-store answer path cannot substitute for chronological
+as-of scoring.
+
 > **⚑ EVERYTHING BEFORE THIS RESEED IS DEAD DATA (maintainer, 2026-08-25).**
 > *"lets just call ALL from before as we have no data, we are restarting ALL
 > again."* Every store, every arm, every graph number in `PROVENANCE.md` before

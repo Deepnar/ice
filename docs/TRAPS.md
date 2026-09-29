@@ -1879,3 +1879,47 @@ would certify the wrong corpus and an incomplete restore without an exception.
 **Check the actual loader output and compare a restored store's reader-visible
 source links, not just its selected table counts, before tuning.** The code
 audit caught this before a new scored run; no invalid v3 score was published.
+
+### 75. A chronological cutoff can make every memory probe a recent-history probe
+
+**v3, 2026-09-29.** The unified catalog supplies a `split_turn` for all 444
+typed probes, so it initially looked sufficient to ask each question during a
+sequential reseed. A second check showed **all 444 cutoffs equal the latest
+gold-source turn**. At that moment the answer can sit in the 40-turn recent
+window, even if every long-term retrieval leg fails. A successful full-ICE
+answer or selected-source count would not demonstrate long-term memory value;
+a recent-history control can receive the answer for free.
+
+Compare the question cutoff with the latest gold turn and the *actual recent
+window*. Treat immediate questions as write/read-path diagnostics. Delay a
+candidate beyond that window, then review the expected answer against every
+intervening turn before scoring: a later correction can make the original gold
+wrong. The current selected histories permit 378 such delayed candidates;
+66 have no sufficiently late cutoff. Neither the delay nor the old answer
+automatically makes a valid scored probe.
+
+### 76. A probe ID can identify a file-local row, not a global question
+
+**v3, 2026-09-29.** The unified 618-question catalog reused 33 original IDs:
+49 extra curated rows and one extra typed row shared an ID with another
+question. A chronological trace could distinguish some by conversation and
+cutoff, but the cloud answer writer and label audit keyed only by `probe_id`.
+That would overwrite an answer, attach a review to the wrong question, or
+silently shrink a paired denominator. This was found while building a
+section-checkpoint source-review packet, before a scored run.
+
+Derive a stable identity from source, original ID, conversation, source file,
+cutoff and question. Assert uniqueness across the entire scheduled panel and
+carry the old ID as metadata. Do not use a catalog's local ID as a global key
+merely because a small sample happened to have no collision.
+
+### 77. A deterministic-looking lexical guard can change its answer by process
+
+**v3, 2026-09-29.** The source-first checkpoint screen initially counted 112
+eligible questions in one process and 113 in another. The older
+`better_elsewhere()` helper summed floating-point IDF weights while iterating
+a Python set of shared words. Hash order changes between processes; for a
+borderline equal-score rival, rounding changed the `>=` rejection decision.
+The helper now sorts the terms before summing. Two independent catalog checks
+then returned 113. Freeze the question-time vocabulary and stable reduction
+order before calling a candidate set reproducible.

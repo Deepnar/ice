@@ -1,9 +1,10 @@
 # v3 reseed and combined-Z harness audit — 2026-09-29
 
-This is a **code-and-document audit**, not a seeded run or an answer result. It
-supersedes the executable order in the August reseed notes. The core memory
-repair has reached the seed/tuning/Z entry, but the current seeder and snapshot
-cannot yet support a complete, production-parity v3 claim.
+This began as a **code-and-document audit**, not an answer result. It
+supersedes the executable order in the August reseed notes. A new v3 runner,
+reporter and complete snapshot have now passed small isolated checks, but no
+complete seed or scored answer run exists yet. The table below describes the
+historical scripts; `scripts/z1/README.md` points to the new path.
 
 ## What the current scripts actually do
 
@@ -16,6 +17,45 @@ cannot yet support a complete, production-parity v3 claim.
 | Retrieval | `score_typed.py` uses shared `production_parity.build()` and final `prepare()`; `score_retrieval.py` measures raw candidates | Final-evidence and candidate metrics are intentionally different. The typed metrics measure source presence/coverage and rank, not whether an excerpt actually supports the answer. Missing Codex anchors and temporal successor labels remain unscored for those metrics. |
 | Answers | `answer_probes.py` assembles the final prompt, defaults to cloud `gpt-6-luna`, and can use local Ollama | It does not drive the HTTP streaming route or generate the historical response used to build the store. It routes a local-registry model for the budget/window, then sends that prompt directly to Luna. This is a useful answer probe, but not yet a cloud-serving production route or a matched-budget vector/recent-history comparison. |
 | Query time | The 444 `typed_probes.json` rows have no query-turn or checkpoint field | They can be treated as end-of-history questions against a completed store, but cannot establish earlier-turn sequential quality. A replay question about turn 100 must read only state available before that question; semi-LSREP and any chronological development probes need explicit as-of/cutoff metadata and a leak check. |
+
+**Correction found during implementation, 2026-09-29:** the *older typed file*
+lacks a cutoff, but `unified_probes.json` already supplies `split_turn` for all
+444 typed probes and remaps the duplicated `cca73c87` tail into the full
+`bb558b5f` conversation. Join by the unique question and validate the
+conversation/gold mapping before tracing. **A second check found all 444
+`split_turn` values equal the latest gold turn.** Asking there leaves the gold
+eligible for the 40-turn recent window, so these are immediate diagnostics,
+not a long-term-memory test. The new runner defaults to first eligible delayed
+cutoffs (`gold + 40`): 378 fit, 66 do not. Its expected answers must be checked
+against the intervening turns before scoring. Do not present a final-store
+query or an unreviewed delayed query as a valid chronological answer result. Among the
+other 174 unified probes, 32 curated rows specify a split past the selected
+conversation length; quarantine those rather than silently treating them as
+end-of-history.
+
+**Existing long-term probes found after the maintainer's prompt:** the same
+catalog has 93 mature and 81 curated questions at actual section checkpoints
+within the selected histories. The older `derived_gt.json` supplies source-turn
+labels for only part of this pool. After checking conversation remaps, full
+history bounds, nonfuture gold and a ≥40-turn age, **11 questions** qualify as
+already source-mapped native long-term probes (five mature, six curated). Their
+expected answers and model-derived gold still need source review. The other
+checkpoint questions must not be silently credited to guessed source turns.
+The v3 runner includes the 11 at their original checkpoints. A separate
+existing source-first pool yields 113 more candidates after exact source-quote
+verification, as-of question-only ambiguity screening and placement at
+the first real checkpoint at least 40 turns after gold. The default panel is
+124 unreviewed candidates, at 11 checkpoint times. Its 1,119-turn history has
+only 14 questions, all at the final checkpoint. The optional delayed typed
+panel adds 378 candidates (502 combined), but these require 40 intervening
+turns of answer review. Across the original native catalog, 39 in-history
+checkpoint times hold 142 questions: 11 source-mapped and 131 requiring
+source-turn review. Thirty-two other curated cutoffs exceed the selected
+history. A private source packet makes the 131 reviewable; lexical turn ranks
+are suggestions, never gold. Duplicate original catalog IDs were also found
+(including one typed duplicate); the runner now derives unique stable IDs
+from the full source row before tracing or pairing. No quality result follows
+from this catalog work.
 | Judging | `judge_answers.py` pairs probe identities, checks complete gold source and equal answer model, randomises A/B, and distinguishes `both_failed` | The configured cloud judge is `deepseek-v4-flash`. Its historical graph-truth calibration is not a calibration for this answer-pair rubric. There is no demonstrated human-agreement, order-swap, or second-family check for current v3 answer pairs. A blind verdict is diagnostic until that calibration passes. |
 
 ## Required order before trusting a number
