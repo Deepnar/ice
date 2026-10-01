@@ -62,7 +62,7 @@ def test_repeated_v3_question_at_two_checkpoints_has_two_identities():
 
 def test_v3_absolute_grades_follow_arms_after_blind_shuffle(tmp_path, monkeypatch):
     calls = []
-    def grade(_question, _source, first, second, *, expected_answer, question_time):
+    def grade(_question, _source, first, second, *, expected_answer, question_time, session_id):
         calls.append((first, second, expected_answer))
         return {"verdict": "A", "reason": "more_grounded",
                 "A_grade": "correct", "B_grade": "incorrect", "note": "source"}
@@ -90,21 +90,23 @@ def test_v3_absolute_grades_follow_arms_after_blind_shuffle(tmp_path, monkeypatc
     assert row["arm_a_grade"] == ("correct" if row["a_was_first"] else "incorrect")
     assert row["arm_b_grade"] == ("incorrect" if row["a_was_first"] else "correct")
     assert judged["complete"] is True
-    assert judged["calibration_status"] == "not_run_for_v3_absolute_rubric"
+    assert judged["calibration_status"] == "no_human_real_pair_calibration"
     assert judged["score_of_record"] is False
 
 
 def test_v3_judge_request_sees_historical_clock_and_complete_source(monkeypatch):
     import io
     observed = []
+    headers = []
     result = {"verdict": "TIE", "reason": "equivalent",
               "A_grade": "correct", "B_grade": "correct"}
     def request(req, **_kwargs):
         observed.append(json.loads(req.data))
+        headers.append(dict(req.header_items()))
         return io.BytesIO(json.dumps({"choices": [{"message": {
             "content": json.dumps(result)}}]}).encode())
     monkeypatch.setattr(judge_answers, "_env", lambda key: {
-        "PROBE_API_KEY": "test-only", "PROBE_API_BASE_URL": "https://example.invalid",
+        "PROBE_API_KEY": "test-only", "PROBE_API_BASE_URL": "https://opencode.ai/zen/go/v1",
         "PROBE_MODEL": "test-judge"}[key])
     monkeypatch.setattr(judge_answers.urllib.request, "urlopen", request)
     source = "Source turn 1 recorded at 2025-01-01T00:00:00+00:00\nUser: first fact"
@@ -114,6 +116,8 @@ def test_v3_judge_request_sees_historical_clock_and_complete_source(monkeypatch)
     prompt = observed[0]["messages"][1]["content"]
     assert "HISTORICAL QUESTION TIME\n2025-02-01T00:00:00+00:00" in prompt
     assert source in prompt and "EXPECTED ANSWER\nfirst fact" in prompt
+    assert headers[0]["User-agent"] == "ice-research/3.0"
+    assert headers[0]["X-opencode-session"].startswith("ice-z1-judge-")
 
 
 def _v3_arm(name, records, declared=None):

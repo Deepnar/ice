@@ -35,6 +35,8 @@ import random
 import statistics
 import sys
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -43,8 +45,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 OUT = Path("experiments/curation_files/judgements")
-UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-      "Chrome/126.0.0.0 Safari/537.36")
+UA = "ice-research/3.0"
 
 REASONS = ("more_grounded", "more_complete", "contradicts_source",
            "no_memory_used", "both_failed", "equivalent")
@@ -97,6 +98,11 @@ Grade EACH answer against the question, expected answer, and original source:
   uncertain  the evidence shown is insufficient to decide
 Paraphrases count. Do not require the exact words of EXPECTED ANSWER. A fact
 absent from SOURCE is not automatically false; use uncertain if it matters.
+Distinguish contradiction from missing evidence. If SOURCE never mentions a
+requested private fact and answers assert different values for it, their truth
+cannot be verified: grade uncertain, not incorrect. Use TIE / equivalent if
+neither unverified answer is better supported. By contrast, SOURCE explicitly
+saying no choice was made contradicts an answer claiming a choice was made.
 When both grades are incorrect, use TIE / both_failed. When the grades differ
 between correct, partial and incorrect, prefer the higher grade. Uncertain
 means evidence is insufficient, not that the answer is known to have failed.
@@ -199,11 +205,16 @@ def _full_source(rec) -> str:
 
 
 def judge_one(question, source, ans_a, ans_b, *, expected_answer=None,
-              question_time=None, retries=3):
+              question_time=None, session_id=None, retries=3):
     key, base, model = (_env("PROBE_API_KEY"), _env("PROBE_API_BASE_URL"),
                         _env("PROBE_MODEL"))
     if not key or not base:
         raise SystemExit("PROBE_API_KEY / PROBE_API_BASE_URL missing from .env")
+    headers = {"Content-Type": "application/json",
+               "Authorization": f"Bearer {key}", "User-Agent": UA}
+    if urllib.parse.urlsplit(base).hostname == "opencode.ai":
+        headers["x-opencode-session"] = (session_id or
+            "ice-z1-judge-" + hashlib.sha256(source.encode()).hexdigest()[:24])
     user = (f"QUESTION\n{question}\n\n"
             + (f"HISTORICAL QUESTION TIME\n{question_time}\n\n"
                if question_time is not None else "")
@@ -264,17 +275,22 @@ def judge_one(question, source, ans_a, ans_b, *, expected_answer=None,
             req = urllib.request.Request(
                 f"{base.rstrip('/')}/chat/completions",
                 data=json.dumps(body).encode(),
-                headers={"Content-Type": "application/json",
-                         "Authorization": f"Bearer {key}",
-                         # Cloudflare 403/1010 without this — TRAPS #27.
-                         "User-Agent": UA})
+                headers=headers)
             with urllib.request.urlopen(req, timeout=120) as r:
                 payload = json.loads(r.read())
             txt = (payload["choices"][0]["message"]["content"] or "").strip()
         except Exception as exc:                                  # noqa: BLE001
+            note = str(exc)[:120]
+            if isinstance(exc, urllib.error.HTTPError):
+                try:
+                    provider_error = json.loads(exc.read()).get("error", {})
+                    kind = provider_error.get("type") or provider_error.get("code")
+                    note = f"HTTP {exc.code}" + (f" ({kind})" if kind else "")
+                except (ValueError, AttributeError):
+                    note = f"HTTP {exc.code}"
             time.sleep(2 * (attempt + 1))
             if attempt == retries - 1:
-                return {"verdict": "ERROR", "reason": "api", "note": str(exc)[:120]}
+                return {"verdict": "ERROR", "reason": "api", "note": note}
             continue
         if txt.startswith("```"):
             txt = txt.strip("`").split("\n", 1)[-1].rsplit("```", 1)[0]
@@ -377,7 +393,7 @@ def main() -> int:
     rng = random.Random(args.seed)
     results = []
     judge_identity = {"judge_model": _env("PROBE_MODEL"),
-                      "calibration_status": "not_run_for_v3_absolute_rubric" if is_v3 else "legacy_not_asserted",
+                      "calibration_status": "no_human_real_pair_calibration" if is_v3 else "legacy_not_asserted",
                       "score_of_record": False,
                       "judge_prompt_version": "v3_expected_answer_absolute_and_paired"
                       if da.get("version") == "v3" else "legacy_paired",
@@ -392,7 +408,8 @@ def main() -> int:
         a_is_first = rng.random() < 0.5
         first, second = (ra, rb) if a_is_first else (rb, ra)
         expected = ra.get("expected_answer")
-        judge_kwargs = ({"expected_answer": expected, "question_time": ra.get("question_time")}
+        judge_kwargs = ({"expected_answer": expected, "question_time": ra.get("question_time"),
+                         "session_id": f"ice-z1-{da['trace_sha256'][:24]}-{ra['conversation']}"}
                         if da.get("version") == "v3" else {})
         v = judge_one(ra["question"], source,
                       first.get("answer", ""), second.get("answer", ""),

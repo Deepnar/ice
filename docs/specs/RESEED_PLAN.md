@@ -129,6 +129,37 @@ Estimated prompt tokens are reported
 separately from rank. The judge rubric still requires calibration on current
 human-reviewed answer pairs before its grades become results of record.
 
+**Answer-judge calibration contract (v3, 2026-10-01):**
+`calibrate_answer_judge.py` uses the same `judge_one` request and absolute
+rubric as the answer campaign. Each complete case has a question/time, dated
+source, expected answer, two anonymous answers and independently assigned
+grades/preference with a review reason. Run both display orders, map grades
+and winners back to the original answer identities, and report errors,
+per-grade confusion, preference agreement and order consistency with explicit
+denominators. Validate the entire packet before any cloud call; save progress
+after each order. Bind outputs to packet SHA256, judge model, system rubric
+and judge implementation SHA256. No source/answer truncation is allowed.
+Preserve the original error reason; stop after three consecutive judge errors
+and retain the incomplete artifact rather than exhausting calls on an outage.
+The shared judge request must identify ICE honestly and send OpenCode Go's
+required stable `x-opencode-session` header. Campaign calls use trace plus
+conversation identity; both calibration orders use the same case identity.
+Keep provider routing metadata outside the rubric and record the HTTP status
+and provider error type without exposing credentials.
+
+Keep authored controls separate from human-reviewed real answer pairs.
+Authored cases cover exact/paraphrased answers, partial multi-source answers,
+wrong values, both failures, equivalent correct answers, unsupported claims,
+assistant suggestions, temporal updates and evidence near the end of a long
+source. They expose a broken rubric, not human agreement on real conversations.
+Neither packet kind automatically qualifies a judge or closes the roadmap;
+current real-pair human agreement and swapped-order behavior must be inspected
+before a score-of-record decision. Output remains diagnostic by default.
+Distinguish an answer contradicted by the supplied source from a claim the
+source cannot verify. The latter is uncertain, not known false. Explicit
+source statements such as "I have not chosen" can contradict a claimed choice;
+mere silence cannot. Two unverified claims do not earn `both_failed`.
+
 **Completeness gate:** a campaign trace must contain one ordered preflight and
 one completed write for every selected historical turn, and every scheduled
 probe exactly once at its declared cutoff. The final completion flag alone
