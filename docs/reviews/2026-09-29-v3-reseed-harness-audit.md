@@ -8,6 +8,16 @@ historical scripts; `scripts/z1/README.md` points to the new path.
 
 ## Whole-process v3 scoring audit
 
+**Current manual/readiness follow-through, 2026-10-01:** the [manual guide and
+metric/ground-truth matrix](2026-10-01-v3-manual-campaign.md) provide one
+resumable entry point, exact answer-input receipts, stronger through-cutoff and
+recent-only label gates, explicit controlled-routing coverage, a frozen
+schema-only production memory template, and separate retained as-of stores for
+tuning. These are instrument repairs. Source/answer labels, output-specific
+graph/summary/update/procedure truth and broader judge qualification remain
+unmeasured; the 29-item evidence map below is unchanged. No full campaign is
+launched by these checks.
+
 The default replay captures 255 questions at 39 real section checkpoints.
 Every question has a catalog expected answer. Of these, 124 have candidate
 gold source turns old enough to be outside the 40-turn recent window; 131

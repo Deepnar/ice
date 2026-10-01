@@ -1682,6 +1682,15 @@ prevents cross-suite residue; it does not establish migration/schema parity.
 Before changing a service to fix an isolated-test failure, inspect the actual
 constraints. Keep migration roundtrips separate from ORM-created behavior tests.
 
+**v3 campaign follow-through, 2026-10-01:** other migration-owned vector
+indexes were still missing from ORM bootstrap. A fresh isolated Alembic chain
+also failed at 15998d67a6f2 while dropping absent `idx_episodic_embedding`.
+Neither finding authorises changing the memory algorithm. The manual campaign
+now freezes and transactionally clones current production memory-table DDL
+only, with no user rows; a real 35-table check verifies columns/defaults,
+constraints and indexes, and refuses schema drift or missing ownership on
+reattachment. This checks current schema parity, not installation migrations.
+
 ### 61. Exception text can contain the memory a log was meant to protect
 
 **v3,2026-09-21.** An intentional idempotency collision during cold restoration

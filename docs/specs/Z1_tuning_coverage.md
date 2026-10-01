@@ -12,6 +12,16 @@ development probes. Freeze the configuration before LME oracle and semi-LSREP;
 no full LME-S campaign is planned. A paired cloud judge needs answer-pair
 calibration; local background writing remains separate from cloud answering.
 
+**Manual/readiness overlay, 2026-10-01:** the [manual entry point and metric/GT
+matrix](../reviews/2026-10-01-v3-manual-campaign.md) preserve replay recovery and
+separate immutable question-time stores. Every later retrieval/budget sweep
+must use the matching as-of snapshot, never a final store with future evidence.
+Source-rank and prompt-survival counts are not semantic support or answer-use
+labels. Full/no-Codex/warm-vector/recent controls are development contrasts,
+not every-leg ablations or an independent all-originals vector baseline.
+Those comparisons and frozen final-condition runners remain combined-Z work;
+the new command does not implicitly run tuning or the final experiments.
+
 Assumes decided specs: ALL earlier S1 specs (this pass runs against the system
 they describe, after implementation); `FINAL_experiments.md` (the synthetic
 ledger auto-scorer is the fast tuning loop — built there, used here FIRST);

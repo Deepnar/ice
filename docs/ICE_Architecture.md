@@ -116,6 +116,24 @@ V3 campaigns also judge both display orders, retaining raw grades/preferences.
 Order disagreement yields an uncertain preference or affected absolute grade;
 an API/schema error keeps the pair incomplete. Factual grades are primary.
 
+`run_v3_campaign.py` provides one manual entry point for seed, snapshot,
+answer, judge and report stages. Default invocation is status; initialization
+creates private review packets without seeding or calling APIs. Replay recovery
+pins code/settings/inputs and local writer manifest digests, saves all 35 tables
+with a durable trace prefix, and retains independent query-time snapshots for
+later as-of tuning. A completed seed resumes without changing its trace bytes.
+Cloud stages pin transport/input identity and persist each answer/judge order;
+a saved first order is reused even after a failed second call, and outages stop
+with explicit resumable progress. The manual store clones current memory-table
+DDL only, preserving production indexes/defaults; this does not certify the
+historical fresh migration chain. Routing is controlled per-prompt automatic
+selection without session stickiness, reported with gate probabilities and
+shared foreground pressure. Source labels require cutoff/recent-history review
+and explicit semantic task/knowledge scope. Exact answering messages accompany
+each answer; source presence is not semantic support or proof of use.
+The [manual guide and measurement matrix](reviews/2026-10-01-v3-manual-campaign.md)
+state remaining coverage, label and qualification limits.
+
 ## **2. Classification Engine**
 
 The classification engine produces, for each user turn, a set of **topic tags**, a set of **intent tags**, and — since B1 (2026-07-25) — **four independent context-reliance signals** from which the legacy single context-reliance string is *derived*. These outputs drive every downstream decision — which retrieval legs are weighted, how the token budget is split, whether the wide-net fallback fires, and which model the MoE router selects. The engine is a **single** small PyTorch head over a frozen embedding, resolving every turn with sub-millisecond CPU inference. It was a two-stage cascade until D8 (2026-07-27) deleted the rule-based pre-classifier (DI3): measured against the promoted v2 head on the 9,441 held-out rows it would have intercepted, DI3 lost every slice on every metric, so keeping it meant two disagreeing classifiers where the worse one won by running first (§2.2).

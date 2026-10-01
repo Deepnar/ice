@@ -1,5 +1,19 @@
 # Z1 — the experiment index
 
+**V3 manual entry point, 2026-10-01:** use `run_v3_campaign.py --run-dir
+logs/<bundle>` for status, `--init` once for complete private review packets,
+and `--run` to execute/resume seed → snapshot → four cloud answer arms →
+three both-order judge contrasts → report. `--stage` selects one stage. The
+maintainer runs the full campaign manually. The runner uses an owned persistent
+database with a frozen schema-only production template; source data stays out
+of bootstrap. It saves replay store/trace checkpoints and independent as-of
+snapshots, plus each cloud answer and judge order. Exact input/model/label
+identity is required for resume. Status does not call cloud models. Labels
+require complete through-cutoff/recent review and explicit task/knowledge scope;
+all 124+131 review rows are currently unadjudicated. Reports remain diagnostic
+while judge qualification and output-specific truth audits are pending.
+See the [manual guide and complete measurement matrix](../../docs/reviews/2026-10-01-v3-manual-campaign.md).
+
 **v3 reseed harness in verification, 2026-09-29:** use `seed_v3.py`, not the
 historical 293-turn `seed_store.py`, for the new 1,471-turn run. Run it only in
 a dedicated disposable database through `tests/support/disposable_database.py`
@@ -45,7 +59,8 @@ complete gold sources for a later paired cloud-answer pass.
 `build_longterm_label_review.py` creates a private packet under `logs/`
 balanced by conversation and checkpoint, with complete gold and all intervening
 turns; a reviewed `valid`
-verdict needs a concrete reason.
+verdict needs a concrete reason, exact through-cutoff review, confirmation that
+recent history alone cannot answer, knowledge scope and semantic task labels.
 `answer_as_of.py --plan` validates saved prompts and expected answers; its full cloud run
 accepts only valid rows from that matching packet. A reviewed native source
 packet can be supplied with `--validated-native-sources` to attach complete

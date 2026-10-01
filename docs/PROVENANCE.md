@@ -1,3 +1,67 @@
+## 2026-10-01 — v3 manual campaign recovery and measurement admission
+
+Instrument checks only; no complete seed, new cloud answers, judge-quality
+campaign or memory-gain result. The manual entry point initializes private
+review packets and orchestrates five separately saved stages. Real CLI
+initialization/status produced 124 source-linked and 131 native source reviews,
+all blank, with no campaign replay/database/API call. Counts remain 160 roadmap
+anchors: 93 checked/67 open, partition 29 evidence-dependent, 35 later, 3 Z gates.
+The manual guide records the per-metric truth requirements and pipeline limits.
+
+Actual replay recovery deliberately failed after a committed second write.
+The first attempt correctly refused resume because executable seed dependencies
+were edited while it was running; it is not a pass. Its private trace/log
+`logs/z1-v3-recovery-path-2026-10-01.{jsonl,log}` remain. Later r2 and latest r3
+two-turn controls passed: complete 35-table state restored, first source IDs
+preserved, only unfinished second write replayed, failed tail archived and
+query-time snapshots retained. These use real classifier/embedding, E4B,
+NuExtract3, NLI/reranker and memory jobs on a development fixture. Recorded
+replies were supplied after preflight; no new answering model generated them.
+The r3 header also pins local writer Ollama manifest digests and uses shared
+foreground pressure; source/gate probabilities are trace metadata, not labels.
+Both test databases were removed.
+
+- r2 trace SHA256: `ea74431c3914cfca8ad3c84c05a7e5240213b0a75bac3ae967f75ada49a1f313`.
+- r3 trace `logs/z1-v3-recovery-path-2026-10-01-r3.jsonl`, SHA256
+  `8cc3c8bd44a4acda4e2991742f935d3386e8f90e60ce31fa0b0dc40b4166589e`.
+
+A separate real schema-only bootstrap cloned all 35 current memory tables,
+with zero user rows and matching column/default, constraint and index
+signatures. It safely reattached and rejected changed schema/missing ownership;
+the control database was removed. Log `logs/z1-v3-manual-schema-2026-10-01.log`,
+SHA256 `019cc1abe521d540b2ac94d1f2f634d12989d56d4c34771f4968276c16dd89d7`.
+A fresh isolated Alembic-chain check failed at 15998d67a6f2 dropping absent
+`idx_episodic_embedding`; its database was removed. This installation failure
+is why ORM bootstrap or a fresh-migration claim cannot stand in for current
+memory-schema parity; no migration repair was attempted.
+
+Cloud recovery controls use the actual answering adapter with a stubbed SDK,
+never a real cloud completion: frozen messages exclude oracle labels/source,
+input receipts match, failed attempts persist, completed resumes make zero
+requests and altered input is refused. Luna's adapter omits temperature;
+records now declare provider-default policy rather than deterministic zero.
+Judge controls retain successful first orders after interruption or second-call
+HTTP error, preserve failure attempts, and stop quota failure after one v3
+transport attempt. Input files, endpoint/model/rubric/code are pinned. These
+do not extend the previous three-pair human qualification. Catalog-only
+validation also checked the real initialized packets: all 255 identities match,
+zero admitted rows. A separate bound check found 17 native questions at
+cutoff≤40, with no possible old source under the current 40-turn window; 114
+others remain structurally eligible but unmapped. These are eligibility counts,
+not semantic-source judgments. Receipt `logs/z1-v3-manual-2026-10-01/native-window-eligibility.json`,
+SHA256 `141276db6f07e4d731170527ad4d325883a6d3e33cf5fb0e6ae069b15fa8b3a1`. Ledger snapshots
+now accompany frozen prompts and answers; this telemetry was added after the
+actual two-turn r3 recovery check and changes no memory decision.
+
+Final disposable smoke **478/478 passed**, five warnings, after second-order
+error/quota controls, pre-seed packet validation and context-ledger receipts.
+Log `logs/z1-v3-manual-ledger-final-smoke-2026-10-01.log`, SHA256
+`2b820330551165024aa244aac6f2a97d6682f7dc78404f1ea4e931e815df47d0`.
+The database was removed. Earlier 475/477 and focused controls overlap this suite;
+do not add them as independent trials. No production source/AGENTS changes or
+push. Source adjudication, output-specific semantic truth, broader judge
+qualification, targeted tuning and final LME oracle/semi-LSREP remain pending.
+
 ## 2026-10-01 — v3 maintainer-reviewed answer pairs and campaign order checks
 
 The maintainer independently reviewed three blinded pairs of existing
