@@ -19,6 +19,9 @@ from src.memory.models import Base
 
 def test_full_source_and_as_of_probe_contract():
     conversations, probes, quarantined, ineligible = load_plan()
+    assert all(row["ts_provenance"] == "synthetic_raw_import"
+               for slug in ("bb558b5f", "ecc64aab") for row in conversations[slug])
+    assert all(row["ts_provenance"] == "original" for row in conversations["355a5709"])
     assert {slug: len(rows) for slug, rows in conversations.items()} == EXPECTED
     assert sum(map(len, probes.values())) == 124
     assert len(ineligible) == 66
@@ -87,6 +90,20 @@ def test_campaign_snapshot_requires_complete_matching_trace(monkeypatch):
         path.write_text("".join(json.dumps(row) + "\n" for row in rows))
         with pytest.raises(ValueError, match="complete"):
             trace_identity(path, {"episodic_memory": 2}, identity)
+
+
+def test_full_answer_campaign_rejects_undeclared_timestamp_origins(tmp_path, monkeypatch):
+    from scripts.z1 import answer_as_of
+    from test_z1_replay_validation import complete_rows
+    monkeypatch.setattr(answer_as_of, "EXPECTED", {"example": 2})
+    monkeypatch.setattr(answer_as_of, "SOURCE_TIMESTAMP_PROVENANCE",
+                        {"example": "synthetic_raw_import"})
+    rows = complete_rows()
+    rows[0]["meta"]["settings_resolved"] = {"recent_window_max_turns": 1}
+    trace = tmp_path / "trace.jsonl"
+    trace.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    with pytest.raises(ValueError, match="timestamp origins"):
+        load_probes(trace, allow_partial=False)
 
 
 def test_gold_fragment_funnel_uses_both_source_id_spaces():
@@ -195,6 +212,7 @@ def test_reviewed_native_source_can_join_frozen_checkpoint(tmp_path, monkeypatch
     assert len(joined) == 1
     assert joined[0]["gold_turns"] == [1]
     assert joined[0]["gold_sources"][0]["source_ids"] == ["batch-1", "row-1"]
+    assert joined[0]["gold_sources"][0]["ts_provenance"] == "synthetic_raw_import"
     assert joined[0]["preflight"]["gold_fragment_coverage"]["gold_turns"] == 1
     with tempfile.TemporaryDirectory(prefix="ice-z1-plan-", dir=LOGS) as root:
         private_trace = Path(root) / "trace.jsonl"

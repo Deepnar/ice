@@ -178,7 +178,7 @@ cannot change the next historical turn's state. Freeze their prompts, not
 their recorded historical answers; cloud answer generation happens later.
 
 **Historical-clock instrument:** the isolated runner supplies the original
-source timestamp to Python clocks in the memory path, including ORM defaults,
+corpus timestamp to Python clocks in the memory path, including ORM defaults,
 graph/procedural writes and periodic writers. Its dedicated SQLAlchemy engine
 also binds explicit SQL `NOW()` reads to that timestamp. This is scoped to
 each replay turn and restores real clocks afterward; network timeouts and
@@ -195,6 +195,20 @@ turn's identity; cutoff state counts include both warm and cold originals.
 This covers the memory writer callables, not concurrency or project/document
 workflows. Validate both the schedule in isolation and actual jobs through
 the replay before calling the campaign ready.
+
+**Timestamp-origin correction, 2026-10-01:** two selected histories were
+prepared from text exports with a constructed five-minute clock. Preserve
+their corpus dates/order, but write `synthetic_raw_import`, not `original`;
+existing readers then caveat imported dates and do not treat them as original
+calendar evidence. The third history's101 source pairs/times match the
+provider export exactly and retain `original`. Pin this per-history provenance
+in the run, every write and question/gold source; carry it into dated judge
+evidence. Old traces lacking this declaration cannot enter a complete answer
+campaign. These two synthetic schedules test the declared simulated cadence
+and turn ordering, not authentic session gaps, calendar dates or elapsed-time
+retention. Absolute calendar probes require original dates or explicit
+date-bearing source text. Do not infer timestamp authenticity from timezone
+awareness, monotonic order or faithful reproduction of the corpus file.
 
 **Snapshot identity:** the seed's completion event records every table's row
 fingerprint as well as counts. A campaign snapshot must match both, so a

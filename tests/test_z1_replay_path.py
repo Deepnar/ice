@@ -23,9 +23,11 @@ from src.api.db import SessionLocal
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--conversation", choices=("355a5709", "ecc64aab"), default="355a5709",
+                        help="provider-original or constructed-clock source control")
     args = parser.parse_args()
     seed_v3.isolated_database()
-    with patch.object(sys, "argv", ["seed_v3.py", "--conversation", "355a5709",
+    with patch.object(sys, "argv", ["seed_v3.py", "--conversation", args.conversation,
                                    "--limit", "1", "--probe-panel", "immediate",
                                    "--out", str(args.out)]):
         assert seed_v3.main() == 0
@@ -38,6 +40,11 @@ def main():
     assert {row["job"] for row in jobs} == set(seed_v3.MEMORY_JOBS)
     assert all("before" in row and "after" in row for row in jobs)
     probe = next(row for row in rows if row["event"] == "as_of_probe")
+    provenance = seed_v3.SOURCE_TIMESTAMP_PROVENANCE[args.conversation]
+    written = next(row for row in rows if row["event"] == "written")
+    assert written["ts_provenance"] == provenance
+    assert probe["question_time_provenance"] == provenance
+    assert all(source["ts_provenance"] == provenance for source in probe["gold_sources"])
     history = next(row for row in rows if row["event"] == "turn")
     assert history["preflight"]["exposure_writes_enabled"] is True
     stages = [probe["preflight"], *probe["controls"].values()]
@@ -52,7 +59,8 @@ def main():
     assert not no_codex["generated_by_leg"].get("codex_claims")
     assert all(fragment["type"] not in {"codex", "timeline"}
                for fragment in no_codex["ranked_candidates"])
-    assert len(load_probes(args.out, allow_partial=True)) == 1
+    assert len(load_probes(args.out, allow_partial=True)) == sum(
+        row["event"] == "as_of_probe" for row in rows)
     try:
         load_probes(args.out, allow_partial=False)
     except ValueError:
@@ -63,6 +71,7 @@ def main():
     try:
         # Neither the full probe nor vector control may earn an extra access.
         assert db.execute(text("SELECT sum(access_count) FROM episodic_memory")).scalar() == 0
+        assert db.execute(text("SELECT ts_provenance FROM episodic_memory")).scalar() == provenance
         with tempfile.TemporaryDirectory(prefix="v3-snapshot-path-", dir=args.out.parent) as root:
             with patch.object(snapshot, "SNAPDIR", Path(root)):
                 assert snapshot.save("control") == 0
@@ -77,7 +86,8 @@ def main():
     report = summarize(args.out)
     assert not report["complete_corpus_replay"] and not report["failures"]
     assert report["historical_clock"]["historical_turn_scopes"] == 1
-    print("v3 replay path: one recorded turn, ten real memory jobs, read-only matched probes, rank/clock trace and full snapshot restore passed; answer quality unmeasured")
+    print(f"v3 replay path: one recorded turn ({provenance}), ten real memory jobs, "
+          "read-only matched probes, rank/clock trace and full snapshot restore passed; answer quality unmeasured")
     return 0
 
 

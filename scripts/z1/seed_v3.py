@@ -45,6 +45,11 @@ TYPED = Path("experiments/curation_files/typed_probes.json")
 DERIVED = Path("experiments/curation_files/derived_gt.json")
 GENERATED = Path("experiments/curation_files/generated_probes.json")
 EXPECTED = {"bb558b5f": 1119, "ecc64aab": 251, "355a5709": 101}
+# The text-export histories have a constructed five-minute simulation clock.
+# Only the provider-export history has verified original message timestamps.
+SOURCE_TIMESTAMP_PROVENANCE = {"bb558b5f": "synthetic_raw_import",
+                               "ecc64aab": "synthetic_raw_import",
+                               "355a5709": "original"}
 MARK = "z1seed"
 PROMPT_ARMS = ("full", "no_codex", "vector_only", "recent_only")
 REPLAY_SETTINGS = [
@@ -247,6 +252,7 @@ def load_plan(*, probe_timing="delayed", include_native=True,
             raise ValueError(f"{slug}: blank historical prompt or reply")
         conversations[slug].append({"turn_number": len(conversations[slug]) + 1,
                                     "timestamp": stamp,
+                                    "ts_provenance": SOURCE_TIMESTAMP_PROVENANCE[slug],
                                     "prompt": row["prompt"],
                                     "response": row["response"]})
     for slug, rows in conversations.items():
@@ -753,6 +759,7 @@ def run(args, conversations, probes) -> int:
                                "prompt_arms": list(PROMPT_ARMS),
                                "probe_state_policy": "read-only transaction, exposure writes disabled, rollback after each diagnostic probe",
                                "clock_policy": "source-time Python clocks/ORM defaults and explicit SQL NOW() within isolated turn; real elapsed model/network timers",
+                               "timestamp_provenance_by_conversation": SOURCE_TIMESTAMP_PROVENANCE,
                                "periodic_jobs": list(MEMORY_JOBS),
                                "maintenance_schedule": "shared registry/cadence/overdue-order/cycle cap; serial source-turn boundaries",
                                "unexercised_during_replay": [
@@ -793,6 +800,7 @@ def run(args, conversations, probes) -> int:
                             before = original_turn_count(db, conv.id)
                             record = {"event": "turn", "conversation": slug, "turn": number,
                                       "recorded_at": turn["timestamp"].isoformat(),
+                                      "ts_provenance": turn["ts_provenance"],
                                       "source_question_sha256": hashlib.sha256(turn["prompt"].encode()).hexdigest(),
                                       "before_turns": before,
                                       "preflight": preflight}
@@ -802,7 +810,7 @@ def run(args, conversations, probes) -> int:
                             frozen = _FrozenClassifier(pre.classification, turn["prompt"], conv.id)
                             stored = _store_turn(db, conv.id, turn["prompt"], turn["response"],
                                                  turn["timestamp"], key, "fresh",
-                                                 turn["timestamp"], "original",
+                                                 turn["timestamp"], turn["ts_provenance"],
                                                  frozen, embedder)
                             if stored is None:
                                 raise RuntimeError("duplicate turn in fresh replay")
@@ -813,8 +821,8 @@ def run(args, conversations, probes) -> int:
                                           model_used=background_model)
                             db.expire_all()
                             row = db.query(EpisodicMemory).filter_by(idempotency_key=key).one()
-                            if row.source_spans is None or row.ts_provenance != "original":
-                                raise RuntimeError("writer lost source roles or original timestamp")
+                            if row.source_spans is None or row.ts_provenance != turn["ts_provenance"]:
+                                raise RuntimeError("writer lost source roles or timestamp provenance")
                             seen_source_times[str(row.id)] = turn["timestamp"]
                             seen_source_times[str(row.batch_id)] = turn["timestamp"]
                             turn_source_ids[(slug, number)] = {str(row.id), str(row.batch_id)}
@@ -834,6 +842,7 @@ def run(args, conversations, probes) -> int:
                                                    "turn": number, "episodic_id": str(row.id),
                                                    "batch_id": str(batch_id),
                                                    "session_id": str(row.session_id),
+                                                   "ts_provenance": row.ts_provenance,
                                                    "lossless": row.lossless_flag,
                                                    "inject_raw": row.inject_raw,
                                                    "summary_coverage": row.summary_coverage,
@@ -883,6 +892,7 @@ def run(args, conversations, probes) -> int:
                                             controls[arm] = control_stage
                                     gold_sources = [{"turn": gold_turn,
                                                      "recorded_at": turns[gold_turn - 1]["timestamp"].isoformat(),
+                                                     "ts_provenance": turns[gold_turn - 1]["ts_provenance"],
                                                      "prompt": turns[gold_turn - 1]["prompt"],
                                                      "response": turns[gold_turn - 1]["response"],
                                                      "source_ids": sorted(ids)}
@@ -894,6 +904,7 @@ def run(args, conversations, probes) -> int:
                                         "type": probe["probe_type"], "conversation": slug,
                                         "split_turn": number,
                                         "question_time": turn["timestamp"].isoformat(),
+                                        "question_time_provenance": turn["ts_provenance"],
                                         "source_split_turn": probe["source_split_turn"],
                                         "cutoff_kind": probe["cutoff_kind"],
                                         "label_status": probe["label_status"],

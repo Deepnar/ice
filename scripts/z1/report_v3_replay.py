@@ -203,6 +203,8 @@ def summarize(path: Path) -> dict:
         "maintenance_calls": dict(maintenance),
         "historical_clock": dict(clock),
         "seed_clock_policy": run["meta"].get("extra", {}).get("clock_policy"),
+        "timestamp_provenance_by_conversation": run["meta"].get("extra", {}).get(
+            "timestamp_provenance_by_conversation", "not instrumented"),
         "gate": dict(gate),
         "generated_fragments_by_leg": dict(produced),
         "budgeted_fragments_by_leg": dict(budgeted),
@@ -230,6 +232,7 @@ def summarize(path: Path) -> dict:
             "vector_only is an ICE warm-vector-leg ablation with the shared gate/reranker, not an independent all-originals vector-memory baseline.",
             "no_codex removes direct graph/claim/timeline evidence; writer state and query expansion remain the full system's.",
             "Periodic jobs use a synchronous source-time due-check schedule, not the asynchronous runtime; clock scope is declared in seed_clock_policy.",
+            "Constructed five-minute text-export clocks test simulated cadence/order, not authentic calendar dates or elapsed-time retention; check timestamp provenance.",
             "Memory job coverage is declared in the trace; idle session bursts and project/document paths are outside this replay.",
         ],
     }

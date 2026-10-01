@@ -16,7 +16,8 @@ from pathlib import Path
 
 from experiments.lme.cloud_provider import PROFILES, TextGenerator, load_selected_env
 from scripts.z1.replay_validation import validate_complete_replay
-from scripts.z1.seed_v3 import CORPUS, EXPECTED, PROMPT_ARMS, gold_fragment_coverage
+from scripts.z1.seed_v3 import (CORPUS, EXPECTED, PROMPT_ARMS,
+                                SOURCE_TIMESTAMP_PROVENANCE, gold_fragment_coverage)
 
 
 LOGS = (Path(__file__).resolve().parents[2] / "logs").resolve()
@@ -47,6 +48,9 @@ def load_probes(path: Path, *, allow_partial: bool) -> list[dict]:
         raise ValueError("full trace lacks its resolved recent-history window")
     if not allow_partial:
         validate_complete_replay(rows, EXPECTED)
+        if rows[0].get("meta", {}).get("extra", {}).get(
+                "timestamp_provenance_by_conversation") != SOURCE_TIMESTAMP_PROVENANCE:
+            raise ValueError("full trace lacks the verified corpus timestamp origins")
     probes = [r for r in rows if r.get("event") == "as_of_probe"]
     keys = set()
     for probe in probes:
@@ -143,6 +147,7 @@ def reviewed_native_probes(trace: Path, audit_path: Path,
         admitted["gold_turns"] = sorted(gold)
         admitted["gold_sources"] = [{"turn": turn,
                                       "recorded_at": source[probe["conversation"]][turn - 1]["timestamp"],
+                                      "ts_provenance": SOURCE_TIMESTAMP_PROVENANCE[probe["conversation"]],
                                       "prompt": source[probe["conversation"]][turn - 1]["prompt"],
                                       "response": source[probe["conversation"]][turn - 1]["response"],
                                       "source_ids": sorted(gold_ids[turn])}
@@ -290,12 +295,14 @@ def main() -> int:
         stage = (probe["preflight"] if args.arm == "full"
                  else probe["controls"][args.arm])
         source_text = "\n\n".join(
-            f"Source turn {gold['turn']} recorded at {gold['recorded_at']}\n"
+            f"Source turn {gold['turn']} at {gold['recorded_at']} "
+            f"(timestamp provenance: {gold.get('ts_provenance', 'not recorded')})\n"
             f"User: {gold['prompt']}\nAssistant: {gold['response']}"
             for gold in probe["gold_sources"])
         record = {"probe_id": probe["probe_id"], "conversation": probe["conversation"],
                   "split_turn": probe["split_turn"],
                   "question_time": probe.get("question_time"),
+                  "question_time_provenance": probe.get("question_time_provenance"),
                   "probe_type": probe["type"],
                   "question": probe["question"], "gold_turns": probe["gold_turns"],
                   "expected_answer": probe.get("expected_answer"),

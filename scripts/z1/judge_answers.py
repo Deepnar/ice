@@ -375,6 +375,7 @@ def main() -> int:
         if (left.get("question") != right.get("question")
                 or left.get("gold_turns") != right.get("gold_turns")
                 or left.get("question_time") != right.get("question_time")
+                or left.get("question_time_provenance") != right.get("question_time_provenance")
                 or left.get("expected_answer") != right.get("expected_answer")):
             raise ValueError("Answer arms disagree on the question or validated label")
         if is_v3 and (not isinstance(left.get("expected_answer"), str)
@@ -408,7 +409,10 @@ def main() -> int:
         a_is_first = rng.random() < 0.5
         first, second = (ra, rb) if a_is_first else (rb, ra)
         expected = ra.get("expected_answer")
-        judge_kwargs = ({"expected_answer": expected, "question_time": ra.get("question_time"),
+        question_time = ra.get("question_time")
+        if ra.get("question_time_provenance"):
+            question_time = f"{question_time} (timestamp provenance: {ra['question_time_provenance']})"
+        judge_kwargs = ({"expected_answer": expected, "question_time": question_time,
                          "session_id": f"ice-z1-{da['trace_sha256'][:24]}-{ra['conversation']}"}
                         if da.get("version") == "v3" else {})
         v = judge_one(ra["question"], source,
