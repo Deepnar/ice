@@ -28,6 +28,7 @@ Run:
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -44,8 +45,11 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
+from scripts.z1.replay_checkpoint import atomic_json
+
 OUT = Path("experiments/curation_files/judgements")
 UA = "ice-research/3.0"
+_RUN_LOCK = None
 
 REASONS = ("more_grounded", "more_complete", "contradicts_source",
            "no_memory_used", "both_failed", "equivalent")
@@ -270,7 +274,8 @@ def judge_one(question, source, ans_a, ans_b, *, expected_answer=None,
             # prompt still works, which is what makes it read as a broken judge
             # rather than an exhausted one (TRAPS #11).
             }
-    for attempt in range(retries):
+    attempts = 1 if expected_answer is not None else retries
+    for attempt in range(attempts):
         try:
             req = urllib.request.Request(
                 f"{base.rstrip('/')}/chat/completions",
@@ -288,9 +293,11 @@ def judge_one(question, source, ans_a, ans_b, *, expected_answer=None,
                     note = f"HTTP {exc.code}" + (f" ({kind})" if kind else "")
                 except (ValueError, AttributeError):
                     note = f"HTTP {exc.code}"
+            if attempt == attempts - 1:
+                reason = (f"api_http_{exc.code}" if isinstance(exc, urllib.error.HTTPError)
+                          else "api")
+                return {"verdict": "ERROR", "reason": reason, "note": note}
             time.sleep(2 * (attempt + 1))
-            if attempt == retries - 1:
-                return {"verdict": "ERROR", "reason": "api", "note": note}
             continue
         if txt.startswith("```"):
             txt = txt.strip("`").split("\n", 1)[-1].rsplit("```", 1)[0]
@@ -347,13 +354,15 @@ def combine_orders(first, reverse, *, a_is_first, name_a, name_b):
             "order_verdicts": orders}
 
 
-def main() -> int:
+def _main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--a", required=True, help="arm 1 answers json")
     ap.add_argument("--b", required=True, help="arm 2 answers json")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--tag", default="judge")
+    ap.add_argument("--out", type=Path, help="stable private output under logs/ for a manual campaign")
+    ap.add_argument("--resume", action="store_true", help="reuse completed pairs and a saved first order")
     args = ap.parse_args()
     if args.limit < 0:
         raise ValueError("judge limit cannot be negative")
@@ -412,6 +421,8 @@ def main() -> int:
                 or left.get("question_time_provenance") != right.get("question_time_provenance")
                 or left.get("expected_answer") != right.get("expected_answer")):
             raise ValueError("Answer arms disagree on the question or validated label")
+        if is_v3 and left.get("label_review") != right.get("label_review"):
+            raise ValueError("Answer arms disagree on the reviewed task/knowledge scope")
         if is_v3 and (not isinstance(left.get("expected_answer"), str)
                       or not left["expected_answer"].strip()):
             raise ValueError("v3 judged answer lacks its reviewed expected answer")
@@ -428,19 +439,88 @@ def main() -> int:
     rng = random.Random(args.seed)
     results = []
     judge_identity = {"judge_model": _env("PROBE_MODEL"),
+                      "judge_base_url": (_env("PROBE_API_BASE_URL") or "").rstrip("/"),
+                      "judge_decoding": {"temperature": 0, "max_tokens": 16000,
+                                         "reasoning_effort_sent": False, "reasoning_policy": "provider_default",
+                                         "api_attempts_per_order": 1 if is_v3 else 3},
                       "calibration_status": "qualification_pending" if is_v3 else "legacy_not_asserted",
                       "score_of_record": False,
                       "judge_prompt_version": "v3_expected_answer_absolute_and_paired"
                       if da.get("version") == "v3" else "legacy_paired",
                       "answer_file_sha256": {"a": hashlib.sha256(a_bytes).hexdigest(),
                                              "b": hashlib.sha256(b_bytes).hexdigest()},
-                      "shuffle_seed": args.seed}
+                      "shuffle_seed": args.seed, "requested_limit": args.limit,
+                      "seed_clock_policy": da.get("seed_clock_policy"),
+                      "judge_rubric_sha256": hashlib.sha256(
+                          (SYSTEM_V3 if is_v3 else SYSTEM).encode()).hexdigest(),
+                      "judge_implementation_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
     global STAMP, PARTIAL
     STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    PARTIAL = OUT / f"{STAMP}_{args.tag}.partial.json"
+    path = args.out or OUT / f"{STAMP}_{args.tag}.json"
+    if args.out:
+        logs = (Path(__file__).resolve().parents[2] / "logs").resolve()
+        if not path.resolve().is_relative_to(logs):
+            raise ValueError("manual judge outputs contain private source/question text; keep them under logs/")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    global _RUN_LOCK
+    _RUN_LOCK = path.with_suffix(".lock").open("a+")
+    try:
+        fcntl.flock(_RUN_LOCK, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        raise RuntimeError("this judge stage already has an active operator") from None
+    PARTIAL = path.with_suffix(".partial.json")
+    pending = None
+    attempts = []
+    previous = PARTIAL if PARTIAL.exists() else path
+    if previous.exists():
+        if not args.resume:
+            raise ValueError("judge output exists; use --resume or a new path")
+        saved = json.loads(previous.read_text())
+        if any(saved.get(key) != value for key, value in judge_identity.items()):
+            raise ValueError("judge inputs, model, rubric, code or sample changed; refusing resume")
+        results = saved.get("results", [])
+        attempts = saved.get("failed_attempts", [])
+        pending = saved.get("pending_probe")
+        if results and results[-1]["winner"] == "ERROR":
+            failed = results.pop()
+            if len(results) >= len(pairs) or any(failed.get(k) != pairs[len(results)][0].get(k)
+                    for k in ("probe_id", "conversation", "split_turn", "question")):
+                raise ValueError("saved failed judge pair differs from input")
+            attempts.append(failed)
+            orders = failed.get("order_verdicts") or []
+            if is_v3 and orders:
+                first = validate_verdict(orders[0].get("raw"), absolute=True)
+                if first["verdict"] != "ERROR":
+                    pending = {"probe_id": failed["probe_id"], "a_was_first": failed["a_was_first"],
+                               "first_order": first}
+        if len(results) > len(pairs):
+            raise ValueError("saved judge has undeclared pairs")
+        for row, (left, _) in zip(results, pairs):
+            if any(row.get(k) != left.get(k) for k in
+                   ("probe_id", "conversation", "split_turn", "question")) or row["winner"] == "ERROR":
+                raise ValueError("saved judge pair order or identity differs")
+            if is_v3:
+                orders = row.get("order_verdicts") or []
+                if len(orders) != 2:
+                    raise ValueError("saved v3 pair lacks both raw orders")
+                raw = [validate_verdict(order.get("raw"), absolute=True) for order in orders]
+                if any(value["verdict"] == "ERROR" for value in raw):
+                    raise ValueError("saved completed judge contains malformed raw grades")
+                combined = combine_orders(*raw, a_is_first=row["a_was_first"],
+                                          name_a=name_a, name_b=name_b)
+                if any(row[key] != combined[key] for key in
+                       ("winner", "arm_a_grade", "arm_b_grade", "relative_order_consistent",
+                        "absolute_order_consistent")):
+                    raise ValueError("saved judge result disagrees with its raw orders")
+        if pending and pending["first_order"]["verdict"] == "ERROR":
+            attempts.append(pending)
+            pending = None
+
     for i, ((ra, rb), source) in enumerate(zip(pairs, sources), 1):
         # Randomise the slot so position bias cannot align with an arm.
         a_is_first = rng.random() < 0.5
+        if i <= len(results):
+            continue
         first, second = (ra, rb) if a_is_first else (rb, ra)
         expected = ra.get("expected_answer")
         question_time = ra.get("question_time")
@@ -449,19 +529,27 @@ def main() -> int:
         judge_kwargs = ({"expected_answer": expected, "question_time": question_time,
                          "session_id": f"ice-z1-{da['trace_sha256'][:24]}-{ra['conversation']}"}
                         if da.get("version") == "v3" else {})
-        v = judge_one(ra["question"], source,
-                      first.get("answer", ""), second.get("answer", ""),
-                      **judge_kwargs)
+        if pending:
+            if pending["probe_id"] != ra["probe_id"] or pending["a_was_first"] != a_is_first:
+                raise ValueError("saved pending order differs from the paired shuffle")
+            v = validate_verdict(pending["first_order"], absolute=is_v3)
+            if v["verdict"] == "ERROR":
+                raise ValueError("saved first order is malformed")
+            pending = None
+        else:
+            v = judge_one(ra["question"], source,
+                          first.get("answer", ""), second.get("answer", ""),
+                          **judge_kwargs)
         order_fields = {}
         if is_v3:
             OUT.mkdir(parents=True, exist_ok=True)
-            PARTIAL.write_text(json.dumps({"utc": STAMP, "arm_a": name_a, "arm_b": name_b,
+            atomic_json(PARTIAL, {"utc": STAMP, "arm_a": name_a, "arm_b": name_b,
                 **judge_identity, "complete": False,
                 "development_partial": bool(args.limit or da.get("development_partial")),
                 "trace_sha256": da.get("trace_sha256"), "judged": len(results),
                 "of": len(pairs), "results": results,
                 "pending_probe": {"probe_id": ra["probe_id"], "a_was_first": a_is_first,
-                                  "first_order": v}}, indent=2))
+                                  "first_order": v}, "failed_attempts": attempts})
             reverse = (judge_one(ra["question"], source, second["answer"], first["answer"],
                                  **judge_kwargs) if v["verdict"] != "ERROR" else None)
             combined = combine_orders(v, reverse, a_is_first=a_is_first,
@@ -491,6 +579,9 @@ def main() -> int:
                         "split_turn": ra.get("split_turn"),
                         "question": ra["question"],
                         "probe_type": ra.get("probe_type", "untyped"),
+                        "label_review": ra.get("label_review"),
+                        "gold_turns": ra.get("gold_turns"),
+                        "question_time": ra.get("question_time"),
                         "winner": arm, "reason": v["reason"],
                         "note": v.get("note", ""), "a_was_first": a_is_first,
                         "arm_a_prompt_tokens_est": ra.get("prompt_tokens"),
@@ -504,17 +595,18 @@ def main() -> int:
         # a usage limit at any point, and a partial file with real verdicts is
         # worth far more than a complete file that never got written.
         OUT.mkdir(parents=True, exist_ok=True)
-        PARTIAL.write_text(json.dumps(
+        atomic_json(PARTIAL,
             {"utc": STAMP, "arm_a": name_a, "arm_b": name_b,
              **judge_identity,
              "seed_clock_policy": da.get("seed_clock_policy"),
              "complete": False, "development_partial": bool(args.limit or da.get("development_partial")),
              "trace_sha256": da.get("trace_sha256"), "judged": len(results),
-             "of": len(pairs), "results": results}, indent=2))
+             "of": len(pairs), "results": results, "failed_attempts": attempts})
+        if arm == "ERROR":
+            break
 
     OUT.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    path = OUT / f"{stamp}_{args.tag}.json"
     costs = [(r["arm_a_prompt_tokens_est"], r["arm_b_prompt_tokens_est"])
              for r in results if isinstance(r["arm_a_prompt_tokens_est"], (int, float))
              and isinstance(r["arm_b_prompt_tokens_est"], (int, float))]
@@ -533,11 +625,12 @@ def main() -> int:
                 "arm_a": dict(Counter(r["arm_a_grade"] for r in group)),
                 "arm_b": dict(Counter(r["arm_b_grade"] for r in group)),
             }
-    path.write_text(json.dumps({"utc": stamp, "arm_a": name_a, "arm_b": name_b,
+    atomic_json(path, {"utc": stamp, "arm_a": name_a, "arm_b": name_b,
                                 **judge_identity,
                                 "seed_clock_policy": da.get("seed_clock_policy"),
                                 "trace_sha256": da.get("trace_sha256"),
-                                "complete": not args.limit and all(r["winner"] != "ERROR" for r in results),
+                                "complete": not args.limit and len(results) == len(pairs)
+                                and all(r["winner"] != "ERROR" for r in results),
                                 "development_partial": bool(args.limit or da.get("development_partial")),
                                 "paired_prompt_cost": token_summary,
                                 "absolute_by_type": absolute_by_type,
@@ -546,7 +639,7 @@ def main() -> int:
                                     "absolute_consistent": sum(r["absolute_order_consistent"] for r in results),
                                     "uncertain_preferences": sum(r["winner"] == "UNCERTAIN" for r in results)}
                                     if is_v3 else None),
-                                "results": results}, indent=2))
+                                "results": results, "failed_attempts": attempts})
 
     print("\n" + "=" * 66)
     print("VERDICT BY PROBE TYPE")
@@ -572,6 +665,16 @@ def main() -> int:
             print(f"{name} absolute grades: {dict(Counter(r[field] for r in results))}")
     print(f"\nwrote {path}")
     return 1 if any(r["winner"] == "ERROR" for r in results) else 0
+
+
+def main() -> int:
+    global _RUN_LOCK
+    try:
+        return _main()
+    finally:
+        if _RUN_LOCK is not None:
+            _RUN_LOCK.close()
+            _RUN_LOCK = None
 
 
 if __name__ == "__main__":

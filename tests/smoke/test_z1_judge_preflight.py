@@ -2,6 +2,7 @@
 
 import json
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -137,7 +138,7 @@ def _v3_arm(name, records, declared=None):
             "label_audit_sha256": {"existing": "labels"}, "records": records}
 
 
-def _run_v3(tmp_path, monkeypatch, left, right):
+def _run_v3(tmp_path, monkeypatch, left, right, extra=()):
     paths = []
     for index, arm in enumerate((left, right)):
         path = tmp_path / f"arm-{index}.json"
@@ -145,7 +146,7 @@ def _run_v3(tmp_path, monkeypatch, left, right):
         paths.append(path)
     monkeypatch.setattr(judge_answers, "OUT", tmp_path)
     monkeypatch.setattr(sys, "argv", ["judge_answers.py", "--a", str(paths[0]),
-                                      "--b", str(paths[1])])
+                                      "--b", str(paths[1]), *extra])
     return judge_answers.main()
 
 
@@ -236,3 +237,88 @@ def test_v3_second_order_error_keeps_api_reason_and_incomplete_status(tmp_path, 
     assert judged["winner"] == "ERROR" and judged["reason"] == "api_http_400"
     assert judged["note"] == "MissingSessionID" and judged["arm_a_grade"] is None
     assert len(judged["order_verdicts"]) == 2
+
+
+def test_judge_resume_reuses_first_order_and_complete_pairs(tmp_path, monkeypatch):
+    import tempfile
+    from scripts.z1.answer_as_of import LOGS
+    good = {"verdict": "TIE", "reason": "equivalent",
+            "A_grade": "correct", "B_grade": "correct"}
+    row = {**_record(), "probe_id": "p1", "split_turn": 80, "expected_answer": "fact"}
+    arms = (_v3_arm("full", [row]), _v3_arm("vector_only", [row]))
+    calls = []
+    def interrupted(*args, **_kwargs):
+        calls.append(args)
+        if len(calls) == 2:
+            raise KeyboardInterrupt()
+        return good
+    with tempfile.TemporaryDirectory(prefix="z1-judge-resume-", dir=LOGS) as root:
+        out = str(Path(root) / "judge.json")
+        monkeypatch.setattr(judge_answers, "judge_one", interrupted)
+        with pytest.raises(KeyboardInterrupt):
+            _run_v3(tmp_path, monkeypatch, *arms, extra=["--out", out])
+        seen = []
+        monkeypatch.setattr(judge_answers, "judge_one", lambda *a, **k: seen.append(a) or good)
+        assert _run_v3(tmp_path, monkeypatch, *arms, extra=["--out", out, "--resume"]) == 0
+        assert len(seen) == 1
+        assert _run_v3(tmp_path, monkeypatch, *arms, extra=["--out", out, "--resume"]) == 0
+        assert len(seen) == 1
+
+
+def test_judge_resume_preserves_error_attempt_and_stops_outage(tmp_path, monkeypatch):
+    import tempfile
+    from scripts.z1.answer_as_of import LOGS
+    rows = [{**_record(), "probe_id": f"p{i}", "split_turn": 80, "expected_answer": "fact"}
+            for i in range(2)]
+    arms = (_v3_arm("full", rows), _v3_arm("vector_only", rows))
+    calls = []
+    monkeypatch.setattr(judge_answers, "judge_one", lambda *a, **k: calls.append(a) or
+                        {"verdict": "ERROR", "reason": "api"})
+    with tempfile.TemporaryDirectory(prefix="z1-judge-retry-", dir=LOGS) as root:
+        out = str(Path(root) / "judge.json")
+        assert _run_v3(tmp_path, monkeypatch, *arms, extra=["--out", out]) == 1
+        assert len(calls) == 1
+        good = {"verdict": "TIE", "reason": "equivalent",
+                "A_grade": "correct", "B_grade": "correct"}
+        monkeypatch.setattr(judge_answers, "judge_one", lambda *a, **k: good)
+        assert _run_v3(tmp_path, monkeypatch, *arms, extra=["--out", out, "--resume"]) == 0
+        result = json.loads(Path(out).read_text())
+        assert result["complete"] and len(result["results"]) == 2
+        assert result["failed_attempts"][0]["reason"] == "api"
+
+
+def test_failed_second_order_resume_keeps_successful_first(tmp_path, monkeypatch):
+    import tempfile
+    from scripts.z1.answer_as_of import LOGS
+    row = {**_record(), "probe_id": "p1", "split_turn": 80, "expected_answer": "fact"}
+    arms = (_v3_arm("full", [row]), _v3_arm("vector_only", [row]))
+    good = {"verdict": "TIE", "reason": "equivalent", "A_grade": "correct", "B_grade": "correct"}
+    responses = iter([good, {"verdict": "ERROR", "reason": "api_http_429"}])
+    monkeypatch.setattr(judge_answers, "judge_one", lambda *_a, **_k: next(responses))
+    with tempfile.TemporaryDirectory(prefix="z1-second-order-retry-", dir=LOGS) as root:
+        out = str(Path(root) / "judge.json")
+        assert _run_v3(tmp_path, monkeypatch, *arms, extra=["--out", out]) == 1
+        seen = []
+        monkeypatch.setattr(judge_answers, "judge_one", lambda *a, **_k: seen.append(a) or good)
+        assert _run_v3(tmp_path, monkeypatch, *arms, extra=["--out", out, "--resume"]) == 0
+        assert len(seen) == 1
+        result = json.loads(Path(out).read_text())
+        assert result["failed_attempts"][0]["reason"] == "api_http_429"
+        assert result["results"][0]["order_verdicts"][0]["raw"] == good
+
+
+def test_v3_quota_error_makes_one_transport_attempt(monkeypatch):
+    import io
+    import urllib.error
+    monkeypatch.setattr(judge_answers, "_env", lambda key: {
+        "PROBE_API_KEY": "synthetic-test-credential", "PROBE_API_BASE_URL": "https://test.invalid/v1",
+        "PROBE_MODEL": "synthetic-judge"}.get(key))
+    calls = []
+    def quota(request, **_kwargs):
+        calls.append(request)
+        raise urllib.error.HTTPError(request.full_url, 429, "quota", {},
+            io.BytesIO(b'{"error":{"type":"insufficient_quota"}}'))
+    monkeypatch.setattr(judge_answers.urllib.request, "urlopen", quota)
+    monkeypatch.setattr(judge_answers.time, "sleep", lambda _: pytest.fail("quota retried"))
+    result = judge_answers.judge_one("question", "source", "a", "b", expected_answer="fact")
+    assert len(calls) == 1 and result["reason"] == "api_http_429"
