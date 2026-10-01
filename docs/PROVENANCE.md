@@ -1,3 +1,68 @@
+## 2026-10-01 — v3 historical harness clock, observer and snapshot controls
+
+The selected corpus/catalog check remains **1,471 recorded turns**, three
+histories, **255** frozen section questions: 124 source-linked candidates and
+131 unlabeled native questions. No source/answer label was adjudicated by this
+check. The new four-arm path control used **one** recorded turn and **one
+immediate diagnostic question** from the selected corpus in a disposable
+PostgreSQL database, then supplied the existing response. Actual classifier,
+Qwen3 embedding/reranking, local source gate, NuNER/NuExtract3/NLI and post-flight
+ran; no new cloud answer or judge call was made. All ten registered chat-memory
+periodic jobs were called, with shared cadence/order/cycle calculations and
+before/after state telemetry. Their first-turn calls do not establish mature
+note, reflection or compaction quality.
+
+Final private trace: `logs/z1-v3-four-arm-path-2026-10-01-r2.jsonl`, SHA256
+`6f0c21c5b205bc38cd8df2c982c0b770371697efb80a296920b0ddee03d429ea`.
+It contains one written turn, ten maintenance events, four frozen prompt arms
+(`full`, `no_codex`, `vector_only`, `recent_only`), one clock event, zero failure
+events and **35** table fingerprints. The development snapshot saved all 35
+ORM tables, detected a same-count row modification and restored every table's
+original count/fingerprint. All test databases and temporary snapshots were
+removed. This is instrument execution and observer isolation, **not** long-term
+retention, graph truth, supported-answer quality or a complete-corpus campaign.
+The earlier 34-table description was wrong; the live manifest establishes 35.
+
+`tests/test_z1_historical_clock.py` separately verified actual ORM defaults,
+explicit SQL clocks, opposing stale-slot age decisions, real episodic decay
+and cold movement with original identity/count preserved, clock restoration,
+PostgreSQL rejection of an attempted probe write, and graph retention without
+confidence promotion. Diagnostic probes disable exposure and roll back their
+read-only transaction; historical turns retain normal exposure. The replay
+substitutes historical clocks, but serial turn-boundary job execution does not
+simulate asynchronous idle scheduling, leases/retries, GPU deferral or bursts.
+`vector_only` remains the ICE warm-vector-leg ablation, not an independent
+all-originals vector baseline. The new judge rubric is explicitly uncalibrated
+and not a score of record.
+
+Failures were retained under ignored logs: the first SQL fixture omitted
+required `updated_by`; the first cold fixture read an expired/deleted ORM
+object; the first four-arm replay stopped because the new arm was absent from
+a whitelist. Fixtures were fixed, arm names centralized, and actual paths
+rerun. Disposable smoke passed **447/447** after the final dated-judge edit;
+the final check is logged under `logs/z1-v3-dated-judge-smoke-2026-10-01.log`.
+An intercepted HTTP request separately confirms that the judge sees the
+historical question time, dated complete gold source and expected answer;
+it makes no cloud call and does not calibrate the rubric. These checks overlap,
+so they are not independent answer trials.
+
+## 2026-09-29 — v3 pre-budget rank and historical reader-clock controls
+
+Two one-turn disposable recorded-response replays exercised real preflight,
+post-flight, six due memory jobs and full/vector/recent prompt preparation.
+Private traces: `logs/z1-v3-rank-clock-smoke-2026-09-29.jsonl` (SHA256
+`db79164cd809607fe89399c7fc1fa9952ca370c10c209b69ca8bd14b578da72a`)
+and `logs/z1-v3-final-path-smoke-2026-09-29.jsonl` (SHA256
+`e73a4ee93209b03820d67fced395ce1ede63c13cc6861114bc03935200988559`).
+They were partial immediate path checks, with no cloud answers or quality
+score. The ordered pre-budget candidate list and source-note credit were
+checked; newer distinct-source-turn rank fields were not present in the
+second trace and the reporter labels that absence explicitly. Reader clocks
+used source time while writer/SQL clocks and diagnostic exposure were still
+unrepaired. The 2026-10-01 controls above supersede those limitations; do not
+reuse these older traces as complete historical-time or observer-isolation
+evidence.
+
 ## 2026-09-29 — v3 competing-memory reader control
 
 `tests/test_retrieval_quality.py` uses a disposable store of 30 invented

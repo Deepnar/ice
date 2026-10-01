@@ -6,7 +6,116 @@ reporter and complete snapshot have now passed small isolated checks, but no
 complete seed or scored answer run exists yet. The table below describes the
 historical scripts; `scripts/z1/README.md` points to the new path.
 
-## What the current scripts actually do
+## Whole-process v3 scoring audit
+
+The default replay captures 255 questions at 39 real section checkpoints.
+Every question has a catalog expected answer. Of these, 124 have candidate
+gold source turns old enough to be outside the 40-turn recent window; 131
+native section questions have **no confirmed gold turns** and cannot enter a
+retrieval denominator or cloud answer score until reviewed. Source-linked
+coverage spans only 11 checkpoint times; the 1,119-turn conversation has
+source-linked questions only at its final section. Of 113 source-first
+questions, 101 cite assistant text, eight user text and four both, so exact
+quotation alone does not validate factual support.
+
+The private label packets pair each expected answer with original user and
+assistant source, source timestamp, gold-turn age and intervening turns. The
+131-question native packet contains the complete selected histories. Its two
+lexical top-five lists are **navigation suggestions**, not ICE retrieval or
+gold labels. Review must establish source support, later corrections and
+answerability at that section; invalid or uncertain questions stay outside
+scored quality denominators. Answer files pin catalog/review digests and keep
+the expected answer with complete gold source.
+
+For a reviewed question, the chronological trace records the gate decision,
+candidate counts by leg, first matching gold-source **fragment** rank after
+fusion/reranking and before budgeting, fragment and distinct-source-turn
+rank@5/@10, budget survival, and final
+prompt survival. The latter has separate channels for selected retrieved
+fragments and complete original source-mode conversation notes. Rank@5 is
+among five fragments, not five distinct turns: several excerpts from one
+turn can occupy several slots. The distinct-source-turn rank collapses those
+repeats; sources in a multi-source fragment tie, and fragments without
+source IDs have no turn rank. Both any-gold and all-gold probe counts use
+explicit gold-turn denominators. These measurements locate retrieval loss;
+they do not certify that answer-bearing words survived a compressed fragment
+or were used by the answerer.
+
+The frozen full, no-Codex-evidence, vector-only and recent-only prompts use one cloud answerer
+after label review. Arms share a serving-window budget rule but can spend
+different actual tokens, recorded per pair. Vector-only has no graph,
+lexical, procedural, note, slot or bookmark channel; recent-only contains
+no retrieved fragment. The no-Codex arm removes graph/claim/timeline evidence,
+keeping other legs and standing context; it isolates direct graph evidence,
+not all effects of graph writing or query expansion. `vector_only` is the
+ICE warm-vector-leg control with its shared gate/reranker/representation
+policy, not a standalone vector-memory baseline; it omits the time-gated cold
+leg. The later independent vector baseline must preserve access to all
+original sources. Checkpoints also freeze warm/cold/archive source locations,
+including currently unlabeled native questions, so later review does not
+use final-store state to explain earlier misses. The blind judge compares paired answers and grades
+each against the reviewed expected answer and complete original source
+(`correct`, `partial`, `incorrect`, `uncertain`). `both_failed`, judge errors
+and the historical question/source timestamps remain explicit; relative-date
+answers are judged at their recorded checkpoint.
+Incomplete answers remain explicit; estimated prompt-token medians and
+per-pair differences accompany answer grades. The new absolute rubric has
+schema checks but **no current human-pair or swapped-order calibration**.
+No answer-quality number is yet valid.
+Judge outputs explicitly carry an uncalibrated status and are not scores of
+record. Passing JSON schema checks is not judge calibration.
+
+The complete seed trace records resolved settings, candidate/final stages,
+job results and before/after state, failures and every table's row fingerprint.
+The shared streaming validator checks each ordered preflight/write, unique
+source identity, exact historical query time/cutoff and complete scheduled
+probe manifest. A completion flag cannot hide a missing replay turn. A
+campaign snapshot must match the seed's counts **and** fingerprints; restore
+verifies every ORM table again. An unchanged row count cannot conceal a
+modified graph fact. This checks stored state, not live HTTP streaming.
+
+**2026-10-01 clock/maintenance repair:** the isolated replay substitutes source
+time in memory-path Python clocks, ORM defaults and explicit SQL `NOW()` calls.
+Real model/network elapsed timers remain unchanged. It drives all ten chat
+memory periodic jobs from the production registry, cadence, overdue ordering
+and missed-cycle cap, including the previously omitted three decay jobs and
+compaction. Per-job before/after state includes warm/cold movement, retention,
+active patterns, notes, cluster links and pending proposals. Original-turn
+counts span both warm and cold storage. Actual ORM/SQL, stale-slot, decay/cold
+and clock-restoration controls passed in a disposable store. Jobs run serially
+at source-turn boundaries; asynchronous idle scheduling, GPU deferral,
+leases/retries, session-end bursts and project/document workflows remain
+outside this replay's coverage.
+
+**2026-10-01 observer repair:** historical prompts retain production exposure
+writes and record graph access after final selection. As-of questions and
+their full/vector/recent arms disable exposure writes and use a read-only
+PostgreSQL transaction, rolled back afterward. Otherwise the question could
+reinforce a fact before the next historical turn, or the full arm could change
+what its vector control sees. Actual SQL rejection and unchanged exposure
+counts are tested; graph access changes retention, not confidence/support.
+
+Before calling the judge, each arm must contain every declared probe exactly
+once, and all labels/sources/models must match. V3 rejects missing expected
+answers, invalid reason codes and inconsistent absolute/paired verdicts;
+judge errors produce incomplete output and a failing exit code. The full
+1,471-turn seed, source-label adjudication, cloud answer run and calibrated
+judge still have not happened. These instrument checks close no quality item.
+
+## Historical scripts audited before replacement
+
+**Next gate after instrument validation:** adjudicate the existing private
+30-candidate source/expected-answer packet, resolve native section source
+labels with explicit unscored coverage, and calibrate the current answer-pair
+rubric on independently reviewed pairs in both orders. Review must distinguish
+assistant suggestions from user decisions, later corrections, public facts
+that require no memory, insufficient evidence and complete multi-source
+answers. Freeze reviewed probe IDs and the declared replay protocol before
+the full 1,471-turn seed and matched cloud-answer campaign. Hyperparameter and
+leg-ablation results belong to the combined development Z phase; only LME
+oracle and semi-LSREP follow as the final campaigns. This order does not require
+a broad LME-S run, nor does it promise that all 29 evidence-dependent entries
+will pass without further repair.
 
 | Stage | Current path | What it establishes |
 |---|---|---|

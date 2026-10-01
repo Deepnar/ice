@@ -29,21 +29,49 @@ review. Catalog IDs repeat, so scheduled probes use unique stable identities
 and retain the original ID as metadata. A short immediate development run uses
 `--conversation 355a5709 --limit 1 --probe-panel immediate`; its
 private JSONL trace belongs under `logs/`. `report_v3_replay.py <trace>` prints
-aggregate generated → budgeted → final fragment credit, write counts,
+aggregate generated → ranked candidate (gold fragment and distinct source-turn
+rank@5/@10) → budgeted → final
+fragment/source-note credit, write counts,
 maintenance calls, lineage and failures. `snapshot.py` now covers every ORM
 table and verifies restored row identities. The replay stores recorded answers,
 so it does **not** provide an answer-quality number. Its as-of records include
-full/vector-only/recent-only final prompts. Source-linked records also carry
+full/no-Codex-evidence/vector-only/recent-only final prompts. The no-Codex
+control removes graph/claim/timeline fragments while preserving other context.
+It isolates direct graph evidence, not the full graph writer/query-expansion
+effect. The vector control retains ICE's shared gate/reranker and warm vector
+leg; it is not an independent all-originals vector-memory baseline.
+Source-linked records also carry
 complete gold sources for a later paired cloud-answer pass.
 `build_longterm_label_review.py` creates a private packet under `logs/`
 balanced by conversation and checkpoint, with complete gold and all intervening
 turns; a reviewed `valid`
 verdict needs a concrete reason.
-`answer_as_of.py --plan` validates saved prompts, and its full cloud run
+`answer_as_of.py --plan` validates saved prompts and expected answers; its full cloud run
 accepts only valid rows from that matching packet. A reviewed native source
 packet can be supplied with `--validated-native-sources` to attach complete
-gold to its frozen checkpoint prompt without reseeding. The old answer judge can
-pair the generated arm files, after answer-pair calibration.
+gold to its frozen checkpoint prompt without reseeding. `judge_answers.py`
+pairs generated arm files by stable probe and historical cutoff, returns a
+blind relative verdict and an absolute correct/partial/incorrect/uncertain
+grade for each arm using the reviewed expected answer. It reports estimated
+prompt-token medians and explicitly marks its v3 rubric uncalibrated and not
+a score of record until the current answer-pair calibration is resolved. Use
+`snapshot.py save --arm <name> --trace logs/<complete-v3-trace>` to bind a
+campaign snapshot to the complete unchanged replay; without `--trace` the
+snapshot is development-only.
+The complete trace is checked against its ordered preflight/write events,
+source identities and exact scheduled probe manifest. Snapshot binding checks
+both seed counts and row fingerprints. The isolated replay supplies source
+time to memory-path Python/ORM clocks and explicit SQL `NOW()` calls, and
+drives ten periodic memory jobs from the real registry/cadence/cycle cap.
+Job effects include physical warm/cold movement. Each checkpoint freezes
+source storage locations for later label joins and diagnosis. Historical turns retain
+normal exposure writes; diagnostic questions and all matched arms use
+read-only transactions with exposure disabled, then roll back. The trace
+declares its serial turn-boundary schedule; it does not simulate asynchronous
+GPU deferral, leases/retries or session-end bursts. Run
+`tests/test_z1_historical_clock.py` and `tests/test_z1_replay_path.py --out logs/<fresh-name>`
+through the disposable-database wrapper for the clock/observer and full
+replay-to-snapshot path controls.
 The full seed, answer pass, judge calibration
 and combined Z have **not** run yet; the old scripts and results below remain
 historical.
@@ -68,10 +96,10 @@ the independent repair work has reached the combined Z1/Z2 phase. The
 10-item pre-reseed list below records its 2026-08 state and must not be run
 as a fresh queue. `test_retrieval_quality.py` now guards the current reader
 with 30 competing synthetic turns and 15 single-/two-source questions; it
-does not score answers or Codex value. **Before a complete seed, repair the
-harness:** `seed_store.py` currently selects only 293 curated turns, not the
-agreed 1,471 full-history turns; direct insertion skips per-turn preflight;
-`snapshot.py` omits current claim/note tables. [Exact audit and acceptance
+does not score answers or Codex value. **Use the repaired v3 harness:** the
+historical `seed_store.py` selects only 293 curated turns and skips per-turn
+preflight. The current `seed_v3.py` supplies the full chronological path, and
+the current snapshot includes all 35 ORM tables. [Exact audit and acceptance
 order](../../docs/reviews/2026-09-29-v3-reseed-harness-audit.md). Then make a
 versioned complete v3 seed and validated gold/source mapping, complete the
 missing typed anchor and temporal-pair labels, then run production-parity

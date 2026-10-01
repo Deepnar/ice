@@ -1923,3 +1923,46 @@ borderline equal-score rival, rounding changed the `>=` rejection decision.
 The helper now sorts the terms before summing. Two independent catalog checks
 then returned 113. Freeze the question-time vocabulary and stable reduction
 order before calling a candidate set reproducible.
+
+### 78. A gold source can reach the final prompt without a retrieved fragment
+
+**v3, 2026-09-29.** The new reseed trace initially credited only selected
+retrieval fragments. But final prompt assembly may include a complete original
+turn through a source-mode conversation note, then suppress the redundant
+retrieved fragment. The old funnel would say “gold lost before final prompt”
+while the answerer actually saw the complete original. The harness now records
+visible source-note IDs separately and reports their union with selected
+fragments. Keep rank@5/@10 tied to the ordered retrieved candidate fragments;
+a note reaching the prompt does not retroactively make retrieval rank better.
+
+### 79. Original timestamps do not make a historical replay use the historical clock
+
+**v3, 2026-09-29.** The seed stored original 2025–26 turn timestamps, but
+relative-time parsing, prompt wording (“Current date and time”), retrieval
+recency, maintenance age cutoffs and SQL reflection could still read the
+2026-09-29 run clock. The source-time order and as-of row count therefore
+cannot certify that temporal decisions match a live conversation at the
+original date. The harness now anchors query timescope, prompt date and
+retrieval recency to each original question timestamp. Writer/maintenance
+internals, SQL `NOW()`, decay and cold archive still need separate treatment;
+mark affected findings off-production rather than borrowing credibility from
+the complete turn count.
+
+**v3 follow-up, 2026-10-01.** The isolated instrument now supplies source time
+to memory-path Python clocks/ORM defaults and explicit SQL `NOW()`. Actual
+ORM writes, stale-slot cutoffs and warm-to-cold movement pass opposing clock
+controls; real clocks are restored after scope exit. The replay now drives
+all ten periodic memory jobs, while declaring its synchronous turn-boundary
+schedule rather than claiming asynchronous scheduler equivalence.
+
+### 80. Diagnostic questions can change the conversation they measure
+
+**v3, 2026-10-01.** As-of questions originally used normal exposure writes.
+The full prompt could raise access/retention before its vector control, and
+both could reinforce evidence before the next recorded historical turn.
+Freezing answers afterward cannot remove this contamination. Historical
+preflight must keep real exposure behavior; diagnostic probes must observe
+the same state without modifying it. The harness now disables exposure writes
+inside a PostgreSQL read-only transaction and rolls back each probe. Actual
+SQL rejects an attempted write, and graph exposure stays unchanged during the
+probe while still changing retention on the normal historical path.

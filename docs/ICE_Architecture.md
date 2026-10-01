@@ -88,6 +88,24 @@ The system decomposes into the following components, each described in the corre
 ```
 
 
+### **1.3 V3 historical evaluation instrument (2026-10-01)**
+
+`scripts/z1/seed_v3.py` replays the selected recorded histories through shared
+preflight/final preparation before storing each existing reply and running
+post-flight. An isolated source clock covers Python/ORM and explicit SQL
+time decisions. The ten periodic memory jobs use the production registry,
+cadence and cycle cap, with a declared serial turn-boundary schedule. This
+instrument does not reproduce asynchronous streaming, leases/GPU deferral or
+idle session-end bursts. Historical turns retain normal context-exposure
+writes; diagnostic full/no-Codex/vector/recent probes are read-only observers and
+freeze prompts for later cloud answering. Completion validates exact turn,
+source and checkpoint identities; snapshots compare every table's row
+fingerprint. Retrieval source rank/survival locates loss, while independently
+reviewed expected answers and a calibrated blind judge are needed to establish
+supported answers per prompt token. No complete quality run is implied by
+short path checks. [Execution contract](specs/RESEED_PLAN.md) and
+[current audit](reviews/2026-09-29-v3-reseed-harness-audit.md) own the coverage.
+
 ## **2. Classification Engine**
 
 The classification engine produces, for each user turn, a set of **topic tags**, a set of **intent tags**, and — since B1 (2026-07-25) — **four independent context-reliance signals** from which the legacy single context-reliance string is *derived*. These outputs drive every downstream decision — which retrieval legs are weighted, how the token budget is split, whether the wide-net fallback fires, and which model the MoE router selects. The engine is a **single** small PyTorch head over a frozen embedding, resolving every turn with sub-millisecond CPU inference. It was a two-stage cascade until D8 (2026-07-27) deleted the rule-based pre-classifier (DI3): measured against the promoted v2 head on the 9,441 held-out rows it would have intercepted, DI3 lost every slice on every metric, so keeping it meant two disagreeing classifiers where the worse one won by running first (§2.2).

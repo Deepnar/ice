@@ -1510,3 +1510,15 @@ wins; where it conflicts with the code, the code wins.**
 | v3 archived excerpts | `ColdChunk`, `decay.py`, `_cold_chunk_candidates`, `_resurrect_cold_hits` preserve original chunk IDs/text/vectors across archival and restoration; up to3 complete excerpts per eligible cold parent compete in packing | existing time/scope/write gates; no generation | YES for new archives; legacy chunks cannot be inferred |
 
 | v3 summary source continuity | `SUMMARY_SOURCES_SQL`, summary readers and rolling-note writer share warm+cold sources; live duplicate ID wins; cold batch coverage FK survives restore | same output/source/policy manifest gate | YES; unchanged storage moves preserve cache, real changes invalidate it |
+
+### v3 evaluation instruments (2026-10-01)
+
+These are explicit research commands, not default proxy features. Their path
+checks do not establish an answer-quality result.
+
+| Feature | Where | Roadmap id | What it does (plain) | Setting | Default | On by default? |
+|---|---|---|---|---|---|---|
+| Sequential source-time replay | `scripts/z1/seed_v3.py:720` | Z1/G55 | Prepares each recorded turn, stores its existing reply, runs post-flight and ten periodic memory jobs; read-only full/no-Codex/vector/recent observers freeze checkpoint prompts and rank/evidence traces. | CLI plus isolated `DATABASE_URL`/`ICE_TEST_DATABASE` | `existing` panel: 255 prompts, 124 candidate golds + 131 unlabeled; source clock and memory jobs enabled | NO — explicit isolated command |
+| Campaign snapshot identity | `scripts/z1/snapshot.py:93` | Z1/G72 | Validates ordered complete replay, matching table counts and row hashes; saves/restores all 35 ORM tables. Same-count row changes fail identity. | `save --trace` | No trace binding unless supplied; unbound snapshots are development-only | NO — explicit isolated command |
+| Frozen cloud answer campaign | `scripts/z1/answer_as_of.py:40` | Z1/G66 | Accepts complete as-of traces and reviewed expected-answer/source labels, then answers the same chosen probe IDs for each arm. | `--profile`, validated private review files | `opencode-luna6`; no cloud call under `--plan` | NO — explicit command, review gated |
+| Expected-answer and paired judge | `scripts/z1/judge_answers.py:201` | Z1/G65 | Preflights every declared pair, grades each against complete originals/expected answer, preserves both-failed/errors and prompt-cost estimates; records uncalibrated status. | `PROBE_MODEL`, CLI arm files | Blind randomized pair; v3 correct/partial/incorrect/uncertain grades; calibration still required | NO — explicit command |
