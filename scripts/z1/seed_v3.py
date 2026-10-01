@@ -502,6 +502,7 @@ def stage_record(pre, memory, produced, ranked_candidates, budgeted,
               "source_note_ids": note_source_ids,
               "exposure_writes_enabled": settings.retrieval_strengthen_writes,
               "prompt_block_counts": memory.prepared.item_counts,
+              "context_ledger": memory.prepared.ledger.snapshot(),
               "prompt_tokens": count_messages(messages),
               "selected_tokens": sum(f["tokens"] for f in selected),
               "answer_use": "unknown_until_new_answer_is_generated"}

@@ -210,6 +210,8 @@ def summarize(path: Path) -> dict:
         "budgeted_fragments_by_leg": dict(budgeted),
         "selected_fragments_by_leg": dict(selected),
         "gold_fragment_funnel": dict(gold_funnel),
+        "source_label_basis": "screened candidate source IDs; unreviewed until matching label packets admit them",
+        "score_of_record": False,
         "gold_source_storage": dict(gold_storage),
         "gold_fragment_funnel_by_type": {key: dict(value) for key, value
                                          in sorted(gold_funnel_by_type.items())},
