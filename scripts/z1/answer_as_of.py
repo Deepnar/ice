@@ -15,7 +15,8 @@ from collections import defaultdict
 from pathlib import Path
 
 from experiments.lme.cloud_provider import PROFILES, TextGenerator, load_selected_env
-from scripts.z1.seed_v3 import CORPUS, gold_fragment_coverage
+from scripts.z1.replay_validation import validate_complete_replay
+from scripts.z1.seed_v3 import CORPUS, EXPECTED, PROMPT_ARMS, gold_fragment_coverage
 
 
 LOGS = (Path(__file__).resolve().parents[2] / "logs").resolve()
@@ -28,6 +29,14 @@ def private_path(path: Path) -> Path:
     return resolved
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def load_probes(path: Path, *, allow_partial: bool) -> list[dict]:
     rows = [json.loads(line) for line in path.open()]
     if not rows or rows[0].get("event") != "run":
@@ -36,13 +45,9 @@ def load_probes(path: Path, *, allow_partial: bool) -> list[dict]:
         "recent_window_max_turns")
     if not allow_partial and (type(gap) is not int or gap < 1):
         raise ValueError("full trace lacks its resolved recent-history window")
-    completed = next((r for r in rows if r.get("event") == "complete"
-                      and r.get("complete_selected_corpus")), None)
-    if not allow_partial and completed is None:
-        raise ValueError("full answer campaign needs a complete selected-corpus seed")
+    if not allow_partial:
+        validate_complete_replay(rows, EXPECTED)
     probes = [r for r in rows if r.get("event") == "as_of_probe"]
-    if not allow_partial and (not probes or len(probes) != completed["expected_as_of_probes"]):
-        raise ValueError("full answer campaign needs every declared as-of probe")
     keys = set()
     for probe in probes:
         key = (probe["probe_id"], probe["conversation"], probe["split_turn"])
@@ -52,6 +57,8 @@ def load_probes(path: Path, *, allow_partial: bool) -> list[dict]:
         if probe["state_turns"] != probe["split_turn"]:
             raise ValueError("probe state and historical cutoff disagree")
         unlabelled = probe.get("cutoff_kind") == "native_unlabeled_checkpoint"
+        if not probe.get("expected_answer"):
+            raise ValueError("as-of probe lacks its expected answer")
         if unlabelled and (probe["gold_turns"] or probe["gold_sources"]):
             raise ValueError("unlabeled checkpoint has unexpected gold")
         if not allow_partial and not unlabelled and (
@@ -60,13 +67,16 @@ def load_probes(path: Path, *, allow_partial: bool) -> list[dict]:
                 or not probe["gold_turns"]
                 or probe["split_turn"] - max(probe["gold_turns"]) < gap):
             raise ValueError("answer campaign includes a recent-history-confounded probe")
-        if set(probe.get("controls", {})) != {"vector_only", "recent_only"}:
+        control_names = set(probe.get("controls", {}))
+        wanted_controls = set(PROMPT_ARMS) - {"full"}
+        if control_names != wanted_controls and not (
+                allow_partial and control_names == {"vector_only", "recent_only"}):
             raise ValueError("as-of probe lacks matched prompt controls")
         if len(probe["gold_sources"]) != len(probe["gold_turns"]):
             raise ValueError("as-of probe lacks complete gold source")
         if any(source["turn"] > probe["split_turn"] for source in probe["gold_sources"]):
             raise ValueError("gold source lies after question time")
-        for arm in ("preflight", "vector_only", "recent_only"):
+        for arm in ("preflight", *probe["controls"]):
             stage = (probe["preflight"] if arm == "preflight"
                      else probe["controls"][arm])
             if not stage.get("prompt_messages"):
@@ -92,6 +102,9 @@ def reviewed_native_probes(trace: Path, audit_path: Path,
     written = {(r["conversation"], r["turn"]):
                {r["episodic_id"], r["batch_id"]}
                for r in rows if r.get("event") == "written"}
+    source_turn_by_id = {source_id: f"{slug}:{turn}"
+                         for (slug, turn), ids in written.items()
+                         for source_id in ids}
     source = defaultdict(list)
     for line in CORPUS.open():
         row = json.loads(line)
@@ -108,7 +121,8 @@ def reviewed_native_probes(trace: Path, audit_path: Path,
         probe = by_id[identity]
         if (record["conversation"] != probe["conversation"]
                 or record["cutoff_turn"] != probe["split_turn"]
-                or record["question"] != probe["question"]):
+                or record["question"] != probe["question"]
+                or record.get("expected_answer") != probe.get("expected_answer")):
             raise ValueError("native review identity differs from replay")
         verdict = record.get("answer_verdict")
         if verdict not in ("valid", "invalid", "uncertain", None):
@@ -134,7 +148,8 @@ def reviewed_native_probes(trace: Path, audit_path: Path,
                                       "source_ids": sorted(gold_ids[turn])}
                                      for turn in sorted(gold)]
         for stage in [admitted["preflight"], *admitted["controls"].values()]:
-            stage["gold_fragment_coverage"] = gold_fragment_coverage(stage, gold_ids)
+            stage["gold_fragment_coverage"] = gold_fragment_coverage(
+                stage, gold_ids, source_turn_by_id)
         admitted["label_status"] = "reviewed_source_and_answer"
         chosen.append(admitted)
     return chosen
@@ -170,7 +185,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--trace", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--arm", choices=["full", "vector_only", "recent_only"], required=True)
+    parser.add_argument("--arm", choices=PROMPT_ARMS, required=True)
     parser.add_argument("--profile", choices=sorted(PROFILES), default="opencode-luna6")
     parser.add_argument("--n", type=int, default=0, help="0 means all available probes")
     parser.add_argument("--seed", type=int, default=0)
@@ -186,7 +201,9 @@ def main() -> int:
     if args.n < 0:
         raise ValueError("--n cannot be negative")
     source, output = private_path(args.trace), private_path(args.out)
-    trace_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+    trace_hash = sha256_file(source)
+    seed_run = json.loads(source.open().readline())
+    clock_policy = seed_run.get("meta", {}).get("extra", {}).get("clock_policy")
     all_probes = load_probes(source, allow_partial=args.allow_partial)
     available = [p for p in all_probes if p["gold_turns"]]
     audit_hashes = {}
@@ -195,7 +212,7 @@ def main() -> int:
         audit = json.loads(audit_path.read_text())
         run = json.loads(source.open().readline())
         if (audit.get("kind") != "longterm_probe_label_review"
-                or audit.get("inputs") != run["meta"]["inputs"]):
+                or audit.get("inputs") != run["meta"]["inputs"][:5]):
             raise ValueError("label audit belongs to different source/catalog inputs")
         by_id = {p["probe_id"]: p for p in available}
         valid = set()
@@ -206,7 +223,11 @@ def main() -> int:
                 raise ValueError("label audit has duplicate or unknown probe")
             reviewed.add(probe_id)
             if (record["cutoff_turn"] != by_id[probe_id]["split_turn"]
-                    or record["conversation"] != by_id[probe_id]["conversation"]):
+                    or record["conversation"] != by_id[probe_id]["conversation"]
+                    or record["question"] != by_id[probe_id]["question"]
+                    or record.get("expected_answer") !=
+                    by_id[probe_id].get("expected_answer")
+                    or record["gold_turns"] != by_id[probe_id]["gold_turns"]):
                 raise ValueError("label audit cutoff differs from replay")
             if record.get("verdict") not in ("valid", "invalid", "uncertain", None):
                 raise ValueError("label audit has unknown verdict")
@@ -226,6 +247,8 @@ def main() -> int:
         raise ValueError("long-term answers need reviewed labels before cloud calls")
     probes = stratified(available, args.n, args.seed)
     identifiers = [p["probe_id"] for p in probes]
+    if args.arm != "full" and any(args.arm not in p["controls"] for p in probes):
+        raise ValueError("selected trace did not freeze the requested prompt arm")
     if args.plan:
         print(json.dumps({"version": "v3", "arm": args.arm, "probes": len(probes),
                           "label_audit_applied": bool(audit_hashes),
@@ -240,10 +263,13 @@ def main() -> int:
         raise ValueError("no validated probes selected for cloud answering")
 
     profile = PROFILES[args.profile]
+    decoding = {"max_output_tokens": 1500, "temperature": 0}
     identity = {"version": "v3", "tag": args.arm,
                 "trace_sha256": trace_hash, "probe_ids": identifiers,
+                "seed_clock_policy": clock_policy,
                 "label_audit_sha256": audit_hashes,
                 "answer_profile": profile.name, "answer_model": profile.model,
+                "decoding": decoding,
                 "development_partial": args.allow_partial,
                 "sample_seed": args.seed}
     if output.exists():
@@ -267,9 +293,17 @@ def main() -> int:
             f"User: {gold['prompt']}\nAssistant: {gold['response']}"
             for gold in probe["gold_sources"])
         record = {"probe_id": probe["probe_id"], "conversation": probe["conversation"],
-                  "split_turn": probe["split_turn"], "probe_type": probe["type"],
+                  "split_turn": probe["split_turn"],
+                  "question_time": probe.get("question_time"),
+                  "probe_type": probe["type"],
                   "question": probe["question"], "gold_turns": probe["gold_turns"],
+                  "expected_answer": probe.get("expected_answer"),
                   "gold_source_complete": True, "gold_turn_text": source_text,
+                  "gold_source_storage": {
+                      str(gold["turn"]): next((probe.get("source_storage_at_cutoff", {}).get(source_id)
+                                               for source_id in gold["source_ids"]
+                                               if source_id in probe.get("source_storage_at_cutoff", {})), None)
+                      for gold in probe["gold_sources"]},
                   "answer_profile": profile.name, "answer_model": profile.model,
                   "prompt_tokens": stage["prompt_tokens"],
                   "selected_tokens": stage["selected_tokens"],
@@ -277,8 +311,7 @@ def main() -> int:
                   "answer": "", "error": None}
         try:
             answer = answerer.generate(
-                stage["prompt_messages"], max_output_tokens=1500,
-                temperature=0,
+                stage["prompt_messages"], **decoding,
                 session_id=f"ice-v3-z1-{args.arm}-{probe['probe_id']}")
             record.update(answer=answer.text, usage=answer.usage,
                           response_id=answer.response_id)

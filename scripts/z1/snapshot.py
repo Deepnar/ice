@@ -35,6 +35,7 @@ from sqlalchemy.engine import make_url
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from scripts.z1.run_meta import run_meta
+from scripts.z1.replay_validation import validate_complete_replay
 from src.api.config import settings
 from src.memory.models import Base
 
@@ -89,10 +90,36 @@ def fingerprints() -> dict[str, str]:
     return out
 
 
-def save(arm: str) -> int:
+def trace_identity(path: Path, live_counts: dict, live_fingerprints: dict) -> dict:
+    """Bind a campaign snapshot to a complete, unchanged isolated replay."""
+    logs = (Path(__file__).resolve().parents[2] / "logs").resolve()
+    if not path.resolve().is_relative_to(logs):
+        raise ValueError("private v3 replay traces must remain under logs/")
+    from scripts.z1.seed_v3 import EXPECTED
+
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        def events():
+            for line in source:
+                digest.update(line)
+                yield json.loads(line)
+        last = validate_complete_replay(events(), EXPECTED)["complete"]
+    if last.get("table_counts") != live_counts:
+        raise ValueError("live store changed since the complete replay trace")
+    if not last.get("table_sha256") or last["table_sha256"] != live_fingerprints:
+        raise ValueError("live row identities changed since the complete replay trace")
+    return {"sha256": digest.hexdigest(), "path": str(path.resolve()),
+            "as_of_probes": last["as_of_probes"],
+            "turns_by_conversation": last["turns_by_conversation"]}
+
+
+def save(arm: str, trace: Path | None = None) -> int:
     _isolated_database()
     SNAPDIR.mkdir(parents=True, exist_ok=True)
     dest = SNAPDIR / f"{arm}.sql"
+    c = counts()
+    identity = fingerprints()
+    seed_trace = trace_identity(trace, c, identity) if trace else None
     args = ["pg_dump", "-U", USER, "-d", DB, "--data-only", "--no-owner"]
     for t in TABLES:
         args += ["-t", t]
@@ -101,11 +128,12 @@ def save(arm: str) -> int:
         print(f"pg_dump failed:\n{r.stderr[:800]}")
         return 1
     dest.write_text(r.stdout)
-    c = counts()
-    identity = fingerprints()
+    if counts() != c or fingerprints() != identity:
+        raise RuntimeError("isolated store changed while its snapshot was being saved")
     manifest = {"format": "ice-v3-z1-snapshot-2", "database": DB,
                 "tables": TABLES, "counts": c, "sha256_by_table": identity,
                 "dump_sha256": hashlib.sha256(r.stdout.encode()).hexdigest(),
+                "complete_seed_trace": seed_trace,
                 "meta": run_meta(script=__file__, args={"action": "save", "arm": arm})}
     (SNAPDIR / f"{arm}.manifest.json").write_text(json.dumps(manifest, indent=2))
     (SNAPDIR / f"{arm}.counts").write_text(
@@ -164,6 +192,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("action", choices=["save", "restore", "list", "counts"])
     ap.add_argument("--arm", default=None)
+    ap.add_argument("--trace", type=Path,
+                    help="bind a campaign snapshot to a complete v3 trace under logs/")
     args = ap.parse_args()
 
     if args.action == "counts":
@@ -181,7 +211,7 @@ def main() -> int:
     if not args.arm:
         print("--arm is required for save/restore")
         return 1
-    return save(args.arm) if args.action == "save" else restore(args.arm)
+    return save(args.arm, args.trace) if args.action == "save" else restore(args.arm)
 
 
 if __name__ == "__main__":

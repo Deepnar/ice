@@ -92,7 +92,7 @@ def conversation_stats(db, conversation_id) -> tuple:
 
 
 def build(db, question: str, conversation_id, classifier, embedder,
-          stats: Optional[tuple] = None) -> Preamble:
+          stats: Optional[tuple] = None, source_time=None) -> Preamble:
     """Reproduce the chat path's pre-retrieval work, argument for argument.
 
     Mirrors `src/api/main.py` in order: resolve the scope from the conversation
@@ -116,6 +116,7 @@ def build(db, question: str, conversation_id, classifier, embedder,
     # measured only one branch of a subsystem the `temporal` probes exist for.
     tscope = detect_timescope(
         question,
+        **({"now": source_time} if source_time is not None else {}),
         p_ltm=getattr(classification, "p_ltm", 0.0),
         p_temporal=getattr(classification, "p_temporal", 0.0))
     ts_dict = to_scope_dict(tscope)

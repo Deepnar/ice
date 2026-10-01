@@ -14,12 +14,13 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
+import importlib
 import json
 import os
 import sys
 import uuid
 from collections import Counter, defaultdict
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -30,6 +31,7 @@ from sqlalchemy import func, text
 from sqlalchemy.engine import make_url
 
 from scripts.z1 import production_parity as pp
+from scripts.z1.historical_clock import historical_clock
 from scripts.z1.run_meta import file_digest, run_meta
 from src.api.config import settings
 from src.api.db import SessionLocal
@@ -44,6 +46,34 @@ DERIVED = Path("experiments/curation_files/derived_gt.json")
 GENERATED = Path("experiments/curation_files/generated_probes.json")
 EXPECTED = {"bb558b5f": 1119, "ecc64aab": 251, "355a5709": 101}
 MARK = "z1seed"
+PROMPT_ARMS = ("full", "no_codex", "vector_only", "recent_only")
+REPLAY_SETTINGS = [
+    "recent_window_max_turns", "classifier_model_path", "label_schema_path",
+    "embedding_model_name", "background_model_mode", "background_model_name",
+    "codex_extraction_model", "codex_extraction_mode", "background_ner_model",
+    "memory_source_gate_enabled", "memory_source_rescue_enabled",
+    "context_use_serving_window", "context_budget_min", "context_budget_max",
+    "context_budget_floor", "context_generation_reserve",
+    "retrieval_rrf_k", "retrieval_leg_base_weights", "retrieval_leg_profiles",
+    "retrieval_leg_topic_overrides", "retrieval_rerank_enabled",
+    "retrieval_rerank_model", "retrieval_rerank_revision",
+    "retrieval_rerank_candidates", "retrieval_coverage_enabled",
+    "retrieval_set_floor_enabled", "retrieval_bm25_candidate_limit",
+    "retrieval_vector_candidate_limit", "retrieval_chunk_candidate_limit",
+    "retrieval_collapse_enabled", "retrieval_max_frags_per_turn",
+    "maintenance_intervals", "batch_summary_age_days",
+    "runtime_cycles_cap", "decay_daily_unaccessed", "decay_daily_accessed",
+    "decay_daily_creative", "codex_decay_daily", "codex_retention_floor",
+    "procedural_stale_days", "procedural_min_reinforcement",
+    "compaction_event_threshold",
+    "retrieval_strengthen_writes", "decay_strengthen_amount",
+    "codex_retention_increment", "codex_retention_cap",
+]
+MEMORY_JOBS = (
+    "cluster_assignment", "cluster_merge", "conversation_summary", "batch_summarize",
+    "reflection", "maintenance_agent", "decay_episodic", "decay_codex",
+    "decay_procedural", "compaction",
+)
 
 
 def canonical_probe_id(probe: dict) -> str:
@@ -224,6 +254,10 @@ def load_plan(*, probe_timing="delayed", include_native=True,
             raise ValueError(f"{slug}: expected {EXPECTED[slug]} turns, got {len(rows)}")
         if any(a["timestamp"] >= b["timestamp"] for a, b in zip(rows, rows[1:])):
             raise ValueError(f"{slug}: source timestamps not strictly ordered")
+    ordered_slugs = list(conversations)
+    for earlier, later in zip(ordered_slugs, ordered_slugs[1:]):
+        if conversations[earlier][-1]["timestamp"] >= conversations[later][0]["timestamp"]:
+            raise ValueError("selected conversation histories overlap or are out of order")
 
     unified = json.loads(UNIFIED.read_text())["probes"]
     by_question = defaultdict(list)
@@ -322,18 +356,33 @@ def fragment(f, *, include_text=False):
     return row
 
 
-def prepare_with_trace(db, pre, classifier, *, arm="full"):
+def visible_source_note_ids(note_options, messages):
+    """Resolve the single summary option that survived final prompt eviction."""
+    rendered = "\n".join(str(message.get("content", "")) for message in messages)
+    visible = [(len(note), ids) for note, ids in note_options.items()
+               if note and note in rendered]
+    longest = max((size for size, _ in visible), default=0)
+    matches = [ids for size, ids in visible if size == longest]
+    if len(matches) > 1:
+        raise RuntimeError("ambiguous source-note option in final prompt")
+    return matches[0] if matches else []
+
+
+def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
+                       graph_exposure=False):
     """Shared final preparation plus generated-leg and budget-stage evidence."""
     from src.api import memory_preparation as mp
+    from src.api import prompt_assembler as pa
     from src.api.prompt_assembler import bookmarked_turn_texts
     from src.model_registry.registry import get_model_context_window
     from src.model_registry.runtime_probe import serving_window
     from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 
-    if arm not in {"full", "vector_only", "recent_only"}:
+    if arm not in PROMPT_ARMS:
         raise ValueError(f"unknown prompt arm: {arm}")
 
-    produced, budgeted = {}, []
+    produced, ranked_candidates, budgeted = {}, [], []
+    note_options = {}
     methods = {"bm25": "_bm25_episodic", "vector": "_vector_episodic",
                "codex_graph": "_codex_graph", "codex_claims": "_codex_claims",
                "procedural": "_procedural_lookup", "batch_summary": "_batch_summary_lookup",
@@ -342,7 +391,8 @@ def prepare_with_trace(db, pre, classifier, *, arm="full"):
     def factory(session, embedder):
         orchestrator = HybridRetrievalOrchestrator(session, embedder)
         if arm != "full":
-            disabled = (set(methods) - {"vector"} if arm == "vector_only"
+            disabled = ({"codex_graph", "codex_claims"} if arm == "no_codex"
+                        else set(methods) - {"vector"} if arm == "vector_only"
                         else set(methods))
             for label in disabled:
                 setattr(orchestrator, methods[label], lambda *_a, **_k: [])
@@ -356,8 +406,23 @@ def prepare_with_trace(db, pre, classifier, *, arm="full"):
 
             setattr(orchestrator, name, counted)
         original_retrieve = orchestrator.retrieve
+        original_budget = orchestrator._enforce_token_budget
+        retrieval_calls = 0
+
+        def capture_ranking(fragments, *args, **kwargs):
+            # The input is after fusion, bonuses, optional reranking, dedup and
+            # coverage. It is the meaningful pre-budget top-k list; the result
+            # is an admission order shaped by leg diversity, not a rank list.
+            ranked_candidates.extend(fragment(f) for f in fragments)
+            return original_budget(fragments, *args, **kwargs)
+
+        orchestrator._enforce_token_budget = capture_ranking
 
         def captured(*args, **kwargs):
+            nonlocal retrieval_calls
+            retrieval_calls += 1
+            if retrieval_calls != 1:
+                raise RuntimeError("one preparation unexpectedly retrieved more than once")
             rows = original_retrieve(*args, **kwargs)
             budgeted.extend(fragment(f) for f in rows)
             return rows
@@ -368,19 +433,45 @@ def prepare_with_trace(db, pre, classifier, *, arm="full"):
     raw_window = get_model_context_window(pre.model_name)
     window = (serving_window(pre.model_name, raw_window)
               if settings.context_use_serving_window else raw_window)
-    summary_patch = (patch.object(mp, "conversation_summary_block", return_value=None)
-                     if arm != "full" else nullcontext())
+    original_notes = mp.conversation_summary_block
+
+    def capture_notes(*args, **kwargs):
+        if arm not in {"full", "no_codex"}:
+            return None
+        choices = original_notes(*args, **kwargs)
+        if kwargs.get("include_source_ids") and choices:
+            note_options.update({text: list(ids) for text, ids in choices})
+        return choices
     source_gate_patch = (patch.object(settings, "memory_source_gate_enabled", False)
                          if arm == "recent_only" else nullcontext())
+    if source_time is not None:
+        if source_time.tzinfo is None:
+            raise ValueError("historical prompt time must be timezone-aware")
+
+        class SourceDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return (source_time.astimezone(tz) if tz is not None
+                        else source_time.replace(tzinfo=None))
+
+        prompt_clock = patch.object(pa, "datetime", SourceDateTime)
+        retrieval_clock = patch.object(sys.modules[HybridRetrievalOrchestrator.__module__],
+                                       "datetime", SourceDateTime)
+    else:
+        prompt_clock = retrieval_clock = nullcontext()
     with (patch.object(mp, "HybridRetrievalOrchestrator", factory),
-          summary_patch, source_gate_patch):
+          patch.object(mp, "conversation_summary_block", capture_notes),
+          source_gate_patch, prompt_clock, retrieval_clock):
         memory = pp.prepare(
             db, pre, classifier,
             memory_slots=(db.query(MemorySlot).filter_by(is_active=True).all()
-                          if arm != "recent_only" else []),
+                          if arm in {"full", "no_codex"} else []),
             bookmarked_texts=(bookmarked_turn_texts(db, pre.conversation_id)
-                              if arm != "recent_only" else []),
+                              if arm in {"full", "no_codex"} else []),
             serving_window=window)
+        if graph_exposure:
+            from src.memory.usage import record_graph_access
+            record_graph_access(db, memory.fragments, stage="prompt_prepared")
     if not memory.prepared.ledger.fits():
         raise RuntimeError("final prompt exceeds serving window")
     if arm == "recent_only" and memory.fragments:
@@ -388,17 +479,23 @@ def prepare_with_trace(db, pre, classifier, *, arm="full"):
     if arm == "vector_only" and any(f.leg not in ("vector", "bm25+vector")
                                     for f in memory.fragments):
         raise RuntimeError("vector-only control contains another retrieval leg")
-    return memory, produced, budgeted
+    note_source_ids = visible_source_note_ids(note_options, memory.prepared.messages)
+    return memory, produced, ranked_candidates, budgeted, note_source_ids
 
 
-def stage_record(pre, memory, produced, budgeted, *, include_prompt):
+def stage_record(pre, memory, produced, ranked_candidates, budgeted,
+                 note_source_ids, *, include_prompt):
     selected = [fragment(f, include_text=True) for f in memory.fragments]
     messages = memory.prepared.messages
     result = {"gate": pp.provenance_fields(pre, memory),
               "topic_tags": pre.classification.topic_tags,
               "intent_tags": pre.classification.intent_tags,
-              "generated_by_leg": produced, "budgeted": budgeted,
+              "generated_by_leg": produced, "ranked_candidates": ranked_candidates,
+              "budgeted": budgeted,
               "selected": selected, "evicted": memory.prepared.removed,
+              "source_note_ids": note_source_ids,
+              "exposure_writes_enabled": settings.retrieval_strengthen_writes,
+              "prompt_block_counts": memory.prepared.item_counts,
               "prompt_tokens": count_messages(messages),
               "selected_tokens": sum(f["tokens"] for f in selected),
               "answer_use": "unknown_until_new_answer_is_generated"}
@@ -422,8 +519,15 @@ def lineage_at_cutoff(stage, seen_source_times, cutoff):
                 unresolved.add(source_id)
             elif when > cutoff:
                 future.add(source_id)
+    for source_id in stage.get("source_note_ids") or []:
+        when = seen_source_times.get(source_id)
+        if when is None:
+            unresolved.add(source_id)
+        elif when > cutoff:
+            future.add(source_id)
     result = {"selected_with_source_identity": with_source,
               "selected_total": len(stage["selected"]),
+              "visible_source_note_ids": len(stage.get("source_note_ids") or []),
               "unresolved_source_ids": sorted(unresolved),
               "future_source_ids": sorted(future)}
     if future:
@@ -431,8 +535,8 @@ def lineage_at_cutoff(stage, seen_source_times, cutoff):
     return result
 
 
-def gold_fragment_coverage(stage, gold_ids):
-    """Count gold turns visible at each fragment stage, never infer answer use."""
+def gold_fragment_coverage(stage, gold_ids, source_turn_by_id=None):
+    """Count source identity and pre-budget fragment rank, never answer use."""
     def ids(row):
         return ({row["source_row"]} if row["source_row"] else set()) | set(
             row["origin_batches"])
@@ -441,53 +545,155 @@ def gold_fragment_coverage(stage, gold_ids):
         returned = set().union(*(ids(row) for row in rows)) if rows else set()
         return sum(bool(source_ids & returned) for source_ids in gold_ids.values())
 
+    ranked = stage.get("ranked_candidates", [])
+    # A gold turn may produce several fragments; use its FIRST ranked fragment.
+    # A graph fragment may cite several turns; each gets that fragment's rank.
+    first_rank = {turn: next((rank for rank, row in enumerate(ranked, 1)
+                              if source_ids & ids(row)), None)
+                  for turn, source_ids in gold_ids.items()}
+    known_rank = [rank for rank in first_rank.values() if rank is not None]
+    source_turn_by_id = source_turn_by_id or {}
+    distinct_turn_rank = {}
+    seen_turns = set()
+    for row in ranked:
+        new_turns = ({source_turn_by_id[source_id] for source_id in ids(row)
+                      if source_id in source_turn_by_id} - seen_turns)
+        # Several sources in one fragment have one tied retrieval position.
+        for turn_key in new_turns:
+            distinct_turn_rank[turn_key] = len(seen_turns) + 1
+        seen_turns.update(new_turns)
+    gold_turn_rank = {}
+    for turn, source_ids in gold_ids.items():
+        keys = {source_turn_by_id[source_id] for source_id in source_ids
+                if source_id in source_turn_by_id}
+        gold_turn_rank[str(turn)] = min((distinct_turn_rank[key] for key in keys
+                                        if key in distinct_turn_rank), default=None)
+    known_turn_rank = [rank for rank in gold_turn_rank.values() if rank is not None]
+    note_ids = set(stage.get("source_note_ids") or [])
+    selected_ids = (set().union(*(ids(row) for row in stage["selected"]))
+                    if stage["selected"] else set())
+    note_hits = sum(bool(source_ids & note_ids) for source_ids in gold_ids.values())
+    prompt_hits = sum(bool(source_ids & (note_ids | selected_ids))
+                      for source_ids in gold_ids.values())
     return {"gold_turns": len(gold_ids),
             "generated": hits([row for rows in stage["generated_by_leg"].values()
                                for row in rows]),
             "generated_by_leg": {leg: hits(rows) for leg, rows in
                                  stage["generated_by_leg"].items()},
+            "ranked_candidate_fragments": len(ranked),
+            "ranked": len(known_rank),
+            "rank_at_5": sum(rank <= 5 for rank in known_rank),
+            "rank_at_10": sum(rank <= 10 for rank in known_rank),
+            "first_rank_by_gold_turn": {str(turn): rank for turn, rank in first_rank.items()},
+            "ranked_distinct_source_turns": len(seen_turns),
+            "source_turn_rank_at_5": sum(rank <= 5 for rank in known_turn_rank),
+            "source_turn_rank_at_10": sum(rank <= 10 for rank in known_turn_rank),
+            "first_source_turn_rank_by_gold_turn": gold_turn_rank,
             "budgeted": hits(stage["budgeted"]),
             "selected": hits(stage["selected"]),
-            "interpretation": "fragment provenance only; recent context and answer use are separate"}
+            "source_note": note_hits,
+            "selected_or_source_note": prompt_hits,
+            "interpretation": "first matching fragment and distinct source-turn ranks before budget; multi-source fragments tie, unsourced fragments lack turn rank; neither rank proves answer use or correctness"}
+
+
+def memory_state(db):
+    """Observable job effects, including updates that do not change row counts."""
+    metrics = {
+        "warm_turns": "SELECT count(*) FROM episodic_memory",
+        "cold_turns": "SELECT count(*) FROM cold_storage",
+        "archived_warm_turns": "SELECT count(*) FROM episodic_memory WHERE is_archived",
+        "warm_decay_total": "SELECT COALESCE(sum(decay_score),0) FROM episodic_memory",
+        "graph_strength_total": "SELECT COALESCE(sum(strength),0) FROM codex_edges",
+        "active_procedural": "SELECT count(*) FROM procedural_memory WHERE is_active",
+        "graph_snapshots": "SELECT count(*) FROM codex_snapshots",
+        "compacted_graph_events": "SELECT count(*) FROM codex_events WHERE compacted",
+        "batch_notes": "SELECT count(*) FROM batch_notes",
+        "conversation_notes": "SELECT count(*) FROM conversation_notes",
+        "clusters": "SELECT count(*) FROM context_clusters",
+        "cluster_links": "SELECT count(*) FROM episodic_cluster_links",
+        "pending_reviews": "SELECT count(*) FROM review_queue WHERE status='pending'",
+    }
+    query = " UNION ALL ".join(f"SELECT '{name}', ({sql})::double precision"
+                               for name, sql in metrics.items())
+    return dict(db.execute(text(query)).all())
+
+
+def original_turn_count(db, conversation_id):
+    return db.execute(text("""
+        SELECT count(*) FROM (
+          SELECT id FROM episodic_memory WHERE conversation_id=:conversation
+          UNION SELECT id FROM cold_storage WHERE conversation_id=:conversation
+        ) originals
+    """), {"conversation": conversation_id}).scalar()
+
+
+def source_storage_at_cutoff(db, conversation_id):
+    """Freeze original locations so later native labels do not inspect the final store."""
+    rows = db.execute(text("""
+        SELECT id::text, batch_id::text, 'warm' AS tier, is_archived
+          FROM episodic_memory WHERE conversation_id=:conversation
+        UNION ALL
+        SELECT id::text, batch_id::text, 'cold' AS tier, TRUE AS is_archived
+          FROM cold_storage WHERE conversation_id=:conversation
+    """), {"conversation": conversation_id}).all()
+    state = {}
+    for row in rows:
+        if row.id in state:
+            raise RuntimeError("original source exists in both warm and cold storage")
+        state[row.id] = {"batch_id": row.batch_id, "tier": row.tier,
+                         "is_archived": row.is_archived}
+    return state
+
+
+@contextmanager
+def probe_observation(db):
+    """Do not let development questions mutate the historical conversation."""
+    db.commit()
+    try:
+        db.execute(text("SET TRANSACTION READ ONLY"))
+        with patch.object(settings, "retrieval_strengthen_writes", False):
+            yield
+    finally:
+        db.rollback()
+        db.expire_all()
 
 
 def due_maintenance(db, sink, source_time, conversation_id, last_run):
     """Exercise real periodic writers against as-of state, with stated cadence.
 
-    Source-time gaps select when to run; job internals still use the actual
-    machine clock. The trace declares that limitation. Decay/archive jobs are
-    excluded here because they would age 2025 turns using the 2026 wall clock
-    while we are still replaying 2025, silently erasing future as-of evidence.
-    Their separate post-seed test must be reported before a whole-stack claim.
+    Share the production registry, cadence, overdue ordering and cycle cap.
+    The caller scopes clocks to source time. Jobs run serially at source turn
+    boundaries, not through production's asynchronous scheduler and leases.
     """
-    from src.workers.batch_summarizer import batch_summarize
-    from src.workers.clustering import run_cluster_assignment, run_cluster_merge
-    from src.workers.conversation_summary import run_conversation_summaries
-    from src.workers.maintenance_agent import run_maintenance_agent
-    from src.workers.reflection import run_reflection
+    from src.workers.runtime import JOBS, missed_cycles, overdue_seconds
 
-    jobs = {
-        "cluster_assignment": lambda: run_cluster_assignment(
-            db, conversation_ids=[str(conversation_id)]),
-        "cluster_merge": lambda: run_cluster_merge(
-            db, conversation_ids=[str(conversation_id)]),
-        "conversation_summary": lambda: run_conversation_summaries(
-            db, conversation_ids=[conversation_id]),
-        "batch_summarize": batch_summarize,
-        "reflection": run_reflection,
-        "maintenance_agent": lambda: run_maintenance_agent(db),
-    }
-    for name, fn in jobs.items():
+    due = []
+    for name in MEMORY_JOBS:
         interval = settings.maintenance_intervals.get(name)
         previous = last_run.get(name)
-        if not interval or (previous is not None
-                            and (source_time - previous).total_seconds() < interval):
+        if not interval:
             continue
+        overdue = overdue_seconds(source_time, interval, None, previous)
+        if overdue > 0:
+            due.append((overdue, name))
+    for _, name in sorted(due, reverse=True):
+        spec = JOBS[name]
+        module, function = spec.path.split(":")
+        fn = getattr(importlib.import_module(module), function)
+        interval = settings.maintenance_intervals[name]
+        previous = last_run.get(name)
+        elapsed = (source_time - previous).total_seconds() if previous else interval
+        kwargs = ({"cycles": missed_cycles(elapsed, interval, settings.runtime_cycles_cap)}
+                  if spec.pass_cycles else {})
         try:
-            result = fn()
+            before = memory_state(db)
+            result = fn(db, **kwargs) if spec.needs_db else fn(**kwargs)
             db.expire_all()
             sink.write(json.dumps({"event": "maintenance", "job": name,
+                                   "trigger_conversation": str(conversation_id),
                                    "source_time_trigger": source_time.isoformat(),
+                                   "call_kwargs": kwargs, "before": before,
+                                   "after": memory_state(db),
                                    "result": result}, default=str) + "\n")
             sink.flush()
             last_run[name] = source_time
@@ -532,17 +738,26 @@ def run(args, conversations, probes) -> int:
                                        schema_path=settings.label_schema_path)
         background_model = get_bg_model_name()
         meta = run_meta(script=__file__, args=vars(args),
-                        settings_keys=["recent_window_max_turns"],
+                        settings_keys=REPLAY_SETTINGS,
                         inputs=[file_digest(CORPUS), file_digest(UNIFIED),
                                 file_digest(TYPED), file_digest(DERIVED),
-                                file_digest(GENERATED)],
+                                file_digest(GENERATED),
+                                file_digest(settings.classifier_model_path),
+                                file_digest(settings.label_schema_path)],
                         extra={"version": "v3", "expected_turns": EXPECTED,
+                               "planned_probes": [[p["probe_id"], slug, cutoff]
+                                                  for (slug, cutoff), group in probes.items()
+                                                  for p in group],
+                               "resolved_background_model": background_model,
                                "recorded_answers_not_generated": True,
-                               "clock_policy": "source timestamps stored; runtime wall clock not frozen",
-                               "periodic_jobs": "source-time due checks; real wall-clock internals",
+                               "prompt_arms": list(PROMPT_ARMS),
+                               "probe_state_policy": "read-only transaction, exposure writes disabled, rollback after each diagnostic probe",
+                               "clock_policy": "source-time Python clocks/ORM defaults and explicit SQL NOW() within isolated turn; real elapsed model/network timers",
+                               "periodic_jobs": list(MEMORY_JOBS),
+                               "maintenance_schedule": "shared registry/cadence/overdue-order/cycle cap; serial source-turn boundaries",
                                "unexercised_during_replay": [
-                                   "decay_episodic", "decay_codex", "decay_procedural",
-                                   "cold_archive", "project_document_paths"]})
+                                   "asynchronous_runtime", "idle_session_burst",
+                                   "project_document_paths"]})
         with output.open("x") as sink:
             sink.write(json.dumps({"event": "run", "meta": meta}) + "\n")
             last_maintenance = {}
@@ -550,6 +765,7 @@ def run(args, conversations, probes) -> int:
             probe_count = 0
             seen_source_times = {}
             turn_source_ids = {}
+            source_turn_by_id = {}
             selected_conversations = ({args.conversation: conversations[args.conversation]}
                                       if args.conversation else conversations)
             for slug, turns in selected_conversations.items():
@@ -563,123 +779,142 @@ def run(args, conversations, probes) -> int:
                     key = f"{MARK}-{slug}-{number}"
                     stage = "preflight"
                     try:
-                        pre = pp.build(db, turn["prompt"], conv.id, classifier, embedder)
-                        memory, generated, budgeted = prepare_with_trace(db, pre, classifier)
-                        preflight = stage_record(pre, memory, generated, budgeted,
-                                                 include_prompt=True)
-                        preflight["lineage"] = lineage_at_cutoff(
-                            preflight, seen_source_times, turn["timestamp"])
-                        before = db.query(EpisodicMemory).filter_by(conversation_id=conv.id).count()
-                        record = {"event": "turn", "conversation": slug, "turn": number,
-                                  "recorded_at": turn["timestamp"].isoformat(),
-                                  "source_question_sha256": hashlib.sha256(turn["prompt"].encode()).hexdigest(),
-                                  "before_turns": before,
-                                  "preflight": preflight}
-                        sink.write(json.dumps(record, default=str) + "\n")
-                        sink.flush()
-                        stage = "write"
-                        frozen = _FrozenClassifier(pre.classification, turn["prompt"], conv.id)
-                        stored = _store_turn(db, conv.id, turn["prompt"], turn["response"],
-                                             turn["timestamp"], key, "fresh",
-                                             datetime.now(timezone.utc), "original",
-                                             frozen, embedder)
-                        if stored is None:
-                            raise RuntimeError("duplicate turn in fresh replay")
-                        batch_id, prompt, response = stored
-                        stage = "post_flight"
-                        evaluate_turn(batch_id=str(batch_id), prompt=prompt,
-                                      response=response, conversation_id=str(conv.id),
-                                      model_used=background_model)
-                        db.expire_all()
-                        row = db.query(EpisodicMemory).filter_by(idempotency_key=key).one()
-                        if row.source_spans is None or row.ts_provenance != "original":
-                            raise RuntimeError("writer lost source roles or original timestamp")
-                        seen_source_times[str(row.id)] = turn["timestamp"]
-                        seen_source_times[str(row.batch_id)] = turn["timestamp"]
-                        turn_source_ids[(slug, number)] = {str(row.id), str(row.batch_id)}
-                        source_counts = {
-                            "claims": db.execute(text("SELECT count(*) FROM codex_claims WHERE source_batch=:b"),
-                                                 {"b": row.batch_id}).scalar(),
-                            "edges_first_source": db.execute(text(
-                                "SELECT count(*) FROM codex_edges WHERE source_batch=:b"),
-                                {"b": row.batch_id}).scalar(),
-                            "chunks": db.execute(text(
-                                "SELECT count(*) FROM episodic_chunks WHERE turn_id=:id"),
-                                {"id": row.id}).scalar(),
-                        }
-                        sink.write(json.dumps({"event": "written", "conversation": slug,
-                                               "turn": number, "episodic_id": str(row.id),
-                                               "batch_id": str(batch_id),
-                                               "session_id": str(row.session_id),
-                                               "lossless": row.lossless_flag,
-                                               "inject_raw": row.inject_raw,
-                                               "summary_coverage": row.summary_coverage,
-                                               "summary_support": row.representation_verification,
-                                               "source_counts": source_counts},
-                                              default=str) + "\n")
-                        if not args.no_maintenance:
-                            stage = "maintenance"
-                            due_maintenance(db, sink, turn["timestamp"], conv.id,
-                                            last_maintenance)
-                        for probe in probes.get((slug, number), ()):
-                            stage = "as_of_probe"
-                            question = probe["question"]
-                            ppre = pp.build(db, question, conv.id, classifier, embedder)
-                            control_pre = {arm: copy.deepcopy(ppre) for arm in
-                                           ("vector_only", "recent_only")}
-                            pmemory, pgenerated, pbudgeted = prepare_with_trace(
-                                db, ppre, classifier)
-                            probe_stage = stage_record(ppre, pmemory, pgenerated,
-                                                       pbudgeted, include_prompt=True)
-                            probe_stage["lineage"] = lineage_at_cutoff(
-                                probe_stage, seen_source_times, turn["timestamp"])
-                            gold_ids = {gold_turn: turn_source_ids[(slug, gold_turn)]
-                                        for gold_turn in probe["gold_turns"]}
-                            probe_stage["gold_fragment_coverage"] = (
-                                gold_fragment_coverage(probe_stage, gold_ids))
-                            controls = {}
-                            if not args.no_probe_controls:
-                                for arm, arm_pre in control_pre.items():
-                                    cmemory, cgenerated, cbudgeted = prepare_with_trace(
-                                        db, arm_pre, classifier, arm=arm)
-                                    control_stage = stage_record(
-                                        arm_pre, cmemory, cgenerated, cbudgeted,
-                                        include_prompt=True)
-                                    control_stage["lineage"] = lineage_at_cutoff(
-                                        control_stage, seen_source_times,
-                                        turn["timestamp"])
-                                    control_stage["gold_fragment_coverage"] = (
-                                        gold_fragment_coverage(control_stage, gold_ids))
-                                    controls[arm] = control_stage
-                            gold_sources = [{"turn": gold_turn,
-                                             "recorded_at": turns[gold_turn - 1]["timestamp"].isoformat(),
-                                             "prompt": turns[gold_turn - 1]["prompt"],
-                                             "response": turns[gold_turn - 1]["response"],
-                                             "source_ids": sorted(ids)}
-                                            for gold_turn, ids in gold_ids.items()]
-                            sink.write(json.dumps({
-                                "event": "as_of_probe", "probe_id": probe.get("probe_id"),
-                                "catalog_probe_id": probe.get("catalog_probe_id"),
-                                "type": probe["probe_type"], "conversation": slug,
-                                "split_turn": number,
-                                "source_split_turn": probe["source_split_turn"],
-                                "cutoff_kind": probe["cutoff_kind"],
-                                "label_status": probe["label_status"],
-                                "question": question,
-                                "expected_answer": probe.get("expected_answer"),
-                                "gold_turns": probe["gold_turns"],
-                                "gold_sources": gold_sources,
-                                "source_excerpt": probe.get("source_excerpt"),
-                                "source_role": probe.get("source_role"),
-                                "anchor_entity": probe.get("anchor_entity"),
-                                "superseded_by": probe.get("superseded_by"),
-                                "state_turns": db.query(EpisodicMemory).filter_by(
-                                    conversation_id=conv.id).count(),
-                                "preflight": probe_stage, "controls": controls},
-                                default=str) + "\n")
-                            probe_count += 1
-                        sink.flush()
-                        completed[slug] += 1
+                        with historical_clock(turn["timestamp"], db.get_bind()) as clock_stats:
+                            pre = pp.build(db, turn["prompt"], conv.id, classifier, embedder,
+                                           source_time=turn["timestamp"])
+                            memory, generated, ranked, budgeted, note_ids = prepare_with_trace(
+                                db, pre, classifier, source_time=turn["timestamp"],
+                                graph_exposure=True)
+                            preflight = stage_record(pre, memory, generated, ranked, budgeted,
+                                                     note_ids,
+                                                     include_prompt=True)
+                            preflight["lineage"] = lineage_at_cutoff(
+                                preflight, seen_source_times, turn["timestamp"])
+                            before = original_turn_count(db, conv.id)
+                            record = {"event": "turn", "conversation": slug, "turn": number,
+                                      "recorded_at": turn["timestamp"].isoformat(),
+                                      "source_question_sha256": hashlib.sha256(turn["prompt"].encode()).hexdigest(),
+                                      "before_turns": before,
+                                      "preflight": preflight}
+                            sink.write(json.dumps(record, default=str) + "\n")
+                            sink.flush()
+                            stage = "write"
+                            frozen = _FrozenClassifier(pre.classification, turn["prompt"], conv.id)
+                            stored = _store_turn(db, conv.id, turn["prompt"], turn["response"],
+                                                 turn["timestamp"], key, "fresh",
+                                                 turn["timestamp"], "original",
+                                                 frozen, embedder)
+                            if stored is None:
+                                raise RuntimeError("duplicate turn in fresh replay")
+                            batch_id, prompt, response = stored
+                            stage = "post_flight"
+                            evaluate_turn(batch_id=str(batch_id), prompt=prompt,
+                                          response=response, conversation_id=str(conv.id),
+                                          model_used=background_model)
+                            db.expire_all()
+                            row = db.query(EpisodicMemory).filter_by(idempotency_key=key).one()
+                            if row.source_spans is None or row.ts_provenance != "original":
+                                raise RuntimeError("writer lost source roles or original timestamp")
+                            seen_source_times[str(row.id)] = turn["timestamp"]
+                            seen_source_times[str(row.batch_id)] = turn["timestamp"]
+                            turn_source_ids[(slug, number)] = {str(row.id), str(row.batch_id)}
+                            source_turn_by_id[str(row.id)] = f"{slug}:{number}"
+                            source_turn_by_id[str(row.batch_id)] = f"{slug}:{number}"
+                            source_counts = {
+                                "claims": db.execute(text("SELECT count(*) FROM codex_claims WHERE source_batch=:b"),
+                                                     {"b": row.batch_id}).scalar(),
+                                "edges_first_source": db.execute(text(
+                                    "SELECT count(*) FROM codex_edges WHERE source_batch=:b"),
+                                    {"b": row.batch_id}).scalar(),
+                                "chunks": db.execute(text(
+                                    "SELECT count(*) FROM episodic_chunks WHERE turn_id=:id"),
+                                    {"id": row.id}).scalar(),
+                            }
+                            sink.write(json.dumps({"event": "written", "conversation": slug,
+                                                   "turn": number, "episodic_id": str(row.id),
+                                                   "batch_id": str(batch_id),
+                                                   "session_id": str(row.session_id),
+                                                   "lossless": row.lossless_flag,
+                                                   "inject_raw": row.inject_raw,
+                                                   "summary_coverage": row.summary_coverage,
+                                                   "summary_support": row.representation_verification,
+                                                   "source_counts": source_counts},
+                                                  default=str) + "\n")
+                            if not args.no_maintenance:
+                                stage = "maintenance"
+                                due_maintenance(db, sink, turn["timestamp"], conv.id,
+                                                last_maintenance)
+                            for probe in probes.get((slug, number), ()):
+                                with probe_observation(db):
+                                    stage = "as_of_probe"
+                                    question = probe["question"]
+                                    ppre = pp.build(db, question, conv.id, classifier, embedder,
+                                                    source_time=turn["timestamp"])
+                                    control_pre = {arm: copy.deepcopy(ppre) for arm in
+                                                   PROMPT_ARMS[1:]}
+                                    pmemory, pgenerated, prank, pbudgeted, pnote_ids = prepare_with_trace(
+                                        db, ppre, classifier, source_time=turn["timestamp"])
+                                    probe_stage = stage_record(ppre, pmemory, pgenerated, prank,
+                                                               pbudgeted, pnote_ids,
+                                                               include_prompt=True)
+                                    probe_stage["lineage"] = lineage_at_cutoff(
+                                        probe_stage, seen_source_times, turn["timestamp"])
+                                    gold_ids = {gold_turn: turn_source_ids[(slug, gold_turn)]
+                                                for gold_turn in probe["gold_turns"]}
+                                    probe_stage["gold_fragment_coverage"] = (
+                                        gold_fragment_coverage(probe_stage, gold_ids,
+                                                               source_turn_by_id))
+                                    controls = {}
+                                    if not args.no_probe_controls:
+                                        for arm, arm_pre in control_pre.items():
+                                            cmemory, cgenerated, crank, cbudgeted, cnote_ids = prepare_with_trace(
+                                                db, arm_pre, classifier, arm=arm,
+                                                source_time=turn["timestamp"])
+                                            control_stage = stage_record(
+                                                arm_pre, cmemory, cgenerated, crank, cbudgeted,
+                                                cnote_ids,
+                                                include_prompt=True)
+                                            control_stage["lineage"] = lineage_at_cutoff(
+                                                control_stage, seen_source_times,
+                                                turn["timestamp"])
+                                            control_stage["gold_fragment_coverage"] = (
+                                                gold_fragment_coverage(control_stage, gold_ids,
+                                                                       source_turn_by_id))
+                                            controls[arm] = control_stage
+                                    gold_sources = [{"turn": gold_turn,
+                                                     "recorded_at": turns[gold_turn - 1]["timestamp"].isoformat(),
+                                                     "prompt": turns[gold_turn - 1]["prompt"],
+                                                     "response": turns[gold_turn - 1]["response"],
+                                                     "source_ids": sorted(ids)}
+                                                for gold_turn, ids in gold_ids.items()]
+                                    storage = source_storage_at_cutoff(db, conv.id)
+                                    sink.write(json.dumps({
+                                        "event": "as_of_probe", "probe_id": probe.get("probe_id"),
+                                        "catalog_probe_id": probe.get("catalog_probe_id"),
+                                        "type": probe["probe_type"], "conversation": slug,
+                                        "split_turn": number,
+                                        "question_time": turn["timestamp"].isoformat(),
+                                        "source_split_turn": probe["source_split_turn"],
+                                        "cutoff_kind": probe["cutoff_kind"],
+                                        "label_status": probe["label_status"],
+                                        "question": question,
+                                        "expected_answer": probe.get("expected_answer"),
+                                        "gold_turns": probe["gold_turns"],
+                                        "gold_sources": gold_sources,
+                                        "source_storage_at_cutoff": storage,
+                                        "source_excerpt": probe.get("source_excerpt"),
+                                        "source_role": probe.get("source_role"),
+                                        "anchor_entity": probe.get("anchor_entity"),
+                                        "superseded_by": probe.get("superseded_by"),
+                                        "state_turns": original_turn_count(db, conv.id),
+                                        "preflight": probe_stage, "controls": controls},
+                                        default=str) + "\n")
+                                    probe_count += 1
+                            sink.flush()
+                            completed[slug] += 1
+                            sink.write(json.dumps({"event": "clock", "conversation": slug,
+                                                   "turn": number, **clock_stats}) + "\n")
+                            sink.flush()
                     except Exception as exc:
                         db.rollback()
                         sink.write(json.dumps({"event": "failed", "conversation": slug,
@@ -695,12 +930,15 @@ def run(args, conversations, probes) -> int:
                                and probe_count == expected_probes)
             table_counts = {name: db.execute(text(f'SELECT count(*) FROM "{name}"')).scalar()
                             for name in Base.metadata.tables}
+            from scripts.z1.snapshot import fingerprints
+            table_sha256 = fingerprints()
             sink.write(json.dumps({"event": "complete", "complete_selected_corpus": complete_corpus,
                                    "turns_by_conversation": dict(completed),
                                    "as_of_probes": probe_count,
                                    "expected_as_of_probes": expected_probes,
                                    "probe_panel": args.probe_panel,
                                    "table_counts": table_counts,
+                                   "table_sha256": table_sha256,
                                    "answer_quality_scored": False}) + "\n")
         print(f"v3 {'full selected-corpus' if complete_corpus else 'development/partial'} replay: {output} "
               f"({sum(completed.values())} recorded replies; {probe_count} as-of prompts; "

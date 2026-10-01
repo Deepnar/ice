@@ -2,14 +2,14 @@
 
 **Written 2026-08-25. The dated execution claim below is historical.**
 
-**v3 correction, 2026-09-29:** the agreed development corpus is 1,471 ordered
-turns from three full conversations, but `seed_store.py` still imports the old
-293-turn curated-checkpoint loader. It also writes rows directly before calling
-post-flight, rather than running each historical prompt through v3 preflight
-and then supplying its recorded answer. `snapshot.py` saves only 14 hardcoded
-tables and omits current source-backed graph and note tables. Thus this plan is
-**not executable as a complete v3 reseed yet**. The required repair and
-verification order is in [the current harness audit](../reviews/2026-09-29-v3-reseed-harness-audit.md).
+**v3 correction, 2026-09-29:** the old `seed_store.py` still selects 293
+curated turns and skips per-turn preflight. The replacement `seed_v3.py` now
+replays the agreed 1,471 turns in their original order with recorded replies,
+and `snapshot.py` covers all current ORM tables. The complete run and answer
+judgment have **not** happened. A small disposable replay verifies the shared
+path; source labels, historical-clock limits, and judge calibration remain
+before a trusted quality score. [The current harness audit](../reviews/2026-09-29-v3-reseed-harness-audit.md)
+records those gates.
 Local `gemma4:e4b` remains the general background pin, NuExtract3 the separate
 Codex extractor, cloud `gpt-6-luna` the default *probe* answerer, and a cloud
 answer judge needs current answer-pair calibration. The August tier/delete
@@ -78,8 +78,11 @@ recent-history prompt arms at each selected **long-term checkpoint** cutoff;
 `report_v3_replay.py` reports
 fragment-stage gold coverage, provenance and failure stages. The new snapshot
 covers all ORM tables. A 3-turn disposable replay without periodic jobs passed;
-one-turn disposable replay with all six due periodic jobs and matched arms also
-passed. `build_longterm_label_review.py` now creates a private
+one-turn disposable replay with the earlier six due periodic jobs and matched
+arms also passed. The 2026-10-01 instrument expands this to ten registered
+memory jobs and adds historical writer clocks, read-only probe isolation and
+seed-to-snapshot fingerprints; see the contracts below and current provenance
+for their path checks. `build_longterm_label_review.py` now creates a private
 gold-plus-intervening-turn packet balanced by conversation and checkpoint;
 its current 30-candidate sample has no verdicts yet.
 `build_checkpoint_source_review.py` prepares the 131 unlabeled native
@@ -91,6 +94,77 @@ full cloud campaign. No full seed, new cloud answers, blind judge or quality
 claim has been made. The old
 `seed_store.py`/final-store answer path cannot substitute for chronological
 as-of scoring.
+
+**Rank, evidence and answer contract:** each source-linked probe has an
+expected answer requiring review and original gold turn(s). The v3 trace
+measures whether a gold source ID appeared in a generated leg, its first
+position among ordered post-rerank/pre-budget candidate **fragments**
+(rank@5 and rank@10), plus its rank after collapsing repeated fragments from
+the same source turn, whether it survived retrieval budgeting, and whether
+it reached the final prompt as a selected fragment or a complete original
+in a source-mode conversation note. Several fragments from one turn occupy
+several fragment-rank slots. Distinct-source-turn rank collapses those repeats;
+multi-source fragments give their sources a tied position and fragments
+without source IDs have no turn rank. A source hit
+does not prove that a compressed fragment retains the answer-bearing words.
+The frozen full, no-Codex-evidence, vector-only and recent-only prompts go to one cloud answering
+profile; vector-only excludes non-vector legs, slots, bookmarks and
+conversation notes. `no_codex` suppresses graph, claim and graph-timeline
+fragments but keeps the other legs and standing context. Its query expansion
+and writer-created state remain the full system's, so it measures the direct
+contribution of Codex evidence, not removal of the entire graph subsystem.
+`vector_only` is the ICE warm-vector-leg control with the shared gate,
+reranker and representation policy; it is not a standalone vector-memory
+baseline and excludes the time-gated cold leg. The later vector-baseline
+comparison must keep all original sources available and specify its own
+selection policy. Each checkpoint freezes warm/cold/archive locations of
+original sources, including unlabeled native questions, so later source
+review can distinguish absent indexing/eligibility from poor ranking.
+The blind paired judge also grades **each** answer
+against the reviewed expected answer and complete original source as correct,
+partial, incorrect or uncertain. Estimated prompt tokens are reported
+separately from rank. The judge rubric still requires calibration on current
+human-reviewed answer pairs before its grades become results of record.
+
+**Completeness gate:** a campaign trace must contain one ordered preflight and
+one completed write for every selected historical turn, and every scheduled
+probe exactly once at its declared cutoff. The final completion flag alone
+is insufficient. The answer loader and campaign snapshot use the same event
+validator. Before any judge call, each arm must contain every declared probe
+exactly once with matching labels, complete sources and answering model;
+missing expected answers and malformed or contradictory judge verdicts are
+errors, never equivalent ties or successful completion.
+
+**Observer isolation:** historical turns keep the configured production
+episodic/cold exposure behavior and record graph exposure after final prompt
+selection, as chat does. Diagnostic questions and all matched controls run
+inside a read-only PostgreSQL transaction with retrieval exposure writes
+disabled, then roll back. They do not reinforce or resurrect memory and
+cannot change the next historical turn's state. Freeze their prompts, not
+their recorded historical answers; cloud answer generation happens later.
+
+**Historical-clock instrument:** the isolated runner supplies the original
+source timestamp to Python clocks in the memory path, including ORM defaults,
+graph/procedural writes and periodic writers. Its dedicated SQLAlchemy engine
+also binds explicit SQL `NOW()` reads to that timestamp. This is scoped to
+each replay turn and restores real clocks afterward; network timeouts and
+model runtimes retain real elapsed time. Verify the overrides with actual
+SQL and ORM writes, then through recorded-turn post-flight before a full seed.
+The replay drives the ten chat-memory periodic jobs from the production job
+registry, cadence, overdue ordering and capped missed-cycle calculation:
+cluster assignment/merge, conversation/batch notes, reflection, maintenance,
+episodic/graph/procedural decay and graph-event compaction. Jobs run at source
+turn boundaries, serially; idle-time asynchronous ordering, GPU deferral,
+leases, retries and session-end bursts are not simulated. Trace per-job cycles,
+results and before/after memory state. Cold moves preserve the original
+turn's identity; cutoff state counts include both warm and cold originals.
+This covers the memory writer callables, not concurrency or project/document
+workflows. Validate both the schedule in isolation and actual jobs through
+the replay before calling the campaign ready.
+
+**Snapshot identity:** the seed's completion event records every table's row
+fingerprint as well as counts. A campaign snapshot must match both, so a
+changed graph fact with unchanged row counts cannot pass as the seed's state.
 
 > **⚑ EVERYTHING BEFORE THIS RESEED IS DEAD DATA (maintainer, 2026-08-25).**
 > *"lets just call ALL from before as we have no data, we are restarting ALL

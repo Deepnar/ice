@@ -1,0 +1,88 @@
+"""Shared, streaming completeness checks for a v3 historical replay."""
+from __future__ import annotations
+
+from collections import Counter
+from datetime import datetime
+from typing import Iterable
+
+
+def validate_complete_replay(rows: Iterable[dict], expected_turns: dict[str, int]) -> dict:
+    """Verify events, rather than trusting the final completion declaration.
+
+    Keep only identities and timestamps; a snapshot need not load every saved
+    prompt into memory merely to verify that its replay finished.
+    """
+    run = complete = pending = None
+    written = Counter()
+    source_ids = {}
+    seen_ids = set()
+    probes = set()
+    last_time = None
+    current_key = current_time = None
+    for row in rows:
+        event = row.get("event")
+        if complete is not None:
+            raise ValueError("complete replay has trailing events")
+        if run is None:
+            if (event != "run" or row.get("meta", {}).get("extra", {}).get("version") != "v3"):
+                raise ValueError("complete replay needs a single v3 run header")
+            run = row
+            continue
+        if event == "run" or event in {"failed", "maintenance_failed"}:
+            raise ValueError("complete replay has repeated run headers or failures")
+        if event == "turn":
+            slug, turn = row["conversation"], row["turn"]
+            if (pending is not None or slug not in expected_turns
+                    or turn != written[slug] + 1 or turn > expected_turns[slug]
+                    or row.get("before_turns") != turn - 1):
+                raise ValueError("complete replay has missing or unordered turn preflight")
+            stamp = datetime.fromisoformat(row["recorded_at"])
+            if stamp.tzinfo is None or (last_time is not None and stamp <= last_time):
+                raise ValueError("complete replay source timestamps are not strictly ordered")
+            pending = (slug, turn)
+            current_time = row["recorded_at"]
+            last_time = stamp
+        elif event == "written":
+            key = (row["conversation"], row["turn"])
+            if pending != key:
+                raise ValueError("complete replay write has no matching turn preflight")
+            ids = {row.get("episodic_id"), row.get("batch_id")}
+            if None in ids or "" in ids or len(ids) != 2 or ids & seen_ids:
+                raise ValueError("complete replay has missing or repeated source identities")
+            source_ids[key] = ids
+            seen_ids.update(ids)
+            written[key[0]] += 1
+            current_key = key
+            pending = None
+        elif event == "as_of_probe":
+            key = (row["conversation"], row["split_turn"])
+            identity = (row["probe_id"], *key)
+            if (pending is not None or key != current_key
+                    or row.get("state_turns") != key[1]
+                    or row.get("question_time") != current_time):
+                raise ValueError("complete replay probe was not captured at its historical cutoff")
+            if not identity[0] or identity in probes:
+                raise ValueError("complete replay has a missing or duplicate probe identity")
+            probes.add(identity)
+            gold = row.get("gold_turns", [])
+            sources = row.get("gold_sources", [])
+            if (len(gold) != len(set(gold)) or len(sources) != len(gold)
+                    or {s["turn"] for s in sources} != set(gold)):
+                raise ValueError("complete replay gold turns and sources disagree")
+            for source in sources:
+                if set(source.get("source_ids", [])) != source_ids.get((key[0], source["turn"])):
+                    raise ValueError("complete replay gold source does not match its original write")
+        elif event == "complete":
+            complete = row
+    if (run is None or complete is None or pending is not None
+            or not complete.get("complete_selected_corpus")):
+        raise ValueError("full campaign needs a complete selected-corpus replay")
+    if dict(written) != expected_turns or complete.get("turns_by_conversation") != expected_turns:
+        raise ValueError("full trace does not contain every selected historical turn exactly once")
+    declared = run.get("meta", {}).get("extra", {}).get("planned_probes") or []
+    declared_set = {tuple(identity) for identity in declared}
+    if (not declared or len(declared_set) != len(declared)
+            or declared_set != probes or complete.get("as_of_probes") != len(probes)
+            or complete.get("expected_as_of_probes") != len(probes)):
+        raise ValueError("complete replay disagrees with its planned probe identities")
+    return {"run": run, "complete": complete}

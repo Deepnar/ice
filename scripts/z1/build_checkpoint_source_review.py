@@ -74,6 +74,15 @@ def build_packet() -> dict:
         "source_mapped_existing": len(mapped),
         "unlabeled_valid_checkpoint_questions": len(records),
         "out_of_history_checkpoint_questions": len(quarantined),
+        # Candidate suggestions can miss the true source. Keep the complete
+        # selected history once per conversation so a reviewer can inspect
+        # every earlier turn, including one absent from both lexical top fives.
+        "source_histories": {slug: [{"turn": row["turn_number"],
+                                     "timestamp": row["timestamp"].isoformat(),
+                                     "user": row["prompt"],
+                                     "assistant": row["response"]}
+                                    for row in turns]
+                             for slug, turns in conversations.items()},
         "sections": [{"conversation": slug, "cutoff_turn": split, **counts}
                      for (slug, split), counts in sorted(sections.items())],
         "review_rule": (
