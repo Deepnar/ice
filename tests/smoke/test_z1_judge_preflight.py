@@ -62,7 +62,7 @@ def test_repeated_v3_question_at_two_checkpoints_has_two_identities():
 
 def test_v3_absolute_grades_follow_arms_after_blind_shuffle(tmp_path, monkeypatch):
     calls = []
-    def grade(_question, _source, first, second, *, expected_answer):
+    def grade(_question, _source, first, second, *, expected_answer, question_time):
         calls.append((first, second, expected_answer))
         return {"verdict": "A", "reason": "more_grounded",
                 "A_grade": "correct", "B_grade": "incorrect", "note": "source"}
@@ -92,6 +92,28 @@ def test_v3_absolute_grades_follow_arms_after_blind_shuffle(tmp_path, monkeypatc
     assert judged["complete"] is True
     assert judged["calibration_status"] == "not_run_for_v3_absolute_rubric"
     assert judged["score_of_record"] is False
+
+
+def test_v3_judge_request_sees_historical_clock_and_complete_source(monkeypatch):
+    import io
+    observed = []
+    result = {"verdict": "TIE", "reason": "equivalent",
+              "A_grade": "correct", "B_grade": "correct"}
+    def request(req, **_kwargs):
+        observed.append(json.loads(req.data))
+        return io.BytesIO(json.dumps({"choices": [{"message": {
+            "content": json.dumps(result)}}]}).encode())
+    monkeypatch.setattr(judge_answers, "_env", lambda key: {
+        "PROBE_API_KEY": "test-only", "PROBE_API_BASE_URL": "https://example.invalid",
+        "PROBE_MODEL": "test-judge"}[key])
+    monkeypatch.setattr(judge_answers.urllib.request, "urlopen", request)
+    source = "Source turn 1 recorded at 2025-01-01T00:00:00+00:00\nUser: first fact"
+    assert judge_answers.judge_one("What did I say last month?", source, "first fact", "first fact",
+                                  expected_answer="first fact",
+                                  question_time="2025-02-01T00:00:00+00:00") == result
+    prompt = observed[0]["messages"][1]["content"]
+    assert "HISTORICAL QUESTION TIME\n2025-02-01T00:00:00+00:00" in prompt
+    assert source in prompt and "EXPECTED ANSWER\nfirst fact" in prompt
 
 
 def _v3_arm(name, records, declared=None):

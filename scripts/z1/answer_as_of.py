@@ -290,6 +290,7 @@ def main() -> int:
         stage = (probe["preflight"] if args.arm == "full"
                  else probe["controls"][args.arm])
         source_text = "\n\n".join(
+            f"Source turn {gold['turn']} recorded at {gold['recorded_at']}\n"
             f"User: {gold['prompt']}\nAssistant: {gold['response']}"
             for gold in probe["gold_sources"])
         record = {"probe_id": probe["probe_id"], "conversation": probe["conversation"],

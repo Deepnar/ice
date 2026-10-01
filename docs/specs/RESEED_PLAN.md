@@ -122,7 +122,10 @@ original sources, including unlabeled native questions, so later source
 review can distinguish absent indexing/eligibility from poor ranking.
 The blind paired judge also grades **each** answer
 against the reviewed expected answer and complete original source as correct,
-partial, incorrect or uncertain. Estimated prompt tokens are reported
+partial, incorrect or uncertain. Supply the historical question time and each
+gold turn's recorded timestamp to the judge, so relative-date answers are
+evaluated at the checkpoint rather than the date the cloud call runs.
+Estimated prompt tokens are reported
 separately from rank. The judge rubric still requires calibration on current
 human-reviewed answer pairs before its grades become results of record.
 

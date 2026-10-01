@@ -198,12 +198,15 @@ def _full_source(rec) -> str:
     return "\n\n".join(got)
 
 
-def judge_one(question, source, ans_a, ans_b, *, expected_answer=None, retries=3):
+def judge_one(question, source, ans_a, ans_b, *, expected_answer=None,
+              question_time=None, retries=3):
     key, base, model = (_env("PROBE_API_KEY"), _env("PROBE_API_BASE_URL"),
                         _env("PROBE_MODEL"))
     if not key or not base:
         raise SystemExit("PROBE_API_KEY / PROBE_API_BASE_URL missing from .env")
     user = (f"QUESTION\n{question}\n\n"
+            + (f"HISTORICAL QUESTION TIME\n{question_time}\n\n"
+               if question_time is not None else "")
             + (f"EXPECTED ANSWER\n{expected_answer}\n\n"
                if expected_answer is not None else "")
             # ⚑ NO CAP. This was `source[:4000]`, on top of answer_probes
@@ -389,7 +392,8 @@ def main() -> int:
         a_is_first = rng.random() < 0.5
         first, second = (ra, rb) if a_is_first else (rb, ra)
         expected = ra.get("expected_answer")
-        judge_kwargs = ({"expected_answer": expected} if da.get("version") == "v3" else {})
+        judge_kwargs = ({"expected_answer": expected, "question_time": ra.get("question_time")}
+                        if da.get("version") == "v3" else {})
         v = judge_one(ra["question"], source,
                       first.get("answer", ""), second.get("answer", ""),
                       **judge_kwargs)
