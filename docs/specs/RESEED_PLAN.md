@@ -403,6 +403,11 @@ reporting as distinct resumable stages. Default invocation is read-only status;
 `--init` prepares private review packets without a database or API call. The
 user runs the full campaign manually. Stage completion remains diagnostic and
 never closes all roadmap entries or qualifies a judge automatically.
+Before a combined manual run starts expensive replay, validate review packet
+corpus/catalog digests, question/cutoff identities, native source bounds and
+admission fields without requiring a seeded store. Repeat trace/label validation
+before cloud calls. Mis-edited labels must fail before1471 writer turns, not
+only at the answer stage.
 
 Valid long-term labels must explicitly record review through the exact query
 cutoff, whether recent history alone answers the question (must be false), a

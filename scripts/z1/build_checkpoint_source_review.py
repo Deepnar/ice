@@ -13,6 +13,7 @@ from collections import Counter, defaultdict
 
 from scripts.z1.derive_retrieval_gt import build_idf, shortlist
 from scripts.z1.run_meta import file_digest
+from scripts.z1.label_review import KNOWLEDGE_SCOPES, TASK_TYPES, blank_review
 from scripts.z1.seed_v3 import (CORPUS, DERIVED, TYPED, UNIFIED,
                                 canonical_probe_id, load_plan, private_output)
 from src.api.config import settings
@@ -65,6 +66,7 @@ def build_packet() -> dict:
             "reviewed_gold_turns": [],
             "answer_verdict": None,
             "reason": "",
+            **blank_review(),
         })
     return {
         "version": "v3", "kind": "native_checkpoint_source_review",
@@ -90,7 +92,10 @@ def build_packet() -> dict:
             "original history through the section cutoff, record every necessary "
             "source turn, check whether the expected answer is supported and "
             "superseded, and mark a probe long-term only if recent turns alone "
-            "cannot answer it. Never infer support from term overlap."),
+            "cannot answer it. Record reviewed_through_turn, recent_only_answerable, "
+            "knowledge_scope and task_types. Never infer support from term overlap."),
+        "allowed_knowledge_scopes": sorted(KNOWLEDGE_SCOPES),
+        "allowed_task_types": sorted(TASK_TYPES),
         "records": records,
     }
 

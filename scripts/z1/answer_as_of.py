@@ -8,6 +8,7 @@ existing paired judge can compare the resulting complete-source answer files.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import random
@@ -15,12 +16,15 @@ from collections import defaultdict
 from pathlib import Path
 
 from experiments.lme.cloud_provider import PROFILES, TextGenerator, load_selected_env
+from scripts.z1.label_review import validate_review
+from scripts.z1.replay_checkpoint import atomic_json
 from scripts.z1.replay_validation import validate_complete_replay
 from scripts.z1.seed_v3 import (CORPUS, EXPECTED, PROMPT_ARMS,
                                 SOURCE_TIMESTAMP_PROVENANCE, gold_fragment_coverage)
 
 
 LOGS = (Path(__file__).resolve().parents[2] / "logs").resolve()
+_RUN_LOCK = None
 
 
 def private_path(path: Path) -> Path:
@@ -36,6 +40,11 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: source.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def input_digest(messages: list[dict]) -> str:
+    return hashlib.sha256(json.dumps(messages, sort_keys=True,
+                                     ensure_ascii=False).encode()).hexdigest()
 
 
 def load_probes(path: Path, *, allow_partial: bool) -> list[dict]:
@@ -142,6 +151,7 @@ def reviewed_native_probes(trace: Path, audit_path: Path,
             raise ValueError("valid native review needs old source turns and a reason")
         if any((probe["conversation"], turn) not in written for turn in gold):
             raise ValueError("reviewed source turn is missing from trace")
+        validate_review(record, cutoff)
         gold_ids = {turn: written[(probe["conversation"], turn)] for turn in gold}
         admitted = dict(probe)
         admitted["gold_turns"] = sorted(gold)
@@ -156,6 +166,9 @@ def reviewed_native_probes(trace: Path, audit_path: Path,
             stage["gold_fragment_coverage"] = gold_fragment_coverage(
                 stage, gold_ids, source_turn_by_id)
         admitted["label_status"] = "reviewed_source_and_answer"
+        admitted["review"] = {key: record[key] for key in
+                              ("knowledge_scope", "task_types", "reviewed_through_turn",
+                               "recent_only_answerable", "reason")}
         chosen.append(admitted)
     return chosen
 
@@ -179,14 +192,7 @@ def stratified(probes: list[dict], n: int, seed: int) -> list[dict]:
     return chosen
 
 
-def atomic_json(path: Path, value: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + ".tmp")
-    temp.write_text(json.dumps(value, indent=2, default=str) + "\n")
-    temp.replace(path)
-
-
-def main() -> int:
+def _main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--trace", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
@@ -239,6 +245,10 @@ def main() -> int:
             if record.get("verdict") == "valid":
                 if not record.get("reason", "").strip():
                     raise ValueError("valid label needs a concrete review reason")
+                validate_review(record, by_id[probe_id]["split_turn"])
+                by_id[probe_id]["review"] = {key: record[key] for key in
+                    ("knowledge_scope", "task_types", "reviewed_through_turn",
+                     "recent_only_answerable", "reason")}
                 valid.add(probe_id)
         available = [p for p in available if p["probe_id"] in valid]
         audit_hashes["existing"] = hashlib.sha256(audit_path.read_bytes()).hexdigest()
@@ -257,16 +267,40 @@ def main() -> int:
     if args.plan:
         print(json.dumps({"version": "v3", "arm": args.arm, "probes": len(probes),
                           "label_audit_applied": bool(audit_hashes),
+                          "review_coverage": {
+                              "by_conversation": {slug: sum(p["conversation"] == slug for p in probes)
+                                  for slug in sorted({p["conversation"] for p in probes})},
+                              "checkpoint_times": len({(p["conversation"], p["split_turn"]) for p in probes}),
+                              "knowledge_scopes": {scope: sum(p.get("review", {}).get("knowledge_scope") == scope
+                                  for p in probes) for scope in sorted({p.get("review", {}).get("knowledge_scope", "unreviewed")
+                                  for p in probes})},
+                              "semantic_task_types": {task: sum(task in p.get("review", {}).get("task_types", [])
+                                  for p in probes) for task in sorted({t for p in probes
+                                      for t in p.get("review", {}).get("task_types", [])})}},
                           "types": {kind: sum(p["type"] == kind for p in probes)
                                     for kind in sorted({p["type"] for p in probes})},
                           "prompt_tokens": sum((p["preflight"] if args.arm == "full"
                                                 else p["controls"][args.arm])["prompt_tokens"]
                                                for p in probes),
+                          "matched_arms": {arm: {"probes": len(probes),
+                              "prompt_tokens_est": sum((p["preflight"] if arm == "full"
+                                  else p["controls"][arm])["prompt_tokens"] for p in probes)}
+                              for arm in PROMPT_ARMS
+                              if all(arm == "full" or arm in p["controls"] for p in probes)},
                           "recorded_answers_not_used": True}, indent=2))
         return 0
     if not probes:
         raise ValueError("no validated probes selected for cloud answering")
 
+    output.parent.mkdir(parents=True, exist_ok=True)
+    global _RUN_LOCK
+    _RUN_LOCK = output.with_suffix(".lock").open("a+")
+    try:
+        fcntl.flock(_RUN_LOCK, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        raise RuntimeError("this answer stage already has an active operator") from None
+
+    load_selected_env()
     profile = PROFILES[args.profile]
     decoding = {"max_output_tokens": 1500, "temperature": 0}
     identity = {"version": "v3", "tag": args.arm,
@@ -274,7 +308,14 @@ def main() -> int:
                 "seed_clock_policy": clock_policy,
                 "label_audit_sha256": audit_hashes,
                 "answer_profile": profile.name, "answer_model": profile.model,
-                "decoding": decoding,
+                "decoding": {**decoding, "temperature_sent": profile.supports_temperature,
+                             "temperature_policy": "requested_zero" if profile.supports_temperature
+                             else "provider_default"},
+                "provider": profile.metadata(),
+                "implementation_sha256": {
+                    "answer_runner": sha256_file(Path(__file__)),
+                    "cloud_adapter": sha256_file(Path(__file__).resolve().parents[2]
+                                                 / "experiments/lme/cloud_provider.py")},
                 "development_partial": args.allow_partial,
                 "sample_seed": args.seed}
     if output.exists():
@@ -286,12 +327,32 @@ def main() -> int:
     else:
         result = {**identity, "complete": False, "records": []}
         atomic_json(output, result)
-    done = {row["probe_id"]: row for row in result["records"] if row.get("answer")}
-    load_selected_env()
+    by_id = {p["probe_id"]: p for p in probes}
+    observed = set()
+    for row in result["records"]:
+        identity_key = row["probe_id"]
+        if identity_key not in by_id or identity_key in observed:
+            raise ValueError("resume output has duplicate or undeclared answers")
+        observed.add(identity_key)
+        stage = (by_id[identity_key]["preflight"] if args.arm == "full"
+                 else by_id[identity_key]["controls"][args.arm])
+        if (row.get("answer_input_sha256") != input_digest(stage["prompt_messages"])
+                or input_digest(row.get("answer_input_messages", [])) != row["answer_input_sha256"]):
+            raise ValueError("saved answer input differs from the frozen prompt")
+    done = {row["probe_id"]: row for row in result["records"]
+            if row.get("answer") and not row.get("error")}
+    if len(done) == len(probes):
+        result["complete"] = True
+        atomic_json(output, result)
+        return 0
     answerer = TextGenerator(profile)
     for index, probe in enumerate(probes, 1):
         if probe["probe_id"] in done:
             continue
+        prior = next((row for row in result["records"]
+                      if row["probe_id"] == probe["probe_id"] and row.get("error")), None)
+        if prior:
+            result.setdefault("failed_attempts", []).append(prior)
         stage = (probe["preflight"] if args.arm == "full"
                  else probe["controls"][args.arm])
         source_text = "\n\n".join(
@@ -306,6 +367,7 @@ def main() -> int:
                   "probe_type": probe["type"],
                   "question": probe["question"], "gold_turns": probe["gold_turns"],
                   "expected_answer": probe.get("expected_answer"),
+                  "label_review": probe.get("review"),
                   "gold_source_complete": True, "gold_turn_text": source_text,
                   "gold_source_storage": {
                       str(gold["turn"]): next((probe.get("source_storage_at_cutoff", {}).get(source_id)
@@ -316,6 +378,13 @@ def main() -> int:
                   "prompt_tokens": stage["prompt_tokens"],
                   "selected_tokens": stage["selected_tokens"],
                   "gold_fragment_coverage": stage["gold_fragment_coverage"],
+                  "answer_input_messages": stage["prompt_messages"],
+                  "answer_input_sha256": input_digest(stage["prompt_messages"]),
+                  "evidence_receipt": {key: stage.get(key) for key in
+                                       ("gate", "selected", "source_note_ids", "lineage",
+                                        "evicted", "prompt_block_counts", "context_ledger")},
+                  "prompt_evidence_support": "unreviewed",
+                  "answer_memory_use": "not_inferred_from_correctness_or_source_presence",
                   "answer": "", "error": None}
         try:
             answer = answerer.generate(
@@ -339,6 +408,16 @@ def main() -> int:
                                   for r in result["records"]))
     atomic_json(output, result)
     return 0 if result["complete"] else 1
+
+
+def main() -> int:
+    global _RUN_LOCK
+    try:
+        return _main()
+    finally:
+        if _RUN_LOCK is not None:
+            _RUN_LOCK.close()
+            _RUN_LOCK = None
 
 
 if __name__ == "__main__":

@@ -206,6 +206,9 @@ def test_reviewed_native_source_can_join_frozen_checkpoint(tmp_path, monkeypatch
                            "question": probe["question"],
                            "expected_answer": probe["expected_answer"],
                            "answer_verdict": "valid", "reviewed_gold_turns": [1],
+                           "reviewed_through_turn": probe["split_turn"],
+                           "recent_only_answerable": False,
+                           "knowledge_scope": "private_history", "task_types": ["episodic_lookup"],
                            "reason": "Reviewed source support and intervening turns."}]}
     audit.write_text(json.dumps(packet))
     joined = reviewed_native_probes(trace, audit, [frozen])

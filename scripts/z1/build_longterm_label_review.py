@@ -13,6 +13,7 @@ import random
 from collections import defaultdict
 
 from scripts.z1.run_meta import file_digest
+from scripts.z1.label_review import KNOWLEDGE_SCOPES, TASK_TYPES, blank_review
 from scripts.z1.seed_v3 import (CORPUS, DERIVED, GENERATED, TYPED, UNIFIED, load_plan,
                                 private_output)
 
@@ -78,6 +79,7 @@ def build_packet(count: int, seed: int) -> dict:
             "intervening_turns": [source(turn) for turn in
                                   range(source_split + 1, cutoff + 1)],
             "verdict": None, "reason": "",
+            **blank_review(),
         })
     return {
         "version": "v3", "kind": "longterm_probe_label_review",
@@ -94,7 +96,11 @@ def build_packet(count: int, seed: int) -> dict:
             "the question is answerable at its checkpoint. A later user correction "
             "can supersede a current-value answer; a question explicitly asking "
             "what was said earlier may remain valid. Do not treat an assistant "
-            "assertion alone as an independent user correction."),
+            "assertion alone as an independent user correction. Record review "
+            "through the cutoff and whether recent history alone answers it. "
+            "Declare knowledge_scope and task_types from the allowed values."),
+        "allowed_knowledge_scopes": sorted(KNOWLEDGE_SCOPES),
+        "allowed_task_types": sorted(TASK_TYPES),
         "records": records,
     }
 
