@@ -228,6 +228,43 @@ awareness, monotonic order or faithful reproduction of the corpus file.
 fingerprint as well as counts. A campaign snapshot must match both, so a
 changed graph fact with unchanged row counts cannot pass as the seed's state.
 
+**Manual campaign and recovery contract, 2026-10-01:** the maintainer will run
+the full campaign manually; development checks must not launch it. Provide one
+entry point for status/plan/run, orchestrating replay, complete snapshot,
+review-gated matched cloud answers, paired judges and aggregate reporting.
+These remain distinct stages with saved artifacts. Missing reviewed labels or
+judge qualification must be explicit, never silently bypassed to finish a run.
+
+Replay needs durable recovery before that manual run. Checkpoint the complete
+isolated store and trace prefix every ten completed turns by default and at
+question checkpoints. Pin code, resolved settings, corpus/catalog/model inputs,
+run arguments and isolated database. Publish the checkpoint pointer only after
+snapshot and trace identity are durable; keep the previous recovery generation.
+Resume verifies identity and the intact trace prefix, restores all ORM tables,
+archives any unfinished trace tail, and rewinds to the committed prefix. Restore
+the conversation IDs, source-ID maps, completion counts and maintenance cadence,
+then rerun only the uncheckpointed tail. A failed/partial writer or job must not
+be treated as a completed turn. Lock the run against simultaneous operators.
+Retain a separate immutable store snapshot at every question checkpoint,
+bound to that trace prefix. Later retrieval/weight/budget tuning must query
+that as-of state, never the final store containing future turns. Hard-link
+owned snapshot files so rolling recovery cleanup cannot delete the evaluation
+snapshot or needlessly copy its bytes. Publish those snapshots atomically;
+recovery repairs an interrupted publication from the committed generation.
+Declare the bounded redo cost; this is checkpoint recovery, not exactly-once
+execution of unfinished model calls. No normal user database may be restored.
+
+Cloud answer resume must preserve the exact model/API profile, actual decoding
+policy, selected probe IDs, label/trace hashes and exact frozen input receipt.
+Only error-free answers count as done. Paired judge resume must pin input files,
+model and rubric, retain each completed order, resume the missing order, and
+preserve failed attempts. API/schema failures stop the stage with saved progress.
+No automatic retry loop may consume quota while an outage persists. Reports
+must distinguish partial completion, missing ground truth and unqualified
+judgments from clean scores. Validate isolated interruption/recovery and the
+actual shared preparation/transport path before documenting the manual command
+as ready.
+
 > **⚑ EVERYTHING BEFORE THIS RESEED IS DEAD DATA (maintainer, 2026-08-25).**
 > *"lets just call ALL from before as we have no data, we are restarting ALL
 > again."* Every store, every arm, every graph number in `PROVENANCE.md` before
@@ -358,6 +395,46 @@ rule's clothes.
    - **Drop rather than redo where the new extractor makes a finding moot** —
      e.g. the direction rule ([G59](../ROADMAP.md#g59)) targeted a defect
      NuExtract3 does not produce. Re-measuring it out of completeness is waste.
+
+## Manual campaign and measurement admission — 2026-10-01
+
+The entry point runs replay, snapshot, frozen answers, both-order judging and
+reporting as distinct resumable stages. Default invocation is read-only status;
+`--init` prepares private review packets without a database or API call. The
+user runs the full campaign manually. Stage completion remains diagnostic and
+never closes all roadmap entries or qualifies a judge automatically.
+
+Valid long-term labels must explicitly record review through the exact query
+cutoff, whether recent history alone answers the question (must be false), a
+knowledge scope (private history, assistant history, public knowledge or mixed),
+and semantic task labels. Gold-turn age alone cannot establish this: a later
+turn can repeat the same fact. Public questions may remain useful controls, but
+their correct answers do not establish memory gain. Unreviewed task labels are
+not inferred from source role, punctuation or word overlap.
+
+Pin the actual answer adapter and provider identity. For Luna's Responses
+profile, temperature is omitted by the adapter; report `provider_default`,
+never a claim of deterministic temperature-zero sampling. Store the exact
+frozen messages/hash and evidence receipt beside each answer. Prompt source
+presence and answer correctness remain distinct from semantic evidence support
+and causal memory use, which require their own review/controls.
+
+The replay intentionally uses controlled per-prompt automatic routing, without
+session model stickiness. Report the routed model, serving window, B2 probability
+and classifier probabilities; derive warm-store pressure with the foreground's
+shared helper. This exercises the memory pipeline for the declared routing
+policy, not the entire HTTP/streaming endpoint. No foreground production change
+is authorised by this harness clarification.
+
+**Schema divergence, 2026-10-01:** ORM creation omits migration-owned indexes;
+the historical fresh Alembic chain also fails while dropping a missing index.
+Do not repair installation migrations inside this measurement task. The manual
+campaign freezes a private schema-only template of the current production ORM
+tables (constraints/defaults/indexes, no data), verifies every current table is
+present, and installs it transactionally into its owned empty database. Preserve
+the template/hash across interruptions. This measures the current memory schema;
+it does not certify fresh installation or the migration chain. Pin local writer
+Ollama manifest digests as well as their mutable tag names before replay/resume.
 
 ## 6. Open before step 1
 

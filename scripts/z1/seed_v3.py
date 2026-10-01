@@ -726,18 +726,27 @@ class _FrozenClassifier:
 def run(args, conversations, probes) -> int:
     isolated_database()
     output = private_output(args.out)
-    if output.exists():
+    resume = getattr(args, "resume", False)
+    every = getattr(args, "checkpoint_every", 10)
+    if every < 1:
+        raise ValueError("checkpoint interval must be positive")
+    if output.exists() and not resume:
         raise RuntimeError("trace output already exists; use a new run name")
+    if resume and not output.exists():
+        raise ValueError("resume requires the original replay trace")
     db = SessionLocal()
+    checkpoints = None
     try:
         nonempty = {name: db.execute(text(f'SELECT count(*) FROM "{name}"')).scalar()
                     for name in Base.metadata.tables}
-        if any(nonempty.values()):
+        if any(nonempty.values()) and not resume:
             raise RuntimeError("replay requires an empty dedicated database; found populated ORM tables")
+        db.rollback()
         from src.classifier.classifier import PyTorchClassifier
         from src.memory.embedder import get_embedder
         from src.workers.bg_client_factory import get_bg_model_name
         from src.workers.post_flight import evaluate_turn
+        from scripts.z1.replay_checkpoint import background_model_digests
 
         embedder = get_embedder()
         classifier = PyTorchClassifier(model_path=settings.classifier_model_path,
@@ -755,7 +764,9 @@ def run(args, conversations, probes) -> int:
                                                   for (slug, cutoff), group in probes.items()
                                                   for p in group],
                                "resolved_background_model": background_model,
+                               "writer_model_digests": background_model_digests(settings, background_model),
                                "recorded_answers_not_generated": True,
+                               "recorded_reply_model": "unknown; existing corpus reply is supplied after preflight",
                                "prompt_arms": list(PROMPT_ARMS),
                                "probe_state_policy": "read-only transaction, exposure writes disabled, rollback after each diagnostic probe",
                                "clock_policy": "source-time Python clocks/ORM defaults and explicit SQL NOW() within isolated turn; real elapsed model/network timers",
@@ -764,25 +775,63 @@ def run(args, conversations, probes) -> int:
                                "maintenance_schedule": "shared registry/cadence/overdue-order/cycle cap; serial source-turn boundaries",
                                "unexercised_during_replay": [
                                    "asynchronous_runtime", "idle_session_burst",
-                                   "project_document_paths"]})
-        with output.open("x") as sink:
-            sink.write(json.dumps({"event": "run", "meta": meta}) + "\n")
-            last_maintenance = {}
-            completed = Counter()
-            probe_count = 0
-            seen_source_times = {}
-            turn_source_ids = {}
-            source_turn_by_id = {}
+                                   "project_document_paths", "HTTP_streaming",
+                                   "session_model_stickiness"]})
+        from scripts.z1.replay_checkpoint import Checkpoints, run_identity
+        recovery_root = private_output(getattr(args, "checkpoint_dir", None)
+                                       or str(output.with_suffix(".recovery")))
+        checkpoints = Checkpoints(recovery_root, output, run_identity(meta, args, settings))
+        if not resume and checkpoints.pointer.exists():
+            raise ValueError("recovery directory already belongs to a run; use its original trace and --resume")
+        if resume:
+            if checkpoints.complete_unchanged(EXPECTED, nonempty):
+                print("v3 complete replay already verified; trace bytes retained unchanged")
+                return 0
+        restored = checkpoints.recover() if resume else {}
+        last_maintenance = {key: datetime.fromisoformat(value)
+                            for key, value in restored.get("last_maintenance", {}).items()}
+        completed = Counter(restored.get("completed", {}))
+        probe_count = restored.get("probe_count", 0)
+        seen_source_times = {key: datetime.fromisoformat(value)
+                             for key, value in restored.get("seen_source_times", {}).items()}
+        turn_source_ids = {(row[0], row[1]): set(row[2])
+                           for row in restored.get("turn_source_ids", [])}
+        source_turn_by_id = dict(restored.get("source_turn_by_id", {}))
+        conversation_ids = dict(restored.get("conversation_ids", {}))
+
+        def checkpoint_state():
+            return {"last_maintenance": last_maintenance, "completed": dict(completed),
+                    "probe_count": probe_count, "seen_source_times": seen_source_times,
+                    "turn_source_ids": [[slug, turn, sorted(ids)]
+                                        for (slug, turn), ids in turn_source_ids.items()],
+                    "source_turn_by_id": source_turn_by_id,
+                    "conversation_ids": conversation_ids}
+
+        with output.open("a" if resume else "x") as sink:
+            if not resume:
+                sink.write(json.dumps({"event": "run", "meta": meta}) + "\n")
+                checkpoints.capture(sink, checkpoint_state())
+            else:
+                sink.write(json.dumps({"event": "resume", "meta": meta,
+                                       "completed_turns": dict(completed)}) + "\n")
             selected_conversations = ({args.conversation: conversations[args.conversation]}
                                       if args.conversation else conversations)
             for slug, turns in selected_conversations.items():
-                conv = Conversation(id=uuid.uuid4(), memory_scope_type="auto",
-                                    created_at=turns[0]["timestamp"])
-                db.add(conv)
-                db.commit()
+                if slug in conversation_ids:
+                    conv = db.get(Conversation, uuid.UUID(conversation_ids[slug]))
+                    if conv is None:
+                        raise RuntimeError("checkpoint lost its conversation identity")
+                else:
+                    conv = Conversation(id=uuid.uuid4(), memory_scope_type="auto",
+                                        created_at=turns[0]["timestamp"])
+                    db.add(conv)
+                    db.commit()
+                    conversation_ids[slug] = str(conv.id)
                 bound = turns[:args.limit] if args.limit else turns
                 for turn in bound:
                     number = turn["turn_number"]
+                    if number <= completed[slug]:
+                        continue
                     key = f"{MARK}-{slug}-{number}"
                     stage = "preflight"
                     try:
@@ -926,6 +975,14 @@ def run(args, conversations, probes) -> int:
                             sink.write(json.dumps({"event": "clock", "conversation": slug,
                                                    "turn": number, **clock_stats}) + "\n")
                             sink.flush()
+                        # Outside the historical clock: snapshot metadata uses real time.
+                        if (sum(completed.values()) % every == 0
+                                or probes.get((slug, number)) or number == len(bound)):
+                            stage = "checkpoint"
+                            db.rollback()
+                            checkpoints.capture(sink, checkpoint_state(),
+                                                evaluation_key=(f"{slug}-{number}"
+                                                                if probes.get((slug, number)) else None))
                     except Exception as exc:
                         db.rollback()
                         sink.write(json.dumps({"event": "failed", "conversation": slug,
@@ -957,12 +1014,18 @@ def run(args, conversations, probes) -> int:
         return 0
     finally:
         db.close()
+        if checkpoints is not None:
+            checkpoints.close()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true", help="validate corpus/probe mapping without models or DB")
     parser.add_argument("--out", default="logs/z1-v3-seed.jsonl")
+    parser.add_argument("--resume", action="store_true", help="restore the last durable store/trace checkpoint")
+    parser.add_argument("--checkpoint-every", type=int, default=10,
+                        help="completed turns between recovery snapshots; also snapshots at question checkpoints")
+    parser.add_argument("--checkpoint-dir", help="private recovery directory under logs/")
     parser.add_argument("--limit", type=int, default=0, help="development prefix per conversation; not a full seed")
     parser.add_argument("--conversation", choices=sorted(EXPECTED),
                         help="development diagnostic for one conversation; not a full seed")

@@ -50,15 +50,12 @@ does not.
 from dataclasses import dataclass
 from typing import Optional
 
-from sqlalchemy import func
-
 from src.api.config import settings
 from src.api.context_ledger import effective_memory_budget
 from src.api.memory_decision import (decide_memory_retrieval,
                                      derive_total_budget,
                                      estimate_recent_window_tokens)
-from src.memory.models import Conversation, EpisodicMemory
-from src.memory.tokens import estimate_from_chars
+from src.memory.models import Conversation
 from src.model_registry.registry import find_best_model, get_model_context_window
 from src.model_registry.runtime_probe import serving_window
 from src.retrieval.timescope import detect_timescope, to_scope_dict
@@ -82,13 +79,9 @@ class Preamble:
 
 
 def conversation_stats(db, conversation_id) -> tuple:
-    """Live turn count + estimated token size, as `main.py` computes them."""
-    turn_count = db.query(EpisodicMemory).filter_by(
-        conversation_id=conversation_id).count()
-    chars = db.query(
-        func.coalesce(func.sum(func.length(EpisodicMemory.raw_text)), 0)
-    ).filter_by(conversation_id=conversation_id).scalar() or 0
-    return turn_count, estimate_from_chars(chars)
+    """Use the foreground's shared warm-store pressure calculation."""
+    from src.memory.conversation_stats import conversation_pressure
+    return conversation_pressure(db, conversation_id)
 
 
 def build(db, question: str, conversation_id, classifier, embedder,
@@ -212,6 +205,10 @@ def provenance_fields(pre: Preamble, memory=None) -> dict:
         "timescope_mode": pre.timescope_mode,
         "coding_scope": bool(pre.scope.get("project_id")),
         "routed_model": pre.model_name,
+        "routing_policy": "controlled_per_prompt_auto_route_without_session_stickiness",
         "total_budget": pre.total_budget,
         "b2_retrieve": pre.retrieve,
+        "b2_p_need_mem": pre.p_need_mem,
+        "classifier_p_ltm": getattr(pre.classification, "p_ltm", None),
+        "classifier_p_temporal": getattr(pre.classification, "p_temporal", None),
     }
