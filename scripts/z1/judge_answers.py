@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Z2: judge two arms' answers head-to-head, blind and paired.
+"""Judge two arms' answers against original sources, blind and paired.
 
-**Why paired and not scored.** Asking a model to rate an answer 1-5 drifts
-between batches and between prompts, so two runs are not comparable and a small
-difference is unreadable. Asking *"here is the question, here is the source
-material, here are two answers — which is better?"* is stable, and it is exactly
-the question the model comparison asks. Ties are allowed and are informative.
+V3 grades factual correctness against the reviewed expected answer and complete
+source, then records paired preference separately. Both display orders are
+judged; disagreement stays uncertain rather than becoming a selected winner.
+Legacy answer files retain their historical single-order paired rubric.
 
 **⚑ `both_failed` IS THE LOAD-BEARING VERDICT.** A tie because both answers are
 good and a tie because both are useless are opposite findings. If most probes
@@ -13,8 +12,9 @@ land in `both_failed`, memory is not working and the model question is moot —
 collapsing that into "TIE" would hide the most important result in the run.
 
 **Blindness.** The judge is never told which arm produced which answer, and the
-A/B slot is randomised per probe from a fixed seed, so position bias cannot
-align with an arm. The mapping is kept locally and applied when tallying.
+A/B slot is randomised per probe from a fixed seed and reversed for v3's second
+judgment. The mapping is kept locally and applied when tallying; randomization
+alone does not prove absence of position bias.
 
 **Prompt-cache friendliness.** Everything invariant — the rubric, the taxonomy,
 the output shape — lives in the SYSTEM message and is byte-identical on every
@@ -313,6 +313,40 @@ def probe_key(record):
             tuple(record.get("gold_turns") or ()), record["question"])
 
 
+def combine_orders(first, reverse, *, a_is_first, name_a, name_b):
+    """Keep order disagreement visible rather than selecting one display slot."""
+    orders = []
+    for value, original_a_first in ((first, a_is_first), (reverse, not a_is_first)):
+        if value is None:
+            continue
+        winner = value["verdict"]
+        if winner in {"A", "B"}:
+            winner = name_a if ((winner == "A") == original_a_first) else name_b
+        orders.append({"a_was_first": original_a_first, "winner": winner,
+                       "arm_a_grade": value.get("A_grade" if original_a_first else "B_grade"),
+                       "arm_b_grade": value.get("B_grade" if original_a_first else "A_grade"),
+                       "reason": value["reason"], "note": value.get("note", ""),
+                       "raw": value})
+    error = next((row for row in orders if row["winner"] == "ERROR"), None)
+    if error or len(orders) != 2:
+        return {"winner": "ERROR", "reason": (error or {}).get("reason", "missing_order"),
+                "note": (error or {}).get("note", "Second display order missing"),
+                "arm_a_grade": None, "arm_b_grade": None,
+                "relative_order_consistent": False, "absolute_order_consistent": False,
+                "order_verdicts": orders}
+    relative_agrees = orders[0]["winner"] == orders[1]["winner"]
+    grade_agrees = {arm: orders[0][arm] == orders[1][arm]
+                    for arm in ("arm_a_grade", "arm_b_grade")}
+    return {"winner": orders[0]["winner"] if relative_agrees else "UNCERTAIN",
+            "reason": first["reason"] if relative_agrees else "order_unstable",
+            "note": first.get("note", ""),
+            **{arm: orders[0][arm] if agrees else "uncertain"
+               for arm, agrees in grade_agrees.items()},
+            "relative_order_consistent": relative_agrees,
+            "absolute_order_consistent": all(grade_agrees.values()),
+            "order_verdicts": orders}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--a", required=True, help="arm 1 answers json")
@@ -346,7 +380,7 @@ def main() -> int:
                 raise ValueError("v3 answer arm does not contain every declared probe exactly once")
             if not data.get("label_audit_sha256") and not data.get("development_partial"):
                 raise ValueError("v3 campaign has no reviewed label identity")
-        if name_a == name_b or name_a in {"TIE", "ERROR"} or name_b in {"TIE", "ERROR"}:
+        if name_a == name_b or name_a in {"TIE", "ERROR", "UNCERTAIN"} or name_b in {"TIE", "ERROR", "UNCERTAIN"}:
             raise ValueError("v3 answer arms need distinct, unambiguous names")
 
     def index(records):
@@ -394,7 +428,7 @@ def main() -> int:
     rng = random.Random(args.seed)
     results = []
     judge_identity = {"judge_model": _env("PROBE_MODEL"),
-                      "calibration_status": "no_human_real_pair_calibration" if is_v3 else "legacy_not_asserted",
+                      "calibration_status": "qualification_pending" if is_v3 else "legacy_not_asserted",
                       "score_of_record": False,
                       "judge_prompt_version": "v3_expected_answer_absolute_and_paired"
                       if da.get("version") == "v3" else "legacy_paired",
@@ -418,6 +452,22 @@ def main() -> int:
         v = judge_one(ra["question"], source,
                       first.get("answer", ""), second.get("answer", ""),
                       **judge_kwargs)
+        order_fields = {}
+        if is_v3:
+            OUT.mkdir(parents=True, exist_ok=True)
+            PARTIAL.write_text(json.dumps({"utc": STAMP, "arm_a": name_a, "arm_b": name_b,
+                **judge_identity, "complete": False,
+                "development_partial": bool(args.limit or da.get("development_partial")),
+                "trace_sha256": da.get("trace_sha256"), "judged": len(results),
+                "of": len(pairs), "results": results,
+                "pending_probe": {"probe_id": ra["probe_id"], "a_was_first": a_is_first,
+                                  "first_order": v}}, indent=2))
+            reverse = (judge_one(ra["question"], source, second["answer"], first["answer"],
+                                 **judge_kwargs) if v["verdict"] != "ERROR" else None)
+            combined = combine_orders(v, reverse, a_is_first=a_is_first,
+                                      name_a=name_a, name_b=name_b)
+            order_fields = {key: combined[key] for key in
+                            ("relative_order_consistent", "absolute_order_consistent", "order_verdicts")}
         # Translate the blind slot back to the arm.
         winner = v["verdict"]
         if winner in ("A", "B"):
@@ -432,6 +482,10 @@ def main() -> int:
         grades = ({"arm_a_grade": v.get("A_grade") if a_is_first else v.get("B_grade"),
                    "arm_b_grade": v.get("B_grade") if a_is_first else v.get("A_grade")}
                   if da.get("version") == "v3" else {})
+        if is_v3:
+            arm = combined["winner"]
+            grades = {key: combined[key] for key in ("arm_a_grade", "arm_b_grade")}
+            v = combined
         results.append({"probe_id": ra.get("probe_id"),
                         "conversation": ra.get("conversation"),
                         "split_turn": ra.get("split_turn"),
@@ -443,7 +497,7 @@ def main() -> int:
                         "arm_b_prompt_tokens_est": rb.get("prompt_tokens"),
                         "arm_a_selected_tokens_est": ra.get("selected_tokens"),
                         "arm_b_selected_tokens_est": rb.get("selected_tokens"),
-                        **grades})
+                        **grades, **order_fields})
         print(f"  {i}/{len(pairs)}  {ra.get('probe_type','?'):18s} "
               f"{arm:26s} {v['reason']}", flush=True)
         # ⚑ Written after EVERY probe, not at the end. This run can be killed by
@@ -487,6 +541,11 @@ def main() -> int:
                                 "development_partial": bool(args.limit or da.get("development_partial")),
                                 "paired_prompt_cost": token_summary,
                                 "absolute_by_type": absolute_by_type,
+                                "order_checks": ({"pairs": len(results),
+                                    "relative_consistent": sum(r["relative_order_consistent"] for r in results),
+                                    "absolute_consistent": sum(r["absolute_order_consistent"] for r in results),
+                                    "uncertain_preferences": sum(r["winner"] == "UNCERTAIN" for r in results)}
+                                    if is_v3 else None),
                                 "results": results}, indent=2))
 
     print("\n" + "=" * 66)
@@ -495,14 +554,14 @@ def main() -> int:
     by_type = defaultdict(Counter)
     for r in results:
         by_type[r["probe_type"]][r["winner"]] += 1
-    print(f"{'type':20s} {name_a[:14]:>14s} {name_b[:14]:>14s} {'TIE':>6s} {'ERR':>5s}")
+    print(f"{'type':20s} {name_a[:14]:>14s} {name_b[:14]:>14s} {'TIE':>6s} {'ERR':>5s} {'UNSURE':>6s}")
     for t in sorted(by_type):
         c = by_type[t]
         print(f"{t:20s} {c[name_a]:>14d} {c[name_b]:>14d} "
-              f"{c['TIE']:>6d} {c['ERROR']:>5d}")
+              f"{c['TIE']:>6d} {c['ERROR']:>5d} {c['UNCERTAIN']:>6d}")
     tot = Counter(r["winner"] for r in results)
     print(f"{'TOTAL':20s} {tot[name_a]:>14d} {tot[name_b]:>14d} "
-          f"{tot['TIE']:>6d} {tot['ERROR']:>5d}")
+          f"{tot['TIE']:>6d} {tot['ERROR']:>5d} {tot['UNCERTAIN']:>6d}")
 
     print("\nREASONS  (both_failed is the one that matters)")
     for reason, n in Counter(r["reason"] for r in results).most_common():

@@ -64,8 +64,14 @@ def test_v3_absolute_grades_follow_arms_after_blind_shuffle(tmp_path, monkeypatc
     calls = []
     def grade(_question, _source, first, second, *, expected_answer, question_time, session_id):
         calls.append((first, second, expected_answer))
-        return {"verdict": "A", "reason": "more_grounded",
-                "A_grade": "correct", "B_grade": "incorrect", "note": "source"}
+        if len(calls) == 2:
+            partial = json.loads(judge_answers.PARTIAL.read_text())
+            assert partial["complete"] is False
+            assert partial["pending_probe"]["first_order"]["verdict"] in {"A", "B"}
+        left_first = first == "left answer"
+        return {"verdict": "A" if left_first else "B", "reason": "more_grounded",
+                "A_grade": "correct" if left_first else "incorrect",
+                "B_grade": "incorrect" if left_first else "correct", "note": "source"}
     monkeypatch.setattr(judge_answers, "judge_one", grade)
     monkeypatch.setattr(judge_answers, "OUT", tmp_path)
     left = {**_record(), "probe_id": "checkpoint-1", "split_turn": 80,
@@ -87,10 +93,13 @@ def test_v3_absolute_grades_follow_arms_after_blind_shuffle(tmp_path, monkeypatc
     judged = json.loads(output.read_text())
     row = judged["results"][0]
     assert calls[0][2] == "The supported fact"
-    assert row["arm_a_grade"] == ("correct" if row["a_was_first"] else "incorrect")
-    assert row["arm_b_grade"] == ("incorrect" if row["a_was_first"] else "correct")
+    assert len(calls) == 2 and calls[0][:2] == tuple(reversed(calls[1][:2]))
+    assert row["arm_a_grade"] == "correct"
+    assert row["arm_b_grade"] == "incorrect"
+    assert row["winner"] == "full"
+    assert row["relative_order_consistent"] and row["absolute_order_consistent"]
     assert judged["complete"] is True
-    assert judged["calibration_status"] == "no_human_real_pair_calibration"
+    assert judged["calibration_status"] == "qualification_pending"
     assert judged["score_of_record"] is False
 
 
@@ -181,3 +190,49 @@ def test_judge_error_marks_output_incomplete_and_returns_failure(tmp_path, monke
     result = json.loads(next(tmp_path.glob("*_judge.json")).read_text())
     assert result["complete"] is False
     assert result["results"][0]["winner"] == "ERROR"
+
+
+def test_v3_position_preference_stays_uncertain_through_campaign(tmp_path, monkeypatch):
+    monkeypatch.setattr(judge_answers, "judge_one", lambda *_args, **_kwargs: {
+        "verdict": "A", "reason": "more_grounded",
+        "A_grade": "correct", "B_grade": "correct"})
+    row = {**_record(), "probe_id": "p1", "split_turn": 80, "expected_answer": "fact"}
+    assert _run_v3(tmp_path, monkeypatch, _v3_arm("full", [row]),
+                   _v3_arm("vector_only", [row])) == 0
+    result = json.loads(next(tmp_path.glob("*_judge.json")).read_text())
+    judged = result["results"][0]
+    assert judged["winner"] == "UNCERTAIN" and judged["reason"] == "order_unstable"
+    assert judged["arm_a_grade"] == judged["arm_b_grade"] == "correct"
+    assert {v["winner"] for v in judged["order_verdicts"]} == {"full", "vector_only"}
+    assert result["order_checks"] == {"pairs": 1, "relative_consistent": 0,
+                                      "absolute_consistent": 1, "uncertain_preferences": 1}
+    assert result["complete"] is True and result["score_of_record"] is False
+
+
+def test_v3_grade_disagreement_preserves_raw_grades():
+    first = {"verdict": "A", "reason": "more_grounded",
+             "A_grade": "correct", "B_grade": "incorrect"}
+    reverse = {"verdict": "B", "reason": "more_grounded",
+               "A_grade": "incorrect", "B_grade": "partial"}
+    result = judge_answers.combine_orders(first, reverse, a_is_first=True,
+                                          name_a="full", name_b="vector_only")
+    assert result["winner"] == "full" and result["relative_order_consistent"]
+    assert result["arm_a_grade"] == "uncertain" and result["arm_b_grade"] == "incorrect"
+    assert not result["absolute_order_consistent"]
+    assert [r["raw"] for r in result["order_verdicts"]] == [first, reverse]
+
+
+def test_v3_second_order_error_keeps_api_reason_and_incomplete_status(tmp_path, monkeypatch):
+    responses = iter([{"verdict": "TIE", "reason": "equivalent",
+                       "A_grade": "correct", "B_grade": "correct"},
+                      {"verdict": "ERROR", "reason": "api_http_400", "note": "MissingSessionID"}])
+    monkeypatch.setattr(judge_answers, "judge_one", lambda *_args, **_kwargs: next(responses))
+    row = {**_record(), "probe_id": "p1", "split_turn": 80, "expected_answer": "fact"}
+    assert _run_v3(tmp_path, monkeypatch, _v3_arm("full", [row]),
+                   _v3_arm("vector_only", [row])) == 1
+    result = json.loads(next(tmp_path.glob("*_judge.json")).read_text())
+    assert result["complete"] is False
+    judged = result["results"][0]
+    assert judged["winner"] == "ERROR" and judged["reason"] == "api_http_400"
+    assert judged["note"] == "MissingSessionID" and judged["arm_a_grade"] is None
+    assert len(judged["order_verdicts"]) == 2

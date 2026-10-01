@@ -160,6 +160,20 @@ source cannot verify. The latter is uncertain, not known false. Explicit
 source statements such as "I have not chosen" can contradict a claimed choice;
 mere silence cannot. Two unverified claims do not earn `both_failed`.
 
+**Campaign order handling, 2026-10-01:** the three real maintainer-reviewed
+pairs had stable factual grades but one preference changed with display order.
+V3 campaigns therefore judge each pair in both orders through the same request
+and session identity. Preserve both raw verdicts and map them to arm identity.
+If preferences disagree, report `UNCERTAIN / order_unstable`, not a winner or
+an equivalent tie. If an arm's absolute grades disagree, report uncertain for
+that arm and retain both grades. Either order's API/schema error keeps the
+pair erroneous and the campaign incomplete. Save the first order before the
+second call so an interruption does not erase work. Report order agreement
+and uncertain counts. Absolute factual grades are primary; stylistic paired
+preference is secondary and does not prove memory use. Legacy single-order
+artifacts remain historical. No automatic score qualification follows from
+the three-pair all-correct pilot.
+
 **Completeness gate:** a campaign trace must contain one ordered preflight and
 one completed write for every selected historical turn, and every scheduled
 probe exactly once at its declared cutoff. The final completion flag alone
