@@ -53,8 +53,30 @@ gold to its frozen checkpoint prompt without reseeding. `judge_answers.py`
 pairs generated arm files by stable probe and historical cutoff, returns a
 blind relative verdict and an absolute correct/partial/incorrect/uncertain
 grade for each arm using the reviewed expected answer. It reports estimated
-prompt-token medians and explicitly marks its v3 rubric uncalibrated and not
+prompt-token medians and checks both display orders. Raw verdicts stay saved;
+disputed preferences become `UNCERTAIN / order_unstable`, disputed grades
+become uncertain for that arm, and either call's error keeps output incomplete.
+The first order is saved before the second call. It explicitly marks its v3
+rubric `qualification_pending` and not
 a score of record until the current answer-pair calibration is resolved. Use
+`calibrate_answer_judge.py --write-controls logs/<packet>.json` to prepare
+12 authored diagnostic cases, then `--packet logs/<packet>.json --out
+logs/<results>.json --plan` to validate without cloud calls. The actual run
+uses the same campaign request/rubric in both answer orders, preserves every
+result, supports matching `--resume`, and stops on three consecutive errors.
+Real human-reviewed answer pairs use a separate packet kind; authored success
+does not qualify the judge. The 2026-10-01 controls initially exposed a missing
+OpenCode session header and an insufficient-evidence grade ambiguity. After
+repair/clarification the same 12 authored cases passed both orders; this is
+development on known controls, not independent human agreement.
+Three maintainer-reviewed real pairs matched 12/12 factual grades across both
+orders, but only 3/6 preferences and 2/3 order consistency. All six human grades
+were correct, so this pilot does not qualify the other grade classes. The third
+human preference was tentative. Keep factual correctness primary; do not
+tune the rubric to force agreement on optional extra context.
+Judging uses a stable OpenCode session header and ICE's own User-Agent;
+historical question time and complete dated gold turns reach the judge.
+Use
 `snapshot.py save --arm <name> --trace logs/<complete-v3-trace>` to bind a
 campaign snapshot to the complete unchanged replay; without `--trace` the
 snapshot is development-only.
@@ -64,7 +86,11 @@ both seed counts and row fingerprints. The isolated replay supplies source
 time to memory-path Python/ORM clocks and explicit SQL `NOW()` calls, and
 drives ten periodic memory jobs from the real registry/cadence/cycle cap.
 Job effects include physical warm/cold movement. Each checkpoint freezes
-source storage locations for later label joins and diagnosis. Historical turns retain
+source storage locations for later label joins and diagnosis. Two selected
+text-export histories have constructed five-minute timestamps and retain
+`synthetic_raw_import`; only the provider-export history has verified original
+times. Source/query provenance reaches prompts and judges. Simulated elapsed
+time does not prove authentic calendar retention. Historical turns retain
 normal exposure writes; diagnostic questions and all matched arms use
 read-only transactions with exposure disabled, then roll back. The trace
 declares its serial turn-boundary schedule; it does not simulate asynchronous
@@ -72,7 +98,7 @@ GPU deferral, leases/retries or session-end bursts. Run
 `tests/test_z1_historical_clock.py` and `tests/test_z1_replay_path.py --out logs/<fresh-name>`
 through the disposable-database wrapper for the clock/observer and full
 replay-to-snapshot path controls.
-The full seed, answer pass, judge calibration
+The full seed, full answer pass, broad real-pair judge qualification
 and combined Z have **not** run yet; the old scripts and results below remain
 historical.
 

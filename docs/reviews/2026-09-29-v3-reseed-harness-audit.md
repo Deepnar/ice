@@ -60,10 +60,45 @@ and the historical question/source timestamps remain explicit; relative-date
 answers are judged at their recorded checkpoint.
 Incomplete answers remain explicit; estimated prompt-token medians and
 per-pair differences accompany answer grades. The new absolute rubric has
-schema checks but **no current human-pair or swapped-order calibration**.
-No answer-quality number is yet valid.
-Judge outputs explicitly carry an uncalibrated status and are not scores of
+schema checks and the small calibration pilots below, but no broad current
+real-pair qualification. No full-campaign answer-quality number is yet valid.
+Judge outputs explicitly carry `qualification_pending` and are not scores of
 record. Passing JSON schema checks is not judge calibration.
+
+**2026-10-01 authored judge controls:** the new calibration command calls the
+same campaign request in both orders and reports grade/preference confusion,
+order agreement and errors. Actual calls first exposed missing provider
+session metadata, then a rubric ambiguity between unsupported and
+contradicted facts. With routing repaired and wording clarified, the same
+twelve authored cases matched all reference grades and preferences in both
+orders. These are known development controls, not independently reviewed real
+pairs or a memory-quality result. Outputs remain `score_of_record=false`.
+
+**2026-10-01 maintainer-reviewed real pairs:** all six saved Luna answers
+were graded correct; preferences were B, tie, and tentatively B. The actual
+judge matched 12/12 factual grades across both orders,3/6 preferences, and
+2/3 order-consistent preferences, with zero errors. Pair 1 changed tie/B;
+Pair 3's extra context was optional and its human preference was tentative.
+This all-correct three-pair pilot cannot qualify partial/incorrect/uncertain
+grades or establish general reliability. V3 campaigns now judge both orders,
+save the first before the second call, retain raw verdicts, and report disputed
+preferences as `UNCERTAIN / order_unstable`. Grade disagreement becomes
+uncertain for the affected arm; either call's error keeps the pair incomplete.
+Factual grades remain primary and preference secondary. An actual one-pair
+campaign-path check retained correct/correct and an uncertain preference;
+458 disposable smoke checks passed. These are instrument checks, not memory gains.
+
+Five complete-gold source inspections also distinguish ambiguous general
+advice, public facts and assistant reports about an artifact from user facts.
+They are source-only notes, with no full intervening/recent-history review or
+admitted labels. General-knowledge answerability must be recorded separately
+from historical source support; a correct public answer cannot by itself
+establish memory gain. Assistant text can be valid memory for a question about
+what the assistant said, without becoming a user choice. These distinctions
+agree with LongMemEval's separate assistant-recall, knowledge-update and
+abstention tasks ([official benchmark](https://github.com/xiaowu0162/LongMemEval)).
+Order swaps address a documented judge bias, but do not replace real human
+agreement ([MT-Bench judge study](https://arxiv.org/abs/2306.05685)).
 
 The complete seed trace records resolved settings, candidate/final stages,
 job results and before/after state, failures and every table's row fingerprint.
@@ -82,7 +117,15 @@ and missed-cycle cap, including the previously omitted three decay jobs and
 compaction. Per-job before/after state includes warm/cold movement, retention,
 active patterns, notes, cluster links and pending proposals. Original-turn
 counts span both warm and cold storage. Actual ORM/SQL, stale-slot, decay/cold
-and clock-restoration controls passed in a disposable store. Jobs run serially
+and clock-restoration controls passed in a disposable store. **Clock-origin
+correction:** two selected text-export histories use constructed five-minute
+timestamps, not authentic recorded dates. Their rows and frozen source/query
+metadata now carry `synthetic_raw_import`; prompts caveat unknown source time.
+All 101 turns in the third history exactly match complete provider-export
+user/assistant/time tuples and retain `original`. Synthetic schedules test
+the declared replay cadence, not real calendar retention or timeline truth.
+An actual synthetic-time replay and snapshot check passed with all 12 frozen
+prompt arms showing the source-time caveat. Jobs run serially
 at source-turn boundaries; asynchronous idle scheduling, GPU deferral,
 leases/retries, session-end bursts and project/document workflows remain
 outside this replay's coverage.
@@ -99,8 +142,8 @@ Before calling the judge, each arm must contain every declared probe exactly
 once, and all labels/sources/models must match. V3 rejects missing expected
 answers, invalid reason codes and inconsistent absolute/paired verdicts;
 judge errors produce incomplete output and a failing exit code. The full
-1,471-turn seed, source-label adjudication, cloud answer run and calibrated
-judge still have not happened. These instrument checks close no quality item.
+1,471-turn seed, source-label adjudication, full cloud answer run and broad
+judge qualification still have not happened. These instrument checks close no quality item.
 
 ## Historical scripts audited before replacement
 

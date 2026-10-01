@@ -467,6 +467,17 @@ Cloudflare fronts `opencode.ai` and rejects anything that looks like a scripted
 client. **Send a browser `User-Agent`** and the same key, endpoint and model work
 immediately. Nothing is wrong with the credentials.
 
+**v3 update, 2026-10-01:** that browser-UA workaround is historical.
+The answer judge returned HTTP400 `MissingSessionID` while the answering
+adapter already supplied session identity. Current OpenCode Go requires a
+stable `x-opencode-session` and the client's own User-Agent
+([provider contract](https://opencode.ai/docs/go/#where-can-i-use-it)).
+The judge now sends both; twelve authored controls in both orders completed.
+Do not diagnose a provider/model outage from the status alone, copy a sibling
+adapter without its routing metadata, or hide an API error by validating its
+ERROR result again as malformed JSON. Calibration preserves the original
+error reason and stops after three consecutive failures.
+
 **"Retrieval is non-deterministic."** Two separate causes, and only the first is
 a defect. (1) `access_count` was written on every retrieval and read by nothing —
 now gated by `retrieval_strengthen_writes`; that took identical runs from 26/40
@@ -1954,6 +1965,15 @@ ORM writes, stale-slot cutoffs and warm-to-cold movement pass opposing clock
 controls; real clocks are restored after scope exit. The replay now drives
 all ten periodic memory jobs, while declaring its synchronous turn-boundary
 schedule rather than claiming asynchronous scheduler equivalence.
+
+**Origin correction, v3 2026-10-01.** Two selected histories had orderly
+parseable dates but their text-export builder constructed five-minute gaps.
+Calling those dates original caused false calendar authority even after every
+clock was correctly anchored. Preserve their declared simulation schedule,
+write `synthetic_raw_import`, carry the caveat into source/query/judge metadata,
+and keep real-retention claims separate. The third history's 101 complete
+user/assistant/time tuples exactly match its provider export. A valid datetime
+does not establish where that datetime came from.
 
 ### 80. Diagnostic questions can change the conversation they measure
 

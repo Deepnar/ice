@@ -1,3 +1,122 @@
+## 2026-10-01 — v3 maintainer-reviewed answer pairs and campaign order checks
+
+The maintainer independently reviewed three blinded pairs of existing
+`gpt-6-luna` answers from the prior 20-pair development replay. Complete original
+user/assistant source was reconstructed from the pinned corpus, with no new
+answer generation. All six answers were graded correct; preferences were B,
+tie and tentatively B. The last preference concerns optional extra context,
+not a required factual omission. A correct public answer alone cannot prove
+the memory system supplied it. Review details and original arm mapping remain
+private; the reconstructed question cutoff is the end of that 20-pair window,
+and these are non-temporal questions, not a fresh historical seed.
+
+The actual `deepseek-v4-flash` request used the unchanged clarified rubric,
+temperature 0,16,000 output limit and stable case session. Three pairs in both
+orders produced 12/12 factual-grade matches,3/6 preference matches and 2/3
+order-consistent preferences, with zero errors. Pair 1 changed tie/B; Pair 3
+was tied by the judge in both orders despite the tentative human B preference.
+These repeat observations over three all-correct pairs do not qualify other
+grade classes or establish general human agreement. No preference-driven
+rubric change was made. Factual correctness remains primary.
+
+Private result `logs/z1-v3-real-answer-judge-result-2026-10-01.json`, SHA256
+`deaeea2d17ad77506a4f5298efeafcc18a53056e15a4fe9cee982c14a45196a9`.
+V3 campaigns now judge both orders, save progress between calls, preserve
+raw verdicts, mark disputed preferences `UNCERTAIN / order_unstable`, and
+mark disputed arm grades uncertain. An error in either order keeps output
+incomplete, preserving its original reason. They retain
+`qualification_pending` and `score_of_record=false`.
+
+One actual campaign-path check reused the first reviewed pair and made two
+judge calls, retaining correct/correct but an uncertain preference. Artifact:
+`experiments/curation_files/judgements/20261001T151555_v3-both-order-live-2026-10-01.json`,
+SHA256 `121b3c2917337d05deea9d0c3191bb1a1bd5dea314d1cdb11b8853d4aa65ae24`.
+It is explicitly development-partial, not the complete seed campaign.
+Focused judge/calibration controls passed 21/21; disposable smoke passed
+458/458 with five warnings, logged in
+`logs/z1-v3-both-order-final-smoke-2026-10-01.log`. Tests overlap prior smoke;
+they are not independent answer trials. All test databases were removed.
+
+## 2026-10-01 — v3 replay timestamp-origin correction
+
+Complete-original inspection showed that the first two selected text-export
+histories have constructed five-minute timestamps. Their order is valid for
+the declared simulation; those dates are not authentic source calendar times.
+The older exporter script constructs the gaps, and current corpus intervals
+confirm them. The third history's 101 complete user/assistant/time tuples
+exactly match the provider export. No frozen source text/dates were regenerated.
+
+The replay now pins `synthetic_raw_import` for the two simulated histories
+and `original` for the verified provider history, checks actual written row
+provenance, and carries it into checkpoint/gold/answer/judge metadata. Existing
+production formatters caveat unknown source time; calendar claims already
+require original provenance. No production code change was needed. Old full
+traces without the declaration cannot enter the new scored campaign.
+Simulated cadence does not establish real long-term elapsed retention.
+
+An actual one-turn synthetic-history replay exercised shared preflight,
+recorded-answer post-flight, ten memory jobs, three immediate questions/four
+arms and save/mutate/restore over 35 ORM tables. All 12 frozen prompt arms
+carried the source-time caveat; 18 events contained zero errors. Private trace
+`logs/z1-v3-synthetic-time-path-2026-10-01.jsonl`, SHA256
+`bd5d6b17ffb72d63becc9c7cb53cdf3513aa48d1fc38e6d8de8a3675929964a4`.
+Disposable smoke passed 455/455 after reporter metadata propagation, logged in
+`logs/z1-v3-time-origin-final-smoke-2026-10-01.log`. Test databases and temporary
+snapshots were removed. This is clock-origin instrument validation, not
+calendar retrieval quality or a full 1,471-turn seed.
+
+## 2026-10-01 — v3 authored answer-judge controls and provider routing
+
+`calibrate_answer_judge.py` calls the campaign's `judge_one` and absolute
+rubric on twelve authored cases in both orders. References are authored
+diagnostics, **not human labels**. Cases cover paraphrase, nearby entities,
+partial multi-source answers, both failures, equivalent correct answers,
+current versus historical values, assistant suggestions, explicit absence,
+insufficient evidence and answer-bearing text after 12,000 source characters.
+All source/answers remain complete. Cloud judge `deepseek-v4-flash`, temperature
+0, maximum output budget16,000; no new Luna answering run or memory seed.
+
+The initial attempt saved five API-error verdicts and was interrupted rather
+than spending the remaining planned calls. A diagnostic request established
+HTTP400 `MissingSessionID`. The answering adapter already supplied session
+identity; the separate judge did not. Its request now sends stable
+`x-opencode-session` and `ice-research/3.0`, following the
+[current provider contract](https://opencode.ai/docs/go/#where-can-i-use-it).
+The first mapping also revalidated an ERROR as a malformed verdict, hiding
+the original reason; that was fixed and covered by a negative control.
+New runs stop after three consecutive errors and save partial results.
+
+After routing repair, all24 judgments completed: paired preference24/24,
+absolute reference grades44/48, order consistency12/12. The four grade
+disagreements are the same insufficient-evidence case in both orders: the
+judge treated an unverified private fact as known incorrect. Rubric wording
+now distinguishes source contradiction from silence. The same twelve
+development cases then matched48/48 grades,24/24 preferences and12/12 order
+consistency, with zero errors. **This is development on known controls, not an
+independent holdout, human agreement or memory-quality score.**
+
+Private artifacts:
+- `logs/z1-v3-answer-judge-controls-result-2026-10-01.json` — interrupted errors.
+- `logs/z1-v3-answer-judge-controls-session-fixed-2026-10-01.json`, SHA256
+  `14a9c6b2e5ee1da03d80757f2816a07e78c6193aa58491982598237d8975955d`.
+- `logs/z1-v3-answer-judge-controls-clarified-2026-10-01.json`, SHA256
+  `5e7d41c16cd7bd5b4b53a7bf5e6af29faf751777ca6aa7eaa9c9788e3e22c234`.
+
+Outputs pin packet, rubric and judge-implementation hashes and record model,
+code revision/dirty state, explicit denominators and every result. They retain
+`qualified=false` and `score_of_record=false`. Real independently reviewed
+answer pairs remain a separate required calibration, including the
+graph-specific judge decision. Seven focused instrument checks passed;
+disposable smoke passed454/454 after the final outage-stop control, recorded
+in `logs/z1-v3-final-calibration-rails-2026-10-01.log`. These tests overlap
+earlier smoke, not independent trials. Five complete-gold inspections were
+saved as private source-only notes with every final verdict blank: no full
+intervening/recent-history review or validated label was claimed.
+Three existing Luna pairs from the prior20-pair development window were also
+prepared as a blinded private source-complete review sheet; all reference
+grades were blank at preparation. No new answer calls, human agreement or qualification
+result follows from packet preparation.
+
 ## 2026-10-01 — v3 historical harness clock, observer and snapshot controls
 
 The selected corpus/catalog check remains **1,471 recorded turns**, three

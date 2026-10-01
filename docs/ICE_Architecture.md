@@ -96,7 +96,10 @@ post-flight. An isolated source clock covers Python/ORM and explicit SQL
 time decisions. The ten periodic memory jobs use the production registry,
 cadence and cycle cap, with a declared serial turn-boundary schedule. This
 instrument does not reproduce asynchronous streaming, leases/GPU deferral or
-idle session-end bursts. Historical turns retain normal context-exposure
+idle session-end bursts. Source-time provenance stays explicit: two selected
+text-export histories have simulated five-minute dates, while the third
+matches original provider times. Simulated cadence is not real calendar
+retention. Historical turns retain normal context-exposure
 writes; diagnostic full/no-Codex/vector/recent probes are read-only observers and
 freeze prompts for later cloud answering. Completion validates exact turn,
 source and checkpoint identities; snapshots compare every table's row
@@ -105,6 +108,13 @@ reviewed expected answers and a calibrated blind judge are needed to establish
 supported answers per prompt token. No complete quality run is implied by
 short path checks. [Execution contract](specs/RESEED_PLAN.md) and
 [current audit](reviews/2026-09-29-v3-reseed-harness-audit.md) own the coverage.
+`calibrate_answer_judge.py` checks the campaign's actual cloud request and
+rubric in both orders, separating authored controls from human-reviewed real
+pairs. Its results never automatically qualify the judge. Cloud judging uses
+stable provider sessions and supplies historical question/source dates.
+V3 campaigns also judge both display orders, retaining raw grades/preferences.
+Order disagreement yields an uncertain preference or affected absolute grade;
+an API/schema error keeps the pair incomplete. Factual grades are primary.
 
 ## **2. Classification Engine**
 
