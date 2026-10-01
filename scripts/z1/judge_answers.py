@@ -28,9 +28,11 @@ Run:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import random
+import statistics
 import sys
 import time
 import urllib.request
@@ -84,6 +86,54 @@ vague one.
 both_failed. Do not pick a winner among two failures.
   - Ignore which answer is longer, more confident, or better formatted.
   - Return ONLY the JSON object. No prose, no code fences."""
+
+SYSTEM_V3 = SYSTEM + """
+
+For this v3 probe, a separately reviewed EXPECTED ANSWER is also provided.
+Grade EACH answer against the question, expected answer, and original source:
+  correct    answers the requested fact(s), with no contradiction to SOURCE
+  partial    gives a supported subset, but misses a required part
+  incorrect  wrong, contradicts SOURCE, or does not answer
+  uncertain  the evidence shown is insufficient to decide
+Paraphrases count. Do not require the exact words of EXPECTED ANSWER. A fact
+absent from SOURCE is not automatically false; use uncertain if it matters.
+When both grades are incorrect, use TIE / both_failed. When the grades differ
+between correct, partial and incorrect, prefer the higher grade. Uncertain
+means evidence is insufficient, not that the answer is known to have failed.
+Keep the paired preference independent of answer length or polish. Return:
+  {"verdict":"A|B|TIE", "reason":"<reason code>",
+   "A_grade":"correct|partial|incorrect|uncertain",
+   "B_grade":"correct|partial|incorrect|uncertain", "note":"<short reason>"}
+Do not mark both answers correct merely because they agree with each other."""
+
+GRADES = {"correct", "partial", "incorrect", "uncertain"}
+
+
+def validate_verdict(value, *, absolute: bool):
+    """A malformed judge response is an error, never a plausible tie."""
+    def error(reason):
+        return {"verdict": "ERROR", "reason": reason,
+                "note": "Judge response failed schema/consistency validation"}
+    if not isinstance(value, dict) or value.get("verdict") not in {"A", "B", "TIE"}:
+        return error("bad_verdict")
+    if absolute:
+        if value.get("A_grade") not in GRADES or value.get("B_grade") not in GRADES:
+            return error("bad_absolute_grade")
+        if value.get("reason") not in REASONS:
+            return error("bad_reason")
+        a, b = value["A_grade"], value["B_grade"]
+        failed = a == b == "incorrect"
+        if ((failed and (value["verdict"] != "TIE" or value["reason"] != "both_failed"))
+                or (value["reason"] == "both_failed" and not failed)):
+            return error("inconsistent_failure_verdict")
+        order = {"incorrect": 0, "partial": 1, "correct": 2}
+        if a in order and b in order and a != b:
+            winner = "A" if order[a] > order[b] else "B"
+            if value["verdict"] != winner:
+                return error("inconsistent_grade_preference")
+    elif value.get("reason") not in REASONS:
+        value = {**value, "reason": "equivalent"}
+    return value
 
 
 def _env(k: str):
@@ -148,12 +198,14 @@ def _full_source(rec) -> str:
     return "\n\n".join(got)
 
 
-def judge_one(question, source, ans_a, ans_b, *, retries=3):
+def judge_one(question, source, ans_a, ans_b, *, expected_answer=None, retries=3):
     key, base, model = (_env("PROBE_API_KEY"), _env("PROBE_API_BASE_URL"),
                         _env("PROBE_MODEL"))
     if not key or not base:
         raise SystemExit("PROBE_API_KEY / PROBE_API_BASE_URL missing from .env")
     user = (f"QUESTION\n{question}\n\n"
+            + (f"EXPECTED ANSWER\n{expected_answer}\n\n"
+               if expected_answer is not None else "")
             # ⚑ NO CAP. This was `source[:4000]`, on top of answer_probes
             # keeping only 3 gold turns at 1,200 chars each. Measured
             # 2026-08-20: the judge saw a MEDIAN 12.7% of the gold material,
@@ -175,12 +227,13 @@ def judge_one(question, source, ans_a, ans_b, *, retries=3):
             # answer "accurately, thoroughly and in deep detail", so the
             # instrument was amputating the conclusion of the behaviour it had
             # just requested — and doing it to whichever answer went deepest.
-            f"SOURCE\n{source}\n\n"
+            + f"SOURCE\n{source}\n\n"
             f"ANSWER A\n{ans_a or '(empty)'}\n\n"
             f"ANSWER B\n{ans_b or '(empty)'}")
     body = {"model": model,
             # System first and unchanged, variable part last: prefix caching.
-            "messages": [{"role": "system", "content": SYSTEM},
+            "messages": [{"role": "system", "content":
+                          SYSTEM_V3 if expected_answer is not None else SYSTEM},
                          {"role": "user", "content": user}],
             # ⚑ 1500, not 300. This model returns `reasoning_content` — it is a
             # REASONING model, and it spends the budget inside the hidden block
@@ -226,12 +279,19 @@ def judge_one(question, source, ans_a, ans_b, *, retries=3):
             d = json.loads(txt[txt.index("{"):txt.rindex("}") + 1])
         except Exception:                                          # noqa: BLE001
             return {"verdict": "ERROR", "reason": "unparseable", "note": txt[:120]}
-        if d.get("verdict") not in ("A", "B", "TIE"):
-            return {"verdict": "ERROR", "reason": "bad_verdict", "note": txt[:120]}
-        if d.get("reason") not in REASONS:
-            d["reason"] = "equivalent"
-        return d
+        return validate_verdict(d, absolute=expected_answer is not None)
     return {"verdict": "ERROR", "reason": "exhausted", "note": ""}
+
+
+def probe_key(record):
+    """A historical checkpoint is part of identity, even if wording repeats."""
+    if record.get("probe_id") is not None:
+        if record.get("split_turn") is None:
+            raise ValueError("v3 answer is missing its historical cutoff")
+        return ("v3", record["probe_id"], record["conversation"],
+                record["split_turn"])
+    return ("legacy", record.get("conversation"),
+            tuple(record.get("gold_turns") or ()), record["question"])
 
 
 def main() -> int:
@@ -242,15 +302,33 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--tag", default="judge")
     args = ap.parse_args()
+    if args.limit < 0:
+        raise ValueError("judge limit cannot be negative")
 
-    da, db = json.loads(Path(args.a).read_text()), json.loads(Path(args.b).read_text())
+    a_bytes, b_bytes = Path(args.a).read_bytes(), Path(args.b).read_bytes()
+    da, db = json.loads(a_bytes), json.loads(b_bytes)
     name_a, name_b = da.get("tag", "A"), db.get("tag", "B")
-    # Question text alone can repeat in different conversations or gold-turn
-    # groups. Index both arms by the actual probe identity and reject missing
-    # or duplicate pairs before spending a cloud judgement call.
-    def probe_key(record):
-        return (record.get("conversation"), tuple(record.get("gold_turns") or ()),
-                record["question"])
+    is_v3 = da.get("version") == "v3" or db.get("version") == "v3"
+    if is_v3:
+        if (da.get("version") != db.get("version")
+                or not da.get("complete") or not db.get("complete")
+                or not da.get("trace_sha256")
+                or da["trace_sha256"] != db.get("trace_sha256")
+                or da.get("seed_clock_policy") != db.get("seed_clock_policy")
+                or da.get("decoding") != db.get("decoding")
+                or da.get("probe_ids") != db.get("probe_ids")
+                or da.get("label_audit_sha256") != db.get("label_audit_sha256")):
+            raise ValueError("v3 answer arms have different trace, labels, probes, or incomplete answers")
+        for data in (da, db):
+            declared = data.get("probe_ids") or []
+            observed = [r.get("probe_id") for r in data["records"]]
+            if (not declared or len(set(declared)) != len(declared)
+                    or len(observed) != len(set(observed)) or set(observed) != set(declared)):
+                raise ValueError("v3 answer arm does not contain every declared probe exactly once")
+            if not data.get("label_audit_sha256") and not data.get("development_partial"):
+                raise ValueError("v3 campaign has no reviewed label identity")
+        if name_a == name_b or name_a in {"TIE", "ERROR"} or name_b in {"TIE", "ERROR"}:
+            raise ValueError("v3 answer arms need distinct, unambiguous names")
 
     def index(records):
         keyed = {}
@@ -264,9 +342,9 @@ def main() -> int:
     arm_a, arm_b = index(da["records"]), index(db["records"])
     if set(arm_a) != set(arm_b):
         raise ValueError("Answer arms have different probe identities")
+    if not arm_a:
+        raise ValueError("no answer pairs to judge")
     pairs = [(record, arm_b[probe_key(record)]) for record in da["records"]]
-    if args.limit:
-        pairs = pairs[:args.limit]
     sources = []
     for left, right in pairs:
         if (left.get("error") or right.get("error") or not left.get("answer")
@@ -275,16 +353,34 @@ def main() -> int:
         if (left.get("answer_model") != right.get("answer_model")
                 or left.get("answer_profile") != right.get("answer_profile")):
             raise ValueError("Answer arms used different answering models")
+        if (left.get("question") != right.get("question")
+                or left.get("gold_turns") != right.get("gold_turns")
+                or left.get("question_time") != right.get("question_time")
+                or left.get("expected_answer") != right.get("expected_answer")):
+            raise ValueError("Answer arms disagree on the question or validated label")
+        if is_v3 and (not isinstance(left.get("expected_answer"), str)
+                      or not left["expected_answer"].strip()):
+            raise ValueError("v3 judged answer lacks its reviewed expected answer")
         source = _full_source(left)
         if source != _full_source(right):
             raise ValueError("Answer arms disagree on the complete gold source")
         sources.append(source)
+    if args.limit:
+        pairs, sources = pairs[:args.limit], sources[:args.limit]
     print(f"{name_a}  vs  {name_b}")
-    print(f"paired on question text: {len(pairs)} of "
+    print(f"paired on probe identity: {len(pairs)} of "
           f"{len(da['records'])}/{len(db['records'])}\n")
 
     rng = random.Random(args.seed)
     results = []
+    judge_identity = {"judge_model": _env("PROBE_MODEL"),
+                      "calibration_status": "not_run_for_v3_absolute_rubric" if is_v3 else "legacy_not_asserted",
+                      "score_of_record": False,
+                      "judge_prompt_version": "v3_expected_answer_absolute_and_paired"
+                      if da.get("version") == "v3" else "legacy_paired",
+                      "answer_file_sha256": {"a": hashlib.sha256(a_bytes).hexdigest(),
+                                             "b": hashlib.sha256(b_bytes).hexdigest()},
+                      "shuffle_seed": args.seed}
     global STAMP, PARTIAL
     STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     PARTIAL = OUT / f"{STAMP}_{args.tag}.partial.json"
@@ -292,8 +388,11 @@ def main() -> int:
         # Randomise the slot so position bias cannot align with an arm.
         a_is_first = rng.random() < 0.5
         first, second = (ra, rb) if a_is_first else (rb, ra)
+        expected = ra.get("expected_answer")
+        judge_kwargs = ({"expected_answer": expected} if da.get("version") == "v3" else {})
         v = judge_one(ra["question"], source,
-                      first.get("answer", ""), second.get("answer", ""))
+                      first.get("answer", ""), second.get("answer", ""),
+                      **judge_kwargs)
         # Translate the blind slot back to the arm.
         winner = v["verdict"]
         if winner in ("A", "B"):
@@ -305,10 +404,21 @@ def main() -> int:
             # ⚑ An ERROR is not a tie. Folding it into TIE would let a judge
             # that failed on every probe report a clean draw.
             arm = "ERROR"
-        results.append({"question": ra["question"],
+        grades = ({"arm_a_grade": v.get("A_grade") if a_is_first else v.get("B_grade"),
+                   "arm_b_grade": v.get("B_grade") if a_is_first else v.get("A_grade")}
+                  if da.get("version") == "v3" else {})
+        results.append({"probe_id": ra.get("probe_id"),
+                        "conversation": ra.get("conversation"),
+                        "split_turn": ra.get("split_turn"),
+                        "question": ra["question"],
                         "probe_type": ra.get("probe_type", "untyped"),
                         "winner": arm, "reason": v["reason"],
-                        "note": v.get("note", ""), "a_was_first": a_is_first})
+                        "note": v.get("note", ""), "a_was_first": a_is_first,
+                        "arm_a_prompt_tokens_est": ra.get("prompt_tokens"),
+                        "arm_b_prompt_tokens_est": rb.get("prompt_tokens"),
+                        "arm_a_selected_tokens_est": ra.get("selected_tokens"),
+                        "arm_b_selected_tokens_est": rb.get("selected_tokens"),
+                        **grades})
         print(f"  {i}/{len(pairs)}  {ra.get('probe_type','?'):18s} "
               f"{arm:26s} {v['reason']}", flush=True)
         # ⚑ Written after EVERY probe, not at the end. This run can be killed by
@@ -317,13 +427,41 @@ def main() -> int:
         OUT.mkdir(parents=True, exist_ok=True)
         PARTIAL.write_text(json.dumps(
             {"utc": STAMP, "arm_a": name_a, "arm_b": name_b,
-             "complete": False, "judged": len(results),
+             **judge_identity,
+             "seed_clock_policy": da.get("seed_clock_policy"),
+             "complete": False, "development_partial": bool(args.limit or da.get("development_partial")),
+             "trace_sha256": da.get("trace_sha256"), "judged": len(results),
              "of": len(pairs), "results": results}, indent=2))
 
     OUT.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     path = OUT / f"{stamp}_{args.tag}.json"
+    costs = [(r["arm_a_prompt_tokens_est"], r["arm_b_prompt_tokens_est"])
+             for r in results if isinstance(r["arm_a_prompt_tokens_est"], (int, float))
+             and isinstance(r["arm_b_prompt_tokens_est"], (int, float))]
+    token_summary = ({"pairs_with_estimates": len(costs),
+                      "arm_a_median_prompt_tokens_est": statistics.median(a for a, _ in costs),
+                      "arm_b_median_prompt_tokens_est": statistics.median(b for _, b in costs),
+                      "median_a_minus_b_tokens_est": statistics.median(a - b for a, b in costs),
+                      "a_fewer_prompt_tokens_fraction": sum(a < b for a, b in costs) / len(costs)}
+                     if costs else {"pairs_with_estimates": 0})
+    absolute_by_type = {}
+    if da.get("version") == "v3":
+        for kind in sorted({r["probe_type"] for r in results}):
+            group = [r for r in results if r["probe_type"] == kind]
+            absolute_by_type[kind] = {
+                "probes": len(group),
+                "arm_a": dict(Counter(r["arm_a_grade"] for r in group)),
+                "arm_b": dict(Counter(r["arm_b_grade"] for r in group)),
+            }
     path.write_text(json.dumps({"utc": stamp, "arm_a": name_a, "arm_b": name_b,
+                                **judge_identity,
+                                "seed_clock_policy": da.get("seed_clock_policy"),
+                                "trace_sha256": da.get("trace_sha256"),
+                                "complete": not args.limit and all(r["winner"] != "ERROR" for r in results),
+                                "development_partial": bool(args.limit or da.get("development_partial")),
+                                "paired_prompt_cost": token_summary,
+                                "absolute_by_type": absolute_by_type,
                                 "results": results}, indent=2))
 
     print("\n" + "=" * 66)
@@ -345,8 +483,11 @@ def main() -> int:
     for reason, n in Counter(r["reason"] for r in results).most_common():
         flag = "   <-- neither arm answered these" if reason == "both_failed" else ""
         print(f"  {reason:20s} {n:4d}{flag}")
+    if da.get("version") == "v3":
+        for name, field in ((name_a, "arm_a_grade"), (name_b, "arm_b_grade")):
+            print(f"{name} absolute grades: {dict(Counter(r[field] for r in results))}")
     print(f"\nwrote {path}")
-    return 0
+    return 1 if any(r["winner"] == "ERROR" for r in results) else 0
 
 
 if __name__ == "__main__":
