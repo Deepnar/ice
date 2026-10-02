@@ -19,7 +19,12 @@ not a reason to run the measurement against a different schema.
 
 The private bundle `logs/z1-v3-manual-2026-10-01` is already initialized. It
 contains all 124 source-linked review candidates and 131 native source-mapping
-reviews, with no verdicts filled and no campaign database or cloud calls.
+reviews. As of 2026-10-02, ten native source/answer mappings have been reviewed:
+two qualify as old-source tests and eight are recent-history controls. Another
+15 early-cutoff questions are structurally excluded without claiming their
+sources or answer keys were reviewed. Native verdicts are two valid, 23 excluded
+and 106 unset; **121 native mappings/keys and all 124 linked candidates still
+need source review**. No campaign database, full replay or cloud campaign exists.
 For a new bundle, initialize once:
 
 ```bash
@@ -61,12 +66,29 @@ private-memory gain. The packets list allowed categories. Review duration
 depends on source length; there is no credible blanket minutes estimate.
 Done means the intended coverage cells have reviewed valid cases and all
 excluded/unreviewed counts remain visible. A partial panel stays partial.
+Either packet can supply `reviewed_expected_answer` when the catalog key is
+unsupported or overprecise. Keep the original `expected_answer` unchanged;
+both are saved beside the answer, and neither enters its input. Distinguish
+required facts from optional elaboration, user statements from assistant
+interpretations, and approximate recollections from verified exact values.
+Record reviewer/scope honestly: the current Codex source reviews do not qualify
+the cloud judge against independent human judgments.
 A catalog-only bound check found 17 of the 131 unmapped native questions at
 cutoffs no later than turn 40. Under the current 40-turn window, they have no
 possible older source; keep them as immediate-history controls, not failed
 long-term retrievals. The other 114 are only structurally eligible for old-source
 mapping. None of this validates their expected answers. The private
 `native-window-eligibility.json` receipt pins the packet and exact question IDs.
+
+The native catalog already contains some natural revisits: the current review
+verified one fact asked at an immediate checkpoint and again at a later
+checkpoint where recent history cannot answer it. Reviewed meaning-equivalent
+occurrences share `question_family_id`, while probe IDs/cutoffs and each
+source/correction review remain separate. Answer plans and judge reports count
+occurrences per declared family; undeclared equivalence stays unreviewed and
+no independent-sample count is inferred. The full repeated retention schedule
+belongs to final semi-LSREP. The current replay panel is unchanged; add a bounded
+delayed development case only if reviewed task coverage exposes a missing class.
 
 **USER-REQUIRED — manual execution:** keep the machine running for the chosen
 stage and rerun the same command after interruption. Set the existing private
@@ -118,7 +140,7 @@ validation, not merely that `stage-status.json` says complete.
 | Measurement | Ground truth now | Signal and valid inference | Still needed |
 |---|---|---|---|
 | Replay order/completeness | Pinned1471 originals across three histories | Every preflight precedes its recorded reply; no missing turn or future evidence | Full manual replay; this does not score new answers |
-| Expected answers/source turns |255 catalog answers;124 screened candidate mappings;131 need mappings; zero admitted labels | After review, old source identity at exact query time is a usable retrieval denominator | Complete-source, correction and recent-only review; early checkpoint coverage |
+| Expected answers/source turns |255 catalog answers;124 linked candidates still unreviewed; ten native mappings reviewed, two admitted;121 native mappings/keys remain | After review, old source identity at exact query time is a usable retrieval denominator | Complete-source, correction and recent-only review; early checkpoint coverage; these two cases do not establish whole-panel readiness |
 | Retrieval rank@5/@10 | Reviewed source IDs | First five/ten pre-budget fragments; distinct-source-turn ranks separately collapse repeats | A source ID is not proof of relevant words surviving compression |
 | Final prompt evidence | Exact frozen messages and source receipts | Candidate→budget→selected/source-note funnel locates where a source disappears | Semantic support review against exact visible text |
 | Answer correctness | Reviewed expected answer and complete dated originals | Per-arm correct/partial/incorrect/uncertain, both-failed and errors | Broad real-pair human qualification; all-correct three-pair review is insufficient |

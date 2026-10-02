@@ -8,6 +8,16 @@ historical scripts; `scripts/z1/README.md` points to the new path.
 
 ## Whole-process v3 scoring audit
 
+**Source-review checkpoint, 2026-10-02:** ten native mappings/keys reviewed,
+two admitted old-source cases and eight recent controls; 121 native mappings
+and all 124 linked candidates remain without source/answer adjudication.
+Fifteen additional early-cutoff exclusions are structural, not source reviews.
+Corrected keys preserve the frozen catalog version; optional context cannot
+become a mandatory answer fact. One natural repeated fact now has a reviewed
+question family across distinct cutoffs, without changing replay scheduling.
+The full retention schedule remains semi-LSREP work. These are Codex reviews,
+not independent human qualification or a complete measurement panel.
+
 **Current manual/readiness follow-through, 2026-10-01:** the [manual guide and
 metric/ground-truth matrix](2026-10-01-v3-manual-campaign.md) provide one
 resumable entry point, exact answer-input receipts, stronger through-cutoff and
@@ -21,7 +31,7 @@ launched by these checks.
 The default replay captures 255 questions at 39 real section checkpoints.
 Every question has a catalog expected answer. Of these, 124 have candidate
 gold source turns old enough to be outside the 40-turn recent window; 131
-native section questions have **no confirmed gold turns** and cannot enter a
+native section questions initially had **no confirmed gold turns** and cannot enter a
 retrieval denominator or cloud answer score until reviewed. Source-linked
 coverage spans only 11 checkpoint times; the 1,119-turn conversation has
 source-linked questions only at its final section. Of 113 source-first

@@ -1995,3 +1995,17 @@ the same state without modifying it. The harness now disables exposure writes
 inside a PostgreSQL read-only transaction and rolls back each probe. Actual
 SQL rejects an attempted write, and graph exposure stays unchanged during the
 probe while still changing retention on the normal historical path.
+
+### 81. A catalog answer can repeat an assistant's distortion of its own source
+
+**v3, 2026-10-02.** Complete original-source review found a tentative user
+recollection restated by the assistant as a precise value. The catalog key then
+adopted that precision and an unsupported evaluative conclusion. Another key
+made optional character description look mandatory even though the question
+asked about a relationship. Adding a gold-turn ID would have certified the
+wrong answer target in both cases. Keep catalog provenance immutable, record a
+source-reviewed key with explicit attribution/uncertainty and required versus
+optional facts, and judge against that reviewed key. Preserve the original
+user/assistant source for audit. Recent-only answerability is a separate
+eligibility judgment; excluding a recent question does not mean its answer is
+false. These source reviews do not independently qualify the answer judge.

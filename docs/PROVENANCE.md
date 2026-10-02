@@ -1,3 +1,52 @@
+## 2026-10-02 — v3 source keys and natural repeated-question provenance
+
+Source adjudication and instrument checks, not a full replay or memory-quality
+result. Complete originals through turn115 of one selected history were read;
+two complete source turns from another history were inspected only for source
+support and decisive recent-window exclusion. Ten native source/answer mappings
+are now reviewed: two admitted old-source cases, eight recent-history controls.
+Another15 exclusions use only the cutoff≤40 bound and do not claim source/key
+review. Native dispositions are2valid/23excluded/106unset;121 native mappings
+and all124 linked candidates remain without source/answer adjudication.
+Review actor is Codex source review, not independent human judge qualification.
+
+Four reviewed-key overrides distinguish uncertainty, source role or required
+versus optional facts while preserving frozen catalog answers. Both packet
+kinds accept a source-reviewed key; answer records retain both versions and
+neither enters the answering request. One native question naturally revisits
+an earlier recent-only fact at a later old-source checkpoint. Both occurrences
+share a reviewed semantic family without adding scheduled probes. Receipts and
+judge reports retain separate cutoffs and count occurrences per declared
+family; unknown equivalence remains unknown and no independent sample count is
+inferred. The full retention-repeat schedule remains final semi-LSREP work.
+
+Private source receipt:
+`logs/z1-v3-manual-2026-10-01/source-review-checkpoint-2026-10-02.json`, SHA256
+`aac604c64bfc35ffa19b75bd3cfd01af00d4f9d42daa1ce4ab347eec3e80d0d0`.
+It pins the reviewed packet and exact inspected source subsets. Oversized
+inspection outputs were truncated; missing source slices were re-read fully
+before through-cutoff judgments. Unread candidate arrays received no credit.
+
+Forty focused controls passed, including native/linked key admission, actual
+answer adapter with stubbed SDK, oracle exclusion, saved key provenance and
+zero-call completed resumes. A two-checkpoint same-family control traversed the
+actual judge coordinator with a stubbed judge: four display-order calls,
+separate cutoff results, one declared family and completed zero-call resume.
+No real cloud request was made. Final disposable smoke481/481 passed with five
+warnings; its database was removed. Log
+`logs/z1-v3-source-family-final-smoke-2026-10-02.log`, SHA256
+`434f263b7bf942d9be229ec7bd15a234ffd62afa05b99aa62ecffb18229635bc`.
+The earlier480 result predates family-report wiring; counts overlap.
+
+Actual private packet preflight admits exactly two labels. Actual CLI status
+reports two available reviewed candidates, no campaign stages, and cloud
+answering not ready. Status receipt
+`logs/z1-v3-reviewed-label-status-2026-10-02.json`, SHA256
+`8331df469a6d35f5681509bc84f386168823f497f46024f937eaa1daafcbb9d4`.
+No full campaign/database/API launch, production change or push. Roadmap
+anchors/checkmarks remain unchanged; this does not establish whole-panel truth
+or close semantic graph/summary/procedure/answer-quality judgments.
+
 ## 2026-10-01 — v3 manual campaign recovery and measurement admission
 
 Instrument checks only; no complete seed, new cloud answers, judge-quality

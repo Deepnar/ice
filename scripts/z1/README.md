@@ -10,7 +10,12 @@ of bootstrap. It saves replay store/trace checkpoints and independent as-of
 snapshots, plus each cloud answer and judge order. Exact input/model/label
 identity is required for resume. Status does not call cloud models. Labels
 require complete through-cutoff/recent review and explicit task/knowledge scope;
-all 124+131 review rows are currently unadjudicated. Reports remain diagnostic
+the 2026-10-02 source review admits two native old-source cases, with eight
+source-grounded recent controls and 15 structural early exclusions. Another
+121 native mappings/keys and all124 linked candidates still need review.
+Reviewed key corrections preserve catalog provenance and never enter answering
+inputs. Natural revisits can share reviewed question families while retaining
+cutoffs; the full repeat schedule belongs to final semi-LSREP. Reports remain diagnostic
 while judge qualification and output-specific truth audits are pending.
 See the [manual guide and complete measurement matrix](../../docs/reviews/2026-10-01-v3-manual-campaign.md).
 
