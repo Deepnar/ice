@@ -61,9 +61,7 @@ def schema_signature(engine, tables: list[str]) -> str:
 
 
 def label_counts(path: Path, field: str) -> dict:
-    if not path.exists():
-        return {"present": False, "rows": 0, "valid": 0, "unreviewed": 0}
-    rows = json.loads(path.read_text()).get("records", [])
+    rows = json.loads(path.read_text()).get("records", []) if path.exists() else []
     valid = incomplete = 0
     for row in rows:
         if row.get(field) != "valid":
@@ -76,9 +74,18 @@ def label_counts(path: Path, field: str) -> dict:
             incomplete += 1
         else:
             valid += 1
-    return {"present": True, "rows": len(rows),
+    reviewed = sum(
+        row.get(field) is not None
+        and row.get("review_scope") in {"complete_history_through_cutoff", "complete_source_and_recent_counterexample_only"}
+        and isinstance(row.get("reviewer"), str) and bool(row["reviewer"].strip())
+        for row in rows)
+    return {"present": path.exists(), "rows": len(rows),
             "valid": valid, "marked_valid_but_incomplete": incomplete,
-            "unreviewed": sum(r.get(field) is None for r in rows)}
+            "unreviewed": sum(r.get(field) is None for r in rows),
+            "invalid": sum(r.get(field) == "invalid" for r in rows),
+            "uncertain": sum(r.get(field) == "uncertain" for r in rows),
+            "source_answer_reviews_recorded": reviewed,
+            "without_recorded_source_answer_review": len(rows) - reviewed}
 
 
 def validate_labels(root: Path) -> int:

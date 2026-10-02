@@ -8,17 +8,19 @@ historical scripts; `scripts/z1/README.md` points to the new path.
 
 ## Whole-process v3 scoring audit
 
-**Current source-review checkpoint, 2026-10-02:**31 source/answer reviews:
-23 native mappings (six admitted,17 recent controls) and eight linked candidates
-(six admitted,two recent or updated exclusions). Pending:108 native plus116
-linked reviews,224 total. Ten additional early-cutoff exclusions are structural,
-not source reviews. Complete original history review reaches turn216 in one
-conversation and64 in another; all31 reviewed mappings have through-cutoff
-scope. Twelve admissions span two histories, with the new linked cases primarily
-covering earlier assistant advice rather than private user facts. Task and third
-conversation coverage remain incomplete. Corrected keys preserve proposals, unknown details and
-source attribution; unseen attachment contents and assistant interpretations
-are not independently verified facts.
+**Current source-review checkpoint, 2026-10-02:**46 source/answer reviews:
+24 native (six admitted,18 recent controls) and22 linked (16 admitted,two
+excluded,four uncertain). Pending:107 native plus102 linked reviews,209 total;
+four reviewed uncertain cases also remain unusable. Ten early exclusions are
+structural only. Complete original review reaches216/82 in two histories;
+all46 recorded mappings have through-cutoff scope. Twenty-two admissions span
+two histories; reported private facts and earlier assistant advice remain
+separate from verified public truth or completed achievements. Delaying a
+question can break generic references such as “that answer” or “this club.”
+Gold IDs do not repair the answering model's missing context; ambiguous cases
+stay out of scoring. Thirty-nine corrected keys preserve proposals, uncertainty,
+source attribution and required-versus-optional facts. Private/task/third-history
+coverage remains incomplete.
 Corrected keys preserve the frozen catalog version; optional context cannot
 become a mandatory answer fact. One natural repeated fact now has a reviewed
 question family across distinct cutoffs, without changing replay scheduling.

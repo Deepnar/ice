@@ -1,3 +1,57 @@
+## 2026-10-02 — v3 fourth source receipt and explicit review readiness
+
+Source/measurement admission, not a full replay or memory-quality result.
+Complete original user/assistant review reaches216/82 in two selected histories.
+46 source/answer reviews comprise24 native (six admitted,18 recent controls)
+and22 linked (16 admitted,two exclusions,four uncertain). Ten early exclusions
+remain structural only. Pending:107 native and102 linked reviews,209 total;
+four reviewed ambiguous or unsupported-outcome cases remain unusable.22
+admissions span two histories.39 reviewed-key corrections preserve catalog
+provenance, tentative/advertised status, historical advice and required facts.
+No third-history review or independent human judge qualification is claimed.
+
+Delayed references such as “that answer” or “this club” can lose their unique
+target after intervening topics. A supplied gold ID does not repair missing
+context for the answering model. Uncertain cases stay out of scoring. Also
+distinguish quoted opportunities from actual offers, and advice saying “not
+mandatory/automatic” from categorical “never valuable/possible.” Earlier mixed
+source-only/full-review notes were clarified in the live native packet; prior
+immutable receipts retain their exact historical wording and hashes.
+
+Immutable private packet
+`logs/z1-v3-manual-2026-10-01/source-reviewed-labels-2026-10-02-r4.json`, SHA256
+`cf77f7ba5dc510ebe3d2d292fe85cbf406a4aa535816430b5b99b03544579d75`;
+receipt `logs/z1-v3-manual-2026-10-01/source-review-checkpoint-2026-10-02-r4.json`,
+SHA256 `c6973310db083d8931ab958d0febe19929d124cd929744edc42219dc4270f361`.
+It pins exact read-source subsets and the unchanged four-occurrence repeat
+packet. Actual catalog preflight admits22 old-source rows plus four repeats.
+
+Manual status previously counted only unset verdicts as unreviewed, concealing
+ten source-unreviewed structural exclusions. It now separately reports recorded
+source-review scope/reviewer, missing recorded reviews, and invalid/uncertain
+dispositions. These metadata declarations are not independent verification.
+A status→manual-report control blocks every database/provider/stage call and
+distinguishes four authored rows: admitted, window-only excluded, source-reviewed
+uncertain, and unset. Focus26/26 passed; final disposable smoke498/498 passed
+with five warnings, database removed. Log
+`logs/z1-v3-review-readiness-smoke-2026-10-02.log`, SHA256
+`b5ef570e0dc8085f69ee12804bd1b3c1bca50c4988c96a25300ea0901e19e128`.
+An initial spec patch did not match its line break and failed before writing;
+the exact context was corrected. Invoking the disposable helper with `--help`
+printed Python help after creating/removing an empty store; this is not a test.
+
+Actual read-only CLI status reports24/22 source reviews,107/102 missing source
+reviews,zero stages and `cloud_answers_ready=false`.
+`logs/z1-v3-review-readiness-status-2026-10-02.json`, SHA256
+`5fe71f88cbf1182198f05b5b88671b92eca6c0985afb420bcd39a6ab132277df`.
+The actual plan contains1471 recorded turns,39 checkpoints (22/14/3),255 base
+questions (78/121/56) and four repeats,259 total; this is not the full archived
+probe catalog. Current admissions would produce104 four-arm cloud answers and
+156 both-order requests across three contrasts, before retries. No calls run.
+The manual guide records exact checkpoint lists and per-history/probe/review
+counts. Roadmap160 items remain93 checked/67 open; no quality checkbox, production
+change, full campaign or push. Status spec/inventory and readiness docs updated.
+
 ## 2026-10-02 — v3 third source-review receipt
 
 Complete original history review reaches216 in one conversation and64 in

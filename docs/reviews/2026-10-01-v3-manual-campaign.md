@@ -8,6 +8,51 @@ and its completion is not a claim that all memory-quality work is done.
 
 ## One entry point, five saved stages
 
+### Current ICE v3 corpus and question schedule — 2026-10-02
+
+Counts below come from the actual current `load_plan`, not the archived618-probe
+catalog. A recorded turn is one original user prompt plus its assistant reply;
+1471 turns therefore contain2942 such messages, excluding absent attachments.
+The replay retains full histories. Checkpoints pause to observe accumulated
+state; they do not reset memory or partition the database into isolated splits.
+
+| History | Recorded turns | Checkpoints | Base questions | Added repeat occurrences | Source/answer reviewed | Source/answer unreviewed |
+|---|---:|---:|---:|---:|---:|---:|
+| `bb558b5f` |1119|22|78|4|14|64|
+| `ecc64aab` |251|14|121|0|32|89|
+| `355a5709` |101|3|56|0|0|56|
+| Total |1471|39|255|4|46|209|
+
+Checkpoint turn numbers:
+
+- `bb558b5f`:51,115,170,216,285,336,397,425,448,492,555,604,681,735,790,834,885,959,1017,1053,1067,1119.
+- `ecc64aab`:18,40,64,82,106,128,132,144,145,163,184,209,234,251.
+- `355a5709`:30,65,87. Its remaining originals88–101 still replay; no extra question checkpoint is currently scheduled there.
+
+| Question source | First history | Second history | Third history | Total |
+|---|---:|---:|---:|---:|
+| Native questions awaiting independently reviewed source mapping |64|34|33|131|
+| Existing native source-linked candidates |0|11|0|11|
+| Generated source-first candidates delayed to checkpoints |14|76|23|113|
+| Development repeats, separate recent/old controls |4|0|0|4|
+| Frozen occurrences |82|121|56|259|
+
+“Awaiting source mapping” describes the original panel category; some now have
+reviewed mappings. All255 base questions have catalog expected answers. Candidate
+gold turns existed for124 initially; an initial candidate is not a reviewed
+denominator. The two text-export histories have synthetic five-minute clocks;
+the third has provider-original dates. Order/turn-age retention is measurable;
+the synthetic histories do not establish authentic calendar retention.
+
+Each admitted occurrence uses four frozen arms: full ICE, direct Codex evidence
+off, ICE warm-vector-only, and recent history only. The comparison arm is not
+an independent vector database baseline. Each occurrence has three full-versus-
+control contrasts, each judged in both display orders. Current admission is22
+old-source questions plus four development occurrences:104 cloud answers and
+156 successful judge-order requests if all are executed, before any retries.
+This is a current-plan count, not a launched run or the final campaign size.
+Question families and multiple arms/orders are dependent observations.
+
 Run from the repository root using `uv run`. PostgreSQL in `ice_postgres` and
 Ollama must already be available; the unmaintained `./ice` scripts are not used.
 The runner creates a persistent, randomly named campaign database. It does not
@@ -19,21 +64,24 @@ not a reason to run the measurement against a different schema.
 
 The private bundle `logs/z1-v3-manual-2026-10-01` is already initialized. It
 contains all 124 source-linked review candidates and 131 native source-mapping
-reviews. The third 2026-10-02 receipt records **31 source/answer reviews**:
-23 native mappings (six admitted,17 recent controls) and eight source-linked
-candidates (six admitted,two recent or updated exclusions). Another ten early
+reviews. The fourth 2026-10-02 receipt records **46 source/answer reviews**:
+24 native mappings (six admitted,18 recent controls) and22 linked candidates
+(16 admitted,two recent/update exclusions,four uncertain). Another ten early
 native exclusions remain structural only. Native verdicts are six valid,
-27 excluded and98 unset; linked verdicts are six valid,two excluded and116 unset.
-**108 native mappings/keys plus116 linked candidates remain unreviewed:224 total.**
-No campaign database, full replay or cloud campaign exists. Twelve old-source
-admissions span two histories; the new linked admissions primarily recall past
-assistant claims/recommendations, not verified public facts or private user
-decisions. They do not fill the remaining private/task coverage gaps. Twenty-four
-reviewed keys preserve attribution, uncertainty and required-versus-optional
-facts while retaining immutable catalog answers. Complete original user and
-assistant review reaches turn216 in one history and64 in another. All31 current
-source/answer reviews now have full through-cutoff scope; the third history
-remains unread for source adjudication.
+28 excluded and97 unset; linked verdicts are16 valid,two excluded,four uncertain
+and102 unset. **107 native mappings/keys plus102 linked candidates remain
+unreviewed:209 total.** Four reviewed delayed questions also remain unusable
+because their reference or claimed actuality is unresolved. No campaign database,
+full replay or cloud campaign exists. Twenty-two old-source admissions span two
+histories, with private reported facts separate from past assistant claims and
+recommendations; these are not verified public policies or user achievements.
+Thirty-nine reviewed keys preserve attribution, uncertainty and required facts
+while retaining catalog provenance. Complete original user/assistant review
+reaches turn216 in one history and82 in another. All46 recorded reviews have
+full through-cutoff scope; third-history source adjudication is still pending.
+Status separately reports unset verdicts, invalid/uncertain dispositions, and
+recorded source-review counts. A window-only exclusion is not credited as a
+source/answer review. These review declarations are not independent verification.
 For a new bundle, initialize once:
 
 ```bash
@@ -110,6 +158,17 @@ contrasts; interrupted unpersisted requests can be repeated. Runtime is not
 yet measured for the full corpus. Done means every stage passed its artifact
 validation, not merely that `stage-status.json` says complete.
 
+## Delayed reference and source limits
+
+Four reviewed linked questions are uncertain at their later cutoff: generic
+references such as “that answer” or “this club” no longer identify a unique
+original topic, or an advertised opportunity is mistaken for an actual outcome.
+A gold-turn label cannot supply missing context to the answering model. Keep
+such rows out of scored answers; a separately reviewed explicit question or
+independently supported outcome would be needed. Do not grade plausible alternate
+interpretations as wrong. Corrected historical-advice keys also distinguish
+“not mandatory” from “has no value,” and “not automatic” from “never possible.”
+
 ## Small development repeat comparison
 
 The current bundle contains a reviewed `development-repeat-review.json` with
@@ -173,7 +232,7 @@ Full campaign and broader source/judge readiness remain pending.
 | Measurement | Ground truth now | Signal and valid inference | Still needed |
 |---|---|---|---|
 | Replay order/completeness | Pinned1471 originals across three histories | Every preflight precedes its recorded reply; no missing turn or future evidence | Full manual replay; this does not score new answers |
-| Expected answers/source turns |255 catalog answers;31 source/answer reviews,12 old-source admissions;108 native and116 linked reviews remain | After review, old source identity at exact query time is a usable retrieval denominator | Complete-source, correction and recent-only review;224 pending reviews and remaining private/task/conversation coverage; historical assistant claims do not establish public truth |
+| Expected answers/source turns |255 catalog answers;46 source/answer reviews,22 old-source admissions;107 native and102 linked reviews remain;four reviewed uncertain cases | After review, old source identity at exact query time is a usable retrieval denominator |209 pending reviews and remaining private/task/conversation coverage; resolve ambiguous delayed references; historical assistant claims do not establish public truth |
 | Retrieval rank@5/@10 | Reviewed source IDs | First five/ten pre-budget fragments; distinct-source-turn ranks separately collapse repeats | A source ID is not proof of relevant words surviving compression |
 | Final prompt evidence | Exact frozen messages and source receipts | Candidate→budget→selected/source-note funnel locates where a source disappears | Semantic support review against exact visible text |
 | Answer correctness | Reviewed expected answer and complete dated originals | Per-arm correct/partial/incorrect/uncertain, both-failed and errors | Broad real-pair human qualification; all-correct three-pair review is insufficient |

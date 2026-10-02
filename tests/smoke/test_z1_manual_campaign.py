@@ -45,6 +45,24 @@ def test_default_status_never_connects_database_or_provider(tmp_path, monkeypatc
     assert not campaign.status(tmp_path, config())["cloud_answers_ready"]
 
 
+def test_status_distinguishes_structural_exclusions_and_source_review(tmp_path, monkeypatch):
+    labels(tmp_path)
+    path = tmp_path / "labels-source-linked.json"
+    valid = json.loads(path.read_text())["records"][0]
+    valid.update(reviewer="fixture reviewer", review_scope="complete_history_through_cutoff")
+    path.write_text(json.dumps({"records": [valid,
+        {"verdict": "invalid", "reviewer": "window eligibility", "reason": "cutoff is inside recent window"},
+        {"verdict": "uncertain", "reviewer": "fixture reviewer", "review_scope": "complete_history_through_cutoff"},
+        {"verdict": None}]}))
+    monkeypatch.setattr(campaign, "database_environment", lambda _: pytest.fail("status created database"))
+    monkeypatch.setattr(campaign.subprocess, "run", lambda *_a, **_k: pytest.fail("status called a stage"))
+    counts = campaign.status(tmp_path, config())["ground_truth"]["source_linked_review"]
+    assert (counts["valid"], counts["invalid"], counts["uncertain"], counts["unreviewed"]) == (1, 1, 1, 1)
+    assert counts["source_answer_reviews_recorded"] == 2
+    assert counts["without_recorded_source_answer_review"] == 2
+    assert campaign.campaign_report(tmp_path, config())["ground_truth"]["source_linked_review"] == counts
+
+
 def test_manual_report_exposes_reviewed_strata_without_a_cloud_call(tmp_path, monkeypatch):
     from scripts.z1.judge_answers import reviewed_outcome_strata
     monkeypatch.setattr(campaign, "status", lambda *_a: {"version": "v3", "stages": {}})

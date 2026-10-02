@@ -463,6 +463,12 @@ reporting as distinct resumable stages. Default invocation is read-only status;
 `--init` prepares private review packets without a database or API call. The
 user runs the full campaign manually. Stage completion remains diagnostic and
 never closes all roadmap entries or qualifies a judge automatically.
+Status must distinguish unset verdicts from absent source/answer reviews.
+A structural recent-window exclusion does not complete a source mapping or
+answer-key review. Report explicit invalid/uncertain dispositions and recorded
+source-review scope/reviewer separately; these declarations are not independent
+verification. Keep uncertain delayed references out of answer scoring until the
+question uniquely identifies its target and source support is established.
 Before a combined manual run starts expensive replay, validate review packet
 corpus/catalog digests, question/cutoff identities, native source bounds and
 admission fields without requiring a seeded store. Repeat trace/label validation

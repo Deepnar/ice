@@ -10,13 +10,14 @@ of bootstrap. It saves replay store/trace checkpoints and independent as-of
 snapshots, plus each cloud answer and judge order. Exact input/model/label
 identity is required for resume. Status does not call cloud models. Labels
 require complete through-cutoff/recent review and explicit task/knowledge scope;
-the third 2026-10-02 receipt records31 source/answer reviews:23 native
-(six admitted,17 recent controls) and eight linked (six admitted,two excluded).
-Ten early native exclusions remain structural only. Another108 native and116
-linked reviews remain,224 total. Twelve admissions span two histories; past
-assistant advice is separate from private recall or verified public facts, and
-task/conversation coverage remains incomplete. Twenty-four reviewed keys retain
-proposal status, uncertainty and attribution.
+the fourth 2026-10-02 receipt records46 source/answer reviews:24 native
+(six admitted,18 recent controls) and22 linked (16 admitted,two excluded,four
+uncertain). Ten early exclusions remain structural only. Another107 native and
+102 linked reviews remain,209 total; four reviewed ambiguous/unverified delayed
+cases are also unusable. Twenty-two admissions span two histories;39 reviewed
+keys preserve attribution/uncertainty. Status separates missing source reviews
+from unset verdicts and invalid/uncertain dispositions. Task and third-history
+coverage remain incomplete; historical advice is not verified public truth.
 Reviewed key corrections preserve catalog provenance and never enter answering
 inputs. Natural revisits can share reviewed question families while retaining
 cutoffs; the full repeat schedule belongs to final semi-LSREP. Reports remain diagnostic
