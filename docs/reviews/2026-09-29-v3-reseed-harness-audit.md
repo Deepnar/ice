@@ -8,19 +8,19 @@ historical scripts; `scripts/z1/README.md` points to the new path.
 
 ## Whole-process v3 scoring audit
 
-**Current source-review checkpoint, 2026-10-02:**46 source/answer reviews:
-24 native (six admitted,18 recent controls) and22 linked (16 admitted,two
-excluded,four uncertain). Pending:107 native plus102 linked reviews,209 total;
-four reviewed uncertain cases also remain unusable. Ten early exclusions are
-structural only. Complete original review reaches216/82 in two histories;
-all46 recorded mappings have through-cutoff scope. Twenty-two admissions span
-two histories; reported private facts and earlier assistant advice remain
-separate from verified public truth or completed achievements. Delaying a
-question can break generic references such as “that answer” or “this club.”
-Gold IDs do not repair the answering model's missing context; ambiguous cases
-stay out of scoring. Thirty-nine corrected keys preserve proposals, uncertainty,
-source attribution and required-versus-optional facts. Private/task/third-history
-coverage remains incomplete.
+**Current source-review checkpoint, 2026-10-02:** 88 source/answer reviews:
+28 native (six admitted, 22 recent controls) and 60 linked (39 admitted, 11 recent
+exclusions, ten uncertain). Pending: 103 native plus 64 linked reviews, 167 total;
+ten reviewed uncertain cases also remain unusable. Ten early exclusions are
+structural only. Complete imported original review reaches 216/128 in two
+histories; all 88 recorded mappings have through-cutoff scope. Forty-five
+old-source admissions include 11 private, seven mixed, 16 assistant-history and 11
+public controls; they are not 45 private-memory successes. Eighty-one corrected
+keys retain source attribution, uncertainty and later user corrections.
+Missing attachment bodies cannot verify biography claims, and an assistant recap
+cannot establish that a user formally chose an option. Delaying questions can
+also break generic references; a gold ID cannot repair the answering input.
+Private/task/third-history coverage remains incomplete.
 Corrected keys preserve the frozen catalog version; optional context cannot
 become a mandatory answer fact. One natural repeated fact now has a reviewed
 question family across distinct cutoffs, without changing replay scheduling.

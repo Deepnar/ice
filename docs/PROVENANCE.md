@@ -1,3 +1,53 @@
+## 2026-10-02 — v3 source review through the next two checkpoints
+
+Source/measurement admission only; no full replay or cloud campaign.
+Complete imported user/assistant review reaches 216/128 in two histories.
+The fifth and sixth receipts add 42 source/answer reviews: 88 total, with 28 native
+(six admitted, 22 recent controls) and 60 linked (39 admitted, 11 recent exclusions,
+ten uncertain). Ten early exclusions remain structural only. Pending: 103 native
+plus 64 linked reviews, 167 total. 45 old-source admissions include 11 private,
+seven mixed, 16 assistant-history and 11 generic/public controls, reported
+separately. 81 reviewed-key corrections preserve the frozen catalog originals.
+None of this establishes private-memory gain or independent human qualification.
+
+Later user corrections can invalidate an assistant's earlier biographical draft.
+An assistant recap asserting a decision is not direct user confirmation; an
+unavailable attachment cannot validate claimed extracted facts. Old-source
+questions whose answers are repeated in recent history are excluded from
+long-term gain. Generic research/profile guidance remains a public control.
+A deadline window is not measured labour time, and a recommendation is not a
+completed action or guaranteed outcome. Uncertain factual targets stay unscored.
+
+Immutable private fifth packet
+`logs/z1-v3-manual-2026-10-01/source-reviewed-labels-2026-10-02-r5.json`, SHA256
+`51d58f967867450141cf6d1694b193d73687c3e031b0650964fa2ea5031793d2`;
+fifth receipt SHA256
+`7ee3ac68725325e77ae7203e1cbc00667f8da8a7d92291a475336d1896ff85c8`.
+Sixth packet
+`logs/z1-v3-manual-2026-10-01/source-reviewed-labels-2026-10-02-r6.json`, SHA256
+`9bf773073fe5e9668ea5f4ed83a333accb5c35ce47f3097f8f40697620808f0a`;
+sixth receipt `source-review-checkpoint-2026-10-02-r6.json`, SHA256
+`fed583310debac07c26d3e45982bf3475c521a2df71405ab0bd46bf54021aba2`.
+Receipts pin prior receipts, source-subset hashes and the unchanged repeat packet;
+no earlier artifact was overwritten. Source-only display omissions were reread
+before adjudication; truncated navigation output was not credited as source review.
+
+Actual catalog-only preflight admits 45 old-source rows plus four repeats, 49
+occurrences. Read-only CLI status confirms 88 recorded reviews, 167 missing,
+zero stages and `cloud_answers_ready=false`. Private status
+`logs/z1-v3-source-readiness-status-2026-10-02-r6.json`, SHA256
+`4d63cee68262d7984e18d5a1e8ee5e3564e4bd794312354e44a357e58709c407`.
+The actual schedule remains 1471 turns, 39 checkpoints, 255 base plus four repeats.
+Private per-history/per-checkpoint overview
+`logs/z1-v3-manual-schedule-overview-2026-10-02-r6.json`, SHA256
+`d62d9e1ba71f982a4cf5df5a74e72b7c9346c535826e3eec3358c4fd7eadadec`.
+Current admissions would produce 196 four-arm answers and 294 judge orders across
+three contrasts, before retries. No requests were launched. The manual guide
+now gives question counts at all 39 checkpoints. Source packets remain ignored;
+no production edit, new experiment, push or roadmap quality checkbox.
+The unchanged instrument retains its latest 498/498 disposable smoke result;
+that is not a source-truth or memory-quality measurement.
+
 ## 2026-10-02 — v3 fourth source receipt and explicit review readiness
 
 Source/measurement admission, not a full replay or memory-quality result.
