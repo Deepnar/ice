@@ -69,6 +69,7 @@ def build_packet(count: int, seed: int) -> dict:
             "conversation": slug, "source_split_turn": source_split,
             "cutoff_turn": cutoff, "question": probe["question"],
             "expected_answer": probe.get("expected_answer"),
+            "reviewed_expected_answer": None,
             "gold_turns": probe["gold_turns"],
             "source_excerpt": probe.get("source_excerpt"),
             "source_role": probe.get("source_role"),
@@ -98,7 +99,12 @@ def build_packet(count: int, seed: int) -> dict:
             "what was said earlier may remain valid. Do not treat an assistant "
             "assertion alone as an independent user correction. Record review "
             "through the cutoff and whether recent history alone answers it. "
-            "Declare knowledge_scope and task_types from the allowed values."),
+            "Declare knowledge_scope and task_types from the allowed values. "
+            "Preserve expected_answer as catalog provenance; use "
+            "reviewed_expected_answer for a source-backed correction, distinguishing "
+            "required facts from optional context. Record reviewer and review_scope "
+            "without claiming independent human qualification. Meaning-equivalent "
+            "repeats may share question_family_id; review each cutoff separately."),
         "allowed_knowledge_scopes": sorted(KNOWLEDGE_SCOPES),
         "allowed_task_types": sorted(TASK_TYPES),
         "records": records,

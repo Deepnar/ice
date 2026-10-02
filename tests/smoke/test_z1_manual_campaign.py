@@ -154,3 +154,26 @@ def test_packet_preflight_checks_sources_before_any_seed_cost():
     row["question"] = "a changed question"
     with pytest.raises(ValueError, match="frozen catalog"):
         validate_packet(packet, {"p": probe}, [1, 2, 3, 4, 5], 40, native=True)
+
+
+@pytest.mark.parametrize("native", [False, True])
+def test_reviewed_key_is_checked_without_rewriting_catalog(native):
+    probe = {"probe_id": "p", "question": "What did I remember?", "expected_answer": "catalog key",
+             "conversation": "synthetic", "split_turn": 80, "gold_turns": [1]}
+    row = {**probe, "cutoff_turn": 80, "verdict": "valid", "answer_verdict": "valid",
+           "reviewed_gold_turns": [1], "reason": "Original bounds are tentative.",
+           "reviewed_through_turn": 80, "recent_only_answerable": False,
+           "knowledge_scope": "private_history", "task_types": ["episodic_lookup"],
+           "reviewed_expected_answer": "Required: preserve the uncertain bound."}
+    packet = {"kind": "native_checkpoint_source_review" if native else "longterm_probe_label_review",
+              "inputs": [1, 2, 3, 4] if native else [1, 2, 3, 4, 5],
+              "recent_window_turns": 40, "records": [row]}
+    assert validate_packet(packet, {"p": probe}, [1, 2, 3, 4, 5], 40, native=native) == 1
+    row["reviewed_expected_answer"] = " "
+    with pytest.raises(ValueError, match="nonempty"):
+        validate_packet(packet, {"p": probe}, [1, 2, 3, 4, 5], 40, native=native)
+    row["reviewed_expected_answer"] = None
+    assert validate_packet(packet, {"p": probe}, [1, 2, 3, 4, 5], 40, native=native) == 1
+    row["expected_answer"] = "an edited catalog"
+    with pytest.raises(ValueError, match="frozen catalog"):
+        validate_packet(packet, {"p": probe}, [1, 2, 3, 4, 5], 40, native=native)

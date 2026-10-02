@@ -61,6 +61,32 @@ def test_repeated_v3_question_at_two_checkpoints_has_two_identities():
     assert judge_answers.probe_key(first) != judge_answers.probe_key(later)
 
 
+def test_natural_repeat_keeps_cutoffs_and_reports_family_on_resume(tmp_path, monkeypatch):
+    import tempfile
+    from scripts.z1.answer_as_of import LOGS
+    calls = []
+    monkeypatch.setattr(judge_answers, "judge_one", lambda *a, **k: calls.append(a) or {
+        "verdict": "TIE", "reason": "equivalent", "A_grade": "correct", "B_grade": "correct"})
+    rows = [{**_record(), "probe_id": f"p{cutoff}", "split_turn": cutoff,
+             "expected_answer": "A habit remembered at this cutoff",
+             "label_review": {"question_family_id": "one_reviewed_habit"}}
+            for cutoff in (80, 160)]
+    arms = (_v3_arm("full", rows), _v3_arm("vector_only", rows))
+    with tempfile.TemporaryDirectory(prefix="z1-repeat-family-", dir=LOGS) as root:
+        out = str(Path(root) / "judge.json")
+        assert _run_v3(tmp_path, monkeypatch, *arms, extra=["--out", out]) == 0
+        result = json.loads(Path(out).read_text())
+        assert [r["split_turn"] for r in result["results"]] == [80, 160]
+        families = result["question_families"]
+        assert families["occurrences"] == 2 and families["declared_families"] == 1
+        assert families["occurrences_per_declared_family"] == {"one_reviewed_habit": 2}
+        assert families["independent_sample_count"] is None
+        assert len(calls) == 4
+        assert _run_v3(tmp_path, monkeypatch, *arms, extra=["--out", out, "--resume"]) == 0
+        assert len(calls) == 4
+        assert json.loads(Path(out).read_text())["question_families"] == families
+
+
 def test_v3_absolute_grades_follow_arms_after_blind_shuffle(tmp_path, monkeypatch):
     calls = []
     def grade(_question, _source, first, second, *, expected_answer, question_time, session_id):

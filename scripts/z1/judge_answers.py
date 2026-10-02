@@ -45,6 +45,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
+from scripts.z1.label_review import question_family_counts
 from scripts.z1.replay_checkpoint import atomic_json
 
 OUT = Path("experiments/curation_files/judgements")
@@ -601,6 +602,7 @@ def _main() -> int:
              "seed_clock_policy": da.get("seed_clock_policy"),
              "complete": False, "development_partial": bool(args.limit or da.get("development_partial")),
              "trace_sha256": da.get("trace_sha256"), "judged": len(results),
+             "question_families": question_family_counts([r.get("label_review") or {} for r in results]),
              "of": len(pairs), "results": results, "failed_attempts": attempts})
         if arm == "ERROR":
             break
@@ -633,6 +635,7 @@ def _main() -> int:
                                 and all(r["winner"] != "ERROR" for r in results),
                                 "development_partial": bool(args.limit or da.get("development_partial")),
                                 "paired_prompt_cost": token_summary,
+                                "question_families": question_family_counts([r.get("label_review") or {} for r in results]),
                                 "absolute_by_type": absolute_by_type,
                                 "order_checks": ({"pairs": len(results),
                                     "relative_consistent": sum(r["relative_order_consistent"] for r in results),

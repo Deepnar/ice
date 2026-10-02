@@ -1,5 +1,7 @@
 """Admission facts recorded by source reviewers, never guessed from overlap."""
 
+from collections import Counter
+
 KNOWLEDGE_SCOPES = {"private_history", "assistant_history", "public_knowledge", "mixed"}
 TASK_TYPES = {"episodic_lookup", "entity_relation", "summary_synthesis", "temporal",
               "knowledge_update", "procedural", "abstention", "negative", "multi_hop"}
@@ -8,6 +10,16 @@ TASK_TYPES = {"episodic_lookup", "entity_relation", "summary_synthesis", "tempor
 def blank_review() -> dict:
     return {"reviewed_through_turn": None, "recent_only_answerable": None,
             "knowledge_scope": None, "task_types": []}
+
+
+def reviewed_expected_answer(record: dict) -> str:
+    """A source-reviewed correction does not rewrite the frozen catalog key."""
+    answer = record.get("reviewed_expected_answer")
+    if answer is None:
+        answer = record.get("expected_answer")
+    if not isinstance(answer, str) or not answer.strip():
+        raise ValueError("reviewed expected answer must be a nonempty string")
+    return answer
 
 
 def validate_review(record: dict, cutoff: int) -> None:
@@ -23,6 +35,19 @@ def validate_review(record: dict, cutoff: int) -> None:
     if (not isinstance(tasks, list) or not tasks or any(t not in TASK_TYPES for t in tasks)
             or len(tasks) != len(set(tasks))):
         raise ValueError("valid label must declare reviewed semantic task types")
+    family = record.get("question_family_id")
+    if family is not None and (not isinstance(family, str) or not family.strip()):
+        raise ValueError("question family must be a nonempty reviewed identity")
+
+
+def question_family_counts(reviews: list[dict]) -> dict:
+    """Repeated observations are not extra independent questions."""
+    families = Counter(r["question_family_id"] for r in reviews if r.get("question_family_id"))
+    return {"occurrences": len(reviews), "declared_families": len(families),
+            "occurrences_per_declared_family": dict(sorted(families.items())),
+            "unassigned_occurrences": len(reviews) - sum(families.values()),
+            "unassigned_equivalence": "unreviewed",
+            "independent_sample_count": None}
 
 
 def validate_packet(audit: dict, catalog: dict, inputs: list, gap: int, *, native=False) -> int:
@@ -52,6 +77,7 @@ def validate_packet(audit: dict, catalog: dict, inputs: list, gap: int, *, nativ
         if not row.get("reason", "").strip():
             raise ValueError("valid label needs a concrete review reason")
         validate_review(row, probe["split_turn"])
+        reviewed_expected_answer(row)
         gold = row.get("reviewed_gold_turns") if native else row.get("gold_turns")
         if (not isinstance(gold, list) or not gold or any(type(t) is not int for t in gold)
                 or len(gold) != len(set(gold)) or min(gold) < 1

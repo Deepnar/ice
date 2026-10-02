@@ -396,6 +396,41 @@ rule's clothes.
      e.g. the direction rule ([G59](../ROADMAP.md#g59)) targeted a defect
      NuExtract3 does not produce. Re-measuring it out of completeness is waste.
 
+## Native labels and final repeat timing — 2026-10-02
+
+The maintainer clarified that repeated retention questions belong to the final
+semi-LSREP design. The development reseed already has 113 source-first questions
+placed at delayed section cutoffs plus 11 mapped native candidates. Do not
+expand its panel into a repeated-question campaign before source adjudication.
+Keep recent native occurrences as controls; if reviewed coverage still lacks an
+important old-source class, add a small independently reviewed delayed case
+rather than repeating every question through the full development history.
+
+For semi-LSREP, stable question-family identity must connect original and later
+occurrences. Every later cutoff requires its own source/correction/recent-history
+review; repeated exposure cannot reinforce the replayed store. Retention
+observations are dependent, not extra independent questions. Its executable
+schedule remains final-condition work under the existing roadmap entry.
+Existing native checkpoint questions can already revisit the same fact. Source
+review may assign `question_family_id` to meaning-equivalent occurrences; keep
+their probe IDs, cutoffs and labels distinct. Carry that declaration into answer
+and judge receipts and report occurrences per declared family. Unassigned
+equivalence remains unknown; family counts are not a claim of independent
+samples. This records natural repeats without changing the replay schedule.
+
+Catalog expected answers can contain overprecision or unsupported assistant
+interpretations. Either source-review packet may supply a nonempty
+`reviewed_expected_answer` with a reason and cited originals while retaining
+immutable `expected_answer` as catalog provenance. Use the reviewed key for
+judging and save both; never put either oracle key into the answering prompt.
+This also records corrections on excluded recent controls for later reuse.
+Separate required answer facts from optional context in that key: an answer
+must not fail solely for omitting an unrelated descriptive detail. Record the
+reviewer and review scope; a Codex source review is not an independent human
+qualification of the answer judge.
+Source/answer validity and long-term eligibility are different: an accurate
+source mapping within recent history remains excluded from long-term scoring.
+
 ## Manual campaign and measurement admission — 2026-10-01
 
 The entry point runs replay, snapshot, frozen answers, both-order judging and

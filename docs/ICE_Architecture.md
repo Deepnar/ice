@@ -131,6 +131,11 @@ selection without session stickiness, reported with gate probabilities and
 shared foreground pressure. Source labels require cutoff/recent-history review
 and explicit semantic task/knowledge scope. Exact answering messages accompany
 each answer; source presence is not semantic support or proof of use.
+Both review packet kinds can supply a source-reviewed expected-answer correction
+without changing the frozen catalog key. Answer records retain both keys;
+neither is answering context. Reviewed natural repeats retain distinct cutoff
+identities and optional semantic family declarations; reports distinguish
+occurrences from declared families without inferring independent sample size.
 The [manual guide and measurement matrix](reviews/2026-10-01-v3-manual-campaign.md)
 state remaining coverage, label and qualification limits.
 

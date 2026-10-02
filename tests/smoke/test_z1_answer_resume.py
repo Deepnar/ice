@@ -38,9 +38,19 @@ def test_answer_transport_receipt_and_interrupted_resume(monkeypatch):
     monkeypatch.setattr(answer_as_of, "TextGenerator", lambda profile: TextGenerator(profile, client=client))
     with tempfile.TemporaryDirectory(prefix="z1-answer-resume-", dir=answer_as_of.LOGS) as root:
         trace, out = Path(root) / "trace.jsonl", Path(root) / "answers.json"
-        trace.write_text(json.dumps({"event": "run", "meta": {"extra": {"clock_policy": "simulated"}}}) + "\n")
+        trace.write_text(json.dumps({"event": "run", "meta": {"inputs": [1, 2, 3, 4, 5],
+            "extra": {"clock_policy": "simulated"}}}) + "\n")
+        audit = Path(root) / "labels.json"
+        audit.write_text(json.dumps({"kind": "longterm_probe_label_review", "inputs": [1, 2, 3, 4, 5],
+            "records": [{"probe_id": "p1", "conversation": "synthetic", "cutoff_turn": 80,
+                "question": probe["question"], "expected_answer": probe["expected_answer"],
+                "reviewed_expected_answer": "ORACLE REVIEWED KEY CANARY", "gold_turns": [1],
+                "verdict": "valid", "reason": "Reviewed original and intervening history.",
+                "reviewed_through_turn": 80, "recent_only_answerable": False,
+                "knowledge_scope": "private_history", "task_types": ["episodic_lookup"],
+                "question_family_id": "synthetic_family"}]}))
         argv = ["answer_as_of.py", "--trace", str(trace), "--out", str(out),
-                "--arm", "full", "--allow-partial"]
+                "--arm", "full", "--allow-partial", "--validated-probes", str(audit)]
         monkeypatch.setattr(sys, "argv", argv)
         with pytest.raises(RuntimeError, match="intentional interrupted"):
             answer_as_of.main()
@@ -49,6 +59,10 @@ def test_answer_transport_receipt_and_interrupted_resume(monkeypatch):
         assert answer_as_of.main() == 0
         result = json.loads(out.read_text())
         row = result["records"][0]
+        assert row["expected_answer"] == "ORACLE REVIEWED KEY CANARY"
+        assert row["catalog_expected_answer"] == "ORACLE EXPECTED CANARY"
+        assert row["label_review"]["question_family_id"] == "synthetic_family"
+        assert probe["expected_answer"] == "ORACLE EXPECTED CANARY"
         assert row["answer_input_messages"] == messages
         assert row["answer_input_sha256"] == answer_as_of.input_digest(messages)
         assert row["prompt_evidence_support"] == "unreviewed"

@@ -16,7 +16,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from experiments.lme.cloud_provider import PROFILES, TextGenerator, load_selected_env
-from scripts.z1.label_review import validate_review
+from scripts.z1.label_review import question_family_counts, reviewed_expected_answer, validate_review
 from scripts.z1.replay_checkpoint import atomic_json
 from scripts.z1.replay_validation import validate_complete_replay
 from scripts.z1.seed_v3 import (CORPUS, EXPECTED, PROMPT_ARMS,
@@ -154,6 +154,8 @@ def reviewed_native_probes(trace: Path, audit_path: Path,
         validate_review(record, cutoff)
         gold_ids = {turn: written[(probe["conversation"], turn)] for turn in gold}
         admitted = dict(probe)
+        admitted["catalog_expected_answer"] = probe["expected_answer"]
+        admitted["expected_answer"] = reviewed_expected_answer(record)
         admitted["gold_turns"] = sorted(gold)
         admitted["gold_sources"] = [{"turn": turn,
                                       "recorded_at": source[probe["conversation"]][turn - 1]["timestamp"],
@@ -169,6 +171,8 @@ def reviewed_native_probes(trace: Path, audit_path: Path,
         admitted["review"] = {key: record[key] for key in
                               ("knowledge_scope", "task_types", "reviewed_through_turn",
                                "recent_only_answerable", "reason")}
+        admitted["review"].update({key: record[key] for key in
+                                  ("reviewer", "review_scope", "question_family_id") if key in record})
         chosen.append(admitted)
     return chosen
 
@@ -246,11 +250,17 @@ def _main() -> int:
                 if not record.get("reason", "").strip():
                     raise ValueError("valid label needs a concrete review reason")
                 validate_review(record, by_id[probe_id]["split_turn"])
-                by_id[probe_id]["review"] = {key: record[key] for key in
+                admitted = dict(by_id[probe_id])
+                admitted["catalog_expected_answer"] = admitted["expected_answer"]
+                admitted["expected_answer"] = reviewed_expected_answer(record)
+                admitted["review"] = {key: record[key] for key in
                     ("knowledge_scope", "task_types", "reviewed_through_turn",
                      "recent_only_answerable", "reason")}
+                admitted["review"].update({key: record[key] for key in
+                                          ("reviewer", "review_scope", "question_family_id") if key in record})
+                by_id[probe_id] = admitted
                 valid.add(probe_id)
-        available = [p for p in available if p["probe_id"] in valid]
+        available = [by_id[p["probe_id"]] for p in available if p["probe_id"] in valid]
         audit_hashes["existing"] = hashlib.sha256(audit_path.read_bytes()).hexdigest()
     elif args.validated_native_sources or (not args.allow_partial and not args.plan):
         available = []
@@ -268,6 +278,7 @@ def _main() -> int:
         print(json.dumps({"version": "v3", "arm": args.arm, "probes": len(probes),
                           "label_audit_applied": bool(audit_hashes),
                           "review_coverage": {
+                              "question_families": question_family_counts([p.get("review") or {} for p in probes]),
                               "by_conversation": {slug: sum(p["conversation"] == slug for p in probes)
                                   for slug in sorted({p["conversation"] for p in probes})},
                               "checkpoint_times": len({(p["conversation"], p["split_turn"]) for p in probes}),
@@ -367,6 +378,7 @@ def _main() -> int:
                   "probe_type": probe["type"],
                   "question": probe["question"], "gold_turns": probe["gold_turns"],
                   "expected_answer": probe.get("expected_answer"),
+                  "catalog_expected_answer": probe.get("catalog_expected_answer", probe.get("expected_answer")),
                   "label_review": probe.get("review"),
                   "gold_source_complete": True, "gold_turn_text": source_text,
                   "gold_source_storage": {

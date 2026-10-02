@@ -205,6 +205,10 @@ def test_reviewed_native_source_can_join_frozen_checkpoint(tmp_path, monkeypatch
                            "cutoff_turn": probe["split_turn"],
                            "question": probe["question"],
                            "expected_answer": probe["expected_answer"],
+                           "reviewed_expected_answer": "Required: a reviewed source fact.",
+                           "reviewer": "synthetic_reviewer",
+                           "review_scope": "complete_history_through_cutoff",
+                           "question_family_id": "synthetic_family",
                            "answer_verdict": "valid", "reviewed_gold_turns": [1],
                            "reviewed_through_turn": probe["split_turn"],
                            "recent_only_answerable": False,
@@ -214,6 +218,11 @@ def test_reviewed_native_source_can_join_frozen_checkpoint(tmp_path, monkeypatch
     joined = reviewed_native_probes(trace, audit, [frozen])
     assert len(joined) == 1
     assert joined[0]["gold_turns"] == [1]
+    assert joined[0]["expected_answer"] == "Required: a reviewed source fact."
+    assert joined[0]["catalog_expected_answer"] == probe["expected_answer"]
+    assert joined[0]["review"]["reviewer"] == "synthetic_reviewer"
+    assert joined[0]["review"]["question_family_id"] == "synthetic_family"
+    assert joined[0]["preflight"]["prompt_messages"] == stage["prompt_messages"]
     assert joined[0]["gold_sources"][0]["source_ids"] == ["batch-1", "row-1"]
     assert joined[0]["gold_sources"][0]["ts_provenance"] == "synthetic_raw_import"
     assert joined[0]["preflight"]["gold_fragment_coverage"]["gold_turns"] == 1
@@ -230,6 +239,14 @@ def test_reviewed_native_source_can_join_frozen_checkpoint(tmp_path, monkeypatch
             assert answer_main() == 0
             plan = json.loads(capsys.readouterr().out)
             assert plan["probes"] == 1 and plan["arm"] == arm
+            assert plan["review_coverage"]["question_families"]["declared_families"] == 1
+    packet["records"][0]["reviewed_expected_answer"] = "  "
+    audit.write_text(json.dumps(packet))
+    with pytest.raises(ValueError, match="nonempty"):
+        reviewed_native_probes(trace, audit, [frozen])
+    packet["records"][0]["reviewed_expected_answer"] = None
+    audit.write_text(json.dumps(packet))
+    assert reviewed_native_probes(trace, audit, [frozen])[0]["expected_answer"] == probe["expected_answer"]
     packet["records"][0]["reason"] = ""
     audit.write_text(json.dumps(packet))
     with pytest.raises(ValueError, match="reason"):

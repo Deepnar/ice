@@ -64,6 +64,7 @@ def build_packet() -> dict:
                 "assistant": turns[n - 1]["response"],
             } for n in suggestions],
             "reviewed_gold_turns": [],
+            "reviewed_expected_answer": None,
             "answer_verdict": None,
             "reason": "",
             **blank_review(),
@@ -93,7 +94,13 @@ def build_packet() -> dict:
             "source turn, check whether the expected answer is supported and "
             "superseded, and mark a probe long-term only if recent turns alone "
             "cannot answer it. Record reviewed_through_turn, recent_only_answerable, "
-            "knowledge_scope and task_types. Never infer support from term overlap."),
+            "knowledge_scope and task_types. Preserve expected_answer as catalog "
+            "provenance; use reviewed_expected_answer for a source-backed correction, "
+            "distinguishing required facts from optional context. Record reviewer "
+            "and review_scope without claiming independent human qualification. "
+            "Meaning-equivalent native repeats may share question_family_id; "
+            "each occurrence still needs its own cutoff review. "
+            "Never infer support from term overlap."),
         "allowed_knowledge_scopes": sorted(KNOWLEDGE_SCOPES),
         "allowed_task_types": sorted(TASK_TYPES),
         "records": records,

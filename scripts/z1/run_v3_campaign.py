@@ -251,7 +251,7 @@ def campaign_report(root: Path, config: dict) -> dict:
         if path.suffix == ".json":
             data = json.loads(path.read_text())
             receipt.update({key: data.get(key) for key in
-                            ("complete", "complete_corpus_replay", "judge_status", "score_of_record",
+                            ("complete", "complete_corpus_replay", "judge_status", "score_of_record", "question_families",
                              "calibration_status", "paired_prompt_cost", "absolute_by_type", "order_checks") if key in data})
             receipt["records"] = len(data.get("records", data.get("results", [])))
             if path.name.startswith("judge-"):
