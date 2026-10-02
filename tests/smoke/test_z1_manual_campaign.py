@@ -45,6 +45,21 @@ def test_default_status_never_connects_database_or_provider(tmp_path, monkeypatc
     assert not campaign.status(tmp_path, config())["cloud_answers_ready"]
 
 
+def test_manual_report_exposes_reviewed_strata_without_a_cloud_call(tmp_path, monkeypatch):
+    from scripts.z1.judge_answers import reviewed_outcome_strata
+    monkeypatch.setattr(campaign, "status", lambda *_a: {"version": "v3", "stages": {}})
+    strata = reviewed_outcome_strata([{
+        "label_review": {"knowledge_scope": "private_history", "task_types": ["procedural"]},
+        "winner": "vector_only", "arm_a_grade": "incorrect", "arm_b_grade": "correct"}])
+    (tmp_path / "judge-full-vs-vector_only.json").write_text(json.dumps({
+        "complete": True, "reviewed_outcome_strata": strata, "results": [{}]}))
+    monkeypatch.setattr(campaign.subprocess, "run", lambda *_a, **_k: pytest.fail("report launched a stage"))
+    result = campaign.campaign_report(tmp_path, config())
+    receipt = result["artifacts"]["judge-full-vs-vector_only.json"]
+    assert receipt["reviewed_outcome_strata"] == strata
+    assert receipt["source_grade_repetitions_are_not_independent"]
+
+
 def test_unreviewed_full_campaign_blocks_before_database_or_api(tmp_path, monkeypatch):
     monkeypatch.setattr(campaign, "database_environment", lambda _: pytest.fail("blocked run connected"))
     monkeypatch.setattr(campaign.subprocess, "run", lambda *_a, **_k: pytest.fail("blocked run called child"))

@@ -2009,3 +2009,16 @@ optional facts, and judge against that reviewed key. Preserve the original
 user/assistant source for audit. Recent-only answerability is a separate
 eligibility judgment; excluding a recent question does not mean its answer is
 false. These source reviews do not independently qualify the answer judge.
+
+### 82. Recorded task labels can still disappear from the measured result
+
+**v3, 2026-10-02.** The answer files retained reviewed knowledge scope and
+semantic tasks, but the paired judge grouped grades only by historical probe
+type. It could therefore pool easy public controls with private-memory misses.
+An authored five-pair coordinator fixture demonstrates the failure shape:
+4/5 pooled correct conceals0/1 private recall and a much higher private token
+cost. This is a stubbed-judge instrument control, not an observed memory rate.
+Consume reviewed scope/tasks in partial/final outcome and token reports. Show
+empty and unreviewed cells, errors and uncertainty, and dependent family counts.
+Multi-label task groups overlap; neither their totals nor repeated family
+occurrences are independent samples. Saving the label is not measuring it.

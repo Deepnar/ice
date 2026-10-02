@@ -452,6 +452,20 @@ turn can repeat the same fact. Public questions may remain useful controls, but
 their correct answers do not establish memory gain. Unreviewed task labels are
 not inferred from source role, punctuation or word overlap.
 
+**Reviewed outcome strata, 2026-10-02:** the paired judge must consume those
+reviewed labels in its reports, not merely save them on each answer. Report
+absolute grade counts, paired correct/incorrect outcomes, judge errors and
+paired estimated prompt costs separately by knowledge scope and semantic task.
+Keep public-knowledge controls separate from private-history results: a public
+answer may be correct without any memory benefit. Show every allowed scope and
+task, including zero-case cells, and an explicit unreviewed bucket for missing
+labels. Task labels are multi-label and their groups overlap; do not sum them
+into an independent sample count. Every row remains a question occurrence at
+one cutoff, with declared question families reported within each group. Unknown
+or error grades stay unresolved, not incorrect or a tie. Persist these summaries
+with partial and final judge receipts and expose them through the manual report;
+completed resume must reproduce them without additional judge calls.
+
 Pin the actual answer adapter and provider identity. For Luna's Responses
 profile, temperature is omitted by the adapter; report `provider_default`,
 never a claim of deterministic temperature-zero sampling. Store the exact

@@ -176,6 +176,79 @@ def _run_v3(tmp_path, monkeypatch, left, right, extra=()):
     return judge_answers.main()
 
 
+def test_reviewed_strata_keep_errors_unknowns_and_overlapping_tasks_visible():
+    review = {"knowledge_scope": "private_history", "task_types": ["temporal", "knowledge_update"],
+              "question_family_id": "one_fact"}
+    rows = [{"label_review": review, "winner": "full", "arm_a_grade": "correct",
+             "arm_b_grade": "partial", "arm_a_prompt_tokens_est": 300,
+             "arm_b_prompt_tokens_est": 200},
+            {"label_review": review, "winner": "ERROR", "arm_a_grade": None,
+             "arm_b_grade": None},
+            {"winner": "UNCERTAIN", "arm_a_grade": "uncertain", "arm_b_grade": "incorrect"}]
+    strata = judge_answers.reviewed_outcome_strata(rows)
+    private = strata["knowledge_scope"]["private_history"]
+    assert private["occurrences"] == 2 and private["judge_errors"] == 1
+    assert private["absolute_grades"]["arm_a"]["ungraded"] == 1
+    assert private["paired_correctness"]["a_only_correct"] == 1
+    assert private["paired_correctness"]["unresolved"] == 1
+    assert private["paired_prompt_cost"]["pairs_with_estimates"] == 1
+    assert private["question_families"]["occurrences_per_declared_family"] == {"one_fact": 2}
+    assert strata["knowledge_scope"]["public_knowledge"]["status"] == "unrepresented"
+    assert strata["knowledge_scope"]["unreviewed"]["paired_correctness"]["unresolved"] == 1
+    assert strata["task_types"]["temporal"]["occurrences"] == 2
+    assert strata["task_types"]["knowledge_update"]["occurrences"] == 2
+    assert strata["task_types"]["negative"]["occurrences"] == 0
+    assert strata["task_groups_overlap"] and strata["independent_sample_count"] is None
+
+
+def test_campaign_strata_expose_private_failure_hidden_by_public_controls_and_resume(tmp_path, monkeypatch):
+    import tempfile
+    from scripts.z1.answer_as_of import LOGS
+    calls = []
+
+    def grade(question, _source, first, second, **_kwargs):
+        calls.append(question)
+        if question == "A private remembered fact?":
+            a_correct = first == "right private answer"
+            return {"verdict": "A" if a_correct else "B", "reason": "more_grounded",
+                    "A_grade": "correct" if a_correct else "incorrect",
+                    "B_grade": "incorrect" if a_correct else "correct"}
+        return {"verdict": "TIE", "reason": "equivalent", "A_grade": "correct", "B_grade": "correct"}
+
+    monkeypatch.setattr(judge_answers, "judge_one", grade)
+    public = [{**_record(), "probe_id": f"public-{n}", "split_turn": 80 + n,
+               "expected_answer": "A public fact", "probe_type": "episodic",
+               "label_review": {"knowledge_scope": "public_knowledge", "task_types": ["episodic_lookup"]},
+               "prompt_tokens": 100} for n in range(4)]
+    private = {**_record(), "probe_id": "private", "split_turn": 100,
+               "question": "A private remembered fact?", "expected_answer": "private fact",
+               "probe_type": "episodic", "answer": "wrong private answer", "prompt_tokens": 800,
+               "label_review": {"knowledge_scope": "private_history", "task_types": ["procedural"]}}
+    left = public + [private]
+    right = [{**r, "answer": "right private answer" if r["probe_id"] == "private" else r["answer"],
+              "prompt_tokens": 80} for r in left]
+    with tempfile.TemporaryDirectory(prefix="z1-reviewed-strata-", dir=LOGS) as root:
+        out = str(Path(root) / "judge.json")
+        arms = (_v3_arm("full", left), _v3_arm("vector_only", right))
+        assert _run_v3(tmp_path, monkeypatch, *arms, extra=["--out", out]) == 0
+        result = json.loads(Path(out).read_text())
+        assert result["absolute_by_type"]["episodic"]["arm_a"]["correct"] == 4
+        strata = result["reviewed_outcome_strata"]
+        scopes = strata["knowledge_scope"]
+        assert scopes["public_knowledge"]["paired_correctness"]["both_correct"] == 4
+        assert scopes["private_history"]["paired_correctness"]["b_only_correct"] == 1
+        assert scopes["private_history"]["absolute_grades"]["arm_a"]["correct"] == 0
+        assert scopes["public_knowledge"]["paired_prompt_cost"]["median_a_minus_b_tokens_est"] == 20
+        assert scopes["private_history"]["paired_prompt_cost"]["median_a_minus_b_tokens_est"] == 720
+        assert strata["task_types"]["knowledge_update"]["status"] == "unrepresented"
+        partial = json.loads(Path(out).with_suffix(".partial.json").read_text())
+        assert partial["reviewed_outcome_strata"] == strata
+        assert len(calls) == 10
+        assert _run_v3(tmp_path, monkeypatch, *arms, extra=["--out", out, "--resume"]) == 0
+        assert len(calls) == 10
+        assert json.loads(Path(out).read_text())["reviewed_outcome_strata"] == strata
+
+
 def test_v3_missing_declared_pair_or_expected_answer_blocks_all_calls(tmp_path, monkeypatch):
     monkeypatch.setattr(judge_answers, "judge_one",
                         lambda *_args, **_kwargs: pytest.fail("judge called before complete preflight"))

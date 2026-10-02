@@ -252,7 +252,8 @@ def campaign_report(root: Path, config: dict) -> dict:
             data = json.loads(path.read_text())
             receipt.update({key: data.get(key) for key in
                             ("complete", "complete_corpus_replay", "judge_status", "score_of_record", "question_families",
-                             "calibration_status", "paired_prompt_cost", "absolute_by_type", "order_checks") if key in data})
+                             "calibration_status", "paired_prompt_cost", "absolute_by_type",
+                             "reviewed_outcome_strata", "order_checks") if key in data})
             receipt["records"] = len(data.get("records", data.get("results", [])))
             if path.name.startswith("judge-"):
                 receipt["source_grade_repetitions_are_not_independent"] = True

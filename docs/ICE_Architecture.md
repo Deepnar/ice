@@ -136,6 +136,13 @@ without changing the frozen catalog key. Answer records retain both keys;
 neither is answering context. Reviewed natural repeats retain distinct cutoff
 identities and optional semantic family declarations; reports distinguish
 occurrences from declared families without inferring independent sample size.
+Paired outcome reports consume the reviewed knowledge scope and semantic tasks:
+absolute grades, resolved paired correctness and estimated prompt cost are
+separate for each scope/task. Public-knowledge controls cannot hide a private
+recall failure in the old probe-type total. Zero-case and unreviewed groups,
+errors and uncertain grades remain visible. Task groups overlap and occurrences
+within one declared family remain dependent; these reports do not qualify the
+judge or demonstrate causal memory use.
 The [manual guide and measurement matrix](reviews/2026-10-01-v3-manual-campaign.md)
 state remaining coverage, label and qualification limits.
 

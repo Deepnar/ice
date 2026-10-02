@@ -45,7 +45,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from scripts.z1.label_review import question_family_counts
+from scripts.z1.label_review import KNOWLEDGE_SCOPES, TASK_TYPES, question_family_counts
 from scripts.z1.replay_checkpoint import atomic_json
 
 OUT = Path("experiments/curation_files/judgements")
@@ -355,6 +355,66 @@ def combine_orders(first, reverse, *, a_is_first, name_a, name_b):
             "order_verdicts": orders}
 
 
+def paired_prompt_cost(results: list[dict]) -> dict:
+    costs = [(r.get("arm_a_prompt_tokens_est"), r.get("arm_b_prompt_tokens_est"))
+             for r in results if type(r.get("arm_a_prompt_tokens_est")) in (int, float)
+             and type(r.get("arm_b_prompt_tokens_est")) in (int, float)]
+    if not costs:
+        return {"pairs_with_estimates": 0}
+    return {"pairs_with_estimates": len(costs),
+            "arm_a_median_prompt_tokens_est": statistics.median(a for a, _ in costs),
+            "arm_b_median_prompt_tokens_est": statistics.median(b for _, b in costs),
+            "median_a_minus_b_tokens_est": statistics.median(a - b for a, b in costs),
+            "a_fewer_prompt_tokens_fraction": sum(a < b for a, b in costs) / len(costs)}
+
+
+def reviewed_outcome_strata(results: list[dict]) -> dict:
+    """Easy public controls must not hide errors on private remembered facts."""
+    scopes = {key: [] for key in sorted(KNOWLEDGE_SCOPES) + ["unreviewed"]}
+    tasks = {key: [] for key in sorted(TASK_TYPES) + ["unreviewed"]}
+    for row in results:
+        review = row.get("label_review") or {}
+        scope = review.get("knowledge_scope")
+        scopes[scope if scope in KNOWLEDGE_SCOPES else "unreviewed"].append(row)
+        labels = review.get("task_types")
+        labels = set(labels) & TASK_TYPES if isinstance(labels, list) else set()
+        for task in labels or {"unreviewed"}:
+            tasks[task].append(row)
+
+    def summarize(rows):
+        grades = {}
+        for arm in ("arm_a", "arm_b"):
+            observed = Counter(r.get(arm + "_grade") for r in rows)
+            grades[arm] = {grade: observed[grade] for grade in sorted(GRADES)}
+            grades[arm]["ungraded"] = sum(n for grade, n in observed.items() if grade not in GRADES)
+        outcomes = dict.fromkeys(("both_correct", "a_only_correct", "b_only_correct",
+                                  "neither_correct", "unresolved"), 0)
+        for row in rows:
+            a, b = row.get("arm_a_grade"), row.get("arm_b_grade")
+            if row.get("winner") == "ERROR" or a not in GRADES - {"uncertain"} or b not in GRADES - {"uncertain"}:
+                key = "unresolved"
+            elif a == b == "correct":
+                key = "both_correct"
+            elif a == "correct":
+                key = "a_only_correct"
+            elif b == "correct":
+                key = "b_only_correct"
+            else:
+                key = "neither_correct"
+            outcomes[key] += 1
+        return {"occurrences": len(rows), "status": "represented" if rows else "unrepresented",
+                "judge_errors": sum(r.get("winner") == "ERROR" for r in rows),
+                "absolute_grades": grades, "paired_correctness": outcomes,
+                "preferences": dict(Counter(r.get("winner") for r in rows)),
+                "paired_prompt_cost": paired_prompt_cost(rows),
+                "question_families": question_family_counts([r.get("label_review") or {} for r in rows])}
+
+    return {"basis": "reviewed labels; question occurrences at individual cutoffs",
+            "task_groups_overlap": True, "independent_sample_count": None,
+            "knowledge_scope": {key: summarize(rows) for key, rows in scopes.items()},
+            "task_types": {key: summarize(rows) for key, rows in tasks.items()}}
+
+
 def _main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--a", required=True, help="arm 1 answers json")
@@ -549,6 +609,7 @@ def _main() -> int:
                 "development_partial": bool(args.limit or da.get("development_partial")),
                 "trace_sha256": da.get("trace_sha256"), "judged": len(results),
                 "of": len(pairs), "results": results,
+                "reviewed_outcome_strata": reviewed_outcome_strata(results),
                 "pending_probe": {"probe_id": ra["probe_id"], "a_was_first": a_is_first,
                                   "first_order": v}, "failed_attempts": attempts})
             reverse = (judge_one(ra["question"], source, second["answer"], first["answer"],
@@ -603,21 +664,14 @@ def _main() -> int:
              "complete": False, "development_partial": bool(args.limit or da.get("development_partial")),
              "trace_sha256": da.get("trace_sha256"), "judged": len(results),
              "question_families": question_family_counts([r.get("label_review") or {} for r in results]),
+             "reviewed_outcome_strata": reviewed_outcome_strata(results) if is_v3 else None,
              "of": len(pairs), "results": results, "failed_attempts": attempts})
         if arm == "ERROR":
             break
 
     OUT.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    costs = [(r["arm_a_prompt_tokens_est"], r["arm_b_prompt_tokens_est"])
-             for r in results if isinstance(r["arm_a_prompt_tokens_est"], (int, float))
-             and isinstance(r["arm_b_prompt_tokens_est"], (int, float))]
-    token_summary = ({"pairs_with_estimates": len(costs),
-                      "arm_a_median_prompt_tokens_est": statistics.median(a for a, _ in costs),
-                      "arm_b_median_prompt_tokens_est": statistics.median(b for _, b in costs),
-                      "median_a_minus_b_tokens_est": statistics.median(a - b for a, b in costs),
-                      "a_fewer_prompt_tokens_fraction": sum(a < b for a, b in costs) / len(costs)}
-                     if costs else {"pairs_with_estimates": 0})
+    token_summary = paired_prompt_cost(results)
     absolute_by_type = {}
     if da.get("version") == "v3":
         for kind in sorted({r["probe_type"] for r in results}):
@@ -637,6 +691,7 @@ def _main() -> int:
                                 "paired_prompt_cost": token_summary,
                                 "question_families": question_family_counts([r.get("label_review") or {} for r in results]),
                                 "absolute_by_type": absolute_by_type,
+                                "reviewed_outcome_strata": reviewed_outcome_strata(results) if is_v3 else None,
                                 "order_checks": ({"pairs": len(results),
                                     "relative_consistent": sum(r["relative_order_consistent"] for r in results),
                                     "absolute_consistent": sum(r["absolute_order_consistent"] for r in results),
