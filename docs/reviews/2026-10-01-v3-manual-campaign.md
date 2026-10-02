@@ -19,12 +19,18 @@ not a reason to run the measurement against a different schema.
 
 The private bundle `logs/z1-v3-manual-2026-10-01` is already initialized. It
 contains all 124 source-linked review candidates and 131 native source-mapping
-reviews. As of 2026-10-02, ten native source/answer mappings have been reviewed:
-two qualify as old-source tests and eight are recent-history controls. Another
-15 early-cutoff questions are structurally excluded without claiming their
-sources or answer keys were reviewed. Native verdicts are two valid, 23 excluded
-and 106 unset; **121 native mappings/keys and all 124 linked candidates still
+reviews. As of the second 2026-10-02 checkpoint, 21 native source/answer mappings
+have been reviewed: six qualify as old-source tests and 15 are recent-history
+controls. Another ten early-cutoff questions are structurally excluded without
+claiming their sources or answer keys were reviewed. Native verdicts are six
+valid, 25 excluded and 100 unset; **110 native mappings/keys and all 124 linked candidates still
 need source review**. No campaign database, full replay or cloud campaign exists.
+The six admitted cases all belong to one conversation. They provide reviewed
+entity, procedural, episodic, temporal and partial-unknown examples, not broad
+coverage of all three histories or all semantic tasks. Fourteen corrected keys
+preserve proposals, attribution and required-versus-optional facts. Complete
+history review reaches turn216 in that conversation; seven reviews in another
+history inspect complete sources and decisive recent counterexamples only.
 For a new bundle, initialize once:
 
 ```bash
@@ -140,10 +146,11 @@ validation, not merely that `stage-status.json` says complete.
 | Measurement | Ground truth now | Signal and valid inference | Still needed |
 |---|---|---|---|
 | Replay order/completeness | Pinned1471 originals across three histories | Every preflight precedes its recorded reply; no missing turn or future evidence | Full manual replay; this does not score new answers |
-| Expected answers/source turns |255 catalog answers;124 linked candidates still unreviewed; ten native mappings reviewed, two admitted;121 native mappings/keys remain | After review, old source identity at exact query time is a usable retrieval denominator | Complete-source, correction and recent-only review; early checkpoint coverage; these two cases do not establish whole-panel readiness |
+| Expected answers/source turns |255 catalog answers;124 linked candidates still unreviewed;21 native mappings reviewed, six admitted;110 native mappings/keys remain | After review, old source identity at exact query time is a usable retrieval denominator | Complete-source, correction and recent-only review; remaining task and conversation coverage; six cases from one history do not establish whole-panel readiness |
 | Retrieval rank@5/@10 | Reviewed source IDs | First five/ten pre-budget fragments; distinct-source-turn ranks separately collapse repeats | A source ID is not proof of relevant words surviving compression |
 | Final prompt evidence | Exact frozen messages and source receipts | Candidate→budget→selected/source-note funnel locates where a source disappears | Semantic support review against exact visible text |
 | Answer correctness | Reviewed expected answer and complete dated originals | Per-arm correct/partial/incorrect/uncertain, both-failed and errors | Broad real-pair human qualification; all-correct three-pair review is insufficient |
+| Scope/task outcome strata | Reviewed knowledge scope and multi-label semantic tasks | Per-scope/task grades, paired correctness and paired estimated token cost; empty/unreviewed groups and errors are visible | Fill task/conversation coverage; public controls do not establish private memory gain; overlapping task/family observations are dependent |
 | Memory contribution | Four paired prompt arms and reviewed knowledge scope | Direct graph evidence, warm-vector and recent-history contrasts estimate answer effects | Do not infer causal use from correctness/citations; every-leg ablations and independent vector baseline remain combined-Z work |
 | Prompt cost | Same tokenizer estimate and saved provider usage | Paired medians/differences and errors, alongside answer quality | Estimates are not provider tokenizer counts; no matched-quality cost curve or proven token saving yet |
 | Graph/claim truth and entity merges | Complete originals and source links; earlier labels may describe superseded extractor | Output-specific source/role/negation precision and recall review | Seeded blind graph review; graph density is not correctness |

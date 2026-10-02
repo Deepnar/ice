@@ -10,13 +10,20 @@ of bootstrap. It saves replay store/trace checkpoints and independent as-of
 snapshots, plus each cloud answer and judge order. Exact input/model/label
 identity is required for resume. Status does not call cloud models. Labels
 require complete through-cutoff/recent review and explicit task/knowledge scope;
-the 2026-10-02 source review admits two native old-source cases, with eight
-source-grounded recent controls and 15 structural early exclusions. Another
-121 native mappings/keys and all124 linked candidates still need review.
+the second 2026-10-02 source review admits six native old-source cases, with15
+source-grounded recent controls and ten structural early exclusions. Another
+110 native mappings/keys and all124 linked candidates still need review.
+All six admissions come from one history; this is incomplete task/conversation
+coverage. Fourteen corrected keys retain proposal status and source attribution.
 Reviewed key corrections preserve catalog provenance and never enter answering
 inputs. Natural revisits can share reviewed question families while retaining
 cutoffs; the full repeat schedule belongs to final semi-LSREP. Reports remain diagnostic
 while judge qualification and output-specific truth audits are pending.
+Judge receipts and the manual report separate absolute grades, paired
+correctness and estimated prompt costs by reviewed knowledge scope and semantic
+task. Public controls stay separate from private recall; missing and zero-case
+groups remain visible, and multi-label task groups/families cannot be summed as
+independent samples. Partial and resumed reports keep the same summaries.
 See the [manual guide and complete measurement matrix](../../docs/reviews/2026-10-01-v3-manual-campaign.md).
 
 **v3 reseed harness in verification, 2026-09-29:** use `seed_v3.py`, not the

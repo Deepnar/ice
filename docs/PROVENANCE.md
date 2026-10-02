@@ -1,3 +1,80 @@
+## 2026-10-02 — v3 reviewed task/scope outcomes reach the report
+
+Instrument repair, not a cloud judge qualification or memory-quality result.
+Code inspection found that reviewed task/knowledge labels were saved with each
+answer, but absolute grades and prompt costs were grouped only by historical
+probe type. Reports now separate all allowed scopes/tasks, including empty and
+unreviewed groups, absolute grades, resolved paired correctness, judge errors,
+estimated paired token costs and declared family counts. Multi-label task groups
+overlap; no independent sample size is inferred. Partial/final judge receipts
+and the manual campaign report carry the same summaries. The judge request,
+rubric, model, source admission and answering prompts are unchanged.
+
+A pure reporting control checks overlapping update/temporal labels, an API-error
+row, uncertain grades, unknown labels and absent classes. The actual coordinator
+with a stubbed judge handles five pairs in both orders: four public controls
+agree, while the private question favors the comparison arm. The pooled legacy
+type shows4/5 correct for the full arm, but its private stratum shows0/1 and a
+720-token estimated excess versus20 for the public controls. These are authored
+fixture values, not an observed ICE rate. Partial/final summaries agree;
+completed resume preserves them with zero additional judge calls. A separate
+manual-report control confirms propagation without starting any stage.
+
+The initial focused run had31 passes and one failure because a test used the
+wrong partial-artifact path. The assertion was corrected; final focus33/33
+passed. Log `logs/z1-v3-reviewed-strata-focus-2026-10-02-r2.log`, SHA256
+`446114451169b4acc819019ac1f9b058d4cb666d334a6feb7ea2865b0f7988a0`.
+Final disposable smoke484/484 passed with five warnings and its database was
+removed. Log `logs/z1-v3-reviewed-strata-smoke-2026-10-02.log`, SHA256
+`84f08ab77a273a6294e763938e302966c91af5051cd2190ef947fc4defb1b02d`.
+Counts overlap. No real cloud call, full campaign, production change or push.
+RESEED_PLAN, inventory, architecture, manual guide, script index and TRAPS82
+record the reporting contract. Source coverage remains the second receipt below;
+no roadmap checkmark follows from these instrument checks.
+
+## 2026-10-02 — v3 source-review continuation, second receipt
+
+Source adjudication only; no full replay, cloud answering or quality result.
+Complete original user/assistant history review now reaches turn216 in one
+selected conversation. Seven other native reviews inspect complete sources
+and decisive recent-window counterexamples, without claiming complete
+intervening review. In total21 native mappings/keys are reviewed: six admitted
+old-source cases and15 source-grounded recent exclusions. Another ten early
+exclusions remain structural only. Native dispositions are6valid/25excluded/
+100unset;110 native mappings/keys and124 linked candidates remain unreviewed.
+All six admissions are from one conversation; entity, procedural, episodic,
+temporal and partial-unknown task examples do not complete task coverage.
+The actor is Codex source review, not independent human judge qualification.
+
+Fourteen corrected keys retain the immutable catalog answers. They distinguish
+tentative proposals and unspecified details from resolved facts, required
+answer facts from optional context, quoted advertised opportunities from
+completed participation, and historical assistant advice/reports from verified
+user decisions or independently available attachment contents. A later change
+to one event does not automatically erase an earlier, separately asked event.
+No extra repeated-question schedule or new roadmap item was introduced.
+
+The prior source receipt is retained. New private immutable packet
+`logs/z1-v3-manual-2026-10-01/source-reviewed-labels-2026-10-02-r2.json`, SHA256
+`24eac097421efaa4849a740a3b350df87566d0251526409a2b0692fb1334a4b7`,
+is pinned by receipt
+`logs/z1-v3-manual-2026-10-01/source-review-checkpoint-2026-10-02-r2.json`, SHA256
+`1238f932396e0329427a23b8cf78f0975d006bd28aa8e1a0471294abdb855001`.
+It records reviewed rows, exact read subsets/hash encoding and coverage limits.
+An initial save used a nonexistent helper import and failed before any write;
+the correct durable helper was used afterwards. Oversized candidate-print
+outputs were truncated and received no reading credit. Complete originals were
+read in bounded slices before through-cutoff verdicts.
+
+Actual catalog/packet preflight admits six rows. Actual manual CLI status has
+zero stages and `cloud_answers_ready=false`; no store/API call was started.
+Status receipt `logs/z1-v3-reviewed-label-status-2026-10-02-r2.json`, SHA256
+`8534d3a0c2fce38b5095596a79693f8bbb53151fabe3caf4b4c0fb21706a9436`.
+No executable code changed; the preceding481/481 smoke result is unchanged,
+not a new run. Roadmap160 checkbox items remain93checked/67open. Current
+manual guide, audit, roadmap source checkpoint and script index are refreshed;
+no memory-quality item is closed from these labels.
+
 ## 2026-10-02 — v3 source keys and natural repeated-question provenance
 
 Source adjudication and instrument checks, not a full replay or memory-quality

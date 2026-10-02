@@ -8,15 +8,30 @@ historical scripts; `scripts/z1/README.md` points to the new path.
 
 ## Whole-process v3 scoring audit
 
-**Source-review checkpoint, 2026-10-02:** ten native mappings/keys reviewed,
-two admitted old-source cases and eight recent controls; 121 native mappings
+**Second source-review checkpoint, 2026-10-02:** 21 native mappings/keys reviewed,
+six admitted old-source cases and 15 recent controls; 110 native mappings
 and all 124 linked candidates remain without source/answer adjudication.
-Fifteen additional early-cutoff exclusions are structural, not source reviews.
+Ten additional early-cutoff exclusions are structural, not source reviews.
+Complete history review reaches turn216 in one conversation; seven other
+reviews have only complete-source/recent-counterexample scope. The six admitted
+cases all come from the first history, so task/conversation coverage remains
+incomplete. Corrected keys preserve tentative proposals, unknown details and
+source attribution; unseen attachment contents and assistant interpretations
+are not independently verified facts.
 Corrected keys preserve the frozen catalog version; optional context cannot
 become a mandatory answer fact. One natural repeated fact now has a reviewed
 question family across distinct cutoffs, without changing replay scheduling.
 The full retention schedule remains semi-LSREP work. These are Codex reviews,
 not independent human qualification or a complete measurement panel.
+
+**Reviewed outcome reporting, 2026-10-02:** the judge now uses reviewed
+knowledge scope and semantic tasks to stratify grades, paired correctness and
+estimated prompt cost, preserving zero-case/unreviewed cells and errors. An
+authored actual-coordinator/stubbed-judge control demonstrates that4/5 pooled
+correct can conceal0/1 private recall and higher private cost; it is not an
+observed memory rate. Partial/final/manual receipts retain the strata, and
+completed resume adds no calls. Focus33 and disposable smoke484 checks pass;
+these are instrument controls, not source truth or broad judge qualification.
 
 **Current manual/readiness follow-through, 2026-10-01:** the [manual guide and
 metric/ground-truth matrix](2026-10-01-v3-manual-campaign.md) provide one
