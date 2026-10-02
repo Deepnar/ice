@@ -45,6 +45,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
+from scripts.z1.development_repeats import retention_comparison
 from scripts.z1.label_review import KNOWLEDGE_SCOPES, TASK_TYPES, question_family_counts
 from scripts.z1.replay_checkpoint import atomic_json
 
@@ -372,7 +373,10 @@ def reviewed_outcome_strata(results: list[dict]) -> dict:
     """Easy public controls must not hide errors on private remembered facts."""
     scopes = {key: [] for key in sorted(KNOWLEDGE_SCOPES) + ["unreviewed"]}
     tasks = {key: [] for key in sorted(TASK_TYPES) + ["unreviewed"]}
+    recent_controls = [r for r in results if (r.get("development_repeat") or {}).get("phase") == "before"]
     for row in results:
+        if (row.get("development_repeat") or {}).get("phase") == "before":
+            continue
         review = row.get("label_review") or {}
         scope = review.get("knowledge_scope")
         scopes[scope if scope in KNOWLEDGE_SCOPES else "unreviewed"].append(row)
@@ -411,6 +415,7 @@ def reviewed_outcome_strata(results: list[dict]) -> dict:
 
     return {"basis": "reviewed labels; question occurrences at individual cutoffs",
             "task_groups_overlap": True, "independent_sample_count": None,
+            "development_recent_controls": summarize(recent_controls),
             "knowledge_scope": {key: summarize(rows) for key, rows in scopes.items()},
             "task_types": {key: summarize(rows) for key, rows in tasks.items()}}
 
@@ -482,7 +487,8 @@ def _main() -> int:
                 or left.get("question_time_provenance") != right.get("question_time_provenance")
                 or left.get("expected_answer") != right.get("expected_answer")):
             raise ValueError("Answer arms disagree on the question or validated label")
-        if is_v3 and left.get("label_review") != right.get("label_review"):
+        if is_v3 and (left.get("label_review") != right.get("label_review")
+                      or left.get("development_repeat") != right.get("development_repeat")):
             raise ValueError("Answer arms disagree on the reviewed task/knowledge scope")
         if is_v3 and (not isinstance(left.get("expected_answer"), str)
                       or not left["expected_answer"].strip()):
@@ -610,6 +616,7 @@ def _main() -> int:
                 "trace_sha256": da.get("trace_sha256"), "judged": len(results),
                 "of": len(pairs), "results": results,
                 "reviewed_outcome_strata": reviewed_outcome_strata(results),
+                "retention_comparison": retention_comparison(results),
                 "pending_probe": {"probe_id": ra["probe_id"], "a_was_first": a_is_first,
                                   "first_order": v}, "failed_attempts": attempts})
             reverse = (judge_one(ra["question"], source, second["answer"], first["answer"],
@@ -642,6 +649,7 @@ def _main() -> int:
                         "question": ra["question"],
                         "probe_type": ra.get("probe_type", "untyped"),
                         "label_review": ra.get("label_review"),
+                        "development_repeat": ra.get("development_repeat"),
                         "gold_turns": ra.get("gold_turns"),
                         "question_time": ra.get("question_time"),
                         "winner": arm, "reason": v["reason"],
@@ -650,6 +658,8 @@ def _main() -> int:
                         "arm_b_prompt_tokens_est": rb.get("prompt_tokens"),
                         "arm_a_selected_tokens_est": ra.get("selected_tokens"),
                         "arm_b_selected_tokens_est": rb.get("selected_tokens"),
+                        "arm_a_gold_fragment_coverage": ra.get("gold_fragment_coverage") or {},
+                        "arm_b_gold_fragment_coverage": rb.get("gold_fragment_coverage") or {},
                         **grades, **order_fields})
         print(f"  {i}/{len(pairs)}  {ra.get('probe_type','?'):18s} "
               f"{arm:26s} {v['reason']}", flush=True)
@@ -665,6 +675,7 @@ def _main() -> int:
              "trace_sha256": da.get("trace_sha256"), "judged": len(results),
              "question_families": question_family_counts([r.get("label_review") or {} for r in results]),
              "reviewed_outcome_strata": reviewed_outcome_strata(results) if is_v3 else None,
+             "retention_comparison": retention_comparison(results) if is_v3 else None,
              "of": len(pairs), "results": results, "failed_attempts": attempts})
         if arm == "ERROR":
             break
@@ -692,6 +703,7 @@ def _main() -> int:
                                 "question_families": question_family_counts([r.get("label_review") or {} for r in results]),
                                 "absolute_by_type": absolute_by_type,
                                 "reviewed_outcome_strata": reviewed_outcome_strata(results) if is_v3 else None,
+                                "retention_comparison": retention_comparison(results) if is_v3 else None,
                                 "order_checks": ({"pairs": len(results),
                                     "relative_consistent": sum(r["relative_order_consistent"] for r in results),
                                     "absolute_consistent": sum(r["absolute_order_consistent"] for r in results),

@@ -16,6 +16,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from experiments.lme.cloud_provider import PROFILES, TextGenerator, load_selected_env
+from scripts.z1.development_repeats import KINDS, POLICY, admit_repeats, packet_hash
 from scripts.z1.label_review import question_family_counts, reviewed_expected_answer, validate_review
 from scripts.z1.replay_checkpoint import atomic_json
 from scripts.z1.replay_validation import validate_complete_replay
@@ -70,11 +71,20 @@ def load_probes(path: Path, *, allow_partial: bool) -> list[dict]:
         if probe["state_turns"] != probe["split_turn"]:
             raise ValueError("probe state and historical cutoff disagree")
         unlabelled = probe.get("cutoff_kind") == "native_unlabeled_checkpoint"
+        repeat = probe.get("cutoff_kind") in KINDS
         if not probe.get("expected_answer"):
             raise ValueError("as-of probe lacks its expected answer")
         if unlabelled and (probe["gold_turns"] or probe["gold_sources"]):
             raise ValueError("unlabeled checkpoint has unexpected gold")
-        if not allow_partial and not unlabelled and (
+        if repeat:
+            extra = rows[0].get("meta", {}).get("extra", {})
+            recent = probe["cutoff_kind"] == "development_repeat_recent"
+            if (extra.get("development_repeat_policy") != POLICY
+                    or not extra.get("development_repeat_review_sha256")
+                    or not probe["gold_turns"]
+                    or (probe["split_turn"] - max(probe["gold_turns"]) < gap) is not recent):
+                raise ValueError("development repeat has no pinned recent/old control policy")
+        if not allow_partial and not unlabelled and not repeat and (
                 probe.get("cutoff_kind") not in
                 {"delayed", "native_checkpoint", "generated_at_checkpoint"}
                 or not probe["gold_turns"]
@@ -212,6 +222,8 @@ def _main() -> int:
                         help="reviewed private long-term packet from build_longterm_label_review.py")
     parser.add_argument("--validated-native-sources", type=Path,
                         help="reviewed private packet from build_checkpoint_source_review.py")
+    parser.add_argument("--development-repeat-review", type=Path,
+                        help="same reviewed development repeat packet pinned during seed")
     args = parser.parse_args()
     if args.n < 0:
         raise ValueError("--n cannot be negative")
@@ -220,7 +232,7 @@ def _main() -> int:
     seed_run = json.loads(source.open().readline())
     clock_policy = seed_run.get("meta", {}).get("extra", {}).get("clock_policy")
     all_probes = load_probes(source, allow_partial=args.allow_partial)
-    available = [p for p in all_probes if p["gold_turns"]]
+    available = [p for p in all_probes if p["gold_turns"] and p.get("cutoff_kind") not in KINDS]
     audit_hashes = {}
     if args.validated_probes:
         audit_path = private_path(args.validated_probes)
@@ -268,6 +280,16 @@ def _main() -> int:
         native_path = private_path(args.validated_native_sources)
         available += reviewed_native_probes(source, native_path, all_probes)
         audit_hashes["native"] = hashlib.sha256(native_path.read_bytes()).hexdigest()
+    if args.development_repeat_review:
+        from scripts.z1.seed_v3 import load_plan
+        repeat_path = private_path(args.development_repeat_review)
+        _, schedule, _, _ = load_plan(capture_unlabeled_native=True, development_repeat_review=repeat_path)
+        plans = [p for group in schedule.values() for p in group if p.get("cutoff_kind") in KINDS]
+        digest = packet_hash(repeat_path)
+        available += admit_repeats(seed_run, all_probes, plans, digest)
+        audit_hashes["development_repeat"] = digest
+    elif any(p.get("cutoff_kind") in KINDS for p in all_probes):
+        raise ValueError("frozen development repeats require their pinned review packet")
     if not args.allow_partial and not args.plan and not audit_hashes:
         raise ValueError("long-term answers need reviewed labels before cloud calls")
     probes = stratified(available, args.n, args.seed)
@@ -380,6 +402,7 @@ def _main() -> int:
                   "expected_answer": probe.get("expected_answer"),
                   "catalog_expected_answer": probe.get("catalog_expected_answer", probe.get("expected_answer")),
                   "label_review": probe.get("review"),
+                  "development_repeat": probe.get("development_repeat"),
                   "gold_source_complete": True, "gold_turn_text": source_text,
                   "gold_source_storage": {
                       str(gold["turn"]): next((probe.get("source_storage_at_cutoff", {}).get(source_id)

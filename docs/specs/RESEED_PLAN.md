@@ -398,13 +398,38 @@ rule's clothes.
 
 ## Native labels and final repeat timing — 2026-10-02
 
-The maintainer clarified that repeated retention questions belong to the final
-semi-LSREP design. The development reseed already has 113 source-first questions
-placed at delayed section cutoffs plus 11 mapped native candidates. Do not
-expand its panel into a repeated-question campaign before source adjudication.
-Keep recent native occurrences as controls; if reviewed coverage still lacks an
-important old-source class, add a small independently reviewed delayed case
-rather than repeating every question through the full development history.
+The full retention schedule belongs to final semi-LSREP. On 2026-10-02 the
+maintainer explicitly authorized a SMALL development repeat pass plus a
+before/after scoring comparison. It augments the existing 255-prompt panel;
+it does not replace source adjudication or become the final semi-LSREP run.
+
+Use one private, source-reviewed `development-repeat-review.json` packet, at
+most four question families. Each family copies one native catalog question
+exactly, at its original recent cutoff and ONE existing later section cutoff.
+Both occurrences have their own stable IDs and full through-cutoff review.
+The before source must still be inside the resolved recent window; the after
+source must be outside it and recent context alone must not answer. Restrict
+this small pass to unchanged facts: identical gold turns and reviewed expected
+answer in both phases, explicitly affirmed after correction review. Require
+reviewer, reason, knowledge scope and semantic tasks per phase. Reject
+unreviewed, malformed, changed-answer or non-checkpoint pairs before any replay.
+The recent occurrence is an explicitly labeled control, never an old-memory
+admission. Neither expected answers nor review metadata enter answer prompts.
+
+Pin the packet bytes in replay/recovery identity and require that same packet
+for answering/resume. Both occurrences traverse the existing read-only observer
+and four prompt arms, without storing diagnostic questions or answers. The
+manual entry point automatically detects the reviewed packet before seeding;
+adding/changing a packet after replay starts fails rather than mixing schedules.
+Before/after reporting joins only declared family and phase, retaining missing
+phases, uncertainty and errors. Report each arm's grades, correct-to-not-correct
+and inverse transitions, ordinal grade movement, estimated prompt-token delta,
+and selected source evidence delta. List family/cutoff/source age. These are
+dependent development observations with intervening-content/time confounding,
+not independent samples or proof of a component's causal effect. Keep recent
+controls separate from old-memory totals. Persist partial/final/manual summaries
+and verify the actual plan→freeze→answer→judge→report path plus interruption
+resume without launching the full campaign.
 
 For semi-LSREP, stable question-family identity must connect original and later
 occurrences. Every later cutoff requires its own source/correction/recent-history
@@ -416,7 +441,7 @@ review may assign `question_family_id` to meaning-equivalent occurrences; keep
 their probe IDs, cutoffs and labels distinct. Carry that declaration into answer
 and judge receipts and report occurrences per declared family. Unassigned
 equivalence remains unknown; family counts are not a claim of independent
-samples. This records natural repeats without changing the replay schedule.
+samples. Natural-repeat declarations alone do not change the replay schedule.
 
 Catalog expected answers can contain overprecision or unsupported assistant
 interpretations. Either source-review packet may supply a nonempty

@@ -1,3 +1,42 @@
+## 2026-10-02 — v3 small development repeat pass
+
+Instrument/source adjudication, not a full campaign or memory-quality result.
+Two source-reviewed unchanged-fact families add four recent/old occurrences to
+the base255 panel,259 scheduled prompts total. Each phase has a separate source
+review, stable identity and cutoff; packet bytes pin replay and answer resume.
+The single manual entry point passes the optional private packet through seed
+and all four answer arms. Reports compare per-arm grades, ordinal movement,
+correct/not-correct transitions, estimated prompt-token changes and selected
+source-presence changes, retaining missing/error/uncertain phases. Recent
+controls stay outside old-memory strata. Families are dependent; intervening
+text and time confound causal interpretation. Full semi-LSREP remains final.
+
+Actual plan→freeze→answer→judge→manual-report controls use stubbed cloud
+transport, interrupt the answer and second judge order, reuse persisted work,
+and make zero calls on completed resume. The answering payload contains no
+oracle-key/source canaries. Final disposable smoke 497/497 passed with five
+warnings; database removed. Log
+`logs/z1-v3-development-repeat-smoke-2026-10-02.log`, SHA256
+`61f3fca22f368bca76dbf4a04f200075deef1b68a4e56e90454fbad3c490752f`.
+
+A separate actual two-recorded-turn replay exercises classifier/preflight,
+writer, ten registry jobs and four observer arms. All 35 table fingerprints
+match before/after each observer. Its one-turn window is an instrument fixture,
+not 40-turn retention or answer-quality evidence. The initial test incorrectly
+expected zero total access after normal historical retrieval; replay succeeded
+but the assertion failed. Corrected observer-local fingerprints pass; databases
+removed, both logs retained. Successful trace
+`logs/z1-v3-development-repeat-path-2026-10-02-r2.jsonl`, SHA256
+`2ed39005e8d8f9ba52ec178e3fb1a6aa850ec2c178d6cbd92a2c58c673f85e34`;
+log SHA256 `4302cf920a86dffa3cabf592336b86cd9e9ae82ccd3876e9480770705d462779`.
+
+The private development review selects two unchanged-fact families/four
+occurrences; packet SHA256
+`c1d8f074d218f0720e103c01dd402347a0c5238a94baf1bd585fb4475b44979e`.
+No full replay/cloud campaign, production edit or push. Spec, architecture,
+inventory and TRAPS80 record the mechanism and its limits; no quality checkbox
+follows from these instrument checks.
+
 ## 2026-10-02 — v3 reviewed task/scope outcomes reach the report
 
 Instrument repair, not a cloud judge qualification or memory-quality result.

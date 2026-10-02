@@ -66,7 +66,7 @@ def run_identity(meta: dict, args, settings) -> dict:
     files += [root / "scripts/z1" / name for name in
               ("seed_v3.py", "production_parity.py", "historical_clock.py",
                "replay_checkpoint.py", "snapshot.py", "run_meta.py",
-               "derive_retrieval_gt.py", "generate_probes.py")]
+               "derive_retrieval_gt.py", "generate_probes.py", "development_repeats.py")]
     for path in files:
         digest.update(str(path.relative_to(root)).encode())
         digest.update(path.read_bytes())

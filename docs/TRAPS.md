@@ -1996,6 +1996,12 @@ inside a PostgreSQL read-only transaction and rolls back each probe. Actual
 SQL rejects an attempted write, and graph exposure stays unchanged during the
 probe while still changing retention on the normal historical path.
 
+**Repeat-path control, v3 2026-10-02.** A two-turn test initially asserted that
+total store access stayed zero. The second historical turn legitimately reads
+the first, so that assertion conflated real exposure with diagnostic exposure.
+Compare all35 table fingerprints immediately before and after each observer;
+the corrected live control passes while normal historical exposure remains on.
+
 ### 81. A catalog answer can repeat an assistant's distortion of its own source
 
 **v3, 2026-10-02.** Complete original-source review found a tentative user

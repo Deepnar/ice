@@ -32,6 +32,11 @@ ROOT = Path(__file__).resolve().parents[2]
 STAGES = ("seed", "snapshot", "answers", "judge", "report")
 
 
+def repeat_arguments(root: Path) -> list[str]:
+    path = root / "development-repeat-review.json"
+    return ["--development-repeat-review", str(path)] if path.exists() else []
+
+
 def schema_signature(engine, tables: list[str]) -> str:
     """Column/default, constraint and index definitions, never user rows."""
     queries = [
@@ -77,18 +82,22 @@ def label_counts(path: Path, field: str) -> dict:
 
 
 def validate_labels(root: Path) -> int:
+    from scripts.z1.development_repeats import KINDS
     from scripts.z1.run_meta import file_digest
     from scripts.z1.seed_v3 import CORPUS, UNIFIED, TYPED, DERIVED, GENERATED, load_plan
-    _, scheduled, _, _ = load_plan(capture_unlabeled_native=True)
+    repeat_path = root / "development-repeat-review.json"
+    _, scheduled, _, _ = load_plan(capture_unlabeled_native=True,
+                                  development_repeat_review=repeat_path if repeat_path.exists() else None)
     probes = [p for group in scheduled.values() for p in group]
     inputs = [file_digest(p) for p in (CORPUS, UNIFIED, TYPED, DERIVED, GENERATED)]
     valid = 0
     for native, filename in ((False, "labels-source-linked.json"), (True, "labels-native.json")):
         catalog = {p["probe_id"]: p for p in probes
-                   if (p["cutoff_kind"] == "native_unlabeled_checkpoint") == native}
+                   if p["cutoff_kind"] not in KINDS
+                   and (p["cutoff_kind"] == "native_unlabeled_checkpoint") == native}
         valid += validate_packet(json.loads((root / filename).read_text()), catalog, inputs,
                                  settings.recent_window_max_turns, native=native)
-    return valid
+    return valid + sum(p["cutoff_kind"] in KINDS for p in probes)
 
 
 def initialize(root: Path) -> dict:
@@ -133,14 +142,21 @@ def status(root: Path, config: dict) -> dict:
     state_path = root / "stage-status.json"
     progress = json.loads(state_path.read_text()) if state_path.exists() else {}
     trace = root / "seed.jsonl"
-    labels_available = linked["valid"] + native["valid"] > 0
+    repeat_path = root / "development-repeat-review.json"
+    repeats = {"present": repeat_path.exists(), "families": 0, "reviewed_occurrences": 0}
+    if repeat_path.exists():
+        from scripts.z1.seed_v3 import load_plan
+        _, schedule, _, _ = load_plan(capture_unlabeled_native=True, development_repeat_review=repeat_path)
+        repeats["reviewed_occurrences"] = sum(bool(p.get("development_repeat")) for group in schedule.values() for p in group)
+        repeats["families"] = repeats["reviewed_occurrences"] // 2
+    labels_available = linked["valid"] + native["valid"] + repeats["reviewed_occurrences"] > 0
     answer_plan = {"verified": False, "reason": "complete replay and reviewed labels required"}
     if trace.exists() and labels_available:
         planned = subprocess.run([sys.executable, str(ROOT / "scripts/z1/answer_as_of.py"),
             "--trace", str(trace), "--out", str(root / "answers-full.json"),
             "--arm", "full", "--profile", config["answer_profile"], "--plan",
             "--validated-probes", str(root / "labels-source-linked.json"),
-            "--validated-native-sources", str(root / "labels-native.json")],
+            "--validated-native-sources", str(root / "labels-native.json"), *repeat_arguments(root)],
             cwd=ROOT, capture_output=True, text=True)
         if planned.returncode:
             answer_plan = {"verified": False, "reason": "trace or label validation failed; run answer_as_of.py --plan for details"}
@@ -149,7 +165,8 @@ def status(root: Path, config: dict) -> dict:
             answer_plan = {"verified": plan["probes"] > 0, "arms": plan["matched_arms"],
                            "review_coverage": plan["review_coverage"]}
     return {"version": "v3", "run_directory": str(root), "stages": progress,
-            "ground_truth": {"source_linked_review": linked, "native_review": native},
+            "ground_truth": {"source_linked_review": linked, "native_review": native,
+                             "development_repeat_review": repeats},
             "reviewed_label_candidates_available": labels_available,
             "cloud_answers_ready": answer_plan["verified"], "answer_plan": answer_plan,
             "score_of_record": False,
@@ -253,7 +270,7 @@ def campaign_report(root: Path, config: dict) -> dict:
             receipt.update({key: data.get(key) for key in
                             ("complete", "complete_corpus_replay", "judge_status", "score_of_record", "question_families",
                              "calibration_status", "paired_prompt_cost", "absolute_by_type",
-                             "reviewed_outcome_strata", "order_checks") if key in data})
+                             "reviewed_outcome_strata", "retention_comparison", "order_checks") if key in data})
             receipt["records"] = len(data.get("records", data.get("results", [])))
             if path.name.startswith("judge-"):
                 receipt["source_grade_repetitions_are_not_independent"] = True
@@ -292,6 +309,8 @@ def execute(root: Path, config: dict, stage: str) -> int:
         return 2
     if stage in {"all", "answers", "judge"}:
         validate_labels(root)
+    elif stage == "seed" and repeat_arguments(root):
+        validate_labels(root)
     if any(s in {"answers", "judge"} for s in chosen):
         load_selected_env()
         if "answers" in chosen:
@@ -320,6 +339,7 @@ def execute(root: Path, config: dict, stage: str) -> int:
             if current == "seed":
                 call("seed_v3.py", ["--out", str(trace), "--checkpoint-every", str(config["checkpoint_every"]),
                                      "--probe-panel", config["probe_panel"],
+                                     *repeat_arguments(root),
                                      *(["--resume"] if trace.exists() else [])])
             elif current == "snapshot":
                 call("snapshot.py", ["save", "--arm", config["snapshot_arm"], "--trace", str(trace)])
@@ -330,6 +350,7 @@ def execute(root: Path, config: dict, stage: str) -> int:
                          "--profile", config["answer_profile"],
                          "--validated-probes", str(root / "labels-source-linked.json"),
                          "--validated-native-sources", str(root / "labels-native.json"),
+                         *repeat_arguments(root),
                          *(["--resume"] if out.exists() else [])])
             elif current == "judge":
                 for arm in ("no_codex", "vector_only", "recent_only"):

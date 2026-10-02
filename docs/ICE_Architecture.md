@@ -143,6 +143,14 @@ recall failure in the old probe-type total. Zero-case and unreviewed groups,
 errors and uncertain grades remain visible. Task groups overlap and occurrences
 within one declared family remain dependent; these reports do not qualify the
 judge or demonstrate causal memory use.
+A private development-repeat packet can add up to four reviewed unchanged-fact
+families, each at a native recent cutoff and one existing later cutoff. The
+manual entry point detects it automatically; replay/recovery pin its bytes and
+answering requires that same review. Both phases use the four read-only prompt
+arms. Recent controls stay separate from old-memory strata. Before/after
+reports retain per-arm grades, unresolved/missing phases, token/source-presence
+deltas and dependent family identity. This small development diagnostic is
+not the final semi-LSREP schedule or a causal retention claim.
 The [manual guide and measurement matrix](reviews/2026-10-01-v3-manual-campaign.md)
 state remaining coverage, label and qualification limits.
 

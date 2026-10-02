@@ -228,7 +228,7 @@ def load_generated_checkpoint_probes(unified, conversations, recent_gap):
 
 def load_plan(*, probe_timing="delayed", include_native=True,
               include_typed=False, include_generated=True,
-              capture_unlabeled_native=False):
+              capture_unlabeled_native=False, development_repeat_review=None):
     """Reject bad sources and schedule questions outside direct recent history.
 
     The default panel uses existing questions at later section checkpoints.
@@ -325,6 +325,14 @@ def load_plan(*, probe_timing="delayed", include_native=True,
     if include_generated:
         for probe in load_generated_checkpoint_probes(unified, conversations,
                                                       recent_gap):
+            at_turn[(probe["conversation"], probe["split_turn"])].append(probe)
+    if development_repeat_review:
+        from scripts.z1.development_repeats import packet_hash, repeat_probes
+        path = Path(development_repeat_review)
+        packet_hash(path)
+        extra = repeat_probes(json.loads(path.read_text()), conversations, at_turn,
+                              [file_digest(p) for p in (CORPUS, UNIFIED, TYPED, DERIVED, GENERATED)], recent_gap)
+        for probe in extra:
             at_turn[(probe["conversation"], probe["split_turn"])].append(probe)
     ids = [p["probe_id"] for group in at_turn.values() for p in group]
     if len(ids) != len(set(ids)):
@@ -753,14 +761,19 @@ def run(args, conversations, probes) -> int:
         classifier = PyTorchClassifier(model_path=settings.classifier_model_path,
                                        schema_path=settings.label_schema_path)
         background_model = get_bg_model_name()
+        repeat_path = getattr(args, "development_repeat_review", None)
+        from scripts.z1.development_repeats import POLICY, packet_hash
         meta = run_meta(script=__file__, args=vars(args),
                         settings_keys=REPLAY_SETTINGS,
                         inputs=[file_digest(CORPUS), file_digest(UNIFIED),
                                 file_digest(TYPED), file_digest(DERIVED),
                                 file_digest(GENERATED),
                                 file_digest(settings.classifier_model_path),
-                                file_digest(settings.label_schema_path)],
+                                file_digest(settings.label_schema_path),
+                                *([file_digest(repeat_path)] if repeat_path else [])],
                         extra={"version": "v3", "expected_turns": EXPECTED,
+                               "development_repeat_review_sha256": packet_hash(Path(repeat_path)) if repeat_path else None,
+                               "development_repeat_policy": POLICY if repeat_path else None,
                                "planned_probes": [[p["probe_id"], slug, cutoff]
                                                   for (slug, cutoff), group in probes.items()
                                                   for p in group],
@@ -958,6 +971,8 @@ def run(args, conversations, probes) -> int:
                                         "source_split_turn": probe["source_split_turn"],
                                         "cutoff_kind": probe["cutoff_kind"],
                                         "label_status": probe["label_status"],
+                                        "development_repeat": probe.get("development_repeat"),
+                                        "catalog_expected_answer": probe.get("catalog_expected_answer", probe.get("expected_answer")),
                                         "question": question,
                                         "expected_answer": probe.get("expected_answer"),
                                         "gold_turns": probe["gold_turns"],
@@ -1027,6 +1042,7 @@ def main() -> int:
     parser.add_argument("--checkpoint-every", type=int, default=10,
                         help="completed turns between recovery snapshots; also snapshots at question checkpoints")
     parser.add_argument("--checkpoint-dir", help="private recovery directory under logs/")
+    parser.add_argument("--development-repeat-review", help="private reviewed recent-to-old development pairs")
     parser.add_argument("--limit", type=int, default=0, help="development prefix per conversation; not a full seed")
     parser.add_argument("--conversation", choices=sorted(EXPECTED),
                         help="development diagnostic for one conversation; not a full seed")
@@ -1045,18 +1061,21 @@ def main() -> int:
         include_typed=args.probe_panel in {"typed_delayed", "all", "immediate"},
         include_native=args.probe_panel in {"existing", "all"},
         include_generated=args.probe_panel in {"existing", "all"},
-        capture_unlabeled_native=args.probe_panel in {"existing", "all"})
+        capture_unlabeled_native=args.probe_panel in {"existing", "all"},
+        development_repeat_review=args.development_repeat_review)
     native_count = sum(p["cutoff_kind"] == "native_checkpoint"
                        for group in probes.values() for p in group)
     generated_count = sum(p["cutoff_kind"] == "generated_at_checkpoint"
                           for group in probes.values() for p in group)
     unlabeled_count = sum(p["cutoff_kind"] == "native_unlabeled_checkpoint"
                           for group in probes.values() for p in group)
+    repeat_count = sum(bool(p.get("development_repeat")) for group in probes.values() for p in group)
     print(f"full source: {sum(map(len, conversations.values()))} turns / {len(conversations)} conversations; "
-          f"typed {timing} probes: {sum(map(len, probes.values())) - native_count - generated_count - unlabeled_count}; "
+          f"typed {timing} probes: {sum(map(len, probes.values())) - native_count - generated_count - unlabeled_count - repeat_count}; "
           f"native long-term checkpoints: {native_count}; "
           f"generated source-first checkpoints: {generated_count}; "
           f"unscored native section prompts: {unlabeled_count}; "
+          f"reviewed development repeat prompts: {repeat_count}; "
           f"no delayed window: {len(ineligible)}; "
           f"quarantined other cutoffs: {len(quarantined)}")
     if args.check:
