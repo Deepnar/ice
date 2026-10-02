@@ -19,18 +19,21 @@ not a reason to run the measurement against a different schema.
 
 The private bundle `logs/z1-v3-manual-2026-10-01` is already initialized. It
 contains all 124 source-linked review candidates and 131 native source-mapping
-reviews. As of the second 2026-10-02 checkpoint, 21 native source/answer mappings
-have been reviewed: six qualify as old-source tests and 15 are recent-history
-controls. Another ten early-cutoff questions are structurally excluded without
-claiming their sources or answer keys were reviewed. Native verdicts are six
-valid, 25 excluded and 100 unset; **110 native mappings/keys and all 124 linked candidates still
-need source review**. No campaign database, full replay or cloud campaign exists.
-The six admitted cases all belong to one conversation. They provide reviewed
-entity, procedural, episodic, temporal and partial-unknown examples, not broad
-coverage of all three histories or all semantic tasks. Fourteen corrected keys
-preserve proposals, attribution and required-versus-optional facts. Complete
-history review reaches turn216 in that conversation; seven reviews in another
-history inspect complete sources and decisive recent counterexamples only.
+reviews. The third 2026-10-02 receipt records **31 source/answer reviews**:
+23 native mappings (six admitted,17 recent controls) and eight source-linked
+candidates (six admitted,two recent or updated exclusions). Another ten early
+native exclusions remain structural only. Native verdicts are six valid,
+27 excluded and98 unset; linked verdicts are six valid,two excluded and116 unset.
+**108 native mappings/keys plus116 linked candidates remain unreviewed:224 total.**
+No campaign database, full replay or cloud campaign exists. Twelve old-source
+admissions span two histories; the new linked admissions primarily recall past
+assistant claims/recommendations, not verified public facts or private user
+decisions. They do not fill the remaining private/task coverage gaps. Twenty-four
+reviewed keys preserve attribution, uncertainty and required-versus-optional
+facts while retaining immutable catalog answers. Complete original user and
+assistant review reaches turn216 in one history and64 in another. All31 current
+source/answer reviews now have full through-cutoff scope; the third history
+remains unread for source adjudication.
 For a new bundle, initialize once:
 
 ```bash
@@ -93,8 +96,8 @@ occurrences share `question_family_id`, while probe IDs/cutoffs and each
 source/correction review remain separate. Answer plans and judge reports count
 occurrences per declared family; undeclared equivalence stays unreviewed and
 no independent-sample count is inferred. The full repeated retention schedule
-belongs to final semi-LSREP. The current replay panel is unchanged; add a bounded
-delayed development case only if reviewed task coverage exposes a missing class.
+belongs to final semi-LSREP. The base255 panel stays intact; the authorized
+small development pass below adds its own reviewed before/after controls.
 
 **USER-REQUIRED — manual execution:** keep the machine running for the chosen
 stage and rerun the same command after interruption. Set the existing private
@@ -106,6 +109,30 @@ planned answer/judge budget is 4N answers plus 6N judge orders across three
 contrasts; interrupted unpersisted requests can be repeated. Runtime is not
 yet measured for the full corpus. Done means every stage passed its artifact
 validation, not merely that `stage-status.json` says complete.
+
+## Small development repeat comparison
+
+The current bundle contains a reviewed `development-repeat-review.json` with
+two unchanged-fact families: recent→old cutoffs51→115 and115→216. It adds four
+separate prompts to the base255 (259 total). The same `--run` command detects
+this packet automatically for seed and all four answer arms. No separate full
+replay or operator repeat loop is needed. Standalone scripts accept
+`--development-repeat-review logs/<bundle>/development-repeat-review.json`.
+
+Each phase carries its own source/answer review. The first is an explicitly
+recent-history control and is excluded from old-memory scope/task totals.
+`retention_comparison` in partial/final judge files and the campaign report
+shows each family's cutoff/source age and each arm's grades, ordinal movement,
+correct→not-correct and reverse transitions, estimated after-minus-before prompt
+tokens, and selected source-presence counts/deltas. Missing phases and judge
+errors/uncertainty remain unresolved. Source presence does not prove that the
+answer-bearing words survived. Families are dependent observations and time
+plus intervening content confound causal explanations; this is a small
+**development** diagnostic, not the final semi-LSREP schedule.
+
+The packet is pinned before seeding. Do not add or edit it after starting a
+replay/answer pass; a changed schedule/review needs a new campaign bundle.
+Full campaign and broader source/judge readiness remain pending.
 
 ## Recovery guarantees and limits
 
@@ -146,7 +173,7 @@ validation, not merely that `stage-status.json` says complete.
 | Measurement | Ground truth now | Signal and valid inference | Still needed |
 |---|---|---|---|
 | Replay order/completeness | Pinned1471 originals across three histories | Every preflight precedes its recorded reply; no missing turn or future evidence | Full manual replay; this does not score new answers |
-| Expected answers/source turns |255 catalog answers;124 linked candidates still unreviewed;21 native mappings reviewed, six admitted;110 native mappings/keys remain | After review, old source identity at exact query time is a usable retrieval denominator | Complete-source, correction and recent-only review; remaining task and conversation coverage; six cases from one history do not establish whole-panel readiness |
+| Expected answers/source turns |255 catalog answers;31 source/answer reviews,12 old-source admissions;108 native and116 linked reviews remain | After review, old source identity at exact query time is a usable retrieval denominator | Complete-source, correction and recent-only review;224 pending reviews and remaining private/task/conversation coverage; historical assistant claims do not establish public truth |
 | Retrieval rank@5/@10 | Reviewed source IDs | First five/ten pre-budget fragments; distinct-source-turn ranks separately collapse repeats | A source ID is not proof of relevant words surviving compression |
 | Final prompt evidence | Exact frozen messages and source receipts | Candidate→budget→selected/source-note funnel locates where a source disappears | Semantic support review against exact visible text |
 | Answer correctness | Reviewed expected answer and complete dated originals | Per-arm correct/partial/incorrect/uncertain, both-failed and errors | Broad real-pair human qualification; all-correct three-pair review is insufficient |

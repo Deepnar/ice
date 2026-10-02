@@ -10,11 +10,13 @@ of bootstrap. It saves replay store/trace checkpoints and independent as-of
 snapshots, plus each cloud answer and judge order. Exact input/model/label
 identity is required for resume. Status does not call cloud models. Labels
 require complete through-cutoff/recent review and explicit task/knowledge scope;
-the second 2026-10-02 source review admits six native old-source cases, with15
-source-grounded recent controls and ten structural early exclusions. Another
-110 native mappings/keys and all124 linked candidates still need review.
-All six admissions come from one history; this is incomplete task/conversation
-coverage. Fourteen corrected keys retain proposal status and source attribution.
+the third 2026-10-02 receipt records31 source/answer reviews:23 native
+(six admitted,17 recent controls) and eight linked (six admitted,two excluded).
+Ten early native exclusions remain structural only. Another108 native and116
+linked reviews remain,224 total. Twelve admissions span two histories; past
+assistant advice is separate from private recall or verified public facts, and
+task/conversation coverage remains incomplete. Twenty-four reviewed keys retain
+proposal status, uncertainty and attribution.
 Reviewed key corrections preserve catalog provenance and never enter answering
 inputs. Natural revisits can share reviewed question families while retaining
 cutoffs; the full repeat schedule belongs to final semi-LSREP. Reports remain diagnostic
@@ -24,6 +26,13 @@ correctness and estimated prompt costs by reviewed knowledge scope and semantic
 task. Public controls stay separate from private recall; missing and zero-case
 groups remain visible, and multi-label task groups/families cannot be summed as
 independent samples. Partial and resumed reports keep the same summaries.
+A private `development-repeat-review.json` now adds a small recent-to-old pass
+using the same manual command. Current reviewed selection: two unchanged-fact
+families/four occurrences, 259 frozen prompts including the base255. Both
+cutoffs keep separate source/key review and IDs; repeat queries do not earn
+memory writes. The report compares each arm before/after with accuracy movement,
+estimated prompt costs, source presence, missing phases and errors. The recent
+phase is a separate control; this does not run full semi-LSREP.
 See the [manual guide and complete measurement matrix](../../docs/reviews/2026-10-01-v3-manual-campaign.md).
 
 **v3 reseed harness in verification, 2026-09-29:** use `seed_v3.py`, not the

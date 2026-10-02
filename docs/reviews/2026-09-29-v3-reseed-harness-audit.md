@@ -8,14 +8,15 @@ historical scripts; `scripts/z1/README.md` points to the new path.
 
 ## Whole-process v3 scoring audit
 
-**Second source-review checkpoint, 2026-10-02:** 21 native mappings/keys reviewed,
-six admitted old-source cases and 15 recent controls; 110 native mappings
-and all 124 linked candidates remain without source/answer adjudication.
-Ten additional early-cutoff exclusions are structural, not source reviews.
-Complete history review reaches turn216 in one conversation; seven other
-reviews have only complete-source/recent-counterexample scope. The six admitted
-cases all come from the first history, so task/conversation coverage remains
-incomplete. Corrected keys preserve tentative proposals, unknown details and
+**Current source-review checkpoint, 2026-10-02:**31 source/answer reviews:
+23 native mappings (six admitted,17 recent controls) and eight linked candidates
+(six admitted,two recent or updated exclusions). Pending:108 native plus116
+linked reviews,224 total. Ten additional early-cutoff exclusions are structural,
+not source reviews. Complete original history review reaches turn216 in one
+conversation and64 in another; all31 reviewed mappings have through-cutoff
+scope. Twelve admissions span two histories, with the new linked cases primarily
+covering earlier assistant advice rather than private user facts. Task and third
+conversation coverage remain incomplete. Corrected keys preserve proposals, unknown details and
 source attribution; unseen attachment contents and assistant interpretations
 are not independently verified facts.
 Corrected keys preserve the frozen catalog version; optional context cannot
@@ -23,6 +24,13 @@ become a mandatory answer fact. One natural repeated fact now has a reviewed
 question family across distinct cutoffs, without changing replay scheduling.
 The full retention schedule remains semi-LSREP work. These are Codex reviews,
 not independent human qualification or a complete measurement panel.
+
+**Small development repeats, authorized 2026-10-02:** two reviewed
+unchanged-fact families add four recent/old occurrences to the base255. One
+manual entry point passes the pinned private packet through seed and answers.
+Per-arm before/after accuracy, prompt-token and source-presence changes are
+reported with missing/error phases and dependent-family limits. Recent controls
+stay separate from old-memory totals. The full semi-LSREP schedule remains final.
 
 **Reviewed outcome reporting, 2026-10-02:** the judge now uses reviewed
 knowledge scope and semantic tasks to stratify grades, paired correctness and

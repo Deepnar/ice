@@ -1,3 +1,33 @@
+## 2026-10-02 — v3 third source-review receipt
+
+Complete original history review reaches216 in one conversation and64 in
+another.31 source/answer reviews comprise23 native (six admitted,17 recent
+controls) and eight linked (six admitted,two recent or updated exclusions).
+Twelve admissions span two histories, with historical assistant claims/advice
+separate from verified public truth or private user decisions. Ten early native
+exclusions remain structural only. Pending:108 native and116 linked reviews,
+224 total. All31 reviewed mappings have full through-cutoff scope;24 reviewed
+key corrections preserve immutable catalog provenance. Third-history source
+adjudication and broader private/task coverage remain pending. Actor is Codex
+source review, not independent human judge qualification.
+
+Immutable private packet
+`logs/z1-v3-manual-2026-10-01/source-reviewed-labels-2026-10-02-r3.json`, SHA256
+`2f2ad7fed90f48d25a8090ec50f8858278765d305cf0e236dd78d80bd08f0615`;
+receipt `logs/z1-v3-manual-2026-10-01/source-review-checkpoint-2026-10-02-r3.json`,
+SHA256 `ea9bf0b0fdabbd85ccf13e189774f32292514eb4c7b11c8a4d464174a937a2df`.
+Prior receipts remain immutable. The receipt pins exact read-source hashes and
+repeat packet SHA256
+`c1d8f074d218f0720e103c01dd402347a0c5238a94baf1bd585fb4475b44979e`.
+Oversized navigation output was truncated and received no source-reading credit.
+
+Actual catalog preflight admits12 old-source rows plus four repeat occurrences.
+Read-only manual status has zero stages and `cloud_answers_ready=false`;
+`logs/z1-v3-development-repeat-status-2026-10-02-r2.json`, SHA256
+`0610c5d5f521c7dc521a587d218ff9acec290cd022afa9ba816f751018e33a8d`.
+No full replay/cloud campaign, production edit or push. Roadmap160 items remain
+93checked/67open. Roadmap, manual guide, audit and script index are refreshed; no quality checkbox follows.
+
 ## 2026-10-02 — v3 small development repeat pass
 
 Instrument/source adjudication, not a full campaign or memory-quality result.

@@ -122,12 +122,17 @@ seeded output reviews, targeted tuning and interaction checks before the two
 agreed final conditions.
 A Z failure can and should reopen a concrete repair. After combined Z, the agreed
 end-stage runs are LME oracle and semi-LSREP only, not a full LME-S campaign.
-**V3 source/repeat checkpoint, 2026-10-02 (second receipt):** 21 native mappings/keys
-reviewed, six old-source cases admitted and 15 recent controls; 110 native mappings
-and all 124 linked candidates still need review. Ten additional exclusions
+**V3 source/repeat checkpoint, 2026-10-02 (current):**31 source/answer reviews:
+23 native (six admitted,17 recent controls) and eight linked (six admitted,two
+excluded). Twelve admissions span two histories; past assistant advice remains
+separate from private memory or verified public truth. Pending:108 native and116
+linked reviews,224 total. Ten additional exclusions
 only establish that no old source can exist at their early cutoffs. Catalog keys
 remain immutable beside source-reviewed corrections. Natural repeated facts
-can share a reviewed family while keeping occurrence/cutoff identity; the full
+can share a reviewed family while keeping occurrence/cutoff identity. The
+authorized small development pass adds two reviewed families/four occurrences
+(259 prompts with base255), with per-arm before/after accuracy/token/source
+comparisons and recent controls separate from old-memory totals. The full
 repeated retention schedule stays in final semi-LSREP. No new roadmap entry or
 quality checkmark follows from these instrument/source reviews.
 
@@ -980,7 +985,8 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 - [x] <a id="g54"></a>**G54 The four Z1 harnesses now classify with conversation history** — DONE v3 2026-09-25. Four harnesses share the production-style pre-retrieval path; live parity and negative controls pass. → [implementation and limits](ROADMAP_DONE.md#g54)
 
 - [ ] <a id="g55"></a>**G55 Three typed metrics cannot measure what they are named after** `(bug — found 2026-08-22; BLOCKS THE RE-RUN)` → **[TRAPS #21](TRAPS.md), [#37](TRAPS.md)**.
-  - **2026-10-02 source/answer adjudication (second receipt):** six native old-source cases admitted after full cutoff review;15 other source-grounded native questions are recent controls, and ten early-cutoff exclusions have no answer/source review. Remaining:110 native mappings/keys plus124 linked candidates. All six admissions belong to one conversation; coverage remains incomplete. Fourteen source-reviewed keys preserve uncertainty/attribution and distinguish required facts from optional details; both catalog and reviewed keys persist without entering answer input. One natural repeated fact has a reviewed family across checkpoints; family reports retain unknown equivalence and never infer independent sample size. [Current readiness](reviews/2026-10-01-v3-manual-campaign.md). This item remains open.
+  - **2026-10-02 small development retention pass:** explicit authorization adds two reviewed unchanged-fact families at recent/old cutoff pairs51→115 and115→216. Four extra prompts are pinned in replay/answer resume and use the existing read-only four-arm observer. Per-arm before/after grades, prompt-cost and source-presence changes retain uncertainty/errors/dependence; recent controls do not inflate old-memory totals. Full semi-LSREP remains final, and G55 is not closed by instrument checks.
+  - **2026-10-02 source/answer adjudication (third receipt):**31 reviews cover23 native mappings (six admitted,17 recent controls) and eight linked candidates (six admitted,two recent or updated exclusions). Ten early native exclusions remain structural only. Pending:108 native plus116 linked reviews,224 total. Twelve admissions span two histories, with past assistant advice distinct from private memory and verified public truth; coverage remains incomplete. Twenty-four source-reviewed keys preserve uncertainty/attribution and required-versus-optional facts; both catalog and reviewed keys persist without entering answer input. Full original review reaches216/64 in two histories; the third is not source-reviewed. One natural repeated fact has a reviewed family across checkpoints; family reports retain unknown equivalence and never infer independent sample size. [Current readiness](reviews/2026-10-01-v3-manual-campaign.md). This item remains open.
   - **2026-10-01 admission/measurement repair:** private packets now require exact cutoff and recent-history review plus semantic task/knowledge scope, and validate catalog/source bounds before replay. Frozen answers retain their exact input and context ledger. All 255 labels remain unadjudicated; 17 of the 131 unmapped native questions have no possible old source under the 40-turn window and are immediate-history controls, leaving 114 structurally eligible mappings. Source rank/presence cannot substitute for semantic support or answer use. The [measurement matrix](reviews/2026-10-01-v3-manual-campaign.md#what-the-measurements-can-establish) names the remaining ground truth for each conclusion. This item remains open.
   - **2026-09-29 v3 instrument checkpoint:** the chronological trace now records ordered pre-budget candidate-fragment and distinct-source-turn rank@5/@10, budget survival, and final-prompt gold provenance through either a fragment or a complete original source-mode note. This closes a source-note undercount and makes rank distinct from prompt presence; it does **not** establish that a compressed excerpt contains the answer. All 255 frozen checkpoint prompts have expected answers, but only 124 have candidate source labels; 131 still need review. Do not mark G55 complete from these instrument checks or from an unreviewed source match.
   - **2026-09-29 cutoff correction:** all 444 unified typed `split_turn` values equal the latest gold turn; a probe asked there may read its gold from the 40-turn recent window. The v3 runner now schedules 378 delayed candidates at gold+40 and records 66 with no delayed window. Their expected answers must be rechecked against the intervening turns. The immediate 444 remain diagnostics, not long-term-memory scores; no typed score is closed by the harness change alone. [Audit](reviews/2026-09-29-v3-reseed-harness-audit.md).
