@@ -13,7 +13,7 @@ import structlog
 
 from src.api.config import settings
 from src.memory.tokens import count_messages
-from src.workers.bg_client_factory import bg_timeout, local_model_call
+from src.workers.bg_client_factory import bg_timeout, local_model_call, native_call_timings
 
 logger = structlog.get_logger("ice.api.source_need")
 
@@ -118,7 +118,7 @@ def judge_source_need(messages, *, current_only=False):
     body = {
         "model": settings.memory_source_gate_model,
         "messages": request_messages, "stream": False, "think": False,
-        "format": schema, "keep_alive": 0,
+        "format": schema, "keep_alive": -1,
         "options": {"temperature": 0,
                     "num_ctx": settings.memory_source_gate_context_tokens,
                     "num_predict": settings.memory_source_gate_output_tokens},
@@ -144,7 +144,8 @@ def judge_source_need(messages, *, current_only=False):
                     model=settings.memory_source_gate_model,
                     estimated_input_tokens=tokens,
                     actual_input_tokens=actual_tokens,
-                    elapsed_seconds=round(time.monotonic() - started, 3))
+                    elapsed_seconds=round(time.monotonic() - started, 3),
+                    **native_call_timings(data))
         return verdict
     except Exception as exc:
         return _unknown("provider_" + type(exc).__name__)

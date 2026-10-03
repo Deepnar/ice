@@ -44,6 +44,18 @@ def local_model_call(model):
         yield
 
 
+def native_call_timings(data):
+    """Provider nanoseconds as seconds; missing metadata stays unknown."""
+    result = {}
+    for key in ("load_duration", "prompt_eval_duration", "eval_duration", "total_duration"):
+        value = data.get(key)
+        result["provider_" + key.removesuffix("_duration") + "_seconds"] = (
+            round(value / 1e9, 4)
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0
+            else None)
+    return result
+
+
 class _OwnedCompletions:
     def __init__(self, inner):
         self._inner = inner
@@ -53,7 +65,17 @@ class _OwnedCompletions:
         if not isinstance(model, str) or not model.strip():
             return self._inner.create(*args, **kwargs)
         with local_model_call(model):
-            return self._inner.create(*args, **kwargs)
+            started = time.monotonic()
+            try:
+                result = self._inner.create(*args, **kwargs)
+            except Exception as exc:
+                logger.warning("background_model_call_failed", model=model,
+                               wall_seconds=round(time.monotonic() - started, 3),
+                               error_type=type(exc).__name__)
+                raise
+            logger.info("background_model_call", model=model,
+                        wall_seconds=round(time.monotonic() - started, 3))
+            return result
 
     def __getattr__(self, item):
         return getattr(self._inner, item)

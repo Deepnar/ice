@@ -72,7 +72,7 @@ def test_native_call_owns_bounds_and_reads_complete_prepared_messages(monkeypatc
     assert supplied["visible_context_messages"] == messages[:-1]
     assert supplied["latest_user_prompt"] == messages[-1]["content"]
     assert body["options"]["num_ctx"] == settings.memory_source_gate_context_tokens
-    assert body["keep_alive"] == 0 and body["think"] is False
+    assert body["keep_alive"] == -1 and body["think"] is False
 
 
 def test_complete_overlength_input_never_calls_provider_or_truncates(monkeypatch):

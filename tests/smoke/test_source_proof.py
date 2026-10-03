@@ -45,7 +45,7 @@ def test_question_is_frozen_before_complete_source_and_both_assertions_land(nati
         for premise in (SOURCE, SOURCE[:SOURCE.index(FILL["evidence_quote"]) + len(FILL["evidence_quote"])])
         for f in (FRAMES["frame"], FRAMES["assertion_frame"])]]
     assert native["devices"] == ["cpu"]
-    assert all(b["think"] is True and b["keep_alive"] == 0
+    assert all(b["think"] is True and b["keep_alive"] == -1
                and b["options"]["num_predict"] == settings.memory_source_proof_output_tokens
                for _, b in native["calls"])
 

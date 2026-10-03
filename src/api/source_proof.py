@@ -5,6 +5,7 @@ value must support both; model enums or literal quotes alone are not proof.
 """
 
 import json
+import time
 from dataclasses import dataclass
 
 import httpx
@@ -13,7 +14,7 @@ import structlog
 from src.api.config import settings
 from src.memory.support import score_pairs, verify_support
 from src.memory.tokens import count_messages
-from src.workers.bg_client_factory import bg_timeout, local_model_call
+from src.workers.bg_client_factory import bg_timeout, local_model_call, native_call_timings
 
 logger = structlog.get_logger("ice.api.source_proof")
 
@@ -72,10 +73,12 @@ def _call(instructions, schema, payload):
             or len((instructions + messages[-1]["content"]).encode("utf-8"))
             > context_tokens // 2):
         raise ProofError("complete_input_exceeds_proof_bound")
+    started = time.monotonic()
+    # Owned model residency ends at the runtime's idle drain, not every proof.
     with local_model_call(settings.memory_source_gate_model):
         response = httpx.post(settings.ollama_base_url.rstrip("/") + "/api/chat", json={
             "model": settings.memory_source_gate_model, "messages": messages,
-            "stream": False, "think": True, "format": schema, "keep_alive": 0,
+            "stream": False, "think": True, "format": schema, "keep_alive": -1,
             "options": {"temperature": 0, "num_ctx": context_tokens,
                         "num_predict": output_tokens},
         }, timeout=bg_timeout(output_tokens))
@@ -94,7 +97,9 @@ def _call(instructions, schema, payload):
     logger.info("memory_source_proof_call", model=settings.memory_source_gate_model,
                 task="frame" if schema is FRAME_SCHEMA else "fill",
                 estimated_input_tokens=tokens, actual_input_tokens=actual_tokens,
-                output_tokens=data.get("eval_count"))
+                output_tokens=data.get("eval_count"),
+                wall_seconds=round(time.monotonic() - started, 3),
+                **native_call_timings(data))
     return value
 
 
