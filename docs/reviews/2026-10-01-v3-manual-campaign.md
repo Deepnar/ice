@@ -3,8 +3,12 @@
 This is the current execution guide. The [whole-process audit and 29-item
 evidence map](2026-09-29-v3-reseed-harness-audit.md) owns the remaining research
 questions; [reseed spec](../specs/RESEED_PLAN.md) owns the execution contract.
-The first manual seed attempt stopped on turn4; no full campaign is complete.
-The repaired restart bundle is prepared but not launched. The runner is a
+The first manual seed attempt stopped on turn4; r2 then stopped on turn54 after
+53 processed turns and a51-turn durable checkpoint. Its source-only quote had
+collapsed whitespace. Both attempts are preserved; no full campaign is complete.
+The r3 restart bundle is prepared with identical reviewed labels, not launched.
+The [fault audit](2026-10-03-v3-campaign-fault-audit.md) records the repairs and
+their validation. The runner is a
 development instrument, and completion does not prove all memory-quality work
 is done.
 
@@ -126,7 +130,7 @@ The historical fresh migration chain is unqualified: a development check fails
 while dropping an absent old vector index. This is an installation question,
 not a reason to run the measurement against a different schema.
 
-The active private bundle is `logs/z1-v3-manual-2026-10-03-r2`, already initialized
+The active private bundle is `logs/z1-v3-manual-2026-10-03-r3`, already initialized
 with byte-identical reviewed labels and repeat controls from the original
 `logs/z1-v3-manual-2026-10-01`. It contains all 124 source-linked review candidates
 and 131 native source-mapping reviews. Do not initialize it again.
@@ -169,7 +173,7 @@ uv run python scripts/z1/run_v3_campaign.py --run-dir logs/my-v3-run --init
 Status is the default and makes no cloud request:
 
 ```bash
-uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-03-r2
+uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-03-r3
 ```
 
 The existing bundle has passed label admission; cloud configuration is present.
@@ -178,7 +182,7 @@ exists; this is expected and does not mean source reviews remain pending.
 Execute or resume everything:
 
 ```bash
-uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-03-r2 --run
+uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-03-r3 --run
 ```
 
 The command runs **seed → snapshot → answers → judge → report**. It invokes
@@ -194,13 +198,29 @@ checkpoint. Snapshot/report display elapsed work without inventing a percentage.
 The phase is the last saved observable event, so a model call can run while the
 counter stays still. Detailed logs remain separate; redirected output receives
 plain changed-state/heartbeat lines. Optional detailed log view:
-`tail -f logs/z1-v3-manual-2026-10-03-r2/seed_v3.log`.
+`tail -f logs/z1-v3-manual-2026-10-03-r3/seed_v3.log`.
 On failure or Ctrl+C, the parent retains state and prints the relevant log path
 or interruption notice. With unchanged inputs/code/settings, rerun the same
 command; the observer reads retained/restored progress without double-counting.
 Explicit truncated/noncompleted provider responses are saved as failures, even
 if they contain plausible text or a parseable judge verdict. Successful earlier
 calls/orders remain reusable; this is not a promise of a failure-free long run.
+Known local extraction/completion or transient connection/server failures now
+get two bounded retries after2/8 seconds. Seed retry restores its verified
+checkpoint first; it never retries maintenance against a partly modified store.
+Every attempt is saved in `campaign-attempts.jsonl`. Persistent failures leave
+`campaign-pause.json`, with no later stage running. Cloud quota/authentication,
+identity/configuration, resource and unknown failures require review instead
+of automatic repeated calls. A pause does not mark incomplete memory work done.
+The seeder releases its owned models when it exits; native proof/need calls keep
+their model between calls instead of unloading it every time. Provider load and
+evaluation durations and background-call wall times are logged.
+
+The corrected production writer changes replay identity. **Use r3 for this
+restart**, beginning from turn1; do not resume r2 with altered code or edit its
+51-turn manifest. The old checkpoint remains usable with its original frozen
+writer, but cannot certify the corrected system. Subsequent interruptions of r3
+use the same r3 command with unchanged code/settings/models/inputs.
 Combined execution checks packet corpus/catalog identity and source bounds
 before starting replay, then checks the complete trace and labels again before
 cloud calls. Marking a malformed review `valid` does not make it ready to run.

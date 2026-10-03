@@ -292,17 +292,22 @@ def judge_one(question, source, ans_a, ans_b, *, expected_answer=None,
             txt = (payload["choices"][0]["message"]["content"] or "").strip()
         except Exception as exc:                                  # noqa: BLE001
             note = str(exc)[:120]
+            operator_required = False
             if isinstance(exc, urllib.error.HTTPError):
+                operator_required = exc.code in (401, 402, 403, 429)
                 try:
                     provider_error = json.loads(exc.read()).get("error", {})
                     kind = provider_error.get("type") or provider_error.get("code")
+                    operator_required |= any(s in str(kind).lower() for s in
+                                             ("quota", "billing", "credit", "authentication"))
                     note = f"HTTP {exc.code}" + (f" ({kind})" if kind else "")
                 except (ValueError, AttributeError):
                     note = f"HTTP {exc.code}"
             if attempt == attempts - 1:
                 reason = (f"api_http_{exc.code}" if isinstance(exc, urllib.error.HTTPError)
                           else "api")
-                return {"verdict": "ERROR", "reason": reason, "note": note}
+                return {"verdict": "ERROR", "reason": reason, "note": note,
+                        "error_type": type(exc).__name__, "operator_required": operator_required}
             time.sleep(2 * (attempt + 1))
             continue
         if txt.startswith("```"):

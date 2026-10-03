@@ -432,6 +432,8 @@ def _main() -> int:
                 raise RuntimeError("cloud answer was empty")
         except Exception as exc:
             record["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+            record["error_type"] = type(exc).__name__
+            record["error_status"] = getattr(exc, "status_code", None)
         result["records"] = [r for r in result["records"]
                              if r["probe_id"] != probe["probe_id"]] + [record]
         atomic_json(output, result)

@@ -312,6 +312,33 @@ Compatibility responses without completion metadata remain unconfirmed; record
 the available answer completion marker instead of inventing one. No generation
 limit, model, prompt or decoding change is implied by this check.
 
+**Bounded campaign recovery, 2026-10-03:** live v3 workers already retry failed
+jobs; the serial seeder bypasses that scheduler and initially stopped on the
+first exception. The coordinator must read structured persisted failure data
+and retry only known local extraction/completion, connection/timeout and
+temporary provider/server failures (including urllib judge connection errors),
+at most two additional attempts with
+2/8-second backoff. Seed retry uses its verified checkpoint restore, not a
+second execution against a partially changed store. Answer and judge retry
+reuse their persisted successful calls/orders. Cloud quota/rate-limit,
+authentication, validation/identity, unsupported inputs, OOM and unknown bugs
+pause with saved progress and an explicit reason; they are not silently skipped
+or retried forever. Every attempt has a durable parent policy/attempt receipt;
+the recovery classifier's source is pinned with replay code. All stages use
+the same clean pause boundary; no later stage runs after an unresolved failure.
+Do not count a failed writer/job as a completed turn or convert an API failure
+into an answer/grade. Ctrl+C still returns130 and keeps recoverable artifacts.
+The serial seeder has no live idle scheduler: release only its owned Ollama
+models on normal exit, failure or Ctrl+C through the existing guarded release
+manager. A cleanup error is warned and must not replace the underlying failure.
+
+The writer/source-alignment and residency changes alter pinned code. Preserve
+the failed r2 bundle and its51-turn recovery snapshot; prepare a fresh reviewed
+campaign for the corrected writer, without editing old manifests or launching
+the full run. Earlier controls do not establish exhaustive robustness. Add
+failure-injection through actual child execution and actual source-quote writer
+checks, plus provider duration observations; reports retain the limitations.
+
 > **⚑ EVERYTHING BEFORE THIS RESEED IS DEAD DATA (maintainer, 2026-08-25).**
 > *"lets just call ALL from before as we have no data, we are restarting ALL
 > again."* Every store, every arm, every graph number in `PROVENANCE.md` before

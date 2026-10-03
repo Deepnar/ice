@@ -1145,7 +1145,17 @@ def main() -> int:
           f"quarantined other cutoffs: {len(quarantined)}")
     if args.check:
         return 0
-    return run(args, conversations, probes)
+    try:
+        return run(args, conversations, probes)
+    finally:
+        # This serial instrument has no runtime idle drain. Release owned
+        # identities even on failure/Ctrl+C; never hide the original outcome.
+        from src.workers.bg_client_factory import release_owned_models
+        try:
+            release_owned_models()
+        except Exception as exc:
+            print(f"WARNING: owned model cleanup failed: {type(exc).__name__}",
+                  file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":

@@ -42,7 +42,7 @@ See the [manual guide and complete measurement matrix](../../docs/reviews/2026-1
 turn4 with a valid source-only sentence and nullable relation/object fields.
 The repaired parser retains that exact attributed sentence without a graph
 edge. The original bundle/store/identity are preserved. Use the already prepared
-`logs/z1-v3-manual-2026-10-03-r2` with the same reviewed packet bytes; do not
+`logs/z1-v3-manual-2026-10-03-r3` with the same reviewed packet bytes; do not
 reinitialize or bypass the old checkpoint's writer hash. The manual entry point
 now shows stage/arm bars, processed versus durable turns, checkpoint probes,
 saved answers and judge orders, plus concise failure/log notices. Explicitly

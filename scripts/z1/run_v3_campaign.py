@@ -13,6 +13,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -24,6 +25,14 @@ from sqlalchemy.engine import make_url
 from experiments.lme.cloud_provider import PROFILES, load_selected_env
 from scripts.z1.answer_as_of import private_path, sha256_file
 from scripts.z1.campaign_progress import ArtifactProgress, TerminalProgress
+from scripts.z1.campaign_recovery import (
+    RETRY_DELAYS,
+    attempt_receipt,
+    failure_evidence,
+    failure_path,
+    recoverable,
+    stamp,
+)
 from scripts.z1.label_review import validate_packet, validate_review
 from scripts.z1.replay_checkpoint import atomic_json
 from src.api.config import settings
@@ -356,14 +365,42 @@ def execute(root: Path, config: dict, stage: str) -> int:
         print(f"v3 {script}: starting/resuming; details in {log_path}", flush=True)
         label = f"{STAGES.index(current) + 1}/{len(STAGES)} {current}" + (f" {arm}" if arm else "")
         reader = ArtifactProgress(root, current, arm=arm, turns=turns, probes=probes, admitted=admitted)
-        with log_path.open("a") as output:
-            with TerminalProgress(reader, label):
-                try:
-                    subprocess.run([sys.executable, str(ROOT / "scripts/z1" / script), *arguments],
-                                   cwd=ROOT, env=env, stdout=output, stderr=subprocess.STDOUT, check=True)
-                finally:
-                    output.flush()
-                    os.fsync(output.fileno())
+        for attempt in range(len(RETRY_DELAYS) + 1):
+            before = stamp(failure_path(root, current, arm))
+            attempt_receipt(root, stage=current, arm=arm, attempt=attempt + 1, event="started")
+            try:
+                with log_path.open("a") as output:
+                    with TerminalProgress(reader, label):
+                        try:
+                            subprocess.run([sys.executable, str(ROOT / "scripts/z1" / script), *arguments],
+                                           cwd=ROOT, env=env, stdout=output, stderr=subprocess.STDOUT, check=True)
+                        finally:
+                            output.flush()
+                            os.fsync(output.fileno())
+            except subprocess.CalledProcessError:
+                evidence = failure_evidence(root, current, arm, before)
+                retry = attempt < len(RETRY_DELAYS) and recoverable(current, evidence)
+                attempt_receipt(root, stage=current, arm=arm, attempt=attempt + 1,
+                                event="retrying" if retry else "paused", failure=evidence)
+                if not retry:
+                    atomic_json(root / "campaign-pause.json", {
+                        "stage": current, "arm": arm, "attempts": attempt + 1,
+                        "failure": evidence, "log": str(log_path), "progress_retained": True})
+                    raise
+                delay = RETRY_DELAYS[attempt]
+                print(f"v3 {current} {arm}: recoverable failure; retry {attempt + 2}/3 in {delay}s, saved progress retained",
+                      flush=True)
+                time.sleep(delay)
+                path = failure_path(root, current, arm)
+                if path is not None and path.exists() and "--resume" not in arguments:
+                    arguments = [*arguments, "--resume"]
+            except KeyboardInterrupt:
+                attempt_receipt(root, stage=current, arm=arm, attempt=attempt + 1, event="interrupted")
+                raise
+            else:
+                attempt_receipt(root, stage=current, arm=arm, attempt=attempt + 1, event="completed")
+                (root / "campaign-pause.json").unlink(missing_ok=True)
+                return
 
     for current in chosen:
         state[current] = "running"
@@ -397,14 +434,18 @@ def execute(root: Path, config: dict, stage: str) -> int:
             atomic_json(state_path, state)
             if current == "report":
                 atomic_json(root / "campaign-report.json", campaign_report(root, config))
-        except (Exception, KeyboardInterrupt):
+        except (Exception, KeyboardInterrupt) as exc:
             state[current] = "interrupted_or_failed_resume_required"
             atomic_json(state_path, state)
+            if not isinstance(exc, subprocess.CalledProcessError):
+                atomic_json(root / "campaign-pause.json", {
+                    "stage": current, "error_type": type(exc).__name__,
+                    "progress_retained": True, "operator_review_required": True})
             raise
     return 0
 
 
-def main() -> int:
+def _main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", type=Path, required=True, help="private campaign bundle under logs/")
     parser.add_argument("--init", action="store_true", help="prepare config + complete review packets, no seed or API calls")
@@ -426,20 +467,34 @@ def main() -> int:
                 return execute(root, config, args.stage)
             except subprocess.CalledProcessError as exc:
                 script = Path(exc.cmd[1]).stem
-                print(f"v3 stage stopped (exit {exc.returncode}). Details: {root / (script + '.log')}\n"
-                      "Saved artifacts retained. With unchanged code/configuration, rerun the same command to resume.",
+                print(f"v3 campaign paused (exit {exc.returncode}). Details: {root / (script + '.log')}\n"
+                      "Saved artifacts retained. See campaign-pause.json for the reason; resolve persistent errors before resuming the same command.",
                       file=sys.stderr, flush=True)
                 return 1
             except KeyboardInterrupt:
                 print("\nv3 interrupted. Saved artifacts retained; rerun the same command to resume.",
                       file=sys.stderr, flush=True)
                 return 130
-            except (ValueError, RuntimeError, OSError) as exc:
+            except Exception as exc:
                 print(f"v3 stopped: {exc}\nSaved artifacts retained; check configuration and stage logs before resuming.",
                       file=sys.stderr, flush=True)
                 return 1
         print(json.dumps(status(root, config), indent=2))
         return 0
+
+
+def main() -> int:
+    """Configuration/lock failures also leave a readable operator boundary."""
+    try:
+        return _main()
+    except KeyboardInterrupt:
+        print("\nv3 interrupted; existing artifacts retained.", file=sys.stderr, flush=True)
+        return 130
+    except Exception as exc:
+        print(f"v3 cannot start/resume: {type(exc).__name__}: {exc}\n"
+              "Existing artifacts retained; resolve this error before retrying.",
+              file=sys.stderr, flush=True)
+        return 1
 
 
 if __name__ == "__main__":
