@@ -3,8 +3,10 @@
 This is the current execution guide. The [whole-process audit and 29-item
 evidence map](2026-09-29-v3-reseed-harness-audit.md) owns the remaining research
 questions; [reseed spec](../specs/RESEED_PLAN.md) owns the execution contract.
-The full campaign has **not** been run. The runner is a development instrument,
-and its completion is not a claim that all memory-quality work is done.
+The first manual seed attempt stopped on turn4; no full campaign is complete.
+The repaired restart bundle is prepared but not launched. The runner is a
+development instrument, and completion does not prove all memory-quality work
+is done.
 
 ## One entry point, five saved stages
 
@@ -51,7 +53,7 @@ an independent vector database baseline. Each occurrence has three full-versus-
 control contrasts, each judged in both display orders. Current admission is 113
 old-source questions plus four development occurrences: 468 cloud answers and
 702 successful judge-order requests if all are executed, before any retries.
-This is a current-plan count, not a launched run or the final campaign size.
+This is a current-plan count, not completed requests or the final campaign size.
 Question families and multiple arms/orders are dependent observations.
 
 ### Question counts at every checkpoint
@@ -124,9 +126,20 @@ The historical fresh migration chain is unqualified: a development check fails
 while dropping an absent old vector index. This is an installation question,
 not a reason to run the measurement against a different schema.
 
-The private bundle `logs/z1-v3-manual-2026-10-01` is already initialized. It
-contains all 124 source-linked review candidates and 131 native source-mapping
-reviews.
+The active private bundle is `logs/z1-v3-manual-2026-10-03-r2`, already initialized
+with byte-identical reviewed labels and repeat controls from the original
+`logs/z1-v3-manual-2026-10-01`. It contains all 124 source-linked review candidates
+and 131 native source-mapping reviews. Do not initialize it again.
+
+**v3 crash repair, 2026-10-03:** the original attempt processed three turns and
+failed in turn4 extraction, with zero completed durable turns. NuExtract emitted
+an exact source sentence with null relation/object fields; the parser's earlier
+source-only exception covered null objects only. The generalized template path
+retains verified original sentences without graph assertions. The old trace,
+store, checkpoint identity and source packets are preserved. The changed writer
+must use the new bundle; never edit the old checkpoint's code hash to bypass
+identity validation. The new bundle has no seed trace, stage state or database
+yet. Private `restart-preparation.json` pins the old-file and copied-packet hashes.
 
 **Current source-review checkpoint, 2026-10-03 (final r3):** all 255 base
 questions have complete through-cutoff source/answer reviews; 0 remain pending.
@@ -142,7 +155,7 @@ memory questions. Recent supporting facts stay shared context and cannot count
 as old-source hits. These are Codex source reviews, not independent human judge
 qualification or measured answer gains. The immutable private r3 packet and
 receipt pin all dispositions; earlier receipts remain historical artifacts.
-No full replay, campaign database or cloud campaign exists. Status separates
+No completed full replay or cloud campaign exists. Status separates
 missing reviews from invalid/uncertain verdicts and window-only exclusions.
 The current bundle is already reviewed: do not initialize it again or rewrite
 its labels before launching. The source-review instructions below apply to new
@@ -156,7 +169,7 @@ uv run python scripts/z1/run_v3_campaign.py --run-dir logs/my-v3-run --init
 Status is the default and makes no cloud request:
 
 ```bash
-uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-01
+uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-03-r2
 ```
 
 The existing bundle has passed label admission; cloud configuration is present.
@@ -165,7 +178,7 @@ exists; this is expected and does not mean source reviews remain pending.
 Execute or resume everything:
 
 ```bash
-uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-01 --run
+uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-03-r2 --run
 ```
 
 The command runs **seed → snapshot → answers → judge → report**. It invokes
@@ -173,7 +186,21 @@ separate scripts internally; the operator need not run each script. To inspect
 writer outcomes before answering, use the same entry point with `--run --stage
 seed`. Individual `snapshot`, `answers`, `judge`, and `report` stages are also
 available. Stage logs append under the bundle; the command prints each log path.
-Watch replay progress with `tail -f logs/z1-v3-manual-2026-10-01/seed_v3.log`.
+Live terminal progress now shows the stage/arm, processed turns out of 1471,
+durable turns, checkpoint probes out of 259, successful answers out of 117 per
+arm, and successful judge orders out of 234 per contrast. Processed turns finish
+post-flight, maintenance and probes; durable turns have a complete saved store
+checkpoint. Snapshot/report display elapsed work without inventing a percentage.
+The phase is the last saved observable event, so a model call can run while the
+counter stays still. Detailed logs remain separate; redirected output receives
+plain changed-state/heartbeat lines. Optional detailed log view:
+`tail -f logs/z1-v3-manual-2026-10-03-r2/seed_v3.log`.
+On failure or Ctrl+C, the parent retains state and prints the relevant log path
+or interruption notice. With unchanged inputs/code/settings, rerun the same
+command; the observer reads retained/restored progress without double-counting.
+Explicit truncated/noncompleted provider responses are saved as failures, even
+if they contain plausible text or a parseable judge verdict. Successful earlier
+calls/orders remain reusable; this is not a promise of a failure-free long run.
 Combined execution checks packet corpus/catalog identity and source bounds
 before starting replay, then checks the complete trace and labels again before
 cloud calls. Marking a malformed review `valid` does not make it ready to run.
@@ -406,3 +433,21 @@ Recovery preserves the first turn's identity, restores/replays the unfinished
 second turn once, and retains the failed trace tail. These are harness controls,
 not a completed 1471-turn seed or a memory-quality result. No full campaign or
 cloud answer/judge request was launched during this sweep.
+
+**v3 post-crash verification, 2026-10-03:** 522 disposable smoke checks pass,
+plus the six standalone extraction-completion checks and 79 focused provider/
+answer/judge/coordinator checks (overlap, not independent totals). Nullable
+source fields pass through the real claim writer/retriever without an edge;
+missing keys, wrong types, fabricated quotes and truncated extraction still
+fail. A real local-model four-turn replay of the failing history completed all
+ten maintenance jobs, observed the same null-relation shape on turn4, saved a
+four-turn durable checkpoint and resumed with identical written rows. A real
+child-write control verifies progress updates while its subprocess runs. Fault
+controls cover all five parent stages, quota/transport/empty/incomplete answers,
+second-order judge interruption/outage and checkpoint write/identity failures.
+No full campaign or live cloud request was launched by these checks. The first
+four-turn fixture's byte-preserving assertion was wrong for a partial replay;
+it was corrected and rerun. One smoke fixture also needed to mock the new plan
+reader alongside its already mocked label validator; actual validation stayed
+strict. Passing controls do not establish memory gains or exhaust every future
+model response.

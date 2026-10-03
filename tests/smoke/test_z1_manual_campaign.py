@@ -97,6 +97,54 @@ def test_unreviewed_full_campaign_blocks_before_database_or_api(tmp_path, monkey
     assert not (tmp_path / "stage-status.json").exists()
 
 
+@pytest.mark.parametrize("failed_stage", campaign.STAGES)
+def test_every_stage_failure_retains_status_and_stops_later_children(tmp_path, monkeypatch, failed_stage):
+    monkeypatch.setattr(campaign, "status", lambda *_a: {"reviewed_label_candidates_available": True})
+    monkeypatch.setattr(campaign, "validate_labels", lambda *_a: 1)
+    monkeypatch.setattr(campaign, "progress_totals", lambda *_a: (1, 1))
+    monkeypatch.setattr(campaign, "database_environment", lambda *_a: {})
+    monkeypatch.setattr(campaign, "load_selected_env", lambda: None)
+    monkeypatch.setattr(campaign, "PROFILES", {"opencode-luna6": SimpleNamespace(
+        resolved_base_url=lambda: "https://test.invalid/v1", resolved_api_key=lambda: "fixture")})
+    providers(monkeypatch)
+    scripts = {"seed_v3.py": "seed", "snapshot.py": "snapshot", "answer_as_of.py": "answers",
+               "judge_answers.py": "judge", "report_v3_replay.py": "report"}
+    seen = []
+
+    def child(command, **kwargs):
+        current = scripts[command[1].rsplit("/", 1)[-1]]
+        seen.append(current)
+        assert kwargs["check"] and kwargs["stderr"] == subprocess.STDOUT
+        if current == failed_stage:
+            kwargs["stdout"].write("synthetic child failure retained\n")
+            raise subprocess.CalledProcessError(1, command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(campaign.subprocess, "run", child)
+    with pytest.raises(subprocess.CalledProcessError):
+        campaign.execute(tmp_path, config(), "all")
+    state = json.loads((tmp_path / "stage-status.json").read_text())
+    assert state[failed_stage] == "interrupted_or_failed_resume_required"
+    index = campaign.STAGES.index(failed_stage)
+    assert all(s not in state and s not in seen for s in campaign.STAGES[index + 1:])
+    assert all(state[s] == "complete_diagnostic" for s in campaign.STAGES[:index])
+
+
+def test_top_level_child_failure_is_readable_and_does_not_hide_log(tmp_path, monkeypatch, capsys):
+    (tmp_path / "campaign.json").write_text(json.dumps(config()))
+    monkeypatch.setattr(campaign, "private_path", lambda p: p)
+
+    def fail(*_args):
+        raise subprocess.CalledProcessError(1, [sys.executable, "/fixture/seed_v3.py"])
+
+    monkeypatch.setattr(campaign, "execute", fail)
+    monkeypatch.setattr(sys, "argv", ["run_v3_campaign.py", "--run-dir", str(tmp_path), "--run"])
+    assert campaign.main() == 1
+    display = capsys.readouterr().err
+    assert str(tmp_path / "seed_v3.log") in display and "Saved artifacts retained" in display
+    assert "Traceback" not in display
+
+
 def test_label_age_and_a_valid_word_are_not_long_term_truth(tmp_path):
     (tmp_path / "labels.json").write_text(json.dumps({"records": [
         {"verdict": "valid", "reason": "old source", "cutoff_turn": 80}]}))

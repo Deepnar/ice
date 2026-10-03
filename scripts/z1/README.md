@@ -38,6 +38,18 @@ estimated prompt costs, source presence, missing phases and errors. The recent
 phase is a separate control; this does not run full semi-LSREP.
 See the [manual guide and complete measurement matrix](../../docs/reviews/2026-10-01-v3-manual-campaign.md).
 
+**v3 manual-crash repair, 2026-10-03:** the original manual attempt stopped on
+turn4 with a valid source-only sentence and nullable relation/object fields.
+The repaired parser retains that exact attributed sentence without a graph
+edge. The original bundle/store/identity are preserved. Use the already prepared
+`logs/z1-v3-manual-2026-10-03-r2` with the same reviewed packet bytes; do not
+reinitialize or bypass the old checkpoint's writer hash. The manual entry point
+now shows stage/arm bars, processed versus durable turns, checkpoint probes,
+saved answers and judge orders, plus concise failure/log notices. Explicitly
+truncated provider answers/verdicts remain failures with resumable earlier work.
+522 disposable smoke checks and a real four-turn local replay/resume of the
+failing history passed; no completed full seed/cloud campaign exists.
+
 **v3 final prelaunch sweep, 2026-10-03:** the seed now freezes initial
 summary/abstract text and source hashes, plus exact semantic row changes around
 maintenance jobs; observer/job time and the watched table list are explicit.

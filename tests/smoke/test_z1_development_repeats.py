@@ -172,6 +172,7 @@ def test_manual_entry_point_passes_review_packet_to_seed_and_every_answer_arm(tm
     (tmp_path / "development-repeat-review.json").write_text("reviewed packet fixture")
     monkeypatch.setattr(run_v3_campaign, "status", lambda *_a: {"reviewed_label_candidates_available": True})
     monkeypatch.setattr(run_v3_campaign, "validate_labels", lambda *_a: 4)
+    monkeypatch.setattr(run_v3_campaign, "progress_totals", lambda *_a: (1, 4))
     monkeypatch.setattr(run_v3_campaign, "database_environment", lambda *_a: {})
     providers(monkeypatch)
     calls = []

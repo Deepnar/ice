@@ -23,6 +23,7 @@ from sqlalchemy.engine import make_url
 
 from experiments.lme.cloud_provider import PROFILES, load_selected_env
 from scripts.z1.answer_as_of import private_path, sha256_file
+from scripts.z1.campaign_progress import ArtifactProgress, TerminalProgress
 from scripts.z1.label_review import validate_packet, validate_review
 from scripts.z1.replay_checkpoint import atomic_json
 from src.api.config import settings
@@ -35,6 +36,14 @@ STAGES = ("seed", "snapshot", "answers", "judge", "report")
 def repeat_arguments(root: Path) -> list[str]:
     path = root / "development-repeat-review.json"
     return ["--development-repeat-review", str(path)] if path.exists() else []
+
+
+def progress_totals(root: Path) -> tuple[int, int]:
+    from scripts.z1.seed_v3 import EXPECTED, load_plan
+    repeat = root / "development-repeat-review.json"
+    _, probes, _, _ = load_plan(capture_unlabeled_native=True,
+                               development_repeat_review=repeat if repeat.exists() else None)
+    return sum(EXPECTED.values()), sum(map(len, probes.values()))
 
 
 def schema_signature(engine, tables: list[str]) -> str:
@@ -320,13 +329,14 @@ def execute(root: Path, config: dict, stage: str) -> int:
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     trace = root / "seed.jsonl"
     chosen = STAGES if stage == "all" else (stage,)
+    admitted = 0
     if stage in {"all", "answers", "judge"} and not status(root, config)["reviewed_label_candidates_available"]:
         print("BLOCKED: no reviewed valid source/answer labels. Review the private packets first; --stage seed can reconstruct the store separately.")
         return 2
     if stage in {"all", "answers", "judge"}:
-        validate_labels(root)
+        admitted = validate_labels(root)
     elif stage == "seed" and repeat_arguments(root):
-        validate_labels(root)
+        admitted = validate_labels(root)
     if any(s in {"answers", "judge"} for s in chosen):
         load_selected_env()
         if "answers" in chosen:
@@ -337,16 +347,23 @@ def execute(root: Path, config: dict, stage: str) -> int:
             missing = [key for key in ("PROBE_API_KEY", "PROBE_API_BASE_URL", "PROBE_MODEL") if not _env(key)]
             if missing:
                 raise ValueError("judge configuration missing: " + ", ".join(missing))
+    turns, probes = progress_totals(root) if "seed" in chosen else (0, 0)
+    print("v3 preparing campaign; checking configuration/schema", flush=True)
     env = database_environment(config, root) if any(s in {"seed", "snapshot"} for s in chosen) else dict(os.environ)
 
-    def call(script: str, arguments: list[str]):
+    def call(script: str, arguments: list[str], *, arm=""):
         log_path = root / (Path(script).stem + ".log")
         print(f"v3 {script}: starting/resuming; details in {log_path}", flush=True)
+        label = f"{STAGES.index(current) + 1}/{len(STAGES)} {current}" + (f" {arm}" if arm else "")
+        reader = ArtifactProgress(root, current, arm=arm, turns=turns, probes=probes, admitted=admitted)
         with log_path.open("a") as output:
-            subprocess.run([sys.executable, str(ROOT / "scripts/z1" / script), *arguments],
-                           cwd=ROOT, env=env, stdout=output, stderr=subprocess.STDOUT, check=True)
-            output.flush()
-            os.fsync(output.fileno())
+            with TerminalProgress(reader, label):
+                try:
+                    subprocess.run([sys.executable, str(ROOT / "scripts/z1" / script), *arguments],
+                                   cwd=ROOT, env=env, stdout=output, stderr=subprocess.STDOUT, check=True)
+                finally:
+                    output.flush()
+                    os.fsync(output.fileno())
 
     for current in chosen:
         state[current] = "running"
@@ -367,20 +384,20 @@ def execute(root: Path, config: dict, stage: str) -> int:
                          "--validated-probes", str(root / "labels-source-linked.json"),
                          "--validated-native-sources", str(root / "labels-native.json"),
                          *repeat_arguments(root),
-                         *(["--resume"] if out.exists() else [])])
+                         *(["--resume"] if out.exists() else [])], arm=arm)
             elif current == "judge":
                 for arm in ("no_codex", "vector_only", "recent_only"):
                     out = root / f"judge-full-vs-{arm}.json"
                     call("judge_answers.py", ["--a", str(root / "answers-full.json"),
                          "--b", str(root / f"answers-{arm}.json"), "--out", str(out),
-                         *(["--resume"] if out.exists() or out.with_suffix(".partial.json").exists() else [])])
+                         *(["--resume"] if out.exists() or out.with_suffix(".partial.json").exists() else [])], arm=arm)
             elif current == "report":
                 call("report_v3_replay.py", [str(trace), "--out", str(root / "replay-report.json")])
             state[current] = "complete_diagnostic"
             atomic_json(state_path, state)
             if current == "report":
                 atomic_json(root / "campaign-report.json", campaign_report(root, config))
-        except (subprocess.CalledProcessError, KeyboardInterrupt):
+        except (Exception, KeyboardInterrupt):
             state[current] = "interrupted_or_failed_resume_required"
             atomic_json(state_path, state)
             raise
@@ -405,7 +422,22 @@ def main() -> int:
             raise RuntimeError("this campaign already has an active operator") from None
         config = initialize(root) if args.init else read_config(root)
         if args.run:
-            return execute(root, config, args.stage)
+            try:
+                return execute(root, config, args.stage)
+            except subprocess.CalledProcessError as exc:
+                script = Path(exc.cmd[1]).stem
+                print(f"v3 stage stopped (exit {exc.returncode}). Details: {root / (script + '.log')}\n"
+                      "Saved artifacts retained. With unchanged code/configuration, rerun the same command to resume.",
+                      file=sys.stderr, flush=True)
+                return 1
+            except KeyboardInterrupt:
+                print("\nv3 interrupted. Saved artifacts retained; rerun the same command to resume.",
+                      file=sys.stderr, flush=True)
+                return 130
+            except (ValueError, RuntimeError, OSError) as exc:
+                print(f"v3 stopped: {exc}\nSaved artifacts retained; check configuration and stage logs before resuming.",
+                      file=sys.stderr, flush=True)
+                return 1
         print(json.dumps(status(root, config), indent=2))
         return 0
 

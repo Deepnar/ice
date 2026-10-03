@@ -151,7 +151,8 @@ recovers it (+0.82 [+0.39,+1.24]) in that buildup, without a general safety clai
 
 Current **ICE v3** has a [manual development campaign and measurement
 guide](docs/reviews/2026-10-01-v3-manual-campaign.md): one resumable entry point
-for chronological replay, frozen cloud answers and both-order judging. It
+for chronological replay, frozen cloud answers and both-order judging, with
+live terminal progress and separate processed/durable checkpoints. It
 requires reviewed ground truth and remains diagnostic while judge qualification
 and output-specific quality checks are pending. Its harness checks are not new
 memory-quality results and do not replace the frozen-v2 findings above.

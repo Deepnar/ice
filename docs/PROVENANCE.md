@@ -1,3 +1,90 @@
+## 2026-10-03 — v3 manual seed crash, nullable-source repair and restart
+
+The maintainer launched the original manual bundle; its seed stopped in turn4
+post-flight with `ExtractionOutputError: invalid fact fields at index 0`.
+Three turns had written/clock events, but the last durable checkpoint was the
+initial empty state. The original database retains four turn rows, including
+the unfinished fourth write. This was a parser/model-contract mismatch, not
+a Python/venv failure. An actual extractor request with background NuNER
+reproduced a subject plus exact source sentence and null relation/object.
+A request without that actual NER context returned an empty array instead;
+the simpler request did not reproduce the failure. NuExtract3's official
+[model card](https://huggingface.co/numind/NuExtract3/blob/a7f03ef71dc97c726ce4a7f7de41640f2fc5f308/README.md)
+documents null as an absent field. The earlier source-only repair covered null
+objects alone; it had not qualified this shape. No source bodies are published.
+
+Updated the repair contract first. Template-only nullable triples now retain an
+exact attributed original sentence, with every triple key present and nonnull
+values nonblank strings. They cannot canonicalize, reinforce or create edges.
+Absent/wrongly typed fields, unsupported quotes, bad polarity and incomplete
+completions still fail. 25 parser checks, seven disposable claim-writer/reader
+checks and six standalone extraction-completion/retry checks passed. The latter
+cover empty success, later-chunk rollback, privacy, cooperative yield and
+post-flight retry despite already completed density evaluation.
+
+Two real local-model controls replayed the same first four originals in fresh
+test databases with E4B, NuExtract3-Q8_0, background NuNER, the deployed
+classifier/encoder/reranker/NLI and all ten periodic memory jobs. Both finished
+turn4 with a retained source sentence and no fabricated edge for that output.
+The second control saved four durable turns and resumed with identical written rows and
+matching complete-store fingerprints. These are short execution controls, not
+answer quality, all-corpus qualification, latency or peak-VRAM measurements.
+The first fixture incorrectly demanded byte-preserving resume of a limited
+replay; a partial run legitimately appends resume/final receipts. Corrected the
+fixture and reran. All disposable databases were removed.
+
+Private actual-response receipt: `logs/z1-crash-actual-extraction-2026-10-03.json`,
+SHA256 `c0ada7fb50ea994873faa0fd4a757b38aa607e264334a51be0987d58f74ea75a`.
+Passing four-turn trace: `logs/z1-crash-four-turn-control-2026-10-03-r2/seed.jsonl`,
+SHA256 `9908f9b27c90c4214c37900dddee17d88265244aa829018b7a87911a3e43a8dd`.
+The original `logs/z1-v3-manual-2026-10-01` trace, recovery pointer, config,
+stage status and label/repeat packet hashes are unchanged. Its owned store is
+retained. The repaired writer uses prepared `logs/z1-v3-manual-2026-10-03-r2`
+with byte-identical reviewed packets and the same replay/model/answer policies,
+but a fresh identity/database name. No new database, seed or cloud calls were
+created/launched by preparation. Real catalog validation admits 117 occurrences;
+progress targets remain 1471 turns/259 frozen probes, source review pending 0.
+Private preparation receipt SHA256
+`ab174a0cae6dda96f7836d2891bf44fa8fcdfdbf9d4d012213e0dd97ec96ded7`.
+Never alter an old checkpoint's pinned code hash to resume a changed writer.
+
+## 2026-10-03 — v3 saved-work progress and later-stage fault audit
+
+The manual coordinator now observes artifacts in a parent thread, retaining the
+existing subprocess calls and child arguments. A terminal bar shows stage/arm,
+processed and durable turns, frozen checkpoint probes, successful saved answers
+and judge orders; snapshot/report use indeterminate elapsed work. JSONL reads
+consume only complete events, reset after restored/truncated prefixes and
+deduplicate turns/probes. A saved first judge order counts once when the second
+order fails. Logs remain private files; failed/interrupted stages retain status
+and show a concise notice. This presentation does not modify replay identity,
+model inputs/decoding, writes or cadence. A real subprocess-write control and
+a real TTY display control advanced counters; synthetic display controls make
+no model, database or cloud calls. The four-turn real replay also exercised it.
+
+The audit found that nonempty cloud text, or parseable judge JSON, previously
+could be accepted despite an explicit provider noncompletion marker. The shared
+cloud adapter now rejects non-`stop` chat finish reasons and non-`completed`
+Responses statuses, and successful answer receipts retain available completion
+metadata. Missing compatibility metadata remains unconfirmed. The judge rejects
+explicit non-`stop` completion before parsing. Existing failure/resume paths save
+errors, retain earlier successes/orders and avoid quota retry loops. No prompt,
+generation ceiling, model assignment or temperature policy changed.
+
+Validation: 79 focused provider/answer/judge/coordinator controls passed, followed
+by **522 disposable smoke checks** (five existing deprecation warnings). Counts
+overlap; they are not independent experiment samples. Controls include all five
+parent-stage failures, empty/transport/incomplete answers, parseable-but-truncated
+judge replies, first-order reuse after second-order interruption/outage, quota
+failure, partial JSONL, checkpoint failure and changed-identity refusal. The first
+smoke pass had 514 pass/one fixture failure: its dummy private-repeat packet had
+mocked label validation but not the new read-only progress plan reader. Added
+the reader mock; actual packet/privacy validation was not weakened. An initial
+scratch import used a nonexistent helper and failed before any model call;
+it was corrected for the actual-path reproduction. No full campaign or live
+cloud request was launched by this audit. Independent judging, semantic output
+review and actual supported-answer gains remain unmeasured.
+
 ## 2026-10-03 — v3 complete source/answer adjudication (final r3)
 
 All 255 frozen base questions have complete-history-through-cutoff dispositions;

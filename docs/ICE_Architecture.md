@@ -124,7 +124,13 @@ with a durable trace prefix, and retains independent query-time snapshots for
 later as-of tuning. A completed seed resumes without changing its trace bytes.
 Cloud stages pin transport/input identity and persist each answer/judge order;
 a saved first order is reused even after a failed second call, and outages stop
-with explicit resumable progress. The manual store clones current memory-table
+with explicit resumable progress. Since 2026-10-03, the parent displays live
+stage/arm progress from saved artifacts: processed and durable turns, checkpoint
+probes, successful answers and judge orders. It does not change replay inputs
+or writes; snapshot/report show indeterminate work. Explicit provider-truncated
+answers/verdicts remain failures even when text or parseable JSON is present;
+answer records retain available completion metadata (missing is unconfirmed).
+The manual store clones current memory-table
 DDL only, preserving production indexes/defaults; this does not certify the
 historical fresh migration chain. Routing is controlled per-prompt automatic
 selection without session stickiness, reported with gate probabilities and
@@ -1554,14 +1560,17 @@ requiring usable graph endpoints: rejected triples can still yield searchable
 source text. Completion and claims remain one transaction. Existing completion
 markers are not automatically replayed.
 
-In v3 template mode, NuExtract can return an exact attributed sentence for a
-unary statement with a nonempty subject/relation but `object: null`. Repeating
-without the sentence field did not remove the null-object shape on the first
-organic replay. With sentence claims enabled, the extractor validates that the
+In v3 template mode, NuExtract can return an exact attributed sentence with
+nullable subject/relation/object fields. The first organic control exposed a
+null object; the 2026-10-03 manual replay also exposed a null relation on turn4.
+All three keys must be present, with each nonnull value a nonblank string.
+With sentence claims enabled, the extractor validates that the
 quote occurs exactly in the original chunk, records it as a source-only
 CodexClaim and skips graph canonicalization/reinforcement for that row. Other
-malformed fields remain retryable failures. This keeps a useful sentence
-searchable without inventing a graph object or treating the read as support.
+malformed fields, unsupported quotes and incomplete completions remain retryable
+failures. This keeps a useful sentence searchable without inventing graph
+endpoints or treating the read as support. This is the existing attributed
+sentence path, not a new graph assertion or a new model.
 
 The local pinned adversarial DeBERTa NLI verifier checks complete paragraph ->
 sentence inputs. Entailment>=0.95 allows shortening; contradiction>=0.95 is
