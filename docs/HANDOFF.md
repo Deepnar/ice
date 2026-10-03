@@ -50,9 +50,10 @@ Spec, architecture, inventory, roadmap, provenance and execution docs are curren
   unfinished second write was restored/replayed once and its failed tail kept.
   Disposable test databases were removed. These controls do not measure final
   memory quality, supported-answer gain, full-run latency or peak VRAM.
-- **Git:** main only; local checkpoints `6fb6eaa` (output inspection) and
-  `75e767d` (source readiness). Nothing pushed; the experiment push freeze
-  remains active. An explicit request to push authorizes that push only.
+- **Git:** main only; checkpoints `6fb6eaa` (output inspection) and
+  `75e767d` (source readiness) were local at prelaunch completion. The subsequent
+  explicit 2026-10-03 request authorizes publication of the completed work.
+  The experiment push freeze resumes after that push; it is not lifted generally.
 
 ## Meaning of readiness and next entry point
 

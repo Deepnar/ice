@@ -116,6 +116,7 @@ source/answer reviews; none of these counts is an observed correctness rate.
 
 Run from the repository root using `uv run`. PostgreSQL in `ice_postgres` and
 Ollama must already be available; the unmaintained `./ice` scripts are not used.
+No virtual-environment activation is needed: `uv run` uses the project's `.venv`.
 The runner creates a persistent, randomly named campaign database. It does not
 seed or restore the normal user database. It freezes the current memory-table
 schema, including production indexes/defaults/constraints, **without data**.
