@@ -2039,3 +2039,37 @@ Consume reviewed scope/tasks in partial/final outcome and token reports. Show
 empty and unreviewed cells, errors and uncertainty, and dependent family counts.
 Multi-label task groups overlap; neither their totals nor repeated family
 occurrences are independent samples. Saving the label is not measuring it.
+
+### 83. A direct worker call inherits validation, but not the scheduler's recovery
+
+**v3,2026-10-03.** The manual seed called `evaluate_turn` directly, so a
+retryable extraction error escaped the serial campaign immediately even though
+the live runtime would catch it and retry the job. The second manual attempt
+reached turn54, where an otherwise unchanged source-only quote collapsed a
+double space. Byte equality rejected it; earlier null-field controls had not
+covered this real output. Resolve whitespace-only copies to original offsets,
+retain original bytes, and keep changed-content negatives. Reproduce the actual
+source/model/NER request; a guessed output shape is insufficient.
+
+Recovery belongs at the transaction boundary: a periodic job may have committed
+before a later error, so restore the complete durable seed checkpoint before
+retrying it. Require a fresh persisted failure before classifying a retry;
+an old extraction error beside a new identity refusal must never authorize it.
+Bound retries and retain attempts. A persistent pause is not successful work,
+and suppressing its exception would falsify the experiment.
+
+### 84. Model cleanup and cancellation boundaries can stall healthy memory work
+
+**v3,2026-10-03.** Native source-proof calls requested `keep_alive=0` despite
+already registering with ICE's owned-model release manager. An actual repeated
+frame request took6.77s after unload and3.21s resident; provider loading was
+3.52s versus0.31s. Keep residency between calls and use idle-drain release;
+standalone replay needs exit cleanup because it has no idle scheduler. This
+control isolates reload overhead, not whole-campaign speed or competing-app cost.
+
+The live chat generator also set its in-flight flag before yielding initial
+status events but reached its finally afterward. Closing on the first event
+left the flag nonzero in an actual route control, blocking background GPU
+dispatch. Start the flag with no yield before the protected generation try.
+Test cancellation both before generation and during its first content event,
+alongside success and upstream failure; a normal completed stream hides it.

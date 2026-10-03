@@ -64,15 +64,16 @@ keyword/recency/length bonuses, session diversification, deduplication, and a pe
 budget. A prompt assembler lays the result out under a stable prefix to maximise KV-cache
 reuse, and a mixture-of-experts router picks the best locally-served model.
 
-**Post-flight.** Once the response has streamed, the turn is evaluated for information
-density, summarised if it does not earn lossless storage, mined for behavioural patterns, and
-— when dense enough — passed to the knowledge-graph extractor. An in-process maintenance
-runtime then decays, clusters, reflects on, and compacts the stores on ledger-driven
-cadences.
+**Post-flight.** Once the response has streamed, v3 evaluates the turn's information
+density and stores a grounded summary alongside its original text when eligible.
+Every non-private turn reaches the knowledge-graph and behavioural-pattern extractors.
+Their separate completion keys let a retry finish failed work without repeating a
+successful stage. An in-process maintenance runtime then decays, clusters, reflects
+on, and compacts the stores on ledger-driven cadences.
 
-The organising principle in the code is that **memory is earned**: a turn is preserved
-losslessly only if it is dense enough to deserve it. Everything else is compressed, decayed,
-and eventually archived to cold storage.
+The organising principle is that **memory is earned**: evidence and relevance determine
+which stored information deserves space in the answer prompt. V3 retains originals
+alongside compressed representations and chooses between them at retrieval time.
 
 ### Memory stores
 
@@ -152,8 +153,10 @@ recovers it (+0.82 [+0.39,+1.24]) in that buildup, without a general safety clai
 Current **ICE v3** has a [manual development campaign and measurement
 guide](docs/reviews/2026-10-01-v3-manual-campaign.md): one resumable entry point
 for chronological replay, frozen cloud answers and both-order judging, with
-live terminal progress and separate processed/durable checkpoints. It
-requires reviewed ground truth and remains diagnostic while judge qualification
+live terminal progress and separate processed/durable checkpoints. Temporary
+failures get bounded checkpoint recovery; persistent errors pause with saved
+artifacts and an explicit reason. It requires reviewed ground truth and remains
+diagnostic while judge qualification
 and output-specific quality checks are pending. Its harness checks are not new
 memory-quality results and do not replace the frozen-v2 findings above.
 

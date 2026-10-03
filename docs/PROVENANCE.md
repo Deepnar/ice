@@ -1,3 +1,83 @@
+## 2026-10-03 — v3 turn 54 source alignment, bounded recovery and reload cost
+
+The r2 manual campaign, launched by the maintainer, processed 53 turns with a
+durable 51-turn checkpoint and 5 saved probes before post-flight failed on turn 54.
+No agent stop/kill/signal was issued. Actual background-NER/NuExtract replay of
+the failing source returned three nullable rows, with one source quote differing
+only by collapsed whitespace. The earlier null-field repair had not covered
+this copying difference. Whitespace-only alignment now resolves to original
+bytes; changed content or distinct ambiguous original spans remain unsupported.
+An actual local-model source-unit writer/reader control committed three
+attributed claims, zero graph edges and a completion key, and retrieved the
+original spacing. It took 17.488 s including model/NER/NLI startup. This is one
+regression case, not a truth-rate or throughput sample.
+
+Codex/procedural post-flight stages now progress independently before propagating
+failure. The live runtime already catches/retries jobs; the serial instrument
+had bypassed that behavior. Coordinator recovery now classifies only fresh
+persisted failure metadata, gives known transient/local-output failures at most
+two retries after 2/8 s, and restores the seed checkpoint before every retry.
+Each attempt is fsynced; unknown/schema/identity/resource/quota/authentication
+problems remain explicit operator pauses. Cloud profiles have zero SDK retries;
+no live cloud call was made. No failed job becomes a completed turn or grade.
+
+The actual foreground route also reproduced a cancellation bug: closing at the
+first status left its generation-in-flight count at 1 because its finally had
+not begun. The flag now starts immediately before the protected generation
+try. Actual before-repair route check failed; after-repair route/transport checks
+passed 6/6, including status cancellation, content cancellation, successful
+native output, upstream context failure and compatible-provider fallback.
+
+Four identical native frame requests under keep-alive policies 0,0,-1,-1 took
+3.543/6.771/6.409/3.213s. Provider load times were 0.329/3.522/3.197/0.307s.
+The first retained call still loaded; the next retained call avoided roughly
+3s of reload. Frames remained `not_supplied` for this request. Request judges
+now retain their owned model until existing idle-drain release; serial seed
+exit performs guarded owned-model cleanup. Background wall-time and native
+load/prompt/evaluation telemetry were added. Reference: official
+[Ollama chat API](https://docs.ollama.com/api/chat) and
+[keep-alive FAQ](https://docs.ollama.com/faq). This tiny same-input control does
+not establish full-run speed, maximum residency or the cost of other laptop
+applications. Through turn 53, maintenance job time was 148.03 s and semantic
+observer time 0.81 s. The screenshot's 28:03/51 was about 33 s per fully processed
+pair, not just row insertion; no total-run ETA was qualified.
+
+Validation: 101 focused parser/source/progress/recovery checks, 12 disposable
+extraction/claim checks, 49 live-runtime checks and 76 focused coordinator/cloud
+answer/judge checks passed (overlap; do not add them). Real Python child failure,
+resume and persistent three-attempt pause controls used no DB/model/cloud.
+The final broad suite passed 546 disposable smoke checks in 34.80 s, including
+exit cleanup, actual route cancellation and the real urllib judge failure→
+receipt→recovery boundary. Five existing SQLAlchemy deprecation
+warnings remain; the disposable database was removed. This confirms the tested
+recovery paths, not error-free full-campaign execution or improved memory quality.
+A final privacy-neutral fixture rerun passed 12/12 DB checks. An actual source-unit
+writer/reader rerun passed again in 14.728 s with three claims and zero edges.
+These reruns are not additional independent quality samples.
+An editing mistake initially inserted the new DB test into another test's body;
+inspection caught and repaired it before execution. No faulty test was credited.
+
+Both failed attempts and r2's 51-turn recovery are unchanged. Prepared r3 only,
+with byte-identical reviewed packet copies; 117 admissions, 1471 recorded pairs,
+259 scheduled prompts. No full seed/cloud campaign was launched and no push was
+made. Changed code requires the fresh writer identity; old manifests were not
+edited to manufacture resumability. Research roadmap checkmarks/counts and
+model assignments/tuning defaults are unchanged. Detailed boundary audit and
+operator command: [fault audit](reviews/2026-10-03-v3-campaign-fault-audit.md).
+
+Private receipts, bodies retained only under ignored logs:
+
+| artifact | SHA256 |
+|---|---|
+| turn 54 actual extraction | `f2ee64a89e8376dd9ca48ec3a68f9258bcf2c7bdd8ceea031266777fb7f4b73a` |
+| actual quote writer/reader control | `af51b6661b696f3f30a1421da405b20df529ff420e079258f5d9335f44ee0f79` |
+| native residency control | `48dc2f3fdce2dc81e159a2ba5755050b4adf81d72fefc5ab55ca8b82c6e45418` |
+| r3 initialization/copy receipt | `ac444bec6ea11a7d7625d92a40e262b331a8cd2bbd4c04fff298619218d0c49b` |
+| actual quote writer/reader rerun, 2026-10-04 | `2e5a4434fa8cdf6b41d42709153b6d477b5caa84a5a909dbd11c50a3f1b73034` |
+| final 546-check smoke log, 2026-10-04 | `d6829ade506f3d12f424da07f387402834bd78e9b90c931a791e81ff56eb94d7` |
+| failed initial cancellation control | `000cfad67b9778fb8f85b7cd77a32dc420669fadd1804254bf34f8863b7bca7d` |
+| repaired cancellation/transport control | `b8a044ee86fd6366d86d7393208d82ab6100a7b19d4db9396c768472e4740357` |
+
 ## 2026-10-03 — v3 manual seed crash, nullable-source repair and restart
 
 The maintainer launched the original manual bundle; its seed stopped in turn4

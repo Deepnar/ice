@@ -68,6 +68,36 @@ writer gets a fresh campaign bundle with unchanged reviewed label copies.
 
 ## 2. Algorithm and data model
 
+**Source quote alignment and fault isolation, 2026-10-03:** an actual turn54
+template response collapsed a double space in an otherwise unchanged quote.
+The source-only guard treated this as unsupported evidence and aborted the job.
+Resolve a quote first literally, then by whitespace-run equivalence only, with
+offsets back into the original chunk. Store the original substring, never the
+normalized model text. Require one distinct original substring; ambiguous
+matches and any change to a non-whitespace character remain failures. This is
+source alignment, not semantic entailment or permission to salvage a partial
+graph. Validate all chunk quotes before appending them to the caller's sink.
+
+Codex and procedural extraction have independent transactions and completion
+keys. A Codex exception must not prevent procedural work on the same stored
+turn. Execute those independent stages, log every failure and re-raise the first
+exception after the other stage has had its opportunity. Cooperative yield and
+process interruption still propagate immediately. Runtime bounded backoff
+remains responsible for retry; incomplete stages never get completion markers.
+
+Native source-need/proof calls already register their named model with ICE's
+ownership/release manager. Keep that model resident between calls; release is
+owned by the existing idle-drain manager, rather than unloading after every
+proof. Record provider load/prompt/evaluation durations and wall time so reload
+cost is observable. No new model, generation budget or semantic gate is added.
+
+**Stream cancellation boundary:** v3 sets `generation_started` before yielding
+four status events, but enters its matching finally only afterward. Closing at
+the first status can leave background GPU work blocked forever. Start the flag
+immediately before the protected generation try, with no yield between them.
+Status-only cancellation has not begun generation and must leave the flag zero;
+success, upstream failure and cancellation during generation must balance it.
+
 Parse one complete JSON value (with optional fences and template thinking prefix).
 Accept an array or an explicit `facts`/`triplets` envelope; graph candidates
 require string, nonempty subject/relation/object and a boolean `negated` when

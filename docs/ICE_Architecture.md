@@ -47,7 +47,7 @@ Each turn traverses a **pre-flight** (synchronous, in the request path) and a **
 
 **Pre-flight.** (0) After conversation/scope resolution and *before* any classification, a message whose first line starts with `/` is handed to the deterministic chat-command parser (C11, §11.4) — a handled command streams its confirmation as a normal SSE completion and the rest of the lifecycle (classification, retrieval, the model, storage, post-flight) never runs. (i) The user message is classified by a single PyTorch head over the frozen embedder — 27 all-sigmoid logits across three heads (11 topic, 12 intent, 4 independent context-reliance signals), from which the legacy single `context_reliance` string is derived. The rule-based pre-classifier (DI3) that used to run first was deleted by D8 (§2.2). (ii) A single classifier-trusting decision (B2, §2.4) combines the reliance probability with a memory-pressure prior and soft bumps in log-odds space to decide whether long-term retrieval fires — it *prefers* memory but no longer *forces* it. (iii) A *Hybrid Retrieval Orchestrator* runs its retrieval legs (BM25, vector, Codex graph, procedural, batch summaries, cold storage, timeline — the RAG leg was deleted by C12), fuses them with weighted Reciprocal Rank Fusion (RRF), and post-processes the fused list with keyword/recency/length bonuses, session diversification, deduplication, and a dynamic token budget. (iv) A *Prompt Assembler* concatenates the retrieved fragments with persistent memory slots, recent turns, and the live user message under a stable prefix that maximises KV-cache reuse. (v) A *Mixture-of-Experts* (MoE) router selects the best locally-served model for the assembled prompt, with per-conversation stickiness.
 
-**Post-flight.** (i) A *Post-Flight Evaluator* runs lossless detection, document detection, and summary generation, writing the auxiliary columns of the new episodic_memory row. (ii) In the same job it chains a *Procedural Extractor* unconditionally and, conditionally on the lossless flag, a *Codex Extractor* — direct calls, each idempotent (C7). (iii) The in-process maintenance runtime (§8) keeps the stores maintained over time — Decay, Clustering, Reflection, Batch Summariser, Compaction and the Memory Maintenance Agent (which replaced the Sentinel Monitor in D1/D2) on ledger-driven cadences, plus the consent-gated Fine-Tune proposal.
+**Post-flight.** (i) A *Post-Flight Evaluator* runs density/document detection and summary generation, writing auxiliary episodic fields. (ii) Every non-private turn reaches Codex and procedural extraction, each independently idempotent. A Codex failure no longer prevents procedural progress; failures remain propagated to bounded runtime retry and never become completion markers. (iii) The in-process maintenance runtime (§8) keeps the stores maintained over time — Decay, Clustering, Reflection, Batch Summariser, Compaction and the Memory Maintenance Agent (which replaced the Sentinel Monitor in D1/D2) on ledger-driven cadences, plus the consent-gated Fine-Tune proposal.
 
 ### **1.2 High-level component map**
 
@@ -130,6 +130,19 @@ probes, successful answers and judge orders. It does not change replay inputs
 or writes; snapshot/report show indeterminate work. Explicit provider-truncated
 answers/verdicts remain failures even when text or parseable JSON is present;
 answer records retain available completion metadata (missing is unconfirmed).
+The coordinator now retries fresh persisted local extraction/completion and
+temporary connection/server failures at most twice, with2/8-second backoff.
+Each seed retry restores the verified recovery snapshot; cloud retries retain
+successful prior calls/orders. Quota/authentication, identity/resource/unknown
+failures pause visibly with saved state. Attempt receipts retain the policy;
+unresolved memory work cannot become a completed seed or answer denominator.
+Whitespace-only model quote copies are resolved to exact original source spans;
+changed content and ambiguous original variants remain unsupported. Native
+source-proof/need calls retain their owned model until idle drain, with provider
+load/prompt/evaluation timings; serial seed exit releases owned models because
+it has no live idle scheduler. The foreground generation flag starts only inside
+the protected generation boundary, so disconnecting during initial status events
+does not leave maintenance blocked.
 The manual store clones current memory-table
 DDL only, preserving production indexes/defaults; this does not certify the
 historical fresh migration chain. Routing is controlled per-prompt automatic
@@ -391,7 +404,7 @@ The episodic_memory table is the system's primary store of conversational turns.
 | **topic_tags / intent_tags** | ARRAY(Text) | classifier output; Creative_&_Media triggers the decay floor |
 | **context_reliance** | Text | classifier label |
 | **entropy_score** | Float | C1: facts-per-token density (entity/figure/code/diversity blend) — written by the Post-Flight Evaluator (was NULL-forever until the 2026-07 rework) |
-| **lossless_flag** | Boolean (nullable) | NULL = not yet evaluated; True exempts from batch summarisation and gates Codex extraction |
+| **lossless_flag** | Boolean (nullable) | NULL = not yet evaluated; True exempts from batch summarisation. It does not gate Codex extraction in v3. |
 | **raw_text** | Text | full turn text |
 | **summary_text** | Text | grounded post-flight summary (stored ALONGSIDE raw — read time chooses, §6.1a) or compaction summary |
 | **summary_coverage** | Float (nullable) | C1: measured must-term retention of summary_text; below 0.7 the summary is never preferred or degraded to; NULL = no/legacy summary |
@@ -1078,7 +1091,7 @@ post_flight.evaluate_turn(batch_id, prompt, response, conversation_id, model_use
 > ⚠ **MODEL-COUPLED.** The identical change measured as a **loss** on `qwen3:4b-instruct` (54% → 34% faithful, incomplete 7% → 56%). Swapping the background model means re-measuring this prompt, exactly as the extraction prompt is coupled to NuExtract3 (§4.4). Protocol: `docs/specs/BG_LAYER_FIXES.md`.
 > ⚠ **Expect `summary_coverage` ~0.64, not ~0.78.** That is the metric noticing the model stopped padding — coverage cannot see invention, and measured over 42 judged summaries **13 of 13 fabricated ones cleared the 0.7 gate while only 23 of 29 faithful ones did** (G75).
 
-- **Density** (compute_entropy) — facts-per-token ∈ [0,1] from entity density, figure/identifier density, code presence, and lexical diversity — finally written to **entropy_score** (NULL since v2). lossless_flag = code ∨ creative/emotional ∨ entropy ≥ 0.35 (generous — it gates Codex extraction, which was historically starved) and still exempts from batch summarisation.
+- **Density** (compute_entropy) — facts-per-token ∈ [0,1] from entity density, figure/identifier density, code presence, and lexical diversity — finally written to **entropy_score** (NULL since v2). lossless_flag = code ∨ creative/emotional ∨ entropy ≥ 0.35 and exempts from batch summarisation. In v3, every non-private turn reaches Codex regardless of this flag.
 
 - **STORE BOTH, CHOOSE AT READ TIME (user design decision).** Every non-document turn \> 350 words gets a **grounded summary** stored *alongside* raw — the storage layer never permanently forces one representation. The summary prompt receives the must-preserve terms (ground-then-generate, as Codex A2 / clustering v5), asks for 4–6 sentences plus trailing `Key terms:` and `Abstract:` lines (C3: the one-line abstract rides in the same call — no extra inference — parsed into abstract_text), and the result is **measured**: summary_coverage = fraction of must-terms retained; one retry names any dropped terms; the score is stored in **summary_coverage**. inject_raw is demoted to a *default hint*: raw for documents/code/creative (continuity) and for short turns; for long dense/diffuse turns the coverage gate sets it (summary-by-default only when it provably kept the key terms). The actual per-query choice happens at retrieval (§6.1a). Emits `summary_quality` + `representation_decided` log events (F5 candidates).
 
