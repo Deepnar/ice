@@ -283,6 +283,35 @@ judgments from clean scores. Validate isolated interruption/recovery and the
 actual shared preparation/transport path before documenting the manual command
 as ready.
 
+**Terminal progress and failure display, 2026-10-03:** the manual entry point
+shows its current stage and arm, processed/total turns, durable checkpoint turns,
+completed checkpoint probes, saved successful answers, and saved judge orders.
+Count replay turns only after their ending clock event (post-flight, maintenance
+and probes finished), not when a turn was merely written. Distinguish processed
+from checkpointed progress. On resume, read actual existing artifacts and reset
+counts to a restored trace rather than accumulate duplicate turn events.
+For judging, one successful persisted first order counts even if its second
+order failed; failed orders do not count. Snapshot/report use an explicitly
+indeterminate display. Show elapsed time and active work with a terminal bar,
+plain changed-state updates when redirected, and a log path on stage failure.
+The display is a parent-process read-only observer: it must not alter prompts,
+decoding, source labels, run identity, child arguments or persistence. Do not
+add a new model or dependency. Error/interruption stops the campaign and retains
+stage state. A corrected writer cannot resume a differently pinned campaign;
+preserve it and prepare a fresh, validated bundle instead of editing manifests.
+
+**v3 later-stage fault audit, 2026-10-03:** a nonempty provider reply is not
+necessarily complete. The cloud answer adapter must reject an explicit
+chat-completion finish reason other than `stop`, or Responses status other
+than `completed`, before treating text as a successful saved answer. Likewise,
+the judge must reject an explicit non-`stop` finish reason even if its prefix
+contains parseable verdict JSON. Persist these as failures via the existing
+answer/judge paths, retaining successful earlier calls/orders for resume. Do
+not automatically retry quota or turn truncated replies into partial grades.
+Compatibility responses without completion metadata remain unconfirmed; record
+the available answer completion marker instead of inventing one. No generation
+limit, model, prompt or decoding change is implied by this check.
+
 > **⚑ EVERYTHING BEFORE THIS RESEED IS DEAD DATA (maintainer, 2026-08-25).**
 > *"lets just call ALL from before as we have no data, we are restarting ALL
 > again."* Every store, every arm, every graph number in `PROVENANCE.md` before

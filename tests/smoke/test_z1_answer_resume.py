@@ -11,7 +11,8 @@ from experiments.lme.cloud_provider import TextGenerator
 from scripts.z1 import answer_as_of
 
 
-def test_answer_transport_receipt_and_interrupted_resume(monkeypatch):
+@pytest.mark.parametrize("failure", ["transport", "incomplete", "empty"])
+def test_answer_transport_receipt_and_interrupted_resume(monkeypatch, failure):
     messages = [{"role": "system", "content": "Answer using the supplied history."},
                 {"role": "user", "content": "Which port did I set?"}]
     stage = {"prompt_messages": messages, "prompt_tokens": 25, "selected_tokens": 0,
@@ -31,8 +32,11 @@ def test_answer_transport_receipt_and_interrupted_resume(monkeypatch):
     def request(**kwargs):
         calls.append(kwargs)
         if len(calls) == 1:
-            raise RuntimeError("intentional interrupted provider call")
-        return {"output_text": "A saved answer", "id": "response-1", "usage": {"input_tokens": 25}}
+            if failure == "transport":
+                raise RuntimeError("intentional interrupted provider call")
+            return {"status": "incomplete" if failure == "incomplete" else "completed",
+                    "output_text": "prefix" if failure == "incomplete" else ""}
+        return {"status": "completed", "output_text": "A saved answer", "id": "response-1", "usage": {"input_tokens": 25}}
 
     client = SimpleNamespace(responses=SimpleNamespace(create=request))
     monkeypatch.setattr(answer_as_of, "TextGenerator", lambda profile: TextGenerator(profile, client=client))
@@ -52,7 +56,7 @@ def test_answer_transport_receipt_and_interrupted_resume(monkeypatch):
         argv = ["answer_as_of.py", "--trace", str(trace), "--out", str(out),
                 "--arm", "full", "--allow-partial", "--validated-probes", str(audit)]
         monkeypatch.setattr(sys, "argv", argv)
-        with pytest.raises(RuntimeError, match="intentional interrupted"):
+        with pytest.raises(RuntimeError, match="intentional interrupted|not successful|cloud answer was empty"):
             answer_as_of.main()
         assert not json.loads(out.read_text())["complete"]
         monkeypatch.setattr(sys, "argv", argv + ["--resume"])
@@ -65,6 +69,7 @@ def test_answer_transport_receipt_and_interrupted_resume(monkeypatch):
         assert probe["expected_answer"] == "ORACLE EXPECTED CANARY"
         assert row["answer_input_messages"] == messages
         assert row["answer_input_sha256"] == answer_as_of.input_digest(messages)
+        assert row["answer_completion_status"] == "completed"
         assert row["prompt_evidence_support"] == "unreviewed"
         assert result["failed_attempts"][0]["error"]
         assert result["decoding"]["temperature_sent"] is False

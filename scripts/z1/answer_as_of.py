@@ -426,7 +426,8 @@ def _main() -> int:
                 stage["prompt_messages"], **decoding,
                 session_id=f"ice-v3-z1-{args.arm}-{probe['probe_id']}")
             record.update(answer=answer.text, usage=answer.usage,
-                          response_id=answer.response_id)
+                          response_id=answer.response_id,
+                          answer_completion_status=getattr(answer, "completion_status", None))
             if not answer.text:
                 raise RuntimeError("cloud answer was empty")
         except Exception as exc:

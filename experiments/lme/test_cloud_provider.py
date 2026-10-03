@@ -13,6 +13,38 @@ sys.path.insert(0, str(LME_DIR))
 import cloud_provider
 
 
+@pytest.mark.parametrize("endpoint,marker", [
+    ("responses", "incomplete"), ("responses", "failed"), ("responses", "in_progress"),
+    ("chat_completions", "length"), ("chat_completions", "content_filter"),
+    ("chat_completions", "tool_calls"),
+])
+def test_explicit_incomplete_reply_cannot_become_a_success(endpoint, marker):
+    profile = cloud_provider.ProviderProfile(name="fixture", endpoint=endpoint,
+        model="fixture", base_url="https://test.invalid/v1")
+    reply = SimpleNamespace(status=marker, output_text="plausible prefix", choices=[
+        SimpleNamespace(finish_reason=marker, message=SimpleNamespace(content="plausible prefix"))])
+    create = lambda **_kwargs: reply
+    client = SimpleNamespace(responses=SimpleNamespace(create=create),
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    with pytest.raises(RuntimeError, match="completion was not successful"):
+        cloud_provider.TextGenerator(profile, client=client).generate(
+            [{"role": "user", "content": "question"}], temperature=0, max_output_tokens=32)
+
+
+@pytest.mark.parametrize("endpoint,marker", [("responses", "completed"), ("chat_completions", "stop")])
+def test_success_preserves_provider_completion_marker(endpoint, marker):
+    profile = cloud_provider.ProviderProfile(name="fixture", endpoint=endpoint,
+        model="fixture", base_url="https://test.invalid/v1")
+    reply = SimpleNamespace(status=marker, output_text="answer", choices=[
+        SimpleNamespace(finish_reason=marker, message=SimpleNamespace(content="answer"))])
+    create = lambda **_kwargs: reply
+    client = SimpleNamespace(responses=SimpleNamespace(create=create),
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    result = cloud_provider.TextGenerator(profile, client=client).generate(
+        [{"role": "user", "content": "question"}], temperature=0, max_output_tokens=32)
+    assert result.completion_status == marker and result.text == "answer"
+
+
 def test_default_client_disables_hidden_sdk_retries(monkeypatch):
     profile = cloud_provider.ProviderProfile(
         name="no-hidden-retries",

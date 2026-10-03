@@ -254,6 +254,7 @@ class Generation:
     text: str
     response_id: str | None
     usage: dict[str, Any] | None
+    completion_status: str | None = None
 
 
 class TextGenerator:
@@ -280,6 +281,7 @@ class TextGenerator:
         max_output_tokens: int,
         session_id: str | None = None,
     ) -> Generation:
+        completion_status = None
         extra_headers = None
         if self.profile.api_key_env == "PROBE_API_KEY":
             if not session_id or not session_id.strip():
@@ -300,6 +302,9 @@ class TextGenerator:
                 if extra_headers:
                     request["extra_headers"] = extra_headers
                 response = self.client.chat.completions.create(**request)
+                completion_status = _field(response.choices[0], "finish_reason")
+                if completion_status is not None and completion_status != "stop":
+                    raise RuntimeError(f"cloud answer completion was not successful: {completion_status}")
                 text = (response.choices[0].message.content or "").strip()
             elif self.profile.endpoint == "responses":
                 request = dict(
@@ -312,6 +317,9 @@ class TextGenerator:
                 if extra_headers:
                     request["extra_headers"] = extra_headers
                 response = self.client.responses.create(**request)
+                completion_status = _field(response, "status")
+                if completion_status is not None and completion_status != "completed":
+                    raise RuntimeError(f"cloud answer completion was not successful: {completion_status}")
                 text = _responses_text(response)
             else:
                 raise ValueError(
@@ -327,4 +335,5 @@ class TextGenerator:
             text=text,
             response_id=_field(response, "id"),
             usage=_model_dump(_field(response, "usage")),
+            completion_status=completion_status,
         )

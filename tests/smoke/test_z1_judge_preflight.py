@@ -421,3 +421,26 @@ def test_v3_quota_error_makes_one_transport_attempt(monkeypatch):
     monkeypatch.setattr(judge_answers.time, "sleep", lambda _: pytest.fail("quota retried"))
     result = judge_answers.judge_one("question", "source", "a", "b", expected_answer="fact")
     assert len(calls) == 1 and result["reason"] == "api_http_429"
+
+
+@pytest.mark.parametrize("finish", ["length", "content_filter", "tool_calls", "stop", None])
+def test_judge_rejects_truncation_even_with_parseable_verdict(monkeypatch, finish):
+    import io
+    monkeypatch.setattr(judge_answers, "_env", lambda key: {
+        "PROBE_API_KEY": "fixture", "PROBE_API_BASE_URL": "https://test.invalid/v1",
+        "PROBE_MODEL": "fixture"}.get(key))
+    verdict = {"verdict": "TIE", "reason": "equivalent", "A_grade": "correct", "B_grade": "correct"}
+    payload = {"choices": [{"finish_reason": finish, "message": {"content": json.dumps(verdict)}}]}
+    calls = []
+
+    def response(*args, **_kwargs):
+        calls.append(args)
+        return io.BytesIO(json.dumps(payload).encode())
+
+    monkeypatch.setattr(judge_answers.urllib.request, "urlopen", response)
+    result = judge_answers.judge_one("question", "source", "a", "b", expected_answer="fact")
+    assert len(calls) == 1
+    if finish in {"stop", None}:
+        assert result["verdict"] == "TIE"
+    else:
+        assert result["verdict"] == "ERROR" and result["reason"] == "incomplete_completion"

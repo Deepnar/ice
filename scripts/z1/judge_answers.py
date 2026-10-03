@@ -285,6 +285,10 @@ def judge_one(question, source, ans_a, ans_b, *, expected_answer=None,
                 headers=headers)
             with urllib.request.urlopen(req, timeout=120) as r:
                 payload = json.loads(r.read())
+            finish_reason = payload["choices"][0].get("finish_reason")
+            if finish_reason is not None and finish_reason != "stop":
+                return {"verdict": "ERROR", "reason": "incomplete_completion",
+                        "note": f"Provider finish_reason: {finish_reason}"}
             txt = (payload["choices"][0]["message"]["content"] or "").strip()
         except Exception as exc:                                  # noqa: BLE001
             note = str(exc)[:120]
