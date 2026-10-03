@@ -32,10 +32,11 @@ def test_route_native_stream_and_failure_postflight(monkeypatch):
     monkeypatch.setattr(main.settings, "memory_source_gate_enabled", False)
     model_vector = [1.0] + [0.0] * 1023
     enqueued = []
+    active = {'count': 0}
     runtime = SimpleNamespace(
         note_user_activity=lambda: None,
-        generation_started=lambda: None,
-        generation_finished=lambda: None,
+        generation_started=lambda: active.update(count=active['count'] + 1),
+        generation_finished=lambda: active.update(count=active['count'] - 1),
         notify_work_unit=lambda *_a, **_k: None,
         enqueue=lambda name, **kw: enqueued.append((name, kw)),
     )
@@ -96,7 +97,24 @@ def test_route_native_stream_and_failure_postflight(monkeypatch):
         await tasks()
         return stream
 
-    success_id, failed_id, fallback_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    success_id, failed_id, fallback_id, cancelled_id, midstream_id = [uuid.uuid4() for _ in range(5)]
+    async def cancel_status():
+        with SessionLocal() as db:
+            response = await main.chat_completions(_Request(cancelled_id), BackgroundTasks(), db)
+            await anext(response.body_iterator)
+            await response.body_iterator.aclose()
+    asyncio.run(cancel_status())
+    assert active['count'] == 0  # Status cancellation cannot block the GPU lane.
+    async def cancel_generation():
+        with SessionLocal() as db:
+            response = await main.chat_completions(_Request(midstream_id), BackgroundTasks(), db)
+            async for chunk in response.body_iterator:
+                if 'Two.' in chunk:
+                    assert active['count'] == 1
+                    await response.body_iterator.aclose()
+                    break
+    asyncio.run(cancel_generation())
+    assert active['count'] == 0
     success = asyncio.run(run(success_id))
     assert "Two." in success and "data: [DONE]" in success
     assert requests[-1].url.path == "/api/chat"
@@ -120,10 +138,11 @@ def test_route_native_stream_and_failure_postflight(monkeypatch):
         "/v1/chat/completions", "/api/chat"]
     assert requests[-1].url.host == "localhost"
     assert enqueued[-1][1]["model_used"] == "controlled-local"
+    assert active['count'] == 0
     with SessionLocal() as db:
         assert db.query(EpisodicMemory).filter_by(conversation_id=fallback_id).count() == 1
         db.query(EpisodicMemory).filter_by(conversation_id=success_id).delete()
         db.query(EpisodicMemory).filter_by(conversation_id=fallback_id).delete()
         db.query(Conversation).filter(Conversation.id.in_([
-            success_id, failed_id, fallback_id])).delete()
+            success_id, failed_id, fallback_id, cancelled_id, midstream_id])).delete()
         db.commit()

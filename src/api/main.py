@@ -662,11 +662,6 @@ async def chat_completions(
                         segment.append(chunk)
                         yield chunk
 
-        # C7 D7: the in-flight flag is the shared-mode contention gate — no
-        # background gpu job dispatches while a generation streams.
-        if core is not None and core.runtime is not None:
-            core.runtime.generation_started()
-
         # SSE: classified
         yield sse_event("classified", {
             "topic_tags": result.topic_tags,
@@ -698,6 +693,10 @@ async def chat_completions(
 
         # The outer try/finally guarantees
         # generation_finished fires even on a client disconnect mid-stream.
+        # No yield may separate setting this flag from the protected try:
+        # a disconnect during the initial status events has no generation.
+        if core is not None and core.runtime is not None:
+            core.runtime.generation_started()
         try:
             try:
                 primary_segment: list[str] = []
