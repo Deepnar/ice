@@ -109,7 +109,8 @@ The instrument belongs to **Z1 — live memory coverage and tuning**, for exampl
 preserving turn100's store before tuning retrieval at that cutoff, and
 **G55 — meaningful source/task scoring**, for example refusing to count a gold
 source ID as a faithful compressed answer. All 255 questions have catalog
-answers; 124 have screened source candidates and 131 need mappings; no label is
+answers; 124 originally had screened source candidates and 131 needed mappings,
+now all 255 have reviewed dispositions; no label is
 admitted until complete-source/correction/recent-history review and explicit
 task/knowledge scope. Replay completion does not establish graph truth,
 summary faithfulness or answer use. Broader real-pair judge qualification and
@@ -122,15 +123,20 @@ seeded output reviews, targeted tuning and interaction checks before the two
 agreed final conditions.
 A Z failure can and should reopen a concrete repair. After combined Z, the agreed
 end-stage runs are LME oracle and semi-LSREP only, not a full LME-S campaign.
-**V3 source/repeat checkpoint, 2026-10-02 (current):** 88 source/answer reviews:
-28 native (six admitted, 22 recent controls) and 60 linked (39 admitted, 11 recent
-exclusions, ten uncertain). Forty-five old-source admissions include 11 public
-controls; scope reporting separates them from private-memory claims. Pending:
-103 native plus 64 linked reviews, 167 total; ten reviewed uncertain targets are
-also unusable. Ten structural early exclusions only establish that no old
-source can exist at their cutoff. 81 reviewed keys preserve corrections,
-attribution and uncertainty beside immutable catalog provenance. Full imported
-original review reaches 216/128; third-history adjudication remains pending.
+**V3 source/repeat checkpoint, 2026-10-03 (final r3):** all 255 base
+questions have complete through-cutoff source/answer reviews; 0 remain pending.
+Native 131: 36 valid, 77 invalid, 18 uncertain. Linked 124: 77 valid, 25 invalid,
+22 uncertain. Total: 113 valid, 102 invalid, 40 uncertain. All three imported
+original histories were read completely (1119/251/101 turns); each label uses
+only sources through its own cutoff. No structural-only exclusions remain.
+113 old-source admissions comprise 31 private, 26 mixed, 33 assistant-history and
+23 public controls, reported separately. 248 reviewed answer keys correct or
+qualify catalog keys; the other seven retain their reviewed originals.
+Invalid/uncertain cases remain excluded, not silently converted into successful
+memory questions. Recent supporting facts stay shared context and cannot count
+as old-source hits. These are Codex source reviews, not independent human judge
+qualification or measured answer gains. The immutable private r3 packet and
+receipt pin all dispositions; earlier receipts remain historical artifacts.
 Natural repeated facts
 can share a reviewed family while keeping occurrence/cutoff identity. The
 authorized small development pass adds two reviewed families/four occurrences
@@ -989,7 +995,7 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 
 - [ ] <a id="g55"></a>**G55 Three typed metrics cannot measure what they are named after** `(bug — found 2026-08-22; BLOCKS THE RE-RUN)` → **[TRAPS #21](TRAPS.md), [#37](TRAPS.md)**.
   - **2026-10-02 small development retention pass:** explicit authorization adds two reviewed unchanged-fact families at recent/old cutoff pairs51→115 and115→216. Four extra prompts are pinned in replay/answer resume and use the existing read-only four-arm observer. Per-arm before/after grades, prompt-cost and source-presence changes retain uncertainty/errors/dependence; recent controls do not inflate old-memory totals. Full semi-LSREP remains final, and G55 is not closed by instrument checks.
-  - **2026-10-02 source/answer adjudication (sixth receipt):** 88 reviews cover 28 native mappings (six admitted, 22 recent controls) and 60 linked candidates (39 admitted, 11 recent exclusions, ten uncertain). Ten early exclusions remain structural only. Pending: 103 native plus 64 linked reviews, 167 total. Forty-five old-source admissions include 11 generic/public controls, reported separately from private recall;81 reviewed keys preserve attribution, uncertainty, required facts and later user corrections. Full imported originals reviewed through 216/128; third-history and broad task coverage remain incomplete. Missing attachments and assistant recaps cannot certify actual user facts/decisions. Status distinguishes absent source reviews from unset/invalid/uncertain dispositions. [Current readiness and per-checkpoint counts](reviews/2026-10-01-v3-manual-campaign.md). This item remains open.
+  - **2026-10-03 source/answer adjudication, final r3:** all 255 reviewed, 0 pending. 113 valid old-source questions, 102 invalid, 40 uncertain; 248 corrected/qualified reviewed keys preserve catalog originals. Full histories 1119/251/101 read; every label stops at its own cutoff. Admissions include 23 public controls, separately reported. 113 base plus four repeats plan 468 answers/702 judge orders. Source review is complete; output-specific truth and independently qualified judging remain. [Readiness and checkpoint counts](reviews/2026-10-01-v3-manual-campaign.md). This item remains open; source presence alone cannot grade a compressed answer.
   - **2026-10-01 admission/measurement repair:** private packets now require exact cutoff and recent-history review plus semantic task/knowledge scope, and validate catalog/source bounds before replay. Frozen answers retain their exact input and context ledger. All 255 labels remain unadjudicated; 17 of the 131 unmapped native questions have no possible old source under the 40-turn window and are immediate-history controls, leaving 114 structurally eligible mappings. Source rank/presence cannot substitute for semantic support or answer use. The [measurement matrix](reviews/2026-10-01-v3-manual-campaign.md#what-the-measurements-can-establish) names the remaining ground truth for each conclusion. This item remains open.
   - **2026-09-29 v3 instrument checkpoint:** the chronological trace now records ordered pre-budget candidate-fragment and distinct-source-turn rank@5/@10, budget survival, and final-prompt gold provenance through either a fragment or a complete original source-mode note. This closes a source-note undercount and makes rank distinct from prompt presence; it does **not** establish that a compressed excerpt contains the answer. All 255 frozen checkpoint prompts have expected answers, but only 124 have candidate source labels; 131 still need review. Do not mark G55 complete from these instrument checks or from an unreviewed source match.
   - **2026-09-29 cutoff correction:** all 444 unified typed `split_turn` values equal the latest gold turn; a probe asked there may read its gold from the 40-turn recent window. The v3 runner now schedules 378 delayed candidates at gold+40 and records 66 with no delayed window. Their expected answers must be rechecked against the intervening turns. The immediate 444 remain diagnostics, not long-term-memory scores; no typed score is closed by the harness change alone. [Audit](reviews/2026-09-29-v3-reseed-harness-audit.md).

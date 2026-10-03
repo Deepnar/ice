@@ -8,7 +8,7 @@ and its completion is not a claim that all memory-quality work is done.
 
 ## One entry point, five saved stages
 
-### Current ICE v3 corpus and question schedule — 2026-10-02
+### Current ICE v3 corpus and question schedule — 2026-10-03
 
 Counts below come from the actual current `load_plan`, not the archived 618-probe
 catalog. A recorded turn is one original user prompt plus its assistant reply;
@@ -18,10 +18,10 @@ state; they do not reset memory or partition the database into isolated splits.
 
 | History | Recorded turns | Checkpoints | Base questions | Added repeat occurrences | Source/answer reviewed | Source/answer unreviewed |
 |---|---:|---:|---:|---:|---:|---:|
-| `bb558b5f` |1119|22|78|4|14|64|
-| `ecc64aab` |251|14|121|0|74|47|
-| `355a5709` |101|3|56|0|0|56|
-| Total |1471|39|255|4|88|167|
+| `bb558b5f` |1119|22|78|4|78|0|
+| `ecc64aab` |251|14|121|0|121|0|
+| `355a5709` |101|3|56|0|56|0|
+| Total |1471|39|255|4|255|0|
 
 Checkpoint turn numbers:
 
@@ -31,14 +31,15 @@ Checkpoint turn numbers:
 
 | Question source | First history | Second history | Third history | Total |
 |---|---:|---:|---:|---:|
-| Native questions awaiting independently reviewed source mapping |64|34|33|131|
+| Native questions originally lacking source mapping |64|34|33|131|
 | Existing native source-linked candidates |0|11|0|11|
 | Generated source-first candidates delayed to checkpoints |14|76|23|113|
 | Development repeats, separate recent/old controls |4|0|0|4|
 | Frozen occurrences |82|121|56|259|
 
-“Awaiting source mapping” describes the original panel category; some now have
-reviewed mappings. All 255 base questions have catalog expected answers. Candidate
+The native-unmapped row describes the original panel category; every row now
+has a reviewed source/answer disposition, including exclusions and uncertainty.
+All 255 base questions have catalog expected answers. Candidate
 gold turns existed for 124 initially; an initial candidate is not a reviewed
 denominator. The two text-export histories have synthetic five-minute clocks;
 the third has provider-original dates. Order/turn-age retention is measurable;
@@ -47,9 +48,9 @@ the synthetic histories do not establish authentic calendar retention.
 Each admitted occurrence uses four frozen arms: full ICE, direct Codex evidence
 off, ICE warm-vector-only, and recent history only. The comparison arm is not
 an independent vector database baseline. Each occurrence has three full-versus-
-control contrasts, each judged in both display orders. Current admission is 45
-old-source questions plus four development occurrences: 196 cloud answers and
-294 successful judge-order requests if all are executed, before any retries.
+control contrasts, each judged in both display orders. Current admission is 113
+old-source questions plus four development occurrences: 468 cloud answers and
+702 successful judge-order requests if all are executed, before any retries.
 This is a current-plan count, not a launched run or the final campaign size.
 Question families and multiple arms/orders are dependent observations.
 
@@ -67,24 +68,24 @@ source/answer reviews; none of these counts is an observed correctness rate.
 |115|4|2|4|
 |170|2|0|2|
 |216|4|1|4|
-|285|2|0|0|
-|336|5|0|0|
-|397|2|0|0|
-|425|1|0|0|
-|448|2|0|0|
-|492|4|0|0|
-|555|2|0|0|
-|604|3|0|0|
-|681|3|0|0|
-|735|2|0|0|
-|790|2|0|0|
-|834|4|0|0|
-|885|3|0|0|
-|959|4|0|0|
-|1017|2|0|0|
-|1053|4|0|0|
-|1067|1|0|0|
-|1119|18|0|0|
+|285|2|0|2|
+|336|5|0|5|
+|397|2|0|2|
+|425|1|0|1|
+|448|2|0|2|
+|492|4|0|4|
+|555|2|0|2|
+|604|3|0|3|
+|681|3|0|3|
+|735|2|0|2|
+|790|2|0|2|
+|834|4|0|4|
+|885|3|0|3|
+|959|4|0|4|
+|1017|2|0|2|
+|1053|4|0|4|
+|1067|1|0|1|
+|1119|18|0|18|
 
 **History `ecc64aab`**
 
@@ -96,22 +97,22 @@ source/answer reviews; none of these counts is an observed correctness rate.
 |82|15|0|15|
 |106|24|0|24|
 |128|18|0|18|
-|132|5|0|0|
-|144|8|0|0|
-|145|6|0|0|
-|163|6|0|0|
-|184|13|0|0|
-|209|4|0|0|
-|234|3|0|0|
-|251|2|0|0|
+|132|5|0|5|
+|144|8|0|8|
+|145|6|0|6|
+|163|6|0|6|
+|184|13|0|13|
+|209|4|0|4|
+|234|3|0|3|
+|251|2|0|2|
 
 **History `355a5709`**
 
 | Checkpoint turn | Base questions | Added repeats | Base source/answer reviewed |
 |---:|---:|---:|---:|
-|30|10|0|0|
-|65|29|0|0|
-|87|17|0|0|
+|30|10|0|10|
+|65|29|0|29|
+|87|17|0|17|
 
 Run from the repository root using `uv run`. PostgreSQL in `ice_postgres` and
 Ollama must already be available; the unmaintained `./ice` scripts are not used.
@@ -124,27 +125,27 @@ not a reason to run the measurement against a different schema.
 
 The private bundle `logs/z1-v3-manual-2026-10-01` is already initialized. It
 contains all 124 source-linked review candidates and 131 native source-mapping
-reviews. The sixth 2026-10-02 receipt records **88 source/answer reviews**:
-28 native mappings (six admitted, 22 recent controls) and 60 linked candidates
-(39 admitted, 11 recent exclusions, ten uncertain). Another ten early native
-exclusions remain structural only. Native verdicts are six valid, 32 excluded
-and 93 unset; linked verdicts are 39 valid, 11 excluded, ten uncertain and 64 unset.
-**103 native mappings/keys plus 64 linked candidates remain unreviewed: 167 total.**
-Ten reviewed cases also remain unusable because their reference, actual outcome
-or unsupported biographical claim is unresolved. No campaign database, full
-replay or cloud campaign exists. Forty-five old-source admissions span two
-histories: 11 private-history, seven mixed, 16 assistant-history and 11 generic/public
-controls. These are separate reporting strata; 45 is not a private-memory score.
-Eighty-one reviewed keys preserve attribution, uncertainty, optional details and
-later user corrections while retaining catalog provenance. Complete imported
-user/assistant review reaches turn 216 in one history and 128 in another. All 88
-recorded reviews have full through-cutoff scope; third-history adjudication is
-still pending. Missing attachment bodies cannot verify an assistant's extracted
-biography, and an assistant recap cannot prove that the user settled a choice.
-A later direct user correction takes precedence over an earlier draft.
-Status separately reports unset verdicts, invalid/uncertain dispositions and
-recorded source-review counts. A window-only exclusion is not credited as a
-source/answer review. These declarations are not independent verification.
+reviews.
+
+**Current source-review checkpoint, 2026-10-03 (final r3):** all 255 base
+questions have complete through-cutoff source/answer reviews; 0 remain pending.
+Native 131: 36 valid, 77 invalid, 18 uncertain. Linked 124: 77 valid, 25 invalid,
+22 uncertain. Total: 113 valid, 102 invalid, 40 uncertain. All three imported
+original histories were read completely (1119/251/101 turns); each label uses
+only sources through its own cutoff. No structural-only exclusions remain.
+113 old-source admissions comprise 31 private, 26 mixed, 33 assistant-history and
+23 public controls, reported separately. 248 reviewed answer keys correct or
+qualify catalog keys; the other seven retain their reviewed originals.
+Invalid/uncertain cases remain excluded, not silently converted into successful
+memory questions. Recent supporting facts stay shared context and cannot count
+as old-source hits. These are Codex source reviews, not independent human judge
+qualification or measured answer gains. The immutable private r3 packet and
+receipt pin all dispositions; earlier receipts remain historical artifacts.
+No full replay, campaign database or cloud campaign exists. Status separates
+missing reviews from invalid/uncertain verdicts and window-only exclusions.
+The current bundle is already reviewed: do not initialize it again or rewrite
+its labels before launching. The source-review instructions below apply to new
+bundles or separately versioned studies.
 For a new bundle, initialize once:
 
 ```bash
@@ -157,7 +158,10 @@ Status is the default and makes no cloud request:
 uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-01
 ```
 
-After label admission and provider setup, execute or resume everything:
+The existing bundle has passed label admission; cloud configuration is present.
+Status still reports `cloud_answers_ready=false` before a complete replay trace
+exists; this is expected and does not mean source reviews remain pending.
+Execute or resume everything:
 
 ```bash
 uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-01 --run
@@ -173,7 +177,7 @@ Combined execution checks packet corpus/catalog identity and source bounds
 before starting replay, then checks the complete trace and labels again before
 cloud calls. Marking a malformed review `valid` does not make it ready to run.
 
-**USER-REQUIRED — source review:** edit `labels-source-linked.json` and
+**USER-REQUIRED — source review for a new bundle:** edit `labels-source-linked.json` and
 `labels-native.json` under the private bundle. Each admitted row needs a
 `valid` verdict, a concrete reason, `reviewed_through_turn` equal to its cutoff,
 `recent_only_answerable: false`, an allowed `knowledge_scope`, and nonempty
@@ -223,7 +227,8 @@ validation, not merely that `stage-status.json` says complete.
 
 ## Delayed reference and source limits
 
-Ten reviewed linked questions are uncertain at their later cutoff: generic
+22 reviewed linked questions and 18 native questions remain uncertain. Reasons
+include delayed references such as: generic
 references such as “that answer” or “this club” no longer identify a unique
 original topic, an advertised opportunity is mistaken for an actual outcome,
 or an assistant assertion supplies an unconfirmed personal fact.
@@ -255,7 +260,8 @@ plus intervening content confound causal explanations; this is a small
 
 The packet is pinned before seeding. Do not add or edit it after starting a
 replay/answer pass; a changed schedule/review needs a new campaign bundle.
-Full campaign and broader source/judge readiness remain pending.
+Full campaign and broader judge qualification remain pending; the current
+bundle's source-review dispositions are complete.
 
 ## Recovery guarantees and limits
 
@@ -296,7 +302,7 @@ Full campaign and broader source/judge readiness remain pending.
 | Measurement | Ground truth now | Signal and valid inference | Still needed |
 |---|---|---|---|
 | Replay order/completeness | Pinned1471 originals across three histories | Every preflight precedes its recorded reply; no missing turn or future evidence | Full manual replay; this does not score new answers |
-| Expected answers/source turns | 255 catalog answers; 88 source/answer reviews, 45 old-source admissions including 11 public controls; 103 native and 64 linked reviews remain; ten reviewed uncertain cases | After review, old source identity at exact query time is a usable retrieval denominator | 167 pending reviews and remaining private/task/conversation coverage; resolve ambiguous delayed references; historical assistant claims do not establish public truth |
+| Expected answers/source turns | 255 source/answer reviews complete; 113 old-source admissions including 23 public controls; 102 invalid and 40 uncertain excluded | After review, old source identity at exact query time is a usable retrieval denominator | Remaining private/task/conversation coverage and ambiguous cases; no valid multi-hop cases, only one abstention case and six admitted third-history questions; historical assistant claims do not establish public truth |
 | Retrieval rank@5/@10 | Reviewed source IDs | First five/ten pre-budget fragments; distinct-source-turn ranks separately collapse repeats | A source ID is not proof of relevant words surviving compression |
 | Final prompt evidence | Exact frozen messages and source receipts | Candidate→budget→selected/source-note funnel locates where a source disappears | Semantic support review against exact visible text |
 | Answer correctness | Reviewed expected answer and complete dated originals | Per-arm correct/partial/incorrect/uncertain, both-failed and errors | Broad real-pair human qualification; all-correct three-pair review is insufficient |
@@ -304,11 +310,11 @@ Full campaign and broader source/judge readiness remain pending.
 | Memory contribution | Four paired prompt arms and reviewed knowledge scope | Direct graph evidence, warm-vector and recent-history contrasts estimate answer effects | Do not infer causal use from correctness/citations; every-leg ablations and independent vector baseline remain combined-Z work |
 | Prompt cost | Same tokenizer estimate and saved provider usage | Paired medians/differences and errors, alongside answer quality | Estimates are not provider tokenizer counts; no matched-quality cost curve or proven token saving yet |
 | Graph/claim truth and entity merges | Complete originals and source links; earlier labels may describe superseded extractor | Output-specific source/role/negation precision and recall review | Seeded blind graph review; graph density is not correctness |
-| Summary/fold quality | Originals and generated notes retained in store | Judge support, contradiction, required-detail omission and fallback actually selected | Output-specific review; NLI verdict/source freshness is not independent ground truth |
+| Summary/fold quality | Originals, initial summaries/abstracts and exact maintenance output changes retained privately | Judge support, contradiction, required-detail omission and fallback actually selected | Output-specific review; NLI verdict/source freshness is not independent ground truth |
 | Temporal/update behavior | Source order; only one history has authentic dates | Old/new fact pairs can test coexistence, correction and historical answers | Reviewed successor pairs; synthetic dates cannot validate authentic calendar retention |
 | Procedural relevance | Original cited user sources and stored activations | Query-specific usefulness and supported answer effects | Reviewed procedure/task labels; activation count or session length is not quality |
 | Classifier/style invariance | Existing meaning-preserving controls; source-review task taxonomy | Gate flips, source arrival and answer changes on same-meaning variants | Combined-Z variants with final answers, not just a classifier score |
-| Maintenance/model resources | Ten registry jobs, source-clock events, state diffs and model manifest pins | Eligible/proposed/applied changes and declared serial cadence | Output-quality reviews, peak VRAM/latency and actual asynchronous scheduling remain unmeasured |
+| Maintenance/model resources | Ten registry jobs, source-clock events, aggregate/semantic diffs, separate job/observer timings and model manifest pins | Eligible/proposed/applied changes and declared serial cadence | Output-quality reviews, peak VRAM/latency and actual asynchronous scheduling remain unmeasured |
 
 The replay report's source funnel uses **unreviewed screened candidates** and is
 marked accordingly. The campaign report separately counts source coverage on
@@ -341,10 +347,61 @@ pre-tuning **core-memory** code blocker. Counts remain 160 anchors:93 checked,
 coverage/tuning/answer-side, 1 post-Z), 35 later/product/research, and 3 Z gates.
 The [existing evidence map](2026-09-29-v3-reseed-harness-audit.md#open-item-evidence-map)
 states each item's required observation; no automatic new checkmarks follow
-from harness tests. Immediate prerequisites are trustworthy labels, instrument
-mechanics and broader judge qualification. Seeded output reviews then drive
+from harness tests. Source review and instrument mechanics are now verified
+for the current development bundle. Broader judge qualification remains needed
+before treating its diagnostic grades as scores of record. Seeded output reviews then drive
 specific repairs and targeted tuning, with stage-wise sensitivity and an
 interaction check on development cases. Freeze defaults before the two agreed
 final conditions: **LME oracle and semi-LSREP only**, not full LME-S. Those final
 condition runners and an independent vector baseline are not supplied by this
 development campaign command and need their own frozen/resumable contracts.
+
+## Final prelaunch sweep — 2026-10-03
+
+The current source-review work is complete. All 255 base questions have an
+as-of expected-answer/source disposition, including honest exclusions. This
+does not mean all 255 can be answered or belong in an old-memory denominator.
+The admitted base panel has 80 episodic, 40 procedural, 24 summary, 21 relation,
+16 temporal, 12 update, 16 negative and one abstention task labels. These overlap;
+there are no valid multi-hop cases. By history, valid base cases are 40/67/6.
+An empty or sparse cell is a coverage limit, not a perfect score.
+
+The private seed trace now preserves initial `summary_text`, `abstract_text`
+and `source_raw_sha256` for every completed post-flight. Each maintenance event
+preserves aggregate state plus `semantic_observed_tables` and exact
+`semantic_changes` with before/after values and stable (including composite)
+keys. Text-producing jobs observe notes/manifests, entity/edge/procedural state,
+clusters and memberships, slots, session summaries and review proposals;
+decay/compaction observe narrower relevant tables. Empty changes explicitly
+mean no differences in those observed tables. Vectors and repeated original
+bodies are excluded from this observer; full snapshots preserve them. This
+is an inspection record, not an exhaustive transaction log or a faithfulness
+grade. `observer_elapsed_ms` is separate from `job_elapsed_ms`; serial job
+timings cannot establish real interactive latency or peak VRAM.
+
+For the 29 evidence-dependent roadmap questions, use the existing detailed
+evidence map together with this division:
+
+| Question group | Saved by this campaign | What happens after the run |
+|---|---|---|
+| Twelve seed/write questions: source representation, graph extraction/canonicalisation, long-source tails, folds, clusters, updates and maintenance | Full original corpus, initial representations, source-linked claims/edges, all-table as-of snapshots, exact maintenance output changes, failures and model/settings receipts | Inspect actual outputs against originals; label accepted/rejected relations, omissions, unsafe merges, successor pairs and cluster names. Job completion or an NLI pass alone does not close these questions. |
+| Retrieval, representation use and answer effects within the sixteen combined-stage questions | Per-leg candidates, fragment and distinct-source ranks@5/@10, budget/selected-source receipts, exact final messages, four paired answers, both-order grades and costs, two repeated recent→old families | Locate losses from source→write→candidate→prompt→answer; review semantic evidence survival. Use frozen checkpoint stores for targeted weight/budget tuning and needed leg controls, rather than replaying the entire history for each setting. |
+| Remaining combined-stage controls: same-meaning styles, every-leg ablations, alternative background/default models, independent vector baseline and judge qualification | Frozen input/state and current model identities provide reusable inputs; current controls remove direct graph evidence or restrict ICE to its warm vector leg | Run the specific variants/controls and independent human output reviews that their original scopes require. The four-arm campaign does not silently perform these additional experiments. |
+| One post-baseline temporal consumer question | Source dates/order and as-of state retained | Test the consumer only after freezing the combined-stage baseline; synthetic histories cannot prove authentic calendar retention. |
+
+The campaign therefore gathers the reusable system evidence needed to diagnose
+its observed failures. It does not promise coverage of every unobserved failure,
+automatic semantic ground truth for every generated output, or closure of all
+29 items from one command. Its source review is Codex adjudication, and broad
+independent judge calibration remains separate. Run readiness means the
+development instrument can execute/resume safely under its declared scope;
+the aggregate report deliberately keeps `score_of_record=false`.
+
+Prelaunch verification includes 499 disposable-database smoke checks, actual
+schema bootstrap/reattachment controls, an actual SQL unchanged-count summary
+rewrite plus real procedural decay through the job boundary, and an actual
+two-turn local-model replay interrupted after its second committed write.
+Recovery preserves the first turn's identity, restores/replays the unfinished
+second turn once, and retains the failed trace tail. These are harness controls,
+not a completed 1471-turn seed or a memory-quality result. No full campaign or
+cloud answer/judge request was launched during this sweep.

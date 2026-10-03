@@ -157,6 +157,15 @@ def status(root: Path, config: dict) -> dict:
         repeats["reviewed_occurrences"] = sum(bool(p.get("development_repeat")) for group in schedule.values() for p in group)
         repeats["families"] = repeats["reviewed_occurrences"] // 2
     labels_available = linked["valid"] + native["valid"] + repeats["reviewed_occurrences"] > 0
+    missing_reviews = (linked["without_recorded_source_answer_review"]
+                       + native["without_recorded_source_answer_review"])
+    source_review_limit = (
+        "Source/answer reviews are recorded for every row in the present packets; "
+        "invalid/uncertain cases remain excluded and independent qualification is separate."
+        if linked["present"] and native["present"] and linked["rows"] + native["rows"] > 0
+        and missing_reviews == 0
+        else "Expected-answer and source labels still need complete source/intervening/recent review."
+    )
     answer_plan = {"verified": False, "reason": "complete replay and reviewed labels required"}
     if trace.exists() and labels_available:
         planned = subprocess.run([sys.executable, str(ROOT / "scripts/z1/answer_as_of.py"),
@@ -177,7 +186,7 @@ def status(root: Path, config: dict) -> dict:
             "reviewed_label_candidates_available": labels_available,
             "cloud_answers_ready": answer_plan["verified"], "answer_plan": answer_plan,
             "score_of_record": False,
-            "limits": ["Expected-answer and source labels still need complete source/intervening/recent review.",
+            "limits": [source_review_limit,
                        "Source rank/presence does not establish semantic prompt support or actual answer use.",
                        "The four arms measure direct Codex, warm-vector and recent-history contrasts, not every leg or a standalone vector baseline.",
                        "Broader answer-judge, graph and summary judgment qualification remains pending.",

@@ -10,15 +10,15 @@ of bootstrap. It saves replay store/trace checkpoints and independent as-of
 snapshots, plus each cloud answer and judge order. Exact input/model/label
 identity is required for resume. Status does not call cloud models. Labels
 require complete through-cutoff/recent review and explicit task/knowledge scope;
-the sixth 2026-10-02 receipt records 88 source/answer reviews: 28 native
-(six admitted, 22 recent controls) and 60 linked (39 admitted, 11 recent exclusions,
-ten uncertain). Ten early exclusions remain structural only. Another 103 native
-and 64 linked reviews remain, 167 total; ten reviewed uncertain cases also remain
-unusable. Forty-five old-source admissions comprise 11 private, seven mixed, 16
-assistant-history and 11 public controls; generic answers do not establish
-private-memory gain. Eighty-one reviewed keys preserve corrections,
-attribution and uncertainty. Complete source review reaches 216/128 in two
-histories; third-history coverage and broader judge qualification are pending.
+the final 2026-10-03 r3 receipt records all 255 source/answer reviews, 0 pending:
+131 native (36 valid, 77 invalid, 18 uncertain) and 124 linked (77 valid,
+25 invalid, 22 uncertain). 113 old-source admissions comprise 31 private, 26 mixed,
+33 assistant-history and 23 public controls, reported separately. 248 reviewed
+keys preserve attribution and corrections beside immutable catalog originals.
+All three full source histories were read (1119/251/101), with no later source
+admitted into an earlier cutoff. 113 base admissions plus four development
+occurrences plan 468 cloud answers and 702 both-order judge requests. The bundle
+is reviewed; do not reinitialize it. Independent judge qualification is pending.
 Status separates missing source reviews from unset/invalid/uncertain verdicts.
 Reviewed key corrections preserve catalog provenance and never enter answering
 inputs. Natural revisits can share reviewed question families while retaining
@@ -37,6 +37,16 @@ memory writes. The report compares each arm before/after with accuracy movement,
 estimated prompt costs, source presence, missing phases and errors. The recent
 phase is a separate control; this does not run full semi-LSREP.
 See the [manual guide and complete measurement matrix](../../docs/reviews/2026-10-01-v3-manual-campaign.md).
+
+**v3 final prelaunch sweep, 2026-10-03:** the seed now freezes initial
+summary/abstract text and source hashes, plus exact semantic row changes around
+maintenance jobs; observer/job time and the watched table list are explicit.
+Inspect these private outputs against originals rather than grading row counts.
+499 disposable smoke checks and actual schema, SQL rewrite/decay and local-model
+replay recovery controls verify the instrument's mechanics. The maintainer
+launches the full campaign; no full seed/cloud campaign has run. The guide's
+final sweep distinguishes reusable evidence from later tuning, output-specific
+review, style/leg controls and independent judge qualification.
 
 **v3 reseed harness in verification, 2026-09-29:** use `seed_v3.py`, not the
 historical 293-turn `seed_store.py`, for the new 1,471-turn run. Run it only in

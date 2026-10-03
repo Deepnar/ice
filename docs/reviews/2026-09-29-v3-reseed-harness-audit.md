@@ -8,24 +8,20 @@ historical scripts; `scripts/z1/README.md` points to the new path.
 
 ## Whole-process v3 scoring audit
 
-**Current source-review checkpoint, 2026-10-02:** 88 source/answer reviews:
-28 native (six admitted, 22 recent controls) and 60 linked (39 admitted, 11 recent
-exclusions, ten uncertain). Pending: 103 native plus 64 linked reviews, 167 total;
-ten reviewed uncertain cases also remain unusable. Ten early exclusions are
-structural only. Complete imported original review reaches 216/128 in two
-histories; all 88 recorded mappings have through-cutoff scope. Forty-five
-old-source admissions include 11 private, seven mixed, 16 assistant-history and 11
-public controls; they are not 45 private-memory successes. Eighty-one corrected
-keys retain source attribution, uncertainty and later user corrections.
-Missing attachment bodies cannot verify biography claims, and an assistant recap
-cannot establish that a user formally chose an option. Delaying questions can
-also break generic references; a gold ID cannot repair the answering input.
-Private/task/third-history coverage remains incomplete.
-Corrected keys preserve the frozen catalog version; optional context cannot
-become a mandatory answer fact. One natural repeated fact now has a reviewed
-question family across distinct cutoffs, without changing replay scheduling.
-The full retention schedule remains semi-LSREP work. These are Codex reviews,
-not independent human qualification or a complete measurement panel.
+**Current source-review checkpoint, 2026-10-03 (final r3):** all 255 base
+questions have complete through-cutoff source/answer reviews; 0 remain pending.
+Native 131: 36 valid, 77 invalid, 18 uncertain. Linked 124: 77 valid, 25 invalid,
+22 uncertain. Total: 113 valid, 102 invalid, 40 uncertain. All three imported
+original histories were read completely (1119/251/101 turns); each label uses
+only sources through its own cutoff. No structural-only exclusions remain.
+113 old-source admissions comprise 31 private, 26 mixed, 33 assistant-history and
+23 public controls, reported separately. 248 reviewed answer keys correct or
+qualify catalog keys; the other seven retain their reviewed originals.
+Invalid/uncertain cases remain excluded, not silently converted into successful
+memory questions. Recent supporting facts stay shared context and cannot count
+as old-source hits. These are Codex source reviews, not independent human judge
+qualification or measured answer gains. The immutable private r3 packet and
+receipt pin all dispositions; earlier receipts remain historical artifacts.
 
 **Small development repeats, authorized 2026-10-02:** two reviewed
 unchanged-fact families add four recent/old occurrences to the base255. One

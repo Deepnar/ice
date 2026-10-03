@@ -61,6 +61,18 @@ def test_status_distinguishes_structural_exclusions_and_source_review(tmp_path, 
     assert counts["source_answer_reviews_recorded"] == 2
     assert counts["without_recorded_source_answer_review"] == 2
     assert campaign.campaign_report(tmp_path, config())["ground_truth"]["source_linked_review"] == counts
+    assert "still need" in campaign.status(tmp_path, config())["limits"][0]
+
+    rows = json.loads(path.read_text())["records"]
+    for row in rows:
+        row.update(verdict="uncertain", reviewer="fixture reviewer",
+                   review_scope="complete_history_through_cutoff")
+    path.write_text(json.dumps({"records": rows}))
+    result = campaign.status(tmp_path, config())
+    assert result["ground_truth"]["source_linked_review"]["without_recorded_source_answer_review"] == 0
+    assert "every row" in result["limits"][0]
+    assert "invalid/uncertain cases remain excluded" in result["limits"][0]
+    assert not result["cloud_answers_ready"] and not result["score_of_record"]
 
 
 def test_manual_report_exposes_reviewed_strata_without_a_cloud_call(tmp_path, monkeypatch):

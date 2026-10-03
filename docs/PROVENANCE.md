@@ -1,3 +1,116 @@
+## 2026-10-03 — v3 complete source/answer adjudication (final r3)
+
+All 255 frozen base questions have complete-history-through-cutoff dispositions;
+0 pending. Native 131: 36 valid, 77 invalid, 18 uncertain. Linked 124: 77 valid,
+25 invalid, 22 uncertain. Total 113 valid, 102 invalid, 40 uncertain. All imported
+original histories were read fully (1119/251/101 turns), preserving source bytes;
+whitespace-only display normalization retained all words. Third-history 88–101
+was read after its cutoff 87 reviews were finalized and did not alter those keys.
+Every earlier label excludes future evidence. 248 reviewed key overrides correct
+or qualify originals; seven keep their reviewed catalog keys. Valid source lists
+contain only older targets; recent supporting context is not an old-memory hit.
+113 valid base cases are 31 private, 26 mixed, 33 assistant-history and 23 public
+controls; by history 40/67/6. Overlapping task counts are 80 episodic, 40 procedural,
+24 summary, 21 relation, 16 temporal, 12 update, 16 negative and one abstention;
+zero valid multi-hop. These are coverage counts, not independent samples or
+successful answers. Independent human qualification and output-specific truth
+audits remain separate. Invalid/uncertain rows are excluded honestly.
+
+Immutable private `source-reviewed-labels-2026-10-03-r3.json`, SHA256
+`a049dafb880f348267a8621aa10977efe7217597795f607d1dad019288e68439`;
+receipt `source-review-checkpoint-2026-10-03-r3.json`, SHA256
+`0d5e887ef99c0ec74c3e4a18197919c77eefa1b9034eae53f63125eed8ed56b5`.
+Both live under ignored `logs/z1-v3-manual-2026-10-01`; earlier receipts remain
+unchanged and the final receipt pins its predecessor. Source IDs, original
+histories, metadata, answer keys and bounds passed the real campaign validator.
+Final schedule overview SHA256
+`93c9e02b91badb2056987ec610384c21332f3d8d10c76ce3c5de6e81794c8c0e`.
+The actual plan is 1471 recorded turns, 39 checkpoints and 259 scheduled prompts
+(255 base plus four authorized repeats). 113 base admissions plus four repeat
+occurrences plan 468 answers/702 both-order judge requests before retries.
+No full campaign or cloud completion was launched; these counts do not prove
+better memory, lower prompt cost or calibrated answer judgments.
+
+## 2026-10-03 — v3 final prelaunch instrument sweep
+
+The campaign status no longer says completed source reviews are still missing.
+The seed now freezes each initial summary/abstract and original-body hash, plus
+exact added/removed/changed semantic rows before/after periodic jobs. Explicit
+watched tables, composite keys and source/manifests support later inspection of
+rewrites that preserve row counts. Vectors and repeated original bodies are
+omitted from the observer but retained in complete snapshots. Separate real
+observer/job timings declare recording overhead; this is neither a complete
+transaction log nor a semantic correctness metric. The spec was updated first;
+no production code, job scheduling or memory write policy changed.
+
+Validation: 13 focused status checks passed, then 498 disposable smoke checks
+before telemetry and 499 after telemetry (5 existing deprecation warnings).
+Actual schema bootstrap/reattachment confirmed 35 empty tables with production
+indexes/defaults/constraints and safe ownership/drift refusal. Actual SQL output
+capture detected a summary rewrite with unchanged aggregate counts; the actual
+procedural-decay callable through the replay boundary recorded deactivation.
+The first SQL fixture used a nonexistent Conversation.title and failed before
+any capture; corrected to the current ORM and rerun successfully. This is a test
+fixture error, not a measured production failure.
+
+Actual local-model two-turn replay was interrupted after a committed second
+write, then resumed. Both the initial control and the telemetry-enabled repeat
+passed: first-turn identity preserved, unfinished second write restored/replayed
+once, failed tail retained, all 10 registry memory jobs exercised. The final
+fixture recorded 79 changed semantic rows and 122.641 ms total observer time;
+this tiny fixture is not a full-run latency/VRAM benchmark or output-quality
+result. Model pins remained gemma4:e4b and NuExtract3-Q8_0; configured future
+answerer gpt-6-luna and judge deepseek-v4-flash were not called. Disposable test
+databases were removed. All source/label checks pass; campaign stages remain
+empty. score_of_record remains false until independent qualification.
+
+Private artifact SHA256 receipts:
+
+- `logs/z1-v3-final-smoke-2026-10-03.log`: `618f9e4e3c5433c8ad1e1df77a742698af6d5e8e274795fdf8ea68d5064a0f34`.
+- `logs/z1-v3-final-schema-sweep-2026-10-03.log`: `52b605714491c2704a9d439d00614d772be2db21d9e9f08121a2e6fd5893ee68`.
+- `logs/z1-v3-semantic-trace-2026-10-03-r2.log`: `3fb6f35cf9400bec1e295ef82c69b7d0d10b5745fd9b16a0ab6a71a387c21fa3`.
+- `logs/z1-v3-final-sweep-recovery-2026-10-03-r2.jsonl`: `daa7f73a4db16f74e2bf540ccaae66fa626ba49cc2f47a4cf087a57e4902c31b`.
+- `logs/z1-v3-final-recovery-sweep-2026-10-03-r2.log`: `5b522f2033e663389d11f2b95e09f131c33e77c504bf550023298cf7f0e4d932`.
+- `logs/z1-v3-final-prelaunch-status-2026-10-03.json`: `05f6239ad863b55801c38647006bedea5765fcabbbba6eca82d63a5185748e92`.
+
+Final metadata-only prelaunch audit `logs/z1-v3-final-prelaunch-audit-2026-10-03.json`, SHA256
+`12733ebcc07da03500b68ff0195479ce0afc52939bfbb4d20a59182a6ff8558f`.
+No full 1471-turn replay, campaign database, cloud campaign or push occurred.
+The manual guide separates reusable raw evidence from seeded output review,
+additional controls/tuning and final LME oracle/semi-LSREP conditions.
+
+## 2026-10-03 — v3 source adjudication checkpoint
+
+Ground-truth preparation only: 153/255 base questions reviewed, 102 remaining.
+Complete imported original review reaches 555/251 in two histories; third-history
+adjudication remains pending. 66 native reviews comprise 21 valid, 40 excluded
+and five uncertain; 87 linked reviews comprise 60 valid, 15 excluded and 12
+uncertain. Ten structural-only early exclusions are not credited as reviews.
+81 old-source admissions are 17 private, 17 mixed, 24 assistant-history and
+23 public controls. 146 reviewed keys preserve immutable catalog provenance.
+Later direct corrections override assistant drafts; speculative scientific
+claims and proposed fictional details are attributed rather than treated as facts.
+The actual catalog validator rejected a valid mapping containing recent support
+among old gold targets. Corrected old targets retain recent support explicitly
+as shared context; no recent fact receives old-memory credit.
+
+Immutable private packet `source-reviewed-labels-2026-10-03-r1.json`, SHA256
+`a32fa66cabbbe8e4c18dd3a48da90811813b2e95d58b232fa449468c877a30a3`;
+receipt `source-review-checkpoint-2026-10-03-r1.json`, SHA256
+`fe50288d1851f5a0459130bc3c0fb698e2e52afb7bf3e7daaa07ad50ef975607`.
+Both live under ignored `logs/z1-v3-manual-2026-10-01`; the receipt pins its
+predecessor and hashes unmodified read originals. Earlier artifacts remain intact.
+Whitespace-only display normalization retained all source words.
+Private schedule overview `logs/z1-v3-manual-schedule-overview-2026-10-03-r1.json`,
+SHA256 `6facf0eb1deba3721c3ffd1ca887e0c1e51ef08634dbc4e0e88d5b886c2fa705`.
+Read-only CLI status `logs/z1-v3-source-readiness-status-2026-10-03-r1.json`,
+SHA256 `3c97b4cf12f401e57c229e84966e3b775578cbcfe4534d54bf382750ed177b5c`.
+Actual catalog admission: 81 base plus four authorized development repeats,
+85 occurrences; 340 four-arm answers and 510 both-order judge requests if run.
+No full campaign, cloud request, production change or push. Review completion
+does not establish better answers, lower prompt cost or human-qualified judging.
+The unchanged instrument's latest disposable smoke remains 498/498.
+
 ## 2026-10-02 — v3 source review through the next two checkpoints
 
 Source/measurement admission only; no full replay or cloud campaign.
@@ -214,7 +327,7 @@ and decisive recent-window counterexamples, without claiming complete
 intervening review. In total21 native mappings/keys are reviewed: six admitted
 old-source cases and15 source-grounded recent exclusions. Another ten early
 exclusions remain structural only. Native dispositions are6valid/25excluded/
-100unset;110 native mappings/keys and124 linked candidates remain unreviewed.
+100unset;110 native mappings/keys and 124 linked candidates remain unreviewed.
 All six admissions are from one conversation; entity, procedural, episodic,
 temporal and partial-unknown task examples do not complete task coverage.
 The actor is Codex source review, not independent human judge qualification.
