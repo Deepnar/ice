@@ -53,6 +53,7 @@ warnings remain; the disposable database was removed. This confirms the tested
 recovery paths, not error-free full-campaign execution or improved memory quality.
 A final privacy-neutral fixture rerun passed 12/12 DB checks. An actual source-unit
 writer/reader rerun passed again in 14.728 s with three claims and zero edges.
+The final privacy-neutral parser fixtures also passed 27/27 checks.
 These reruns are not additional independent quality samples.
 An editing mistake initially inserted the new DB test into another test's body;
 inspection caught and repaired it before execution. No faulty test was credited.
