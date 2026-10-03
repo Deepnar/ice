@@ -30,7 +30,11 @@ from src.memory.models import (
 from src.memory.relation_support import relation_proposition, verify_relation_pairs
 from src.memory.source import source_units
 from src.retrieval.ner_utils import extract_entities
-from src.workers.extraction_result import ExtractionOutputError, parse_extraction_response
+from src.workers.extraction_result import (
+    ExtractionOutputError,
+    original_source_quote,
+    parse_extraction_response,
+)
 from src.workers.idempotency import job_key
 
 # G50: shared identity key. Safe at module level — maintenance_agent's own
@@ -1082,14 +1086,21 @@ def extract_triplets(text: str, model_override: str = "",
             )
 
             if source_sentences is not None:
+                chunk_sentences = []
                 for fact in chunk_triplets:
                     sentence = fact.get("source_sentence")
                     if isinstance(sentence, str) and sentence.strip():
-                        if fact.get("_source_only") and sentence not in chunk:
+                        original = original_source_quote(chunk, sentence)
+                        if fact.get("_source_only") and original is None:
                             raise ExtractionOutputError("source-only quote not in original chunk")
-                        source_sentences.append(sentence.strip())
+                        if original is not None and original != sentence.strip():
+                            logger.warning("codex_source_quote_aligned",
+                                           reason="whitespace-only; original bytes retained")
+                        fact["source_sentence"] = original or sentence.strip()
+                        chunk_sentences.append(fact["source_sentence"])
                     else:
                         raise ExtractionOutputError("missing source sentence")
+                source_sentences.extend(chunk_sentences)
             source_only_count = sum(bool(fact.get("_source_only")) for fact in chunk_triplets)
             if source_only_count:
                 logger.warning("codex_source_only_extraction",

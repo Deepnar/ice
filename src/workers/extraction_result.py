@@ -1,12 +1,36 @@
 """ICE v3 extraction output contract: empty success is distinct from failure."""
 
 import json
+import re
 
 from src.workers.llm_json import strip_fences
 
 
 class ExtractionOutputError(ValueError):
     """Incomplete or invalid extraction; callers must not mark work complete."""
+
+
+def original_source_quote(source: str, quote: str) -> str | None:
+    """Resolve whitespace-only copying changes to original bytes, never paraphrase.
+
+    Non-whitespace characters must be identical. Ambiguous original spellings
+    stay unresolved instead of choosing a source arbitrarily.
+    """
+    if not isinstance(quote, str) or not quote.strip():
+        return None
+    quote = quote.strip()
+    if quote in source:
+        return quote
+    parts = list(re.finditer(r"\s+|\S", source))
+    normalized = "".join(" " if m.group().isspace() else m.group() for m in parts)
+    wanted = re.sub(r"\s+", " ", quote)
+    matches = set()
+    offset = 0
+    while (start := normalized.find(wanted, offset)) >= 0:
+        end = start + len(wanted)
+        matches.add(source[parts[start].start():parts[end - 1].end()])
+        offset = start + 1
+    return next(iter(matches)) if len(matches) == 1 else None
 
 
 def parse_extraction_response(content, finish_reason=None, *, template_mode=False,

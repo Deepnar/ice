@@ -234,16 +234,19 @@ def test_postflight_retry_reaches_short_turn_extraction(turn, monkeypatch):
             )
         )
         db.commit()
-    monkeypatch.setattr(pf, "extract_procedural", lambda **kw: None)
+    procedural_calls = []
+    monkeypatch.setattr(pf, "extract_procedural", lambda **kw: procedural_calls.append(kw))
     response(monkeypatch, "")
     with pytest.raises(ExtractionOutputError):
         pf.evaluate_turn(
             str(turn.batch), "A short correction", "Recorded", str(turn.cid)
         )
     assert state(turn) == (0, 0)
+    assert len(procedural_calls) == 1
     response(monkeypatch, "[]")
     pf.evaluate_turn(str(turn.batch), "A short correction", "Recorded", str(turn.cid))
     assert state(turn) == (1, 0)
+    assert len(procedural_calls) == 2
 
 
 def test_emotion_and_reflexive_facts_are_not_silently_filtered(turn, monkeypatch):

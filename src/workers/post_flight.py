@@ -300,8 +300,22 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
         if turn.is_private:
             log.info("private_turn_pipelines_skipped")
         else:
-            extract_codex(batch_id=batch_id, model_used=model_used)
-            extract_procedural(batch_id=batch_id, model_used=model_used)
+            # Independent stages have their own sessions/completion keys. Let
+            # both make progress, then propagate failure for the runtime retry.
+            # Never turn a partial chain into a successful completion.
+            from src.workers.runtime import JobYielded
+
+            failures = []
+            for stage_name, extractor in (("codex", extract_codex),
+                                          ("procedural", extract_procedural)):
+                try:
+                    extractor(batch_id=batch_id, model_used=model_used)
+                except JobYielded:
+                    raise
+                except Exception as exc:
+                    log.warning("post_flight_stage_failed", stage=stage_name,
+                                error_type=type(exc).__name__)
+                    failures.append(exc)
             # E8: project-attached turns also run cue-gated decision
             # extraction — a direct call in this gpu job (C7 chain style);
             # the cue check inside is deterministic, so no-cue turns cost
@@ -315,6 +329,8 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
                                         text_content=turn.raw_text,
                                         source_batch=turn.batch_id,
                                         origin="turn")
+            if failures:
+                raise failures[0]
 
     except Exception as exc:
         from src.workers.runtime import JobYielded

@@ -6,6 +6,7 @@ import pytest
 
 from src.workers.extraction_result import (
     ExtractionOutputError,
+    original_source_quote,
     parse_extraction_response,
 )
 
@@ -85,3 +86,18 @@ def test_errors_do_not_echo_source_content():
     with pytest.raises(ExtractionOutputError) as error:
         parse_extraction_response("SECRET_SOURCE_TEXT")
     assert "SECRET_SOURCE_TEXT" not in str(error.value)
+
+
+def test_whitespace_alignment_returns_original_bytes_and_rejects_changed_content():
+    source = "The cache holds 20-30 records.\nThen a few  records\tper batch."
+    assert original_source_quote(source, "Then a few records per batch.") == (
+        "Then a few  records\tper batch.")
+    assert original_source_quote(source, "The cache holds 20-30 records.") == "The cache holds 20-30 records."
+    for quote in ("The cache holds 30-40 records.", "THE CACHE HOLDS 20-30 records.",
+                  "The cache holds 20–30 records.", "The cache needs 20-30 records.", " "):
+        assert original_source_quote(source, quote) is None
+
+
+def test_alignment_does_not_guess_between_distinct_original_spans():
+    assert original_source_quote("a  b; a\tb", "a b") is None
+    assert original_source_quote("a  b; a  b", "a b") == "a  b"

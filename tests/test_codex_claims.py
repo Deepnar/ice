@@ -141,6 +141,7 @@ def test_extractor_keeps_source_claims_even_when_graph_names_fail(monkeypatch,su
             source_spans=chat_provenance(*statements),context_reliance='Long_Term_Memory',
             idempotency_key=str(uuid.uuid4())))
         db.commit()
+
     cx.extract_codex(str(batch),model_used='foreground-must-not-override-specialist')
     with SessionLocal() as db:
         claims=db.query(CodexClaim).filter_by(source_batch=batch).all()
@@ -171,3 +172,52 @@ def test_extractor_keeps_source_claims_even_when_graph_names_fail(monkeypatch,su
         db.flush()
         assert db.query(CodexClaim).filter_by(source_batch=batch).count()==0
         db.commit()
+
+
+def test_nullable_whitespace_quote_preserves_original_and_unsupported_quote_retries(monkeypatch):
+    import json
+    from src.workers import codex_extractor as cx
+    from src.workers.extraction_result import ExtractionOutputError
+    from src.memory.models import CodexEdge, IdempotencyKey
+    from src.workers.idempotency import job_key
+
+    monkeypatch.setattr(settings, 'codex_sentence_claims', True)
+    monkeypatch.setattr(settings, 'codex_extraction_mode', 'template')
+    monkeypatch.setattr(settings, 'codex_extraction_chunk_adaptive', False)
+    monkeypatch.setattr(cx, 'embedder', Encoder())
+    monkeypatch.setattr(cx, 'known_relations', lambda: [])
+    monkeypatch.setattr(cx, 'extract_entities', lambda *a, **kw: [])
+    monkeypatch.setattr(cx, 'make_llm_reconciler', lambda: None)
+    monkeypatch.setattr(cx, 'store_claims', lambda db,row,sentences,*,encoder:
+        store_claims(db,row,sentences,encoder=encoder,verifier=verified))
+    original = 'The cache keeps a few  records per batch (20-30).'
+    selected = ['The cache keeps a few records per batch (30-40).']
+    def create(**kwargs):
+        facts = [dict(subject='cache', relation=None, object=None, source_sentence=selected[0])]
+        return SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',
+            message=SimpleNamespace(content=json.dumps({'facts':facts})))])
+    monkeypatch.setattr(cx, 'bg_client', SimpleNamespace(chat=SimpleNamespace(
+        completions=SimpleNamespace(create=create))))
+    cid,batch = uuid.uuid4(),uuid.uuid4()
+    with SessionLocal() as db:
+        db.add(Conversation(id=cid));db.flush()
+        db.add(EpisodicMemory(conversation_id=cid,batch_id=batch,
+            raw_text=f'User: {original}\n\nAssistant: ',
+            source_spans=chat_provenance(original,''),
+            context_reliance='Long_Term_Memory',idempotency_key=str(uuid.uuid4())))
+        db.commit()
+    with pytest.raises(ExtractionOutputError):
+        cx.extract_codex(str(batch))
+    with SessionLocal() as db:
+        assert db.query(CodexClaim).filter_by(source_batch=batch).count() == 0
+        assert db.query(IdempotencyKey).filter_by(key=job_key('codex',batch)).count() == 0
+    selected[0] = original.replace('few  records','few records')
+    cx.extract_codex(str(batch))
+    with SessionLocal() as db:
+        claim = db.query(CodexClaim).filter_by(source_batch=batch).one()
+        assert claim.sentence == original and claim.role == 'user'
+        assert db.query(CodexEdge).filter_by(source_batch=batch).count() == 0
+        assert db.query(IdempotencyKey).filter_by(key=job_key('codex',batch)).count() == 1
+        fragments = HybridRetrievalOrchestrator(db,None)._codex_claims('records',None,
+            {'conversation_id':str(cid)})
+        assert len(fragments) == 1 and original in fragments[0].text
