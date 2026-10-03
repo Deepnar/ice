@@ -25,7 +25,7 @@ def test_negative_fact_survives_key_order_and_escaped_strings():
     assert parse_extraction_response(content, "stop", template_mode=True) == facts
 
 
-def test_null_object_is_source_only_only_with_attributed_sentence_mode():
+def test_nullable_triples_are_source_only_only_with_attributed_template_mode():
     row = {"subject": "timer", "relation": "was disabled", "object": None,
            "source_sentence": "The timer was disabled."}
     content = json.dumps({"facts": [row]})
@@ -34,8 +34,16 @@ def test_null_object_is_source_only_only_with_attributed_sentence_mode():
     accepted = parse_extraction_response(content, "stop", template_mode=True,
                                          allow_source_only=True)
     assert accepted == [dict(row, _source_only=True)]
-    for invalid in (dict(row, subject=None), dict(row, relation=None),
-                    dict(row, source_sentence=""), dict(row, object="")):
+    for nullable in (dict(row, subject=None), dict(row, relation=None),
+                     dict(row, subject=None, relation=None)):
+        assert parse_extraction_response(json.dumps({"facts": [nullable]}), "stop",
+                                         template_mode=True, allow_source_only=True) == [
+                                             dict(nullable, _source_only=True)]
+    with pytest.raises(ExtractionOutputError):
+        parse_extraction_response(content, "stop", allow_source_only=True)
+    for invalid in (dict(row, source_sentence=""), dict(row, object=""),
+                    dict(row, subject=7), dict(row, relation=[]),
+                    {key: value for key, value in row.items() if key != "relation"}):
         with pytest.raises(ExtractionOutputError):
             parse_extraction_response(json.dumps({"facts": [invalid]}), "stop",
                                       template_mode=True, allow_source_only=True)

@@ -1,5 +1,6 @@
 """G76: a quoted source can survive even when its proposed graph edge cannot."""
 
+import json
 import os
 import uuid
 from types import SimpleNamespace as NS
@@ -68,10 +69,14 @@ def test_relation_pairs_keep_polarity_and_isolate_overlong_source():
 
 @pytest.mark.skipif(not os.getenv("ICE_TEST_DATABASE"),
                     reason="requires a disposable PostgreSQL database")
-def test_nullable_template_object_retains_exact_claim_without_graph_edge(monkeypatch):
+@pytest.mark.parametrize("fields", [
+    ("timer", "was disabled", None), ("timer", None, None),
+    (None, "was disabled", None), (None, None, None),
+])
+def test_nullable_template_fields_retain_exact_claim_without_graph_edge(monkeypatch, fields):
     sentence = "The timer was disabled."
-    response = '{"facts":[{"subject":"timer","relation":"was disabled",' \
-               '"object":null,"source_sentence":"The timer was disabled."}]}'
+    response = json.dumps({"facts": [{**dict(zip(("subject", "relation", "object"), fields)),
+                                      "source_sentence": sentence}]})
     completion = NS(choices=[NS(message=NS(content=response), finish_reason="stop")])
     monkeypatch.setattr(settings, "codex_sentence_claims", True)
     monkeypatch.setattr(settings, "codex_extraction_mode", "template")

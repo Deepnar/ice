@@ -1094,7 +1094,7 @@ def extract_triplets(text: str, model_override: str = "",
             if source_only_count:
                 logger.warning("codex_source_only_extraction",
                                count=source_only_count,
-                               reason="null object; exact sentence retained without graph edge")
+                               reason="nullable incomplete triple; exact sentence retained without graph edge")
                 chunk_triplets = [fact for fact in chunk_triplets
                                   if not fact.get("_source_only")]
 

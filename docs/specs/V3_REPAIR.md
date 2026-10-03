@@ -50,11 +50,29 @@ corroborating graph observation. This narrower output contract preserves the
 original strict-failure rule for malformed graph assertions while allowing a
 source sentence to survive when the specialist cannot express it as a triple.
 
+**v3 nullable-source decision, 2026-10-03:** the maintainer's first full replay
+stopped on turn4. An actual-path reproduction returns a subject and exact source
+sentence but `relation: null` and `object: null`. NuExtract3 documents null as
+an unavailable field; requiring a predicate even for a source-only sentence
+mistakes this output for an execution failure. Generalize the attributed
+template fallback to any explicit nullable subject/relation/object field, with
+all three keys present and every nonnull value a nonblank string. Require a
+nonblank exact quote in the original chunk. Retain only that source sentence;
+never build, canonicalize, corroborate or approve a graph edge from the partial
+triple. Non-template mode, absent keys/quote, blank strings, invalid field types,
+bad polarity, unsupported quotes and incomplete completions still fail.
+This supersedes the null-subject/null-relation rejection above, not the strict
+graph assertion contract. The first failed campaign has no completed durable
+turns; preserve its trace, store and original checkpoint identity. A repaired
+writer gets a fresh campaign bundle with unchanged reviewed label copies.
+
 ## 2. Algorithm and data model
 
 Parse one complete JSON value (with optional fences and template thinking prefix).
-Accept an array or an explicit `facts`/`triplets` envelope; require string, nonempty
-subject/relation/object and a boolean `negated` when supplied. Unknown envelope,
+Accept an array or an explicit `facts`/`triplets` envelope; graph candidates
+require string, nonempty subject/relation/object and a boolean `negated` when
+supplied. The dated nullable-source contract above permits only exact attributed
+sentence retention for explicitly incomplete template triples. Unknown envelope,
 scalar, trailing garbage or malformed element raises a typed extraction error
 with reason and counts, not source text. Check finish reason before parsing.
 Normalize/ground only fully parsed chunks. Commit graph changes and the completion

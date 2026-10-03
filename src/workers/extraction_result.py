@@ -43,15 +43,19 @@ def parse_extraction_response(content, finish_reason=None, *, template_mode=Fals
     for index, fact in enumerate(facts):
         if not isinstance(fact, dict):
             raise ExtractionOutputError(f"invalid fact fields at index {index}")
-        # A template model can express an exact source sentence for a unary
-        # assertion while leaving the triple's object null. Keep the sentence
-        # as evidence, never as a graph relation. The caller still has to
-        # confirm that the quote occurs in the original source chunk.
-        source_only = (allow_source_only and fact.get("object") is None
+        # NuExtract uses null for unavailable fields. An exact sentence remains
+        # useful evidence even without a complete subject/predicate/object.
+        # The caller must check the quote against its original source chunk;
+        # this row cannot become a graph assertion.
+        fields = ("subject", "relation", "object")
+        source_only = (template_mode and allow_source_only
+                       and all(key in fact for key in fields)
+                       and any(fact[key] is None for key in fields)
+                       and all(fact[key] is None or
+                               (isinstance(fact[key], str) and fact[key].strip())
+                               for key in fields)
                        and isinstance(fact.get("source_sentence"), str)
-                       and bool(fact["source_sentence"].strip())
-                       and all(isinstance(fact.get(key), str) and fact[key].strip()
-                               for key in ("subject", "relation")))
+                       and bool(fact["source_sentence"].strip()))
         if source_only:
             fact["_source_only"] = True
         elif not all(isinstance(fact.get(key), str) and fact[key].strip()

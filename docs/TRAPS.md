@@ -1441,6 +1441,17 @@ admitted a triplet that killed a `.strip()` two hundred lines later and lost the
 **whole turn's** extraction. Invisible for months because the JSON schema
 guaranteed strings on the only path anyone used.
 
+**v3 recurrence, 2026-10-03:** the opposite overcorrection stopped the manual
+seed on turn4. A strict string-only parser rejected a specialist row containing
+an exact source sentence and null relation/object. Earlier controls covered
+null objects only, and a one-turn control in another history missed this shape.
+NuExtract3 documents null as an absent field. Generalize the existing attributed
+source-only contract to all nullable triple fields; never guess a graph edge.
+Test partial fields through the actual claim writer/retriever, plus missing
+keys, wrong types, unsupported quotes, truncation and later-chunk rollback.
+The same four originals must also finish through real local-model replay.
+Passing controls qualify the repaired contract, not every output in a long run.
+
 ### 51. A threshold the tester invented turned a working instrument into a false negative
 
 **2026-08-26, choosing whether 174 probes could be salvaged.**
