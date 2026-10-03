@@ -131,6 +131,14 @@ selection without session stickiness, reported with gate probabilities and
 shared foreground pressure. Source labels require cutoff/recent-history review
 and explicit semantic task/knowledge scope. Exact answering messages accompany
 each answer; source presence is not semantic support or proof of use.
+Since 2026-10-03, each post-flight trace also freezes its initial summary,
+abstract and original-body hash. Maintenance events preserve exact changed
+semantic rows, including text/provenance before and after a rewrite or removal,
+with an explicit observed table list. Vectors and repeated original bodies stay
+in full snapshots. Observer time is measured separately from callable time;
+this is private inspection evidence, not automatic semantic grading or a
+complete transaction log. Status distinguishes completed source review from
+remaining invalid/uncertain dispositions and independent judge qualification.
 Both review packet kinds can supply a source-reviewed expected-answer correction
 without changing the frozen catalog key. Answer records retain both keys;
 neither is answering context. Reviewed natural repeats retain distinct cutoff

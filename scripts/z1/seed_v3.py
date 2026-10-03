@@ -18,6 +18,7 @@ import importlib
 import json
 import os
 import sys
+import time
 import uuid
 from collections import Counter, defaultdict
 from contextlib import contextmanager, nullcontext
@@ -27,7 +28,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from sqlalchemy import func, text
+from sqlalchemy import func, select, text
 from sqlalchemy.engine import make_url
 
 from scripts.z1 import production_parity as pp
@@ -79,6 +80,18 @@ MEMORY_JOBS = (
     "reflection", "maintenance_agent", "decay_episodic", "decay_codex",
     "decay_procedural", "compaction",
 )
+SEMANTIC_TABLES = (
+    "episodic_memory", "cold_storage", "context_clusters", "episodic_cluster_links",
+    "codex_entities", "codex_edges", "codex_claim_links", "procedural_memory",
+    "batch_summaries", "batch_notes", "conversation_summaries", "conversation_notes",
+    "memory_slots", "session_summaries", "review_queue",
+)
+JOB_OBSERVATION_TABLES = {
+    "decay_episodic": ("episodic_memory", "cold_storage"),
+    "decay_codex": ("codex_edges",),
+    "decay_procedural": ("procedural_memory",),
+    "compaction": ("codex_events", "codex_snapshots"),
+}
 
 
 def canonical_probe_id(probe: dict) -> str:
@@ -633,6 +646,41 @@ def memory_state(db):
     return dict(db.execute(text(query)).all())
 
 
+def semantic_state(db, job):
+    """Private inspection state; omit vectors and already frozen original bodies."""
+    state = {}
+    for name in JOB_OBSERVATION_TABLES.get(job, SEMANTIC_TABLES):
+        table = Base.metadata.tables[name]
+        columns = [col for col in table.columns
+                   if col.name not in {"embedding", "raw_text"}]
+        rows = db.execute(select(*columns)).mappings().all()
+        values = {}
+        for row in rows:
+            # Normalize UUIDs/dates/nested arrays before comparing SQL reads.
+            value = json.loads(json.dumps(dict(row), default=str))
+            key = json.dumps([value[col.name] for col in table.primary_key],
+                             separators=(",", ":"))
+            if key in values:
+                raise RuntimeError("duplicate semantic observation key: " + name)
+            values[key] = value
+        state[name] = values
+    return state
+
+
+def semantic_changes(before, after):
+    """Keep exact changed outputs, including deletion and composite-key membership."""
+    if set(before) != set(after):
+        raise RuntimeError("semantic observation table set changed during job")
+    changes = []
+    for table in sorted(before):
+        for key in sorted(before[table].keys() | after[table].keys()):
+            old, new = before[table].get(key), after[table].get(key)
+            if old != new:
+                changes.append({"table": table, "key": json.loads(key),
+                                "before": old, "after": new})
+    return changes
+
+
 def original_turn_count(db, conversation_id):
     return db.execute(text("""
         SELECT count(*) FROM (
@@ -701,14 +749,28 @@ def due_maintenance(db, sink, source_time, conversation_id, last_run):
         kwargs = ({"cycles": missed_cycles(elapsed, interval, settings.runtime_cycles_cap)}
                   if spec.pass_cycles else {})
         try:
+            observation_start = time.perf_counter()
             before = memory_state(db)
+            semantic_before = semantic_state(db, name)
+            observation_ms = (time.perf_counter() - observation_start) * 1000
+            job_start = time.perf_counter()
             result = fn(db, **kwargs) if spec.needs_db else fn(**kwargs)
+            job_elapsed_ms = (time.perf_counter() - job_start) * 1000
             db.expire_all()
+            observation_start = time.perf_counter()
+            after = memory_state(db)
+            semantic_after = semantic_state(db, name)
+            changes = semantic_changes(semantic_before, semantic_after)
+            observation_ms += (time.perf_counter() - observation_start) * 1000
             sink.write(json.dumps({"event": "maintenance", "job": name,
                                    "trigger_conversation": str(conversation_id),
                                    "source_time_trigger": source_time.isoformat(),
                                    "call_kwargs": kwargs, "before": before,
-                                   "after": memory_state(db),
+                                   "after": after,
+                                   "semantic_observed_tables": sorted(semantic_before),
+                                   "semantic_changes": changes,
+                                   "observer_elapsed_ms": observation_ms,
+                                   "job_elapsed_ms": job_elapsed_ms,
                                    "result": result}, default=str) + "\n")
             sink.flush()
             last_run[name] = source_time
@@ -909,6 +971,9 @@ def run(args, conversations, probes) -> int:
                                                    "lossless": row.lossless_flag,
                                                    "inject_raw": row.inject_raw,
                                                    "summary_coverage": row.summary_coverage,
+                                                   "summary_text": row.summary_text,
+                                                   "abstract_text": row.abstract_text,
+                                                   "source_raw_sha256": hashlib.sha256(row.raw_text.encode()).hexdigest(),
                                                    "summary_support": row.representation_verification,
                                                    "source_counts": source_counts},
                                                   default=str) + "\n")

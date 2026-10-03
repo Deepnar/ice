@@ -210,6 +210,24 @@ This covers the memory writer callables, not concurrency or project/document
 workflows. Validate both the schedule in isolation and actual jobs through
 the replay before calling the campaign ready.
 
+**Output inspection contract, 2026-10-03:** aggregate row counts and strength
+sums cannot show a bad rewrite that leaves counts unchanged. Freeze each
+turn's initial summary/abstract and original source hash after post-flight.
+For each periodic job, record exact added/removed/changed semantic rows with
+before/after text and provenance from explicitly listed observed tables.
+Exclude vector bytes and repeated original turn bodies from this observer;
+the corpus and complete store checkpoints preserve those. Capture clustering
+membership, notes/manifests, graph/entity/procedural state, slots, session
+summaries and review proposals; decay/compaction can use narrower relevant
+tables. Emit the observed table list even when no row changes, and measure
+observer time separately from job time using a real monotonic clock.
+These are private inspection artifacts, not semantic correctness grades or
+an exhaustive transaction log. Fail the replay on an observation error rather
+than silently claiming full inspection. Verify unchanged-count text rewrites
+and composite source keys in isolation, then actual SQL capture and a real
+maintenance callable through the replay's job boundary. This instrumentation
+must not add memory writes or change job eligibility/cadence.
+
 **Timestamp-origin correction, 2026-10-01:** two selected histories were
 prepared from text exports with a constructed five-minute clock. Preserve
 their corpus dates/order, but write `synthetic_raw_import`, not `original`;

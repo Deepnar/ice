@@ -58,6 +58,13 @@ def main():
     written = [r for r in rows if r["event"] == "written"]
     assert [r["turn"] for r in written] == [1, 2]
     assert written[0] == first
+    assert all({"summary_text", "abstract_text", "source_raw_sha256"} <= set(r)
+               for r in written)
+    maintenance = [r for r in rows if r["event"] == "maintenance"]
+    assert maintenance and all({"semantic_observed_tables", "semantic_changes",
+                                "observer_elapsed_ms", "job_elapsed_ms"} <= set(r)
+                               for r in maintenance)
+    assert all(r["semantic_observed_tables"] for r in maintenance)
     assert not any(r["event"].endswith("failed") for r in rows)
     assert sum(r["event"] == "resume" for r in rows) == 1
     assert rows[-1]["turns_by_conversation"] == {"355a5709": 2}
