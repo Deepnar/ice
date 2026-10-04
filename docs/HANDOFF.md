@@ -1,136 +1,149 @@
-# Handoff — ICE v3, 2026-10-04 01:39 IST
+# Handoff — ICE v3, 2026-10-04 12:30 IST
 
-**State, not a queue.** [ROADMAP.md](ROADMAP.md) owns the work. Historical v2
-measurements remain frozen; current repairs and checks below concern v3.
+**State, not a queue.** [ROADMAP.md](ROADMAP.md) owns the work. Current repairs
+and checks concern v3; the paper's v2 tag/report remain frozen.
 
 ## Told → did
 
-**Told:** continue repairing the manual seed after its second crash; audit the
-whole campaign and shared production error boundaries, preserve resumability,
-and explain/check slow local processing and model reloads. The maintainer runs
-the full campaign. Do not launch the experiment or live cloud stages.
+**Told:** finish repairing the repeated turn-80 crash, cap expensive parent
+attempts at two, normalize copied source quotes where safe, and tolerate isolated
+model failures in production and large experiments without hiding missing memory
+work. Preserve progress and resume safety. The maintainer runs the full campaign;
+do not launch it or live cloud stages. Continue the existing memory-quality
+research plan rather than expanding product edge cases.
 
-**Did:** reproduced the actual turn 54 background-NER/NuExtract response. Its
-source-only quote changed only whitespace. Quotes now resolve to unique original
-source bytes; changed words, values and ambiguous originals remain failures.
-Codex and procedural stages can progress independently before failure propagates.
-The coordinator now gives fresh persisted transient/local-output failures two
-bounded retries, restoring seed checkpoints and preserving successful cloud
-calls/judge orders. Unknown, identity, resource, quota/authentication and invalid
-cloud output failures pause visibly; no work or grade is fabricated. Attempt
-receipts and pause reasons are durable. Actual urllib judge failure metadata
-also reaches recovery; stale errors cannot authorize a new retry.
+**Did:** actual local role-unit capture established a first-letter capitalization
+copying error, not an outage or paraphrase. Shared Codex source selection now
+resolves unique case/whitespace copies to original bytes. Complete typed rows
+with unsupported quotes are withheld from graph writes while their original
+chunk remains searchable alongside valid rows. Ambiguous chunk mapping retains
+the original role unit. Malformed/truncated executions remain failures; no
+unsupported proposal becomes a graph assertion or corroboration.
 
-Native source judges no longer request unload after every call: they retain the
-owned model, use existing idle release, and log useful duration metadata. Serial
-seed exit releases its owned models on completion/failure/interruption. An actual
-route cancellation also exposed a stuck generation flag; it now starts directly
-before its protected try/finally. Cancellation before or during generation,
-success and upstream failure were checked. These repairs include shared v3
-production behavior; bounded parent retries belong to the manual instrument.
-See the [fault audit](reviews/2026-10-03-v3-campaign-fault-audit.md) and
-[PROVENANCE.md](PROVENANCE.md) for mechanisms, receipts and limits.
+New manual bundles use explicit worker/cloud continue policies. Post-flight has
+two idempotent attempts; exhausted isolated failures preserve originals and
+successful independent derivatives with degraded receipts. Periodic jobs get
+one attempt per due cadence, inspect committed partial changes and keep failed
+attempt time separate from success. Three successive degraded invocations of
+one worker checkpoint the current turn before an outage pause. Production's
+existing background retry/runtime remains alive; an already sent answer is not
+undone. Shared quote repair applies to production, while serial continue policy
+belongs to the research instrument.
+
+Cloud answers and each judge display order have two attempts, reserved durably
+before sending, including interrupted requests with unconfirmed outcomes.
+Isolated exhausted errors remain ungraded terminal rows and later questions
+continue. Failed-answer pairs use no judge call. Repeated outages, access,
+integrity and unknown failures pause visibly. Errors remain in planned
+counts and clean/degraded-gold/other strata; fault metadata never enters answer
+or judge prompts. Successful outputs are separate from processing completion.
+Parent recovery now permits two total child attempts, with one 2-second backoff.
+New bundles checkpoint every completed turn rather than replaying ten turns.
+
+Mechanisms and limits: [fault audit](reviews/2026-10-03-v3-campaign-fault-audit.md),
+[manual guide](reviews/2026-10-01-v3-manual-campaign.md),
+[PROVENANCE.md](PROVENANCE.md), and the dated repair/reseed specs.
 
 ## Current execution state
 
-- **Current v3 bundle:** ignored `logs/z1-v3-manual-2026-10-03-r3`, initialized
-  only with byte-identical reviewed source/repeat packet copies. No seed trace,
-  stage state or campaign-created database yet. Do not initialize it again.
-- **Failed r2:** ignored `logs/z1-v3-manual-2026-10-03-r2` failed in turn 54
-  post-flight, after 53 processed turns, 51 durable turns and 5 saved checkpoint
-  probes. Files, store and recovery generations remain unchanged. The agent did
-  not stop it. Corrected writer/recovery bytes change identity; never alter its
-  manifest or resume this old snapshot with new code. r3 starts from turn 1.
-- **First failed attempt:** `logs/z1-v3-manual-2026-10-01` stopped in turn 4
-  with nullable relation/object output; its original trace/store/checkpoint are
-  also preserved. Earlier source-only/null-field repair remains in place.
-- **Ground truth remains complete:** all 255 base source/answer dispositions
-  reviewed, 0 pending. Native 131: 36 valid/77 invalid/18 uncertain; linked 124:
-  77 valid/25 invalid/22 uncertain. Total 113 valid/102 invalid/40 uncertain.
-  All original histories were read, labels stop at their own cutoff, and 248
-  reviewed key overrides preserve catalog originals. Invalid/uncertain rows
-  remain excluded, not invented into valid memory cases.
-- **Plan unchanged:** three full histories of 1119/251/101 recorded pairs,
-  1471 total; 39 checkpoint cutoffs; 259 prompts (255 base + four development
-  repeats). 117 admissions (113 base + four repeats), four arms,468 cloud
-  answers and702 both-order judge requests before retries. Two repeat families
-  compare recent→old at 51→115 and 115→216; these are dependent diagnostics,
-  not the full semi-LSREP retention schedule.
-- **Models unchanged:** local gemma4:e4b general background, NuExtract3-Q8_0
-  extraction, cloud gpt-6-luna probe answering and deepseek-v4-flash judging.
-  Cloud answering/judging needs no local answer model. Reranker/NLI weights
-  return to CPU between calls; shared encoder/background NER retain existing
-  policies. Keeping the owned background LLM warm is not a whole-GPU budget
-  or proof that all six substantial components fit concurrently.
-- **No complete campaign or new quality result:** r3 has not run; no live cloud
-  call was made by this repair audit. Status confirms 0 source reviews pending;
-  `cloud_answers_ready=false` is expected before a complete trace.
+- **Fresh v3 r4:** ignored `logs/z1-v3-manual-2026-10-04-r4`, initialized and
+  validated only. Five reviewed packets are byte-identical to r3. No seed trace,
+  stage state or campaign database exists; no full seed or cloud call was made.
+  Do not initialize again. New config uses per-turn checkpoints and both
+  continue policies. Readiness admits 117 questions; configured endpoints and
+  credentials were checked without provider requests.
+- **R3:** failed twice at turn 80, restoring its 70-turn checkpoint each time.
+  Its verified campaign-only third attempt was stopped gracefully by SIGINT;
+  interruption receipt, store, manifests and failed tails remain unchanged.
+  Changed writer/policy identity requires fresh r4, not editing old hashes.
+- **Earlier failures:** r2's turn-54/51-durable checkpoint and the first nullable
+  turn-4 attempt remain preserved. Previous source-only/null-field, whitespace,
+  native-model residency and stream-cancellation repairs remain in place.
+- **Ground truth:** all 255 base source/answer dispositions reviewed, zero
+  pending. Source-linked 124: 77 valid/25 invalid/22 uncertain. Native 131:
+  36 valid/77 invalid/18 uncertain. Total 113 valid/102 invalid/40 uncertain;
+  excluded cases were not invented into valid memory questions. The 248 reviewed
+  key overrides preserve catalog originals and labels stop at their own cutoff.
+- **Plan:** histories of 1119/251/101 recorded pairs, 1471 total; 39 checkpoint
+  cutoffs; 259 prompts (255 base plus four development repeats). 117 admissions
+  (113 base plus four repeats), four arms, 468 cloud answers and 702 judge-order
+  requests before retries if all answers succeed. Two dependent repeat families
+  compare recent→old at 51→115 and 115→216, not full semi-LSREP retention.
+- **Models:** local gemma4:e4b general background and NuExtract3-Q8_0 extraction;
+  cloud gpt-6-luna answering and deepseek-v4-flash judging. No model assignment
+  changed. Reranker/NLI weights return to CPU between calls; owned background
+  models retain existing guarded idle release and serial-exit cleanup. No
+  maximum concurrent VRAM or all-model residency guarantee.
+- **No new quality result:** independent judge qualification and output-specific
+  truth reviews remain pending; `score_of_record=false`. Before a complete
+  trace, `cloud_answers_ready=false` is expected, not missing source review.
 
-## Validation and its limits
+## Validation and limits
 
-Final disposable smoke: 546 passed in 34.80 s, five existing SQLAlchemy warnings.
-Final disposable extraction/claim checks: 12 passed; final parser fixture
-check: 27 passed. Live-runtime controls:
-49 passed, including retry exhaustion without killing the scheduler. Focused
-coordinator tests execute real failing Python children, successful resume and
-three-attempt exhaustion. Actual route/transport controls passed 6/6 after the
-before-repair cancellation failure. Actual local-model replay of the failing
-source stored/retrieved three original claims, zero edges and a completion key;
-the repeat took 14.728 s. Earlier focused 101/76 controls overlap these results;
-do not add them into an independent sample count. Test databases were removed.
-These checks establish tested recovery paths, not exhaustive full-run robustness
-or supported-answer gain.
+Final disposable smoke: **564 passed in 38.06 s**, five existing warnings.
+Seven progress controls pass. One preceding fixture incorrectly expected a
+committed failure to disappear on restore (1 failed/563 passed); the corrected
+control retains committed faults and discards unfinished ones. Focused and
+repeated suites overlap and are not independent sample counts.
 
-Actual repeated native frame calls under keep-alive 0, 0,-1,-1 took
-3.543/6.771/6.409/3.213s; provider load 0.329/3.522/3.197/0.307s. This isolates
-roughly 3 seconds of avoidable reload overhead, not a whole-run speedup.
-The screenshot's 28:03/51 was about 33 seconds per fully processed recorded pair,
-including preflight, summary/extraction/NLI, maintenance and checkpoint probes.
-Maintenance time 148.03 s and semantic-observer overhead 0.81 s through turn 53.
-Competing laptop activity, peak residency and full-run latency were not measured.
-Initial summaries/abstracts/source hashes and exact maintenance row changes
-remain recorded by the instrument; aggregate row counts never replace content
-inspection.
+Actual saved turn-80 completions through real parser/writer/reader/NLI stored
+33 original claims, wrote 20 source-supported edges and withheld two unknown
+relations in 20.458 s. Actual capture took 29.467 s. Neither is an independently
+graded graph truth or answer-quality result.
+
+Actual four-turn synthetic local fault control exercised preflight, writing,
+post-flight, a read-only historical probe and 35-table restore. Three injected
+Codex failures exhausted six calls; originals/probe were checkpointed before
+outage, and resume processed only turn 4. Prefix health excluded future faults.
+Its final changed-code rerun passed; periodic cadence was disabled in this
+fixture. Separate actual SQL control captured partial committed maintenance
+changes and failed cadence without immediate replay or false success. Cloud
+controls used controlled transports/outputs, not paid provider requests.
+
+A copied actual 70-turn store plus synthetic next-turn interruption verified
+35 tables, a 17.45 MB dump, turn-71 restoration, retained failed tail and two
+rolling generations. Captures took 4.214/4.125 s; this adds snapshot overhead
+that grows with store size, not a final-store speed qualification. Three setup
+fixtures were uncredited and fixed without weakening old manifests. Earlier
+49 runtime and six actual route/transport controls remain in provenance, not
+rerun or counted as independent new observations. Full-campaign robustness,
+whole-system throughput and supported answers per token remain unmeasured.
 
 ## Operator entry point and research position
 
 From the repository root, without activating a venv:
 
 ```bash
-uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-03-r3 --run
+uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-04-r4 --run
 ```
 
-One command runs/resumes seed → snapshot → answers → judge → report, with live
-stage/arm progress, processed/durable turns, checkpoint probes and saved cloud
-answer/judge-order counts. PostgreSQL and Ollama must be available. Ctrl+C then
-rerun the same r3 command with unchanged code/settings/models/corpus/labels.
-Temporary failures get 2/8-second backoff and at most three attempts. Persistent
-failures leave `campaign-pause.json`; resolve the reason before rerunning.
-The [manual guide](reviews/2026-10-01-v3-manual-campaign.md) owns the coverage
-matrix, commands and recovery limits. Reviewed answers/gold sources enter judging,
-never the answering prompt.
+PostgreSQL and Ollama must be available. One command runs seed → snapshot →
+answers → judge → report with stage/arm progress, processed/durable counts,
+probe counts and persistent degraded/ungraded counters. This fresh r4 starts
+from turn 1. Later Ctrl+C and the same r4 command resume with unchanged
+code/settings/models/corpus/labels. Critical failures leave an explicit pause
+reason; bounded recovery is not a guarantee that every possible error continues.
 
-Roadmap unchanged: 160 anchors, 93 checked/67 open, partitioned into 29
-evidence-dependent, 35 later product/research and three gates. The
+Roadmap remains 160 anchors, 93 checked/67 open: 29 evidence-dependent,
+35 later product/research and three gates. The
 [29-item evidence map](reviews/2026-09-29-v3-reseed-harness-audit.md#open-item-evidence-map)
-distinguishes captured evidence from output truth reviews, additional
-style/leg/model/resource controls and tuning. No valid multi-hop cases, one
-abstention case and six admitted third-history questions remain coverage limits.
-Independent judge qualification is pending; `score_of_record=false` remains.
-The agreed progression remains seed-output review → targeted repair/tuning on
-as-of snapshots → freeze → **LME oracle and semi-LSREP only**. No full LME-S
-campaign is authorized. This requested crash/recovery/speed-audit repair is
-complete; the maintainer can launch r3.
+distinguishes captured data from truth reviews, additional style/leg/model/
+resource controls and tuning. Coverage limits remain no valid multi-hop cases,
+one abstention and six admitted third-history questions. The agreed progression
+is seed-output review → targeted repair/tuning on as-of snapshots → freeze →
+**LME oracle and semi-LSREP only**. No full LME-S campaign is authorized.
+Final resumable runners and independent all-originals vector-baseline contracts
+are not supplied by this development command. The requested crash/recovery
+repair and prelaunch checks are complete; the maintainer can start r4.
 
 ## Git and propagation
 
-Main only. The earlier one-time push published through `5672f45`; its
-authorization is consumed and the experiment push freeze remains active.
-Earlier nullable-output/cloud-completion/progress commits and new repairs remain
-local. New commits: `abda95e` source alignment, `d12d53e` residency telemetry,
-`be6e71e` stream cancellation, `0121fee` campaign recovery and `1a75e06` durable
-audit docs. No push, schema migration, new model, tuning-default change or
-AGENTS edit was made. Specs, roadmap note, provenance, traps, inventory,
-architecture, model and README/manual docs are reconciled. Cleanup ledger n/a:
-no move/rename. This handoff is written/committed last. Completed private session
-notes are archived under ignored logs; SESSION is reset after propagation.
+Main only. Local commits: `22eac74` original-source repair, `095a5e7` worker
+recovery, `6d1a5eb` cloud reservations/continue policy, `8499d11` durable audit
+and launch docs. No push: the earlier one-time authorization through `5672f45`
+is consumed and the experiment publication freeze remains active. No schema
+migration, new model, tuning-default change or AGENTS edit. Specs, roadmap note,
+provenance, traps, inventory, architecture, README and manual guides reconciled;
+MODELS/CLEANUP n/a (no assignment change or move/rename). This handoff is written
+and committed last. Private session notes are archived under ignored logs and
+SESSION is reset after propagation.
