@@ -101,3 +101,14 @@ def test_whitespace_alignment_returns_original_bytes_and_rejects_changed_content
 def test_alignment_does_not_guess_between_distinct_original_spans():
     assert original_source_quote("a  b; a\tb", "a b") is None
     assert original_source_quote("a  b; a  b", "a b") == "a  b"
+
+
+def test_case_copy_selection_returns_original_and_never_guesses():
+    source = "The cache was warm, and in the end it kept 20 records."
+    assert original_source_quote(source, "In the end it kept 20 records.",
+                                 allow_case_copy=True) == "in the end it kept 20 records."
+    assert original_source_quote("Polish polish", "POLISH", allow_case_copy=True) is None
+    assert original_source_quote(source, "In the end it kept 30 records.",
+                                 allow_case_copy=True) is None
+    assert original_source_quote("Straße", "STRASSE", allow_case_copy=True) == "Straße"
+    assert original_source_quote("ß", "S", allow_case_copy=True) is None

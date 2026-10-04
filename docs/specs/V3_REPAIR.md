@@ -68,6 +68,32 @@ writer gets a fresh campaign bundle with unchanged reviewed label copies.
 
 ## 2. Algorithm and data model
 
+**Turn80 recurrence and source-proposal isolation, 2026-10-04:** an actual
+role-unit replay returns31 literal assistant quotes plus one nullable quote
+whose first letter was capitalized. Only211 of its212 characters literally
+match the original clause; neither whitespace alignment nor replay fixes it.
+Safe source-copy resolution may use case-fold and whitespace equivalence only
+when it resolves to one distinct original span. Keep the original bytes;
+ambiguous copies, changed punctuation, words, numbers or polarity are not
+accepted as quotes. This is evidence selection, not semantic approval of a
+generated statement. Resolve chunk whitespace back to the original role unit
+before retaining excerpts.
+
+A complete typed response can contain unsupported source proposals. Quarantine
+each unresolved quoted row before graph canonicalization; never turn it into
+an edge. Retain the complete original chunk as an attributed source claim,
+alongside all resolved source quotes and independently supported graph rows.
+If chunk boundaries cannot be resolved, retain the complete original role unit.
+Warn on every occurrence with counts/reason, without logging source text.
+This preserves evidence without approving the invented quote or rerunning a
+healthy model call. Completion means all proposals were processed under this
+contract, not that every proposal was true or graph coverage exhaustive.
+Missing/invalid fields, absent quote, malformed/truncated JSON and failed model
+calls remain job failures; successful prefixes are not partially committed.
+This supersedes the earlier unsupported-quote-as-whole-job-failure rule for
+complete typed rows. General graph proposals with unresolved source quotes
+follow the same isolation rule; no quoted hallucination can reach a graph write.
+
 **Source quote alignment and fault isolation, 2026-10-03:** an actual turn54
 template response collapsed a double space in an otherwise unchanged quote.
 The source-only guard treated this as unsupported evidence and aborted the job.

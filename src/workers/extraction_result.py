@@ -10,27 +10,42 @@ class ExtractionOutputError(ValueError):
     """Incomplete or invalid extraction; callers must not mark work complete."""
 
 
-def original_source_quote(source: str, quote: str) -> str | None:
-    """Resolve whitespace-only copying changes to original bytes, never paraphrase.
+def original_source_quote(source: str, quote: str, *, allow_case_copy=False) -> str | None:
+    """Resolve copying changes to original bytes, never accept a paraphrase.
 
-    Non-whitespace characters must be identical. Ambiguous original spellings
-    stay unresolved instead of choosing a source arbitrarily.
+    Whitespace-only matching is the default. Source selection may explicitly
+    permit case copies; ambiguous originals still stay unresolved. The returned
+    value always has the original spelling, including case and whitespace.
     """
     if not isinstance(quote, str) or not quote.strip():
         return None
     quote = quote.strip()
     if quote in source:
         return quote
-    parts = list(re.finditer(r"\s+|\S", source))
-    normalized = "".join(" " if m.group().isspace() else m.group() for m in parts)
-    wanted = re.sub(r"\s+", " ", quote)
-    matches = set()
-    offset = 0
-    while (start := normalized.find(wanted, offset)) >= 0:
-        end = start + len(wanted)
-        matches.add(source[parts[start].start():parts[end - 1].end()])
-        offset = start + 1
-    return next(iter(matches)) if len(matches) == 1 else None
+    def resolve(case_copy):
+        parts, positions = [], []
+        for match in re.finditer(r"\s+|\S", source):
+            part = " " if match.group().isspace() else match.group()
+            part = part.casefold() if case_copy else part
+            parts.append(part)
+            positions.extend([(match.start(), match.end())] * len(part))
+        normalized = "".join(parts)
+        wanted = re.sub(r"\s+", " ", quote)
+        wanted = wanted.casefold() if case_copy else wanted
+        matches, offset = set(), 0
+        while (start := normalized.find(wanted, offset)) >= 0:
+            end = start + len(wanted)
+            original = source[positions[start][0]:positions[end - 1][1]]
+            spelling = re.sub(r"\s+", " ", original)
+            # A match must consume complete source characters, including a
+            # Unicode case-fold expansion (never match half of ß → ss).
+            if (spelling.casefold() if case_copy else spelling) == wanted:
+                matches.add(original)
+            offset = start + 1
+        return next(iter(matches)) if len(matches) == 1 else None
+
+    original = resolve(False)
+    return original if original is not None or not allow_case_copy else resolve(True)
 
 
 def parse_extraction_response(content, finish_reason=None, *, template_mode=False,

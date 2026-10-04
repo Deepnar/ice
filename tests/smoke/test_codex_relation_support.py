@@ -33,6 +33,34 @@ class Encoder:
         return np.array([1.0] + [0.0] * 1023)
 
 
+def test_bad_quote_cannot_poison_valid_rows_or_become_graph_evidence(monkeypatch):
+    source = "The service uses Redis.\n\nThe cache is  warm."
+    facts = [
+        dict(subject="service", relation="uses", object="redis",
+             source_sentence="The service uses Redis."),
+        dict(subject="cache", relation=None, object=None,
+             source_sentence="The cache is cold."),
+        dict(subject="service", relation="uses", object="mysql",
+             source_sentence="The service uses MySQL."),
+    ]
+    completion = NS(choices=[NS(finish_reason="stop", message=NS(
+        content=json.dumps({"facts": facts})))])
+    monkeypatch.setattr(settings, "codex_sentence_claims", True)
+    monkeypatch.setattr(settings, "codex_extraction_mode", "template")
+    monkeypatch.setattr(worker, "bg_client", NS(chat=NS(completions=NS(create=lambda **_kw: completion))))
+    monkeypatch.setattr(worker, "extract_entities", lambda *_a, **_kw: [])
+    monkeypatch.setattr(worker, "known_relations", lambda: [])
+    monkeypatch.setattr(worker, "make_llm_reconciler", lambda: None)
+    monkeypatch.setattr(worker, "canonical_relation", lambda relation, **_kw: relation)
+    monkeypatch.setattr(worker, "_ground_triplets", lambda rows, *_a, **_kw: rows)
+    monkeypatch.setattr(worker, "_chunk_text", lambda *_a, **_kw: [source.replace("\n\n", " ").replace("  ", " ")])
+    retained = []
+    rows = worker.extract_triplets(source, source_sentences=retained)
+    assert len(rows) == 1 and rows[0]["object"] == "redis"
+    assert retained == ["The service uses Redis.", source]
+    assert all(f["source_sentence"] not in retained for f in facts[1:])
+
+
 def _scores(entailment):
     return {"entailment": entailment,
             "neutral": 1.0 - entailment - 0.001,
@@ -111,8 +139,9 @@ def test_nullable_template_fields_retain_exact_claim_without_graph_edge(monkeypa
                                         {"conversation_id": str(conversation_id)})
         completion.choices[0].message.content = response.replace(
             "The timer was disabled.", "The timer was enabled.")
-        with pytest.raises(worker.ExtractionOutputError):
-            worker.extract_triplets(sentence, source_sentences=[])
+        retained = []
+        assert worker.extract_triplets(sentence, source_sentences=retained) == []
+        assert retained == [sentence]  # Original retained; invented quote rejected.
     finally:
         with SessionLocal() as db:
             db.query(IdempotencyKey).filter_by(key=job_key("codex", batch)).delete(

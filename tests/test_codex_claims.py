@@ -174,10 +174,9 @@ def test_extractor_keeps_source_claims_even_when_graph_names_fail(monkeypatch,su
         db.commit()
 
 
-def test_nullable_whitespace_quote_preserves_original_and_unsupported_quote_retries(monkeypatch):
+def test_nullable_quote_preserves_original_and_unsupported_quote_has_no_graph(monkeypatch):
     import json
     from src.workers import codex_extractor as cx
-    from src.workers.extraction_result import ExtractionOutputError
     from src.memory.models import CodexEdge, IdempotencyKey
     from src.workers.idempotency import job_key
 
@@ -206,16 +205,11 @@ def test_nullable_whitespace_quote_preserves_original_and_unsupported_quote_retr
             source_spans=chat_provenance(original,''),
             context_reliance='Long_Term_Memory',idempotency_key=str(uuid.uuid4())))
         db.commit()
-    with pytest.raises(ExtractionOutputError):
-        cx.extract_codex(str(batch))
-    with SessionLocal() as db:
-        assert db.query(CodexClaim).filter_by(source_batch=batch).count() == 0
-        assert db.query(IdempotencyKey).filter_by(key=job_key('codex',batch)).count() == 0
-    selected[0] = original.replace('few  records','few records')
     cx.extract_codex(str(batch))
     with SessionLocal() as db:
         claim = db.query(CodexClaim).filter_by(source_batch=batch).one()
         assert claim.sentence == original and claim.role == 'user'
+        assert selected[0] not in claim.text
         assert db.query(CodexEdge).filter_by(source_batch=batch).count() == 0
         assert db.query(IdempotencyKey).filter_by(key=job_key('codex',batch)).count() == 1
         fragments = HybridRetrievalOrchestrator(db,None)._codex_claims('records',None,

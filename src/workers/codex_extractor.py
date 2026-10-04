@@ -1086,20 +1086,36 @@ def extract_triplets(text: str, model_override: str = "",
             )
 
             if source_sentences is not None:
-                chunk_sentences = []
+                # The chunker may normalize whitespace. Retain evidence from
+                # the authoritative role unit, not its reconstructed copy.
+                original_chunk = original_source_quote(text, chunk) or text.strip()
+                chunk_sentences, resolved_triplets = [], []
+                unresolved = 0
                 for fact in chunk_triplets:
                     sentence = fact.get("source_sentence")
                     if isinstance(sentence, str) and sentence.strip():
-                        original = original_source_quote(chunk, sentence)
-                        if fact.get("_source_only") and original is None:
-                            raise ExtractionOutputError("source-only quote not in original chunk")
-                        if original is not None and original != sentence.strip():
+                        original = original_source_quote(original_chunk, sentence,
+                                                         allow_case_copy=True)
+                        if original is None:
+                            # An unsupported proposal is not a failed model
+                            # execution. Withhold the entire row from graph
+                            # writes and preserve its real source for recall.
+                            unresolved += 1
+                            continue
+                        if original != sentence.strip():
                             logger.warning("codex_source_quote_aligned",
-                                           reason="whitespace-only; original bytes retained")
-                        fact["source_sentence"] = original or sentence.strip()
+                                           reason="case/whitespace copy; original bytes retained")
+                        fact["source_sentence"] = original
                         chunk_sentences.append(fact["source_sentence"])
+                        resolved_triplets.append(fact)
                     else:
                         raise ExtractionOutputError("missing source sentence")
+                if unresolved:
+                    chunk_sentences.append(original_chunk)
+                    logger.warning("codex_source_quote_unresolved", count=unresolved,
+                                   reason="proposal withheld; original source retained",
+                                   source_chars=len(original_chunk), model=model_name)
+                chunk_triplets = resolved_triplets
                 source_sentences.extend(chunk_sentences)
             source_only_count = sum(bool(fact.get("_source_only")) for fact in chunk_triplets)
             if source_only_count:
