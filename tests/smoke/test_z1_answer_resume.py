@@ -58,6 +58,7 @@ def test_answer_transport_receipt_and_interrupted_resume(monkeypatch, failure):
         monkeypatch.setattr(sys, "argv", argv)
         with pytest.raises(RuntimeError, match="intentional interrupted|not successful|cloud answer was empty"):
             answer_as_of.main()
+
         assert not json.loads(out.read_text())["complete"]
         monkeypatch.setattr(sys, "argv", argv + ["--resume"])
         assert answer_as_of.main() == 0
@@ -87,3 +88,57 @@ def test_answer_transport_receipt_and_interrupted_resume(monkeypatch, failure):
         out.write_text(json.dumps(result))
         with pytest.raises(ValueError, match="differs from the frozen prompt"):
             answer_as_of.main()
+
+
+@pytest.mark.parametrize("mode", ["isolated", "outage", "quota", "interrupt"])
+def test_continue_answers_have_durable_attempt_caps_and_terminal_errors(monkeypatch, mode):
+    from experiments.lme.cloud_provider import ProviderAccessError
+    probes = []
+    for index in range(4):
+        stage = {"prompt_messages": [{"role": "user", "content": f"Synthetic question {index}"}],
+                 "prompt_tokens": 4, "selected_tokens": 0, "gold_fragment_coverage": {"selected": 0}}
+        probes.append({"probe_id": f"p{index}", "conversation": "synthetic", "split_turn": 80,
+            "question": f"Synthetic question {index}", "type": "episodic", "gold_turns": [1],
+            "gold_sources": [{"turn": 1, "recorded_at": "2025-01-01T00:00:00+00:00",
+                             "prompt": "source", "response": "reply", "source_ids": ["row-1"]}],
+            "expected_answer": "source", "preflight": stage})
+    monkeypatch.setattr(answer_as_of, "load_probes", lambda *a, **k: probes)
+    monkeypatch.setattr(answer_as_of.time, "sleep", lambda _: None)
+    calls = []
+    def generate(*a, **k):
+        calls.append(a)
+        if mode == "quota":
+            raise ProviderAccessError("fixture", "quota", 429, "quota")
+        if mode == "outage" or mode == "isolated" and len(calls) <= 2:
+            raise ConnectionError("synthetic connection fault")
+        if mode == "interrupt" and len(calls) == 1:
+            raise KeyboardInterrupt()
+        return SimpleNamespace(text="supported answer", usage={}, response_id="fixture", completion_status="completed")
+    monkeypatch.setattr(answer_as_of, "TextGenerator", lambda profile: SimpleNamespace(generate=generate))
+    with tempfile.TemporaryDirectory(prefix="z1-answer-fault-control-", dir=answer_as_of.LOGS) as root:
+        trace, out = Path(root) / "seed.jsonl", Path(root) / "answers.json"
+        trace.write_text(json.dumps({"event": "run", "meta": {"extra": {"clock_policy": "fixture"}}}) + "\n")
+        argv = ["answer_as_of.py", "--trace", str(trace), "--out", str(out), "--arm", "full",
+                "--allow-partial", "--failure-policy", "continue"]
+        monkeypatch.setattr(sys, "argv", argv)
+        if mode == "isolated":
+            assert answer_as_of.main() == 0
+        else:
+            with pytest.raises(KeyboardInterrupt if mode == "interrupt" else RuntimeError):
+                answer_as_of.main()
+        saved = json.loads(out.read_text())
+        assert len(calls) == {"isolated": 5, "outage": 6, "quota": 1, "interrupt": 1}[mode]
+        if mode == "isolated":
+            assert saved["processing_complete"] and not saved["complete"] and saved["cloud_errors"] == 1
+        if mode == "interrupt":
+            assert saved["records"][0]["cloud_attempts"] == 1
+            assert saved["records"][0]["error_type"] == "UnconfirmedCloudCall"
+        before = len(calls)
+        monkeypatch.setattr(answer_as_of, "TextGenerator", lambda profile: SimpleNamespace(generate=lambda *a, **k:
+            calls.append(a) or SimpleNamespace(text="supported answer", usage={}, response_id="fixture", completion_status="completed")))
+        monkeypatch.setattr(sys, "argv", [*argv, "--resume"])
+        assert answer_as_of.main() == 0
+        assert len(calls) - before == {"isolated": 0, "outage": 1, "quota": 4, "interrupt": 4}[mode]
+        assert json.loads(out.read_text())["processing_complete"]
+        assert answer_as_of.main() == 0
+        assert len(calls) - before == {"isolated": 0, "outage": 1, "quota": 4, "interrupt": 4}[mode]

@@ -83,7 +83,7 @@ with p.open('a') as f:f.write(json.dumps({'event':'clock','conversation':'fixtur
     assert json.loads((tmp_path / "stage-status.json").read_text())["seed"] == "complete_diagnostic"
 
 
-def test_persistent_failure_pauses_after_three_real_children(tmp_path, monkeypatch):
+def test_persistent_failure_pauses_after_two_real_children(tmp_path, monkeypatch):
     scripts = tmp_path / "scripts/z1"
     scripts.mkdir(parents=True)
     (scripts / "seed_v3.py").write_text('''import json,sys
@@ -99,9 +99,9 @@ sys.exit(1)
     with pytest.raises(subprocess.CalledProcessError):
         campaign.execute(tmp_path, {"checkpoint_every": 10, "probe_panel": "existing"}, "seed")
     rows = [json.loads(s) for s in (tmp_path / "campaign-attempts.jsonl").read_text().splitlines()]
-    assert sum(r['event'] == 'started' for r in rows) == 3
+    assert sum(r['event'] == 'started' for r in rows) == 2
     pause = json.loads((tmp_path / "campaign-pause.json").read_text())
-    assert pause['attempts'] == 3 and pause['progress_retained']
+    assert pause['attempts'] == 2 and pause['progress_retained']
 
 
 def test_corrupt_configuration_gets_clean_operator_error(tmp_path, monkeypatch, capsys):

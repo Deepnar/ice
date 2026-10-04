@@ -4,8 +4,8 @@ import json
 import os
 from pathlib import Path
 
-RETRY_DELAYS = (2, 8)
-POLICY = "ice-v3-persisted-failure-recovery-1"
+RETRY_DELAYS = (2,)
+POLICY = "ice-v3-persisted-failure-recovery-2"
 TRANSIENT = {"APIConnectionError", "APITimeoutError", "InternalServerError",
              "ConnectionError", "ConnectError", "ConnectTimeout", "ReadTimeout",
              "TimeoutError", "Timeout", "RemoteProtocolError", "URLError",
@@ -47,6 +47,8 @@ def failure_evidence(root, stage, arm, before):
                 return {"reason": "no_terminal_failure_event"}
             return {k: row.get(k) for k in ("error_type", "stage", "conversation", "turn")}
         data = json.loads(path.read_text())
+        if data.get("operator_required"):
+            return {"operator_required": True, "reason": "persisted_cloud_outage"}
         if stage == "answers":
             row = data.get("records", [])[-1]
             if not row.get("error"):

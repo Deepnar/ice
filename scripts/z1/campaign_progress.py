@@ -30,6 +30,7 @@ class ArtifactProgress:
         self.tail = b""
         self.completed = {}
         self.probe_ids = set()
+        self.degraded_calls = 0
         self.phase = "initializing / waiting for saved work"
         self.cache = {}
 
@@ -54,6 +55,7 @@ class ArtifactProgress:
                 self.offset = 0
                 self.completed = {}
                 self.probe_ids = set()
+                self.degraded_calls = 0
                 self.phase = "initializing / waiting for saved work"
             self.inode = stat.st_ino
             source.seek(self.offset)
@@ -81,6 +83,11 @@ class ArtifactProgress:
                     self.phase = "checkpoint probes"
                 elif event == "maintenance":
                     self.phase = "last saved job: " + row["job"]
+                elif event in {"worker_attempt_failed", "worker_degraded"}:
+                    self.degraded_calls += event == "worker_degraded"
+                    self.phase = location + " " + row["job"] + (
+                        " DEGRADED; source saved" if event == "worker_degraded" else
+                        f" model retry {row['attempt']}/{row['attempts']}")
                 elif event in {"turn", "written"}:
                     self.phase = location + (" preflight saved" if event == "turn" else " write saved")
                 elif event == "failed":
@@ -118,20 +125,23 @@ class ArtifactProgress:
                     raise ValueError("checkpoint manifest unavailable")
                 durable = sum(manifest["state"]["completed"].values())
             detail = (f"durable {durable} | probes {len(self.probe_ids)}/{self.probes}"
+                      f" | degraded workers {self.degraded_calls}"
                       f" | {self.phase}")
             return Observation(sum(self.completed.values()), self.turns, detail)
         if self.stage == "answers":
             data = self.json_file(self.root / f"answers-{self.arm}.json") or {}
             successful = {r["probe_id"] for r in data.get("records", [])
                           if r.get("answer") and not r.get("error")}
-            return Observation(len(successful), self.admitted, "successful saved answers")
+            errors = sum(r.get("fault_disposition") == "degraded_final" for r in data.get("records", []))
+            return Observation(len(successful), self.admitted, f"successful saved answers | ungraded errors {errors}")
         if self.stage == "judge":
             final = self.root / f"judge-full-vs-{self.arm}.json"
             candidates = [p for p in (final, final.with_suffix(".partial.json")) if p.exists()]
             path = max(candidates, key=lambda p: p.stat().st_mtime_ns) if candidates else final
             data = self.json_file(path) or {}
+            errors = sum(r.get("fault_disposition") == "degraded_final" for r in data.get("results", []))
             return Observation(self.judge_orders(data), self.admitted * 2,
-                               "successful saved judge orders (two per pair)")
+                               f"successful saved judge orders (two per pair) | ungraded pairs {errors}")
         return Observation(None, None, "working; this stage has no fractional counter")
 
 

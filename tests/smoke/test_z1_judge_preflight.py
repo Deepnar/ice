@@ -444,3 +444,58 @@ def test_judge_rejects_truncation_even_with_parseable_verdict(monkeypatch, finis
         assert result["verdict"] == "TIE"
     else:
         assert result["verdict"] == "ERROR" and result["reason"] == "incomplete_completion"
+
+
+@pytest.mark.parametrize("mode", ["isolated", "outage", "quota", "answer_failed", "interrupt"])
+def test_continue_cloud_faults_and_resume_preserve_denominators(tmp_path, monkeypatch, mode):
+    import tempfile
+    from scripts.z1.answer_as_of import LOGS
+    from scripts.z1.cloud_recovery import POLICY
+    rows = [{**_record(), "probe_id": f"p{i}", "split_turn": 80, "expected_answer": "fact"}
+            for i in range(4)]
+    left, right = _v3_arm("full", rows), _v3_arm("vector_only", [dict(r) for r in rows])
+    good = {"verdict": "TIE", "reason": "equivalent", "A_grade": "correct", "B_grade": "correct"}
+    calls = []
+    def response(*a, **k):
+        calls.append(a)
+        if mode == "quota":
+            return {"verdict": "ERROR", "reason": "api_http_429", "operator_required": True}
+        if mode == "outage" or mode == "isolated" and len(calls) in (2, 3):
+            return {"verdict": "ERROR", "reason": "api_http_503"}
+        if mode == "interrupt" and len(calls) == 2:
+            raise KeyboardInterrupt()
+        return good
+    if mode == "answer_failed":
+        left["records"] = [dict(r) for r in rows]
+        left.update(complete=False, processing_complete=True, cloud_failure_policy="continue", cloud_recovery_policy=POLICY)
+        left["records"][0].update(answer="", error="No complete answer", error_type="CloudCompletionError",
+            cloud_attempts=2, fault_disposition="degraded_final")
+    monkeypatch.setattr(judge_answers, "judge_one", response)
+    monkeypatch.setattr(judge_answers.time, "sleep", lambda _: None)
+    with tempfile.TemporaryDirectory(prefix="z1-cloud-fault-control-", dir=LOGS) as root:
+        out = str(Path(root) / "judge.json")
+        extra = ["--out", out, "--failure-policy", "continue"]
+        if mode == "interrupt":
+            with pytest.raises(KeyboardInterrupt):
+                _run_v3(tmp_path, monkeypatch, left, right, extra=extra)
+        else:
+            assert _run_v3(tmp_path, monkeypatch, left, right, extra=extra) == int(mode in {"outage", "quota"})
+            result = json.loads(Path(out).read_text())
+            if mode in {"isolated", "answer_failed"}:
+                assert result["processing_complete"] and not result["complete"]
+                assert result["cloud_errors"] == 1 and len(result["results"]) == 4
+                assert result["results"][0]["arm_a_grade"] is None
+                assert len(calls) == (9 if mode == "isolated" else 6)
+            elif mode == "outage":
+                assert result["operator_required"] and len(result["results"]) == 3 and len(calls) == 6
+            else:
+                assert len(calls) == 1 and not result["processing_complete"]
+        before = len(calls)
+        monkeypatch.setattr(judge_answers, "judge_one", lambda *a, **k: calls.append(a) or good)
+        assert _run_v3(tmp_path, monkeypatch, left, right, extra=[*extra, "--resume"]) == 0
+        added = len(calls) - before
+        assert added == {"isolated": 0, "answer_failed": 0, "outage": 2, "quota": 8, "interrupt": 7}[mode]
+        result = json.loads(Path(out).read_text())
+        assert result["processing_complete"] and not result["operator_required"]
+        assert _run_v3(tmp_path, monkeypatch, left, right, extra=[*extra, "--resume"]) == 0
+        assert len(calls) == before + added

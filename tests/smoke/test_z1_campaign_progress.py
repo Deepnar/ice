@@ -27,6 +27,9 @@ def test_seed_counts_full_turn_not_write_and_resets_after_checkpoint_restore(tmp
     append(trace, clock(1))  # Duplicate observations cannot inflate work.
     assert reader.observe().done == 1
     assert "probes 1/2" in reader.observe().detail
+    append(trace, {"event": "worker_degraded", "conversation": "synthetic", "turn": 1,
+                   "job": "post_flight", "attempt": 2, "attempts": 2})
+    assert "degraded workers 1" in reader.observe().detail
     checkpoint = tmp_path / "seed.recovery"
     (checkpoint / "generation-fixture").mkdir(parents=True)
     atomic_json(checkpoint / "generation-fixture" / "recovery.json", {"state": {"completed": {"synthetic": 1}}})
@@ -34,14 +37,19 @@ def test_seed_counts_full_turn_not_write_and_resets_after_checkpoint_restore(tmp
     assert "durable 1" in reader.observe().detail
     committed = trace.read_text()
     append(trace, {"event": "as_of_probe", "probe_id": "unfinished"})
+    append(trace, {"event": "worker_degraded", "conversation": "synthetic", "turn": 2,
+                   "job": "post_flight", "attempt": 2, "attempts": 2})
     append(trace, clock(2))
     assert reader.observe().done == 2
+    assert "degraded workers 2" in reader.observe().detail
     trace.write_text(committed)
     append(trace, {"event": "resume", "completed_turns": {"synthetic": 1}})
     # Rollback + append can already be bigger than the previously observed file.
     # Prefix comparison must still discard the unfinished probe/turn.
     assert reader.observe().done == 1
     assert "probes 1/2" in reader.observe().detail
+    # A restored prefix keeps its committed fault but discards the unfinished one.
+    assert "degraded workers 1" in reader.observe().detail
 
 
 def test_partial_jsonl_event_is_not_consumed_or_counted(tmp_path):

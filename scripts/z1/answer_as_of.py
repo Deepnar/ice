@@ -12,10 +12,12 @@ import fcntl
 import hashlib
 import json
 import random
+import time
 from collections import defaultdict
 from pathlib import Path
 
-from experiments.lme.cloud_provider import PROFILES, TextGenerator, load_selected_env
+from experiments.lme.cloud_provider import CloudCompletionError, PROFILES, TextGenerator, load_selected_env
+from scripts.z1.cloud_recovery import POLICY as CLOUD_POLICY, answer_fault, terminal_answer_fault
 from scripts.z1.development_repeats import KINDS, POLICY, admit_repeats, packet_hash
 from scripts.z1.label_review import question_family_counts, reviewed_expected_answer, validate_review
 from scripts.z1.replay_checkpoint import atomic_json
@@ -218,6 +220,7 @@ def _main() -> int:
     parser.add_argument("--allow-partial", action="store_true",
                         help="development check only; never a complete quality result")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--failure-policy", choices=("strict", "continue"), default="strict")
     parser.add_argument("--validated-probes", type=Path,
                         help="reviewed private long-term packet from build_longterm_label_review.py")
     parser.add_argument("--validated-native-sources", type=Path,
@@ -293,6 +296,11 @@ def _main() -> int:
     if not args.allow_partial and not args.plan and not audit_hashes:
         raise ValueError("long-term answers need reviewed labels before cloud calls")
     probes = stratified(available, args.n, args.seed)
+    for probe in probes:
+        health = dict(probe.get("memory_processing") or {})
+        if health:
+            health["degraded_gold_turns"] = sorted(set(health["degraded_post_flight_turns"]) & set(probe["gold_turns"]))
+            probe["memory_processing"] = health
     identifiers = [p["probe_id"] for p in probes]
     if args.arm != "full" and any(args.arm not in p["controls"] for p in probes):
         raise ValueError("selected trace did not freeze the requested prompt arm")
@@ -337,6 +345,7 @@ def _main() -> int:
     profile = PROFILES[args.profile]
     decoding = {"max_output_tokens": 1500, "temperature": 0}
     identity = {"version": "v3", "tag": args.arm,
+                "cloud_failure_policy": args.failure_policy, "cloud_recovery_policy": CLOUD_POLICY,
                 "trace_sha256": trace_hash, "probe_ids": identifiers,
                 "seed_clock_policy": clock_policy,
                 "label_audit_sha256": audit_hashes,
@@ -348,7 +357,8 @@ def _main() -> int:
                 "implementation_sha256": {
                     "answer_runner": sha256_file(Path(__file__)),
                     "cloud_adapter": sha256_file(Path(__file__).resolve().parents[2]
-                                                 / "experiments/lme/cloud_provider.py")},
+                                                 / "experiments/lme/cloud_provider.py"),
+                    "cloud_recovery": sha256_file(Path(__file__).with_name("cloud_recovery.py"))},
                 "development_partial": args.allow_partial,
                 "sample_seed": args.seed}
     if output.exists():
@@ -372,10 +382,16 @@ def _main() -> int:
         if (row.get("answer_input_sha256") != input_digest(stage["prompt_messages"])
                 or input_digest(row.get("answer_input_messages", [])) != row["answer_input_sha256"]):
             raise ValueError("saved answer input differs from the frozen prompt")
+    for row in result["records"]:
+        if args.failure_policy == "continue" and row.get("error_type") == "UnconfirmedCloudCall" and row.get("cloud_attempts") == 2:
+            row["fault_disposition"] = "degraded_final"
     done = {row["probe_id"]: row for row in result["records"]
-            if row.get("answer") and not row.get("error")}
+            if (row.get("answer") and not row.get("error"))
+            or (args.failure_policy == "continue" and terminal_answer_fault(row))}
     if len(done) == len(probes):
-        result["complete"] = True
+        result["complete"] = all(not row.get("error") for row in result["records"])
+        result["processing_complete"] = True
+        result["cloud_errors"] = sum(bool(row.get("error")) for row in result["records"])
         atomic_json(output, result)
         return 0
     answerer = TextGenerator(profile)
@@ -403,6 +419,7 @@ def _main() -> int:
                   "catalog_expected_answer": probe.get("catalog_expected_answer", probe.get("expected_answer")),
                   "label_review": probe.get("review"),
                   "development_repeat": probe.get("development_repeat"),
+                  "memory_processing": probe.get("memory_processing"),
                   "gold_source_complete": True, "gold_turn_text": source_text,
                   "gold_source_storage": {
                       str(gold["turn"]): next((probe.get("source_storage_at_cutoff", {}).get(source_id)
@@ -421,31 +438,59 @@ def _main() -> int:
                   "prompt_evidence_support": "unreviewed",
                   "answer_memory_use": "not_inferred_from_correctness_or_source_presence",
                   "answer": "", "error": None}
-        try:
-            answer = answerer.generate(
-                stage["prompt_messages"], **decoding,
-                session_id=f"ice-v3-z1-{args.arm}-{probe['probe_id']}")
-            record.update(answer=answer.text, usage=answer.usage,
-                          response_id=answer.response_id,
-                          answer_completion_status=getattr(answer, "completion_status", None))
-            if not answer.text:
-                raise RuntimeError("cloud answer was empty")
-        except Exception as exc:
-            record["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
-            record["error_type"] = type(exc).__name__
-            record["error_status"] = getattr(exc, "status_code", None)
-        result["records"] = [r for r in result["records"]
-                             if r["probe_id"] != probe["probe_id"]] + [record]
-        atomic_json(output, result)
+        attempt = prior.get("cloud_attempts", 0) if prior and args.failure_policy == "continue" and answer_fault(prior) else 0
+        while True:
+            attempt += 1
+            record["cloud_attempts"] = attempt
+            if args.failure_policy == "continue":
+                # A killed in-flight request has unknown outcome. Reserve its
+                # attempt before sending, so resume cannot exceed the call cap.
+                record.update(answer="", error="Unconfirmed cloud request: no response recorded",
+                              error_type="UnconfirmedCloudCall", error_status=None)
+                result["records"] = [r for r in result["records"] if r["probe_id"] != probe["probe_id"]] + [dict(record)]
+                atomic_json(output, result)
+            try:
+                answer = answerer.generate(
+                    stage["prompt_messages"], **decoding,
+                    session_id=f"ice-v3-z1-{args.arm}-{probe['probe_id']}")
+                if not answer.text:
+                    raise CloudCompletionError("cloud answer was empty")
+                record.update(answer=answer.text, usage=answer.usage, error=None,
+                              response_id=answer.response_id,
+                              answer_completion_status=getattr(answer, "completion_status", None))
+            except Exception as exc:
+                record.update(answer="", error=f"{type(exc).__name__}: {str(exc)[:200]}",
+                              error_type=type(exc).__name__, error_status=getattr(exc, "status_code", None))
+                if args.failure_policy == "continue" and answer_fault(record) and attempt >= 2:
+                    record["fault_disposition"] = "degraded_final"
+            result["records"] = [r for r in result["records"] if r["probe_id"] != probe["probe_id"]] + [dict(record)]
+            atomic_json(output, result)
+            if (record["error"] and args.failure_policy == "continue" and answer_fault(record) and attempt < 2):
+                result.setdefault("failed_attempts", []).append(dict(record))
+                atomic_json(output, result)
+                print(f"WARNING: v3 answer {index} model retry {attempt}/2 ({record['error_type']})", flush=True)
+                time.sleep(2)
+                continue
+            break
         print(f"{index}/{len(probes)} {probe['probe_id']} "
               f"{'failed' if record['error'] else 'answered'}", flush=True)
-        if record["error"]:
+        if record["error"] and not (args.failure_policy == "continue" and terminal_answer_fault(record)):
             raise RuntimeError(record["error"])
+        result["cloud_fault_streak"] = result.get("cloud_fault_streak", 0) + 1 if record["error"] else 0
+        result["operator_required"] = result["cloud_fault_streak"] >= 3
+        atomic_json(output, result)
+        if result["operator_required"]:
+            raise RuntimeError("three successive exhausted cloud answers; outage pause with saved records")
     result["complete"] = (len(result["records"]) == len(probes)
                           and all(r.get("answer") and not r.get("error")
                                   for r in result["records"]))
     atomic_json(output, result)
-    return 0 if result["complete"] else 1
+    result["processing_complete"] = (len(result["records"]) == len(probes)
+        and all((r.get("answer") and not r.get("error")) or
+                (args.failure_policy == "continue" and terminal_answer_fault(r)) for r in result["records"]))
+    result["cloud_errors"] = sum(bool(r.get("error")) for r in result["records"])
+    atomic_json(output, result)
+    return 0 if result["processing_complete"] else 1
 
 
 def main() -> int:

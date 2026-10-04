@@ -135,7 +135,9 @@ def initialize(root: Path) -> dict:
     value = {"format": "ice-v3-manual-campaign-1", "campaign_id": identity,
              "database": "ice_v3_campaign_" + identity[:16],
              "snapshot_arm": "manual-v3-" + identity,
-             "answer_profile": "opencode-luna6", "checkpoint_every": 10,
+             "answer_profile": "opencode-luna6", "checkpoint_every": 1,
+             "worker_failure_policy": "continue",
+             "cloud_failure_policy": "continue",
              "background_model": "gemma4:e4b",
              "codex_extraction_model": "hf.co/numind/NuExtract3-GGUF:Q8_0",
              "probe_panel": "existing"}
@@ -153,6 +155,8 @@ def read_config(root: Path) -> dict:
             or config.get("database") != "ice_v3_campaign_" + identity[:16]
             or config.get("snapshot_arm") != "manual-v3-" + identity
             or type(config.get("checkpoint_every")) is not int or config["checkpoint_every"] < 1
+            or config.get("worker_failure_policy", "strict") not in {"strict", "continue"}
+            or config.get("cloud_failure_policy", "strict") not in {"strict", "continue"}
             or config.get("answer_profile") not in PROFILES
             or not isinstance(config.get("background_model"), str) or not config["background_model"].strip()
             or not isinstance(config.get("codex_extraction_model"), str) or not config["codex_extraction_model"].strip()
@@ -303,6 +307,9 @@ def campaign_report(root: Path, config: dict) -> dict:
             data = json.loads(path.read_text())
             receipt.update({key: data.get(key) for key in
                             ("complete", "complete_corpus_replay", "judge_status", "score_of_record", "question_families",
+                             "memory_processing", "worker_degradation",
+                             "memory_processing_strata",
+                             "processing_complete", "cloud_errors", "cloud_failure_policy",
                              "calibration_status", "paired_prompt_cost", "absolute_by_type",
                              "reviewed_outcome_strata", "retention_comparison", "order_checks") if key in data})
             receipt["records"] = len(data.get("records", data.get("results", [])))
@@ -388,7 +395,7 @@ def execute(root: Path, config: dict, stage: str) -> int:
                         "failure": evidence, "log": str(log_path), "progress_retained": True})
                     raise
                 delay = RETRY_DELAYS[attempt]
-                print(f"v3 {current} {arm}: recoverable failure; retry {attempt + 2}/3 in {delay}s, saved progress retained",
+                print(f"v3 {current} {arm}: recoverable failure; retry {attempt + 2}/{len(RETRY_DELAYS) + 1} in {delay}s, saved progress retained",
                       flush=True)
                 time.sleep(delay)
                 path = failure_path(root, current, arm)
@@ -408,6 +415,7 @@ def execute(root: Path, config: dict, stage: str) -> int:
         try:
             if current == "seed":
                 call("seed_v3.py", ["--out", str(trace), "--checkpoint-every", str(config["checkpoint_every"]),
+                    "--worker-failure-policy", config.get("worker_failure_policy", "strict"),
                                      "--probe-panel", config["probe_panel"],
                                      *repeat_arguments(root),
                                      *(["--resume"] if trace.exists() else [])])
@@ -417,6 +425,7 @@ def execute(root: Path, config: dict, stage: str) -> int:
                 for arm in ("full", "no_codex", "vector_only", "recent_only"):
                     out = root / f"answers-{arm}.json"
                     call("answer_as_of.py", ["--trace", str(trace), "--out", str(out), "--arm", arm,
+                         "--failure-policy", config.get("cloud_failure_policy", "strict"),
                          "--profile", config["answer_profile"],
                          "--validated-probes", str(root / "labels-source-linked.json"),
                          "--validated-native-sources", str(root / "labels-native.json"),
@@ -426,6 +435,7 @@ def execute(root: Path, config: dict, stage: str) -> int:
                 for arm in ("no_codex", "vector_only", "recent_only"):
                     out = root / f"judge-full-vs-{arm}.json"
                     call("judge_answers.py", ["--a", str(root / "answers-full.json"),
+                         "--failure-policy", config.get("cloud_failure_policy", "strict"),
                          "--b", str(root / f"answers-{arm}.json"), "--out", str(out),
                          *(["--resume"] if out.exists() or out.with_suffix(".partial.json").exists() else [])], arm=arm)
             elif current == "report":

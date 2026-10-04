@@ -23,6 +23,10 @@ from typing import Any
 MAIN_ENV = Path(__file__).resolve().parents[2] / ".env"
 
 
+class CloudCompletionError(RuntimeError):
+    """A returned cloud response is incomplete or empty, not an answer."""
+
+
 class ProviderAccessError(RuntimeError):
     """Authentication/quota failure that requires operator action before retry."""
 
@@ -304,7 +308,7 @@ class TextGenerator:
                 response = self.client.chat.completions.create(**request)
                 completion_status = _field(response.choices[0], "finish_reason")
                 if completion_status is not None and completion_status != "stop":
-                    raise RuntimeError(f"cloud answer completion was not successful: {completion_status}")
+                    raise CloudCompletionError(f"cloud answer completion was not successful: {completion_status}")
                 text = (response.choices[0].message.content or "").strip()
             elif self.profile.endpoint == "responses":
                 request = dict(
@@ -319,7 +323,7 @@ class TextGenerator:
                 response = self.client.responses.create(**request)
                 completion_status = _field(response, "status")
                 if completion_status is not None and completion_status != "completed":
-                    raise RuntimeError(f"cloud answer completion was not successful: {completion_status}")
+                    raise CloudCompletionError(f"cloud answer completion was not successful: {completion_status}")
                 text = _responses_text(response)
             else:
                 raise ValueError(

@@ -46,6 +46,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from scripts.z1.development_repeats import retention_comparison
+from scripts.z1.cloud_recovery import POLICY as CLOUD_POLICY, judge_fault, terminal_answer_fault, terminal_judge_fault
 from scripts.z1.label_review import KNOWLEDGE_SCOPES, TASK_TYPES, question_family_counts
 from scripts.z1.replay_checkpoint import atomic_json
 
@@ -429,6 +430,21 @@ def reviewed_outcome_strata(results: list[dict]) -> dict:
             "task_types": {key: summarize(rows) for key, rows in tasks.items()}}
 
 
+def processing_outcome_strata(results):
+    groups = {key: [] for key in ("clean", "degraded_gold", "degraded_other", "unrecorded")}
+    for row in results:
+        health = row.get("memory_processing") or {}
+        key = ("degraded_gold" if health.get("degraded_gold_turns") else
+               "degraded_other" if health.get("status") == "degraded" else
+               "clean" if health.get("status") == "clean" else "unrecorded")
+        groups[key].append(row)
+    return {key: {"occurrences": len(rows),
+            "judge_errors": sum(r.get("winner") == "ERROR" for r in rows),
+            "arm_a_grades": dict(Counter(r.get("arm_a_grade") or "ungraded" for r in rows)),
+            "arm_b_grades": dict(Counter(r.get("arm_b_grade") or "ungraded" for r in rows))}
+            for key, rows in groups.items()}
+
+
 def _main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--a", required=True, help="arm 1 answers json")
@@ -438,6 +454,7 @@ def _main() -> int:
     ap.add_argument("--tag", default="judge")
     ap.add_argument("--out", type=Path, help="stable private output under logs/ for a manual campaign")
     ap.add_argument("--resume", action="store_true", help="reuse completed pairs and a saved first order")
+    ap.add_argument("--failure-policy", choices=("strict", "continue"), default="strict")
     args = ap.parse_args()
     if args.limit < 0:
         raise ValueError("judge limit cannot be negative")
@@ -446,9 +463,15 @@ def _main() -> int:
     da, db = json.loads(a_bytes), json.loads(b_bytes)
     name_a, name_b = da.get("tag", "A"), db.get("tag", "B")
     is_v3 = da.get("version") == "v3" or db.get("version") == "v3"
+    tolerant = is_v3 and args.failure_policy == "continue"
+    def processed(data):
+        return data.get("complete") or (tolerant and data.get("processing_complete")
+            and data.get("cloud_failure_policy") == "continue"
+            and data.get("cloud_recovery_policy") == CLOUD_POLICY
+            and all((r.get("answer") and not r.get("error")) or terminal_answer_fault(r) for r in data["records"]))
     if is_v3:
         if (da.get("version") != db.get("version")
-                or not da.get("complete") or not db.get("complete")
+                or not processed(da) or not processed(db)
                 or not da.get("trace_sha256")
                 or da["trace_sha256"] != db.get("trace_sha256")
                 or da.get("seed_clock_policy") != db.get("seed_clock_policy")
@@ -486,7 +509,9 @@ def _main() -> int:
     for left, right in pairs:
         if (left.get("error") or right.get("error") or not left.get("answer")
                 or not right.get("answer")):
-            raise ValueError("Answer arm contains a failed or empty answer")
+            if not tolerant or any((r.get("error") or not r.get("answer")) and not terminal_answer_fault(r)
+                                   for r in (left, right)):
+                raise ValueError("Answer arm contains a failed or empty answer")
         if (left.get("answer_model") != right.get("answer_model")
                 or left.get("answer_profile") != right.get("answer_profile")):
             raise ValueError("Answer arms used different answering models")
@@ -515,10 +540,11 @@ def _main() -> int:
     rng = random.Random(args.seed)
     results = []
     judge_identity = {"judge_model": _env("PROBE_MODEL"),
+                      "cloud_failure_policy": args.failure_policy, "cloud_recovery_policy": CLOUD_POLICY,
                       "judge_base_url": (_env("PROBE_API_BASE_URL") or "").rstrip("/"),
                       "judge_decoding": {"temperature": 0, "max_tokens": 16000,
                                          "reasoning_effort_sent": False, "reasoning_policy": "provider_default",
-                                         "api_attempts_per_order": 1 if is_v3 else 3},
+                                         "api_attempts_per_order": 2 if tolerant else 1 if is_v3 else 3},
                       "calibration_status": "qualification_pending" if is_v3 else "legacy_not_asserted",
                       "score_of_record": False,
                       "judge_prompt_version": "v3_expected_answer_absolute_and_paired"
@@ -529,7 +555,8 @@ def _main() -> int:
                       "seed_clock_policy": da.get("seed_clock_policy"),
                       "judge_rubric_sha256": hashlib.sha256(
                           (SYSTEM_V3 if is_v3 else SYSTEM).encode()).hexdigest(),
-                      "judge_implementation_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+                      "judge_implementation_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                      "cloud_recovery_sha256": hashlib.sha256(Path(__file__).with_name("cloud_recovery.py").read_bytes()).hexdigest()}
     global STAMP, PARTIAL
     STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     path = args.out or OUT / f"{STAMP}_{args.tag}.json"
@@ -547,6 +574,7 @@ def _main() -> int:
     PARTIAL = path.with_suffix(".partial.json")
     pending = None
     attempts = []
+    call_ledger = []
     previous = PARTIAL if PARTIAL.exists() else path
     if previous.exists():
         if not args.resume:
@@ -556,8 +584,9 @@ def _main() -> int:
             raise ValueError("judge inputs, model, rubric, code or sample changed; refusing resume")
         results = saved.get("results", [])
         attempts = saved.get("failed_attempts", [])
+        call_ledger = saved.get("cloud_attempts", [])
         pending = saved.get("pending_probe")
-        if results and results[-1]["winner"] == "ERROR":
+        if results and results[-1]["winner"] == "ERROR" and not (tolerant and terminal_judge_fault(results[-1])):
             failed = results.pop()
             if len(results) >= len(pairs) or any(failed.get(k) != pairs[len(results)][0].get(k)
                     for k in ("probe_id", "conversation", "split_turn", "question")):
@@ -571,11 +600,29 @@ def _main() -> int:
                                "first_order": first}
         if len(results) > len(pairs):
             raise ValueError("saved judge has undeclared pairs")
-        for row, (left, _) in zip(results, pairs):
+        for row, (left, right) in zip(results, pairs):
             if any(row.get(k) != left.get(k) for k in
-                   ("probe_id", "conversation", "split_turn", "question")) or row["winner"] == "ERROR":
+                   ("probe_id", "conversation", "split_turn", "question")) or (row["winner"] == "ERROR" and not (tolerant and terminal_judge_fault(row))):
                 raise ValueError("saved judge pair order or identity differs")
             if is_v3:
+                if tolerant and terminal_judge_fault(row):
+                    if row.get("arm_a_grade") is not None or row.get("arm_b_grade") is not None:
+                        raise ValueError("terminal cloud error cannot have answer grades")
+                    if row["reason"] == "answer_failed" and not any(terminal_answer_fault(r) for r in (left, right)):
+                        raise ValueError("saved ungraded pair has no failed input answer")
+                    raw = [order.get("raw") for order in row.get("order_verdicts", [])]
+                    if (not 1 <= len(raw) <= 2 or any(not isinstance(value, dict) or
+                            (value.get("verdict") == "ERROR" and not (judge_fault(value) or
+                             value.get("reason") == "answer_failed" and row["reason"] == "answer_failed")) or
+                            (value.get("verdict") != "ERROR" and validate_verdict(value, absolute=True)["verdict"] == "ERROR")
+                            for value in raw)):
+                        raise ValueError("saved terminal error has malformed order receipts")
+                    combined = combine_orders(raw[0], raw[1] if len(raw) == 2 else None,
+                        a_is_first=row["a_was_first"], name_a=name_a, name_b=name_b)
+                    if any(row.get(key) != combined[key] for key in
+                           ("winner", "reason", "arm_a_grade", "arm_b_grade", "relative_order_consistent", "absolute_order_consistent")):
+                        raise ValueError("saved terminal error disagrees with raw orders")
+                    continue
                 orders = row.get("order_verdicts") or []
                 if len(orders) != 2:
                     raise ValueError("saved v3 pair lacks both raw orders")
@@ -592,6 +639,7 @@ def _main() -> int:
             attempts.append(pending)
             pending = None
 
+    operator_required = False
     for i, ((ra, rb), source) in enumerate(zip(pairs, sources), 1):
         # Randomise the slot so position bias cannot align with an arm.
         a_is_first = rng.random() < 0.5
@@ -605,7 +653,46 @@ def _main() -> int:
         judge_kwargs = ({"expected_answer": expected, "question_time": question_time,
                          "session_id": f"ice-z1-{da['trace_sha256'][:24]}-{ra['conversation']}"}
                         if da.get("version") == "v3" else {})
-        if pending:
+        answer_failed = tolerant and (ra.get("error") or rb.get("error"))
+
+        def judge_call(order, left, right, first_order=None):
+            if not tolerant:
+                return judge_one(ra["question"], source, left["answer"], right["answer"], **judge_kwargs)
+            previous = [r for r in call_ledger if r.get("kind") == "cloud_order_attempt"
+                        and r.get("probe_id") == ra["probe_id"] and r.get("order") == order]
+            if previous and previous[-1]["raw"]["verdict"] != "ERROR":
+                return previous[-1]["raw"]
+            if previous and previous[-1]["attempt"] == 2 and judge_fault(previous[-1]["raw"]):
+                return {**previous[-1]["raw"], "cloud_attempts": 2}
+            start = previous[-1]["attempt"] if previous and judge_fault(previous[-1]["raw"]) else 0
+            for attempt in range(start + 1, 3):
+                reservation = {"kind": "cloud_order_attempt", "probe_id": ra["probe_id"],
+                               "order": order, "attempt": attempt,
+                               "raw": {"verdict": "ERROR", "reason": "unconfirmed_call", "cloud_attempts": attempt}}
+                call_ledger.append(reservation)
+                def save_call_state():
+                    atomic_json(PARTIAL, {**judge_identity, "results": results,
+                        "failed_attempts": attempts, "cloud_attempts": call_ledger,
+                        "pending_probe": ({"probe_id": ra["probe_id"],
+                            "a_was_first": a_is_first, "first_order": first_order} if first_order else None)})
+                save_call_state()
+                raw = judge_one(ra["question"], source, left["answer"], right["answer"], **judge_kwargs)
+                if raw["verdict"] != "ERROR":
+                    reservation["raw"] = raw
+                    save_call_state()
+                    return raw
+                raw = {**raw, "cloud_attempts": attempt}
+                reservation["raw"] = raw
+                save_call_state()
+                if not judge_fault(raw) or attempt == 2:
+                    return raw
+                print(f"WARNING: v3 judge {i} order {order} model retry {attempt}/2 ({raw['reason']})", flush=True)
+                time.sleep(2)
+
+        if answer_failed:
+            v = {"verdict": "ERROR", "reason": "answer_failed", "note": "An answer is unavailable; pair ungraded"}
+            pending = None
+        elif pending:
             if pending["probe_id"] != ra["probe_id"] or pending["a_was_first"] != a_is_first:
                 raise ValueError("saved pending order differs from the paired shuffle")
             v = validate_verdict(pending["first_order"], absolute=is_v3)
@@ -613,9 +700,7 @@ def _main() -> int:
                 raise ValueError("saved first order is malformed")
             pending = None
         else:
-            v = judge_one(ra["question"], source,
-                          first.get("answer", ""), second.get("answer", ""),
-                          **judge_kwargs)
+            v = judge_call(0, first, second)
         order_fields = {}
         if is_v3:
             OUT.mkdir(parents=True, exist_ok=True)
@@ -625,11 +710,11 @@ def _main() -> int:
                 "trace_sha256": da.get("trace_sha256"), "judged": len(results),
                 "of": len(pairs), "results": results,
                 "reviewed_outcome_strata": reviewed_outcome_strata(results),
+                "memory_processing_strata": processing_outcome_strata(results),
                 "retention_comparison": retention_comparison(results),
                 "pending_probe": {"probe_id": ra["probe_id"], "a_was_first": a_is_first,
-                                  "first_order": v}, "failed_attempts": attempts})
-            reverse = (judge_one(ra["question"], source, second["answer"], first["answer"],
-                                 **judge_kwargs) if v["verdict"] != "ERROR" else None)
+                                  "first_order": v}, "failed_attempts": attempts, "cloud_attempts": call_ledger})
+            reverse = judge_call(1, second, first, v) if v["verdict"] != "ERROR" else None
             combined = combine_orders(v, reverse, a_is_first=a_is_first,
                                       name_a=name_a, name_b=name_b)
             order_fields = {key: combined[key] for key in
@@ -659,6 +744,7 @@ def _main() -> int:
                         "probe_type": ra.get("probe_type", "untyped"),
                         "label_review": ra.get("label_review"),
                         "development_repeat": ra.get("development_repeat"),
+                        "memory_processing": ra.get("memory_processing"),
                         "gold_turns": ra.get("gold_turns"),
                         "question_time": ra.get("question_time"),
                         "winner": arm, "reason": v["reason"],
@@ -670,6 +756,15 @@ def _main() -> int:
                         "arm_a_gold_fragment_coverage": ra.get("gold_fragment_coverage") or {},
                         "arm_b_gold_fragment_coverage": rb.get("gold_fragment_coverage") or {},
                         **grades, **order_fields})
+        if tolerant and arm == "ERROR" and (answer_failed or any(judge_fault(order["raw"])
+                and order["raw"].get("cloud_attempts") == 2 for order in order_fields.get("order_verdicts", []))):
+            results[-1]["fault_disposition"] = "degraded_final"
+        streak = 0
+        for row in reversed(results):
+            if row["winner"] != "ERROR" or row.get("reason") == "answer_failed":
+                break
+            streak += 1
+        operator_required = tolerant and streak >= 3
         print(f"  {i}/{len(pairs)}  {ra.get('probe_type','?'):18s} "
               f"{arm:26s} {v['reason']}", flush=True)
         # ⚑ Written after EVERY probe, not at the end. This run can be killed by
@@ -684,9 +779,13 @@ def _main() -> int:
              "trace_sha256": da.get("trace_sha256"), "judged": len(results),
              "question_families": question_family_counts([r.get("label_review") or {} for r in results]),
              "reviewed_outcome_strata": reviewed_outcome_strata(results) if is_v3 else None,
+             "memory_processing_strata": processing_outcome_strata(results) if is_v3 else None,
              "retention_comparison": retention_comparison(results) if is_v3 else None,
-             "of": len(pairs), "results": results, "failed_attempts": attempts})
-        if arm == "ERROR":
+             "of": len(pairs), "results": results, "failed_attempts": attempts, "cloud_attempts": call_ledger})
+        if operator_required:
+            saved = json.loads(PARTIAL.read_text())
+            atomic_json(PARTIAL, {**saved, "operator_required": True})
+        if arm == "ERROR" and (not tolerant or not terminal_judge_fault(results[-1]) or operator_required):
             break
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -707,18 +806,23 @@ def _main() -> int:
                                 "trace_sha256": da.get("trace_sha256"),
                                 "complete": not args.limit and len(results) == len(pairs)
                                 and all(r["winner"] != "ERROR" for r in results),
+                                "processing_complete": not args.limit and len(results) == len(pairs)
+                                and all(r["winner"] != "ERROR" or (tolerant and terminal_judge_fault(r)) for r in results),
+                                "cloud_errors": sum(r["winner"] == "ERROR" for r in results),
+                                "operator_required": operator_required,
                                 "development_partial": bool(args.limit or da.get("development_partial")),
                                 "paired_prompt_cost": token_summary,
                                 "question_families": question_family_counts([r.get("label_review") or {} for r in results]),
                                 "absolute_by_type": absolute_by_type,
                                 "reviewed_outcome_strata": reviewed_outcome_strata(results) if is_v3 else None,
+                                "memory_processing_strata": processing_outcome_strata(results) if is_v3 else None,
                                 "retention_comparison": retention_comparison(results) if is_v3 else None,
                                 "order_checks": ({"pairs": len(results),
                                     "relative_consistent": sum(r["relative_order_consistent"] for r in results),
                                     "absolute_consistent": sum(r["absolute_order_consistent"] for r in results),
                                     "uncertain_preferences": sum(r["winner"] == "UNCERTAIN" for r in results)}
                                     if is_v3 else None),
-                                "results": results, "failed_attempts": attempts})
+                                "results": results, "failed_attempts": attempts, "cloud_attempts": call_ledger})
 
     print("\n" + "=" * 66)
     print("VERDICT BY PROBE TYPE")
@@ -743,7 +847,7 @@ def _main() -> int:
         for name, field in ((name_a, "arm_a_grade"), (name_b, "arm_b_grade")):
             print(f"{name} absolute grades: {dict(Counter(r[field] for r in results))}")
     print(f"\nwrote {path}")
-    return 1 if any(r["winner"] == "ERROR" for r in results) else 0
+    return 1 if any(r["winner"] == "ERROR" and not (tolerant and terminal_judge_fault(r)) for r in results) or operator_required else 0
 
 
 def main() -> int:
