@@ -154,10 +154,12 @@ Current **ICE v3** has a [manual development campaign and measurement
 guide](docs/reviews/2026-10-01-v3-manual-campaign.md): one resumable entry point
 for chronological replay, frozen cloud answers and both-order judging, with
 live terminal progress and separate processed/durable checkpoints. Temporary
-failures get bounded checkpoint recovery; persistent errors pause with saved
-artifacts and an explicit reason. It requires reviewed ground truth and remains
-diagnostic while judge qualification
-and output-specific quality checks are pending. Its harness checks are not new
+model failures get bounded retries; isolated exhausted failures remain visible
+as degraded memory or ungraded cloud errors while later questions continue.
+Repeated outages and integrity/configuration errors pause with saved artifacts.
+New bundles checkpoint every completed turn. It requires reviewed ground truth
+and remains diagnostic while judge qualification and output-specific quality
+checks are pending. Its harness checks are not new
 memory-quality results and do not replace the frozen-v2 findings above.
 
 ```

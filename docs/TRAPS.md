@@ -2058,6 +2058,17 @@ an old extraction error beside a new identity refusal must never authorize it.
 Bound retries and retain attempts. A persistent pause is not successful work,
 and suppressing its exception would falsify the experiment.
 
+**v3 recurrence, 2026-10-04:** turn80 copied only the first letter's case;
+replaying the same failure three times wasted a prefix. Normalize only for
+source-copy lookup, return original bytes, and isolate complete typed unsupported
+proposals instead of poisoning the entire batch. Keep malformed/truncated calls
+as actual failures. An original remaining retrievable does not assert its model
+proposal is correct. Distinguish an isolated model failure from an integrity
+failure and from a repeated outage: retain degraded source/job receipts,
+checkpoint before outage pause, and report every planned case. Cloud unconfirmed
+requests also consume a durably reserved attempt; interruption must not reset
+billing/retry caps. An ungraded ERROR is neither a wrong answer nor a clean tie.
+
 ### 84. Model cleanup and cancellation boundaries can stall healthy memory work
 
 **v3,2026-10-03.** Native source-proof calls requested `keep_alive=0` despite

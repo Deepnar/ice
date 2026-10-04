@@ -38,12 +38,27 @@ estimated prompt costs, source presence, missing phases and errors. The recent
 phase is a separate control; this does not run full semi-LSREP.
 See the [manual guide and complete measurement matrix](../../docs/reviews/2026-10-01-v3-manual-campaign.md).
 
-**v3 manual-crash repair, 2026-10-03:** the original manual attempt stopped on
+**Current v3 repair, 2026-10-04:** r3 twice failed at turn80 on a capitalized
+source quote. Matching now uses case/whitespace-normalized comparison while
+storing original bytes. Unsupported quoted rows cannot write graph edges;
+their original source remains searchable. The campaign allows TWO total
+child attempts. New manual bundles tolerate isolated exhausted model calls:
+two post-flight/cloud attempts, one periodic-job attempt per due cadence,
+original evidence retained and explicit degraded/ungraded records. Three
+successive exhausted invocations pause as an outage; integrity, unknown and
+quota/authentication faults require an operator. Failed answers are never
+judged or graded as ties. `processing_complete` and successful `complete` are
+separate; report counts and gold-turn fault strata keep errors visible.
+New bundles checkpoint every completed turn (actual70-turn copy4.21/4.12s per
+snapshot; larger-store cost unmeasured). Use the fresh `logs/z1-v3-manual-2026-10-04-r4`;
+reviewed packet bytes are reused, not relabeled. Older checkpoints remain
+preserved and cannot resume with changed writer code.
+
+**Earlier v3 manual-crash repair, 2026-10-03:** the original manual attempt stopped on
 turn4 with a valid source-only sentence and nullable relation/object fields.
 The repaired parser retains that exact attributed sentence without a graph
-edge. The original bundle/store/identity are preserved. Use the already prepared
-`logs/z1-v3-manual-2026-10-03-r3` with the same reviewed packet bytes; do not
-reinitialize or bypass the old checkpoint's writer hash. The manual entry point
+edge. The original bundle/store/identity are preserved. Do not bypass an old
+checkpoint's writer hash. The manual entry point
 now shows stage/arm bars, processed versus durable turns, checkpoint probes,
 saved answers and judge orders, plus concise failure/log notices. Explicitly
 truncated provider answers/verdicts remain failures with resumable earlier work.

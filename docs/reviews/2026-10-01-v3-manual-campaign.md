@@ -3,10 +3,13 @@
 This is the current execution guide. The [whole-process audit and 29-item
 evidence map](2026-09-29-v3-reseed-harness-audit.md) owns the remaining research
 questions; [reseed spec](../specs/RESEED_PLAN.md) owns the execution contract.
-The first manual seed attempt stopped on turn4; r2 then stopped on turn54 after
-53 processed turns and a51-turn durable checkpoint. Its source-only quote had
-collapsed whitespace. Both attempts are preserved; no full campaign is complete.
-The r3 restart bundle is prepared with identical reviewed labels, not launched.
+The first manual seed attempt stopped on turn4; r2 then stopped on turn54.
+R3 twice failed at turn80 because a copied clause began with a capital letter;
+its durable70 checkpoint and failed tails are preserved. Its third automatic
+attempt was stopped gracefully for repair. No full campaign is complete.
+The r4 restart bundle reuses identical reviewed labels. Source matching now
+normalizes case/whitespace for comparison and keeps original bytes. Unresolved
+quotes are withheld from graph writes while original source evidence survives.
 The [fault audit](2026-10-03-v3-campaign-fault-audit.md) records the repairs and
 their validation. The runner is a
 development instrument, and completion does not prove all memory-quality work
@@ -130,7 +133,7 @@ The historical fresh migration chain is unqualified: a development check fails
 while dropping an absent old vector index. This is an installation question,
 not a reason to run the measurement against a different schema.
 
-The active private bundle is `logs/z1-v3-manual-2026-10-03-r3`, already initialized
+The active private bundle is `logs/z1-v3-manual-2026-10-04-r4`, already initialized
 with byte-identical reviewed labels and repeat controls from the original
 `logs/z1-v3-manual-2026-10-01`. It contains all 124 source-linked review candidates
 and 131 native source-mapping reviews. Do not initialize it again.
@@ -173,7 +176,7 @@ uv run python scripts/z1/run_v3_campaign.py --run-dir logs/my-v3-run --init
 Status is the default and makes no cloud request:
 
 ```bash
-uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-03-r3
+uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-04-r4
 ```
 
 The existing bundle has passed label admission; cloud configuration is present.
@@ -182,7 +185,7 @@ exists; this is expected and does not mean source reviews remain pending.
 Execute or resume everything:
 
 ```bash
-uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-03-r3 --run
+uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-04-r4 --run
 ```
 
 The command runs **seed → snapshot → answers → judge → report**. It invokes
@@ -198,16 +201,37 @@ checkpoint. Snapshot/report display elapsed work without inventing a percentage.
 The phase is the last saved observable event, so a model call can run while the
 counter stays still. Detailed logs remain separate; redirected output receives
 plain changed-state/heartbeat lines. Optional detailed log view:
-`tail -f logs/z1-v3-manual-2026-10-03-r3/seed_v3.log`.
+`tail -f logs/z1-v3-manual-2026-10-04-r4/seed_v3.log`.
 On failure or Ctrl+C, the parent retains state and prints the relevant log path
 or interruption notice. With unchanged inputs/code/settings, rerun the same
 command; the observer reads retained/restored progress without double-counting.
-Explicit truncated/noncompleted provider responses are saved as failures, even
-if they contain plausible text or a parseable judge verdict. Successful earlier
-calls/orders remain reusable; this is not a promise of a failure-free long run.
-Known local extraction/completion or transient connection/server failures now
-get two bounded retries after2/8 seconds. Seed retry restores its verified
-checkpoint first; it never retries maintenance against a partly modified store.
+Explicit truncated/noncompleted provider responses are failures even if their
+prefix looks plausible. New bundles use `worker_failure_policy=continue` and
+`cloud_failure_policy=continue`; standalone commands remain strict by default.
+Idempotent post-flight gets two local attempts, then retains the original and
+successful derivatives with a degraded receipt and proceeds. Periodic jobs get
+one attempt per due cadence; committed changes are recorded and failed cadence
+does not claim success. Three consecutive degraded invocations of one worker
+checkpoint the current turn, then pause as an outage. Original-turn completion
+does not claim complete derivative processing.
+Cloud answering and each judge order get two attempts, reserved durably before
+requesting so interruption cannot silently reset the cap. Isolated exhausted
+errors remain terminal ungraded rows; later questions proceed. Failed-answer
+pairs need no judge call. Three successive failed cloud questions pause; quota/
+authentication/unknown errors pause immediately. `processing_complete` means all
+questions attempted; `complete` requires all successful. Errors remain in
+planned denominators, never ties or incorrect grades. Reports separate clean,
+degraded-gold and other degraded prefixes, with metadata kept out of prompts.
+The coordinator itself permits TWO total child attempts for eligible fresh
+failures; seed retry restores its verified checkpoint before replay. This is
+bounded recovery, not a promise that a long run cannot fail.
+New bundles save after every completed turn, retaining current/prior recovery
+generations plus question snapshots. A failed turn therefore does not require
+repeating ten successful turns. This adds store-dependent snapshot overhead;
+the standalone seeder's default remains ten unless explicitly configured.
+Actual copied70-turn store checkpoints took4.21/4.12s at17.45MB, verifying every
+table/hash and restoring the synthetic71st turn. Snapshot cost grows with the
+store; this is not final-store performance qualification.
 Every attempt is saved in `campaign-attempts.jsonl`. Persistent failures leave
 `campaign-pause.json`, with no later stage running. Cloud quota/authentication,
 identity/configuration, resource and unknown failures require review instead
@@ -216,11 +240,11 @@ The seeder releases its owned models when it exits; native proof/need calls keep
 their model between calls instead of unloading it every time. Provider load and
 evaluation durations and background-call wall times are logged.
 
-The corrected production writer changes replay identity. **Use r3 for this
-restart**, beginning from turn1; do not resume r2 with altered code or edit its
-51-turn manifest. The old checkpoint remains usable with its original frozen
-writer, but cannot certify the corrected system. Subsequent interruptions of r3
-use the same r3 command with unchanged code/settings/models/inputs.
+The corrected production writer changes replay identity. **Use r4 for this
+restart**, beginning from turn1; do not resume r3 with altered code or edit its
+70-turn manifest. The old checkpoint remains usable with its original frozen
+writer, but cannot certify the corrected system. Subsequent interruptions of r4
+use the same r4 command with unchanged code/settings/models/inputs.
 Combined execution checks packet corpus/catalog identity and source bounds
 before starting replay, then checks the complete trace and labels again before
 cloud calls. Marking a malformed review `valid` does not make it ready to run.

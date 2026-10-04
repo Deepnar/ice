@@ -1,3 +1,83 @@
+## 2026-10-04 — v3 turn 80 source copying and isolated-failure recovery
+
+R3 failed twice at turn 80 after restoring its 70-turn checkpoint. The third
+campaign-only attempt was stopped gracefully with SIGINT after verifying its
+process group; its interruption receipt and old manifests remain unchanged.
+Actual local role-unit capture reproduced one user/32 assistant NuExtract rows
+in 29.467 s: 31 assistant quotes literal, one 212-character quote differing only by
+first-letter capitalization (211 remaining characters exact). Private receipt:
+`logs/z1-turn80-actual-extraction-2026-10-04.json`; raw source stays ignored.
+An initial generic similarity matcher obscured the localized difference; direct
+inspection of the actual source and copied quote established the cause.
+
+Shared v3 comparison now resolves unique case/whitespace copies back to original
+bytes. Unsupported typed proposals are isolated before graph writes, preserving
+original chunk evidence; malformed/incomplete executions still fail. Saved
+actual completions through production parser/writer/reader/NLI stored 33 exact
+original claims, 20 source-supported edges and withheld two unknown relations
+in 20.458 s. Original case was stored/retrieved. Private receipt:
+`logs/z1-turn80-writer-control-2026-10-04.json`. This is one regression control,
+not independent graph truth, answer quality or a new corpus measurement.
+
+New manual worker/cloud continue policies retain isolated model faults as
+explicit degraded sources/ungraded ERRORs. Post-flight/cloud calls have two
+attempts; periodic jobs get one per due cadence because commits may be partial.
+Three successive degraded worker/cloud invocations pause; source/schema/DB/
+identity/preflight/probe/unknown/access failures remain controlled pauses.
+Original-turn coverage, successful derivatives and attempted versus successful
+cloud output have separate status. Faults stay in denominators and prefix/gold
+source strata; no completion key/answer/grade is invented. Cloud reservations
+are saved before sending; interrupted unconfirmed requests consume attempts.
+Parent child cap is two total, superseding the earlier three-attempt policy.
+
+Final disposable smoke: 564 passed in 38.06 s with five existing warnings. Earlier
+focused 70 (source/recovery), 47 (worker/validation), 77 (legacy cloud boundaries)
+and 95 (combined fault controls) overlap and are not independent samples. Logs:
+`z1-turn80-focused-2026-10-04.log`, `z1-isolated-worker-focused-2026-10-04.log`,
+`z1-cloud-fault-focused-2026-10-04-r2.log`,
+`z1-combined-fault-focused-2026-10-04.log`, and
+`z1-launch-final-smoke-2026-10-04.log`, all under ignored `logs/`.
+Earlier full passes (37.11 s and 44.71 s) overlap. A later progress fixture
+incorrectly expected a committed degradation to vanish on checkpoint restore
+(1 failed/563 passed). The corrected control retains the committed fault while
+discarding an unfinished one; all seven progress controls and the final full
+suite pass. This was a test-expectation mistake, not evidence of clean processing.
+The first cloud-focused invocation named a nonexistent test file and ran no
+checks; no pass is credited to it. No live cloud call was made.
+
+Actual four-turn synthetic fault/resume control (real preflight/writer/postflight,
+local models, one read-only as-of probe; periodic cadence disabled for this
+fixture) exhausted six injected Codex attempts, preserved/checkpointed originals
+1–3, paused for outage, restored all 35 table identities and processed only turn 4.
+Its probe's degraded-gold metadata reflects only its historical prefix. Log /
+trace: `logs/z1-worker-fault-path-2026-10-04.{log,jsonl}`; final changed-code
+rerun also passed at `logs/z1-worker-fault-path-final-2026-10-04.{log,jsonl}`.
+These runs overlap, not independent samples. Actual SQL periodic control captured a
+committed partial rewrite with IncompleteCompletion, preserved before/after
+rows, recorded failure separately from last success, and did not replay within
+cadence: `logs/z1-periodic-fault-sql-2026-10-04.log`. These controls test recovery,
+not memory quality, final asynchronous scheduling or representative outage rate.
+
+Actual 70-turn checkpoint copy plus synthetic next-turn interruption verified
+35 tables, 17.45 MB dump, checkpoint 71 restore, retained failed tail and two rolling
+generations. Captures took 4.213648/4.124807 s. Private final receipt:
+`logs/z1-checkpoint-granularity-control-2026-10-04-r4/receipt.json`.
+Three setup fixtures were not credited: migrated/ORM column-order fingerprint
+difference, vector extension removed with the test schema, and missing nonnull
+fixture context. Corrected test used frozen campaign DDL and complete synthetic
+fields, not weakened manifests. Per-turn snapshots reduce prefix replay, but
+cost grows with store size; final-store and whole-campaign speed remain unmeasured.
+
+Fresh `logs/z1-v3-manual-2026-10-04-r4` is initialized/prepared only. All five
+reviewed packet copies are byte-identical to r3; admission validates 117 cases,
+1471 original pairs/259 frozen prompts. `prelaunch-validation.json` and
+`restart-preparation.json` retain current policies and packet hashes. No full
+seed, owned campaign database or cloud stage was launched. Source/answer review
+is complete, independent judge qualification pending; score_of_record remains
+false. Roadmap counts/research gates unchanged. Full execution is maintainer-run;
+end-stage conditions remain LME oracle and semi-LSREP only. Main-local commits,
+no push under the active freeze. [Current audit](reviews/2026-10-03-v3-campaign-fault-audit.md).
+
 ## 2026-10-03 — v3 turn 54 source alignment, bounded recovery and reload cost
 
 The r2 manual campaign, launched by the maintainer, processed 53 turns with a

@@ -131,13 +131,38 @@ or writes; snapshot/report show indeterminate work. Explicit provider-truncated
 answers/verdicts remain failures even when text or parseable JSON is present;
 answer records retain available completion metadata (missing is unconfirmed).
 The coordinator now retries fresh persisted local extraction/completion and
-temporary connection/server failures at most twice, with2/8-second backoff.
+temporary connection/server failures once after2 seconds (two total attempts,
+maintainer cap2026-10-04).
 Each seed retry restores the verified recovery snapshot; cloud retries retain
 successful prior calls/orders. Quota/authentication, identity/resource/unknown
 failures pause visibly with saved state. Attempt receipts retain the policy;
-unresolved memory work cannot become a completed seed or answer denominator.
-Whitespace-only model quote copies are resolved to exact original source spans;
-changed content and ambiguous original variants remain unsupported. Native
+Original-turn coverage and successful memory processing are separate contracts.
+Since 2026-10-04 new manual bundles use `worker_failure_policy=continue` and
+`cloud_failure_policy=continue`; standalone tools default to strict. Post-flight
+has two local attempts, then keeps its original and any independent successful
+derivatives with a degraded receipt. Periodic jobs get one attempt per due
+cadence, retain committed partial changes in the trace and keep failed-attempt
+time separate from successful cadence. Three consecutive degraded invocations
+of one worker checkpoint the current turn before an outage pause. Database,
+source/provenance, preflight/probe and unknown failures remain controlled pauses.
+Checkpoint state pins fault receipts/streaks; new bundles save each completed
+turn. A copied70-turn store measured4.21/4.12s per full snapshot; future cost
+grows with store size and this is not a whole-campaign latency result.
+
+Cloud answers/orders reserve attempts durably before sending (two maximum,
+including interrupted calls with unknown outcome). Isolated exhausted
+transport/server/completion/verdict failures retain ungraded ERROR rows and
+continue. Failed-answer pairs consume no judge calls. Three successive cloud
+failures pause; quota/authentication/unknown errors pause immediately.
+`processing_complete` marks every planned question attempted, while `complete`
+requires all outputs successful. Diagnostic reports keep all planned cases,
+cloud errors and clean/degraded/gold-source-failure strata. Fault metadata never
+enters answer/judge prompts.
+Model quote copies are resolved by unique whitespace/case-equivalent matching
+to original source spans; originals are never lowercased in storage. Unsupported
+or ambiguous quoted rows cannot write graph assertions; their original chunk
+remains an attributed searchable claim alongside valid rows. Missing/malformed
+fields and truncated completions still fail. Native
 source-proof/need calls retain their owned model until idle drain, with provider
 load/prompt/evaluation timings; serial seed exit releases owned models because
 it has no live idle scheduler. The foreground generation flag starts only inside
@@ -1578,10 +1603,12 @@ nullable subject/relation/object fields. The first organic control exposed a
 null object; the 2026-10-03 manual replay also exposed a null relation on turn4.
 All three keys must be present, with each nonnull value a nonblank string.
 With sentence claims enabled, the extractor validates that the
-quote occurs exactly in the original chunk, records it as a source-only
-CodexClaim and skips graph canonicalization/reinforcement for that row. Other
-malformed fields, unsupported quotes and incomplete completions remain retryable
-failures. This keeps a useful sentence searchable without inventing graph
+quote resolves uniquely to original bytes (literal first, then whitespace/case
+copy comparison), records it as a source-only CodexClaim and skips graph
+canonicalization/reinforcement for that row. Complete typed rows with unresolved
+quotes are withheld from graph writes and retain their original chunk instead;
+ambiguous chunk mapping retains the original role unit. Missing/malformed
+fields and incomplete completions remain retryable failures. This keeps a useful sentence searchable without inventing graph
 endpoints or treating the read as support. This is the existing attributed
 sentence path, not a new graph assertion or a new model.
 
