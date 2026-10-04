@@ -721,7 +721,7 @@ def probe_observation(db):
         db.expire_all()
 
 
-def due_maintenance(db, sink, source_time, conversation_id, last_run):
+def due_maintenance(db, sink, source_time, conversation_id, last_run, recovery=None, context=None):
     """Exercise real periodic writers against as-of state, with stated cadence.
 
     Share the production registry, cadence, overdue ordering and cycle cap.
@@ -734,6 +734,10 @@ def due_maintenance(db, sink, source_time, conversation_id, last_run):
     for name in MEMORY_JOBS:
         interval = settings.maintenance_intervals.get(name)
         previous = last_run.get(name)
+        failed_at = (recovery.state["last_attempt"].get(name) if recovery else None)
+        if failed_at:
+            previous = max(previous or datetime.min.replace(tzinfo=source_time.tzinfo),
+                           datetime.fromisoformat(failed_at))
         if not interval:
             continue
         overdue = overdue_seconds(source_time, interval, None, previous)
@@ -754,7 +758,14 @@ def due_maintenance(db, sink, source_time, conversation_id, last_run):
             semantic_before = semantic_state(db, name)
             observation_ms = (time.perf_counter() - observation_start) * 1000
             job_start = time.perf_counter()
-            result = fn(db, **kwargs) if spec.needs_db else fn(**kwargs)
+            work = lambda: fn(db, **kwargs) if spec.needs_db else fn(**kwargs)
+            if recovery:
+                succeeded, result = recovery.call(work, job=name, context=context or {},
+                                                  rollback=db.rollback, attempts=1)
+                if not succeeded:
+                    recovery.state["last_attempt"][name] = source_time.isoformat()
+            else:
+                succeeded, result = True, work()
             job_elapsed_ms = (time.perf_counter() - job_start) * 1000
             db.expire_all()
             observation_start = time.perf_counter()
@@ -771,9 +782,11 @@ def due_maintenance(db, sink, source_time, conversation_id, last_run):
                                    "semantic_changes": changes,
                                    "observer_elapsed_ms": observation_ms,
                                    "job_elapsed_ms": job_elapsed_ms,
+                                   "worker_status": "complete" if succeeded else "degraded",
                                    "result": result}, default=str) + "\n")
             sink.flush()
-            last_run[name] = source_time
+            if succeeded:
+                last_run[name] = source_time
         except Exception as exc:
             db.rollback()
             sink.write(json.dumps({"event": "maintenance_failed", "job": name,
@@ -854,6 +867,10 @@ def run(args, conversations, probes) -> int:
                                    "project_document_paths", "HTTP_streaming",
                                    "session_model_stickiness"]})
         from scripts.z1.replay_checkpoint import Checkpoints, run_identity
+        from scripts.z1.worker_recovery import POLICY as WORKER_POLICY, WorkerRecovery
+        failure_policy = getattr(args, "worker_failure_policy", "strict")
+        meta["extra"]["worker_failure_policy"] = failure_policy
+        meta["extra"]["worker_recovery_policy"] = WORKER_POLICY
         recovery_root = private_output(getattr(args, "checkpoint_dir", None)
                                        or str(output.with_suffix(".recovery")))
         checkpoints = Checkpoints(recovery_root, output, run_identity(meta, args, settings))
@@ -881,9 +898,11 @@ def run(args, conversations, probes) -> int:
                     "turn_source_ids": [[slug, turn, sorted(ids)]
                                         for (slug, turn), ids in turn_source_ids.items()],
                     "source_turn_by_id": source_turn_by_id,
-                    "conversation_ids": conversation_ids}
+                    "conversation_ids": conversation_ids,
+                    "worker_recovery": recovery.state}
 
         with output.open("a" if resume else "x") as sink:
+            recovery = WorkerRecovery(sink, failure_policy, restored.get("worker_recovery"))
             if not resume:
                 sink.write(json.dumps({"event": "run", "meta": meta}) + "\n")
                 checkpoints.capture(sink, checkpoint_state())
@@ -941,9 +960,12 @@ def run(args, conversations, probes) -> int:
                                 raise RuntimeError("duplicate turn in fresh replay")
                             batch_id, prompt, response = stored
                             stage = "post_flight"
-                            evaluate_turn(batch_id=str(batch_id), prompt=prompt,
-                                          response=response, conversation_id=str(conv.id),
-                                          model_used=background_model)
+                            post_flight_complete, _ = recovery.call(
+                                lambda: evaluate_turn(batch_id=str(batch_id), prompt=prompt,
+                                    response=response, conversation_id=str(conv.id),
+                                    model_used=background_model),
+                                job="post_flight", context={"conversation": slug, "turn": number,
+                                    "stage": stage, "batch_id": str(batch_id)}, rollback=db.rollback)
                             db.expire_all()
                             row = db.query(EpisodicMemory).filter_by(idempotency_key=key).one()
                             if row.source_spans is None or row.ts_provenance != turn["ts_provenance"]:
@@ -970,6 +992,7 @@ def run(args, conversations, probes) -> int:
                                                    "ts_provenance": row.ts_provenance,
                                                    "lossless": row.lossless_flag,
                                                    "inject_raw": row.inject_raw,
+                                                   "post_flight_complete": post_flight_complete,
                                                    "summary_coverage": row.summary_coverage,
                                                    "summary_text": row.summary_text,
                                                    "abstract_text": row.abstract_text,
@@ -980,7 +1003,9 @@ def run(args, conversations, probes) -> int:
                             if not args.no_maintenance:
                                 stage = "maintenance"
                                 due_maintenance(db, sink, turn["timestamp"], conv.id,
-                                                last_maintenance)
+                                                last_maintenance, recovery,
+                                                {"conversation": slug, "turn": number,
+                                                 "stage": stage})
                             for probe in probes.get((slug, number), ()):
                                 with probe_observation(db):
                                     stage = "as_of_probe"
@@ -1042,6 +1067,7 @@ def run(args, conversations, probes) -> int:
                                         "expected_answer": probe.get("expected_answer"),
                                         "gold_turns": probe["gold_turns"],
                                         "gold_sources": gold_sources,
+                                        "memory_processing": recovery.health(slug, probe["gold_turns"]),
                                         "source_storage_at_cutoff": storage,
                                         "source_excerpt": probe.get("source_excerpt"),
                                         "source_role": probe.get("source_role"),
@@ -1064,6 +1090,14 @@ def run(args, conversations, probes) -> int:
                             checkpoints.capture(sink, checkpoint_state(),
                                                 evaluation_key=(f"{slug}-{number}"
                                                                 if probes.get((slug, number)) else None))
+                        if any(streak >= 3 for streak in recovery.state["streaks"].values()):
+                            # Preserve this completed turn before the outage pause,
+                            # even with a coarser standalone checkpoint interval.
+                            if sum(completed.values()) % every and not probes.get((slug, number)) and number != len(bound):
+                                db.rollback()
+                                checkpoints.capture(sink, checkpoint_state())
+                            stage = "worker_outage"
+                            recovery.check_outage()
                     except Exception as exc:
                         db.rollback()
                         sink.write(json.dumps({"event": "failed", "conversation": slug,
@@ -1086,6 +1120,7 @@ def run(args, conversations, probes) -> int:
                                    "as_of_probes": probe_count,
                                    "expected_as_of_probes": expected_probes,
                                    "probe_panel": args.probe_panel,
+                                   "memory_processing": recovery.health(),
                                    "table_counts": table_counts,
                                    "table_sha256": table_sha256,
                                    "answer_quality_scored": False}) + "\n")
@@ -1107,6 +1142,8 @@ def main() -> int:
     parser.add_argument("--checkpoint-every", type=int, default=10,
                         help="completed turns between recovery snapshots; also snapshots at question checkpoints")
     parser.add_argument("--checkpoint-dir", help="private recovery directory under logs/")
+    parser.add_argument("--worker-failure-policy", choices=("strict", "continue"), default="strict",
+                        help="continue retains originals and records isolated model-worker degradation")
     parser.add_argument("--development-repeat-review", help="private reviewed recent-to-old development pairs")
     parser.add_argument("--limit", type=int, default=0, help="development prefix per conversation; not a full seed")
     parser.add_argument("--conversation", choices=sorted(EXPECTED),

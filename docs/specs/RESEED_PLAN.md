@@ -339,6 +339,25 @@ the full run. Earlier controls do not establish exhaustive robustness. Add
 failure-injection through actual child execution and actual source-quote writer
 checks, plus provider duration observations; reports retain the limitations.
 
+**Operator retry cap, 2026-10-04:** supersede the two-additional-retry policy
+above with TWO total attempts (one initial attempt plus one retry after2s).
+The maintainer observed the same turn80 extraction failure twice; a third
+prefix replay wasted time and was stopped gracefully for diagnosis. Persist
+the two-attempt policy and derive displayed attempt totals from it. A second
+failure pauses for investigation; the coordinator does not edit production
+code or silently keep retrying. Source-proposal errors are repaired under
+V3_REPAIR's isolation contract, not by weakening checkpoint identity. Changed
+writer/policy requires a fresh bundle; preserve r3's70-turn checkpoint and both
+failure tails. Do not launch the full experiment during this repair.
+
+The manual coordinator's new bundles checkpoint after every completed turn
+(`checkpoint_every=1`), retaining only current/prior rolling generations plus
+the independent question snapshots. This limits successful-turn replay to the
+failed/in-flight turn, without marking a partial write complete. Snapshot
+cost is separate from model latency and grows with store size; measure an actual
+saved store, preserve fsync/identity checks, and never weaken rollback for speed.
+Standalone seeder callers keep their explicit/default checkpoint setting.
+
 > **⚑ EVERYTHING BEFORE THIS RESEED IS DEAD DATA (maintainer, 2026-08-25).**
 > *"lets just call ALL from before as we have no data, we are restarting ALL
 > again."* Every store, every arm, every graph number in `PROVENANCE.md` before
@@ -596,6 +615,48 @@ it does not certify fresh installation or the migration chain. Pin local writer
 Ollama manifest digests as well as their mutable tag names before replay/resume.
 
 ## 6. Open before step 1
+
+### Isolated worker failures — 2026-10-04
+
+The maintainer authorizes continuing after isolated recoverable model failures.
+New manual bundles select `--worker-failure-policy continue`; standalone seed
+defaults to `strict`. Keep both policies in run identity. In continue mode,
+idempotent post-flight gets at most two local attempts (one two-second backoff),
+then records a degraded turn and retains its already committed original and
+any successful independent derivatives. Periodic jobs get one attempt per due
+cadence: partial job commits are not safe to retry immediately. Persist a
+separate last-attempt clock for failed jobs, without claiming successful cadence.
+
+Only recognized model connection/server/completion/extraction failures qualify.
+Authentication/quota, database, source/provenance, schema/identity, resource,
+unknown errors and failed preflight/probes still cause a controlled durable
+pause. Three successive degraded invocations of the same worker indicate an
+outage: finish/checkpoint the current turn, then pause with a distinct reason.
+A successful invocation resets that worker's streak; checkpoints retain streaks,
+failed attempts, degradation and failed maintenance cadence across resume.
+
+Record every attempt and the exhausted worker, exception class and original
+source IDs. Never insert derivative completion keys or substitute fabricated
+facts. Validate fault events against run policy and actual historical writes;
+completion binds exact degraded/attempt counts. `complete_selected_corpus` means
+all original turns and planned observers were processed, not all workers
+succeeded. A separate memory-processing status remains `degraded` if any failed.
+Keep degraded probes in denominators. Each probe/answer receipt carries prior
+worker failures and affected gold-turn identities; this audit metadata must not
+enter answer or judge prompts. The replay and campaign reports distinguish
+clean/degraded processing and enumerate faults. This seed policy does not change
+the production runtime's job retry ledger or silently enable cloud-error grades:
+cloud stages also select `--failure-policy continue` in new bundles: each answer
+or judge order gets at most two attempts. Isolated exhausted completion/format/
+transport/server failures remain terminal ungraded ERROR rows, not ties or
+incorrect answers, and the next question proceeds. Failed-answer pairs consume
+no judge call; keep them in planned denominators as ungraded.
+`processing_complete` means every question was attempted; `complete` requires
+all answers/judgments to succeed. Resume reuses terminal errors only under the
+pinned continue policy. Persist each call's failure before retry and retain
+successful first-order receipts. Three successive exhausted questions pause as
+an outage; quota/authentication/unknown failures pause immediately. Report the
+planned, successful and error counts; standalone and legacy remain strict.
 
 - **The judge.** muse-spark (73%) has been down three days. ox-alpha is 67% but
   **37 s/call**; deepseek-v4-flash 60%. For G66's coarser question — "is answer A

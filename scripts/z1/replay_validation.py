@@ -5,6 +5,8 @@ from collections import Counter
 from datetime import datetime
 from typing import Iterable
 
+from scripts.z1.worker_recovery import POLICY, processing_health
+
 
 def validate_complete_replay(rows: Iterable[dict], expected_turns: dict[str, int]) -> dict:
     """Verify events, rather than trusting the final completion declaration.
@@ -19,6 +21,8 @@ def validate_complete_replay(rows: Iterable[dict], expected_turns: dict[str, int
     probes = set()
     last_time = None
     current_key = current_time = None
+    attempts = []
+    degraded = []
     for row in rows:
         event = row.get("event")
         if complete is not None:
@@ -30,6 +34,30 @@ def validate_complete_replay(rows: Iterable[dict], expected_turns: dict[str, int
             continue
         if event == "run" or event in {"failed", "maintenance_failed"}:
             raise ValueError("complete replay has repeated run headers or failures")
+        if event in {"worker_attempt_failed", "worker_degraded"}:
+            extra = run["meta"].get("extra", {})
+            key = (row.get("conversation"), row.get("turn"))
+            job = row.get("job")
+            if (extra.get("worker_failure_policy") != "continue"
+                    or extra.get("worker_recovery_policy") != POLICY or row.get("policy") != POLICY
+                    or not job or key != (pending if job == "post_flight" else current_key)
+                    or row.get("stage") != ("post_flight" if job == "post_flight" else "maintenance")
+                    or type(row.get("attempt")) is not int
+                    or row.get("attempts") != (2 if job == "post_flight" else 1)
+                    or not 1 <= row["attempt"] <= row["attempts"] or not row.get("error_type")):
+                raise ValueError("unbound worker failure in complete replay")
+            if event == "worker_attempt_failed":
+                prior = [a for a in attempts if (a["conversation"], a["turn"], a["job"]) == (*key, job)]
+                if row["attempt"] != len(prior) + 1:
+                    raise ValueError("worker attempts exceed or disagree with bounded policy")
+                attempts.append(row)
+            else:
+                if (row["attempt"] != row["attempts"] or not row.get("original_source_retained")
+                        or not attempts or any(row.get(k) != attempts[-1].get(k)
+                            for k in ("conversation", "turn", "job", "attempt", "error_type"))
+                        or any((r["conversation"], r["turn"], r["job"]) == (*key, job) for r in degraded)):
+                    raise ValueError("worker degradation lacks exhausted attempt evidence")
+                degraded.append(row)
         if event == "turn":
             slug, turn = row["conversation"], row["turn"]
             if (pending is not None or slug not in expected_turns
@@ -47,6 +75,10 @@ def validate_complete_replay(rows: Iterable[dict], expected_turns: dict[str, int
             if pending != key:
                 raise ValueError("complete replay write has no matching turn preflight")
             ids = {row.get("episodic_id"), row.get("batch_id")}
+            if any(r["job"] == "post_flight" and (r["conversation"], r["turn"]) == key
+                   and (r.get("batch_id") != row.get("batch_id") or row.get("post_flight_complete") is not False)
+                   for r in degraded):
+                raise ValueError("degraded worker does not match retained original write")
             if None in ids or "" in ids or len(ids) != 2 or ids & seen_ids:
                 raise ValueError("complete replay has missing or repeated source identities")
             source_ids[key] = ids
@@ -65,6 +97,9 @@ def validate_complete_replay(rows: Iterable[dict], expected_turns: dict[str, int
                 raise ValueError("complete replay has a missing or duplicate probe identity")
             probes.add(identity)
             gold = row.get("gold_turns", [])
+            if (attempts or "memory_processing" in row) and row.get("memory_processing") != processing_health(
+                    degraded, len(attempts), key[0], gold):
+                raise ValueError("probe worker health disagrees with its historical prefix")
             sources = row.get("gold_sources", [])
             if (len(gold) != len(set(gold)) or len(sources) != len(gold)
                     or {s["turn"] for s in sources} != set(gold)):
@@ -79,6 +114,8 @@ def validate_complete_replay(rows: Iterable[dict], expected_turns: dict[str, int
         raise ValueError("full campaign needs a complete selected-corpus replay")
     if dict(written) != expected_turns or complete.get("turns_by_conversation") != expected_turns:
         raise ValueError("full trace does not contain every selected historical turn exactly once")
+    if (attempts or "memory_processing" in complete) and complete.get("memory_processing") != processing_health(degraded, len(attempts)):
+        raise ValueError("completion hides or miscounts worker degradation")
     declared = run.get("meta", {}).get("extra", {}).get("planned_probes") or []
     declared_set = {tuple(identity) for identity in declared}
     if (not declared or len(declared_set) != len(declared)

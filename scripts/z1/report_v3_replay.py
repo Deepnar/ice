@@ -18,6 +18,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 def summarize(path: Path) -> dict:
     events = Counter()
     failures = Counter()
+    worker_degradation = []
+    worker_attempts = Counter()
     maintenance = Counter()
     gate = Counter()
     produced = Counter()
@@ -53,6 +55,11 @@ def summarize(path: Path) -> dict:
             failures[f"{row.get('stage')}:{row.get('error_type')}"] += 1
         elif event == "maintenance_failed":
             failures[f"maintenance:{row.get('job')}:{row.get('error_type')}"] += 1
+        elif event == "worker_attempt_failed":
+            worker_attempts[f"{row.get('job')}:{row.get('error_type')}"] += 1
+        elif event == "worker_degraded":
+            worker_degradation.append({k: row.get(k) for k in
+                ("conversation", "turn", "job", "stage", "batch_id", "error_type", "attempts")})
         elif event == "maintenance":
             maintenance[row["job"]] += 1
         elif event == "clock":
@@ -200,6 +207,9 @@ def summarize(path: Path) -> dict:
         "turns_by_conversation": complete.get("turns_by_conversation") if complete else None,
         "as_of_probes": complete.get("as_of_probes") if complete else None,
         "failures": dict(failures),
+        "worker_degradation": worker_degradation,
+        "worker_failed_attempts": dict(worker_attempts),
+        "memory_processing": complete.get("memory_processing") if complete else None,
         "maintenance_calls": dict(maintenance),
         "historical_clock": dict(clock),
         "seed_clock_policy": run["meta"].get("extra", {}).get("clock_policy"),

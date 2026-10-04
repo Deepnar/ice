@@ -9,9 +9,11 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.z1 import seed_v3
+from scripts.z1.worker_recovery import WorkerRecovery
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import Conversation, ConversationSummary, ProceduralMemory
+from src.workers.completion_text import IncompleteCompletion
 
 
 def main():
@@ -54,7 +56,32 @@ def main():
         assert record["job_elapsed_ms"] > 0 and record["observer_elapsed_ms"] > 0
         assert record["before"]["active_procedural"] == 1
         assert record["after"]["active_procedural"] == 0
-    print("v3 semantic trace passed: unchanged-count text rewrite and actual procedural decay captured; vectors omitted; disposable SQL only.")
+        # A committed partial periodic job cannot be treated as an atomic
+        # failure or immediately replayed. Capture its changed rows and retain
+        # failed cadence separately from successful completion.
+        import src.workers.conversation_summary as notes
+        def partial_job(worker_db):
+            target = worker_db.get(ConversationSummary, conversation.id)
+            target.summary_text = "committed partial synthetic rewrite"
+            worker_db.commit()
+            raise IncompleteCompletion("synthetic incomplete completion")
+        sink = io.StringIO()
+        recovery = WorkerRecovery(sink, "continue")
+        last_run = {}
+        with patch.object(settings, "maintenance_intervals", {"conversation_summary": 10}), \
+                patch.object(notes, "run_conversation_summaries", partial_job):
+            seed_v3.due_maintenance(db, sink, now, conversation.id, last_run, recovery,
+                                  {"conversation": "fixture", "turn": 1, "stage": "maintenance"})
+            count = len(sink.getvalue())
+            seed_v3.due_maintenance(db, sink, now + timedelta(seconds=5), conversation.id, last_run, recovery,
+                                  {"conversation": "fixture", "turn": 2, "stage": "maintenance"})
+            assert len(sink.getvalue()) == count
+        rows = [json.loads(line) for line in sink.getvalue().splitlines()]
+        assert [r["event"] for r in rows] == ["worker_attempt_failed", "worker_degraded", "maintenance"]
+        assert rows[-1]["worker_status"] == "degraded" and rows[-1]["result"] is None
+        assert rows[-1]["semantic_changes"][0]["after"]["summary_text"] == "committed partial synthetic rewrite"
+        assert not last_run and recovery.state["last_attempt"] == {"conversation_summary": now.isoformat()}
+    print("v3 semantic trace passed: unchanged-count rewrite, actual decay and committed partial failed-job changes/cadence captured; vectors omitted; disposable SQL only.")
     return 0
 
 

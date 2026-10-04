@@ -64,3 +64,31 @@ def test_completion_flag_cannot_cover_bad_events(damage, reason):
         rows.insert(-1, {"event": "maintenance_failed"})
     with pytest.raises(ValueError, match=reason):
         validate_complete_replay(rows, {"example": 2})
+
+
+def test_degraded_complete_replay_requires_bound_receipts_and_health():
+    from scripts.z1.worker_recovery import POLICY, processing_health
+    rows = complete_rows()
+    rows[0]["meta"]["extra"].update(worker_failure_policy="continue", worker_recovery_policy=POLICY)
+    context = {"policy": POLICY, "conversation": "example", "turn": 1, "job": "post_flight",
+               "stage": "post_flight", "batch_id": "batch-1", "attempts": 2,
+               "error_type": "ExtractionOutputError"}
+    faults = [{**context, "event": "worker_attempt_failed", "attempt": attempt} for attempt in (1, 2)]
+    fault = {**faults[-1], "event": "worker_degraded", "original_source_retained": True}
+    rows[2]["post_flight_complete"] = False
+    rows[2:2] = [*faults, fault]
+    rows[-2]["memory_processing"] = processing_health([fault], 2, "example", [1])
+    rows[-1]["memory_processing"] = processing_health([fault], 2)
+    assert validate_complete_replay(rows, {"example": 2})["complete"]["memory_processing"]["status"] == "degraded"
+    for damage in ("policy", "health", "source", "attempt"):
+        bad = deepcopy(rows)
+        if damage == "policy":
+            bad[0]["meta"]["extra"]["worker_failure_policy"] = "strict"
+        elif damage == "health":
+            bad[-1]["memory_processing"]["status"] = "clean"
+        elif damage == "source":
+            bad[5]["batch_id"] = "other"
+        else:
+            bad[3]["attempt"] = 3
+        with pytest.raises(ValueError):
+            validate_complete_replay(bad, {"example": 2})
