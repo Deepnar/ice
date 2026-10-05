@@ -1,0 +1,20 @@
+{
+  "format": "ice-v3-reviewed-instrument-repairs-1",
+  "repairs": [
+    {
+      "reason": "2026-10-05 responsive output errors are not transport outages; all writers unchanged",
+      "from_code": "b038600cf32bd4d947e3bd2a878e23c6f16c8a012c254db20409dfae379d8d2e",
+      "to_code": "4fa0d72a93cee5dd75b7b41c4fdbc36026a6e9143d96a59b7f8e657d24d150ed",
+      "code_changes": {
+        "scripts/z1/replay_checkpoint.py": {
+          "before": "d6243de64581de7041f150569afa323dcd99993be56aca291aec0cee303182b2",
+          "after": "c73057c12eae0875886f9492e400344c4da8d48f98e5209a5c2c96cfc463a497"
+        },
+        "scripts/z1/worker_recovery.py": {
+          "before": "5c0e888f91d2b64d691c6e08ae3a774f40e5bf73c0ba5ff81cfa2eb40d420eae",
+          "after": "eb36829b89e21ec192a1ceedcd09b0b7f03503453bc2da40f42dfd2f2034b5db"
+        }
+      }
+    }
+  ]
+}

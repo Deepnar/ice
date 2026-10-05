@@ -23,6 +23,7 @@ def validate_complete_replay(rows: Iterable[dict], expected_turns: dict[str, int
     current_key = current_time = None
     attempts = []
     degraded = []
+    instrument_change = False
     for row in rows:
         event = row.get("event")
         if complete is not None:
@@ -34,6 +35,19 @@ def validate_complete_replay(rows: Iterable[dict], expected_turns: dict[str, int
             continue
         if event == "run" or event in {"failed", "maintenance_failed"}:
             raise ValueError("complete replay has repeated run headers or failures")
+        if event == "instrument_continuation":
+            old, new = row.get("from_identity", {}), row.get("to_identity", {})
+            if (instrument_change or pending is not None or row.get("format") != "ice-v3-instrument-continuation-1"
+                    or row.get("completed") != dict(written) or not row.get("trace_sha256")
+                    or not row.get("archive_manifest_sha256")
+                    or old.get("code_sha256") == new.get("code_sha256")
+                    or not old.get("code_sha256") or not new.get("code_sha256")
+                    or {k: v for k, v in old.items() if k != "code_sha256"}
+                       != {k: v for k, v in new.items() if k != "code_sha256"}
+                    or set(row.get("code_changes", {})) != {
+                        "scripts/z1/worker_recovery.py", "scripts/z1/replay_checkpoint.py"}):
+                raise ValueError("unbound or writer-changing instrument continuation")
+            instrument_change = True
         if event in {"worker_attempt_failed", "worker_degraded"}:
             extra = run["meta"].get("extra", {})
             key = (row.get("conversation"), row.get("turn"))

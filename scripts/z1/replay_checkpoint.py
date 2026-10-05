@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import uuid
 from pathlib import Path
 from unittest.mock import patch
@@ -58,24 +59,64 @@ def prefix_digest(path: Path, size: int) -> str:
     return digest.hexdigest()
 
 
-def run_identity(meta: dict, args, settings) -> dict:
-    """Pin execution bytes and settings without serializing credentials."""
+INSTRUMENT_CHANGES = {"scripts/z1/worker_recovery.py", "scripts/z1/replay_checkpoint.py"}
+CONTINUATION_FORMAT = "ice-v3-instrument-continuation-1"
+REPAIR_REGISTRY = Path(__file__).with_name("instrument_repairs.json")
+
+
+def code_files():
     root = Path(__file__).resolve().parents[2]
-    digest = hashlib.sha256()
     files = sorted((root / "src").rglob("*.py"))
     files += [root / "scripts/z1" / name for name in
               ("seed_v3.py", "production_parity.py", "historical_clock.py",
                "replay_checkpoint.py", "snapshot.py", "run_meta.py",
                "derive_retrieval_gt.py", "generate_probes.py", "development_repeats.py",
                "campaign_recovery.py", "worker_recovery.py")]
+    return root, files
+
+
+def code_digest(ref=None):
+    root, files = code_files()
+    digest = hashlib.sha256()
     for path in files:
-        digest.update(str(path.relative_to(root)).encode())
-        digest.update(path.read_bytes())
+        relative = str(path.relative_to(root))
+        content = (subprocess.check_output(["git", "show", f"{ref}:{relative}"], cwd=root)
+                   if ref else path.read_bytes())
+        digest.update(relative.encode())
+        digest.update(content)
+    return digest.hexdigest()
+
+
+def instrument_changes(ref):
+    """Refuse writer edits; explicitly enumerate the two permitted tool edits."""
+    root, files = code_files()
+    changes = {}
+    for path in files:
+        relative = str(path.relative_to(root))
+        before = subprocess.check_output(["git", "show", f"{ref}:{relative}"], cwd=root)
+        after = path.read_bytes()
+        if before != after:
+            if relative not in INSTRUMENT_CHANGES:
+                raise ValueError("continuation would change a writer or unapproved tool: " + relative)
+            changes[relative] = {"before": hashlib.sha256(before).hexdigest(),
+                                 "after": hashlib.sha256(after).hexdigest()}
+    if set(changes) != INSTRUMENT_CHANGES:
+        raise ValueError("continuation needs exactly the reviewed instrument repair")
+    registered = json.loads(REPAIR_REGISTRY.read_text())
+    if (registered.get("format") != "ice-v3-reviewed-instrument-repairs-1" or not any(
+            record.get("from_code") == code_digest(ref) and record.get("to_code") == code_digest()
+            and record.get("code_changes") == changes for record in registered.get("repairs", []))):
+        raise ValueError("code changes are not a registered reviewed instrument repair")
+    return changes
+
+
+def run_identity(meta: dict, args, settings) -> dict:
+    """Pin execution bytes and settings without serializing credentials."""
     configuration = json.dumps(settings.model_dump(mode="json"), sort_keys=True, default=str)
     arguments = {k: v for k, v in vars(args).items()
                  if k not in {"resume", "check", "out", "checkpoint_dir"}}
     return {"format": "ice-v3-replay-recovery-1", "database": snapshot.DB,
-            "code_sha256": digest.hexdigest(), "arguments": arguments,
+            "code_sha256": code_digest(), "arguments": arguments,
             "settings_sha256": hashlib.sha256(configuration.encode()).hexdigest(),
             "inputs": meta["inputs"], "models": meta["extra"]["resolved_background_model"],
             "writer_model_digests": meta["extra"].get("writer_model_digests"),
@@ -155,16 +196,96 @@ class Checkpoints:
             raise ValueError("invalid recovery generation")
         directory = self.root / name
         manifest = json.loads((directory / "recovery.json").read_text())
-        if (manifest["identity"] != self.identity
-                or manifest["trace_path"] != str(self.trace.resolve())):
+        if manifest["trace_path"] != str(self.trace.resolve()):
             raise ValueError("replay inputs, code, settings, database or plan changed; refusing resume")
+        if manifest["identity"] != self.identity:
+            self.continuation(manifest)
         size = manifest["trace_bytes"]
         if prefix_digest(self.trace, size) != manifest["trace_sha256"]:
             raise ValueError("committed replay trace prefix changed; refusing resume")
         return directory, manifest
 
+    def continuation(self, manifest):
+        path = self.root / "instrument-continuation.json"
+        if not path.exists():
+            raise ValueError("replay code changed without a verified instrument continuation; refusing resume")
+        receipt = json.loads(path.read_text())
+        old, new = receipt.get("from_identity"), receipt.get("to_identity")
+        archive = receipt.get("archive", "")
+        if (receipt.get("format") != CONTINUATION_FORMAT or old != manifest["identity"]
+                or new != self.identity or not archive or Path(archive).name != archive
+                or {k: v for k, v in old.items() if k != "code_sha256"}
+                   != {k: v for k, v in new.items() if k != "code_sha256"}
+                or receipt.get("trace_bytes") != manifest["trace_bytes"]
+                or receipt.get("trace_sha256") != manifest["trace_sha256"]
+                or receipt.get("completed") != manifest["state"]["completed"]):
+            raise ValueError("instrument continuation does not match frozen checkpoint identity")
+        baseline = receipt["baseline_commit"]
+        if (code_digest(baseline) != old["code_sha256"] or code_digest() != new["code_sha256"]
+                or instrument_changes(baseline) != receipt.get("code_changes")):
+            raise ValueError("instrument continuation code is not the reviewed tool-only repair")
+        saved = self.root / archive
+        saved_manifest = (saved / "recovery.json").read_bytes()
+        if (json.loads(saved_manifest) != manifest
+                or hashlib.sha256(saved_manifest).hexdigest() != receipt.get("archive_manifest_sha256")
+                or prefix_digest(saved / "trace-prefix.jsonl", manifest["trace_bytes"]) != manifest["trace_sha256"]):
+            raise ValueError("instrument continuation original archive changed")
+        return receipt
+
+    def prepare_instrument_continuation(self, baseline):
+        """Archive and authorize only the explicit tool-only code boundary.
+
+        Never restore/change the database, trace, pointer or old manifests.
+        The maintainer still runs the campaign; its normal restore verifies SQL.
+        """
+        directory, manifest = self.validate()
+        old = manifest["identity"]
+        changes = instrument_changes(baseline)
+        if code_digest(baseline) != old["code_sha256"]:
+            raise ValueError("Git baseline does not reproduce frozen checkpoint code")
+        new = {**old, "code_sha256": code_digest()}
+        receipt_path = self.root / "instrument-continuation.json"
+        if receipt_path.exists():
+            previous_identity = self.identity
+            self.identity = new
+            try:
+                return self.continuation(manifest)
+            finally:
+                self.identity = previous_identity
+        archive = self.root / ("instrument-prefix-" + uuid.uuid4().hex)
+        archive.mkdir()
+        for path in directory.iterdir():
+            os.link(path, archive / path.name)
+        # The live trace will be truncated/appended. A hard link is unsafe here.
+        with self.trace.open("rb") as source, (archive / "trace-prefix.jsonl").open("xb") as sink:
+            left = manifest["trace_bytes"]
+            while left:
+                chunk = source.read(min(left, 1 << 20))
+                if not chunk:
+                    raise ValueError("committed trace truncated during continuation preparation")
+                sink.write(chunk)
+                left -= len(chunk)
+            sink.flush()
+            os.fsync(sink.fileno())
+        if prefix_digest(archive / "trace-prefix.jsonl", manifest["trace_bytes"]) != manifest["trace_sha256"]:
+            raise ValueError("continuation backup does not match original committed prefix")
+        receipt = {"format": CONTINUATION_FORMAT, "baseline_commit": baseline,
+                   "reason": "responsive output failures are not transport outages; writers unchanged",
+                   "from_identity": old, "to_identity": new, "code_changes": changes,
+                   "trace_bytes": manifest["trace_bytes"], "trace_sha256": manifest["trace_sha256"],
+                   "completed": manifest["state"]["completed"], "archive": archive.name,
+                   "archive_manifest_sha256": hashlib.sha256((archive / "recovery.json").read_bytes()).hexdigest()}
+        fd = os.open(archive, os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        atomic_json(receipt_path, receipt)
+        return receipt
+
     def recover(self) -> dict:
         directory, manifest = self.validate()
+        continuation = self.continuation(manifest) if manifest["identity"] != self.identity else None
         size = manifest["trace_bytes"]
         with patch.object(snapshot, "SNAPDIR", directory):
             if snapshot.restore("store"):
@@ -184,6 +305,11 @@ class Checkpoints:
             trace.truncate(size)
             trace.flush()
             os.fsync(trace.fileno())
+        if continuation:
+            with self.trace.open("a") as sink:
+                sink.write(json.dumps({"event": "instrument_continuation", **continuation}) + "\n")
+                sink.flush()
+                os.fsync(sink.fileno())
         return manifest["state"]
 
     def complete_unchanged(self, expected_turns: dict, table_counts: dict) -> bool:

@@ -124,3 +124,76 @@ def test_finished_resume_is_read_only_and_refuses_modified_store(tmp_path, monke
             point.complete_unchanged({"one": 1}, {"source": 1})
     finally:
         point.close()
+
+
+@pytest.mark.parametrize("bad", [None, "settings", "writer", "archive", "prefix", "baseline"])
+def test_instrument_continuation_preserves_prefix_and_refuses_unapproved_changes(tmp_path, monkeypatch, bad):
+    trace = tmp_path / "trace.jsonl"
+    model = {"model": "unchanged", "settings_sha256": "unchanged", "code_sha256": "old"}
+    monkeypatch.setattr(recovery, "code_digest", lambda ref=None: "old" if ref else "new")
+    changes = {path: {"before": "old", "after": "new"} for path in recovery.INSTRUMENT_CHANGES}
+    monkeypatch.setattr(recovery, "instrument_changes", lambda ref: changes)
+    monkeypatch.setattr(recovery.snapshot, "save", lambda _: (recovery.snapshot.SNAPDIR / "store.sql").write_text("original") and 0)
+    restores = []
+    monkeypatch.setattr(recovery.snapshot, "restore", lambda _: restores.append(1) or 0)
+    point = recovery.Checkpoints(tmp_path / "recovery", trace, model)
+    try:
+        with trace.open("w") as sink:
+            sink.write('{"event":"written","turn":1}\n')
+            point.capture(sink, {"completed": {"one": 1}})
+        original_pointer = point.pointer.read_bytes()
+        directory, original = point.validate()
+        original_manifest = (directory / "recovery.json").read_bytes()
+        receipt = point.prepare_instrument_continuation("reviewed-baseline")
+        assert point.pointer.read_bytes() == original_pointer
+        assert (directory / "recovery.json").read_bytes() == original_manifest
+        assert restores == [] and receipt["completed"] == {"one": 1}
+        assert point.prepare_instrument_continuation("reviewed-baseline") == receipt
+        point.identity = receipt["to_identity"]
+        if bad == "settings":
+            point.identity = {**point.identity, "settings_sha256": "modified"}
+        elif bad == "writer":
+            monkeypatch.setattr(recovery, "instrument_changes", lambda ref: (_ for _ in ()).throw(ValueError("unapproved writer")))
+        elif bad == "baseline":
+            monkeypatch.setattr(recovery, "code_digest", lambda ref=None: "other" if ref else "new")
+        elif bad == "archive":
+            (point.root / receipt["archive"] / "trace-prefix.jsonl").write_text("corrupt\n")
+        elif bad == "prefix":
+            trace.write_text("corrupt\n")
+        if bad:
+            with pytest.raises(ValueError):
+                point.recover()
+            assert restores == []
+        else:
+            assert point.recover()["completed"] == {"one": 1}
+            assert len(restores) == 1
+            marker = json.loads(trace.read_text().splitlines()[-1])
+            assert marker["event"] == "instrument_continuation"
+            with trace.open("a") as sink:
+                point.capture(sink, {"completed": {"one": 1}})
+            assert point.validate()[1]["identity"] == receipt["to_identity"]
+            assert (point.root / receipt["archive"] / "recovery.json").read_bytes() == original_manifest
+    finally:
+        point.close()
+
+
+def test_two_tool_edits_still_need_exact_registered_hashes(tmp_path, monkeypatch):
+    import hashlib
+    files = [tmp_path / path for path in sorted(recovery.INSTRUMENT_CHANGES)]
+    for path in files:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"reviewed-tool")
+    monkeypatch.setattr(recovery, "code_files", lambda: (tmp_path, files))
+    monkeypatch.setattr(recovery.subprocess, "check_output", lambda *a, **k: b"original-tool")
+    monkeypatch.setattr(recovery, "code_digest", lambda ref=None: "old" if ref else "reviewed")
+    changes = {str(path.relative_to(tmp_path)): {
+        "before": hashlib.sha256(b"original-tool").hexdigest(),
+        "after": hashlib.sha256(b"reviewed-tool").hexdigest()} for path in files}
+    registry = tmp_path / "repairs.json"
+    monkeypatch.setattr(recovery, "REPAIR_REGISTRY", registry)
+    registry.write_text(json.dumps({"format": "ice-v3-reviewed-instrument-repairs-1", "repairs": [{
+        "from_code": "old", "to_code": "reviewed", "code_changes": changes}]}))
+    assert recovery.instrument_changes("baseline") == changes
+    files[0].write_bytes(b"unreviewed-new-tool")
+    with pytest.raises(ValueError, match="registered reviewed"):
+        recovery.instrument_changes("baseline")

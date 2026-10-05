@@ -308,6 +308,7 @@ def campaign_report(root: Path, config: dict) -> dict:
             receipt.update({key: data.get(key) for key in
                             ("complete", "complete_corpus_replay", "judge_status", "score_of_record", "question_families",
                              "memory_processing", "worker_degradation",
+                             "instrument_continuations",
                              "memory_processing_strata",
                              "processing_complete", "cloud_errors", "cloud_failure_policy",
                              "calibration_status", "paired_prompt_cost", "absolute_by_type",

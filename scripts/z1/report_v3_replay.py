@@ -20,6 +20,7 @@ def summarize(path: Path) -> dict:
     failures = Counter()
     worker_degradation = []
     worker_attempts = Counter()
+    instrument_continuations = []
     maintenance = Counter()
     gate = Counter()
     produced = Counter()
@@ -60,6 +61,12 @@ def summarize(path: Path) -> dict:
         elif event == "worker_degraded":
             worker_degradation.append({k: row.get(k) for k in
                 ("conversation", "turn", "job", "stage", "batch_id", "error_type", "attempts")})
+        elif event == "instrument_continuation":
+            instrument_continuations.append({
+                "completed": row["completed"], "reason": row["reason"],
+                "from_code": row["from_identity"]["code_sha256"],
+                "to_code": row["to_identity"]["code_sha256"],
+                "code_changes": row["code_changes"]})
         elif event == "maintenance":
             maintenance[row["job"]] += 1
         elif event == "clock":
@@ -210,6 +217,7 @@ def summarize(path: Path) -> dict:
         "worker_degradation": worker_degradation,
         "worker_failed_attempts": dict(worker_attempts),
         "memory_processing": complete.get("memory_processing") if complete else None,
+        "instrument_continuations": instrument_continuations,
         "maintenance_calls": dict(maintenance),
         "historical_clock": dict(clock),
         "seed_clock_policy": run["meta"].get("extra", {}).get("clock_policy"),
