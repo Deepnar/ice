@@ -35,7 +35,10 @@ test; strict identity correctly refused. That attempt is uncredited; the final
 fixture ran with code frozen. Test databases were removed.
 
 Actual r4 continuation preparation/validation passed with 1120 retained originals
-and 82 saved probes, no DB restore or campaign launch. Receipt/archive are private
+and 82 saved probes, no DB restore or campaign launch. Actual resume-time
+configuration identity, all eight source/model/schema/repeat file digests and
+installed local writer manifests also match the receipt; private readiness:
+`logs/z1-v3-manual-2026-10-04-r4/continuation-runtime-readiness.json`. Receipt/archive are private
 under `logs/z1-v3-manual-2026-10-04-r4/seed.recovery/`; preparation log:
 `logs/z1-r4-continuation-preparation-2026-10-05.log`. No live cloud calls, memory
 writer/model/configuration/parallelism changes or push. These checks establish
