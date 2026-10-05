@@ -38,6 +38,15 @@ estimated prompt costs, source presence, missing phases and errors. The recent
 phase is a separate control; this does not run full semi-LSREP.
 See the [manual guide and complete measurement matrix](../../docs/reviews/2026-10-01-v3-manual-campaign.md).
 
+**v3 guard correction, 2026-10-05:** the running r4 paused at 1120 durable
+originals/82 frozen probes because three conversation summaries reached their
+output limit. Local content failures remain degraded but no longer count as
+transport outages. A closed registered tool-only continuation archive/receipt
+is prepared; all memory writers/inputs/settings stay unchanged. Resume the
+same r4 command, preserving the first history and second-history turn 1.
+`prepare_worker_continuation.py` supports explicit preparation, never an
+ignore-hash flag or implicit campaign launch. See the current manual guide.
+
 **Current v3 repair, 2026-10-04:** r3 twice failed at turn80 on a capitalized
 source quote. Matching now uses case/whitespace-normalized comparison while
 storing original bytes. Unsupported quoted rows cannot write graph edges;

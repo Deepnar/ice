@@ -2069,6 +2069,15 @@ checkpoint before outage pause, and report every planned case. Cloud unconfirmed
 requests also consume a durably reserved attempt; interruption must not reset
 billing/retry caps. An ungraded ERROR is neither a wrong answer nor a clean tie.
 
+**v3 recurrence, 2026-10-05:** a returned `length` completion proves the model
+responded; three such content failures were incorrectly called an outage at
+1120 saved turns. Retain the degraded data, but count transport failures for
+transport outage decisions. Preserve a frozen run through a registered exact
+instrument-only transition, never an edited old manifest or arbitrary hash
+bypass. Even editing pinned code during a disposable resume test invalidates
+its checkpoint: one control correctly refused for that reason and was rerun
+without concurrent edits; it never counted as a passing recovery measurement.
+
 ### 84. Model cleanup and cancellation boundaries can stall healthy memory work
 
 **v3,2026-10-03.** Native source-proof calls requested `keep_alive=0` despite

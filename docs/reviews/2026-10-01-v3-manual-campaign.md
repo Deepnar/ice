@@ -211,8 +211,9 @@ prefix looks plausible. New bundles use `worker_failure_policy=continue` and
 Idempotent post-flight gets two local attempts, then retains the original and
 successful derivatives with a degraded receipt and proceeds. Periodic jobs get
 one attempt per due cadence; committed changes are recorded and failed cadence
-does not claim success. Three consecutive degraded invocations of one worker
-checkpoint the current turn, then pause as an outage. Original-turn completion
+does not claim success. Three consecutive transport failures of one worker
+checkpoint the current turn, then pause as an outage. Responsive local output
+errors stay degraded and do not imply a provider outage. Original-turn completion
 does not claim complete derivative processing.
 Cloud answering and each judge order get two attempts, reserved durably before
 requesting so interruption cannot silently reset the cap. Isolated exhausted
@@ -240,8 +241,27 @@ The seeder releases its owned models when it exits; native proof/need calls keep
 their model between calls instead of unloading it every time. Provider load and
 evaluation durations and background-call wall times are logged.
 
-The corrected production writer changes replay identity. **Use r4 for this
-restart**, beginning from turn1; do not resume r3 with altered code or edit its
+**2026-10-05 instrument repair:** r4 has 1120 durable originals and 82 captured
+probes. It paused because three summary completions hit their 400-token limit;
+this was a responsive-output failure, incorrectly counted as a transport outage.
+The exact reviewed guard/checkpoint-tool changes are registered and a private
+continuation archive/receipt is prepared. Memory writers, budgets, labels and
+settings are unchanged. Resume the same r4 command above: the first history
+remains complete, and the second continues after its saved first turn. All 34
+degraded workers stay in the evidence. The old manifest is never edited and
+any unrelated change still refuses resume. For another eligible paused bundle,
+preparation is explicit, never automatic:
+
+```bash
+uv run python scripts/z1/prepare_worker_continuation.py --run-dir logs/z1-v3-manual-2026-10-04-r4
+```
+
+This preparation does not restore the DB or launch the campaign. Summary and
+extraction output budgets remain quality findings for post-seed review/tuning.
+Do not change inference parallelism or residency during this frozen run.
+
+The 2026-10-04 corrected writer changed replay identity. Its fresh r4
+restart began from turn 1; do not resume r3 with altered code or edit its
 70-turn manifest. The old checkpoint remains usable with its original frozen
 writer, but cannot certify the corrected system. Subsequent interruptions of r4
 use the same r4 command with unchanged code/settings/models/inputs.

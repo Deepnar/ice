@@ -142,12 +142,24 @@ Since 2026-10-04 new manual bundles use `worker_failure_policy=continue` and
 has two local attempts, then keeps its original and any independent successful
 derivatives with a degraded receipt. Periodic jobs get one attempt per due
 cadence, retain committed partial changes in the trace and keep failed-attempt
-time separate from successful cadence. Three consecutive degraded invocations
-of one worker checkpoint the current turn before an outage pause. Database,
+time separate from successful cadence. Three consecutive transport failures
+of one worker checkpoint the current turn before an outage pause. Responsive
+malformed/truncated local outputs remain degraded but reset the transport streak
+(correction 2026-10-05); their partial text is never accepted. Database,
 source/provenance, preflight/probe and unknown failures remain controlled pauses.
 Checkpoint state pins fault receipts/streaks; new bundles save each completed
 turn. A copied70-turn store measured4.21/4.12s per full snapshot; future cost
 grows with store size and this is not a whole-campaign latency result.
+
+A reviewed instrument-only continuation can preserve a paused seed without
+changing any writer. `prepare_worker_continuation.py` verifies all pinned files
+against the original Git version and a closed old/new code-digest registry; only
+the two reviewed recovery tools may differ. It archives the immutable checkpoint
+files and copies the committed trace prefix, never editing old identities.
+Resume still requires identical settings/models/inputs/plan/database, verifies
+the SQL restore and records the instrument boundary in trace/report. Unregistered
+code or writer changes remain refused. R4's 1120 originals/82 prompts survive
+this guard correction; its 34 degraded workers remain visible, not repaired facts.
 
 Cloud answers/orders reserve attempts durably before sending (two maximum,
 including interrupted calls with unknown outcome). Isolated exhausted

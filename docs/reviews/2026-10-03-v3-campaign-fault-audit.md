@@ -1,8 +1,36 @@
 # ICE v3 campaign fault handling and speed audit
 
-Updated 2026-10-04. This audit concerns current v3; paper v2 remains frozen.
+Updated 2026-10-05. This audit concerns current v3; paper v2 remains frozen.
 No complete development campaign, live cloud call or new answer-quality score
 was produced by these repairs.
+
+## R4 summary pause and progress-preserving correction
+
+R4 reached 1120 durable originals (1119 in its first history, one in its second)
+and 82 frozen prompts. Five summary jobs hit completion `length`; the last three
+were at first-history turns 1070/1095 and second-history turn 1. The outage guard
+incorrectly counted responsive truncation as provider unavailability. Correct
+only that instrument classification: retain all degraded receipts and never
+accept truncated summaries. All memory writers and output budgets stay frozen.
+The 29 other degraded post-flight calls (mostly extraction length, one missing
+quote) remain quality evidence, not silently repaired or discarded.
+
+A closed exact-code registry authorizes only the two recovery-tool changes.
+Preparation archives the old checkpoint files and independent committed trace
+prefix without modifying the store, original trace, pointer or manifest. Normal
+resume still binds identical non-code identity, checks every SQL row and records
+the instrument transition. Unreviewed code changes, settings/models/labels or
+writer changes still refuse. The current r4 archive/receipt is prepared; resume
+the existing r4 command below rather than starting again. The next source is
+second-history turn 2. Final controls: 578 disposable smoke checks in 37.66 s,
+36 focused controls and actual four-turn local transport-outage/resume passed.
+No full campaign or cloud call was launched by the repair.
+
+Concurrency/residency is unchanged. Models can share residency if memory fits;
+parallel contexts increase memory and a busy single GPU can merely contend.
+[Ollama's concurrency contract](https://docs.ollama.com/faq#how-does-ollama-handle-concurrent-requests)
+is consistent with bounded within-turn overlap as a future measured option, not
+parallel source histories or a reason to change this frozen campaign.
 
 ## Actual failure and shared repair
 
@@ -39,7 +67,7 @@ are one regression control, not independently graded graph truth or answer gain.
 | Copied/unsupported Codex quote | Shared original-byte alignment and proposal isolation; valid rows continue, original evidence retained. | WARNING counts/reasons; no unsupported graph assertion. |
 | Failed post-flight model call | Production runtime retries background jobs without undoing an already sent answer. Manual `continue` mode has two idempotent local attempts, then processes the next original. | Degraded source/worker/attempt receipt, truthful source counts; no invented completion key. |
 | Failed periodic model call | Live scheduler survives job errors. Manual job gets one attempt per due cadence; committed changes are inspected, failed-attempt time is separate from last success. | Before/after semantic rows and degraded status; no immediate replay of partial commits. |
-| Repeated local outage | Three successive degraded invocations of one worker checkpoint the current turn, then pause. | Fault streaks and cadence survive resume; original turns/probes remain durable. |
+| Repeated local outage | Three successive transport failures of one worker checkpoint the current turn, then pause; responsive output errors remain degraded and reset this streak. | Fault streaks and cadence survive resume; original turns/probes remain durable. |
 | Cloud answer failure | Two attempts per question; isolated exhausted transport/server/empty/incomplete response is an ungraded terminal error and later questions continue. | Planned/success/error counts; exact inputs; no prefix becomes a successful answer. |
 | Cloud judge failure | Two attempts per display order; preserve successful first orders. Exhausted format/completion/temporary transport errors remain ERROR, never ties or incorrect grades. | Both-order receipts, unresolved pairs retained in denominators. Failed-answer pairs consume no judge call. |
 | Interrupted cloud request | Reserve the attempt before sending; an unknown response outcome remains unconfirmed and consumes its attempt allowance. | Durable call ledger; resume cannot silently reset the two-call cap. |
@@ -100,9 +128,9 @@ Earlier actual route/cancellation and 49 runtime checks remain recorded in
 [PROVENANCE](../PROVENANCE.md); they were not rerun as independent samples here.
 These controls do not prove exhaustive robustness or supported answers/token.
 
-Fresh r4 is prepared only, with byte-identical reviewed packets, 117 admissions,
-1471 recorded pairs and 259 frozen prompts. No experiment or cloud stage was
-launched. R3's 70-turn recovery remains unchanged; changed writer identity
+At preparation on 2026-10-04, fresh r4 reused byte-identical reviewed packets, 117 admissions,
+1471 recorded pairs and 259 frozen prompts. That repair launched no experiment
+or cloud stage; the maintainer subsequently ran r4. R3's 70-turn recovery remains unchanged; changed writer identity
 requires a fresh start, never editing its old manifest.
 
 From the repository root, without activating a venv:
@@ -111,7 +139,8 @@ From the repository root, without activating a venv:
 uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-04-r4 --run
 ```
 
-This starts from turn 1. Later Ctrl+C and rerun of the same r4 command resumes
+Fresh r4 started from turn 1; the current guard-repair resume retains 1120 turns.
+Later Ctrl+C and rerun of the same r4 command resumes
 with unchanged code/settings/models/inputs. The [manual guide](2026-10-01-v3-manual-campaign.md)
 owns scope, counts and limitations. Tuning, output-specific truth review and
 independent judge qualification remain research gates; final runs are LME oracle

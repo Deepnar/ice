@@ -156,7 +156,9 @@ for chronological replay, frozen cloud answers and both-order judging, with
 live terminal progress and separate processed/durable checkpoints. Temporary
 model failures get bounded retries; isolated exhausted failures remain visible
 as degraded memory or ungraded cloud errors while later questions continue.
-Repeated outages and integrity/configuration errors pause with saved artifacts.
+Repeated transport outages and integrity/configuration errors pause with saved artifacts.
+An explicitly reviewed instrument repair can preserve a paused checkpoint while
+still refusing writer or configuration changes.
 New bundles checkpoint every completed turn. It requires reviewed ground truth
 and remains diagnostic while judge qualification and output-specific quality
 checks are pending. Its harness checks are not new

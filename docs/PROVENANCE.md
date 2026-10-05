@@ -1,3 +1,59 @@
+## 2026-10-05 — v3 responsive-output pause and verified instrument continuation
+
+The maintainer's r4 paused at 1120 durable originals (1119+1) with 82 historical
+probe contexts. The cause was the conversation-summary worker's third successive
+`IncompleteCompletion(length)`, after first-history turns 1070/1095 and second
+history turn 1. Five summary jobs had failed; 29 post-flight calls were degraded,
+mostly `ExtractionOutputError(length)`, with one missing source sentence.
+These are responsive output failures, not proof of an unavailable provider.
+Summary source notes still ask up to 250 words under 400 output tokens; specialist
+extraction still uses 3000 output tokens. No output budget or memory writer was
+changed in this repair, so these failures remain explicit quality/tuning evidence.
+
+Local transport streaks now count only recognized connection/timeouts/temporary
+server faults. A responsive local content failure resets that streak while
+retaining every failed/degraded receipt. Actual saved-state reclassification
+kept all 34 degraded records and cleared only the false summary-outage count.
+Non-code identity remains strict. All pinned writers and other tools match the
+original Git baseline; only the two reviewed recovery tools differ. A closed
+exact old/new digest registry prevents arbitrary compatibility approval.
+Preparation archives the original immutable checkpoint files with hard links
+and independently copies its committed trace prefix; original DB, trace, pointer
+and manifest remain unchanged. Resume uses normal SQL row/hash verification and
+records the instrument boundary in trace/report, never an edited old manifest.
+
+Final disposable smoke: 578 passed in 37.66 s, five existing warnings. Focused
+36 controls cover responsive/transport failures, legacy streak reclassification,
+exact registered code acceptance, settings/writer/prefix/archive refusals and
+trace-bound instrument changes. Earlier 577 full pass overlaps; no independent
+samples are added. Private logs: `logs/z1-transport-final-smoke-2026-10-05.log`,
+`logs/z1-transport-final-focused-2026-10-05.log`. Actual four-turn local transport
+fault/resume control retained three originals/probe before outage and processed
+only turn 4 after restore: `logs/z1-transport-worker-final-2026-10-05.{log,jsonl}`.
+Its first attempt was invalidated by editing pinned code during the disposable
+test; strict identity correctly refused. That attempt is uncredited; the final
+fixture ran with code frozen. Test databases were removed.
+
+Actual r4 continuation preparation/validation passed with 1120 retained originals
+and 82 saved probes, no DB restore or campaign launch. Receipt/archive are private
+under `logs/z1-v3-manual-2026-10-04-r4/seed.recovery/`; preparation log:
+`logs/z1-r4-continuation-preparation-2026-10-05.log`. No live cloud calls, memory
+writer/model/configuration/parallelism changes or push. These checks establish
+tested recovery/instrument compatibility, not complete replay, throughput,
+independent judge qualification or supported answer gain. Summary/extraction
+budget quality remains for the agreed post-seed output review/tuning.
+
+Concurrency inspection distinguishes cached weights from GPU residency and
+parallel inference. Encoder remains a singleton; reranker/NLI cache CPU weights
+and move for guarded inference; classifier/MicroNER are small shared-encoder
+heads. Existing GPU job lane and per-model locks are not a complete shared
+residency budget. Bounded independent work within one turn may be a future
+measured optimization; historical turns must remain ordered. Ollama confirms
+parallel contexts multiply memory requirements and concurrent loads need to fit
+([official concurrency contract](https://docs.ollama.com/faq#how-does-ollama-handle-concurrent-requests)).
+The earlier live GPU-utilization snapshot was 96%, not evidence that adding
+parallel calls speeds this workload. No residency/latency experiment was run.
+
 ## 2026-10-04 — v3 turn 80 source copying and isolated-failure recovery
 
 R3 failed twice at turn 80 after restoring its 70-turn checkpoint. The third
