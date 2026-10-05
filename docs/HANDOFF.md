@@ -1,149 +1,120 @@
-# Handoff — ICE v3, 2026-10-04 12:30 IST
+# Handoff — ICE v3, 2026-10-05 21:33 IST
 
-**State, not a queue.** [ROADMAP.md](ROADMAP.md) owns the work. Current repairs
-and checks concern v3; the paper's v2 tag/report remain frozen.
+**State, not a queue.** ROADMAP owns work; paper v2 remains frozen. Current
+inspection, correction and continuation concern v3.
 
 ## Told → did
 
-**Told:** finish repairing the repeated turn-80 crash, cap expensive parent
-attempts at two, normalize copied source quotes where safe, and tolerate isolated
-model failures in production and large experiments without hiding missing memory
-work. Preserve progress and resume safety. The maintainer runs the full campaign;
-do not launch it or live cloud stages. Continue the existing memory-quality
-research plan rather than expanding product edge cases.
+**Told:** the maintainer's r4 stopped after starting the second history. Diagnose
+and repair it without losing the long run's progress. Check whether concurrent
+model calls/persistent residency could improve speed. Full campaign remains
+maintainer-run; no push or new task branch.
 
-**Did:** actual local role-unit capture established a first-letter capitalization
-copying error, not an outage or paraphrase. Shared Codex source selection now
-resolves unique case/whitespace copies to original bytes. Complete typed rows
-with unsupported quotes are withheld from graph writes while their original
-chunk remains searchable alongside valid rows. Ambiguous chunk mapping retains
-the original role unit. Malformed/truncated executions remain failures; no
-unsupported proposal becomes a graph assertion or corroboration.
+**Did:** read actual failure and checkpoint receipts. The conversation-summary
+worker hit `IncompleteCompletion(length)` on three successive scheduled calls:
+first-history turns 1070/1095, then second-history turn 1. It asks for up to
+250 words under 400 output tokens. The outage guard mistakenly counted returned
+truncation as transport unavailability. It now counts recognized transport/
+temporary server failures only; responsive content failures reset that streak
+but remain degraded. Legacy streak reclassification preserves every failed
+attempt and degraded source. Memory writers/output budgets are unchanged.
 
-New manual bundles use explicit worker/cloud continue policies. Post-flight has
-two idempotent attempts; exhausted isolated failures preserve originals and
-successful independent derivatives with degraded receipts. Periodic jobs get
-one attempt per due cadence, inspect committed partial changes and keep failed
-attempt time separate from success. Three successive degraded invocations of
-one worker checkpoint the current turn before an outage pause. Production's
-existing background retry/runtime remains alive; an already sent answer is not
-undone. Shared quote repair applies to production, while serial continue policy
-belongs to the research instrument.
+The archived original code reproduces the old recovery hash. Only the two
+reviewed recovery tools differ; a closed exact old/new hash registry prevents
+arbitrary code compatibility. Explicit preparation archives the immutable
+checkpoint files and independently copies the committed trace prefix without
+editing the old store, trace, pointer or manifest. Normal resume requires
+identical settings/models/inputs/database/plan, verifies SQL restore, and
+records the instrument boundary in trace/report. No general ignore-hash flag.
+The spec narrowly supersedes fresh-start requirements for this instrument-only
+correction; writer/configuration changes remain outside its authority.
 
-Cloud answers and each judge display order have two attempts, reserved durably
-before sending, including interrupted requests with unconfirmed outcomes.
-Isolated exhausted errors remain ungraded terminal rows and later questions
-continue. Failed-answer pairs use no judge call. Repeated outages, access,
-integrity and unknown failures pause visibly. Errors remain in planned
-counts and clean/degraded-gold/other strata; fault metadata never enters answer
-or judge prompts. Successful outputs are separate from processing completion.
-Parent recovery now permits two total child attempts, with one 2-second backoff.
-New bundles checkpoint every completed turn rather than replaying ten turns.
+## Current campaign state
 
-Mechanisms and limits: [fault audit](reviews/2026-10-03-v3-campaign-fault-audit.md),
-[manual guide](reviews/2026-10-01-v3-manual-campaign.md),
-[PROVENANCE.md](PROVENANCE.md), and the dated repair/reseed specs.
-
-## Current execution state
-
-- **Fresh v3 r4:** ignored `logs/z1-v3-manual-2026-10-04-r4`, initialized and
-  validated only. Five reviewed packets are byte-identical to r3. No seed trace,
-  stage state or campaign database exists; no full seed or cloud call was made.
-  Do not initialize again. New config uses per-turn checkpoints and both
-  continue policies. Readiness admits 117 questions; configured endpoints and
-  credentials were checked without provider requests.
-- **R3:** failed twice at turn 80, restoring its 70-turn checkpoint each time.
-  Its verified campaign-only third attempt was stopped gracefully by SIGINT;
-  interruption receipt, store, manifests and failed tails remain unchanged.
-  Changed writer/policy identity requires fresh r4, not editing old hashes.
-- **Earlier failures:** r2's turn-54/51-durable checkpoint and the first nullable
-  turn-4 attempt remain preserved. Previous source-only/null-field, whitespace,
-  native-model residency and stream-cancellation repairs remain in place.
-- **Ground truth:** all 255 base source/answer dispositions reviewed, zero
-  pending. Source-linked 124: 77 valid/25 invalid/22 uncertain. Native 131:
-  36 valid/77 invalid/18 uncertain. Total 113 valid/102 invalid/40 uncertain;
-  excluded cases were not invented into valid memory questions. The 248 reviewed
-  key overrides preserve catalog originals and labels stop at their own cutoff.
-- **Plan:** histories of 1119/251/101 recorded pairs, 1471 total; 39 checkpoint
-  cutoffs; 259 prompts (255 base plus four development repeats). 117 admissions
-  (113 base plus four repeats), four arms, 468 cloud answers and 702 judge-order
-  requests before retries if all answers succeed. Two dependent repeat families
-  compare recent→old at 51→115 and 115→216, not full semi-LSREP retention.
+- **R4:** `logs/z1-v3-manual-2026-10-04-r4`, paused with **1120 durable originals**
+  (1119 in first history plus one in second), **82 frozen probes**, and **34
+  degraded workers** (29 post-flight, five summary). Most post-flight failures
+  were extraction completion length; one missing source sentence. No original
+  or failure receipt was erased or turned into successful processing.
+- **Continuation is prepared and verified:** private receipt at
+  `seed.recovery/instrument-continuation.json`; original archive beneath that
+  recovery root. Current actual resume-time configuration matches its identity;
+  all eight input file digests and installed local writer manifests match.
+  Original checkpoint identity is unchanged. No DB restore, full experiment
+  or cloud call was launched by the repair. Resume starts second-history turn 2.
+- **All writers/inputs/settings/models remain frozen.** No concurrency,
+  residency, output budget, production code, database schema or AGENTS change.
+  Do not edit pinned code while the maintainer's campaign runs.
+- **Scope unchanged:** three histories of 1119/251/101 pairs, 1471 total,
+  39 checkpoint cutoffs, 259 prompts (255 base plus four development repeats),
+  117 admitted questions, four answer arms, three both-order judge contrasts.
+  If all succeed: 468 cloud answers/702 judge-order requests before retries.
+  Earlier failed r3/r2 checkpoints remain preserved.
+- **Ground truth:** all 255 base reviews complete, zero pending; 113 valid,
+  102 invalid, 40 uncertain. Two dependent repeat families (51→115, 115→216)
+  are diagnostics, not full semi-LSREP. No valid multi-hop, one abstention and
+  six admitted third-history questions remain coverage limits.
 - **Models:** local gemma4:e4b general background and NuExtract3-Q8_0 extraction;
-  cloud gpt-6-luna answering and deepseek-v4-flash judging. No model assignment
-  changed. Reranker/NLI weights return to CPU between calls; owned background
-  models retain existing guarded idle release and serial-exit cleanup. No
-  maximum concurrent VRAM or all-model residency guarantee.
-- **No new quality result:** independent judge qualification and output-specific
-  truth reviews remain pending; `score_of_record=false`. Before a complete
-  trace, `cloud_answers_ready=false` is expected, not missing source review.
+  cloud gpt-6-luna answers and deepseek-v4-flash judge. Cloud answers have not
+  begun; current seed uses existing replies and saves as-of prompt contexts.
+  Judge qualification remains pending and score_of_record=false.
 
 ## Validation and limits
 
-Final disposable smoke: **564 passed in 38.06 s**, five existing warnings.
-Seven progress controls pass. One preceding fixture incorrectly expected a
-committed failure to disappear on restore (1 failed/563 passed); the corrected
-control retains committed faults and discards unfinished ones. Focused and
-repeated suites overlap and are not independent sample counts.
+Final disposable smoke **578 passed in 37.66 s**, five existing warnings;
+focused **36** controls overlap. Tests cover local output versus transport
+failure, legacy streaks, exact registered tool compatibility, identity/writer/
+archive/prefix refusals and trace-bound transitions. Actual four-turn local
+transport fault/resume exercised preflight, post-flight, originals/probe and
+35-table restoration: three originals persisted before outage; only turn 4
+processed on resume. Initial attempt was invalidated by editing pinned code
+during the disposable test; strict identity correctly refused and it was not
+credited. Final fixture ran with code frozen; databases were removed.
 
-Actual saved turn-80 completions through real parser/writer/reader/NLI stored
-33 original claims, wrote 20 source-supported edges and withheld two unknown
-relations in 20.458 s. Actual capture took 29.467 s. Neither is an independently
-graded graph truth or answer-quality result.
-
-Actual four-turn synthetic local fault control exercised preflight, writing,
-post-flight, a read-only historical probe and 35-table restore. Three injected
-Codex failures exhausted six calls; originals/probe were checkpointed before
-outage, and resume processed only turn 4. Prefix health excluded future faults.
-Its final changed-code rerun passed; periodic cadence was disabled in this
-fixture. Separate actual SQL control captured partial committed maintenance
-changes and failed cadence without immediate replay or false success. Cloud
-controls used controlled transports/outputs, not paid provider requests.
-
-A copied actual 70-turn store plus synthetic next-turn interruption verified
-35 tables, a 17.45 MB dump, turn-71 restoration, retained failed tail and two
-rolling generations. Captures took 4.214/4.125 s; this adds snapshot overhead
-that grows with store size, not a final-store speed qualification. Three setup
-fixtures were uncredited and fixed without weakening old manifests. Earlier
-49 runtime and six actual route/transport controls remain in provenance, not
-rerun or counted as independent new observations. Full-campaign robustness,
-whole-system throughput and supported answers per token remain unmeasured.
+Actual r4 archive/identity and saved-streak controls preserve 1120 originals,
+82 probes and all 34 faults. Runtime readiness checks configuration, source and
+model identity without model generation or DB mutation. No full-campaign,
+independent answer-quality, final throughput or concurrency result is claimed.
+Private receipts and exact limits are recorded in PROVENANCE and the current
+fault audit. Truncated summaries/extractions remain real quality evidence for
+post-seed targeted repair/tuning; this guard fix does not cure their budgets.
 
 ## Operator entry point and research position
 
-From the repository root, without activating a venv:
+The receipt/archive is already prepared. From the repo root, without a venv:
 
 ```bash
 uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-04-r4 --run
 ```
 
-PostgreSQL and Ollama must be available. One command runs seed → snapshot →
-answers → judge → report with stage/arm progress, processed/durable counts,
-probe counts and persistent degraded/ungraded counters. This fresh r4 starts
-from turn 1. Later Ctrl+C and the same r4 command resume with unchanged
-code/settings/models/corpus/labels. Critical failures leave an explicit pause
-reason; bounded recovery is not a guarantee that every possible error continues.
+This retains the 1120 saved turns; **do not initialize a new bundle**. Source
+history one is finished, second resumes after turn 1. Normal restore may take
+time before counters advance. Ctrl+C then the same command resumes under
+unchanged identity. Real transport/access/integrity failures still pause safely.
+One command continues seed → snapshot → answers → judge → report.
 
-Roadmap remains 160 anchors, 93 checked/67 open: 29 evidence-dependent,
-35 later product/research and three gates. The
-[29-item evidence map](reviews/2026-09-29-v3-reseed-harness-audit.md#open-item-evidence-map)
-distinguishes captured data from truth reviews, additional style/leg/model/
-resource controls and tuning. Coverage limits remain no valid multi-hop cases,
-one abstention and six admitted third-history questions. The agreed progression
-is seed-output review → targeted repair/tuning on as-of snapshots → freeze →
-**LME oracle and semi-LSREP only**. No full LME-S campaign is authorized.
-Final resumable runners and independent all-originals vector-baseline contracts
-are not supplied by this development command. The requested crash/recovery
-repair and prelaunch checks are complete; the maintainer can start r4.
+Concurrency inspection: cached weights, GPU residency and simultaneous calls
+are separate. Encoder is shared; classifier/MicroNER are small heads, while
+NLI/reranker/NuNER are substantial transformers. NLI/reranker retain CPU caches
+with guarded inference; background LLMs retain existing warm/idle policies.
+Ollama concurrent requests need additional context/cache memory. Earlier live
+GPU usage was 96%, not proof that overlap speeds the workload. Historical turns
+must remain sequential; bounded independent work within a turn is a future
+measured option under a shared residency budget. No speed change was made now.
+
+Roadmap counts unchanged: 160 anchors, 93 checked/67 open, partitioned into
+29 evidence-dependent, 35 later and three gates. The agreed progression remains
+complete seed → output/quality review and targeted repair/tuning → freeze →
+**LME oracle and semi-LSREP only**. Final resumable runners and independent
+all-originals vector-baseline contracts remain separate work. No full LME-S.
+Current requested false-pause repair and progress-preserving preparation are done.
 
 ## Git and propagation
 
-Main only. Local commits: `22eac74` original-source repair, `095a5e7` worker
-recovery, `6d1a5eb` cloud reservations/continue policy, `8499d11` durable audit
-and launch docs. No push: the earlier one-time authorization through `5672f45`
-is consumed and the experiment publication freeze remains active. No schema
-migration, new model, tuning-default change or AGENTS edit. Specs, roadmap note,
-provenance, traps, inventory, architecture, README and manual guides reconciled;
-MODELS/CLEANUP n/a (no assignment change or move/rename). This handoff is written
-and committed last. Private session notes are archived under ignored logs and
-SESSION is reset after propagation.
+Main-local commits: `f2da6cd` responsive-versus-transport guard, `9b6d708` closed
+registered continuation/archive, `fe71d92` durable audit/launch docs, and runtime
+readiness provenance. No push: earlier one-time authorization is consumed;
+experiment publication freeze remains active. Specs, architecture, inventory,
+roadmap note, provenance, traps, README/manual guides reconciled. MODELS/CLEANUP
+n/a (no assignment or move); AGENTS unchanged. This handoff is written/committed
+last. Private SESSION is archived under logs then reset after propagation.
