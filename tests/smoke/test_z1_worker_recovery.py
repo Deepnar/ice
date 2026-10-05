@@ -55,6 +55,34 @@ def test_persistent_worker_outage_pauses_without_erasing_receipts(monkeypatch):
     assert restored.health()["degraded_worker_calls"] == 3 and restored.health()["failed_attempts"] == 6
 
 
+def test_responsive_truncation_is_degraded_but_not_a_transport_outage(monkeypatch):
+    from src.workers.completion_text import IncompleteCompletion
+    monkeypatch.setattr("scripts.z1.worker_recovery.time.sleep", lambda _seconds: None)
+    recovery = WorkerRecovery(io.StringIO(), "continue")
+    def truncated():
+        raise IncompleteCompletion("completion is not complete: 'length'")
+    for turn in range(1, 5):
+        assert recovery.call(truncated, job="conversation_summary", context={"conversation": "c", "turn": turn},
+                             rollback=lambda: None, attempts=1) == (False, None)
+        recovery.check_outage()
+    assert recovery.state["streaks"]["conversation_summary"] == 0
+    assert recovery.health()["degraded_worker_calls"] == 4
+
+
+def test_legacy_output_streak_is_reclassified_without_erasing_any_failure():
+    faults = [{"job": "conversation_summary", "conversation": "c", "turn": turn,
+               "error_type": "IncompleteCompletion"} for turn in range(1, 4)]
+    state = {"degraded": faults, "failed_attempts": 3,
+             "streaks": {"conversation_summary": 3}, "last_attempt": {}}
+    recovered = WorkerRecovery(io.StringIO(), "continue", state)
+    recovered.check_outage()
+    assert recovered.state["degraded"] == faults and recovered.health()["failed_attempts"] == 3
+    # Mixed legacy failures retain only the consecutive transport tail.
+    state = {"degraded": [*faults, {**faults[-1], "error_type": "ConnectionError"}],
+             "failed_attempts": 4, "streaks": {"conversation_summary": 4}, "last_attempt": {}}
+    assert WorkerRecovery(io.StringIO(), "continue", state).state["streaks"]["conversation_summary"] == 1
+
+
 def test_processing_strata_keep_degraded_errors_in_denominators():
     from scripts.z1.judge_answers import processing_outcome_strata
     rows = [{"memory_processing": {"status": "clean"}, "arm_a_grade": "correct"},

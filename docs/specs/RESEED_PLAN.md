@@ -618,6 +618,36 @@ Ollama manifest digests as well as their mutable tag names before replay/resume.
 
 ### Isolated worker failures — 2026-10-04
 
+**Outage classification correction, 2026-10-05:** r4 reached 1120 durable
+originals, then paused because three scheduled conversation-summary calls hit
+their output limit. A returned malformed/truncated output is evidence that the
+model responded, not a transport outage. Continue recording these content
+failures as degraded work. Increment outage streaks only for recognized
+connection/timeouts/temporary server failures; a responsive content failure or
+successful call resets the transport streak. Critical failures still pause.
+Legacy checkpoint streaks may be reclassified from their bounded consecutive
+failure receipts; never erase failed attempts or degradation history.
+
+This changes only the instrument's pause decision, not any memory writer,
+model, output budget, source, label, setting, database or plan. An explicit
+instrument-continuation receipt may allow this exact compatibility boundary:
+verify the previous code hash from its Git revision, verify all writer and
+other pinned files unchanged, allow only `worker_recovery.py` and
+`replay_checkpoint.py` with an exact old/new digest pair in the closed reviewed
+`instrument_repairs.json` registry, and bind the new code hash, complete original identity,
+committed prefix/hash and archived original manifest. Preserve the frozen
+checkpoint with hard links and a separate copy of the committed trace prefix.
+Do not edit an original manifest/hash or permit a general ignore-identity flag.
+Restore still verifies the full store; append the instrument-change receipt
+before later work. Resume under changed settings/models/inputs or any unapproved
+code still refuses. Reports expose the boundary; this is a development
+instrument correction, never a new clean quality score. Summary-budget and
+extraction-output failures remain visible evidence for subsequent quality work.
+
+This narrowly supersedes the fresh-bundle requirement above for this verified
+instrument-only correction. Any writer/configuration/label change still needs
+its own decided contract; this receipt cannot authorize one.
+
 The maintainer authorizes continuing after isolated recoverable model failures.
 New manual bundles select `--worker-failure-policy continue`; standalone seed
 defaults to `strict`. Keep both policies in run identity. In continue mode,

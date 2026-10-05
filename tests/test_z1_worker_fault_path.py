@@ -20,7 +20,6 @@ from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory
 from src.workers import post_flight
-from src.workers.extraction_result import ExtractionOutputError
 
 
 def main():
@@ -42,7 +41,7 @@ def main():
     def failed(**kwargs):
         calls.append(kwargs["batch_id"])
         if len(set(calls)) <= 3:
-            raise ExtractionOutputError("synthetic incomplete extraction")
+            raise ConnectionError("synthetic provider connection outage")
         return original(**kwargs)
     with patch.object(seed_v3, "EXPECTED", {slug: 4}), patch.object(settings, "maintenance_intervals", {}), \
          patch.object(post_flight, "extract_codex", failed):
