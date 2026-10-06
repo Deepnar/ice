@@ -55,6 +55,18 @@ def progress_totals(root: Path) -> tuple[int, int]:
     return sum(EXPECTED.values()), sum(map(len, probes.values()))
 
 
+def judge_selection(config: dict) -> dict:
+    """Report the phase-four choice without API calls or loading credentials."""
+    name = config.get("judge_profile")
+    if name:
+        profile = PROFILES[name]
+        return {"profile": name, "model": profile.model, "endpoint": profile.endpoint,
+                "qualification": "pending"}
+    from scripts.z1.judge_answers import _env
+    return {"profile": "legacy_PROBE_MODEL", "model": _env("PROBE_MODEL"),
+            "endpoint": "chat_completions", "qualification": "pending"}
+
+
 def schema_signature(engine, tables: list[str]) -> str:
     """Column/default, constraint and index definitions, never user rows."""
     queries = [
@@ -136,6 +148,7 @@ def initialize(root: Path) -> dict:
              "database": "ice_v3_campaign_" + identity[:16],
              "snapshot_arm": "manual-v3-" + identity,
              "answer_profile": "opencode-luna6", "checkpoint_every": 1,
+             "judge_profile": "opencode-muse13",
              "worker_failure_policy": "continue",
              "cloud_failure_policy": "continue",
              "background_model": "gemma4:e4b",
@@ -158,6 +171,7 @@ def read_config(root: Path) -> dict:
             or config.get("worker_failure_policy", "strict") not in {"strict", "continue"}
             or config.get("cloud_failure_policy", "strict") not in {"strict", "continue"}
             or config.get("answer_profile") not in PROFILES
+            or (config.get("judge_profile") is not None and config["judge_profile"] not in PROFILES)
             or not isinstance(config.get("background_model"), str) or not config["background_model"].strip()
             or not isinstance(config.get("codex_extraction_model"), str) or not config["codex_extraction_model"].strip()
             or config.get("probe_panel") != "existing"):
@@ -203,6 +217,7 @@ def status(root: Path, config: dict) -> dict:
             answer_plan = {"verified": plan["probes"] > 0, "arms": plan["matched_arms"],
                            "review_coverage": plan["review_coverage"]}
     return {"version": "v3", "run_directory": str(root), "stages": progress,
+            "judge_selection": judge_selection(config),
             "ground_truth": {"source_linked_review": linked, "native_review": native,
                              "development_repeat_review": repeats},
             "reviewed_label_candidates_available": labels_available,
@@ -361,9 +376,13 @@ def execute(root: Path, config: dict, stage: str) -> int:
             PROFILES[config["answer_profile"]].resolved_api_key()
         if "judge" in chosen:
             from scripts.z1.judge_answers import _env
-            missing = [key for key in ("PROBE_API_KEY", "PROBE_API_BASE_URL", "PROBE_MODEL") if not _env(key)]
+            required = ("PROBE_API_KEY", "PROBE_API_BASE_URL") + (() if config.get("judge_profile") else ("PROBE_MODEL",))
+            missing = [key for key in required if not _env(key)]
             if missing:
                 raise ValueError("judge configuration missing: " + ", ".join(missing))
+            if config.get("judge_profile"):
+                PROFILES[config["judge_profile"]].resolved_base_url()
+                PROFILES[config["judge_profile"]].resolved_api_key()
     turns, probes = progress_totals(root) if "seed" in chosen else (0, 0)
     print("v3 preparing campaign; checking configuration/schema", flush=True)
     env = database_environment(config, root) if any(s in {"seed", "snapshot"} for s in chosen) else dict(os.environ)
@@ -380,8 +399,13 @@ def execute(root: Path, config: dict, stage: str) -> int:
                 with log_path.open("a") as output:
                     with TerminalProgress(reader, label):
                         try:
+                            child_env = dict(env)
+                            if current == "judge" and config.get("judge_profile"):
+                                child_env["ICE_JUDGE_PROFILE"] = config["judge_profile"]
+                            else:
+                                child_env.pop("ICE_JUDGE_PROFILE", None)
                             subprocess.run([sys.executable, str(ROOT / "scripts/z1" / script), *arguments],
-                                           cwd=ROOT, env=env, stdout=output, stderr=subprocess.STDOUT, check=True)
+                                           cwd=ROOT, env=child_env, stdout=output, stderr=subprocess.STDOUT, check=True)
                         finally:
                             output.flush()
                             os.fsync(output.fileno())

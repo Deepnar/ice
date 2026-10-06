@@ -173,6 +173,13 @@ PROFILES: dict[str, ProviderProfile] = {
         base_url_env="PROBE_API_BASE_URL",
         api_key_env="PROBE_API_KEY",
     ),
+    "opencode-deepseek-v41-flash": ProviderProfile(
+        name="opencode-deepseek-v41-flash",
+        endpoint="chat_completions",
+        model="deepseek-v4.1-flash",
+        base_url_env="PROBE_API_BASE_URL",
+        api_key_env="PROBE_API_KEY",
+    ),
     "local-gemma12-judge": ProviderProfile(
         name="local-gemma12-judge",
         endpoint="chat_completions",

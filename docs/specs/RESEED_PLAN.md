@@ -141,6 +141,24 @@ separately from rank. The judge rubric still requires calibration on current
 human-reviewed answer pairs before its grades become results of record.
 
 **Answer-judge calibration contract (v3, 2026-10-01):**
+**Judge-profile correction, v3 2026-10-06:** use the existing
+`opencode-muse13` Responses profile for new manual campaigns and the current
+r4 judge phase. The older DeepSeek pin was not a measured win over Muse:
+Muse was selected for v2 LongMemEval and had stronger small human-label
+calibration, which still does not qualify v3 paired judgments. Store an explicit
+`judge_profile` in the private campaign bundle and supply `ICE_JUDGE_PROFILE`
+only to its judge child. Do not edit global PROBE_MODEL/.env: all Settings are
+hashed by the frozen seed. Existing bundles without a profile retain their
+legacy explicit PROBE_MODEL route; never silently migrate existing judgments.
+DeepSeek-v4.1 Flash is an explicit available alternative profile, never an
+automatic fallback. Reuse the shared cloud TextGenerator with endpoint/status/
+usage checks, stable session and ICE user-agent, no hidden SDK retries, the
+unchanged full-source rubric and both orders. Bind model/profile/endpoint/
+decoding/transport implementation to judge and calibration resume identity.
+Preserve bounded caller retries and access/outage/error decisions. Independently
+qualify v3 judgments before any score-of-record claim; endpoint controls are not
+a judge-accuracy comparison. This changes no local writer or answering profile.
+
 `calibrate_answer_judge.py` uses the same `judge_one` request and absolute
 rubric as the answer campaign. Each complete case has a question/time, dated
 source, expected answer, two anonymous answers and independently assigned

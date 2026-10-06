@@ -40,13 +40,16 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter, defaultdict
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from scripts.z1.development_repeats import retention_comparison
+from experiments.lme.cloud_provider import (CloudCompletionError, PROFILES,
+    ProviderAccessError, TextGenerator, load_selected_env)
 from scripts.z1.cloud_recovery import POLICY as CLOUD_POLICY, judge_fault, terminal_answer_fault, terminal_judge_fault
+from scripts.z1.development_repeats import retention_comparison
 from scripts.z1.label_review import KNOWLEDGE_SCOPES, TASK_TYPES, question_family_counts
 from scripts.z1.replay_checkpoint import atomic_json
 
@@ -161,6 +164,36 @@ def _env(k: str):
     return None
 
 
+def judge_profile():
+    """Stage-only profile; global seed settings and legacy judges stay frozen."""
+    name = os.environ.get("ICE_JUDGE_PROFILE")
+    if not name:
+        return None
+    if name not in PROFILES:
+        raise ValueError("unknown explicit judge profile")
+    load_selected_env()
+    return replace(PROFILES[name], timeout_seconds=120)
+
+
+def judge_provider_identity():
+    profile = judge_profile()
+    if profile is None:
+        return {"judge_model": _env("PROBE_MODEL"),
+                "judge_base_url": (_env("PROBE_API_BASE_URL") or "").rstrip("/")}
+    return {"judge_model": profile.model, "judge_base_url": profile.resolved_base_url(),
+            "judge_provider": profile.metadata(), "judge_transport_sha256": hashlib.sha256(
+                (Path(__file__).resolve().parents[2] / "experiments/lme/cloud_provider.py").read_bytes()).hexdigest()}
+
+
+def profile_completion(profile, messages, session_id):
+    from openai import OpenAI
+    with OpenAI(base_url=profile.resolved_base_url(), api_key=profile.resolved_api_key(),
+                timeout=profile.timeout_seconds, max_retries=0,
+                default_headers={"User-Agent": UA}) as client:
+        return TextGenerator(profile, client=client).generate(
+            messages, temperature=0, max_output_tokens=16000, session_id=session_id)
+
+
 _GOLD_IDX = None
 
 
@@ -213,6 +246,7 @@ def _full_source(rec) -> str:
 
 def judge_one(question, source, ans_a, ans_b, *, expected_answer=None,
               question_time=None, session_id=None, retries=3):
+    profile = judge_profile()
     key, base, model = (_env("PROBE_API_KEY"), _env("PROBE_API_BASE_URL"),
                         _env("PROBE_MODEL"))
     if not key or not base:
@@ -279,19 +313,31 @@ def judge_one(question, source, ans_a, ans_b, *, expected_answer=None,
             }
     attempts = 1 if expected_answer is not None else retries
     for attempt in range(attempts):
+        generation = None
         try:
-            req = urllib.request.Request(
-                f"{base.rstrip('/')}/chat/completions",
-                data=json.dumps(body).encode(),
-                headers=headers)
-            with urllib.request.urlopen(req, timeout=120) as r:
-                payload = json.loads(r.read())
-            finish_reason = payload["choices"][0].get("finish_reason")
-            if finish_reason is not None and finish_reason != "stop":
-                return {"verdict": "ERROR", "reason": "incomplete_completion",
-                        "note": f"Provider finish_reason: {finish_reason}"}
-            txt = (payload["choices"][0]["message"]["content"] or "").strip()
+            if profile is not None:
+                generation = profile_completion(profile, body["messages"],
+                    session_id or "ice-z1-judge-" + hashlib.sha256(source.encode()).hexdigest()[:24])
+                txt = generation.text.strip()
+            else:
+                req = urllib.request.Request(
+                    f"{base.rstrip('/')}/chat/completions",
+                    data=json.dumps(body).encode(), headers=headers)
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    payload = json.loads(r.read())
+                finish_reason = payload["choices"][0].get("finish_reason")
+                if finish_reason is not None and finish_reason != "stop":
+                    return {"verdict": "ERROR", "reason": "incomplete_completion",
+                            "note": f"Provider finish_reason: {finish_reason}"}
+                txt = (payload["choices"][0]["message"]["content"] or "").strip()
         except Exception as exc:                                  # noqa: BLE001
+            if isinstance(exc, CloudCompletionError):
+                return {"verdict": "ERROR", "reason": "incomplete_completion",
+                        "error_type": type(exc).__name__, "note": "Provider completion incomplete"}
+            if isinstance(exc, ProviderAccessError):
+                return {"verdict": "ERROR", "reason": "api_http_" + str(exc.status_code),
+                        "error_type": type(exc).__name__, "operator_required": True,
+                        "note": exc.kind}
             note = str(exc)[:120]
             operator_required = False
             if isinstance(exc, urllib.error.HTTPError):
@@ -317,7 +363,11 @@ def judge_one(question, source, ans_a, ans_b, *, expected_answer=None,
             d = json.loads(txt[txt.index("{"):txt.rindex("}") + 1])
         except Exception:                                          # noqa: BLE001
             return {"verdict": "ERROR", "reason": "unparseable", "note": txt[:120]}
-        return validate_verdict(d, absolute=expected_answer is not None)
+        verdict = validate_verdict(d, absolute=expected_answer is not None)
+        if generation is not None:
+            verdict["provider"] = {**profile.metadata(), "response_id": generation.response_id,
+                                   "usage": generation.usage, "completion_status": generation.completion_status}
+        return verdict
     return {"verdict": "ERROR", "reason": "exhausted", "note": ""}
 
 
@@ -539,9 +589,8 @@ def _main() -> int:
 
     rng = random.Random(args.seed)
     results = []
-    judge_identity = {"judge_model": _env("PROBE_MODEL"),
+    judge_identity = {**judge_provider_identity(),
                       "cloud_failure_policy": args.failure_policy, "cloud_recovery_policy": CLOUD_POLICY,
-                      "judge_base_url": (_env("PROBE_API_BASE_URL") or "").rstrip("/"),
                       "judge_decoding": {"temperature": 0, "max_tokens": 16000,
                                          "reasoning_effort_sent": False, "reasoning_policy": "provider_default",
                                          "api_attempts_per_order": 2 if tolerant else 1 if is_v3 else 3},

@@ -185,7 +185,7 @@ def main() -> int:
     cases = validate_packet(packet)  # All references checked before any cloud call.
     identity = {"packet_sha256": hashlib.sha256(raw).hexdigest(),
                 "packet_kind": packet["kind"],
-                "judge_model": judge_answers._env("PROBE_MODEL"),
+                **judge_answers.judge_provider_identity(),
                 "rubric_sha256": hashlib.sha256(judge_answers.SYSTEM_V3.encode()).hexdigest(),
                 "judge_implementation_sha256": hashlib.sha256(
                     Path(judge_answers.__file__).read_bytes()).hexdigest()}
