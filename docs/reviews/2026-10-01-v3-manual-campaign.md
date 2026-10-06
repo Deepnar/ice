@@ -241,13 +241,23 @@ The seeder releases its owned models when it exits; native proof/need calls keep
 their model between calls instead of unloading it every time. Provider load and
 evaluation durations and background-call wall times are logged.
 
-**2026-10-05 instrument repair:** r4 has 1120 durable originals and 82 captured
+**2026-10-06 control repair:** r4 has 1434 durable originals and 213 checkpointed
+probes. A recent-only temporal helper bypassed the disabled legs and correctly
+triggered the contamination assertion. Recent-only now skips the entire search;
+vector-only excludes temporal notes and the wide-net bypass. Full/no-Codex and
+all memory writers/settings/labels are unchanged. The second exact registered
+continuation preserves the first receipt/archive and uses the current snapshot's
+Git provenance. Resume the same r4 command: histories one and two remain complete,
+and history three continues at turn65. Its 15 provisional probes are rebuilt;
+the 213 earlier checkpointed contexts remain. Do not initialize a new bundle.
+
+**Historical 2026-10-05 instrument repair:** r4 had 1120 durable originals and 82 captured
 probes. It paused because three summary completions hit their 400-token limit;
 this was a responsive-output failure, incorrectly counted as a transport outage.
 The exact reviewed guard/checkpoint-tool changes are registered and a private
 continuation archive/receipt is prepared. Memory writers, budgets, labels and
 settings are unchanged. Resume the same r4 command above: the first history
-remains complete, and the second continues after its saved first turn. All 34
+remained complete, and the second continued after its saved first turn. All 34
 degraded workers stay in the evidence. The old manifest is never edited and
 any unrelated change still refuses resume. For another eligible paused bundle,
 preparation is explicit, never automatic:

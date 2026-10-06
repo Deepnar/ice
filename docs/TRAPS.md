@@ -2093,3 +2093,21 @@ left the flag nonzero in an actual route control, blocking background GPU
 dispatch. Start the flag with no yield before the protected generation try.
 Test cancellation both before generation and during its first content event,
 alongside success and upstream failure; a normal completed stream hides it.
+
+### 85. Disabling retrieval legs does not disable every store-derived fragment
+
+**v3, 2026-10-06.** A recent-only control disabled all seven search legs, yet
+the temporal empty-window helper directly queried nearest source eras and
+appended a fragment after fusion. R4 correctly paused on control contamination
+at1434 saved turns. The low-confidence wide-net path also has its own SQL and
+labels results `fallback`, bypassing normal vector-leg wrappers.
+
+Keep the integrity assertion. Recent-only must skip the entire search while
+retaining shared budgeting/assembly; a warm-vector-leg control must suppress
+temporal notes and stay on that leg under weak classifier confidence. Test both
+helper positives through full ICE and negative controls through shared final
+preparation, not only the overridden leg methods. Verify saved controls before
+preserving their prefix. A second instrument repair needs the checkpoint's Git
+baseline, distinct archived receipts and an ordered registered transition chain;
+the original run header identifies code before the first repair, not the current
+paused checkpoint. Never replace an old manifest or overwrite its first receipt.

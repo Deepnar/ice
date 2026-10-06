@@ -1,3 +1,64 @@
+## 2026-10-06 — v3 clean prompt controls and second preserved continuation
+
+The maintainer's r4 paused at1434 durable originals (1119+251+64),213 saved
+probe contexts, during the third-history turn65 probe batch. Its recent-only
+control got a temporal empty-window/nearest-era fragment from a direct SQL
+helper outside the disabled legs. The zero-fragment assertion correctly
+rejected comparison contamination. A separate low-confidence wide-net branch
+also bypasses the normal leg wrappers. These are instrument faults, not model
+outages or evidence that the store lost its original turns.
+
+Recent-only now keeps shared recent budgeting but bypasses the entire search;
+its final retrieval flag is false while the B2 prior remains recorded.
+Vector-only excludes temporal notes and follows the normal warm-vector leg
+under low confidence. Full/no-Codex helpers and all ingestion/derivative writers
+are unchanged. An audit of all213 committed contexts found zero recent-only
+selected/budgeted/ranked/generated fragments or source-note IDs, zero selected
+off-vector legs and zero selected Codex/timeline fragments in no-Codex.
+The screenshot's228 includes15 provisional probes in the unfinished tail.
+They must be archived/rebuilt on normal resume, not credited as durable.
+
+The second closed registered transition changes only `seed_v3.py` and
+`replay_checkpoint.py`, from code digest
+`4fa0d72a93cee5dd75b7b41c4fdbc36026a6e9143d96a59b7f8e657d24d150ed`
+to `0870efc6d86b04c29509d2edca857419bd3fd5c9edbe686751a362513c47f0a2`.
+Checkpoint snapshot Git850df12 reproduces the old digest; original header Git
+predates the first continuation and cannot identify this second boundary.
+Distinct identity-bound receipt names preserve the legacy1120-turn receipt,
+archives and both trace boundaries. Completed replay verification requires an
+ordered chain of exact registry transitions, correct counts and identical
+non-code identities. Unregistered tool/writer/configuration changes still refuse.
+
+Actual preparation saved an independent committed-prefix copy plus hard-linked
+immutable checkpoint files. The original pointer, recovery manifest, store and
+trace remain unchanged. Read-only actual runtime verification matches all eight
+input digests,259 planned prompt identities, both installed writer manifests,
+settings/database/model identity and the verified archive receipt. No campaign,
+cloud call or actual experiment DB restore was launched. Resume the same r4
+command at third-history turn65;1471 originals/259 prompts remain the plan.
+Private audit/receipt artifacts are under the existing r4 run directory; test
+logs are `logs/z1-control-{path,restore,repair-smoke}-2026-10-06.log`.
+
+Validation: focused42 overlap with **592 disposable smoke passes in44.52s**,
+five existing warnings. A separate synthetic PostgreSQL/shared-preparation
+control uses fixed embeddings, an explicit8192-token fixture window, disabled
+source judge/reranker and empty non-vector model legs. It proves temporal
+nearest-era notes and wide-net fragments occur in full/no-Codex, recent performs
+no similarity query, vector stays on its leg, scoped thresholds restore and
+all35-table store fingerprints remain unchanged. This is path/control integrity,
+not trained-model accuracy, production serving capacity or answer quality.
+The initial fixture used a nonexistent ORM token_count field; it failed before
+retrieval and is not counted. A second actual-SQL fixture restores all35-table
+fingerprints through two archived continuation boundaries, retaining both
+receipts/prefix copies and unfinished tails. Its synthetic code identities are
+fixture-only; exact real Git/file hashes are verified separately above and in
+registry refusal tests. An initial readiness invocation miscalled keyword-only
+load_plan; it mutated no state and the corrected verification passed.
+
+No new memory-quality rate, throughput improvement or judge qualification is
+claimed. Content/output-length failures remain degraded quality evidence for
+post-seed review/tuning. Version2 paper results and publication freeze unchanged.
+
 ## 2026-10-05 — v3 responsive-output pause and verified instrument continuation
 
 The maintainer's r4 paused at 1120 durable originals (1119+1) with 82 historical

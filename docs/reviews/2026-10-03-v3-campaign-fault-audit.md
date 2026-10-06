@@ -1,8 +1,33 @@
 # ICE v3 campaign fault handling and speed audit
 
-Updated 2026-10-05. This audit concerns current v3; paper v2 remains frozen.
+Updated 2026-10-06. This audit concerns current v3; paper v2 remains frozen.
 No complete development campaign, live cloud call or new answer-quality score
 was produced by these repairs.
+
+## R4 temporal-control pause
+
+R4 reached 1434 durable originals (1119+251+64) and 213 checkpointed probes,
+then its third-history turn65 probe batch hit the recent-only integrity guard.
+The temporal empty-window helper queries nearest source eras directly and
+adds a fragment after fusion. Disabling seven retrieval legs leaves that helper
+and the separate wide-net SQL reachable. This was comparison contamination,
+not an unavailable model; removing the assertion would hide the defect.
+
+Recent-only now keeps shared recent budgeting and assembly while skipping the
+entire search. Vector-only suppresses the temporal note and follows the normal
+warm-vector leg under low confidence. Full/no-Codex retain their production
+helper behavior. All 213 committed controls were inspected: no recent-only
+fragments/ranks/notes, no off-vector selected legs and no Codex/timeline evidence
+in no-Codex. The screenshot's 228 includes 15 unfinished provisional probes,
+which normal recovery archives/rebuilds; it does not discard 213 saved contexts.
+
+The second exact registered instrument transition changes only the seed control
+wrapper and checkpoint receipt handling. Snapshot Git provenance reproduces the
+previous code hash; each transition has a distinct receipt/archive, and completed
+trace validation requires an ordered registered chain with unchanged non-code
+identity. The original 1120-turn receipt remains intact. Normal resume retains 1434
+turns and starts third-history turn65. No memory writer, model, configuration,
+label, DB schema, inference parallelism or source history changes.
 
 ## R4 summary pause and progress-preserving correction
 

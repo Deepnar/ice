@@ -153,13 +153,18 @@ grows with store size and this is not a whole-campaign latency result.
 
 A reviewed instrument-only continuation can preserve a paused seed without
 changing any writer. `prepare_worker_continuation.py` verifies all pinned files
-against the original Git version and a closed old/new code-digest registry; only
-the two reviewed recovery tools may differ. It archives the immutable checkpoint
+against the checkpoint snapshot's Git version and a closed old/new code-digest
+registry. Only an exact registered instrument transition may differ. It archives the immutable checkpoint
 files and copies the committed trace prefix, never editing old identities.
 Resume still requires identical settings/models/inputs/plan/database, verifies
-the SQL restore and records the instrument boundary in trace/report. Unregistered
-code or writer changes remain refused. R4's 1120 originals/82 prompts survive
-this guard correction; its 34 degraded workers remain visible, not repaired facts.
+the SQL restore and records each ordered instrument boundary in trace/report.
+Distinct receipts preserve earlier repairs and prefix archives. Unregistered
+code or writer changes remain refused. R4's control correction preserves 1434
+originals/213 checkpointed prompts; the failed cutoff's provisional probes must
+be rebuilt. Recent-only retains shared budgeting but skips the entire search;
+vector-only excludes nearest-era notes and uses the normal warm-vector leg
+under low confidence. Full/no-Codex temporal and fallback behavior is unchanged.
+Degraded workers remain quality evidence, not repaired facts.
 
 Cloud answers/orders reserve attempts durably before sending (two maximum,
 including interrupted calls with unknown outcome). Isolated exhausted
