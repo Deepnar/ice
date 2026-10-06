@@ -1,97 +1,95 @@
-# Handoff — ICE v3, 2026-10-06 21:09 IST
+# Handoff — ICE v3, 2026-10-06 21:26 IST
 
 **State, not a queue.** ROADMAP owns work; paper v2 remains frozen.
 
 ## Told → did
 
-**Told:** fix the latest r4 pause so the maintainer can continue without losing
-its long run's progress, and explain the remaining four campaign stages. Do not
-launch the full campaign or push.
+**Told:** before resuming r4, explain why the judge was DeepSeek rather than
+Muse, which had been preferred; if DeepSeek is used, prefer v4.1 Flash.
 
-**Did:** the recent-only control disabled seven legs but still reached a temporal
-empty-window helper with direct nearest-era SQL. A store-derived fragment
-correctly triggered the zero-fragment assertion. The separate low-confidence
-wide-net SQL can bypass vector-leg wrappers too. Recent-only now keeps shared
-recent budgeting/assembly but skips the entire search and records final retrieval
-false without losing the B2 prior. Vector-only suppresses temporal notes and
-uses the normal warm-vector leg under weak confidence. Full/no-Codex helpers,
-all writers/settings/models/labels/source histories and schema are unchanged.
-Assertions remain; no contaminated baseline is silently accepted.
+**Did:** actual v3 paired judge retained global PROBE_MODEL=deepseek-v4-flash,
+while frozen-v2 LongMemEval had selected Muse1.3 through Responses. Prior small
+Muse-family human calibration led73% versus gateway DeepSeek v4 Flash60%; that
+older task/model evidence does not qualify the current v3 rubric. The v3
+DeepSeek pilot's three all-correct human pairs likewise do not prove superiority.
+Current provider catalogGET200 and official OpenCode Go docs list Muse1.3 and
+DeepSeek-v4.1 Flash. Decision: Muse1.3 Responses for new v3 bundles/current r4;
+explicit v4.1 Flash alternative, never automatic fallback.
 
-The second exact registered instrument transition changes only seed/control and
-checkpoint tools. Snapshot Git850df12 reproduces the previous4fa0d72 code digest;
-new digest0870efc is recorded fully in PROVENANCE/registry. The original header
-predates the first repair and cannot identify the current paused checkpoint.
-Distinct identity-bound receipt names preserve earlier receipts/archives.
-Completed trace validation requires ordered registered transitions, correct
-completed counts and identical non-code identity; duplicate/disconnected/reverted
-or unregistered changes refuse. No general hash bypass or old manifest edit.
+The paired judge now reuses the existing TextGenerator Responses/Chat adapters,
+with ICE user-agent, stable session, completion status/usage and no hidden SDK
+retries. Complete-source rubric and both display orders unchanged. Model/profile/
+endpoint/decoding/transport identity bind judge and calibration resume; changing
+these refuses old outputs. Raw verdicts retain response IDs/status/usage.
+Parent status/report expose selected judge. Caller attempt/error/access/outage
+policies remain bounded and unchanged.
 
-## Current run and operator command
+## Actual r4 selection and retained progress
 
-R4: `logs/z1-v3-manual-2026-10-04-r4`, paused with **1434 durable originals**
-(1119+251+64) and **213 checkpointed probe contexts**. The screenshot's228 includes
-15 provisional probes from the unfinished third-history turn65 cutoff. Normal
-recovery archives/rebuilds that tail; histories one and two remain complete.
-There are37 original turns left. Earlier worker degradation remains evidence.
+`logs/z1-v3-manual-2026-10-04-r4` now has explicit
+`judge_profile=opencode-muse13`; its previous private campaign configuration is
+archived. No earlier judge output existed. Only judge children receive
+ICE_JUDGE_PROFILE. Global .env/PROBE_MODEL, every production Settings field,
+local writers, GPT-6-Luna answering and source labels remain frozen.
 
-**Continuation prepared and verified:** independent1434-turn trace-prefix copy
-and immutable checkpoint-file archive under seed.recovery; its distinct receipt
-coexists with the legacy1120-turn receipt. Original pointer, manifest, trace and
-store unchanged. Read-only actual runtime verification matches8 input digests,
-259 prompt identities, both installed local writer manifests and every non-code
-identity field. Final committed code still matches the prepared receipt. No
-actual experiment restore, model generation, cloud call or campaign launch.
+**1434 originals/213 checkpointed probe contexts retained** (1119+251+64).
+The prior control-integrity repair still has its verified continuation/archive:
+recent-only skips all search helpers, vector-only excludes temporal notes and
+wide-net bypass, full/no-Codex behavior unchanged. Both earlier instrument
+boundaries remain retained. Normal resume begins third-history turn65;37 turns
+remain. Its15 unfinished provisional probes are rebuilt after tail archival.
+No original checkpoint/manifest/pointer/trace/store was edited.
 
-From the repo root, without activating a venv:
+Actual seed resume readiness was rechecked after the judge change: seed code
+0870efc unchanged, all8 input digests/259 planned prompts/two installed local
+writer manifests and full settings identity match the verified continuation.
+No actual experiment DB restore or full campaign launched; no running parent
+or seeder was found. Do not edit pinned seed code while the operator runs it.
+
+From the repo root, without activating a venv, use the same existing bundle:
 
 ```bash
 uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-04-r4 --run
 ```
 
-Use the existing bundle. Normal verified restore precedes third-history turn65;
-initial counters may wait while the SQL snapshot restores. Ctrl+C then the same
-command resumes under unchanged identity. Do not edit pinned code while it runs.
-The same command automatically continues seed → snapshot → answers → judge → report.
+One command continues seed → snapshot → answers → judge → report. Stage2
+verifies/freezes all35 tables and complete1471-turn/259-prompt replay. Stage3
+uses GPT-6-Luna for117 admitted probe instances across four arms, up to468
+successful answers before retries. Stage4 uses **Muse1.3 Responses**, with up
+to702 judge-order requests if all answers succeed. Stage5 combines source/rank,
+answer-quality, paired effects, token cost, retention and degradation receipts.
+Ctrl+C then the same command resumes with unchanged identities.
 
-Stage2 freezes/verifies all35 tables and complete1471-turn/259-prompt replay.
-Stage3 uses cloud GPT-6-Luna for117 admitted probe instances across four arms
-(full/no-Codex/vector-only/recent-only), up to468 successful answers before
-retries. Stage4 uses cloud DeepSeek-v4-Flash to grade dated source/expected-answer
-support and full-vs-three-control pairs in both orders, up to702 order requests
-when all answers succeed. Errors remain ungraded. Stage5 combines source/rank,
-answer-quality, paired effects, tokens, retention and degradation receipts.
-Independent judge qualification remains pending; output stays diagnostic.
+## Validation and scope limits
 
-## Validation and practical limits
+Two actual cloud requests on one synthetic public port-choice pair returned
+correct/incorrect with A preferred, then incorrect/correct with B preferred
+when swapped. This tests current endpoint/schema/basic discrimination through
+the shared v3 judge request, not independent population accuracy. No personal
+corpus was sent by this check. V4.1 has catalog/mock transport evidence only,
+not live judgment or comparative accuracy. Independent current v3 judge
+qualification remains pending; score_of_record=false.
 
-All213 saved contexts were audited: zero recent fragments/ranked/budgeted/
-generated rows/source notes, zero off-vector selected legs, zero selected
-Codex/timeline evidence in no-Codex. Saved prompts were not relabeled or rewritten.
-Focused42 overlap with **592 disposable smoke passes in44.52s**, five existing
-warnings. Actual synthetic shared-preparation/Postgres controls exercise temporal
-nearest-era and low-confidence wide-net positives, recent/vector negatives,
-scoped threshold restoration and unchanged all35-table fingerprints. Fixed
-embeddings, controlled8192-token window and disabled source judge/reranker/other
-model legs isolate control integrity; this is not answer or trained-model quality.
-A separate actualSQL fixture restores all35-table fingerprints through two
-archived boundaries and retains both receipts/prefixes/unfinished tails. Synthetic
-code identities in that fixture do not substitute for actual registry/Git checks.
-Initial invalid fixture/readiness invocations failed and were corrected, not
-counted. All disposable databases were removed.
+602 disposable smoke passes42.36s, five existing warnings;89 focused overlap.
+Final10 profile controls pass after import cleanup. Tests cover exact model/
+endpoint, full-source marker, stable session/UA, incomplete completion refusal,
+500 one-call behavior, quota pause, model/profile identity and judge-child-only
+routing. SDK retries0; caller reservations remain durable. All test databases
+removed. Prior592 control/restore checks and saved213-control contamination
+audit remain documented in PROVENANCE; no new memory-quality rate is claimed.
 
-No throughput/concurrency/residency change or complete memory-quality score.
-Truncated summaries/extractions remain explicit output-quality findings for
-post-seed review/tuning. Progression remains completed development evidence →
-quality review/targeted repair/tuning → frozen **LME oracle and semi-LSREP only**.
-No full LME-S campaign. Broader judge/graph/summary qualification and the final
-runner/independent vector-baseline contracts remain as documented in ROADMAP.
+Quality progression remains completed development evidence → output review/
+targeted repair/tuning → frozen **LME oracle and semi-LSREP only**. No full LME-S.
+Summary/extraction truncation and earlier degraded workers remain explicit
+quality evidence, not repaired outputs. Existing final runner/vector-baseline
+and broader judge/graph/summary qualification contracts remain in ROADMAP.
 
 ## Git and propagation
 
-Main-local `1db1954` control/continuation repair, `936bb13` durable audit/docs;
-no push under the experiment publication freeze. Specs, architecture, inventory,
-README/run guide, provenance, roadmap correction and TRAPS85 (leg disabling can
-leave direct temporal/wide-net SQL) reconciled. MODELS/CLEANUP n/a; no assignments
-or moves. AGENTS unchanged. This requested repair/preparation is complete;
-HANDOFF committed last and private SESSION archived/reset afterward.
+Main-local `ab8e233` provider/phase routing, `be0fd66` model roles/audit docs;
+no push under the publication freeze. Spec, MODELS, architecture, inventory,
+README/manual guide, provenance, roadmap note and TRAPS58 endpoint/role
+recurrence reconciled. No production source, AGENTS, schema, global .env or
+local model assignment changed; CLEANUP n/a (no moves). Requested judge
+correction/readiness complete. HANDOFF committed last; private SESSION archived
+and reset after propagation.
