@@ -1658,6 +1658,15 @@ about Responses. The harness must parse each schema explicitly, and a reachabili
 pass still does not establish long-context latency, token-budget behaviour, or
 judge quality.
 
+**v3 recurrence, 2026-10-06:** Muse's selected v2 LongMemEval Responses role did
+not automatically carry into the separate v3 paired-answer judge, which kept an
+old global DeepSeek pin. Report the actual selected role/model/endpoint. Use an
+explicit judge-child profile; editing the global PROBE_MODEL would invalidate a
+frozen seed because its identity hashes all Settings. Historical judge evidence
+on one task/model revision does not qualify another rubric or revision. Reuse
+the working transport and test current requests in both orders, then keep
+independent answer-pair qualification separate from endpoint availability.
+
 ### 59. The same model family on a faster server was not the same memory writer
 
 **2026-09-04, preparing the matched v2 LongMemEval run.** Replacing Ollama's

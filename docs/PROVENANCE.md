@@ -1,3 +1,52 @@
+## 2026-10-06 — v3 Muse judge profile without reseeding
+
+The maintainer questioned the v3 judge before resuming r4. Actual PROBE_MODEL
+was `deepseek-v4-flash`, and r4 had no judge artifacts. This was a legacy paired
+judge pin, distinct from the selected v2 LongMemEval judge: Muse1.3 through
+Responses. Prior small Muse-family human-label calibration favored Muse73%
+versus gateway DeepSeek v4 Flash60%; the v3 DeepSeek pilot was only three
+all-correct human pairs (12/12 factual grades,3/6 preferences). Neither result
+establishes current v3 paired-answer superiority or independent qualification.
+
+Current provider catalogGET returned200 and lists both `muse-spark-1.3-contributor`
+and `deepseek-v4.1-flash`; [official OpenCode Go documentation](https://opencode.ai/docs/go/)
+also lists both. New manual bundles/current r4 now explicitly select
+`judge_profile=opencode-muse13`. Only judge children receive ICE_JUDGE_PROFILE;
+global .env/PROBE_MODEL remains frozen and old unprofiled tools retain their
+declared legacy route. Reuse the existing cloud TextGenerator for Responses,
+with ICE user-agent/stable session, explicit completion status and usage, no
+hidden SDK retries and unchanged complete-source rubric/both orders. An explicit
+`opencode-deepseek-v41-flash` alternative uses the exact available v4.1 ID;
+there is no automatic model fallback or silent old-artifact migration.
+
+Judge/calibration resume identities now bind selected model/profile/endpoint/
+decoding/transport bytes. Raw verdicts retain response IDs/status/usage. Parent
+status/report expose the selection. Persisted attempt/error/access/outage
+policies are unchanged. Two actual cloud requests on one synthetic public
+port-choice pair returned correct/incorrect with A preferred, then
+incorrect/correct with B preferred when swapped. The shared v3 judge request
+was used; no raw personal corpus was sent by this health check. This is endpoint,
+schema and elementary discrimination evidence, not population accuracy or an
+independent v3 calibration. V4.1 has catalog/mock transport evidence only; no
+live v4.1 judgment or comparison was run.
+
+Validation:89 focused passes overlap with **602 disposable smoke passes
+in42.36s**, five existing warnings. SDK mock transport checks Responses versus
+Chat Completions, exact model IDs, full-source marker, session/UA headers,
+completion refusal,500 one-call behavior and quota operator pause. Parent child
+controls ensure the profile reaches judge only. Resume identities differ across
+models/endpoints/profiles. The original private campaign configuration is
+archived and only judge_profile was added; no previous judgment existed.
+
+Read-only actual r4 continuation verification still matches the registered seed
+code digest0870efc, all8 input files,259 planned prompts, both local writer
+manifests and full settings identity. It retains1434 durable turns/213 probes.
+No actual experiment DB restore, full campaign, corpus answering or corpus
+judging was launched. Independent judge qualification remains pending and
+score_of_record=false. GPT-6-Luna answering/local writers/publication freeze
+are unchanged. Private selection/readiness/health artifacts are in logs and the
+existing r4 directory; no global setting or production file was changed.
+
 ## 2026-10-06 — v3 clean prompt controls and second preserved continuation
 
 The maintainer's r4 paused at1434 durable originals (1119+251+64),213 saved

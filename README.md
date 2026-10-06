@@ -153,6 +153,7 @@ recovers it (+0.82 [+0.39,+1.24]) in that buildup, without a general safety clai
 Current **ICE v3** has a [manual development campaign and measurement
 guide](docs/reviews/2026-10-01-v3-manual-campaign.md): one resumable entry point
 for chronological replay, frozen cloud answers and both-order judging, with
+an explicit Muse Responses judge profile separate from frozen local seed settings,
 live terminal progress and separate processed/durable checkpoints. Temporary
 model failures get bounded retries; isolated exhausted failures remain visible
 as degraded memory or ungraded cloud errors while later questions continue.

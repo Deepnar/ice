@@ -188,6 +188,18 @@ Execute or resume everything:
 uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-04-r4 --run
 ```
 
+**Judge selection, v3 2026-10-06:** current r4 and new bundles explicitly use
+`judge_profile=opencode-muse13` (Muse Spark1.3 Responses), while answers remain
+GPT-6-Luna. The coordinator passes the profile only to the judge child; global
+.env/PROBE_MODEL/local writer settings stay frozen, so the1434-turn seed does
+not need replaying. Status/report show the selected judge/model/endpoint.
+DeepSeek-v4.1 Flash is an explicit alternative, never a silent fallback. Bundles
+without a profile retain their legacy judge route. Existing judge files cannot
+resume under a different profile, model, endpoint, rubric or transport identity.
+The small older Muse-family calibration and current synthetic both-order route
+control support this selection, not a qualified v3 accuracy claim. Independent
+human agreement across current grades remains required before scores of record.
+
 The command runs **seed → snapshot → answers → judge → report**. It invokes
 separate scripts internally; the operator need not run each script. To inspect
 writer outcomes before answering, use the same entry point with `--run --stage

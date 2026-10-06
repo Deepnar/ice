@@ -166,6 +166,16 @@ vector-only excludes nearest-era notes and uses the normal warm-vector leg
 under low confidence. Full/no-Codex temporal and fallback behavior is unchanged.
 Degraded workers remain quality evidence, not repaired facts.
 
+V3 manual paired judgments use the explicit `opencode-muse13` Responses profile
+for new bundles/current r4; an available `opencode-deepseek-v41-flash` Chat
+Completions profile is an explicit alternative. The coordinator supplies
+`ICE_JUDGE_PROFILE` only to judge children, preserving the frozen seed's global
+settings and its legacy PROBE_MODEL. The shared cloud adapter validates completion
+status, sends the stable session/ICE user-agent and has no hidden SDK retries.
+Judge/calibration identities bind model/profile/endpoint/decoding/transport bytes;
+raw orders retain response IDs/usage/status. Status/report expose judge selection.
+No automatic model fallback; independent v3 judge qualification remains pending.
+
 Cloud answers/orders reserve attempts durably before sending (two maximum,
 including interrupted calls with unknown outcome). Isolated exhausted
 transport/server/completion/verdict failures retain ungraded ERROR rows and
