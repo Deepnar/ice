@@ -120,6 +120,17 @@ comparison must keep all original sources available and specify its own
 selection policy. Each checkpoint freezes warm/cold/archive locations of
 original sources, including unlabeled native questions, so later source
 review can distinguish absent indexing/eligibility from poor ranking.
+**Control-integrity correction, v3 2026-10-06:** disabling retrieval legs is
+insufficient: the temporal empty-window helper directly queries nearest source
+eras and emits a memory fragment; the low-confidence wide-net branch has its
+own SQL and labels its fragments `fallback`. For `recent_only`, retain the
+shared budget setter and recent-history assembly but bypass the entire search,
+including temporal metadata and wide-net helpers. Record final retrieval as
+disabled, keep the original B2 prior, and keep the zero-fragment assertion.
+For `vector_only`, use the normal warm-vector leg even under low confidence,
+suppress the empty-window/nearest-era note, and keep the vector-only assertion.
+Full and no-Codex arms retain their production temporal and fallback behavior.
+These are isolated control corrections, not production writer changes.
 The blind paired judge also grades **each** answer
 against the reviewed expected answer and complete original source as correct,
 partial, incorrect or uncertain. Supply the historical question time and each
@@ -647,6 +658,20 @@ extraction-output failures remain visible evidence for subsequent quality work.
 This narrowly supersedes the fresh-bundle requirement above for this verified
 instrument-only correction. Any writer/configuration/label change still needs
 its own decided contract; this receipt cannot authorize one.
+
+**Second control-only continuation, v3 2026-10-06:** preserve the1434-turn,
+213-probe committed prefix. Earlier recent-only controls have no fragments;
+the offending turn65 probe batch is unfinished and must be rebuilt. Register
+the exact `seed_v3.py`/`replay_checkpoint.py` transition separately from the
+first recovery-tool transition. Verify its baseline using the current snapshot's
+Git provenance and code digest, rather than the original run header's older
+revision. Keep all earlier receipts/archives; each boundary gets a distinct
+receipt and independent prefix copy. Completed-trace validation must accept
+only an ordered chain of exact registered code transitions, at complete-turn
+boundaries with correct counts and identical non-code identities. Reject
+duplicate/disconnected/reverted transitions, writer changes and prefix changes.
+Do not relabel old controls, erase old faults or change memory writers. The
+finished development report must expose both instrument boundaries.
 
 The maintainer authorizes continuing after isolated recoverable model failures.
 New manual bundles select `--worker-failure-policy continue`; standalone seed

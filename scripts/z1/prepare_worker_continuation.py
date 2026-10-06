@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Preserve a paused v3 checkpoint for the reviewed transport-guard correction.
+"""Preserve a paused v3 checkpoint for an exact registered instrument correction.
 
 No database restore, model call or campaign launch. Every memory writer and
 other pinned file must match the run's Git baseline. No ignore-hash option.
@@ -33,7 +33,10 @@ def main():
         header = json.loads(source.readline())
     if header.get("event") != "run":
         raise ValueError("trace has no original provenance header")
-    baseline = header["meta"]["git"]["commit"]
+    # The header predates any earlier instrument continuation. Snapshot
+    # provenance identifies the code that actually published this checkpoint.
+    store = json.loads((recovery / generation / "store.manifest.json").read_text())
+    baseline = store["meta"]["git"]["commit"]
     point = Checkpoints(recovery, trace, manifest["identity"])
     try:
         receipt = point.prepare_instrument_continuation(baseline)

@@ -95,7 +95,7 @@ def test_degraded_complete_replay_requires_bound_receipts_and_health():
 
 
 @pytest.mark.parametrize("damage", [None, "prefix_count", "writer", "unapproved_file", "duplicate"])
-def test_instrument_change_is_bound_to_completed_prefix_and_same_writers(damage):
+def test_instrument_change_is_bound_to_completed_prefix_and_same_writers(damage, tmp_path, monkeypatch):
     rows = complete_rows()
     old = {"code_sha256": "old", "settings_sha256": "same", "models": "same"}
     marker = {"event": "instrument_continuation", "format": "ice-v3-instrument-continuation-1",
@@ -105,6 +105,7 @@ def test_instrument_change_is_bound_to_completed_prefix_and_same_writers(damage)
                   path: {"before": "old", "after": "new"} for path in
                   ("scripts/z1/worker_recovery.py", "scripts/z1/replay_checkpoint.py")}}
     rows.insert(3, marker)
+    register_repairs(tmp_path, monkeypatch, [marker])
     if damage == "prefix_count":
         marker["completed"] = {"example": 2}
     elif damage == "writer":
@@ -113,6 +114,46 @@ def test_instrument_change_is_bound_to_completed_prefix_and_same_writers(damage)
         marker["code_changes"]["src/workers/conversation_summary.py"] = {}
     elif damage == "duplicate":
         rows.insert(4, deepcopy(marker))
+    if damage:
+        with pytest.raises(ValueError, match="instrument continuation"):
+            validate_complete_replay(rows, {"example": 2})
+    else:
+        assert validate_complete_replay(rows, {"example": 2})["complete"] == rows[-1]
+
+
+def register_repairs(tmp_path, monkeypatch, markers):
+    import json
+    from scripts.z1 import replay_checkpoint
+    registry = tmp_path / "repairs.json"
+    registry.write_text(json.dumps({"format": "ice-v3-reviewed-instrument-repairs-1", "repairs": [
+        {"from_code": m["from_identity"]["code_sha256"], "to_code": m["to_identity"]["code_sha256"],
+         "code_changes": deepcopy(m["code_changes"])} for m in markers]}))
+    monkeypatch.setattr(replay_checkpoint, "REPAIR_REGISTRY", registry)
+
+
+@pytest.mark.parametrize("damage", [None, "disconnected", "reverted", "duplicate", "unregistered"])
+def test_ordered_instrument_chain_remains_bound_to_frozen_writers(damage, tmp_path, monkeypatch):
+    rows = complete_rows()
+    old = {"code_sha256": "old", "models": "same", "settings_sha256": "same"}
+    middle = {**old, "code_sha256": "middle"}
+    first = {"event": "instrument_continuation", "format": "ice-v3-instrument-continuation-1",
+             "from_identity": old, "to_identity": middle, "completed": {"example": 1},
+             "trace_sha256": "first", "archive_manifest_sha256": "first", "code_changes": {
+                 "scripts/z1/worker_recovery.py": {"before": "one", "after": "two"}}}
+    second = {**first, "from_identity": middle, "to_identity": {**old, "code_sha256": "latest"},
+              "completed": {"example": 2}, "code_changes": {
+                  "scripts/z1/seed_v3.py": {"before": "two", "after": "three"}}}
+    register_repairs(tmp_path, monkeypatch, [first, second])
+    if damage == "disconnected":
+        second["from_identity"] = old
+    elif damage == "reverted":
+        second["to_identity"] = old
+    elif damage == "unregistered":
+        second["code_changes"] = {"scripts/z1/seed_v3.py": {"before": "two", "after": "unknown"}}
+    rows.insert(3, first)
+    rows.insert(6, second)
+    if damage == "duplicate":
+        rows.insert(7, deepcopy(second))
     if damage:
         with pytest.raises(ValueError, match="instrument continuation"):
             validate_complete_replay(rows, {"example": 2})

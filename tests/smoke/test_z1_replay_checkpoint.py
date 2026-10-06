@@ -133,6 +133,7 @@ def test_instrument_continuation_preserves_prefix_and_refuses_unapproved_changes
     monkeypatch.setattr(recovery, "code_digest", lambda ref=None: "old" if ref else "new")
     changes = {path: {"before": "old", "after": "new"} for path in recovery.INSTRUMENT_CHANGES}
     monkeypatch.setattr(recovery, "instrument_changes", lambda ref: changes)
+    monkeypatch.setattr(recovery, "registered_repair", lambda *_: {"reason": "reviewed repair"})
     monkeypatch.setattr(recovery.snapshot, "save", lambda _: (recovery.snapshot.SNAPDIR / "store.sql").write_text("original") and 0)
     restores = []
     monkeypatch.setattr(recovery.snapshot, "restore", lambda _: restores.append(1) or 0)
@@ -177,7 +178,7 @@ def test_instrument_continuation_preserves_prefix_and_refuses_unapproved_changes
         point.close()
 
 
-def test_two_tool_edits_still_need_exact_registered_hashes(tmp_path, monkeypatch):
+def test_allowed_tool_edits_still_need_exact_registered_hashes(tmp_path, monkeypatch):
     import hashlib
     files = [tmp_path / path for path in sorted(recovery.INSTRUMENT_CHANGES)]
     for path in files:
@@ -197,3 +198,49 @@ def test_two_tool_edits_still_need_exact_registered_hashes(tmp_path, monkeypatch
     files[0].write_bytes(b"unreviewed-new-tool")
     with pytest.raises(ValueError, match="registered reviewed"):
         recovery.instrument_changes("baseline")
+
+
+def test_second_registered_continuation_preserves_first_receipt_and_both_prefixes(tmp_path, monkeypatch):
+    trace = tmp_path / "trace.jsonl"
+    code = ["middle"]
+    monkeypatch.setattr(recovery, "code_digest", lambda ref=None:
+                        {"first-baseline": "old", "second-baseline": "middle"}[ref] if ref else code[0])
+    changes = {"scripts/z1/replay_checkpoint.py": {"before": "old", "after": "new"}}
+    monkeypatch.setattr(recovery, "instrument_changes", lambda _: changes)
+    monkeypatch.setattr(recovery, "registered_repair", lambda *_: {"reason": "reviewed repair"})
+    monkeypatch.setattr(recovery.snapshot, "save", lambda _: 0)
+    monkeypatch.setattr(recovery.snapshot, "restore", lambda _: 0)
+    point = recovery.Checkpoints(tmp_path / "recovery", trace, {"code_sha256": "old", "models": "same"})
+    try:
+        with trace.open("w") as sink:
+            sink.write('{"event":"written","turn":1}\n')
+            point.capture(sink, {"completed": {"one": 1}})
+        first = point.prepare_instrument_continuation("first-baseline")
+        # Existing installations have the first receipt under the legacy name.
+        point.receipt_path(first["from_identity"], first["to_identity"]).rename(
+            point.root / "instrument-continuation.json")
+        legacy = (point.root / "instrument-continuation.json").read_bytes()
+        point.identity = first["to_identity"]
+        point.recover()
+        with trace.open("a") as sink:
+            sink.write('{"event":"written","turn":2}\n')
+            point.capture(sink, {"completed": {"one": 2}})
+        original = point.pointer.read_bytes()
+        second_prefix = trace.read_bytes()
+        code[0] = "latest"
+        second = point.prepare_instrument_continuation("second-baseline")
+        assert second != first and second["completed"] == {"one": 2}
+        assert point.prepare_instrument_continuation("second-baseline") == second
+        assert (point.root / "instrument-continuation.json").read_bytes() == legacy
+        assert point.pointer.read_bytes() == original and trace.read_bytes() == second_prefix
+        point.identity = second["to_identity"]
+        with trace.open("a") as sink:
+            sink.write('{"event":"failed"}\n')
+        point.recover()
+        markers = [json.loads(line) for line in trace.read_text().splitlines()
+                   if json.loads(line)["event"] == "instrument_continuation"]
+        assert [r["to_identity"]["code_sha256"] for r in markers] == ["middle", "latest"]
+        assert (point.root / second["archive"] / "trace-prefix.jsonl").read_bytes() == second_prefix
+        assert (point.root / first["archive"] / "trace-prefix.jsonl").read_text() == '{"event":"written","turn":1}\n'
+    finally:
+        point.close()

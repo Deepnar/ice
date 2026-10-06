@@ -59,7 +59,8 @@ def prefix_digest(path: Path, size: int) -> str:
     return digest.hexdigest()
 
 
-INSTRUMENT_CHANGES = {"scripts/z1/worker_recovery.py", "scripts/z1/replay_checkpoint.py"}
+INSTRUMENT_CHANGES = {"scripts/z1/worker_recovery.py", "scripts/z1/replay_checkpoint.py",
+                      "scripts/z1/seed_v3.py"}
 CONTINUATION_FORMAT = "ice-v3-instrument-continuation-1"
 REPAIR_REGISTRY = Path(__file__).with_name("instrument_repairs.json")
 
@@ -87,8 +88,20 @@ def code_digest(ref=None):
     return digest.hexdigest()
 
 
+def registered_repair(old_code, new_code, changes):
+    """The path allowlist alone never authorizes new tool bytes."""
+    registered = json.loads(REPAIR_REGISTRY.read_text())
+    if registered.get("format") == "ice-v3-reviewed-instrument-repairs-1":
+        for record in registered.get("repairs", []):
+            if (record.get("from_code") == old_code and record.get("to_code") == new_code
+                    and record.get("code_changes") == changes
+                    and changes and set(changes) <= INSTRUMENT_CHANGES):
+                return record
+    raise ValueError("code changes are not a registered reviewed instrument repair")
+
+
 def instrument_changes(ref):
-    """Refuse writer edits; explicitly enumerate the two permitted tool edits."""
+    """Refuse writer edits and require one exact registered tool transition."""
     root, files = code_files()
     changes = {}
     for path in files:
@@ -100,13 +113,7 @@ def instrument_changes(ref):
                 raise ValueError("continuation would change a writer or unapproved tool: " + relative)
             changes[relative] = {"before": hashlib.sha256(before).hexdigest(),
                                  "after": hashlib.sha256(after).hexdigest()}
-    if set(changes) != INSTRUMENT_CHANGES:
-        raise ValueError("continuation needs exactly the reviewed instrument repair")
-    registered = json.loads(REPAIR_REGISTRY.read_text())
-    if (registered.get("format") != "ice-v3-reviewed-instrument-repairs-1" or not any(
-            record.get("from_code") == code_digest(ref) and record.get("to_code") == code_digest()
-            and record.get("code_changes") == changes for record in registered.get("repairs", []))):
-        raise ValueError("code changes are not a registered reviewed instrument repair")
+    registered_repair(code_digest(ref), code_digest(), changes)
     return changes
 
 
@@ -205,8 +212,20 @@ class Checkpoints:
             raise ValueError("committed replay trace prefix changed; refusing resume")
         return directory, manifest
 
+    def receipt_path(self, old, new):
+        # Bind a receipt to both full identities; never overwrite the first
+        # repair's receipt when preparing a later frozen prefix.
+        key = hashlib.sha256(json.dumps([old, new], sort_keys=True).encode()).hexdigest()
+        path = self.root / ("instrument-continuation-" + key + ".json")
+        legacy = self.root / "instrument-continuation.json"
+        if not path.exists() and legacy.exists():
+            receipt = json.loads(legacy.read_text())
+            if receipt.get("from_identity") == old and receipt.get("to_identity") == new:
+                return legacy
+        return path
+
     def continuation(self, manifest):
-        path = self.root / "instrument-continuation.json"
+        path = self.receipt_path(manifest["identity"], self.identity)
         if not path.exists():
             raise ValueError("replay code changed without a verified instrument continuation; refusing resume")
         receipt = json.loads(path.read_text())
@@ -244,7 +263,7 @@ class Checkpoints:
         if code_digest(baseline) != old["code_sha256"]:
             raise ValueError("Git baseline does not reproduce frozen checkpoint code")
         new = {**old, "code_sha256": code_digest()}
-        receipt_path = self.root / "instrument-continuation.json"
+        receipt_path = self.receipt_path(old, new)
         if receipt_path.exists():
             previous_identity = self.identity
             self.identity = new
@@ -270,7 +289,7 @@ class Checkpoints:
         if prefix_digest(archive / "trace-prefix.jsonl", manifest["trace_bytes"]) != manifest["trace_sha256"]:
             raise ValueError("continuation backup does not match original committed prefix")
         receipt = {"format": CONTINUATION_FORMAT, "baseline_commit": baseline,
-                   "reason": "responsive output failures are not transport outages; writers unchanged",
+                   "reason": registered_repair(old["code_sha256"], new["code_sha256"], changes)["reason"],
                    "from_identity": old, "to_identity": new, "code_changes": changes,
                    "trace_bytes": manifest["trace_bytes"], "trace_sha256": manifest["trace_sha256"],
                    "completed": manifest["state"]["completed"], "archive": archive.name,

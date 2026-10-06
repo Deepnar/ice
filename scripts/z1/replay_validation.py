@@ -23,7 +23,8 @@ def validate_complete_replay(rows: Iterable[dict], expected_turns: dict[str, int
     current_key = current_time = None
     attempts = []
     degraded = []
-    instrument_change = False
+    instrument_identity = None
+    instrument_codes = set()
     for row in rows:
         event = row.get("event")
         if complete is not None:
@@ -36,18 +37,24 @@ def validate_complete_replay(rows: Iterable[dict], expected_turns: dict[str, int
         if event == "run" or event in {"failed", "maintenance_failed"}:
             raise ValueError("complete replay has repeated run headers or failures")
         if event == "instrument_continuation":
+            from scripts.z1.replay_checkpoint import registered_repair
             old, new = row.get("from_identity", {}), row.get("to_identity", {})
-            if (instrument_change or pending is not None or row.get("format") != "ice-v3-instrument-continuation-1"
+            if (pending is not None or row.get("format") != "ice-v3-instrument-continuation-1"
                     or row.get("completed") != dict(written) or not row.get("trace_sha256")
                     or not row.get("archive_manifest_sha256")
                     or old.get("code_sha256") == new.get("code_sha256")
                     or not old.get("code_sha256") or not new.get("code_sha256")
                     or {k: v for k, v in old.items() if k != "code_sha256"}
                        != {k: v for k, v in new.items() if k != "code_sha256"}
-                    or set(row.get("code_changes", {})) != {
-                        "scripts/z1/worker_recovery.py", "scripts/z1/replay_checkpoint.py"}):
+                    or (instrument_identity is not None and old != instrument_identity)
+                    or new.get("code_sha256") in instrument_codes):
                 raise ValueError("unbound or writer-changing instrument continuation")
-            instrument_change = True
+            try:
+                registered_repair(old["code_sha256"], new["code_sha256"], row.get("code_changes", {}))
+            except ValueError as err:
+                raise ValueError("unregistered instrument continuation") from err
+            instrument_identity = new
+            instrument_codes.update((old["code_sha256"], new["code_sha256"]))
         if event in {"worker_attempt_failed", "worker_degraded"}:
             extra = run["meta"].get("extra", {})
             key = (row.get("conversation"), row.get("turn"))

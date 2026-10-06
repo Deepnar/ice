@@ -423,6 +423,10 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
                         else set(methods))
             for label in disabled:
                 setattr(orchestrator, methods[label], lambda *_a, **_k: [])
+        if arm == "vector_only":
+            # This helper queries the store directly and emits an unlabelled
+            # temporal note, outside the normal retrieval legs.
+            orchestrator._append_empty_window_note = lambda final, *_a, **_k: final
         for label, name in methods.items():
             original = getattr(orchestrator, name)
 
@@ -450,7 +454,16 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
             retrieval_calls += 1
             if retrieval_calls != 1:
                 raise RuntimeError("one preparation unexpectedly retrieved more than once")
-            rows = original_retrieve(*args, **kwargs)
+            # Disabling legs alone still permits metadata and wide-net SQL.
+            # Preserve shared recent budgeting, but perform no control search.
+            if arm == "recent_only":
+                return []
+            # The low-confidence fallback has its own SQL and `fallback` leg.
+            # This arm measures the normal warm-vector leg, not that bypass.
+            confidence_patch = (patch.object(settings, "confidence_fallback_threshold", 0.0)
+                                if arm == "vector_only" else nullcontext())
+            with confidence_patch:
+                rows = original_retrieve(*args, **kwargs)
             budgeted.extend(fragment(f) for f in rows)
             return rows
 
@@ -503,6 +516,9 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
         raise RuntimeError("final prompt exceeds serving window")
     if arm == "recent_only" and memory.fragments:
         raise RuntimeError("recent-only control still contains retrieved fragments")
+    if arm == "recent_only":
+        memory.retrieve = False
+        memory.action = "recent_only_control"
     if arm == "vector_only" and any(f.leg not in ("vector", "bm25+vector")
                                     for f in memory.fragments):
         raise RuntimeError("vector-only control contains another retrieval leg")

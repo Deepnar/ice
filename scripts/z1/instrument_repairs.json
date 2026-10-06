@@ -15,6 +15,21 @@
           "after": "eb36829b89e21ec192a1ceedcd09b0b7f03503453bc2da40f42dfd2f2034b5db"
         }
       }
+    },
+    {
+      "reason": "2026-10-06 recent-only bypasses search; vector-only excludes temporal notes and wide-net bypass; writers unchanged",
+      "from_code": "4fa0d72a93cee5dd75b7b41c4fdbc36026a6e9143d96a59b7f8e657d24d150ed",
+      "to_code": "0870efc6d86b04c29509d2edca857419bd3fd5c9edbe686751a362513c47f0a2",
+      "code_changes": {
+        "scripts/z1/seed_v3.py": {
+          "before": "652d9acac612f10c6182b83473312eb2160c5f10f8c0876f0f3e2237132b4a3f",
+          "after": "ffd3fa145c2f9daf1201f0fc99eabd8971ecf61742f801c030997f138984e900"
+        },
+        "scripts/z1/replay_checkpoint.py": {
+          "before": "c73057c12eae0875886f9492e400344c4da8d48f98e5209a5c2c96cfc463a497",
+          "after": "f12b879b6fd271b1e24a8e13bf77a313ba50c4e168926f3d65c56d865b682deb"
+        }
+      }
     }
   ]
 }
