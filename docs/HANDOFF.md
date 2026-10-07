@@ -1,95 +1,85 @@
-# Handoff — ICE v3, 2026-10-06 21:26 IST
+# Handoff — ICE v3, 2026-10-07 10:49 IST
 
 **State, not a queue.** ROADMAP owns work; paper v2 remains frozen.
 
 ## Told → did
 
-**Told:** before resuming r4, explain why the judge was DeepSeek rather than
-Muse, which had been preferred; if DeepSeek is used, prefer v4.1 Flash.
+**Told:** inspect the r4 crash during judging; fix it so the maintainer can
+resume without restarting the long seed/answer work.
 
-**Did:** actual v3 paired judge retained global PROBE_MODEL=deepseek-v4-flash,
-while frozen-v2 LongMemEval had selected Muse1.3 through Responses. Prior small
-Muse-family human calibration led73% versus gateway DeepSeek v4 Flash60%; that
-older task/model evidence does not qualify the current v3 rubric. The v3
-DeepSeek pilot's three all-correct human pairs likewise do not prove superiority.
-Current provider catalogGET200 and official OpenCode Go docs list Muse1.3 and
-DeepSeek-v4.1 Flash. Decision: Muse1.3 Responses for new v3 bundles/current r4;
-explicit v4.1 Flash alternative, never automatic fallback.
+**Did:** actual judge log refused changed answer-file hashes, not a Muse outage.
+Successful cloud retries retained temporary UnconfirmedCloudCall metadata.
+Completed answer resume falsely added degraded_final to successes, rewrote
+files and doubled some progress error counts. Removing ONLY those false fields
+reproduced BOTH original judge input SHA256 values exactly. Applied a locked,
+archived recovery; no answer/source/real fault, judge identity or grade changed.
+The seven returned judge orders and eighth unconfirmed reservation remain.
 
-The paired judge now reuses the existing TextGenerator Responses/Chat adapters,
-with ICE user-agent, stable session, completion status/usage and no hidden SDK
-retries. Complete-source rubric and both display orders unchanged. Model/profile/
-endpoint/decoding/transport identity bind judge and calibration resume; changing
-these refuses old outputs. Raw verdicts retain response IDs/status/usage.
-Parent status/report expose selected judge. Caller attempt/error/access/outage
-policies remain bounded and unchanged.
+Completed answer reruns now validate frozen receipts without writing bytes;
+new successful responses clear temporary fault metadata. Promotion requires a
+real error. Progress counts actual failed rows. A closed exact runner-hash
+transition admits completed old outputs read-only, with remaining identities
+intact; it does not authorize old partial files or any cloud call. New outputs
+pin compatibility helper/registry bytes. No production/seed/judge code,
+settings, model role or global .env changed. Implementation commit84baffd.
 
-## Actual r4 selection and retained progress
+## Current measured state
 
-`logs/z1-v3-manual-2026-10-04-r4` now has explicit
-`judge_profile=opencode-muse13`; its previous private campaign configuration is
-archived. No earlier judge output existed. Only judge children receive
-ICE_JUDGE_PROFILE. Global .env/PROBE_MODEL, every production Settings field,
-local writers, GPT-6-Luna answering and source labels remain frozen.
+R4 has1471 durable originals,259 checkpoint contexts and four117-record answer
+arms. Returned answers/errors: full113/4, no-Codex114/3, vector-only113/4,
+recent-only116/1. Twelve real terminal cloud faults among468 planned records
+remain ungraded; these are availability counts, not factual accuracy.
+Partial no-Codex judge: three complete pairs/seven returned display orders;
+the second order of the next pair has one unconfirmed reserved attempt.
 
-**1434 originals/213 checkpointed probe contexts retained** (1119+251+64).
-The prior control-integrity repair still has its verified continuation/archive:
-recent-only skips all search helpers, vector-only excludes temporal notes and
-wide-net bypass, full/no-Codex behavior unchanged. Both earlier instrument
-boundaries remain retained. Normal resume begins third-history turn65;37 turns
-remain. Its15 unfinished provisional probes are rebuilt after tail archival.
-No original checkpoint/manifest/pointer/trace/store was edited.
+Full/no-Codex restored input hashes9039f97f/33925244 match the ORIGINAL saved
+judge pins. Original judge state remains fa36594c unchanged. Private archive
+`answer-input-recovery-7kqv_t9p` retains all pre-repair inputs/judge bytes and
+receipt. Seed code digest still0870efc; its two earlier registered instrument
+boundaries, archives and as-of snapshots remain intact.
 
-Actual seed resume readiness was rechecked after the judge change: seed code
-0870efc unchanged, all8 input digests/259 planned prompts/two installed local
-writer manifests and full settings identity match the verified continuation.
-No actual experiment DB restore or full campaign launched; no running parent
-or seeder was found. Do not edit pinned seed code while the operator runs it.
+Actual all-four-arm resume traversed real trace/label/frozen-input checks,
+kept byte/mtime identity and never constructed a model caller. A private judge
+copy traversed actual paired-input/pending-order validation up to a network
+trap, retaining all seven returned orders. Original judge state never changed.
+No API calls, campaign launch or experiment database restore occurred.
 
-From the repo root, without activating a venv, use the same existing bundle:
+Final618 disposable smoke checks passed in34.70s with five existing warnings.
+Sixteen new controls cover successful retry → interrupted judge → upstream
+resume → missing-order continuation, true terminal errors, registered read-only
+old artifacts, changed identities/text, active operators and partially restored
+inputs. Earlier89 focused/617 pre-final smoke passes overlap. The final suite
+includes the later campaign-lock/archive-parent-fsync controls.
+
+Answers remain GPT-6-Luna; judge remains Muse Spark1.3 Contributor Responses
+(`opencode-muse13`). DeepSeek-v4.1 Flash stays an explicit alternative, never
+an automatic switch. Independent current-v3 judge qualification and semantic
+memory-quality review remain open; score_of_record=false.
+
+## Position and next operator action
+
+This resume repair is complete. The maintainer can rerun from the repo root:
 
 ```bash
 uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-04-r4 --run
 ```
 
-One command continues seed → snapshot → answers → judge → report. Stage2
-verifies/freezes all35 tables and complete1471-turn/259-prompt replay. Stage3
-uses GPT-6-Luna for117 admitted probe instances across four arms, up to468
-successful answers before retries. Stage4 uses **Muse1.3 Responses**, with up
-to702 judge-order requests if all answers succeed. Stage5 combines source/rank,
-answer-quality, paired effects, token cost, retention and degradation receipts.
-Ctrl+C then the same command resumes with unchanged identities.
+Use the SAME directory. Seed/snapshot/answer stages verify saved work; judging
+continues with the missing order. A registered-old-runner read-only warning is
+expected. In-flight cloud calls can incur cost without a saved response and
+still consume their reserved attempt. Do not change frozen code/models/labels,
+reset pins, delete outputs, or launch the full campaign on the agent's behalf.
 
-## Validation and scope limits
+Combined Z1/Z2 remains the current development-quality/tuning phase, not a
+passed gate. Preserve the research focus: evaluate actual memory output and
+answers before targeted repairs/tuning; final work remains LME oracle and
+semi-LSREP, not full LME-S. Queue and acceptance rules live in ROADMAP and
+RESEED_PLAN. This instrument repair closes no memory-quality roadmap item.
 
-Two actual cloud requests on one synthetic public port-choice pair returned
-correct/incorrect with A preferred, then incorrect/correct with B preferred
-when swapped. This tests current endpoint/schema/basic discrimination through
-the shared v3 judge request, not independent population accuracy. No personal
-corpus was sent by this check. V4.1 has catalog/mock transport evidence only,
-not live judgment or comparative accuracy. Independent current v3 judge
-qualification remains pending; score_of_record=false.
+## Propagation / publication
 
-602 disposable smoke passes42.36s, five existing warnings;89 focused overlap.
-Final10 profile controls pass after import cleanup. Tests cover exact model/
-endpoint, full-source marker, stable session/UA, incomplete completion refusal,
-500 one-call behavior, quota pause, model/profile identity and judge-child-only
-routing. SDK retries0; caller reservations remain durable. All test databases
-removed. Prior592 control/restore checks and saved213-control contamination
-audit remain documented in PROVENANCE; no new memory-quality rate is claimed.
-
-Quality progression remains completed development evidence → output review/
-targeted repair/tuning → frozen **LME oracle and semi-LSREP only**. No full LME-S.
-Summary/extraction truncation and earlier degraded workers remain explicit
-quality evidence, not repaired outputs. Existing final runner/vector-baseline
-and broader judge/graph/summary qualification contracts remain in ROADMAP.
-
-## Git and propagation
-
-Main-local `ab8e233` provider/phase routing, `be0fd66` model roles/audit docs;
-no push under the publication freeze. Spec, MODELS, architecture, inventory,
-README/manual guide, provenance, roadmap note and TRAPS58 endpoint/role
-recurrence reconciled. No production source, AGENTS, schema, global .env or
-local model assignment changed; CLEANUP n/a (no moves). Requested judge
-correction/readiness complete. HANDOFF committed last; private SESSION archived
-and reset after propagation.
+RESEED_PLAN, manual guide, architecture, inventory, ROADMAP execution note,
+PROVENANCE and TRAPS #86 updated. Models/README/AGENTS unchanged; no files moved.
+Session findings archived privately, then SESSION reset. Work is on main;
+push freeze remains active, NO PUSH. Next public publication requires explicit
+one-time authorization. HANDOFF is the final commit of this repair session.
