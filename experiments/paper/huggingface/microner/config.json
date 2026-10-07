@@ -1,0 +1,27 @@
+{
+  "system_version": "ICE v2",
+  "source_tag": "v2-paper-eval",
+  "source_commit": "0521df9171b4a7d69f82d12d70497138c77b2678",
+  "checkpoint": "ner_model.pt",
+  "sha256": "23e596654065bde16f822db4b6dacf1830f67ae3613234bb7d808f5ea214c1b2",
+  "base_model": "Qwen/Qwen3-Embedding-0.6B",
+  "base_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+  "native_embedding_width": 1024,
+  "embedding_width": 384,
+  "normalize_embeddings": false,
+  "license": "apache-2.0",
+  "architecture": "MicroNER",
+  "layers": [
+    384,
+    128,
+    64,
+    3
+  ],
+  "dropout": 0.2,
+  "labels": [
+    "B-ENT",
+    "I-ENT",
+    "O"
+  ],
+  "scope": "generic entity BIO labels; no typed PER/ORG/LOC distinctions"
+}

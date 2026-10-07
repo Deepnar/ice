@@ -1,0 +1,34 @@
+{
+  "system_version": "ICE v2",
+  "paper": "https://arxiv.org/abs/2609.16730",
+  "source_tag": "v2-paper-eval",
+  "source_commit": "0521df9171b4a7d69f82d12d70497138c77b2678",
+  "base_model": "Qwen/Qwen3-Embedding-0.6B",
+  "base_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+  "embedding_width": 384,
+  "artifact_identity_note": "Checkpoints were retained locally at the frozen code-selected paths; v2 tag does not contain checkpoint blobs. SHA-256 records the retained originals at release, not an invented historical digest.",
+  "models": [
+    {
+      "repo_id": "Deepnar/ice-v2-classifier",
+      "checkpoint": "ice_classifier_v3_qwen_ft3.pt",
+      "original_path": "models/classifier/ice_classifier_v3_qwen_ft3.pt",
+      "sha256": "25c758b6a7e5cf449f3e4c8bb250db759d37cb4f0ab7dd8e0c1acd8afbf05831",
+      "bytes": 212827,
+      "source_files": {
+        "src/classifier/model.py": "a9708f8ef2bb3efdaed99f859df72d11ae5406d5110ce2d1123e9fbd937a5b17",
+        "src/classifier/classifier.py": "b4bb6f4481373d3d68d11f8f558b7f67d7ec9b678d9f63e4967265a3a7806850"
+      }
+    },
+    {
+      "repo_id": "Deepnar/ice-v2-microner",
+      "checkpoint": "ner_model.pt",
+      "original_path": "models/ner/ner_model.pt",
+      "sha256": "23e596654065bde16f822db4b6dacf1830f67ae3613234bb7d808f5ea214c1b2",
+      "bytes": 234093,
+      "source_files": {
+        "src/classifier/ner_model.py": "25bc2ae9907f061dede5ff931462686ca08fbcddc121822ec81581b8ba06572e",
+        "src/retrieval/ner_utils.py": "02330114890747392d21bd7a82bb14456af13bc3ab7b31a5a4d510cab36cce5b"
+      }
+    }
+  ]
+}
