@@ -5,87 +5,56 @@ Journal of Machine Learning Research
 
 Dear Editors,
 
-Please consider my manuscript, "LSREP: A Longitudinal State-Replay Protocol
-for Evaluating Conversational Memory, with ICE v2 as an Audited Local-First
-Architecture," for publication in the Journal of Machine Learning Research.
+Please consider my manuscript, "LSREP: A Longitudinal State-Replay Protocol for Evaluating Conversational Memory, with ICE v2 as an Audited Local-First Architecture," for publication in the Journal of Machine Learning Research.
 
-The contribution is an evaluation protocol for persistent conversational
-memory: ordered state reconstruction under declared lifecycle schedules,
-repeated probes with evolving reference answers, and checks that the mechanisms
-credited by a result actually executed. The paper uses frozen ICE v2 as an
-audited architectural case study. Its longitudinal replay and matched public
-LongMemEval diagnostic expose different failures, including decisive losses
-to vector-RAG on the public diagnostic. The manuscript preserves these
-negative results and the limits of mechanism attribution. Its purpose is to
-advance how memory systems are evaluated, rather than claim a new best-performing
-memory system.
+The primary contribution is an evaluation protocol for persistent conversational memory: ordered state reconstruction under declared lifecycle schedules, repeated probes with evolving reference answers, and checks that the mechanisms credited by a result actually executed. The paper uses frozen ICE v2 as an audited architectural case study. Its longitudinal replay and matched public LongMemEval diagnostic expose different failure modes, including decisive losses to vector-RAG on the public diagnostic. The manuscript preserves these negative results and the limits of mechanism attribution. Its purpose is to advance how memory systems are evaluated rather than to claim a new best-performing memory system.
 
-Originality and overlap: this manuscript is available as the preprint
-arXiv:2609.16730 (https://arxiv.org/abs/2609.16730). It has not been published
-in a journal or conference/workshop proceedings. There is no overlapping
-previous refereed publication to disclose. The preprint and public repository
-contain versions of the same work; they are not separate prior refereed
-publications. The work is not simultaneously under consideration at another
-journal or conference.
+Originality and overlap: this manuscript is available as the preprint arXiv:2609.16730 (https://arxiv.org/abs/2609.16730). It has not been published in a journal or conference/workshop proceedings. There is no overlapping previous refereed publication to disclose. The preprint and public repository contain versions of the same work; they are not separate prior refereed publications. The work is not simultaneously under consideration at another journal or conference.
 
-Author consent: I am the sole author, Deepesh Sonar, and consent to the
-manuscript's review by JMLR.
+Author consent: I am the sole author, Deepesh Sonar, and consent to the manuscript's review by JMLR.
 
-Funding and competing interests: I received no third-party funding or support
-for this work and report no relevant financial relationships in the 36 months
-preceding submission. I report no conflicts of interest with the suggested
-editors or reviewers, including family or close-friend relationships, graduate
-advisor/advisee relationships, or collaborations during the past three years.
-There are no recently collaborating JMLR Action Editors to declare.
+Funding and competing interests: I received no third-party funding or support for this work and report no relevant financial relationships in the 36 months preceding submission. I report no conflicts of interest with the suggested editors or reviewers, including family or close-friend relationships, graduate advisor/advisee relationships, or collaborations during the past three years. There are no recently collaborating JMLR Action Editors to declare.
 
-Suggested Action Editors (in preference order):
+Suggested Action Editors, in preference order:
 
 1. Qiaozhu Mei, University of Michigan.
    https://websites.umich.edu/~qmei/
-   Fit: information retrieval, natural language processing, and learning from
-   text, networks and behavioral data.
+   Fit: information retrieval, natural language processing, and learning from text, networks, and behavioral data.
+
 2. Kai-Wei Chang, University of California, Los Angeles.
    https://web.cs.ucla.edu/~kwchang/
-   Fit: trustworthy language models, knowledge organization, evidence-grounded
-   reasoning and retrieval-augmented agents.
+   Fit: trustworthy language models, knowledge organization, evidence-grounded reasoning, and retrieval-augmented agents.
+
 3. Samuel Kaski, Aalto University and University of Manchester.
    https://kaski-lab.com/
-   Fit: multiple information sources, user interaction, collaborative AI and
-   experimental design.
+   Fit: multiple information sources, user interaction, collaborative AI, and experimental design.
 
 Suggested reviewers:
 
 1. Di Wu, University of California, Los Angeles.
    https://xiaowu0162.github.io/
-   Fit: LongMemEval, retrieval-augmented generation and agent memory evaluation.
+   Fit: LongMemEval, retrieval-augmented generation, and agent memory evaluation.
+
 2. Adyasha Maharana, Databricks Mosaic Research.
    https://adymaharana.github.io/
-   Fit: LoCoMo, long-term conversational memory evaluation and dataset curation.
-3. Tatsunori Hashimoto, Stanford University.
+   Fit: LoCoMo, long-term conversational memory evaluation, and dataset curation.
+
+3. Jiho Kim, KAIST.
+   Fit: DialSim, long-horizon conversational-agent evaluation, and persistent multi-session dialogue.
+
+4. Tatsunori Hashimoto, Stanford University.
    https://thashim.github.io/
-   Fit: robust language-model evaluation, distribution shifts and failure analysis.
-4. Noah A. Smith, University of Washington and Allen Institute for Artificial
-   Intelligence.
-   https://homes.cs.washington.edu/~nasmith/
-   Fit: natural language processing, language-model methodology and evaluation.
+   Fit: robust language-model evaluation, distribution shifts, and failure analysis.
 
-These are suggestions, not presumed assignments. Di Wu's public profile
-identifies Kai-Wei Chang as his advisor. If that editor is assigned, an
-independently selected reviewer may be preferable; this relationship is between
-two suggested evaluators, not a conflict with the author.
+Keywords: conversational memory, longitudinal evaluation, state replay, retrieval-augmented generation, reproducibility.
 
-Keywords: conversational memory, longitudinal evaluation, state replay,
-retrieval-augmented generation, reproducibility.
+The 35-page main manuscript retains the methodological specification, fidelity audit, controlled ablations, matched LongMemEval paired inference, and sensitivity analyses needed to assess the principal claims. A separate Online Appendix 1 preserves supplementary historical diagnostics, detailed private-replay distributions, frozen ICE v2 implementation details, public-diagnostic cost strata, and the historical local-oracle/adapter analysis.
 
-The full manuscript includes its methodological, fidelity-audit, historical,
-implementation and sensitivity appendices. Its length is retained so that the
-negative findings and reproducibility boundaries can be assessed together.
 The original ICE v2 classifier and MicroNER checkpoints are public at
-https://huggingface.co/Deepnar/ice-v2-classifier and
-https://huggingface.co/Deepnar/ice-v2-microner, with original-file checksums
-and frozen preprocessing examples. Private conversational corpora are not
-released, and the manuscript explicitly limits independent reproduction of
-the private instantiation.
+https://huggingface.co/Deepnar/ice-v2-classifier
+and
+https://huggingface.co/Deepnar/ice-v2-microner,
+with original-file checksums and frozen preprocessing examples. Private conversational corpora are not released, and the manuscript explicitly limits independent reproduction of the private instantiation.
 
 Sincerely,
 

@@ -1,0 +1,387 @@
+% Online Appendix 1 accompanying the JMLR LSREP / frozen ICE v2 manuscript.
+\documentclass[twoside,11pt]{article}
+% Official JMLR style: preprint suppresses unassigned publication/editor fields.
+\usepackage{xr-hyper}
+\usepackage[preprint,abbrvbib]{jmlr2e}
+\usepackage{times}
+
+
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{placeins}
+\usepackage{needspace}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{url}
+\usepackage{hyphenat}
+\sloppy
+\tolerance=2000
+\emergencystretch=3em
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black,
+  pdftitle={Online Appendix 1: Supplementary Material for LSREP and ICE v2},
+  pdfauthor={Deepesh Sonar},pdfsubject={Prepared for initial submission to JMLR; evaluated system ICE v2},
+  pdfkeywords={conversational memory, longitudinal evaluation, state replay, retrieval-augmented generation, reproducibility}}
+\usepackage[capitalise,noabbrev]{cleveref}
+\usepackage{array}
+\usepackage{ragged2e}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{patterns,arrows.meta,positioning,fit,backgrounds,calc}
+
+% --- Shared styles for the architecture diagrams ---
+\tikzset{
+  icebox/.style={draw=blue!40!black, fill=blue!5, rounded corners=2pt,
+    align=center, font=\footnotesize, inner sep=3pt, minimum height=6mm},
+  icephase/.style={draw=gray!50, fill=gray!8, rounded corners=3pt,
+    align=center, font=\footnotesize\bfseries, inner sep=4pt},
+  icestore/.style={draw=teal!50!black, fill=teal!8, rounded corners=2pt,
+    align=center, font=\footnotesize, inner sep=3pt, minimum width=17mm, minimum height=9mm},
+  iceleg/.style={draw=orange!60!black, fill=orange!8, rounded corners=2pt,
+    align=center, font=\footnotesize, inner sep=2pt, minimum width=15mm, minimum height=6mm},
+  icecore/.style={draw=red!50!black, fill=red!6, rounded corners=2pt,
+    align=center, font=\footnotesize\bfseries, inner sep=3pt},
+  iceflow/.style={-{Stealth[length=2mm]}, draw=gray!60, thick},
+  iceflowd/.style={-{Stealth[length=2mm]}, draw=gray!60, thick, dashed},
+}
+
+% --- Table helpers ---
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+
+% Table row spacing for readability. Float scheduling uses official defaults.
+\renewcommand{\arraystretch}{1.15}
+
+\ShortHeadings{LSREP: Online Appendix 1}{Sonar}
+\firstpageno{1}
+\title{Online Appendix 1: Supplementary Material for LSREP and ICE v2}
+\author{\name Deepesh Sonar \email 18deepnar@gmail.com \\
+  \addr Department of Computer Engineering\\
+  Thakur College of Engineering and Technology\\
+  A-Block, Thakur Educational Campus, Shyamnarayan Thakur Marg\\
+  Thakur Village, Kandivali (East), Mumbai 400101, India}
+
+\externaldocument[main-]{ICE_paper_JMLR}
+\begin{document}
+\maketitle
+\thispagestyle{plain}
+
+This is \textbf{Online Appendix 1} accompanying Deepesh Sonar's manuscript
+\emph{LSREP: A Longitudinal State-Replay Protocol for Evaluating Conversational Memory, with ICE v2 as an Audited Local-First Architecture}.
+It preserves supplementary historical diagnostics, detailed private-replay distributions,
+public-diagnostic cost strata, and the frozen implementation reference. The evaluated mature system is frozen \textbf{ICE v2},
+not current ICE v3; the pilot in Section~\ref{app:exp1} concerns historical ICE v1.
+References explicitly identified as main-manuscript references point to the accompanying paper.
+Tables in this document carry an S prefix.
+
+The evaluated source is pinned to \texttt{v2-paper-eval} at
+\url{https://github.com/Deepnar/ice/tree/v2-paper-eval}.
+The public artifact inventory is \path{experiments/paper/ARTIFACTS.md} in that repository's
+submission branch. Original frozen ICE v2 model artifacts are available at
+\url{https://huggingface.co/Deepnar/ice-v2-classifier} and
+\url{https://huggingface.co/Deepnar/ice-v2-microner}.
+Exact private LSREP scores cannot be independently regenerated without the private histories.
+
+\renewcommand{\thetable}{S\arabic{table}}
+\renewcommand{\thefigure}{S\arabic{figure}}
+
+\section{Historical ICE v1 Pilot}
+\label{app:exp1}
+
+\begin{table}[tbp]
+\centering
+\small
+
+
+\begin{tabular}{@{}L{2.8cm}L{4.6cm}L{4.6cm}@{}}
+\toprule
+\textbf{Dimension} & \textbf{Experiment 1 (pilot)} & \textbf{Experiment 2 (mature)} \\
+\midrule
+System maturity & Vector + BM25 legs; MiniLM classifier; static budget; uncapped sliding window; graph non-functional & All legs enabled; Qwen3 classifier + routing override; dynamic budget; cluster-scoped retrieval \\
+Corpus & 18 conversations (isolated checkpoints) & 4 long-horizon conversations (full-lifespan replay) \\
+Split range & $[\max(10,0.30L),\,0.95L]$, 3 splits/conv & Length-adaptive checkpoints (8--20), even spacing with jitter \\
+Probes & Hand-written (8--30/conv) & Auto-generated, leg-aware (147) plus 72 inherited hand-written \\
+Ground truth & Single retrieval-assisted pass, \emph{frozen} & Three-stage forensic regeneration + forward propagation, \emph{evolving} \\
+Checkpoint state & Independent per checkpoint & Preserved across checkpoints; lifecycle runs between them \\
+Probe evaluation & Each probe once & Incremental: re-scored at every later checkpoint \\
+Scoring & Static correctness & Temporal-aware + inference credit; hallucination flags audited for false positives \\
+Conditions & Six (incl.\ sliding-window controls) & Four (controls dropped) \\
+\bottomrule
+\end{tabular}
+\caption{How the two LSREP instantiations differ. The shared skeleton---state reconstruction, synchronous worker trigger, output-level judging by the same independent judge---is described in main-manuscript Section~\ref{main-sec:lsrep}.}
+\label{tab:exp-diff}
+\end{table}
+
+\textbf{System under test.} The pilot evaluated an immature build with only the vector and BM25 legs meaningfully active. The classifier used a frozen MiniLM backbone; retrieval used static per-leg limits, a static 5{,}000-token global budget, and an uncapped 10-turn sliding window; the knowledge graph effectively did not exist---a regex tagger and an under-powered 1.5B extractor produced almost no usable edges---so the graph, procedural, and document legs contributed nothing and the system reduced to essentially the same vector-plus-BM25 retrieval as the baseline; cluster-scoped retrieval did not exist yet.
+
+\textbf{Protocol instantiation.} Conversations shorter than 10 turns were excluded, reducing the corpus from 42 to 18. Split points were drawn from $[\max(10,0.30L),\,0.95L]$, three per conversation with a fixed seed; each split defined a historical block and a 10-turn future reference block. Probes were hand-written, 8--30 per conversation, and probes from earlier splits were re-asked at later ones. Ground truth used a single retrieval-assisted pass, frozen thereafter. Six conditions ran per probe.
+
+\textbf{The token-accounting audit.} After the pilot completed, an audit found that the reported context size for full ICE included retrieved fragments but \emph{omitted} the recent-turn sliding window incorporated during prompt assembly. Generated answers, scores, rankings, and hallucination labels were unaffected---the window was correctly supplied to the model at inference time; only the reported efficiency statistics were wrong. We replayed the sliding-window assembly for every checkpoint and added the omitted tokens. The correction did not change the qualitative findings, but it invalidated any claim of superior token efficiency: corrected, full ICE consumes \emph{more} total tokens than the baseline at roughly equal quality. All pilot numbers reported here are corrected values.
+
+\begin{table}[tbp]
+\centering
+\small
+
+
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{Condition} & \textbf{Score} & \textbf{Tokens} & \textbf{Hall.\ (\%)} & \textbf{TUR} & \textbf{Win \%} \\
+\midrule
+Control baseline (generalist) & 3.05 $\pm$ 1.61 & 3{,}998  & 74.1 & 0.76 & 11.3 \\
+Control MoE                   & 3.01 $\pm$ 1.61 & 3{,}998  & 74.4 & 0.75 & 7.6  \\
+Vector RAG (generalist)       & \textbf{4.06} $\pm$ 1.31 & \textbf{5{,}847}  & \textbf{64.7} & \textbf{0.69} & 22.9 \\
+Vector RAG (MoE)              & 4.05 $\pm$ 1.32 & 5{,}847  & 66.7 & 0.69 & 15.6 \\
+Full ICE (generalist)         & 4.04 $\pm$ 1.33 & 8{,}586  & 69.6 & 0.47 & 22.0 \\
+Full ICE (MoE)                & 3.96 $\pm$ 1.33 & 8{,}586  & 72.3 & 0.46 & 20.6 \\
+\bottomrule
+\end{tabular}
+\caption{Experiment 1 (immature system), 657 probes, corrected token counts. After correcting the sliding-window under-count, ICE used more tokens than the vector baseline, scored slightly lower, hallucinated more, and had a worse TUR. These historical ICE v1 results do not measure frozen ICE v2.}
+\label{tab:exp1}
+\end{table}
+
+The headline numbers were a defeat: 4.04 against 4.06, 47\% more tokens, more hallucination, a worse TUR. The picture brightened only on the longitudinal axis---193 tracked question curves showed scores improving over time on repeated probes, demonstrating memory accumulation. Several subsystems were broken or immature: only three decay cycles had run; the graph effectively did not exist; 22 gating failures meant the classifier was actively blocking retrieval on probes that needed it; and the budget was static.
+
+\textbf{Lessons.} A short replay with incomplete consolidation tests that particular state, not mature lifecycle behaviour. Honest token counting is essential---the under-count would have made ICE look more efficient than it was. And a broken subsystem can drag down an entire system, which is itself a finding about the fragility of multi-component architectures and a direct ancestor of the fidelity audit in main-manuscript Appendix~\ref{main-app:fidelity}.
+
+\FloatBarrier
+\section{ICE v2 Detailed LSREP Breakdowns}
+\label{app:exp2-detail}
+
+\begin{table}[tbp]
+\centering
+\small
+
+
+\begin{tabular}{@{}L{2.2cm}L{6.2cm}L{4.2cm}@{}}
+\toprule
+\textbf{Metric} & \textbf{Definition} & \textbf{What it measures} \\
+\midrule
+Score (1--5) & Mean absolute score from the judge & Answer quality \\
+SPF & $\mathrm{mean\ score} / \mathrm{mean\ fragments}$ & Score/fragment ratio \\
+TUR & $\mathrm{mean\ score} / (\mathrm{mean\ tokens}/1000)$ & Score/token ratio \\
+Win rate (\%) & Blind tournament: all four conditions' answers for a probe are anonymised, shuffled, and ranked best-to-worst in a single pass, independent of absolute scoring; the win rate is the share of appearances placed first & Preference under shuffled presentation \\
+Hallucination (\%) & Share of probes where the judge detects information not present in the conversation & Faithfulness \\
+Fragment count & Mean fragments injected per probe & Retrieval volume \\
+Recency $\Delta$ & $\mathrm{mean\ score}(\mathrm{late\ bins}) - \mathrm{mean\ score}(\mathrm{early\ bins})$ & Descriptive temporal contrast \\
+\bottomrule
+\end{tabular}
+\caption{Evaluation metrics. Each is computed per probe and aggregated across the benchmark.}
+\label{tab:metrics}
+\end{table}
+
+The four-data set main-text table is main-manuscript Table~\ref{main-tab:exp2-perconv}; additional distributions follow.
+
+\begin{table}[tbp]
+\centering
+\small
+
+
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Score} & \textbf{ICE gen (\%)} & \textbf{ICE MoE (\%)} & \textbf{Vec.\ gen (\%)} & \textbf{Vec.\ MoE (\%)} \\
+\midrule
+1 (poor)       & 3.0 & 1.5 & 3.8 & 2.4 \\
+2              & 5.9 & 4.3 & 4.3 & 3.9 \\
+3 (acceptable) & 13.3 & 16.6 & 14.8 & 19.5 \\
+4 (good)       & 18.1 & 19.7 & 17.2 & 16.3 \\
+5 (excellent)  & 59.7 & 58.0 & 60.0 & 58.0 \\
+\bottomrule
+\end{tabular}
+\caption{Score distribution (1{,}057 probe--checkpoint observations, Dataset C excluded). The mean-score tie masks a structural difference: ICE-MoE has the lowest score-1 rate but shifts mass from 5 to 3--4, producing lower-variance output.}
+\label{tab:exp2-score-dist}
+\end{table}
+
+\begin{table}[tbp]
+\centering
+\small
+
+
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Condition} & \textbf{Good (4--5) \%} & \textbf{OK (3) \%} & \textbf{Poor (1--2) \%} \\
+\midrule
+Vector RAG generalist  & 77.2 & 14.8 & 8.0 \\
+Vector RAG MoE         & 74.3 & 19.5 & 6.2 \\
+Full ICE generalist    & \textbf{77.8} & 13.3 & 8.9 \\
+Full ICE MoE           & 77.7 & 16.6 & 5.8 \\
+\bottomrule
+\end{tabular}
+\caption{Temporal score quality (1{,}057 probe--checkpoint observations, Dataset C excluded). Buckets: Good (4--5), OK (3), Poor (1--2).}
+\label{tab:exp2-temporal}
+\end{table}
+
+\FloatBarrier
+\section{Frozen ICE v2 Implementation Reference}
+\label{app:implementation}
+
+This section collects operational detail supporting main-manuscript Section~\ref{main-sec:architecture} but not required to follow the argument. A complete technical reference---the full training pipeline for the classifier and NER models, the controlled relation vocabulary in its entirety, GPU resource management, and the idempotency architecture---is the archived technical report in the repository, which describes the system at the tagged evaluation snapshot.
+
+\subsection{Classification Engine}
+\label{app:classifier}
+
+The engine produces, per user turn, a set of topic tags, a set of intent tags, and one context-reliance label. These drive every downstream decision: which legs are weighted, how the budget is split, whether the wide-net fallback fires, and which model the router selects.
+
+The learned head is deliberately tiny---a $384 \rightarrow 128 \rightarrow 25$ multi-layer perceptron with ReLU and 0.3 dropout. Its input is a single 384-dimensional embedding from a frozen \texttt{Qwen3-Embedding-0.6B} encoder; the shared linear head is sliced at inference into three blocks: 11 topic labels, 11 intent labels, and 3 context-reliance classes. Topic and intent decode multi-label (sigmoid, threshold 0.3, argmax fallback); context-reliance decodes single-label.
+
+The rule-based pre-classifier computes five density signals in $[0,1]$ from the raw prompt---code density, sentiment density, meta density (references to the model itself), noise density, and reference density (anaphoric terms)---and evaluates five rules in order, returning the first that fires or none, in which case the learned head runs. The reference rule is special: it returns empty topic and intent tags but forces Long\_Term\_Memory, and the orchestrator then runs the head only to obtain topic and intent. A two-tier threshold on that rule (0.2 for short conversations, 0.1 past ten turns) is the engine's primary long-conversation memory bias.
+
+\textbf{Override rules} run in evaluation order after either path: memory immutability, so once Long\_Term\_Memory is set nothing may downgrade it; a topic rule promoting creative turns to Long\_Term\_Memory; and a rule promoting technical turns containing anaphora. A second, API-level bias lives outside the classifier: past ten turns, or below 0.95 confidence, a Zero\_Shot label is upgraded before retrieval runs. main-manuscript Section~\ref{main-sec:limitations} discusses what this costs.
+
+\textbf{Context-aware classification.} When a conversation ID is supplied, the learned path queries the last three episodic turns for that conversation (max 500 words), preferring summaries and falling back to the first 150 words of raw text, and prepends that context to the prompt before embedding.
+
+\subsection{Codex Write Path and Retrieval}
+\label{app:codex}
+
+The graph spans four tables: entities (canonical name, aliases, properties JSONB, auto-regenerated context payload, embedding); edges (typed relations with strength, a confidence flag in \{pending, active\}, \texttt{valid\_from}, and \texttt{valid\_until}, where NULL means treated as current by the store); an append-only event log; and snapshots.
+
+The triplet write path is the heart of temporal versioning. Entity resolution is two-stage---exact canonical-name match, then alias match, else create with a deterministic UUIDv5. The write branch then depends on the relation bucket: a property observation expires prior active edges of the same (source, relation) pair, writes a new edge, and overwrites the JSONB key; a reinforcement of an existing non-property edge increases strength and promotes from pending to active at strength $\geq 2$; a new relation between the same pair expires the old one only if the old relation is not multi-valued. Every state change emits an event, and the entity's context payload is rebuilt from the property map plus the ten most recent active outgoing edges. The event log is compacted by a worker that snapshots any entity exceeding 100 uncompacted events---textbook event sourcing, with the live edge table as current state, the log as audit trail, and snapshots as bounded replay.
+
+\textbf{Micro-NER} is a BIO tagger (a $384 \rightarrow 128 \rightarrow 64 \rightarrow 3$ MLP over per-token embeddings). When the trained model is unavailable the system falls back to a capitalisation regex minus a stoplist; at the Experiment 2 snapshot the trained model was present and loaded. \textbf{Vector fuzzy matching} embeds the extracted entity strings, scans entity embeddings, and takes the best above a cosine threshold of 0.85---the mechanism that resolves a slightly misspelled proper noun to its canonical entity.
+
+The retrieval leg extracts prompt entities, resolves them by fuzzy matching, optionally restricts to a conversation scope, and performs a BFS traversal to depth 3 over edges where \texttt{valid\_until IS NULL}, appending a labelled context payload per visited entity. \textbf{MERA}, the enumeration fallback for category queries, activates only when NER extracts no entities \emph{and} the prompt contains both a category trigger and an enumeration hint; candidates are deduplicated and ranked by 30-day mention count.
+
+\subsection{Codex Limitations in Detail}
+\label{app:codex-limits}
+
+\textbf{Extraction granularity.} The frozen v2 extractor uses 6,000-token chunks with overlap. The audit records extraction and representation limitations, but this study does not establish an optimal chunk size or a general capacity limit for 4B models. Such claims require a controlled extraction study.
+
+\textbf{Inert confidence and strength.} Edges carry a confidence flag and a decaying numeric strength, but both are under-used at retrieval time. Traversal follows any edge with \texttt{valid\_until IS NULL} regardless of either, and the only effect of an active confidence flag is a coarse $1.5\times$ fragment-level score boost. There is no reinforcement loop strengthening edges on retrieval, so frequently referenced facts do not rise in the ranking and traversal treats weak edges as equal to strong ones.
+
+\textbf{Lexical versus semantic entity matching.} Retrieval resolves entities by canonical name or alias plus fuzzy matching over the context-payload embedding rather than the entity name. A user who establishes ``The Obsidian Citadel'' and later asks ``where is the main fortress located?'' gives the resolution step no lexical or embedded anchor for ``fortress,'' though a human reader resolves it immediately. This is a general limitation of entity-centric retrieval in free-form conversation: it assumes users refer to entities by canonical names or close aliases, which natural dialogue does not honour.
+
+\subsection{Prompt Assembly}
+\label{app:assembly}
+
+The assembler emits a message list in a deliberately stable-prefix order to maximise cache reuse: (i)~a fixed system message with an inline persistent-context block rendering each active memory slot; (ii)~recent turns as alternating user/assistant pairs under dynamic per-turn word caps; (iii)~a single user message headed with the retrieved context, optionally tagged with cluster names when a cluster scope is populated; (iv)~a single assistant acknowledgement acting as a boundary marker, so the model treats the final user message as the live question rather than another history turn; and (v)~the live question. Because the system message, slots, and most of the recent-turn prefix change slowly, most of the prefix key/value tensors are in principle reusable across consecutive requests; no prompt-cache benefit was measured in this study.
+
+The orchestrator budgets selected fragment text. The frozen HTTP wrapper attempts an additional word check, but computes only the system-message and question words, omitting recent and retrieved messages. Its nominal 4,096-token-derived threshold is therefore not a valid total-prompt ceiling. The experimental adapters call retrieval and assembly directly and do not use this wrapper check. No secondary full-context guarantee is claimed.
+
+\textbf{Memory slots} are prepended verbatim to every prompt. Seven slot names are server-enforced: persona, user preferences, tool guidelines, project context, guidance, pending items, and session patterns. Slots are written through four paths: direct user update, batch initialisation, reflection-proposed but user-gated updates (high-stakes slots land in a review queue), and reflection-applied updates to pending items only.
+
+\textbf{Context clusters} are conversation-scoped topical groupings. The centroid of member turn embeddings, renormalised to unit length after every change, is a 384-dimensional vector; membership is many-to-many. The clustering worker assigns each unassigned turn to the best existing cluster---combining embedding similarity, a bonus per shared entity, and tag overlap---or opens a new cluster when no candidate clears a 0.6 similarity threshold.
+
+\subsection{Background Workers and Infrastructure}
+\label{app:workers}
+
+\begin{table}[tbp]
+\centering
+\small
+
+
+\begin{tabular}{@{}L{3.2cm}L{2.6cm}L{7.4cm}@{}}
+\toprule
+\textbf{Worker} & \textbf{Trigger} & \textbf{Function} \\
+\midrule
+Post-flight evaluator & every turn & lossless detection, summary, dispatch extractors \\
+Codex extractor       & lossless turns  & triplet extraction and versioned writes \\
+Procedural extractor  & every turn      & pattern detection, reinforcement or insertion \\
+Episodic decay        & 1.5 h           & access-weighted decay, archive at 0.1, cold-store at 0.05 \\
+Codex decay           & 1.5 h           & edge strength decay, demote below strength 0.3 \\
+Procedural decay      & 1.5 h           & deactivation after 180 d with $<$ 3 reinforcements \\
+Clustering            & 30 min          & assign turns; merging is separately callable \\
+Reflection            & 2 h             & session synthesis, pattern crystallisation, slot proposals \\
+Batch summariser      & 2 h             & 50-turn batches, preservation-prompt summaries \\
+Sentinel monitor      & 30 min          & declarative rules: threshold, absence, and others \\
+Fine-tune             & weekly          & retrain the classifier head on curated labels \\
+Compaction            & manual          & snapshot entities with $\geq$ 100 uncompacted events \\
+Drop zone             & filesystem      & ingest documents into the document store \\
+Codex inject watcher  & filesystem      & ingest structured files into the graph with manual confidence \\
+\bottomrule
+\end{tabular}
+\caption{Background workers. Configured schedules, not evidence that every worker produced useful output in the evaluation.}
+\label{tab:workers}
+\end{table}
+
+All GPU-touching workers gate on a utilisation threshold polled from the driver and, in shared-model mode, additionally on a user-activity key with a short idle window. Retry countdowns are fixed per class. Extraction tasks use idempotency keys; this is not a verified exactly-once guarantee for every worker.
+
+The system is a single service exposing an OpenAI-compatible chat-completions endpoint plus routers for memory slots, user control, and the model registry, backed by PostgreSQL with pgvector---one 384-dimensional vector column per vector table, because the embedder is shared---and a worker fleet over a message broker. Configuration is a typed settings object read from the environment. Server-sent event types (\texttt{classified}, \texttt{retrieval}, \texttt{context\_ready}, \texttt{generating}, \texttt{degraded}) drive an observability panel and downstream monitoring. Classifier fine-tuning writes a timestamped checkpoint but does not auto-promote it, so production promotion requires a deliberate swap.
+
+\FloatBarrier
+\section{Matched LongMemEval Cost Strata}
+\label{app:lme-cost-strata}
+The following table reports median [25th, 75th percentile] for provider input tokens by category and outcome, plus median selected fragments and generation seconds. C/W are correct/incorrect according to Muse; the single missing verdict is excluded from this stratification. The machine-readable aggregate artifact also includes word-estimated prompt-token distributions and 95th percentiles for every stratum. Retrieval-only context tokens, per-leg candidates, retrieval latency, construction cost per arm, and transient failure rates are unavailable. These tables describe associations, not interventions on context size.
+\small
+\begin{longtable}{@{}L{1.0cm}L{1.0cm}L{2.6cm}crrrL{3.6cm}@{}}
+\toprule Phase & Arm & Category & C/W & $n$ & Frags & Sec. & Input tokens [IQR]\\\midrule\endfirsthead
+\toprule Phase & Arm & Category & C/W & $n$ & Frags & Sec. & Input tokens [IQR]\\\midrule\endhead
+Oracle & ICE v2 & Abstention & C & 25 & 3.0 & 3.0 & 1,994 [1,793, 2,055] \\
+Oracle & ICE v2 & Abstention & W & 5 & 4.0 & 3.5 & 2,212 [2,085, 2,249] \\
+Oracle & ICE v2 & Knowledge update & C & 42 & 4.0 & 2.1 & 2,058 [1,994, 2,108] \\
+Oracle & ICE v2 & Knowledge update & W & 30 & 4.0 & 2.7 & 2,077 [2,002, 2,156] \\
+Oracle & ICE v2 & Multi-session & C & 36 & 4.0 & 2.8 & 2,090 [1,956, 2,158] \\
+Oracle & ICE v2 & Multi-session & W & 85 & 3.0 & 3.0 & 2,081 [2,003, 2,190] \\
+Oracle & ICE v2 & Session assistant & C & 51 & 3.0 & 2.3 & 878 [724, 1,023] \\
+Oracle & ICE v2 & Session assistant & W & 5 & 3.0 & 3.1 & 991 [729, 1,052] \\
+Oracle & ICE v2 & Session preference & C & 21 & 3.0 & 9.6 & 1,959 [1,747, 2,021] \\
+Oracle & ICE v2 & Session preference & W & 9 & 3.0 & 6.8 & 1,930 [1,553, 2,010] \\
+Oracle & ICE v2 & Session user & C & 50 & 3.0 & 2.0 & 1,710 [1,497, 1,909] \\
+Oracle & ICE v2 & Session user & W & 14 & 3.0 & 2.6 & 1,850 [1,522, 2,037] \\
+Oracle & ICE v2 & Temporal reasoning & C & 29 & 3.0 & 2.8 & 2,011 [1,931, 2,098] \\
+Oracle & ICE v2 & Temporal reasoning & W & 98 & 3.0 & 3.0 & 2,068 [1,934, 2,144] \\
+Oracle & ICE v2 & Overall & C & 254 & 3.0 & 2.4 & 1,928 [1,440, 2,066] \\
+Oracle & ICE v2 & Overall & W & 246 & 3.0 & 3.0 & 2,065 [1,947, 2,153] \\
+Oracle & Vector & Abstention & C & 18 & 11.0 & 2.3 & 5,462 [3,840, 5,817] \\
+Oracle & Vector & Abstention & W & 12 & 12.0 & 2.5 & 6,268 [5,060, 6,876] \\
+Oracle & Vector & Knowledge update & C & 53 & 12.0 & 1.5 & 5,926 [5,167, 6,502] \\
+Oracle & Vector & Knowledge update & W & 19 & 12.0 & 1.5 & 5,658 [5,246, 6,562] \\
+Oracle & Vector & Multi-session & C & 104 & 12.0 & 2.2 & 6,544 [5,681, 9,767] \\
+Oracle & Vector & Multi-session & W & 17 & 18.0 & 3.5 & 9,324 [6,902, 11,975] \\
+Oracle & Vector & Session assistant & C & 53 & 4.0 & 1.6 & 950 [647, 1,384] \\
+Oracle & Vector & Session assistant & W & 3 & 6.0 & 2.9 & 1,218 [970, 1,490] \\
+Oracle & Vector & Session preference & C & 21 & 7.0 & 7.1 & 3,849 [3,370, 4,245] \\
+Oracle & Vector & Session preference & W & 9 & 6.0 & 5.2 & 3,693 [3,521, 4,456] \\
+Oracle & Vector & Session user & C & 61 & 6.0 & 1.4 & 3,015 [2,555, 3,441] \\
+Oracle & Vector & Session user & W & 3 & 6.0 & 2.0 & 2,970 [2,656, 3,140] \\
+Oracle & Vector & Temporal reasoning & C & 54 & 12.0 & 2.0 & 6,496 [5,742, 6,910] \\
+Oracle & Vector & Temporal reasoning & W & 73 & 12.0 & 2.3 & 6,388 [4,635, 7,782] \\
+Oracle & Vector & Overall & C & 364 & 11.0 & 1.9 & 5,261 [3,014, 6,539] \\
+Oracle & Vector & Overall & W & 136 & 12.0 & 2.5 & 6,160 [4,620, 7,712] \\
+S & ICE v2 & Abstention & C & 25 & 5.0 & 2.8 & 2,211 [2,150, 2,262] \\
+S & ICE v2 & Abstention & W & 5 & 4.0 & 4.3 & 2,259 [2,228, 2,302] \\
+S & ICE v2 & Knowledge update & C & 37 & 5.0 & 2.4 & 2,185 [2,139, 2,251] \\
+S & ICE v2 & Knowledge update & W & 35 & 5.0 & 2.7 & 2,240 [2,184, 2,292] \\
+S & ICE v2 & Multi-session & C & 26 & 6.0 & 2.8 & 2,230 [2,199, 2,278] \\
+S & ICE v2 & Multi-session & W & 95 & 5.0 & 3.3 & 2,233 [2,185, 2,298] \\
+S & ICE v2 & Session assistant & C & 42 & 6.0 & 2.5 & 2,251 [2,189, 2,292] \\
+S & ICE v2 & Session assistant & W & 14 & 6.0 & 3.8 & 2,191 [2,167, 2,242] \\
+S & ICE v2 & Session preference & C & 13 & 5.0 & 7.5 & 2,229 [2,217, 2,321] \\
+S & ICE v2 & Session preference & W & 17 & 5.0 & 6.8 & 2,223 [2,167, 2,267] \\
+S & ICE v2 & Session user & C & 46 & 5.0 & 2.1 & 2,199 [2,148, 2,278] \\
+S & ICE v2 & Session user & W & 18 & 5.0 & 3.3 & 2,202 [2,152, 2,288] \\
+S & ICE v2 & Temporal reasoning & C & 26 & 5.5 & 3.0 & 2,245 [2,189, 2,297] \\
+S & ICE v2 & Temporal reasoning & W & 101 & 5.0 & 3.3 & 2,211 [2,143, 2,264] \\
+S & ICE v2 & Overall & C & 215 & 5.0 & 2.6 & 2,224 [2,170, 2,289] \\
+S & ICE v2 & Overall & W & 285 & 5.0 & 3.4 & 2,219 [2,167, 2,288] \\
+S & Vector & Abstention & C & 19 & 30.0 & 2.6 & 11,391 [10,259, 12,813] \\
+S & Vector & Abstention & W & 11 & 30.0 & 3.4 & 11,922 [11,408, 12,202] \\
+S & Vector & Knowledge update & C & 50 & 30.0 & 2.0 & 12,026 [10,295, 12,706] \\
+S & Vector & Knowledge update & W & 22 & 30.0 & 2.2 & 11,558 [10,738, 12,482] \\
+S & Vector & Multi-session & C & 90 & 30.0 & 2.7 & 12,084 [11,153, 13,300] \\
+S & Vector & Multi-session & W & 31 & 30.0 & 3.0 & 11,844 [10,791, 13,518] \\
+S & Vector & Session assistant & C & 53 & 30.0 & 2.2 & 10,860 [9,118, 11,853] \\
+S & Vector & Session assistant & W & 3 & 30.0 & 3.1 & 9,426 [8,277, 11,730] \\
+S & Vector & Session preference & C & 15 & 30.0 & 5.5 & 12,494 [11,953, 13,725] \\
+S & Vector & Session preference & W & 14 & 30.0 & 6.1 & 12,688 [11,168, 13,912] \\
+S & Vector & Session user & C & 60 & 30.0 & 1.9 & 10,802 [9,786, 12,251] \\
+S & Vector & Session user & W & 4 & 30.0 & 2.2 & 11,152 [10,630, 11,450] \\
+S & Vector & Temporal reasoning & C & 60 & 30.0 & 2.8 & 11,732 [10,954, 13,054] \\
+S & Vector & Temporal reasoning & W & 67 & 30.0 & 3.1 & 12,097 [10,625, 13,203] \\
+S & Vector & Overall & C & 347 & 30.0 & 2.5 & 11,650 [10,350, 12,800] \\
+S & Vector & Overall & W & 152 & 30.0 & 3.1 & 11,854 [10,687, 13,126] \\
+\bottomrule\caption{ICE v2 public diagnostic: cost conditioned on category and correctness.}\\
+\end{longtable}
+\normalsize
+
+\FloatBarrier
+\section{Historical Local Oracle and Adapter Invalidation}
+\label{app:lme-history}
+Before the matched cloud study, the corrected v2 adapter used \texttt{gemma4:26b-a4b-it-q4\_K\_M} for both answer arms and local \texttt{gemma4:12b} judging. ICE obtained 264/478 (55.2\%) and vector 388/484 (80.2\%) on the oracle; 22 and 16 judge mutes gave all-500 bounds of 52.8--57.2\% and 77.6--80.8\%. That study stopped before full-S. Its scores are historical diagnostics, not part of the matched cloud comparison, and the later completed cloud phases supersede the stopped-phase statement.
+
+The earlier flattened-session adapter is invalid. A trace showed 45 lexical plus 100 vector candidates, 111 unique after fusion, then only three after diversification because a UUID object did not equal a string identifier. Its query placement also failed to preserve supplied session boundaries. These results remain excluded. The corrected session adapter separates history sessions and queries from an empty conversation; it does not inflate the fresh-session retrieval budget from the total haystack length.
+
+\end{document}
