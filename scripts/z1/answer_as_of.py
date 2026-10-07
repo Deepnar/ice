@@ -17,6 +17,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from experiments.lme.cloud_provider import CloudCompletionError, PROFILES, TextGenerator, load_selected_env
+from scripts.z1.answer_resume import completed_identity_matches
 from scripts.z1.cloud_recovery import POLICY as CLOUD_POLICY, answer_fault, terminal_answer_fault
 from scripts.z1.development_repeats import KINDS, POLICY, admit_repeats, packet_hash
 from scripts.z1.label_review import question_family_counts, reviewed_expected_answer, validate_review
@@ -358,7 +359,9 @@ def _main() -> int:
                     "answer_runner": sha256_file(Path(__file__)),
                     "cloud_adapter": sha256_file(Path(__file__).resolve().parents[2]
                                                  / "experiments/lme/cloud_provider.py"),
-                    "cloud_recovery": sha256_file(Path(__file__).with_name("cloud_recovery.py"))},
+                    "cloud_recovery": sha256_file(Path(__file__).with_name("cloud_recovery.py")),
+                    "completed_resume": sha256_file(Path(__file__).with_name("answer_resume.py")),
+                    "completed_resume_registry": sha256_file(Path(__file__).with_name("answer_resume_repairs.json"))},
                 "development_partial": args.allow_partial,
                 "sample_seed": args.seed}
     if output.exists():
@@ -366,7 +369,9 @@ def _main() -> int:
             raise ValueError("answer output exists; use --resume or a new path")
         result = json.loads(output.read_text())
         if any(result.get(key) != value for key, value in identity.items()):
-            raise ValueError("resume output is from a different trace/sample/model")
+            if not completed_identity_matches(result, identity):
+                raise ValueError("resume output is from a different trace/sample/model")
+            print("WARNING: v3 completed answers use a registered prior runner; read-only resume", flush=True)
     else:
         result = {**identity, "complete": False, "records": []}
         atomic_json(output, result)
@@ -383,16 +388,20 @@ def _main() -> int:
                 or input_digest(row.get("answer_input_messages", [])) != row["answer_input_sha256"]):
             raise ValueError("saved answer input differs from the frozen prompt")
     for row in result["records"]:
-        if args.failure_policy == "continue" and row.get("error_type") == "UnconfirmedCloudCall" and row.get("cloud_attempts") == 2:
+        if (args.failure_policy == "continue" and row.get("error")
+                and row.get("error_type") == "UnconfirmedCloudCall" and row.get("cloud_attempts") == 2):
             row["fault_disposition"] = "degraded_final"
     done = {row["probe_id"]: row for row in result["records"]
             if (row.get("answer") and not row.get("error"))
             or (args.failure_policy == "continue" and terminal_answer_fault(row))}
     if len(done) == len(probes):
-        result["complete"] = all(not row.get("error") for row in result["records"])
-        result["processing_complete"] = True
-        result["cloud_errors"] = sum(bool(row.get("error")) for row in result["records"])
-        atomic_json(output, result)
+        # Downstream judging pins the exact bytes, including historical fault
+        # metadata. Finalized inputs are immutable, even on a complete rerun.
+        if not (result.get("complete") or result.get("processing_complete")):
+            result["complete"] = all(not row.get("error") for row in result["records"])
+            result["processing_complete"] = True
+            result["cloud_errors"] = sum(bool(row.get("error")) for row in result["records"])
+            atomic_json(output, result)
         return 0
     answerer = TextGenerator(profile)
     for index, probe in enumerate(probes, 1):
@@ -458,6 +467,8 @@ def _main() -> int:
                 record.update(answer=answer.text, usage=answer.usage, error=None,
                               response_id=answer.response_id,
                               answer_completion_status=getattr(answer, "completion_status", None))
+                for field in ("error_type", "error_status", "fault_disposition"):
+                    record.pop(field, None)
             except Exception as exc:
                 record.update(answer="", error=f"{type(exc).__name__}: {str(exc)[:200]}",
                               error_type=type(exc).__name__, error_status=getattr(exc, "status_code", None))

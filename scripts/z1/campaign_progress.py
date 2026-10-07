@@ -132,7 +132,8 @@ class ArtifactProgress:
             data = self.json_file(self.root / f"answers-{self.arm}.json") or {}
             successful = {r["probe_id"] for r in data.get("records", [])
                           if r.get("answer") and not r.get("error")}
-            errors = sum(r.get("fault_disposition") == "degraded_final" for r in data.get("records", []))
+            errors = sum(bool(r.get("error")) and r.get("fault_disposition") == "degraded_final"
+                         for r in data.get("records", []))
             return Observation(len(successful), self.admitted, f"successful saved answers | ungraded errors {errors}")
         if self.stage == "judge":
             final = self.root / f"judge-full-vs-{self.arm}.json"

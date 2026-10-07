@@ -312,6 +312,27 @@ judgments from clean scores. Validate isolated interruption/recovery and the
 actual shared preparation/transport path before documenting the manual command
 as ready.
 
+**Completed cloud-input repair, v3 2026-10-07:** a successful retry must clear
+temporary request error/type/status/disposition metadata. Only an actually
+failed unconfirmed second request can become a terminal degraded answer.
+Completed answer resume validates all frozen receipts and leaves artifact bytes
+unchanged; progress counts actual failed rows, never a stale disposition on a
+success. Register the exact old/new answer-runner hash transition for read-only
+completed outputs only. All other identity fields and adapter/recovery hashes
+must match; old partial outputs or changed models/prompts remain refused.
+
+The observed old resume bug added false `degraded_final` fields to successful
+second-attempt answers, invalidating the judge's input-file hashes. A separate
+private repair may remove only those false fields when reserialization exactly
+reproduces BOTH original judge-pinned file hashes. Verify unchanged judge
+code/rubric/provider/transport/recovery identity, hold all answer/judge locks,
+archive original inputs and judge state with a fsynced receipt before writing,
+and verify restored bytes. Do not edit judge identities or saved orders. A
+changed answer/source or any other unmatched bytes must refuse before mutation.
+Interrupted repair can be rerun with already-restored files. Validate this
+through answer completion, interrupted judging, full answer-stage resume, and
+judge continuation, including successful retries and true terminal errors.
+
 **Terminal progress and failure display, 2026-10-03:** the manual entry point
 shows its current stage and arm, processed/total turns, durable checkpoint turns,
 completed checkpoint probes, saved successful answers, and saved judge orders.

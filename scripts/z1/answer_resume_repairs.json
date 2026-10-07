@@ -1,0 +1,10 @@
+{
+  "format": "ice-v3-completed-answer-repairs-1",
+  "repairs": [
+    {
+      "reason": "2026-10-07 successful request reservations cannot mutate completed judge inputs; read-only completed artifacts only",
+      "before": "d065ffb185a1fef14e675755d015e9a3d3aa6161657a05ae986dc1359a1fa6ee",
+      "after": "eec03f8f8f90576ff46c8af09884f7f92881a040affff74a3f5bd392461bee6b"
+    }
+  ]
+}

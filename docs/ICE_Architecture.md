@@ -176,6 +176,18 @@ Judge/calibration identities bind model/profile/endpoint/decoding/transport byte
 raw orders retain response IDs/usage/status. Status/report expose judge selection.
 No automatic model fallback; independent v3 judge qualification remains pending.
 
+Completed v3 answer artifacts are immutable on resume after frozen receipt
+validation. Successful calls clear temporary reservation error metadata; only
+actual failed unconfirmed requests can become degraded. A closed old/new
+answer-runner registry admits completed historical outputs for read-only reuse,
+with all other identities intact. New outputs also pin the compatibility helper
+and registry bytes. Old partial outputs do not get this compatibility exception.
+`repair_judge_inputs.py` can restore false success-disposition fields only when
+both reconstructed files match the judge's original byte hashes exactly. It
+locks the campaign/answer/judge, archives inputs and untouched judge state before
+writing, and records restoration receipts; it cannot edit judge identities or
+grades. Progress counts actual errors rather than stale success dispositions.
+
 Cloud answers/orders reserve attempts durably before sending (two maximum,
 including interrupted calls with unknown outcome). Isolated exhausted
 transport/server/completion/verdict failures retain ungraded ERROR rows and

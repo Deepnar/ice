@@ -2120,3 +2120,24 @@ preserving their prefix. A second instrument repair needs the checkpoint's Git
 baseline, distinct archived receipts and an ordered registered transition chain;
 the original run header identifies code before the first repair, not the current
 paused checkpoint. Never replace an old manifest or overwrite its first receipt.
+
+### 86. Replaying a completed upstream stage can invalidate saved downstream work
+
+**v3, 2026-10-07.** Answer requests durably reserved an unconfirmed error before
+being sent. A successful response cleared the error string but retained the
+temporary error type. On resume, second-attempt successes were falsely promoted
+to degraded rows; finalized answer files were rewritten. The judge correctly
+refused their changed file hashes after seven returned orders. Terminal progress
+also counted false success dispositions as errors.
+
+Clear temporary request metadata on success and require an actual error before
+terminal promotion. A completed upstream artifact must be byte-stable on rerun,
+including its bookkeeping. Test answer completion with successful retries and
+real exhausted errors, interrupt a judge order, rerun upstream, then resume the
+judge; isolated stage tests missed this composition. Count actual errors.
+
+Do not disable the identity guard or replace the judge's hashes. Removing ONLY
+the false success fields reproduced both original pinned SHA256 values exactly.
+Archive inputs and untouched judge state durably before restoring proven bytes;
+refuse changed text and active operators. A closed runner transition permits
+read-only completed output reuse, never new calls or old partial-output reuse.

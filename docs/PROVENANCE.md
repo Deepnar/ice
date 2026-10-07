@@ -1,3 +1,54 @@
+## 2026-10-07 — v3 byte-stable completed-answer resume and preserved judging
+
+Actual r4 logs show an input identity refusal at the judge phase, after the
+maintainer completed1471 original turns,259 checkpoint prompts and all four
+117-record answer arms. The partial judge contains three complete pairs, seven
+returned orders and an unconfirmed eighth order reservation. Muse Spark1.3,
+judge code/rubric, transport and recovery hashes all match; only the two answer
+file hashes differ. Successful retries kept a temporary UnconfirmedCloudCall
+type. The next answer-stage resume falsely added degraded_final to four full
+successes and three no-Codex successes, then rewrote those finalized files.
+
+Removing only those false disposition fields reproduced BOTH original judge
+input SHA256 values exactly. `repair_judge_inputs.py` verified the unchanged
+judge identity, acquired campaign/answer/judge locks, archived original inputs
+and untouched judge state with durable receipts, restored proven bytes, and
+verified the outputs. No old identity or grade was edited. The seed, snapshots,
+answer text/source labels, genuine faults and all seven returned orders survive.
+Full/no-Codex input hashes are now9039f97f/33925244 respectively, matching the
+original partial state. All private originals/receipts remain in r4's logs.
+
+Completed answer reruns now remain byte-stable after receipt validation; new
+successes clear request reservation error metadata, and terminal promotion
+requires an actual error. Progress counts actual failed rows rather than stale
+success dispositions. A closed exact answer-runner transition admits the
+already completed old artifacts read-only, with every other identity intact;
+old partial files and changed models/adapter/inputs remain refused. New artifacts
+pin compatibility helper/registry bytes too. No production code/settings/model
+role changed; answers remain GPT-6-Luna and judges Muse Spark1.3 Responses.
+
+Validation: **618 disposable smoke passes in34.70s**, five existing warnings;
+16 new recovery/composition cases are included, not an additional independent
+sample. An earlier89 focused passes and617 smoke passes precede the final small
+archive-parent-fsync/campaign-lock controls. Composition uses actual answer and
+judge runners with mocked network: one recovered retry, a terminal answer fault,
+interrupted second judge order, completed upstream rerun and missing-order
+continuation. Closed-transition negatives cover changed trace/model/adapter,
+partial/failed/undeclared outputs; repair negatives cover changed text, changed
+judge and active campaign/answer operators; already-restored inputs are reusable.
+
+All FOUR actual r4 answer arms passed the real runner's receipt/label preflight
+and completed resume with byte/mtime identity unchanged and a model-construction
+trap. Returned answers/errors: full113/4, no-Codex114/3, vector-only113/4,
+recent-only116/1. This is456 returned answers and12 genuine terminal failures
+among468 planned records, not a correctness score. A private copy of actual
+judge state passed the real paired-input and pending-order preflight up to the
+next missing request, with a network trap. Three completed pairs/seven returned
+orders were reused; the original judge bytes are unchanged. These checks made
+ZERO API calls, launched no campaign and did not restore an experiment database.
+The maintainer resumes the same r4 command/directory. Independent judge
+qualification and memory-quality review remain open; score_of_record=false.
+
 ## 2026-10-06 — v3 Muse judge profile without reseeding
 
 The maintainer questioned the v3 judge before resuming r4. Actual PROBE_MODEL

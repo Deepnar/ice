@@ -200,6 +200,26 @@ The small older Muse-family calibration and current synthetic both-order route
 control support this selection, not a qualified v3 accuracy claim. Independent
 human agreement across current grades remains required before scores of record.
 
+**Completed-answer resume repair, v3 2026-10-07:** r4 has finished its1471-turn
+seed,259 observers and four117-answer arms. The judge pause after seven returned
+orders was an input identity refusal: successful retry rows kept an unconfirmed
+request type and were falsely marked degraded during an upstream rerun. Only
+those false disposition fields were removed from full/no-Codex; both files now
+match their ORIGINAL judge input hashes exactly. Private archive/receipt retain
+the pre-repair bytes and untouched judge state. The original answers, real
+failures and seven returned orders are preserved; no experiment was launched.
+
+Completed answer resume now validates frozen receipts without rewriting bytes.
+An exact registered runner transition allows old completed files to be reused
+read-only, with all other identities unchanged; it does not admit old partial
+files or changed models/input/adapter. New successes clear temporary error
+metadata and terminal progress counts actual errors. All four actual saved arms
+passed the no-model-call resume check; a private judge-state copy passed the
+actual pending-order preflight up to the next request, without sending it or
+altering the original. Rerun the SAME command/directory above; no reseed or new
+bundle is needed. An interrupted in-flight cloud request still consumes its
+reserved attempt and may have incurred provider cost.
+
 The command runs **seed → snapshot → answers → judge → report**. It invokes
 separate scripts internally; the operator need not run each script. To inspect
 writer outcomes before answering, use the same entry point with `--run --stage
