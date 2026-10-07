@@ -1,0 +1,56 @@
+{
+  "system_version": "ICE v2",
+  "source_tag": "v2-paper-eval",
+  "source_commit": "0521df9171b4a7d69f82d12d70497138c77b2678",
+  "checkpoint": "ice_classifier_v3_qwen_ft3.pt",
+  "sha256": "25c758b6a7e5cf449f3e4c8bb250db759d37cb4f0ab7dd8e0c1acd8afbf05831",
+  "base_model": "Qwen/Qwen3-Embedding-0.6B",
+  "base_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+  "native_embedding_width": 1024,
+  "embedding_width": 384,
+  "normalize_embeddings": false,
+  "license": "apache-2.0",
+  "architecture": "ICEClassifier",
+  "layers": [
+    384,
+    128,
+    25
+  ],
+  "dropout": 0.3,
+  "topic_labels": [
+    "Software_&_Tech",
+    "STEM_&_Academics",
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Admin_&_Productivity",
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "World_&_Current_Events",
+    "Meta_AI",
+    "Null_Noise",
+    "General_Reference_&_Trivia"
+  ],
+  "intent_labels": [
+    "Factual_Retrieval",
+    "Troubleshooting",
+    "Generation",
+    "Ideation",
+    "Analysis_&_Summarization",
+    "Strategic_Planning",
+    "Decision_Making",
+    "Emotional_Processing",
+    "Utility_Formatting",
+    "Casual_Banter",
+    "Open_Exploration"
+  ],
+  "context_labels": [
+    "Zero_Shot",
+    "Long_Term_Memory",
+    "Real_Time_Search"
+  ],
+  "topic_intent_threshold": 0.3,
+  "threshold_comparison": ">",
+  "empty_tag_fallback": "argmax",
+  "context_decode": "softmax then argmax",
+  "scope": "learned head; full classifier also uses DI3, hard overrides and API policy"
+}

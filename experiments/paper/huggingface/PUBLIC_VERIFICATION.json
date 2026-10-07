@@ -1,0 +1,48 @@
+{
+  "access_date": "2026-10-07",
+  "models": [
+    {
+      "repo_id": "Deepnar/ice-v2-classifier",
+      "url": "https://huggingface.co/Deepnar/ice-v2-classifier",
+      "upload_commit": "b69b2d4e939b3ac296f3d0d06567fe23f9917fc4",
+      "verified_public_sha256": "25c758b6a7e5cf449f3e4c8bb250db759d37cb4f0ab7dd8e0c1acd8afbf05831",
+      "public_download_authenticated": false,
+      "files": [
+        ".gitattributes",
+        "LICENSE",
+        "NOTICE",
+        "README.md",
+        "classifier_inference.py",
+        "config.json",
+        "frozen_classifier.py",
+        "ice_classifier_v3_qwen_ft3.pt",
+        "model.py"
+      ],
+      "all_public_files_match": true,
+      "checkpoint_all_tensors_equal": true
+    },
+    {
+      "repo_id": "Deepnar/ice-v2-microner",
+      "url": "https://huggingface.co/Deepnar/ice-v2-microner",
+      "upload_commit": "a93abc5f568c5a38a265a5dcc8ace1a894b87e0d",
+      "verified_public_sha256": "23e596654065bde16f822db4b6dacf1830f67ae3613234bb7d808f5ea214c1b2",
+      "public_download_authenticated": false,
+      "files": [
+        ".gitattributes",
+        "LICENSE",
+        "NOTICE",
+        "README.md",
+        "config.json",
+        "frozen_ner_utils.py",
+        "microner_inference.py",
+        "ner_model.pt",
+        "ner_model.py"
+      ],
+      "all_public_files_match": true,
+      "checkpoint_all_tensors_equal": true
+    }
+  ],
+  "collection_url": "https://huggingface.co/collections/Deepnar/ice-lsrep-reproducibility-6ac6210257541dd6f8594e14",
+  "collection_slug": "Deepnar/ice-lsrep-reproducibility-6ac6210257541dd6f8594e14",
+  "collection_public_verified": true
+}
