@@ -5,6 +5,19 @@ The canonical archive is `ICE_paper_v2.tex` / `ICE_paper_v2.pdf`.
 review version prepared for the NORA 2026 research track (see `NORA_SUBMISSION.md`). Frozen rejected-submission sources are not build targets.
 The evaluated system is ICE **v2**, tag `v2-paper-eval`, not current v3 on main.
 
+`ICE_paper_JMLR.tex` / `ICE_paper_JMLR.pdf` is the full JMLR initial-submission
+twin, retaining the canonical scientific body and all appendices. Its checked
+requirements, build verification and final author-review checklist are in
+`JMLR_SUBMISSION.md`; `JMLR_COVER_LETTER.txt` is the plain-text cover-letter
+draft. Preparation does not submit the manuscript or imply acceptance.
+
+The original paper-specific [classifier](https://huggingface.co/Deepnar/ice-v2-classifier)
+and [MicroNER](https://huggingface.co/Deepnar/ice-v2-microner) are public in the
+[ICE / LSREP Reproducibility collection](https://huggingface.co/collections/Deepnar/ice-lsrep-reproducibility-6ac6210257541dd6f8594e14).
+`huggingface/` holds model cards, original-file hashes, immutable upload commits,
+frozen preprocessing and public-fetch verification. These are ICE v2 artifacts;
+no current ICE v3 checkpoint is part of this release.
+
 ## Reproduce the existing-evidence analyses
 
 Run from the repository root with the local evidence available:
@@ -19,6 +32,7 @@ uv run python experiments/flaw_ablation/buildup/exp3_bootstrap.py
 uv run python experiments/paper/generate_analysis_tables.py
 latexmk -pdf -interaction=nonstopmode -halt-on-error -cd experiments/paper/ICE_paper_v2.tex
 latexmk -pdf -interaction=nonstopmode -halt-on-error -cd experiments/paper/ICE_paper_NORA.tex
+latexmk -pdf -interaction=nonstopmode -halt-on-error -cd experiments/paper/ICE_paper_JMLR.tex
 ```
 
 These analyses do not call models, modify databases, or repair production code.
@@ -70,4 +84,7 @@ interval (eight discordant pairs; exact McNemar p=0.0703125).
 2026-09-12 from the `master` branch. Embedded notices are retained.
 The [ARR call](https://aclrollingreview.org/cfp) permits eight content pages;
 limitations, ethics, references and appendices follow the content.
-The selected venue is NORA at AACL-IJCNLP 2026; preparing or publishing this twin does not submit it or imply acceptance.
+The NORA twin was prepared for NORA at AACL-IJCNLP 2026; preparing or publishing
+a venue twin does not submit it or imply acceptance. The JMLR twin uses the
+unmodified official `jmlr2e.sty`; its pinned style provenance and current
+submission requirements are recorded in `JMLR_SUBMISSION.md`.
