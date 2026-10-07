@@ -5,11 +5,16 @@ The canonical archive is `ICE_paper_v2.tex` / `ICE_paper_v2.pdf`.
 review version prepared for the NORA 2026 research track (see `NORA_SUBMISSION.md`). Frozen rejected-submission sources are not build targets.
 The evaluated system is ICE **v2**, tag `v2-paper-eval`, not current v3 on main.
 
-`ICE_paper_JMLR.tex` / `ICE_paper_JMLR.pdf` is the full JMLR initial-submission
-twin, retaining the canonical scientific body and all appendices. Its checked
-requirements, build verification and final author-review checklist are in
-`JMLR_SUBMISSION.md`; `JMLR_COVER_LETTER.txt` is the plain-text cover-letter
-draft. Preparation does not submit the manuscript or imply acceptance.
+`ICE_paper_JMLR.tex` / `ICE_paper_JMLR.pdf` is the 35-page JMLR initial-submission
+twin. Sections 1–10 and the central evidence appendices remain in the main paper.
+`ICE_paper_JMLR_online_appendix.tex` / `.pdf` is the separate 10-page Online
+Appendix 1, preserving the historical pilot, detailed replay distributions,
+frozen implementation reference, cost strata, and invalidated-adapter history.
+`JMLR_SUBMISSION.md` records the exact relocation map, reference audit, official
+page-count interpretation, and upload ambiguity; `JMLR_COVER_LETTER.txt` is the
+plain-text cover letter. `JMLR_MANUSCRIPT_PACKAGE.zip` contains the two PDFs only,
+for the author guide's multi-file archive route; the cover letter remains separate.
+Preparation does not submit the manuscript or imply acceptance.
 
 The original paper-specific [classifier](https://huggingface.co/Deepnar/ice-v2-classifier)
 and [MicroNER](https://huggingface.co/Deepnar/ice-v2-microner) are public in the
@@ -33,7 +38,14 @@ uv run python experiments/paper/generate_analysis_tables.py
 latexmk -pdf -interaction=nonstopmode -halt-on-error -cd experiments/paper/ICE_paper_v2.tex
 latexmk -pdf -interaction=nonstopmode -halt-on-error -cd experiments/paper/ICE_paper_NORA.tex
 latexmk -pdf -interaction=nonstopmode -halt-on-error -cd experiments/paper/ICE_paper_JMLR.tex
+latexmk -pdf -interaction=nonstopmode -halt-on-error -cd experiments/paper/ICE_paper_JMLR_online_appendix.tex
 ```
+
+Build the JMLR main manuscript before its Online Appendix: the latter imports
+main-paper labels with `xr-hyper` and links to the sibling main PDF. Rebuild the
+Online Appendix after any main-paper label or page change. The main source does
+not depend on supplementary auxiliary files. Its ten explicit Online Appendix
+section references have been checked against the supplementary labels.
 
 These analyses do not call models, modify databases, or repair production code.
 The LongMemEval script reads the locally retained matched-cloud answers and
