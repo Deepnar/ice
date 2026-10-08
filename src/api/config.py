@@ -636,6 +636,9 @@ class Settings(BaseSettings):
     procedural_min_session_turns: int = 3
     procedural_session_step: int = 5
     procedural_max_prompt_chars: int = 12000
+    # v3 retained-session output hit the old 160-token cap. Complete outputs
+    # and source citations are required; this cap is not a truth threshold.
+    procedural_extraction_max_tokens: int = 512
     # Cosine above which a new pattern counts as a repeat of a stored one. Was a
     # bare 0.85 in the extractor, so it could not be swept.
     # ⚠ MEASURED 2026-08-13 AND PROBABLY WRONG: two extractions of the SAME

@@ -2236,3 +2236,13 @@ Tests must forbid the false generated approval and verify complete source conten
 and its reason, rather than insist on no coverage. Keep nonlength/transport/
 capacity failures distinct; one completed generation still failed NLI and retained
 19,967 source characters, so fallback success cannot be called compression gain.
+
+### 95. Complete negative model results still need completion receipts
+
+**v3, 2026-10-08.** Procedural extraction had a session-step key but returned
+immediately on `NONE` without writing it. Two unchanged-bucket calls therefore
+ran the model twice and produced zero receipts. Record an exact complete negative
+as completed work without adding pattern support; the next bucket remains
+eligible. Test both sides: valid-looking `NONE` truncated by the provider cannot
+acquire that key. Completion, no candidate and unsupported output are distinct
+states. A new output reserve makes requests survivable, not habits trustworthy.

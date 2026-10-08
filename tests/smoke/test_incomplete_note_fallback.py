@@ -1,5 +1,6 @@
 """v3 incomplete notes retain complete indexed sources, never generated prefixes."""
 
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace as NS
@@ -23,6 +24,7 @@ class Encoder:
         return np.array([1.] + [0.] * 1023)
 
 
+@pytest.mark.skipif(not os.getenv("ICE_TEST_DATABASE"), reason="requires disposable database")
 def test_real_writer_indexes_originals_and_persists_length_reason(monkeypatch):
     cid = uuid.uuid4()
     with SessionLocal() as db:

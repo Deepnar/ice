@@ -1766,6 +1766,22 @@ mechanism, not corpus faithfulness, completeness or fewer-token answer gains.
 Historical r4 failure rates above remain unchanged. See
 [the repair provenance](PROVENANCE.md#2026-10-08--v3-bounded-summary-support).
 
+### v3 procedural output and negative bucket receipts — 2026-10-08
+
+The procedural caller now reserves an explicit512 output tokens and checks the
+complete actual input against serving capacity. Old r4 post-flight truncation
+contexts identify its previous160-token cap. Complete-output/citation and
+source/session/activation requirements remain unchanged; incomplete patterns
+cannot reinforce memory or acquire completion keys.
+
+An exact complete `NONE` now records the existing session-bucket job key and
+emits a no-pattern event. Previously unchanged negative results made repeated
+calls because that path left no key. New buckets remain eligible, and malformed
+or truncated negatives stay failures. No negative receipt supports a pattern.
+Two actual reconstructed retained/control sessions complete and reuse receipts;
+this is output/scheduling validation, not semantic habit or answer qualification.
+[Provenance](PROVENANCE.md#2026-10-08--v3-procedural-completion-bounds-and-negative-receipts).
+
 ### v3 incomplete note generation retains source coverage — 2026-10-08
 
 Conversation notes use an explicit900-token generation cap with the unchanged

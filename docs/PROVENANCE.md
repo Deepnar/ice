@@ -1,3 +1,40 @@
+## 2026-10-08 — v3 procedural completion bounds and negative receipts
+
+Read-only tracing of r4's three terminal post-flight IncompleteCompletion cases
+finds procedural E4B output truncation at the hardcoded160-token cap. That caller
+now exposes `procedural_extraction_max_tokens=512`, checks the complete actual
+request and output reserve against observed/configured capacity, and retains
+strict complete-output/citation requirements. A truncated pattern cannot stamp
+completion or reinforce memory. Replay identity pins the new cap. No model,
+source/session grouping, pattern similarity or activation threshold changed.
+
+A second mechanism was measured directly: a complete `NONE` result returned
+without a session-bucket key. Two actual caller invocations on unchanged
+synthetic sources made two model-seam calls and wrote zero keys. Exact complete
+`NONE` now records a negative bucket receipt with an observable no-pattern event,
+without storing/reinforcing a pattern. Same-bucket repeat makes no call; a new
+bucket remains eligible. Prefixes, malformed text and provider-length never
+become empty success. This preserves the existing stepwise scheduling contract.
+
+An actual E4B reconstruction of the retained152-turn session returns stop with
+54 output tokens; a6-turn control returns stop with26. Both acquire valid job
+receipts and repeat calls0. These reconstruct session/source eligibility rather
+than original saved idempotency state; they do not isolate the old160-token
+cap's causal effect, qualify semantic habits or prove all three old failures are
+resolved. Private request/response captures and receipts:
+`logs/v3-repair-2026-10-08/procedural-session-*`,
+`procedural-negative-baseline.{json,log}`. No private pattern text is published.
+
+Six new controls cover negative reuse/new bucket, strict complete literal,
+valid-looking truncated prefixes and unsent over-capacity sources. DB-backed
+new smoke controls require disposable stores; procedural fixtures remove their
+own sources/keys. An initial test incorrectly called base ARRAY.contains;
+only its own-source membership assertion was corrected, no production array
+change. Final combined rails:683 passed in42.83s,5 existing warnings (676 smoke
+plus7 background contracts, not independent memory-quality cases). P6's semantic
+support/relevance/answer contribution remains pending. No full/cloud experiment,
+production-state restore or publication was performed.
+
 ## 2026-10-08 — v3 incomplete note source preservation
 
 Conversation notes now expose `conversation_summary_max_tokens=900` instead of
@@ -78,7 +115,7 @@ Private captures/receipts: `logs/v3-repair-2026-10-08/extraction-output-*`,
 Source/model text stays ignored. New controls reject partial child writes,
 malformed complete JSON, impossible capacity and unconfirmed native completion,
 and verify ordinary-chat dispatch. Combined current rails:677 passed in43.25s
-with5 existing warnings (smoke plus8 background contracts; overlapping earlier
+with5 existing warnings (smoke plus7 background contracts; overlapping earlier
 checks). Whole G63 graph-quality acceptance remains open.
 
 ## 2026-10-08 — v3 answer-bearing source selection repairs

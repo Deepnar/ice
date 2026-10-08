@@ -1,6 +1,7 @@
 """v3 complete extraction requests and one bounded source retry, no prefix writes."""
 
 import json
+import os
 import uuid
 from types import SimpleNamespace as NS
 
@@ -85,6 +86,7 @@ def test_complete_request_guard_refuses_impossible_capacity(monkeypatch, adaptiv
     assert calls == []
 
 
+@pytest.mark.skipif(not os.getenv("ICE_TEST_DATABASE"), reason="requires disposable database")
 def test_incomplete_recovered_child_prevents_all_graph_and_completion_writes(monkeypatch):
     cid, batch = uuid.uuid4(), uuid.uuid4()
     with SessionLocal() as db:

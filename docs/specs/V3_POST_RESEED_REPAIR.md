@@ -11,7 +11,8 @@ older execution order and experiment roster in `Z1_tuning_coverage.md` and
 **Status: implementation underway, 2026-10-08.** P0 measurements and P1 bounded
 verification are implemented with focused validation. Two confirmed P2 source
 selection defects and P3 extraction/note mechanisms are repaired. Remaining
-procedural-output sizing, broader quality review and P4–P10 remain pending.
+quality review and P4–P10 remain pending; procedural-output sizing and negative
+receipts are implemented with focused validation.
 ROADMAP is the queue. The numbered packages below decompose existing entries,
 not a new G-track or claims of eleven newly discovered defects. The completed
 r4 evidence is in [PROVENANCE](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).
@@ -280,6 +281,28 @@ outages and cooperative yields still propagate. Record source-fallback and
 incomplete-group counters separately. Check actual note writer/index/readers
 on a retained failing source group and an opposing prefix-success control.
 Do not mark whole P3 complete from the extraction seam alone.
+
+### 2.1b Procedural completion sizing and negative receipts — 2026-10-08
+
+The remaining three terminal post-flight completion failures occur in the
+procedural caller: corresponding r4 logs report E4B output truncation at the
+hardcoded160-token limit. Make this explicit as
+`procedural_extraction_max_tokens=512`; keep the existing one-pattern/cited-user-
+message contract and source/session/activation policies. Check actual complete
+messages plus output reserve against the background serving capacity before a
+call. Preserve finish/usage metadata through the shared typed completion error;
+truncated patterns cannot stamp completion or reinforce memory. Qualify a
+retained failed-session source block and an opposing complete control. A complete
+provider response still requires valid independent source citations; completion
+success alone is not semantic pattern qualification (P6 owns that).
+
+Grounding also finds complete `NONE` returns without a session-bucket completion
+key. This violates the existing stepwise-call design and repeatedly calls an
+unchanged negative result. Only an exact complete `NONE` may stamp that negative
+bucket result, with an observable no-pattern event. Repeated reads of the same
+bucket make no call; a new bucket remains eligible. A malformed/unsupported/
+truncated result is not empty success and must not acquire that key. Keep current
+session-step grouping; do not count a negative receipt as supporting a pattern.
 
 ### 2.2 Absolute scoring and qualification
 

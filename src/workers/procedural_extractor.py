@@ -12,8 +12,9 @@ from src.api.db import SessionLocal
 from src.memory.embedder import get_embedder
 from src.memory.models import EpisodicMemory, IdempotencyKey, ProceduralMemory
 from src.memory.source import source_units
+from src.memory.tokens import count_messages, with_margin
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
-from src.workers.completion_text import complete_text
+from src.workers.completion_text import IncompleteCompletion, complete_text
 from src.workers.idempotency import job_key
 
 
@@ -195,18 +196,34 @@ def extract_procedural(batch_id: str, model_used: str = ""):
             "Output nothing else."
         )
         model_name = get_bg_model_name()
+        messages = [
+            {"role": "system", "content": "You are a behavioural pattern detector."},
+            {"role": "user", "content": prompt},
+        ]
+        from src.model_registry.registry import get_model_context_window
+        from src.model_registry.runtime_probe import serving_window
+        window = int(settings.ollama_num_ctx_max)
+        if settings.background_model_mode == "shared":
+            observed = serving_window(model_name, get_model_context_window(model_name))
+            if observed:
+                window = min(window, int(observed)) if window > 0 else int(observed)
+        output_cap = settings.procedural_extraction_max_tokens
+        required = with_margin(count_messages(messages), settings.token_count_safety_margin) + output_cap
+        if window <= 0 or required > window:
+            log.warning("procedural_input_over_budget", required=required, window=window, model=model_name)
+            raise IncompleteCompletion("complete procedural input exceeds known capacity")
         completion = bg_client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": "You are a behavioural pattern detector."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.0,
-            max_tokens=160,
-            timeout=bg_timeout(160)
+            model=model_name, messages=messages, temperature=0.0,
+            max_tokens=output_cap, timeout=bg_timeout(output_cap),
         )
         raw_reply = complete_text(completion)
-        if raw_reply.upper().startswith("NONE"):
+        if raw_reply.upper() == "NONE":
+            # Empty success is not failure. Record this bucket without adding
+            # pattern support, so unchanged negative results are not re-read.
+            db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
+            db.commit()
+            log.info("procedural_no_repeated_pattern", session_id=str(turn.session_id),
+                     bucket=bucket, session_turns=n_turns)
             return
 
         pattern_text, evidence = _parse_pattern(raw_reply)

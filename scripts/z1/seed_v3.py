@@ -74,6 +74,7 @@ REPLAY_SETTINGS = [
     "runtime_cycles_cap", "decay_daily_unaccessed", "decay_daily_accessed",
     "decay_daily_creative", "codex_decay_daily", "codex_retention_floor",
     "procedural_stale_days", "procedural_min_reinforcement",
+    "procedural_extraction_max_tokens",
     "compaction_event_threshold",
     "retrieval_strengthen_writes", "decay_strengthen_amount",
     "codex_retention_increment", "codex_retention_cap",
