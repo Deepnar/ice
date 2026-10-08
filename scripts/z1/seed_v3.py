@@ -432,7 +432,7 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
 
             def counted(*args, _original=original, _label=label, **kwargs):
                 rows = _original(*args, **kwargs)
-                produced[_label] = [fragment(f) for f in rows]
+                produced[_label] = [fragment(f, include_text=True) for f in rows]
                 return rows
 
             setattr(orchestrator, name, counted)
@@ -444,7 +444,7 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
             # The input is after fusion, bonuses, optional reranking, dedup and
             # coverage. It is the meaningful pre-budget top-k list; the result
             # is an admission order shaped by leg diversity, not a rank list.
-            ranked_candidates.extend(fragment(f) for f in fragments)
+            ranked_candidates.extend(fragment(f, include_text=True) for f in fragments)
             return original_budget(fragments, *args, **kwargs)
 
         orchestrator._enforce_token_budget = capture_ranking
@@ -464,7 +464,7 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
                                 if arm == "vector_only" else nullcontext())
             with confidence_patch:
                 rows = original_retrieve(*args, **kwargs)
-            budgeted.extend(fragment(f) for f in rows)
+            budgeted.extend(fragment(f, include_text=True) for f in rows)
             return rows
 
         orchestrator.retrieve = captured

@@ -1527,18 +1527,23 @@ checks do not establish an answer-quality result.
 **Completed v3 r4, 2026-10-07:** all five stages now have complete-diagnostic
 status (1471 turns/259 prompts/117 admitted occurrences). Successful cloud
 answers456/468; judge qualification and semantic source-use audits remain open.
-The current replay counter named `summary_support_unknown` incorrectly reads
-container presence instead of nested statuses: its zero must not be credited.
+The original r4 replay counter named `summary_support_unknown` incorrectly read
+container presence: its zero must not be credited. Current schema2 derives
+nested summary/abstract status/reason counts with explicit candidate denominators;
+the immutable r4 report is retained. Exact-value content review now distinguishes
+missing, retained and unobserved text from source-ID credit and semantic support.
 At scored prompts, procedural and cold selected fragments are0;95 procedural
 patterns/2 active exist, whereas the cold store is empty. Twenty-one maintenance
 agent calls make0 model decisions because the touched reconciliation sources
 have synthetic dates and fail authority eligibility. These are corpus-specific
-limits, not removed or globally dead features. The proposed repairs and new
+limits, not removed or globally dead features. The remaining repairs and new
 bare-vector/additive/subtractive conditions in
 [V3_POST_RESEED_REPAIR](specs/V3_POST_RESEED_REPAIR.md) are not yet implemented.
 
 | Feature | Where | Roadmap id | What it does (plain) | Setting | Default | On by default? |
 |---|---|---|---|---|---|---|
+| Representation status report | `scripts/z1/report_v3_replay.py::summarize`, `::representation_support` | Z1/G55 | Independent summary/abstract candidate/status/reason denominators and trace/reporter hashes; new output only, or byte-stable verified current-report resume. Original r4 zero is not rewritten. | `--out` | stdout or explicit private derived path | NO — explicit research command |
+| Required evidence-content audit | `scripts/z1/evidence_content.py::audit_probe`, `::main` | Z1/G55/G70 | Reviewed exact source role/hash/offset requirements; stage-by-stage literal survival separate from semantic support. Missing old stage text stays unobserved; correct replies do not imply memory use. Context-bound manual semantic receipts are optional; richer tasks still need qualification. | private trace/review, `--arm`, `--out` | no implicit annotations or model calls | NO — explicit offline command |
 | Sequential source-time replay | `scripts/z1/seed_v3.py::run`, `::due_maintenance`, `::semantic_state` | Z1/G55 | Prepares each recorded turn, stores its existing reply, runs post-flight and ten periodic memory jobs; read-only full/no-Codex/vector/recent observers freeze checkpoint prompts and rank/evidence traces. Preserves initial summaries/abstracts/source hashes and exact changed semantic rows before/after jobs, with explicit observed tables and separate observer/job timings; vectors/original bodies remain in full snapshots. Pins synthetic/original timestamp provenance per history. | CLI plus isolated `DATABASE_URL`/`ICE_TEST_DATABASE` | `existing` panel: 255 base prompts, original categories 124 candidate golds  + 131 unmapped; admission requires reviewed labels, optional four reviewed repeats; source clock and jobs enabled; two histories have simulated dates | NO — explicit isolated command |
 | Campaign snapshot identity | `scripts/z1/snapshot.py:93` | Z1/G72 | Validates ordered complete replay, matching table counts and row hashes; saves/restores all 35 ORM tables. Same-count row changes fail identity. | `save --trace` | No trace binding unless supplied; unbound snapshots are development-only | NO — explicit isolated command |
 | Frozen cloud answer campaign | `scripts/z1/answer_as_of.py:209`, `experiments/lme/cloud_provider.py:276` | Z1/G66 | Accepts complete as-of traces and reviewed expected-answer/source labels, then answers the same chosen probe IDs for each arm; source-reviewed key overrides preserve the catalog key and both stay outside answering input; optional reviewed question families retain separate cutoffs and declared dependence; exact input/evidence receipts, adapter/endpoint identity, per-answer durable resume and preserved failures; completed outputs are byte-stable on read-only resume, successful calls clear reservation faults, and a closed old-runner transition admits completed historical files only. Explicit provider noncompletion is rejected; available completion status is recorded (missing is unconfirmed). | `--profile`, validated private review files, `--resume` | `opencode-luna6`, actual provider-default temperature; no cloud call under `--plan`; error answers are not completed work | NO — explicit command, review gated |

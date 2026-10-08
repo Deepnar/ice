@@ -135,6 +135,26 @@ effect. The vector control retains ICE's shared gate/reranker and warm vector
 leg; it is not an independent all-originals vector-memory baseline.
 Source-linked records also carry
 complete gold sources for a later paired cloud-answer pass.
+
+**v3 measurement repair, 2026-10-08:** current replay reports have schema2,
+trace/reporter hashes and independent nested summary/abstract status/reason
+denominators. Existing differing reports are immutable; use a new derived output
+path. An unchanged current report resumes read-only after recomputation.
+New child traces include text at generated/ranked/budgeted stages; earlier
+receipts without text stay unobserved. `evidence_content.py` is an offline
+source-span-reviewed exact-value audit, not a word-presence truth judge:
+
+```bash
+uv run python scripts/z1/evidence_content.py logs/<run>/seed.jsonl logs/<review>.json --out logs/<derived>/content.json
+```
+
+The review kind is `v3_required_evidence_review`, bound to `trace_sha256`.
+Each record has `probe_id`, `reviewed_through_turn`, `reason` and `requirements`;
+each requirement has a unique `id`, `kind=exact_literal`, and source `alternatives`
+with `turn`, `role`, `start`, `end`, `source_sha256`, `literal`. Optional per-stage
+`semantic_review` binds `content_sha256`, status and a source reason. Keys never
+enter selection or the answering prompt. Richer semantic tasks need separate
+qualification. Preserve all existing run artifacts when deriving this audit.
 `build_longterm_label_review.py` creates a private packet under `logs/`
 balanced by conversation and checkpoint, with complete gold and all intervening
 turns; a reviewed `valid`

@@ -1,3 +1,39 @@
+## 2026-10-08 — v3 corrected representation and evidence measurements
+
+P0's instrument repair derives a new report from the completed r4 trace without
+changing its source, original reports, answers or judgments. Report schema2
+binds trace/reporter SHA256 and independently counts summary/abstract candidates,
+absent text, missing/invalid verdicts, statuses and reasons. A completed current
+report resumes read-only only after complete recomputation matches; differing
+identities require a new derived path.
+
+Actual CLI recount:1,471 writes;986 summary candidates, all986 unknown with
+SupportInputError,485 absent candidates;980 abstract candidates,9 supported,
+971 unknown with SupportInputError,491 absent candidates. No missing/invalid
+verdicts occur among these candidates. The original zero-unknown report is
+retained. Derived receipt: `logs/v3-repair-2026-10-08/replay-report-corrected.json`;
+its exact initial reporter is archived beside it as `report_v3_replay_initial.py`.
+Trace SHA256 remains0d718f970071ebf264b274e102c880e3153687597a0e156e9abe717e987af185.
+
+New `scripts/z1/evidence_content.py` checks reviewed exact-value requirements
+against immutable original role/hash/character spans, then independently scores
+generated/ranked/budgeted/selected/final-input literal survival. Retained literals
+do not pass semantic support without content-bound review; absent necessary
+literals fail support. Old stages without text remain unobserved. One existing
+valid r4 code-value source was checked through the real CLI:source-ID selected
+count1, required value missing in selected text and final input; earlier stages
+unobserved. No private source/value is published. Packet and receipt remain in
+`logs/v3-repair-2026-10-08/{required-evidence-review,evidence-content-audit}.json`.
+New child traces retain text in generated/ranked/budgeted receipts; originals
+and keys never enter runtime ranking through this offline evaluator.
+
+Validated nine focused report/content controls (including real CLI, source
+mutation, wrong-role, changed-cutoff, negated literal and byte-stable resume).
+The current combined repair smoke suite passed649 checks with five existing
+warnings in44.22s; this includes other pending repair controls and is not a
+memory-quality benchmark. No cloud call or full experiment was launched for P0.
+General semantic coverage, synthesized claims and answer use remain unqualified.
+
 ## 2026-10-08 — v3 campaign closeout and next-phase planning
 
 No new memory-quality experiment or model call. A read-only recount of r4
