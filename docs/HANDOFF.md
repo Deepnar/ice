@@ -1,85 +1,108 @@
-# Handoff — ICE v3, 2026-10-07 10:49 IST
+# Handoff — ICE v3, 2026-10-08 15:00 IST
 
-**State, not a queue.** ROADMAP owns work; paper v2 remains frozen.
+**State, not a queue.** ROADMAP owns work; the v2 paper remains frozen.
 
 ## Told → did
 
-**Told:** inspect the r4 crash during judging; fix it so the maintainer can
-resume without restarting the long seed/answer work.
+**Told:** close out the first complete v3 reseed analysis, propagate the findings,
+merge the JMLR submission branch into main, commit and push once, and specify
+the evidence-led repair/tuning/final-experiment phase. Retain SESSION until an
+explicit instruction to clear it.
 
-**Did:** actual judge log refused changed answer-file hashes, not a Muse outage.
-Successful cloud retries retained temporary UnconfirmedCloudCall metadata.
-Completed answer resume falsely added degraded_final to successes, rewrote
-files and doubled some progress error counts. Removing ONLY those false fields
-reproduced BOTH original judge input SHA256 values exactly. Applied a locked,
-archived recovery; no answer/source/real fault, judge identity or grade changed.
-The seven returned judge orders and eighth unconfirmed reservation remain.
+**Did:** completed aggregate evidence and documentation propagation, merged
+`work/jmlr-v2-submission`, and wrote the
+[post-reseed repair, tuning and Z2 contract](specs/V3_POST_RESEED_REPAIR.md).
+No runtime repair, model call or new campaign was performed in this closeout.
 
-Completed answer reruns now validate frozen receipts without writing bytes;
-new successful responses clear temporary fault metadata. Promotion requires a
-real error. Progress counts actual failed rows. A closed exact runner-hash
-transition admits completed old outputs read-only, with remaining identities
-intact; it does not authorize old partial files or any cloud call. New outputs
-pin compatibility helper/registry bytes. No production/seed/judge code,
-settings, model role or global .env changed. Implementation commit84baffd.
+- `d0b8565`: JMLR branch merge. All eight paper files match the branch and the
+  pre-merge local files; the archive's PDFs match the merged PDF bytes. The
+  backup stash and separate paper worktree remain. This is manuscript packaging,
+  not a new v2 or v3 result.
+- `207c7a7`: completed-r4 evidence, interpretations and limits propagated to
+  PROVENANCE, architecture, feature inventory, models, README and failure traps.
+- `cd25bb1`: eleven repair packages, all 29 dependent roadmap owners, bounded
+  tuning and the final experiment contract. Older execution docs now point to it.
 
 ## Current measured state
 
-R4 has1471 durable originals,259 checkpoint contexts and four117-record answer
-arms. Returned answers/errors: full113/4, no-Codex114/3, vector-only113/4,
-recent-only116/1. Twelve real terminal cloud faults among468 planned records
-remain ungraded; these are availability counts, not factual accuracy.
-Partial no-Codex judge: three complete pairs/seven returned display orders;
-the second order of the next pair has one unconfirmed reserved attempt.
+R4 completed all five stages **diagnostically**, not as a score of record:
+1,471 original turns, 259 question occurrences and 39 saved as-of states.
+All 255 base source reviews have dispositions: 113 valid, 102 invalid and
+40 uncertain. Four repeated occurrences yield 117 admitted occurrences per
+answer arm. Across four arms, 456 answers returned and 12 were incomplete.
+The 115 older-question panel supports a large advantage over recent-only
+context; it does not establish a reliable win over warm vector or fewer tokens.
+Same-full-answer grades differ across comparator contrasts on 36/111 fully
+graded cases. The current judge still needs independent qualification.
 
-Full/no-Codex restored input hashes9039f97f/33925244 match the ORIGINAL saved
-judge pins. Original judge state remains fa36594c unchanged. Private archive
-`answer-input-recovery-7kqv_t9p` retains all pre-repair inputs/judge bytes and
-receipt. Seed code digest still0870efc; its two earlier registered instrument
-boundaries, archives and as-of snapshots remain intact.
+Confirmed v3 compression failure: all 986 nonempty turn summaries received
+unknown support receipts because the whole-source NLI input exceeded its
+contract. This is not evidence that those summaries were contradicted. The
+report's zero-unknown summary counter is also wrong. A retrieved gold source
+ID can reach the prompt while its required answer content is absent. These
+measurement and long-source mechanisms lead the next repair pass.
 
-Actual all-four-arm resume traversed real trace/label/frozen-input checks,
-kept byte/mtime identity and never constructed a model caller. A private judge
-copy traversed actual paired-input/pending-order validation up to a network
-trap, retaining all seven returned orders. Original judge state never changed.
-No API calls, campaign launch or experiment database restore occurred.
+Graph precision, procedural usefulness and semantic maintenance quality remain
+unqualified. Synthetic-date eligibility blocked the observed reconciliation
+model calls; the run did not test their accuracy. No cold-memory transitions
+were observed. Full results, denominators and limitations live in
+[the completed campaign provenance](PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).
 
-Final618 disposable smoke checks passed in34.70s with five existing warnings.
-Sixteen new controls cover successful retry → interrupted judge → upstream
-resume → missing-order continuation, true terminal errors, registered read-only
-old artifacts, changed identities/text, active operators and partially restored
-inputs. Earlier89 focused/617 pre-final smoke passes overlap. The final suite
-includes the later campaign-lock/archive-parent-fsync controls.
+The immutable baseline remains `logs/z1-v3-manual-2026-10-04-r4`, including its
+39 checkpoints and original answer/judge artifacts. All campaign-report hashes
+were rechecked; the independent read-only aggregate recount matches. New writer
+behavior must use new versioned development state, never overwrite this bundle
+or bypass its resume identities. Read-only repairs may reuse its checkpoints.
 
-Answers remain GPT-6-Luna; judge remains Muse Spark1.3 Contributor Responses
-(`opencode-muse13`). DeepSeek-v4.1 Flash stays an explicit alternative, never
-an automatic switch. Independent current-v3 judge qualification and semantic
-memory-quality review remain open; score_of_record=false.
+## Position and next work
 
-## Position and next operator action
+**Closeout/planning is complete; the new repairs are not implemented.** The
+[roadmap's current phase](ROADMAP.md) points to the
+[eleven-package execution contract](specs/V3_POST_RESEED_REPAIR.md).
+Start with trustworthy nested-status/semantic evidence measurements, then
+source-linked bounded verification that permits useful long-source compression.
+The spec owns the remaining repair order and acceptance checks; this handoff
+is not a second queue. Focused experiments are allowed, broad repeated model
+searches and product edge-case expansion are not the current objective.
 
-This resume repair is complete. The maintainer can rerun from the repo root:
+Formal roadmap count: 160 anchored entries, 93 checked and 67 open. The open
+partition remains 29 dependency-sensitive entries, 35 later items and three
+experiment gates. Completed collection/review/cloud-processing substeps are
+checked; no whole quality item was closed merely because r4 finished.
 
-```bash
-uv run python scripts/z1/run_v3_campaign.py --run-dir logs/z1-v3-manual-2026-10-04-r4 --run
-```
+After repairs: bounded hyperparameter tuning → frozen configuration → Z2,
+meaning one long-conversation semi-LSREP with full lifecycle/decay, repeated
+cutoff-reviewed probes, additive and independent leave-one-out ablations,
+plus LongMemEval oracle. Both ICE warm-vector and independent bare-vector
+controls are required. There is no full LME-S haystack run in this scope.
+Recorded original replies drive replay; only evaluation probes generate new
+cloud answers. The future runner, review packet and final fixture manifest
+still need implementation. Do not present the r4 command as their launcher.
+The maintainer will manually launch the long experiments after readiness.
 
-Use the SAME directory. Seed/snapshot/answer stages verify saved work; judging
-continues with the missing order. A registered-old-runner read-only warning is
-expected. In-flight cloud calls can incur cost without a saved response and
-still consume their reserved attempt. Do not change frozen code/models/labels,
-reset pins, delete outputs, or launch the full campaign on the agent's behalf.
+Model roles are unchanged: local E4B general background and NuExtract3
+extraction, GPT-6-Luna answers, Muse Spark 1.3 Contributor Responses judge
+subject to qualification. Laya-like models are a bounded source-backed decision
+candidate, not an adopted resident model or default NLI/classifier replacement.
 
-Combined Z1/Z2 remains the current development-quality/tuning phase, not a
-passed gate. Preserve the research focus: evaluate actual memory output and
-answers before targeted repairs/tuning; final work remains LME oracle and
-semi-LSREP, not full LME-S. Queue and acceptance rules live in ROADMAP and
-RESEED_PLAN. This instrument repair closes no memory-quality roadmap item.
+## Validation and propagation
 
-## Propagation / publication
+Isolated smoke suite: 618 passed with five existing warnings, after the paper
+merge (38.37s) and again for the documentation pass (45.47s). These are repeated
+runs of the same suite, not 1,236 independent behaviors or memory-quality tests.
+All 59 introduced relative links resolve; the spec has seven required sections,
+11 packages and 29 unique owner mappings. Roadmap counts match. Whitespace and
+history-sensitive-path checks pass. No src/test changes in this closeout, no
+working database restore and no cloud calls. Private evidence stays ignored;
+tracked results contain aggregate findings, not conversation text.
 
-RESEED_PLAN, manual guide, architecture, inventory, ROADMAP execution note,
-PROVENANCE and TRAPS #86 updated. Models/README/AGENTS unchanged; no files moved.
-Session findings archived privately, then SESSION reset. Work is on main;
-push freeze remains active, NO PUSH. Next public publication requires explicit
-one-time authorization. HANDOFF is the final commit of this repair session.
+Propagation complete: ROADMAP, PROVENANCE, TRAPS, FEATURE_INVENTORY,
+ICE_Architecture, MODELS, README, affected specs and execution guides.
+ROADMAP_DONE needs no entry because no whole parent item closed. CLEANUP has
+no new move/rename to record. AGENTS is unchanged. SESSION retains its earlier
+checkpoints and explicitly says **do not clear until requested**, overriding the
+usual session reset for this continuing chat.
+
+Work remains on main. This closeout includes one explicitly authorized normal
+push to origin/main; verify the remote tip after publishing. The experiment
+push freeze applies again afterward. HANDOFF is this closeout's final commit.
