@@ -879,7 +879,7 @@ class HybridRetrievalOrchestrator:
         cluster_filter = self._cluster_filter(scope)
 
         query = text(f"""
-            SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
+            SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, is_document, conversation_id, is_bookmarked, timestamp, ts_provenance,
                    ts_rank(
                        to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                        query
@@ -921,7 +921,7 @@ class HybridRetrievalOrchestrator:
             # Final fallback: use plainto_tsquery (AND) if everything fails
             try:
                 query2 = text(f"""
-                    SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, conversation_id, is_bookmarked, timestamp, ts_provenance,
+                    SELECT id, raw_text, summary_text, summary_coverage, representation_verification, source_spans, abstract_text, lossless_flag, inject_raw, is_document, conversation_id, is_bookmarked, timestamp, ts_provenance,
                            ts_rank(
                                to_tsvector('english', coalesce(raw_text, '') || ' ' || coalesce(summary_text, '')),
                                plainto_tsquery('english', :prompt_text)

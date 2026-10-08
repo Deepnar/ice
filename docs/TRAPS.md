@@ -2200,3 +2200,14 @@ roles, explain that windows are excerpts rather than events, and verify complete
 assertions against their actual role/source spans. Withhold a malformed optional
 abstract independently. Preserve original fallbacks and failed-control receipts;
 a well-formed citation is not proof of entailment or summary completeness.
+
+### 92. A missing query field can silently bypass an existing quality mechanism
+
+**v3, 2026-10-08.** Lexical retrieval selected the correct parent row but omitted
+`is_document`. Its converter read the absent flag as false, bypassing the existing
+query-selected document chunks. Carrying the actual column through both SQL shapes
+restored the required value at766/2048 evidence tokens in an isolated retained
+source replay. Check selected columns as well as algorithm branches before adding
+a new ranker. A second content loss split a recent turn's budget equally even
+when one speaker left most of its share unused; transfer spare allowance before
+clipping a long source. Presence of a correct parent ID hides both failures.

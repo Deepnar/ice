@@ -1499,6 +1499,13 @@ summary utility is unqualified. See [the aggregate evidence](PROVENANCE.md#2026-
 | Independent summary and abstract verification | `summary_support.py` creates original-role tokenizer windows and cited complete assertions; post-flight stores separate proofs. Shared readers check source/candidate, policy and every assertion verdict | Existing `source_support_threshold=0.95`, complete cited pair max512 tokens; windows target224 tokens including attribution | YES for newly evaluated turns; legacy missing verdicts use raw |
 | NLI uncertainty preserves evidence | Overlength combined citations, missing authority, model error or unsupported assertions retain originals. Optional abstract failures are independent. Exact original-only caches survive an added support-method policy | Shared support verifier; no silent truncation or OR voting | YES; bounded compression now implemented, corpus completeness/answer benefit unqualified |
 
+### v3 source-content selection repairs (2026-10-08)
+
+| Feature | Implementation | Setting/default | On by default? |
+|---|---|---|---|
+| Recent speaker budget sharing | `prompt_assembler::get_recent_turns` assigns unused short-speaker share to the other speaker before clipping | Existing recent-window and per-turn caps unchanged | YES; both oversized roles retain the existing bounded split |
+| Lexical document chunk selection | Both `_bm25_episodic` SQL shapes carry `is_document` into the existing representation/chunk chooser | Existing document flag, chunk ranking and retrieval token budget | YES; actual retained-source control restores a required value at766/2048 evidence tokens, no cloud answer claim |
+
 ### v3 batch-source notes (2026-09-21)
 
 | Feature | Implementation | Setting/default | On by default? |

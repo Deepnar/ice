@@ -1766,6 +1766,21 @@ mechanism, not corpus faithfulness, completeness or fewer-token answer gains.
 Historical r4 failure rates above remain unchanged. See
 [the repair provenance](PROVENANCE.md#2026-10-08--v3-bounded-summary-support).
 
+### v3 recent-role and lexical document selection — 2026-10-08
+
+Recent history now gives unused short-speaker allowance to the other role before
+truncating. Turn/window caps and explicit speaker boundaries remain unchanged.
+This preserves a late user refusal when the complete pair already fits the cap.
+Both oversized roles retain the existing bounded split.
+
+The lexical episodic main and fallback queries now select `is_document`.
+Omitting that field had bypassed the existing document-chunk chooser, exposing
+an early excerpt even when a relevant late chunk existed. An isolated replay of
+the retained r4 failing source reaches final input with the required value at
+766 evidence tokens under the same2048 retrieval allowance. No model or ranker
+is added, no gold text enters selection, and the original r4 results are unchanged.
+See [the source-selection provenance](PROVENANCE.md#2026-10-08--v3-answer-bearing-source-selection-repairs).
+
 ### v3 budget-time alternatives — 2026-09-21
 
 Complete raw turns, supported summaries and existing long-turn chunks remain

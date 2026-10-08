@@ -283,8 +283,17 @@ def get_recent_turns(
                                    getattr(t, "ts_provenance", None)) + user_part
         share = min(per_turn_cap, max(64, max_tokens - used))
         if assistant_part is not None:
-            u = _fit(user_part, share // 2)
-            a = _fit(assistant_part, share // 2)
+            user_budget, assistant_budget = share // 2, share - share // 2
+            user_cost, assistant_cost = _estimate_tokens(user_part), _estimate_tokens(assistant_part)
+            # Spend a short speaker's unused share on complete source evidence
+            # from the other speaker before clipping either side. The pair
+            # still obeys its original per-turn/window allowance.
+            if user_cost <= user_budget:
+                assistant_budget = share - user_cost
+            elif assistant_cost <= assistant_budget:
+                user_budget = share - assistant_cost
+            u = _fit(user_part, user_budget)
+            a = _fit(assistant_part, assistant_budget)
             cost = _estimate_tokens(u) + _estimate_tokens(a)
             pair = [{"role": "user", "content": u},
                     {"role": "assistant", "content": a}]

@@ -1,3 +1,33 @@
+## 2026-10-08 — v3 answer-bearing source selection repairs
+
+P2 fixes two demonstrated content losses without increasing context allowances.
+Recent history previously divided each turn's budget equally between speakers,
+even when one reply used only a few tokens. Unused role allowance now transfers
+to the other role before clipping; both-oversized turns keep the existing split.
+Both directions preserve complete evidence under the same1400-token turn cap.
+
+Lexical episodic SQL omitted `is_document` in its main and fallback SELECTs.
+The existing converter therefore bypassed its query-selected document chunks.
+Carrying the real flag through activates that existing selector; no new model,
+reranker, document heuristic or expected-answer query injection is introduced.
+A disposable regression preserves parent-source ID while contrasting a wrong
+excerpt with the existing relevant chunk and the final same-budget prompt.
+
+An isolated reproduction used the retained r4 code-value source:2020 words,
+12 chunks written by the actual post-flight/document writer. Fixed lexical
+retrieval supplies the required private value through candidate, packing and
+final input, using766 evidence tokens within the unchanged2048 retrieval cap.
+The assembled request also fits its4096-token serving window with512 reserved
+for generation. The reproduction skips unrelated graph/procedural writers and
+controls density/key-term preparation; it does not restore or replay all r4
+state, call the answerer, or establish an accuracy gain. No private value or
+source text is published. Other stable misses remain in P2's acceptance scope.
+
+Private artifacts: `logs/v3-repair-2026-10-08/document-source-reproduction.json`
+and its log/script. Original r4 artifacts remain unchanged. The combined smoke
+suite passed652 checks; recent-role and real SQL/document selection controls
+are included. This closes two causes, not whole G55/G70 or corpus answer quality.
+
 ## 2026-10-08 — v3 bounded summary support
 
 P1 replaces the failing whole-long-source input with source-window-cited complete
