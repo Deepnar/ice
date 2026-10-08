@@ -74,6 +74,19 @@ def test_healthy_adaptive_call_has_no_recovery_overhead(monkeypatch):
     assert calls[0]['extra_body']['chat_template_kwargs']['template'] == worker._extraction_template()
 
 
+def test_source_predicates_and_quotes_survive_canonical_deduplication(monkeypatch):
+    source = 'Aster used Redis last year. Aster uses Redis now.'
+    quotes = ['Aster used Redis last year.', 'Aster uses Redis now.']
+    facts = [dict(subject='aster', relation=relation, object='redis', source_sentence=quote)
+             for relation, quote in zip(('used', 'uses'), quotes)]
+    client(monkeypatch, lambda **_kw: response(facts))
+    monkeypatch.setattr(worker, 'canonical_relation', lambda _r, **_kw: 'uses')
+    result = worker.extract_triplets(source, source_sentences=[])
+    assert len(result) == 2
+    assert {r['_source_relation'] for r in result} == {'used', 'uses'}
+    assert {r['source_sentence'] for r in result} == set(quotes)
+
+
 @pytest.mark.parametrize('adaptive', [True, False])
 def test_complete_request_guard_refuses_impossible_capacity(monkeypatch, adaptive):
     monkeypatch.setattr(settings, 'codex_extraction_chunk_adaptive', adaptive)

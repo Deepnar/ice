@@ -2270,3 +2270,15 @@ context, and exercise the real writer/readers. A returned true boolean cannot
 override a hypothetical/question status. Unknown preserves originals; it does
 not prove a fact false. Keep both semantic outputs/receipts and withheld-source
 observations. Literal NLI alone cannot authorize deleting a paragraph's conditions.
+
+
+### 98. Rejecting a bad rewrite can erase the usable graph candidate
+
+**v3, 2026-10-08.** Vocabulary matching overwrote the extractor's raw predicate;
+a past statement could become present, then correctly fail support with no valid
+alternative left. Preserve distinct source predicates/quotes until each exact
+proposition is verified. Choose a supported canonical or independently supported
+raw candidate; never borrow one verdict for the other, write both as corroboration,
+or lower a cosine/trust threshold. Actual model checks also rejected harmless
+capitalization/synonyms, and once malformed decision IDs; qualify invariance on
+the replacement and constrain typed output without relaxing strict admission.

@@ -366,11 +366,14 @@ claim/link JSON receipts, including withheld decisions. Confidence tiers and
 identity resolution remain unchanged until separately calibrated.
 
 A literal subclause is not safe compression merely because NLI accepts it.
-Claim readers retain the complete stored source paragraph rather than shortening
-it with the old substring proof. If the author-assertion check withholds a
-candidate, mark its claim as requiring the complete authoritative role unit;
-both direct claim search and linked graph rendering resolve that unit from the
-unchanged original. Hash/offset mismatches retain the paragraph and warn. This
+Claim readers cannot shorten with the old substring proof. The author checker
+uses the complete role unit, which can affirm a proposition in a different
+paragraph from the selected quote; its global approval does not authorize
+rendering only that quoted paragraph. Both direct claim search and linked graph
+rendering therefore resolve the complete authoritative role unit from the
+unchanged original, including positive and legacy receipts. Hash/offset or
+unavailable-original cases retain the stored paragraph and warn when required.
+Compact cited context needs a separately qualified proof before substitution. This
 preserves cross-paragraph proposal framing without deleting a true source when
 a classifier abstains. Old graph links are not relabeled or replayed, and
 original r4 data is immutable. All new writer/settings identities require a
@@ -383,6 +386,48 @@ must still withhold unsupported author assertions and retain searchable complete
 context. Check actual local model on retained cases and generic opposing
 controls. Do not turn these development results into graph precision or answer
 accuracy. P4's confidence/identity utility and broader source review remain open.
+
+### 2.1d Source-verified relation canonicalization — decision, 2026-10-08
+
+The retained source preview includes a past relation rewritten in present tense;
+the new author gate correctly withholds that proposition. Existing code discards
+the extractor's original relation before verification, so a safe reject also
+loses a valid graph assertion. Preserve the mechanically normalized positive
+relation immediately after existing negation separation and before vocabulary
+matching. This is a source candidate, not automatic acceptance or a new synonym.
+
+When canonical and source relations differ, enumerate both at the existing
+paragraph NLI/complete-role author-check seams. Prefer canonical only when both
+support gates admit its exact proposition. Otherwise admit the source relation
+only if its own independent complete-source verdicts pass. Neither may pass by
+borrowing the other's verdict. If both fail, retain the original claim without
+an edge. No changed cosine/confidence threshold, inverse guard, world ontology
+or extra model. Claims-off retains its explicitly unverified legacy behavior.
+
+Keep distinct emitted relations and supporting quotations through within-turn
+deduplication, even when vocabulary matching points them at one canonical word.
+The writer chooses at most one relation per emitted proposal; same-source batch
+observation still cannot count twice as corroboration. Store proposed/source/
+selected relation and selection reason with the chosen link's exact proposition
+proof. Counts distinguish attempted verification variants from admitted original
+proposals. Existing author receipts count claim-proposition decisions, not unique
+turns or model calls. Changed writer uses new child state; r4 remains untouched.
+
+Actual native captures distinguish two residual caller failures: malformed
+decision shape/IDs and rejecting a valid paraphrase solely for capitalization.
+Use a native JSON schema with required typed decision fields, fixed admitted
+ID enum and exact batch length; the strict parser still rejects duplicates and
+truncated responses. Clarify semantic equivalence: ordinary name capitalization,
+spacing and same-meaning verbs do not change support, while polarity, tense,
+modality, direction and meaningful identifier case must remain. Record this as
+author_assertion_v2, not a relaxed parser or vocabulary-based intent rule. Apply
+style/opposing controls to this candidate too; schema completion is not truth.
+
+Verify past→present and qualified→unqualified opposing cases, canonical-safe
+synonyms, both-rejected proposals and same-batch idempotency. The actual writer
+must recover a supported raw relation with injected positive NLI and real E4B,
+and graph/claim readers must retain original evidence. Record source-qualified
+graph recovery separately from independent precision or downstream answer gain.
 
 ### 2.2 Absolute scoring and qualification
 

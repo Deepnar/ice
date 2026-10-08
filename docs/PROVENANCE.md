@@ -36,6 +36,69 @@ support/relevance/answer contribution remains pending. No full/cloud experiment,
 production-state restore or publication was performed.
 
 
+
+## 2026-10-08 — v3 source-qualified relation rewrite recovery
+
+The writer previously discarded the emitted predicate before source verification.
+A retained temporal proposition changed past to present; rejecting that rewrite
+protected truth but could also discard a supported graph relation. Extraction
+now keeps the mechanically normalized positive source predicate before vocabulary
+matching. Deduplication retains distinct predicates and source quotations.
+Canonical/source variants each require their own paragraph NLI and complete-role
+author proof. Prefer supported canonical; otherwise choose supported source;
+otherwise preserve the source claim without an edge. At most one candidate per
+emitted proposal is written. Same-batch repeats remain noncorroborating.
+Selected/proposed/source relations and the chosen exact proposition proof are
+stored together; rejection counts explicitly identify verification variants.
+
+Initial real E4B checks withheld the raw historical control or returned malformed
+decision shape. Native captures separated the causes: one run correctly rejected
+present and supported past, but a safe synonym control rejected capitalization
+and uses/utilizes solely for spelling. Author-check protocol now uses
+`author_assertion_v2`: native typed decision schema, required fields/ID enum/exact
+batch length, strict parser including duplicates and complete finish, plus a
+semantic-form clarification. Meaningful identifier case, numbers, polarity,
+direction, tense and modality still matter. No parser loosening or model change.
+Failed logs/native requests/responses remain in ignored
+`logs/v3-repair-2026-10-08/relation-variant-*`; no personal source content published.
+
+Actual E4B plus injected positive NLI through the real writer/readers recovers
+`worked_at` instead of unsupported `works_at`, and retains supported `uses`
+instead of creating a second synonym edge. Both keep 1 source claim/1 edge and
+make0 repeat calls. The same two controls also pass with the deployed real
+paragraph NLI scorer plus real E4B/writer/readers. Extracted proposals and source
+embedding/compression remain controlled synthetic seams; these are not full
+corpus extractor, retrieval, answer or graph-precision evaluations.
+
+The final v2 author-check protocol passes30/31 semantic/style controls in 36.25s:
+one explicit modal remains unknown, no false admission. Retained12 complete
+original role units produce 6 admitted/6 withheld in 21.74s. It nowrejects an
+objective-potential proposition derived only from a speaker's belief, alongside
+question/proposal/malformed/temporal candidates. These are model decisions over
+a development preview, not independent human truth labels; previous7/5 derived
+policy observations remain historical, not overwritten. Captures:
+`author-assertion-controls-v2.json`, `author-assertion-retained-v2-*`,
+`relation-variant-actual-nli-writer-v2.log`.
+
+A final consumer audit found that global full-role approval cannot justify
+rendering only the selected paragraph: that paragraph may ask a question while
+another supplies the affirmed fact. Both direct and linked readers nowresolve
+the complete original role premise for positive, withheld and legacy claims;
+source-unavailable callers retain the stored paragraph. Two opposing legacy/
+positive-proof controls and the real E4B writer/linked reader pass. This can add
+context tokens; no smaller-context or downstream answer gain is claimed until
+packing/cited-context qualification. Originals and r4 remain unchanged.
+
+Additional controls cover extraction preservation, raw recovery, supported
+canonical preference, both-rejected originals and complete-premise rendering. Combined rails704 passed
+in 40.10s,19 warnings (697 smoke plus7 existing background contracts, overlapping
+checks). Initial fixtures mistook first-source observation for an initialized
+observed-batch list; fixed the assertion to include implicit source_batch, not
+production observation logic. Confidence/cosine thresholds, inverse guards and
+model inventory are unchanged. No full/cloud run, production restore, r4 mutation
+or push. Independent graph precision/identity utility remains open; proceed to
+source-order eligibility and fair temporal maintenance.
+
 ## 2026-10-08 — v3 source-authority graph repair and retained-state audit
 
 A disposable clone of the immutable r4 final snapshot contains1471 episodes,
@@ -76,7 +139,7 @@ one valid modal assertion remains unknown; no false admission. It uses existing
 E4B, native reasoning, batch≤12, input8192/context32768/output4096 and strict
 complete response/identity/boundary checks. No extra resident model. A12-case
 retained full-role-source check produced one internally inconsistent true boolean
-with hypothetical status. Admission nowrequires both assertion/qualified-report
+with hypothetical status. Admission now requires both assertion/qualified-report
 status and affirmative support: reapplying this closed policy to the preserved
 exact model receipts yields7 admitted/5 withheld; this is derived admission, not
 another model call or independent precision estimate. Private captures:

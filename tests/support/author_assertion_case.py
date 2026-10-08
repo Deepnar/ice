@@ -130,6 +130,7 @@ def exercise_writer(monkeypatch, *, actual=False, receipt_sink=None):
             line = reader._fact_line(db.get(CodexEntity, edge.source_id), edge,
                                      db.get(CodexEntity, edge.target_id))
             assert "Mira works at Atlas." in line
+            assert SOURCE in line  # Positive global proof cannot authorize only a paragraph.
             return dict(claims=6, admitted_relations=3, withheld_relations=3,
                         negative_relations=1, repeated_calls=0,
                         full_context_retrievable=True, linked_source_retrievable=True)

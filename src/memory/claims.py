@@ -64,16 +64,17 @@ def excerpt_is_current(row, excerpt) -> bool:
 def claim_representation(claim, *, source=None) -> str:
     """A literal subclause is not proof that its conditions survived.
 
-    Keep the paragraph. Withheld author assertions need the whole role unit
-    because proposal framing can precede that paragraph. Resolve it from the
-    current original, never from a generated assertion or a stale hash.
+    The author check uses a complete role unit, so its proof cannot authorize
+    rendering a smaller paragraph. Resolve the same complete original premise
+    for positive, withheld and legacy claims. Original-unavailable callers keep
+    the stored paragraph, never a generated assertion or a stale source.
     """
     v = claim.verification if isinstance(claim.verification, dict) else {}
+    if source is not None and excerpt_is_current(source, claim):
+        for unit in source_units(source):
+            if unit.role == claim.role and unit.start <= claim.start and claim.end <= unit.end:
+                return unit.text
     if v.get("needs_author_context"):
-        if source is not None and excerpt_is_current(source, claim):
-            for unit in source_units(source):
-                if unit.role == claim.role and unit.start <= claim.start and claim.end <= unit.end:
-                    return unit.text
         import structlog
 
         structlog.get_logger("ice.memory.claims").warning(

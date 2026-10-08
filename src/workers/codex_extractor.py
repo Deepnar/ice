@@ -1225,6 +1225,11 @@ def extract_triplets(text: str, model_override: str = "",
                 if positive:
                     t["relation"] = positive
                     t["negated"] = True
+                # Preserve the source predicate before semantic vocabulary
+                # matching. A cosine neighbor can change time or modality;
+                # the writer may recover this candidate only with its own proof.
+                t["_source_relation"] = re.sub(r"[^a-z0-9_]", "",
+                    re.sub(r"\s+", "_", t.get("relation", "").strip().lower())).strip("_")
                 # G45: canonicalise, do not gate. This returned None for
                 # anything off a 197-word list and the triplet was destroyed —
                 # 1,259 in one seed, `i --didnt_get--> csi` among them.
@@ -1308,13 +1313,13 @@ def extract_triplets(text: str, model_override: str = "",
 
             all_triplets.extend(chunk_triplets)
 
-        # Deduplicate by (subject, relation, object, negated), keeping the highest
-        # confidence seen. Polarity is part of the key: "uses" and "NOT uses" of
-        # the same pair are distinct facts (A8).
+        # Keep distinct source predicates/quotations until support chooses a
+        # safe relation. Canonical similarity cannot erase a qualified source.
         by_key = {}
         for t in all_triplets:
             key = (t["subject"].strip().lower(), t["relation"],
-                   t["object"].strip().lower(), bool(t.get("negated", False)))
+                   t["object"].strip().lower(), bool(t.get("negated", False)),
+                   t.get("_source_relation"), t.get("source_sentence"))
             prev = by_key.get(key)
             if prev is None or t.get("confidence", 0) > prev.get("confidence", 0):
                 by_key[key] = t
@@ -2157,8 +2162,6 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
             if any(not isinstance(value, str) or not value.strip() for value in (s, r, o)):
                 continue
             s, r, o = s.strip(), r.strip(), o.strip()
-            proposition = relation_proposition(s, r, o,
-                negated=bool(triplet.get("negated", False)))
             source_sentence = triplet.get("source_sentence")
             matched_claims = [c for c in claims if
                 isinstance(source_sentence, str)
@@ -2170,18 +2173,28 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
             if not settings.codex_sentence_claims:
                 candidates.append((triplet, s, r, o, [], []))
                 continue
-            if not proposition or not matched_claims:
+            if not matched_claims:
                 withheld["unattributed"] += 1
                 continue
-            pair_indices = []
-            for claim in matched_claims:
-                pair_indices.append(len(support_pairs))
-                support_pairs.append((claim.text, proposition))
-                start, end = triplet["_source_start"], triplet["_source_end"]
-                assertion_inputs.append(AssertionInput(
-                    turn.raw_text[start:end], claim.role, claim.sentence,
-                    proposition, start, end))
-            candidates.append((triplet, s, r, o, matched_claims, pair_indices))
+            source_relation = triplet.get("_source_relation")
+            variants = [r]
+            if isinstance(source_relation, str) and source_relation.strip() and source_relation != r:
+                variants.append(source_relation)
+            for relation in variants:
+                proposition = relation_proposition(s, relation, o,
+                    negated=bool(triplet.get("negated", False)))
+                if not proposition:
+                    withheld["unattributed"] += 1
+                    continue
+                pair_indices = []
+                for claim in matched_claims:
+                    pair_indices.append(len(support_pairs))
+                    support_pairs.append((claim.text, proposition))
+                    start, end = triplet["_source_start"], triplet["_source_end"]
+                    assertion_inputs.append(AssertionInput(
+                        turn.raw_text[start:end], claim.role, claim.sentence,
+                        proposition, start, end))
+                candidates.append((triplet, s, relation, o, matched_claims, pair_indices))
 
         verdicts = verify_relation_pairs(support_pairs)
         assertion_verdicts = {}
@@ -2205,7 +2218,10 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
                         reason="new relations rely on NLI only")
         reconciler = make_llm_reconciler()   # A6: bounded LLM for ambiguous supersessions
         accepted = 0
+        admitted_proposals = set()
         for triplet, s, r, o, matched_claims, pair_indices in candidates:
+            if id(triplet) in admitted_proposals:
+                continue
             if not settings.codex_sentence_claims:
                 if handle_triplet(db, s, r, o, batch_id,
                         extraction_confidence=float(triplet.get("confidence", 1.0)),
@@ -2239,8 +2255,15 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
             if edge is None:
                 continue
             accepted += 1
+            admitted_proposals.add(id(triplet))
             for claim, verdict in supported:
                 verification = asdict(verdict)
+                verification["canonicalization"] = dict(
+                    proposed_relation=triplet["relation"],
+                    source_relation=triplet.get("_source_relation", triplet["relation"]),
+                    selected_relation=r,
+                    selection="canonical_supported" if r == triplet["relation"]
+                              else "source_fallback_supported")
                 if settings.codex_assertion_check_enabled:
                     index = next(i for c, i in zip(matched_claims, pair_indices)
                                  if c.id == claim.id)
@@ -2255,7 +2278,8 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
 
         if any(withheld.values()):
             log.warning("codex_relations_withheld", counts=withheld,
-                        proposed=len(triplets), accepted=accepted)
+                        proposed=len(triplets), verification_variants=len(candidates),
+                        count_unit="withheld verification variants", accepted=accepted)
 
         db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
         db.commit()

@@ -72,6 +72,9 @@ def test_native_reasoning_keeps_each_complete_source_and_receipt(monkeypatch):
     assert all(c["original"] == original for c in payload)
     assert all("source_quote" not in c for c in payload)
     assert calls[0]["think"] is True
+    schema = calls[0]["format"]["properties"]["decisions"]
+    assert schema["minItems"] == schema["maxItems"] == 2
+    assert schema["items"]["properties"]["id"]["enum"] == [1, 2]
     assert result[0]["source_sha256"] == digest(original)
     assert result[0]["quote_sha256"] == digest(target.quote)
     assert result[0]["usage"]["finish_reason"] == "stop"
@@ -113,3 +116,13 @@ def test_withheld_relation_read_preserves_cross_paragraph_proposal_context():
     assert claim_representation(claim, source=source) == original
     source.raw_text = "An edited unrelated source."
     assert claim_representation(claim, source=source) == excerpt
+
+
+@pytest.mark.parametrize("metadata", [{}, {"author_assertions": [{"status": "supported"}]}])
+def test_global_or_legacy_proof_cannot_supply_only_the_question_paragraph(metadata):
+    question = "Does Mira work at Atlas?"
+    original = question + "\n\nMira does work at Atlas."
+    claim = SimpleNamespace(text=question, sentence=question, role="user",
+        raw_sha256=digest(original), start=0, end=len(question), verification=metadata)
+    source = SimpleNamespace(raw_text=original, source_spans=single_provenance(original, "user"))
+    assert claim_representation(claim, source=source) == original
