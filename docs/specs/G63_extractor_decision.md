@@ -7,6 +7,14 @@ Keep the deployed specialist while diagnosing saved failures and source-backed
 identity/confidence decisions under [V3_POST_RESEED_REPAIR](V3_POST_RESEED_REPAIR.md).
 Historical extractor percentages below are not current v3 graph precision.
 
+**Implemented v3 task repair, 2026-10-08:** installed NuExtract3 was receiving
+legacy tags as a default content document. Typed fields and the verified
+structured task now use shared native raw generation, complete-request sizing
+and one bounded output-length subdivision; generic/instruct chat is unchanged.
+Five retained paired turns complete through source/NLI/graph writes; broader
+independent precision remains open. The newer contract is in
+[V3_POST_RESEED_REPAIR](V3_POST_RESEED_REPAIR.md#21a-local-output-failures-grounded-repair-2026-10-08).
+
 **Purpose: settle the background extraction model ONCE, on evidence, and derive
 the production config from the same runs rather than guessing it afterwards.**
 

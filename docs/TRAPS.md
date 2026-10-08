@@ -2211,3 +2211,15 @@ source replay. Check selected columns as well as algorithm branches before addin
 a new ranker. A second content loss split a recent turn's budget equally even
 when one speaker left most of its share unused; transfer spare allowance before
 clipping a long source. Presence of a correct parent ID hides both failures.
+
+### 93. A specialist template can be sent as the wrong task's document
+
+**v3, 2026-10-08.** ICE put old extraction tags and empty-string leaves inside
+NuExtract3's user message. The installed template defaulted to document-content
+mode because no structured template argument was supplied. A retained short
+source consumed3000 output tokens and failed; a smaller retry returned malformed
+JSON. The installed/model-card structured template, typed leaves and raw native
+transport fixed the retained source at465 output tokens. Verify the actual
+rendered task, not merely the user-message prompt shape. Keep all failed attempts
+and strict parsing; historical prompt-specific percentages do not transfer to
+a corrected template or qualify independent graph precision.

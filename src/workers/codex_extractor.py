@@ -3,6 +3,7 @@
 import json
 import re
 import uuid
+from collections import deque
 from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -830,6 +831,35 @@ def _grounding_ner_labels() -> Optional[List[str]]:
     return _background_labels(extra_types=extra)
 
 
+def _extraction_template():
+    return json.dumps({'facts': [dict(subject='string', relation='string', object='string',
+        **({'source_sentence': 'verbatim-string'} if settings.codex_sentence_claims else {}))]})
+
+
+def _template_instructions(entity_block=""):
+    return ("Extract factual subject-relation-object statements from the document. "
+            "Keep speaker, direction, uncertainty and negation. Do not invent facts. "
+            "source_sentence must quote the exact supporting source sentence. "
+            "Return each fact once; use null for unavailable fields." + entity_block)
+
+
+def _smaller_extraction_chunks(source):
+    """One output-length recovery using the existing source-aware chunker.
+
+    Keep healthy adaptive calls whole. A recovered child never branches again;
+    failure of any child still prevents the turn's graph/completion writes.
+    """
+    size = _estimate_tokens(source)
+    budget = min(settings.chunk_tokens, size // 2)
+    if budget < 24:
+        return []
+    children = _chunk_text(source, max_tokens=budget)
+    if (len(children) < 2 or any(not child.strip() or _estimate_tokens(child) >= size
+                                for child in children)):
+        return []
+    return children
+
+
 def extract_triplets(text: str, model_override: str = "",
                      topic_tags: Optional[List[str]] = None,
                      gaps: Optional[list] = None, source_sentences: Optional[list] = None) -> list:
@@ -982,20 +1012,30 @@ def extract_triplets(text: str, model_override: str = "",
         # and described in another, and nothing can link them across that
         # boundary. The ceiling exists because large chunks are UNMEASURED —
         # see `codex_extraction_chunk_max` in config.py.
+        from src.memory.tokens import count_messages, with_margin
+        template_mode = settings.codex_extraction_mode == "template"
+        window = int(settings.ollama_num_ctx_max)
+        observed = serving_window(model_name, None) if settings.background_model_mode == "shared" else None
+        if observed:
+            window = min(window, int(observed)) if window > 0 else int(observed)
+        if window <= settings.codex_extraction_max_tokens:
+            raise ExtractionOutputError("extraction output reserve exceeds known capacity")
         chunk_budget = settings.chunk_tokens
         window_source = "fixed"
         if settings.codex_extraction_chunk_adaptive:
-            window = serving_window(model_name, None)
-            if window:
-                reserve = (_estimate_tokens(prompt + code_prompt)
-                           + settings.codex_extraction_max_tokens)
-                usable = window - reserve
-                chunk_budget = max(settings.chunk_tokens,
-                                   min(usable, settings.codex_extraction_chunk_max))
+            if observed:
+                # Template mode does not send the generalist rules. Actual
+                # entity/schema overhead is checked on each complete request.
+                from src.workers.nuextract_transport import render_prompt
+                overhead = (render_prompt("", _extraction_template(), _template_instructions())
+                            if template_mode else prompt + code_prompt)
+                usable = int((window - settings.codex_extraction_max_tokens)
+                             / settings.token_count_safety_margin) - _estimate_tokens(overhead)
+                if usable < 1:
+                    raise ExtractionOutputError("complete extraction request exceeds known capacity")
+                chunk_budget = min(usable, settings.codex_extraction_chunk_max)
                 window_source = "probe"
             else:
-                # A silent fallback hides an outage (CLAUDE.md): say so, every
-                # time, because the symptom is "extraction got quietly worse".
                 logger.warning("extraction_chunk_window_unavailable",
                                model=model_name, falling_back_to=chunk_budget)
                 window_source = "probe_failed"
@@ -1010,7 +1050,9 @@ def extract_triplets(text: str, model_override: str = "",
 
         all_triplets = []
         log_relation_repairs = []
-        for chunk in chunks:
+        pending = deque((chunk, False) for chunk in chunks)
+        while pending:
+            chunk, recovered = pending.popleft()
             # G4(a): the chunk boundary is the cheap place to stand down — one
             # LLM call per chunk, and abandoning between them leaves nothing
             # half-written (the graph write happens later, in extract_codex).
@@ -1038,14 +1080,11 @@ def extract_triplets(text: str, model_override: str = "",
             # a specialist measurably produces garbage, and sending the bare
             # template to a generalist produces clause-triplets it cannot parse.
             # See `codex_extraction_mode` in config.py for the measurements.
-            template_mode = settings.codex_extraction_mode == "template"
+            template_args = None
             if template_mode:
-                user_content = (
-                    "<|input|>\n### Template:\n"
-                    + (json.dumps({'facts': [dict(subject='', relation='', object='',
-                        **({'source_sentence': ''} if settings.codex_sentence_claims else {}))]}) + '\n')
-                    + f"### Text:\n{chunk}{entity_block}\n<|output|>\n"
-                )
+                template_args = dict(template=_extraction_template(),
+                                     instructions=_template_instructions(entity_block), enable_thinking=False)
+                user_content = chunk
                 system_content = None
             else:
                 claim_prompt = ("\nInclude source_sentence: an exact quotation of the complete source sentence for each fact."
@@ -1076,8 +1115,45 @@ def extract_triplets(text: str, model_override: str = "",
                 if settings.codex_constrain_relation_enum:
                     shape["items"]["properties"]["relation"]["enum"] = sorted(ALLOWED_RELATIONS)
                 call_kwargs["response_format"] = json_schema("codex_triplets", shape)
+            if template_args is not None:
+                from src.workers.nuextract_transport import PROTOCOL, render_prompt
+                call_kwargs["extra_body"] = {"chat_template_kwargs": template_args}
+                if settings.background_model_mode == "shared":
+                    call_kwargs["extra_body"].update(ice_template_protocol=PROTOCOL, ice_context_window=window)
+                input_tokens = _estimate_tokens(render_prompt(chunk, template_args["template"],
+                                                             template_args["instructions"]))
+            else:
+                input_tokens = count_messages(messages)
+            required = with_margin(input_tokens, settings.token_count_safety_margin) + settings.codex_extraction_max_tokens
+            if required > window:
+                # Never let a server silently drop source context. One bounded
+                # split retains whole successful children; no prefix is reused.
+                children = _smaller_extraction_chunks(chunk) if not recovered else []
+                logger.warning("codex_extraction_input_over_budget", required=required,
+                               window=window, model=model_name, child_chunks=len(children))
+                if not children:
+                    raise ExtractionOutputError("complete extraction request exceeds known capacity")
+                pending.extendleft((child, True) for child in reversed(children))
+                continue
             completion = bg_client.chat.completions.create(**call_kwargs)
-            choice = completion.choices[0]
+            choices = getattr(completion, "choices", None)
+            if not choices:
+                raise ExtractionOutputError("missing extraction choices")
+            choice = choices[0]
+            finish = getattr(choice, "finish_reason", None)
+            usage = getattr(completion, "usage", None)
+            logger.info("codex_extraction_output", model=model_name, finish_reason=finish,
+                        required_tokens=required, window=window, source_tokens=_estimate_tokens(chunk),
+                        recovered_input=recovered,
+                        prompt_tokens=getattr(usage, "prompt_tokens", None),
+                        completion_tokens=getattr(usage, "completion_tokens", None))
+            if finish == "length" and not recovered:
+                children = _smaller_extraction_chunks(chunk)
+                logger.warning("codex_extraction_output_rechunked", model=model_name,
+                               child_chunks=len(children), reason="incomplete prefix discarded")
+                if children:
+                    pending.extendleft((child, True) for child in reversed(children))
+                    continue
             chunk_triplets = parse_extraction_response(
                 choice.message.content,
                 getattr(choice, "finish_reason", None),

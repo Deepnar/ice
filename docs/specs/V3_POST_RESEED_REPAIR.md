@@ -207,6 +207,79 @@ value. Supply the actual flag to the converter, then check the original-source
 reproduction and the final same-budget prompt. This activates the existing
 mechanism; no new reranker or guessed document classification is added.
 
+### 2.1a Local output failures: grounded repair, 2026-10-08
+
+The saved receipts classify58 terminal extraction failures as43 provider output
+length,9 invalid JSON,3 missing source sentence and3 invalid field failures.
+All20 terminal conversation-fold failures and3 other terminal post-flight
+completion failures also report length. Receipts do not contain model responses;
+this prevents reconstructing the precise nullable/malformed fields after the fact.
+Use a bounded retained-source reproduction with private response capture before
+claiming the remaining parser mechanisms. Never publish those source/response
+bytes or infer that every old length failure has the same generation behavior.
+
+Extraction request sizing currently reserves the generalist prose prompt even
+in specialist template mode, omits actual confirmed-entity overhead, and floors
+usable content at550 tokens even when less space exists. Re-ground sizing on the
+actual model-specific messages plus complete output reserve and the existing
+count safety margin. Measure/log request capacity and returned finish/usage
+metadata without source text. A request that cannot fit must not be sent or
+silently truncated; split input at the existing source chunker if possible.
+
+For a provider-marked output-length failure, discard the entire returned prefix
+and retry that source chunk once as smaller source-aware chunks (at most the
+existing550-token base, or half the failing input if smaller). Healthy complete
+calls retain their adaptive input. Reuse the same model,3000-token output ceiling,
+NER, template, quote resolution and relation post-filters. Recovered child calls
+cannot themselves branch indefinitely: a second incomplete child remains a typed
+failure. Every child must complete before the turn may write graph facts or its
+completion key. Malformed complete JSON, polarity and missing quote failures
+retain the strict contract; input subdivision is not permission to salvage them.
+Yield checks remain between calls. Complete empty arrays remain valid success.
+
+**Divergence found by the retained-source reproduction:** input subdivision
+removed length truncation but a child returned stop with an unescaped JSON
+control character. Inspection of the installed `/api/show` template and NuMind's
+[NuExtract3 GGUF model card](https://huggingface.co/numind/NuExtract3-GGUF)
+shows that the shipped legacy `<|input|>`/empty-string template is inserted into
+the default document-content task, not the trained structured task. The current
+NuExtract3 contract uses `string`/`verbatim-string` leaves plus structured-task
+and template/instruction/document delimiters. Existing historical percentages
+do not qualify this corrected input format. Record this as a model-contract
+repair, not a new model promotion or permission to relax JSON parsing.
+
+Use typed leaves: subject/relation/object=`string`, source_sentence=
+`verbatim-string`. Put confirmed entities in the separate instruction block;
+the source document contains only the original chunk. For shared Ollama, route
+this explicitly selected NuExtract3 template request through native raw generate
+using the verified text-only structured template (thinking disabled), avoiding
+a second chat-template wrapper. For dedicated serving, send the official
+`chat_template_kwargs`. Keep ordinary background/generic extraction transports
+unchanged. Reuse the existing named-model lock/ownership and native timing helper;
+set real context/output caps explicitly and preserve provider finish/usage.
+All strict parsing, quote/polarity/NLI gates remain. Native request markers are
+internal transport metadata and must not be sent to generic providers. No
+fallback to the known-wrong legacy template. Verify rendered bytes against the
+installed template and check actual retained failure plus matched controls.
+
+Conversation-note JSON now needs citation/field overhead that the historical
+hardcoded400-token cap did not reserve. Make its output limit an explicit
+`conversation_summary_max_tokens=900`, matching the existing turn-summary cap;
+the250-word content target remains and actual complete input+reserve must fit.
+This is a bounded sizing choice, not a claim that900 prevents all truncation.
+
+A returned provider-length note must not commit its generated prefix or force
+the entire fold to be retried unchanged. Preserve the complete original source
+group as a source-mode note with an explicit `incomplete_generation` receipt
+(finish/usage/limit when known), warn every occurrence, and keep that reason
+when original parts are made individually selectable. Source coverage may
+advance because complete originals were retained, never because a generated
+summary was approved. Unconfirmed provider calls, invalid capacity, transport
+outages and cooperative yields still propagate. Record source-fallback and
+incomplete-group counters separately. Check actual note writer/index/readers
+on a retained failing source group and an opposing prefix-success control.
+Do not mark whole P3 complete from the extraction seam alone.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36

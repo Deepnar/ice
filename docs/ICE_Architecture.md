@@ -1766,6 +1766,28 @@ mechanism, not corpus faithfulness, completeness or fewer-token answer gains.
 Historical r4 failure rates above remain unchanged. See
 [the repair provenance](PROVENANCE.md#2026-10-08--v3-bounded-summary-support).
 
+### v3 NuExtract3 structured task and bounded output recovery — 2026-10-08
+
+Template extraction now uses the specialist's typed string/verbatim-string
+fields and separate source/instruction/template sections. The old legacy tags
+were inside the installed model's default document-content task. Shared Ollama
+uses native raw generation with the verified text-only structured prompt,
+explicit context/output caps and thinking disabled, within the existing model
+lock/ownership. Dedicated serving receives official chat-template kwargs;
+ordinary background/instruct chat keeps its existing transport. No model changed.
+
+Capacity checks count the complete actual rendered request and output reserve,
+including confirmed entities. A provider-length prefix is discarded; one retry
+uses smaller source-aware chunks, and every child must complete before graph
+facts or the completion key can commit. Invalid JSON, fields, missing quotes
+and unsupported proposals keep their strict existing gates. Finish/usage/native
+timings are visible without logging source text in the new events.
+
+Five retained paired source turns complete through the actual writer/encoder/
+NLI transaction, yielding54 exact-source claims and25 internally supported links.
+These controls do not qualify corpus graph precision. Historical r4 remains
+immutable. [Details and failed revision](PROVENANCE.md#2026-10-08--v3-specialist-task-and-extraction-output-repair).
+
 ### v3 recent-role and lexical document selection — 2026-10-08
 
 Recent history now gives unused short-speaker allowance to the other role before

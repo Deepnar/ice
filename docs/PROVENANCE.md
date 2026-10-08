@@ -1,3 +1,49 @@
+## 2026-10-08 — v3 specialist task and extraction output repair
+
+P3's read-only receipt bucket finds58 terminal extraction failures:43 provider
+output-length,9 invalid JSON,3 missing quotes and3 invalid fields. All20 terminal
+conversation folds and3 other post-flight completion failures also report length.
+Historical receipts lack returned responses; their exact parser causes are not
+reconstructed by these counts. The completed r4 bytes remain unchanged.
+
+A retained assistant-source failure reproduced on the unchanged specialist:
+613 prompt tokens,3000 output tokens, provider length;55 diagnostic complete
+objects in its rejected prefix,24 unique. A nearby larger input completed with
+528 output tokens. One smaller-input recovery removed length but exposed an
+unescaped JSON control character in a stop-marked child; that failure remains
+recorded, and no prefix was committed or parser relaxed.
+
+Installed `/api/show` identifies NuExtract3's structured task and typed template.
+ICE instead wrapped legacy empty-string extraction tags inside the default
+content document. [NuMind's official model card](https://huggingface.co/numind/NuExtract3-GGUF)
+confirms typed string/verbatim-string leaves and separate template/instruction/
+document sections. The corrected text-only renderer matches the installed
+non-thinking template byte for byte (template SHA256:
+31e44d28615d268efdc3dcf59cb59bd2d51714d517455fbad97518d351b84119).
+Shared mode uses native raw generate inside the existing model-ownership lock;
+dedicated mode supplies official chat-template kwargs but is not live-qualified.
+Ordinary background/instruct chat is unchanged. Actual rendered input plus output
+reserve is checked; impossible requests are not sent. Provider length permits
+one smaller-source retry; all children must finish before graph/completion writes.
+
+The retained failure now completes in one call at465 output tokens; the nearby
+control completes at557. Five retained paired turns then traverse the actual
+local extractor, quote storage, encoder, NLI relation gate and graph transaction:
+four prior failure strata (length/JSON/quote/fields) and one successful control.
+All five complete with originals unchanged,54 exact original-paragraph claims,
+25 internally supported links and five job completions. This is narrow output/
+source-integrity qualification, not independently judged graph precision or a
+58-case success rate. No cloud model, full reseed or original-store restore.
+
+Private captures/receipts: `logs/v3-repair-2026-10-08/extraction-output-*`,
+`actual-graph-write*`, `extraction-strata-actual-write*`,
+`nuextract-template-render-check.json` and `worker-failure-buckets.json`.
+Source/model text stays ignored. New controls reject partial child writes,
+malformed complete JSON, impossible capacity and unconfirmed native completion,
+and verify ordinary-chat dispatch. Combined current rails:677 passed in43.25s
+with5 existing warnings (smoke plus8 background contracts; overlapping earlier
+checks). Whole G63 graph-quality acceptance remains open.
+
 ## 2026-10-08 — v3 answer-bearing source selection repairs
 
 P2 fixes two demonstrated content losses without increasing context allowances.

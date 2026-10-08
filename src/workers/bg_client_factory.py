@@ -67,7 +67,12 @@ class _OwnedCompletions:
         with local_model_call(model):
             started = time.monotonic()
             try:
-                result = self._inner.create(*args, **kwargs)
+                extra = kwargs.get("extra_body") or {}
+                if extra.get("ice_template_protocol") is not None:
+                    from src.workers.nuextract_transport import native_completion
+                    result = native_completion(**kwargs)
+                else:
+                    result = self._inner.create(*args, **kwargs)
             except Exception as exc:
                 logger.warning("background_model_call_failed", model=model,
                                wall_seconds=round(time.monotonic() - started, 3),
