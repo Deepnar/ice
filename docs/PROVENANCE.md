@@ -35,6 +35,70 @@ plus7 background contracts, not independent memory-quality cases). P6's semantic
 support/relevance/answer contribution remains pending. No full/cloud experiment,
 production-state restore or publication was performed.
 
+
+## 2026-10-08 — v3 source-authority graph repair and retained-state audit
+
+A disposable clone of the immutable r4 final snapshot contains1471 episodes,
+12600 entities,11559 edges,22826 claims and11674 links. Existing confidence
+counts are9248 at0.35,669 at0.7,1642 at0.9; none changed. No stored alias or
+normalization key maps ambiguously to multiple entities. Legacy working-store
+rows are not this reseed and were not used as evidence or modified.
+
+Initial restore row hashes failed in7 tables because ORM-created tables have a
+different physical column order from the producer migrations. Actual SQL row
+projection in original COPY-header column order reproduced every saved table
+fingerprint; dump SHA and counts were verified. No manifest hash was substituted,
+source row changed or working-store restore performed. Private exact projection
+receipt: `logs/v3-repair-2026-10-08/p4-producer-projection-check.json`.
+
+A deterministic4-per-confidence-tier source preview identified question,
+proposal, malformed and temporal assertions. Speaker-framed full-paragraph NLI
+admitted all12, worsening the original9-supported result. Flat E4B also missed
+question/proposal errors. These failed candidates were not promoted. Reasoned
+complete-source checking initially rejected a valid explicit conjunct; a generic
+support-versus-completeness clarification passed31 synthetic controls. This is
+not independent human graph precision, world truth or answer accuracy.
+
+The first production input envelope referenced shared originals beside isolated
+quotes. A real E4B writer control still admitted a proposed declarative sentence;
+a prompt-only clarification failed again. Re-grounded input places the complete
+original role unit beside each proposition, matching the successful standalone
+case format. Real E4B plus actual graph transaction/readers nowadmit3 asserted
+relations including a negation, withhold3 question/proposal relations, preserve6
+source claims/full framing and make0 repeat calls. Proposed triples and positive
+NLI were injected in this control to isolate author authority; it does not qualify
+NuExtract or NLI accuracy. Both failed actual-run logs and successful receipts
+remain private under `author-assertion-actual-writer-*` and
+`author-assertion-writer-original-input-receipts.json`.
+
+Current complete-source function passes30/31 synthetic semantic/style controls:
+one valid modal assertion remains unknown; no false admission. It uses existing
+E4B, native reasoning, batch≤12, input8192/context32768/output4096 and strict
+complete response/identity/boundary checks. No extra resident model. A12-case
+retained full-role-source check produced one internally inconsistent true boolean
+with hypothetical status. Admission nowrequires both assertion/qualified-report
+status and affirmative support: reapplying this closed policy to the preserved
+exact model receipts yields7 admitted/5 withheld; this is derived admission, not
+another model call or independent precision estimate. Private captures:
+`author-assertion-controls-current.json`,
+`author-assertion-retained-current-receipts-private.json`,
+`author-assertion-joint-admission.json`. Candidate/role/source/quote/prompt/policy
+identities and usage are retained; unknowns warn, preserve originals and never
+create an edge. Dedicated reasoning is explicitly unqualified/unknown.
+
+Claim readers no longer shorten a paragraph merely because NLI approves its
+literal substring. Withheld author checks mark full-role context for both claim
+search and linked rendering; originals supply that context, not generated text.
+New seed receipts count supported/not-asserted/unknown claim-proposal observations
+with gate state. Old trace absence is unobserved, not zero errors. Writer/settings
+changes require new development state, never r4 resume. No lowered confidence,
+new identity resolver, full/cloud experiment or publication. Broader graph
+precision, raw canonicalization recovery, context costs and answer benefits remain
+open. Final combined rails:698 passed in39.05s,15 warnings (691 smoke plus7
+existing background contracts, overlapping mechanism controls, not independent
+quality cases). New controls cover strict identities/bounds/yields, contradictory
+true/nonassertive outputs, actual writer/readers and explicit unobserved metrics.
+
 ## 2026-10-08 — v3 incomplete note source preservation
 
 Conversation notes now expose `conversation_summary_max_tokens=900` instead of

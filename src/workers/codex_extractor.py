@@ -15,6 +15,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from src.api.config import settings
 from src.api.db import SessionLocal
+from src.memory.assertion_support import AssertionInput, review_assertions
 from src.memory.claims import excerpt_is_current, source_for_claim, store_claims
 from src.memory.embedder import get_embedder
 from src.memory.models import (
@@ -2146,8 +2147,9 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
         # Verify the RELATION, not merely that the selected sentence appears in
         # its paragraph. Source spans are kept even when a proposed triple is
         # withheld. One NLI lease covers this turn's independent proposals.
-        candidates, support_pairs = [], []
-        withheld = {"unattributed": 0, "unsupported": 0, "unknown": 0}
+        candidates, support_pairs, assertion_inputs = [], [], []
+        withheld = {"unattributed": 0, "unsupported": 0, "unknown": 0,
+                    "not_asserted": 0, "assertion_unknown": 0}
         for triplet in triplets:
             if not isinstance(triplet, dict):
                 continue
@@ -2175,9 +2177,32 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
             for claim in matched_claims:
                 pair_indices.append(len(support_pairs))
                 support_pairs.append((claim.text, proposition))
+                start, end = triplet["_source_start"], triplet["_source_end"]
+                assertion_inputs.append(AssertionInput(
+                    turn.raw_text[start:end], claim.role, claim.sentence,
+                    proposition, start, end))
             candidates.append((triplet, s, r, o, matched_claims, pair_indices))
 
         verdicts = verify_relation_pairs(support_pairs)
+        assertion_verdicts = {}
+        if settings.codex_assertion_check_enabled:
+            eligible = [i for i, v in enumerate(verdicts) if v.status == "supported"]
+            assertion_verdicts = dict(zip(eligible, review_assertions(
+                [assertion_inputs[i] for i in eligible])))
+            for _triplet, _s, _r, _o, matched, indices in candidates:
+                for claim, index in zip(matched, indices):
+                    receipt = assertion_verdicts.get(index)
+                    metadata = dict(claim.verification or {})
+                    if receipt is not None:
+                        reviews = list(metadata.get("author_assertions", []))
+                        reviews.append(receipt)
+                        metadata["author_assertions"] = reviews
+                    if receipt is None or receipt["status"] != "supported":
+                        metadata["needs_author_context"] = True
+                    claim.verification = metadata
+        elif support_pairs:
+            log.warning("codex_author_assertion_disabled",
+                        reason="new relations rely on NLI only")
         reconciler = make_llm_reconciler()   # A6: bounded LLM for ambiguous supersessions
         accepted = 0
         for triplet, s, r, o, matched_claims, pair_indices in candidates:
@@ -2191,9 +2216,17 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
                 continue
             supported = [(claim, verdicts[index])
                 for claim, index in zip(matched_claims, pair_indices)
-                if verdicts[index].status == "supported"]
+                if verdicts[index].status == "supported"
+                and (not settings.codex_assertion_check_enabled
+                     or assertion_verdicts[index]["status"] == "supported")]
             if not supported:
-                if any(verdicts[index].status == "unknown" for index in pair_indices):
+                if any(assertion_verdicts.get(index, {}).get("status") == "unknown"
+                       for index in pair_indices):
+                    withheld["assertion_unknown"] += 1
+                elif any(assertion_verdicts.get(index, {}).get("status") == "not_asserted"
+                         for index in pair_indices):
+                    withheld["not_asserted"] += 1
+                elif any(verdicts[index].status == "unknown" for index in pair_indices):
                     withheld["unknown"] += 1
                 else:
                     withheld["unsupported"] += 1
@@ -2207,13 +2240,18 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
                 continue
             accepted += 1
             for claim, verdict in supported:
+                verification = asdict(verdict)
+                if settings.codex_assertion_check_enabled:
+                    index = next(i for c, i in zip(matched_claims, pair_indices)
+                                 if c.id == claim.id)
+                    verification["author_assertion"] = assertion_verdicts[index]
                 key = {"claim_id": claim.id, "edge_id": edge.id}
                 link = db.get(CodexClaimLink, (claim.id, edge.id))
                 if link is None:
                     db.add(CodexClaimLink(**key,
-                        relation_verification=asdict(verdict)))
+                        relation_verification=verification))
                 else:
-                    link.relation_verification = asdict(verdict)
+                    link.relation_verification = verification
 
         if any(withheld.values()):
             log.warning("codex_relations_withheld", counts=withheld,

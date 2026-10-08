@@ -171,6 +171,14 @@ useful old-memory evidence, substantial compression limits and an unqualified
 answer judge. The [next repair, tuning and evaluation plan](docs/specs/V3_POST_RESEED_REPAIR.md)
 keeps these findings separate from the frozen-v2 paper results above.
 
+Current **v3** repairs use bounded source-cited assertions for long summaries,
+preserve answer-bearing document chunks, correct NuExtract3's structured task
+input, and retain originals after incomplete notes. New graph writes combine
+NLI with an author-assertion check using the existing local background model,
+so questions and proposed scenarios can remain source evidence without becoming
+established graph facts. These mechanisms have focused validation; corpus answer
+quality, context savings and independent judge qualification remain pending.
+
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers
 src/classifier/   intent / topic / context-reliance classifier and rule-based pre-pass

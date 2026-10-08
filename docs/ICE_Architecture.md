@@ -1663,9 +1663,12 @@ endpoints or treating the read as support. This is the existing attributed
 sentence path, not a new graph assertion or a new model.
 
 The local pinned adversarial DeBERTa NLI verifier checks complete paragraph ->
-sentence inputs. Entailment>=0.95 allows shortening; contradiction>=0.95 is
-contradicted; all other/error/overlength cases are unknown and retain full source
-context. Hash/model checks prevent stale verdict reuse. Maximum512 model tokens,
+sentence inputs. As of8October2026, literal substring entailment alone no longer
+allows claim shortening: it can lose conditions or proposal context despite a
+supported score. Claim readers retain the complete paragraph; a withheld author
+assertion resolves the complete original role unit when framing crosses paragraph
+boundaries. Contradiction>=0.95 is contradicted; other/error/overlength cases are
+unknown and retain source context. Maximum512 model tokens,
 float32, local-cache-only weights, serialized calls and CPU offload. This is
 source consistency for attributed compression, not truth, author independence,
 summary verification or automatic supersession. The first multilingual candidate
@@ -1681,7 +1684,29 @@ claim-to-edge link stores its own model verdict and source/proposition hashes
 (`CodexClaimLink.relation_verification`, migration `7e4c9d2a0b65`); one quoted
 sentence can support multiple relations. An unmatched, contradicted, uncertain
 or overlong proposal leaves its sentence claim searchable without creating a
-new graph edge. A verifier outage rolls the extraction back for retry. The
+new graph edge. A verifier outage rolls the extraction back for retry.
+
+New shared-mode writes also require `assertion_support.review_assertions` using
+the existing general E4B background model with native reasoning. Each case puts
+its complete original authoritative role unit beside the verbalized proposition;
+an isolated quote/shared-source envelope failed the real writer control and is
+not used. Requests retain complete sources, split batches when capacity requires,
+and reserve4096 output in32768 context with8192 estimated input/bounded byte checks.
+At most12 proposals enter a batch. Actual input count and complete stop are
+required. NLI support, assertion or source-qualified report status, and an
+affirmative semantic verdict are all required. A question/hypothetical status
+cannot become an established graph fact even when the model's boolean disagrees;
+qualified proposals remain searchable original claims. No additional resident
+model or lowered confidence threshold is introduced. Dedicated reasoning remains
+explicitly unqualified/unknown, not a silent alternative provider.
+
+The existing claim/link JSON stores method/source/quote/proposition/role/prompt/
+policy identities, decision and usage. Withheld/unknown decisions remain on the
+claim, mark full-author-context rendering and warn; complete original coverage
+and the extraction completion key may commit without admitting the relation.
+Cooperative yields propagate. Existing links are not relabeled or automatically
+replayed. New seed receipts count claim-proposal outcomes separately from source
+or edge counts; old traces explicitly lack these observations. The
 explicit `codex_sentence_claims=False` mode retains prior unverified graph
 writes with a per-batch warning. Legacy edges are not backfilled or promoted.
 The graph reader still checks source existence, privacy and current offsets;

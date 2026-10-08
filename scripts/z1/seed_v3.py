@@ -57,6 +57,8 @@ REPLAY_SETTINGS = [
     "recent_window_max_turns", "classifier_model_path", "label_schema_path",
     "embedding_model_name", "background_model_mode", "background_model_name",
     "codex_extraction_model", "codex_extraction_mode", "background_ner_model",
+    "codex_sentence_claims", "codex_assertion_check_enabled", "codex_assertion_input_tokens",
+    "codex_assertion_context_tokens", "codex_assertion_output_tokens", "codex_assertion_batch_size",
     "memory_source_gate_enabled", "memory_source_rescue_enabled",
     "context_use_serving_window", "context_budget_min", "context_budget_max",
     "context_budget_floor", "context_generation_reserve",
@@ -90,6 +92,25 @@ SEMANTIC_TABLES = (
     "batch_summaries", "batch_notes", "conversation_summaries", "conversation_notes",
     "memory_slots", "session_summaries", "review_queue",
 )
+
+
+def author_assertion_counts(db, batch_id):
+    """Count stored claim-proposal decisions, not source presence or edges."""
+    counts = {"supported": 0, "not_asserted": 0, "unknown": 0}
+    rows = db.execute(text("""
+        SELECT review->>'status', count(*)
+        FROM codex_claims c
+        CROSS JOIN LATERAL jsonb_array_elements(
+            coalesce(c.verification->'author_assertions', '[]'::jsonb)) review
+        WHERE c.source_batch=:b GROUP BY review->>'status'
+    """), {"b": batch_id})
+    for status, count in rows:
+        if status not in counts:
+            raise RuntimeError("invalid author-assertion receipt in new writer")
+        counts[status] = count
+    return counts
+
+
 JOB_OBSERVATION_TABLES = {
     "decay_episodic": ("episodic_memory", "cold_storage"),
     "decay_codex": ("codex_edges",),
@@ -1005,6 +1026,7 @@ def run(args, conversations, probes) -> int:
                                     "SELECT count(*) FROM episodic_chunks WHERE turn_id=:id"),
                                     {"id": row.id}).scalar(),
                             }
+                            assertion_counts = author_assertion_counts(db, row.batch_id)
                             sink.write(json.dumps({"event": "written", "conversation": slug,
                                                    "turn": number, "episodic_id": str(row.id),
                                                    "batch_id": str(batch_id),
@@ -1018,6 +1040,8 @@ def run(args, conversations, probes) -> int:
                                                    "abstract_text": row.abstract_text,
                                                    "source_raw_sha256": hashlib.sha256(row.raw_text.encode()).hexdigest(),
                                                    "summary_support": row.representation_verification,
+                                                   "author_assertions": {"gate_enabled": settings.codex_assertion_check_enabled,
+                                                                         "claim_proposal_counts": assertion_counts},
                                                    "source_counts": source_counts},
                                                   default=str) + "\n")
                             if not args.no_maintenance:

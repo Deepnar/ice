@@ -1657,7 +1657,7 @@ class HybridRetrievalOrchestrator:
                 if original is None or original.is_private or not excerpt_is_current(original, claim):
                     continue
                 lines.append(f"[Source excerpt; speaker: {claim.role}; {'; '.join(dates)}] "
-                             f"{claim_representation(claim)}")
+                             f"{claim_representation(claim, source=original)}")
             return "\n".join(dict.fromkeys(lines))
         rel = f"NOT {edge.relation}" if getattr(edge, "negated", False) else edge.relation
         return (f"[Unverified graph relation: {src.canonical_name} --{rel}--> {tgt.canonical_name}"
@@ -1923,7 +1923,7 @@ class HybridRetrievalOrchestrator:
                 if source is None or not excerpt_is_current(source, claim):
                     logger.warning("claim_source_stale", claim_id=str(ident))
                     continue
-                excerpt = claim_representation(claim)
+                excerpt = claim_representation(claim, source=source)
                 rendered = (f"[Source excerpt; speaker: {claim.role}] "
                             f"{recorded_stamp(source.timestamp, source.ts_provenance)}\n"
                             f"{excerpt}")

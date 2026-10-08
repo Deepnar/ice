@@ -11,8 +11,10 @@ older execution order and experiment roster in `Z1_tuning_coverage.md` and
 **Status: implementation underway, 2026-10-08.** P0 measurements and P1 bounded
 verification are implemented with focused validation. Two confirmed P2 source
 selection defects and P3 extraction/note mechanisms are repaired. Remaining
-quality review and P4–P10 remain pending; procedural-output sizing and negative
-receipts are implemented with focused validation.
+quality review and P5–P10 remain pending; procedural-output sizing and negative
+receipts are implemented with focused validation. P4 author-assertion admission
+and context preservation are implemented; canonicalization recovery, calibrated
+confidence/identity utility and independent precision remain open.
 ROADMAP is the queue. The numbered packages below decompose existing entries,
 not a new G-track or claims of eleven newly discovered defects. The completed
 r4 evidence is in [PROVENANCE](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).
@@ -304,6 +306,84 @@ bucket make no call; a new bucket remains eligible. A malformed/unsupported/
 truncated result is not empty success and must not acquire that key. Keep current
 session-step grouping; do not count a negative receipt as supporting a pattern.
 
+### 2.1c Graph assertion authority — grounded decision, 2026-10-08
+
+The retained graph copy has no ambiguous stored aliases or normalization keys;
+its complete row fingerprints match the producer's physical column projection.
+Do not add another formatting resolver or connect components from topology.
+Source review instead finds questions and proposed fictional scenarios written
+as plain graph facts, including relationships between merely co-mentioned
+references. Existing paragraph-to-proposition NLI does not reliably distinguish
+an author's commitment. Speaker-framed NLI increased false admission; a flat
+nonreasoning E4B decision also failed. Neither candidate is promoted.
+
+Use the existing general background model in shared local mode for a bounded,
+reasoning-enabled **author-assertion check**, in addition to existing NLI. A
+six-case retained preview rejected three question/hypothesis errors but also
+rejected a valid conjunct. The grounded clarification distinguishes proposition
+support from completeness: each explicit conjunct can support its own relation,
+and a fact inside a message containing a question remains an assertion. The same
+candidate passed31 synthetic positive/opposing/style controls in one call; this
+is mechanism qualification, not independent corpus precision. Check the retained
+cases again through the implemented function and the actual writer before
+claiming the mechanism repaired.
+
+Current complete-original implementation passes30/31 controls without false
+admission; one valid modal assertion remains unknown and keeps its source. The
+actual E4B writer/readers admit3 asserted relations and withhold3 questions/
+proposals while preserving6 source claims and repeat-call idempotency. Do not
+repeat broad model searches merely to make that lone development control pass;
+retain this conservative limitation for independent precision/answer review.
+
+Pass complete authoritative role-unit text, original role and exact source
+quote identity, with the verbalized relation and polarity. Batch at most12
+NLI-supported proposals. Each model case contains its complete original role
+unit and proposition; quotation hashes remain in receipts, not an isolated
+quote presented as an authoritative alternative. Production-path validation
+of the shared-source/isolated-quote envelope admitted a proposed declarative
+sentence even after a prompt clarification. Re-ground on the complete-original
+case format used by the successful standalone controls, and record its larger
+input cost. Do not truncate
+source units or use a question-word lexicon. Reserve4096 output tokens inside
+32768 context, with an8192 estimated-input cap and conservative byte/capacity
+guards. Shared native Ollama must report complete stop and actual input counts;
+unknown completion, malformed/missing/duplicate IDs, overlength or provider
+failure produces explicit unknown, never approval. Cooperative yields propagate.
+Dedicated mode is explicitly unqualified/unknown for this native reasoning seam;
+there is no silent provider or model substitution. No extra resident model.
+
+Only NLI support **and** an affirmative author-assertion verdict whose governing
+act is assertion or source-qualified report admit a new edge. A returned true
+boolean cannot override a question/hypothetical classification: the retained
+full-original test returned that internally inconsistent combination once.
+Record both outputs and withhold the relation. Qualified proposed scenarios
+remain searchable source claims, not established graph assertions. Preserve
+asserted belief, modality, negation, past tense and reported
+attribution when they are actually in the proposition. Questions can carry
+explicit premises; proposed outcomes are not realized facts. Store versioned
+source/candidate/quote/role/model/prompt/policy hashes and decisions in existing
+claim/link JSON receipts, including withheld decisions. Confidence tiers and
+identity resolution remain unchanged until separately calibrated.
+
+A literal subclause is not safe compression merely because NLI accepts it.
+Claim readers retain the complete stored source paragraph rather than shortening
+it with the old substring proof. If the author-assertion check withholds a
+candidate, mark its claim as requiring the complete authoritative role unit;
+both direct claim search and linked graph rendering resolve that unit from the
+unchanged original. Hash/offset mismatches retain the paragraph and warn. This
+preserves cross-paragraph proposal framing without deleting a true source when
+a classifier abstains. Old graph links are not relabeled or replayed, and
+original r4 data is immutable. All new writer/settings identities require a
+new development store. Observe calls, unknown rates and costs before tuning.
+
+Validation: strict parser/capacity/yield controls; semantic positive, negative,
+modal, reported, historical, mixed-question and conjunction fixtures; invariant
+typo/punctuation variants; full writer with all NLI pairs deliberately positive
+must still withhold unsupported author assertions and retain searchable complete
+context. Check actual local model on retained cases and generic opposing
+controls. Do not turn these development results into graph precision or answer
+accuracy. P4's confidence/identity utility and broader source review remain open.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36
@@ -556,7 +636,9 @@ new independent implementations:
   `batch_summarizer.py`, `reflection.py` and their real reader consumers.
 - P2/P4: `src/retrieval/orchestrator.py` existing chunk, claim, graph and budget
   paths; `reranker.py`; `src/memory/claims.py`, `relation_support.py`,
-  `src/workers/codex_extractor.py` and source-backed entity operations.
+  `src/workers/codex_extractor.py`, `memory/assertion_support.py` and source-backed
+  entity operations; author receipts on existing claim/link JSON, actual writer
+  control in `tests/test_author_assertion_path.py`, and new seed/report counters.
 - P3: `extraction_result.py`, `codex_extractor.py`, `post_flight.py`, existing
   bounded worker recovery; real rejected responses remain private fixtures.
 - P5: `_reconciliation_evidence`, maintenance `_decide_reconciliation` and

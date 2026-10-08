@@ -12,12 +12,12 @@ def scorer(entailment, contradiction=0.0):
                                neutral=1-entailment-contradiction)]
 
 
-def test_supported_compression_and_stale_hash_fallback():
+def test_literal_support_does_not_remove_source_conditions():
     source = 'Mira chose PostgreSQL. It replaced SQLite.'
     claim = 'Mira chose PostgreSQL.'
     verdict = verify_support(source, claim, scorer=scorer(.99))
     row = SimpleNamespace(text=source, sentence=claim, verification=asdict(verdict))
-    assert claim_representation(row) == claim
+    assert claim_representation(row) == source
     row.text += ' But the decision was reversed.'
     assert claim_representation(row) == row.text
 

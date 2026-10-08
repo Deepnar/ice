@@ -159,6 +159,8 @@ def test_nullable_template_fields_retain_exact_claim_without_graph_edge(monkeypa
                     reason="requires a disposable PostgreSQL database")
 def test_writer_links_only_supported_relation_and_keeps_other_source(monkeypatch):
     monkeypatch.setattr(settings, "codex_sentence_claims", True)
+    # This test owns the NLI boundary; author commitment is tested separately.
+    monkeypatch.setattr(settings, "codex_assertion_check_enabled", False)
     monkeypatch.setattr(worker, "embedder", Encoder())
     monkeypatch.setattr(worker, "make_llm_reconciler", lambda: None)
     monkeypatch.setattr(worker, "extract_entities", lambda *_args, **_kwargs: [])

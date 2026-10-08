@@ -61,19 +61,23 @@ def excerpt_is_current(row, excerpt) -> bool:
                     and excerpt.end <= u.end for u in source_units(row)))
 
 
-def claim_representation(claim) -> str:
-    """Use compression only with current source/claim/model support metadata."""
-    from src.api.config import settings
+def claim_representation(claim, *, source=None) -> str:
+    """A literal subclause is not proof that its conditions survived.
 
+    Keep the paragraph. Withheld author assertions need the whole role unit
+    because proposal framing can precede that paragraph. Resolve it from the
+    current original, never from a generated assertion or a stale hash.
+    """
     v = claim.verification if isinstance(claim.verification, dict) else {}
-    if (v.get('status') == 'supported'
-            and v.get('source_sha256') == digest(claim.text)
-            and v.get('claim_sha256') == digest(claim.sentence)
-            and v.get('verifier') == f'{settings.source_support_model}@{settings.source_support_revision}'
-            and isinstance(v.get('scores'), dict)
-            and v['scores'].get('entailment', 0) >= settings.source_support_threshold
-            and claim.sentence in claim.text):
-        return claim.sentence
+    if v.get("needs_author_context"):
+        if source is not None and excerpt_is_current(source, claim):
+            for unit in source_units(source):
+                if unit.role == claim.role and unit.start <= claim.start and claim.end <= unit.end:
+                    return unit.text
+        import structlog
+
+        structlog.get_logger("ice.memory.claims").warning(
+            "claim_author_context_unresolved", source_available=source is not None)
     return claim.text
 
 

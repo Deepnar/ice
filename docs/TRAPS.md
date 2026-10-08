@@ -2246,3 +2246,27 @@ as completed work without adding pattern support; the next bucket remains
 eligible. Test both sides: valid-looking `NONE` truncated by the provider cannot
 acquire that key. Completion, no candidate and unsupported output are distinct
 states. A new output reserve makes requests survivable, not habits trustworthy.
+
+
+### 96. Whole-row hashes can encode physical column order
+
+**v3, 2026-10-08.** A retained SQL dump matched bytes and row counts but restore
+verification failed7 table hashes in a fresh ORM-created disposable database.
+`row_to_json(t)` follows physical column order; the producer migrations and
+ORM declaration differed. Project actual restored columns in immutable producer
+COPY-header order and recompute every row hash. Never substitute expected hashes,
+rewrite the old manifest or call equal counts proof of equal rows. Production
+restore guards remain unchanged; this audit used an explicitly bound child
+projection receipt.
+
+### 97. A copied clause is not an adopted assertion
+
+**v3, 2026-10-08.** Paragraph NLI and a copied substring admitted questions or
+proposed events as graph facts. Speaker framing worsened admission. Even a model
+check that passed standalone controls failed through a shared-source/isolated-
+quote writer envelope: it treated a declarative sentence inside a proposal as
+established. Put each decision beside the complete original, preserve governing
+context, and exercise the real writer/readers. A returned true boolean cannot
+override a hypothetical/question status. Unknown preserves originals; it does
+not prove a fact false. Keep both semantic outputs/receipts and withheld-source
+observations. Literal NLI alone cannot authorize deleting a paragraph's conditions.

@@ -41,6 +41,23 @@ def test_nested_verdicts_have_independent_candidate_denominators(tmp_path):
     assert len(result["trace_sha256"]) == len(result["reporter_sha256"]) == 64
 
 
+def test_author_observation_absence_is_not_zero_unknowns(tmp_path):
+    path = tmp_path / "seed.jsonl"
+    trace(path, [
+        {"event": "written"},
+        {"event": "written", "author_assertions": {"gate_enabled": True,
+            "claim_proposal_counts": {"supported": 2, "not_asserted": 3, "unknown": 1}}},
+        {"event": "written", "author_assertions": {"gate_enabled": False,
+            "claim_proposal_counts": {"supported": 0, "not_asserted": 0, "unknown": 0}}},
+        {"event": "written", "author_assertions": {"gate_enabled": True,
+            "claim_proposal_counts": {"supported": True, "not_asserted": 0, "unknown": 0}}},
+    ])
+    counts = report.summarize(path)["author_assertion_claim_proposal_observations"]
+    assert counts == dict(unobserved_turns=1, observed_turns=3,
+        gate_enabled_turns=2, supported=2, not_asserted=3, unknown=1,
+        invalid_observation_turns=1)
+
+
 def test_existing_report_and_trace_are_never_overwritten(monkeypatch):
     logs = Path(report.__file__).resolve().parents[2] / "logs"
     with TemporaryDirectory(dir=logs, prefix="report-smoke-") as temporary:

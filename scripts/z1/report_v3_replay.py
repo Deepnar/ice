@@ -57,6 +57,7 @@ def summarize(path: Path) -> dict:
     gold_storage = Counter()
     gold_funnel_by_type = defaultdict(Counter)
     source_counts = Counter()
+    author_assertions = Counter()
     prompt_tokens = Counter()
     controls = Counter()
     probe_timing = Counter()
@@ -107,6 +108,19 @@ def summarize(path: Path) -> dict:
             for kind in support_counts:
                 representation_support(row, kind, support_counts[kind], support_reasons[kind])
             source_counts.update(row.get("source_counts") or {})
+            assertion = row.get("author_assertions")
+            if not isinstance(assertion, dict):
+                author_assertions["unobserved_turns"] += 1
+            else:
+                author_assertions["observed_turns"] += 1
+                author_assertions["gate_enabled_turns"] += assertion.get("gate_enabled") is True
+                counts = assertion.get("claim_proposal_counts")
+                if (not isinstance(counts, dict)
+                        or set(counts) != {"supported", "not_asserted", "unknown"}
+                        or any(type(n) is not int or n < 0 for n in counts.values())):
+                    author_assertions["invalid_observation_turns"] += 1
+                else:
+                    author_assertions.update(counts)
         elif event in ("turn", "as_of_probe"):
             stage = row["preflight"]
             kind = "historical_turn" if event == "turn" else "as_of_probe"
@@ -277,6 +291,7 @@ def summarize(path: Path) -> dict:
                 "status_reasons": dict(support_reasons[kind])}
             for kind in support_counts},
         "post_flight_source_counts": dict(source_counts),
+        "author_assertion_claim_proposal_observations": dict(author_assertions),
         "prompt_token_sums": dict(prompt_tokens),
         "matched_controls": dict(controls),
         "probe_timing_and_label_status": dict(probe_timing),

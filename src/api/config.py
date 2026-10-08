@@ -968,6 +968,11 @@ class Settings(BaseSettings):
     source_support_threshold: float = Field(default=0.95, gt=0.5, le=1.0)
     source_support_max_tokens: int = Field(default=512, ge=16, le=512)
     codex_sentence_claims: bool = True
+    codex_assertion_check_enabled: bool = True
+    codex_assertion_input_tokens: int = Field(default=8192, gt=0)
+    codex_assertion_context_tokens: int = Field(default=32768, gt=0)
+    codex_assertion_output_tokens: int = Field(default=4096, gt=0)
+    codex_assertion_batch_size: int = Field(default=12, ge=1, le=12)
     codex_claim_candidate_limit: int = Field(default=64, ge=1)
 
     codex_extraction_model: str = "hf.co/numind/NuExtract3-GGUF:Q8_0"

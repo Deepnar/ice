@@ -27,6 +27,15 @@ is superseded. The template default was already promoted on August 27.
 
 ---
 
+
+**v3 author-authority overlay, 2026-10-08:** NuExtract remains the extractor.
+New attributed graph writes also require complete-source author-assertion
+approval from the existing E4B background model after NLI. Question/hypothetical
+status cannot be overridden by a true boolean; original claims/context remain
+searchable. This is neither a new resident model nor an independent extractor
+precision result. Details and remaining raw-canonicalization work:
+[V3_POST_RESEED_REPAIR §2.1c](V3_POST_RESEED_REPAIR.md#21c-graph-assertion-authority--grounded-decision-2026-10-08).
+
 ## The rules this protocol runs under
 
 1. **One variable per run.** The first 2026-08-24 comparison changed model *and*
