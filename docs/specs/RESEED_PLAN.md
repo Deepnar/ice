@@ -1,5 +1,16 @@
 # The reseed — plan, and the clean break
 
+**Completed v3 r4 / next phase, 2026-10-07:** all five stages finished as
+complete-diagnostic:1471 turns,259 frozen occurrences,117 admitted answer
+occurrences,456 successful answers/12 incomplete responses. The source-label
+work is complete; the judge is not qualified. The previous not-run/paused
+statements below are dated history. Preserve r4 and its39 as-of stores;
+[completed evidence](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign)
+and [post-reseed repairs, tuning and Z2](V3_POST_RESEED_REPAIR.md) now govern the
+next work. Writer repairs create new versioned development states, never an
+in-place continuation under r4's identity. No new full reseed is authorized by
+merely opening this document.
+
 **Written 2026-08-25. The dated execution claim below is historical.**
 
 **v3 correction, 2026-09-29:** the old `seed_store.py` still selects 293

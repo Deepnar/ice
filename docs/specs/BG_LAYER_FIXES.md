@@ -1,5 +1,12 @@
 # The background layer — what ships, what gets measured, what waits
 
+**Current v3 evidence, 2026-10-07:** complete r4 shows whole-source NLI input
+rejection on all986 nonempty turn summaries, source-mode folds and20 incomplete
+conversation-summary calls. It does not overturn the E4B/NuExtract role split
+or independently measure summary truth. The next long-source, completeness
+and local-write work follows [V3_POST_RESEED_REPAIR](V3_POST_RESEED_REPAIR.md);
+old pre-reseed sequencing and model-search proposals below remain historical.
+
 **Written 2026-08-26/27, during the background-model session. Executes at the
 END of this session, in one batch.**
 

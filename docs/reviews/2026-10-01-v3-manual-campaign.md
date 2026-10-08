@@ -1,12 +1,22 @@
 # ICE v3 manual campaign and measurement readiness
 
+**Current status, v3 2026-10-07:** r4 is complete-diagnostic across all five
+stages:1471 originals,259 frozen prompts,117 admitted occurrences per answer
+arm,456 returned answers and12 incomplete errors. Final judgment processing
+finished; independent judge qualification is pending. The crash/restart notes
+below are preserved history, not the current operator action. Preserve this
+bundle and its39 as-of stores; do not rerun it to implement new writer behavior.
+[Results and limits](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign)
+and the [next repair/tuning/Z2 contract](../specs/V3_POST_RESEED_REPAIR.md) are
+current. This guide's existing command does not run future tuning or Z2.
+
 This is the current execution guide. The [whole-process audit and 29-item
 evidence map](2026-09-29-v3-reseed-harness-audit.md) owns the remaining research
 questions; [reseed spec](../specs/RESEED_PLAN.md) owns the execution contract.
 The first manual seed attempt stopped on turn4; r2 then stopped on turn54.
 R3 twice failed at turn80 because a copied clause began with a capital letter;
 its durable70 checkpoint and failed tails are preserved. Its third automatic
-attempt was stopped gracefully for repair. No full campaign is complete.
+attempt was stopped gracefully for repair. That was the pre-completion state; r4 is now complete-diagnostic.
 The r4 restart bundle reuses identical reviewed labels. Source matching now
 normalizes case/whitespace for comparison and keeps original bytes. Unresolved
 quotes are withheld from graph writes while original source evidence survives.

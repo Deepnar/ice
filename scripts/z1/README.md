@@ -1,5 +1,14 @@
 # Z1 — the experiment index
 
+**Completed v3 r4, 2026-10-07:** the maintainer finished all five stages
+(1471 turns/259 prompts/117 admitted occurrences). Source dispositions are
+complete;456/468 answers returned and final judges remain diagnostic.
+[Aggregate results](../../docs/PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign)
+record the observed memory/measurement limits. Preserve the39 as-of states;
+[current repairs, tuning and Z2](../../docs/specs/V3_POST_RESEED_REPAIR.md) are
+specified separately and are not implemented by rerunning this campaign.
+Earlier pause/prelaunch notes below are historical.
+
 **V3 manual entry point, 2026-10-01:** use `run_v3_campaign.py --run-dir
 logs/<bundle>` for status, `--init` once for complete private review packets,
 and `--run` to execute/resume seed → snapshot → four cloud answer arms →

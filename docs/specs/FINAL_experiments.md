@@ -1,5 +1,19 @@
 # FINAL — Full experiment redo (evaluation redesign)
 
+**Current v3 scope and execution decision, 2026-10-07:** the maintainer's
+requested Z2 is now semi-LSREP on one substantial conversation with full
+memory lifecycle, repeated cutoff-reviewed questions and additive plus
+leave-one-out ablations, followed by LongMemEval oracle. Both warm-vector
+and independent bare-vector controls are required. The authoritative current
+contract is [V3_POST_RESEED_REPAIR](V3_POST_RESEED_REPAIR.md), after evidence-led
+repairs and tuning. It supersedes this historical broad FINAL roster, provider
+exclusivity and run sequence for current v3; no full LME-S haystack campaign is
+planned. Local background and explicitly selected cloud answer/judge profiles
+remain separate. Frozen v2 paper experiments and their historical results are
+unchanged. The old multi-family-every-answer and night/cost assumptions below
+do not silently expand the new agreed experiment; current judge qualification
+and disagreement review are specified in the new contract.
+
 Assumes decided specs: `T_temporal.md` (temporal probes exercise T-track modes; the
 `timescope` ablation flag exists). Grounded in: the FINAL/H sections of ROADMAP.md,
 `experiments/mature/results/*paper_summary_full.md` (both variants),

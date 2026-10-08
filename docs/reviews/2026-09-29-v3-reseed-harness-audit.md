@@ -1,5 +1,14 @@
 # v3 reseed and combined-Z harness audit — 2026-09-29
 
+**Status update, v3 2026-10-07:** r4 completed all five stages diagnostically.
+The dated audit below retains the instrument requirements and29-item ownership
+map; it is no longer a claim that the full run or source review is missing.
+[Completed evidence](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign)
+shows compression/input-contract, semantic evidence and judge reliability
+limitations. [Current repair/tuning/Z2 plan](../specs/V3_POST_RESEED_REPAIR.md)
+owns their next implementation and experiment design. The formal roadmap
+count is unchanged until original acceptance scopes are met.
+
 This began as a **code-and-document audit**, not an answer result. It
 supersedes the executable order in the August reseed notes. A new v3 runner,
 reporter and complete snapshot have now passed small isolated checks, but no

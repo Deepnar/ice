@@ -1,5 +1,12 @@
 # G63 — Extractor decision protocol: NuExtract3 vs ICE's current extractor
 
+**Current v3 evidence, 2026-10-07:** the NuExtract3 r4 seed is complete.
+Internal source links, graph topology and58 terminal extraction-output failures
+are now observed, but independently reviewed v3 edge precision is still pending.
+Keep the deployed specialist while diagnosing saved failures and source-backed
+identity/confidence decisions under [V3_POST_RESEED_REPAIR](V3_POST_RESEED_REPAIR.md).
+Historical extractor percentages below are not current v3 graph precision.
+
 **Purpose: settle the background extraction model ONCE, on evidence, and derive
 the production config from the same runs rather than guessing it afterwards.**
 

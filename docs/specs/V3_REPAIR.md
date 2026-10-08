@@ -1,4 +1,11 @@
 # ICE v3 repair phase
+
+**Next authorized tranche, 2026-10-07:** the first complete r4 campaign now
+provides real development evidence. [V3_POST_RESEED_REPAIR](V3_POST_RESEED_REPAIR.md)
+is the current implementation plan for confirmed failures, bounded design
+hypotheses, tuning and the two Z2 conditions. This document remains the source
+preservation/retry authorization and earlier repair record; the new plan does
+not claim its proposed mechanisms already ship. Preserve the completed baseline.
 Assumes decided specs: G63_extractor_decision.md (deployed extractor contract), BG_LAYER_FIXES.md (separate general background model)
 
 ## 1. Decisions
