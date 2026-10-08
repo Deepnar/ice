@@ -7,7 +7,7 @@
 > Features that are experimental, gated off, or not yet wired into the live path are
 > flagged inline.
 
-`Last updated: 7 October 2026` · `Scope: v3 main` · [Roadmap](ROADMAP.md) · [Provenance](PROVENANCE.md)
+`Last updated: 8 October 2026` · `Scope: v3 main` · [Roadmap](ROADMAP.md) · [Provenance](PROVENANCE.md)
 
 ---
 
@@ -1765,6 +1765,24 @@ with perfect term retention that still kept raw evidence. These qualify the
 mechanism, not corpus faithfulness, completeness or fewer-token answer gains.
 Historical r4 failure rates above remain unchanged. See
 [the repair provenance](PROVENANCE.md#2026-10-08--v3-bounded-summary-support).
+
+### v3 incomplete note generation retains source coverage — 2026-10-08
+
+Conversation notes use an explicit900-token generation cap with the unchanged
+250-word content target. Shared complete-request sizing still reserves the entire
+output allowance. A provider-length prefix remains invalid. The source-note
+builder instead records complete originals with `incomplete_generation`, finish/
+usage/limit metadata and no generated support verdict. Per-turn selectable parts
+retain that failure receipt. Original-only coverage may advance; no generated
+prefix is approved. Source-fallback and incomplete-group counters are separate.
+The batch builder shares this behavior at its existing1200-token cap.
+
+Other finish reasons, unknown provider completion, transport/capacity errors and
+yields still fail. The actual writer/index/prompt-reader control keeps a refusal
+and excludes a false-approval prefix; unchanged source resume makes no new call.
+A reconstructed14-turn retained-source group completed but failed semantic
+support, keeping all19,967 characters. Safe fallback is not useful compression
+or evidence of answer gains. [Provenance](PROVENANCE.md#2026-10-08--v3-incomplete-note-source-preservation).
 
 ### v3 NuExtract3 structured task and bounded output recovery — 2026-10-08
 

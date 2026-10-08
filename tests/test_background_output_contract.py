@@ -108,7 +108,7 @@ def test_procedural_uses_background_model_and_does_not_stamp_partial_output(monk
             db.query(Conversation).filter_by(id=cid).delete(); db.commit()
 
 
-def test_batch_partial_output_does_not_mark_source_covered(monkeypatch):
+def test_batch_partial_output_covers_only_complete_original_sources(monkeypatch):
     from src.workers import batch_summarizer as worker
     cid, sid = uuid.uuid4(), uuid.uuid4()
     calls = []
@@ -123,11 +123,21 @@ def test_batch_partial_output_does_not_mark_source_covered(monkeypatch):
             worker.batch_summarize()
             db.expire_all()
             assert calls
-            assert db.query(BatchSummary).filter_by(conversation_id=cid).count() == 0
-            assert all(t.batch_summary_id is None for t in
+            row = db.query(BatchSummary).filter_by(conversation_id=cid).one()
+            assert all(part['mode'] == 'source' and part['verification'] is None and
+                       part['support_failure'] == 'incomplete_generation' and
+                       'Explain before changing it.' in part['text'] and
+                       'A plausible unfinished batch summary.' not in part['text']
+                       for part in row.source_manifest['parts'])
+            assert all(t.batch_summary_id == row.id for t in
                        db.query(EpisodicMemory).filter_by(conversation_id=cid))
         finally:
+            from src.memory.models import BatchNote
+            db.rollback()
+            summary_ids = [r.id for r in db.query(BatchSummary).filter_by(conversation_id=cid)]
+            db.query(BatchNote).filter(BatchNote.summary_id.in_(summary_ids)).delete(synchronize_session=False)
             db.query(EpisodicMemory).filter_by(conversation_id=cid).delete()
+            db.query(BatchSummary).filter_by(conversation_id=cid).delete()
             db.query(Conversation).filter_by(id=cid).delete(); db.commit()
 
 
@@ -136,7 +146,7 @@ def test_failed_conversation_completion_preserves_previous_checkpoint(monkeypatc
     from src.workers import bg_client_factory, conversation_summary as worker
     cid, sid = uuid.uuid4(), uuid.uuid4()
     monkeypatch.setattr(bg_client_factory, 'get_bg_client', lambda:
-        client_for(lambda **kw: response('Plausible incomplete replacement.', 'length')))
+        client_for(lambda **kw: response('Plausible incomplete replacement.', 'content_filter')))
     monkeypatch.setattr(bg_client_factory, 'get_bg_model_name', lambda: 'local-background')
     with SessionLocal() as db:
         turns = seed_turns(db, cid, sid)

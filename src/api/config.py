@@ -491,6 +491,9 @@ class Settings(BaseSettings):
 
     # C4: generation word target and soft grouping target for whole evidence
     # representations. Hard capacity is checked on the complete model request.
+    # v3 cited JSON notes need schema/citation overhead beyond the content
+    # word target. Provider-length fallback retains complete source, not prefix.
+    conversation_summary_max_tokens: int = 900
     conversation_summary_max_words: int = 250
     conversation_summary_chunk_words: int = 3500
     conversation_note_prompt_tokens: int = 650

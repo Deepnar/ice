@@ -4,6 +4,11 @@
 class IncompleteCompletion(ValueError):
     """Retryable provider output failure, with no source content in the error."""
 
+    def __init__(self, message, *, finish_reason=None, details=None):
+        super().__init__(message)
+        self.finish_reason = finish_reason
+        self.details = details or {}
+
 
 def complete_text(completion):
     choices = getattr(completion, 'choices', None)
@@ -12,7 +17,10 @@ def complete_text(completion):
     choice = choices[0]
     reason = getattr(choice, 'finish_reason', None)
     if reason != 'stop':
-        raise IncompleteCompletion(f'completion is not complete: {reason!r}')
+        usage = getattr(completion, 'usage', None)
+        raise IncompleteCompletion(f'completion is not complete: {reason!r}', finish_reason=reason,
+                                   details={key: getattr(usage, key, None) for key in
+                                            ('prompt_tokens', 'completion_tokens', 'total_tokens')})
     content = getattr(getattr(choice, 'message', None), 'content', None)
     if not isinstance(content, str) or not content.strip():
         raise IncompleteCompletion('completion has no text')

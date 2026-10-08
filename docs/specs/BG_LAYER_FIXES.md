@@ -7,6 +7,12 @@ or independently measure summary truth. The next long-source, completeness
 and local-write work follows [V3_POST_RESEED_REPAIR](V3_POST_RESEED_REPAIR.md);
 old pre-reseed sequencing and model-search proposals below remain historical.
 
+**Implemented v3 incomplete-note repair, 2026-10-08:** conversation JSON output
+is explicitly900 tokens. Provider-length rejects the prefix but preserves full
+original-only note parts and failure receipts; other failures remain failures.
+The retained14-turn actual group finished but failed semantic verification, so
+this is source preservation, not corpus compression improvement.
+
 **Implemented v3 mechanism, 2026-10-08:** E4B turn/abstract and rolling/batch
 notes now return source-window-cited JSON assertions. The existing DeBERTa checks
 complete cited premises without truncation; uncertainty retains originals. Five

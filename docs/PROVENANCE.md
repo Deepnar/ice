@@ -1,3 +1,40 @@
+## 2026-10-08 — v3 incomplete note source preservation
+
+Conversation notes now expose `conversation_summary_max_tokens=900` instead of
+a hardcoded400-token output cap. This matches the existing turn-note allowance
+and reserves room for cited JSON around the unchanged250-word content target.
+It is a bounded sizing decision, not a guarantee of complete or faithful output.
+Actual complete request plus output reserve still must fit the serving window.
+Replay identities now pin this and the relevant note/extraction chunk/output
+settings; changed writer behavior uses new development state, never r4 resume.
+
+A provider-marked length failure is still rejected by the real completion reader.
+The shared note builder discards its prefix and returns the complete original
+source group as source mode, with no support verdict, an `incomplete_generation`
+reason and finish/usage/output-limit metadata. Original parts retain the reason
+when split into selectable turns. The conversation writer reports source-fallback
+and incomplete-group counts separately, and can advance coverage only because
+complete originals were retained. Unconfirmed calls, input capacity, transport,
+other finish reasons and cooperative yields still propagate. Batch notes share
+this preservation path at their existing1200-token output limit.
+
+A real writer→manifest→part index→prompt reader disposable control supplies a
+false approval as a length-marked prefix. Both complete original refusal turns
+survive with receipts; the prefix never reaches the stored note or prompt.
+An unchanged source checkpoint resumes without another model call. The existing
+batch control now verifies source-only coverage, rather than incorrectly equating
+coverage with successful generation. Its cleanup follows actual batch-note FK
+ownership. The previous-checkpoint failure control remains for nonlength failure.
+
+One actual E4B/pinned-NLI original group reconstructed at a recorded failed-fold
+cutoff spans14 turns/19,967 characters. It finishes under the new output cap but
+fails semantic support and retains every original character. This is not its
+exact historical cached request, nor positive compression evidence. Receipt:
+`logs/v3-repair-2026-10-08/retained-note-group.json`. Completeness and answer benefit
+remain open. Combined smoke/background rails677 passed in43.25s with5 existing
+warnings; no cloud call or full experiment. Failed fixture assumptions and the
+unsuccessful first extraction recovery remain recorded privately.
+
 ## 2026-10-08 — v3 specialist task and extraction output repair
 
 P3's read-only receipt bucket finds58 terminal extraction failures:43 provider

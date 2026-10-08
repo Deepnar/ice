@@ -2223,3 +2223,16 @@ transport fixed the retained source at465 output tokens. Verify the actual
 rendered task, not merely the user-message prompt shape. Keep all failed attempts
 and strict parsing; historical prompt-specific percentages do not transfer to
 a corrected template or qualify independent graph precision.
+
+### 94. Original-source coverage and successful generation are different receipts
+
+**v3, 2026-10-08.** A conversation fold could repeatedly exhaust400 output tokens
+and leave its original group uncovered by the note index, although raw turns
+were safe. The cited JSON contract needs field/citation overhead as well as its
+word target. With an explicit900-token cap, provider-length still rejects the
+prefix but records complete original-only parts and failure metadata. Coverage
+then means those originals were retained, not that a summary was approved.
+Tests must forbid the false generated approval and verify complete source content
+and its reason, rather than insist on no coverage. Keep nonlength/transport/
+capacity failures distinct; one completed generation still failed NLI and retained
+19,967 source characters, so fallback success cannot be called compression gain.

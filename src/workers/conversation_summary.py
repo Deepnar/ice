@@ -26,13 +26,13 @@ from src.memory.summary_support import (
 )
 from src.memory.time_format import recorded_stamp
 from src.memory.tokens import estimate_from_chars
-from src.workers.completion_text import complete_text
+from src.workers.completion_text import IncompleteCompletion, complete_text
 
 
 logger = structlog.get_logger("ice.workers.conversation_summary")
 
 
-def _default_llm(prompt: str, max_tokens: int = 400) -> str:
+def _default_llm(prompt: str, max_tokens: int = None) -> str:
     from src.workers.bg_client_factory import (
         bg_timeout,
         get_bg_client,
@@ -41,8 +41,7 @@ def _default_llm(prompt: str, max_tokens: int = 400) -> str:
     from src.memory.tokens import count_messages, with_margin
     from src.model_registry.registry import get_model_context_window
     from src.model_registry.runtime_probe import serving_window
-    from src.workers.completion_text import IncompleteCompletion
-
+    max_tokens = settings.conversation_summary_max_tokens if max_tokens is None else max_tokens
     model = get_bg_model_name()
     messages = note_messages(prompt)
     window = int(settings.ollama_num_ctx_max)
@@ -61,7 +60,7 @@ def _default_llm(prompt: str, max_tokens: int = 400) -> str:
         messages=messages,
         temperature=0.0,
         max_tokens=max_tokens,
-        # prefill-heavy (existing summary + a turn chunk): keep the 60s floor,
+        # Prefill-heavy complete original groups: keep the 60s floor,
         # G12's formula scales with output only.
         timeout=max(60.0, bg_timeout(max_tokens)),
     )
@@ -119,13 +118,27 @@ def _note_prompt(source, *, structured=False):
             instruction + f"\n\nORIGINAL SOURCE GROUP:\n{source}")
 
 
-def _source_note(turns, source, known_roles, llm, verifier, *, max_tokens=400):
+def _source_note(turns, source, known_roles, llm, verifier, *, max_tokens=None):
+    max_tokens = settings.conversation_summary_max_tokens if max_tokens is None else max_tokens
     windows = None
     prompt = _note_prompt(source)
     if known_roles and verifier is verify_support:
         windows = source_windows(original_units(turns))
         prompt = _note_prompt(window_prompt(windows), structured=True)
-    generated = llm(prompt, max_tokens=max_tokens)
+    try:
+        generated = llm(prompt, max_tokens=max_tokens)
+    except IncompleteCompletion as exc:
+        if exc.finish_reason != "length":
+            raise
+        logger.warning("conversation_note_source_fallback", reason="incomplete_generation",
+                       finish_reason=exc.finish_reason, source_turns=len(turns), max_tokens=max_tokens,
+                       **exc.details)
+        return {"source_ids": [str(t.id) for t in turns], "mode": "source",
+                "recorded_range": (f"{recorded_stamp(turns[0].timestamp, turns[0].ts_provenance)} to "
+                                   f"{recorded_stamp(turns[-1].timestamp, turns[-1].ts_provenance)}"),
+                "text": source, "verification": None, "support_failure": "incomplete_generation",
+                "generation_failure": {"finish_reason": exc.finish_reason, "max_tokens": max_tokens,
+                                       **exc.details}}
     if not generated or not generated.strip():
         return None
     if windows and generated.lstrip().startswith(("{", "```")):
@@ -172,7 +185,8 @@ def _readable_parts(part, turns):
         source, _ = _original_source(turn)
         result.append({"source_ids": [str(turn.id)], "mode": "source",
                        "recorded_range": recorded_stamp(turn.timestamp, turn.ts_provenance),
-                       "text": source, "verification": part['verification']})
+                       "text": source, "verification": part['verification'],
+                       **{key: part[key] for key in ('support_failure', 'generation_failure') if key in part}})
     return result
 
 
@@ -237,7 +251,8 @@ def run_conversation_summaries(db, llm=None, embedder=None,
     restricts the pass (tests process only fixture conversations — the full
     scan is the burst/cadence behavior)."""
     stats = {"scanned": 0, "created": 0, "updated": 0,
-             "below_window": 0, "failed": 0}
+             "below_window": 0, "failed": 0,
+             "source_fallback_groups": 0, "incomplete_note_groups": 0}
     if llm is None:
         llm = _default_llm
     verifier = verifier or verify_support
@@ -304,6 +319,8 @@ def run_conversation_summaries(db, llm=None, embedder=None,
             if part is None:
                 ok = False
                 break
+            stats["source_fallback_groups"] += int(part["mode"] == "source")
+            stats["incomplete_note_groups"] += int(part.get("support_failure") == "incomplete_generation")
             parts.extend(_readable_parts(part, turns))
         if not ok:
             stats["failed"] += 1

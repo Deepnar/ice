@@ -10,7 +10,8 @@ older execution order and experiment roster in `Z1_tuning_coverage.md` and
 
 **Status: implementation underway, 2026-10-08.** P0 measurements and P1 bounded
 verification are implemented with focused validation. Two confirmed P2 source
-selection defects are repaired; broader P2 quality and P3–P10 remain pending.
+selection defects and P3 extraction/note mechanisms are repaired. Remaining
+procedural-output sizing, broader quality review and P4–P10 remain pending.
 ROADMAP is the queue. The numbered packages below decompose existing entries,
 not a new G-track or claims of eleven newly discovered defects. The completed
 r4 evidence is in [PROVENANCE](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).
