@@ -1476,7 +1476,7 @@ wins; where it conflicts with the code, the code wins.**
 | Source sentences independent of entity recognition | `CodexClaim`, `CodexClaimLink`; extractor template includes exact `source_sentence`, role units processed independently, paragraph context retained; native1024 embedding + lexical index. In template mode explicit nullable subject/relation/object fields with an original quote (literal or uniquely resolved by case/whitespace alignment back to original bytes) become a source-only claim, never a graph assertion; all keys required, other nonnull fields nonblank strings, malformed fields retry; unsupported quotes preserve original evidence without graph writes. | `codex_sentence_claims=True` | YES for new extraction; no automatic legacy backfill |
 | Direct claim search | `orchestrator._codex_claims` in normal and wide-net paths, before global reranker/packing; source/hash/privacy/scope checked | `codex_claim_candidate_limit=64`; existing RRF constant | YES for warm/cold sources; cold cluster-scoped claims withheld until archive membership is preserved |
 | Exact claim/source containment | `orchestrator._enforce_token_budget` using `ContextFragment.claim_source_row_id`, `.claim_excerpt` and `.source_note_row_id` | No new knob; existing retrieval budget and collapse settings | YES; a claim is omitted only when the same source row's admitted episodic or complete-original note literally contains its excerpt. One-source original notes and complete episodic fragments share one prompt slot; the attributed note wins when it fits. Supported generated notes and partial excerpts remain distinct. |
-| Source-support compression | `memory/support.py`, `claims.store_claims` / `claim_representation`; source and claim hashes + pinned verifier; uncertain source stays whole | `source_support_threshold=0.95`, max tokens512, device auto | YES for source-sentence shortening; not yet summary or conflict verification |
+| Source-support compression | `memory/support.py`, `claims.store_claims` / `claim_representation`; source and claim hashes + pinned verifier; uncertain source stays whole | `source_support_threshold=0.95`, max tokens512, device auto | YES for source-sentence shortening; shared verifier also gates turn/note representations below; no inferred conflict authority |
 | Edge-proposition source gate | `relation_support.verify_relation_pairs`, `codex_extractor.extract_codex`, `CodexClaimLink.relation_verification`; complete attributed paragraph → verbalized triple before graph write; withheld quotes remain searchable | `codex_sentence_claims=True`, same pinned NLI model/0.95 threshold | YES for new attributed extraction; explicit claims-off mode retains warned legacy unverified writes, old graph not replayed |
 | Claim deletion | Conversation FK cascade; explicit turn-forget by stable episodic ID; absent/edited sources never render | shared conversation/forget services | YES; archive retains claims and reader resolves warm state first |
 | Graph-source deletion and rebase | `services/conversations.py::_edge_source_plan`, `_apply_edge_source_plan`; warm/cold source and `edge_added`/`edge_strengthened` provenance | C10/G76 | YES; deleting primary support re-points the edge at a current linked quote if one survives (else newest original), deleting secondary support prunes it, and last-support deletion expires the edge. Read events are never support. Historical extraction-confidence maxima cannot yet be decomposed by source. |
@@ -1487,6 +1487,12 @@ wins; where it conflicts with the code, the code wins.**
 | Cold restoration preserves evidence | `_resurrect_cold_hits`; archived vector reused, NULL vector retained with warning; unknown timestamp provenance remains unknown | `retrieval_strengthen_writes=True` | YES for selected cold hits with conversation identity |
 
 ### v3 turn representation support (2026-09-19)
+
+**Measured v3 r4 limit, 2026-10-07:**986/986 nonempty turn summaries have
+unknown/SupportInputError verdicts and0 approved substitutions;9/980 abstracts
+have positive support. The512-token complete-pair gate is active, but summary
+compression is inert on this corpus. Keeping originals is working; compact
+summary utility is unqualified. See [the aggregate evidence](PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).
 
 | Feature | Implementation | Setting/default | On by default? |
 |---|---|---|---|
@@ -1517,6 +1523,19 @@ wins; where it conflicts with the code, the code wins.**
 
 These are explicit research commands, not default proxy features. Their path
 checks do not establish an answer-quality result.
+
+**Completed v3 r4, 2026-10-07:** all five stages now have complete-diagnostic
+status (1471 turns/259 prompts/117 admitted occurrences). Successful cloud
+answers456/468; judge qualification and semantic source-use audits remain open.
+The current replay counter named `summary_support_unknown` incorrectly reads
+container presence instead of nested statuses: its zero must not be credited.
+At scored prompts, procedural and cold selected fragments are0;95 procedural
+patterns/2 active exist, whereas the cold store is empty. Twenty-one maintenance
+agent calls make0 model decisions because the touched reconciliation sources
+have synthetic dates and fail authority eligibility. These are corpus-specific
+limits, not removed or globally dead features. The proposed repairs and new
+bare-vector/additive/subtractive conditions in
+[V3_POST_RESEED_REPAIR](specs/V3_POST_RESEED_REPAIR.md) are not yet implemented.
 
 | Feature | Where | Roadmap id | What it does (plain) | Setting | Default | On by default? |
 |---|---|---|---|---|---|---|

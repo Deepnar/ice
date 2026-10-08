@@ -1,3 +1,253 @@
+## 2026-10-08 — v3 campaign closeout and next-phase planning
+
+No new memory-quality experiment or model call. A read-only recount of r4
+independently reproduces all four answer totals, the115-occurrence outcome and
+prompt-cost tables,36/111 comparator-dependent full-answer grades,986 unknown
+summaries and971 unknown abstracts. Every campaign-report artifact hash still
+matches. The private derived receipt is
+`logs/v3-post-reseed-closeout-audit-2026-10-07.json`; the dated result entry below
+is the public aggregate record, with no conversation text or answer values.
+
+Merged `work/jmlr-v2-submission` into main as`d0b8565`, retaining its final
+eight paper files byte-for-byte, including the author-edited cover letter and
+the separate online appendix. Both archive PDFs match the merged PDFs; the
+original local copies exactly matched that branch and were backed up before
+merge. This is frozen-v2 manuscript packaging, not a v3 scientific result.
+
+New [post-reseed repair/tuning/Z2 spec](specs/V3_POST_RESEED_REPAIR.md) records
+confirmed causes, bounded hypotheses and unexercised paths. Runtime changes,
+tuning and Z2 runs are not claimed complete. All29 dependent roadmap entries
+now reference their actual r4 evidence; the formal anchored count stays93
+checked/67 open of160. Completed replay/source-review/cloud-processing
+submilestones are checked under the live-system gate.
+
+Validation:618/618 isolated smoke checks in38.37s after the paper merge,
+then618/618 in45.47s for the documentation pass, five existing warnings each;
+these are the same suite, not1236 independent behaviors or new memory evidence.
+Logs: `logs/v3-post-reseed-closeout-smoke-2026-10-07.log` and
+`logs/v3-post-reseed-docs-smoke-2026-10-08.log`. Introduced relative links resolve,
+all29 owner notes are present, and the history-sensitive-path check passes.
+No production/test code, model default, frozen campaign artifact or working
+memory database changed in this closeout. SESSION is retained by explicit
+maintainer instruction; publication is authorized once for this closeout.
+
+## 2026-10-07 — v3 completed r4 development campaign
+
+**Status: complete diagnostic, not a score of record.** The maintainer completed
+all five stages of `logs/z1-v3-manual-2026-10-04-r4`. This entry records the
+subsequent read-only evidence audit; it did not launch another seed, restore the
+working database, regenerate answers, or call a model. The closeout separately
+ran disposable smoke checks. The frozen v2 paper is unaffected.
+
+### Identity and populations
+
+The private bundle contains `seed.jsonl`, `replay-report.json`,
+`campaign-report.json`, four `answers-*.json` files and three final paired
+`judge-full-vs-*.json` files. All hashes listed by the campaign report were
+rechecked successfully during closeout. Seed SHA256:
+`0d718f970071ebf264b274e102c880e3153687597a0e156e9abe717e987af185`.
+The source-code digest remains
+`0870efc6d86b04c29509d2edca857419bd3fd5c9edbe686751a362513c47f0a2`;
+two exact registered instrument continuations are retained. Thirty-nine
+immutable as-of stores remain under `seed.recovery/evaluation/`, along with
+the final full-store snapshot and durable recovery manifests. Final judge
+files bind the current answer bytes and the same seed hash. Completed partial
+judge files also remain; their presence does not imply unfinished work.
+
+The corpus has **1,471 original user/assistant turns across three histories:
+1,119, 251 and 101 turns**. The first two use declared synthetic import dates;
+the third's dates match its provider export. Replay froze **259 question
+occurrences at 39 checkpoints**, including four repeat occurrences. Original
+255 source reviews: **113 valid, 102 invalid, 40 uncertain, none pending**.
+Linked124 split77/25/22; native131 split36/77/18. Invalid/uncertain labels are
+excluded dispositions, not missing mappings or failed memory answers.
+
+The 113 valid base questions plus four repeats produce **117 admitted answer
+occurrences at 31 scored checkpoints**. By history these are44/67/6, across
+17/12/2 scored cutoffs. Median age of the latest required old source is
+108.5/54/50 turns; maxima532/217/61. Two deliberately recent BEFORE controls
+are reported separately, leaving **115 older occurrences** for the main table.
+Task labels overlap; most natural question-family equivalence remains
+unreviewed. These are not117 independent random samples or three independent
+judge replications of the same question.
+
+Local generation: `gemma4:e4b` general background, NuExtract3-Q8_0 extraction;
+existing pinned Qwen encoder/reranker and DeBERTa source support. Cloud
+answerer `gpt-6-luna` using provider-default temperature; judge
+`muse-spark-1.3-contributor`, `opencode-muse13` Responses, both display orders.
+Current answer-pair qualification is pending. No Laya model participates.
+
+### Answers, preferences and context cost
+
+Of468 planned answer records, **456 returned successfully and12 ended in
+`CloudCompletionError` with `incomplete` status**: full113/4 successful/error,
+no-Codex114/3, warm-vector113/4, recent116/1. The stored receipt does not establish
+whether an output/reasoning cap caused the incomplete responses. Errors are
+ungraded, not incorrect answers or ties. Every planned record is processed.
+
+The following are **diagnostic Muse judgments on115 older occurrences**.
+“Correct” excludes partial, uncertain and ungraded; denominators include all
+planned occurrences. Full answers are identical across comparisons but their
+judged grades can change with comparator.
+
+| Comparison | Full correct | Control correct | Full preferred | Control preferred | Tie | Uncertain preference | Ungraded |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Full vs direct Codex evidence off |74/115|65/115|23|13|52|22|5|
+| Full vs ICE warm-vector control |73/115|68/115|21|18|47|23|6|
+| Full vs recent history |79/115|19/115|83|7|14|7|4|
+
+Across all117 including BEFORE controls, absolute grades
+correct/partial/incorrect/uncertain/ungraded are:
+
+| Contrast | Full | Control |
+|---|---|---|
+| no-Codex |76/7/12/17/5|67/10/15/20/5|
+| warm-vector |75/9/10/17/6|70/10/10/21/6|
+| recent |81/5/14/13/4|21/18/64/10/4|
+
+Paired definitive correctness on the115 older occurrences,
+both-correct/full-only/control-only/neither: no-Codex56/9/3/13,
+warm-vector56/8/5/11, recent11/63/5/13. Other rows are unresolved; do not silently
+drop them to quote a cleaner total. The private-history stratum has33 older
+occurrences: full/control correct22/15 versus no-Codex,20/19 versus vector,
+24/1 versus recent. Synthesis24 has full9 vs vector11 correct with substantial
+uncertainty/errors. Sparse, overlapping strata cannot establish a general winner.
+
+Mean estimated total prompt tokens on115 older occurrences:
+**full21,909.4; no-Codex21,663.0; warm-vector21,464.3; recent5,752.8**.
+Across117, means21,882.2/21,639.4/21,440.5/5,848.1 and medians
+18,957/18,590/18,507/5,799. Full costs about2.1% more than warm-vector and3.8×
+recent on the older panel. Successful full provider inputs have median18,333
+tokens; common-tokenizer estimates and actual provider usage are different
+measures. Failed/retried requests have incomplete usage, so this is not a total
+cloud billing calculation.
+
+Interpretation: strong case-specific evidence that v3 accesses useful old
+memory beyond recent history; a modest diagnostic direct-Codex gain; **no
+established dominance over vector or better memory at lower context**. The
+warm-vector control retains ICE's reader policies; no independent bare-vector
+baseline was run. Direct-Codex omission inherits graph-created state and query
+effects; it is not an all-graph writer ablation.
+
+### Judge reliability and repeated probes
+
+Relative order consistency among117 pairs: no-Codex90, vector88, recent105;
+absolute pair-grade consistency83/82/94. Of111 full answers graded in all three
+contrasts, **36 receive different final full-answer grades** across contrasts;
+75 agree. This instability is large relative to the vector correctness gap.
+The current combiner exposes disagreements as uncertain; it does not qualify
+the underlying rubric. Some reviewed questions remain ambiguous between general
+advice and recalling historical assistant advice. Source linkage alone cannot
+settle that intent. No single certified full-ICE accuracy is inferred.
+
+Two reviewed development-repeat families were correct for full/no-Codex/vector
+both before and after leaving recent history; recent-only changed from correct
+to incorrect for both. AFTER source ages were78 and102 turns. Full prompt cost
+increased1,340 and3,296 tokens. This is useful individual retention evidence,
+**not final semi-LSREP, genuine calendar retention, or two independent users**.
+
+### Compression, source survival and component use
+
+The trace records1471 `written` events,1180 lossless flags and **1471 raw
+injection flags**. There are986 nonempty turn summaries: **all986 have nested
+unknown/SupportInputError verdicts, none supported**. Of980 nonempty abstracts,
+9 have supported/model-score verdicts and971 unknown/SupportInputError.
+462 summaries clear term-coverage0.7, but none clear source support. The deployed
+verifier checks complete attributed source plus candidate against a512-token
+bound; long inputs never reach model scoring. Unknown correctly retains raw
+evidence, but this corpus gets no approved turn-summary substitution.
+
+The report's `post_flight_writes.summary_support_unknown=0` is **incorrect for
+that label**: its implementation tests whether the entire container is None,
+not the nested verdict status. Keep that original report immutable and derive a
+corrected version during repair. Unknown model_score, overlength input,
+missing verdict and absent candidate need separate denominators.
+
+Snapshot notes:1395 conversation notes,1394 source-mode and1 supported-mode;
+265 batch notes, all source-mode. Eight batch summaries exist. Claims can still
+supply shorter exact source evidence; these counts do not mean every possible
+compact representation is absent.
+
+On the115 admitted older probes,193 gold-source occurrences yield185 generated,
+170 ranked,136 at fragment rank≤5,148 at≤10,164 budgeted,140 selected and29
+visible through source-mode notes; selected-or-note union166. Distinct-source
+rank≤5/≤10 is146/159. **These remain source-ID metrics.** In an inspected stable
+failure, the correct parent source ranked first and was selected, but the
+required historical code value occurred in none of the candidate fragments or
+the frozen final prompt. Its complete original remained stored. This establishes
+answer-bearing selection loss without publishing the private source/value.
+Other stable misses include no candidate and selected-evidence loss; a correct
+reply still needs separate evidence-use review. Raw replay candidate metrics
+include excluded labels and must not replace this admitted denominator.
+
+On all117 scored full prompts, selected fragments comprise2062 episodic
+(1111 hybrid,289 BM25,662 vector),201 Codex,2 batch-summary,0 procedural or cold.
+Selected Codex text contributes55,439 estimated tokens, about2.2% of total
+prompt tokens. The procedural store has95 patterns,2 active,6 with more than
+one reinforcement. Zero selected procedures identifies a utility gap; it does
+not identify whether activation, matching, ranking or packing is responsible.
+
+### Graph and maintenance
+
+Snapshot counts:22,826 claims;11,559 edges;12,600 entities;11,674 claim links;
+13,365 graph events;28 relation-gap rows;10 compaction snapshots;21 clusters;
+1470 episodic-cluster links;1471 originals;2038 chunks. All edges have links,
+and all11,674 relation-verification receipts say supported. Claims include
+18,904 assistant and3922 user assertions. These are internally verified
+source assertions, not independently established relation/world truth.
+
+Graph connectivity over active edges:11,551 active,8 expired;2 negated;
+2409 undirected components,7 isolated nodes,10,352 degree-one nodes (82.2% of
+12,600); largest component6518. Alias-like name variants remain separate;
+their identity still needs source review. Extraction-confidence tiers:
+1642 at0.9,669 at0.7,9248 at0.35. The direct-read floor is0.5 and access cannot
+raise a low-confidence edge across it. Claims remain searchable. No evidence
+here authorizes deleting the80% low tier or forcing graph connectivity.
+
+The seed records790 scheduled job calls: cluster assignment224, merge50,
+conversation summary71, batch summary71, reflection71, maintenance agent21,
+each of three decay jobs89, compaction15. Twenty-one agent passes inspect1000
+items, touching508 distinct reconciliation items (at most twice): **zero model
+decisions, applications or proposals**. All touched old/new source pairs have
+synthetic import timestamps. `_reconciliation_evidence` requires original
+timestamp authority and rejects these before the decision model. This is an
+eligibility/fixture restriction, not a measured model failure or an infinite
+retry of one set of50 items. Priority scans consume their cap before later
+detectors. The final pending review queue contains8152 rows
+(7641 reconciliation,120 slot-update,391 new-cluster proposals).
+
+Reflection left1750 nonempty entity descriptions and109 session summaries;
+semantic precision of these outputs and the21 cluster names remains unreviewed.
+Compaction changed state in4 calls, compacting1259 events into10 snapshots.
+Recorded job elapsed sums include conversation-summary41.9min,
+reflection35.2min, cluster-assignment13.1min and batch-summary2.0min. These are
+job totals, **not whole-campaign throughput, peak VRAM or a serving benchmark**.
+
+### Degradation and limits
+
+There are81 terminal degraded local calls:58 post-flight extraction-output
+errors,3 post-flight incomplete completions,20 incomplete conversation folds.
+The144 failed attempts include retries:116 extraction,8 post-flight incomplete,
+20 fold incomplete. Thus1410/1471 turns report complete post-flight. Among117
+admitted prefixes:2 clean,14 with degraded gold sources,101 degraded elsewhere.
+Two clean cases cannot estimate healthy-system quality. A zero fatal-failure
+list at completion is not a zero quality-failure rate.
+
+The replay anchors1471 source-time scopes and550 explicit SQL-NOW statements.
+Recorded selected lineage has no future/unresolved source occurrence, but no
+cold rows or cold retrieval were exercised. Slots, bookmarks, projects and
+document workflows are not represented. This synchronous recorded-response
+schedule does not certify live asynchronous/idle timing or local foreground
+residency. It does exercise historical preflight/exposure, original-response
+storage and real local memory jobs. Diagnostic probes do not write memory.
+
+**Decision:** preserve r4 and repair its demonstrated compression, evidence
+selection and measurement defects; investigate the source-backed graph,
+procedural and authority restrictions with bounded controls. Then tune and
+freeze before final semi-LSREP plus oracle. The plan and all29 dependent-item
+owners are in [V3_POST_RESEED_REPAIR](specs/V3_POST_RESEED_REPAIR.md). No whole
+roadmap item is closed merely by these diagnostic counts.
+
 ## 2026-10-07 — v3 byte-stable completed-answer resume and preserved judging
 
 Actual r4 logs show an input identity refusal at the judge phase, after the

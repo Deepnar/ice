@@ -496,6 +496,12 @@ accompanies this repair; the unpinned factory fallback remains explicitly warned
 
 ### v3 long-source NLI candidate — 2026-09-20 (not deployed)
 
+**v3 completed-r4 evidence, 2026-10-07:** the deployed DeBERTa is unchanged.
+All986 nonempty turn summaries failed the512-token complete-input contract as
+unknown/SupportInputError; this does not measure the model's semantic rejection
+rate. The first repair is bounded attributed source/claim units, not another
+model promotion. The candidates and failed controls below remain relevant.
+
 `tasksource/ModernBERT-base-nli`, pinned
 `de4ab7e77845098b7fab7f6ab9d370ddff27b19c`, is being checked as a longer-input
 source-support candidate. Its **actual config says2048 positions**, despite the
@@ -520,3 +526,15 @@ unsupported rejected, only1/12 supported admitted). Peak long run2.317GiB. No
 threshold fitting. Cached, **not promoted**: insufficient demonstrated compression
 utility. Artifacts `nli_bge_candidate.json` and `nli_bge_long_candidate.json` under
 `experiments/v3_repair/results/`. DeBERTa remains the deployed verifier.
+
+### v3 completed r4 cloud and decision-model status — 2026-10-07
+
+GPT-6-Luna returned456/468 planned answers;12 incomplete completions remain
+ungraded. Muse Spark1.3 Contributor Responses completed diagnostic comparison
+processing, but36/111 identical full answers receive different absolute grades
+across contrasts. Current-v3 qualification remains pending; no winner over
+another judge is inferred. Keep the same explicit profiles while repairing
+independent-answer scoring and reviewing saved responses. No model was added,
+removed or re-assigned by this closeout. Laya remains unpromoted; entity/update
+decision roles require their own eligible-source controls and whole-stack
+resource qualification. [Evidence and model identities](PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).

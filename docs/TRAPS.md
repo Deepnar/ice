@@ -2141,3 +2141,51 @@ the false success fields reproduced both original pinned SHA256 values exactly.
 Archive inputs and untouched judge state durably before restoring proven bytes;
 refuse changed text and active operators. A closed runner transition permits
 read-only completed output reuse, never new calls or old partial-output reuse.
+
+### 87. An uncertainty container is not an uncertainty count
+
+**v3, 2026-10-07.** Completed r4's replay report says
+`summary_support_unknown=0`. Its counter checks `summary_support is None`,
+but the stored field contains separate summary and abstract verdict dictionaries.
+Reading those dictionaries finds986/986 nonempty summaries unknown with
+SupportInputError, and971/980 abstracts unknown. All originals remain available;
+the large prompt cost reflects a protection mechanism with no useful summary
+substitution on this corpus. Inspect the actual schema and status/reason
+denominators. A report's zero can hide100% fallback without any missing row.
+Distinguish absent candidate, absent verdict, input rejection and model judgment.
+
+### 88. The right source ID can carry none of the answer
+
+**v3, 2026-10-07.** An admitted r4 code-value question credited its gold parent
+source at rank1 and in selected evidence. The complete original retained the
+required value, but no generated/selected excerpt or frozen answer prompt
+contained it. The answerer reported that it lacked the relevant code. Source-ID
+recall was correct as an identity metric and false as a claim about supplied
+answer support. Record exact rendered spans and score required semantic units
+after representation and final packing. Do not repair this by leaking the gold
+answer into runtime selection or by assuming that citing the parent exposes it.
+
+### 89. Pairwise judging can give one saved answer several absolute accuracies
+
+**v3, 2026-10-07.** The same full-ICE answer files were compared with three
+controls. On36/111 occurrences graded in every contrast, the final absolute
+grade for that identical full answer differed. Order swapping catches another
+source of instability but does not remove comparator-conditioned grading.
+The apparent full-versus-vector advantage is smaller than this disagreement
+population. Cache independently qualified absolute grades by immutable answer,
+question, sources and rubric; keep paired preference separate. Review ambiguous
+historical-versus-general question intent before interpreting the grade changes.
+This observation diagnoses uncertainty; it does not label every disputed
+judgment wrong or establish a superior replacement judge.
+
+### 90. A model cannot improve a decision path that never calls it
+
+**v3, 2026-10-07.** Twenty-one maintenance passes inspected1000 reconciliation
+items but made0 model decisions. Offline source/link inspection found508
+distinct items, all with synthetic-time old/new sources. The authority gate
+requires original timestamps, so it returns before model inference. Changing
+the decision model would leave that zero unchanged. The queue also consumes
+the ordered detector scan cap before later detectors can run. Separate source
+eligibility, scan admission, actual calls and decisions; distinguish verified
+relative source order from authentic calendar time. Do not remove an expiry
+guard just to obtain nonzero actions, or call this model failure without a call.

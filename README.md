@@ -165,8 +165,11 @@ its own archived prefix and receipt. Recent-only controls bypass retrieval
 helpers; the warm-vector control excludes temporal notes and wide-net search.
 New bundles checkpoint every completed turn. It requires reviewed ground truth
 and remains diagnostic while judge qualification and output-specific quality
-checks are pending. Its harness checks are not new
-memory-quality results and do not replace the frozen-v2 findings above.
+checks are pending. The first complete v3 development campaign now has
+[diagnostic results and limitations](docs/PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign):
+useful old-memory evidence, substantial compression limits and an unqualified
+answer judge. The [next repair, tuning and evaluation plan](docs/specs/V3_POST_RESEED_REPAIR.md)
+keeps these findings separate from the frozen-v2 paper results above.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers

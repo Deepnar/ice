@@ -7,7 +7,7 @@
 > Features that are experimental, gated off, or not yet wired into the live path are
 > flagged inline.
 
-`Last updated: 1 August 2026` · `Scope: main` · [Roadmap](ROADMAP.md) · [Provenance](PROVENANCE.md)
+`Last updated: 7 October 2026` · `Scope: v3 main` · [Roadmap](ROADMAP.md) · [Provenance](PROVENANCE.md)
 
 ---
 
@@ -89,6 +89,17 @@ The system decomposes into the following components, each described in the corre
 
 
 ### **1.3 V3 historical evaluation instrument (2026-10-01)**
+
+**Completed development run, 2026-10-07:** r4 processed1471 recorded turns,
+259 as-of prompts and117 admitted occurrences in four answer arms. All five
+stages finished diagnostically;456/468 answers returned,12 remain ungraded
+incomplete completions. The cloud judge remains unqualified, and its absolute
+grade for the same full answer differs across contrasts on36/111 fully graded
+cases. Detailed [results and limits](PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign)
+now supersede the prelaunch/paused state below. This run provides evidence of
+long-term memory utility, not a certified accuracy, whole-product qualification
+or an independent vector-baseline win. The next
+[repair/tuning/Z2 contract](specs/V3_POST_RESEED_REPAIR.md) is a plan, not runtime.
 
 `scripts/z1/seed_v3.py` replays the selected recorded histories through shared
 preflight/final preparation before storing each existing reply and running
@@ -1721,6 +1732,14 @@ support. Generated summaries stay stored as metadata. This protects substitution
 not completeness, real-world truth or long-source compression. Conversation/batch
 summary provenance and recursive fold repair remain active work.
 Migration `f3c8d5e02b19` is additive; no historical reevaluation is automatic.
+
+**Observed v3 limit, r4 2026-10-07:** all986 nonempty turn summaries fail input
+admission as unknown/SupportInputError, while only9/980 abstracts have supported
+verdicts. All1471 originals retain raw-injection flags;1394/1395 conversation
+notes and all265 batch notes use source mode. The complete-source guard protects
+evidence but prevents useful turn-summary compression on this corpus. This is
+not a finding that NLI evaluated986 summaries as false. The planned bounded
+source/claim-unit repair must preserve attribution and completeness separately.
 
 ### v3 budget-time alternatives — 2026-09-21
 
