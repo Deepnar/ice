@@ -76,7 +76,7 @@ def representation_source(row):
                      for u in units if u.text.strip()) or None
 
 
-def verify_representations(row, summary, abstract, *, verifier=None):
+def verify_representations(row, summary, abstract, *, verifier=None, proof=None):
     """Background-only verification; readers reuse immutable verdict identities."""
     from dataclasses import asdict
     import structlog
@@ -88,6 +88,26 @@ def verify_representations(row, summary, abstract, *, verifier=None):
             structlog.get_logger("ice.memory.representation").warning(
                 "representation_support_unknown", reason="source_roles_unknown")
         return {}
-    return {kind: asdict((verifier or verify_support)(source, candidate))
-            for kind, candidate in (("summary", summary), ("abstract", abstract))
-            if candidate}
+    result = {}
+    proof_current = True
+    if proof is not None:
+        from src.memory.summary_support import original_units, windows_current
+        proof_current = windows_current(original_units([row]), proof.get("windows", []))
+    for kind, candidate in (("summary", summary), ("abstract", abstract)):
+        if not candidate:
+            continue
+        if proof is not None:
+            from src.memory.summary_support import verify_assertions
+            if proof_current:
+                result[kind] = verify_assertions(source, candidate, proof[kind],
+                                                 proof["windows"], verifier=verifier)
+            else:
+                from src.memory.source import digest
+                structlog.get_logger("ice.memory.representation").warning(
+                    "representation_support_unknown", reason="source_window_identity_changed", kind=kind)
+                result[kind] = {"status": "unknown", "scores": {}, "reason": "source_window_identity_changed",
+                    "source_sha256": digest(source), "claim_sha256": digest(candidate),
+                    "verifier": f"{settings.source_support_model}@{settings.source_support_revision}"}
+        else:
+            result[kind] = asdict((verifier or verify_support)(source, candidate))
+    return result

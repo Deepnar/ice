@@ -46,10 +46,12 @@ def source_snapshot(db, conversation_id, *, batch_summary_id=None):
 
 
 def representation_policy():
+    from src.memory.summary_support import policy as summary_support_policy
     return {'model': settings.source_support_model,
             'revision': settings.source_support_revision,
             'support_threshold': settings.source_support_threshold,
-            'coverage_threshold': settings.turn_summary_coverage_threshold}
+            'coverage_threshold': settings.turn_summary_coverage_threshold,
+            'summary_support': summary_support_policy()}
 
 
 def compose_parts(parts):
@@ -67,8 +69,18 @@ def bind_snapshot(sources, summary, *, parts=None):
 def snapshot_matches(record, summary, current, *, allow_newer=False):
     if not isinstance(record, dict) or record.get('version') != SNAPSHOT_VERSION:
         return False
-    if record.get('representation_policy') != representation_policy():
-        return False
+    current_policy = representation_policy()
+    saved_policy = record.get('representation_policy')
+    if saved_policy != current_policy:
+        parts = record.get('parts')
+        # Original-only caches have no derived approval to invalidate when
+        # adding a verification method. Keep their exact source/composition
+        # checks below; generated parts still need the full current policy.
+        if (not isinstance(saved_policy, dict) or not isinstance(parts, list) or not parts
+                or any(not isinstance(p, dict) or p.get('mode') != 'source' for p in parts)
+                or {k: v for k, v in saved_policy.items() if k != 'summary_support'}
+                   != {k: v for k, v in current_policy.items() if k != 'summary_support'}):
+            return False
     if record.get('summary_sha256') != digest(summary or ''):
         return False
     saved = record.get('sources')

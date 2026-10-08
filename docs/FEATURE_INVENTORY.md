@@ -1496,8 +1496,8 @@ summary utility is unqualified. See [the aggregate evidence](PROVENANCE.md#2026-
 
 | Feature | Implementation | Setting/default | On by default? |
 |---|---|---|---|
-| Independent summary and abstract verification | Post-flight stores `representation_verification`; shared chat/MCP/retrieval readers check canonical role source hash, candidate hash, model version and score | Existing `source_support_threshold=0.95`, complete pair max512 tokens | YES for newly evaluated turns; legacy missing verdicts use raw |
-| NLI uncertainty preserves evidence | Overlength, missing authority, model error or unsupported summary cannot replace original; generated metadata remains stored | Shared support verifier | YES; long-source/fold compression remains unfinished |
+| Independent summary and abstract verification | `summary_support.py` creates original-role tokenizer windows and cited complete assertions; post-flight stores separate proofs. Shared readers check source/candidate, policy and every assertion verdict | Existing `source_support_threshold=0.95`, complete cited pair max512 tokens; windows target224 tokens including attribution | YES for newly evaluated turns; legacy missing verdicts use raw |
+| NLI uncertainty preserves evidence | Overlength combined citations, missing authority, model error or unsupported assertions retain originals. Optional abstract failures are independent. Exact original-only caches survive an added support-method policy | Shared support verifier; no silent truncation or OR voting | YES; bounded compression now implemented, corpus completeness/answer benefit unqualified |
 
 ### v3 batch-source notes (2026-09-21)
 

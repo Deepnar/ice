@@ -20,6 +20,10 @@ from src.memory.summary_snapshot import (
     SUMMARY_SOURCES_SQL, bind_snapshot, compose_parts, snapshot_matches, source_snapshot,
 )
 from src.memory.support import supported_current, verify_support
+from src.memory.summary_support import (
+    SourceNotePrompt, assertion_instruction, assertion_text, note_messages, original_units, parse_assertions,
+    source_windows, verify_assertions, window_prompt,
+)
 from src.memory.time_format import recorded_stamp
 from src.memory.tokens import estimate_from_chars
 from src.workers.completion_text import complete_text
@@ -40,10 +44,7 @@ def _default_llm(prompt: str, max_tokens: int = 400) -> str:
     from src.workers.completion_text import IncompleteCompletion
 
     model = get_bg_model_name()
-    messages = [
-        {"role": "system", "content": "You are a precise summarisation engine."},
-        {"role": "user", "content": prompt},
-    ]
+    messages = note_messages(prompt)
     window = int(settings.ollama_num_ctx_max)
     if settings.background_model_mode == "shared":
         observed = serving_window(model, get_model_context_window(model))
@@ -101,23 +102,49 @@ def _original_groups(turns):
         yield group, "\n\n".join(texts), known
 
 
-def _note_prompt(source):
-    return (
-        "Summarize only the original source group below. Preserve who said what, "
+def _note_prompt(source, *, structured=False):
+    instruction = (
+        "You are a precise summarisation engine. Extract a compact memory note "
+        "from the original source group. Preserve who said what, "
         "uncertainty, conditions, negation, corrections, decisions and open questions. "
+        "Keep substantive memory facts; omit repeated background narration and "
+        "descriptions of the discussion process. Do not count windows as turns. "
         "An assistant suggestion is not a user decision. Do not invent a connection "
         "to include a name or number. Do not resolve changes using recorded time "
-        "as if it were event time. Output only the source-grounded note, aiming for "
-        f"at most {settings.conversation_summary_max_words} words.\n\n"
-        f"ORIGINAL SOURCE GROUP:\n{source}"
+        "as if it were event time. Aim for "
+        f"at most {settings.conversation_summary_max_words} words. "
+        + (assertion_instruction() if structured else "Output only the source-grounded note.")
     )
+    return (SourceNotePrompt(instruction, source) if structured else
+            instruction + f"\n\nORIGINAL SOURCE GROUP:\n{source}")
 
 
 def _source_note(turns, source, known_roles, llm, verifier, *, max_tokens=400):
-    generated = llm(_note_prompt(source), max_tokens=max_tokens)
+    windows = None
+    prompt = _note_prompt(source)
+    if known_roles and verifier is verify_support:
+        windows = source_windows(original_units(turns))
+        prompt = _note_prompt(window_prompt(windows), structured=True)
+    generated = llm(prompt, max_tokens=max_tokens)
     if not generated or not generated.strip():
         return None
-    verdict = asdict(verifier(source, generated)) if known_roles else None
+    if windows and generated.lstrip().startswith(("{", "```")):
+        try:
+            parsed = parse_assertions(generated, windows)
+        except ValueError:
+            logger.warning("conversation_note_source_fallback", reason="invalid_summary_assertions",
+                           status="unknown", source_turns=len(turns))
+            return {"source_ids": [str(t.id) for t in turns], "mode": "source",
+                    "recorded_range": (f"{recorded_stamp(turns[0].timestamp, turns[0].ts_provenance)} to "
+                                       f"{recorded_stamp(turns[-1].timestamp, turns[-1].ts_provenance)}"),
+                    "text": source, "verification": None,
+                    "support_failure": "invalid_summary_assertions"}
+        generated = assertion_text(parsed["summary"])
+        verdict = verify_assertions(source, generated, parsed["summary"], windows)
+    else:
+        if windows:
+            logger.warning("summary_citations_missing", reason="unstructured_note_generation")
+        verdict = asdict(verifier(source, generated)) if known_roles else None
     supported = supported_current(verdict, source, generated)
     if not supported:
         logger.warning("conversation_note_source_fallback",

@@ -1741,6 +1741,31 @@ evidence but prevents useful turn-summary compression on this corpus. This is
 not a finding that NLI evaluated986 summaries as false. The planned bounded
 source/claim-unit repair must preserve attribution and completeness separately.
 
+### v3 bounded source-linked summary verification — 2026-10-08
+
+The existing E4B now proposes complete JSON assertions cited to original-role
+windows with immutable unit hashes and character offsets. The pinned DeBERTa
+tokenizer partitions all originals with overlap, targeting224 tokens per window
+including attribution. Every complete assertion is verified against all its
+cited windows together under the unchanged512-token pair bound and0.95 cutoff.
+All assertions must pass; oversized combinations remain unknown. Window coverage
+proves the source was represented in generation, not that the summary is complete.
+
+Turn summaries, abstracts and rolling/batch notes use this contract. Proofs bind
+source, candidate, method/policy, citations and per-assertion results. Readers
+require current identities without model inference. Invalid optional abstracts
+cannot discard a valid summary; failed notes retain complete originals. New
+support-method policy does not hide unchanged original-only note compositions.
+The real note clients separate instructions and original windows into system and
+user roles. No new model, threshold promotion or historical reevaluation occurs.
+
+Five actual local-model/disposable-DB controls passed through turn writers,
+chat/explicit/lexical readers and both note clients, including a false approval
+with perfect term retention that still kept raw evidence. These qualify the
+mechanism, not corpus faithfulness, completeness or fewer-token answer gains.
+Historical r4 failure rates above remain unchanged. See
+[the repair provenance](PROVENANCE.md#2026-10-08--v3-bounded-summary-support).
+
 ### v3 budget-time alternatives — 2026-09-21
 
 Complete raw turns, supported summaries and existing long-turn chunks remain

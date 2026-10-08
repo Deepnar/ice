@@ -2189,3 +2189,14 @@ the ordered detector scan cap before later detectors can run. Separate source
 eligibility, scan admission, actual calls and decisions; distinguish verified
 relative source order from authentic calendar time. Do not remove an expiry
 guard just to obtain nonzero actions, or call this model failure without a call.
+
+### 91. Source-window metadata can become invented conversation content
+
+**v3, 2026-10-08.** Initial cited-summary generation treated numbered windows
+as turns and described repeated excerpts as repeated user instructions. Other
+responses omitted abstract citations and discarded a usable summary alongside
+that optional defect. Separate instructions from originals in the real provider
+roles, explain that windows are excerpts rather than events, and verify complete
+assertions against their actual role/source spans. Withhold a malformed optional
+abstract independently. Preserve original fallbacks and failed-control receipts;
+a well-formed citation is not proof of entailment or summary completeness.

@@ -10,6 +10,7 @@ from sqlalchemy.engine import make_url
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.models import BatchSummary, Conversation, EpisodicMemory, IdempotencyKey
+from src.memory.source import chat_provenance
 from src.workers.completion_text import IncompleteCompletion
 
 assert (os.environ.get('ICE_TEST_DATABASE', '').startswith('ice_test_') and
@@ -74,6 +75,7 @@ def seed_turns(db, cid, sid, n=6):
     for i in range(n):
         row = EpisodicMemory(conversation_id=cid, batch_id=uuid.uuid4(), session_id=sid,
             timestamp=now + timedelta(minutes=i), raw_text='User: Explain before changing it.\n\nAssistant: Agreed.',
+            source_spans=chat_provenance('Explain before changing it.', 'Agreed.'),
             context_reliance='Long_Term_Memory', decay_score=1.0,
             lossless_flag=False, is_document=False, is_private=False,
             idempotency_key=str(uuid.uuid4()))

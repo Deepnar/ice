@@ -8,7 +8,9 @@ replay), `G63_extractor_decision.md` (NuExtract3 extraction),
 older execution order and experiment roster in `Z1_tuning_coverage.md` and
 `FINAL_experiments.md` for this v3 phase; their historical measurements remain.
 
-**Status: decided 2026-10-07, finalized 2026-10-08; not implemented or measured.**
+**Status: implementation underway, 2026-10-08.** P0 measurements and P1 bounded
+verification are implemented with focused validation. Two confirmed P2 source
+selection defects are repaired; broader P2 quality and P3–P10 remain pending.
 ROADMAP is the queue. The numbered packages below decompose existing entries,
 not a new G-track or claims of eleven newly discovered defects. The completed
 r4 evidence is in [PROVENANCE](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).
@@ -40,8 +42,8 @@ errors, or 100% benchmark accuracy are not substitute objectives. Do not keep
 changing a final benchmark until it becomes perfect. Repair an identified
 mechanism now; do not wait for Z2 to rediscover r4's confirmed defects.
 
-This planning/closeout pass changes no runtime. Subsequent implementation is
-within the existing authorized v3 repair scope. No new model is required by
+The initial planning/closeout pass changed no runtime. The subsequent repairs
+are within the existing authorized v3 repair scope. No new model is required by
 this plan. Keep the local/cloud switch; local E4B and NuExtract3 write memory,
 cloud GPT-6-Luna answers, Muse Spark 1.3 Contributor Responses remains the
 selected judge subject to qualification. No silent judge/provider substitution.
@@ -106,7 +108,44 @@ resident model, hosted JEV dependency, or classifier/NLI replacement is implied.
 
 ## 2. Algorithm and data model
 
+**Implementation grounding, 2026-10-08:** P0's saved trace has nested verdicts
+and candidate texts. The corrected report schema counts missing candidates and
+missing/invalid verdicts separately, binds trace/reporter hashes, and refuses to
+overwrite an existing report. An identical current report can resume read-only
+after full recomputation; old identities use a new derived path. Existing generated/ranked/budgeted receipts lack text;
+their old answer-content coverage is unobserved. New child traces record text
+at those stages. Exact-value survival is a separate diagnostic from semantic
+support, which requires reviewed context/qualifiers rather than word presence.
+
 ### 2.1 Long-source support and evidence selection
+
+The bounded implementation uses the existing NLI tokenizer to enumerate windows
+within each authoritative role unit, retaining original character offsets and
+overlap. Window text targets half the pair capacity minus 32 tokens, leaving the remainder for
+the complete assertion and provenance; actual pair length is still checked by
+the scorer. Generation receives numbered original windows and returns JSON
+assertions with cited window IDs. The rendered summary is composed only from
+those complete assertions, never from an independent uncited prose field.
+Multiple cited windows are checked together as one premise or remain unknown
+if the complete pair cannot fit. Every assertion must pass; no OR aggregation.
+Summary and abstract proofs are independent. The verdict binds the complete
+canonical source, candidate, tokenizer/model revision, window policy and every
+cited premise/assertion. Whole-source legacy verification remains available for
+short outputs lacking citation structure, with a visible warning for a missing
+structured response. It cannot silently approve a long output by truncation.
+An invalid optional abstract citation is independently warned and withheld;
+it does not discard an otherwise valid cited summary. The model is asked for
+the smallest sufficient citation set rather than all repeated background windows.
+Citation metadata is excluded from assertion text, windows are not counted as
+turns, and attribution does not invent an action or frequency from formatting.
+The real rolling and batch clients put this instruction in the system role and
+the complete original windows in the user role, matching the turn generator.
+Capacity checks count those actual messages rather than an unsplit placeholder.
+Adding the new support-method policy cannot invalidate an unchanged cache made
+entirely of complete original-source parts. Its raw/source/visibility snapshot
+and composition still must match; supported generated parts require the full
+current policy. This preserves existing source evidence while changing derived
+approval rules.
 
 1. Enumerate **all** original role units with immutable source ID/hash and
    offsets. Build token-bounded windows with overlap and exact offsets using
@@ -150,6 +189,23 @@ against reviewed alternatives and original context; substring checks suffice
 only for exact-value questions. A semantic decision may be uncertain and must
 not silently become recall=1. Gold annotations never enter query expansion,
 candidate generation, reranking, or the answering prompt.
+
+**P2 production-path finding, 2026-10-08:** recent history splits a turn's
+allowance in half even when one speaker uses only a few tokens. This clips a
+late user refusal despite the complete pair fitting the unchanged per-turn
+allowance. Redistribute the unused role share to the other role before any
+truncation; retain the same turn/window caps and explicit roles. If both roles
+are oversized, the existing bounded split remains until source-window packing
+is qualified. This repairs demonstrated answer-content loss without a larger
+prompt budget or a new model.
+
+**P2 document-selection finding, 2026-10-08:** the lexical SQL selects source
+text/verification but omits `is_document`. Its converter consequently bypasses
+the existing query-selected document chunks. The retained r4 exact-value source
+has 2,020 words; its existing keyword chunk selection would include the required
+value. Supply the actual flag to the converter, then check the original-source
+reproduction and the final same-budget prompt. This activates the existing
+mechanism; no new reranker or guessed document classification is added.
 
 ### 2.2 Absolute scoring and qualification
 

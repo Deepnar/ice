@@ -16,6 +16,7 @@ from src.memory.summary_snapshot import (
     source_snapshot,
 )
 from src.memory.support import verify_support
+from src.memory.summary_support import note_messages
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 from src.workers.completion_text import IncompleteCompletion, complete_text
 from src.workers.conversation_summary import (
@@ -71,10 +72,7 @@ def _token_batches(turns, budget):
 
 
 def _batch_llm(prompt, max_tokens):
-    messages = [
-        {"role": "system", "content": "You are a precise summarisation engine."},
-        {"role": "user", "content": prompt},
-    ]
+    messages = note_messages(prompt)
     from src.model_registry.registry import get_model_context_window
     from src.model_registry.runtime_probe import serving_window
     model = get_bg_model_name()

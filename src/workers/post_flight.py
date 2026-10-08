@@ -18,6 +18,10 @@ from src.workers.completion_text import complete_text
 from src.api.db import SessionLocal
 from src.memory.models import EpisodicMemory, IdempotencyKey
 from src.memory.representation import choose_representation, verify_representations
+from src.memory.summary_support import (
+    SummaryCandidate, SummaryResult, assertion_instruction, assertion_text,
+    original_units, parse_assertions, source_windows, window_prompt,
+)
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
 from src.workers.codex_extractor import embedder as shared_embedder
 from src.workers.codex_extractor import extract_codex
@@ -40,14 +44,18 @@ bg_client = get_bg_client()
 
 def _summary_llm_call(prompt: str, response: str, model_name: str,
                       terms: list, missing: list = None,
-                      source_kind: str = "chat", source_title: str = "") -> str:
+                      source_kind: str = "chat", source_title: str = "",
+                      windows=None) -> str:
     """One grounded summarisation call. *terms* is the MUST-PRESERVE list;
     *missing* (retry only) names the terms the first attempt dropped.
 
     C12: for a document section the instruction says so. Telling the model to
     "summarize the following user/assistant exchange" when it is looking at a
     page of a specification invites it to invent an exchange."""
-    # ⚑ TUNED FOR gemma4:e4b (2026-08-27). Measured, n=70 turns, one changed
+    # Historical term-preservation wording, measured for plain E4B prose.
+    # The 2026-10-08 cited JSON contract is separately qualified; the old
+    # percentages below do not describe this new generation format.
+    # Measured 2026-08-27, n=70 turns, one changed
     # substring, blind judge gated on planted defects first:
     #
     #   gemma4:e4b   hard "must appear verbatim"  15.7% fabricated, 82.9% faithful
@@ -89,27 +97,25 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
         )
     if source_kind == "document":
         titled = f" from the document \"{source_title}\"" if source_title else ""
-        what = f"Summarize the following excerpt{titled} in 4-6 sentences. "
+        what = f"Extract a compact memory note from the following excerpt{titled}. "
         noun = "excerpt"
     else:
-        what = "Summarize the following user/assistant exchange in 4-6 sentences. "
+        what = "Extract a compact memory note from the following user/assistant exchange. "
         noun = "exchange"
     system = (
         "You are a precise summarisation engine. " + what +
         "RULES:\n"
         "- Preserve ALL named entities (people, characters, places, tools, project names).\n"
         "- Preserve ALL numbers, dates, versions, and their specific assignments.\n"
-        "- Preserve ALL specific facts, decisions, and their rationale.\n"
+        "- Preserve substantive facts, decisions, and their rationale.\n"
+        "- Omit repeated background narration; do not describe the source or discussion process.\n"
         "- Do NOT include pleasantries, speculation, or meta-commentary.\n"
         f"- If the {noun} contains code, describe what the code does.\n"
         f"{must_block}{retry_block}"
-        "- End with two final lines formatted exactly as:\n"
-        "  Key terms: <comma-separated list of the named entities, figures, and "
-        f"identifiers that appear in the {noun}>\n"
-        f"  Abstract: <ONE sentence, max ~20 words, stating what this {noun} "
-        "was about>"
+        + assertion_instruction(abstract=True)
     )
-    body = prompt if source_kind == "document" else f"User: {prompt}\nAssistant: {response}"
+    body = window_prompt(windows) if windows else (prompt if source_kind == "document"
+                                                  else f"User: {prompt}\nAssistant: {response}")
     completion = bg_client.chat.completions.create(
         model=model_name,
         messages=[
@@ -122,7 +128,12 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
         max_tokens=settings.turn_summary_max_tokens,
         timeout=bg_timeout(settings.turn_summary_max_tokens),
     )
-    return complete_text(completion)
+    generated = complete_text(completion)
+    if windows:
+        if generated.lstrip().startswith(("{", "```")):
+            return SummaryCandidate(parse_assertions(generated, windows, abstract=True), windows)
+        logger.warning("summary_citations_missing", reason="unstructured_generation")
+    return generated
 
 
 def _split_abstract(summary: str):
@@ -137,30 +148,45 @@ def _split_abstract(summary: str):
 
 def generate_summary(prompt: str, response: str, key_terms: dict,
                      model_used: str = "", source_kind: str = "chat",
-                     source_title: str = ""):
+                     source_title: str = "", source_row=None):
     """C1/C3 grounded summarisation: MUST-PRESERVE terms are injected into the
     prompt (ground-then-generate, like Codex A2), the result is *measured*
     (``summary_coverage``), one retry names any dropped terms, and the one-line
     abstract (hierarchy level 3) rides in the same call. Returns
-    ``(summary_text, coverage, abstract)`` — ("", 0.0, None) on failure so the
+    ``(summary_text, coverage, abstract)`` plus attached source proof when available;
+    ("", 0.0, None) on failure so the
     caller's raw-wins fallback engages."""
     model_name = get_bg_model_name()
     terms = must_terms(key_terms)
     try:
+        if source_row is None:
+            from types import SimpleNamespace
+            from src.memory.source import chat_provenance, single_provenance
+            raw = prompt if source_kind == "document" else f"User: {prompt}\n\nAssistant: {response}"
+            source_row = SimpleNamespace(raw_text=raw, source_spans=(
+                single_provenance(raw, "document") if source_kind == "document"
+                else chat_provenance(prompt, response)))
+        windows = source_windows(original_units([source_row]))
         summary = _summary_llm_call(prompt, response, model_name, terms,
                                     source_kind=source_kind,
-                                    source_title=source_title)
+                                    source_title=source_title, windows=windows)
         # G29: shared with conversation_summary's fold (turn_density).
         summary, coverage = retry_on_coverage_miss(
             summary, key_terms,
             lambda missing: _summary_llm_call(prompt, response, model_name, terms,
                                               missing, source_kind=source_kind,
-                                              source_title=source_title))
-        summary, abstract = _split_abstract(summary)
+                                              source_title=source_title, windows=windows))
+        proof = None
+        if isinstance(summary, SummaryCandidate):
+            proof = {**summary.assertions, "windows": summary.windows}
+            abstract = assertion_text(summary.assertions["abstract"]) or None
+            summary = str(summary)
+        else:
+            summary, abstract = _split_abstract(summary)
         # coverage was measured on the full text incl. the Key-terms line;
         # re-measure on the stored body so the gate reflects what's injected.
         coverage = summary_coverage(summary, key_terms)
-        return summary, coverage, abstract
+        return SummaryResult(summary, coverage, abstract, proof)
     except Exception as exc:
         from src.workers.runtime import JobYielded
 
@@ -245,9 +271,10 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             inject_raw = decision["inject_raw"]
             summary, coverage, abstract = None, None, None
             if decision["want_summary"]:
-                summary, coverage, abstract = generate_summary(
+                generated = generate_summary(
                     prompt, response, key_terms, model_used,
-                    source_kind=source_kind, source_title=source_title)
+                    source_kind=source_kind, source_title=source_title, source_row=turn)
+                summary, coverage, abstract = generated
                 summary = summary or None
                 if decision["summary_decides"]:
                     # Coverage is only a retention prerequisite. Independent
@@ -267,8 +294,12 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             turn.summary_text = summary
             turn.summary_coverage = coverage if summary else None
             turn.abstract_text = abstract if summary else None
-            turn.representation_verification = verify_representations(
-                turn, summary, turn.abstract_text)
+            proof = getattr(generated, "proof", None) if decision["want_summary"] else None
+            if proof is None:
+                turn.representation_verification = verify_representations(turn, summary, turn.abstract_text)
+            else:
+                turn.representation_verification = verify_representations(
+                    turn, summary, turn.abstract_text, proof=proof)
             turn.inject_raw = inject_raw
             if not inject_raw:
                 preferred, _, _ = choose_representation(turn)

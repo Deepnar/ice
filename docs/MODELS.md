@@ -499,8 +499,11 @@ accompanies this repair; the unpinned factory fallback remains explicitly warned
 **v3 completed-r4 evidence, 2026-10-07:** the deployed DeBERTa is unchanged.
 All986 nonempty turn summaries failed the512-token complete-input contract as
 unknown/SupportInputError; this does not measure the model's semantic rejection
-rate. The first repair is bounded attributed source/claim units, not another
-model promotion. The candidates and failed controls below remain relevant.
+rate. The first repair now uses bounded attributed source/claim units with the same
+pinned model,512-token pair limit and0.95 cutoff. It is implemented across turn
+and note generation; all cited windows for each complete assertion are checked
+together. Five actual local-model/DB path controls passed, including unsafe
+approval rejection. This is not corpus completeness or answer-quality evidence. The candidates and failed controls below remain relevant.
 
 `tasksource/ModernBERT-base-nli`, pinned
 `de4ab7e77845098b7fab7f6ab9d370ddff27b19c`, is being checked as a longer-input

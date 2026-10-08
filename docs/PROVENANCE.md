@@ -1,3 +1,38 @@
+## 2026-10-08 — v3 bounded summary support
+
+P1 replaces the failing whole-long-source input with source-window-cited complete
+assertions. Original role units retain exact offsets/hashes; the unchanged pinned
+DeBERTa tokenizer creates overlapping224-token windows including attribution.
+All cited premises for one assertion are scored together under512 tokens and the
+existing0.95 cutoff. Every assertion must pass. Proofs bind candidate, source,
+method/policy, citations and immutable results. Complete source-window coverage
+is not a claim of summary completeness. Unknown/unsupported proposals retain raw.
+
+The existing E4B emits structured turn/abstract and rolling/batch notes, with
+source text in the user role and instructions in the system role. An invalid
+optional abstract is independently withheld. Unchanged original-only caches
+remain readable across the new method policy; generated caches need current
+proofs. No new model, threshold, resident-model policy or historical rewrite.
+
+Initial local generator controls exposed bad citations, window metadata treated
+as content and neutral paraphrases; those failures remain in private diagnostic
+artifacts. Format, attribution and provider roles were repaired rather than
+force-approving output. Final actual local-model/disposable-DB seam suite:
+5 passed in30.42s with9 warnings, using E4B and the pinned NLI. Two long synthetic
+turns traverse writer→chat/explicit/BM25 readers; both real note clients traverse
+the cited contract. A false approval with term coverage1.0 is rejected and its
+original refusal remains available. These are mechanism controls, not a corpus
+faithfulness/completeness rate or cloud-answer improvement. Unrelated graph,
+procedural and chunk writers are isolated in these summary-only controls.
+
+The existing background-contract fixture lacked authoritative role spans and
+never reached its intended procedural incomplete-completion boundary. The fixture
+now supplies synthetic provenance; no production procedural rule was changed.
+Current combined smoke:652 passed,5 existing warnings,40.03s. Private artifacts:
+`logs/v3-repair-2026-10-08/actual-summary-path-complete.log`, initial/final
+`summary-generation-controls*` and `summary-nli-controls*`. No full experiment
+or cloud answer/judge call. G75's whole quality acceptance remains open.
+
 ## 2026-10-08 — v3 corrected representation and evidence measurements
 
 P0's instrument repair derives a new report from the completed r4 trace without

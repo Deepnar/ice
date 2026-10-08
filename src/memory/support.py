@@ -13,6 +13,8 @@ logger = structlog.get_logger('ice.memory.support')
 _lock = threading.Lock()
 _loaded = None
 _loaded_key = None
+_tokenizer = None
+_tokenizer_key = None
 
 
 class SupportInputError(ValueError):
@@ -27,6 +29,19 @@ class SupportVerdict:
     source_sha256: str
     claim_sha256: str
     verifier: str
+
+
+def support_tokenizer():
+    """Share the pinned tokenizer without loading a second NLI model."""
+    global _tokenizer, _tokenizer_key
+    from transformers import AutoTokenizer
+    with _lock:
+        key = (settings.source_support_model, settings.source_support_revision)
+        if _tokenizer_key != key:
+            _tokenizer = AutoTokenizer.from_pretrained(key[0], revision=key[1],
+                local_files_only=True, trust_remote_code=False)
+            _tokenizer_key = key
+        return _tokenizer
 
 
 def score_pairs(pairs, *, model_name=None, revision=None, device=None):
@@ -51,8 +66,9 @@ def score_pairs(pairs, *, model_name=None, revision=None, device=None):
             _loaded = None
             _loaded_key = key
         if _loaded is None:
-            tokenizer = AutoTokenizer.from_pretrained(model_name, revision=revision,
-                local_files_only=True, trust_remote_code=False)
+            tokenizer = (_tokenizer if _tokenizer_key == key else
+                AutoTokenizer.from_pretrained(model_name, revision=revision,
+                    local_files_only=True, trust_remote_code=False))
             model = AutoModelForSequenceClassification.from_pretrained(
                 model_name, revision=revision, local_files_only=True,
                 trust_remote_code=False, dtype=torch.float32).eval()
@@ -113,6 +129,10 @@ def supported_current(record, source, claim):
     """A persisted verdict authorizes only this exact source/candidate/model."""
     if not isinstance(record, dict) or not source or not claim:
         return False
+    if record.get('method') is not None:
+        from src.memory.summary_support import proof_current
+        if not proof_current(record, source, claim):
+            return False
     score = (record.get('scores') or {}).get('entailment') if isinstance(record.get('scores'), dict) else None
     return (record.get('status') == 'supported'
             and record.get('source_sha256') == digest(source)

@@ -7,6 +7,12 @@ or independently measure summary truth. The next long-source, completeness
 and local-write work follows [V3_POST_RESEED_REPAIR](V3_POST_RESEED_REPAIR.md);
 old pre-reseed sequencing and model-search proposals below remain historical.
 
+**Implemented v3 mechanism, 2026-10-08:** E4B turn/abstract and rolling/batch
+notes now return source-window-cited JSON assertions. The existing DeBERTa checks
+complete cited premises without truncation; uncertainty retains originals. Five
+actual model/DB controls passed. The historical plain-prose percentages below
+do not qualify this new prompt format or corpus completeness. No model changed.
+
 **Written 2026-08-26/27, during the background-model session. Executes at the
 END of this session, in one batch.**
 
