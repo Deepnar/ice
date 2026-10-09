@@ -925,7 +925,11 @@ where α_ℓ is the blended weight (defaulting to 1.0 for unknown legs) and rank
 
 **v3 relevance stage (2026-09-12).** After fusion/bonuses and before conversation
 caps and provenance collapse, both normal and wide-net retrieval run
-`retrieval/reranker.py`. It scores up to 64 candidates and each eligible rendered
+`retrieval/reranker.py`. Its bounded pool nominates the highest fused candidate
+of each source family, then fills original fusion order up to64. A small cap
+keeps fusion-priority nominees; this grants scoring opportunity, not final
+source-type quotas. Method and available/pool family counts are logged. It
+scores those candidates and each eligible rendered
 alternative using the pinned local Qwen3-Reranker-0.6B. Scores are yes/no logit
 differences, **not factual confidence**. Ordering is ON by default; the optional
 rejection floor is unset because the first controls did not qualify it. A

@@ -1,3 +1,43 @@
+## 2026-10-09 — v3 procedural candidate opportunity within the rerank cap
+
+Read-only frozen COPY audit verifies the saved dump SHA and95 patterns/2active.
+All cited batches resolve;89 have one source session,4 two,2 three.14 cite at
+least10 turns but13 are inactive with confidence.8/reinforcement1–2. All95
+trigger dictionaries are empty. This is lifecycle/semantic-review evidence,
+not permission to lower activation thresholds. A corrected actual trace count
+finds236/259 as-of contexts generate927 procedural candidates;3 reach ranking/
+selection on2 unlabeled general probes, none on117 answered occurrences. The
+first scratch count used source_type instead of the receipt's type; corrected
+before interpretation. Private retained rows/stage counts:
+`logs/v3-repair-p5-2026-10-09/procedural-retained-{private,counts}.json`,
+`procedural-stage-counts.json`; no pattern/source text is published.
+
+The reranker's prefix64 input cap could exclude a source family before semantic
+comparison. Actual Qwen3-Reranker-0.6B scores a supported procedural workflow
+6.5234 versus2.3906 for same-topic noise, but the old66-fragment pool never
+shows it to the model. The new pool nominates each source family's highest
+fusion candidate, fills the remainder by original order and keeps the same64
+cap. If too small for all families, fusion order wins. Complete-input/alternative
+bounds, failure fallback, rejection floor and final token budgets are unchanged.
+Available/pool family counts and selection method are logged.
+
+Two actual model controls use normal retrieve/RRF/rerank/budget paths, controlled
+producer/encoder/classifier inputs and live Factual_Retrieval/Software weights.
+The useful procedure has fusion rank66 yet reaches a20-token final input; the
+unrelated-query control has procedure rank67 and selects the9-token factual
+memory instead. Both score exactly64 candidates. Initial balanced/no-label
+fixture did not prove prefix exclusion; corrected to the actual fusion/weight
+path and assert the pre-rerank position, without changing production weights.
+This is model ranking/candidate access, not cloud answers, independently verified
+habit extraction or corpus-wide relevance. Private hashed artifacts:
+`rerank-pool-before.{json,log}`, `candidate-pool-fusion-actual.log` in that directory.
+
+Focused reranker20 checks pass; final combined isolated rails755 passed in40.59s
+with226 ORM/deprecation warnings. These overlap, not independent quality cases.
+P6 still owns semantic source validation, similarity-only merging, retirement
+and eligibility-before-LIMIT review. No new model, setting, activation/floor
+change, whole-owner closure, r4 mutation, cloud run or push.
+
 ## 2026-10-09 — v3 requested date versus source-clock exclusion
 
 The retained44-turn control loses a2020 statement about a2010 event under the

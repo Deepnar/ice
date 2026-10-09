@@ -538,6 +538,38 @@ Use opposing sources and check actual answer-bearing text, not just row presence
 This repairs evidence exclusion, not independent temporal answer accuracy.
 Broader relevance/latency/corpus quality remains for the existing package gates.
 
+### 2.1g Procedural candidate opportunity — grounded decision, 2026-10-09
+
+Read-only r4 receipts refine P6's bottleneck:236 of259 contexts generate927
+procedural candidates; only3 survive into pre-budget ranking on2 unlabeled
+general probes, none on117 answered occurrences. Final95-pattern state has
+14 citation-qualified rows,13 inactive with confidence.8/reinforcement1–2;
+89 patterns have one source session. These counts cannot qualify semantic
+habits or justify a lower activation threshold. Eligibility, lifecycle, candidate
+access and answer usefulness remain distinct checks.
+
+The reranker currently takes only the first64 RRF candidates. A66-fragment
+actual pinned-model control ranks a valid procedural workflow above same-topic
+noise when shown independently (6.5234 vs2.3906), yet that workflow never reaches
+the model in the capped pool. This confirms a candidate-access failure, not
+evidence to increase all leg weights, force prompt admission or add a model.
+
+Decision: under the existing candidate cap, nominate the highest pre-rank
+candidate of each produced source family, then fill remaining slots in original
+fusion order. When the cap is smaller than the family count, original order
+chooses the nominees. All nominated evidence still competes on actual relevance
+and the same final prompt budget; no equal final shares or floor change. Preserve
+strict complete-input scoring, alternate representation identity, model-outage
+fallback and source provenance. Log available/scored-pool/omitted family counts
+and the selection method. No extra setting, model or resident weights.
+
+Qualify isolation plus normal production retrieval/budgeting with relevant and
+irrelevant procedural candidates beyond the prefix cap, an actual pinned-model
+comparison, same candidate/token limits and family counts. This does not resolve
+semantic pattern support, cosine-only pattern merging, stale activation or
+SQL eligibility after LIMIT; inspect those existing P6 seams next. Do not close
+P6 or broad roadmap owners from this candidate opportunity mechanism alone.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36

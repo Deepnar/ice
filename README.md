@@ -185,6 +185,8 @@ actual model decisions.
 Dated questions now distinguish requested event time from source recording;
 an unresolved date meaning preserves relevant retrospective evidence under the
 same retrieval and prompt limits.
+Each available memory family can compete in the existing bounded rerank pool;
+relevance and final prompt limits still decide what reaches the answering model.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers

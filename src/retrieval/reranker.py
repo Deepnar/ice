@@ -3,6 +3,7 @@
 import math
 import threading
 import time
+from collections import Counter
 from dataclasses import replace
 
 import structlog
@@ -110,6 +111,26 @@ def score_pairs(pairs):
                 torch.cuda.empty_cache()
 
 
+def candidate_pool(fragments, cap):
+    """Let each source family compete under the existing overall input cap."""
+    if cap < 1:
+        raise ValueError('reranker candidate cap must be positive')
+    if len(fragments) <= cap:
+        return fragments
+    selected, families = set(), set()
+    for index, fragment in enumerate(fragments):
+        if fragment.source_type not in families:
+            selected.add(index)
+            families.add(fragment.source_type)
+            if len(selected) == cap:
+                break
+    for index in range(len(fragments)):
+        if len(selected) >= cap:
+            break
+        selected.add(index)
+    return [fragments[index] for index in sorted(selected)]
+
+
 def rerank(query, fragments, scorer=None):
     """Return (ranked fragments, succeeded); failures retain the entire input.
 
@@ -121,7 +142,7 @@ def rerank(query, fragments, scorer=None):
         return fragments, False
     start = time.monotonic()
     try:
-        candidates = fragments[: settings.retrieval_rerank_candidates]
+        candidates = candidate_pool(fragments, settings.retrieval_rerank_candidates)
         variants = [
             list(
                 dict.fromkeys(t for t in (f.text, f.degrade_text, f.abstract_text) if t)
@@ -173,6 +194,9 @@ def rerank(query, fragments, scorer=None):
             "retrieval_reranked",
             candidates=len(candidates),
             omitted_by_cap=max(0, len(fragments) - len(candidates)),
+            pool_method='family_representative_v1',
+            available_families=dict(Counter(f.source_type for f in fragments)),
+            pool_families=dict(Counter(f.source_type for f in candidates)),
             pairs=len(pairs),
             scored=len(output) - len(unscored),
             unscored_fallbacks=len(unscored),
