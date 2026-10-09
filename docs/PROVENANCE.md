@@ -1,3 +1,36 @@
+## 2026-10-09 — v3 question breadth and factual source rescue
+
+Captured baseline: an unspecified workplace question became city-only frames;
+its correct employer source returned `not_supplied` with no NLI call. Repair the
+existing E4B framing instructions to preserve requested breadth and explicit
+subtypes. Current local models, native caps, complete-source requirements and
+four-pair CPU NLI policy/threshold remain unchanged; no new model/call stage.
+
+Actual workplace positives4/4 (ordinary, lowercase, rambling, typo) now reach
+NLI and support the employer. Wrong-year/hypothetical sources remain non-admitted;
+explicit-city positive supports, employer-only city evidence remains unknown;
+current-supplied evidence is recognized. Two corrected temporal controls—undated
+past event and unknown import clock—are non-admitted. These11 combined controls
+span the first and supplemental panel; they are not held-out population accuracy.
+The initial panel stopped on an invalid negative label: present work status at
+an original2010 recording can identify status then. Its supported result is
+diagnostic, not a false positive, and does not establish a job start date.
+
+Actual production shared preparation over44 synthetic turns, with the original
+outside40 recent turns, rescues and supplies exactly one proven complete original
+within the prompt ledger. Classifier/ranking/graph producers are controlled;
+E4B source need/frame/fill, pinned NLI, SQL and final assembly run for real.
+Retained fixed13-case development source guard panel remains11/13, zero false
+admissions and the same two unresolved misses. This is not independent human gold.
+Focused50/50 pass17.39s; smoke/background813/813 pass44.36s (226 existing warnings),
+overlapping mechanism checks. No cloud answering or judge qualification claim.
+
+Ignored evidence under `logs/v3-repair-p5-2026-10-09`: `source-frame-actual.log`,
+`source-frame-temporal-rescue.log`, `source-frame-legacy-guards.{log,json}`,
+`source-frame-focused.log`, `source-frame-rails.log`. Native/frame/NLI inputs and
+hash-bound run metadata retained. Original r4 untouched. Broad style/entity
+activation, contextual-material utility and end-answer gains remain open.
+
 ## 2026-10-09 — v3 procedural clocks, retirement receipts and temporal-note budget
 
 P6 keeps the existing180-day/three-reinforcement retirement rule. Actual

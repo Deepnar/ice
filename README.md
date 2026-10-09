@@ -197,6 +197,8 @@ instructions from observed behavior and unverified stored candidates.
 Procedural context now separates cited source dates/conversation order from
 ICE observation time. Retirement reports its existing rule's actual outcomes;
 temporal notes fit the remaining retrieval budget.
+Factual memory proofs preserve a question's requested breadth: an unspecified
+workplace can be an employer; an explicit city request still requires a city.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers

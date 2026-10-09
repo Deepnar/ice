@@ -27,7 +27,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'support'))
 from author_assertion_case import Encoder, SCORES
 
 
-def exercise_date_axis(monkeypatch, *, axis='unknown', cold=False, actual_gate=False):
+def exercise_date_axis(monkeypatch, *, axis='unknown', cold=False, actual_gate=False,
+                       base_retrieve=True):
     if not os.getenv('ICE_TEST_DATABASE'):
         pytest.skip('Requires disposable_database.py; never uses the working store.')
     encoder, cid, sitting = Encoder(), uuid.uuid4(), uuid.uuid4()
@@ -86,7 +87,7 @@ def exercise_date_axis(monkeypatch, *, axis='unknown', cold=False, actual_gate=F
             memory = memory_preparation.prepare_memory_context(db=db, classifier=NS(embedder=encoder),
                 classification=classification, conversation_id=str(cid), user_message=question,
                 scope=scope, turn_count=44, total_tokens=3000, total_budget=16000,
-                serving_window=32768, base_retrieve=True, memory_slots=[], bookmarked_texts=[])
+                serving_window=32768, base_retrieve=base_retrieve, memory_slots=[], bookmarked_texts=[])
             assert memory.retrieve and memory.prepared.ledger.fits()
             final = '\n'.join(m['content'] for m in memory.prepared.messages)
             present = 'Petra worked at Atlas in 2010.' in final
@@ -98,7 +99,7 @@ def exercise_date_axis(monkeypatch, *, axis='unknown', cold=False, actual_gate=F
                 claim_reader_finds_gold=any('Atlas' in f.text for f in claims),
                 source_checked=memory.source_checked, source_action=memory.action,
                 fits=memory.prepared.ledger.fits(), final_fragments=len(memory.fragments))
-            if actual_gate and present:
+            if actual_gate and present and base_retrieve:
                 from dataclasses import asdict
                 from src.api import source_proof
                 from src.api.source_proof import freeze_source_question, prove_source_fact

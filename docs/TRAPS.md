@@ -2336,3 +2336,15 @@ note says no episodic records were selected, not that the whole store contains
 no memory. Check final rendered tokens and source credit after every helper.
 Source dates and ICE observation dates are independently labeled: ingesting an
 old instruction today cannot turn today into the instruction's event date.
+
+### 103. A correct source can fail before the verifier sees it
+
+**v3, 2026-10-09.** A question asking where someone worked became a city-only
+frame; the source named an employer, so fill returned no value and NLI ran
+zero times. Inspect the frozen frame and filled value before blaming the NLI
+model or loosening its threshold. Preserve requested category breadth and every
+explicit subtype/qualifier. Test same-meaning styles alongside narrower/opposing
+requests. Also inspect the control label: dated present status may legitimately
+answer then-current status; use an undated past event or unknown import clock
+to test unjustified event-year inference. Preserve failed artifacts and record
+the ground-truth correction rather than force rejection of a valid source.

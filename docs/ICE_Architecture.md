@@ -346,6 +346,19 @@ When the final decision is to retrieve, the shared preparation called by main.py
 **v3 source refinement, 2026-09-27:** `memory_preparation.py` now owns final
 chat preparation, shared with answer/replay instruments through
 `production_parity.prepare`. The B2 score remains the baseline probability;
+**v3 question-breadth repair, 2026-10-09.** The question-only framer previously
+turned an unspecified workplace into a city; filling then refused a true
+employer before NLI ran. Existing E4B instructions now preserve answer-category
+breadth, while explicitly requested subtypes and every qualifier remain required.
+Four workplace style variants support the employer; explicit-city, wrong-year,
+hypothetical, undated-past and unknown-import-clock controls retain source guards.
+A real44-turn shared preparation rescues one proven original outside the40-turn
+recent window. The prior13-case development guard panel stays11/13 with zero
+false admissions and the same two unresolved misses. No extra stage/model or
+NLI threshold change; broader entity/style/context-material and answer utility
+remain unqualified. A dated present-status statement is not a clean negative
+for then-current status; it cannot establish a separate job start date.
+
 `memory_source_gate_enabled=True` enables current-source proof;
 `memory_source_rescue_enabled=True` enables bounded negative rescue. The user
 selected the best measured complete E4B version on2026-09-27, ending candidate

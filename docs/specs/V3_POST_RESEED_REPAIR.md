@@ -753,6 +753,46 @@ are not presented, and source hashes/observation clocks are unchanged by reads.
 P6's retirement disposition is keep the current rule pending answer/lifecycle
 utility; do not lower activation or claim natural retention from these controls.
 
+### 2.1l Factual question breadth — grounded decision, 2026-10-09
+
+The captured actual request `Where did Petra work in2010?` became city-only
+frames. Its true source names an employer and no city; fill returns null before
+any NLI call. The source is present in the actual final prompt. This is invented
+answer-category narrowing, not a retrieval miss or a measured NLI rejection.
+
+Repair the existing question-only framing instructions: infer category from the
+requested relationship, keep ambiguous breadth, and require an explicitly
+requested subtype before narrowing. An employer/workplace/location may answer
+an unspecified workplace request; an explicit city question still requires a
+city. Do not add names, conditions, events, dates or frequency. Keep both frozen
+typed/direct equivalent frames, complete-source fill, leading-context/full-source
+NLI checks and current threshold/caps. No runtime keyword classifier, extra model,
+new call stage or prior/default changes. The existing example-category list must
+not license narrowing every `where` question to one listed example category.
+
+Use the recorded failure plus same-meaning lowercase/rambling/typo variants.
+Actual positive employer evidence must reach NLI/support; wrong event year,
+hypothetical work, an undated past event and an unknown import clock cannot
+supply the requested event year. A present-tense status reported at an
+authoritative original timestamp is not a clean negative: its status may hold
+then, without implying a job start date. Keep that case diagnostic rather than
+mislabeling legitimate dated status as a false positive. Explicit city
+positive/absent-city controls retain their narrower semantics. Check current-
+supplied positive suppression and negative-prior rescue through shared final
+preparation with the old source outside the40-turn recent window, complete
+originals and no answer generation. Record frames, filled source inputs and
+probability calls privately; never turn unknown into proof. This is bounded
+local qualification, not population style invariance or improved cloud answers.
+
+Implemented/qualified locally: four same-meaning workplace variants admit the
+true employer; date/modality/explicit-city guards and current-source suppression
+survive. The actual44-turn final preparation rescues one proven complete source
+outside40 recent turns. The previous fixed13-case guard panel stays11/13 with
+zero false admissions and its same two false negatives. Focused50 and combined
+813 regressions pass. Keep this corrected best-current mechanism; broad entity
+activation/style coverage, contextual-material rescue and end-answer utility
+remain qualified-development limits, not new model-search work or parent closure.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36
