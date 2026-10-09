@@ -453,6 +453,7 @@ async def chat_completions(
         log.info(
             "timescope_detected",
             mode=tscope.mode,
+            axis=tscope.axis,
             t0=tscope.t0.isoformat() if tscope.t0 else None,
             t1=tscope.t1.isoformat() if tscope.t1 else None,
             matched=tscope.matched_text,

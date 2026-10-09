@@ -182,6 +182,9 @@ Verified conversation order now permits source-backed corrections when calendar
 dates are unknown; it does not invent event dates. Maintenance reserves bounded
 opportunity for each detector and records authority failures separately from
 actual model decisions.
+Dated questions now distinguish requested event time from source recording;
+an unresolved date meaning preserves relevant retrospective evidence under the
+same retrieval and prompt limits.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers

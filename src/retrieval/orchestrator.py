@@ -810,7 +810,7 @@ class HybridRetrievalOrchestrator:
         ts = self._active_timescope
         params = {}
         time_filter = ""
-        if ts.mode in ("as_of", "range") and ts.t0 and ts.t1:
+        if ts.source_clock and ts.mode in ("as_of", "range") and ts.t0 and ts.t1:
             time_filter = (f"AND {prefix}timestamp >= :ts_t0 "
                            f"AND {prefix}timestamp < :ts_t1")
             params["ts_t0"], params["ts_t1"] = ts.t0, ts.t1
@@ -828,6 +828,8 @@ class HybridRetrievalOrchestrator:
         the user asked for a period, not proximity to its midpoint."""
         ts = self._active_timescope
         now = datetime.now(timezone.utc)
+        if ts.mode != 'current' and not ts.source_clock:
+            return now, 0.0, settings.retrieval_episodic_recency_tau_days
         if ts.mode == "as_of" and ts.t0 and ts.t1:
             center = ts.t0 + (ts.t1 - ts.t0) / 2
             window_days = (ts.t1 - ts.t0).total_seconds() / 86400.0
@@ -1547,7 +1549,7 @@ class HybridRetrievalOrchestrator:
         expiries are stamped at write time). Used by every codex read —
         traversal (both directions), relation facts, enumeration."""
         ts = getattr(self, "_active_timescope", CURRENT)
-        if ts.mode in ("as_of", "range") and ts.t1:
+        if ts.source_clock and ts.mode in ("as_of", "range") and ts.t1:
             return [or_(CodexEdge.valid_from.is_(None), CodexEdge.valid_from <= ts.t1),
                     or_(CodexEdge.valid_until.is_(None), CodexEdge.valid_until > ts.t1)]
         return [CodexEdge.valid_until.is_(None)]
@@ -1604,7 +1606,7 @@ class HybridRetrievalOrchestrator:
                       if self._source_times.get(str(b)) is not None
                       and str(b) not in getattr(self, "_private_source_batches", set())}
         ts = self._active_timescope
-        if ts.mode in ("as_of", "range") and ts.t1:
+        if ts.source_clock and ts.mode in ("as_of", "range") and ts.t1:
             candidates = {b for b in candidates
                           if self._source_times[str(b)][0] is None
                           or self._source_times[str(b)][0] <= ts.t1}
@@ -2049,7 +2051,8 @@ class HybridRetrievalOrchestrator:
                 if len(timeline_frags) < timeline_cap and history_exists(self.db, anchor.id):
                     tl, timeline_batches = build_entity_timeline(
                         self.db, anchor, allowed_batch_ids,
-                        t0=ts.t0, t1=ts.t1,
+                        t0=ts.t0 if ts.source_clock else None,
+                        t1=ts.t1 if ts.source_clock else None,
                         max_transitions=settings.timeline_max_transitions,
                         source_batch_for_edge=lambda edge: self._edge_source_batch(
                             edge, allowed_batch_ids), return_sources=True)
@@ -2087,6 +2090,9 @@ class HybridRetrievalOrchestrator:
         # multiplier stays >= 1.0, so A11's never-penalize-age invariant
         # survives the re-anchoring.
         vf = getattr(edge, "valid_from", None)
+        ts = getattr(self, "_active_timescope", CURRENT)
+        if ts.mode != 'current' and not ts.source_clock:
+            return base
         if vf is not None:
             try:
                 ts = getattr(self, "_active_timescope", CURRENT)
@@ -2277,7 +2283,7 @@ class HybridRetrievalOrchestrator:
             "min_conf": settings.procedural_min_conf,
             "proc_limit": settings.retrieval_procedural_limit,
         }
-        if ts.mode in ("as_of", "range") and ts.t0 and ts.t1:
+        if ts.source_clock and ts.mode in ("as_of", "range") and ts.t0 and ts.t1:
             time_filter = "AND first_observed <= :ts_t1 AND last_observed >= :ts_t0"
             params["ts_t0"], params["ts_t1"] = ts.t0, ts.t1
         # C9: the PgVector bindparam is load-bearing — the plain-list bind
@@ -2633,11 +2639,10 @@ class HybridRetrievalOrchestrator:
     def _cold_lookup(self, prompt_keywords, conv_id: Optional[str] = None,
                      scope: Optional[dict] = None,
                      prompt_embedding=None) -> List[ContextFragment]:
-        """Cold storage joins time-scoped queries ONLY (never normal ones, and
-        never the wide net). Requires a window — the window is what bounds the
-        search when there are no keywords (a pure "what was I thinking about
-        in march" browse); evolution without a window skips cold (unbounded
-        browse is noise). Scoping goes through the SAME _conv_scope_filter the
+        """Cold storage joins dated queries, under its existing candidate cap.
+        Source-clock windows filter recording dates; event/unknown axes retain
+        meaning-ranked sources from other recording dates. Undated evolution
+        still skips cold. Scoping goes through the SAME _conv_scope_filter the
         live episodic legs use (G29 — a hand-rolled `if conv_id` copy here let
         project-scoped queries read the whole global cold store)."""
         ts = self._active_timescope
@@ -2680,12 +2685,13 @@ class HybridRetrievalOrchestrator:
         if prompt_embedding is not None:
             vector_rank = ("CASE WHEN embedding IS NULL THEN 1 "
                            "ELSE (embedding <=> :cold_probe) END ASC,")
+        source_window = "timestamp >= :t0 AND timestamp < :t1" if ts.source_clock else "TRUE"
         query = text(f"""
             SELECT id, conversation_id, batch_id, raw_text, summary_text,
                    topic_tags, timestamp, is_private, embedding, source_spans, ts_provenance,
                    summary_coverage, representation_verification, abstract_text, lossless_flag, is_document, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids, batch_summary_id
             FROM cold_storage
-            WHERE timestamp >= :t0 AND timestamp < :t1
+            WHERE {source_window}
               {conv_filter}
               {excl_filter}
               {privacy_filter}
@@ -2863,7 +2869,7 @@ class HybridRetrievalOrchestrator:
         other episodic read (G29): it drops the window, never the scope, or a
         project-scoped question gets told about another project's eras."""
         ts = self._active_timescope
-        if ts.mode not in ("as_of", "range") or not (ts.t0 and ts.t1):
+        if not ts.source_clock or ts.mode not in ("as_of", "range") or not (ts.t0 and ts.t1):
             return final
         if any(f.source_type == "episodic" for f in final):
             return final

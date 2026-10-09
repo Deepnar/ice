@@ -203,6 +203,7 @@ def provenance_fields(pre: Preamble, memory=None) -> dict:
         "scope_is_none": False,
         "classify_had_conversation_id": True,
         "timescope_mode": pre.timescope_mode,
+        "timescope_axis": (pre.scope.get('timescope') or {}).get('axis', 'source_record'),
         "coding_scope": bool(pre.scope.get("project_id")),
         "routed_model": pre.model_name,
         "routing_policy": "controlled_per_prompt_auto_route_without_session_stickiness",

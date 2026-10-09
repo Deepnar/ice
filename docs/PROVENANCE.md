@@ -1,3 +1,44 @@
+## 2026-10-09 — v3 requested date versus source-clock exclusion
+
+The retained44-turn control loses a2020 statement about a2010 event under the
+old parsed query window. `TimeScope` now carries independent `source_record`,
+`event` or `unknown` axis. The deterministic parser resolves dates with unknown
+axis; explicit constructors and legacy serialized scopes retain source_record.
+Only source_record permits hard recording/knowledge-clock filters, date recency,
+timeline crop, procedural-observation overlap and empty-window claims. Event/
+unknown dates remain question conditions and telemetry, not invented event dates.
+Warm/cold meaning search keeps existing candidate/prompt caps; graph navigation
+stays live, with original claims/history separately available. No new model call,
+resident weights, interval migration or hyperparameter introduced.
+
+Five actual store/query/final-preparation controls recover the correct2010
+source from warm and cold storage, retain its2020 source label and find its
+claim; explicit source_record controls still exclude it. The opposing source
+asserts a2011 employer but was recorded in2010, so recording labels cannot be
+used as event truth. Gold remains outside40 recent turns (80 speaker messages).
+Inference/ranking controls use fixed classifier/encoder, graph disabled and a
+controlled positive source gate; no answer generation or quality score.
+Private focused log: `logs/v3-repair-p5-2026-10-09/temporal-axis-focused-v2.log`.
+
+Two actual final preparation paths exercise the existing E4B current-source
+gate, warm/cold retrieval, budgets, exposure and archived probation restoration.
+Both keep retrieval and the answer-bearing source in the final prompt. A
+separate optional real question/proof check rejects the wrong-year source but
+reports unknown on the gold; a traced repeat refuses gold before NLI because
+the request framer adds an unrequested city category to an unspecified workplace
+question. Do not attribute this solely to NLI or count it as a clean proof.
+P7 owns the captured frame/fill/support repair. Baseline-positive retrieval is
+preserved; negative-prior rescue usefulness is not qualified by this result.
+Actual traces and hashed script/config receipts:
+`actual-temporal-axis.log`, `actual-temporal-axis-proof-inputs.log` in that directory.
+
+Final isolated rails751 passed in41.75s with226 ORM/deprecation warnings; the
+existing source-clock temporal suite66/66 passes. These overlap26 focused checks,
+not independent memory/answer examples. First cold fixture called a nonexistent
+helper, corrected to actual `_cold_lookup`; parser/policy was not relaxed.
+No cloud experiment, r4/working-store mutation, broad roadmap-owner closure or
+push. Source-clock versus event/unknown semantics remain explicit in receipts.
+
 ## 2026-10-09 — v3 ordered corrections and bounded maintenance reachability
 
 The old reconciliation guard required one distinct source unit with an original

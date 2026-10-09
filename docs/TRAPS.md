@@ -2293,3 +2293,15 @@ conversation sequence. Keep speaker/conversation/source identity boundaries;
 unknown or disagreeing authority defers. Order does not prove replacement or
 world-event dates. Reserve detector quotas so one blocked backlog cannot hide
 all other core work. Count eligibility, actual model calls and decisions apart.
+
+### 100. A resolved query date is not a source-recording date
+
+**v3, 2026-10-09.** A2010 event question lost a2020 statement about2010 and
+returned a non-answering2010 record. The gold was outside recent history, so
+the window could not hide the mistake. Separate date resolution from semantic
+axis. Unknown/event dates preserve conditions while searching meaning across
+recording dates under existing caps; explicit source-clock queries retain their
+contract. Source metadata does not establish event dates. Inspect actual final
+text and opposing years. A later proof capture also narrowed "where worked"
+into an unrequested city and refused the employer before NLI; trace frames,
+values and probability calls before blaming the verifier or lowering its gate.

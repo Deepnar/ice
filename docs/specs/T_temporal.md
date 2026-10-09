@@ -2,6 +2,16 @@
 
 Assumes decided specs: none (first S1 spec; grounded in source at commit `ef6f735`, 2026-07-10).
 
+> **v3 query-axis revision, 2026-10-09:** `V3_POST_RESEED_REPAIR.md` §2.1f
+> supersedes unconditional recording-time filters for detected query dates.
+> The deterministic parser resolves dates with `axis=unknown`; only explicitly
+> supplied `source_record` scopes authorize source/knowledge-clock windows.
+> Existing explicit constructors and legacy scopes retain that contract.
+> Event/unknown scopes retain requested conditions and date labels but search
+> across recording dates under existing candidate/prompt caps. No event dates
+> are inferred and graph navigation stays live. The historical measurements
+> below describe the older source-clock implementation, not this revision.
+
 > **v3 repair revision, 2026-09-13:** the requested date-and-time presentation
 > supersedes the day/month-only rendering below. See `V3_REPAIR.md` timestamp
 > contract: source-recorded, learned, summary-created and recorded-validity

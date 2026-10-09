@@ -73,6 +73,13 @@ class TimeScope:
     t1: Optional[datetime] = None   # UTC, exclusive
     matched_text: str = ""          # expression(s) that fired (telemetry)
     evidence: tuple = ()            # signals that passed the gate (telemetry; B1 seam)
+    # Explicit constructors/legacy serialized scopes retain the original
+    # source-clock contract. Expression detection cannot establish this axis.
+    axis: str = "source_record"     # source_record | event | unknown
+
+    @property
+    def source_clock(self):
+        return self.axis == "source_record"
 
 
 CURRENT = TimeScope(mode="current")
@@ -86,6 +93,7 @@ def to_scope_dict(ts: Optional[TimeScope]) -> Optional[dict]:
         "mode": ts.mode,
         "t0": ts.t0.isoformat() if ts.t0 else None,
         "t1": ts.t1.isoformat() if ts.t1 else None,
+        "axis": ts.axis,
     }
 
 
@@ -100,6 +108,9 @@ def from_scope(scope: Optional[dict]) -> TimeScope:
     mode = d.get("mode")
     if mode not in ("as_of", "range", "evolution"):
         return CURRENT
+    axis = d.get('axis', 'source_record')
+    if axis not in ('source_record', 'event', 'unknown'):
+        return CURRENT
     try:
         t0 = datetime.fromisoformat(d["t0"]) if d.get("t0") else None
         t1 = datetime.fromisoformat(d["t1"]) if d.get("t1") else None
@@ -107,7 +118,7 @@ def from_scope(scope: Optional[dict]) -> TimeScope:
         return CURRENT
     if mode in ("as_of", "range") and not (t0 and t1):
         return CURRENT  # windowed modes are meaningless without a window
-    return TimeScope(mode=mode, t0=t0, t1=t1)
+    return TimeScope(mode=mode, t0=t0, t1=t1, axis=axis)
 
 
 # ---------------------------------------------------------------------------
@@ -506,4 +517,4 @@ def detect_timescope(
 
     matched = "; ".join([e.text for e in exprs] + cue_texts)[:120]
     return TimeScope(mode=mode, t0=t0, t1=t1,
-                     matched_text=matched, evidence=tuple(evidence))
+                     matched_text=matched, evidence=tuple(evidence), axis='unknown')

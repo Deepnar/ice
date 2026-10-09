@@ -17,7 +17,10 @@ and context preservation and source-predicate recovery are implemented;
 calibrated confidence/identity utility and independent precision remain open.
 P5 ordered-source authority and fair bounded maintenance scans are implemented
 with focused controls; referenced-event versus source-record filtering is a
-confirmed remaining repair, not calendar precision established by source order.
+repaired exclusion mechanism with focused warm/cold/final-input controls, not
+calendar precision or independent temporal answer accuracy. A captured request
+framer narrows an unspecified workplace into a city; P7 must repair and qualify
+that semantic gate without lowering NLI thresholds or claiming a true source false.
 ROADMAP is the queue. The numbered packages below decompose existing entries,
 not a new G-track or claims of eleven newly discovered defects. The completed
 r4 evidence is in [PROVENANCE](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).
@@ -499,6 +502,41 @@ separating source order/calendar authority; it does not qualify ICE's protocol.
 [Mem0's current ADD-only integration discussion](https://mem0.ai/library/integrations/how-to-test-ai-agent-memory-with-mem0-a-practical-memory-simulation-guide)
 also preserves history and interprets updates at read time; do not copy blanket
 latest-wins into unrelated facts or unverified dates.
+
+### 2.1f Query-date axis — grounded decision, 2026-10-09
+
+The actual44-turn control in §2.1e confirms that parsed query dates are being
+applied to a different field: source recording and memory-establishment times.
+An event-year question loses a2020 statement about2010 while admitting a
+non-answering2010 statement. The golden source is outside40 recent turns;
+unwindowed lexical retrieval finds it. Do not mistake this for a ranking failure
+or infer event dates from ingestion timestamps.
+
+Decision: carry `axis=source_record|event|unknown` beside the resolved calendar
+window. The existing deterministic expression resolver knows dates, not their
+semantic role: its detected scopes therefore use `unknown`, without a new
+intent lexicon or resident model. Existing explicitly constructed scopes and
+legacy serialized scopes retain documented `source_record` behavior. A trusted
+caller can explicitly choose an axis; the parser does not pretend to do so.
+
+Only `source_record` authorizes hard source/knowledge-clock windows and date
+recency. `event`/`unknown` preserve the requested dates as question conditions,
+source time labels and telemetry, but search meaning across recording dates
+under the same candidate and final prompt caps. Historical warm/cold evidence
+remains reachable; unknown-axis cold search retains its bounded candidate cap.
+Graph navigation remains on live edges, with original claims/history available
+separately; unknown event time does not authorize traversing expired edges as
+current facts. Timeline crop and procedural-observation filters must not borrow
+an unresolved event date. Empty-window language is legal only for a real source
+window. No event-date extraction, global newest-wins policy, new model call or
+larger retrieval/prompt budget is introduced.
+
+Qualify date-axis round-trip/legacy compatibility; unknown axis versus explicit
+source_record on retrospective, source-history and wrong-year sources; form
+variants; cold/source-claim/date-label preservation and final preparation.
+Use opposing sources and check actual answer-bearing text, not just row presence.
+This repairs evidence exclusion, not independent temporal answer accuracy.
+Broader relevance/latency/corpus quality remains for the existing package gates.
 
 ### 2.2 Absolute scoring and qualification
 
