@@ -2380,3 +2380,19 @@ The older temporal fixture's low-ranked archived candidate still loses to newer
 same-conversation peers during diversification; that is a legitimate packing
 outcome, not SQL invisibility. Observe candidacy separately from final admission,
 and test repeat queries after the real storage transition, not just copying a row.
+
+
+### 105. A generated cluster label can become its own evidence
+
+**ICE v3, 2026-10-09.** At raw cosine 0.86, two two-member clusters fail
+pairwise merging without shared source names. A planted generated cast adds
+0.10 and causes a merge. Use original-member NuNER mentions for overlap;
+labels describe a topic but cannot prove entity identity. Complete short/late/
+chapter input and provider completion matter separately from label aptness.
+An actual cold move exposes a second conflict: warm-only member counts turn
+those same clusters into singletons, bypassing the stricter merge gate. Another
+actual centroid moves from [0.894427,0.447214] to [0,1] when two of three
+members go cold. Counts, centroids, sessions and source evidence must resolve
+the same logical membership, and merges must transfer known archived IDs.
+The final real NuNER/E4B path passes; that is no corpus coherence guarantee.
+Never revive the retracted arbitrary-consecutive-turn naming rates.

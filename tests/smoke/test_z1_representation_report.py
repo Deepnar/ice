@@ -116,6 +116,22 @@ def test_enrichment_receipts_separate_observed_legacy_and_invalid(tmp_path):
                             supported=1, contradicted=1, unknown=1, errors=0, invalid_receipt_calls=2)
 
 
+def test_cluster_labels_separate_observed_legacy_and_invalid(tmp_path):
+    path = tmp_path / 'seed.jsonl'
+    receipt = dict(method='source_member_cluster_labels_v1', attempted=4, accepted=1,
+                   incomplete=1, invalid=1, error=1, source_occurrences=8,
+                   unknown_role_occurrences=12)
+    trace(path, [dict(event='maintenance', job='cluster_assignment'),
+                dict(event='maintenance', job='cluster_assignment', result={'labels': receipt}),
+                dict(event='maintenance', job='cluster_merge', result={'labels': {**receipt, 'accepted': True}}),
+                dict(event='maintenance', job='cluster_merge', result={'labels': {**receipt, 'attempted': 2}})])
+    result = report.summarize(path)['cluster_label_generation']
+    assert result['counts'] == dict(unobserved_calls=1, observed_calls=1, attempted=4,
+        accepted=1, incomplete=1, invalid=1, error=1, source_occurrences=8,
+        unknown_role_occurrences=12, invalid_receipt_calls=2)
+    assert 'not model calls or semantic accuracy' in result['basis']
+
+
 def test_actual_cli_writes_a_new_hash_bound_report(monkeypatch, capsys):
     logs = Path(report.__file__).resolve().parents[2] / "logs"
     with TemporaryDirectory(dir=logs, prefix="report-smoke-") as temporary:

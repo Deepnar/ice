@@ -50,6 +50,7 @@ def summarize(path: Path) -> dict:
     maintenance = Counter()
     procedural_retirement = Counter()
     entity_enrichment = Counter()
+    cluster_labels = Counter()
     gate = Counter()
     produced = Counter()
     budgeted = Counter()
@@ -102,6 +103,19 @@ def summarize(path: Path) -> dict:
                 "code_changes": row["code_changes"]})
         elif event == "maintenance":
             maintenance[row["job"]] += 1
+            if row['job'] in {'cluster_assignment', 'cluster_merge'}:
+                result = row.get('result')
+                receipt = result.get('labels') if isinstance(result, dict) else None
+                keys = ('attempted', 'accepted', 'incomplete', 'invalid', 'error',
+                        'source_occurrences', 'unknown_role_occurrences')
+                if not isinstance(receipt, dict) or receipt.get('method') != 'source_member_cluster_labels_v1':
+                    cluster_labels['unobserved_calls'] += 1
+                elif (any(type(receipt.get(k)) is not int or receipt[k] < 0 for k in keys)
+                        or sum(receipt[k] for k in keys[1:5]) != receipt['attempted']):
+                    cluster_labels['invalid_receipt_calls'] += 1
+                else:
+                    cluster_labels['observed_calls'] += 1
+                    cluster_labels.update({k: receipt[k] for k in keys})
             if row['job'] == 'reflection':
                 result = row.get('result')
                 receipt = result.get('entity_enrichment') if isinstance(result, dict) else None
@@ -323,6 +337,11 @@ def summarize(path: Path) -> dict:
         "entity_enrichment": {
             'counts': dict(entity_enrichment),
             'basis': 'writer attempts, not model-call counts or independent precision; repeated entities remain dependent',
+        },
+        "cluster_label_generation": {
+            'counts': dict(cluster_labels),
+            'basis': 'generation admission attempts, not model calls or semantic accuracy; '
+                     'source occurrences repeat across labels; unknown roles count source units',
         },
         "historical_clock": dict(clock),
         "seed_clock_policy": run["meta"].get("extra", {}).get("clock_policy"),

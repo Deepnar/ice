@@ -844,13 +844,26 @@ either impossible or itself a legal answer.
 
 ### **4.5b Cluster naming and description — ⛔ UNMEASURED, and one attempt to measure it was invalid**
 
-`_create_cluster_from_members` generates BOTH a `name` and a `description` from the same members, each grounded with `_recurring_member_entities(turns)`. **Neither has ever been judged on real clusters.**
+`_create_cluster_from_members` generates BOTH a `name` and a `description` from the same members, each grounded with `_recurring_member_entities(turns)`. **Neither has a qualified real-cluster aptness rate.**
+
+**V3 source/label repair, 2026-10-09:** generated entity names previously
+supplied assignment/merge overlap. An actual SQL opposing control shows a
+planted cast causes an otherwise ineligible merge. Cast now comes from a
+deterministic cohort of at most ten distinct actual warm/cold originals, using
+existing NuNER plus literal mention grounding. Generated labels have no merge
+authority. Complete attributed member input includes short/chapter/late text;
+unknown roles remain unknown. Existing E4B capacity/finish guards and typed JSON
+use160/500-token name/description reserves; incomplete/invalid outputs preserve
+previous labels. Accepted labels are topical metadata, not NLI-supported facts.
+Worker/replay receipts distinguish admission attempts and failures from model
+calls or semantic accuracy. A real two-member NuNER/E4B/SQL path produced two
+complete labels; this is path validation, not corpus naming/coherence quality.
 
 ⛔ **A 2026-08-27 attempt produced a 62-76% "wrong" rate and is RETRACTED**: the harness fed the namer *five arbitrary consecutive turns* with `recurring_entities=None`, so it asked for the shared subject of turns never established to share one, without the grounding production always supplies. It measured the harness. ⇒ **G74**, and the open question underneath it is whether the defect is the naming prompt or the CLUSTERING — if members are weakly grouped, there may be no right name available. Judge cluster coherence first, then naming conditional on it.
 
 ### **4.6 Entity extraction — two models, split by path (A9b, 2026-08-03)**
 
-`retrieval/ner_utils.py::extract_entities(text, embedder, max_chars=None, tier="preflight"|"background")` serves two latency classes. **Pre-flight (`tier="preflight"`, the default) keeps the micro-NER** on the synchronous user-prompt path. **Background (`tier="background"`) uses NuNER Zero** (`settings.background_ner_model`, default `numind/NuNER_Zero`) for post-flight key-term extraction, clustering and, by the current `codex_extraction_ner_tier` default, Codex grounding. The Codex tier is independently configurable; earlier micro-vs-NuNER grounding counts were judged on their own whitelists and do not measure graph truth. NuNER is loaded lazily on its configured device; `release_background_ner()` has no production caller, so automatic drain release is an unresolved residency gap already recorded in FEATURE_INVENTORY. It uses ICE's entity labels, excluding `concept` and `object` by default but restoring them for the permissive Codex grounding list. Adjacent word spans are merged before entity cleanup.
+`retrieval/ner_utils.py::extract_entities(text, embedder, max_chars=None, tier="preflight"|"background")` serves two latency classes. **Pre-flight (`tier="preflight"`, the default) keeps the micro-NER** on the synchronous user-prompt path. **Background (`tier="background"`) uses NuNER Zero** (`settings.background_ner_model`, default `numind/NuNER_Zero`) for post-flight key-term extraction, clustering and, by the current `codex_extraction_ner_tier` default, Codex grounding. The Codex tier is independently configurable; earlier micro-vs-NuNER grounding counts were judged on their own whitelists and do not measure graph truth. NuNER is loaded lazily on its configured device; the runtime idle drain calls inference-guarded `release_background_ner()`. Complete-stack peak and reload latency remain unqualified. It uses ICE's entity labels, excluding `concept` and `object` by default but restoring them for the permissive Codex grounding list. Adjacent word spans are merged before entity cleanup.
 
 The background caller keeps its configured 250-whitespace-word coarse pieces, then windows each piece using the loaded model's **own** word splitter and `config.max_len`, with overlap. This matters because punctuation/code can make 250 whitespace words exceed NuNER's 384 model-word limit; the earlier path silently truncated the tail inside the model. Missing model-token bounds cause a warned micro-NER fallback. This preserves input coverage, not proof that the added entities improve Codex facts or answers. The micro-NER's poor short-prompt recall remains a separate pre-flight activation problem; see [PROVENANCE.md](PROVENANCE.md).
 
@@ -1384,6 +1397,15 @@ repeated entity is independent precision. Scheduling and model roles are unchang
 **Merge** (run_cluster_merge, **scheduled every 3 h** — it previously never ran, half of bug G10): first a **singleton re-absorption pass** (a 1-member cluster whose turn scores ≥ the assignment threshold against a sibling is folded in and deleted — the repair path for singletons already accumulated), then conservative pairwise merging (raw-centroid floor 0.82, adjusted ≥ 0.90, entity bonus capped 0.10; merging is permanent, so it stays stricter than assignment). Centroids are renormalized after every recompute (an average of unit vectors is not unit length; unnormalized centroids deflate scores as clusters grow).
 
 **Retrieval side** (_relevant_cluster_ids, §6.6): the per-row name/description `embedder.encode` is gone (up to 30 model forward passes in the synchronous hot path for a signal redundant with the centroid), and the flat top-10 is replaced by an **adaptive band** — clusters within 80% of the best score (capped at top_k), so one dominant cluster scopes tightly instead of padding the scope to a fixed count.
+
+**V3 logical membership, 2026-10-09:** counts, centroids, session sets, source
+cast and label regeneration share real warm links plus known cold cluster IDs.
+Warm-to-cold moving no longer turns a two-member cluster into a singleton or
+changes its mean by dropping archived members. Merges transfer known cold
+membership/primary IDs before deleting the absorbed cluster; unknown legacy
+membership stays unknown. The ten-source label/cast cap does not cap counts or
+centroids. Assignment/merge thresholds and cadence are unchanged. Source casts
+refresh on membership changes independently of the five-member label cadence.
 
 ### **8.8 Batch Summariser**
 

@@ -212,6 +212,10 @@ awaits independent human qualification before scores can be treated as final.
 Entity enrichment now uses complete attributed sources and cited verification;
 incomplete or unsupported candidates preserve the previous note. Readers separate
 current source-supported accounts from legacy unverified notes.
+Cluster overlap now uses real warm/cold source mentions rather than generated
+descriptions. Cold transitions preserve logical membership and centroids;
+complete member label calls retain earlier labels on failure. Cluster coherence
+and naming utility remain unqualified.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers

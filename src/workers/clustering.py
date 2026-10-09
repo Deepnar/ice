@@ -44,7 +44,7 @@ WHAT v5 CHANGES AND WHY
 
   5. NER-GROUNDED NAMING (name/description quality, needed for C6-F UX).
      The name/description prompts now receive the entities that actually
-     recur across ≥2 member turns (from the shared MicroNER), so the
+     recur across ≥2 member turns (from background NuNER), so the
      RECURRING_ENTITIES line is grounded in detected names instead of asking
      the model to spot them from excerpts alone — the same
      ground-then-generate pattern A2 uses for Codex extraction.
@@ -74,165 +74,62 @@ CARRIED OVER FROM v4 (still correct):
     is not unit length; unnormalized centroids deflate dot-product scores
     as clusters grow).
   - Name/description regeneration only every settings.cluster_name_regen_interval members.
-  - Real MicroNER (shared with the orchestrator) over a regex proxy.
+  - Existing background NuNER over complete source windows by default;
+    generated label text never supplies overlap evidence.
 """
 
-from src.api.config import settings
-import structlog
-import re
-from datetime import datetime, timezone, timedelta
-from sqlalchemy import text
+from datetime import datetime, timedelta, timezone
 from typing import Optional
-from src.memory.models import (
-    EpisodicMemory,
-    ContextCluster,
-    EpisodicClusterLink,
-)
-from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+
+import structlog
+from sqlalchemy import text
+
+from src.api.config import settings
+from src.memory.cluster_labels import (cached_entities, generate_label, label_receipts,
+    member_count, member_input, member_sessions, member_sources, member_vectors,
+    rebase_cold_members, recurring_entities)
 from src.memory.embedder import get_embedder
+from src.memory.models import ContextCluster, EpisodicClusterLink, EpisodicMemory
+from src.memory.source import digest
+from src.retrieval.ner_utils import extract_entities
 
 logger = structlog.get_logger("ice.workers.clustering")
-bg_client = get_bg_client()
-
-# The process-shared native-width embedder (G13/G23).
 cluster_embedder = get_embedder()
 
 
-from src.retrieval.ner_utils import extract_entities
-
-
-
 def _extract_turn_entities(text_: str) -> set:
-    """Entity strings from a turn's raw_text (truncated: the recurring cast
-    almost always appears in a scene's opening portion, and per-turn NER cost
-    compounds across the batch).
-
-    A9b: the BACKGROUND tier. Clustering compares entity SETS, so what matters
-    is SEPARATION — do turns from the same conversation share entities that
-    turns from different conversations do not? Measured 2026-08-03 over five
-    conversations: the background model separates them 28x (mean within 0.0252
-    vs across 0.0009) where the micro-NER manages 1.97x (0.0435 vs 0.0221),
-    because the micro-NER tags function words — `and`, `but`, `for`, `not`,
-    `now` — as entities, and those recur in every conversation. 28 such spans
-    appeared in 3+ different conversations against 1 for the background model.
-    """
-    return set(extract_entities(
-        text_ or "", cluster_embedder,
-        max_chars=settings.cluster_entity_extraction_max_chars, tier="background"
-    ))
+    """Existing background NuNER covers all source windows by default."""
+    raw = text_ or ""
+    cap = settings.cluster_entity_extraction_max_chars
+    if cap is not None and len(raw) > cap:
+        logger.warning("cluster_entities_prefix_only", original_chars=len(raw), supplied_chars=cap,
+                       reason="explicit character cap omits source tail")
+    key = (digest(raw), settings.background_ner_model, cap)
+    return cached_entities(key, lambda: {
+        ' '.join(entity.split()).casefold() for entity in extract_entities(
+            raw, cluster_embedder, max_chars=cap, tier="background")})
 
 
 def _recurring_member_entities(turns, min_occurrences: int = 2, top_n: int = 15) -> list:
-    """v5: the NER-grounding for naming — entities that appear in at least
-    *min_occurrences* member turns, most frequent first. For 1-turn clusters
-    the single turn's entities are used as-is (nothing to recur across)."""
-    counts = {}
-    for t in turns[:10]:
-        for e in _extract_turn_entities(t.raw_text or ""):
-            counts[e] = counts.get(e, 0) + 1
-    if len(turns) == 1:
-        recurring = list(counts.keys())
-    else:
-        recurring = [e for e, c in counts.items() if c >= min_occurrences]
-    recurring.sort(key=lambda e: counts[e], reverse=True)
-    return recurring[:top_n]
+    return recurring_entities(turns, _extract_turn_entities,
+                              min_occurrences=min_occurrences, top_n=top_n)
+
+
+def _cluster_source_cast(db, cluster_id):
+    return set(_recurring_member_entities(member_sources(db, cluster_id)))
 
 
 def _member_snippets(turns) -> str:
-    snippets = []
-    for t in turns[:10]:
-        raw = t.raw_text or ""
-        if len(raw.split()) < 20:
-            continue
-        cleaned = re.sub(r'(?i)^.*\bchapter\s*\d+.*$', '', raw, flags=re.MULTILINE)
-        snippets.append(" ".join(cleaned.split()[:200]))
-    return "\n\n".join(snippets)
+    """Compatibility name: complete attributed member originals, never prefixes."""
+    return member_input(turns)
 
 
 def _generate_cluster_description(turns, recurring_entities=None):
-    combined = _member_snippets(turns)
-    # v5: ground the RECURRING_ENTITIES line in NER-detected names (the same
-    # ground-then-generate pattern as Codex A2) instead of hoping the model
-    # spots recurrence from excerpts.
-    ner_hint = ""
-    if recurring_entities:
-        ner_hint = (
-            "\n\nNames detected as recurring across these turns by entity "
-            f"recognition (ground your RECURRING_ENTITIES line in these): "
-            f"{', '.join(recurring_entities)}"
-        )
-    prompt = (
-        "Below are excerpts from several conversation turns that all belong to the same "
-        "cluster. Write a precise description of the RECURRING THEME or DOMAIN this "
-        "cluster represents — NOT a summary of any single turn or exchange.\n\n"
-        "Structure your answer as exactly these labeled lines:\n"
-        "DOMAIN: <the general subject area, project, or topic this belongs to>\n"
-        "CONTENT_TYPE: <facts | planning | brainstorming | narrative prose | technical "
-        "decisions | personal reflection — pick the best fit(s)>\n"
-        "RECURRING_ENTITIES: <comma‑separated list of the named people, characters, "
-        "tools, projects, libraries, or other proper nouns that appear repeatedly across "
-        "these excerpts — this is the most important line, list every recurring name you "
-        "can identify>\n"
-        "SETTING_OR_CONTEXT: <the recurring context, location, or environment; if none "
-        "is clear, write 'n/a'>\n\n"
-        "Do not add any other text, headers, or commentary."
-    )
-    try:
-        completion = bg_client.chat.completions.create(
-            model=get_bg_model_name(),
-            messages=[
-                {"role": "system", "content": "You are a precise topic and cast categoriser."},
-                {"role": "user", "content": f"{prompt}\n\n{combined}{ner_hint}"}
-            ],
-            temperature=0.0,
-            max_tokens=200,
-            timeout=bg_timeout(200),
-        )
-        return completion.choices[0].message.content.strip()
-    except Exception as e:
-        logger.error("cluster_description_generation_failed", error=str(e))
-        return ""
+    return generate_label(turns, recurring_entities, kind='description') or ""
 
 
 def _generate_cluster_name(turns, recurring_entities=None):
-    combined = _member_snippets(turns)
-    ner_hint = ""
-    if recurring_entities:
-        ner_hint = (
-            "\n\nRecurring names detected across these turns: "
-            f"{', '.join(recurring_entities)}"
-        )
-    prompt = (
-        "Below are excerpts from several conversation turns that belong to the same "
-        "cluster. Give this cluster a short, distinct name (3‑5 words) that captures "
-        "the RECURRING TOPIC or THEME these turns share.\n"
-        "NEVER be too general; be specific with the naming. \n\n"
-        "RULES:\n"
-        "- NEVER use a turn number, chapter number, or date in the name.\n"
-        "- NEVER write a name that describes a single event or moment.\n"
-        "- The name must describe a CATEGORY or RECURRING SUBJECT — not a specific "
-        "action or exchange.\n"
-        "- The name must be generic enough that a similar future turn about the SAME "
-        "topic would also be assigned to this cluster.\n\n"
-        "Output ONLY the name, nothing else."
-    )
-    try:
-        completion = bg_client.chat.completions.create(
-            model=get_bg_model_name(),
-            messages=[
-                {"role": "system", "content": "You are a naming assistant."},
-                {"role": "user", "content": f"{prompt}\n\n{combined}{ner_hint}"}
-            ],
-            temperature=0.0,
-            max_tokens=20,
-            timeout=15.0,
-        )
-        name = completion.choices[0].message.content.strip()
-        name = name.strip('"\'').strip()
-        return name if name else "Unnamed Cluster"
-    except Exception as e:
-        logger.error("cluster_name_generation_failed", error=str(e))
-        return "Unnamed Cluster"
+    return generate_label(turns, recurring_entities, kind='name') or ""
 
 
 def _embed_text(text_):
@@ -257,15 +154,7 @@ def _normalize(vec):
 
 
 def _recompute_centroid_from_members(db, cluster_id) -> Optional[list]:
-    member_embs = db.execute(
-        text("""
-            SELECT e.embedding
-            FROM episodic_memory e
-            JOIN episodic_cluster_links l ON l.episodic_id = e.id
-            WHERE l.cluster_id = :cid AND e.embedding IS NOT NULL
-        """),
-        {"cid": cluster_id}
-    ).fetchall()
+    member_embs = member_vectors(db, cluster_id)
 
     parsed = []
     for (emb,) in member_embs:
@@ -286,25 +175,11 @@ def _recompute_centroid_from_members(db, cluster_id) -> Optional[list]:
     return _normalize(avg)
 
 
-def _extract_recurring_cast_from_description(description: str) -> set:
-    m = re.search(r'RECURRING_ENTITIES:\s*(.+)', description or "", re.IGNORECASE)
-    if not m:
-        return set()
-    names = [n.strip() for n in m.group(1).split(',')]
-    return {n for n in names if n and n.lower() != 'n/a'}
-
-
 def _cluster_session_sets(db, conversation_id) -> dict:
     """cluster_id → set of session_ids present among its members. One grouped
     query per conversation per run (v5 — replaces v4's two-queries-per-
     turn×cluster temporal check)."""
-    rows = db.execute(text("""
-        SELECT l.cluster_id AS cid, e.session_id AS sid
-        FROM episodic_cluster_links l
-        JOIN episodic_memory e ON e.id = l.episodic_id
-        WHERE e.conversation_id = :conv AND e.session_id IS NOT NULL
-        GROUP BY l.cluster_id, e.session_id
-    """), {"conv": conversation_id}).fetchall()
+    rows = member_sessions(db, conversation_id)
     out = {}
     for r in rows:
         out.setdefault(r.cid, set()).add(r.sid)
@@ -372,7 +247,7 @@ def _create_cluster_from_members(db, conversation_id, members, cluster_state):
     cluster_state.append({
         "cluster": cluster,
         "embedding": centroid,
-        "cast": _extract_recurring_cast_from_description(desc) | set(recurring),
+        "cast": set(recurring),
         "sessions": {m["session_id"] for m in members if m["session_id"] is not None},
     })
     logger.info("cluster_created", name=cluster.name, members=len(members),
@@ -396,16 +271,11 @@ def _assign_turn_to_cluster(db, turn_info, state):
         flag_modified(cl, "tags")
 
     db.flush()
-    member_count = db.query(EpisodicClusterLink).filter_by(cluster_id=cl.id).count()
+    count = member_count(db, cl.id)
+    state["cast"] = _cluster_source_cast(db, cl.id)
 
-    if member_count > 1 and member_count % settings.cluster_name_regen_interval == 0:
-        linked_turns = db.query(EpisodicMemory).filter(
-            EpisodicMemory.id.in_(
-                db.query(EpisodicClusterLink.episodic_id).filter(
-                    EpisodicClusterLink.cluster_id == cl.id
-                )
-            )
-        ).all()
+    if count > 1 and count % settings.cluster_name_regen_interval == 0:
+        linked_turns = member_sources(db, cl.id)
         recurring = _recurring_member_entities(linked_turns)
         new_name = _generate_cluster_name(linked_turns, recurring)
         new_desc = _generate_cluster_description(linked_turns, recurring)
@@ -413,7 +283,6 @@ def _assign_turn_to_cluster(db, turn_info, state):
             cl.name = new_name
         if new_desc:
             cl.description = new_desc
-        state["cast"] = _extract_recurring_cast_from_description(cl.description or "") | set(recurring)
 
     new_centroid = _recompute_centroid_from_members(db, cl.id)
     if new_centroid is not None:
@@ -425,6 +294,13 @@ def _assign_turn_to_cluster(db, turn_info, state):
 
 
 def run_cluster_assignment(db, conversation_ids=None) -> dict:
+    with label_receipts() as receipt:
+        result = _run_cluster_assignment(db, conversation_ids)
+        result['labels'] = receipt
+        return result
+
+
+def _run_cluster_assignment(db, conversation_ids=None) -> dict:
     """Plain callable (C7/D1-composable): assign unassigned turns. Returns
     stats for logging/telemetry. *conversation_ids* optionally restricts the
     run to specific conversations — the hook C7's session-triggered
@@ -470,13 +346,13 @@ def run_cluster_assignment(db, conversation_ids=None) -> dict:
             cluster_state.append({
                 "cluster": cl,
                 "embedding": _parse_embedding(cl.embedding),
-                "cast": _extract_recurring_cast_from_description(cl.description or ""),
+                "cast": _cluster_source_cast(db, cl.id),
                 "sessions": session_sets.get(cl.id, set()),
             })
 
         waiting = []
         for row in rows:
-            turn = db.query(EpisodicMemory).get(row.id)
+            turn = db.get(EpisodicMemory, row.id)
             if not turn:
                 continue
             stats["processed"] += 1
@@ -553,6 +429,13 @@ def run_cluster_assignment(db, conversation_ids=None) -> dict:
 
 
 def run_cluster_merge(db, conversation_ids=None) -> dict:
+    with label_receipts() as receipt:
+        result = _run_cluster_merge(db, conversation_ids)
+        result['labels'] = receipt
+        return result
+
+
+def _run_cluster_merge(db, conversation_ids=None) -> dict:
     """Plain callable (C7/D1-composable): singleton re-absorption + pairwise
     merge of converged centroids. *conversation_ids* optionally restricts the
     run (C7 session-triggered maintenance)."""
@@ -581,11 +464,10 @@ def run_cluster_merge(db, conversation_ids=None) -> dict:
             states.append({
                 "cluster": cl,
                 "embedding": _parse_embedding(cl.embedding),
-                "cast": _extract_recurring_cast_from_description(cl.description or ""),
+                "cast": _cluster_source_cast(db, cl.id),
                 "sessions": session_sets.get(cl.id, set()),
             })
-            member_counts[cl.id] = db.query(EpisodicClusterLink).filter_by(
-                cluster_id=cl.id).count()
+            member_counts[cl.id] = member_count(db, cl.id)
 
         # ── v5 repair pass: singleton re-absorption ──
         # A one-turn cluster whose member fits a sibling cluster (by the same
@@ -599,7 +481,7 @@ def run_cluster_merge(db, conversation_ids=None) -> dict:
             link = db.query(EpisodicClusterLink).filter_by(cluster_id=cl.id).first()
             if not link:
                 continue
-            turn = db.query(EpisodicMemory).get(link.episodic_id)
+            turn = db.get(EpisodicMemory, link.episodic_id)
             if turn is None or turn.embedding is None:
                 continue
             emb = _parse_embedding(turn.embedding)
@@ -626,6 +508,7 @@ def run_cluster_merge(db, conversation_ids=None) -> dict:
                                            cluster_id=target.id))
             db.delete(link)
             db.flush()
+            rebase_cold_members(db, cl.id, target.id)
             new_centroid = _recompute_centroid_from_members(db, target.id)
             if new_centroid is not None:
                 target.embedding = new_centroid
@@ -633,6 +516,7 @@ def run_cluster_merge(db, conversation_ids=None) -> dict:
                 best["embedding"] = new_centroid
             if turn.session_id is not None:
                 best["sessions"].add(turn.session_id)
+            best["cast"] = _cluster_source_cast(db, target.id)
             db.delete(cl)
             removed_ids.add(cl.id)
             stats["absorbed"] += 1
@@ -681,10 +565,13 @@ def run_cluster_merge(db, conversation_ids=None) -> dict:
                     flag_modified(older, "tags")
 
                 db.flush()
+                rebase_cold_members(db, newer.id, older.id)
                 new_centroid = _recompute_centroid_from_members(db, older.id)
                 if new_centroid is not None:
                     older.embedding = new_centroid
                     older.updated_at = datetime.now(timezone.utc)
+                live[i]["cast"] = _cluster_source_cast(db, older.id)
+                older_cast = live[i]["cast"]
                 db.delete(newer)
                 merged_ids.add(newer.id)
                 stats["merged"] += 1
@@ -693,5 +580,3 @@ def run_cluster_merge(db, conversation_ids=None) -> dict:
     db.commit()
     logger.info("cluster_merge_complete", **stats)
     return stats
-
-

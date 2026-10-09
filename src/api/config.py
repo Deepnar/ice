@@ -695,7 +695,7 @@ class Settings(BaseSettings):
     cluster_session_affinity_bonus: float = 0.10
     cluster_singleton_age_hours: float = 24.0
     cluster_name_regen_interval: int = 5
-    cluster_entity_extraction_max_chars: int = 2000
+    cluster_entity_extraction_max_chars: int | None = None
 
     # ── G9: maintenance agent per-run caps (D8) ────────────────────────────
     # A flooded review queue is worse than no agent, which is what the tier-2

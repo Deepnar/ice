@@ -1,3 +1,48 @@
+## 2026-10-09 — v3 source-grounded cluster decisions and cold membership
+
+Actual disposable SQL opposing controls show a planted generated recurring
+cast makes a pairwise merge eligible at cosine 0.86, despite no shared source
+entities. Complete provider output was not required for naming; short and late
+original content was omitted. V3 now derives overlap only from literal NuNER
+mentions in a deterministic ten-member distinct-source cohort. Complete
+attributed member input and typed E4B schemas use name160/description500 output
+reserves through the existing capacity/finish guard. Invalid/incomplete labels
+preserve old metadata. Labels remain topical proposals, not verified facts.
+No new model, threshold or cadence change.
+
+Actual cold-move controls expose warm-only counts misclassifying two-member
+clusters as singletons and bypassing the stricter pairwise merge gate. A
+three-member centroid also changes from [0.894427,0.447214] to [0,1] after two
+originals go cold. Shared logical membership now supplies counts, centroids,
+sessions, source casts and label regeneration; merges transfer known cold IDs.
+Unknown legacy membership remains unknown. Originals and source roles survive.
+
+Focused cluster/provider/assignment/replay/report controls 27/27 pass in 13.94s;
+existing cluster behavior 13/13 passes. A final score-path control caught a
+new case mismatch: raw `Mira` against normalized `mira` lost the 0.08 bonus
+at cosine 0.55. Normalize candidate and cast surfaces alike. An opposing
+case/whitespace control restores the bonus; final combined disposable smoke/
+background/cloud-provider rails 922/922 pass in 44.37s with 280 existing warnings.
+These overlap and are not independent memory-quality observations.
+
+The actual local NuNER_Zero plus gemma4:e4b SQL path accepts both topical labels
+for two synthetic coherent originals in 9.316s including first NuNER load;
+E4B calls take 0.555/0.739s. A third source at cosine 0.55 joins through genuine
+source overlap with no label call. Shared Qwen encoder loads, but grouping
+vectors are controlled, so this does not measure embedding cluster coherence.
+No cloud answer/judge call or working-store write occurs. Earlier real-path
+check also passed; failed baseline/control logs remain.
+
+A read-only r4 recount marks274 cluster maintenance calls unobserved for the
+new label receipts. Trace SHA0d718f...af185 is unchanged; no writer replay or
+baseline rewrite. Receipt attempts count generation admission, not network calls
+or semantic accuracy. Private evidence: logs/v3-repair-p5-2026-10-09/cluster-*.
+Failed baseline/control logs remain. The model table's old cluster-naming
+comparison is now explicitly retracted, matching G74. Existing runtime drain
+already releases NuNER, contrary to a stale architecture sentence corrected here.
+Broad naming specificity, coherence, downstream answers/context cost, scheduled
+lifecycle/compaction and whole-stack resource qualification remain open.
+
 ## 2026-10-09 — v3 ordinary archival and probation recall
 
 A disposable SQL/full-retrieval control stored one original only in cold

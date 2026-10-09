@@ -25,8 +25,10 @@ old-source rescue controls; broad gate/answer gains remain unqualified. P8's
 blinded reference packet, independent absolute cache and preference-only runner
 are implemented with controlled SDK/resume checks; human labels and rubric
 qualification remain pending.
-P9 completion diagnostics are implemented; whole-stack peaks,
-latency and concurrency and P10 enrichment/lifecycle still need qualification.
+P9 completion diagnostics are implemented; whole-stack peaks, latency and
+concurrency still need qualification. P10 entity accounts, cluster source/label
+contracts and archival/probation recall have focused qualification; full scheduled
+lifecycle/compaction and broad semantic utility remain pending.
 ROADMAP is the queue. The numbered packages below decompose existing entries,
 not a new G-track or claims of eleven newly discovered defects. The completed
 r4 evidence is in [PROVENANCE](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).
@@ -970,6 +972,73 @@ cold, warm archived and warm probation targets in normal/wide final prompts;
 six dependent controls, no answer/precision/token-efficiency claim. Originals,
 roles, dates, chunks and write-off/deferred exposure are preserved. Classifier/
 source-need choices are controlled. Full scheduled lifecycle and resources remain.
+
+### 2.1q Cluster source evidence and complete labels — decision, 2026-10-09
+
+An actual disposable SQL merge control has two coherent two-member clusters,
+raw cosine0.86 (above0.82 raw floor, below0.90 adjusted floor), and no shared
+source entities. Planted generated `RECURRING_ENTITIES` supplies0.10 and merges
+them. All four originals survive, but their organization changes on unsupported
+generated metadata. A controlled length-marked name is also accepted. Short
+originals and late source content are absent from naming input. These establish
+mechanisms, not real-model hallucination rates or the retracted G74 aptness rate.
+
+Keep creation/assignment/centroid/merge thresholds, exclusive membership,
+session/tag bonuses and existing local model roles. Derive the entity-overlap
+cast only from actual linked warm/cold originals, using existing NuNER and
+literal source spans/case-whitespace normalization. Bounded deterministic ten-
+member cohorts retain the prior size cap; source IDs deduplicate warm/cold copies
+and repeated turns. Complete background NER already windows by its own token
+contract: make clustering's optional character cap defaultNone, retain explicit
+configured prefix mode with a warning, and never silently infer full coverage.
+No persistent cache, new resident model or description-derived overlap evidence.
+Normalize source-grounded entity surfaces identically on candidate and cohort
+sides: a controlled assignment at cosine0.55 lost the0.08 entity bonus because
+candidate `Mira` and source cast `mira` differed only in case. Preserve literal
+mention grounding; capitalization must not change the similarity decision.
+
+Generated names/descriptions are topical metadata, not factual memory or evidence
+for assignment/merging. This follows the separation of cluster formation and
+topic representations in [BERTopic's primary documentation](https://maartengr.github.io/BERTopic/getting_started/representation/representation.html);
+it does not adopt BERTopic or prove cluster coherence. Supply complete attributed
+originals from the bounded cohort, including short turns and chapter/code text;
+unknown legacy roles stay explicitly unknown. Replace word prefixes/chapter-line
+stripping with complete-source input. Use the existing E4B complete-input/finish
+guard and typed schemas, with160 name/500 description output reserves. No source
+truncation to fit; capacity/finish/parse failures preserve existing labels, while
+a new cluster retains the explicit unnamed fallback. Render recurring entities
+from source-derived names, never a generated field. Emit bounded generation
+status/counts through the worker/replay path. Broad name specificity/coherence
+and downstream memory/latency effects remain unqualified; no G74 closure.
+
+Qualify the false-overlap merge and its genuine-source opposing control through
+the real SQL worker, before/after restoration and assignment refresh. Qualify
+complete short/late/chapter inputs and truncated/schema/capacity controls at the
+existing call seam. Then run one actual local NuNER/E4B coherent-member path,
+preserving failures rather than searching endlessly for a favorable prompt.
+
+**Cold membership grounding:** the actual warm/cold opposing controls expose
+another storage-policy conflict: each two-member cluster has one warm link and
+one known archived member. Warm-only counts call it a singleton, allowing the
+looser assignment threshold to absorb it even though the pairwise merge bar is
+not met. Use one logical warm+cold membership projection for counts, centroid,
+sessions, source cast and label regeneration. Limit10 applies to label/cast
+cohorts, not logical counts or centroid. Transfer known cold membership/primary
+cluster IDs when a merge changes identity; preserve unknown membership as unknown.
+Validate actual SQL/decay/merge/source reach and centroid parity without changing
+any similarity/cadence/threshold. This does not authorize general deletion work.
+
+**Implemented/validated disposition:** source-only cast, complete typed labels,
+logical membership and worker/replay receipts are implemented. Focused 27 controls
+pass in 13.94s, existing cluster behavioral 13 pass, and final disposable smoke/
+background/cloud-provider rails 922 pass in 44.37s (280 existing warnings). These
+overlap. Actual NuNER/E4B/SQL two-member creation accepts both labels in 9.358s
+including first NuNER load. Final case-normalized path passes in 9.316s and a
+third source at cosine0.55 joins through source overlap without label calls. Controlled vectors establish
+mechanics, not grouping/coherence quality. Read-only r4 recount marks all 274
+cluster calls unobserved for the new receipts and preserves trace SHA. No broad
+model search, new weights, working-store mutation, cloud call or quality closure.
+Full scheduled lifecycle/compaction and complete-stack resources remain work.
 
 ### 2.2 Absolute scoring and qualification
 
