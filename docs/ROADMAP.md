@@ -59,6 +59,14 @@ No full LME-S haystack campaign or product expansion is added. The old merged-Z
 phrasing below describes the development history; this is the current execution
 order. The source corpus, completed answers and39 as-of stores are preserved.
 
+**v3 repair implementation boundary,2026-10-09:** all11 grouped packages have
+named mechanism validation or a bounded keep decision in the
+[disposition audit](specs/V3_POST_RESEED_REPAIR.md#51-repair-disposition-audit--implementation-boundary-2026-10-09).
+Next prepare versioned repaired development state/keys and the live-consumer,
+resumable tuning instrument. Broad semantic/answer/context/resource qualification
+and the final runner still earn readiness. This does not close29 quality owners;
+formal160/93checked/67open partition remains unchanged. No final/tuning score.
+
 **Focused v3 lifecycle repair, 2026-10-09:** ordinary cold-only recall was
 blocked by the older dated-only contract. Restored 0.12 probation sources were
 also blocked by the 0.2 warm floor. Archived/probation originals now remain
@@ -66,8 +74,9 @@ bounded warm candidates, retaining decay ranking. Bounded cold candidates compet
 in normal and wide-net retrieval without a recording date; exposure remains
 separate from source corroboration. G30 — reader quality, e.g. an old recovery
 phrase must reach the final prompt — has focused SQL/final-preparation controls,
-not a closed quality claim. Full lifecycle and resource qualification still
-precede tuning; [the repair decision](specs/V3_POST_RESEED_REPAIR.md#21o-undated-cold-recall--grounded-decision-2026-10-09)
+not a closed quality claim. The bounded ten-job/cold-read/resource pass now
+completes, preserving42 originals; broader semantic and worst-case capacity
+qualification remain. [The repair decision](specs/V3_POST_RESEED_REPAIR.md#21o-undated-cold-recall--grounded-decision-2026-10-09)
 records the deliberate scope change. Roadmap owner counts are unchanged.
 
 **Final judging, reaffirmed 2026-10-09:** Muse Spark1.3 Contributor remains

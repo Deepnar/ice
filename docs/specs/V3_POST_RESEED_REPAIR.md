@@ -1629,6 +1629,46 @@ result/error/exclusion and final reports bind those identities. Review disputed
 final semantic cases in prepared batches; no approval is needed for routine
 independent repair work already authorized.
 
+### 5.1 Repair disposition audit — implementation boundary, 2026-10-09
+
+All11 packages now have a written mechanism or bounded keep decision. This is
+the boundary for preparing a repaired development refresh and tuning instrument,
+not a declaration that every memory feature improves answers or that29 roadmap
+owners are closed. The retained baseline, failed candidates and original data
+remain. New writer identities require new development state. The latest combined
+938 rails and actual controls qualify named mechanisms, not independent accuracy.
+
+| Package | Implemented/validated disposition | Explicit remaining qualification / decision |
+|---|---|---|
+| P0 — measurements, e.g.986 unknown summaries | Nested status/reason denominators and semantic evidence funnel repaired; old missing content remains unobserved, never inferred from source IDs. | New development traces and reviewed answer-support keys must qualify each observed stage before tuning scores are trusted. |
+| P1 — long-source compression, e.g. a source exceeds512 NLI tokens | Role-bound windows/cited assertions/current manifests and complete-source fallbacks operate in writers/readers; actual substitution/opposing controls pass. | Independent completeness and quality/token curves remain tuning/evaluation measurements; unknown support retains originals. |
+| P2 — evidence selection, e.g. the gold document loses its exact value | Child/query-selected original evidence, BM25 document flag and recent role-share redistribution repaired through actual final packing. | Current writer/read revisions need versioned development state to measure residual misses; no gold-guided runtime selection. |
+| P3 — local writes, e.g. NuExtract receives a general chat template | Actual native structured task, complete input/reserves, bounded splitting and completion/negative receipts repaired; retained failed/success controls pass. | Broad failure rates and length coverage remain unqualified; old missing raw completions cannot be retrospectively diagnosed. |
+| P4 — graph truth, e.g. a proposed scenario becomes an asserted relation | Source-author/NLI/canonical-predicate guards and complete attributed source rendering pass actual writer/opposing controls. Existing confidence/identity policy retained. | Independent role/direction/modality/tier precision and answer utility remain qualification gates. No lower trust floor, forced connectivity, new alias resolver or false promotion. |
+| P5 — time/update authority, e.g. synthetic dates block real corrections | Hash-bound conversation order versus calendar authority, fair detector scans and event-versus-recording query axis repaired; real inline/periodic and warm/cold controls pass. | Historical answer/false-retirement precision remains measured on reviewed development/final sources; unknown cross-history order preserves both. |
+| P6 — procedures, e.g. an opposite rule reinforces a habit | Source-cited semantic identity/admission, eligibility before cap, original/observation clocks and retirement receipts pass actual writer/reader controls. | Activation/cap defaults retained until reviewed relevance/context gain; no reading-as-corroboration or forced activation. |
+| P7 — gates/style, e.g. a workplace request becomes city-only | Best existing factual proof retained with corrected category breadth, actual old-source rescue and original-copy alignment; opposing/context controls pass. | Two retained framing/uncertainty misses, contextual/multi-source and broad style/gate accuracy remain limits. No further model tournament or claim they are fixed. |
+| P8 — judges, e.g. one answer changes grade by comparator | Unique independent-grade cache, both-order preference-only path and blinded packet implemented; actual controlled SDK/resume checks pass. Muse remains primary. | Human labels/rubric qualification are parked as directed; scores stay diagnostic. Final second family must be selected/qualified and report separately. |
+| P9 — cost/completion, e.g. incomplete has no recorded reason | Text-free provider receipts, actual-duration scopes and bounded deployed-role resource profile implemented; sampled16.44GiB, no added model. | Keep serial maintenance/device/owned-drain policies. Worst-case frozen-run/long-input/interactive/thermal throughput still needs qualification before launch. |
+| P10 — maintenance/lifecycle, e.g. a cold source is no longer found | Source-bound entity notes, original-member cluster decisions, logical warm/cold membership, full graph checkpoints and archive/probation access repaired. Actual ten-job/cold-read control preserves42 originals. | Inert branch counts are not semantic coverage. Blind cluster/note specificity, natural retention and downstream answers remain evaluation gates; checkpoint retrieval remains inert. |
+
+No currently demonstrated integrity defect is waived by this audit. The named
+false assertion/expiry, original-loss, chronology, quote-copy and measurement
+mechanisms have repairs or explicit source-preserving abstention. This does not
+assert the absence of unknown defects. The eleven rows are execution
+dispositions, not eleven feature scores or roadmap checkmarks.
+
+**Next order:** prepare new repaired development inputs with source/answer keys
+and an untouched family-level validation partition → audit live knob consumers
+and build the bounded resumable tuning instrument (§2.3). Prepare final Z2
+orchestration alongside this work; complete its truth keys, additive/independent
+leave-one-out switches, independent bare/warm-vector controls, dual-judge identity/
+cost table and interruption/resume checks before freezing final manifests.
+The maintainer launches long/cloud campaigns. The old r4 command is not the new
+tuning/final launcher. Judge semantic qualification stays late as directed;
+unqualified grades may diagnose but cannot select a score-of-record configuration.
+No final campaign or hyperparameter result exists yet.
+
 ## 6. Look-ahead and roadmap closure
 
 Existing ownership, with concrete acceptance examples:
