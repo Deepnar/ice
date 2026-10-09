@@ -22,8 +22,10 @@ calendar precision or independent temporal answer accuracy. P6 source-semantic
 procedures, source/observation clocks and retirement receipts have focused
 qualification. P7 workplace breadth is repaired with opposing/style and actual
 old-source rescue controls; broad gate/answer gains remain unqualified. P8's
-blinded reference packet is ready, with human labels and independent absolute
-grading pending. P9 completion diagnostics are implemented; whole-stack peaks,
+blinded reference packet, independent absolute cache and preference-only runner
+are implemented with controlled SDK/resume checks; human labels and rubric
+qualification remain pending.
+P9 completion diagnostics are implemented; whole-stack peaks,
 latency and concurrency and P10 enrichment/lifecycle still need qualification.
 ROADMAP is the queue. The numbered packages below decompose existing entries,
 not a new G-track or claims of eleven newly discovered defects. The completed
@@ -898,6 +900,68 @@ across contrasts. Preferences still use both A/B orders with disagreement
 reported. Use a second qualified model family for disputed final cases and a
 frozen random audit; human review resolves remaining disagreements, otherwise
 report uncertainty. Historical v2 judge calibration does not qualify v3.
+
+### 2.2a Independent grading cache and preference-only path — 2026-10-09
+
+The historical paired judge remains unchanged for r4 reuse. Add an explicit
+private research runner `scripts/z1/score_frozen_answers.py` with separate
+absolute and preference modes, both defaulting to read-only planning. Grade a
+unique successful answer independently using exact question/reference/complete
+source, knowledge scope/tasks, question time/provenance and occurrence/cutoff.
+The rubric treats the key as a reference, preserves the question's actual intent,
+and separates historical advice from world truth. Correct public knowledge need
+not match unstated private history; missing evidence is not contradiction.
+Return grade/reason/basis, never a comparator or arm label. Successful uncertain
+is a completed disposition, distinct from an ungraded provider/schema failure.
+Require explicit completed/stop status; a plausible grade without it stays
+ungraded. This stricter new instrument does not rewrite historical r4 grades.
+
+Content-address each task by complete evidence/answer, rubric/schema/decoding,
+profile/model/endpoint/transport, scorer and call-helper identities. Arm name
+and input-file location do not enter the absolute key. Different cutoff/source/
+answer/rubric/provider invalidates reuse. A private per-task cache permits the
+same absolute grade in multiple contrasts without regenerating answers. Exact
+finished cache files are read-only. Independently hash-bind each selected input
+collection in a private plan/report; adding a comparator makes a new plan but
+may reuse identical tasks. Reject duplicate occurrences, unfinished/operator-
+required inputs, incomplete sources and mismatched pair evidence before calls.
+Terminal failed answers stay explicitly unavailable and consume no judge call.
+
+Preference mode compares the first declared arm separately against each other
+arm in both display orders. It requires the corresponding independent grade
+receipts, presents no grades or arm labels to the model, and returns only
+preference/reason/note. It cannot write absolute grades. Reverse disagreement
+remains uncertain, and preferences/errors are reported separately from fixed
+absolute grades. This does not prove a preferred reply is factually better.
+
+Use existing Muse1.3 Responses profile/transport, no automatic fallback or
+extra resident model. Reserve each of two maximum attempts atomically before
+calling, retain incomplete/unconfirmed/error receipts, reuse successful orders
+after interruption and never exceed the persisted attempt cap. Auth/quota/
+unknown faults pause immediately; three consecutive exhausted recoverable tasks
+pause. A lone exhausted task remains ungraded and later tasks can continue.
+Use one cache-directory lock; identity/content validation failures never call
+or overwrite. Completed reports are byte-stable on resume. No existing r4
+answer/judge artifact is changed. This runner remains diagnostic/unqualified;
+actual human qualification and final orchestration are later gates.
+
+Validate cache keys and opposing rubric inputs in isolation, then actual SDK
+MockTransport → runner → persisted answer/order receipts, interruption/resume,
+failed answers, mismatch refusals and completed-byte reuse with zero network.
+Read-only actual r4 planning counts distinct grades/contrasts without grading.
+Fresh exhausted-task streaks pause a run; terminal cached failures are retained
+without repeating calls or blocking unrelated work on an explicit later resume.
+Preference plans/report bind independent grade receipt hashes and values, while
+judge prompts receive none of those grades. Completed reports remain byte-stable.
+
+**Local qualification:**19 controlled checks pass, including actual Responses
+SDK/transport, unique-grade reuse after a comparator is added, first-order reuse
+after interruption, two-call limits, quota pause, new-outage pause/resume,
+unavailable answers, source mismatch, missing completion and cache corruption.
+Combined disposable rails874 passed42.94s. Read-only real r4 planning sees
+454 unique absolute tasks from456 successful answer occurrences;12 failed
+occurrences remain unavailable. No grading API call or old artifact mutation.
+These validate the instrument, not the proposed rubric's semantic agreement.
 
 ### 2.3 Hyperparameter tuning before Z2
 

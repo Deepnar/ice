@@ -104,8 +104,19 @@ Its P8 independent-review packet now exists:36 disagreement answers plus24
 stratified agreement controls,20 qualification/40 development reserved before
 labels with repeated families grouped. Six blinded batches retain complete
 question/reference/source/answer evidence, separate mutable labels and verified
-immutable hashes on rerun. Human labels and independent single-answer rubric/
-cache qualification remain pending; this does not newly qualify Muse.
+immutable hashes on rerun. Human labels and independent rubric qualification
+remain pending; this does not newly qualify Muse.
+
+The explicit `score_frozen_answers.py` diagnostic path now separates absolute
+grading from preferences. Each exact answer/question/reference/complete-source/
+cutoff/provider/rubric identity gets one private durable grade task, independent
+of arm name or comparator. Both-order preferences use separate tasks, receive
+no grades and cannot change them. Plans/report bind grade receipts; order
+disagreement remains uncertain. Default is read-only planning; explicit run/
+resume uses two durable attempts, retained terminal errors and fresh-outage
+pauses. Completed caches/report are byte-stable. The historical r4 paired judge
+and its saved verdicts remain unchanged; no automatic campaign integration or
+human/model qualification is implied by controlled SDK checks.
 
 `scripts/z1/seed_v3.py` replays the selected recorded histories through shared
 preflight/final preparation before storing each existing reply and running

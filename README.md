@@ -202,6 +202,9 @@ workplace can be an employer; an explicit city request still requires a city.
 Cloud completion diagnostics now preserve available incomplete reasons and
 usage without generated text. Native call timings report unexplained provider
 time separately; whole-stack speed and memory costs remain unmeasured.
+An explicit v3 diagnostic scorer now caches independent factual grades and
+collects pairwise preferences separately. It defaults to planning; the rubric
+awaits independent human qualification before scores can be treated as final.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers

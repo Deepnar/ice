@@ -1,3 +1,31 @@
+## 2026-10-09 — v3 independent grading and preference separation
+
+The new explicit diagnostic scorer grades one successful frozen answer against
+its complete question/reference/source, knowledge scope/tasks, question-time
+provenance and cutoff. Exact content/rubric/profile/model/endpoint/transport/code
+identities key private per-task cache files; arm names and comparators do not.
+Adding a comparator reuses an identical grade. Preference-only tasks show both
+display orders without grades, and cannot revise absolute results. Plans/report
+bind grade receipt hashes and values; disagreement remains uncertain. Historical
+r4 answers and paired verdicts are unchanged. Default invocation only plans;
+this path is not automatically wired into the historical campaign.
+
+Actual SDK MockTransport → scorer → durable cache/report controls19/19 pass1.52s:
+unique-answer reuse, interrupted calls and second display order, two persisted
+attempt limits, quota pause/recovery, three fresh exhausted-task outage pause,
+terminal-error resume, unavailable answers, source mismatch, missing completion,
+malformed verdicts and corrupt cache. Full disposable smoke/background/cloud
+provider874/874 pass42.94s with226 existing warnings. These are overlapping
+instrument checks, not semantic judge-quality examples. No network call occurred.
+
+Actual read-only r4 planning finds454 unique grading tasks among456 successful
+answer occurrences;12 failed occurrences remain unavailable. The plan created
+no cache directory and preserves the baseline. Private logs remain under
+logs/v3-repair-p5-2026-10-09/independent-scoring-*.log. Rubric semantics await
+independent human labels and qualification; the new report explicitly says
+unqualified_diagnostic. No parent roadmap quality item closes. Whole resource
+profiling and source-backed semantic maintenance/lifecycle remain repair work.
+
 ## 2026-10-09 — v3 completion and resource receipts
 
 The shared cloud adapter now retains bounded text-free completion receipts on
