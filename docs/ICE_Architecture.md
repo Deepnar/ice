@@ -1337,6 +1337,26 @@ is the procedural writer.
 
 32. **`_enrich_codex_entities`** (ENRICHMENT_PROMPT, global pass; A7.3) — fills each entity's **description** (the rich "note body"). It selects up to 25/run — entities with an *empty* description ranked by mention count first, then stale well-mentioned notes (>14 days) for refresh — summarises the originating episodic passages with the background model into a concise domain-general note, writes it to **description** (NOT context_payload, which is auto-assembled and would be overwritten), then calls _regenerate_context_payload so the note becomes description + properties + links + backlinks, and journals the overwrite via `log_description_update(..., source="reflection_enrichment")` — a `description_updated` CodexEvent with old/new snippets (T4/D13 never-overwrite; replaces the old opaque `context_appended` emit, which remains in old journals as readable history). Reflection **does not add edges** — it only enriches entity descriptions. This is the engine that turns codex nodes from label strings into real Obsidian-style notes.
 
+**v3 entity enrichment contract, 2026-10-09:** the preceding paragraph's
+ENRICHMENT_PROMPT/passage-prefix generator is superseded. Existing25/run and
+14-day refresh policy remain. `memory/entity_notes.py` loads up to eight complete
+event-linked warm/cold originals, preserves supplied roles and uses the P1
+source windows/citations/pinned NLI. Typed JSON generation shares the complete
+input/capacity/finish guard and900-token reserve; the optional schema is counted
+conservatively for capacity without changing other note callers. Supported
+accounts alone update/journal descriptions. Unknown roles, incomplete output,
+invalid citations and unsupported claims preserve the previous note/originals.
+
+Exact entity/source/candidate/model/policy proof and latest diagnostics occupy
+reserved existing properties, excluded from factual payloads. Complete malformed
+output remains private review data. The reader re-resolves originals before
+labeling a note source-supported; changed/missing sources or descriptions and
+legacy proofs remain unverified. Identical warm→cold copying retains support.
+This is source fidelity, not independent world truth or completeness. Reflection
+returns actual selection/attempt/status/error counts; replay/report distinguish
+observed, legacy-unobserved and invalid receipts. Neither attempt count nor a
+repeated entity is independent precision. Scheduling and model roles are unchanged.
+
 ### **8.7 Clustering Worker**
 
 **Reworked 2026-07 (roadmap C5, "v5") — the structural fixes for Exp2's "2–3 mega-clusters + dozens of singletons," which were creation/assignment-side, not threshold-side.** The plain callables (`run_cluster_assignment(db, conversation_ids=None)` / `run_cluster_merge(db, conversation_ids=None)`) are driven directly by the maintenance runtime — cadence plus C7's session-gap freshening, which passes the new sitting's conversation id — and later by Track D's agent (the C5-era Celery wrappers were deleted with C7).

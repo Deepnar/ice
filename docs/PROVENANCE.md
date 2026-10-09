@@ -1,3 +1,46 @@
+## 2026-10-09 — v3 source-bound entity accounts
+
+A controlled disposable SQL/worker baseline writes a length-marked false
+approval into an entity description while the actual source refusal beyond
+character600 never reaches the generator. This proves two writer contracts are
+broken, not a model/corpus hallucination rate. New enrichment uses up to eight
+complete event-linked warm/cold originals with supplied roles, typed cited
+assertions and the existing pinned NLI. The shared complete-input/finish guard
+has an optional JSON schema and900-token reserve; other callers are unchanged.
+Schema bytes count conservatively toward capacity. Only supported accounts
+update/journal descriptions. Uncertain/incomplete/invalid candidates retain
+previous notes and originals. Complete malformed output stays in reserved
+private review data, excluded along with proofs from factual payloads.
+
+Readers re-resolve current sources before labeling an account source-supported;
+exact entity/source/candidate/model/policy agreement is required. Legacy/stale
+notes remain unverified, while identical warm-to-cold copying preserves support.
+Reflection returns actual attempt/status/error counts; production registry →
+worker → replay collector → report controls preserve the receipt. Reports
+separate observed, legacy-unobserved and invalid calls rather than fabricating
+model-call or precision counts. Repeated entities are dependent observations.
+No schedule/threshold change, new model, cloud call or original deletion.
+
+Final focused source guards25/25 pass14.28s, collector/report controls13/13
+pass13.78s. Actual final typed E4B generation/pinned NLI/SQL/reader controls admit
+one positive and withhold a planted false approval; both originals remain.
+These overlap and do not establish population precision, note completeness,
+answer gains or context savings. The supported tiny note still includes an
+assistant acknowledgment; entailment is not a utility score. Final combined disposable smoke/background/cloud
+provider rails882/882 pass42.78s with226 existing warnings after report integration.
+
+Initial fixture omitted required context_reliance before writing anything.
+Later four focused failures were fixture residue: stale entities became later
+case candidates. Targeted cleanup fixed that without changing production
+eligibility. First actual positive was withheld at citation parsing; capture
+rerun supported it and rejected the opponent. The final schema-constrained
+candidate also passed; failed logs remain, not a100% reliability claim.
+Private evidence stays under logs/v3-repair-p5-2026-10-09/entity-note-*.log.
+The completed r4 bundle remains unchanged; a read-only recount shows71
+reflection calls without the new receipt, explicitly unobserved rather than a
+zero-failure claim. Trace SHA remains0d718f...af185. Broader P10 semantic maintenance/
+lifecycle and P9 whole-stack resource qualification remain open.
+
 ## 2026-10-09 — v3 independent grading and preference separation
 
 The new explicit diagnostic scorer grades one successful frozen answer against

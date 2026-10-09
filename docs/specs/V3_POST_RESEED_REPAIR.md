@@ -842,6 +842,57 @@ answer artifacts pass the closed read-only matcher with unchanged bytes. No
 cloud call, old artifact rewrite or token-cap change was made. Original r4's
 missing provider reasons remain unknown; telemetry cannot recover them.
 
+### 2.1n Entity-note source contract — decision, 2026-10-09
+
+Actual disposable SQL/worker baseline with a controlled provider writes a
+length-marked false approval into an entity description. The original refusal
+lies beyond600 characters and never reaches the old prompt. This establishes
+two writer defects, not a population/model hallucination rate. Entity readers
+already label legacy notes unverified; do not describe those as verified facts.
+
+Replace enrichment's source prefixes with at most eight complete non-private
+original turns from its event-linked warm/cold batches, deterministically ordered
+by recording time/id for bounded selection only, not event-time authority.
+Use the existing P1 original-role windows, cited-assertion parser and pinned NLI.
+Generate an attributed source-backed account of the named entity with the shared
+complete-input/capacity/finish guard and existing900-token note reserve. Unknown
+roles/capacity/completion/parse/support retain the previous description and every
+original. Neither a generated prefix nor a source-only fallback is a new note.
+
+Keep existing enrichment scheduling/limits/retirement and no extra model.
+Store current source/candidate/entity/policy support proof and separate latest
+review diagnostics in reserved existing entity properties, excluded from factual
+payload rendering. Success alone updates/journals the description; actual
+attempt/supported/contradicted/unknown/failure counts replace candidate-count
+claims. Reflection returns this receipt through its existing worker result.
+The derived report separates observed, legacy-unobserved and invalid receipts;
+it never infers model calls or independent precision from attempted entities.
+
+At retrieval, re-resolve the same bounded current originals and require exact
+source/candidate/entity/model/policy agreement before labeling the account
+source-supported. Legacy/missing/stale proof remains explicitly unverified;
+original graph/source evidence remains available. Warm-to-cold copying with
+identical source identity/bytes does not invalidate support. A new/changed
+selected source or description does. Support is a faithful account of supplied
+sources, not independent world truth or all-fact completeness. Broader semantic
+description/cluster quality and full lifecycle still belong to P10 qualification.
+
+**Actual-path grounding:** first positive generation is unknown at citation
+parsing; a diagnostic rerun admits a supported account and rejects the opposing
+candidate with actual E4B/NLI. This is not corpus reliability. Add the existing
+background JSON-schema constraint at the entity-note call, keeping complete
+input/reserve validation and explicit finish checks. The shared note helper
+accepts an optional schema; existing callers keep their previous behavior.
+Account conservatively for schema bytes in the capacity check. Do not repair
+format by accepting uncited prose or loosening semantic support. Retain complete
+generated parse-failure text only in private, reserved review diagnostics, never
+the description/context. Qualify this final candidate once on the actual path.
+Final typed E4B/pinned NLI/SQL/reader positive and opposing controls pass,
+25 focused source guards14.28s and13 registry/collector/report controls13.78s
+pass; final combined rails882 passed42.78s. Old r4 has71 unobserved reflection
+calls and unchanged trace bytes. These are mechanism controls, not independent
+corpus precision, note utility or answer gains.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36

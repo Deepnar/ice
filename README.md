@@ -205,6 +205,9 @@ time separately; whole-stack speed and memory costs remain unmeasured.
 An explicit v3 diagnostic scorer now caches independent factual grades and
 collects pairwise preferences separately. It defaults to planning; the rubric
 awaits independent human qualification before scores can be treated as final.
+Entity enrichment now uses complete attributed sources and cited verification;
+incomplete or unsupported candidates preserve the previous note. Readers separate
+current source-supported accounts from legacy unverified notes.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers

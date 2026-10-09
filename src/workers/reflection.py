@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from src.api.config import settings
 from src.api.db import SessionLocal
+from src.memory.entity_notes import PROOF_KEY, REVIEW_KEY, generate_note, note_sources
 from src.memory.models import (
     CodexEntity,
     EpisodicMemory,
@@ -50,15 +51,6 @@ SLOT_EVOLUTION_PROMPT = (
     "Output ONLY a JSON object with keys matching the slot names (if an update is needed) and "
     "the proposed new content as the value. If no update is needed for a slot, omit the key. "
     "The proposed content should be a concise paragraph. Do NOT include markdown."
-)
-
-ENRICHMENT_PROMPT = (
-    "Write a concise, factual encyclopedia-style note describing the entity named below, "
-    "using ONLY the information in the passages. Cover what it is and its most important "
-    "facts, role, and relationships. Be domain-agnostic — it may be a person, place, "
-    "software component, function, concept, organization, event, product, dataset, or a "
-    "fictional entity. No preamble, no speculation, no meta-commentary, no markdown — just "
-    "the description, under ~120 words."
 )
 
 MOTIF_PROMPT = (
@@ -112,10 +104,11 @@ def run_reflection():
             _detect_motifs(db, recent)
 
         # Codex enrichment is global — it works on thin entities regardless of conversation
-        _enrich_codex_entities(db)
+        enrichment = _enrich_codex_entities(db)
 
         db.commit()
         logger.info("reflection_full_pass_complete")
+        return {"entity_enrichment": enrichment}
 
     except Exception as exc:
         db.rollback()
@@ -222,8 +215,6 @@ def _enrich_codex_entities(db):
     would otherwise be overwritten on the next edge). Priority: entities with
     an EMPTY description first (the big win), then a few stale ones to refresh.
     Domain-general — works for code, research, business, people, or lore."""
-    from src.workers.codex_extractor import _regenerate_context_payload
-
     # Priority 1: no description yet — richest-mentioned first.
     to_enrich = db.execute(text("""
         SELECT e.id
@@ -251,58 +242,42 @@ def _enrich_codex_entities(db):
         """), {"days": settings.reflection_enrich_refresh_days, "lim": settings.reflection_enrich_limit - len(ids)}).fetchall()
         ids.extend(r[0] for r in stale)
 
+    receipt = dict(method="entity_enrichment_receipt_v1", selected=len(ids), attempted=0,
+                   supported=0, contradicted=0, unknown=0, errors=0)
     for eid in ids:
-        entity = db.query(CodexEntity).get(eid)
+        entity = db.get(CodexEntity, eid)
         if not entity:
             continue
-        rows = db.execute(
-            text("SELECT DISTINCT batch_source FROM codex_events WHERE entity_id = :eid"),
-            {"eid": entity.id}
-        ).fetchall()
-        passages = []
-        for (bid,) in rows:
-            # G16: incognito turns never feed a shared store. Every other
-            # consumer filters this (batch_summarizer.py:51, clustering.py:446);
-            # this one did not, and an entity description is about as shared as
-            # a store gets — it is rendered into context_payload and injected.
-            # post_flight already skips the pipelines for a private turn, so
-            # this is defence in depth for turns made private after extraction.
-            turn = (db.query(EpisodicMemory)
-                      .filter_by(batch_id=bid)
-                      .filter(EpisodicMemory.is_private == False)  # noqa: E712
-                      .first())
-            if turn and turn.raw_text:
-                passages.append(turn.raw_text[:600])
-            if len(passages) >= 8:
-                break
-        if not passages:
-            continue
+        receipt["attempted"] += 1
         try:
-            completion = bg_client.chat.completions.create(
-                model=get_bg_model_name(),
-                messages=[
-                    {"role": "system", "content": "You write concise factual knowledge-graph entity notes."},
-                    {"role": "user", "content": f"{ENRICHMENT_PROMPT}\n\nEntity: {entity.canonical_name}\n\nPassages:\n" + "\n---\n".join(passages)[:2500]}
-                ],
-                temperature=0.0, max_tokens=200, timeout=bg_timeout(200)
-            )
+            note, review = generate_note(entity, note_sources(db, entity))
         except Exception as exc:
+            from src.workers.runtime import JobYielded
+            if isinstance(exc, JobYielded):
+                raise
             logger.error("codex_enrich_failed", entity=entity.canonical_name, error=str(exc))
+            receipt["errors"] += 1
             continue
-        note = (completion.choices[0].message.content or "").strip()
+        entity.properties = {**(entity.properties or {}), REVIEW_KEY: review}
+        receipt[review["status"]] += 1
         if not note:
+            logger.warning("codex_enrich_withheld", status=review["status"], reason=review["reason"],
+                           sources=review["sources"])
             continue
+        from src.workers.codex_extractor import _regenerate_context_payload
         # T4 (D13): journal the overwrite — description is the one
         # mutable-in-place field, so every write leaves a description_updated
         # event (replaces the old opaque context_appended emit; those stay in
         # the journal as readable history).
         old_desc = entity.description
         entity.description = note
+        entity.properties = {**entity.properties, PROOF_KEY: review}
         _regenerate_context_payload(entity, db)   # note = description + props + links + backlinks
         entity.last_updated = datetime.now(timezone.utc)
         log_description_update(db, entity, old_desc, note,
                                source="reflection_enrichment")
-    logger.info("codex_enrichment_done", enriched=len(ids))
+    logger.info("codex_enrichment_done", **receipt)
+    return receipt
 
 
 # ------------------------------------------------------------------

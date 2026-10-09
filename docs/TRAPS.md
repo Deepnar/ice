@@ -2245,6 +2245,15 @@ and its reason, rather than insist on no coverage. Keep nonlength/transport/
 capacity failures distinct; one completed generation still failed NLI and retained
 19,967 source characters, so fallback success cannot be called compression gain.
 
+**2026-10-09 entity notes:** a controlled real-SQL baseline accepted a
+length-marked false approval; its source refusal after character600 never
+reached the generator. Complete event-linked originals and cited verification
+now gate entity-note updates too. An actual E4B parse failure stayed unknown;
+typed output constrains format without making semantics true. Readers must
+recheck current sources, and private review/proof properties must never render
+as facts. Selection counts are not successful enrichments. Targeted test cleanup
+is essential: stale fixture entities otherwise become the next case's candidates.
+
 ### 95. Complete negative model results still need completion receipts
 
 **v3, 2026-10-08.** Procedural extraction had a session-step key but returned

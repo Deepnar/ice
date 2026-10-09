@@ -553,7 +553,7 @@ _ROLE_TAILS = frozenset({
 
 # `properties` keys that are ICE's own bookkeeping, never a claim about the
 # entity, and so never rendered into a retrieval fragment.
-_INTERNAL_PROPERTY_KEYS = frozenset({"merge_key", "merged_into"})
+_INTERNAL_PROPERTY_KEYS = frozenset({"merge_key", "merged_into", "_description_support", "_description_review"})
 
 
 def _is_negated(rel: str) -> bool:

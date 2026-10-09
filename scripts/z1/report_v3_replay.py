@@ -49,6 +49,7 @@ def summarize(path: Path) -> dict:
     instrument_continuations = []
     maintenance = Counter()
     procedural_retirement = Counter()
+    entity_enrichment = Counter()
     gate = Counter()
     produced = Counter()
     budgeted = Counter()
@@ -101,6 +102,19 @@ def summarize(path: Path) -> dict:
                 "code_changes": row["code_changes"]})
         elif event == "maintenance":
             maintenance[row["job"]] += 1
+            if row['job'] == 'reflection':
+                result = row.get('result')
+                receipt = result.get('entity_enrichment') if isinstance(result, dict) else None
+                keys = ('selected', 'attempted', 'supported', 'contradicted', 'unknown', 'errors')
+                if not isinstance(receipt, dict) or receipt.get('method') != 'entity_enrichment_receipt_v1':
+                    entity_enrichment['unobserved_calls'] += 1
+                elif (any(type(receipt.get(k)) is not int or receipt[k] < 0 for k in keys)
+                        or receipt['attempted'] > receipt['selected']
+                        or sum(receipt[k] for k in keys[2:]) != receipt['attempted']):
+                    entity_enrichment['invalid_receipt_calls'] += 1
+                else:
+                    entity_enrichment['observed_calls'] += 1
+                    entity_enrichment.update({k: receipt[k] for k in keys})
             if row['job'] == 'decay_procedural':
                 receipt = row.get('result')
                 if not isinstance(receipt, dict) or receipt.get('method') != 'procedural_retirement_v1':
@@ -305,6 +319,10 @@ def summarize(path: Path) -> dict:
         "procedural_retirement": {
             'counts': dict(procedural_retirement),
             'basis': 'ICE last-observation clock; repeat calls are not independent sources',
+        },
+        "entity_enrichment": {
+            'counts': dict(entity_enrichment),
+            'basis': 'writer attempts, not model-call counts or independent precision; repeated entities remain dependent',
         },
         "historical_clock": dict(clock),
         "seed_clock_policy": run["meta"].get("extra", {}).get("clock_policy"),

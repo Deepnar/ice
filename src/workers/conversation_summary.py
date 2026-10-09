@@ -32,11 +32,12 @@ from src.workers.completion_text import IncompleteCompletion, complete_text
 logger = structlog.get_logger("ice.workers.conversation_summary")
 
 
-def _default_llm(prompt: str, max_tokens: int = None) -> str:
+def _default_llm(prompt: str, max_tokens: int = None, *, schema=None) -> str:
     from src.workers.bg_client_factory import (
         bg_timeout,
         get_bg_client,
         get_bg_model_name,
+        json_schema,
     )
     from src.memory.tokens import count_messages, with_margin
     from src.model_registry.registry import get_model_context_window
@@ -49,7 +50,11 @@ def _default_llm(prompt: str, max_tokens: int = None) -> str:
         observed = serving_window(model, get_model_context_window(model))
         if observed:
             window = min(window, int(observed)) if window > 0 else int(observed)
-    required = with_margin(count_messages(messages), settings.token_count_safety_margin) + max_tokens
+    capacity_messages = messages
+    if schema is not None:
+        import json
+        capacity_messages = messages + [{"role": "system", "content": json.dumps(schema, sort_keys=True)}]
+    required = with_margin(count_messages(capacity_messages), settings.token_count_safety_margin) + max_tokens
     if window <= 0 or required > window:
         logger.warning("conversation_summary_input_over_budget", required=required,
                        window=window, model=model,
@@ -63,6 +68,7 @@ def _default_llm(prompt: str, max_tokens: int = None) -> str:
         # Prefill-heavy complete original groups: keep the 60s floor,
         # G12's formula scales with output only.
         timeout=max(60.0, bg_timeout(max_tokens)),
+        **({"response_format": json_schema("source_note_assertions", schema)} if schema is not None else {}),
     )
     return complete_text(completion)
 

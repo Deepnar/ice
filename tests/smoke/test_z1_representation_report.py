@@ -103,6 +103,19 @@ def test_retirement_calls_have_observed_and_unknown_denominators(tmp_path):
                            max_active_before=3, max_stale_protected=1, invalid_receipt_calls=1)
 
 
+def test_enrichment_receipts_separate_observed_legacy_and_invalid(tmp_path):
+    path = tmp_path / 'seed.jsonl'
+    receipt = dict(method='entity_enrichment_receipt_v1', selected=3, attempted=3,
+                   supported=1, contradicted=1, unknown=1, errors=0)
+    trace(path, [dict(event='maintenance', job='reflection'),
+                dict(event='maintenance', job='reflection', result={'entity_enrichment': receipt}),
+                dict(event='maintenance', job='reflection', result={'entity_enrichment': {**receipt, 'supported': True}}),
+                dict(event='maintenance', job='reflection', result={'entity_enrichment': {**receipt, 'attempted': 2}})])
+    observed = report.summarize(path)['entity_enrichment']['counts']
+    assert observed == dict(unobserved_calls=1, observed_calls=1, selected=3, attempted=3,
+                            supported=1, contradicted=1, unknown=1, errors=0, invalid_receipt_calls=2)
+
+
 def test_actual_cli_writes_a_new_hash_bound_report(monkeypatch, capsys):
     logs = Path(report.__file__).resolve().parents[2] / "logs"
     with TemporaryDirectory(dir=logs, prefix="report-smoke-") as temporary:

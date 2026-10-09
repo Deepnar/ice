@@ -2129,7 +2129,9 @@ class HybridRetrievalOrchestrator:
             if not note and not out_edges and not in_edges:
                 note = (entity.context_payload or "").strip()
             if note:
-                lines.append(f"[Unverified stored note] {note}")
+                from src.memory.entity_notes import current_note_support
+                label = "Source-supported account" if current_note_support(self.db, entity) else "Unverified stored note"
+                lines.append(f"[{label}] {note}")
         edges = list({e.id: e for e in out_edges + in_edges}.values())
         edges.sort(key=lambda e: (-self._edge_trust(e), str(e.id)))
         self._prime_edge_times(edges[:settings.codex_entity_edge_limit])
