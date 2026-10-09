@@ -2305,3 +2305,14 @@ contract. Source metadata does not establish event dates. Inspect actual final
 text and opposing years. A later proof capture also narrowed "where worked"
 into an unrequested city and refused the employer before NLI; trace frames,
 values and probability calls before blaming the verifier or lowering its gate.
+
+### 101. Similar opposite procedures are false corroboration, not paraphrases
+
+**v3, 2026-10-09.** The real encoder scored tests-before-changes versus
+changes-before-tests at0.986. The writer merged them, lost the opposite
+description and assigned its sources to reinforcement of the first procedure.
+Cosine cannot authorize identity. Require exact identity or complete mutual
+entailment within a bounded candidate pool; preserve ambiguous/narrower cases
+and inspect valid later neighbors. Actual SQL/NLI controls repair this shape.
+Description equivalence still cannot prove the underlying habit was asserted
+or repeated in its cited messages; that requires a separate source review.

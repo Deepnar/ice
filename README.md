@@ -187,6 +187,8 @@ an unresolved date meaning preserves relevant retrospective evidence under the
 same retrieval and prompt limits.
 Each available memory family can compete in the existing bounded rerank pool;
 relevance and final prompt limits still decide what reaches the answering model.
+Procedural descriptions merge only by exact identity or complete entailment in
+both directions; similar opposing instructions remain separate source-backed candidates.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers

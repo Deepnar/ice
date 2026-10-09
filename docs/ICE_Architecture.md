@@ -1220,7 +1220,20 @@ codex_extractor.extract_codex(batch_id, model_used, priority) (§4.4) — plain 
 
 ### **8.4 Procedural Extractor**
 
-procedural_extractor.extract_procedural(batch_id, model_used) (§5.1) — plain callable since C7, idempotency key sha256("procedural:" + batch_id), called directly from evaluate_turn unconditionally. Pattern detection → similarity matching → reinforcement or insertion.
+`procedural_extractor.extract_procedural(batch_id, model_used)` is called from
+post-flight, with an idempotency key for the session's growth bucket. Verified
+user spans produce a numbered-source proposal; at least two distinct in-range
+citations are required. Same-project cosine ranking nominates at most
+`procedural_match_candidates=5` descriptions. Exact identity needs no model;
+other merges require complete entailment in both directions using the existing
+pinned NLI on CPU. Unknown/contradictory/narrower candidates remain distinct.
+The first verified equivalent wins in cosine order, so an opposing nearest
+neighbor cannot hide a valid later candidate. Reserved `trigger_conditions`
+metadata records exact hashes, policy and candidate verdicts, independently of
+actual topic/intent triggers. Only a new resolved sitting can reinforce and
+refresh observation time; rereading does neither. The former0.85 cosine knob
+remains a historical pin and is inert. Description identity does not verify the
+habit against its cited sources; that source-semantic P6 work remains open.
 
 ### **8.5 Decay Workers**
 
@@ -1232,7 +1245,10 @@ reflection.run_reflection (runtime-scheduled every 2 h + the session-end burst) 
 
 28. **`_synthesize_session`** (SUMMARY_PROMPT) — emits \{topics_covered, decisions_made, unresolved_items, entities_updated, patterns_observed\}, inserts a SessionSummary row, and appends unresolved items to the pending_items memory slot directly (updated_by = "reflection_worker").
 
-29. **`_crystallize_patterns`** (CRYSTALLIZATION_PROMPT) — embeds each detected pattern, matches against procedural_memory (sim \> 0.85 ⇒ reinforce; else insert at confidence=0.3, is_active=False), promoting at reinforcement_count ≥ 3.
+29. **Procedural crystallization is removed from reflection.** Session summaries
+retain `patterns_observed` as observations; they cannot create or reinforce
+retrievable habits from uncited snippets. The session-scoped extractor above
+is the procedural writer.
 
 30. **`_evolve_memory_slots`** (SLOT_EVOLUTION_PROMPT) — proposes updates for project_context, user_preferences, guidance; inserts review_queue rows with item_type='memory_slot_update' and `proposed_by: "reflection"` (C9 D7 — approval applies through the slots service and records the proposer as the slot's updated_by). **Does not write slots directly** — human approval required.
 

@@ -1,3 +1,37 @@
+## 2026-10-09 — v3 semantic procedural description matching
+
+Actual disposable SQL/writer baseline with the shared Qwen encoder merged
+opposite review orders at cosine0.9861: one description remained, the old
+reinforcement count became2, and opposite sources were assigned to it. A
+paraphrase scored0.8744; the pinned NLI supports both directions, while the
+opposite and a narrower condition lack mutual support. This is a write-identity
+defect, independent of whether the proposed underlying habit is true.
+
+The writer now nominates at most five same-project candidates by cosine;
+exact description identity or complete bidirectional current-policy NLI support
+permits merging. Existing NLI runs on CPU, no resident model is added.
+Overlong candidates cannot hide valid bounded neighbors. Unknown/contradiction
+keeps separate patterns. Bounded reserved metadata records description hashes,
+policy, scores and candidate decisions. The former similarity threshold is
+inert and excluded from current tuning; replay pins the new candidate cap.
+
+Four synthetic actual-encoder/NLI/SQL-writer controls pass: a paraphrase
+reinforces, opposite/narrower instructions stay separate, and a valid second
+neighbor wins over the opposing nearest candidate. Same-sitting growth leaves
+count, sources and observation time unchanged; unchanged buckets make no new
+proposal call. Extraction proposals are controlled, so this does not qualify
+source-habit precision or end-answer/context improvement.
+
+Focused controls17 pass in13.25s; overlapping combined smoke/background rails
+772 pass in41.61s with226 legacy ORM/deprecation warnings. Private hashed
+artifacts in `logs/v3-repair-p5-2026-10-09`: `pattern-equivalence-probe.json`,
+`procedural-merge-before.json`, `pattern-equivalence-actual.log` and focused/full
+rail logs. The initial baseline scratch reader accessed a detached row; its
+failed log is retained, and the corrected DB query establishes the baseline.
+No r4 mutation, working-store restore, cloud/full run, push or owner closure.
+Next P6 work is source-semantic admission, explicit versus inferred procedures,
+eligibility before the SQL cap and the observed activation/retirement interaction.
+
 ## 2026-10-09 — v3 procedural candidate opportunity within the rerank cap
 
 Read-only frozen COPY audit verifies the saved dump SHA and95 patterns/2active.

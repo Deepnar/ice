@@ -43,6 +43,11 @@ concurrency** — a 27B at `--workers 3` reached 105 °C ([TRAPS #36](TRAPS.md))
 
 ### v3 simultaneous residency — audit2026-09-27
 
+The existing source-support NLI also verifies procedural description equivalence
+in both directions on CPU (2026-10-09); exact identities need no model. This
+adds bounded calls, not resident weights. Source-habit truth is a separate
+unqualified decision; description equivalence cannot supply it.
+
 The six substantial local components are the shared Qwen encoder, Qwen
 reranker, DeBERTa NLI, NuNER, E4B and NuExtract. Classifier and MicroNER are
 two smallCPUheads using the shared encoder, not additional transformer copies.

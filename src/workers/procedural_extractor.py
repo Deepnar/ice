@@ -11,6 +11,7 @@ from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.embedder import get_embedder
 from src.memory.models import EpisodicMemory, IdempotencyKey, ProceduralMemory
+from src.memory.pattern_support import equivalence_receipts
 from src.memory.source import source_units
 from src.memory.tokens import count_messages, with_margin
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
@@ -246,7 +247,7 @@ def extract_procedural(batch_id: str, model_used: str = ""):
                         session_id=str(turn.session_id))
             return
 
-        # Encode the pattern for similarity matching
+        # Similarity nominates a bounded pool; it never proves equivalence.
         embedding = encode_pattern(pattern_text)
 
         # Force PostgreSQL to accept the list as a vector via explicit cast
@@ -255,14 +256,24 @@ def extract_procedural(batch_id: str, model_used: str = ""):
             FROM procedural_memory
             WHERE embedding IS NOT NULL
               AND project_id IS NOT DISTINCT FROM CAST(:project_id AS uuid)
-            ORDER BY sim DESC LIMIT 1
+            ORDER BY sim DESC, id LIMIT :candidate_limit
         """)
-        row = db.execute(similarity_query, {
+        candidates = db.execute(similarity_query, {
             "emb": str(embedding), "project_id": str(project_id) if project_id else None,
-        }).first()
+            "candidate_limit": settings.procedural_match_candidates,
+        }).all()
+        existing_patterns = [db.get(ProceduralMemory, row.id) for row in candidates]
+        proofs = equivalence_receipts(pattern_text, [p.pattern_description for p in existing_patterns])
+        checks = [dict(candidate_id=str(row.id), cosine=float(row.sim), proof=proof)
+                  for row, proof in zip(candidates, proofs)]
+        for candidate, proof in zip(candidates, proofs):
+            log.info('procedural_equivalence', candidate_id=str(candidate.id),
+                     cosine=float(candidate.sim), status=proof['status'], reason=proof['reason'])
+        matched = next(((p, proof) for p, proof in zip(existing_patterns, proofs)
+                        if proof['status'] == 'equivalent'), None)
 
-        if row and row.sim > settings.procedural_similarity_threshold:
-            existing = db.get(ProceduralMemory, row.id)
+        if matched is not None:
+            existing, proof = matched
             # ⚑ Only a DIFFERENT session is a repeat. Re-reading this one as it
             # grows (see the bucket key above) would otherwise reinforce the
             # pattern against itself, and `reinforcement_count >= 3` — the whole
@@ -274,6 +285,8 @@ def extract_procedural(batch_id: str, model_used: str = ""):
                 existing.last_observed = datetime.now(timezone.utc)
                 existing.reinforcement_count += 1
                 existing.source_batch_ids = sorted(seen | cited_batch_ids, key=str)
+                existing.trigger_conditions = {**(existing.trigger_conditions or {}),
+                    '_last_equivalence': proof, '_equivalence_candidates': checks}
                 if (existing.reinforcement_count >= 3 or
                         len(existing.source_batch_ids) >= settings.procedural_min_cited_turns):
                     existing.confidence_score = 0.8
@@ -292,14 +305,12 @@ def extract_procedural(batch_id: str, model_used: str = ""):
                 pattern_name=pattern_text[:80],
                 pattern_description=pattern_text,
                 topic_tags=turn.topic_tags or [],
-                trigger_conditions={},
+                trigger_conditions={'_equivalence_candidates': checks},
                 reinforcement_count=1,
                 first_observed=datetime.now(timezone.utc),
                 last_observed=datetime.now(timezone.utc),
                 # ⚑ Activate on EVIDENCE (G49). A pattern citing enough distinct
-                # turns is supported whether or not a later session happens to
-                # re-describe it similarly — and re-description is what the
-                # system provably cannot produce (0.708 against a 0.85 bar).
+                # turns qualifies without a later session re-describing it.
                 # Reinforcement still activates below; this is a second path,
                 # not a replacement.
                 is_active=len(cited_batch_ids) >= settings.procedural_min_cited_turns,

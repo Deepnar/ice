@@ -78,6 +78,7 @@ REPLAY_SETTINGS = [
     "decay_daily_creative", "codex_decay_daily", "codex_retention_floor",
     "procedural_stale_days", "procedural_min_reinforcement",
     "procedural_extraction_max_tokens",
+    "procedural_match_candidates",
     "compaction_event_threshold",
     "retrieval_strengthen_writes", "decay_strengthen_amount",
     "codex_retention_increment", "codex_retention_cap",

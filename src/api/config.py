@@ -156,13 +156,13 @@ class Settings(BaseSettings):
     procedural_min_conf: float = 0.3
     # ⚑ Activation on EVIDENCE, not on re-emission (G49, 2026-08-16).
     # `is_active` required reinforcement_count >= 3, and reinforcement needs a
-    # later session to produce a description similar to the earlier one above
-    # procedural_similarity_threshold. Those descriptions are free text, and two
+    # later session to produce a semantically equivalent description. Historically,
+    # cosine approved repeats; two
     # write-ups of the SAME habit measure 0.708 against a 0.85 bar — so nothing
     # activated. Measured on the seeded arm: 61 patterns citing 514 turns
     # between them, ONE active, with patterns citing 20 turns each sitting at
     # reinforcement 1. The evidence was already there and was being ignored.
-    # G42 enforces >=3 cited turns at creation, so cited turns are the signal
+    # G42 enforces >=2 distinct in-range cited turns at creation, so cited turns are the signal
     # this system can actually produce; reinforcement stays as a second path.
     # ⚠ 10 is a defensible default, NOT a calibration. The C9 note above states
     # the rule for settling it: >30 active patterns with <5% injection rate
@@ -639,17 +639,11 @@ class Settings(BaseSettings):
     # v3 retained-session output hit the old 160-token cap. Complete outputs
     # and source citations are required; this cap is not a truth threshold.
     procedural_extraction_max_tokens: int = 512
-    # Cosine above which a new pattern counts as a repeat of a stored one. Was a
-    # bare 0.85 in the extractor, so it could not be swept.
-    # ⚠ MEASURED 2026-08-13 AND PROBABLY WRONG: two extractions of the SAME
-    # habit — "restates or asks to restate the plan before proceeding" and
-    # "requests confirmation of the agreed-upon plan before proceeding" — score
-    # **0.708**, so they land as two patterns of count 1 rather than one of
-    # count 2. With G42's fabrication fixed, THIS is what still keeps
-    # `reinforcement_count >= 3` out of reach. Left at 0.85 deliberately: one
-    # observation is not a calibration, and retuning on it would be the same
-    # mistake in the other direction. Z1 sweeps it.
+    # Historical replay pin; inert in the v3 writer since mutual entailment
+    # replaced cosine approval. Opposite workflow orders scored 0.986.
     procedural_similarity_threshold: float = 0.85
+    # Similarity nominates candidates; complete bidirectional support merges.
+    procedural_match_candidates: int = Field(default=5, ge=1, le=32)
 
     decay_strengthen_amount: float = 0.15
     # Master switch for the strengthening WRITE itself, not its magnitude.

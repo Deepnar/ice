@@ -570,6 +570,50 @@ semantic pattern support, cosine-only pattern merging, stale activation or
 SQL eligibility after LIMIT; inspect those existing P6 seams next. Do not close
 P6 or broad roadmap owners from this candidate opportunity mechanism alone.
 
+### 2.1h Procedural semantic identity — grounded decision, 2026-10-09
+
+An actual disposable-store/current-writer control with the real shared encoder
+confirms that opposite workflow order is merged: tests-before-changes versus
+changes-before-tests scores0.9861, passes the0.85 rule, increments the old habit
+to two sessions and assigns opposite sources to it. The opposite description
+is lost. This is semantic identity corruption, not a threshold-tuning question.
+The existing NLI control supports an equivalent rewording in both directions,
+withholds the opposite, and withholds a narrower Rust-only condition.
+
+Decision: cosine generates a bounded five-candidate shortlist in the same
+project scope; it cannot authorize merging. Exact identical descriptions are
+equivalent by identity, with no model call. Different descriptions must pass
+both complete-direction NLI checks under the current pinned verifier/policy.
+Unknown, contradiction, bounds/provider errors or one-way implication keep
+separate patterns. Choose the highest-ranked verified equivalent candidate;
+an opposing nearest neighbor must not hide a valid next neighbor. No cosine
+cutoff reduction, model addition or activation/confidence rule change.
+An overlong candidate is refused before scoring so it cannot hide other valid
+bounded candidates; no source/description truncation is authorized.
+
+The bounded shortlist becomes `procedural_match_candidates` (default5, range
+1–32), an explicit cost cap. The old similarity knob remains a documented
+historical pin until its removal/tuning-ledger update; it no longer grants write
+authority. Journal exact description/policy identities, direction statuses and
+candidate outcomes in the retained procedural proof metadata/logs. Same-session
+re-description still cannot reinforce or refresh observation time. Missing
+prior source identities still cannot strengthen. Unchanged-bucket receipts
+remain idempotent. Equivalence of descriptions does not prove their underlying
+habit is true; source-semantic validation and explicit/inferred distinction
+remain the next P6 work.
+
+Qualify actual SQL/writer and new/session-repeat behavior on same/opposite/
+narrower descriptions, valid non-nearest equivalence, pinned real NLI and
+encoder, private source/hash receipts and both positive/negative controls.
+Never borrow a candidate's support receipt for a different description.
+
+Implemented and qualified on four synthetic actual-encoder/NLI/SQL writer
+controls: paraphrase reinforces, opposite and narrower conditions remain
+separate, and a verified second neighbor wins over the opposing first. Growing
+or rereading the same sitting neither reinforces nor refreshes time. These are
+mechanism checks with controlled extraction proposals, not independent habit
+precision or corpus answer gains. Source-semantic admission remains next.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36
@@ -631,6 +675,12 @@ sweeping. Historical duplicate constants/defaults are not assumed current.
 | Trust and activation | Only source-reviewed graph tiers and procedural evidence thresholds; candidate range derived from labeled support/false-action cases, not arbitrary global lowering | Freeze independent source-truth constraints. Reads cannot create corroboration. If no eligible examples exist, mark unexercised and retain default. |
 | Gates and temporal policy | Existing gate thresholds/bumps and temporal-label consumer on meaning-preserving memory/no-memory controls | Recall and false-suppression guardrails; temporal changes need original-date and ordinal-only strata. T5 temporal-label effects are tested only after a frozen baseline. |
 | Lifecycle/resource | Solve declared half-life targets, then compare baseline and 0.5×/2× duration sensitivity on a time-advanced development history; batch sizes only within measured residency headroom | No future-time jumps merely to produce desired cold counts. Test reinforcement/decay interaction and real job ordering, not algebra alone. Local foreground residency is a separately labeled optional profile. |
+
+The historical `procedural_similarity_threshold` is inert and excluded from
+this tuning ledger. `procedural_match_candidates=5` is a bounded writer cost
+cap; evaluate shortlist misses against reviewed equivalent/opposing pairs
+before considering a different value. Writer-cap changes require new versioned
+development state, never read-only rescoring of the old writer's output.
 
 Run cheap exact/source-stage checks first. Spend new cloud answers only on the
 baseline and at most two surviving candidates per stage. A candidate must pass

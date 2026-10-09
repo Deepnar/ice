@@ -62,7 +62,7 @@ _TRACKED = (
     "retrieval_max_per_conversation", "retrieval_cluster_top_k",
     "codex_max_fanout", "codex_max_depth", "codex_relation_open_vocabulary",
     "codex_relation_canonical_threshold", "codex_node_promotion",
-    "procedural_min_session_turns", "procedural_similarity_threshold",
+    "procedural_min_session_turns", "procedural_match_candidates",
     "context_growth_cap_ladder", "retrieval_strengthen_writes",
 )
 
