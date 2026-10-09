@@ -292,6 +292,24 @@ not the final semi-LSREP schedule or a causal retention claim.
 The [manual guide and measurement matrix](reviews/2026-10-01-v3-manual-campaign.md)
 state remaining coverage, label and qualification limits.
 
+**V3 post-reseed preparation,2026-10-09:**
+`experiments/v3_repair/prepare_inputs.py` seals private original/review/code hashes
+without a DB or model call. Two development histories contain352 recorded pairs
+and73 reviewed keys, reserved67/6 by complete history before new outputs.
+Previously exposed development sources are not untouched users. Final semi-LSREP
+reserves both paper histories B and C (1119/325 pairs), with isolated state and
+the same complete additive/leave-one-out/lifecycle/vector-control roster; report
+each history before aggregate. All792 legacy occurrences/128 families still need
+new through-cutoff source/correction/repeat review. The planner reports archive
+disagreements/incomplete byte-match coverage rather than rewriting originals.
+Oracle-only scorer keys preserve500 official string/integer answers. All keys
+stay separate from answering evidence. Atomic locked products and a final seal
+verify unchanged resume; input/code/settings drift requires a new private bundle.
+The173 static settings candidates have unmeasured live effects. This is input
+preparation, not a repaired replay store, tuning or final campaign. Full aging,
+condition-path/recovery controls and final runner remain readiness work in
+[the current contract](specs/V3_POST_RESEED_REPAIR.md).
+
 ## **2. Classification Engine**
 
 The classification engine produces, for each user turn, a set of **topic tags**, a set of **intent tags**, and — since B1 (2026-07-25) — **four independent context-reliance signals** from which the legacy single context-reliance string is *derived*. These outputs drive every downstream decision — which retrieval legs are weighted, how the token budget is split, whether the wide-net fallback fires, and which model the MoE router selects. The engine is a **single** small PyTorch head over a frozen embedding, resolving every turn with sub-millisecond CPU inference. It was a two-stage cascade until D8 (2026-07-27) deleted the rule-based pre-classifier (DI3): measured against the promoted v2 head on the 9,441 held-out rows it would have intercepted, DI3 lost every slice on every metric, so keeping it meant two disagreeing classifiers where the worse one won by running first (§2.2).

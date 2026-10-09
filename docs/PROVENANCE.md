@@ -1,3 +1,64 @@
+## 2026-10-09 — v3 offline B/C input and tuning preparation
+
+The current semi-LSREP fixture decision selects both original paper histories
+B and C, separately, with the same complete condition roster. This is a v3
+longitudinal replication, not a fresh independent-user test or a comparison
+against published v2 scores. Both are reserved from new tuning. The new offline
+planner makes no DB/embedding/model/API/replay call and leaves r4 unchanged.
+
+Two other development histories supply352 original recorded pairs and73 valid
+through-cutoff keys. Complete-history grouping reserves6 keys for validation
+and67 for tuning before new outputs; no declared family IDs exist in these
+selected reviews. Earlier development exposure and the thin two-history reserve
+prohibit an untouched-population claim. Original reviews retain73 invalid and31
+uncertain dispositions. B/C supply1444 original pairs (1119/325) and792 legacy
+occurrences: B91 families/638 observations/20 historical cutoffs, C37/154/10.
+All128 legacy families still need the improved source/correction/repeat review.
+No reviewed gold turn or later-cutoff answer is invented from historical scores.
+
+Historical curation matches1118 of B's1119 selected pairs, with one disagreement
+and81 rows beyond the paper endpoint excluded; C's archived prefixes match248
+of325 pairs, leaving77 unproven by those files. Both original/archive artifacts
+remain unchanged. Selected source identity/counts are verified; full historical
+byte identity is not. Constructed source clocks retain their provenance and do
+not substitute for the future declared lifecycle/aging schedule.
+
+The oracle-only release binds500 official keys,468 strings and32 integers,
+with original question/session/source/date/role identities. No full-S file is
+included. Official keys do not qualify the new replay adapter or judge. The
+static inventory records173 relevant setting candidates, all live verdicts
+unmeasured. Two existing inert declarations have no static reader; this is not
+new evidence of benefit, a tuning result, or permission to revive a retired knob.
+
+The private r3 bundle is `logs/v3-offline-input-plan-2026-10-09-r3`; its manifest
+identity is564cfed7ea573989601f299f1aa34549f3239b50af22e8b78f37f2a32bdd3909,
+binding12 input artifacts,119 code files and all eight product hashes. A real
+identical CLI rerun preserves all eight JSON files byte-for-byte; the separate
+resume-hash receipt and logs stay private. An earlier r1 plan is retained;
+r2 stopped before products because its string-only validator rejected an
+official integer answer. The corrected validator preserves numeric JSON keys.
+The first static scanner also missed Settings parameters; corrected before the
+qualified r3 inventory. Static read sites still are not live-effect verdicts.
+
+Focused preparation controls14/14 pass0.13s, including interrupted pre-seal
+recovery, unchanged resume, corrupt/code/source-review drift refusal, separate
+scorer lanes, original-clock/endpoint coverage and official integer keys.
+Opposing budget/gate controls reach real pure production decision helpers, not
+DB/HTTP/model execution. Combined disposable smoke/background/cloud-provider
+rails952/952 pass47.21s with327 existing warnings; these overlap the focused
+checks and do not establish memory quality. The full log is
+logs/v3-input-preparation-complete-rails-2026-10-09.log.
+Prescribed precommit disposable smoke927/927 pass46.86s with the same327
+existing warnings; this is an overlapping rail run, not additional independent
+quality evidence. Its log is logs/v3-input-preparation-smoke-2026-10-09.log.
+
+The planner leaves `replay_ready`/`score_ready` false. Fresh repaired development
+state, live consumer deltas, bounded tuning, final source labels/time schedule,
+condition runner, call/cost table and short full-cycle recovery controls remain.
+The maintainer manually launches long/cloud experiments after readiness; the
+old r4 command is not their tuning/final launcher. See
+[the preparation guide](../experiments/v3_repair/README.md).
+
 ## 2026-10-09 — v3 source-proof original-copy invariance
 
 A controlled actual proof/parser baseline accepts an exact quote; changing only

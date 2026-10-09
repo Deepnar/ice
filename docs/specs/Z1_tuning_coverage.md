@@ -1,15 +1,20 @@
 # Z1-prep — Staged parameter tuning + whole-system coverage matrix
 
-**Current v3 tuning decision, 2026-10-07:** the first complete diagnostic
+**Current v3 tuning decision, 2026-10-09:** the first complete diagnostic
 reseed is available. Repair its confirmed memory/measurement failures before
 sweeping. The bounded budget-first, actual-consumer tuning protocol and freeze
 criteria in [V3_POST_RESEED_REPAIR §2.3](V3_POST_RESEED_REPAIR.md#23-hyperparameter-tuning-before-z2)
 supersede the historical keyword-only fast loop, four-night estimate and
 algebra-only lifecycle acceptance below. Use the saved as-of stores for
 read-only changes; writer/dynamics changes require new chronological state.
-Then Z2 runs the one-conversation semi-LSREP and oracle conditions with both
-warm and independent bare-vector controls. No final-condition answers tune
-these settings.
+Then Z2 runs semi-LSREP separately on original paper histories B and C, followed
+by oracle, with both warm and independent bare-vector controls. B and C are
+reserved from new tuning; the other two development histories contain352 pairs.
+Their reviewed73 keys are split67/6 by complete history, with previous exposure
+declared. This small reserve is diagnostic, not independent user qualification.
+The [offline input planner](../../experiments/v3_repair/README.md) binds sources,
+keys and static candidate consumers; it does not replay or tune. No final-condition
+answers tune these settings.
 
 **v3 execution overlay, 2026-09-29:** Z1 and Z2 now run as one inspect/tune/fix
 phase, after the complete seed and snapshot pass the

@@ -2430,3 +2430,16 @@ then verify original bytes. Do not lowercase stored text, values or hypotheses,
 accept paraphrases, or turn a matched quote into entailment. Exact matches keep
 priority; distinct ambiguous original spellings stay unknown. Actual pinned NLI
 still withholds negation/hypothetical assertions after successful copy alignment.
+
+### 109. A reference key has a schema, not a remembered format
+
+**ICE v3,2026-10-09.** Offline oracle preflight initially requires a string answer
+and rejects a valid quantitative item before creating products. The actual
+release contains468 string keys and32 integer keys. Preserve official JSON
+values and validate the observed schema; neither stringify everything silently
+nor reject real questions because a prior fixture used strings. Upstream keys
+are scorer inputs, not answering evidence or qualification of a new adapter.
+Likewise, matching legacy history IDs/counts cannot prove identical original
+bytes: archived curation may extend past the paper endpoint, disagree inside
+it, or cover only prefixes. Freeze selected bytes, retain both artifacts and
+report disagreements/missing coverage before using historical references.

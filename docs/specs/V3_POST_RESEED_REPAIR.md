@@ -51,7 +51,7 @@ design improvements where the likely cause is not yet settled. Execute:
    Qualify the judge and review semantic outputs alongside these repairs.
 3. Run the bounded hyperparameter protocol in §2.3, then freeze configuration,
    code, model/endpoint identities, labels and experiment manifests.
-4. Run **Z2: one long-conversation semi-LSREP with full memory lifecycle and
+4. Run **Z2: two-history semi-LSREP with full memory lifecycle and
    additive/subtractive ablations, plus LongMemEval oracle**. “LME-S oracle”
    here means the oracle evidence-session condition, not a full S haystack run.
 5. Diagnose final failures without silently tuning the same final results.
@@ -1333,10 +1333,10 @@ These validate the instrument, not the proposed rubric's semantic agreement.
 reviewed semantic keys. All r4 questions/results are development material.
 Partition new controls by conversation/source event/question family, never by
 paraphrase row; reserve an untouched validation packet before looking at new
-results. With only three histories, use leave-one-history-out diagnostics and
-report heterogeneity; do not claim a random population or user-generalization
-interval. Final semi-LSREP families/conversation and oracle instances do not
-select hyperparameters.
+results. The latest fixture decision reserves B and C, leaving two development
+histories (§2.3a); report fold heterogeneity and previous exposure, not a random
+population or user-generalization interval. Final semi-LSREP histories/families
+and oracle instances do not select hyperparameters.
 
 **Knob inventory first:** enumerate current Settings and every actual consumer.
 For each relevant knob record default/frozen value, eligible population, an
@@ -1377,9 +1377,82 @@ assembled input and provider identity match. Publish the knob verdict ledger,
 quality/token curves, per-task losses, settings and a final freeze manifest.
 No exhaustive combination search, no tuning against final scores.
 
+### 2.3a Offline input and knob preparation — decision, 2026-10-09
+
+Prepare a private immutable input manifest before any new replay/model call.
+Both selected paper histories are reserved from new tuning (see §2.4): use the
+other two r4 histories,352 original pairs, with the completed source/key reviews.
+This supersedes the three-history tuning roster above for this replication.
+Both folds remain development diagnostics; previous repair exposure is declared.
+Bind original corpus/review/paper artifacts and production/helper code hashes.
+Keep exact role text, recorded replies, constructed-clock provenance and original
+line/turn identity. Preserve all originals and reviewed invalid/uncertain cases;
+only fully reviewed valid through-cutoff keys enter a scoring plan.
+
+Create a question-family tuning/validation partition before new outputs. Use
+declared family IDs, otherwise conservatively group within a source conversation;
+never count unreviewed paraphrases as independent families. Repeated occurrences
+stay together. A two-history reserve is a development diagnostic, not new users
+or an untouched external test. The planner may not import a final history into
+the new development replay merely because the old r4 snapshots contain it.
+
+Keep final paper probes as unqualified legacy references until exact source
+turns, role, task/scope and corrections have been reviewed through every planned
+cutoff. Bind each original historical occurrence/reference independently; never
+borrow a future or nearest-checkpoint answer. Report historical source-text
+matches/mismatches/missing coverage separately from selection identity. The old
+curation can extend beyond the paper's replay endpoint; those rows never enter
+the selected fixture. Do not silently repair either original artifact.
+
+Draft an AST consumer inventory over current src for relevant numeric/boolean/
+weight settings, capturing direct reads, import aliases, literal getattr and
+unresolved dynamic reads. Preserve code default and locally resolved values in
+the private plan; exclude credential/transport/product-only fields. A static
+read is a candidate consumer, not a live decision or load-bearing verdict.
+Mark all deltas/cost/verdicts unmeasured until the real tuning instrument changes
+them through actual consumers. Missing static reads remain unresolved when a
+dynamic path could consume the value; do not auto-delete a knob.
+
+The offline command creates no DB, embedding, completion, grading or replay.
+The downloaded oracle release has500 labeled questions:468 string answers and
+32 integer answers. Preserve those exact official JSON values in scorer-only
+keys; a string-only validator would reject valid quantitative questions. Validate
+question/session identities and complete role-content arrays before calls. Bind
+only the oracle file, never silently include the fullS file. Legacy semi-LSREP
+keys remain unqualified; official oracle labels do not qualify the new adapter
+or judge by themselves.
+Atomic, hash-bound immutable artifacts resume byte-stably after interruption;
+mutable source-review answers stay separate and are never overwritten on resume.
+Input/code/policy drift rejects reuse, with no ignore-hash flag. The maintainer
+still launches long/cloud runs manually; this preparation CLI is not their runner.
+
+**Implemented preparation,2026-10-09:**
+`experiments/v3_repair/prepare_inputs.py` seals the selected original pairs,
+reviewed development keys, per-cutoff legacy references, oracle scorer keys and
+static settings candidates in private `logs/` artifacts. Current inputs yield352
+development pairs/73 admitted keys (67 tuning,6 validation) and1444 final pairs.
+The remaining development dispositions are73 invalid and31 uncertain, retained
+in the bound original review. The73 keys lack declared family IDs, so the
+reservation conservatively groups the two complete histories; six validation
+questions are not a new independent user sample. Final references contain792
+legacy occurrences/128 families, all still unqualified for current scoring.
+
+Historical archive coverage is1118/1119 matching B pairs with one disagreement
+and81 rows after its paper endpoint; C matches248/325 pairs with77 not covered
+by those curation files. Both selected originals and archives are preserved.
+The manifest reports these limits instead of claiming proven full historical
+byte identity. The173 static settings candidates all retain unmeasured live
+verdicts. Two known inert declarations have no static reader; this does not
+revive the retired procedural threshold or qualify the leg-guarantee switch.
+Focused controls cover byte-stable resume, interrupted pre-seal recovery,
+source-review drift, corruption/code drift, scorer separation and official
+integer labels. This step does not create a repaired database, approve final
+source labels, tune settings, schedule aging, or launch an experiment. See
+[the offline preparation guide](../../experiments/v3_repair/README.md).
+
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
-**Fixture selection:** one complete long conversation with ordered originals,
+**Fixture selection:** two separate complete long histories with ordered originals,
 updates, recurring topics/procedures and interpretable sessions. Prefer a
 different history from r4 to reduce development leakage. Inspect the existing
 private mature/stitched and public multi-session assets before choosing; freeze
@@ -1388,6 +1461,27 @@ and source/answer reviews in a private manifest. Do not silently concatenate
 different users into one person. If only a development history is usable,
 label the experiment a development longitudinal replication, not held-out.
 No corpus is claimed selected merely because a historic spec names it.
+
+**Fixture decision,2026-10-09 (latest steering):** the maintainer selects both
+original paper histories B and C, superseding the prior one-history roster and
+brief C-only/B-only proposals. B has1,119 original pairs,91 legacy probe families,
+20 observed historical cutoffs/638 dependent observations; C has325 original
+pairs,37 families,10 observed cutoffs/154 observations. Run1444 original pairs
+per condition across two isolated histories. B tests long-range entity/revision
+memory; C tests dense long-input/compression behavior. Freeze the same complete
+additive and independent leave-one-out roster for each; neither is merely a
+small control. Report per-history trajectories/costs before any combined result.
+They share one author, so two histories are not two independent users.
+
+The stitched3,473-message project asset is a different corpus and is not selected.
+Reuse original recorded pairs and legacy probe identities, then source-review
+the improved repeated/correction/cold schedule before qualification. B already
+supplied r4 repair evidence; C was not in r4 but is a previously used paper
+fixture. Declare each lineage; do not call this a new untouched population test.
+Reserve both from new tuning; freeze selected bytes and historical match coverage
+in private manifests. Shared data does not license direct comparison to published
+v2 scores when answerer/rubric/conditions differ. LongMemEval oracle remains the
+separate public condition; no fullS haystack is added.
 
 For **every recorded original prompt** in chronological order:
 
@@ -1564,6 +1658,10 @@ new independent implementations:
 - P7/P9: `memory_decision.py`, `source_need.py`, `source_proof.py`, classifier/
   NER consumers, `bg_client_factory.py`, runtime scheduling; cloud completion
   receipts in `experiments/lme/cloud_provider.py` and existing z1 runners.
+- Input preparation: `experiments/v3_repair/prepare_inputs.py::prepare` and
+  `settings_inventory.py::build_inventory`, with
+  `tests/smoke/test_v3_input_preparation.py`; existing r4 label validation is
+  reused, historical v2 runners are not imported or executed.
 - Tuning: extend `scripts/z1` current as-of/control/config seams and add a
   versioned private sweep manifest; document verdicts in `docs/tuning_report.md`
   when measurements exist, not invented results now.

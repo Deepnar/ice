@@ -153,6 +153,14 @@ recovers it (+0.82 [+0.39,+1.24]) in that buildup, without a general safety clai
 - 🏷 Evaluated snapshot — git tag `v2-paper-eval`
 - 🤗 Frozen **ICE v2** paper models — [classifier](https://huggingface.co/Deepnar/ice-v2-classifier), [MicroNER](https://huggingface.co/Deepnar/ice-v2-microner), and [reproducibility collection](https://huggingface.co/collections/Deepnar/ice-lsrep-reproducibility-6ac6210257541dd6f8594e14). Original `.pt` files, SHA-256 checksums and frozen preprocessing are included; these are separate from current ICE v3 models.
 
+Current **v3** work uses the completed diagnostic reseed to repair memory
+mechanisms before bounded tuning. Final preparation reserves both original
+paper histories B and C for separate semi-LSREP runs with the same complete
+ablations, lifecycle and warm/bare-vector controls, plus LongMemEval oracle.
+The [offline input planner](experiments/v3_repair/README.md) freezes sources and
+scorer keys; final source review, tuning and the resumable final runner remain.
+These preparations are not a new memory-quality result or a full LME-S campaign.
+
 ## Repository layout
 
 Current **ICE v3** has a [manual development campaign and measurement

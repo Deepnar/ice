@@ -9,6 +9,14 @@ record the observed memory/measurement limits. Preserve the39 as-of states;
 specified separately and are not implemented by rerunning this campaign.
 Earlier pause/prelaunch notes below are historical.
 
+**V3 next-phase inputs,2026-10-09:** the
+[offline preparation guide](../../experiments/v3_repair/README.md) binds two
+development histories/352 pairs and reserves both original paper histories B
+and C for the same complete final roster. It freezes reviewed development keys,
+unqualified final legacy references, oracle-only keys and static consumer
+candidates without a DB/model/API call. It is not the tuning/final runner;
+rerunning the completed r4 campaign does not implement the new protocol.
+
 **V3 manual entry point, 2026-10-01:** use `run_v3_campaign.py --run-dir
 logs/<bundle>` for status, `--init` once for complete private review packets,
 and `--run` to execute/resume seed → snapshot → four cloud answer arms →
