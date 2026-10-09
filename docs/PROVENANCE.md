@@ -1,3 +1,23 @@
+## 2026-10-09 — v3 reflection proposal schema parity
+
+The bounded42-original shared-preparation/periodic control reached the older
+fact, then real reflection failed on review_queue.id NOT NULL. Read-only actual
+migrated-schema inspection finds gen_random_uuid()/pending/now() server defaults;
+the existing ReviewQueue model instead provides client defaults, and the isolated
+runner deliberately creates current ORM tables. This is a raw writer/default
+mismatch, not evidence of a production outage. Working data was not changed.
+
+Both reflection producers now instantiate the existing ReviewQueue ORM model.
+Proposal payloads remain JSON, pending review and never auto-applied. Two actual
+SQL producer controls pass; final disposable smoke/background/cloud-provider
+rails927/927 pass49.32s with283 existing warnings, including those controls.
+The subsequent actual E4B periodic/cold-read control completes, exercising real
+reflection. Proposal quality, broad maintenance utility and answer improvement
+are not established by these checks. Private evidence lives under
+logs/v3-repair-p5-2026-10-09/resource-profile-v4.* (failure),
+resource-profile-v5.* (completed path) and reflection-schema-final-rails.log.
+No cloud call, working-store mutation, r4 rewrite, new model or schema change.
+
 ## 2026-10-09 — v3 complete graph projection checkpoints
 
 A disposable two-round SQL baseline initially snapshots two edges, then uses

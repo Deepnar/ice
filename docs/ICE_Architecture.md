@@ -1379,6 +1379,12 @@ is the procedural writer.
 
 31. **`_detect_motifs`** (MOTIF_PROMPT) — inserts review_queue rows with item_type='new_cluster_proposal'. There is no numeric motif threshold; motif identification is entirely model-driven, and cluster creation requires human approval.
 
+**v3 review-write parity, 2026-10-09:** both proposal producers use the existing
+ReviewQueue ORM writer, applying UUID/pending/time defaults in both the migrated
+store and ORM-created experiment schema. The former raw inserts relied on server
+defaults absent from the latter. Payloads and human approval remain unchanged;
+neither producer directly applies the proposed slot or cluster change.
+
 32. **`_enrich_codex_entities`** (ENRICHMENT_PROMPT, global pass; A7.3) — fills each entity's **description** (the rich "note body"). It selects up to 25/run — entities with an *empty* description ranked by mention count first, then stale well-mentioned notes (>14 days) for refresh — summarises the originating episodic passages with the background model into a concise domain-general note, writes it to **description** (NOT context_payload, which is auto-assembled and would be overwritten), then calls _regenerate_context_payload so the note becomes description + properties + links + backlinks, and journals the overwrite via `log_description_update(..., source="reflection_enrichment")` — a `description_updated` CodexEvent with old/new snippets (T4/D13 never-overwrite; replaces the old opaque `context_appended` emit, which remains in old journals as readable history). Reflection **does not add edges** — it only enriches entity descriptions. This is the engine that turns codex nodes from label strings into real Obsidian-style notes.
 
 **v3 entity enrichment contract, 2026-10-09:** the preceding paragraph's

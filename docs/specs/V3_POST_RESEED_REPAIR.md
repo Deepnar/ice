@@ -1077,6 +1077,32 @@ new event remains pending and commit failure preserves both old products.
 Counts are lifecycle receipts; checkpoint retrieval contribution remains inert.
 
 
+### 2.1s Reflection review-write schema parity — decision, 2026-10-09
+
+The bounded 42-original real preparation/periodic control recovers the older
+fact, then reflection fails inserting a review proposal with no ID. The
+migrated production table has server UUID/status/time defaults; the ORM model
+defines client defaults, and the disposable runner deliberately creates the
+current ORM schema. This is a raw writer/schema mismatch, not evidence that the
+production table is broken or a GPU outage. Keep experiment schema creation
+unchanged: use the existing ReviewQueue ORM model for both reflection proposal
+types so canonical ID/status/time defaults apply in either schema. Store the
+existing payload as JSON, preserve pending human review, and add no automatic
+slot/cluster update, proposal-quality claim or new model call.
+
+Validate both producers through real reflection/SQL and the current isolated
+schema; IDs, pending status and timestamps must be nonnull, payloads unchanged.
+Then continue the bounded full periodic/cold-read control. This is a small
+shared-writer correction within the core maintenance pass, not product expansion.
+
+**Implemented/validated:** both producers use the canonical ORM writer. Two
+actual SQL producer controls preserve their JSON payloads and pending status,
+with nonnull IDs/times and no direct slot change. Final combined disposable
+rails927/927 pass49.32s; these include the two controls. The bounded real E4B
+reflection/periodic/cold-read pass subsequently completes. Production's migrated
+defaults were checked read-only; neither the working store nor experiment schema
+was altered. This qualifies write/schema parity, not proposal quality.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36

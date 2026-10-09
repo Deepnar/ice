@@ -2410,3 +2410,13 @@ identity/polarity/source/temporal metadata, and mark only observed events in the
 same transaction. Actual concurrent writes stay pending; commit failure rolls
 back both products. No reader consumes CodexSnapshot, so repaired checkpoints
 must not be credited as an answer-quality or retention improvement.
+
+### 107. A raw insert can depend on defaults the canonical model supplies
+
+**ICE v3, 2026-10-09.** The real periodic control fails while inserting a
+reflection proposal without its ID. Read-only inspection finds UUID/pending/time
+server defaults in the migrated store, while current ORM-created test tables
+have client defaults. This is a writer/schema mismatch, not proof production
+is broken. Use the existing canonical ORM writer so both schemas receive the
+same values; do not change the test schema to conceal the dependency. Verify
+both actual producers, pending JSON payloads and the absence of direct changes.

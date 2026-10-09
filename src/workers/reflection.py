@@ -1,7 +1,6 @@
 """Reflection Worker – session synthesis, slot evolution, Codex enrichment,
    and motif detection. Procedural patterns have one cited-source writer."""
 
-import json
 from datetime import datetime, timezone
 
 import structlog
@@ -14,6 +13,7 @@ from src.memory.models import (
     CodexEntity,
     EpisodicMemory,
     MemorySlot,
+    ReviewQueue,
     SessionSummary,
 )
 from src.retrieval.evolution import log_description_update
@@ -195,11 +195,9 @@ def _evolve_memory_slots(db, turns):
     for slot_name, content in proposals.items():
         if slot_name in ("project_context", "user_preferences", "guidance") and isinstance(content, str) and content.strip():
             # Insert into review_queue for user confirmation (Phase C)
-            db.execute(
-                text("INSERT INTO review_queue (item_type, item_content) VALUES ('memory_slot_update', :payload)"),
-                {"payload": json.dumps({"slot_name": slot_name, "proposed_content": content,
-                                        "proposed_by": "reflection"})}
-            )
+            db.add(ReviewQueue(item_type="memory_slot_update", item_content={
+                "slot_name": slot_name, "proposed_content": content,
+                "proposed_by": "reflection"}))
 
 
 # ------------------------------------------------------------------
@@ -300,7 +298,5 @@ def _detect_motifs(db, turns):
     motifs = _robust_list(raw, where="motifs")
     for motif in motifs:
         if isinstance(motif, str) and motif.strip():
-            db.execute(
-                text("INSERT INTO review_queue (item_type, item_content) VALUES ('new_cluster_proposal', :payload)"),
-                {"payload": json.dumps({"cluster_name": motif})}
-            )
+            db.add(ReviewQueue(item_type="new_cluster_proposal",
+                               item_content={"cluster_name": motif}))
