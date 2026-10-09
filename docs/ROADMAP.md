@@ -70,6 +70,14 @@ not a closed quality claim. Full lifecycle and resource qualification still
 precede tuning; [the repair decision](specs/V3_POST_RESEED_REPAIR.md#21o-undated-cold-recall--grounded-decision-2026-10-09)
 records the deliberate scope change. Roadmap owner counts are unchanged.
 
+**Final judging, reaffirmed 2026-10-09:** Muse Spark1.3 Contributor remains
+primary. A separately selected second family independently grades every final
+answer, with per-judge scores and disagreements reported separately. G65 —
+judge reliability, e.g. the same saved answer changes grade when its comparator
+changes — checks the current scoring protocol against references, not a new
+model tournament. Two agreeing judges are not independent ground truth. The
+remaining human batches stay parked; independent memory repairs continue.
+
 **USER-REQUIRED for this phase:** the independent answer-judge packet is ready.
 Review batch1 now; batches2–6 are parked for late evaluation qualification
 (about45–90 minutes for all60 answers; source evidence supplied). Ten labels

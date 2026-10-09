@@ -1035,9 +1035,21 @@ model choice never rewrites old verdicts.
 
 Absolute grades are keyed by immutable input/output identities and are reused
 across contrasts. Preferences still use both A/B orders with disagreement
-reported. Use a second qualified model family for disputed final cases and a
-frozen random audit; human review resolves remaining disagreements, otherwise
-report uncertainty. Historical v2 judge calibration does not qualify v3.
+reported. **Two-judge final protocol, reaffirmed 2026-10-09:** independently
+grade every successful final answer with Muse Spark1.3 Contributor and a second
+explicitly selected, separately qualified model family. This supersedes using
+the second judge only for disputed cases/random audits. Freeze both identities
+and rubrics before launch; each judge has its own immutable grade cache and
+separate both-order preferences. Report each judge's scores, agreement matrix,
+disagreements and unavailable/uncertain denominators separately. With two votes
+there is no majority: do not silently average them into truth or select the
+favorable verdict. Human review resolves remaining disagreements where available;
+otherwise retain uncertainty. The existing v4.1 Flash profile is a possible
+secondary, not an automatically adopted or qualified judge. Main Muse selection
+is retained; qualification checks the current rubric/protocol against references,
+not a new broad model search. Prior endpoint/synthetic and v2 calibration evidence
+remains valid for its stated scope, but does not establish v3 source/intent grading.
+The manual call/cost plan includes both judges for every final arm/occurrence.
 
 ### 2.2a Independent grading cache and preference-only path — 2026-10-09
 
