@@ -58,6 +58,8 @@ def summarize(path: Path) -> dict:
     gold_funnel_by_type = defaultdict(Counter)
     source_counts = Counter()
     author_assertions = Counter()
+    procedural_turns = Counter()
+    procedural_reviews = {}
     prompt_tokens = Counter()
     controls = Counter()
     probe_timing = Counter()
@@ -108,6 +110,22 @@ def summarize(path: Path) -> dict:
             for kind in support_counts:
                 representation_support(row, kind, support_counts[kind], support_reasons[kind])
             source_counts.update(row.get("source_counts") or {})
+            procedural = row.get('procedural_source_review')
+            if not isinstance(procedural, dict):
+                procedural_turns['unobserved_turns'] += 1
+            elif procedural.get('receipt_present') is False:
+                procedural_turns['observed_turns_without_receipt'] += 1
+            else:
+                counts = procedural.get('source_counts')
+                if (procedural.get('receipt_present') is not True
+                        or not isinstance(procedural.get('review_key'), str)
+                        or procedural.get('status') not in {'supported', 'unsupported', 'unknown'}
+                        or not isinstance(counts, dict) or set(counts) != {'supported', 'unsupported', 'unknown'}
+                        or any(type(n) is not int or n < 0 for n in counts.values())):
+                    procedural_turns['invalid_observation_turns'] += 1
+                else:
+                    procedural_turns['observed_turns_with_receipt'] += 1
+                    procedural_reviews[procedural['review_key']] = procedural
             assertion = row.get("author_assertions")
             if not isinstance(assertion, dict):
                 author_assertions["unobserved_turns"] += 1
@@ -292,6 +310,12 @@ def summarize(path: Path) -> dict:
             for kind in support_counts},
         "post_flight_source_counts": dict(source_counts),
         "author_assertion_claim_proposal_observations": dict(author_assertions),
+        "procedural_cited_source_observations": {
+            'turns': dict(procedural_turns), 'unique_buckets': len(procedural_reviews),
+            'latest_bucket_outcomes': dict(Counter(p['status'] for p in procedural_reviews.values())),
+            'latest_bucket_source_counts': dict(sum((Counter(p['source_counts']) for p in
+                                                   procedural_reviews.values()), Counter())),
+            'basis': 'latest receipt per bucket; repeated reads are not additional supporting sources'},
         "prompt_token_sums": dict(prompt_tokens),
         "matched_controls": dict(controls),
         "probe_timing_and_label_status": dict(probe_timing),

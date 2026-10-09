@@ -17,10 +17,11 @@ if __name__ == '__main__':
         raise SystemExit('Run through tests/support/disposable_database.py.')
     meta = run_meta(script=__file__, inputs=[file_digest(p) for p in [__file__,
         'tests/smoke/test_pattern_support.py', 'src/memory/pattern_support.py',
+        'src/memory/procedural_support.py',
         'src/workers/procedural_extractor.py']], settings_keys=['procedural_match_candidates',
         'embedding_model_name', 'source_support_model', 'source_support_revision',
         'source_support_threshold', 'source_support_max_tokens'],
-        extra={'version': 'v3', 'scope': 'synthetic SQL/writer controls; real encoder/NLI, controlled BG proposal',
+        extra={'version': 'v3', 'scope': 'synthetic SQL/writer controls; real E4B source check/encoder/NLI; controlled proposal',
                'cloud_calls': 0})
     results = []
     for case in ('same', 'opposite', 'narrow', 'nonnearest'):

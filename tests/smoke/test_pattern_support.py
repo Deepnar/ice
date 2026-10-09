@@ -10,6 +10,7 @@ import pytest
 from src.api.config import settings
 from src.memory import pattern_support as support
 from src.memory.source import chat_provenance, digest
+from test_procedural_support import fake_review
 
 
 def probability(status):
@@ -87,8 +88,9 @@ NARROW = 'For Rust patches only, the user wants failing tests listed before prop
 def exercise_pattern_writer(monkeypatch, case, *, actual=False):
     """Real SQL/writer; controlled proposal. Actual mode uses pinned NLI/encoder."""
     from src.api.db import SessionLocal
-    from src.memory.models import Conversation, EpisodicMemory, IdempotencyKey, ProceduralMemory, Project
+    from src.memory.models import Conversation, EpisodicMemory, IdempotencyKey, ProceduralMemory, Project, StoreMeta
     from src.workers import procedural_extractor as worker
+    from src.memory.procedural_support import pattern_sources, review_sources
     if not os.getenv('ICE_TEST_DATABASE'):
         raise RuntimeError('requires disposable database')
     db = SessionLocal()
@@ -103,11 +105,17 @@ def exercise_pattern_writer(monkeypatch, case, *, actual=False):
     def session(description, count=3, session_id=None):
         sid = session_id or uuid.uuid4()
         rows = []
+        original = {
+            OLD: 'I prefer patch reviews with failing tests before proposed changes.',
+            SAME: 'When you review my patches, I want failing tests stated first and proposed changes afterward.',
+            OPPOSITE: 'I prefer patch reviews with proposed changes before failing tests.',
+            NARROW: 'For Rust patches only, I want failing tests listed before proposed changes.',
+        }[description]
         for _ in range(count):
             batch = uuid.uuid4()
             row = EpisodicMemory(conversation_id=conversation.id, session_id=sid, batch_id=batch,
-                raw_text=f'User: {description}\n\nAssistant: Noted.',
-                source_spans=chat_provenance(description, 'Noted.'),
+                raw_text=f'User: {original}\n\nAssistant: Noted.',
+                source_spans=chat_provenance(original, 'Noted.'),
                 context_reliance='Long_Term_Memory', timestamp=datetime.now(timezone.utc),
                 ts_provenance='original', idempotency_key=str(uuid.uuid4()))
             db.add(row)
@@ -119,6 +127,7 @@ def exercise_pattern_writer(monkeypatch, case, *, actual=False):
         stored = [OPPOSITE, SAME] if case == 'nonnearest' else [OLD]
         proposed = OLD if case == 'nonnearest' else {'same': SAME, 'opposite': OPPOSITE, 'narrow': NARROW}[case]
         if not actual:
+            monkeypatch.setattr(worker, 'review_sources', fake_review)
             monkeypatch.setattr(worker, 'encode_pattern', lambda text: [1.0] + [0.0] * 1023)
             def proof(p, old):
                 def scorer(pairs):
@@ -129,10 +138,13 @@ def exercise_pattern_writer(monkeypatch, case, *, actual=False):
         patterns = []
         for index, description in enumerate(stored):
             _, rows = session(description)
+            originals = pattern_sources(db, {r.batch_id for r in rows})
+            source_proof = (review_sources if actual else fake_review)(description, originals)
+            assert source_proof['status'] == 'supported'
             pattern = ProceduralMemory(id=uuid.UUID(int=index + 1), pattern_name=description[:80],
                 pattern_description=description, project_id=project.id, reinforcement_count=1,
                 is_active=False, confidence_score=.3, source_batch_ids=[r.batch_id for r in rows],
-                embedding=worker.encode_pattern(description))
+                embedding=worker.encode_pattern(description), trigger_conditions={'_source_support': source_proof})
             db.add(pattern)
             patterns.append(pattern)
         new_session, rows = session(proposed)
@@ -174,6 +186,21 @@ def exercise_pattern_writer(monkeypatch, case, *, actual=False):
             assert set(expected.source_batch_ids) == sources
             worker.extract_procedural(str(more[-1].batch_id))
             assert len(calls) == 2
+            if case == 'same':
+                third_session, third = session(proposed)
+                db.commit()
+                worker.extract_procedural(str(third[-1].batch_id))
+                keys.append(worker.job_key('procedural', f'{third_session}:0'))
+                db.expire_all()
+                assert expected.reinforcement_count == 3 and expected.is_active
+                from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+                classification = NS(topic_tags=['Software_&_Tech'], intent_tags=['Factual_Retrieval'])
+                o = HybridRetrievalOrchestrator(db, None)
+                o._scope_project_id = project.id
+                final = o._procedural_lookup(worker.encode_pattern(proposed), classification,
+                                             {'project_id': str(project.id)})
+                assert len(final) == 1 and final[0].text.endswith(expected.pattern_description)
+                assert final[0].text.startswith(('[Explicit user instruction]', '[Observed user behavior]'))
         else:
             new = next(p for p in all_patterns if p.pattern_description == proposed)
             assert new.trigger_conditions['_equivalence_candidates'][0]['proof']['status'] != 'equivalent'
@@ -187,6 +214,7 @@ def exercise_pattern_writer(monkeypatch, case, *, actual=False):
         db.rollback()
         db.query(ProceduralMemory).filter_by(project_id=project.id).delete(synchronize_session=False)
         db.query(IdempotencyKey).filter(IdempotencyKey.key.in_(keys)).delete(synchronize_session=False)
+        db.query(StoreMeta).filter(StoreMeta.key.in_(['procedural_review:' + k for k in keys])).delete(synchronize_session=False)
         db.query(EpisodicMemory).filter(EpisodicMemory.batch_id.in_(source_ids)).delete(synchronize_session=False)
         db.query(Conversation).filter_by(id=conversation.id).delete(synchronize_session=False)
         db.query(Project).filter_by(id=project.id).delete(synchronize_session=False)

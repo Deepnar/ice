@@ -1233,7 +1233,8 @@ metadata records exact hashes, policy and candidate verdicts, independently of
 actual topic/intent triggers. Only a new resolved sitting can reinforce and
 refresh observation time; rereading does neither. The former0.85 cosine knob
 remains a historical pin and is inert. Description identity does not verify the
-habit against its cited sources; that source-semantic P6 work remains open.
+habit against its cited sources. The v3 source-semantic mechanism below is now
+implemented; independent corpus precision and answer utility remain open.
 
 The procedural retrieval leg applies project/source/deny/trigger eligibility
 before similarity ordering and its unchanged five-candidate SQL cap. Foreign
@@ -1243,6 +1244,29 @@ exemption; partial surviving source support remains eligible, all-excluded
 support does not. Missing/empty trigger labels impose no restriction; reserved
 proof metadata imposes none either. Active/confidence/source-clock constraints,
 Python admission checks, relevance ranking and final prompt budgets remain.
+
+**v3 procedural source semantics, 2026-10-09.** After numbered-citation checks,
+the existing E4B model reviews complete authoritative user messages against
+the exact candidate using a typed native schema. Source kinds distinguish
+explicit instructions, observed requests, self-reports and unsupported text.
+Only positive IDs count toward insertion, independent-session reinforcement
+or the ten-source activation alternative. Complete all-topic/unsupported
+proposals record negative completion without a habit; native bounds/truncation/
+provider uncertainty journals a diagnostic and retains retries. Originals are
+unchanged. Fixed policy: batches12, estimated input8192 tokens/16384 bytes,
+context32768/output2048; oversized groups split without truncating originals.
+
+`StoreMeta` keys `procedural_review:<bucket job key>` journal proposals separately
+from facts. Admitted rows hold exact pattern/source/model/prompt/policy proofs
+in reserved trigger metadata; merged descriptions retain source observations
+and the mutual-entailment link to the stored wording. Warm/cold original hashes,
+native completion and policy must still match before strengthening. Missing
+legacy proofs cannot corroborate a new pattern. Readers revalidate and render
+`Explicit user instruction`, `Observed user behavior` or `Unverified stored
+procedure`; kind metadata therefore reaches the actual answer prompt.
+New replay receipts/report counters deduplicate bucket observations rather
+than counting reads as additional supporting turns. Independent precision,
+end-answer gain and retirement utility remain for qualification.
 
 ### **8.5 Decay Workers**
 

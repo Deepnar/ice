@@ -1,3 +1,53 @@
+## 2026-10-09 — v3 cited-message semantic support for procedures
+
+The existing E4B typed source checker passes20 authored positive/opposing/style
+controls, including informal/typo requests, conditions, quotes, hypothetical
+behavior and unsupported universal frequency. It reviews complete authoritative
+user messages; old raw-imperative NLI rejection is not used as a deletion or
+truth rule. NLI remains the bidirectional description-equivalence authority.
+No new resident model. Native policy: batches12, input8192 estimated tokens/
+16384 bytes, context32768/output2048; groups split, originals never truncate.
+
+Actual source-check/writer/collector controls: ten citations with only two
+requests store two supporting IDs/inactive confidence.3; all-topic proposal
+creates no habit and records a complete negative bucket. Originals remain
+byte-identical and unchanged completed buckets do no new work. Four actual
+E4B-source/shared-encoder/NLI/SQL-writer controls preserve paraphrases, opposites,
+conditions and valid second neighbors; a third independent sitting activates
+the qualified procedure and typed wording reaches the actual reader.
+The full native generator→source check→encoder→SQL control also succeeds:
+ten repeated real requests produce one active procedure with ten positive
+source IDs, a completion receipt and unchanged originals. These are synthetic
+mechanism controls, not population precision or cloud answer/context gains.
+
+Admitted observations bind source/pattern/model/prompt/policy/native completion;
+paraphrases retain independent source proof plus their equivalence link.
+Legacy/stale unqualified rows cannot reinforce, but remain stored and explicitly
+render unverified. Source kinds reach the reader as explicit instructions versus
+observed behavior. Proposal diagnostics use existing StoreMeta separately from
+facts. Replay counters observe unique buckets, not repeated reads as support.
+Transport/status errors preserve the existing recovery's error type/status;
+model uncertainty retains retries, not false completion. No threshold change.
+
+A fixed read-only retained preview uses both active patterns and two other
+high-citation patterns, selecting their two shortest complete cited originals:
+two receive model support on both selected sources, two do not. This does not
+grade all citations, establish the latter patterns false or create independent
+gold labels. The immutable dump SHA is checked; no restore or original mutation.
+Private exact sources, outputs, source hashes and run conditions remain in
+`logs/v3-repair-p5-2026-10-09`, especially `procedural-source-probe.json`,
+`procedural-retained-source-preview.json`, `procedural-full-writer.json`,
+`procedural-source-writer-collector-actual.log` and
+`procedural-sources-writer-reader-actual-v2.log`.
+
+Final overlapping isolated rails805 pass in40.71s with226 legacy warnings,
+including complete-receipt and transport/status recovery controls.
+The first focused collection caught a fixture cleanup indentation error; fixed
+the fixture and retained failed logs. Earlier805/804 and focused39/31 counts
+overlap, not independent memory cases. No cloud/full campaign, publication,
+working-store restore or broad-owner closure. Retirement/lifecycle interaction,
+independent source precision and final answer utility remain open.
+
 ## 2026-10-09 — v3 procedural eligibility before the SQL cap
 
 Five disposable SQL/retrieve/final-budget baseline controls with limit1 each

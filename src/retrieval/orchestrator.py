@@ -2347,11 +2347,20 @@ class HybridRetrievalOrchestrator:
                     continue
                 if not self._procedural_trigger_match(pattern, classification):
                     continue
+                # Typed source status qualifies the wording supplied to the
+                # answerer. Legacy or stale source proofs remain explicit.
+                from src.memory.procedural_support import pattern_sources, proof_current
+                proof = (pattern.trigger_conditions or {}).get('_source_support')
+                originals = pattern_sources(self.db, set(source_batches)) if proof else None
+                verified = originals is not None and proof_current(proof, pattern.pattern_description, originals)
+                label = ('Explicit user instruction' if verified and proof['kind'] == 'explicit_instruction'
+                         else 'Observed user behavior' if verified else 'Unverified stored procedure')
+                rendered = f'[{label}] {pattern.pattern_description}'
                 fragments.append(ContextFragment(
-                    text=pattern.pattern_description,
+                    text=rendered,
                     source_type="procedural",
                     score=r.score,
-                    token_count=count_tokens(pattern.pattern_description),
+                    token_count=count_tokens(rendered),
                     # G48: the turns this habit was inferred from. Already
                     # computed above for scoping and then thrown away, so a
                     # procedural fragment could never be credited to a turn.

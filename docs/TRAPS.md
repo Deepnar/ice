@@ -2316,3 +2316,11 @@ entailment within a bounded candidate pool; preserve ambiguous/narrower cases
 and inspect valid later neighbors. Actual SQL/NLI controls repair this shape.
 Description equivalence still cannot prove the underlying habit was asserted
 or repeated in its cited messages; that requires a separate source review.
+
+**Source-admission repair, v3 2026-10-09:** valid numbered citations alone
+could activate a two-request pattern by attaching eight topic messages. The
+actual E4B/writer control now counts only the two supported messages. A true
+imperative must survive semantic checking; direct raw-imperative NLI previously
+rejected it. Verify source acts/conditions without inferring execution or
+universal traits. Preserve separate diagnostics, native completion and exact
+source identities. Repeated bucket reads cannot become fresh corroboration.

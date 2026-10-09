@@ -191,6 +191,9 @@ Procedural descriptions merge only by exact identity or complete entailment in
 both directions; similar opposing instructions remain separate source-linked candidates.
 Procedural retrieval applies source and request eligibility before its candidate
 limit, so an ineligible nearest procedure cannot hide a relevant one.
+Procedural writes also check cited user messages against the proposed behavior;
+only supported messages count. Supplied procedures distinguish explicit user
+instructions from observed behavior and unverified stored candidates.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers

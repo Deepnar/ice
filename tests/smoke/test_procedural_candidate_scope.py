@@ -113,7 +113,8 @@ def exercise_procedural_scope(monkeypatch, case, *, expected=True, actual=False)
             # A source-clock query can also carry the ordinary timeline note.
             # The procedural candidate cap does not cap every output family.
             procedures = [f for f in final if f.source_type == 'procedural']
-            assert len(procedures) == 1 and procedures[0].text == workflow
+            assert len(procedures) == 1 and procedures[0].text.endswith(workflow)
+            assert procedures[0].text.startswith('[Unverified stored procedure]')
             assert procedures[0].origin_batch_ids == tuple(str(b) for b in expected_sources)
             assert sum(f.token_count for f in final) <= o.max_retrieval_tokens
             assert len(calls) == 1  # cap is still one eligible candidate

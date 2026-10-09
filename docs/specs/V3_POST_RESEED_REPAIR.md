@@ -642,6 +642,68 @@ procedure with exactly one scored candidate at limit1. Additional SQL controls
 preserve empty allow sets, project exemption, partial source exclusions,
 active/confidence and source-clock behavior. No candidate/prompt cap increases.
 
+### 2.1j Procedural cited-message semantics — grounded decision, 2026-10-09
+
+The old writer maps citation numbers, not semantic evidence. Prior direct NLI
+gave a true imperative/request paraphrase only0.0027 entailment, so a plain
+NLI threshold would discard legitimate requests. A bounded existing-E4B typed
+source check passes20 authored positive/opposing/style controls: direct requests,
+declared preferences, typos and qualified conditions survive; mere topics,
+assistant quotes, imagined behavior, reversed order, another actor and invented
+universal frequency do not. This is candidate qualification, not corpus precision.
+
+Decision: review complete cited authoritative user messages against the exact
+pattern before insertion/reinforcement, using existing E4B native typed reasoning.
+Reuse its owned-client scheduling and residency; no new model or loose parser.
+Per-source decisions distinguish explicit_instruction, observed_request,
+self_report and unsupported. At least two distinct positively supported turns
+are required. Only supported IDs contribute to citation counts and activation;
+invalidly attached topic sources cannot turn two true citations into ten.
+Explicit instructions render separately from observed behavior in the reader.
+
+Fixed safety limits: batches12, complete estimated input8192 tokens/16384 bytes,
+context32768, output2048. Split oversized groups, never truncate a source; a
+single oversized original becomes unknown. Require actual complete native stop,
+positive measured input count and confirmed input+reserve within capacity.
+Malformed IDs/types, truncation, provider/bounds errors remain unknown; runtime
+yield propagates. The exact source/pattern/model/prompt/policy hashes and per-
+source statuses/kinds/usage accompany each admitted observation. Legacy rows
+with no current source proof remain stored/unqualified and cannot reinforce a
+new pattern. No automatic legacy migration, deletion or activation-rule change.
+
+Persist proposal review separately from facts using existing StoreMeta keys
+`procedural_review:<bucket job key>`, alongside normal completion keys. A complete
+unsupported proposal records a negative completion without a habit; verifier
+unknown records a diagnostic receipt and retains retry behavior, never false
+completion. Admitted patterns carry source-proof observations in reserved
+trigger metadata. Merged paraphrases retain their independent source proof plus
+the mutual-entailment link to the stored description. Revalidate exact sources
+through warm/cold storage before strengthening; reads are never evidence.
+HTTP/connection failures preserve the existing recovery's transport type/status;
+they must not be reclassified as responsive model/content uncertainty.
+
+Qualification: source checks in isolation, then actual writer/SQL/reader with
+real E4B and pinned equivalence scorer; two true citations plus eight irrelevant
+cites must not activate, two repeated requests must survive, opposites/conditions
+must remain distinct, and stale/legacy proofs must not manufacture corroboration.
+Preview a fixed retained source sample without treating model labels as an
+independent gold key. Source receipts, not turn length or well-formed JSON,
+determine admission. End-answer/context gains remain for tuning/final evaluation.
+
+Implemented and exercised through actual E4B source checks/SQL/writer/readers.
+Ten cited messages with only two genuine requests produce two support IDs and
+an inactive row; all-topic proposal produces no row and an idempotent negative
+receipt. Model uncertainty has a diagnostic receipt and no completion key.
+Four actual source/encoder/NLI/writer controls preserve paraphrases/opposites/
+conditions/non-nearest matches; a third independent sitting activates the
+source-qualified procedure and its typed wording reaches the real reader.
+Replay observes current receipt counters, reporting latest outcome per unique
+bucket rather than treating repeated receipt reads as corroboration. A fixed
+retained preview selects two shortest complete cited originals for each of
+four patterns: two have model support on both selected sources, two do not.
+This selection does not grade every citation, establish the latter patterns
+false, or provide independent corpus precision. No model/activation-rule change.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36

@@ -58,6 +58,20 @@ def test_author_observation_absence_is_not_zero_unknowns(tmp_path):
         invalid_observation_turns=1)
 
 
+def test_procedural_bucket_observation_is_not_extra_corroboration(tmp_path):
+    path = tmp_path / 'seed.jsonl'
+    receipt = dict(receipt_present=True, review_key='procedural_review:bucket', status='supported',
+                   source_counts=dict(supported=2, unsupported=8, unknown=0))
+    trace(path, [dict(event='written'), dict(event='written', procedural_source_review=dict(receipt_present=False)),
+                dict(event='written', procedural_source_review=receipt),
+                dict(event='written', procedural_source_review=receipt)])
+    observed = report.summarize(path)['procedural_cited_source_observations']
+    assert observed['turns'] == dict(unobserved_turns=1, observed_turns_without_receipt=1,
+                                    observed_turns_with_receipt=2)
+    assert observed['unique_buckets'] == 1
+    assert observed['latest_bucket_source_counts'] == dict(supported=2, unsupported=8)
+
+
 def test_existing_report_and_trace_are_never_overwritten(monkeypatch):
     logs = Path(report.__file__).resolve().parents[2] / "logs"
     with TemporaryDirectory(dir=logs, prefix="report-smoke-") as temporary:

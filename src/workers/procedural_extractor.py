@@ -10,8 +10,9 @@ from sqlalchemy import text
 from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.embedder import get_embedder
-from src.memory.models import EpisodicMemory, IdempotencyKey, ProceduralMemory
+from src.memory.models import EpisodicMemory, IdempotencyKey, ProceduralMemory, StoreMeta
 from src.memory.pattern_support import equivalence_receipts
+from src.memory.procedural_support import pattern_sources, proof_current, raise_unknown, review_sources, supported_ids
 from src.memory.source import source_units
 from src.memory.tokens import count_messages, with_margin
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
@@ -193,6 +194,8 @@ def extract_procedural(batch_id: str, model_used: str = ""):
             "- Cite them, in this exact format: PATTERN: <one sentence> | "
             "EVIDENCE: <comma-separated message numbers>\n"
             "- Describe what the user DOES, not what they talked about.\n"
+            "- Preserve requests as requests and reported actions as reports; do not invent execution.\n"
+            "- Retain conditions and actors. Do not infer always/never traits from task requests.\n"
             "- If no habit repeats across messages, output exactly: NONE\n"
             "Output nothing else."
         )
@@ -247,6 +250,30 @@ def extract_procedural(batch_id: str, model_used: str = ""):
                         session_id=str(turn.session_id))
             return
 
+        sources = pattern_sources(db, cited_batch_ids)
+        if sources is None:
+            raise IncompleteCompletion('procedural cited originals are unresolved')
+        source_proof = review_sources(pattern_text, sources)
+        review_key = 'procedural_review:' + idempotency_key
+        review = db.get(StoreMeta, review_key)
+        if review is None:
+            review = StoreMeta(key=review_key)
+            db.add(review)
+        review.value = dict(proposal=pattern_text, session_id=str(turn.session_id), bucket=bucket,
+                            proof=source_proof)
+        if source_proof['status'] != 'supported':
+            if source_proof['status'] == 'unsupported':
+                db.add(IdempotencyKey(key=idempotency_key, processed_at=datetime.now(timezone.utc)))
+                db.commit()
+                log.warning('procedural_rejected_semantic_evidence', cited_count=len(cited_batch_ids),
+                            supported_count=len(supported_ids(source_proof)))
+                return
+            # A diagnostic receipt is not a false completion. Preserve bounded
+            # runtime retries for a verifier outage/truncation/bounds failure.
+            db.commit()
+            raise_unknown(source_proof)
+        cited_batch_ids = {uuid.UUID(b) for b in supported_ids(source_proof)}
+
         # Similarity nominates a bounded pool; it never proves equivalence.
         embedding = encode_pattern(pattern_text)
 
@@ -269,8 +296,17 @@ def extract_procedural(batch_id: str, model_used: str = ""):
         for candidate, proof in zip(candidates, proofs):
             log.info('procedural_equivalence', candidate_id=str(candidate.id),
                      cosine=float(candidate.sim), status=proof['status'], reason=proof['reason'])
-        matched = next(((p, proof) for p, proof in zip(existing_patterns, proofs)
-                        if proof['status'] == 'equivalent'), None)
+        matched = None
+        for p, proof in zip(existing_patterns, proofs):
+            if proof['status'] != 'equivalent':
+                continue
+            prior_sources = pattern_sources(db, set(p.source_batch_ids or []))
+            if prior_sources is None or not proof_current((p.trigger_conditions or {}).get('_source_support'),
+                                                          p.pattern_description, prior_sources):
+                log.warning('procedural_prior_source_unqualified', candidate_id=str(p.id))
+                continue
+            matched = p, proof
+            break
 
         if matched is not None:
             existing, proof = matched
@@ -285,8 +321,16 @@ def extract_procedural(batch_id: str, model_used: str = ""):
                 existing.last_observed = datetime.now(timezone.utc)
                 existing.reinforcement_count += 1
                 existing.source_batch_ids = sorted(seen | cited_batch_ids, key=str)
+                for group in source_proof['observations']:
+                    group['equivalence'] = proof
+                old_proof = existing.trigger_conditions['_source_support']
+                combined_proof = {**old_proof,
+                    'observations': old_proof['observations'] + source_proof['observations'],
+                    'kind': ('explicit_instruction' if 'explicit_instruction' in
+                             {old_proof['kind'], source_proof['kind']} else 'observed_behavior')}
                 existing.trigger_conditions = {**(existing.trigger_conditions or {}),
-                    '_last_equivalence': proof, '_equivalence_candidates': checks}
+                    '_last_equivalence': proof, '_equivalence_candidates': checks,
+                    '_source_support': combined_proof}
                 if (existing.reinforcement_count >= 3 or
                         len(existing.source_batch_ids) >= settings.procedural_min_cited_turns):
                     existing.confidence_score = 0.8
@@ -305,7 +349,7 @@ def extract_procedural(batch_id: str, model_used: str = ""):
                 pattern_name=pattern_text[:80],
                 pattern_description=pattern_text,
                 topic_tags=turn.topic_tags or [],
-                trigger_conditions={'_equivalence_candidates': checks},
+                trigger_conditions={'_equivalence_candidates': checks, '_source_support': source_proof},
                 reinforcement_count=1,
                 first_observed=datetime.now(timezone.utc),
                 last_observed=datetime.now(timezone.utc),

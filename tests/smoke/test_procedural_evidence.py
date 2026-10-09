@@ -6,10 +6,11 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace as NS
 
 import pytest
+from test_procedural_support import fake_review
 
 from src.api.db import SessionLocal
 from src.memory.models import (
-    ColdStorage, Conversation, EpisodicMemory, IdempotencyKey, ProceduralMemory, Project,
+    ColdStorage, Conversation, EpisodicMemory, IdempotencyKey, ProceduralMemory, Project, StoreMeta,
 )
 from src.memory.source import chat_provenance
 from src.workers import procedural_extractor as worker
@@ -80,6 +81,7 @@ def test_cited_user_turns_and_independent_sessions_control_habits(monkeypatch):
         monkeypatch.setattr(worker, "bg_client", NS(chat=NS(completions=NS(create=create))))
         monkeypatch.setattr(worker, "encode_pattern", lambda _text: [1.0] + [0.0] * 1023)
         monkeypatch.setattr(worker, "get_bg_model_name", lambda: "controlled-background")
+        monkeypatch.setattr(worker, 'review_sources', fake_review)
 
         worker.extract_procedural(str(turns[-1].batch_id))
         marker_keys.append(worker.job_key("procedural", f"{session_id}:2"))
@@ -165,6 +167,8 @@ def test_cited_user_turns_and_independent_sessions_control_habits(monkeypatch):
         if cold_batch:
             db.query(ColdStorage).filter_by(batch_id=cold_batch).delete(synchronize_session=False)
         if marker_keys:
+            db.query(StoreMeta).filter(StoreMeta.key.in_(
+                ['procedural_review:' + k for k in marker_keys])).delete(synchronize_session=False)
             db.query(IdempotencyKey).filter(
                 IdempotencyKey.key.in_(marker_keys)).delete(synchronize_session=False)
         if conversation_ids:

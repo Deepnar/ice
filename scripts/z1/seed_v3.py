@@ -38,7 +38,7 @@ from src.api.config import settings
 from src.api.db import SessionLocal
 from src.memory.source_order import sequence_receipt
 from src.ingestion.importer import _store_turn
-from src.memory.models import Base, Conversation, EpisodicMemory, MemorySlot
+from src.memory.models import Base, Conversation, EpisodicMemory, MemorySlot, StoreMeta
 from src.memory.tokens import count_messages
 
 CORPUS = Path("data/simulation/simulation_full.jsonl")
@@ -111,6 +111,30 @@ def author_assertion_counts(db, batch_id):
             raise RuntimeError("invalid author-assertion receipt in new writer")
         counts[status] = count
     return counts
+
+
+def procedural_source_review(db, batch_id):
+    """Observe the current bucket receipt, not a new supporting occurrence."""
+    from src.workers.idempotency import job_key
+    row = db.query(EpisodicMemory).filter_by(batch_id=batch_id).first()
+    if row is None or row.session_id is None:
+        return dict(receipt_present=False)
+    n = db.query(EpisodicMemory).filter_by(session_id=row.session_id,
+        conversation_id=row.conversation_id, is_private=False, is_document=False).count()
+    key = 'procedural_review:' + job_key('procedural', f'{row.session_id}:{n // max(1, settings.procedural_session_step)}')
+    record = db.get(StoreMeta, key)
+    if record is None:
+        return dict(receipt_present=False)
+    proof = record.value['proof']
+    counts = {'supported': 0, 'unsupported': 0, 'unknown': 0}
+    kinds = defaultdict(int)
+    for group in proof['observations']:
+        for evidence in group['evidence']:
+            counts[evidence['status']] += 1
+            if evidence['status'] == 'supported':
+                kinds[evidence['kind']] += 1
+    return dict(receipt_present=True, review_key=key, status=proof['status'],
+                source_counts=counts, supporting_kinds=dict(kinds))
 
 
 JOB_OBSERVATION_TABLES = {
@@ -1049,6 +1073,7 @@ def run(args, conversations, probes) -> int:
                                                    "abstract_text": row.abstract_text,
                                                    "source_raw_sha256": hashlib.sha256(row.raw_text.encode()).hexdigest(),
                                                    "summary_support": row.representation_verification,
+                                                   "procedural_source_review": procedural_source_review(db, row.batch_id),
                                                    "author_assertions": {"gate_enabled": settings.codex_assertion_check_enabled,
                                                                          "claim_proposal_counts": assertion_counts},
                                                    "source_counts": source_counts},
