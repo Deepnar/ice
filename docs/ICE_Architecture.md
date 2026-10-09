@@ -240,7 +240,12 @@ Model quote copies are resolved by unique whitespace/case-equivalent matching
 to original source spans; originals are never lowercased in storage. Unsupported
 or ambiguous quoted rows cannot write graph assertions; their original chunk
 remains an attributed searchable claim alongside valid rows. Missing/malformed
-fields and truncated completions still fail. Native
+fields and truncated completions still fail. The
+source-proof/need guards now reuse that original-copy aligner too. Exact copies
+retain their existing priority; ambiguous distinct spellings and paraphrases
+stay unknown. Alignment warns without source text and returns original bytes;
+complete-source/leading-context NLI still checks both fixed frames. A matching
+quote never supplies semantic proof by itself. Native
 source-proof/need calls retain their owned model until idle drain, with provider
 load/prompt/evaluation timings and a nonnegative unattributed provider residual
 only for complete, finite and consistent durations. Missing/inconsistent timing

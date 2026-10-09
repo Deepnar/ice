@@ -15,6 +15,7 @@ from src.api.config import settings
 from src.memory.support import score_pairs, verify_support
 from src.memory.tokens import count_messages
 from src.workers.bg_client_factory import bg_timeout, local_model_call, native_call_timings
+from src.workers.extraction_result import original_source_quote
 
 logger = structlog.get_logger("ice.api.source_proof")
 
@@ -149,8 +150,15 @@ def prove_source_fact(question, source, *, framed=None):
         if answer is None and quote is None:
             return SourceProof("not_supplied", reason="missing_source_value")
         if (not isinstance(answer, str) or not answer.strip() or "{{answer}}" in answer
-                or not isinstance(quote, str) or not quote.strip() or quote not in source):
+                or not isinstance(quote, str) or not quote.strip()):
             raise ProofError("invalid_source_value_or_quote")
+        original_quote = (quote if quote in source else
+                          original_source_quote(source, quote, allow_case_copy=True))
+        if original_quote is None:
+            raise ProofError("invalid_source_value_or_quote")
+        if original_quote != quote:
+            logger.warning("memory_source_proof_quote_aligned", reason="original_copy_alignment")
+        quote = original_quote
         claims = [frame.replace("{{answer}}", answer) for frame in frames]
         # Preserve original leading attribution/clock/antecedents, while the
         # citation endpoint excludes later material (including appended tasks).

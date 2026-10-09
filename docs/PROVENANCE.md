@@ -1,3 +1,34 @@
+## 2026-10-09 — v3 source-proof original-copy invariance
+
+A controlled actual proof/parser baseline accepts an exact quote; changing only
+case/whitespace returns unknown before any NLI call. Same source/value/frames,
+not a semantic contradiction. The guards now reuse Codex's existing unique
+original-span aligner; exact matches retain priority, copying restores source
+bytes, and each alignment warns without text. Original records, model values,
+NLI premises/claims, CPU backend, four checks, threshold and bounds are unchanged.
+Paraphrases, punctuation/negation edits and distinct ambiguous spellings remain
+unknown. This is a core source-access repair, not a lowercased memory store.
+
+Focused disposable parser/proof/route/extraction/SQL-final-rescue controls70/70
+pass15.21s with47 existing warnings. Eleven new cases include older-source
+rescue after the40-turn window; actual ranking/classifier/LLM output is controlled
+there, while real SQL/retrieval/final packing and proof guards participate.
+Actual pinned float32 CPU NLI/proof5/5 controls accept original/case/space-copy
+sources and withhold explicit negation/hypothetical claims. Frames/provider fills
+are controlled; this is neither E4B generation reliability nor population recall.
+All four original/leading-context typed/direct pairs retain original bytes.
+Final combined disposable smoke/background/cloud-provider rails938/938 pass
+53.48s with327 existing warnings. These overlap the70 focused cases; the extra
+SQL-path warnings are existing legacy Query.get calls, not new failure types.
+
+Private baseline source-quote-copy-baseline.log, focused source-quote-focused.log
+and actual source_quote_actual_nli.py/.json/.log live under
+logs/v3-repair-p5-2026-10-09/. Actual script/source/policy hashes are embedded in
+run metadata. No cloud/new LLM call, working-store change or r4 rewrite.
+Broader source intent/contextual/multi-source utility remains unqualified; the
+previous fixed13 guard panel's two misses were framing/uncertainty, not this
+copy contract, and are not claimed repaired.
+
 ## 2026-10-09 — v3 bounded resource and periodic cold-read profile
 
 Two completed, deliberately bounded local controls use the deployed six-model

@@ -14,7 +14,7 @@ def encoded(decision, quote=None):
                            decision=decision, evidence_quote=quote))
 
 
-def test_visible_quote_must_be_exact_and_response_complete():
+def test_visible_quote_must_resolve_to_source_and_response_complete():
     messages = [{"role": "user", "content": "The indexer port is 7813."}]
     good = sn.parse_verdict(encoded("visible_evidence", "port is 7813"), "stop", messages)
     assert good == sn.SourceNeed("visible_evidence", "port is 7813")

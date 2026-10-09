@@ -2420,3 +2420,13 @@ have client defaults. This is a writer/schema mismatch, not proof production
 is broken. Use the existing canonical ORM writer so both schemas receive the
 same values; do not change the test schema to conceal the dependency. Verify
 both actual producers, pending JSON payloads and the absence of direct changes.
+
+### 108. Copying invariance must stop at the original evidence boundary
+
+**ICE v3,2026-10-09.** Lowercase/space-normalized evidence copies fail structural
+source-proof/need guards before any NLI call, while the same exact copy passes.
+Reuse the existing original-span aligner: resolve unambiguous copying changes,
+then verify original bytes. Do not lowercase stored text, values or hypotheses,
+accept paraphrases, or turn a matched quote into entailment. Exact matches keep
+priority; distinct ambiguous original spellings stay unknown. Actual pinned NLI
+still withholds negation/hypothetical assertions after successful copy alignment.

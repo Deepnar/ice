@@ -14,6 +14,7 @@ import structlog
 from src.api.config import settings
 from src.memory.tokens import count_messages
 from src.workers.bg_client_factory import bg_timeout, local_model_call, native_call_timings
+from src.workers.extraction_result import original_source_quote
 
 logger = structlog.get_logger("ice.api.source_need")
 
@@ -58,7 +59,7 @@ def _unknown(reason):
 
 
 def parse_verdict(content, finish_reason, messages):
-    """A literal quote is a prerequisite, never a semantic sufficiency proof."""
+    """An original-source quote is an anchor, never semantic sufficiency proof."""
     if finish_reason != "stop":
         return _unknown("incomplete_response")
     try:
@@ -73,9 +74,16 @@ def parse_verdict(content, finish_reason, messages):
         return _unknown("invalid_shape")
     quote = data["evidence_quote"]
     if data["decision"] == "visible_evidence":
-        if (not isinstance(quote, str) or not quote.strip()
-                or not any(quote in m["content"] for m in messages)):
+        if not isinstance(quote, str) or not quote.strip():
             return _unknown("quote_not_in_visible_source")
+        if not any(quote in m["content"] for m in messages):
+            originals = {original for message in messages
+                         if (original := original_source_quote(
+                             message["content"], quote, allow_case_copy=True)) is not None}
+            if len(originals) != 1:
+                return _unknown("quote_not_in_visible_source")
+            quote = originals.pop()
+            logger.warning("memory_source_need_quote_aligned", reason="original_copy_alignment")
     elif quote is not None:
         return _unknown("unexpected_quote")
     if data["decision"] == "unknown":

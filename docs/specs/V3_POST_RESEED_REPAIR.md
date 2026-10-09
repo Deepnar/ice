@@ -1150,6 +1150,41 @@ not independent population quality or tuning/final throughput qualification.
 Worst-case interactive/long-input resource checks belong to the actual frozen
 tuning/runner configuration. No working-store or immutable r4 mutation occurred.
 
+### 2.1u Source-proof quote copying invariance — decision, 2026-10-09
+
+An opposing control supplies the same original proposition and model value,
+changing only its copied evidence quote to lowercase/single whitespace. Exact
+copy reaches all four proof pairs; changed copy is unknown before any NLI call.
+The source-need parser likewise refuses visible evidence. This is a structural
+copying restriction, not demonstrated semantic verifier failure or corpus rate.
+
+Reuse the existing `original_source_quote` aligner already used by Codex.
+Resolve only literal or unambiguous whitespace/case copies to original bytes;
+retain punctuation/negation/identifier content and original spelling. Do not
+normalize stored sources, model values or NLI premises/hypotheses. Ambiguous
+distinct source spellings, paraphrases, invented text, malformed values and
+incomplete responses stay unknown. Source-need requires one resolved original
+spelling across its prepared messages. Copy alignment warns without private text.
+
+Source proof keeps the complete original and original leading context, all four
+typed/direct pairs, CPU verifier, threshold and bounds. Alignment is a source
+anchor, never semantic support. The final preparation still admits only proven,
+surviving originals; current-only evidence alone may suppress a positive prior.
+Validate copying changes through actual proof/parser and final-preparation paths,
+with ambiguous/invented/negated opposing controls, then actual pinned NLI on
+original bytes. No new model, runtime intent lexicon or wider rescue policy.
+
+**Implemented/validated:** actual parser/proof and SQL/final-rescue controls
+pass70/70, including11 new copying/opposing cases. The real pinned CPU NLI
+accepts3 original/case/space-copy controls and withholds explicit negation and
+hypothetical controls (5/5); every premise retains original source bytes and
+all four checks remain. Frames and provider fills are controlled in this NLI
+check, so it does not measure E4B generation or population recall. Combined
+disposable smoke/background/cloud-provider rails938/938 pass53.48s (327 existing
+warnings, including new SQL-path repetitions). Checks overlap; no threshold or
+scope change. The retained13-case panel's two frame/uncertainty misses are not
+claimed repaired by this copying change.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36
