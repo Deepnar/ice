@@ -5,6 +5,25 @@
       "reason": "2026-10-07 successful request reservations cannot mutate completed judge inputs; read-only completed artifacts only",
       "before": "d065ffb185a1fef14e675755d015e9a3d3aa6161657a05ae986dc1359a1fa6ee",
       "after": "eec03f8f8f90576ff46c8af09884f7f92881a040affff74a3f5bd392461bee6b"
+    },
+    {
+      "reason": "2026-10-09 bounded completion telemetry only; completed bytes read-only, no API or partial continuation",
+      "before": "eec03f8f8f90576ff46c8af09884f7f92881a040affff74a3f5bd392461bee6b",
+      "after": "9f30934513b4f9841aee50c98b01f4ad43b2e9f7a5aeb5cd9d08517b165a7744",
+      "read_only_components": {
+        "cloud_adapter": {
+          "before": "b40cdc2740383579847bf14f71a1954d8ccf1122b3887ac8536737133e8657d4",
+          "after": "28838461969a25a8b7f89f505f21aaaf699cbc70e17bf12c21627e1e6b9fae43"
+        },
+        "completed_resume": {
+          "before": "1b2ca6436fbb9b66e84ba1f7dd211540ca2a5d0e0c3af6eb63029be4f4837af2",
+          "after": "5850002595ed82f79d06893df1671a1304839b25befb6b97daf37bc61fd50c95"
+        },
+        "completed_resume_registry": {
+          "before": "45a7db87ae23a9c8aae8047d6fa0082be2369572273afb1dcaf5a9b01a2ecb20",
+          "after": "current_registry_sha256"
+        }
+      }
     }
   ]
 }

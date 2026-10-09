@@ -26,6 +26,10 @@ MAIN_ENV = Path(__file__).resolve().parents[2] / ".env"
 class CloudCompletionError(RuntimeError):
     """A returned cloud response is incomplete or empty, not an answer."""
 
+    def __init__(self, message: str, *, receipt: dict | None = None):
+        super().__init__(message)
+        self.receipt = receipt
+
 
 class ProviderAccessError(RuntimeError):
     """Authentication/quota failure that requires operator action before retry."""
@@ -260,12 +264,38 @@ def _responses_text(response: Any) -> str:
     return "".join(chunks).strip()
 
 
+def completion_receipt(response: Any, endpoint: str, status: str | None) -> dict:
+    """Bounded provider diagnostics; no generated text, thinking or messages."""
+    def scalar(value):
+        return value[:200] if isinstance(value, str) else None
+    usage = _model_dump(_field(response, 'usage')) or {}
+    def counters(value, names):
+        return {name: value[name] for name in names if isinstance(value, dict)
+                and type(value.get(name)) is int and value[name] >= 0}
+    safe_usage = counters(usage, ('input_tokens', 'output_tokens', 'total_tokens',
+                                  'prompt_tokens', 'completion_tokens'))
+    for key, fields in (('input_tokens_details', ('cached_tokens',)),
+                        ('prompt_tokens_details', ('cached_tokens',)),
+                        ('output_tokens_details', ('reasoning_tokens',)),
+                        ('completion_tokens_details', ('reasoning_tokens',
+                            'accepted_prediction_tokens', 'rejected_prediction_tokens'))):
+        if isinstance(usage, dict) and isinstance(usage.get(key), dict):
+            safe_usage[key] = counters(usage[key], fields)
+    return dict(method='cloud_completion_receipt_v1', endpoint=endpoint,
+        completion_status=scalar(status), response_id=scalar(_field(response, 'id')),
+        returned_model=scalar(_field(response, 'model')),
+        incomplete_reason=scalar(_field(_field(response, 'incomplete_details'), 'reason')),
+        provider_error_code=scalar(_field(_field(response, 'error'), 'code')),
+        usage=safe_usage or None)
+
+
 @dataclass(frozen=True)
 class Generation:
     text: str
     response_id: str | None
     usage: dict[str, Any] | None
     completion_status: str | None = None
+    completion_details: dict | None = None
 
 
 class TextGenerator:
@@ -315,7 +345,8 @@ class TextGenerator:
                 response = self.client.chat.completions.create(**request)
                 completion_status = _field(response.choices[0], "finish_reason")
                 if completion_status is not None and completion_status != "stop":
-                    raise CloudCompletionError(f"cloud answer completion was not successful: {completion_status}")
+                    raise CloudCompletionError(f"cloud answer completion was not successful: {completion_status}",
+                        receipt=completion_receipt(response, self.profile.endpoint, completion_status))
                 text = (response.choices[0].message.content or "").strip()
             elif self.profile.endpoint == "responses":
                 request = dict(
@@ -330,7 +361,8 @@ class TextGenerator:
                 response = self.client.responses.create(**request)
                 completion_status = _field(response, "status")
                 if completion_status is not None and completion_status != "completed":
-                    raise CloudCompletionError(f"cloud answer completion was not successful: {completion_status}")
+                    raise CloudCompletionError(f"cloud answer completion was not successful: {completion_status}",
+                        receipt=completion_receipt(response, self.profile.endpoint, completion_status))
                 text = _responses_text(response)
             else:
                 raise ValueError(
@@ -347,4 +379,5 @@ class TextGenerator:
             response_id=_field(response, "id"),
             usage=_model_dump(_field(response, "usage")),
             completion_status=completion_status,
+            completion_details=completion_receipt(response, self.profile.endpoint, completion_status),
         )

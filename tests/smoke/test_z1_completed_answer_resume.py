@@ -131,6 +131,43 @@ def test_registered_completed_transition_is_read_only_and_exact(change):
     assert saved == original
 
 
+@pytest.mark.parametrize("change", [None, "adapter", "helper", "registry", "profile", "partial", "runner"])
+def test_completion_receipt_transition_accepts_only_inspected_finished_inputs(change):
+    raw = answer_resume.REGISTRY.read_bytes()
+    bridge = json.loads(raw)["repairs"][1]
+    components = bridge["read_only_components"]
+    current = {"version": "v3", "probe_ids": ["p1"], "trace_sha256": "trace",
+               "answer_profile": "fixture", "cloud_failure_policy": "continue",
+               "implementation_sha256": {"answer_runner": bridge["after"], **{
+                   key: (hashlib.sha256(raw).hexdigest() if values["after"] == "current_registry_sha256"
+                         else values["after"]) for key, values in components.items()}}}
+    saved = {**copy.deepcopy(current), "processing_complete": True,
+             "records": [{"probe_id": "p1", "answer": "7813", "error": None}]}
+    saved["implementation_sha256"] = {"answer_runner": bridge["before"], **{
+        key: values["before"] for key, values in components.items()}}
+    component = {"adapter": "cloud_adapter", "helper": "completed_resume",
+                 "registry": "completed_resume_registry"}.get(change)
+    if component:
+        saved["implementation_sha256"][component] = "unregistered"
+    if change == "profile": saved["answer_profile"] = "different"
+    if change == "partial": saved["processing_complete"] = False
+    if change == "runner": current["implementation_sha256"]["answer_runner"] = "unregistered"
+    original = copy.deepcopy(saved)
+    assert answer_resume.completed_identity_matches(saved, current) is (change is None)
+    assert saved == original
+
+
+@pytest.mark.parametrize("component,path", [
+    ("answer_runner", Path(answer_as_of.__file__)),
+    ("cloud_adapter", Path(answer_as_of.__file__).resolve().parents[2] / "experiments/lme/cloud_provider.py"),
+    ("completed_resume", Path(answer_resume.__file__)),
+])
+def test_registered_completion_revision_matches_actual_component_bytes(component, path):
+    bridge = json.loads(answer_resume.REGISTRY.read_text())["repairs"][1]
+    expected = bridge["after"] if component == "answer_runner" else bridge["read_only_components"][component]["after"]
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
+
+
 def _input_repair(root, monkeypatch):
     transition = json.loads(answer_resume.REGISTRY.read_text())["repairs"][0]
     atomic_json(root / "campaign.json", {"judge_profile": "opencode-muse13"})

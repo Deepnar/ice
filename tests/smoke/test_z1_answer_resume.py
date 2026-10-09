@@ -73,6 +73,12 @@ def test_answer_transport_receipt_and_interrupted_resume(monkeypatch, failure):
         assert row["answer_completion_status"] == "completed"
         assert row["prompt_evidence_support"] == "unreviewed"
         assert result["failed_attempts"][0]["error"]
+        if failure in ('incomplete', 'empty'):
+            receipt = result['failed_attempts'][0]['answer_provider_failure']
+            assert receipt['method'] == 'cloud_completion_receipt_v1'
+            assert receipt['completion_status'] in ('incomplete', 'completed')
+        assert 'answer_provider_failure' not in row
+        assert row['answer_completion_details']['completion_status'] == 'completed'
         assert result["decoding"]["temperature_sent"] is False
         assert result["decoding"]["temperature_policy"] == "provider_default"
         assert len(calls) == 2

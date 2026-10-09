@@ -199,6 +199,9 @@ ICE observation time. Retirement reports its existing rule's actual outcomes;
 temporal notes fit the remaining retrieval budget.
 Factual memory proofs preserve a question's requested breadth: an unspecified
 workplace can be an employer; an explicit city request still requires a city.
+Cloud completion diagnostics now preserve available incomplete reasons and
+usage without generated text. Native call timings report unexplained provider
+time separately; whole-stack speed and memory costs remain unmeasured.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers

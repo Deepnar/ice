@@ -27,6 +27,7 @@ def test_explicit_judge_profile_has_correct_endpoint_and_bounded_failure(monkeyp
         if profile == "opencode-muse13":
             payload = {"id": "fixture-response", "object": "response",
                        "status": "completed" if completion == "complete" else "incomplete",
+                       "incomplete_details": {"reason": "max_output_tokens"} if completion == "incomplete" else None,
                        "output": [{"type": "message", "role": "assistant", "content": [
                            {"type": "output_text", "text": json.dumps(grade)}]}]}
         else:
@@ -56,6 +57,11 @@ def test_explicit_judge_profile_has_correct_endpoint_and_bounded_failure(monkeyp
         assert verdict["verdict"] == "ERROR"
         assert verdict.get("operator_required", False) is (completion == "quota")
         assert verdict["reason"] == {"incomplete": "incomplete_completion", "outage": "api", "quota": "api_http_429"}[completion]
+        if completion == 'incomplete':
+            assert verdict['provider_completion']['response_id'] == 'fixture-response'
+            assert verdict['provider_completion']['completion_status'] == ('incomplete' if responses else 'length')
+            if responses:
+                assert verdict['provider_completion']['incomplete_reason'] == 'max_output_tokens'
 
 
 def test_judge_identity_pins_model_endpoint_and_profile(monkeypatch):

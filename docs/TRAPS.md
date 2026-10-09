@@ -2142,6 +2142,14 @@ Archive inputs and untouched judge state durably before restoring proven bytes;
 refuse changed text and active operators. A closed runner transition permits
 read-only completed output reuse, never new calls or old partial-output reuse.
 
+**2026-10-09:** adding failure telemetry changed runner and adapter hashes.
+Three integration tests correctly rejected the stale completed-transition chain.
+Register only inspected exact metadata revisions and unchanged finished inputs;
+bind the helper/registry too and test actual file hashes. Closed edges can
+compose, but arbitrary adapters, profiles and partial stages stay rejected.
+Verify the real completed artifacts read-only and unchanged; never repair this
+by repinning old judge inputs or repeating completed calls.
+
 ### 87. An uncertainty container is not an uncertainty count
 
 **v3, 2026-10-07.** Completed r4's replay report says

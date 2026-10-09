@@ -7,6 +7,7 @@ separate OpenAI-compatible server on :8002, started manually (./ice no longer
 launches it).
 """
 
+import math
 import threading
 import time
 from contextlib import contextmanager
@@ -51,8 +52,15 @@ def native_call_timings(data):
         value = data.get(key)
         result["provider_" + key.removesuffix("_duration") + "_seconds"] = (
             round(value / 1e9, 4)
-            if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0
+            if isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(value) and value >= 0
             else None)
+    durations = [data.get(k) for k in ('load_duration', 'prompt_eval_duration', 'eval_duration', 'total_duration')]
+    complete = all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                   and math.isfinite(v) and v >= 0 for v in durations)
+    remainder = durations[-1] - sum(durations[:-1]) if complete else None
+    result['provider_unattributed_seconds'] = (round(remainder / 1e9, 4)
+        if remainder is not None and remainder >= 0 else None)
     return result
 
 

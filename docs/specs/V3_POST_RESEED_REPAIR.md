@@ -11,16 +11,20 @@ older execution order and experiment roster in `Z1_tuning_coverage.md` and
 **Status: implementation underway, 2026-10-09.** P0 measurements and P1 bounded
 verification are implemented with focused validation. Two confirmed P2 source
 selection defects and P3 extraction/note mechanisms are repaired. Remaining
-quality review and P6–P10 remain pending; procedural-output sizing and negative
+quality review and P8–P10 remain pending; procedural-output sizing and negative
 receipts are implemented with focused validation. P4 author-assertion admission
 and context preservation and source-predicate recovery are implemented;
 calibrated confidence/identity utility and independent precision remain open.
 P5 ordered-source authority and fair bounded maintenance scans are implemented
 with focused controls; referenced-event versus source-record filtering is a
 repaired exclusion mechanism with focused warm/cold/final-input controls, not
-calendar precision or independent temporal answer accuracy. A captured request
-framer narrows an unspecified workplace into a city; P7 must repair and qualify
-that semantic gate without lowering NLI thresholds or claiming a true source false.
+calendar precision or independent temporal answer accuracy. P6 source-semantic
+procedures, source/observation clocks and retirement receipts have focused
+qualification. P7 workplace breadth is repaired with opposing/style and actual
+old-source rescue controls; broad gate/answer gains remain unqualified. P8's
+blinded reference packet is ready, with human labels and independent absolute
+grading pending. P9 completion diagnostics are implemented; whole-stack peaks,
+latency and concurrency and P10 enrichment/lifecycle still need qualification.
 ROADMAP is the queue. The numbered packages below decompose existing entries,
 not a new G-track or claims of eleven newly discovered defects. The completed
 r4 evidence is in [PROVENANCE](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).
@@ -792,6 +796,49 @@ zero false admissions and its same two false negatives. Focused50 and combined
 813 regressions pass. Keep this corrected best-current mechanism; broad entity
 activation/style coverage, contextual-material rescue and end-answer utility
 remain qualified-development limits, not new model-search work or parent closure.
+
+### 2.1m Completion/resource receipt preservation — decision, 2026-10-09
+
+The shared cloud adapter rejects non-stop/non-completed responses before
+retaining response ID, usage and incomplete reason. The v3 answer/judge failure
+therefore keeps only a coarse error class; r4 cannot prove output-cap causality.
+Add a bounded text-free completion receipt to the existing exception/generation
+and persist it in answer failures and raw judge errors, including attempts.
+Allowlist status/model/ID, incomplete reason/error code and numerical standard
+usage/reasoning/cache counters; never retain provider output/thinking/error
+messages in this diagnostic. Missing fields remain unknown. Empty completed
+outputs retain the same receipt. Do not change profiles, output caps, retry
+counts, success admission or completed artifact/resume identities.
+
+Native timings currently report load/prompt/evaluation/total independently.
+Add nonnegative residual provider seconds only when all original durations are
+finite and consistent; missing/inconsistent values remain unknown. Label the
+residual unattributed, never claim it is thinking or a queue without evidence.
+Validate protocol faults in isolation and through actual answering/judging
+artifact writers with controlled SDK responses; no cloud run is required for
+that instrumentation check. Whole-stack peaks/concurrency/latency qualification
+remain P9 work, not established by this receipt repair.
+
+**Integration grounding:** three full-suite failures correctly reject the new
+runner hash in historical completed-answer transitions/input repair. Register
+only the exact inspected metadata-only runner/adapter revision, with exact old
+and new component hashes; retain finished-input/profile/sample/record checks.
+Closed registered runner edges may compose. A changed registry binds its actual
+current bytes, never a wildcard component match. This permits only byte-stable
+read-only completed artifacts, including retained terminal faults, not new calls
+or partial-stage write continuation. Unknown source/adapter/profile revisions
+still fail. Prove the old real completed bundle matches without changing any
+artifact, alongside the ordinary interrupted-current-run regression. New writer
+behavior still requires new development state.
+
+**Local qualification:** controlled SDK and actual artifact-writer/resume tests
+preserve allowlisted incomplete details and usage, clear stale failure receipts
+after success and reject unrelated compatibility changes. Combined disposable
+smoke/background/cloud-provider rails852 passed42.11s; three additional actual
+component-byte checks pass in the26-case completed-resume module. Four real r4
+answer artifacts pass the closed read-only matcher with unchanged bytes. No
+cloud call, old artifact rewrite or token-cap change was made. Original r4's
+missing provider reasons remain unknown; telemetry cannot recover them.
 
 ### 2.2 Absolute scoring and qualification
 

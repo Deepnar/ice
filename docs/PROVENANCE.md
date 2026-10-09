@@ -1,3 +1,35 @@
+## 2026-10-09 — v3 completion and resource receipts
+
+The shared cloud adapter now retains bounded text-free completion receipts on
+success and incomplete exceptions: response ID/model/status, supplied incomplete
+reason/error code and numeric usage/reasoning/cache counters. Answer failures,
+failed attempts and raw judge errors preserve them; successful retries clear
+stale failure receipts. No request profile, token cap, retry count or success
+policy changed. Native duration diagnostics add nonnegative unattributed
+provider seconds only from all finite, consistent load/prompt/eval/total values;
+missing/inconsistent values stay unknown. The residual does not prove queue,
+thinking or loading causality.
+
+Controlled actual SDK/answer/judge artifact paths and seven native-duration
+cases pass. Initial combined rails correctly rejected three historical
+completed-answer transitions after runner/adapter hashes changed. A closed
+exact telemetry-only revision now binds inspected component hashes and composes
+registered runner edges; changed inputs/profiles/unknown adapters and partial
+stages remain refused. It permits only finished byte-stable read reuse, never
+new calls under an older identity. Combined disposable smoke/background/cloud
+provider852/852 passed42.11s with226 existing warnings. Additional file-byte
+checks and transition controls26/26 passed1.02s; these overlap, not new memory
+quality examples. A test-path typo caused one collection error before correction;
+failed logs remain alongside passing logs.
+
+All four actual r4 completed answer files match the closed read-only helper and
+remain byte-identical. No cloud call or existing campaign mutation occurred.
+Private evidence stays under ignored logs/v3-repair-p5-2026-10-09, including
+completion-receipts-rails-v2.log and completion-receipts-r4-readonly.log. Old r4
+provider reasons cannot be recovered from absent metadata; output-cap causality
+remains unknown. Whole-stack peaks, latency and concurrency qualification remain
+P9 work; neither a resource nor an answer-quality roadmap parent closes.
+
 ## 2026-10-09 — v3 independent answer review packet, labels pending
 
 The frozen r4 files independently reproduce111 common fully graded successful

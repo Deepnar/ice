@@ -21,14 +21,22 @@ import cloud_provider
 def test_explicit_incomplete_reply_cannot_become_a_success(endpoint, marker):
     profile = cloud_provider.ProviderProfile(name="fixture", endpoint=endpoint,
         model="fixture", base_url="https://test.invalid/v1")
-    reply = SimpleNamespace(status=marker, output_text="plausible prefix", choices=[
+    reply = SimpleNamespace(status=marker, output_text="plausible prefix", id='safe-id', model='fixture',
+        incomplete_details={'reason': 'max_output_tokens'}, error={'code': 'safe-code', 'message': 'private error message'},
+        usage={'output_tokens': 32, 'output_tokens_details': {'reasoning_tokens': 24, 'private_text': 'secret'},
+               'private_text': 'secret'}, choices=[
         SimpleNamespace(finish_reason=marker, message=SimpleNamespace(content="plausible prefix"))])
     create = lambda **_kwargs: reply
     client = SimpleNamespace(responses=SimpleNamespace(create=create),
         chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
-    with pytest.raises(RuntimeError, match="completion was not successful"):
+    with pytest.raises(cloud_provider.CloudCompletionError, match="completion was not successful") as exc:
         cloud_provider.TextGenerator(profile, client=client).generate(
             [{"role": "user", "content": "question"}], temperature=0, max_output_tokens=32)
+    receipt = exc.value.receipt
+    assert receipt['completion_status'] == marker and receipt['response_id'] == 'safe-id'
+    assert receipt['incomplete_reason'] == 'max_output_tokens'
+    assert receipt['usage'] == {'output_tokens': 32, 'output_tokens_details': {'reasoning_tokens': 24}}
+    assert 'secret' not in str(receipt) and 'private error message' not in str(receipt)
 
 
 @pytest.mark.parametrize("endpoint,marker", [("responses", "completed"), ("chat_completions", "stop")])

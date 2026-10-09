@@ -455,7 +455,8 @@ def _main() -> int:
                 # A killed in-flight request has unknown outcome. Reserve its
                 # attempt before sending, so resume cannot exceed the call cap.
                 record.update(answer="", error="Unconfirmed cloud request: no response recorded",
-                              error_type="UnconfirmedCloudCall", error_status=None)
+                              error_type="UnconfirmedCloudCall", error_status=None,
+                              answer_provider_failure=None)
                 result["records"] = [r for r in result["records"] if r["probe_id"] != probe["probe_id"]] + [dict(record)]
                 atomic_json(output, result)
             try:
@@ -463,15 +464,18 @@ def _main() -> int:
                     stage["prompt_messages"], **decoding,
                     session_id=f"ice-v3-z1-{args.arm}-{probe['probe_id']}")
                 if not answer.text:
-                    raise CloudCompletionError("cloud answer was empty")
+                    raise CloudCompletionError("cloud answer was empty",
+                        receipt=getattr(answer, 'completion_details', None))
                 record.update(answer=answer.text, usage=answer.usage, error=None,
                               response_id=answer.response_id,
-                              answer_completion_status=getattr(answer, "completion_status", None))
-                for field in ("error_type", "error_status", "fault_disposition"):
+                              answer_completion_status=getattr(answer, "completion_status", None),
+                              answer_completion_details=getattr(answer, 'completion_details', None))
+                for field in ("error_type", "error_status", "fault_disposition", "answer_provider_failure"):
                     record.pop(field, None)
             except Exception as exc:
                 record.update(answer="", error=f"{type(exc).__name__}: {str(exc)[:200]}",
-                              error_type=type(exc).__name__, error_status=getattr(exc, "status_code", None))
+                              error_type=type(exc).__name__, error_status=getattr(exc, "status_code", None),
+                              answer_provider_failure=getattr(exc, 'receipt', None))
                 if args.failure_policy == "continue" and answer_fault(record) and attempt >= 2:
                     record["fault_disposition"] = "degraded_final"
             result["records"] = [r for r in result["records"] if r["probe_id"] != probe["probe_id"]] + [dict(record)]

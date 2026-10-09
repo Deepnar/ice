@@ -7,7 +7,7 @@
 > Features that are experimental, gated off, or not yet wired into the live path are
 > flagged inline.
 
-`Last updated: 8 October 2026` · `Scope: v3 main` · [Roadmap](ROADMAP.md) · [Provenance](PROVENANCE.md)
+`Last updated: 9 October 2026` · `Scope: v3 main` · [Roadmap](ROADMAP.md) · [Provenance](PROVENANCE.md)
 
 ---
 
@@ -199,6 +199,10 @@ actual failed unconfirmed requests can become degraded. A closed old/new
 answer-runner registry admits completed historical outputs for read-only reuse,
 with all other identities intact. New outputs also pin the compatibility helper
 and registry bytes. Old partial outputs do not get this compatibility exception.
+The2026-10-09 text-free completion telemetry revision has exact registered
+runner/adapter/helper hashes for finished read-only reuse, with closed transition
+composition and an actual-current-registry hash. Unknown component/profile/input
+changes remain refused; this never permits calls under an old writer identity.
 `repair_judge_inputs.py` can restore false success-disposition fields only when
 both reconstructed files match the judge's original byte hashes exactly. It
 locks the campaign/answer/judge, archives inputs and untouched judge state before
@@ -214,13 +218,23 @@ failures pause; quota/authentication/unknown errors pause immediately.
 requires all outputs successful. Diagnostic reports keep all planned cases,
 cloud errors and clean/degraded/gold-source-failure strata. Fault metadata never
 enters answer/judge prompts.
+Cloud adapter generations and incomplete exceptions now retain bounded text-free
+provider receipts: response ID/model/status, supplied incomplete reason/error
+code and nonnegative numeric usage/reasoning/cache counters. Answer attempts and
+raw judge errors preserve these independently from content; a successful retry
+clears the failure receipt. Missing reasons stay unknown, so old r4 incomplete
+responses cannot establish token-cap causality. No profile/cap/retry change.
+
 Model quote copies are resolved by unique whitespace/case-equivalent matching
 to original source spans; originals are never lowercased in storage. Unsupported
 or ambiguous quoted rows cannot write graph assertions; their original chunk
 remains an attributed searchable claim alongside valid rows. Missing/malformed
 fields and truncated completions still fail. Native
 source-proof/need calls retain their owned model until idle drain, with provider
-load/prompt/evaluation timings; serial seed exit releases owned models because
+load/prompt/evaluation timings and a nonnegative unattributed provider residual
+only for complete, finite and consistent durations. Missing/inconsistent timing
+remains unknown; the residual is not identified as loading/thinking/queue time.
+Serial seed exit releases owned models because
 it has no live idle scheduler. The foreground generation flag starts only inside
 the protected generation boundary, so disconnecting during initial status events
 does not leave maintenance blocked.

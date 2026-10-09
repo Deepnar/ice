@@ -333,7 +333,8 @@ def judge_one(question, source, ans_a, ans_b, *, expected_answer=None,
         except Exception as exc:                                  # noqa: BLE001
             if isinstance(exc, CloudCompletionError):
                 return {"verdict": "ERROR", "reason": "incomplete_completion",
-                        "error_type": type(exc).__name__, "note": "Provider completion incomplete"}
+                        "error_type": type(exc).__name__, "note": "Provider completion incomplete",
+                        "provider_completion": getattr(exc, 'receipt', None)}
             if isinstance(exc, ProviderAccessError):
                 return {"verdict": "ERROR", "reason": "api_http_" + str(exc.status_code),
                         "error_type": type(exc).__name__, "operator_required": True,
