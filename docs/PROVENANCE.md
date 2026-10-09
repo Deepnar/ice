@@ -1,3 +1,36 @@
+## 2026-10-09 — v3 complete graph projection checkpoints
+
+A disposable two-round SQL baseline initially snapshots two edges, then uses
+actual _expire_edge and adds a negated third edge. The second snapshot loses
+the unaffected works_at edge and polarity. Actual expiration payload has only
+edge_id, unlike the old parser's required relation/target. Journal retention
+preserves recovery evidence but does not prove the old snapshot is complete.
+
+V3 now snapshots the maintained entity/full outgoing-edge projection under a
+repeatable-read transaction. Version2 JSON includes edge identity/polarity,
+source/observation/validity/trust metadata, unexpired storage-state IDs and
+entity note/properties/aliases. Unexpired is not a world-date or factual-support
+verdict. Only observed pending events are marked compacted atomically with new
+snapshots. Old snapshots, all journal content and all graph rows remain. No
+model, schedule, threshold, source gate or retrieval consumer is added.
+
+Actual SQL controls 3/3 pass in 13.44s: two rounds through real expiration plus
+production registry/worker/replay collector; a concurrent new edge/event stays
+outside the consistent snapshot and remains pending; commit failure rolls back
+both products. No-op repetition creates no snapshot. Legacy bytes and source/
+trust/polarity metadata survive. Final disposable smoke/background/cloud-provider
+rails 925/925 pass in 49.05s with 283 existing deprecation warnings. Checks overlap
+and provide no population memory/answer-quality evidence. No new model call,
+working-store mutation or immutable-r4 replay occurs.
+
+Private baseline/control logs: logs/v3-repair-p5-2026-10-09/compaction-*.log.
+The complete-state checkpoint role was checked against the primary Azure
+[event-sourcing reference](https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing).
+Using ICE's existing projection is the local design decision; no new framework.
+CodexSnapshot remains write-only for production retrieval. Historical field-
+level replay, full scheduled lifecycle and complete-stack resource qualification
+remain open; repaired checkpoint counts cannot be credited as answer benefit.
+
 ## 2026-10-09 — v3 source-grounded cluster decisions and cold membership
 
 Actual disposable SQL opposing controls show a planted generated recurring

@@ -877,7 +877,20 @@ The Codex retrieval leg resolves prompt-extracted entities to stored CodexEntity
 
 The v3 Codex retrieval leg (`_codex_graph`) extracts prompt entities, matches visible graph nodes, and emits a separate fragment for each matched anchor. It traverses time-valid edges in both directions with direct/deep trust floors and bounded fan-out; negated relations render as facts but are not navigated. The anchor's own relations are ranked for query fit, and an entity-less enumeration path can surface tagged entities or relation facts. Grounded names and aliases can expand the episodic full-text query. A closed conversation/project scope resolves eligible warm and cold source batches and graph endpoints; traversal and fact surfacing require an eligible live source, and only that source's current exact quote and timestamp are rendered and credited. Under `auto`, the graph searches all visible non-private sources except excluded conversations. Retrieval does not strengthen or promote graph claims: separately counted context exposure affects retention ranking, while independent source observations determine corroboration. Legacy edges without a linked current claim remain explicitly labeled unverified. The bounded graph and source checks have implementation controls; the resulting answer quality and per-token benefit are not yet measured on a representative v3 conversation.
 
-The codex_events append log is compacted by workers/compaction.py::compact_entities (`settings.compaction_event_threshold` = 100 uncompacted events per entity): for each entity crossing the threshold, the worker replays its uncompacted events in timestamp order, maintaining a set of "rel:target_id" signatures (edge_added adds, edge_expired discards), writes a CodexSnapshot(full_state = \{active_edges, context_payload, properties, aliases\}) with the last_event_id, and marks the consumed events compacted = True. This is textbook event sourcing: the live edge table is the current state, the event log is the audit trail, and the snapshot table is the compaction output that bounds replay cost. Since C7 the compaction worker is **runtime-scheduled every 24 h** (G10 settled) and remains lossless per the Track-T constraint — events are marked compacted, never deleted (the journal is user-facing history for T4 timelines).
+The codex_events append log is checkpointed by
+`workers/compaction.py::compact_entities` at the existing 100-uncompacted-event
+threshold and 24 h runtime cadence. **V3 repair, 2026-10-09:** the old parser
+rebuilt only the newest batch from an empty set, omitted actual ID-only
+expirations and lost polarity. Version2 JSON now snapshots the existing current
+entity/edge projection in a repeatable-read transaction. It records all outgoing
+edge identities, polarity, source/trust/temporal metadata, unexpired edge IDs and
+entity note/properties/aliases; these are stored graph state, not new proofs.
+Only observed pending events are marked compacted atomically with snapshots.
+All events, graph rows and old snapshots remain. The journal is preserved;
+legacy snapshots are not retrospectively certified. No production retrieval
+consumer reads these checkpoints, so this repair provides no measured answer
+gain or historical field-level replay. The timeline still reads retained events.
+
 
 
 **v3 graph source scope (G76, 2026-09-24).** A conversational edge's first
@@ -1466,7 +1479,7 @@ fine_tune.fine_tune_classifier (proposal-only since C7 — the weekly crontab di
 
 ### **8.11 Compaction Worker**
 
-compaction.compact_entities (§4.8, runtime-scheduled every 24 h since C7 — G10 settled) snapshots entities with ≥100 uncompacted events.
+compaction.compact_entities (§4.8, runtime-scheduled every 24 h since C7 — G10 settled) snapshots entities with ≥100 uncompacted events. Current v3 uses the full projection checkpoint described in §4.8 and returns snapshot/consumed-event counts. A two-round real expiration/registry/collector control preserves unaffected edges and polarity; a concurrent new write stays outside the consistent view and remains pending. Commit failure rolls back snapshot and compacted markers together. These controls do not qualify natural retention or downstream memory quality.
 
 ### **8.12 Watch Folder and Codex Inject Watcher**
 

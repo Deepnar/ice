@@ -7,9 +7,24 @@ from sqlalchemy import func, select
 
 from src.api.config import settings
 from src.api.db import SessionLocal
-from src.memory.models import CodexEntity, CodexEvent, CodexSnapshot
+from src.memory.models import CodexEdge, CodexEntity, CodexEvent, CodexSnapshot
 
 logger = structlog.get_logger("ice.workers.compaction")
+
+
+def _edge_record(edge):
+    """Stored projection metadata, not a fresh factual support decision."""
+    result = {}
+    for column in CodexEdge.__table__.columns:
+        value = getattr(edge, column.name)
+        if isinstance(value, datetime):
+            value = value.isoformat()
+        elif column.name in {'id', 'source_id', 'target_id', 'source_batch'}:
+            value = str(value) if value is not None else None
+        elif column.name == 'observed_batches':
+            value = [str(v) for v in value] if value is not None else None
+        result[column.name] = value
+    return result
 
 
 def compact_entities():
@@ -18,7 +33,11 @@ def compact_entities():
     scheduled it); lossless per the Track-T constraint (events are marked
     compacted, never deleted — the journal stays readable history)."""
     db = SessionLocal()
+    stats = dict(method='graph_projection_checkpoint_v2', snapshots=0, events_compacted=0)
     try:
+        # A concurrent writer must not make entity, edges and consumed events
+        # describe different database views. This session alone owns the level.
+        db.connection(execution_options={'isolation_level': 'REPEATABLE READ'})
         subq = (
             select(CodexEvent.entity_id)
             .where(CodexEvent.compacted == False)
@@ -26,45 +45,33 @@ def compact_entities():
             .having(func.count(CodexEvent.id) >= settings.compaction_event_threshold)
             .subquery()
         )
-        
         target_entities = db.query(subq.c.entity_id).all()
-        
         for (entity_id,) in target_entities:
-            entity = db.query(CodexEntity).get(entity_id)
+            entity = db.get(CodexEntity, entity_id)
             if not entity:
                 continue
 
             events = db.query(CodexEvent).filter(
                 CodexEvent.entity_id == entity_id,
                 CodexEvent.compacted == False
-            ).order_by(CodexEvent.timestamp.asc()).all()
-
-            # Reconstruction map using composited signature strings to protect overlapping paths
-            active_edges = set() 
+            ).order_by(CodexEvent.timestamp.asc(), CodexEvent.id.asc()).all()
+            edges = db.query(CodexEdge).filter_by(source_id=entity_id).order_by(CodexEdge.id.asc()).all()
             context_payload = entity.context_payload or ""
             properties = entity.properties or {}
             aliases = list(entity.aliases) if entity.aliases else []
-            last_event_id = None
-
-            for event in events:
-                payload = event.payload or {}
-                rel = payload.get("relation")
-                tgt = payload.get("target_id")
-                edge_sig = f"{rel}:{tgt}" if (rel and tgt) else None
-
-                if event.event_type == "edge_added" and edge_sig:
-                    active_edges.add(edge_sig)
-                elif event.event_type == "edge_expired" and edge_sig:
-                    active_edges.discard(edge_sig)
-                    
-                last_event_id = event.id
 
             db.add(CodexSnapshot(
                 entity_id=entity_id,
                 snapshot_ts=datetime.now(timezone.utc),
-                last_event_id=last_event_id,
+                last_event_id=events[-1].id,
                 full_state={
-                    "active_edges": list(active_edges),
+                    "version": 2,
+                    "basis": "current_graph_projection",
+                    "edges": [_edge_record(edge) for edge in edges],
+                    # Unexpired IDs are a storage-state index, not validity at
+                    # every world date or an eligibility/trust decision.
+                    "active_edges": [str(edge.id) for edge in edges
+                                     if edge.valid_until is None and edge.unlearned_at is None],
                     "context_payload": context_payload,
                     "properties": properties,
                     "aliases": aliases
@@ -73,9 +80,11 @@ def compact_entities():
 
             for event in events:
                 event.compacted = True
-
-            db.commit()
-            logger.info("entity_historical_ledger_compacted", entity_id=str(entity_id))
+            stats['snapshots'] += 1
+            stats['events_compacted'] += len(events)
+        db.commit()
+        logger.info('graph_checkpoint_pass_complete', **stats)
+        return stats
 
     except Exception as exc:
         db.rollback()

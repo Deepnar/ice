@@ -27,7 +27,7 @@ are implemented with controlled SDK/resume checks; human labels and rubric
 qualification remain pending.
 P9 completion diagnostics are implemented; whole-stack peaks, latency and
 concurrency still need qualification. P10 entity accounts, cluster source/label
-contracts and archival/probation recall have focused qualification; full scheduled
+contracts, graph checkpoints and archival/probation recall have focused qualification; full scheduled
 lifecycle/compaction and broad semantic utility remain pending.
 ROADMAP is the queue. The numbered packages below decompose existing entries,
 not a new G-track or claims of eleven newly discovered defects. The completed
@@ -1039,6 +1039,43 @@ mechanics, not grouping/coherence quality. Read-only r4 recount marks all 274
 cluster calls unobserved for the new receipts and preserves trace SHA. No broad
 model search, new weights, working-store mutation, cloud call or quality closure.
 Full scheduled lifecycle/compaction and complete-stack resources remain work.
+
+### 2.1r Complete graph checkpoints — grounded decision, 2026-10-09
+
+An actual two-pass SQL control first snapshots two outgoing edges, then uses
+the real expiration writer (whose event carries only `edge_id`) and adds a
+third, negated edge. The next snapshot loses the unaffected second edge and
+polarity. Current compaction starts from an empty set on each new event batch;
+its relation/target replay cannot consume actual ID-only expirations. The journal
+is retained, but that does not make the derived snapshot complete. No production
+retrieval consumer currently reads CodexSnapshot; do not claim an answer gain.
+
+Keep thresholds/cadence and the append-only journal. Snapshot the already
+maintained entity/edge projection under one repeatable-read transaction rather
+than inventing missing event payload or trusting incomplete legacy snapshots.
+This follows the complete-state checkpoint role in [the primary event-sourcing
+reference](https://learn.microsoft.com/en-us/azure/architecture/patterns/event-sourcing);
+ICE already has the projection, so no new event store/framework is adopted.
+New JSON version2 explicitly records current-graph basis, all outgoing edge
+records (identity, relation, target, polarity, source, trust and temporal/observation
+metadata), unexpired edge IDs, entity note/properties/aliases and last consumed
+event ID. These are recorded graph state, not newly verified facts. Preserve
+old unversioned snapshots, all event bytes and all graph rows. Mark only the
+observed pending events compacted atomically with the new checkpoint. Do not
+build historical field-level replay or change source admission.
+
+Validate real writer/registry/collector behavior across two rounds, polarity,
+unaffected and expired edges, legacy snapshot preservation, no-op rerun, and
+rollback on checkpoint failure. Record snapshot/consumed-event counts separately
+from semantic correctness. Full lifecycle and resource work still precedes tuning.
+
+**Implemented/validated disposition:** complete projection checkpoints and
+atomic repeatable-read markers are implemented. Three actual SQL controls pass
+in 13.44s; combined disposable rails 925 pass in 49.05s (283 existing warnings).
+The real expiration writer, registry and collector participate. A concurrent
+new event remains pending and commit failure preserves both old products.
+Counts are lifecycle receipts; checkpoint retrieval contribution remains inert.
+
 
 ### 2.2 Absolute scoring and qualification
 

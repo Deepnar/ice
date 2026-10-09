@@ -631,7 +631,7 @@ Every entry, with its cadence from `settings.maintenance_intervals`. **A job wit
 | Archived rows keep decaying | `src/workers/decay.py:86` (comment) | T3 D11 | The three UPDATEs no longer filter `is_archived=FALSE`; before the fix an archived score froze at ~0.1 and cold storage was unreachable. | — | — | YES |
 | Move to cold storage | `src/workers/decay.py:163` | T3 D12 | Below 0.05 the row is copied to `cold_storage` (with conversation_id, is_private, batch_id, embedding, source_spans and ts_provenance) and deleted from `episodic_memory`. | `settings.decay_cold_threshold` | 0.05 | YES |
 | Codex retention aging | `src/workers/codex_decay.py:28` | A3 / E1b D3 | Live conversation edges decay to a retention floor; nonuse never demotes confidence or expires validity. Derived edges remain exempt. | `codex_decay_daily` / `codex_retention_floor` | 0.99 / 0.1 | YES |
-| Journal compaction (snapshots) | `src/workers/compaction.py:15` | G10 | An entity with ≥100 uncompacted events gets a state snapshot; events are marked `compacted`, never deleted. | `settings.compaction_event_threshold` | 100 | YES |
+| Journal compaction (snapshots) | `src/workers/compaction.py::compact_entities` | G10/P10 | At ≥100 pending events, version2 full entity/outgoing-edge projection records identity, polarity, sources/trust/clocks and unexpired IDs under repeatable read. Snapshot/observed-event markers commit atomically; journal, graph and old snapshots are preserved. Returns actual counts, no new factual verification. | `settings.compaction_event_threshold` | 100 | YES |
 
 ---
 
@@ -881,7 +881,7 @@ detectors. Source-authority reason counts are separate from model decisions.
 
 6. **Procedural trigger labels remain unwritten.** The sole procedural writer now stores reserved equivalence-proof metadata in `trigger_conditions`; the reader checks only topic/intent labels, so metadata does not create a trigger restriction. Reflection no longer writes procedural rows. Trigger-match precision is still unexercised, independently of semantic description matching.
 
-7. **`CodexSnapshot` rows are write-only.** Written by `compaction.py:62`; `grep -rn CodexSnapshot src` finds no reader anywhere. Compaction marks events `compacted` (which nothing filters on either) and builds a state snapshot nothing consumes.
+7. **`CodexSnapshot` rows remain write-only for retrieval.** V3 compaction writes complete projection checkpoints; the replay observer records them, but no production memory reader consumes them. Compaction itself filters pending markers. Successful checkpoint counts are not reader contribution or historical field-level replay.
 
 8. **`SessionReplay` has no writer in `src/`.** The model exists, `services/conversations.py` counts and deletes rows, tests create them — but nothing in production ever inserts one.
 
@@ -923,7 +923,7 @@ detectors. Source-authority reason counts are separate from model decisions.
 - **`_enrich_codex_entities` selects by `codex_events` count with no privacy filter** — it reads `episodic_memory` by `batch_source` and does not exclude `is_private` turns, unlike every other reflection sub-pass (which filter `is_private = FALSE` at the query). Worth confirming before the final experiment. **Superseded on v3 main:** complete-source selection filters private warm/cold rows; current source-bound proof/diagnostic contract is described above. Legacy notes remain unverified.
 - **The relation vocabulary is still 197 hardcoded words in the extractor's prompt** (`codex_extractor.py:78`–`263`) even though G45 made the vocabulary open — the prompt still leads with the closed list and the model is only *invited* to invent. The gate moved; the bias did not.
 - **`extract_codex` still hashes its own idempotency key by hand** (`codex_extractor.py:1709`: `sha256(f"codex:{batch_id}")`) instead of using `idempotency.job_key` — the G29 consolidation reached post_flight and procedural_extractor but not this one. The value happens to match, so it is a latent inconsistency rather than a live bug.
-- **`compaction`'s event-reconstruction only understands `edge_added` / `edge_expired`.** `edge_strengthened`, `property_updated`, `entity_merged` and `description_updated` events are marked `compacted` and contribute nothing to the snapshot.
+- **Compaction partial reconstruction is superseded on v3 main, 2026-10-09.** The full current entity/edge projection preserves unaffected edges and current properties/aliases/notes without inventing missing event payload. Real ID-only expirations and polarity survive. Old snapshots remain unverified; no production reader is added.
 - **Batch summarisation's `decay_score < 0.3` trigger is a hardcoded literal** (`batch_summarizer.py:53`) sitting beside the settings-driven age cutoff — G9 swept the age but not the decay half of the same OR.
 - **`decide_representation` returns `inject_raw: True` on every branch** (`turn_density.py:130`–159); only the coverage gate in post_flight can flip it. So "store both, choose at read time" is real, but the write-time default is always raw.
 

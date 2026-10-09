@@ -2396,3 +2396,17 @@ members go cold. Counts, centroids, sessions and source evidence must resolve
 the same logical membership, and merges must transfer known archived IDs.
 The final real NuNER/E4B path passes; that is no corpus coherence guarantee.
 Never revive the retracted arbitrary-consecutive-turn naming rates.
+
+
+### 106. Keeping the journal does not make a checkpoint complete
+
+**ICE v3, 2026-10-09.** Two compaction rounds initially snapshot two edges,
+then drop the unaffected one when one expires and a negated edge is added.
+Each new batch starts from empty; actual expiration events carry only edge IDs,
+while the parser expects relation/target. Polarity is lost as well. A retained
+journal is recoverable evidence, not proof that the derived snapshot is correct.
+Capture the full maintained projection in one consistent database view, keep
+identity/polarity/source/temporal metadata, and mark only observed events in the
+same transaction. Actual concurrent writes stay pending; commit failure rolls
+back both products. No reader consumes CodexSnapshot, so repaired checkpoints
+must not be credited as an answer-quality or retention improvement.
