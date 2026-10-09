@@ -1,3 +1,31 @@
+## 2026-10-09 — v3 procedural eligibility before the SQL cap
+
+Five disposable SQL/retrieve/final-budget baseline controls with limit1 each
+return zero fragments despite an eligible lower-similarity procedure. Foreign
+project, unallowed source, excluded source and topic/intent mismatch candidates
+consume the SQL cap before rejection. Existing eligibility now runs before
+similarity ordering/LIMIT, with the same active/confidence/date/candidate caps
+and Python admission defenses. Reserved equivalence metadata is not a trigger.
+
+All five actual pinned-reranker/SQL/final-budget controls now return the valid
+13-token procedure, scoring exactly one candidate. Controlled classifier,
+embeddings and other producers isolate candidate eligibility; this is not a
+cloud answer or independently verified habit. Six additional SQL controls
+preserve project batch-scope exemption, partial excluded support, empty allow
+sets, active/confidence floors and source-clock limits. Candidate and final
+prompt caps are unchanged; no new model or setting.
+
+Final combined isolated smoke/background rails783 pass in41.18s with226
+legacy warnings. An earlier guard fixture wrongly expected only one total
+fragment on a source-clock query; the normal timeline helper also emits a
+note. Corrected the procedural-family count and total-budget assertion, not
+runtime behavior; failed focused/full logs remain. Private hashed
+`procedural-scope-{before,actual}.log` and focused/full rails live in
+`logs/v3-repair-p5-2026-10-09`. Source-semantic admission, explicit/inferred
+procedure distinctions, retirement interactions and corpus utility remain
+P6 work. No r4 mutation, working-store restore, cloud/full run, push or broad
+owner closure.
+
 ## 2026-10-09 — v3 semantic procedural description matching
 
 Actual disposable SQL/writer baseline with the shared Qwen encoder merged

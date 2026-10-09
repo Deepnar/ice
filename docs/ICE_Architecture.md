@@ -1235,6 +1235,15 @@ refresh observation time; rereading does neither. The former0.85 cosine knob
 remains a historical pin and is inert. Description identity does not verify the
 habit against its cited sources; that source-semantic P6 work remains open.
 
+The procedural retrieval leg applies project/source/deny/trigger eligibility
+before similarity ordering and its unchanged five-candidate SQL cap. Foreign
+projects, unallowed sources and trigger mismatches cannot consume the shortlist
+before Python rejects them. Same-project conventions keep their batch-scope
+exemption; partial surviving source support remains eligible, all-excluded
+support does not. Missing/empty trigger labels impose no restriction; reserved
+proof metadata imposes none either. Active/confidence/source-clock constraints,
+Python admission checks, relevance ranking and final prompt budgets remain.
+
 ### **8.5 Decay Workers**
 
 Three independent schedulers (§3.7), all every 5 400 s, max_retries=2, default_retry_delay=60: decay.apply_decay (episodic, access-weighted with creative floor, archive at 0.1, cold-storage move at 0.05), codex_decay.decay_codex_edges (retention decay to a 0.1 floor, without confidence demotion or temporal expiry — **conversation edges only; derived static-analysis/fact edges are decay-exempt** — the code graph is regenerated from source, not earned through use; §12.2), procedural_decay.decay_procedural_patterns (boolean deactivation after 180 days if \< 3 reinforcements).

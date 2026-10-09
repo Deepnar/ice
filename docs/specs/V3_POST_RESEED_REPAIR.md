@@ -614,6 +614,34 @@ or rereading the same sitting neither reinforces nor refreshes time. These are
 mechanism checks with controlled extraction proposals, not independent habit
 precision or corpus answer gains. Source-semantic admission remains next.
 
+### 2.1i Procedural eligibility before the cap — grounded decision, 2026-10-09
+
+Five actual SQL/retrieve/final-budget controls with candidate limit1 return
+nothing despite a valid lower-ranked procedure. A higher-scoring foreign-project,
+unallowed-source, excluded-source or topic/intent-mismatched pattern occupies
+the SQL slot, then is removed in Python. This is a candidate-generation loss,
+not a weak ranker or a reason to raise the cap.
+
+Decision: apply existing project/source/deny/trigger eligibility in SQL before
+similarity ordering and LIMIT. Keep the same candidate, trust, date and final
+prompt bounds. Same-project conventions retain their batch-scope exemption;
+all-excluded support still fails, partial surviving support remains eligible.
+Empty sources keep their existing unscoped behavior. Empty/missing trigger
+labels impose no restriction; reserved proof metadata is not a trigger label.
+Malformed trigger-label shapes are ineligible rather than widening eligibility.
+Retain Python admission checks as defense and unchanged fragment provenance.
+Order equal similarity by ID for reproducibility. No extra model or setting.
+
+Qualify both the direct SQL seam and normal retrieve/rerank/final-budget path,
+including empty allow sets, project exemption, partial excluded support, topic/
+intent controls and confidence/active/date guards. Do not credit merely generated
+IDs or these synthetic fixtures as independent habit/answer-quality evidence.
+
+Implemented: the five actual SQL/rerank/budget controls now supply the valid
+procedure with exactly one scored candidate at limit1. Additional SQL controls
+preserve empty allow sets, project exemption, partial source exclusions,
+active/confidence and source-clock behavior. No candidate/prompt cap increases.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36

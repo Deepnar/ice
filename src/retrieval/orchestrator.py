@@ -2282,6 +2282,12 @@ class HybridRetrievalOrchestrator:
             "prompt_embedding": prompt_embedding,
             "min_conf": settings.procedural_min_conf,
             "proc_limit": settings.retrieval_procedural_limit,
+            "proc_project": self._scope_project_id,
+            "proc_unscoped": allowed_batch_ids is None,
+            "proc_allowed": list(allowed_batch_ids or []),
+            "proc_excluded": list(excluded_batch_ids),
+            "proc_topics": list(classification.topic_tags or []),
+            "proc_intents": list(classification.intent_tags or []),
         }
         if ts.source_clock and ts.mode in ("as_of", "range") and ts.t0 and ts.t1:
             time_filter = "AND first_observed <= :ts_t1 AND last_observed >= :ts_t0"
@@ -2290,14 +2296,32 @@ class HybridRetrievalOrchestrator:
         # raised `vector <=> double precision[]` on every call, so this leg
         # silently returned [] (rollback + empty) since the psycopg3 move.
         # The intent whitelist hid the crash; killing the gate exposed it.
+        # Eligibility precedes the cap: an invisible nearest neighbor must not
+        # consume the only slot before Python removes it. Reserved proof keys
+        # do not participate in topic/intent trigger matching.
+        trigger_filters = "\n".join(f"""
+            AND CASE
+                WHEN COALESCE(trigger_conditions->'{labels}', '[]'::jsonb) = '[]'::jsonb
+                    THEN TRUE
+                WHEN jsonb_typeof(trigger_conditions->'{labels}') = 'array'
+                    THEN (trigger_conditions->'{labels}') ?| CAST(:{parameter} AS text[])
+                ELSE FALSE
+            END
+        """ for labels, parameter in (("topic_tags", "proc_topics"), ("intent_tags", "proc_intents")))
         query = text(f"""
             SELECT id, pattern_description,
                    1 - (embedding <=> :prompt_embedding) as score
             FROM procedural_memory
             WHERE embedding IS NOT NULL AND is_active = true
               AND confidence_score >= :min_conf
+              AND (project_id IS NULL OR project_id = CAST(:proc_project AS uuid))
+              AND (:proc_unscoped OR project_id = CAST(:proc_project AS uuid)
+                   OR source_batch_ids && CAST(:proc_allowed AS uuid[]))
+              AND (COALESCE(cardinality(source_batch_ids), 0) = 0
+                   OR NOT (source_batch_ids <@ CAST(:proc_excluded AS uuid[])))
+            {trigger_filters}
             {time_filter}
-            ORDER BY score DESC
+            ORDER BY score DESC, id
             LIMIT :proc_limit
         """).bindparams(bindparam("prompt_embedding", type_=PgVector))
         try:
@@ -2305,7 +2329,7 @@ class HybridRetrievalOrchestrator:
             fragments = []
             pid = self._scope_project_id
             for r in rows:
-                pattern = self.db.query(ProceduralMemory).get(r.id)
+                pattern = self.db.get(ProceduralMemory, r.id)
                 if not pattern:
                     continue
                 # E1 (D1): project-scoped conventions are invisible outside
