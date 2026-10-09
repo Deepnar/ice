@@ -13,8 +13,11 @@ verification are implemented with focused validation. Two confirmed P2 source
 selection defects and P3 extraction/note mechanisms are repaired. Remaining
 quality review and P5–P10 remain pending; procedural-output sizing and negative
 receipts are implemented with focused validation. P4 author-assertion admission
-and context preservation are implemented; canonicalization recovery, calibrated
-confidence/identity utility and independent precision remain open.
+and context preservation and source-predicate recovery are implemented;
+calibrated confidence/identity utility and independent precision remain open.
+P5 ordered-source authority and fair bounded maintenance scans are implemented
+with focused controls; referenced-event versus source-record filtering is a
+confirmed remaining repair, not calendar precision established by source order.
 ROADMAP is the queue. The numbered packages below decompose existing entries,
 not a new G-track or claims of eleven newly discovered defects. The completed
 r4 evidence is in [PROVENANCE](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).
@@ -428,6 +431,74 @@ synonyms, both-rejected proposals and same-batch idempotency. The actual writer
 must recover a supported raw relation with injected positive NLI and real E4B,
 and graph/claim readers must retain original evidence. Record source-qualified
 graph recovery separately from independent precision or downstream answer gain.
+
+### 2.1e Ordered-source reconciliation — grounded decision, 2026-10-08
+
+Current `_reconciliation_evidence` requires original timestamps on every claim
+and exactly one distinct old source unit. Synthetic but ordered histories cannot
+reach the decider; a fact corroborated in two different turns also fails the
+one-unit test. Keep the same-author/same-conversation boundary and full originals,
+but select the latest comparable old observation rather than treating independent
+corroboration as missing authority.
+
+Use a hash-bound `source_spans.sequence` receipt, not synthesized calendar dates:
+method=`ordered_conversation_v1`, sequence_sha256=SHA256 of the frozen ordered
+source conversation, position=positive integer, raw_sha256=current complete turn.
+The existing importer `_store_turn` accepts an optional explicitly supplied
+receipt. The reseed supplies it from its verified canonical ordered conversation;
+generic unknown-order imports do not infer authority from arrival/mtime/UUID.
+Live source timestamps retain their existing authority. No new resident model,
+schema table or conversion of an ordinal to a date. Existing raw/source offsets
+and archive copies retain the JSON receipt; source edits invalidate it.
+
+Compare original calendars when all relevant observations have verified original
+dates. Otherwise compare only a shared verified sequence within one conversation
+and role. Calendar/sequence disagreement is deferred. A later source must be
+strictly later than the latest comparable old source. Missing, incomparable,
+mixed-author or stale evidence preserves both assertions. Full source text still
+decides explicit replacement versus coexistence/report/hypothesis; order alone
+cannot expire an edge. Both inline and maintenance paths share this authority.
+
+The existing validity interval describes when a fact is established in memory;
+expiry remains a recorded operation time, not an inferred real-world event date.
+Ordinal decisions journal sequence IDs/positions and ordering basis beside that
+operation. Prompts/readers say calendar unknown and show conversation order.
+Historical calendar precision is not established by this ordinal mechanism.
+Source-record time versus referenced event time is a separate query-axis risk:
+reproduce a later retrospective statement about an earlier event outside recent
+history before changing time filters; do not claim their existing behavior is
+correct from the code alone.
+
+Maintenance scanning must reserve bounded opportunity for every core detector
+rather than letting the first backlog fill the entire scan cap. Allocate a fair
+per-detector quota from the existing total scan budget, preserving priority only
+for remainder slots. Small budgets rotate the starting detector in runtime state;
+no unbounded scan/refill, model-call-cap increase or silent detector failure.
+Expose per-detector scanned/returned/deferred source-authority outcomes. Eligibility
+and semantic decision remain separate measurements; a skipped candidate is not
+a model rejection. Qualify blocked-backlog versus eligible later detector controls
+through the actual maintenance job as well as detector isolation.
+
+**2026-10-09 model-contract grounding:** the job's decision-counting wrapper
+accepted only positional arguments, so `_ask_enum`'s `schema=` failed before
+reaching the real JSON client and was retried without the schema. Forward the
+schema through the wrapper to the real decider; adapt signature-limited test
+callbacks without counting a rejected keyword as model inference. Verify the
+actual request format through the job, not just the standalone JSON helper.
+Require a complete provider finish before parsing a maintenance verdict; a
+valid-looking JSON prefix at output length is not expiry authority.
+
+Validation: original-only dates, ordinal-only explicit correction, same-source
+and reverse order, incomparable namespace/conversation/role, source edits, two
+old corroborating observations, coexistence and reported/hypothetical changes.
+Exercise actual `_store_turn` receipt persistence, inline and periodic consumers,
+event journaling and source retrieval. No working-store/r4 mutation; new child
+state only. Primary reference: [Graphiti's temporal model](https://www.getzep.com/blog/beyond-static-knowledge-graphs/)
+separates episode reference dates and optional fact validity. This motivates
+separating source order/calendar authority; it does not qualify ICE's protocol.
+[Mem0's current ADD-only integration discussion](https://mem0.ai/library/integrations/how-to-test-ai-agent-memory-with-mem0-a-practical-memory-simulation-guide)
+also preserves history and interprets updates at read time; do not copy blanket
+latest-wins into unrelated facts or unverified dates.
 
 ### 2.2 Absolute scoring and qualification
 

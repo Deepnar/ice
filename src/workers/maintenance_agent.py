@@ -23,6 +23,7 @@ overdue 12h + session-end burst).
 E1 look-ahead: detectors are a pluggable registry keyed by item type — the
 coding-side decisions table reuses this exact pattern.
 """
+import inspect
 import json
 import re
 import uuid
@@ -495,22 +496,49 @@ DETECTORS: dict = {
 }
 
 
-def detect_all(db) -> list:
+_scan_cursor = 0
+
+
+def detect_all(db, *, receipts=None) -> list:
+    """Reserve bounded opportunity per detector; never refill a busy backlog."""
+    global _scan_cursor
+
     items = []
-    for name, fn in DETECTORS.items():
-        remaining = settings.agent_max_scanned - len(items)
-        if remaining <= 0:
-            break
+    detectors = list(DETECTORS.items())
+    if not detectors:
+        return items
+    total = max(0, settings.agent_max_scanned)
+    quota, remainder = divmod(total, len(detectors))
+    start = _scan_cursor % len(detectors) if total < len(detectors) else 0
+    if 0 < total < len(detectors):
+        _scan_cursor = (start + total) % len(detectors)
+    recipients = {(start + i) % len(detectors) for i in range(remainder)}
+    for i, (name, fn) in enumerate(detectors):
+        cap = quota + int(i in recipients)
+        receipt = dict(detector=name, candidate_scan_limit=cap, returned=0,
+                       status="not_scheduled" if cap == 0 else "complete")
+        if receipts is not None:
+            receipts.append(receipt)
+        if cap == 0:
+            continue
         try:
-            found = fn(db, remaining)
+            found = fn(db, cap) or []
         except Exception as exc:
             db.rollback()
             logger.error("agent_detector_failed", detector=name, error=str(exc))
+            receipt["status"] = "error"
+            receipt["error_type"] = type(exc).__name__
             continue
+        if len(found) > cap:
+            logger.warning("agent_detector_exceeded_quota", detector=name,
+                           returned=len(found), quota=cap)
+            receipt["status"] = "exceeded_quota"
+            found = found[:cap]
+        receipt["returned"] = len(found)
         if found:
-            logger.info("agent_detector", detector=name, items=len(found))
             items.extend(found)
-    return items[:settings.agent_max_scanned]
+        logger.info("agent_detector", **receipt)
+    return items
 
 
 # ═══ Decide (fixed enums; bg model in JSON mode; unparseable ⇒ unsure) ═══════
@@ -548,7 +576,11 @@ def make_llm_decider():
                 # decorative one.
                 response_format=json_schema("agent_decision", schema) if schema else None,
                 timeout=bg_timeout(max_tokens))
-            raw = (resp.choices[0].message.content or "").strip()
+            choice = resp.choices[0]
+            if getattr(choice, 'finish_reason', None) != 'stop':
+                logger.warning('agent_llm_incomplete', finish_reason=getattr(choice, 'finish_reason', None))
+                return None
+            raw = (choice.message.content or "").strip()
             # G29: shared salvage — this fence-strip was byte-identical to
             # codex_extractor's, and both are in llm_json now.
             return parse_object(raw, where="maintenance_agent")
@@ -594,7 +626,7 @@ def _ask_enum(llm_decider, prompt: str, key: str, allowed: tuple) -> str:
     return value if value in allowed else "unsure"
 
 
-def _reconciliation_sources(db, content):
+def _reconciliation_sources(db, content, *, diagnostics=None):
     from src.memory.models import CodexClaim, CodexClaimLink, CodexEdge
     from src.workers.codex_extractor import _reconciliation_evidence
     old = db.get(CodexEdge, uuid.UUID(content["old_edge_id"]))
@@ -602,12 +634,14 @@ def _reconciliation_sources(db, content):
     edge = _find_edge_by_names(db, new.get("subject"), new.get("relation"),
                               new.get("object"), new.get("negated", False))
     if old is None or edge is None:
+        if diagnostics is not None:
+            diagnostics.update(reason="edge_missing", eligible=False)
         return old, edge, None
     claims = db.query(CodexClaim).join(CodexClaimLink).filter(
         CodexClaimLink.edge_id == edge.id)
     if content.get("new_batch_id"):
         claims = claims.filter(CodexClaim.source_batch == uuid.UUID(content["new_batch_id"]))
-    return old, edge, _reconciliation_evidence(db, content, claims.all())
+    return old, edge, _reconciliation_evidence(db, content, claims.all(), diagnostics=diagnostics)
 
 
 def _decide_reconciliation(db, item: WorkItem, llm_decider) -> str:
@@ -615,7 +649,10 @@ def _decide_reconciliation(db, item: WorkItem, llm_decider) -> str:
     from src.memory.tokens import count
     from src.workers.codex_extractor import reconciliation_prompt
     content = item.payload["content"]
-    old, edge, evidence = _reconciliation_sources(db, content)
+    authority = {}
+    old, edge, evidence = _reconciliation_sources(db, content, diagnostics=authority)
+    item.payload["_source_authority"] = authority
+    logger.info("codex_reconcile_source_authority", consumer="maintenance", **authority)
     if old is None or old.valid_until is not None:
         return "already_resolved"
     if evidence is None:
@@ -799,6 +836,7 @@ def _apply_reconciliation(db, item: WorkItem, decision: str, run_id) -> str:
     if review is None:
         return "noop"
     content = dict(review.item_content or {})
+    evidence = None
     if decision in ("expire_old", "reject_new"):
         _, _, evidence = _reconciliation_sources(db, content)
         if evidence is None:
@@ -806,6 +844,7 @@ def _apply_reconciliation(db, item: WorkItem, decision: str, run_id) -> str:
 
     if decision == "unsure":
         content["agent_attempts"] = int(content.get("agent_attempts", 0)) + 1
+        content["source_authority"] = item.payload.get("_source_authority", {})
         review.item_content = content
         flag_modified(review, "item_content")
         db.commit()
@@ -816,7 +855,7 @@ def _apply_reconciliation(db, item: WorkItem, decision: str, run_id) -> str:
 
     if decision == "expire_old":
         _expire_edge(db, uuid.UUID(content["old_edge_id"]), run_id,
-                     "supersession", source=SOURCE)
+                     "supersession", source=SOURCE, ordering=evidence[1]["ordering"])
     elif decision == "reject_new":
         new = content.get("new") or {}
         new_edge = _find_edge_by_names(db, new.get("subject"),
@@ -824,7 +863,7 @@ def _apply_reconciliation(db, item: WorkItem, decision: str, run_id) -> str:
                                        new.get("negated", False))
         if new_edge is not None:
             _expire_edge(db, new_edge.id, run_id, "reconciliation_reject",
-                         source=SOURCE)
+                         source=SOURCE, ordering=evidence[1]["ordering"])
     # keep_both / already_resolved: no graph write.
     content["decision"] = decision
     content["agent_run_id"] = str(run_id)
@@ -899,16 +938,24 @@ def run_maintenance_agent(db, llm_decider=_USE_DEFAULT) -> dict:
         llm_decider = make_llm_decider()
 
     run_id = uuid.uuid4()
-    items = detect_all(db)
+    detector_receipts = []
+    items = detect_all(db, receipts=detector_receipts)
     counters = {"llm_decisions": 0, "applications": 0, "proposals": 0}
     # Count actual decider invocations (an item that resolves without the LLM
     # must not consume budget); the cap pre-check in _process stays.
     if llm_decider is not None:
         inner = llm_decider
+        parameters = inspect.signature(inner).parameters
+        accepts_schema = ('schema' in parameters or any(
+            p.kind == inspect.Parameter.VAR_KEYWORD for p in parameters.values()))
 
-        def llm_decider(prompt, max_tokens=200):
+        def llm_decider(prompt, max_tokens=200, **kwargs):
+            # Schema-limited test callbacks do not use a provider. The real
+            # decider must receive its constraint through this counting seam.
+            if not accepts_schema:
+                kwargs.pop('schema', None)
             counters["llm_decisions"] += 1
-            return inner(prompt, max_tokens)
+            return inner(prompt, max_tokens, **kwargs)
 
     outcomes: dict = {}
 
@@ -925,10 +972,14 @@ def run_maintenance_agent(db, llm_decider=_USE_DEFAULT) -> dict:
             outcome = "error"
         record(item.item_type, outcome)
 
+    authority_counts = dict(Counter(item.payload['_source_authority']['reason']
+        for item in items if item.payload.get('_source_authority')))
     logger.info("agent_run_summary", agent_run_id=str(run_id),
-                scanned=len(items), outcomes=outcomes, **counters)
+                scanned=len(items), outcomes=outcomes, detector_receipts=detector_receipts,
+                source_authority_counts=authority_counts, **counters)
     return {"agent_run_id": str(run_id), "scanned": len(items),
-            "outcomes": outcomes, **counters}
+            "outcomes": outcomes, "detector_receipts": detector_receipts,
+            "source_authority_counts": authority_counts, **counters}
 
 
 def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:

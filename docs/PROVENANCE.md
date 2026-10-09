@@ -1,3 +1,57 @@
+## 2026-10-09 — v3 ordered corrections and bounded maintenance reachability
+
+The old reconciliation guard required one distinct source unit with an original
+calendar. Completed r4's508 inspected review items therefore failed before model
+inference; two independently corroborating old turns also could not reach it.
+The optional importer receipt now binds a canonical source-conversation SHA,
+positive position and complete raw SHA beside speaker spans. The reseed supplies
+it explicitly; original live calendars keep authority, synthetic dates do not.
+Current-source/same-speaker/same-conversation guards remain. Select the latest
+comparable old observation and require a strictly later original calendar or
+shared verified sequence. Disagreeing/incomparable authority retains both.
+Expiry stays the operation time; the event records source ordering separately.
+Complete original premises and date/order labels reach real source readers.
+
+Fair per-detector quotas share the unchanged50-candidate scan cap; small budgets
+rotate in runtime state, unused/error quotas are not refilled. Returned receipts
+separate allocated limits, actual returned items, detector errors, source-authority
+defer reasons and actual model calls. Limits are not physical SQL row counts.
+The job's old counting wrapper also dropped `schema=` before the actual JSON
+client. It now forwards constraints to the real decider while adapting bounded
+test signatures, and a non-stop provider finish cannot authorize maintenance.
+
+Four synthetic actual E4B/store paths cover inline/periodic explicit correction
+and coexistence. Each makes one model call; correction expires the old edge,
+separate test/primary uses retain both, repeats make no call. Three source turns
+include two old observations, so selection and journal prove positions2→3 with
+both calendar values unknown. Source storage, claim linking and original readers
+are exercised; encoder, proposals and claim support are controlled. This is not
+independent corpus retirement precision or a full extraction/answer experiment.
+Private logs include run metadata and hashes:
+`logs/v3-repair-p5-2026-10-09/actual-ordered-complete-schema-v5.log`.
+
+A separate actual SQL/retrieval control confirms the next P5 repair:44 turns,
+gold supporting a2010 event recorded in2020, outside the40-turn recent window,
+plus a non-answering2010 source. Detected range filtering returns the distractor
+and hides the gold in lexical and budgeted retrieval; current lexical finds it.
+Fixed encoder/classifier, graph disabled, source refinement/cloud answering not
+exercised. The recent receipt is80 speaker messages, not80 turns. Artifact:
+`logs/v3-repair-p5-2026-10-09/temporal-axis-before.{json,log}`. Source order alone
+does not repair referenced-event versus source-record dates.
+
+Initial isolation passed30 checks. Full rails found a prior author-check fixture
+leaked its own reconciliation review, affecting the later periodic assertion;
+cleanup now removes only that fixture's batch-owned reviews. A cleanup patch
+initially misindented one line, caught during collection and corrected before
+publication. Failed logs are retained. No working-store/r4 mutation, cloud run,
+model addition, broad-owner closure or push.
+
+Final combined isolated rails:739 passed in40.71s with92 ORM/deprecation
+warnings (`tests/smoke` plus7 background-output contracts). These overlap the
+focused controls, not739 independent quality examples. Four actual final local
+paths pass with constraints and complete finishes. Original r4 trace SHA remains
+`0d718f970071ebf264b274e102c880e3153687597a0e156e9abe717e987af185`.
+
 ## 2026-10-08 — v3 procedural completion bounds and negative receipts
 
 Read-only tracing of r4's three terminal post-flight IncompleteCompletion cases

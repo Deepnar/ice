@@ -36,6 +36,7 @@ from scripts.z1.historical_clock import historical_clock
 from scripts.z1.run_meta import file_digest, run_meta
 from src.api.config import settings
 from src.api.db import SessionLocal
+from src.memory.source_order import sequence_receipt
 from src.ingestion.importer import _store_turn
 from src.memory.models import Base, Conversation, EpisodicMemory, MemorySlot
 from src.memory.tokens import count_messages
@@ -953,6 +954,11 @@ def run(args, conversations, probes) -> int:
             selected_conversations = ({args.conversation: conversations[args.conversation]}
                                       if args.conversation else conversations)
             for slug, turns in selected_conversations.items():
+                # Canonical source conversation order is part of the frozen
+                # replay plan, distinct from its constructed simulation dates.
+                sequence_sha256 = hashlib.sha256(json.dumps([
+                    {"turn": t["turn_number"], "prompt": t["prompt"], "response": t["response"]}
+                    for t in turns], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
                 if slug in conversation_ids:
                     conv = db.get(Conversation, uuid.UUID(conversation_ids[slug]))
                     if conv is None:
@@ -996,7 +1002,9 @@ def run(args, conversations, probes) -> int:
                             stored = _store_turn(db, conv.id, turn["prompt"], turn["response"],
                                                  turn["timestamp"], key, "fresh",
                                                  turn["timestamp"], turn["ts_provenance"],
-                                                 frozen, embedder)
+                                                 frozen, embedder, source_sequence=sequence_receipt(
+                                                     f"User: {turn['prompt']}\n\nAssistant: {turn['response']}",
+                                                     sequence_sha256, number))
                             if stored is None:
                                 raise RuntimeError("duplicate turn in fresh replay")
                             batch_id, prompt, response = stored

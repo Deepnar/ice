@@ -48,7 +48,7 @@ from src.memory.models import (
 from src.memory.representation import choose_representation
 from src.memory.source import source_units
 from src.memory.summary_snapshot import summary_snapshot_readable
-from src.memory.time_format import format_time, recorded_stamp
+from src.memory.time_format import format_time, source_stamp
 from src.memory.tokens import count as _estimate_tokens
 from src.memory.tokens import count_messages
 from src.retrieval.orchestrator import ContextFragment
@@ -135,7 +135,7 @@ def bookmarked_turn_texts(db_session, conversation_id):
     for row in rows:
         selected = choose_representation(row)[0]
         if selected:
-            result.append(f"{recorded_stamp(row.timestamp, row.ts_provenance)} {selected}")
+            result.append(f"{source_stamp(row)} {selected}")
     return result
 
 
@@ -279,8 +279,7 @@ def get_recent_turns(
         else:
             # Legacy presentation compatibility; never verification of authorship.
             user_part, assistant_part = _split_pair(text)
-        user_part = recorded_stamp(getattr(t, "timestamp", None),
-                                   getattr(t, "ts_provenance", None)) + user_part
+        user_part = source_stamp(t) + user_part
         share = min(per_turn_cap, max(64, max_tokens - used))
         if assistant_part is not None:
             user_budget, assistant_budget = share // 2, share - share // 2

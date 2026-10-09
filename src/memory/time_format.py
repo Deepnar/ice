@@ -25,3 +25,11 @@ def recorded_stamp(value, provenance=None) -> str:
     else:
         label = "recorded; provenance unknown"
     return f"[{label}: {format_time(value)}] "
+
+
+def source_stamp(row) -> str:
+    """Render independent calendar provenance and verified source order."""
+    from src.memory.source_order import source_order_stamp
+
+    return (recorded_stamp(getattr(row, 'timestamp', None), getattr(row, 'ts_provenance', None))
+            + source_order_stamp(row))

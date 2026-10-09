@@ -12,7 +12,7 @@ from src.memory.assertion_support import review_assertions
 from src.memory.claims import store_claims
 from src.memory.models import (
     CodexClaim, CodexClaimLink, CodexEdge, CodexEntity, CodexEvent,
-    Conversation, EpisodicMemory, IdempotencyKey,
+    Conversation, EpisodicMemory, IdempotencyKey, ReviewQueue,
 )
 from src.memory.relation_support import verify_relation_pairs
 from src.memory.source import single_provenance
@@ -143,6 +143,8 @@ def exercise_writer(monkeypatch, *, actual=False, receipt_sink=None):
                 db.query(CodexClaimLink).filter(CodexClaimLink.edge_id.in_(ids)).delete(synchronize_session=False)
             if entities:
                 db.query(CodexEvent).filter(CodexEvent.entity_id.in_(entities)).delete(synchronize_session=False)
+            db.query(ReviewQueue).filter(ReviewQueue.item_type == 'codex_reconciliation',
+                ReviewQueue.item_content.contains({'new_batch_id': str(batch)})).delete(synchronize_session=False)
             db.query(CodexEdge).filter_by(source_batch=batch).delete(synchronize_session=False)
             if entities:
                 db.query(CodexEntity).filter(CodexEntity.id.in_(entities)).delete(synchronize_session=False)

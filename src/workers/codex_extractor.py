@@ -1790,8 +1790,10 @@ def check_conflict(db, subj_id, relation: str, obj_id, turn_text: Optional[str])
     return next(iter(conflict_candidates(db, subj_id, relation, obj_id)), None)
 
 
-def _reconciliation_evidence(db, conflict, new_claims):
+def _reconciliation_evidence(db, conflict, new_claims, *, diagnostics=None):
     """Resolve complete authoritative units; unknown authority cannot expire."""
+    from src.memory.source_order import compare_observations, verified_sequence
+
     old_claims = db.query(CodexClaim).join(CodexClaimLink).filter(
         CodexClaimLink.edge_id == conflict["old_edge_id"]).all()
 
@@ -1800,23 +1802,26 @@ def _reconciliation_evidence(db, conflict, new_claims):
         for claim in claims or []:
             row = source_for_claim(db, claim)
             if (row is None or not excerpt_is_current(row, claim)
-                    or claim.role == "unknown" or row.ts_provenance != "original"
-                    or row.timestamp is None):
+                    or claim.role == "unknown" or row.conversation_id is None):
                 return None
             unit = next((u for u in source_units(row) if u.role == claim.role
                          and u.start <= claim.start and claim.end <= u.end), None)
             if unit is None:
                 return None
-            key = (str(row.conversation_id), claim.role, row.timestamp, unit.text)
+            key = (str(row.id), claim.role, unit.start, unit.end)
             found[key] = dict(conversation_id=str(row.conversation_id), role=claim.role,
-                              recorded_at=row.timestamp, text=unit.text)
-        return next(iter(found.values())) if len(found) == 1 else None
+                              recorded_at=row.timestamp if row.ts_provenance == "original" else None,
+                              sequence=verified_sequence(row), text=unit.text)
+        return list(found.values())
 
     old, new = units(old_claims), units(new_claims)
-    if (old is None or new is None or old["conversation_id"] != new["conversation_id"]
-            or old["role"] != new["role"] or old["recorded_at"] >= new["recorded_at"]):
-        return None
-    return old, new
+    if old is None or new is None:
+        evidence, reason = None, "source_missing_stale_or_role_unknown"
+    else:
+        evidence, reason = compare_observations(old, new)
+    if diagnostics is not None:
+        diagnostics.update(reason=reason, eligible=evidence is not None)
+    return evidence
 
 
 def _refresh_property_projection(db, subj, relation):
@@ -1837,7 +1842,8 @@ def _refresh_property_projection(db, subj, relation):
         subj.last_updated = datetime.now(timezone.utc)
 
 
-def _expire_edge(db, edge_id, batch_id, reason: str, source: Optional[str] = None):
+def _expire_edge(db, edge_id, batch_id, reason: str, source: Optional[str] = None,
+                 *, ordering=None):
     """*source* (G17/D4): who caused the expiry ("maintenance_agent", ...);
     omitted for the in-line extraction path, whose provenance is the batch."""
     edge = db.query(CodexEdge).get(edge_id)
@@ -1846,6 +1852,8 @@ def _expire_edge(db, edge_id, batch_id, reason: str, source: Optional[str] = Non
         payload = {"edge_id": str(edge_id), "reason": reason}
         if source:
             payload["source"] = source
+        if ordering is not None:
+            payload["source_ordering"] = ordering
         db.add(CodexEvent(entity_id=edge.source_id, event_type="edge_expired",
                           payload=payload,
                           timestamp=datetime.now(timezone.utc), batch_source=batch_id))
@@ -1867,7 +1875,9 @@ def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
     Returns False only for an explicit, source-backed reject_new decision.
     """
     decision = "review"
-    evidence = _reconciliation_evidence(db, conflict, source_claims)
+    authority = {}
+    evidence = _reconciliation_evidence(db, conflict, source_claims, diagnostics=authority)
+    logger.info("codex_reconcile_source_authority", consumer="inline", **authority)
     if reconciler is not None and evidence is not None:
         try:
             decision = reconciler({
@@ -1887,7 +1897,7 @@ def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
 
     if decision == "expire_old":
         _expire_edge(db, conflict["old_edge_id"], batch_id, "supersession",
-                     source=source)
+                     source=source, ordering=evidence[1]["ordering"])
     elif decision == "reject_new":
         logger.info("codex_reconcile", type="supersession", decision="reject_new")
         return False
@@ -1900,6 +1910,7 @@ def reconcile_conflict(db, conflict, subj, relation, obj, batch_id,
             "old_object": _entity_name(db, conflict.get("old_target_id")),
             "new_batch_id": str(batch_id),
             "reason": "source_comparison_unresolved",
+            "source_authority": authority,
         }
         # Repeating an observed batch is not a new review question.
         identity = {k: content[k] for k in ("old_edge_id", "new_batch_id", "new")}
@@ -1919,7 +1930,9 @@ def reconciliation_prompt(ctx):
         "text, decide how to reconcile them. Proposals, hypotheticals and quoted "
         "denials are not adopted facts. Different dates or contexts can coexist. "
         "Expire only if the same speaker clearly replaces the old assertion; "
-        "otherwise keep both.\n"
+        "otherwise keep both. Source order shows which statement came later; it "
+        "does not establish a real-world event date or prove replacement. "
+        "A missing recorded_at means the original calendar is unknown.\n"
         f"Existing candidate (negated={ctx.get('old_negated', False)}): "
         f"{ctx['subject']} {ctx['old_relation']} {ctx['old_object']}\n"
         f"New candidate (negated={ctx.get('negated', False)}): "

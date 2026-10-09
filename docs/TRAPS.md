@@ -2282,3 +2282,14 @@ raw candidate; never borrow one verdict for the other, write both as corroborati
 or lower a cosine/trust threshold. Actual model checks also rejected harmless
 capitalization/synonyms, and once malformed decision IDs; qualify invariance on
 the replacement and constrain typed output without relaxing strict admission.
+
+### 99. Missing calendars and repeated sources can hide an eligible correction
+
+**v3, 2026-10-09.** A guard required exactly one original-calendar source per
+fact. All508 inspected r4 review items failed before model inference, and even
+two corroborating old turns were treated as ambiguous authority. Compare the
+latest compatible observation using original calendars or a hash-bound shared
+conversation sequence. Keep speaker/conversation/source identity boundaries;
+unknown or disagreeing authority defers. Order does not prove replacement or
+world-event dates. Reserve detector quotas so one blocked backlog cannot hide
+all other core work. Count eligibility, actual model calls and decisions apart.

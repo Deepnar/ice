@@ -583,7 +583,8 @@ Every entry, with its cadence from `settings.maintenance_intervals`. **A job wit
 | Uniform assertion writer | `codex_extractor.handle_triplet` | G76 | Property, ordinary and negative assertions share source reconciliation; category cannot expire an old fact. New edges pending/strength1; distinct batches promote independently of reads. | — | — | YES |
 | A8 negation | `src/workers/codex_extractor.py:1430` | A8 | "X no longer uses Y" retracts the positive edge and stores a negated edge — a stored negative fact, not a navigable link. | — | — | YES |
 | Conflict candidates | `codex_extractor.conflict_candidates` | G76 | All same-relation target/polarity differences plus known oppositions; no correction lexicon or arbitrary first candidate. Candidates alone authorize no expiry. | — | — | YES |
-| Source authority for reconciliation | `_reconciliation_evidence` | G76 | Current source hashes, same conversation/role, original timestamps strictly ordered; complete role units supplied. Unknown or older input remains reviewable evidence. | — | — | YES |
+| Source authority for reconciliation | `_reconciliation_evidence`, `memory/source_order.py` | G76/G60 | Current originals, same conversation/role and strictly later original calendar or shared verified conversation sequence. Latest comparable old observation is selected across corroborating turns. Calendar/order disagreement defers; complete originals decide replacement. Ordinal alone invents no date or replacement. | — | — | YES |
+| Verified conversation-order receipts | `ingestion/importer.py::_store_turn`, `memory/source_order.py`, `time_format.py::source_stamp` | G60 | Explicit optional hash-bound canonical sequence/position persists beside raw source boundaries and is rendered on episodic, recent, bookmark, chunk and Codex source readers. The reseed supplies verified ordered input; generic unknown-order import does not infer order from arrival. Cold copies retain JSON. | Supplied `source_sequence` | None | Only with trusted upstream receipt |
 | Bounded LLM reconciler for ambiguous supersession | `src/workers/codex_extractor.py:1365` | A6 | One-word verdict (`expire_old`/`keep_both`/`reject_new`); anything else queues for human review rather than guessing. | — | — | YES |
 | Bidirectional context payload regeneration | `src/workers/codex_extractor.py:1154`, `:1656` | A7/G33 | Rebuilds an entity's Obsidian-style note (description + properties + Links + Backlinks + Negations) on BOTH ends of every edge write. The `db.flush()` is load-bearing — without it every payload was one write behind. | — | — | YES |
 | Entity-type inference with direction | `src/workers/codex_extractor.py:1111` | A7/G33 | Types an entity from its OUTGOING relations; incoming edges vote only for symmetric relations, so `fire mage` is no longer typed `person`. | — | — | YES |
@@ -685,13 +686,19 @@ Every entry, with its cadence from `settings.maintenance_intervals`. **A job wit
 
 ### 9. Maintenance agent — every detector, tier, cap and zero-condition
 
-Driver: `run_maintenance_agent(db, llm_decider)` at `src/workers/maintenance_agent.py:720`. Detectors run in registry order (`:336`) under a SHARED scan budget: `detect_all` (`:347`) gives each detector `agent_max_scanned - len(items_so_far)` and **breaks entirely when that hits zero**.
+Driver: `src/workers/maintenance_agent.py::run_maintenance_agent`. `detect_all`
+reserves an equal bounded candidate quota for each registry detector, using
+priority only for remainder slots. Budgets smaller than the registry rotate
+the scheduled detectors in runtime state. Empty/error quotas are not refilled;
+the sum of all allocations never exceeds the existing scan cap. Returned
+receipts distinguish allocation, actual returned items, errors and unscheduled
+detectors. Source-authority reason counts are separate from model decisions.
 
 **Global caps**
 
 | Cap | Setting | Default | Effect |
 |---|---|---|---|
-| Items scanned per run (all detectors combined) | `settings.agent_max_scanned` | 50 | `detect_all` truncates to 50 and stops calling later detectors |
+| Candidate quotas per run (all detectors combined) | `settings.agent_max_scanned` | 50 | Sum of detector quotas ≤50; a busy first detector cannot take all slots. This is not a count of physical SQL rows examined. |
 | LLM decisions per run | `settings.agent_max_llm_decisions` | 25 | Items needing a verdict past this return `skipped_cap` |
 | Tier-2 proposals per run | `settings.agent_max_tier2_proposals` | 5 | A flooded review queue is worse than no agent |
 | Auto-applications per run | `settings.agent_max_applications` | 10 | Bounds graph writes |
@@ -702,11 +709,11 @@ Driver: `run_maintenance_agent(db, llm_decider)` at `src/workers/maintenance_age
 | Aspect | Detail |
 |---|---|
 | Where | `src/workers/maintenance_agent.py:59` |
-| Finds | `review_queue` rows of type `codex_reconciliation`, status `pending`, with `agent_attempts < 2`, oldest first, LIMIT = remaining budget |
+| Finds | `review_queue` rows of type `codex_reconciliation`, status `pending`, with `agent_attempts < 2`, oldest first, LIMIT = allocated detector quota |
 | Decides | Same source eligibility and complete two-source context as inline reconciliation; bounded input, exact enum. Missing authority returns unsure without a model call. |
 | Applies | Rechecks source evidence before expiry, refreshes property projections and endpoint notes, marks resolved; unsure increments attempts. Manual review requires explicit keep_edge_ids. |
 | Zero when | No pending `codex_reconciliation` rows, or all of them already have ≥2 agent attempts, or `llm_decider is None` (returns `skipped_no_llm`) |
-| **[queried]** | 19 pending + 50 resolved rows on the live store. **This detector alone returned 50 items on the last run and consumed the entire `agent_max_scanned` budget — detectors 2–6 never ran.** That is the direct cause of "scanned 50, zero entity merges proposed". |
+| **[historical query]** | The old priority scanner returned50 reconciliation items and skipped detectors2–6. Completed v3 r4 has1000 inspections/0 decisions with synthetic-time sources. New quotas/order authority repair these mechanisms; corpus-wide maintenance utility remains unqualified. |
 
 **Detector 2 — `pending_pileup` (Tier 1, deterministic)**
 

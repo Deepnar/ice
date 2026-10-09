@@ -38,6 +38,7 @@ from src.memory.models import (
 )
 from src.memory.session import resolve_session_id
 from src.memory.source import chat_provenance
+from src.memory.source_order import attach_sequence
 
 logger = structlog.get_logger("ice.ingestion.importer")
 
@@ -293,7 +294,7 @@ def import_conversations(db, runtime, source: Iterable, policy: str = "hybrid",
 
 
 def _store_turn(db, conv_id, user_text, assistant_text, turn_ts, idem,
-                policy, now, ts_prov, classifier, embedder):
+                policy, now, ts_prov, classifier, embedder, *, source_sequence=None):
     """Store one episodic turn with store_turn_async parity (rev 15): raw_text
     ``User: … \\n\\nAssistant: …``, embedding of the USER half only, tags from
     the classifier when available, gap-derived session from the ORIGINAL
@@ -326,13 +327,15 @@ def _store_turn(db, conv_id, user_text, assistant_text, turn_ts, idem,
         db, conv_id, turn_ts, settings.session_gap_minutes)
 
     batch_id = uuid.uuid4()
+    raw = f"User: {user_text}\n\nAssistant: {assistant_text}"
+    spans = attach_sequence(chat_provenance(user_text, assistant_text), raw, source_sequence)
     turn = EpisodicMemory(
         conversation_id=conv_id, batch_id=batch_id, session_id=session_id,
         is_private=False, timestamp=turn_ts, ts_provenance=ts_prov,
         topic_tags=topic_tags, intent_tags=intent_tags,
         context_reliance=context_reliance,
-        raw_text=f"User: {user_text}\n\nAssistant: {assistant_text}",
-        source_spans=chat_provenance(user_text, assistant_text),
+        raw_text=raw,
+        source_spans=spans,
         embedding=embedding, decay_score=decay_score,
         decay_immune_until=immune_until, is_archived=is_archived,
         idempotency_key=idem)

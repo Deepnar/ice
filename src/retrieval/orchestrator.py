@@ -36,7 +36,8 @@ from src.memory.models import (
 from src.memory.representation import choose_representation
 from src.memory.recent_window import base_recent_fraction
 from src.memory.summary_snapshot import SUMMARY_SOURCES_SQL, batch_snapshot_readable, summary_snapshot_readable
-from src.memory.time_format import format_time, recorded_stamp
+from src.memory.source_order import source_order_stamp
+from src.memory.time_format import format_time, recorded_stamp, source_stamp
 from src.memory.tokens import count as count_tokens
 from src.retrieval import coverage, leg_weights
 from src.retrieval.evolution import build_entity_timeline, history_exists
@@ -1070,6 +1071,7 @@ class HybridRetrievalOrchestrator:
         query = text(f"""
             SELECT c.chunk_text, c.chunk_index, e.id AS parent_id,
                    e.conversation_id, e.is_bookmarked, e.timestamp, e.ts_provenance,
+                   e.raw_text, e.source_spans,
                    (1 - (c.embedding <=> :prompt_embedding)) * COALESCE(e.decay_score, 1.0)
                      * (1 + :recency_boost * EXP(-ABS(EXTRACT(EPOCH FROM (e.timestamp - :ts_center))) / 86400.0 / :recency_tau)) AS score
             FROM episodic_chunks c
@@ -1109,8 +1111,7 @@ class HybridRetrievalOrchestrator:
                 score_val *= (1.0 + settings.retrieval_bonus_bookmarked)
             # T1: chunks are episodic fragments too — date them from the parent turn.
             chunk_text = row.chunk_text
-            if row.timestamp:
-                chunk_text = recorded_stamp(row.timestamp, getattr(row, "ts_provenance", None)) + chunk_text
+            chunk_text = source_stamp(row) + chunk_text
             fragments.append(ContextFragment(
                 text=chunk_text,
                 source_type="episodic",
@@ -1657,6 +1658,7 @@ class HybridRetrievalOrchestrator:
                 if original is None or original.is_private or not excerpt_is_current(original, claim):
                     continue
                 lines.append(f"[Source excerpt; speaker: {claim.role}; {'; '.join(dates)}] "
+                             f"{source_order_stamp(original)}"
                              f"{claim_representation(claim, source=original)}")
             return "\n".join(dict.fromkeys(lines))
         rel = f"NOT {edge.relation}" if getattr(edge, "negated", False) else edge.relation
@@ -1925,7 +1927,7 @@ class HybridRetrievalOrchestrator:
                     continue
                 excerpt = claim_representation(claim, source=source)
                 rendered = (f"[Source excerpt; speaker: {claim.role}] "
-                            f"{recorded_stamp(source.timestamp, source.ts_provenance)}\n"
+                            f"{source_stamp(source)}\n"
                             f"{excerpt}")
                 fragments.append(ContextFragment(rendered, "codex", scores[ident],
                     count_tokens(rendered), conversation_id=str(source.conversation_id),
@@ -2712,7 +2714,7 @@ class HybridRetrievalOrchestrator:
         fragments = []
         for row in rows:
             body = choose_representation(row)[0] or ""
-            stamp = recorded_stamp(row.timestamp, getattr(row, "ts_provenance", None)) if row.timestamp else ""
+            stamp = source_stamp(row)
             text_ = stamp + body
             fragments.append(ContextFragment(
                 text=text_, source_type="episodic", score=0.6,
@@ -2746,7 +2748,7 @@ class HybridRetrievalOrchestrator:
             """), {"id": parent.id}).all()
             terms = {str(k).casefold() for k in keywords if k}
             rows = sorted(rows, key=lambda r: -sum(k in r.chunk_text.casefold() for k in terms))[:3]
-        stamp = recorded_stamp(parent.timestamp, getattr(parent, "ts_provenance", None))
+        stamp = source_stamp(parent)
         return [ContextFragment(
             text=(rendered := stamp + row.chunk_text), source_type="episodic",
             score=float(row.score or 0), token_count=count_tokens(rendered),
@@ -3423,8 +3425,8 @@ class HybridRetrievalOrchestrator:
                 score_val *= (1.0 + settings.retrieval_bonus_bookmarked)
 
             # Preserve source time/provenance on every scored representation.
-            if getattr(row, "timestamp", None):
-                stamp = recorded_stamp(row.timestamp, getattr(row, "ts_provenance", None))
+            stamp = source_stamp(row)
+            if stamp:
                 text = stamp + text
                 if degrade_text:
                     degrade_text = stamp + degrade_text

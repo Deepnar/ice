@@ -178,6 +178,10 @@ NLI with an author-assertion check using the existing local background model,
 so questions and proposed scenarios can remain source evidence without becoming
 established graph facts. These mechanisms have focused validation; corpus answer
 quality, context savings and independent judge qualification remain pending.
+Verified conversation order now permits source-backed corrections when calendar
+dates are unknown; it does not invent event dates. Maintenance reserves bounded
+opportunity for each detector and records authority failures separately from
+actual model decisions.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers
