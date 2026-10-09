@@ -884,6 +884,15 @@ reason. The agent prepares all evidence first and continues independent repairs
 while labels are pending. Done means each selected row has a disposition;
 uncertain rows remain uncertain rather than being forced into a binary label.
 
+**Scheduling override, 2026-10-09:** review only batch1 now; park batches2–6
+for late evaluation qualification. Continue independent core repairs/resource/
+lifecycle and experiment preparation meanwhile. Ten labels are an initial
+diagnostic reference, not a substitute for the reserved20 qualification rows
+or permission to declare the judge qualified. Preserve all60 selected rows and
+their fixed development/qualification partition; do not select a smaller easier
+qualification cohort or tune on reserved labels. Final qualified accuracy claims
+still require the stated qualification; earlier diagnostic work stays labeled.
+
 Qualify the actual independent-answer rubric against these labels, including
 planted role/date/negation errors and irrelevant same-speaker sources. Require
 at least 90% agreement on definitive reviewed labels and no systematic

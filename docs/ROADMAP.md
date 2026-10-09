@@ -59,9 +59,12 @@ No full LME-S haystack campaign or product expansion is added. The old merged-Z
 phrasing below describes the development history; this is the current execution
 order. The source corpus, completed answers and39 as-of stores are preserved.
 
-**USER-REQUIRED for this phase:** once P8 prepares the independent answer-judge
-packet, review it in batches (about45–90 minutes for60 answers; source evidence supplied),
-then inspect the frozen arm/cost/readiness summary and manually launch the
+**USER-REQUIRED for this phase:** the independent answer-judge packet is ready.
+Review batch1 now; batches2–6 are parked for late evaluation qualification
+(about45–90 minutes for all60 answers; source evidence supplied). Ten labels
+give an initial diagnostic reference, not full judge qualification. Independent
+core repairs and experiment preparation continue meanwhile. Inspect the frozen
+arm/cost/readiness summary and manually launch the
 future documented tuning/Z2 command when ready. The new runner does not exist
 yet; the old r4 command is not a tuning or Z2 launcher. The agent continues
 independent repairs while review is pending. SESSION is retained until the
