@@ -515,7 +515,10 @@ class HybridRetrievalOrchestrator:
             logger.info("wide_net_fallback_triggered",
                         topic_confidence=round(topic_conf, 3),
                         intent_confidence=round(intent_conf, 3))
-            return self._wide_net_fallback(classification, prompt_embedding, conversation_id, scope)
+            final = self._wide_net_fallback(classification, prompt_embedding, conversation_id, scope)
+            if not defer_exposure:
+                self.record_exposure(final)
+            return final
 
         # ⚑ G53: TWO DIFFERENT QUESTIONS, AND THEY USED TO SHARE ONE VARIABLE.
         #
@@ -614,9 +617,8 @@ class HybridRetrievalOrchestrator:
             "batch_summary": self._batch_summary_lookup(
                 prompt_embedding, own_conv_id, include_cross=not incognito,
                 scope=scope, search_conv_id=conv_id),
-            # T3: cold storage joins time-scoped queries only (no-op leg
-            # otherwise); fragments are episodic-typed, so budget fairness
-            # treats them as memories — the leg name only affects RRF weight.
+            # Cold originals compete under the same episodic packing lane;
+            # a date is a query constraint, not permission to remember.
             "cold": self._cold_lookup(prompt_keywords, conv_id, scope,
                                       prompt_embedding),
             "timeline": timeline_fragments,
@@ -801,12 +803,10 @@ class HybridRetrievalOrchestrator:
 
     def _timescope_leg_filters(self, prefix=""):
         """T3: param-driven filter snippets for the episodic legs — one query
-        text per leg, never a timescoped twin (G19). current: archived hidden,
-        decay floor 0.2, no window (today's behavior). Non-current: window
-        predicate (as_of/range only), archived visible (D10 — "archived" means
-        not-relevant-to-*now*, which a time query is not asking), and the
-        decay floor dropped (archived rows sit below 0.1 by construction —
-        spec rev note 3)."""
+        text per leg, never a timescoped twin (G19). A storage state or low
+        decay score is not a truth/relevance veto: warm archived and probation
+        originals compete under the same caps, decay ranking and reranker.
+        Only explicit source-clock windows restrict recording dates."""
         ts = self._active_timescope
         params = {}
         time_filter = ""
@@ -814,9 +814,7 @@ class HybridRetrievalOrchestrator:
             time_filter = (f"AND {prefix}timestamp >= :ts_t0 "
                            f"AND {prefix}timestamp < :ts_t1")
             params["ts_t0"], params["ts_t1"] = ts.t0, ts.t1
-        archived_filter = f"AND {prefix}is_archived = false" if ts.mode == "current" else ""
-        min_decay = 0.2 if ts.mode == "current" else 0.0
-        return time_filter, archived_filter, params, min_decay
+        return time_filter, "", params, 0.0
 
     def _recency_params(self, creative: bool):
         """T3 (D9): mode-aware recency — the same exponential with a movable
@@ -2682,16 +2680,15 @@ class HybridRetrievalOrchestrator:
     def _cold_lookup(self, prompt_keywords, conv_id: Optional[str] = None,
                      scope: Optional[dict] = None,
                      prompt_embedding=None) -> List[ContextFragment]:
-        """Cold storage joins dated queries, under its existing candidate cap.
+        """Query-relevant cold originals compete under the existing cap.
         Source-clock windows filter recording dates; event/unknown axes retain
-        meaning-ranked sources from other recording dates. Undated evolution
-        still skips cold. Scoping goes through the SAME _conv_scope_filter the
+        meaning-ranked sources from other recording dates. An undated search
+        needs an embedding or lexical terms. Scoping uses _conv_scope_filter the
         live episodic legs use (G29 — a hand-rolled `if conv_id` copy here let
         project-scoped queries read the whole global cold store)."""
         ts = self._active_timescope
-        if ts.mode not in ("as_of", "range", "evolution") or not ts.t0:
-            return []
         t1 = ts.t1 or datetime.now(timezone.utc)
+        source_window = bool(ts.mode != "current" and ts.t0 and ts.source_clock)
 
         # Up to 6 %kw% patterns from prompt keywords + grounded expansion
         # terms (codex leg runs first, so _last_matched_entities is set).
@@ -2705,6 +2702,8 @@ class HybridRetrievalOrchestrator:
             if len(terms) >= 6:
                 break
         pats = [f"%{t}%" for t in terms]
+        if prompt_embedding is None and not pats and not source_window:
+            return []
 
         conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
         excl_filter, excl_params = self._exclusion_filters(scope, id_column=None,
@@ -2725,22 +2724,23 @@ class HybridRetrievalOrchestrator:
         # live turn was matched on, so a cold hit means the same thing a warm
         # one does.
         vector_rank = ""
+        vector_match = ""
         if prompt_embedding is not None:
             vector_rank = ("CASE WHEN embedding IS NULL THEN 1 "
                            "ELSE (embedding <=> :cold_probe) END ASC,")
-        source_window = "timestamp >= :t0 AND timestamp < :t1" if ts.source_clock else "TRUE"
+            vector_match = "embedding IS NOT NULL OR"
+        time_filter = "timestamp >= :t0 AND timestamp < :t1" if source_window else "TRUE"
         query = text(f"""
             SELECT id, conversation_id, batch_id, raw_text, summary_text,
                    topic_tags, timestamp, is_private, embedding, source_spans, ts_provenance,
                    summary_coverage, representation_verification, abstract_text, lossless_flag, is_document, inject_raw, session_id, intent_tags, context_reliance, idempotency_key, cluster_id, cluster_ids, batch_summary_id
             FROM cold_storage
-            WHERE {source_window}
+            WHERE {time_filter}
               {conv_filter}
               {excl_filter}
               {privacy_filter}
               AND (
-                    embedding IS NOT NULL
-                    OR :no_kw
+                    {vector_match} :browse_window
                     OR raw_text ILIKE ANY(:pats)
                     OR summary_text ILIKE ANY(:pats)
               )
@@ -2749,7 +2749,8 @@ class HybridRetrievalOrchestrator:
         """)
         if prompt_embedding is not None:
             query = query.bindparams(bindparam("cold_probe", type_=PgVector))
-        params = {"t0": ts.t0, "t1": t1, "no_kw": not pats, "pats": pats or ["%"],
+        params = {"t0": ts.t0, "t1": t1, "browse_window": source_window and not pats,
+                  "pats": pats,
                   "cold_limit": settings.timescope_cold_limit, **conv_params,
                   **excl_params}
         if prompt_embedding is not None:
@@ -3408,8 +3409,10 @@ class HybridRetrievalOrchestrator:
                                            prompt_embedding=prompt_embedding))
 
         fragments.extend(self._codex_claims(classification.prompt, prompt_embedding, scope, conversation_id))
-        fused = self._apply_rrf({"fallback": fragments}, alpha_map={"fallback": 1.0})
         prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
+        cold = self._cold_lookup(prompt_keywords, scope_conv, scope, prompt_embedding)
+        fused = self._apply_rrf({"fallback": fragments, "cold": cold},
+                                alpha_map={"fallback": 1.0, "cold": 1.0})
         fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
         fused, reranked = rerank(classification.prompt, fused)

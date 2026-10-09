@@ -2,6 +2,23 @@
 
 Assumes decided specs: none (first S1 spec; grounded in source at commit `ef6f735`, 2026-07-10).
 
+> **v3 undated-cold revision, 2026-10-09:**
+> `V3_POST_RESEED_REPAIR.md` §2.1o supersedes the dated-only restriction in
+> D-U1/§2.5/check26 and §7's no-window prohibition. Ordinary and undated
+> evolution memory queries may search cold sources by meaning or lexical terms,
+> under the same candidate/prompt caps and scopes, including the wide net.
+> Date-only browsing still requires an explicit source-clock window. The `cold`
+> ablation is separate from temporal parsing. Exposure/write-off/probation/source
+> preservation remain unchanged. Warm archived eligibility is not revised here.
+
+> **v3 warm eligibility revision, 2026-10-09:** the subsequent actual lifecycle
+> control found restored 0.12 probation rows blocked by the current 0.2 floor.
+> `V3_POST_RESEED_REPAIR.md` §2.1p supersedes D10/§2.3/check13's current-only
+> archive exclusion and hard 0.2 floor. Bounded warm episodic/chunk readers may
+> consider archived/probation sources; existing positive-score requirement,
+> decay ranking, date constraints, scope/privacy and final packing still apply.
+> No graph confidence/validity, decay or reinforcement policy changes.
+
 > **v3 query-axis revision, 2026-10-09:** `V3_POST_RESEED_REPAIR.md` §2.1f
 > supersedes unconditional recording-time filters for detected query dates.
 > The deterministic parser resolves dates with `axis=unknown`; only explicitly

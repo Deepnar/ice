@@ -45,7 +45,7 @@ logger = structlog.get_logger("ice.retrieval.configurable")
 SUPPORTED_FLAGS = frozenset({
     "vector", "rrf", "cluster_restrict", "session_diversify", "codex",
     "mera", "fuzzy_match", "procedural", "batch_summary", "dynamic_budget",
-    "keyword_boost", "recency_boost", "timescope",
+    "keyword_boost", "recency_boost", "timescope", "cold",
 })
 
 
@@ -61,9 +61,8 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
         super().__init__(db, embedder)
         self.overrides = overrides or {}
         # T2/T3 ablation seam: timescope=False forces CURRENT in the parent's
-        # _resolve_timescope — every temporal branch collapses to pre-T
-        # behavior. The legs themselves are untouched (timescope travels
-        # inside `scope`, so every overridden super() call keeps working).
+        # _resolve_timescope. Query-date semantics are independent of cold
+        # availability; `cold=False` omits that leg in normal and wide-net paths.
         self.timescope_allowed = self._on("timescope")
 
     # ── Convenience helpers ──────────────────────────────────────────────
@@ -92,6 +91,12 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
         if self._off("procedural"):
             return []
         return super()._procedural_lookup(prompt_embedding, classification, scope)
+
+    def _cold_lookup(self, prompt_keywords, conv_id=None, scope=None,
+                     prompt_embedding=None):
+        if self._off("cold"):
+            return []
+        return super()._cold_lookup(prompt_keywords, conv_id, scope, prompt_embedding)
 
     def _batch_summary_lookup(self, prompt_embedding, conv_id=None, include_cross=True,
                               scope=None, search_conv_id=None):

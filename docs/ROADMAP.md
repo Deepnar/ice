@@ -59,6 +59,17 @@ No full LME-S haystack campaign or product expansion is added. The old merged-Z
 phrasing below describes the development history; this is the current execution
 order. The source corpus, completed answers and39 as-of stores are preserved.
 
+**Focused v3 lifecycle repair, 2026-10-09:** ordinary cold-only recall was
+blocked by the older dated-only contract. Restored 0.12 probation sources were
+also blocked by the 0.2 warm floor. Archived/probation originals now remain
+bounded warm candidates, retaining decay ranking. Bounded cold candidates compete
+in normal and wide-net retrieval without a recording date; exposure remains
+separate from source corroboration. G30 — reader quality, e.g. an old recovery
+phrase must reach the final prompt — has focused SQL/final-preparation controls,
+not a closed quality claim. Full lifecycle and resource qualification still
+precede tuning; [the repair decision](specs/V3_POST_RESEED_REPAIR.md#21o-undated-cold-recall--grounded-decision-2026-10-09)
+records the deliberate scope change. Roadmap owner counts are unchanged.
+
 **USER-REQUIRED for this phase:** the independent answer-judge packet is ready.
 Review batch1 now; batches2–6 are parked for late evaluation qualification
 (about45–90 minutes for all60 answers; source evidence supplied). Ten labels

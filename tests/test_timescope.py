@@ -238,7 +238,7 @@ try:
     check("12 vector: as_of retrieves ONLY the in-window row", _mine(vec) == {"in"})
     check("12 bm25:   as_of retrieves ONLY the in-window row", _mine(bm) == {"in"})
 
-    # 13: archived row visible under as_of, hidden under current
+    # 13: v3 warm archival changes storage priority, not source reachability.
     t_arch = mk_turn(datetime(2025, 3, 20, tzinfo=timezone.utc),
                      f"User: {MARK} archived thought\n\nAssistant: ok",
                      decay=0.08, archived=True)
@@ -248,7 +248,7 @@ try:
     vec_cur = orch._vector_episodic(EMB, c, None, None)
     has = lambda frags, turn: any(f.source_batch_id == str(turn.id) for f in frags)
     check("13 archived row retrieved under as_of", has(vec_asof, t_arch))
-    check("13 archived row NOT retrieved under current", not has(vec_cur, t_arch))
+    check("13 archived row retrieved under current", has(vec_cur, t_arch))
 
     # 14: as_of recency re-anchors to window center; range is flat
     W0b = datetime(2025, 3, 1, tzinfo=timezone.utc)
@@ -340,14 +340,28 @@ try:
           md_base.retrieve is False and md_ts.retrieve is True)
     check("18 breakdown carries timescope", md_ts.breakdown.get("timescope") == "as_of")
 
-    # 19: wide net honors window + archived rules (direct call, timescoped scope)
+    # 19: wide net honors explicit windows; archival does not hide source evidence.
     scope_ts = {"timescope": to_scope_dict(AS_OF)}
     wide = orch._wide_net_fallback(c, EMB, None, scope_ts)
     check("19 wide net: in-window + archived rows in, out-of-window out",
           has(wide, t_in) and has(wide, t_arch)
           and not has(wide, t_old) and not has(wide, t_now))
-    check("19 wide net current: archived out again",
-          not has(orch._wide_net_fallback(c, EMB, None, {}), t_arch))
+    # Current retrieval has more recent peers in the same conversation. The
+    # ordinary diversification cap may omit this low-ranked source from the
+    # final list; that is not a SQL visibility failure. Observe candidacy.
+    wide_candidates = []
+    original_rows_to_fragments = orch._rows_to_fragments
+    def capture_rows(*args, **kwargs):
+        fragments = original_rows_to_fragments(*args, **kwargs)
+        wide_candidates.extend(fragments)
+        return fragments
+    orch._rows_to_fragments = capture_rows
+    try:
+        orch._wide_net_fallback(c, EMB, None, {})
+    finally:
+        orch._rows_to_fragments = original_rows_to_fragments
+    check("19 wide net current: archived source enters candidates",
+          has(wide_candidates, t_arch))
 
     # ablation seam / kill switch on the orchestrator gate
     orch.timescope_allowed = False
@@ -592,7 +606,7 @@ try:
     check("25 cold_storage has conversation_id/is_private/batch_id",
           {"conversation_id", "is_private", "batch_id"} <= cols)
 
-    # 26: cold leg surfaces windowed rows, never under current
+    # 26: v3 cold leg surfaces queried originals with or without a date.
     cold_row = ColdStorage(
         id=uuid.uuid4(), raw_text=f"User: {MARK} frozen idea\n\nAssistant: ok",
         summary_text=f"{MARK} frozen summary", topic_tags=["Software_&_Tech"],
@@ -619,7 +633,9 @@ try:
           and next(f for f in cold_frags
                    if f.source_batch_id == str(cold_row.id)).text.startswith("[recorded; provenance unknown: 2025-03-12T00:00:00Z] "))
     orch._active_timescope = CURRENT
-    check("26 cold leg is a no-op under current", orch._cold_lookup({MARK}, None) == [])
+    current_cold = orch._cold_lookup({MARK}, None)
+    check("26 cold leg surfaces queried originals under current",
+          str(cold_row.id) in {f.source_batch_id for f in current_cold})
 
     # 27: resurrection of budget survivors; legacy row cite-only
     # (capture plain values first — the resurrection commit expires the ORM
@@ -692,14 +708,14 @@ try:
     """), {"id": str(t_in.id)}).fetchone()
     check("30 recency formula: old ≡ new at center=now", abs(row.old_f - row.new_f) < 1e-12)
 
-    # 30b: current-mode predicates unchanged — archived/low-decay rows out,
-    # live marker rows in, texts identical modulo the date prefix
+    # 30b: v3 current sources remain searchable after archival or probation;
+    # source representation/date and unrelated temporal predicates remain.
     orch._active_timescope = CURRENT
     t_low = mk_turn(datetime(2025, 5, 5, tzinfo=timezone.utc),
                     f"User: {MARK} low decay\n\nAssistant: ok", decay=0.15)
     cur = orch._vector_episodic(EMB, c, None, None)
-    check("30 current: decay floor (0.2) still enforced", not has(cur, t_low))
-    check("30 current: archived still hidden", not has(cur, t_frozen))
+    check("30 current: low-decay source remains searchable", has(cur, t_low))
+    check("30 current: archived source remains searchable", has(cur, t_frozen))
     fin = next((f for f in cur if f.source_batch_id == str(t_in.id)), None)
     check("30 current: fragment text = old text modulo date prefix",
           fin is not None and fin.text == f"[source recorded: 2025-03-10T00:00:00Z] User: {MARK} report from march 2025\n\nAssistant: noted")

@@ -86,6 +86,10 @@ alongside compressed representations and chooses between them at retrieval time.
 
 These are complemented by persistent **memory slots**, topical **context clusters**, **batch
 summaries**, **cold storage**, and a **timeline** leg serving temporal queries.
+V3 cold originals also compete in ordinary memory searches under the existing
+candidate and prompt budgets; a recording date is not required for recall.
+Warm archived and restored probation sources also remain eligible; decay still
+affects their ranking and storage lifecycle.
 
 ### Beyond retrieval
 

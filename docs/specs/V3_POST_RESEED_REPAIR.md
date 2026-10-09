@@ -893,6 +893,84 @@ pass; final combined rails882 passed42.78s. Old r4 has71 unobserved reflection
 calls and unchanged trace bytes. These are mechanism controls, not independent
 corpus precision, note utility or answer gains.
 
+### 2.1o Undated cold recall — grounded decision, 2026-10-09
+
+An isolated SQL/full-retrieval control stores one original fact only in cold
+storage, with no graph, claim or procedure to rescue it. An ordinary memory
+question returns no source; an explicit source-record window returns the source.
+The original remains intact. Embedding, NER and reranking were controlled, so
+this proves a candidate-eligibility restriction, not answer-quality accuracy.
+The restriction implements the older T3 decision; this is a deliberate v3
+design improvement under the existing repair authority, not a v2 regression.
+
+Allow cold candidates for ordinary and undated-evolution memory searches under
+the existing cold candidate cap. A real embedding or lexical query is required
+for undated search; a query with neither cannot browse the whole archive.
+Only an explicit source-clock window permits date-only browsing or filters by
+recording time. Keep all existing conversation/project/privacy/exclusion/cluster/
+batch rules, original representations, dates, global reranking and final budget.
+Cold candidates share the episodic packing lane and get no guaranteed slots.
+This follows the searchable slow-memory principle described in
+[MemGPT](https://arxiv.org/abs/2310.08560), not a claim to reproduce its agent.
+
+The low-confidence wide-net path must offer the same bounded cold leg. Direct
+retrieval credits only selected survivors; production preparation still defers
+exposure until final assembly. Candidate-only, evicted or write-off reads never
+restore a row. Restoration retains the original identity/time/evidence and the
+existing probation score, and does not strengthen graph corroboration.
+
+Add an explicit `cold` configurable ablation flag. Turning off temporal parsing
+only forces CURRENT; it no longer removes ordinary cold recall. Existing warm
+vector and recent-only campaign controls explicitly disable the cold method and
+remain narrow. Keep r4 and its resume identities immutable. This decision does
+not change warm archived-row eligibility, decay thresholds or confidence floors;
+test the actual archive/read/restore chain before claiming lifecycle quality.
+
+### 2.1p Warm archive and probation reach — grounded decision, 2026-10-09
+
+The actual decay → cold → final preparation → restoration control preserves
+the original and restores it at 0.12, not archived. A second full ordinary query
+then misses it because `_timescope_leg_filters` imposes a hard 0.2 floor. Moving
+that same original to the warm archived state at 0.08 also removes it from an
+ordinary query. This is a traced policy incompatibility: probation cannot earn
+engagement through a reader that cannot see it. It is not a measured relevance
+or confidence threshold and no graph/claim rescues this controlled source.
+
+Supersede §2.1o's unchanged warm eligibility: BM25/vector/chunks/wide-net source
+search may consider archived and probation warm originals under its existing
+candidate caps. Remove the current-only archive exclusion and 0.2 hard floor;
+retain the existing positive-score requirement and decay-dependent vector/chunk
+ranking, source dates, query constraints, shared scopes/privacy, reranker and
+prompt budget. Archival remains a storage/lifecycle state, not a source-truth
+verdict. Current graph validity/confidence, procedural activation, retirement,
+decay rates/thresholds, reinforcement amounts and source corroboration remain
+unchanged. No forced slots or restoration at full strength.
+
+Keep warm-vector controls physical-warm only (now including eligible warm
+archived/probation rows); they still omit cold search. Check a repeated ordinary
+question before/after restore, a warm archived positive and explicit source-date
+exclusion, normal/wide paths, deferred/write-off reads and actual local ranking.
+Expose the policy revision in the new experiment manifest. Existing r4 results
+describe the old eligibility and remain immutable. Broad retention/answer and
+context-efficiency effects still require the controlled lifecycle/Z2 study.
+
+**Validation grounding:** the existing temporal fixture has several newer
+same-conversation sources; diversification legitimately omits the low-ranked
+archived source from its final wide-net list. Check actual SQL candidacy there,
+and final admission in the isolated positive normal/wide controls. Do not remove
+diversification or alter ranking to make an eligibility test pass. The actual
+local positive admits the target plus two unrelated originals with the existing
+unset rejection floor; this does not qualify precision or context efficiency.
+
+**Implemented/locally qualified:** 47 focused SQL/final-preparation controls
+pass, then two additional direct-exposure checks join the final 900 combined
+smoke/background/cloud-provider rails (49.63s). The temporal suite 66 passes.
+Actual shared local encoder, request NER function and pinned reranker recover
+cold, warm archived and warm probation targets in normal/wide final prompts;
+six dependent controls, no answer/precision/token-efficiency claim. Originals,
+roles, dates, chunks and write-off/deferred exposure are preserved. Classifier/
+source-need choices are controlled. Full scheduled lifecycle and resources remain.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36

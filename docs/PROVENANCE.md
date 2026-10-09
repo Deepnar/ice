@@ -1,3 +1,50 @@
+## 2026-10-09 — v3 ordinary archival and probation recall
+
+A disposable SQL/full-retrieval control stored one original only in cold
+storage, with no graph/claim/procedure rescue. Ordinary recall missed it;
+an explicit source-record window found it. Originals remained intact. This
+implemented the older dated-only temporal contract, rather than a random crash.
+A deliberate v3 revision now offers meaning/lexical-ranked cold originals in
+normal and wide-net searches under the existing five-parent cap, shared scopes,
+reranking and prompt budget. Date-only browsing requires an explicit source
+clock. Lexical-only lookup cannot match unrelated rows just for having vectors.
+A separate cold ablation preserves the temporal/cold distinction and narrow
+warm-vector/recent-only controls.
+
+The real decay → cold → final preparation → restore control exposed a second
+policy conflict: restored 0.12 probation became invisible on the next ordinary
+query behind the current 0.2 floor. Warm archived 0.08 originals were also hidden.
+V3 bounded warm source readers now permit archived/probation originals while
+retaining positive-score eligibility, decay-dependent ranking, date constraints,
+scopes/privacy and global reranking. Graph truth/validity, procedures and all
+writer decay/retirement/reinforcement thresholds are unchanged. Deferred, evicted
+and write-off reads cannot restore rows; admitted exposure preserves original
+identity/time/roles/chunks and starts at the existing probation score.
+
+Focused SQL/preparation/lifecycle controls 47/47 pass 19.56s before two additional
+direct-exposure controls. Final combined disposable smoke/background/cloud-
+provider rails 900/900 pass 49.63s with 280 existing deprecation warnings. The
+existing temporal behavioral suite 66/66 passes after its deliberately superseded
+current-only expectations were updated. These overlap and are not independent
+memory-quality observations. Actual shared Qwen0.6 encoding, request NER function,
+pinned Qwen0.6 reranking, SQL and final preparation place the source in the
+prompt for cold, warm archived and warm probation tiers, in both normal and
+weak-confidence paths. Six dependent positive controls retain all three original
+candidates; no rejection-floor, precision, answer or token-efficiency claim.
+Classifier/source-need decisions are controlled, no cloud answers/judges called.
+
+Initial focused failures were a one-argument NER mock against a two-argument
+actual caller. The revised old wide-net fixture initially demanded final
+archived admission among newer same-conversation peers; diversification correctly
+omitted it. Its corrected eligibility assertion observes actual SQL candidacy;
+isolated positive controls separately test final admission. No ranking/cap was
+changed to satisfy that fixture. Failed logs remain. Evidence is private under
+logs/v3-repair-p5-2026-10-09/undated-cold-* and restored-recall-baseline.log.
+R4 trace SHA 0d718f...af185 is unchanged; no working DB restore or writer replay.
+Full scheduled lifecycle, maintenance specificity and whole-stack resource and
+end-answer qualification remain open. Temporal/post-reseed specs, architecture,
+inventory, roadmap and README record this policy change; no quality parent closed.
+
 ## 2026-10-09 — v3 source-bound entity accounts
 
 A controlled disposable SQL/worker baseline writes a length-marked false

@@ -2365,3 +2365,18 @@ requests. Also inspect the control label: dated present status may legitimately
 answer then-current status; use an undated past event or unknown import clock
 to test unjustified event-year inference. Preserve failed artifacts and record
 the ground-truth correction rather than force rejection of a valid source.
+
+### 104. A storage transition can make a useful original disappear twice
+
+ICE v3's controlled cold-only original was unreachable without a parsed date,
+because the cold reader implemented the older dated-only policy. Allowing
+bounded undated cold search exposed a second incompatibility: actual decay →
+cold → final prompt → restoration succeeded at the intended 0.12 probation,
+then an ordinary repeated question missed the source behind the warm 0.2 floor.
+Warm archived 0.08 originals were hidden too. No original had been deleted.
+V3 now permits bounded query-relevant cold and archived/probation warm evidence,
+retaining decay ranking, source dates, scopes, budget and graph trust rules.
+The older temporal fixture's low-ranked archived candidate still loses to newer
+same-conversation peers during diversification; that is a legitimate packing
+outcome, not SQL invisibility. Observe candidacy separately from final admission,
+and test repeat queries after the real storage transition, not just copying a row.
