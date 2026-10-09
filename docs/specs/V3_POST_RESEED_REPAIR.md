@@ -804,6 +804,31 @@ advice from world truth and requested current knowledge. Rewrite an ambiguous
 question only in a new packet revision; its old answer cannot score the new
 question without a new answer call.
 
+**Packet grounding:** the three saved contrasts bind the same full-answer file.
+Select the36 cross-contrast final-grade disagreements from the111 common fully
+graded successful occurrences, then24 fixed-seed round-robin agreement controls
+stratified by old grade, knowledge scope, task type and answer-length band.
+Selection uses saved grades for coverage only; those grades/contrast names are
+hidden from reviewers. Preserve complete source and the exact original question,
+expected key and cutoff/provenance. The expected key is a reviewed reference,
+not permission to demand a historical/private answer the question did not ask.
+Unclear intent/key/source truth can be graded uncertain with a reason.
+
+Freeze20 qualification rows before human labels, grouping repeated question
+families together; use deterministic group selection that hits20 exactly or
+fail with the observed constraint. The other40 are development. Store the
+partition/mapping separately from the blinded packet, input hashes/policy/code
+identity in a manifest, six readable ten-answer batches, and a separate mutable
+label template. All artifacts are private under ignored logs. An identical
+rerun verifies existing immutable packet/batch bytes and retains labels; changed
+inputs/policy/code require a fresh output directory. No DB/model/API call is
+needed for packet construction, and no existing campaign output is rewritten.
+The r4 contrasts have `processing_complete=true` but `complete=false` because
+terminal cloud/content faults are retained. Accept the terminal-processing flag
+for cohort construction; only common successful answers with valid grades
+enter the packet. An unfinished/operator-required artifact still fails. Do not
+rewrite those flags or count exclusions as reviewed incorrect answers.
+
 **USER-REQUIRED:** review the prepared 60-answer packet in batches, approximately
 45–90 minutes total, with correct/partial/incorrect/uncertain and a brief source
 reason. The agent prepares all evidence first and continues independent repairs

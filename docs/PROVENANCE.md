@@ -1,3 +1,33 @@
+## 2026-10-09 — v3 independent answer review packet, labels pending
+
+The frozen r4 files independently reproduce111 common fully graded successful
+full-answer occurrences and36 cross-contrast grade disagreements. The new private
+packet selects all36 plus24 fixed-seed agreement controls across old grade,
+knowledge scope, task type and answer-length bands. Controls cover24 of51
+eligible joint cells; this is a stratified development sample, not full coverage.
+Before labels,20 cases are reserved for qualification and40 for development;
+repeated question families stay together. No answer is regenerated and no
+existing campaign output changes. Complete source, exact question/reference,
+cutoff and provenance remain; old grades/arms/models/partition are hidden.
+
+Six ten-answer Markdown batches and an independent labels template are under
+ignored `logs/v3-post-reseed-answer-review-2026-10-09`. Immutable input/policy/code
+and rendered-file hashes bind the packet. An identical actual rerun verifies all
+immutable bytes and retains labels. Pure controls7/7 pass; combined smoke/
+background820/820 pass40.79s (226 existing warnings). These overlap previous
+checks, not new answer-quality examples. No DB/model/API calls construct it.
+
+The initial builder rejected `complete=false` before writing output: r4's
+terminal faults make that flag false despite `processing_complete=true`.
+Grounding/acceptance now uses terminal-processing completion and excludes failed
+or ungraded answers, while operator-required/unfinished inputs still fail. The
+original statuses remain unchanged. Failed/passing/resume logs stay ignored.
+
+Human labels are pending; the maintainer will review later. This prepares the
+independent reference only. Single-answer grading/cache, actual independent
+rubric qualification and pairwise-only comparison remain P8 work; the current
+Muse judge is not newly qualified and no roadmap quality parent closes.
+
 ## 2026-10-09 — v3 question breadth and factual source rescue
 
 Captured baseline: an unspecified workplace question became city-only frames;

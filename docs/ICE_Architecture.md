@@ -100,6 +100,12 @@ now supersede the prelaunch/paused state below. This run provides evidence of
 long-term memory utility, not a certified accuracy, whole-product qualification
 or an independent vector-baseline win. The next
 [repair/tuning/Z2 contract](specs/V3_POST_RESEED_REPAIR.md) is a plan, not runtime.
+Its P8 independent-review packet now exists:36 disagreement answers plus24
+stratified agreement controls,20 qualification/40 development reserved before
+labels with repeated families grouped. Six blinded batches retain complete
+question/reference/source/answer evidence, separate mutable labels and verified
+immutable hashes on rerun. Human labels and independent single-answer rubric/
+cache qualification remain pending; this does not newly qualify Muse.
 
 `scripts/z1/seed_v3.py` replays the selected recorded histories through shared
 preflight/final preparation before storing each existing reply and running
