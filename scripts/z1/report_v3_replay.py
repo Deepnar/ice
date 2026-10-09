@@ -48,6 +48,7 @@ def summarize(path: Path) -> dict:
     worker_attempts = Counter()
     instrument_continuations = []
     maintenance = Counter()
+    procedural_retirement = Counter()
     gate = Counter()
     produced = Counter()
     budgeted = Counter()
@@ -100,6 +101,22 @@ def summarize(path: Path) -> dict:
                 "code_changes": row["code_changes"]})
         elif event == "maintenance":
             maintenance[row["job"]] += 1
+            if row['job'] == 'decay_procedural':
+                receipt = row.get('result')
+                if not isinstance(receipt, dict) or receipt.get('method') != 'procedural_retirement_v1':
+                    procedural_retirement['unobserved_calls'] += 1
+                elif (receipt.get('clock_basis') != 'ice_observation'
+                        or any(type(receipt.get(k)) is not int or receipt[k] < 0
+                               for k in ('active_before', 'stale_protected', 'retired'))
+                        or receipt['stale_protected'] + receipt['retired'] > receipt['active_before']):
+                    procedural_retirement['invalid_receipt_calls'] += 1
+                else:
+                    procedural_retirement['observed_calls'] += 1
+                    procedural_retirement['retired'] += receipt['retired']
+                    procedural_retirement['max_active_before'] = max(
+                        procedural_retirement['max_active_before'], receipt['active_before'])
+                    procedural_retirement['max_stale_protected'] = max(
+                        procedural_retirement['max_stale_protected'], receipt['stale_protected'])
         elif event == "clock":
             clock["historical_turn_scopes"] += 1
             clock["explicit_sql_now_statements"] += row["sql_now_statements"]
@@ -285,6 +302,10 @@ def summarize(path: Path) -> dict:
         "memory_processing": complete.get("memory_processing") if complete else None,
         "instrument_continuations": instrument_continuations,
         "maintenance_calls": dict(maintenance),
+        "procedural_retirement": {
+            'counts': dict(procedural_retirement),
+            'basis': 'ICE last-observation clock; repeat calls are not independent sources',
+        },
         "historical_clock": dict(clock),
         "seed_clock_policy": run["meta"].get("extra", {}).get("clock_policy"),
         "timestamp_provenance_by_conversation": run["meta"].get("extra", {}).get(

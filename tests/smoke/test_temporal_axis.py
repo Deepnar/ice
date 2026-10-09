@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 import pytest
 
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+from src.retrieval.orchestrator import ContextFragment
+from src.memory.tokens import count
 from src.retrieval.timescope import CURRENT, TimeScope, detect_timescope, from_scope, to_scope_dict
 
 
@@ -49,3 +51,24 @@ def test_no_source_date_predicate_recency_or_false_empty_window_note(axis):
     clause, _, parameters, floor = o._timescope_leg_filters()
     assert 'timestamp >= :ts_t0' in clause and parameters['ts_t0'].year == 2010
     assert o._recency_params(False)[1] > 0.
+
+
+@pytest.mark.parametrize('available', [0, 39, 150])
+def test_temporal_note_uses_only_remaining_budget(available):
+    from types import SimpleNamespace as NS
+    date = datetime(2010, 1, 1, tzinfo=timezone.utc)
+    db = NS(execute=lambda *_a: NS(fetchall=lambda: [NS(timestamp=date)]))
+    o = HybridRetrievalOrchestrator(db, None)
+    o._active_timescope = TimeScope('range', date, date.replace(year=2011))
+    evidence = ContextFragment('A supported user instruction.', 'procedural', 1.,
+                               count('A supported user instruction.'))
+    o.max_retrieval_tokens = evidence.token_count + available
+    result = o._append_empty_window_note([evidence], [1.] + [0.] * 1023, None)
+    assert evidence in result
+    assert sum(f.token_count for f in result) <= o.max_retrieval_tokens
+    assert all(f.token_count == count(f.text) for f in result)
+    if available == 0:
+        assert result == [evidence]
+    else:
+        assert len(result) == 2 and 'No episodic source records were selected' in result[1].text
+        assert not result[1].origin_batch_ids

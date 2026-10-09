@@ -3,6 +3,7 @@
 import json
 from copy import deepcopy
 from dataclasses import replace
+from datetime import datetime, timezone
 
 import pytest
 
@@ -108,6 +109,33 @@ def test_one_overlong_original_does_not_erase_two_other_supports(monkeypatch):
 def test_explicit_instruction_type_is_retained():
     proof = fake_review('Prefers reviews first.', sources(), kind='explicit_instruction')
     assert proof['kind'] == 'explicit_instruction'
+
+
+def test_source_calendar_is_distinct_from_ingest_and_conversation_order():
+    old = datetime(2010, 1, 1, tzinfo=timezone.utc)
+    imported = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    original = sources()
+    original[0] = replace(original[0], recorded_at=old, ts_provenance='original',
+        conversation_id='conversation-a', sequence={'sequence_sha256': 'a' * 64, 'position': 4})
+    original[1] = replace(original[1], recorded_at=imported, ts_provenance='synthetic_raw_import',
+        conversation_id='conversation-a', sequence={'sequence_sha256': 'a' * 64, 'position': 9})
+    rendered = support.source_time_context(original)
+    assert 'sources recorded: 2010-01-01T00:00:00Z' in rendered
+    assert 'source calendar unknown: 1' in rendered and '2026' not in rendered
+    assert 'verified order in conversation conversa: 4 to 9' in rendered
+    # Display-only clock metadata cannot invalidate a source-text proof.
+    proof = fake_review('Requests reviews.', original)
+    assert support.proof_current(proof, 'Requests reviews.', original)
+
+
+def test_source_orders_are_bounded_and_never_compared_across_conversations():
+    original = [support.PatternSource(str(i), 'Request.', digest(str(i)),
+        conversation_id=f'conv-{i}', sequence={'sequence_sha256': str(i) * 64, 'position': i * 10})
+        for i in range(1, 5)]
+    rendered = support.source_time_context(original)
+    assert 'conv-1: 10' in rendered and 'conv-2: 20' in rendered
+    assert '10 to 40' not in rendered and 'further source sequences: 2' in rendered
+    assert 'source calendar unknown: 4' in rendered
 
 
 @pytest.mark.parametrize('field,value', [('model', 'other-model'), ('prompt_sha256', 'x' * 64),

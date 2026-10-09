@@ -1,3 +1,37 @@
+## 2026-10-09 — v3 procedural clocks, retirement receipts and temporal-note budget
+
+P6 keeps the existing180-day/three-reinforcement retirement rule. Actual
+PostgreSQL controls retire one stale single-sitting row, protect a stale
+three-sitting row, preserve the exact boundary/recent/inactive cases and retain
+all five stored patterns. A second cycle retires zero. No description, support
+count or observation timestamp changes from reads. The production registry
+and replay collector/report preserve the second receipt with observed-call
+denominators; older absent receipts remain unobserved, never zero retirements.
+
+The actual procedural SQL→pinned reranker→final budget path renders a qualified
+instruction with an original2010 source date, separately labeled2026 ICE
+observation time and verified within-conversation order. A synthetic-imported
+cold source remains calendar-unknown and stored cold; an excluded source date
+is absent from presentation.115 tokens fit the existing256-token control cap.
+Source-semantic decisions and other retrieval producers are controlled here;
+this is clock/reader qualification, not natural retention or answer utility.
+
+Initial focused37/38 exposed a production budget defect: a temporal note added
+after budgeting produced127/100 tokens. Whole-note admission now uses only
+remaining capacity and says no episodic records were selected; it does not
+claim all memories are absent or widen the window. Optional nearby-era details
+may be omitted whole. Subsequent focused48/48 pass5.21s; smoke/background
+813/813 pass46.73s (226 existing warnings). These overlap, not independent
+quality examples. Standalone source-clock regression66/66 passes. Actual clock
+controls use the existing pinned Qwen reranker; no cloud calls or long run.
+
+Private ignored logs under `logs/v3-repair-p5-2026-10-09`:
+`procedural-clocks-focused.log`, `procedural-clocks-focused-v2.log`,
+`procedural-clocks-actual-v2.log`, `procedural-clocks-rails.log` and
+`procedural-clocks-timescope.log`. Actual runner binds input hashes/model pins.
+R4 remains immutable. No new resident model or activation/decay default change;
+broad answer benefit/lifecycle quality remain unqualified, no parent box closes.
+
 ## 2026-10-09 — v3 cited-message semantic support for procedures
 
 The existing E4B typed source checker passes20 authored positive/opposing/style

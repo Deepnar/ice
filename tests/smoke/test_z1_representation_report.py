@@ -90,6 +90,19 @@ def test_existing_report_and_trace_are_never_overwritten(monkeypatch):
         assert path.read_bytes() == original
 
 
+def test_retirement_calls_have_observed_and_unknown_denominators(tmp_path):
+    path = tmp_path / 'seed.jsonl'
+    receipt = dict(method='procedural_retirement_v1', clock_basis='ice_observation',
+                   active_before=3, stale_protected=1, retired=1)
+    trace(path, [dict(event='maintenance', job='decay_procedural'),
+                dict(event='maintenance', job='decay_procedural', result=receipt),
+                dict(event='maintenance', job='decay_procedural', result={**receipt, 'retired': 0}),
+                dict(event='maintenance', job='decay_procedural', result={**receipt, 'retired': True})])
+    observed = report.summarize(path)['procedural_retirement']['counts']
+    assert observed == dict(unobserved_calls=1, observed_calls=2, retired=1,
+                           max_active_before=3, max_stale_protected=1, invalid_receipt_calls=1)
+
+
 def test_actual_cli_writes_a_new_hash_bound_report(monkeypatch, capsys):
     logs = Path(report.__file__).resolve().parents[2] / "logs"
     with TemporaryDirectory(dir=logs, prefix="report-smoke-") as temporary:

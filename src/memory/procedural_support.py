@@ -3,6 +3,7 @@
 import json
 import math
 from dataclasses import dataclass
+from datetime import datetime
 
 import httpx
 import structlog
@@ -25,11 +26,16 @@ class PatternSource:
     batch_id: str
     text: str
     raw_sha256: str
+    recorded_at: datetime | None = None
+    ts_provenance: str | None = None
+    conversation_id: str | None = None
+    sequence: dict | None = None
 
 
 def pattern_sources(db, batch_ids):
     """Resolve exact authoritative user originals, including cold sources."""
     from src.memory.models import ColdStorage, EpisodicMemory
+    from src.memory.source_order import verified_sequence
     rows = db.query(EpisodicMemory).filter(EpisodicMemory.batch_id.in_(batch_ids)).all()
     rows += db.query(ColdStorage).filter(ColdStorage.batch_id.in_(batch_ids)).all()
     if len(rows) != len(batch_ids) or {r.batch_id for r in rows} != set(batch_ids):
@@ -39,8 +45,37 @@ def pattern_sources(db, batch_ids):
         user = '\n'.join(u.text.strip() for u in source_units(r) if u.role == 'user' and u.text.strip())
         if r.is_private or r.is_document or not user:
             return None
-        result.append(PatternSource(str(r.batch_id), user, digest(r.raw_text)))
+        result.append(PatternSource(str(r.batch_id), user, digest(r.raw_text),
+            r.timestamp, r.ts_provenance, str(r.conversation_id), verified_sequence(r)))
     return result
+
+
+def source_time_context(sources):
+    """Bounded source calendars/order; neither is the date of the behavior."""
+    from src.memory.time_format import format_time
+
+    dates = [s.recorded_at for s in sources if s.ts_provenance == 'original'
+             and s.recorded_at is not None and s.recorded_at.tzinfo is not None
+             and s.recorded_at.utcoffset() is not None]
+    parts = []
+    if dates:
+        first, last = format_time(min(dates)), format_time(max(dates))
+        parts.append('sources recorded: ' + (first if first == last else f'{first} to {last}'))
+    unknown = len(sources) - len(dates)
+    if unknown:
+        parts.append(f'source calendar unknown: {unknown}')
+    sequences = {}
+    for s in sources:
+        if s.sequence and s.conversation_id:
+            key = (s.conversation_id, s.sequence['sequence_sha256'])
+            sequences.setdefault(key, []).append(s.sequence['position'])
+    for (conversation, _), positions in sorted(sequences.items())[:2]:
+        first, last = min(positions), max(positions)
+        span = str(first) if first == last else f'{first} to {last}'
+        parts.append(f'verified order in conversation {conversation[:8]}: {span}')
+    if len(sequences) > 2:
+        parts.append(f'further source sequences: {len(sequences) - 2}')
+    return '; '.join(parts) or 'source calendar unknown'
 
 
 def response_schema(size):

@@ -18,6 +18,13 @@ Assumes decided specs: none (first S1 spec; grounded in source at commit `ef6f73
 > timestamps have different labels. Unknown timezone/provenance is explicit.
 > This does not infer real event dates from ingestion clocks or change filters.
 
+> **v3 procedural clock clarification, 2026-10-09:** the procedural writer's
+> first/last observation fields are ICE operation times. Their legacy explicit
+> source-record window is a knowledge-observation filter, not a source-event
+> date filter. `V3_POST_RESEED_REPAIR.md` §2.1k adds separately labeled cited
+> source calendars/verified conversation order and retirement receipts without
+> changing that filter or the retirement thresholds.
+
 > **[rev 2026-07-12 — implementation-session grounding corrections (rule 12); recorded before coding T1–T3]**
 > 1. **§2.9 now lands on C7's cycles-parameterized decay.py** (C7 shipped 2026-07-11,
 >    after this spec was written): the three decay UPDATEs use `POWER(:rate, :cycles)`

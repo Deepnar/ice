@@ -676,10 +676,10 @@ try:
     noted = orch._append_empty_window_note([], EMB, None)
     check("29 empty window → single [Memory note] naming the window",
           len(noted) == 1 and noted[0].text.startswith(
-              "[Memory note] No stored memories match this query between 1999-01-01 and 1999-03-01")
+              "[Memory note] No episodic source records were selected for this query between 1999-01-01 and 1999-03-01")
           and noted[0].source_type == "episodic")
     check("29 note names nearest eras (probe found rows)",
-          "Closest matches outside that window" in noted[0].text)
+          "Nearby source records are dated" in noted[0].text)
 
     # ═══════════════════════════════════════════════════════════════════════
     print("── Regression (check 30) ──")

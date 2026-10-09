@@ -2349,13 +2349,21 @@ class HybridRetrievalOrchestrator:
                     continue
                 # Typed source status qualifies the wording supplied to the
                 # answerer. Legacy or stale source proofs remain explicit.
-                from src.memory.procedural_support import pattern_sources, proof_current
+                from src.memory.procedural_support import pattern_sources, proof_current, source_time_context
                 proof = (pattern.trigger_conditions or {}).get('_source_support')
-                originals = pattern_sources(self.db, set(source_batches)) if proof else None
+                originals = pattern_sources(self.db, set(source_batches)) if source_batches else None
                 verified = originals is not None and proof_current(proof, pattern.pattern_description, originals)
                 label = ('Explicit user instruction' if verified and proof['kind'] == 'explicit_instruction'
                          else 'Observed user behavior' if verified else 'Unverified stored procedure')
-                rendered = f'[{label}] {pattern.pattern_description}'
+                # The stored observation interval is an ICE knowledge clock,
+                # never the date a cited user instruction/action occurred.
+                visible = [s for s in (originals or []) if uuid.UUID(s.batch_id) not in excluded_batch_ids
+                           and (allowed_batch_ids is None or in_project
+                                or uuid.UUID(s.batch_id) in allowed_batch_ids)]
+                source_clock = source_time_context(visible)
+                observed = (f'ICE observations: {format_time(pattern.first_observed)}'
+                            f' to {format_time(pattern.last_observed)}')
+                rendered = f'[{label}] [{source_clock}; {observed}] {pattern.pattern_description}'
                 fragments.append(ContextFragment(
                     text=rendered,
                     source_type="procedural",
@@ -2906,8 +2914,14 @@ class HybridRetrievalOrchestrator:
             return final
         if any(f.source_type == "episodic" for f in final):
             return final
-        note = (f"[Memory note] No stored memories match this query between "
+        note = (f"[Memory note] No episodic source records were selected for this query between "
                 f"{ts.t0.date()} and {ts.t1.date()}.")
+        available = self.max_retrieval_tokens - sum(f.token_count for f in final)
+        base_note = note
+        if count_tokens(base_note) > available:
+            logger.info("timescope_empty_window_note_omitted", reason="remaining_budget",
+                        available_tokens=available, required_tokens=count_tokens(base_note))
+            return final
         try:
             conv_filter, conv_params, conv_scoped = self._conv_scope_filter(scope, conv_id)
             # C6: an excluded conversation must not be advertised as a
@@ -2925,11 +2939,15 @@ class HybridRetrievalOrchestrator:
                            for r in self.db.execute(probe, params).fetchall()
                            if r.timestamp})
             if eras:
-                note += (" Closest matches outside that window are from "
+                note += (" Nearby source records are dated "
                          + ", ".join(eras) + ".")
         except Exception as err:
             self._leg_degraded("timescope.era_probe", err)
         logger.info("timescope_empty_window", t0=str(ts.t0.date()), t1=str(ts.t1.date()))
+        if count_tokens(note) > available:
+            logger.info("timescope_empty_window_eras_omitted", reason="remaining_budget",
+                        available_tokens=available, required_tokens=count_tokens(note))
+            note = base_note
         final.append(ContextFragment(
             text=note, source_type="episodic", score=5.0,
             token_count=count_tokens(note)))

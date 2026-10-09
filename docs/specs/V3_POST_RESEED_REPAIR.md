@@ -8,10 +8,10 @@ replay), `G63_extractor_decision.md` (NuExtract3 extraction),
 older execution order and experiment roster in `Z1_tuning_coverage.md` and
 `FINAL_experiments.md` for this v3 phase; their historical measurements remain.
 
-**Status: implementation underway, 2026-10-08.** P0 measurements and P1 bounded
+**Status: implementation underway, 2026-10-09.** P0 measurements and P1 bounded
 verification are implemented with focused validation. Two confirmed P2 source
 selection defects and P3 extraction/note mechanisms are repaired. Remaining
-quality review and P5–P10 remain pending; procedural-output sizing and negative
+quality review and P6–P10 remain pending; procedural-output sizing and negative
 receipts are implemented with focused validation. P4 author-assertion admission
 and context preservation and source-predicate recovery are implemented;
 calibrated confidence/identity utility and independent precision remain open.
@@ -703,6 +703,55 @@ retained preview selects two shortest complete cited originals for each of
 four patterns: two have model support on both selected sources, two do not.
 This selection does not grade every citation, establish the latter patterns
 false, or provide independent corpus precision. No model/activation-rule change.
+
+### 2.1k Procedural observation clocks and retirement — decision, 2026-10-09
+
+The current reader has typed source labels but omits source dates and the
+pattern's ICE observation interval. The writer sets `first_observed` and
+`last_observed` from its operation clock; these are not when the user performed
+the behavior. Retirement uses that same last-observation clock: active patterns
+older than180 days retire only below three independent-sitting reinforcements.
+Ten qualifying citations can activate a single-sitting pattern, but do not
+grant the recurrence exemption. The r4 count of high-citation inactive rows
+does not justify lowering activation or changing retirement.
+
+Keep these thresholds and storage intact. Render compact source-record ranges
+from authoritative aware original timestamps, mark other source calendars
+unknown, and render verified ordinal ranges separately within each conversation.
+Never compare ordinal positions across conversations or infer an event date.
+Label first/last observation explicitly as ICE observation time. Presentation
+uses only the source IDs eligible for that read; verification still checks the
+complete supporting originals. Prefixes count toward the existing token budget.
+Existing explicit source-record windows still select the stored observation
+interval; that legacy knowledge-clock interpretation is not event-date recall.
+
+Return a bounded receipt from the existing retirement worker with active rows
+examined, stale rows protected by recurrence and actual rows retired, cutoff,
+clock basis and policy. Replay's existing worker-result field carries it; the
+derived report counts observed calls separately from older uninstrumented calls.
+No source text, per-row identifiers or hard deletion is added. Validate the
+boundary, same-sitting versus three-sitting exemption, idempotent second cycle,
+stored-original preservation and retrieval under the unchanged budget, including
+cold/synthetic-time originals. Synthetic controls establish these mechanisms,
+not natural retention utility or end-answer gains; those remain for P10/Z2.
+
+**Grounded integration failure:** the focused source-clock regression returned
+127 tokens under a100-token cap:92 tokens of procedure plus an unbudgeted
+post-selection temporal note. Fix that existing seam before proceeding. The
+note states that no episodic records were selected, not that no memory exists.
+Append only a whole note that fits remaining capacity; optional nearby-era
+details may be omitted as a whole. Never evict useful admitted evidence for an
+absence note or clip a source. Log note omission and its reason. Validate empty,
+full and partial capacity through the real reader; keep source credit separate.
+
+Implemented and qualified:48 focused controls,813 combined smoke/background
+checks,66 standalone temporal regressions, plus actual SQL/pinned-reranker/final
+budget controls. The production registry→retirement worker→replay/report path
+reports one retirement then zero on the second cycle; all five patterns stay
+stored. Cold/synthetic source clocks remain distinct, excluded source dates
+are not presented, and source hashes/observation clocks are unchanged by reads.
+P6's retirement disposition is keep the current rule pending answer/lifecycle
+utility; do not lower activation or claim natural retention from these controls.
 
 ### 2.2 Absolute scoring and qualification
 

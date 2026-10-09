@@ -194,6 +194,9 @@ limit, so an ineligible nearest procedure cannot hide a relevant one.
 Procedural writes also check cited user messages against the proposed behavior;
 only supported messages count. Supplied procedures distinguish explicit user
 instructions from observed behavior and unverified stored candidates.
+Procedural context now separates cited source dates/conversation order from
+ICE observation time. Retirement reports its existing rule's actual outcomes;
+temporal notes fit the remaining retrieval budget.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers

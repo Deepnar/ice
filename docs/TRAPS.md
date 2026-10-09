@@ -2324,3 +2324,15 @@ imperative must survive semantic checking; direct raw-imperative NLI previously
 rejected it. Verify source acts/conditions without inferring execution or
 universal traits. Preserve separate diagnostics, native completion and exact
 source identities. Repeated bucket reads cannot become fresh corroboration.
+
+### 102. A post-budget note can break the measured memory cap
+
+**v3, 2026-10-09.** Source-date prefixes made a procedure cost92 tokens under
+a100-token cap. A temporal empty-window note appended afterward returned127
+tokens. The regression correctly failed; raising its budget would conceal the
+production defect. Admit only a complete note within remaining capacity, omit
+optional nearby-era details whole, and retain useful admitted evidence. The
+note says no episodic records were selected, not that the whole store contains
+no memory. Check final rendered tokens and source credit after every helper.
+Source dates and ICE observation dates are independently labeled: ingesting an
+old instruction today cannot turn today into the instruction's event date.
