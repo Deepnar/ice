@@ -1,3 +1,69 @@
+## 2026-10-09 — v3 bounded resource and periodic cold-read profile
+
+Two completed, deliberately bounded local controls use the deployed six-model
+set: shared Qwen0.6 encoder/head/MicroNER, pinned Qwen0.6 reranker/DeBERTa NLI,
+NuNER_Zero, gemma4:e4b and NuExtract3Q8_0. E4B is initially resident/warm;
+both Ollama models remain resident at32768 context during the measured work.
+No cloud model or local answering model, working-store write or r4 rewrite.
+
+| completed control | coverage | wall time | sampled global GPU peak | minimum system RAM available |
+|---|---|---|---|---|
+| component envelope v2 |12 local stages, including native source proof and one serial/overlap pair |44.928s |15,817MiB /15.45GiB |40,284,221,440B /37.52GiB |
+| integrated envelope v5 |real shared final preparation,10 actual synchronous periodic jobs, cold read |54.365s |16,837MiB /16.44GiB |41,071,611,904B /38.25GiB |
+
+GPU polling every0.2s plus subprocess cost yields sampled lower bounds; physical
+card24463MiB and policy ceiling23.5GiB. Own allocator v2 allocated/reserved
+4,748,665,856/4,760,535,040B; v5 4,269,325,312/4,341,104,640B. These are exact
+process allocator counters, not whole GPU accounting. CPU head663,067 parameters;
+encoderCUDA, background NLI returnsCPU, request proofCPU. E4B/NuExtract API
+size_vram3,441,489,344/5,366,758,767B is not the global footprint. V5 measured
+descendant RSS includes two llama-server children (peaks7.64/4.58GiB) and Python
+(7.42GiB); shared/mapped pages mean these must not be added as physical RAM.
+
+V2 source proof9.0197s and first NuNER load6.3693s dominate tiny warm calls.
+First/later reranking1.4107/0.3776s, NLI1.6032/0.3737s. Serial1.4581s versus
+overlap1.1094s is one dependent pair, not a throughput estimate or permission
+for unrestricted concurrency. Keep the existing model set, serial maintenance
+GPU lane, owned idle drain and CPU-between-call policy. Worst-case interactive,
+long-input, local-answerer and heat/throughput behavior remain unqualified.
+
+V5 directly inserts42 synthetic original-role turns with real embeddings and
+controlled50-day timestamps; one old source starts archived at0.001 strength.
+Actual classifier/B2, conversation pressure/budget, request NER, reranker and
+source proof participate in shared preparation. Read-strengthening is disabled
+only for this diagnostic. B2 remains negative and source-need rescues one complete
+source before/after episodic decay moves it cold. Both final prompts retain the
+required value, fit1944 tokens and select that source. All42 original hashes
+are preserved. Before/after preparation17.8303/10.2020s includes local proof;
+this is not an interactive throughput estimate.
+
+All10 production registry/cadence periodic jobs return complete in3.6907s total.
+Reflection creates2 pending review proposals; cluster assignment processes and
+assigns25 rows, creates1 cluster and accepts2 labels from20 source occurrences.
+Episodic decay makes the real cold transition. Other branches are explicitly
+inert: no graph/procedure candidates, no reconciliation decision or enrichment
+candidate, no compaction snapshot, conversation note below window, no batch
+note. Cluster merge precedes assignment and has no candidates. Completion is
+calling/state-conservation evidence, not semantic coverage or natural retention.
+Separate actual graph/procedure/fold/enrichment controls remain their evidence.
+No HTTP/route/stream, original post-flight ingestion, async runtime dispatch or
+cloud answer is exercised by this fixture.
+
+Private scripts/JSON/logs: logs/v3-repair-p5-2026-10-09/resource-profile-v2.*
+and resource-profile-v5.*. Script SHA256 respectively
+618766b51cea408884c2c00cf0c959f0d68c1b42d8094bbf25c7b9ccace06646 and
+4fc8c3739adc4385c38ea0ccfda5e268a79964b2f88141a7304b41d094f859f0.
+Failed v1 scratch-name collision, v3 ambiguous generic/history-task assertion
+and v4 raw ReviewQueue/default failure remain retained with their actual status.
+V2's RSS collector omitted llama-server children; v5 corrects descendant capture.
+V2 globalGPU/systemRAM metrics are unaffected; its process RSS breakdown is
+incomplete. No failure is hidden and no population QA/context gain is claimed.
+
+Final regression before documentation commit: disposable927/927 rails51.41s,
+283 existing warnings. This overlaps the reflection fix's927 checks. Immutable
+r4 trace SHA remains0d718f970071ebf264b274e102c880e3153687597a0e156e9abe717e987af185.
+No configuration/residency policy change or additional resident model.
+
 ## 2026-10-09 — v3 reflection proposal schema parity
 
 The bounded42-original shared-preparation/periodic control reached the older

@@ -78,6 +78,19 @@ added into a trustworthy whole-stack budget. ExistingG4 owns these gaps;
 reuse/replace components before adding another model, and include context/cache,
 activations, local answerer and OS headroom in the eventual measured budget.
 
+**v3 bounded deployed-role measurement,2026-10-09:** the completed shared
+preparation/all-ten-periodic/cold-read control samples16,837MiB (16.44GiB) global
+GPU use with both E4B/NuExtract resident at32k context. It uses the same six
+components and two tiny shared-encoder heads above; no local answerer or new
+model. Minimum observed systemRAM available38.25GiB. Descendant RSS includes
+Ollama's llama-server children and shared/mapped pages, so summed RSS is not
+physical RAM use. This short synthetic, warm-start profile is not worst-case
+interactive/long-input or throughput qualification. Retain serial maintenance
+GPU scheduling, owned idle drain and existing device policy; a single tiny
+overlap pair is insufficient to change them. Full method, actual latency,
+failure scopes and source hashes are in
+[provenance](PROVENANCE.md#2026-10-09--v3-bounded-resource-and-periodic-cold-read-profile).
+
 ---
 
 ## 2. Local — Ollama (28 models, 267.5 GB on disk)

@@ -596,6 +596,16 @@ Every entry, with its cadence from `settings.maintenance_intervals`. **A job wit
 
 ---
 
+**v3 bounded resource/lifecycle coverage,2026-10-09:** real shared final
+preparation/all-ten-synchronous-periodic/cold-read control samples16.44GiB
+globalGPU with the current two32k local writers and retrieval components.
+All42 original hashes survive; one old source reaches the1944-token prompt
+warm and cold. Reflection/assignment/episodic movement occur; absent graph/
+procedure candidates and below-window notes leave several branches inert.
+This is measured coverage, not a new default or proof of semantic/answer gain.
+Worst-case interactive/long-input/async/HTTP/cloud-answer coverage remains
+unqualified. [Methods and limits](PROVENANCE.md#2026-10-09--v3-bounded-resource-and-periodic-cold-read-profile).
+
 ### 4. Procedural memory
 
 | Feature | Where | Roadmap id | What it does | Setting | Default | On by default? |

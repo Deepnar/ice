@@ -1267,7 +1267,18 @@ Cadences (`settings.maintenance_intervals`, seconds — the old beat schedule ca
 
 **Import replay is an event-only gpu-lane job (F10/F14, 2026-07-20, §13).** `import_replay` has no cadence: `services/ingestion.py` enqueues it, and each dispatch processes conversations for a ~10-min slice budget, then re-enqueues the next slice (`seq+1`) — so an hours-long import never starves live chat's post-flight behind it. Every resumption goes through the same `_gpu_ready(for_event=True)` gate, and mid-slice the engine pauses between turns while `generation_in_flight`. Resume after a kill rides the `import_conversations` hash ledger + per-turn idempotency keys, not the runtime.
 
-> **v3 owned-model idle cleanup,2026-09-27.** A genuinely empty and idle maintenance drain releases identities actually called through the local shared client, including the separate NuExtract override. Native E4B source judges share the same per-model call lock and ownership registry, so an active call cannot be unloaded by cleanup. Dedicated-server calls and unrelated host residents are excluded. `release_owned_models()` retains busy/failed identities for a later idle tick; each native unload must be followed by confirmed exact-name absence from `/api/ps` within `bg_release_timeout_seconds`. Successful cleanup is remembered, while a new native call makes it due again. The same drain invokes the existing NuNER cache release under its inference lock and resets lazy-load state. The shared encoder remains resident. `bg_release_after_drain=True` controls this mechanism. Background generation remains on the compatible SDK; request source judges already send native `keep_alive=0`. This repairs ownership and scheduling, not a global GPU budget or serialization of all foreground, embedding and reranking work.
+> **v3 owned-model idle cleanup,2026-09-27.** A genuinely empty and idle maintenance drain releases identities actually called through the local shared client, including the separate NuExtract override. Native E4B source judges share the same per-model call lock and ownership registry, so an active call cannot be unloaded by cleanup. Dedicated-server calls and unrelated host residents are excluded. `release_owned_models()` retains busy/failed identities for a later idle tick; each native unload must be followed by confirmed exact-name absence from `/api/ps` within `bg_release_timeout_seconds`. Successful cleanup is remembered, while a new native call makes it due again. The same drain invokes the existing NuNER cache release under its inference lock and resets lazy-load state. The shared encoder remains resident. `bg_release_after_drain=True` controls this mechanism. Background generation remains on the compatible SDK; request source judges send native `keep_alive=-1` until the same owned idle drain. This repairs ownership and scheduling, not a global GPU budget or serialization of all foreground, embedding and reranking work.
+
+**v3 bounded lifecycle/resource qualification,2026-10-09:** actual shared
+preparation/all-ten-periodic/cold-read control preserves42 original hashes and
+retrieves the same complete old source warm and cold within1944 prompttokens.
+Reflection, cluster assignment and episodic cold movement occur; absent graph/
+procedure candidates and below-window notes make other branches inert. Jobs use
+the synchronous replay registry/cadence boundary, not async dispatch or HTTP/
+stream/cloud answers. Sampled globalGPU peak16.44GiB includes both32k local
+writers plus the current retrieval models. Keep existing scheduling/residency;
+worst-case interactive capacity and broad semantic benefit remain unqualified.
+See [measurement scope](PROVENANCE.md#2026-10-09--v3-bounded-resource-and-periodic-cold-read-profile).
 
 ### **8.2 Post-Flight Evaluator**
 

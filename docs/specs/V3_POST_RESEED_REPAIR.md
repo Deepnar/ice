@@ -10,8 +10,8 @@ older execution order and experiment roster in `Z1_tuning_coverage.md` and
 
 **Status: implementation underway, 2026-10-09.** P0 measurements and P1 bounded
 verification are implemented with focused validation. Two confirmed P2 source
-selection defects and P3 extraction/note mechanisms are repaired. Remaining
-quality review and P8–P10 remain pending; procedural-output sizing and negative
+selection defects and P3 extraction/note mechanisms are repaired. Independent
+quality review remains pending; procedural-output sizing and negative
 receipts are implemented with focused validation. P4 author-assertion admission
 and context preservation and source-predicate recovery are implemented;
 calibrated confidence/identity utility and independent precision remain open.
@@ -25,10 +25,13 @@ old-source rescue controls; broad gate/answer gains remain unqualified. P8's
 blinded reference packet, independent absolute cache and preference-only runner
 are implemented with controlled SDK/resume checks; human labels and rubric
 qualification remain pending.
-P9 completion diagnostics are implemented; whole-stack peaks, latency and
-concurrency still need qualification. P10 entity accounts, cluster source/label
-contracts, graph checkpoints and archival/probation recall have focused qualification; full scheduled
-lifecycle/compaction and broad semantic utility remain pending.
+P9 completion diagnostics and the bounded deployed-component/resource profile
+are implemented/measured; worst-case interactive/long-input capacity and throughput
+remain unqualified. P10 entity accounts, cluster source/label contracts, graph
+checkpoints and archival/probation recall have focused qualification. A bounded
+shared-preparation/all-ten-periodic/cold-read pass preserves all42 originals;
+many semantic branches are inert on that fixture. Broad maintenance utility and
+end-answer/context gains remain unqualified. §2.1t records exact coverage.
 ROADMAP is the queue. The numbered packages below decompose existing entries,
 not a new G-track or claims of eleven newly discovered defects. The completed
 r4 evidence is in [PROVENANCE](../PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign).
@@ -1102,6 +1105,50 @@ rails927/927 pass49.32s; these include the two controls. The bounded real E4B
 reflection/periodic/cold-read pass subsequently completes. Production's migrated
 defaults were checked read-only; neither the working store nor experiment schema
 was altered. This qualifies write/schema parity, not proposal quality.
+
+### 2.1t Bounded resources and scheduled cold-read path — 2026-10-09
+
+**Measured decision:** retain the existing six substantial local components,
+small shared-encoder heads, CPU-between-call policies, owned idle drain and
+serial maintenance GPU lane. Add no resident model or unrestricted concurrency.
+The completed component envelope runs12 stages44.928s, sampling15.45GiB global
+GPU use. One serial/local overlap pair1.4581s/1.1094s is a diagnostic, not a
+throughput study. Real source proof9.0197s and first NuNER load6.3693s expose
+cost; do not label an unattributed provider residual as thinking or queue time.
+
+The completed disposable integrated path runs54.365s, sampling16.44GiB global
+GPU use versus the23.5GiB ceiling. Both E4B/NuExtract remain resident at32k
+context; headCPU/encoderGPU and pinned reranker/NLI/NER identities are unchanged.
+Minimum observed systemRAM available38.25GiB. Exact own CUDA allocator peaks and
+Ollama/descendant RSS are retained separately; RSS includes mapped/shared pages
+and cannot be summed as physical RAM. Global GPU sampling every0.2s is a lower
+bound on the true peak, not worst-case/input-size or local-answerer capacity.
+
+The fixture directly stores42 synthetic complete original-role turns with real
+embeddings and controlled50-day clocks. One old source starts archived at0.001
+strength. Actual classifier, B2, pressure/budget, request NER, reranking, source
+proof and shared final preparation recover the same source before and after
+real warm→cold decay; both final prompts fit1944 tokens. Read-strengthening is
+disabled only in this diagnostic to preserve the controlled cold transition.
+All42 original hashes survive. Ten actual registry/cadence jobs complete through
+the synchronous replay boundary: reflection creates pending proposals, clustering
+assigns25 rows/accepts2 labels, and episodic decay moves the gold source cold.
+No graph/procedure population exists; reconciliation/compaction/graph/procedural
+decay are inert, folds are below window, and enrichment has no entity candidate.
+Their separate opposing/positive controls remain necessary. This is not HTTP,
+streaming, original post-flight ingestion, async dispatch or a cloud answer test.
+
+Preserve failed profiles: v1 scratch-name collision; v3 ambiguous generic query
+with no declared history task; v4 raw ReviewQueue/default mismatch repaired in
+§2.1s. V2 omitted llama-server descendants from its RSS collector, corrected in
+v5; globalGPU/systemRAM measurements were unaffected. No failure is silently
+reclassified as a successful complete pass. Private scripts, source hashes and
+receipts are identified in [provenance](../PROVENANCE.md#2026-10-09--v3-bounded-resource-and-periodic-cold-read-profile).
+
+These bounded lifecycle/resource checks fulfill the mechanism investigation,
+not independent population quality or tuning/final throughput qualification.
+Worst-case interactive/long-input resource checks belong to the actual frozen
+tuning/runner configuration. No working-store or immutable r4 mutation occurred.
 
 ### 2.2 Absolute scoring and qualification
 
