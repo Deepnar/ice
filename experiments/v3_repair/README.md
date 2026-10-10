@@ -160,6 +160,28 @@ four-arm traces and marks answer quality unmeasured. No writer replay or cloud
 calls occur here; independent content review and later bounded Luna/Muse calls
 remain required. Validation is still reserved until qualified tuning/freeze.
 
+Compare a complete baseline collection with one complete candidate offline:
+
+```bash
+uv run --no-sync python experiments/v3_repair/compare_tuning_contexts.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --baseline logs/v3-read-baseline-2026-10-10-r1 --candidate logs/v3-read-CANDIDATE --out logs/v3-comparisons/CANDIDATE.json
+```
+
+Replace `CANDIDATE` with the explicit coordinate's output directory/name. This
+command checks all saved-unit bodies and aggregate equality, then reports actual
+per-arm token/input/gate/source changes on the same producer. Only reviewed
+eligible lookups enter rank comparisons; other task contracts remain separate.
+It does not make DB/model/API calls or select a winner.
+
+Optional `--source-units PATH` supplies a separate, through-cutoff source-unit
+packet bound to the producer trace. Required role/hash/offset alternatives use
+the existing evidence-content auditor. Such a shared packet declares literal
+requirements only; content-bound semantic receipts are refused because changed
+candidate context needs its own review. Missing labels remain unmeasured, and
+retained text in a negation/unrelated statement earns no positive grade. A source
+ID hit with an omitted value remains visible. Identical derived reports resume
+byte-stably; changed inputs/evaluator refuse overwrite. Independent answer
+quality, calibrated support and promotion still require later qualified steps.
+
 ## Tuning and final readiness still to earn
 
 The static inventory records relevant numeric/boolean/weight settings, defaults,

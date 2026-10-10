@@ -1718,6 +1718,38 @@ restores final state; simulated restoration failure cannot return success.
 Encoder/classifier are controlled and the fixture writes are synthetic; this is
 instrument qualification, not deployed-model/writer precision or answer gain.
 
+### 2.3g Offline read-coordinate comparison — grounded2026-10-10
+
+`compare_tuning_contexts.py` compares one completed baseline collection and one
+completed coordinate on the same repaired producer. Validate producer trace,
+all per-question content hashes, aggregate equality and common source/code/
+settings/seal identity. Require identical occurrence/control rosters; changed
+question, source, cutoff, task or expected-answer metadata refuses comparison.
+No DB/model/API call and no tuning promotion occur here.
+
+Report matched per-arm prompt/selected-token changes, rendered input equality,
+gate/routed-model changes and selected-source additions/removals. Source-rank
+changes enter precise lookup diagnostics only for the reviewed eligible cohort;
+retain other task contracts separately. Dependence/family limits remain explicit.
+These are observed local deltas, not inferred memory or answer gains.
+
+An optional source-unit packet must bind the original producer trace, contain
+unique known probe IDs, valid through-cutoff reasons and exact role/hash/offset
+alternatives. Reuse the existing evidence-content auditor for each observed
+stage. This shared packet declares source requirements only: reject content-bound
+semantic receipts rather than silently carrying a baseline grade to a changed
+candidate. Missing reviewed units/other task kinds remain unmeasured. Report
+literal survival/omission separately from semantic support and answers; retaining
+a number in an unrelated or negated statement cannot earn a positive grade.
+Source-ID hits with missing literals remain visible instead of being pooled away.
+
+Write a private immutable derived report with input/evaluator hashes; identical
+reruns verify byte-stably, drift refuses overwrite. Opposing controls cover same
+source ID/lost literal, retained-but-negated text, non-lookup rank exclusion,
+metadata/body corruption, changed producer, pending labels and unknown occurrence
+refusal. Baseline and at most two source-qualified survivors per stage still need
+new Luna answers and independently qualified grading before any selection.
+
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
 **Fixture selection:** two separate complete long histories with ordered originals,

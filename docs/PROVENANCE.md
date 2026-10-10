@@ -1,3 +1,37 @@
+## 2026-10-10 — v3 matched local coordinate reports
+
+`compare_tuning_contexts.py` validates complete per-question cache bodies,
+aggregate equality and the common producer/code/settings/seal/source/task/control
+roster before reporting local token/input/gate/source deltas. Precise rank
+diagnostics use only reviewed eligible lookups. Optional source-unit packets
+bind the original trace and exact role/hash/offset alternatives through the
+existing evidence-content auditor. A shared packet cannot transfer content-bound
+semantic grades to a changed candidate. Missing labels remain unmeasured;
+literal retention, source IDs and local deltas never earn answer quality.
+
+23 focused controls pass42.72s with2 existing warnings. Opposing fixtures preserve
+the same selected source while removing its required value, retain the value in
+a negation without a positive grade, exclude procedural tasks from precise ranks,
+and refuse body/metadata/producer/aggregate/source-review corruption. Identical
+derived reports are byte-stable. The native SQL collector control now feeds its
+actual output through the reporter's unit/aggregate loader; its encoder/classifier
+remain controlled. This is reporting/accounting qualification, not a new native
+memory-quality or model benchmark.
+
+Final disposable smoke/background suite:1026 passed109.49s with327 existing
+warnings; nested and outer databases removed. These overlap earlier controls.
+The first integration1failed/22passed lacked the direct fixture's planning header;
+the fixture now supplies the receipt, with no relaxed guard. Failed/final logs
+remain in `logs/v3-read-coordinate-instrument-2026-10-10/`.
+
+The maintainer's251-turn repaired development replay was observed active;
+read-only checkpoint inspection found10 durable turns and no saved questions
+before the first reviewed cutoff64. It was not interrupted or changed. Writer
+and installed-model/content/lifecycle qualification needs its actual output.
+No long/cloud campaign or tuning promotion was performed by this report pass.
+Current model roles, defaults, original r4 evidence and parent roadmap counts
+remain unchanged; full cloud tuning and final-run gates stay open.
+
 ## 2026-10-10 — v3 local read-coordinate recovery qualification
 
 The new `experiments/v3_repair/run_tuning_contexts.py` implements local prompt

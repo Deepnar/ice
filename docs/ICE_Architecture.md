@@ -354,6 +354,13 @@ complete-cache reuse. Short actual SQL/snapshot controls qualify recovery and
 cap propagation with controlled encoder/classifier output; native corpus
 content, answers, grading and promotion remain unqualified. No writer replay,
 new resident model or default policy is introduced by this collector.
+`compare_tuning_contexts.py` validates completed units and aggregate equality,
+matching the producer/code/settings/source/task/control roster before reporting
+local prompt-token, gate and source deltas. Precise ranks remain task-gated.
+Optional source-bound exact units reuse the evidence-content auditor, preserving
+source hits with missing values and refusing transfer of content-bound semantic
+grades. Literal survival cannot establish positive support, memory use or answer
+gain. Reports are immutable, offline and separate from qualified promotion.
 
 ## **2. Classification Engine**
 

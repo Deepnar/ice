@@ -134,7 +134,10 @@ def test_native_prefix_collection_recovers_without_duplicate_units_or_writer_eff
     root = tmp_path / "development"; root.mkdir()
     out = tmp_path / "coordinate"; out.mkdir()
     coordinate = next(r for r in coordinates(settings) if r.get("input_prompt_cap") == 4000)
-    header = dict(identity_sha256="controlled-coordinate", cloud_calls=False, score_of_record=False)
+    identity = dict(coordinate=coordinate, source="controlled-native-snapshot-test")
+    header = dict(identity=identity, identity_sha256=digest(identity), complete=False,
+                  cloud_calls=False, score_of_record=False)
+    write_or_verify(out / "run.json", header)
     config = dict(database=snapshot.DB, identity=dict(expected_turns={"history": 3}))
     write_or_verify(root / "development-run.json", config)
     now = datetime(2025, 1, 1, tzinfo=timezone.utc)
@@ -189,7 +192,8 @@ def test_native_prefix_collection_recovers_without_duplicate_units_or_writer_eff
     probes = {key: dict(event="as_of_probe", probe_id=key, conversation="history", split_turn=cutoff,
         question=f"Which port at{cutoff}, query{key}?", question_time=(now + timedelta(minutes=cutoff)).isoformat(),
         gold_sources=[dict(turn=1, source_ids=source_ids, prompt="Chosen port7319.", response="Recorded reply.")],
-        expected_answer="ScorerOnlyMustNotEnterPrompt", metric_contract={"qualified": False})
+        expected_answer="ScorerOnlyMustNotEnterPrompt", metric_contract={"qualified": False},
+        preflight={}, controls={arm: {} for arm in ("no_codex", "vector_only", "recent_only")})
         for key, cutoff in (("q1", 2), ("q2", 2), ("q3", 3))}
     before_settings = settings.model_dump()
     built, restored = [], []
@@ -229,6 +233,10 @@ def test_native_prefix_collection_recovers_without_duplicate_units_or_writer_eff
             assert not stage["lineage"]["future_source_ids"]
             assert "ScorerOnlyMustNotEnterPrompt" not in json.dumps(stage["prompt_messages"])
     aggregate = (out / "contexts.json").read_bytes()
+    from experiments.v3_repair.compare_tuning_contexts import load_contexts
+    loaded_header, loaded = load_contexts(out, probes)
+    assert loaded_header == header and set(loaded) == set(probes)
+    assert loaded["q1"]["preflight"]["gate"]["input_prompt_cap"] == 4000
     runner.collect(root, out, header, coordinate, probes, config)
     assert len(loads) == 2 and (out / "contexts.json").read_bytes() == aggregate
     assert snapshot.fingerprints() == original_rows
