@@ -182,6 +182,30 @@ ID hit with an omitted value remains visible. Identical derived reports resume
 byte-stably; changed inputs/evaluator refuse overwrite. Independent answer
 quality, calibrated support and promotion still require later qualified steps.
 
+Manually collect diagnostic Luna answers for a source-reviewed shortlist:
+
+```bash
+uv run --no-sync python experiments/v3_repair/run_tuning_answers.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --baseline logs/v3-read-baseline-2026-10-10-r1 --candidate logs/v3-read-CANDIDATE --out logs/v3-tuning-answers/CANDIDATE
+```
+
+Default validates complete collections and seals the exact question/call plan
+without credentials or an SDK client. Add `--run` only for manual cloud execution.
+Use at most two `--candidate` arguments from one cheap read stage. This does not
+select survivors, grade answers or promote a setting. Four arms reuse the existing
+GPT-6-Luna Responses profile,1500 output-token limit and provider-default
+temperature. Only the already saved final messages go to the answerer; source
+references and expected answers remain scorer-only. Sessions are namespaced by
+coordinate. Cloud attempt receipts are saved before requests; successful answers
+are reused, two exhausted isolated faults stay ungraded and authentication/quota
+or repeated outages pause with saved progress. Ctrl+C and the identical command
+retain progress; changed source/code/profile/cached metadata refuses reuse.
+
+Each coordinate directory contains immutable `projected.jsonl`, native
+`answers-ARM.json` caches and distinct `grading-ARM.json` derived inputs for the
+existing independent grader. Raw cache tags/bytes remain unchanged. Planning and
+controlled SDK tests do not qualify native answer quality or the judge. Validation
+and final campaigns remain locked behind their own qualification/freeze gates.
+
 ## Tuning and final readiness still to earn
 
 The static inventory records relevant numeric/boolean/weight settings, defaults,

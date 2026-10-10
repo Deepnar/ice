@@ -1750,6 +1750,51 @@ metadata/body corruption, changed producer, pending labels and unknown occurrenc
 refusal. Baseline and at most two source-qualified survivors per stage still need
 new Luna answers and independently qualified grading before any selection.
 
+### 2.3h Bounded cloud-answer bridge — grounded2026-10-10
+
+Prepare one baseline plus at most two explicit surviving read coordinates from
+one cheap stage. Require complete, same-producer/source/code/settings/seal
+collections and the original reviewed question/source identities (§2.3f–g).
+This is a diagnostic development answer collection, not qualified tuning
+selection, validation execution or scoring promotion. Source/content/writer
+panels and independent judge qualification remain gates before a trusted winner.
+Default seals a private call plan without credentials, DB, model or API calls.
+Bind selected collection/arm/profile/decoding/code identity, display requested
+questions and maximum bounded attempts, and preserve unchanged plans on resume.
+
+On manual `--run`, project the already prepared four-arm question records into
+the existing `answer_as_of` input schema. Preserve all original source/expected-
+answer/task/age/repeat/health data as scorer metadata; only the stored final
+messages reach the model. The legacy parser's `allow_partial` compatibility mode
+cannot be mistaken for complete old-r4 or score-of-record qualification: the
+new adapter has already validated the complete selected producer and records
+that distinct policy explicitly. Reuse the existing actual TextGenerator SDK,
+Luna profile/decoding, atomic answer cache, attempt-before-call receipts, two-
+attempt isolated faults and persistent-outage pause. Do not copy its retry loop,
+silently replace the provider or mutate writer-bound scripts.
+
+Namespace cloud sessions by immutable coordinate/arm identity so the same
+question across configurations cannot inherit another configuration's session.
+Validate cached question/source/expected-answer/task metadata against the frozen
+projection before reuse. Successful answers remain unchanged; exhausted faults
+remain ungraded, not fabricated answers. Same manual command completes missing
+answer units/arms and loads no SDK client when all work is cached. Profile/input/
+source/implementation drift refuses reuse; originals and prior answers persist.
+Manual output includes per-coordinate/arm receipts, original scorer evidence,
+actual completion/usage/fault metadata and unqualified answer-quality flags.
+Native answer-cache tags/bytes remain unchanged. Emit separately hashed immutable
+grading inputs with distinct coordinate/arm names so the existing independent
+grader can compare two full arms without duplicate-name rejection. Its absolute
+answer cache continues to reuse the same answer/evidence task across contrasts;
+this does not qualify its rubric or promote a score.
+
+Controlled checks use the actual existing answer runner with a fake SDK client:
+no-call planning, max-two survivor refusal, exact answering messages without
+scorer text, separate session namespaces, interrupted and exhausted cloud-call
+resume, cached metadata refusal and unchanged complete answers. Native cloud
+output and independently qualified judgments remain separate later evidence;
+the agent does not launch the new paid/local campaigns while implementing.
+
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
 **Fixture selection:** two separate complete long histories with ordered originals,

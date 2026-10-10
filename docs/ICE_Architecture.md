@@ -361,6 +361,16 @@ Optional source-bound exact units reuse the evidence-content auditor, preserving
 source hits with missing values and refusing transfer of content-bound semantic
 grades. Literal survival cannot establish positive support, memory use or answer
 gain. Reports are immutable, offline and separate from qualified promotion.
+`run_tuning_answers.py` bridges one baseline and at most two explicit survivors
+from one read stage to the existing Luna SDK/answer runner. Default planning
+loads no credentials/client; manual execution retains original final messages,
+source/task/scorer metadata, durable attempts, isolated-fault degradation and
+persistent-outage pauses. Coordinate-specific sessions prevent caller identifier
+reuse. Complete cached bodies/source metadata are checked before reuse; derived
+coordinate/arm grading inputs preserve raw cache bytes and work with the existing
+independent grader. Controlled SDK checks qualify recovery/accounting, not cloud
+answer quality, judge qualification or tuning promotion. Writer-bound code and
+the maintainer's concurrent development replay remain unchanged.
 
 ## **2. Classification Engine**
 

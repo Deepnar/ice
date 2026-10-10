@@ -1,3 +1,31 @@
+## 2026-10-10 — v3 diagnostic tuning cloud-answer recovery
+
+`run_tuning_answers.py` prepares one complete same-producer baseline and at most
+two explicit survivors from one read stage. It reuses the existing Luna SDK/native
+answer loop, exact final inputs, atomic attempt/cache receipts, bounded isolated
+faults and persistent-outage pauses. Scorer references remain outside answering
+requests. Coordinate-specific session identifiers and complete cached-body/source/
+task checks prevent cross-coordinate or changed-input reuse. Separate immutable
+coordinate/arm grading inputs preserve raw answer-cache bytes and retain the
+existing independent grader's shared absolute-task cache behavior.
+
+40 focused controls pass1.74s, including seven new bridge controls and existing
+answer-resume/completed-cache checks. They exercise the real provider adapter and
+native answer runner with a fake SDK client: no-call planning, exact messages,
+16 distinct request/session identities, interrupted/exhausted/quota recovery,
+immutable complete-cache reuse, altered-source/body refusal and independent
+grader input compatibility. No native cloud response or judge was requested.
+The initial broader1033 pass preceded the derived grading-tag addition; final
+disposable smoke/background regression1033 passed122.56s with327 existing
+warnings after that integration. Counts overlap; they are accounting/recovery
+qualification, not memory-quality evidence. Private logs remain under
+`logs/v3-read-coordinate-instrument-2026-10-10/`.
+
+Writer-bound code/settings/model defaults and original r4 evidence are unchanged.
+The maintainer's replay remains separate. Current writer/content qualification,
+independent judge qualification, tuning promotion and final-run gates stay open.
+No whole roadmap owner is closed and no push is performed by this instrument.
+
 ## 2026-10-10 — v3 matched local coordinate reports
 
 `compare_tuning_contexts.py` validates complete per-question cache bodies,

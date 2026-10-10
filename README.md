@@ -159,7 +159,8 @@ paper histories B and C for separate semi-LSREP runs with the same complete
 ablations, lifecycle and warm/bare-vector controls, plus LongMemEval oracle.
 The [development preparation guide](experiments/v3_repair/README.md) covers
 frozen source/scorer keys, selected resumable repaired replay, source/task audits
-and bounded tuning-coordinate planning/local prompt collection and comparison.
+and bounded tuning-coordinate planning/local prompt collection, comparison and
+manually launched diagnostic cloud-answer collection.
 Independent quality qualification,
 the full tuning executor and the resumable final runner remain.
 These preparations are not a new memory-quality result or a full LME-S campaign.
