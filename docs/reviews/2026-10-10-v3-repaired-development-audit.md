@@ -78,10 +78,27 @@ exact role/hash/offset requirement. Full generates the required literal but
 loses it before the pre-budget ranked list. No-Codex retains it through final
 input. Warm vector retains the source ID/rank while losing the literal before
 the ranked list; recent-only lacks it. This demonstrates why source arrival is
-insufficient. It does not prove Codex is globally harmful, nor establish which
-of fusion, rerank shortlist/scoring, representation or dedup causes each loss.
-Capture the pre-rerank pool and representation transitions before changing
-weights or blaming budget: this particular full-arm loss precedes budgeting.
+insufficient. It does not prove Codex is globally harmful.
+
+A separate disposable clone of the saved as-of state matches all35 table
+fingerprints. Native fusion, SQL bonuses and the64-candidate shortlist over the
+captured primary texts exclude the full arm's required BM25 fragment at rank75
+and value-bearing vector chunk at rank91. No-Codex admits its BM25 fragment at
+rank62; warm vector excludes its value-bearing chunk at rank67 while admitting
+two other chunks from that same source. Thus the reconstructed loss occurs at
+candidate admission, before reranker scoring and budgeting. The full pool has
+62 episodic, one graph and one procedural candidate: this is not a finding that
+graph fragments occupy most slots. Graph expansion and fusion can change the
+competition even when few graph fragments survive.
+
+The captured ranked primary texts agree with reconstructed admission on63/64
+full and59/64 comparator outputs; remaining alternative representations were
+not recorded. No observed exact primary text ranked outside the reconstructed
+pool. This is reconstruction, not a fresh whole-production read or population
+answer-quality result. No inference calls or defaults changed. The existing
+32/64/128 shortlist coordinates can test admission versus quality/cost; no
+larger cap has yet been qualified or promoted. Private code/hash/results:
+`logs/v3-repaired-dev-audit-2026-10-10-r1/pool-inspection-r3.json`.
 
 ## Grounded next repair and qualification
 

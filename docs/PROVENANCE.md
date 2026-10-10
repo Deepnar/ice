@@ -100,9 +100,20 @@ The completed run retains5 degraded writers/12 failed attempts,88 summary
 candidates (38 supported/50 unknown),82 abstracts (41 supported/41 unknown),
 and226 raw-injection turns. Exact source-reviewed content audit exposes one
 required literal generated but lost before full-arm budgeting; no-Codex retains
-it, while warm vector retains the source ID but not the value. This is no
-global graph-harm finding. The exact shortlist/representation/fusion/dedup cause
-remains to isolate. No source-ID count becomes a semantic or answer grade.
+it, while warm vector retains the source ID but not the value. A verified
+disposable as-of clone reconstructs native fusion/bonuses/64-candidate admission:
+full's required BM25 text ranks75 and value-bearing vector chunk91, both excluded;
+no-Codex admits its required BM25 text at62; warm vector excludes the required
+chunk at67 while retaining other chunks of the same source. Full's pool has
+only one graph fragment. Actual ranked primary texts agree on63/64 full and
+59/64 per comparator; remaining alternative representations were unrecorded.
+This isolates admission on this reconstructed case, not global graph harm,
+fresh complete-reader parity or answer accuracy. No inference/default change.
+All35 clone fingerprints match; inspection leaves them unchanged and the clone
+is removed. Private immutable `pool-inspection-r3.json` binds trace/source/code.
+The initial ORM-created clone failed physical-column-sensitive fingerprints
+before ranking; the corrected clone installs the exact frozen native schema,
+never weakens the guard. No source-ID count becomes a semantic or answer grade.
 
 All82 oversized saved summary/abstract assertion checks are reconstructed from
 their exact cited window role/hash/offsets. Removing duplicate interval overlap
