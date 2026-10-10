@@ -206,6 +206,31 @@ existing independent grader. Raw cache tags/bytes remain unchanged. Planning and
 controlled SDK tests do not qualify native answer quality or the judge. Validation
 and final campaigns remain locked behind their own qualification/freeze gates.
 
+After the complete repaired replay, export partial per-source reader frequency:
+
+```bash
+uv run --no-sync python experiments/v3_repair/report_reader_usage.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --out logs/v3-reader-audit-2026-10-10/report.json
+```
+
+Optional `--collection` uses a complete matched coordinate. Counts stay separate
+by arm and distinguish final selected-text visibility, source lineage, unknown
+eligibility and missing derived artifact IDs. This is not answer-use attribution
+or complete recent/slot/artifact accounting; final granular capture is pending.
+
+Inspect every sealed tuning field and its disposition without running trials:
+
+```bash
+uv run --no-sync python experiments/v3_repair/export_tuning_ledger.py --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-tuning-ledger-2026-10-10/ledger.json
+```
+
+Current30 coordinates touch13 settings plus a hard input cap;25 conditional fields
+await source/gate/aging qualification,134 stay held and one retired threshold is
+excluded. Sixteen fixed maintenance controls are explicit too. Current-profile
+drift refuses reuse. The [full observation/automation/tuning audit](../../docs/reviews/2026-10-10-v3-observation-and-tuning-audit.md)
+lists exact ranges, human gates and future capture requirements. Private complete
+fault observer qualification does not mean it is wired into the running producer
+or final dispatcher; those integrations still need their actual-path controls.
+
 ## Tuning and final readiness still to earn
 
 The static inventory records relevant numeric/boolean/weight settings, defaults,

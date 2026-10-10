@@ -1795,6 +1795,95 @@ resume, cached metadata refusal and unchanged complete answers. Native cloud
 output and independently qualified judgments remain separate later evidence;
 the agent does not launch the new paid/local campaigns while implementing.
 
+### 2.3i Reader frequency and full fault receipts — grounded2026-10-10
+
+Maintainer requires stored-to-context counts and repeated per-item exposure for
+semi-LSREP B/C, all ablation/control arms and oracle. Existing selected fragments
+already come from `evidence_after_eviction`; aggregate by-leg counts are not
+unique stored-artifact frequencies. Current fragment lineage can identify original
+sources and credited graph edges, but not every procedural/note/chunk/slot/recent
+artifact/version. Do not silently treat source IDs as those missing identities.
+
+Add an offline private reader report over a complete audited repaired producer
+and optionally a complete matched coordinate. For each question/arm, preserve
+original-source inventory at that cutoff, leg/rank/budget/final counts, exact
+selected-text visibility in final messages, coalesced original turn IDs, credited
+edge IDs and source-note lineage. Deduplicate within an occurrence, count
+frequency across occurrences, keep arms separate and include zero-read stored
+originals. Fragment-content signatures describe rendered versions, not stable
+database artifact IDs. Missing text/identity/eligibility is explicitly unobserved;
+do not invent derived-artifact denominators or answer-use grades. Bind complete
+producer/coordinate/instrument bytes and refuse changed immutable reports.
+
+Final runner integration must additionally capture stable artifact/version IDs,
+eligible inventory and final rendered blocks for recent history, slots, bookmarks,
+conversation/batch/entity notes, procedures, claims and document/turn chunks.
+Report lifetime writes separately from live inventory, eligibility and unique
+rendered versions. Keep exact-answer support/use separate from exposure; repeats
+are dependent measurements and different arms never add up to unique memories.
+The oracle has evidence supplied externally; label that inventory supplied,
+not a learned writer-store denominator. Capture remains an observer, never
+changes decay strength/corroboration or feeds scorer keys to runtime.
+
+Current worker faults contain only500 characters and no exception chain/stack.
+Add a private fsynced append-only fault recorder with whole sanitized exception
+chain/traceback, status/request/provider receipt and explicit context (run,
+history, turn/cutoff, source/wall time, job/stage, attempt, model/profile/window,
+artifact identity). Use private files and redact credentials in message/stack/
+metadata; do not serialize arbitrary locals or requests/headers. Record before
+an existing recovery policy catches the error, then re-raise the same exception.
+No new retry policy, fabricated success or unbounded continuation. Record
+system/DB/access faults too, but their original pause policy stays intact.
+Append failures cannot pretend the error was safely logged. Tests exercise
+actual WorkerRecovery with controlled transient and terminal errors, long
+messages/chained exceptions, credential redaction and durable per-attempt IDs.
+
+This helper alone cannot observe exceptions swallowed inside retrieval or
+per-item maintenance. Final dispatcher/provider/structured-log seams must emit
+full faults before those catches, with overlapping receipt IDs deduplicated.
+Old truncated errors remain incomplete. Current producer-bound files stay frozen
+while the maintainer manually runs development; helper qualification is not
+final-run integration or a retrofit of old evidence.
+
+### 2.3j Named tuning ledger and unattended policy — grounded2026-10-10
+
+The30 sealed read coordinates are baseline plus29 alternatives across13 Settings
+fields and a separate hard input cap. Publish exact fields, current resolved
+values, actual candidate ranges, consumers and dependencies in the observation
+audit; no generic claim that all173 static candidates are being swept. Export
+the complete173-entry consumer ledger with every entry marked planned read-grid,
+pending qualified stage, held or retired, its current/default value and static consumers. Static reachability is
+not a live effect. Trust/entity/procedure activation, gate/style and lifecycle
+parameters need opposing truth/false-expiry/aging panels before ranges are
+grounded; retain current policy until then. Hard verification/source ordering/
+privacy/completion guards and model identities are fixed, not score-maximizing
+knobs. Maintenance caps/intervals not covered by the static prefix filter are
+explicit fixed profile controls; absence from that inventory is not inertness.
+
+Keep the ten core jobs automatic on their existing source-clock schedule in
+full semi-LSREP; ablations disable the named mechanism and verify the resulting
+effect. Keep existing qualified automatic changes and pending-review semantics.
+Do not bulk-approve slots, motif proposals, fuzzy entity merges or ambiguous
+conflicts to inflate activity. Report proposed/applied/withheld/pending/skipped/
+errors separately, and qualify each automatic semantic branch before launch.
+Fine-tuning remains disabled/frozen, project/import/document product jobs remain
+outside these conversation experiments. Reflection's direct `pending_items`
+append when that slot exists is distinct from its review-gated slot evolution;
+its source/freshness/repetition behavior must be qualified before a seeded slot
+profile can claim that branch. Scheduling a job or generating a proposal does
+not demonstrate retrievable memory improvement. Oracle evidence-only protocol
+does not invent conversational sessions or aging to credit maintenance.
+
+**Implemented observer substeps,2026-10-10:** the
+[observation and tuning audit](../reviews/2026-10-10-v3-observation-and-tuning-audit.md)
+records exact sealed ranges and automatic/review gates. Offline reader frequency
+and full fault observer have opposing and actual SQL/recovery controls; complete
+final artifact/eligibility/internal-error wiring remains pending. The immutable
+ledger export records13 read-grid/25 conditional/134 held/1 retired fields and
+sixteen fixed maintenance controls without any model/API call or tuning result.
+The direct pending-items slot append is a named qualification branch, not
+implicitly waived by the review policy. No whole roadmap owner closes.
+
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
 **Fixture selection:** two separate complete long histories with ordered originals,

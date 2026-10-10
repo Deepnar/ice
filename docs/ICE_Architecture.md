@@ -371,6 +371,19 @@ coordinate/arm grading inputs preserve raw cache bytes and work with the existin
 independent grader. Controlled SDK checks qualify recovery/accounting, not cloud
 answer quality, judge qualification or tuning promotion. Writer-bound code and
 the maintainer's concurrent development replay remain unchanged.
+The [observation/tuning audit](reviews/2026-10-10-v3-observation-and-tuning-audit.md)
+traces stored/source exposure, complete private faults and automatic/review-gated
+maintenance. `report_reader_usage.py` adds per-source sampled frequency and final
+selected-text visibility, with missing exact derived/recent/slot inventories and
+eligibility explicit. `FaultRecorder` qualifies a complete sanitized durable
+exception observer around existing recovery, not production/final integration
+or recovery of old swallowed stacks. `export_tuning_ledger.py` assigns every
+sealed static candidate a disposition and binds sixteen fixed maintenance
+controls;13 fields/30 coordinates are planned,25 fields await qualified panels,
+134 stay held and the retired procedural cosine threshold is excluded. Automatic
+source-guarded jobs remain enabled; review proposals are not silently applied.
+Final granular item/eligibility/block capture and internal caught-error hooks
+remain required before claiming complete stored-to-context/use accounting.
 
 ## **2. Classification Engine**
 

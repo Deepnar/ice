@@ -161,6 +161,9 @@ The [development preparation guide](experiments/v3_repair/README.md) covers
 frozen source/scorer keys, selected resumable repaired replay, source/task audits
 and bounded tuning-coordinate planning/local prompt collection, comparison and
 manually launched diagnostic cloud-answer collection.
+It also documents partial per-source exposure counters, full private error
+capture seams and the exact tuning/maintenance policy; final granular capture
+remains to integrate.
 Independent quality qualification,
 the full tuning executor and the resumable final runner remain.
 These preparations are not a new memory-quality result or a full LME-S campaign.

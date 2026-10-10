@@ -230,6 +230,12 @@ def test_shared_engine_real_sql_recovers_sources_and_measures_content_loss(tmp_p
     assert probe["preflight"]["prompt_tokens"] * settings.token_count_safety_margin <= 4000
     from scripts.z1.replay_validation import validate_complete_replay
     assert validate_complete_replay(iter(rows), {"fixture": 2})
+    from experiments.v3_repair.report_reader_usage import count_usage
+    usage = count_usage(rows)
+    assert len(usage["occurrences"]) == 1
+    assert usage["arms"]["full"]["stored_originals"] == 2
+    assert usage["arms"]["full"]["totals"]["selected_text_unconfirmed"] == 0
+    assert usage["occurrences"][0]["arms"]["full"]["answer_use"] == "unmeasured"
     committed = (root / "seed.jsonl").read_bytes()
     assert seed_v3.run(dev.replay_args(root, 1), conversations, probes,
         expected_turns={"fixture": 2}, input_files=bound_files, selected_plan=receipt) == 0

@@ -152,6 +152,14 @@ explanation is usually "it never ran".
 measured firing rate before shipping was zero across 476 checks, which is what
 makes the line meaningful — see #13b for why that check is not optional.
 
+**v3 research capture audit,2026-10-10:** a warning/degraded counter can still
+lose the useful diagnosis. `WorkerRecovery` keeps500 message characters and no
+stack/chain; an outer dispatcher cannot reconstruct internally swallowed errors.
+The private full-fault observer now preserves complete sanitized exception/context
+receipts before existing recovery catches them. Final provider/dispatcher/internal
+catch hooks remain to wire; old truncated details stay unknown. Never claim full
+fault observability from a helper test or change a pause policy just to finish.
+
 ### 12. `git log` on `main` cannot verify a history rewrite
 A rewrite must rewrite **tags**. `refs/tags/v2-paper-eval` pointed into
 pre-filter history and a plain `git clone` served ~5,700 personal prompts from a

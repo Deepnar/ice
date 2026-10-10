@@ -1,3 +1,42 @@
+## 2026-10-10 — v3 reader/fault/automation/tuning observation audit
+
+The [current audit](reviews/2026-10-10-v3-observation-and-tuning-audit.md)
+traces actual final eviction, stored original/source aliases, automatic jobs and
+human-review proposals. `report_reader_usage.py` adds per-arm sampled source
+frequencies/zero observed reads, selected-text visibility and separate graph
+lineage/fragment-version frequencies. Exact derived/recent/slot inventories,
+eligibility and semantic answer use remain unobserved; this is a partial counter.
+`FaultRecorder` captures complete sanitized chain/group/stack/context and safe
+provider metadata in a private durable hash chain around the existing recovery
+policy. Final dispatcher/provider/internal-catch integration remains required;
+the running producer and old truncated errors are not modified or reconstructed.
+
+The actual no-call immutable ledger export and identical rerun retain173 field
+dispositions:13 read-grid,25 conditional with no guessed trial ranges,134 held
+and1 retired. The30 coordinates include baseline. Sixteen fixed maintenance
+profile controls are recorded separately from the old prefix inventory. Source
+verification/completion/privacy/model guards remain fixed. Automatic core jobs
+stay enabled with pending review proposals preserved; direct reflection
+`pending_items` append is a distinct qualification branch if that slot is seeded.
+Three stale document/clustering lane labels are corrected to actual GPU lanes.
+
+28 focused controls pass34.31s with2 existing warnings. Actual native SQL replay
+output feeds the reader counter; long chained two-attempt faults feed actual
+WorkerRecovery with complete private receipts, preserving native degradation and
+structural-fault propagation. Other controls refuse changed denominators/cutoffs,
+cache/profile/ledger corruption, partial journal tails and unrecognized metadata.
+Final disposable smoke/background regression1049 passed122.35s with327 existing
+warnings; both disposable databases removed. Counts overlap preceding checks.
+These qualify accounting/recovery, not semantic memory quality or automation.
+
+Private logs/ledger/receipt remain under
+`logs/v3-read-coordinate-instrument-2026-10-10/`. All175 producer-bound file
+fingerprints and original r4 trace SHA were independently recomputed unchanged.
+The maintainer's latest inspected durable checkpoint was163/251 with55/67 probes;
+no stop, source/default change, new model or native cloud call was made by this
+pass. Missing final capture and source/judge/quality/freeze gates stay open; no
+parent roadmap closure or push follows from these observer controls.
+
 ## 2026-10-10 — v3 diagnostic tuning cloud-answer recovery
 
 `run_tuning_answers.py` prepares one complete same-producer baseline and at most
