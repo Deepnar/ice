@@ -1962,6 +1962,70 @@ source retention after cold moves, schedule ordering/fractional remainder and
 immutable output reuse. Disclose that these are mechanism controls, not empirical
 selection of target half-lives or evidence of improved answers.
 
+### 2.3l Chronological native maintenance gap adapter —2026-10-10
+
+Implement the execution seam missing from section2.3k in new research code,
+without modifying the active producer. This is an adapter for a future versioned
+parent runner, not a replacement decay worker or completed final launch command.
+Take a known per-job maintenance ledger, a declared until-clock/provenance and
+explicit enabled core jobs. Merge each job's next exact cadence boundary into
+one chronological stream, preserving partial intervals and different anchors.
+Execute simultaneous jobs serially in a fixed order; use the actual ten-job
+registry and its `needs_db`/`pass_cycles` signatures. Numeric workers get one
+cycle. Do not feed exact boundaries into legacy `due_maintenance`: its strictly
+positive-overdue gate would skip equality. This is an explicitly ideal cadence
+research schedule, not measurement of production idle/lease/tick latency.
+
+Require a parent-owned isolated database, native `Checkpoints` lease, matching
+trace sink, complete durable state and exact adapter/settings/job/provenance
+identity before any job. Known ledgers may differ by job; do not fabricate a
+first successful run or order missing timestamps. Disabled jobs execute nothing,
+retain their ledger and are reported separately. Refuse an unknown/duplicate
+mechanism, invalid/reversed/future ledger, missing enabled cadence or oversized
+interval before model/SQL job calls. Event limit is an explicit upfront refusal,
+never truncated aging. Actual source-date authority remains the parent's job.
+
+Use current `WorkerRecovery.call(..., attempts=1)` for each periodic invocation,
+matching existing periodic policy, with `FaultRecorder` inside that boundary.
+Keep structural/storage/authentication errors fatal, isolated responsive/transport
+faults degraded and three successive transport failures a pause. Capture safe
+turn/history/arm/job/clock metadata and full exception before native truncation.
+Do not infer an actual model from a GPU lane: uncaught job-boundary identity is
+`model=None` unless an available provider receipt resolves it. The parent owns
+declared/downloaded model pins and actual request identity. Internal swallowed
+errors remain a separate capture gap. Observed
+no-op/withheld jobs are not quality gains. Reuse native before/after counts and
+semantic changes; do not add a second interpretation of those fields.
+
+Only a completely observed time group advances its successful/failed-attempt
+ledgers and publishes a native store+trace+state checkpoint, outside the historical
+clock. Persist the failure state before checking for outage. An interrupt or
+observer/checkpoint failure propagates; the parent must restore its previous
+durable checkpoint before any continuation. Lost suffixes remain archived by
+native recovery, full fault journals stay append-only, and saved successful time
+groups do not rerun. Identity includes complete settings hash, adapter/helpers,
+native code hash/registry, enabled jobs and clock basis; changed code/policy cannot
+reuse an older producer or bypass its continuation guards. The final parent still
+needs its own source/turn/condition/freeze manifest and full writer/read/probe loop.
+
+Validate actual isolated SQL with all ten native functions: positive episodic
+cold transition, graph retention without truth changes and procedural absolute-
+age retirement, plus explicit no-op/gated semantic jobs. Use the real native
+snapshot/checkpoint restore after an interrupt mid-group and compare complete
+tables/trace to the same uninterrupted path. Prove matched saved groups skip,
+disabled mechanisms do not run, different anchors/remainders survive, full
+recoverable receipts persist, and persistent/structural faults do not advance
+uncommitted state. No model experiments or production-default changes are
+necessary for these mechanism controls; empirical writer/retention quality and
+the completed final runner remain separate prerequisites.
+
+**Implemented boundary,2026-10-10:** native ten-job calls and real checkpoint/
+restore controls pass, including uncaught job/observer/checkpoint/derived-pause
+capture. The synthetic SQL fixture configures hourly cadences and one private
+original to keep seven semantic jobs ineligible; only cold/graph/procedural
+changes are positive effect controls. No model requests or semantic job-quality
+claim. Full source/condition/reader/writer/probe parent integration remains.
+
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
 **Fixture selection:** two separate complete long histories with ordered originals,
@@ -2340,8 +2404,8 @@ final readiness work, not work postponed until after the final run.
 
 **Retention readiness clarification,2026-10-10:** section2.3k adds four omitted
 exposure/cap fields and qualifies current catch-up limitations through native
-SQL/dispatcher controls. The planner is implemented; full chronological job/
-source-event/recovery integration and revisited/quiet/corrected retention panels
+SQL/dispatcher controls. The planner and native ten-job gap adapter in section2.3l
+are implemented; full source-event/parent integration and revisited/quiet/corrected retention panels
 still precede lifecycle parameter selection. Do not treat the current cap,
 larger endpoint batches or a no-call schedule as that completed qualification.
 

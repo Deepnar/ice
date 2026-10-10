@@ -2516,3 +2516,8 @@ only the exponent. A chronological planner does not implement the final runner,
 and a synthetic native fixture cannot choose useful decay targets. Keep source
 truth separate from retention. Raising graph cap also lowers strength/cap ranking
 for unchanged facts; zero exposure increment still changes counts/access class.
+
+The v3 research adapter executes exact cadence boundaries directly: the legacy
+dispatcher requires positive overdue time and skips equality. Native SQL
+interrupt/restore controls qualify durable time groups, not a completed source-
+event runner or the semantic quality of jobs held ineligible by the fixture.

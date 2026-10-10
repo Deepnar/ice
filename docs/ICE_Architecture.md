@@ -720,6 +720,18 @@ also prevent general equivalence with chronological execution. The offline
 [retention planner and native controls](specs/V3_POST_RESEED_REPAIR.md#23k-retention-targets-exposure-amounts-and-chronological-gaps-2026-10-10)
 prepare final research scheduling without changing the running producer.
 
+The separate v3 `chronological_maintenance.drain` adapter now executes all ten
+native core jobs at exact per-job cadence boundaries, serially in fixed order.
+It requires a matching isolated parent/checkpoint lease, restored trace/state/
+table fingerprints and unchanged code/settings/job/provenance identity. Complete
+time groups publish native store+trace checkpoints; incomplete groups require
+restore, while degraded groups save bounded native recovery state before a
+persistent-outage pause. Full uncaught job/observer/checkpoint/pause receipts
+remain private. Source events, preflight/exposure/post-flight, final probe keys/
+conditions and model freeze still belong to the unfinished new parent runner.
+This ideal cadence protocol does not measure production idle/lease/tick latency
+and is not retrofitted into the active selected replay or deployed runtime.
+
 **V3 episodic decay** starts strictly after seven days and reads daily targets:
 
 - `decay_daily_unaccessed=0.95`: non-creative originals with no exposure.

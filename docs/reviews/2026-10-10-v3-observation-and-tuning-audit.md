@@ -233,8 +233,9 @@ dispatch advances its ledger to the endpoint. A30-day gap therefore omits384
 numeric cycles per worker. The new `lifecycle_plan.py` emits1440 chronological
 events for that declared interval across the three decay jobs, with safe current
 policy/consumer hashes and explicit original versus simulated clock provenance.
-It runs no jobs and cannot infer trustworthy source calendars. Full final
-orchestration still needs the other seven core jobs, source events and recovery.
+It runs no jobs and cannot infer trustworthy source calendars. The separate
+chronological adapter now executes all ten native jobs with checkpointed time
+groups; full final source-event/writer/read/probe parent integration remains.
 
 Actual native ten-day controls distinguish the policies:
 
@@ -262,3 +263,29 @@ Actual deduplicated exposure/master-off/weak-source controls verify those paths.
 Choose changes only after source-qualified chronological recall, correction,
 false-retirement and supported-answer/context comparisons. No value is promoted
 from arithmetic or these synthetic SQL controls.
+
+The new `chronological_maintenance.drain` is an ideal-cadence research execution
+seam, not a deployment scheduling change. It merges per-job known anchors and
+failed attempts with each actual interval, passes native signatures/one-cycle
+arguments, and retains remainders. Do not use the old strictly-overdue dispatcher
+at exact cadence equality. Code/settings/job/provenance, trace/state and full
+table fingerprints must match a parent-owned restored native checkpoint before
+work. Unknown/duplicate jobs, missing/future clocks, wrong factories and excessive
+intervals refuse. Completed groups publish native store/trace/state checkpoints;
+interrupted groups must restore first. Disabled jobs retain their last-run clock.
+
+Actual twelve-hour SQL controls configure hourly fixture cadences and a private
+original to keep seven semantic jobs ineligible. All ten functions run: cold transition, graph
+retention and absolute-age procedural retirement change state, while seven other
+semantic jobs have no eligible population. No model HTTP requests occur in those
+controls. Mid-group interrupt after committed native SQL, actual dump restore,
+and missing-only continuation match the uninterrupted table fingerprints.
+Cached complete groups are byte-stable/no-call. Three transport failures save
+the third group's state before native outage pause. Complete fault journals
+retain the three attempts and derived pause separately; observer/storage failures
+propagate without accepting them as degraded successful groups. Job-boundary
+model identity is unknown (`model=None`); a job may involve multiple models, and
+the parent must bind their actual identities/provider receipts rather than claim
+one background model from the job's GPU lane. Internal swallowed faults and
+semantic quality remain unqualified. Exact parent source/condition/model/freeze
+and full replay/answer orchestration are still required before final launch.

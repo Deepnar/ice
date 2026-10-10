@@ -1,3 +1,52 @@
+## 2026-10-10 — v3 native chronological maintenance and prefix recovery
+
+The [native gap adapter](specs/V3_POST_RESEED_REPAIR.md#23l-chronological-native-maintenance-gap-adapter-2026-10-10)
+executes the actual ten core registry functions at exact per-job cadence
+boundaries, serially, in a new parent-owned isolated research store. It retains
+different anchors/remainders, passes actual `needs_db`/`pass_cycles` arguments,
+reuses native semantic/count observations and bounded WorkerRecovery policy,
+and checkpoints fully observed time groups with actual Checkpoints/SQL dumps.
+Changed profile/trace/state/tables/factories refuse before work; disabled jobs
+execute nothing and retain their ledger. Source/condition/model/freeze and the
+full original-turn/preflight/exposure/post-flight/probe parent remain unfinished.
+This is ideal research cadence, not production idle/lease/tick latency, and is
+not adopted by the running selected replay or deployed runtime.
+
+Initial28 focused controls pass198.38s/2 existing import warnings: six new SQL
+integration checks plus native checkpoint/recovery controls. They compare actual
+interrupted committed SQL followed by native dump restore/missing-only resume
+against uninterrupted table fingerprints; completed groups do not repeat.
+The fixture uses hourly test cadences and one private old source to keep seven
+semantic jobs ineligible. Twelve groups call120 native jobs; actual cold movement,
+graph retention with confidence/validity unchanged and stale-procedure retirement
+are positive effects. No HTTP model request occurs; this is no semantic quality
+qualification, ordinary full-corpus schedule profile or answer experiment.
+
+Two further actual observer/checkpoint-failure controls and complete derived
+outage receipts were added after that initial focused pass. Final disposable
+smoke+dynamics suite1081 passed331.66s,327 existing warnings, including all eight
+new integration controls. Complete private journals preserve uncaught job,
+observer, checkpoint and derived-pause errors. Three transport failures save
+the third group's state before the native pause; those three attempts and one
+derived pause are distinct receipts, not four model failures. Observer/storage
+failure retains the previous pointer; actual restore recovers the prior tables.
+An interrupted suffix remains separately archived. The same recovery policy
+propagates authentication/storage/structural faults. No failed semantic output
+is upgraded to a successful measurement. Job-boundary model identity is unknown,
+not inferred from a GPU lane; request/provider and downloaded model pins remain
+the parent's responsibility. Internally swallowed errors are still unobserved.
+
+Private logs/qualification receipt: `logs/v3-chronological-instrument-2026-10-10/`.
+Focused and broad controls overlap and cannot be summed as independent cases.
+All disposable databases removed. Two inaccurate/no-op documentation anchors
+refused atomically; corrected after reading exact sections, no guard relaxed.
+All175 active producer fingerprints remained unchanged; the latest inspected
+manual replay had234/251 durable turns and66/67 probes. No current producer
+restore/source/settings/model change, native model/cloud experiment, push,
+parent roadmap closure, tuning promotion or final launch occurred. Continue
+completed-producer writer/content/maintenance qualification and final parent
+integration; this adapter does not complete those acceptance scopes.
+
 ## 2026-10-10 — v3 chronological retention preparation and native controls
 
 The [retention decision](specs/V3_POST_RESEED_REPAIR.md#23k-retention-targets-exposure-amounts-and-chronological-gaps-2026-10-10)

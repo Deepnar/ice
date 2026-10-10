@@ -250,12 +250,31 @@ dispatch omits. Original clocks must be independently verified before declaring
 refuse overwrite. No models, worker calls or database mutation occur.
 
 The current96-cycle cap represents six days at90-minute cadence. Raising it
-alone cannot reproduce seven-day eligibility and first cold transitions. Final
-ten-job/source-event/recovery integration remains pending; this is not a launch
+alone cannot reproduce seven-day eligibility and first cold transitions. The
+separate ten-job gap adapter is implemented; final source-event/parent integration
+remains pending. This is not a launch
 command or a tuned configuration. Four exposure/cap/ranking fields missing from
 the first conditional ledger are included in revision2. Export to a new path if
 an old ledger exists; preserve that original. Half-life/increment/cap sensitivity
 values prepare comparisons and do not change defaults or qualify memory gains.
+
+`chronological_maintenance.drain` is the new parent's execution seam, with no
+standalone CLI. It requires a restored isolated native checkpoint, matching
+code/settings/registry/clock-basis identity and complete per-job ledgers. It
+merges exact cadence events, runs the ten existing job functions, saves complete
+time groups and preserves native bounded degradation/pause policy. An interrupted
+group must restore the previous native checkpoint before continuing; saved groups
+do not rerun. Disabled jobs retain their ledger and execute nothing. Exact serial
+cadence is declared research policy, not measured production idle/tick latency.
+
+Native SQL controls preserve original source through cold movement, age graph
+retention without confidence promotion, retire an explicitly stale procedure,
+and restore interrupted writes to the same tables as uninterrupted execution.
+Full private uncaught-job/observer/checkpoint/pause receipts are retained. Other
+semantic jobs are no-op/gated on that fixture; they are not quality-qualified.
+Source events/preflight/exposure/post-flight/probes, per-condition freeze/model
+pins and final manual orchestration still require the new parent. The current
+selected replay and its command do not adopt this adapter automatically.
 
 ## Tuning and final readiness still to earn
 
