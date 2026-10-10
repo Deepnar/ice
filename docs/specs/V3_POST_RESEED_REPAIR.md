@@ -1665,6 +1665,59 @@ and at most two surviving candidates per stage receive new cloud answers after
 source guards pass, as §2.3 requires. Static readership and an enumerated grid
 do not prove live deltas, semantic benefit or readiness to launch tuning.
 
+### 2.3f Resumable local read-coordinate collector — grounded2026-10-10
+
+`run_tuning_contexts.py` accepts a completed selected development bundle, the
+sealed coordinate plan, one explicit coordinate ID and a new private output
+directory. Default is no-call planning. Validate the complete producer trace,
+reviewed keys, coordinate seal and current baseline policy before provisioning
+or model load. Bind producer/trace/coordinate/helper/settings identity to each
+immutable run; code or parameter drift refuses reuse. Validation remains locked.
+This collector generates local retrieval inputs, not cloud answers or promotion.
+
+On manual `--run`, take the development bundle's operator lock, require its
+owned existing database marker and clone-schema identity, and run an isolated
+child. Reuse the existing exact dump/table fingerprint restore of evaluation
+states. Group unanswered probes by cutoff; restore that exact prefix once,
+then observe each question under a read-only transaction with exposure off.
+Load the shared encoder/classifier, run actual preamble and final traced
+preparation with the one coordinate applied, and propagate its explicit hard
+input cap. Do not change writer policy or re-ingest recorded turns.
+
+Each successful local observation atomically saves a unit by immutable probe
+ID/hash, including a digest of its entire saved body. Validate cached units
+against run/input/code/content identity before reuse;
+checkpoint/failed work never becomes a saved success. Rerun identical arguments
+to complete missing units. Preserve baseline gold/source/task/cutoff identities
+while recording new generated/ranked/budgeted/selected/final input. Recompute
+source-ID coverage using the prefix's frozen source IDs; required-content and
+answer grades remain unmeasured. Reuse exact producer source bodies as scorer
+data, never append them or expected answers to the answering prompt.
+
+Bind final and evaluation receipts to the producer plan, complete trace prefix,
+database/tables, execution code, inputs and writer identities before model load.
+Finally restore the producer's committed final snapshot and verify row identity,
+including on interruption/failure and when every question is already cached.
+If restoration fails, surface it and retain
+the units/logs; never report success or silently declare the store pristine.
+No asynchronous writer runs concurrently. Completed per-unit files and the final
+context aggregate resume byte-stably; no blind outer retries. Short controlled
+collector checks cover saved-unit refusal, grouping/resume/read-only policy,
+cap propagation and final restoration on failure. Real local completion/quality
+needs the maintainer's repaired development state. Cloud answer execution,
+qualified source semantic review, independent grading and promotion remain
+separate stages under §2.3.
+
+**Controlled qualification,2026-10-10:** saved-body/source/code/settings drift,
+default no-call planning and locked validation have opposing controls. A native
+PostgreSQL snapshot/preparation control queries three observations over two
+historical prefixes, interrupts after one durable unit, resumes without repeating
+it, preserves scorer-only metadata, propagates the4k cap to all four arms and
+restores every table fingerprint. Complete cache reuse loads no model and still
+restores final state; simulated restoration failure cannot return success.
+Encoder/classifier are controlled and the fixture writes are synthetic; this is
+instrument qualification, not deployed-model/writer precision or answer gain.
+
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
 **Fixture selection:** two separate complete long histories with ordered originals,
@@ -2046,25 +2099,17 @@ Conditional owners and broader A9/A12/G27/product acceptance can also remain
 open. The number of evidence-led repairs after those results is unknown until
 the results exist. No experiment completion automatically clears the roadmap.
 
-**Operational packages, maintainer continuation2026-10-10:** these package
-counts make execution visible without replacing the29-owner table above.
-Before trusted tuning: **7** — remaining named consumers; fresh repaired
-development state; required-content funnel; current writer/lifecycle quality
-panel; gate/style/long-input/resource controls; bounded resumable tuning
-instrument; independent judge qualification. Six engineering packages can
-continue while the human part of the seventh remains parked. This is not a
-waiver of that scoring gate. An audit receipt completes an audit substep, not
-its parent's semantic acceptance.
-
-After tuning and before semi-LSREP/oracle launch: **7** — B/C through-cutoff
-truth keys; retention/clock/probe schedule; actual additive/leave-one-out
-conditions; independent warm/bare-vector controls; oracle adapter/scorer;
-second independent judge qualification; full orchestration/recovery/cost/freeze
-readiness. Preparation can happen earlier; launch cannot bypass these gates.
-After the runs: **4 known outcome reviews** (full reader, write/read/use,
-supported-answer gains, component utility), plus newly evidenced repairs whose
-number is unknown. The35 later items and broader conditional scopes remain
-outside this pass. Preserve first frozen results before any subsequent repair.
+**Count clarification, maintainer2026-10-10:** an interim7/7/4 operational
+package count was a different grouping and incorrectly suggested18 roadmap
+items. Withdraw it from progress counts. Use the existing exclusive29-owner
+partition above:7 prerequisites,16 development/tuning,4 final outcomes,
+2 conditional/after-baseline. Audits/implemented tools are completed substeps,
+not whole-owner checkmarks. The251-turn/67-question command refreshes repaired
+development memory and historical prompts; it does not run tuning or cloud
+answering/judging. Relevant pre-tuning quality work remains pending on that
+fresh state. B/C keys/schedule, full ablations/baselines, oracle adapter,
+dual-judge qualification and orchestration/recovery/freeze are launch readiness,
+not an additional seven roadmap items. Post-result repair count stays unknown.
 
 ## 6. Look-ahead and roadmap closure
 

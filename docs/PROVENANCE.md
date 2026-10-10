@@ -1,3 +1,43 @@
+## 2026-10-10 — v3 local read-coordinate recovery qualification
+
+The new `experiments/v3_repair/run_tuning_contexts.py` implements local prompt
+collection for one sealed coordinate. Complete development trace/key/policy/code/
+settings guards precede model load. Producer-bound final/evaluation receipts,
+exact native dump/table restores, read-only observers, four-arm shared
+preparation and explicit final-input caps are reused. Atomic per-question units
+bind their complete saved bodies; unchanged reruns complete only missing work.
+Final producer restoration is required even after all questions are cached.
+Neither a failed restoration nor changed cached content can report success.
+
+34 focused controls pass65.46s with2 existing warnings. The native PostgreSQL
+control uses three synthetic observations over two historical states, controlled
+encoder/classifier output and actual shared prompt preparation. It interrupts
+after one durable unit, resumes without repeating it, keeps the scorer-only
+value outside every answering input, propagates the4k cap to all four arms and
+restores every table fingerprint. Complete-cache reuse loads no model; altered
+writer receipt and simulated final-restore failure have opposing refusals.
+This qualifies recovery/accounting, not real model precision or answer gains.
+
+Final disposable smoke/background validation:1013 passed108.90s with327 existing
+warnings; both the nested snapshot database and outer test database are removed.
+The counts overlap the focused checks and earlier controls. An initial test
+collection failure came from treating the un-packaged tests tree as a package;
+the preexisting empty replay fixture now lives in smoke conftest. A subsequent
+1failed/33passed run omitted the required synthetic-row idempotency key. These
+fixture errors were corrected without relaxing production or snapshot guards.
+
+Private logs/receipt: `logs/v3-read-coordinate-instrument-2026-10-10/`.
+The recorded producer code fingerprints and original r4 trace hash remain
+unchanged; no long replay/cloud call was launched by this instrument pass. The
+offline manual-command check still plans251 complete-history turns/67 reviewed
+question occurrences at12 cutoffs. Validation101/6 remains reserved; B/C stays
+out of new tuning. Formal roadmap counts remain93 checked/67 open. The interim
+7/7/4 operational grouping is withdrawn, not18 roadmap owners; use the existing
+exclusive29 partition7 prerequisite/16 development-tuning/4 final/2 conditional.
+Actual repaired writer/content/lifecycle qualification, downloaded model/runtime
+freeze, cloud comparisons, independent grades and promotion remain pending.
+No parent closure, new default/resident model or final-run readiness is inferred.
+
 ## 2026-10-10 — v3 selected development replay and real cap consumers
 
 The [named-policy audit](reviews/2026-10-10-v3-policy-consumers.md) reconciles

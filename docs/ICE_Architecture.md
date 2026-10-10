@@ -346,6 +346,14 @@ pending required-content reviews, never positive semantic grades from IDs.
 `tuning_plan.py` seals bounded read-side coordinates and a consumer ledger;
 live deltas/costs remain unmeasured, source-dependent stages pending, and the
 full resumable tuning executor remains to implement.
+`run_tuning_contexts.py` now implements the local read-coordinate stage: complete
+producer and policy guards, exact prefix restores grouped by unanswered cutoff,
+read-only four-arm preparation and content-hashed question units. Historical
+reads restore the committed final producer state even after interruption or
+complete-cache reuse. Short actual SQL/snapshot controls qualify recovery and
+cap propagation with controlled encoder/classifier output; native corpus
+content, answers, grading and promotion remain unqualified. No writer replay,
+new resident model or default policy is introduced by this collector.
 
 ## **2. Classification Engine**
 

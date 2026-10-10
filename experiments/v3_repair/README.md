@@ -3,7 +3,8 @@
 This directory implements offline input preparation for the current
 [repair, tuning and Z2 contract](../../docs/specs/V3_POST_RESEED_REPAIR.md).
 It now includes the selected repaired development replay adapter and offline
-diagnostics/candidate planning. It does **not** yet implement the full tuning
+diagnostics/candidate planning and a resumable local read-coordinate collector.
+It does **not** yet implement the full tuning
 executor or final experiment runner. The old
 `scripts/z1/run_v3_campaign.py` command runs the earlier development campaign,
 not this final protocol. Long/cloud runs remain manually launched.
@@ -129,6 +130,35 @@ Candidates have no measured delta/cost/verdict. The source-truth, gate/style and
 aging-dependent stages remain explicitly blocked; this is not a tuning launcher
 or promotion. Identical plans/reports verify/resume byte-stably; changed bytes
 refuse before replacement. Use a new directory for each new revision.
+
+After the repaired development replay completes, plan one local coordinate:
+
+```bash
+uv run --no-sync python experiments/v3_repair/run_tuning_contexts.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --coordinate baseline --out logs/v3-read-baseline-2026-10-10-r1
+```
+
+Default performs complete-source/coordinate/code/settings checks without a model
+or DB call. Add `--run` only when ready to collect that coordinate. Other IDs
+come from the sealed `coordinates.json`; use a separate output directory for
+each coordinate. This is local retrieval/prompt collection, not answering,
+grading or automatic selection of a winning setting.
+
+The collector locks the producer bundle against concurrent writer/read operators,
+restores each exact historical prefix once for its unanswered question group,
+and uses real shared preamble/final preparation under a read-only transaction.
+One successful question atomically saves one content-hashed unit. Identical
+reruns reuse these units; changed content, code, producer, source keys or policy
+refuses reuse. Source/expected-answer metadata stays scorer-only. Explicit caps
+reach both actual budget consumers; an unknown/infeasible serving window pauses
+with prior units retained, never becomes a successful prompt or blind retry.
+
+Details/progress go to `collector.log`. Ctrl+C preserves saved units; rerun the
+same command to finish missing questions. Even a complete cache must restore
+and verify the producer's final store before reporting success. A failed restore
+remains an error with evidence retained. `contexts.json` contains the complete
+four-arm traces and marks answer quality unmeasured. No writer replay or cloud
+calls occur here; independent content review and later bounded Luna/Muse calls
+remain required. Validation is still reserved until qualified tuning/freeze.
 
 ## Tuning and final readiness still to earn
 

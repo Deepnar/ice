@@ -128,50 +128,6 @@ def test_selected_plan_receipt_reaches_checkpoint_identity(monkeypatch):
     assert saved != changed
 
 
-@pytest.fixture
-def empty_replay_database(monkeypatch):
-    """Replay needs a genuinely empty store, even after other smoke fixtures."""
-    import os
-    import uuid
-    from sqlalchemy import create_engine, text
-    from sqlalchemy.engine import make_url
-    from sqlalchemy.orm import sessionmaker
-    from scripts.z1 import seed_v3, snapshot
-    from src.api import db as database
-    from src.memory import embedder as embedding_module
-    from src.memory.models import Base
-    from types import SimpleNamespace as NS
-    controlled = NS(encode=lambda *_a, **_k: [1.0] + [0.0] * (settings.embedding_dim - 1))
-    monkeypatch.setattr(embedding_module, "get_embedder", lambda: controlled)
-    from src.workers import post_flight
-    source = make_url(settings.database_url)
-    assert (os.environ.get("ICE_TEST_DATABASE", "").startswith("ice_test_")
-            and source.database == os.environ["ICE_TEST_DATABASE"])
-    name = "ice_test_" + uuid.uuid4().hex
-    admin = create_engine(source.set(database="postgres"), isolation_level="AUTOCOMMIT")
-    engine = None
-    created = False
-    try:
-        with admin.connect() as conn: conn.execute(text(f'CREATE DATABASE "{name}"'))
-        created = True
-        target = source.set(database=name)
-        engine = create_engine(target)
-        with engine.begin() as conn: conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        Base.metadata.create_all(engine)
-        sessions = sessionmaker(bind=engine)
-        for module in (database, seed_v3, post_flight):
-            monkeypatch.setattr(module, "SessionLocal", sessions)
-        monkeypatch.setattr(settings, "database_url", target.render_as_string(hide_password=False))
-        monkeypatch.setattr(snapshot, "DB", name)
-        monkeypatch.setenv("ICE_TEST_DATABASE", name)
-        yield
-    finally:
-        if engine is not None: engine.dispose()
-        if created:
-            with admin.connect() as conn: conn.execute(text(f'DROP DATABASE "{name}" WITH (FORCE)'))
-        admin.dispose()
-
-
 def test_shared_engine_real_sql_recovers_sources_and_measures_content_loss(tmp_path, monkeypatch, empty_replay_database):
     """Actual preamble/assembly/store/post-flight/checkpoints; controlled models/jobs.
 
