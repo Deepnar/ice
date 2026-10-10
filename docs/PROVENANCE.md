@@ -1,3 +1,52 @@
+## 2026-10-10 — v3 selected development replay and real cap consumers
+
+The [named-policy audit](reviews/2026-10-10-v3-policy-consumers.md) reconciles
+the twelve old drift clusters: bookmarks already use verified representation,
+Codex already uses the namespaced job key and cluster filtering has seven
+shared consumers.60 focused controls pass14.79s; structural/controlled checks
+do not establish memory quality. Keyword/referential semantics and broader
+live tuning effects remain open. No parent roadmap box closes.
+
+The new selected development adapter reuses the existing sequential production
+preparation/original writer/post-flight/schedule/checkpoint engine. It plans251
+tuning turns/67 reviewed questions, keeping validation101/6 independently locked
+until qualified tuning/freeze. Original replies are supplied; no cloud answers
+or grades are generated. Offline task/source diagnostics and pending content
+review are separate from the answering input. Source-ID hits cannot become
+supported-content or memory-use grades. The bounded tuning seal contains30
+read-side coordinates with unmeasured live outcomes; its full executor remains.
+
+Actual short SQL recovery preserves source roles/rows, ten registered controlled
+periodic callbacks, one write per turn and unchanged completed trace bytes.
+The small-cap control loses its exact value from final input while keeping the
+original. This is a recorded controlled loss, not semantic failure-rate evidence.
+The proposed cap initially changed allocation only: actual memory budget1949,
+larger routed final window. Explicit research caps now reach both preamble and
+final ledger, retain output reserve/margin and refuse infeasible windows.
+Uncapped behavior/defaults remain unchanged; no production-budget defect claimed.
+
+Final validation:1000 disposable smoke/background controls pass66.40s with327
+existing warnings;38 focused cap/recovery/content controls pass25.08s. These
+overlap and control models/extractor decisions/job callbacks; they are not1000
+memory-quality measurements. Earlier broad1failed/987passed exposed preexisting
+fixture residue; the fresh replay test now owns a nested disposable DB and
+removes it even on failure. Later failed assertions confused memory allowance
+with total cap and expected a clipped fact to survive; they were corrected to
+the actual accounting contract without raising a budget or hiding the loss.
+An initial short-test import loaded the shared encoder before its controlled
+seam; the seam now precedes that import. No background/cloud completion was
+performed by this implementation pass. Both test databases are removed.
+
+Private development plan logs/v3-repaired-dev-tuning-2026-10-10-r1 has identity
+3ff2593d56eadb975929151d86366296a505d31e41db48ffbbeeccd85e0669a5.
+The30-coordinate seal is logs/v3-bounded-tuning-plan-2026-10-10-r1, identity
+aaa6e1fe4de4461c5fe8cabe1df788983add891802a24b7a0dcc06e99c8b60e2.
+Actual identical CLI/function resumes preserve all three JSON bundles, including
+the eight input-plan products. Original r4 trace hash remains unchanged. Logs
+and resume receipt live in logs/v3-development-instrument-audit-2026-10-10/.
+The maintainer manually launches the real development refresh; no new long run,
+validation disclosure, tuning result, final launch or push occurred here.
+
 ## 2026-10-10 — v3 historical claims, reviewed metric consumers and model identity
 
 Three prerequisite audits continue the existing post-reseed plan, without a

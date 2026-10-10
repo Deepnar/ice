@@ -524,6 +524,7 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
     raw_window = get_model_context_window(pre.model_name)
     window = (serving_window(pre.model_name, raw_window)
               if settings.context_use_serving_window else raw_window)
+    window = pp.capped_window(window, getattr(pre, "input_prompt_cap", None))
     original_notes = mp.conversation_summary_block
 
     def capture_notes(*args, **kwargs):
@@ -874,7 +875,13 @@ class _FrozenClassifier:
         return self.result
 
 
-def run(args, conversations, probes) -> int:
+def run(args, conversations, probes, *, expected_turns=None, input_files=None,
+        selected_plan=None) -> int:
+    expected = EXPECTED if expected_turns is None else expected_turns
+    if selected_plan is not None and (
+            expected != {slug: len(rows) for slug, rows in conversations.items()}
+            or not input_files):
+        raise ValueError("selected replay counts/inputs differ from its plan")
     isolated_database()
     output = private_output(args.out)
     resume = getattr(args, "resume", False)
@@ -907,13 +914,14 @@ def run(args, conversations, probes) -> int:
         from scripts.z1.development_repeats import POLICY, packet_hash
         meta = run_meta(script=__file__, args=vars(args),
                         settings_keys=REPLAY_SETTINGS,
-                        inputs=[file_digest(CORPUS), file_digest(UNIFIED),
+                        inputs=([file_digest(p) for p in input_files] if input_files else
+                                [file_digest(CORPUS), file_digest(UNIFIED),
                                 file_digest(TYPED), file_digest(DERIVED),
                                 file_digest(GENERATED),
                                 file_digest(settings.classifier_model_path),
                                 file_digest(settings.label_schema_path),
-                                *([file_digest(repeat_path)] if repeat_path else [])],
-                        extra={"version": "v3", "expected_turns": EXPECTED,
+                                *([file_digest(repeat_path)] if repeat_path else [])]),
+                        extra={"version": "v3", "expected_turns": expected,
                                "development_repeat_review_sha256": packet_hash(Path(repeat_path)) if repeat_path else None,
                                "development_repeat_policy": POLICY if repeat_path else None,
                                "planned_probes": [[p["probe_id"], slug, cutoff]
@@ -926,13 +934,16 @@ def run(args, conversations, probes) -> int:
                                "prompt_arms": list(PROMPT_ARMS),
                                "probe_state_policy": "read-only transaction, exposure writes disabled, rollback after each diagnostic probe",
                                "clock_policy": "source-time Python clocks/ORM defaults and explicit SQL NOW() within isolated turn; real elapsed model/network timers",
-                               "timestamp_provenance_by_conversation": SOURCE_TIMESTAMP_PROVENANCE,
+                               "timestamp_provenance_by_conversation": {
+                                   slug: rows[0]["ts_provenance"] for slug, rows in conversations.items()},
                                "periodic_jobs": list(MEMORY_JOBS),
                                "maintenance_schedule": "shared registry/cadence/overdue-order/cycle cap; serial source-turn boundaries",
                                "unexercised_during_replay": [
                                    "asynchronous_runtime", "idle_session_burst",
                                    "project_document_paths", "HTTP_streaming",
                                    "session_model_stickiness"]})
+        if selected_plan is not None:
+            meta["extra"]["selected_replay_plan"] = selected_plan
         from scripts.z1.replay_checkpoint import Checkpoints, run_identity
         from scripts.z1.worker_recovery import POLICY as WORKER_POLICY, WorkerRecovery
         failure_policy = getattr(args, "worker_failure_policy", "strict")
@@ -944,7 +955,7 @@ def run(args, conversations, probes) -> int:
         if not resume and checkpoints.pointer.exists():
             raise ValueError("recovery directory already belongs to a run; use its original trace and --resume")
         if resume:
-            if checkpoints.complete_unchanged(EXPECTED, nonempty):
+            if checkpoints.complete_unchanged(expected, nonempty):
                 print("v3 complete replay already verified; trace bytes retained unchanged")
                 return 0
         restored = checkpoints.recover() if resume else {}
@@ -1140,6 +1151,8 @@ def run(args, conversations, probes) -> int:
                                         "cutoff_kind": probe["cutoff_kind"],
                                         "label_status": probe["label_status"],
                                         "development_repeat": probe.get("development_repeat"),
+                                        "metric_contract": probe.get("metric_contract"),
+                                        "label_review": probe.get("label_review"),
                                         "catalog_expected_answer": probe.get("catalog_expected_answer", probe.get("expected_answer")),
                                         "question": question,
                                         "expected_answer": probe.get("expected_answer"),
@@ -1185,7 +1198,7 @@ def run(args, conversations, probes) -> int:
                         sink.flush()
                         raise
             expected_probes = sum(map(len, probes.values()))
-            complete_corpus = (dict(completed) == EXPECTED and not args.no_maintenance
+            complete_corpus = (dict(completed) == expected and not args.no_maintenance
                                and not args.no_probe_controls and args.limit == 0
                                and args.probe_panel != "immediate"
                                and probe_count == expected_probes)

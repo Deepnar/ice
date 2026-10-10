@@ -1570,6 +1570,101 @@ each refuse reuse with all8 products unchanged; identical resume preserves8 too.
 declared identity/consumer qualification, not per-job semantic coverage or a
 weight/residency/final-launch certificate.
 
+### 2.3d Fresh development replay adapter — grounded2026-10-10
+
+Reuse `scripts/z1/seed_v3.run` and its production preparation, original writer,
+ten-job serial schedule, read-only probes and durable row/trace checkpoints.
+Its old CLI only knows the three original histories; injecting globals or
+calling that CLI with a smaller input would keep the wrong expected-count and
+completion identity. Add keyword-only expected counts, input files and a
+selected-plan receipt to the existing engine. Defaults preserve the old plan;
+the adapter supplies explicit counts, reviewed probes and source provenance.
+Checkpoint identity binds that receipt as well as the existing code/settings/
+writer manifests. Never grant continuation of the old r4 writer store.
+
+`experiments/v3_repair/run_development.py` verifies the sealed preparation
+bundle against current inputs/code/settings before provisioning. Select exactly
+one complete partition history (tuning251 turns/67 keys; validation101/6), with
+separate run directories and owned databases. Preserve reviewed source/cutoff/
+task/answer keys; pass only each question into production preparation. Save
+keys/metric contracts beside the trace as scorer data, never as runtime evidence.
+Validation planning is allowed; its replay remains locked until the qualified
+tuning/freeze protocol is implemented. Do not inspect its outcomes to choose
+knobs. No final B/C or oracle rows enter development replay.
+
+Default command is a no-call plan, writing only immutable private configuration.
+`--run` provisions using the existing marker-checked campaign schema clone and
+launches the selected replay child, with existing artifact-based progress.
+Require the current declared shared E4B/NuExtract/background-NER research
+profile; do not force a different profile silently. Bind adapter/helper/code
+bytes, preparation identity, partition, exact products, settings hash and run
+directory. Reject changed plans before DB/model calls. Repeated identical
+commands resume the original trace/checkpoints; corruption or a trace without
+a checkpoint refuses, preserving evidence. Retain explicit incomplete/degraded
+outcomes and bounded worker policy; no outer blind retry loop. Ctrl+C preserves
+the last committed checkpoint and unfinished tail for the existing recovery.
+
+Isolation controls validate future/unknown/duplicate sources and immutable
+plan/resume/refusal. A short disposable real-SQL path must use the shared replay
+engine, original writer, read-only probes and actual snapshot/restore, with
+provider/model seams controlled. This qualifies the adapter, not local model
+semantics. The maintainer launches the real251-turn development replay manually;
+neither planning nor controlled short runs are a current corpus-quality result.
+
+`audit_development.py` consumes only a completed selected replay plus its
+sealed reviewed keys. Verify expected counts, every question/cutoff/source ID
+and the selected-plan receipt before scoring. Preserve actual task/scope/age
+strata; top5/top10 distinct source rank enters only the admitted lookup cohort.
+All other source coverage remains diagnostic. Export a separate private content
+review packet binding this trace and actual source bodies; required-unit lists
+start pending, never guessed from expected answers. The existing content auditor
+evaluates explicit reviewed units/semantic receipts. Missing source IDs, task
+labels, stage text or independent labels stay visible. A source hit cannot
+become positive semantic support, and pending reviews cannot count as passes.
+Atomic report/packet products resume unchanged; no model/API/DB calls. Retain
+the original trace and do not manufacture a completed summary from partial data.
+
+### 2.3e Bounded tuning-coordinate seal — grounded2026-10-10
+
+Generate cheap read-side coordinates from resolved settings in
+`experiments/v3_repair/tuning_plan.py`: baseline;4k/8k/16k/32k caps;0.75/1.25
+base recent-fraction scaling;0.5/2 candidate limits for BM25/vector/chunks/claims;
+32/64/128 reranker shortlist;30/60/90 RRF;0.5/1.5 per-leg base weights; reranker
+on/off. Omit exact baseline duplicates. One policy coordinate changes per row;
+the budget coordinate sets min/max/fallback consistently, while fraction scaling
+changes the shared base ladder/default only, retaining density/label modifiers.
+Validate the resolved Settings for every row. Field ranges/serving feasibility
+still apply at execution; do not silently expand a small window to hit a cap.
+
+Seal the candidate manifest, reviewed tuning keys and all173 consumer candidates
+with live-effect/cost/verdict still unmeasured. Hash current preparation, helper/
+code and resolved settings. No default changes, DB/model/API calls or writer
+replay. Byte-stable identical planning resumes; changed settings/code/input
+refuses before replacing a product. This is the coordinate/identity portion of
+the tuning instrument, not its executor or a promoted configuration.
+
+**Consumer correction before execution:** `context_budget_min/max` controls the
+retrieval allocation, not the final prompt ledger. A4k allocation becomes1949
+memory tokens on a short controlled question after existing output/question
+reserves; the final ledger still has the routed serving window. Calling that
+a hard4k total-input cap would be wrong. Budget coordinates therefore also
+carry `input_prompt_cap`. `production_parity.build` records that explicit
+research cap on its preamble, and `seed_v3.prepare_with_trace` applies the same
+bounded window (cap + unchanged output reserve) to final assembly. Refuse
+unknown serving windows or infeasible requested caps rather than invent capacity.
+Keep safety margin and current production allocation/reserve policy intact;
+report actual allocation and rendered/accounted prompt cost. Default callers
+with no experimental cap retain their existing behavior. This fixes the new
+instrument's proposed cap, not a demonstrated production-budget defect.
+
+Trust/activation ranges await independent source labels; gate/style thresholds
+await opposing source controls; lifecycle coordinates await the declared aging
+targets/schedule. Keep these stages explicitly pending, not empty successful
+sweeps. Temporal-label effects remain after the frozen baseline. Only baseline
+and at most two surviving candidates per stage receive new cloud answers after
+source guards pass, as §2.3 requires. Static readership and an enumerated grid
+do not prove live deltas, semantic benefit or readiness to launch tuning.
+
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
 **Fixture selection:** two separate complete long histories with ordered originals,
@@ -1910,8 +2005,8 @@ outcomes wait. Original broader/product scopes remain visible, never waived.
 | Prerequisite (7) | **G40 — task labels:** [consumer audit/metric contract](../reviews/2026-10-10-v3-task-metric-consumers.md) is implemented (§2.2b), preserving task/age/error strata and separate rank admission. New final probe/source labels still need qualification. |
 | Prerequisite | **G55 — truthful scoring:** check the repaired semantic funnel on new state, including a present source ID with a missing answer span. |
 | Prerequisite | **G71 — old findings:** the16-entry [applicability register](../reviews/2026-10-10-v3-historical-finding-register.md) is audited; identity/counts re-recorded, invalid historical inferences withdrawn. Independent current role/tier truth and answer utility remain pending under the named development/final owners; no old extractor percentage becomes a v3 result. |
-| Prerequisite | **G72 — current state:** create versioned repaired development prefixes with complete source/row/job identity; the old writer's saved store cannot measure the new writer. |
-| Prerequisite | **G29 — live consumers:** audit the named policy copies and opposing knob effects, including the unread fusion-diversity control in §2.3b; product-only copies stay later. |
+| Prerequisite | **G72 — current state:** selected repaired adapter and actual short SQL recovery controls implemented (§2.3d). Manually create the new251-turn state before corpus qualification; the old writer's saved store cannot measure the new writer. |
+| Prerequisite | **G29 — live consumers:** [all twelve named clusters reconciled](../reviews/2026-10-10-v3-policy-consumers.md), including opposing fusion/window controls; old bookmark/job-key bypass claims were stale. Actual full knob effects remain tuning work; keyword/style limitations and product-only scope remain visible. |
 | Prerequisite | **G27 — background identity/default:** [core consumers/factory query](../reviews/2026-10-10-v3-background-model-consumers.md) audited; §2.3c repairs missing declared model pins in offline identity. Keep E4B/NuExtract research pins, qualify actual replay/freeze identities. Wider unpinned/routed fallback remains unresolved. |
 | Prerequisite | **G65 — scoring reliability:** qualify independent absolute grading against reviewed references before trusting a tuning promotion. Human batches remain parked as directed; diagnostic work may continue without calling its grades qualified. Select/qualify the second final judge before freeze. |
 | Development/tuning (16) | **A9 — entity activation:** trace meaning-preserving queries through actual entity search and source arrival. New NER architecture is conditional on measured bottlenecks, not mandatory here. |
@@ -1950,6 +2045,26 @@ After both final experiments, the35 later items remain outside this repair pass.
 Conditional owners and broader A9/A12/G27/product acceptance can also remain
 open. The number of evidence-led repairs after those results is unknown until
 the results exist. No experiment completion automatically clears the roadmap.
+
+**Operational packages, maintainer continuation2026-10-10:** these package
+counts make execution visible without replacing the29-owner table above.
+Before trusted tuning: **7** — remaining named consumers; fresh repaired
+development state; required-content funnel; current writer/lifecycle quality
+panel; gate/style/long-input/resource controls; bounded resumable tuning
+instrument; independent judge qualification. Six engineering packages can
+continue while the human part of the seventh remains parked. This is not a
+waiver of that scoring gate. An audit receipt completes an audit substep, not
+its parent's semantic acceptance.
+
+After tuning and before semi-LSREP/oracle launch: **7** — B/C through-cutoff
+truth keys; retention/clock/probe schedule; actual additive/leave-one-out
+conditions; independent warm/bare-vector controls; oracle adapter/scorer;
+second independent judge qualification; full orchestration/recovery/cost/freeze
+readiness. Preparation can happen earlier; launch cannot bypass these gates.
+After the runs: **4 known outcome reviews** (full reader, write/read/use,
+supported-answer gains, component utility), plus newly evidenced repairs whose
+number is unknown. The35 later items and broader conditional scopes remain
+outside this pass. Preserve first frozen results before any subsequent repair.
 
 ## 6. Look-ahead and roadmap closure
 

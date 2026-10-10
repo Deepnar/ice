@@ -2480,3 +2480,16 @@ a gitignored model pin. Record a safe model/role/revision allow-list and prove
 each changed pin refuses reuse before writes. Do not dump Settings: it contains
 credentials. Symbolic model IDs and checkpoint paths also do not prove downloaded
 bytes, effective context or semantic quality; those need runtime/freeze checks.
+
+### 113. A retrieval allowance is not a hard total-input cap
+
+**ICE v3,2026-10-10.** A proposed tuning coordinate changed min/max/fallback
+allocation to4000 and called it a4k prompt cap. The real preamble returned1949
+memory tokens after question/output reserves, while final assembly still used
+the larger routed window. Trace both consumers. Experimental total-input caps
+now constrain the preamble and final ledger together, retaining output reserve
+and safety margin; unknown/infeasible windows refuse. Ordinary uncapped callers
+retain their policy. A small-budget fixture also loses its original value from
+the prompt while preserving it in storage: count that as content loss, not a
+successful memory answer. This corrects the new instrument, not evidence that
+production's existing conservative allocation is broken.

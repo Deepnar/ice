@@ -76,6 +76,19 @@ class Preamble:
     timescope_mode: str
     retrieve: bool          # what the B2 gate decided
     p_need_mem: float
+    input_prompt_cap: Optional[int] = None  # Explicit research cap; ordinary callers unchanged.
+
+
+def capped_window(window, prompt_cap=None):
+    """Constrain the actual final ledger, not only a soft retrieval allowance."""
+    if prompt_cap is None:
+        return window
+    if type(prompt_cap) is not int or prompt_cap < 1:
+        raise ValueError("experimental prompt cap must be a positive integer")
+    required = prompt_cap + settings.context_generation_reserve
+    if not window or required > window:
+        raise ValueError("experimental prompt cap exceeds the verified serving window/output reserve")
+    return required
 
 
 def conversation_stats(db, conversation_id) -> tuple:
@@ -85,7 +98,7 @@ def conversation_stats(db, conversation_id) -> tuple:
 
 
 def build(db, question: str, conversation_id, classifier, embedder,
-          stats: Optional[tuple] = None, source_time=None) -> Preamble:
+          stats: Optional[tuple] = None, source_time=None, prompt_cap=None) -> Preamble:
     """Reproduce the chat path's pre-retrieval work, argument for argument.
 
     Mirrors `src/api/main.py` in order: resolve the scope from the conversation
@@ -125,6 +138,7 @@ def build(db, question: str, conversation_id, classifier, embedder,
     raw_window = get_model_context_window(model_name)
     window = (serving_window(model_name, raw_window)
               if settings.context_use_serving_window else raw_window)
+    window = capped_window(window, prompt_cap)
     total_budget = effective_memory_budget(
         derive_total_budget(window, settings), question,
         generation_reserve=settings.context_generation_reserve,
@@ -153,7 +167,8 @@ def build(db, question: str, conversation_id, classifier, embedder,
         turn_count=turn_count, total_tokens=total_tokens,
         total_budget=total_budget, model_name=model_name,
         timescope_mode=tscope.mode,
-        retrieve=decision.retrieve, p_need_mem=decision.p_need_mem)
+        retrieve=decision.retrieve, p_need_mem=decision.p_need_mem,
+        input_prompt_cap=prompt_cap)
 
 
 def retrieve(orchestrator, pre: Preamble):
@@ -208,6 +223,7 @@ def provenance_fields(pre: Preamble, memory=None) -> dict:
         "routed_model": pre.model_name,
         "routing_policy": "controlled_per_prompt_auto_route_without_session_stickiness",
         "total_budget": pre.total_budget,
+        "input_prompt_cap": getattr(pre, "input_prompt_cap", None),
         "b2_retrieve": pre.retrieve,
         "b2_p_need_mem": pre.p_need_mem,
         "classifier_p_ltm": getattr(pre.classification, "p_ltm", None),

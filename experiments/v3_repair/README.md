@@ -2,7 +2,9 @@
 
 This directory implements offline input preparation for the current
 [repair, tuning and Z2 contract](../../docs/specs/V3_POST_RESEED_REPAIR.md).
-It does **not** yet implement the tuning or final experiment runner. The old
+It now includes the selected repaired development replay adapter and offline
+diagnostics/candidate planning. It does **not** yet implement the full tuning
+executor or final experiment runner. The old
 `scripts/z1/run_v3_campaign.py` command runs the earlier development campaign,
 not this final protocol. Long/cloud runs remain manually launched.
 
@@ -77,6 +79,56 @@ The manifest binds source reviews to unchanged corpus/catalog inputs and binds
 production/helper code and all product hashes. Both `replay_ready` and
 `score_ready` remain false. Mutable future review answers belong beside the
 immutable bundle, not inside products overwritten on resume.
+
+## Repaired development replay and audit
+
+The new adapter uses the existing production preparation, original recorded
+writer, post-flight and ten-job schedule, with source/trace checkpoints. It
+selects only the tuning history (251 turns/67 reviewed questions), with a
+separate owned database and progress display. Planning the101-turn/6-question
+validation history is allowed; executing it is reserved until tuning/freeze.
+Its outcomes must not choose knobs. No final B/C history enters this replay.
+
+From the repository root, first plan without calls:
+
+```bash
+uv run --no-sync python experiments/v3_repair/run_development.py --inputs logs/v3-offline-input-plan-2026-10-10-r4 --run-dir logs/v3-repaired-dev-tuning-2026-10-10-r1
+```
+
+Add `--run` to execute when manually ready. Rerun the identical command with
+`--run` after Ctrl+C or an interruption; the adapter automatically resumes its
+owned trace/checkpoint. Completed unchanged replay preserves trace bytes. It
+records degradation and pauses on persistent faults without an outer blind
+retry loop. Do not delete its directory/database, change its inputs/settings or
+reuse the old r4 writer state. Details go to `development.log`, with the same
+artifact-based progress display. No cloud answers/judgments are made here.
+The adapter pins installed writer manifests at execution; offline plans do not
+certify installed bytes, runtime capacity or memory quality.
+
+After complete replay, produce separate offline diagnostics and a pending
+content-review template:
+
+```bash
+uv run --no-sync python experiments/v3_repair/audit_development.py --run-dir logs/v3-repaired-dev-tuning-2026-10-10-r1 --out logs/v3-repaired-dev-audit-2026-10-10-r1
+```
+
+The report retains actual source/task identity, separate lookup ranks and other
+source-coverage diagnostics. Blank required-unit/semantic reviews remain pending;
+correct source IDs cannot earn content or answer grades. Copy the review template
+to a separate mutable review file, fill exact original role/hash/offset units and
+through-cutoff reasons, then use the existing `scripts/z1/evidence_content.py`
+auditor. Never edit the sealed template or guess units from answer-text overlap.
+
+The bounded cheap read-side candidate seal is also offline:
+
+```bash
+uv run --no-sync python experiments/v3_repair/tuning_plan.py --inputs logs/v3-offline-input-plan-2026-10-10-r4 --out logs/v3-bounded-tuning-plan-2026-10-10-r1
+```
+
+Candidates have no measured delta/cost/verdict. The source-truth, gate/style and
+aging-dependent stages remain explicitly blocked; this is not a tuning launcher
+or promotion. Identical plans/reports verify/resume byte-stably; changed bytes
+refuse before replacement. Use a new directory for each new revision.
 
 ## Tuning and final readiness still to earn
 

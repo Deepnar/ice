@@ -332,6 +332,21 @@ preparation, not a repaired replay store, tuning or final campaign. Full aging,
 condition-path/recovery controls and final runner remain readiness work in
 [the current contract](specs/V3_POST_RESEED_REPAIR.md).
 
+**Selected repaired development adapter,2026-10-10:**
+`experiments/v3_repair/run_development.py` reuses the sequential engine with
+explicit expected counts/inputs/selected-plan identity. One whole tuning history
+has251 turns/67 keys; validation101/6 is planned separately and execution-locked
+until qualified tuning/freeze. Marker-checked isolated schema provisioning,
+installed writer digests, read-only four-arm observers and artifact-based progress
+remain shared with the existing harness. Identical manual commands resume; no
+old writer store is upgraded in place. This is not the final runner or a new
+quality result. `audit_development.py` checks complete trace/key identity and
+reports admitted lookup ranks separately from other task coverage; it exports
+pending required-content reviews, never positive semantic grades from IDs.
+`tuning_plan.py` seals bounded read-side coordinates and a consumer ledger;
+live deltas/costs remain unmeasured, source-dependent stages pending, and the
+full resumable tuning executor remains to implement.
+
 ## **2. Classification Engine**
 
 The classification engine produces, for each user turn, a set of **topic tags**, a set of **intent tags**, and — since B1 (2026-07-25) — **four independent context-reliance signals** from which the legacy single context-reliance string is *derived*. These outputs drive every downstream decision — which retrieval legs are weighted, how the token budget is split, whether the wide-net fallback fires, and which model the MoE router selects. The engine is a **single** small PyTorch head over a frozen embedding, resolving every turn with sub-millisecond CPU inference. It was a two-stage cascade until D8 (2026-07-27) deleted the rule-based pre-classifier (DI3): measured against the promoted v2 head on the 9,441 held-out rows it would have intercepted, DI3 lost every slice on every metric, so keeping it meant two disagreeing classifiers where the worse one won by running first (§2.2).

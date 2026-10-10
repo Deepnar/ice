@@ -122,12 +122,15 @@ def run_identity(meta: dict, args, settings) -> dict:
     configuration = json.dumps(settings.model_dump(mode="json"), sort_keys=True, default=str)
     arguments = {k: v for k, v in vars(args).items()
                  if k not in {"resume", "check", "out", "checkpoint_dir"}}
-    return {"format": "ice-v3-replay-recovery-1", "database": snapshot.DB,
+    identity = {"format": "ice-v3-replay-recovery-1", "database": snapshot.DB,
             "code_sha256": code_digest(), "arguments": arguments,
             "settings_sha256": hashlib.sha256(configuration.encode()).hexdigest(),
             "inputs": meta["inputs"], "models": meta["extra"]["resolved_background_model"],
             "writer_model_digests": meta["extra"].get("writer_model_digests"),
             "plan": meta["extra"]["planned_probes"], "tables": snapshot.TABLES}
+    if meta["extra"].get("selected_replay_plan") is not None:
+        identity["selected_replay_plan"] = meta["extra"]["selected_replay_plan"]
+    return identity
 
 
 class Checkpoints:

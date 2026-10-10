@@ -157,8 +157,10 @@ Current **v3** work uses the completed diagnostic reseed to repair memory
 mechanisms before bounded tuning. Final preparation reserves both original
 paper histories B and C for separate semi-LSREP runs with the same complete
 ablations, lifecycle and warm/bare-vector controls, plus LongMemEval oracle.
-The [offline input planner](experiments/v3_repair/README.md) freezes sources and
-scorer keys; final source review, tuning and the resumable final runner remain.
+The [development preparation guide](experiments/v3_repair/README.md) covers
+frozen source/scorer keys, selected resumable repaired replay, source/task audits
+and bounded tuning-coordinate planning. Independent quality qualification,
+the full tuning executor and the resumable final runner remain.
 These preparations are not a new memory-quality result or a full LME-S campaign.
 
 ## Repository layout
