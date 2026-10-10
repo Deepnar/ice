@@ -274,7 +274,9 @@ class Settings(BaseSettings):
     # can say "there is nothing here".
     retrieval_set_floor_enabled: bool = False
     retrieval_set_floor: float = 0.25
-    # A10's leg-diversity guarantee. Default ON = unchanged behaviour; it is a
+    # A10's fusion-fallback family-diversity strategy (guarantee + fair filling).
+    # OFF fills by fused score; successful reranking always owns its order.
+    # Default ON = unchanged behaviour; it is a
     # DESIGNED answer to measured leg under-representation, so it is retired
     # only against a number, and with the user.
     retrieval_leg_guarantee_enabled: bool = True

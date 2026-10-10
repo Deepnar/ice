@@ -2443,3 +2443,15 @@ Likewise, matching legacy history IDs/counts cannot prove identical original
 bytes: archived curation may extend past the paper endpoint, disagree inside
 it, or cover only prefixes. Freeze selected bytes, retain both artifacts and
 report disagreements/missing coverage before using historical references.
+
+### 110. Wiring one phase can leave the whole control ineffective
+
+**ICE v3,2026-10-10.** The fallback-diversity flag had no reader; opposing
+actual budget calls produced identical selected evidence. A proposed guard
+around best-per-family Phase1 alone would still leave Phase2's equivalent first
+fair round, so an AST read could falsely look like a working control. Trace the
+complete strategy and show a real selection delta with opposing values. Keep
+default-on output and successful reranker order unchanged; reranking's fused
+scores are not its relevance order. A reachable fallback control can still be
+unexercised on a corpus that always reranks successfully. Report that explicitly
+instead of claiming a universal effect or answer gain.

@@ -1450,6 +1450,42 @@ integer labels. This step does not create a repaired database, approve final
 source labels, tune settings, schedule aging, or launch an experiment. See
 [the offline preparation guide](../../experiments/v3_repair/README.md).
 
+### 2.3b A reachable fusion-diversity control — grounded decision,2026-10-10
+
+`retrieval_leg_guarantee_enabled=True` is a known unread declaration, not a
+new roadmap issue. Actual opposing100-token budget calls select the same
+episodic/Codex pair with the setting true and false. Merely guarding Phase1 is
+insufficient: Phase2 starts by visiting the same best-per-family candidates.
+An apparent wired switch could still have no decision effect.
+
+Wire the existing setting to the complete **fusion-fallback family-diversity
+strategy**, including best-per-family admission and round-robin-with-slack.
+Default true preserves the current strategy. False uses global descending fused
+score and the same admission/representation/source-redundancy/session/cap guards.
+Successful reranking always retains the caller's relevance order, independent
+of this flag; do not sort reranked candidates by their old fused scores.
+Both main and wide-net retrieval reach this existing budget seam. Log the actual
+selection mode (reranked relevance, fusion relevance, fusion family diversity)
+with the existing token/leg-share receipt, without source text.
+
+Verify a tight opposing budget changes selected families with the flag off,
+while default-on output and successful-rerank order remain unchanged. Exercise
+actual main/wide-net retrieve callers with controlled leg/scorer boundaries,
+and preserve oversize-alternative, duplicate-source and admitted-conversation
+caps in both modes. This establishes a usable control, not that disabling
+diversity improves answers. A corpus with successful reranking throughout can
+legitimately yield no flag effect; mark that fallback policy unexercised there.
+No new model, default change, diversity retirement or old-r4 rewrite. New
+production code identity requires a fresh preparation/development revision.
+
+**Implemented2026-10-10:** ten new budget/main/wide controls are included in
+55 passing focused controls; completed disposable smoke/background rails944/944
+pass, plus18 controlled cloud-adapter checks. The actual opposing100-token call
+now changes the off-mode selection while retaining on-mode output. Source-fetch/
+scorer boundaries are controlled in caller tests; SQL/model semantics and answer
+gain are not credited. Selection-mode receipts are observable. Remaining named
+policy consumers and corpus effect qualification keep the parent audit open.
+
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
 **Fixture selection:** two separate complete long histories with ordered originals,

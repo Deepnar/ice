@@ -1070,6 +1070,16 @@ After RRF, the pipeline runs five sequential transforms:
 
 21. **`_enforce_token_budget`** (A10, fusion fallback): two-phase packing against self.max_retrieval_tokens. Phase 1 — **leg-diversity guarantee**: the highest-scoring fragment of each leg (best_per_leg[source_type]) is added first, sorted by score, while it fits. Phase 2 — **round-robin-with-slack across legs** (replaces the old flat greedy fill): each round every leg contributes its next-best fragment (highest-scoring leg first), so a fragment-rich leg (episodic emits dozens) no longer soaks the entire remainder while codex/procedural emit few — yet when other legs are sparse, exhausted legs drop out and their share flows to the rest, so the budget still fills fully. This works with the A10 codex change below (the codex leg now emits *multiple* fragments — one per anchor entity — so it has more than one fragment to contribute per round, fixing its structural under-representation).
 
+**V3 control correction,2026-10-10:** the existing
+`retrieval_leg_guarantee_enabled` flag now controls both fallback phases above;
+its previous false value had no effect. Default true retains the current
+strategy. False fills by descending fused score through the same admission,
+representation, source-deduplication and session/cap guards. Successful reranking
+keeps its relevance order with either value, never re-sorts by fused scores.
+Main and wide-net callers share this seam; the token/leg-share log reports
+`fusion_family_diversity`, `fusion_relevance` or `reranked_relevance`. This makes
+the control testable without a default/policy retirement or measured answer win.
+
 22. **`_strengthen_retrieved`**: for each episodic fragment, access_count += 1 and decay_score = min(1.0, decay_score + 0.15) — retrieval acts as a partial reversal of decay.
 
 ### **6.6 Cluster-scoped retrieval**

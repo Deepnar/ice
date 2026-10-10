@@ -482,6 +482,12 @@ owns the deletion. Same reasoning kept `retrieval_leg_guarantee_enabled`
 defaulting **on**: A10 designed that guarantee against measured leg
 under-representation, so it is retired against a number and with the user.
 
+**V3 reachability correction,2026-10-10:** keep that default-on policy and its
+setting. The former unread setting now selects the complete fallback diversity
+strategy versus fused-score filling; successful reranking and source/cap guards
+are unchanged. Opposing main/wide controls verify real effects. No diversity
+retirement, code deletion or new model follows from wiring this control.
+
 **Trap 6, disarmed in `tests/test_documents.py`.** Its cleanup selected the
 suite's rows via a hardcoded FILENAME allow-list, so every new fixture leaked
 until someone noticed — and three document conversations had. It now snapshots

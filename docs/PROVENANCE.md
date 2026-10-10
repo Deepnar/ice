@@ -1,3 +1,43 @@
+## 2026-10-10 — v3 fusion-diversity consumer reachability
+
+The already documented unread `retrieval_leg_guarantee_enabled` is reproduced
+through the actual budget method: true/false both select one episodic plus one
+Codex fragment under the same100-token cap. Guarding only Phase1 would also
+leave the equivalent first round of Phase2's family fairness. The existing flag
+now controls the whole fusion-fallback diversity strategy. False fills by
+descending fused score through unchanged representation/source-redundancy/
+session/cap guards; true retains the existing behavior. Successful reranking
+retains its own relevance order with either flag. Effective selection mode is
+reported beside the existing leg-share/token receipt.
+
+The repaired opposing control keeps100 tokens in each mode but changes the
+false selection to two episodic candidates. This is reachability, not evidence
+for disabling diversity or improving answers. A corpus where all reranking
+succeeds can legitimately leave this fallback strategy unexercised. Default
+true, source truth policy and model roster are unchanged.
+
+Ten new helper/main/wide caller controls are included in55/55 focused controls
+(7.28s,two existing warnings). Source-fetch/scorer boundaries are controlled;
+real fusion, deduplication, caller routing and admission/budget logic participate.
+Successful-rerank order, oversize alternatives, source deduplication and admitted
+conversation caps are preserved. No SQL visibility/model semantics is credited
+to those controlled source-fetch tests. Complete disposable smoke/background
+rails944/944 pass45.87s with327 existing warnings; cloud-adapter rails18/18
+pass0.21s with controlled provider responses. These overlap the55 focused
+controls and do not establish memory quality. A first broad test invocation
+used nonexistent test filenames and ran zero tests; its failed log is retained,
+then the paths were corrected from the file inventory. No fallback to the normal
+database occurred; both disposable databases were removed.
+
+Private baseline/repaired JSON and focused/smoke/background/cloud logs live in
+logs/v3-pre-tuning-readiness-2026-10-10/. A fresh offline input plan is
+logs/v3-offline-input-plan-2026-10-10-r1, identity
+4839672fc6d7d2af2d835c7d4b1a102fb44e9aaed0331bf6be4f679d382646a4.
+Its173 static candidates now have only the deliberately retired procedural
+threshold without a reader; static verdicts remain unmeasured. The earlier
+Oct09 plan and immutable r4 remain unchanged. New writer identity requires fresh
+development state; no old-manifest override or new long/cloud campaign.
+
 ## 2026-10-09 — v3 offline B/C input and tuning preparation
 
 The current semi-LSREP fixture decision selects both original paper histories

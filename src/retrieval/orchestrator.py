@@ -3233,10 +3233,18 @@ class HybridRetrievalOrchestrator:
             total += fitted.token_count - sum(claim.token_count for claim in redundant)
             return True
 
-        if relevance_order:
-            for f in fragments:
+        # Successful reranking owns its order. With the fallback diversity
+        # strategy explicitly off, fill by fused score through the same guards.
+        # Guarding only Phase 1 would leave Phase 2's first fair round intact
+        # and make the control ineffective.
+        if relevance_order or not settings.retrieval_leg_guarantee_enabled:
+            ordered = (fragments if relevance_order else
+                       sorted(fragments, key=lambda f: f.score, reverse=True))
+            for f in ordered:
                 admit(f)
-            self._log_leg_budget_share(result, total, max_tokens)
+            self._log_leg_budget_share(
+                result, total, max_tokens,
+                selection_mode="reranked_relevance" if relevance_order else "fusion_relevance")
             return result
 
         used = set()
@@ -3267,10 +3275,11 @@ class HybridRetrievalOrchestrator:
                     active.remove(leg)
             # Every queue advances even if nothing fits this round. A later
             # smaller excerpt can still fit; do not stop at an oversized head.
-        self._log_leg_budget_share(result, total, max_tokens)
+        self._log_leg_budget_share(result, total, max_tokens,
+                                   selection_mode="fusion_family_diversity")
         return result
 
-    def _log_leg_budget_share(self, fragments, total, max_tokens):
+    def _log_leg_budget_share(self, fragments, total, max_tokens, *, selection_mode=None):
         """G35: report what share of the window each leg actually took.
 
         The entry's look-ahead asks for this by name, and the reason is that the
@@ -3291,6 +3300,7 @@ class HybridRetrievalOrchestrator:
                 per_leg[f.source_type] = per_leg.get(f.source_type, 0) + f.token_count
             logger.info(
                 "leg_budget_share",
+                selection_mode=selection_mode,
                 total_tokens=total,
                 max_tokens=max_tokens,
                 utilisation=round(total / max_tokens, 3) if max_tokens else None,
