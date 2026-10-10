@@ -31,6 +31,36 @@ conversation argument is supplied; its global degraded count remains5. Use the
 five explicit worker events for global source diagnostics, not that scoped empty
 list. This is a field-scope limitation, not evidence that the failures vanished.
 
+Read-only source/tier review confirms all4060 claim spans and sentence hashes
+still match their originals; all1356 edges have links and all1392 links carry
+supported internal NLI/author receipts. Observed confidence tiers are1161 at
+0.35,36 at0.7 and159 at0.9. A deterministic packet selects four hashed edge IDs
+per tier and one additional negated edge:13 propositions, including two from
+the same source. Session source review labels8 supported,4 uncertain and one
+unsupported. This is a small stratified diagnostic, not independent human
+precision or population accuracy; supplied drafts and unclear nominal predicates
+remain uncertain. Assistant assertions are not externally verified user facts.
+
+The unsupported high-tier edge reverses application roles: a person applies for
+a team, but the edge makes the team the applicant and its organisation the
+target. Its NLI entailment is0.989514; its author-check explanation correctly
+describes the person yet approves the different candidate. Original evidence
+is preserved, but internal support and NER confidence do not calibrate graph
+truth. Repair candidate-argument consistency before lowering trust thresholds.
+The [narrow argument replacement](../specs/V3_POST_RESEED_REPAIR.md#21w-exact-graph-arguments--completed-development-source-review2026-10-10)
+now passes42/42 focused native decisions and two native writer checks with6
+supported/6 withheld proposals, preserved sources and repeat idempotency.
+One candidate revision resolved an established-story regression; no new model,
+NLI threshold or graph trust floor. Extraction/encoder/NLI are controlled in
+the writer checks, so their precision remains unqualified. The maintainer
+approved patch is applied to new writes. A further actual production E4B writer
+check admits three correct actor/negative proposals, withholds three opposing
+proposals, retains all three source claims and complete reader evidence, and
+does not repeat the writer on retry. Final disposable portable regression passes
+1121 smoke/dynamics checks376.21s/346 warnings; all test stores are removed.
+Private packet/labels/receipt remain under the audit directory, and the
+frozen candidate/model/writer artifacts under `logs/v3-argument-review-2026-10-10-r2/`.
+
 ## Reader evidence and remaining losses
 
 Only5 occurrences enter the precise single-source lookup rank cohort. Full

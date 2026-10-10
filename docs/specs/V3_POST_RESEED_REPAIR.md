@@ -1227,6 +1227,62 @@ Validate the shared verifier and representation path, overlapping corrections,
 role/gap/unit separation, malformed spans, complete-pair bounds and retained
 legacy proofs. Then propagate actual tests and limits before local commit.
 
+### 2.1w Exact graph arguments — completed-development source review,2026-10-10
+
+Read-only review of four hashed IDs per observed confidence tier plus the
+remaining negated edge finds one definite actor error among13 propositions.
+Four draft/nominal-predicate cases remain uncertain, not automatically false.
+All4060 source spans are current and all1392 links have internal support, so
+neither source integrity nor NLI/author agreement establishes directional truth.
+The high-tier failing edge makes a team apply for an organisation when the
+original person applied for the team. E4B's saved reason describes the person
+correctly yet its boolean approves the different candidate; NLI entailment is
+0.989514. This grounds an argument-consistency repair, not a lower trust floor.
+
+Give `AssertionInput` optional explicit subject/relation/object/polarity fields;
+the graph writer supplies all four from each actual proposed relation variant.
+Before inference, require complete typed arguments and exact equality between
+their existing `relation_proposition` and the supplied proposition. Never infer
+arguments by parsing spelling or punctuation. Legacy standalone inputs can
+remain unstructured; the production writer always supplies the explicit tuple.
+The native message carries both complete original/proposition and that tuple.
+
+Keep the existing E4B, NLI, complete-input limits, output reserve, batches and
+source-act policy. Require three typed booleans for subject-role, object-role
+and qualifier/polarity/time agreement, alongside the existing support verdict.
+Only an assertive/source-qualified report plus support and all three matches
+admits the edge; any false match withholds, missing/malformed/uncertain output
+stays unknown. Bind arguments in receipts under `author_assertion_arguments_v3`.
+Proposals/hypotheses still require their qualified status. Established story
+facts retain their preserved source-world scope; no real-world truth is inferred.
+No lexicon, extra model, confidence change or old-edge relabeling.
+
+The first actual native candidate gets40/42 expected decisions: no false
+admissions, but it withholds an established-story positive and the previously
+uncertain modal case. One clarification preserves established-story scope from
+the complete source while still withholding proposed scenarios. Final native
+42/42 expected decisions83.02s;31 reused older authored controls and11 focused
+argument/source controls. This small dependent development set is not independent
+corpus precision.15 candidate checks pass50.73s/21 existing warnings, including
+two native SQL writer/readers:12 controlled proposals,6 admitted/6 withheld,
+sources retained and repeat-call idempotency. Extraction/encoder/NLI are controlled;
+E4B and transaction/readers are actual. Retained source reversal is checked
+functionally, with synthetic actor/negation controls through the writer.
+
+The maintainer-approved exact two-file patch is applied to shared
+`src/memory/assertion_support.py` and the argument constructor in
+`src/workers/codex_extractor.py`. Actual production E4B/SQL writer verification
+admits three supported proposals and withholds three opposing actor/polarity
+proposals, retains three source claims and their reader evidence, and makes no
+new writer call on retry. Extraction/encoder/NLI remain controlled in this test.
+Final disposable smoke/dynamics1121 pass376.21s/346 warnings; stores removed.
+Two failures in the preceding regression were old fake canonicalization responses
+missing the new required flags; the fixture was corrected, never the parser.
+Frozen baseline/profile artifacts and all35 original table fingerprints remain
+unchanged. Exact current-reader transitions are registered separately in§2.3m;
+new writer outcomes require new affected-source development state. Tier
+calibration and independent extractor/graph/answer utility remain open.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36

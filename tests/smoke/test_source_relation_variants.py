@@ -63,7 +63,8 @@ def exercise_variant(monkeypatch, outcome='raw', *, actual=False, real_nli=False
         from src.memory.assertion_support import parse_decisions
         selected = {'raw': [False, True], 'canonical': [True, True], 'none': [False, False]}[outcome]
         return parse_decisions(json.dumps(dict(decisions=[dict(id=i+1, source_act='assertion',
-            supports_candidate=chosen, reason='Synthetic predicate support.')
+            supports_candidate=chosen, reason='Synthetic predicate support.',
+            subject_matches=True, object_matches=True, qualifiers_match=chosen)
             for i, chosen in enumerate(selected)])), 'stop', items)
 
     monkeypatch.setattr(worker, 'review_assertions', reviewer)

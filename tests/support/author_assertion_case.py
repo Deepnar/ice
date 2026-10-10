@@ -46,12 +46,26 @@ class Encoder:
         return np.array([1.] + [0.] * 1023)
 
 
-def exercise_writer(monkeypatch, *, actual=False, receipt_sink=None):
+def exercise_writer(monkeypatch, *, actual=False, receipt_sink=None, argument_only=False,
+                    argument_case=False):
     """Inject proposals and positive NLI to isolate author-authority admission.
 
     Actual mode runs the real local E4B check through the otherwise unchanged
     transaction and readers; it does not qualify NuExtract or NLI accuracy.
     """
+    source, facts = SOURCE, FACTS
+    if argument_case:
+        source = ("Mira applied for the Atlas team in Niko organization.\n\n"
+                  "Niko was hired by Mira.\n\nMira does not use Redis.")
+        facts = [
+            ("Mira applied for the Atlas team in Niko organization.", "mira", "applied_for", "atlas team", False),
+            ("Niko was hired by Mira.", "mira", "hired", "niko", False),
+            ("Mira does not use Redis.", "mira", "uses", "redis", True),
+            ("Mira applied for the Atlas team in Niko organization.", "atlas team", "applied_for", "niko organization", False),
+            ("Niko was hired by Mira.", "niko", "hired", "mira", False),
+            ("Mira does not use Redis.", "mira", "uses", "redis", False),
+        ]
+    expected_claims = len({fact[0] for fact in facts})
     monkeypatch.setattr(settings, "codex_sentence_claims", True)
     monkeypatch.setattr(settings, "codex_assertion_check_enabled", True)
     monkeypatch.setattr(settings, "background_model_mode", "shared")
@@ -64,9 +78,9 @@ def exercise_writer(monkeypatch, *, actual=False, receipt_sink=None):
         verify_relation_pairs(pairs, scorer=lambda rows: [SCORES] * len(rows)))
 
     def extract(_text, *, source_sentences, **_kwargs):
-        source_sentences.extend(f[0] for f in FACTS)
+        source_sentences.extend(f[0] for f in facts)
         return [dict(subject=s, relation=r, object=o, negated=n,
-                     source_sentence=q, confidence=.9) for q, s, r, o, n in FACTS]
+                     source_sentence=q, confidence=.9) for q, s, r, o, n in facts]
 
     monkeypatch.setattr(worker, "extract_triplets", extract)
     calls = []
@@ -74,7 +88,8 @@ def exercise_writer(monkeypatch, *, actual=False, receipt_sink=None):
     def review(items):
         calls.append(items)
         assert len(items) == 6
-        assert all(i.source == SOURCE for i in items)
+        assert all(i.source == source for i in items)
+        assert all(i.subject and i.relation and i.object_name and type(i.negated) is bool for i in items)
         if actual:
             receipts = review_assertions(items)
             if receipt_sink is not None:
@@ -84,9 +99,11 @@ def exercise_writer(monkeypatch, *, actual=False, receipt_sink=None):
         def sender(_body):
             return dict(done=True, done_reason="stop", prompt_eval_count=500,
                 eval_count=200, message=dict(content=json.dumps(dict(decisions=[
-                    dict(id=i + 1, source_act="assertion" if i < 3 else
+                    dict(id=i + 1, source_act="assertion" if i < 3 or argument_only or argument_case else
                          "hypothetical" if i == 5 else "question",
-                         supports_candidate=i < 3, reason="Synthetic boundary control.")
+                         supports_candidate=i < 3 or argument_only, reason="Synthetic boundary control.",
+                         subject_matches=i < 3 if argument_only else True,
+                         object_matches=True, qualifiers_match=True)
                     for i in range(6)]))))
 
         return review_assertions(items, sender=sender)
@@ -95,8 +112,8 @@ def exercise_writer(monkeypatch, *, actual=False, receipt_sink=None):
     batch, cid = uuid.uuid4(), uuid.uuid4()
     with SessionLocal() as db:
         db.add(Conversation(id=cid)); db.flush()
-        db.add(EpisodicMemory(conversation_id=cid, batch_id=batch, raw_text=SOURCE,
-            source_spans=single_provenance(SOURCE, "user"),
+        db.add(EpisodicMemory(conversation_id=cid, batch_id=batch, raw_text=source,
+            source_spans=single_provenance(source, "user"),
             context_reliance="Long_Term_Memory", idempotency_key=f"assertion-{batch}"))
         db.commit()
     try:
@@ -106,7 +123,7 @@ def exercise_writer(monkeypatch, *, actual=False, receipt_sink=None):
         with SessionLocal() as db:
             claims = db.query(CodexClaim).filter_by(source_batch=batch).all()
             edges = db.query(CodexEdge).filter_by(source_batch=batch).all()
-            assert len(claims) == 6
+            assert len(claims) == expected_claims
             assert len(edges) == 3
             assert sum(bool(e.negated) for e in edges) == 1
             assert all(db.get(CodexEntity, e.source_id).canonical_name == "mira" for e in edges)
@@ -122,16 +139,16 @@ def exercise_writer(monkeypatch, *, actual=False, receipt_sink=None):
             reader = HybridRetrievalOrchestrator(db, None)
             fragments = reader._codex_claims("Niko Atlas", None, {"conversation_id": str(cid)})
             assert fragments
-            assert any(SOURCE in f.text for f in fragments)
+            assert any(source in f.text for f in fragments)
             assert db.query(IdempotencyKey).filter_by(key=job_key("codex", batch)).count() == 1
             # Linked graph rendering also retains original paragraph evidence.
-            edge = next(e for e in edges if e.relation == "works_at")
+            edge = next(e for e in edges if e.relation == facts[0][2])
             reader._prime_edge_times([edge])
             line = reader._fact_line(db.get(CodexEntity, edge.source_id), edge,
                                      db.get(CodexEntity, edge.target_id))
-            assert "Mira works at Atlas." in line
-            assert SOURCE in line  # Positive global proof cannot authorize only a paragraph.
-            return dict(claims=6, admitted_relations=3, withheld_relations=3,
+            assert facts[0][0] in line
+            assert source in line  # Positive global proof cannot authorize only a paragraph.
+            return dict(claims=expected_claims, admitted_relations=3, withheld_relations=3,
                         negative_relations=1, repeated_calls=0,
                         full_context_retrievable=True, linked_source_retrievable=True)
     finally:

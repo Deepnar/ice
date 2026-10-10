@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from src.api.config import settings
-from src.memory.assertion_support import AssertionInput, parse_decisions, review_assertions
+from src.memory.assertion_support import AssertionInput, MATCH_FIELDS, parse_decisions, review_assertions
 from src.memory.claims import claim_representation
 from src.memory.source import digest, single_provenance
 
@@ -19,7 +19,8 @@ def response(body, *, finish="stop"):
     return dict(done=True, done_reason=finish, prompt_eval_count=600, eval_count=80,
                 message=dict(content=json.dumps({"decisions": [
                     dict(id=c["id"], source_act="assertion", supports_candidate=True,
-                         reason="Explicit source assertion.") for c in cases]})))
+                         reason="Explicit source assertion.",
+                         **{field: True for field in MATCH_FIELDS}) for c in cases]})))
 
 
 @pytest.mark.parametrize("change", [
@@ -28,7 +29,8 @@ def response(body, *, finish="stop"):
     lambda d: d.update(extra="not part of protocol"),
 ])
 def test_invalid_or_uncertain_decisions_never_admit(change):
-    decision = dict(id=1, source_act="assertion", supports_candidate=True, reason="Explicit.")
+    decision = dict(id=1, source_act="assertion", supports_candidate=True, reason="Explicit.",
+                    **{field: True for field in MATCH_FIELDS})
     change(decision)
     receipt = parse_decisions(json.dumps(dict(decisions=[decision])), "stop", [item()])[0]
     assert receipt["status"] == "unknown"
@@ -36,7 +38,8 @@ def test_invalid_or_uncertain_decisions_never_admit(change):
 
 def test_reordered_complete_ids_preserve_mapping_and_duplicates_abstain():
     decisions = [dict(id=i, source_act="assertion", supports_candidate=i == 1,
-                      reason="Distinct source decision.") for i in (2, 1)]
+                      reason="Distinct source decision.",
+                      **{field: True for field in MATCH_FIELDS}) for i in (2, 1)]
     result = parse_decisions(json.dumps(dict(decisions=decisions)), "stop", [item(), item()])
     assert [r["status"] for r in result] == ["supported", "not_asserted"]
     decisions[0]["id"] = 1
@@ -48,7 +51,8 @@ def test_reordered_complete_ids_preserve_mapping_and_duplicates_abstain():
 @pytest.mark.parametrize("act", ["question", "hypothetical"])
 def test_true_boolean_cannot_override_nonassertive_context(act):
     decision = dict(id=1, source_act=act, supports_candidate=True,
-                    reason="Literal matching is not author commitment.")
+                    reason="Literal matching is not author commitment.",
+                    **{field: True for field in MATCH_FIELDS})
     receipt = parse_decisions(json.dumps(dict(decisions=[decision])), "stop", [item()])[0]
     assert receipt["status"] == "not_asserted"
     assert receipt["model_supports_candidate"] is True
@@ -78,6 +82,55 @@ def test_native_reasoning_keeps_each_complete_source_and_receipt(monkeypatch):
     assert result[0]["source_sha256"] == digest(original)
     assert result[0]["quote_sha256"] == digest(target.quote)
     assert result[0]["usage"]["finish_reason"] == "stop"
+
+
+@pytest.mark.parametrize("field", MATCH_FIELDS)
+def test_each_argument_match_changes_admission_even_with_affirmative_model_support(field):
+    decision = dict(id=1, source_act="assertion", supports_candidate=True, reason="Argument mismatch.",
+                    **{name: True for name in MATCH_FIELDS})
+    decision[field] = False
+    receipt = parse_decisions(json.dumps(dict(decisions=[decision])), "stop", [item()])[0]
+    assert receipt["status"] == "not_asserted" and receipt["model_supports_candidate"] is True
+    assert receipt["argument_matches"][field] is False
+
+
+@pytest.mark.parametrize("fault", ["missing", "integer", "extra", "old_schema"])
+def test_partial_argument_contract_abstains(fault):
+    decision = dict(id=1, source_act="assertion", supports_candidate=True, reason="Incomplete argument check.",
+                    **{name: True for name in MATCH_FIELDS})
+    if fault == "missing": del decision["subject_matches"]
+    elif fault == "integer": decision["object_matches"] = 1
+    elif fault == "extra": decision["invented_actor"] = "different subject"
+    else:
+        for name in MATCH_FIELDS: del decision[name]
+    receipt = parse_decisions(json.dumps(dict(decisions=[decision])), "stop", [item()])[0]
+    assert receipt["status"] == "unknown"
+
+
+@pytest.mark.parametrize("fault", ["actor", "object", "polarity", "partial"])
+def test_arguments_cannot_disagree_with_the_verbalized_candidate(monkeypatch, fault):
+    monkeypatch.setattr(settings, "background_model_mode", "shared")
+    target = replace(item(), subject="Mira", relation="works_at", object_name="Atlas", negated=False)
+    if fault == "actor": target = replace(target, subject="Niko")
+    elif fault == "object": target = replace(target, object_name="Nimbus")
+    elif fault == "polarity": target = replace(target, negated=True)
+    else: target = replace(target, relation=None)
+    receipt = review_assertions([target], sender=lambda _: pytest.fail("invalid tuple reached provider"))[0]
+    assert receipt["reason"] == "invalid_source_input" and receipt["status"] == "unknown"
+
+
+def test_exact_arguments_reach_the_native_request_and_bound_receipt(monkeypatch):
+    monkeypatch.setattr(settings, "background_model_mode", "shared")
+    target = replace(item(), subject="Mira", relation="works_at", object_name="Atlas", negated=False)
+    calls = []
+    def sender(body):
+        calls.append(body)
+        return response(body)
+    receipt = review_assertions([target], sender=sender)[0]
+    arguments = dict(subject="Mira", relation="works_at", object="Atlas", negated=False)
+    assert json.loads(calls[0]["messages"][1]["content"])[0]["candidate_arguments"] == arguments
+    assert receipt["arguments_sha256"] == digest(json.dumps(arguments, sort_keys=True))
+    assert receipt["status"] == "supported" and receipt["method"] == "author_assertion_arguments_v3"
 
 
 def test_source_bounds_unknown_finish_and_outages_do_not_create_support(monkeypatch):

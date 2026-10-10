@@ -17,6 +17,7 @@ if __name__ == '__main__':
         raise SystemExit('Run through tests/support/disposable_database.py.')
     parser = argparse.ArgumentParser()
     parser.add_argument('--receipts', type=Path)
+    parser.add_argument('--argument-case', action='store_true', help='Opposing actor/direction/polarity source fixture.')
     args = parser.parse_args()
 
     def sink(receipts):
@@ -24,4 +25,5 @@ if __name__ == '__main__':
             args.receipts.write_text(json.dumps(receipts, indent=2) + '\n')
 
     with pytest.MonkeyPatch.context() as patches:
-        print(json.dumps(exercise_writer(patches, actual=True, receipt_sink=sink), indent=2))
+        print(json.dumps(exercise_writer(patches, actual=True, receipt_sink=sink,
+                                        argument_case=args.argument_case), indent=2))

@@ -2096,10 +2096,18 @@ policy identities, decision and usage. Withheld/unknown decisions remain on the
 claim and warn; all resolved claims render their complete author-unit premise; complete original coverage
 and the extraction completion key may commit without admitting the relation.
 Cooperative yields propagate. Existing links are not relabeled or automatically
-replayed. The current author_assertion_v2 native schema requires typed fields,
+replayed. The current author_assertion_arguments_v3 native schema requires typed fields,
 known IDs and exact batch length; strict parsing still rejects duplicates and
 incomplete output. Ordinary formatting/same-meaning paraphrases do not determine
 support; meaning-changing case, tense, modality, direction and polarity do.
+The writer supplies the exact subject/predicate/object/polarity tuple alongside
+the verbalized proposition. Mismatched/partial tuples abstain before inference;
+subject-role, object-role and qualifier booleans must all agree alongside the
+author's affirmative support. Versioned argument hashes and returned flags remain
+in the receipts. A source saying a person applied for a team cannot authorize a
+candidate making the team the applicant. Focused native42/42 controls and two
+isolated actual E4B writer paths qualify this mechanism, with controlled
+extraction/encoder/NLI; independent tier/extractor and answer utility remain open.
 
 Extraction keeps the mechanically normalized positive source predicate before
 vocabulary matching. When it differs from the canonical candidate, the writer

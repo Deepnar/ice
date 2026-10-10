@@ -2535,3 +2535,22 @@ summary completeness. Larger unions stay unknown. Preserve exact old supported
 proofs under their unchanged contract rather than treating every policy version
 change as permission to erase useful compression. Frozen artifact/code bindings
 must be preserved before edits, not repaired by silently replacing hashes.
+
+### 116. A correct source explanation can approve the wrong graph arguments
+
+**ICE v3,2026-10-10.** In the completed development store, a0.9-confidence
+edge makes a team apply for its organisation, while the person actually applied
+for the team. NLI entailment0.989514 and an affirmative author verdict both
+accept it. The author's reason accurately describes the person's action but
+never validates the different candidate actor. Source spans and all internal
+proofs can be intact while a direction is wrong. Supply the exact candidate
+tuple; require typed subject/object/qualifier agreement as real admission gates,
+not more explanatory prose. False/missing checks withhold without losing the
+source. Test passive/style counterparts and the same decision through the actual
+writer.42 focused native controls and one production opposing-argument writer
+pass; this does not establish population precision or justify lowering trust.
+
+The first argument candidate also rejected an established-story fact by treating
+its preserved source-world scope as a missing qualifier. Keep adopted narrative
+and proposed scenario distinct; one bounded clarification restored the positive
+without admitting hypothetical outcomes. Preserve both candidate versions.

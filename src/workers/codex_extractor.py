@@ -2206,7 +2206,8 @@ def extract_codex(batch_id: str, model_used: str = "", priority: bool = False):
                     start, end = triplet["_source_start"], triplet["_source_end"]
                     assertion_inputs.append(AssertionInput(
                         turn.raw_text[start:end], claim.role, claim.sentence,
-                        proposition, start, end))
+                        proposition, start, end, subject=s, relation=relation,
+                        object_name=o, negated=bool(triplet.get("negated", False))))
                 candidates.append((triplet, s, relation, o, matched_claims, pair_indices))
 
         verdicts = verify_relation_pairs(support_pairs)

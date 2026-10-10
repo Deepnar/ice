@@ -1,3 +1,49 @@
+## 2026-10-10 — v3 graph argument consistency after source review
+
+Read-only review of the completed251-turn development store verifies4060 current
+source spans,1356 linked edges and1392 internally supported links. Confidence
+tiers contain1161 edges at0.35,36 at0.7 and159 at0.9. Four hashed IDs per tier
+plus one remaining negation produce13 diagnostic propositions: session source
+review8 supported,4 uncertain and1 unsupported. Two share a draft source; this
+is neither independent human precision nor a population sample. A definite
+high-tier actor reversal survives NLI entailment0.989514 and an author reason
+describing the correct source actors. [Findings and limits](reviews/2026-10-10-v3-repaired-development-audit.md).
+
+The approved two-file production repair passes exact subject/relation/object/
+polarity from the graph writer to existing E4B, requires typed subject/object/
+qualifier agreement in addition to source assertion/support, and binds its
+receipt as `author_assertion_arguments_v3`. Missing/malformed outputs stay
+unknown; negative agreement withholds the proposed edge while source evidence
+remains available. No extra model, NLI threshold/trust-floor change, migration,
+old-edge rewrite or baseline reset. [Decision](specs/V3_POST_RESEED_REPAIR.md#21w-exact-graph-arguments--completed-development-source-review2026-10-10).
+
+The first private candidate gets40/42 expected decisions, with no false admission
+but an established-story regression and a modal uncertainty. One source-scope
+clarification yields42/42 in83.02s. These are31 reused authored controls and11
+focused source/argument controls, not independent corpus accuracy.15 candidate
+controls pass50.73s/21 warnings, including two actual E4B/SQL writer/readers:
+12 proposals,6 admitted and6 withheld, preserved original claims and retry
+idempotency. Extraction/encoder/NLI are controlled. The exact approved source
+patch then passes an actual production E4B/SQL writer check:3 admitted,3 opposing
+actor/polarity proposals withheld,3 source claims retained and no retry call.
+
+Final production regression passes1121 smoke/dynamics controls376.21s/346
+warnings, all disposable stores removed. Earlier2failed/1118passed402.61s exposed
+old fake relation responses missing required argument flags; only the fixture
+was corrected. Three variant checks then pass16.18s. Earlier67 focused controls
+pass91.34s/22 warnings; these overlap the final suite. Full native/provider/
+fixture/candidate/failure logs remain private in
+`logs/v3-argument-review-2026-10-10-r2/`, with the earlier candidate retained inr1.
+Unused large Qwen was unloaded with maintainer approval; existing E4B was used.
+
+Read-only preservation again matches all35 complete-table fingerprints and
+both original-r4 and completed-development trace hashes.172/175 producer files
+remain unchanged; the other three are exactly approved summary/argument changes.
+The first graph packet erroneously compared native raw sentence hashes with
+JSON identity hashes; corrected native hashing verifies4060/4060, and both
+packets/scripts are retained. No old proof is regraded, new writer quality
+inferred, validation inspected, cloud request made or whole roadmap owner closed.
+
 ## 2026-10-10 — v3 completed repaired development and exact cited-span repair
 
 The maintainer completed the selected251-turn/67-probe tuning replay. Existing
