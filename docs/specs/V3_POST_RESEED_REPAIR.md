@@ -2124,6 +2124,65 @@ original to keep seven semantic jobs ineligible; only cold/graph/procedural
 changes are positive effect controls. No model requests or semantic job-quality
 claim. Full source/condition/reader/writer/probe parent integration remains.
 
+### 2.3m Frozen-writer/current-reader adoption — completed-state guard,2026-10-10
+
+The approved exact cited-span repair changes one producer-bound file after the
+251-turn replay completed. The existing collector correctly refuses it. Do not
+erase its175-file guard, update old hashes, reset/reseed that store or call old
+proofs new-writer outcomes. Add an explicit optional research-reader profile.
+Ordinary collection without this profile retains its exact old refusal.
+
+`reader_adoption.py` recognizes only exact approved transitions (both old and
+new SHA256): summary-support plus the author-argument checker and its graph
+constructor, with recovered old bytes from the pre-repair commit and
+the unchanged remainder of producer/coordinate code. New paths, missing files,
+other edits or other registered-file bytes refuse before model load or restore. Bind the
+original complete producer/config/trace, every final/evaluation checkpoint and
+dump/manifest, coordinate seal, original settings/model identity and current
+reader/instrument bytes in a separate immutable manifest. Reconstruct the old
+native code digest from exact verified bytes; require it to match every recovery
+identity. Never replace that original digest with the reader's current digest.
+
+The collector accepts `--reader-adoption` only after recomputing the full profile
+and checking every binding. Its output separately identifies the frozen writer
+and current reader; it is not a writer replay or adoption of new proof outcomes.
+Validate again before prefix restore, including complete-cache reuse. Existing
+native all-table restore/read-only/missing-unit/final-restore behavior is retained.
+The comparator also requires identical adoption profiles, so old/new readers may
+not become a tuning coordinate comparison. A changed profile uses a new output
+bundle. No source text enters the profile or answer request as an oracle.
+
+Original supported v1 proofs remain valid under their exact unchanged contract;
+unknowns are not upgraded. Generated-note composition policy may change fallback
+behavior under the new reader; record that as a reader difference, never a new
+summary-generation result. New-writer quality still requires a separately
+identified affected-source development replay. Final/tuning readiness stays
+false: source/role/tier/maintenance and judge qualification remain unfinished.
+
+Validate registered versus unregistered bytes, missing/added paths, model/settings
+drift, trace/checkpoint/dump drift, partition reservation, altered manifest and
+cache identity, plus the actual isolated SQL prefix path with controlled models.
+Interruption must keep completed units unchanged and restore the original final
+tables. A planning/profile command must make no database/model calls.
+
+Implemented:25 focused controls pass78.48s; final disposable smoke/dynamics1107
+pass414.24s/327 existing warnings, including both ordinary and adopted native
+SQL interruption/restore paths and distinct-reader comparison refusal. Actual
+profile export/reuse is byte-stable; actual collector planning validates67
+pending probes with no model/DB call. No coordinate collection or quality
+promotion occurs. Original completed artifacts remain unchanged.
+
+The initially exported summary-only profile is retained. The later approved
+argument repair adds two exact byte transitions; new current-reader profiles
+must bind all three. Runtime validation also repeats the resolved settings/model/
+owned-database check before restore, rather than relying only on CLI setup.
+Final focused67 controls pass91.34s/22 warnings, combining parser/argument/writer
+and collector/comparison controls. Final post-application disposable regression
+passes1121 smoke/dynamics checks376.21s/346 warnings; earlier1107 checks precede
+the later production/registry revision. Current three-transition profile export
+and identical reuse are byte-stable. Actual collector planning validates67
+pending probes without model/DB calls; no coordinate collection or promotion.
+
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
 **Fixture selection:** two separate complete long histories with ordered originals,

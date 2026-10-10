@@ -44,6 +44,45 @@ JSON identity hashes; corrected native hashing verifies4060/4060, and both
 packets/scripts are retained. No old proof is regraded, new writer quality
 inferred, validation inspected, cloud request made or whole roadmap owner closed.
 
+## 2026-10-10 — v3 frozen-writer/current-reader adoption
+
+The separate [reader-adoption instrument](specs/V3_POST_RESEED_REPAIR.md#23m-frozen-writercurrent-reader-adoption--completed-state-guard2026-10-10)
+accepts only exact approved summary/graph-argument byte transitions while preserving
+the original producer and coordinate seals. It reconstructs the old native code
+digest from verified originals, binds all final/evaluation recovery/dump/manifest
+bytes plus source trace/settings/model identities, and separately seals current
+reader/instrument bytes. Ordinary collection still refuses changed writer code;
+the explicit profile is revalidated before any prefix restore, even complete
+cache reuse. Comparisons require the same reader profile. No old receipts become
+new-writer outcomes, and no writer replay or trust/default change occurs.
+
+25 focused controls pass78.48s/2 existing warnings, including native SQL prefix
+interruption, missing-only continuation, source preservation, completed-cache
+final restore and refusal under both ordinary and adopted profiles. Final
+disposable smoke/dynamics1107 pass414.24s/327 existing warnings; stores removed.
+One extra comparison control rejects different reader profiles. Earlier focused
+1failed/24passed82.08s was a test-root fingerprint default, corrected in the
+fixture; an initial wrapper command wrongly supplied another uv executable to a
+Python-only wrapper and failed before tests, with its disposable store removed.
+Focused checks overlap the broader suite; no new corpus quality score.
+
+Private `logs/v3-reader-adoption-2026-10-10-r1/` retains logs and profile. Actual
+no-call export and identical reuse yield profile
+`eb644d16ea522ec91f024d1e2aa421362eb05c40a7ec2d73a744214b32763e0d`.
+Actual collector planning accepts67 pending probes without model/DB calls.
+No coordinate collection, cloud answer/judge, validation inspection, tuning
+promotion or final launch occurs. Execution/readiness remains explicitly false.
+Later approved changes require their own exact registered transition and new
+profile; this summary-only seal remains immutable. Runtime validation now also
+repeats resolved settings/model/owned-database checks before prefix restore.
+The current three-transition profile is separately exported/reused unchanged in
+`logs/v3-reader-adoption-2026-10-10-r2/profile.json`, identity
+`b9900e94ce1a1b6a803ac238c15535a240f92943fbf68b5cf5cb80fd3fb0bd48`.
+Actual current-profile planning validates67 pending probes without DB/model
+calls. Final integrated smoke/dynamics1121 pass376.21s/346 warnings, after the
+later approved production repair;39 focused reader controls pass72.94s/2
+warnings before that application. No coordinate collection or quality promotion.
+
 ## 2026-10-10 — v3 completed repaired development and exact cited-span repair
 
 The maintainer completed the selected251-turn/67-probe tuning replay. Existing

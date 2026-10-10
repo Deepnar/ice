@@ -5,6 +5,7 @@ and classifier. It does not measure model or writer semantic quality.
 """
 
 import copy
+import hashlib
 import json
 import sys
 import uuid
@@ -118,8 +119,9 @@ def test_current_baseline_normalizes_owned_database_without_accepting_other_drif
     with pytest.raises(ValueError, match="settings differ"): runner.resolved_baseline(config, owned=True)
 
 
+@pytest.mark.parametrize("adopted", [False, True])
 def test_native_prefix_collection_recovers_without_duplicate_units_or_writer_effects(
-        tmp_path, monkeypatch, empty_replay_database):
+        tmp_path, monkeypatch, empty_replay_database, adopted):
     from sqlalchemy import text
     from src.api.db import SessionLocal
     from src.classifier import classifier as classifier_module
@@ -137,15 +139,32 @@ def test_native_prefix_collection_recovers_without_duplicate_units_or_writer_eff
     identity = dict(coordinate=coordinate, source="controlled-native-snapshot-test")
     header = dict(identity=identity, identity_sha256=digest(identity), complete=False,
                   cloud_calls=False, score_of_record=False)
-    write_or_verify(out / "run.json", header)
     config = dict(database=snapshot.DB, identity=dict(expected_turns={"history": 3}))
+    producer_code = recovery.code_digest()
+    if adopted:
+        from experiments.v3_repair import reader_adoption
+
+        monkeypatch.setattr(settings, "context_use_serving_window", False)
+        monkeypatch.setattr(settings, "memory_source_gate_enabled", False)
+        code = [fingerprint(path) for path in recovery.code_files()[1]]
+        for record in code:
+            if record["path"] in reader_adoption.TRANSITIONS:
+                old = reader_adoption.before_bytes(record["path"])
+                record.update(sha256=hashlib.sha256(old).hexdigest(), bytes=len(old))
+        config["identity"].update(partition="tuning", preparation="controlled-inputs", code=code,
+            source_database=snapshot.DB, settings_sha256=digest(settings.model_dump(mode="json")))
+        config["identity_sha256"] = digest(config["identity"])
+        sealed = dict(identity=copy.deepcopy(config["identity"]), identity_sha256=config["identity_sha256"])
+        producer_code = reader_adoption.code_transition((config["identity"], sealed["identity"]))[2]
+        (root / "schema.sql").write_text("Controlled native fixture schema marker.\n")
+        write_or_verify(root / "schema.json", {"fixture": "existing disposable ORM schema"})
     write_or_verify(root / "development-run.json", config)
     now = datetime(2025, 1, 1, tzinfo=timezone.utc)
     meta = dict(inputs=[], extra=dict(resolved_background_model="controlled-writer", writer_model_digests={}))
     trace = root / "seed.jsonl"
     trace.write_text(json.dumps(dict(event="run_meta", meta=meta)) + "\n")
     bound = dict(selected_replay_plan=config["identity"], database=snapshot.DB,
-        code_sha256=recovery.code_digest(), tables=snapshot.TABLES, inputs=[],
+        code_sha256=producer_code, tables=snapshot.TABLES, inputs=[],
         models="controlled-writer", writer_model_digests={})
     checkpoints = recovery.Checkpoints(root / "seed.recovery", trace, bound)
     cid = uuid.uuid4()
@@ -173,6 +192,14 @@ def test_native_prefix_collection_recovers_without_duplicate_units_or_writer_eff
                         checkpoints.capture(sink, state, evaluation_key=f"history-{number}")
         original_rows = snapshot.fingerprints()
     finally: checkpoints.close()
+    if adopted:
+        with trace.open("a") as sink:
+            sink.write(json.dumps(dict(event="complete", table_counts=snapshot.counts(),
+                                       table_sha256=original_rows)) + "\n")
+        profile = reader_adoption.build(root, config, sealed)
+        header["identity"]["reader_adoption"] = profile
+        header["identity_sha256"] = digest(header["identity"])
+    write_or_verify(out / "run.json", header)
 
     encoder = NS(encode=lambda *_a, **_k: [1.0] + [0.0] * (settings.embedding_dim - 1))
     loads = []
@@ -253,6 +280,6 @@ def test_native_prefix_collection_recovers_without_duplicate_units_or_writer_eff
     (directory / "recovery.json").write_text(json.dumps(receipt))
     (out / "units" / (digest("q2") + ".json")).unlink()
     before_loads = len(loads)
-    with pytest.raises(ValueError, match="producer execution"):
+    with pytest.raises(ValueError, match="producer execution|frozen prefix"):
         runner.collect(root, out, header, coordinate, probes, config)
     assert len(loads) == before_loads and snapshot.fingerprints() == original_rows

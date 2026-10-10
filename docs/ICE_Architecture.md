@@ -354,9 +354,20 @@ complete-cache reuse. Short actual SQL/snapshot controls qualify recovery and
 cap propagation with controlled encoder/classifier output; native corpus
 content, answers, grading and promotion remain unqualified. No writer replay,
 new resident model or default policy is introduced by this collector.
+After the approved summary-support and graph-argument changes, ordinary old-code
+collection still refuses. The optional `reader_adoption.py` profile binds only
+the exact three approved old/new file transitions, unchanged remaining
+producer/coordinate code, all original prefix dumps,
+trace/settings/model identity and current reader/instrument bytes. The collector
+revalidates it before restore, even complete-cache reuse, and separately records
+the frozen writer and current reader. It never relabels old proofs as new writer
+outcomes or replays the251 turns. Unknown edits still refuse. No tuning readiness
+or quality result follows from sealing this profile.
 `compare_tuning_contexts.py` validates completed units and aggregate equality,
 matching the producer/code/settings/source/task/control roster before reporting
-local prompt-token, gate and source deltas. Precise ranks remain task-gated.
+local deltas; compared coordinates must also share the same reader-adoption
+profile, preventing a reader revision from masquerading as parameter tuning.
+Precise ranks remain task-gated.
 Optional source-bound exact units reuse the evidence-content auditor, preserving
 source hits with missing values and refusing transfer of content-bound semantic
 grades. Literal survival cannot establish positive support, memory use or answer

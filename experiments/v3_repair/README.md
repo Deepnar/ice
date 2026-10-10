@@ -169,6 +169,25 @@ four-arm traces and marks answer quality unmeasured. No writer replay or cloud
 calls occur here; independent content review and later bounded Luna/Muse calls
 remain required. Validation is still reserved until qualified tuning/freeze.
 
+The completed replay predates the approved cited-span repair. Its ordinary
+collector command intentionally refuses changed code. Preserve that frozen
+writer and seal a separate current-reader profile, with no replay/model/DB call:
+
+```bash
+uv run --no-sync python experiments/v3_repair/reader_adoption.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-reader-adoption-2026-10-10-r2/profile.json
+```
+
+When reader qualification is ready, pass that exact path as `--reader-adoption`
+to each collector coordinate and use new output bundles. Only the exact
+registered summary and graph-argument byte transitions are accepted; any other change, changed prefix/dump,
+settings/model drift or altered profile refuses. Identical sealed exports are
+byte-stable. Existing completed units remain tied to their own reader identity.
+The original writer/proofs never become new-writer outcomes; generated-note
+policy can affect fallback under the current reader. This profile is a recovery
+and identity instrument, not permission to launch tuning or a qualified result.
+The earlier summary-only profile remains an immutable historical artifact and
+cannot be reused after the separately approved graph-argument changes.
+
 Compare a complete baseline collection with one complete candidate offline:
 
 ```bash

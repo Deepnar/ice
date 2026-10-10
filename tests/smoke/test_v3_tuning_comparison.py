@@ -92,7 +92,7 @@ def test_no_unit_labels_remains_unmeasured_and_report_resumes_byte_stably(matche
     assert out.read_bytes() == before
 
 
-@pytest.mark.parametrize("fault", ["body", "aggregate", "roster", "metadata", "producer"])
+@pytest.mark.parametrize("fault", ["body", "aggregate", "roster", "metadata", "producer", "reader"])
 def test_mismatched_or_corrupt_coordinate_refuses_pooled_metrics(matched, fault):
     root, baseline, candidate, _ = matched
     path = candidate / "units" / (digest("q1") + ".json")
@@ -107,7 +107,9 @@ def test_mismatched_or_corrupt_coordinate_refuses_pooled_metrics(matched, fault)
         (candidate / "contexts.json").write_text(json.dumps(aggregate))
     else:
         for filename in ("run.json", "contexts.json"):
-            value = json.loads((candidate / filename).read_text()); value["identity"]["producer"] = "different-writer"
+            value = json.loads((candidate / filename).read_text())
+            if fault == "reader": value["identity"]["reader_adoption"] = {"identity_sha256": "different-reader"}
+            else: value["identity"]["producer"] = "different-writer"
             value["identity_sha256"] = digest(value["identity"])
             if filename == "contexts.json":
                 for unit in value["records"]:

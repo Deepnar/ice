@@ -68,6 +68,7 @@ def compare(root, baseline, candidate, requirements=None):
     next_header, candidates = load_contexts(candidate, probes)
     first, second = base_header["identity"], next_header["identity"]
     if (first["coordinate"]["id"] != "baseline" or any(first[k] != second[k] for k in COMMON)
+            or first.get("reader_adoption") != second.get("reader_adoption")
             or first["producer"] != producer["producer_identity"]
             or first["producer_trace_sha256"] != producer["trace_sha256"]
             or first["probes"] != sorted(probes)):

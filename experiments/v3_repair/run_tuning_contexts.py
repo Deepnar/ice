@@ -73,7 +73,7 @@ def resolved_baseline(config, owned=False):
     return values
 
 
-def setup(root, plan, identifier, out, *, owned=False):
+def setup(root, plan, identifier, out, *, owned=False, reader_adoption=None):
     config = json.loads((root / "development-run.json").read_text())
     if digest(config["identity"]) != config["identity_sha256"]:
         raise ValueError("development plan identity changed")
@@ -81,8 +81,13 @@ def setup(root, plan, identifier, out, *, owned=False):
         raise ValueError("validation outcomes remain reserved until qualified tuning/freeze")
     baseline = resolved_baseline(config, owned)
     seal, coordinate = load_coordinate(plan, identifier)
-    current_code(config["identity"])
-    current_code(seal["identity"])
+    adoption = None
+    if reader_adoption is None:
+        current_code(config["identity"])
+        current_code(seal["identity"])
+    else:
+        from experiments.v3_repair.reader_adoption import validate
+        adoption = validate(json.loads(reader_adoption.read_text()), root, config, seal)
     if (seal["identity"]["preparation"] != config["identity"]["preparation"]
             or seal["identity"]["settings_sha256"] != digest(baseline)):
         raise ValueError("coordinate plan belongs to a different preparation/baseline")
@@ -98,6 +103,8 @@ def setup(root, plan, identifier, out, *, owned=False):
         producer_trace_sha256=report["trace_sha256"], coordinate_seal=seal["identity_sha256"],
         coordinate=coordinate, code=[fingerprint(p) for p in sorted(set(files))],
         probes=sorted(probes), settings_sha256=digest(baseline))
+    if adoption is not None:
+        identity["reader_adoption"] = adoption
     header = dict(identity=identity, identity_sha256=digest(identity),
         score_of_record=False, cloud_calls=False, writer_replayed=False,
         semantic_quality="unqualified", complete=False)
@@ -128,7 +135,7 @@ def pending_groups(out, probes):
     return dict(sorted(groups.items()))
 
 
-def checkpoint_receipt(root, directory, config, *, identity=None):
+def checkpoint_receipt(root, directory, config, *, identity=None, producer_code=None):
     from scripts.z1 import snapshot
     from scripts.z1.replay_checkpoint import code_digest, prefix_digest
     receipt = json.loads((directory / "recovery.json").read_text())
@@ -141,7 +148,7 @@ def checkpoint_receipt(root, directory, config, *, identity=None):
             or prefix_digest(root / "seed.jsonl", size) != receipt["trace_sha256"]
             or bound.get("selected_replay_plan") != config["identity"]
             or bound.get("database") != config["database"]
-            or bound.get("code_sha256") != code_digest()
+            or bound.get("code_sha256") != (producer_code or code_digest())
             or bound.get("tables") != snapshot.TABLES
             or bound.get("inputs") != meta["inputs"]
             or bound.get("models") != meta["extra"]["resolved_background_model"]
@@ -152,21 +159,27 @@ def checkpoint_receipt(root, directory, config, *, identity=None):
 
 
 @contextmanager
-def prefix_state(root, config, groups):
+def prefix_state(root, config, groups, *, adoption=None):
     """Validate before model load; restore final state even with a complete cache."""
     from scripts.z1 import snapshot
+    producer_code = None
+    if adoption is not None:
+        from experiments.v3_repair.reader_adoption import validate_runtime
+        validate_runtime(adoption, root, config)
+        producer_code = adoption["identity"]["producer_native_code_sha256"]
     recovery = root / "seed.recovery"
     name = json.loads((recovery / "current.json").read_text())["generation"]
     if not name.startswith("generation-") or Path(name).name != name:
         raise ValueError("invalid producer recovery generation")
     final = recovery / name
-    receipt = checkpoint_receipt(root, final, config)
+    receipt = checkpoint_receipt(root, final, config, producer_code=producer_code)
     if receipt["generation"] != name or receipt["state"]["completed"] != config["identity"]["expected_turns"]:
         raise ValueError("producer has no complete final recovery state")
     prefixes = {}
     for slug, cutoff in groups:
         directory = recovery / "evaluation" / f"{slug}-{cutoff}"
-        prefix = checkpoint_receipt(root, directory, config, identity=receipt["identity"])
+        prefix = checkpoint_receipt(root, directory, config, identity=receipt["identity"],
+                                    producer_code=producer_code)
         if prefix.get("evaluation_key") != f"{slug}-{cutoff}" or prefix["state"]["completed"].get(slug) != cutoff:
             raise ValueError("wrong as-of prefix checkpoint")
         prefixes[slug, cutoff] = (directory, prefix)
@@ -180,7 +193,7 @@ def prefix_state(root, config, groups):
 
 def collect(root, out, header, coordinate, probes, config):
     groups = pending_groups(out, probes)
-    with prefix_state(root, config, groups) as (snapshot, prefixes):
+    with prefix_state(root, config, groups, adoption=header["identity"].get("reader_adoption")) as (snapshot, prefixes):
         if groups:
             from src.api.config import settings
             from src.api.db import SessionLocal
@@ -235,16 +248,21 @@ def main():
     parser.add_argument("--tuning-plan", required=True, type=Path)
     parser.add_argument("--coordinate", required=True)
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument("--reader-adoption", type=Path,
+                        help="Exact approved current-reader profile over frozen writer state; no replay.")
     parser.add_argument("--run", action="store_true")
     parser.add_argument("--execute-owned", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     root, plan, out = (p.resolve() for p in (args.development_run, args.tuning_plan, args.out))
+    profile = args.reader_adoption.resolve() if args.reader_adoption is not None else None
     if (any(not p.is_relative_to((ROOT / "logs").resolve()) for p in (root, plan, out))
+            or (profile is not None and not profile.is_relative_to((ROOT / "logs").resolve()))
             or out.is_relative_to(root) or out.is_relative_to(plan)):
         raise ValueError("private source/planner and collector output bundles must be separate")
     with (root / ".operator.lock").open("a") as lock:
         if not args.execute_owned: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        config, header, coordinate, probes = setup(root, plan, args.coordinate, out, owned=args.execute_owned)
+        config, header, coordinate, probes = setup(root, plan, args.coordinate, out,
+            owned=args.execute_owned, reader_adoption=profile)
         if not args.run and not args.execute_owned:
             print(json.dumps(dict(version="v3", coordinate=coordinate["id"],
                 pending=sum(map(len, pending_groups(out, probes).values())), probes=len(probes), cloud_calls=False)))
@@ -258,6 +276,8 @@ def main():
         env = database_environment(config, root)
         command = [sys.executable, str(Path(__file__).resolve()), "--development-run", str(root),
             "--tuning-plan", str(plan), "--coordinate", args.coordinate, "--out", str(out), "--execute-owned"]
+        if profile is not None:
+            command += ["--reader-adoption", str(profile)]
         log = out / "collector.log"
         print(f"v3 local coordinate collection; details: {log}", flush=True)
         with log.open("a") as sink:
