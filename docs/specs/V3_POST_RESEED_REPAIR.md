@@ -1283,6 +1283,62 @@ unchanged. Exact current-reader transitions are registered separately in§2.3m;
 new writer outcomes require new affected-source development state. Tier
 calibration and independent extractor/graph/answer utility remain open.
 
+### 2.1x Matching extraction JSON contract — retained failures,2026-10-11
+
+The completed development replay's five failures are reproduced through actual
+unchanged extraction/NER/encoder/native transport on their exact original role
+units. Five immediate nondegraded successor turns are controls:20 units/20 calls,
+159.17s, five assistant-unit failures. Three emit bare tabs inside quoted JSON;
+one has a delimiter error; the fifth omits source_sentence on
+nine of15 otherwise parsed rows. All finish with normal stop, not length. Every
+original table fingerprint remains unchanged. Old provider bodies were not
+captured; this is current reproduction, not retroactive identification of those
+bytes. Full private request/response/exception receipts precede parsing.
+
+The previous exclusion of the generalist array constraint was correct: it does
+not match NuExtract's facts-object envelope. Candidate decision: constrain the
+native decoder to that exact existing envelope, preserving nullable subject/
+relation/object leaves, optional boolean polarity and empty facts arrays. Require
+the source_sentence field as a nonempty string when the existing template asks
+for quotes; an unsupported/unavailable quote still cannot admit an edge. Native
+source alignment, complete JSON parsing, source-only retention and NLI/author
+admission remain unchanged. Do not accept partial JSON, replace original text,
+infer missing facts or erase semantic failures to finish a run.
+
+Use the existing codex_constrain_shape switch. With it disabled retain the
+unconstrained native body; with it enabled add matching format to the raw native
+request. Validate the narrow actual template before HTTP. Version the transport
+policy; keep model/template/instructions/input/output/capacity/ownership otherwise
+unchanged. Correct the extractor's comment to distinguish the mismatched
+generalist array from the matching native envelope. No model or trust setting.
+
+Before production approval: one bounded replay of the ten captured assistant
+requests and the one captured empty-array control, changing only native format.
+Require complete typed outputs on all five failed inputs, preserve the empty
+control, inspect original-quote resolution and keep missing/unsupported evidence
+in the denominator. Then verify isolated malformed/template/null/polarity/length
+controls and the actual extraction path with candidate transport on retained
+sources in a read-only store. Empty outputs or source arrival alone are not
+semantic success. Independent extractor precision remains open. Native evidence
+and the exact patch must be frozen before requesting the required src approval.
+Current three-transition reader profiles and the completed writer remain sealed;
+later adoption needs a new explicit registered identity, never old-hash updates.
+
+Qualification completed before the maintainer's sleep pause:11/11 captured
+requests return complete typed output114.34s. All five healthy controls retain
+identical complete fact arrays, and the empty control remains empty. Eight of293
+proposed quotes do not resolve to the original and remain unsupported; grammar
+is not precision. Fourteen portable factory/template/null/length/polarity controls
+pass0.30s. Two actual extraction/NER/encoder paths complete29.36s:38 relation
+proposals plus44 source sentences, including six source-only nullable rows;
+no graph write or independent semantic judgment. All35 original table identities
+remain unchanged. Candidate/code/request/response/test/patch receipts are frozen
+under private logs/v3-extraction-contract-2026-10-10-r2. The exact two-file patch
+changes the native transport plus its extractor comment; production approval
+has not been requested or granted. Current main still uses the old unconstrained
+native template transport. Resume at that concrete approval, not another model
+search or a rerun of the completed producer.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36

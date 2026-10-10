@@ -2280,6 +2280,14 @@ facts or the completion key can commit. Invalid JSON, fields, missing quotes
 and unsupported proposals keep their strict existing gates. Finish/usage/native
 timings are visible without logging source text in the new events.
 
+Current v3 skips the generalist array constraint in template mode; the native
+template request has no format grammar despite codex_constrain_shape=True.
+The [matching facts-envelope candidate](specs/V3_POST_RESEED_REPAIR.md#21x-matching-extraction-json-contract--retained-failures2026-10-11)
+repairs reproduced serialization/missing-quote-key failures on11 captured
+requests with five unchanged healthy arrays and two actual extraction paths.
+It preserves nullable fields, strict parsing and source gates. Approval is
+pending, so it is not current runtime behavior or independent precision.
+
 Five retained paired source turns complete through the actual writer/encoder/
 NLI transaction, yielding54 exact-source claims and25 internally supported links.
 These controls do not qualify corpus graph precision. Historical r4 remains

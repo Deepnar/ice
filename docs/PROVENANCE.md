@@ -1,3 +1,48 @@
+## 2026-10-11 — v3 retained extraction failures and matching decoder candidate
+
+The [bounded contract diagnosis](specs/V3_POST_RESEED_REPAIR.md#21x-matching-extraction-json-contract--retained-failures2026-10-11)
+uses all five degraded source turns from the completed development replay and
+their immediate healthy successors:20 exact original user/assistant units,
+20 native calls159.17s. Actual unchanged extraction/NER/encoder/transport reproduces
+five assistant failures:three bare tabs in JSON strings,one delimiter error and
+nine missing source_sentence keys in the fifth unit's15 rows. All finish with
+normal stop, not length. Original provider bodies were unavailable; these newly
+captured complete bodies cannot be substituted for the old outputs. Every DB
+transaction is read-only and all35 table fingerprints and trace bytes survive.
+Full private inputs/requests/responses/exceptions/code/pins:
+`logs/v3-extraction-contract-2026-10-10-r1/`.
+
+A single candidate retains the trained facts-object envelope and nullable
+subject/relation/object fields, requires a quoted-source key when requested,
+and adds native JSON format under the existing shape switch. Source alignment,
+strict completion parsing, source-only evidence, NLI/author checks and all caps/
+models remain unchanged. It avoids the earlier mismatched generalist array.
+The official [NuExtract structured/type contract](https://huggingface.co/numind/NuExtract3/blob/main/task_instructions_structured.txt)
+supports nullable leaves and extractive strings; the official
+[Ollama decoder API](https://docs.ollama.com/capabilities/structured-outputs)
+supports a format schema. These sources motivate the candidate, not certify it.
+
+Eleven captured native requests change only format:ten assistant units plus the
+empty-array control.11/11 complete114.34s. All five healthy controls retain
+identical complete fact arrays; the empty control remains empty. Candidate
+outputs contain293 proposals/285 matching quotes/eight unresolved quotes; source
+matching is neither relation truth nor independent precision. Fourteen portable
+factory/template/null/finish/polarity controls pass0.30s. Two actual read-only
+extraction/NER/encoder paths then complete29.36s:38 relation proposals,44 retained
+source sentences including six source-only rows, no graph/author/NLI write-stage
+execution or answer experiment. All35 original table fingerprints remain intact.
+These checks overlap inputs and do not sum to independent accuracy observations.
+
+Immutable candidate, code/request identities, complete native packets, healthy
+parity, actual-path receipts, tests and exact two-file proposal are retained in
+`logs/v3-extraction-contract-2026-10-10-r2/`. The source changes would affect
+native transport and correct its extractor comment. **Approval pending; no
+production change applied.** Current native template generation remains
+unconstrained. Existing reader profiles and writer/checkpoint/proof artifacts
+remain sealed; later adoption requires a new explicitly bound profile. No new
+model/default/trust/cap change, validation inspection, tuning, cloud/final launch,
+push or whole roadmap closure. Work pauses at the maintainer's sleep request.
+
 ## 2026-10-10 — v3 graph argument consistency after source review
 
 Read-only review of the completed251-turn development store verifies4060 current

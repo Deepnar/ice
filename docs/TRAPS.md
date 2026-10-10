@@ -2240,6 +2240,17 @@ rendered task, not merely the user-message prompt shape. Keep all failed attempt
 and strict parsing; historical prompt-specific percentages do not transfer to
 a corrected template or qualify independent graph precision.
 
+**v3 retained-failure continuation,2026-10-11.** A correct structured task still
+does not guarantee a usable response. All five retained degraded role inputs
+reproduce despite normal stop:three emit bare tabs inside JSON strings,one has
+a delimiter error,one omits quote keys. The old generalist array grammar is
+correctly skipped because the specialist emits a facts object. Its matching
+native decoder candidate instead completes11 captured requests, preserves five
+healthy fact arrays and the empty control, and passes two actual extraction
+paths. Eight quotes remain unresolved; syntax is not precision. Keep nullable
+source-only evidence and downstream source gates. Approval remains pending;
+never describe the prepared grammar as already active in default template mode.
+
 ### 94. Original-source coverage and successful generation are different receipts
 
 **v3, 2026-10-08.** A conversation fold could repeatedly exhaust400 output tokens
