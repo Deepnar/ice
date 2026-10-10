@@ -710,21 +710,55 @@ The Clustering worker (workers/clustering.py::run_cluster_assignment, runtime-sc
 
 ### **3.7 Decay and archival mechanics**
 
-Three independent decay workers, all runtime-scheduled every **5 400 s (1.5 h)** ⇒ `decay.cycles_per_day()` = 16 cycles/day, derived from each job's own cadence rather than stored, implement access-weighted decay — each takes a `cycles` parameter so the runtime's ledger-derived catch-up compresses missed runs into one `rate ** cycles` pass (C7 D5).
+Three independent decay workers run every5400seconds (90minutes), with16
+cycles/day derived from each job's own cadence. Numeric workers accept `cycles`
+and apply `rate ** cycles`, but both dispatch and workers cap this at
+`runtime_cycles_cap=96`: one call covers at most six days. Successful replay
+dispatch stamps the endpoint, dropping excess gap cycles from its ledger. This
+is the current v3 policy, not full calendar catch-up. Eligibility and cold moves
+also prevent general equivalence with chronological execution. The offline
+[retention planner and native controls](specs/V3_POST_RESEED_REPAIR.md#23k-retention-targets-exposure-amounts-and-chronological-gaps-2026-10-10)
+prepare final research scheduling without changing the running producer.
 
-**Episodic decay** (workers/decay.py) applies one of three per-cycle multipliers, gated by a 7-day recency cutoff (turns younger than seven days are immune):
+**V3 episodic decay** starts strictly after seven days and reads daily targets:
 
-- `settings.decay_daily_unaccessed` = 0.95/day, applied as 0.95^(1/16) ≈ 0.9968 per cycle — access_count = 0, non-creative. **G9 stores the DAILY target and derives the per-cycle rate**, because the daily figure is the one anyone tunes.
+- `decay_daily_unaccessed=0.95`: non-creative originals with no exposure.
+- `decay_daily_accessed=0.98`: non-creative originals with positive lifetime
+  access count. This is not time since last read; even a zero score increment
+  changes the access class. Read-only observers disable the whole write switch.
+- `decay_daily_creative=0.99`: turns tagged `Creative_&_Media`. The0.3 creative
+  floor prevents aging alone from crossing current archive/cold thresholds.
 
-- `settings.decay_daily_accessed` = 0.98/day ⇒ 0.98^(1/16) ≈ 0.9987 per cycle — access_count \> 0, non-creative.
+Below `decay_archive_threshold=0.1`, warm originals become archived; at or above
+it, they unarchive. Ordinary and temporal readers retain bounded access to
+positive-score warm archived/probation sources, with no current-only0.2 veto.
+Exposure adds `decay_strengthen_amount=0.15` once per distinct selected original,
+up to the normalized ceiling1.0; chat defers credit until final eviction.
+Below `decay_cold_threshold=0.05`, originals move to cold storage with IDs,
+source/representation/clocks/vectors/chunks/cluster lineage preserved by
+transactional upsert and warm removal. Warm numeric aging stops at that move:
+chronological execution records the first crossing's score/time, unlike an
+overshooting endpoint batch. Ordinary and temporal readers search cold sources
+under existing caps; final admitted exposure can restore probation under the
+shared write switch. Bookmarks/permanent and open temporary immunity skip aging.
 
-- CREATIVE_DECAY_RATE = 0.99^(1/16) ≈ 0.9994 (≈1 %/day) — any turn tagged Creative_&_Media.
+**V3 Codex decay** ages only live conversation-edge retention strength at
+`codex_decay_daily=0.99`, floored at `codex_retention_floor=0.1`. It never demotes
+confidence or expires factual validity; those older mechanics are superseded by
+retention/support separation. Unique final exposed edges gain
+`codex_retention_increment=0.15` up to `codex_retention_cap=10`, plus usage
+count/time. Ranking uses bounded strength/cap with
+`codex_retention_rank_weight=0.5`, separately from the source-quality gate and
+recency. Raising the cap reduces the bonus of unchanged existing strengths.
+Reads never create independent corroboration; quiet supported facts remain
+queryable, and popular weak assertions cannot cross the quality gate.
 
-A **creative floor** (`settings.decay_creative_floor`, 0.3) clamps decay_score for creative turns regardless of age or access, protecting long-form narrative from being summarised away. Turns below `settings.decay_archive_threshold` =0.1 become archived. In v3 they remain bounded source candidates for ordinary and temporal memory queries; archival changes storage/lifecycle status rather than declaring the source false (§6.11). **T3 (D11) fixed the archived-freeze bug:** the decay UPDATEs used to filter is_archived = FALSE, freezing every archived row at ~0.1 forever — nothing could ever reach the cold threshold, so cold_storage was empty and unreachable. Archived rows now keep decaying at their access-class rate, and a symmetric **un-archive clause** (run between decay and archive steps) restores any row whose score recovered above 0.1 — which is how a retrieval exposure (+0.15 write-on-read) or a resurrected row earns its way back. Turns that fall below COLD_THRESHOLD = 0.05 are **moved** to the cold_storage table (id preserved; archived_at, raw_text, summary_text, topic_tags, timestamp, and — since T3/D12 — conversation_id, is_private, batch_id) and physically deleted from episodic_memory — an idempotent INSERT … ON CONFLICT (id) DO NOTHING followed by DELETE. Cold storage is no longer retention-only: **ordinary and temporal memory queries search it under a bounded candidate cap** (§6.11), and an injected cold hit is resurrected on probation (D-U1). Bookmarks set decay_immune = TRUE and are exempt from all decay.
-
-**Codex decay** (workers/codex_decay.py) multiplies codex_edges.strength by 0.99^(1/16) for **every live edge (valid_until IS NULL) — pending included (A3)**; previously only active edges decayed, which let a retrieval-reinforced pending edge inflate without ever entering the decay cycle. Active edges are demoted to confidence = 'pending' once strength \< DEMOTION_THRESHOLD = 0.3. Demotion does not set valid_until (the edge remains *true*, just unreinforced). **A3 garbage collection:** pending edges that decay below EXPIRY_THRESHOLD = 0.1 without ever being corroborated or retrieved are expired (valid_until = NOW()), so uncorroborated low-trust residue (e.g. grounding-rejected triplets) leaves the live graph instead of accumulating. Re-asserting a demoted edge reinforces it (strength += 1.0) and re-promotes once strength ≥ 2.0; retrieval reinforcement can also promote (§4.8).
-
-**Procedural decay** (workers/procedural_decay.py) is boolean, not numeric: SET is_active = FALSE WHERE is_active = TRUE AND last_observed \< now() - 180 days AND reinforcement_count \< 3. A pattern that has been promoted (≥3 reinforcements) is permanently protected from time-based decay. Patterns are never hard-deleted.
+**V3 procedural decay** uses absolute ICE-observation age, not multiplicative
+cycles. Active patterns become inactive when `last_observed` is older than
+`procedural_stale_days=180` and `reinforcement_count` is below
+`procedural_min_reinforcement=3`. Independent recurrence at/above that bound
+protects against this time-based retirement. Reads do not refresh observation
+or reinforce a habit; patterns are never hard-deleted.
 
 ### **3.8 Batch summaries**
 

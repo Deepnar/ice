@@ -21,8 +21,9 @@ PENDING = {
     "gates_style": ("ltm_decision_threshold", "ltm_prior_bias", "ltm_length_weight",
         "ltm_pressure_midpoint_tokens", "ltm_pressure_scale_tokens", "confidence_fallback_threshold"),
     "lifecycle": ("decay_daily_unaccessed", "decay_daily_accessed", "decay_daily_creative",
-        "decay_archive_threshold", "decay_cold_threshold", "decay_creative_floor",
-        "codex_decay_daily", "codex_retention_floor", "procedural_stale_days",
+        "decay_archive_threshold", "decay_cold_threshold", "decay_creative_floor", "decay_strengthen_amount",
+        "codex_decay_daily", "codex_retention_floor", "codex_retention_increment",
+        "codex_retention_cap", "codex_retention_rank_weight", "procedural_stale_days",
         "procedural_min_reinforcement", "cluster_similarity_threshold", "cluster_merge_similarity_threshold"),
 }
 FIXED_PROFILE = ("maintenance_intervals", "runtime_cycles_cap", "auto_finetune",
@@ -52,11 +53,11 @@ def build(coordinates, inventory, profile):
             disposition="planned_read_grid" if name in ranges else
                         "pending_qualified_stage" if name in pending else
                         "retired_no_tuning" if name == "procedural_similarity_threshold" else "held_current_policy",
-            requires_writer_replay=(name in PENDING["lifecycle"] or
+            requires_writer_replay=((name in PENDING["lifecycle"] and name != "codex_retention_rank_weight") or
                 name in {"procedural_min_cited_turns", "turn_summary_coverage_threshold"}) if name in pending else
                 False if name in ranges else None,
             dependency=coordinates["blocked_stages"].get(pending.get(name)), qualified=False)
-    return dict(version="v3", method="named_tuning_dispositions_v1", score_of_record=False,
+    return dict(version="v3", method="named_tuning_dispositions_v2", score_of_record=False,
         coordinate_count=len(coordinates["rows"]), planned_settings_fields=len(ranges),
         disposition_counts=dict(Counter(r["disposition"] for r in rows)), settings=rows,
         research_input_cap=dict(name="input_prompt_cap", trial_values=sorted(set(caps)),

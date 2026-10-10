@@ -2501,3 +2501,18 @@ retain their policy. A small-budget fixture also loses its original value from
 the prompt while preserving it in storage: count that as content loss, not a
 successful memory answer. This corrects the new instrument, not evidence that
 production's existing conservative allocation is broken.
+
+### 114. Exponential score math does not make whole-worker catch-up equivalent
+
+**ICE v3,2026-10-10.** Native ten-day dispatcher/worker controls show a96-cycle
+cap ages only six days and successful dispatch stamps the endpoint, leaving no
+ledger record of the omitted cycles. A larger endpoint batch is still wrong for
+a source becoming eligible after the strict seven-day boundary: it applies ten
+days instead of four. Cold moves also stop warm aging; chronological execution
+preserves the first crossing's score/time, while endpoint batching overshoots it.
+An initial test incorrectly expected a cold row to keep aging after its move;
+actual SQL disproved that assumption. Test eligibility and transitions, not
+only the exponent. A chronological planner does not implement the final runner,
+and a synthetic native fixture cannot choose useful decay targets. Keep source
+truth separate from retention. Raising graph cap also lowers strength/cap ranking
+for unchanged facts; zero exposure increment still changes counts/access class.

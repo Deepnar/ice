@@ -228,13 +228,34 @@ Inspect every sealed tuning field and its disposition without running trials:
 uv run --no-sync python experiments/v3_repair/export_tuning_ledger.py --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-tuning-ledger-2026-10-10/ledger.json
 ```
 
-Current30 coordinates touch13 settings plus a hard input cap;25 conditional fields
-await source/gate/aging qualification,134 stay held and one retired threshold is
+Current30 coordinates touch13 settings plus a hard input cap;29 conditional fields
+await source/gate/aging qualification,130 stay held and one retired threshold is
 excluded. Sixteen fixed maintenance controls are explicit too. Current-profile
 drift refuses reuse. The [full observation/automation/tuning audit](../../docs/reviews/2026-10-10-v3-observation-and-tuning-audit.md)
 lists exact ranges, human gates and future capture requirements. Private complete
 fault observer qualification does not mean it is wired into the running producer
 or final dispatcher; those integrations still need their actual-path controls.
+
+Inspect chronological decay preparation without running jobs:
+
+```bash
+uv run --no-sync python experiments/v3_repair/lifecycle_plan.py --start 2020-01-01T00:00:00+00:00 --end 2020-01-31T00:00:00+00:00 --clock-basis simulated --out logs/v3-lifecycle-plan-2026-10-10/plan.json
+```
+
+This declares an example simulated interval, not source calendar evidence.
+The report binds safe resolved decay/exposure/cap fields and actual consumers,
+emits three-job chronological cadence events, and reports what capped endpoint
+dispatch omits. Original clocks must be independently verified before declaring
+`--clock-basis original`. Exact output reuse is byte-stable; changed inputs/code
+refuse overwrite. No models, worker calls or database mutation occur.
+
+The current96-cycle cap represents six days at90-minute cadence. Raising it
+alone cannot reproduce seven-day eligibility and first cold transitions. Final
+ten-job/source-event/recovery integration remains pending; this is not a launch
+command or a tuned configuration. Four exposure/cap/ranking fields missing from
+the first conditional ledger are included in revision2. Export to a new path if
+an old ledger exists; preserve that original. Half-life/increment/cap sensitivity
+values prepare comparisons and do not change defaults or qualify memory gains.
 
 ## Tuning and final readiness still to earn
 

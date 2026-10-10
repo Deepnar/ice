@@ -1,3 +1,51 @@
+## 2026-10-10 — v3 chronological retention preparation and native controls
+
+The [retention decision](specs/V3_POST_RESEED_REPAIR.md#23k-retention-targets-exposure-amounts-and-chronological-gaps-2026-10-10)
+adds four omitted exposure/cap/ranking fields to conditional tuning. A new
+immutable ledger revision records173 fields:13 planned read-grid,29 conditional,
+130 held and1 retired; original ledger/read-grid seals are retained. These are
+parameter dispositions, not roadmap item counts or executed trials.
+`lifecycle_plan.py` binds safe actual policy/registry/cadence consumers and emits
+three-job chronological events plus half-life/threshold/exposure/cap sensitivity
+preparation. An explicitly simulated30-day no-call interval emits1440 events;
+current endpoint numeric dispatch uses96 of480 cycles, omitting384 per worker.
+Identical exports resume byte-stably. No target value/default is promoted.
+
+20 focused controls pass11.32s with2 existing import warnings. In disposable
+Postgres, actual native episodic/graph workers and current replay dispatcher
+compare a ten-day interval: capped endpoint, larger endpoint and chronological
+cadence. Old/new/accessed/creative/protected sources and graph truth are checked.
+An old0.08 source stays warm at0.058807 under the cap but moves cold at0.049937
+under chronology, versus0.047899 under the larger endpoint batch. A one-day-old
+source at start ages four eligible days chronologically, versus six/ten in the
+endpoint arms. Cold transfer stops warm aging at first crossing. All original
+IDs/bodies/source receipts/clocks survive, graph confidence/validity remains
+fixed, and actual duplicate/zero-increment/master-off/cap-ranking controls pass.
+The dispatcher records96 cycles and stamps the endpoint; its next interval sees
+one cycle rather than the omitted backlog. Procedural absolute-age behavior is
+kept distinct; this dispatcher fixture has no procedural population.
+
+Final disposable smoke plus existing dynamics invariants:1073 passed129.32s,
+327 existing warnings; nested/outer databases removed. Focused controls overlap
+this suite and do not measure empirical memory quality. Initial1failed/14passed/
+5errors9.13s exposed a missing test-output parent and required fixture idempotency
+keys. After those fixes,1failed/19passed11.55s disproved the test's assumption
+that cold scores continue aging; first-transition assertions replaced it. The
+intermediate20-pass11.18s run preceded the actual dispatcher addition. Failed
+and final logs/native receipts remain private under
+`logs/v3-retention-instrument-2026-10-10/`, plus the initial
+`logs/v3-retention-focused.log`. Documentation patches with inaccurate/no-op
+anchors refused atomically; no source guard was relaxed.
+
+All175 running-producer fingerprints and original r4 trace hash remain unchanged.
+The manual replay was observed at184/251 durable turns,64/67 probes without a
+complete receipt; it was not interrupted. No production/settings/model change,
+cloud/local model experiment, push, parent closure or final-run launch occurred.
+Full chronological ten-job/source-event/recovery integration, independent source
+quality and actual retention/answer tuning remain unfinished; preparation is not
+their qualification. Current architecture/archive-filter descriptions corrected
+against source, without modifying the frozen v2 report.
+
 ## 2026-10-10 — v3 complete tuning cloud-fault integration
 
 The tuning-answer bridge now wraps its actual SDK adapter call with the complete

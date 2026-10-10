@@ -1888,11 +1888,79 @@ does not invent conversational sessions or aging to credit maintenance.
 [observation and tuning audit](../reviews/2026-10-10-v3-observation-and-tuning-audit.md)
 records exact sealed ranges and automatic/review gates. Offline reader frequency
 and full fault observer have opposing and actual SQL/recovery controls; complete
-final artifact/eligibility/internal-error wiring remains pending. The immutable
+final artifact/eligibility/internal-error wiring remains pending. The first immutable
 ledger export records13 read-grid/25 conditional/134 held/1 retired fields and
 sixteen fixed maintenance controls without any model/API call or tuning result.
 The direct pending-items slot append is a named qualification branch, not
 implicitly waived by the review policy. No whole roadmap owner closes.
+
+### 2.3k Retention targets, exposure amounts and chronological gaps —2026-10-10
+
+The maintainer explicitly includes decay amounts and limits in the remaining
+pre-tuning work. Four consumer-bearing fields were mistakenly held by the first
+ledger: `decay_strengthen_amount`, `codex_retention_increment`,
+`codex_retention_cap`, `codex_retention_rank_weight`. Add them to the conditional
+lifecycle stage in a new ledger revision, preserving the original export.
+Exposure changes need independent chronological writer/read histories; graph
+rank weight alone can be observed read-only but does not qualify the coupled
+exposure/cap policy. Keep the read-grid seal and production defaults unchanged.
+The revised export records13 read-grid/29 conditional/130 held/1 retired fields;
+these are parameter dispositions, not the29 roadmap owners.
+
+Grounding: episodic rates are DAILY multipliers, derived using each job's own
+cadence. Eligibility starts strictly after seven days; a positive lifetime
+access count permanently selects the slower accessed rate. Episodic exposure
+adds the configured amount, capped at1.0, once per distinct selected source.
+Graph exposure adds its separate increment up to the configured cap; normalized
+strength/cap influences ranking but never confidence or factual corroboration.
+Increasing that cap reduces the ranking bonus of unchanged existing strengths.
+Consequently a larger limit is not automatically better memory. Keep source
+truth and quiet-fact reachability as hard controls, not activity targets.
+
+Both runtime/replay dispatch and native numeric workers clamp catch-up to96
+cycles. At the90-minute cadence this covers six days. The replay then stamps
+the successful job's last-run clock at the endpoint, so a longer gap's omitted
+cycles cannot be recovered from that ledger. No inference of full calendar
+aging from those calls is valid. A bulk call also uses endpoint eligibility:
+it cannot equal chronological runs for a source becoming eligible mid-gap.
+Actual native comparison additionally shows cold storage ends warm numeric
+aging: chronological runs preserve the score/time of the first cold transition,
+whereas endpoint batching overshoots that crossing. Even an always-eligible
+source therefore need not have identical endpoint receipts. Preserve transitions,
+not just an exponential final-score formula, when validating batch equivalence.
+
+Decision: add an offline lifecycle planner, not a second decay implementation.
+Read the actual registry/cadences/cap and safe resolved lifecycle fields. Report
+daily/half-life/archive/cold horizons, exposure saturation and graph rank/cap
+coupling, with explicit conditional assumptions. Emit ordered native cadence
+events (`cycles=1`) and current-policy omitted-cycle counts for a declared clock
+interval. Never execute jobs, restore a store, infer source dates or call a model
+from this tool. Bind code/settings/clock interval and refuse changed-output reuse.
+Final research orchestration must preserve this chronological schedule, complete
+eligibility boundaries and all ten job semantics; optimizing batches requires
+opposing native equivalence checks first. Do not raise the interactive runtime
+cap or mutate the running producer to manufacture aging. Until final integration,
+the planner is preparation and the existing replay's long-gap limitation remains.
+
+Before selecting decay: preserve current rate baseline and derive0.5x/2x
+half-life alternatives (`daily ** 2`, `sqrt(daily)`), not arbitrary percent drops.
+After chronological source qualification, compare0/0.5x/1x/2x exposure increments
+and graph caps at0.5x/1x/2x current, with cap/rank normalization reported together.
+Zero increment still increments usage/access count and is not an exposure-off
+ablation. Do not raise the episodic normalized ceiling1.0. Threshold/creative
+floor/procedural age ranges still need source/false-retirement controls. Evaluate
+quiet and revisited recall, source preservation, stale/corrected answer errors,
+prompt cost and cold/probation behavior; select a changed value only under the
+same support/answer/token promotion rules in section2.3. No default change from
+algebra or synthetic accounting controls.
+
+Validation: actual native workers under the existing isolated historical clock,
+capped dispatch versus exact cadence events, old unaccessed/accessed/creative and
+protected sources, a new source crossing eligibility during a gap, graph truth
+remaining fixed, normalized cap ranking, exposure dedup/zero amount/master-off,
+source retention after cold moves, schedule ordering/fractional remainder and
+immutable output reuse. Disclose that these are mechanism controls, not empirical
+selection of target half-lives or evidence of improved answers.
 
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
@@ -2269,6 +2337,13 @@ oracle → inspect losses and close only earned original scopes. Source/correcti
 repeat labels, lifecycle clock design, both vector controls, actual ablation
 effects, dual-judge identities/costs and short per-unit recovery controls are
 final readiness work, not work postponed until after the final run.
+
+**Retention readiness clarification,2026-10-10:** section2.3k adds four omitted
+exposure/cap fields and qualifies current catch-up limitations through native
+SQL/dispatcher controls. The planner is implemented; full chronological job/
+source-event/recovery integration and revisited/quiet/corrected retention panels
+still precede lifecycle parameter selection. Do not treat the current cap,
+larger endpoint batches or a no-call schedule as that completed qualification.
 
 After both final experiments, the35 later items remain outside this repair pass.
 Conditional owners and broader A9/A12/G27/product acceptance can also remain

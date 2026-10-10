@@ -32,6 +32,12 @@ def test_actual_grid_all_inventory_fields_have_explicit_dispositions(inputs):
     assert rows["procedural_min_cited_turns"]["requires_writer_replay"]
     assert rows["turn_summary_coverage_threshold"]["requires_writer_replay"]
     assert not rows["codex_direct_trust_floor"]["requires_writer_replay"]
+    assert value["method"] == "named_tuning_dispositions_v2"
+    for name in ("decay_strengthen_amount", "codex_retention_increment", "codex_retention_cap"):
+        assert rows[name]["requires_writer_replay"]
+        assert rows[name]["disposition"] == "pending_qualified_stage"
+    assert rows["codex_retention_rank_weight"]["stage"] == "lifecycle"
+    assert not rows["codex_retention_rank_weight"]["requires_writer_replay"]
     assert value["research_input_cap"]["trial_values"] == [4000, 8000, 16000, 32000]
     for names in PENDING.values():
         assert all(rows[n]["trial_values"] is None and rows[n]["qualified"] is False for n in names)

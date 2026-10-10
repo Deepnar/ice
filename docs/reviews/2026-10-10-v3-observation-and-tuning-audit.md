@@ -164,7 +164,7 @@ required before selecting a winner. Planned capped settings are not results.
 
 ## Subsequent parameters and explicit exclusions
 
-These **25 named conditional fields** have no invented trial ranges yet. Their
+These **29 named conditional fields** await qualified stages. Their
 current/default values and actual static read sites are in the private exported
 ledger; changing a source-sensitive threshold without its negative controls
 would maximize activity rather than correctness.
@@ -180,17 +180,22 @@ would maximize activity rather than correctness.
   `ltm_pressure_scale_tokens`, `confidence_fallback_threshold`.
   Require memory-needed versus current-supplied/banter opponents and meaning-
   preserving style variants. Correctness and unnecessary token cost both matter.
-- Lifecycle,12 fields: `decay_daily_unaccessed`, `decay_daily_accessed`,
+- Lifecycle,16 fields: `decay_daily_unaccessed`, `decay_daily_accessed`,
   `decay_daily_creative`, `decay_archive_threshold`, `decay_cold_threshold`,
-  `decay_creative_floor`, `codex_decay_daily`, `codex_retention_floor`,
+  `decay_creative_floor`, `decay_strengthen_amount`, `codex_decay_daily`,
+  `codex_retention_floor`, `codex_retention_increment`, `codex_retention_cap`,
+  `codex_retention_rank_weight`,
   `procedural_stale_days`, `procedural_min_reinforcement`,
   `cluster_similarity_threshold`, `cluster_merge_similarity_threshold`.
   Require declared age targets/schedule and source/correction/false-expiry/member
-  quality panels. Use separate writer histories; read-only overrides cannot
-  retroactively measure different writes, merges or decay.
+  quality panels. Use separate chronological writer/read histories; read-only
+  overrides cannot retroactively measure different writes, merges or decay.
+  Graph rank weight alone is read-only, but exposure/cap coupling needs those
+  histories. Four fields were omitted from the first conditional list and are
+  added in ledger revision2; old exports remain immutable.
 
 The complete **173-field static inventory** now exports an explicit disposition
-for every field:13 planned read-grid,25 pending qualified stage,134 held current
+for every field:13 planned read-grid,29 pending qualified stage,130 held current
 policy and1 retired procedural cosine threshold. The count is an inventory,
 not173 executed trials. Hard NLI/source ordering/privacy/completion guards stay
 fixed; admission safety is not tuned against the final answer score. Other sizing,
@@ -211,4 +216,49 @@ Before freeze: at most12 interaction checks on three demonstrated load-bearing
 knobs, then reserved validation. B/C and official oracle labels stay out of
 configuration selection. A tuned policy needs live deltas, source/support/answer
 quality and cost plus its held assumptions; no parent roadmap closure follows
-from this exported ledger.
+from this exported ledger. These29 fields are knobs, not the29 roadmap owners.
+
+## Retention amounts and limits before tuning
+
+Daily multipliers are not per-dispatch percentages:0.95/day means5% daily loss
+while eligible, derived into16 cycles/day at the current90-minute cadence.
+From score1 with no exposure, unaccessed half-life is13.51 eligible days,
+accessed34.31 and creative68.97. The seven-day strict eligibility boundary is
+additional. Archive/cold thresholds0.1/0.05 and creative floor0.3 have separate
+effects; current creative aging never crosses them. These are analytical
+horizons, not empirically chosen memory-quality targets.
+
+Current native catch-up is bounded to96 cycles, six days, and successful replay
+dispatch advances its ledger to the endpoint. A30-day gap therefore omits384
+numeric cycles per worker. The new `lifecycle_plan.py` emits1440 chronological
+events for that declared interval across the three decay jobs, with safe current
+policy/consumer hashes and explicit original versus simulated clock provenance.
+It runs no jobs and cannot infer trustworthy source calendars. Full final
+orchestration still needs the other seven core jobs, source events and recovery.
+
+Actual native ten-day controls distinguish the policies:
+
+| Source/graph control | Current capped endpoint | Chronological cadence | Larger endpoint batch |
+|---|---|---|---|
+| Old untouched source, initially0.08 |0.058807; warm archived |0.049937; cold at first crossing |0.047899; cold at endpoint |
+| Source one day old at start, initially1 |0.735092 |0.814506; four eligible days |0.598737; incorrectly aged for all ten days |
+| Graph strength initially1 |0.941480 |0.904382 |0.904382 |
+
+All source originals/IDs/clocks/receipts survive, graph confidence/validity stays
+fixed, protected memory stays1 and creative floor stays0.3. Actual replay
+dispatcher records96 cycles and updates all three last-run clocks to the
+endpoint; the next interval sees only one due cycle. Procedural age is absolute
+and must not be interpreted as missed numeric aging. These controls explain why
+raising the runtime limit alone cannot qualify full decay: endpoint eligibility
+and first cold transitions also matter. The cap remains fixed in the running
+producer; final research scheduling must preserve chronological boundaries.
+
+Sensitivity preparation now derives0.5x/2x half-life daily multipliers, exposure
+increments0/0.5x/1x/2x, and graph caps0.5x/1x/2x current, not a blind search.
+At unchanged graph strength1 and rank weight0.5, caps5/10/20 give bonus factors
+1.1/1.05/1.025. More cap can mean less ranking influence. Episodic score ceiling1
+remains normalized; zero increment still changes access count/rate class.
+Actual deduplicated exposure/master-off/weak-source controls verify those paths.
+Choose changes only after source-qualified chronological recall, correction,
+false-retirement and supported-answer/context comparisons. No value is promoted
+from arithmetic or these synthetic SQL controls.
