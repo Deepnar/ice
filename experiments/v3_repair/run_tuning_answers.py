@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from experiments.v3_repair.compare_tuning_contexts import COMMON, load_contexts
+from experiments.v3_repair.fault_receipts import FaultRecorder
 from experiments.v3_repair.prepare_inputs import digest, encoded, fingerprint, write_or_verify
 from experiments.v3_repair.run_tuning_contexts import source_probes
 
@@ -64,7 +65,7 @@ def plan(root, baseline, candidates, out):
     from experiments.lme.cloud_provider import PROFILES
     profile = PROFILES[PROFILE]
     from scripts.z1 import answer_as_of
-    code = [Path(__file__), ROOT / "experiments/v3_repair/compare_tuning_contexts.py",
+    code = [Path(__file__), ROOT / "experiments/v3_repair/fault_receipts.py", ROOT / "experiments/v3_repair/compare_tuning_contexts.py",
             ROOT / "experiments/v3_repair/run_tuning_contexts.py", ROOT / "experiments/v3_repair/audit_development.py",
             ROOT / "experiments/lme/cloud_provider.py", ROOT / "scripts/z1/answer_as_of.py",
             ROOT / "scripts/z1/cloud_recovery.py", ROOT / "scripts/z1/answer_resume.py",
@@ -149,11 +150,31 @@ def execute(out, manifest):
         for arm in ARMS:
             output = directory / f"answers-{arm}.json"
             validate_answers(output, probes, arm, profile_model=manifest["identity"]["answer_model"])
+            faults = FaultRecorder(directory / f"faults-{arm}.jsonl", manifest["identity_sha256"], private_root=native.LOGS)
+            faults.verify()
+            sessions = {f"ice-v3-z1-{arm}-{p['probe_id']}": p for p in probes}
             class NamespacedGenerator:
                 def __init__(self, profile): self.inner = original_generator(profile)
                 def generate(self, messages, **kwargs):
+                    probe = sessions.get(kwargs.get("session_id"))
+                    if probe is None: raise ValueError("cloud fault observer session is not a frozen occurrence")
+                    saved = [r for r in json.loads(output.read_text())["records"] if r["probe_id"] == probe["probe_id"]]
+                    stage = probe["preflight"] if arm == "full" else probe["controls"][arm]
+                    if (len(saved) != 1 or saved[0].get("cloud_attempts") not in (1, 2)
+                            or saved[0].get("error_type") != "UnconfirmedCloudCall" or saved[0].get("answer") != ""
+                            or saved[0].get("answer_record_sha256") != digest({k: v for k, v in saved[0].items() if k != "answer_record_sha256"})
+                            or saved[0].get("answer_input_sha256") != native.input_digest(messages)
+                            or saved[0].get("answer_input_messages") != messages
+                            or messages != stage["prompt_messages"]):
+                        raise ValueError("cloud call lacks its exact durable attempt/input reservation")
+                    context = dict(conversation=probe["conversation"], turn=probe["split_turn"], cutoff=probe["split_turn"],
+                        probe_id=probe["probe_id"], source_time=probe.get("question_time"), job="answer", stage="cloud_answer",
+                        attempt=saved[0]["cloud_attempts"], attempts=2, coordinate=coordinate_id, arm=arm,
+                        model=manifest["identity"]["answer_model"], profile=PROFILE,
+                        window=stage.get("context_ledger", {}).get("serving_window"),
+                        artifact_id=saved[0]["answer_input_sha256"])
                     kwargs["session_id"] = f"ice-v3-tune-{identifier[:16]}-{kwargs['session_id']}"
-                    return self.inner.generate(messages, **kwargs)
+                    return faults.call(lambda: self.inner.generate(messages, **kwargs), context=context)
             def bound_save(path, value):
                 if path == output:
                     value["diagnostic_only"] = True; value["score_of_record"] = False

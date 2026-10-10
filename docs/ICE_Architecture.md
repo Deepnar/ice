@@ -384,6 +384,12 @@ controls;13 fields/30 coordinates are planned,25 fields await qualified panels,
 source-guarded jobs remain enabled; review proposals are not silently applied.
 Final granular item/eligibility/block capture and internal caught-error hooks
 remain required before claiming complete stored-to-context/use accounting.
+The diagnostic tuning-answer bridge now invokes the full private observer around
+the actual generator call inside native recovery, binding exact frozen sessions
+and durable content-hashed attempt reservations. Per-arm journals are checked
+before any SDK construction, including complete-cache reruns. Controlled SDK
+faults preserve original successes and full context/stack; this qualifies the
+development cloud hook without implying all final writer/judge/internal catches.
 
 ## **2. Classification Engine**
 

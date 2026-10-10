@@ -1782,6 +1782,16 @@ answer units/arms and loads no SDK client when all work is cached. Profile/input
 source/implementation drift refuses reuse; originals and prior answers persist.
 Manual output includes per-coordinate/arm receipts, original scorer evidence,
 actual completion/usage/fault metadata and unqualified answer-quality flags.
+Wire the private full-fault observer around the bridge's actual generator call,
+inside the native recovery boundary. Bind its implementation in the answer plan.
+Validate its journal before SDK construction even on complete-cache reuse.
+Refresh credentials loaded later by the native runner at error-record time, so
+unlabelled key values in exceptions are still redacted. Match
+the native session to the exact frozen probe and durable pre-call reservation;
+record source time, turn/cutoff, coordinate/arm, model/profile/window, input hash
+and bounded attempt before re-raising unchanged. Unknown session/reservation
+identity refuses the call. No outer retries, altered raw answers or paid test.
+Final writer/judge/internal-catch hooks remain separate integration work.
 Native answer-cache tags/bytes remain unchanged. Emit separately hashed immutable
 grading inputs with distinct coordinate/arm names so the existing independent
 grader can compare two full arms without duplicate-name rejection. Its absolute

@@ -49,10 +49,14 @@ class FaultRecorder:
         if not self.path.is_relative_to(Path(private_root).resolve()) or not run_identity:
             raise ValueError("fault receipts require a private path and run identity")
         self.run_identity = run_identity
+        self.secrets = [s for s in secrets if isinstance(s, str) and s]
+        self._refresh_secrets()
+
+    def _refresh_secrets(self):
         supplied = [value for name, value in os.environ.items()
                     if any(word in name.upper().split("_") for word in ("KEY", "TOKEN", "PASSWORD", "SECRET"))
                     and len(value) >= 8]
-        self.secrets = sorted({s for s in [*supplied, *secrets] if isinstance(s, str) and s}, key=len, reverse=True)
+        self.secrets = sorted(set([*self.secrets, *supplied]), key=len, reverse=True)
 
     def redact(self, value):
         if isinstance(value, str):
@@ -70,6 +74,8 @@ class FaultRecorder:
     def record(self, exc, context):
         if set(context) - CONTEXT_FIELDS:
             raise ValueError("undeclared fault context fields")
+        # Native cloud runners may load .env after constructing the observer.
+        self._refresh_secrets()
         chain, visited = [], set()
         def capture(error, relationship):
             if id(error) in visited: return
@@ -95,18 +101,7 @@ class FaultRecorder:
         fd = os.open(self.path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o600)
         with os.fdopen(fd, "r+", encoding="utf-8") as sink:
             fcntl.flock(sink, fcntl.LOCK_EX)
-            prior = None; sequence = 0
-            for line in sink:
-                if not line.endswith("\n"):
-                    raise ValueError("fault journal has an interrupted tail; retain prior evidence")
-                row = json.loads(line)
-                unsigned = {k: v for k, v in row.items() if k != "receipt_sha256"}
-                if (digest(unsigned) != row.get("receipt_sha256")
-                        or row.get("previous_receipt_sha256") != prior
-                        or row.get("sequence") != sequence + 1
-                        or row.get("run_identity") != self.run_identity):
-                    raise ValueError("fault receipt chain changed; retain prior evidence")
-                prior = row["receipt_sha256"]; sequence += 1
+            prior, sequence = self._chain(sink)
             body.update(sequence=sequence + 1, previous_receipt_sha256=prior)
             body["receipt_sha256"] = digest(body)
             sink.write(json.dumps(body, ensure_ascii=False, allow_nan=False) + "\n")
@@ -115,6 +110,27 @@ class FaultRecorder:
         try: os.fsync(parent)
         finally: os.close(parent)
         return body["receipt_sha256"]
+
+    def _chain(self, source):
+        prior = None; sequence = 0
+        for line in source:
+            if not line.endswith("\n"):
+                raise ValueError("fault journal has an interrupted tail; retain prior evidence")
+            row = json.loads(line)
+            unsigned = {k: v for k, v in row.items() if k != "receipt_sha256"}
+            if (digest(unsigned) != row.get("receipt_sha256")
+                    or row.get("previous_receipt_sha256") != prior
+                    or row.get("sequence") != sequence + 1
+                    or row.get("run_identity") != self.run_identity):
+                raise ValueError("fault receipt chain changed; retain prior evidence")
+            prior = row["receipt_sha256"]; sequence += 1
+        return prior, sequence
+
+    def verify(self):
+        if not self.path.exists(): return 0
+        with self.path.open() as source:
+            fcntl.flock(source, fcntl.LOCK_SH)
+            return self._chain(source)[1]
 
     def call(self, fn, *, context):
         try:

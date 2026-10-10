@@ -205,6 +205,11 @@ Each coordinate directory contains immutable `projected.jsonl`, native
 existing independent grader. Raw cache tags/bytes remain unchanged. Planning and
 controlled SDK tests do not qualify native answer quality or the judge. Validation
 and final campaigns remain locked behind their own qualification/freeze gates.
+Full cloud-call faults are retained in private `faults-ARM.jsonl`, including the
+exact frozen occurrence/coordinate/model/attempt/input identity and sanitized
+stack/chain. Journal hashes are checked on resume even with a complete answer
+cache; previous answers remain unchanged. Final writer/judge/internal caught-error
+hooks remain separate work.
 
 After the complete repaired replay, export partial per-source reader frequency:
 

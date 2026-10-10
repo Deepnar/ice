@@ -84,6 +84,20 @@ internal caught-error seams still need integration and duplicate receipt linking
 This helper is not retrofitted into the maintainer's running producer, and cannot
 reconstruct old missing stack/message detail. Report capture completeness too.
 
+The tuning-answer bridge now wraps its **actual SDK adapter call** with this
+observer. Exact native session/probe, source clock/cutoff, coordinate/arm/model/
+profile/window and content-hashed durable attempt reservation are checked before
+the request. Its implementation is bound in the answer plan. Each arm has a
+private `faults-ARM.jsonl`; complete-cache resume verifies the journal without
+constructing an SDK client. Controlled interrupt/quota/two-exhausted-request
+checks preserve full metadata/stacks and saved successful answers; altered
+journal content refuses even a complete answer cache. This is the development
+answer hook, not all final writer/judge/internal catches.
+Credential redaction refreshes at record time because the native runner loads
+its selected environment after the observer is constructed. An actual controlled
+SDK error containing an unlabelled late-loaded key confirms the sidecar redacts
+it; this does not reconstruct or rewrite older native error logs.
+
 ## Automation: keep automatic memory work; do not auto-approve everything
 
 The current replay uses the existing ten core jobs on its source-time schedule.

@@ -1,3 +1,31 @@
+## 2026-10-10 — v3 complete tuning cloud-fault integration
+
+The tuning-answer bridge now wraps its actual SDK adapter call with the complete
+private fault observer inside the native recovery boundary. Frozen session/probe,
+exact input, source clock/cutoff, coordinate/arm/model/profile/window and durable
+hashed attempt reservation are matched before requests. Per-arm journals verify
+before SDK construction even with complete answer caches; modified chains refuse
+reuse. The helper's code is bound in the answer plan. Successful original answers
+and native retry/pause policy remain unchanged; final writer/judge/internal caught-
+error hooks are still separate work.
+
+25 focused controls pass3.99s without native provider calls. Actual controlled SDK
+interrupt/quota/two-exhausted faults retain full stacks/context and saved successes;
+corrupt journal refuses before client load. Native environment loading happens
+after observer construction, so redaction now refreshes secret values at record
+time. A controlled unlabelled late-loaded key is redacted in the full sidecar.
+This does not rewrite old native logs. Final disposable smoke/background suite
+1051 passed124.79s with327 existing warnings; databases removed. The earlier1050
+pass138.19s preceded that last fix, and is not the final qualification. These are
+overlapping recovery/accounting controls, not semantic memory/cloud quality.
+
+An initial1failed/23passed control misplaced the previous resume assertions into
+the new test; the assertions were restored to their own function, no guard relaxed.
+Private failed/final logs remain under
+`logs/v3-read-coordinate-instrument-2026-10-10/`. The original/running writer,
+model roles, settings and source evidence remain unchanged. No long/paid campaign,
+qualified tuning result, parent roadmap closure or push was performed.
+
 ## 2026-10-10 — v3 reader/fault/automation/tuning observation audit
 
 The [current audit](reviews/2026-10-10-v3-observation-and-tuning-audit.md)

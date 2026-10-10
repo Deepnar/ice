@@ -124,7 +124,7 @@ def test_real_cloud_fault_receipts_resume_without_repeating_successes(packets, m
         calls.append(kwargs)
         if enabled["fault"]:
             if fault == "interrupt" and len(calls) == 2: raise KeyboardInterrupt()
-            if fault == "isolated" and len(calls) in (2, 3): raise ConnectionError("controlled network fault")
+            if fault == "isolated" and len(calls) in (2, 3): raise ConnectionError("controlled network fault" * 50)
             if fault == "quota" and len(calls) == 2: raise ProviderAccessError("fixture", "quota", 429, "quota")
         return dict(status="completed", output_text="Controlled answer.", id=f"response{len(calls)}")
     fake_sdk(monkeypatch, request)
@@ -142,13 +142,55 @@ def test_real_cloud_fault_receipts_resume_without_repeating_successes(packets, m
     if fault == "interrupt": assert failed["error_type"] == "UnconfirmedCloudCall" and failed["cloud_attempts"] == 1
     elif fault == "isolated": assert failed["fault_disposition"] == "degraded_final" and failed["cloud_attempts"] == 2
     else: assert failed["error_status"] == 429
+    fault_path = first_path.parent / "faults-full.jsonl"
+    receipts = [json.loads(line) for line in fault_path.read_text().splitlines()]
+    assert len(receipts) == (2 if fault == "isolated" else 1)
+    assert all(r["context"]["probe_id"] == "q2" and r["context"]["cutoff"] == 64
+               and r["context"]["coordinate"] == "baseline" and r["context"]["arm"] == "full"
+               and r["context"]["model"] == "gpt-6-luna" and r["context"]["artifact_id"]
+               and r["traceback"] for r in receipts)
+    assert [r["context"]["attempt"] for r in receipts] == ([1, 2] if fault == "isolated" else [1])
+    if fault == "isolated": assert len(receipts[0]["error"]) > 1000
+    fault_bytes = fault_path.read_bytes()
     before = copy.deepcopy(first)
     enabled["fault"] = False
     assert bridge.execute(out, manifest) == 0
+    assert fault_path.read_bytes() == fault_bytes
     resumed = json.loads(first_path.read_text())
     assert next(r for r in resumed["records"] if r["probe_id"] == "q1") == before
     assert sum("full-q1" in c["extra_headers"]["x-opencode-session"] for c in calls) == 1
     assert bridge.execute(out, manifest) == 0
+
+
+def test_changed_fault_journal_refuses_even_complete_answer_cache(packets, monkeypatch):
+    root, baseline, _, out, _ = packets
+    fake_sdk(monkeypatch, lambda **_k: dict(status="completed", output_text="Controlled answer."))
+    manifest = bridge.plan(root, baseline, [], out)
+    assert bridge.execute(out, manifest) == 0
+    path = out / manifest["identity"]["collections"][0] / "faults-full.jsonl"
+    recorder = bridge.FaultRecorder(path, manifest["identity_sha256"], private_root=native.LOGS)
+    recorder.record(ValueError("controlled prior fault"), dict(stage="cloud_answer", probe_id="q1"))
+    body = json.loads(path.read_text()); body["error"] = "altered"
+    path.write_text(json.dumps(body) + "\n")
+    monkeypatch.setattr(native, "TextGenerator", lambda *_a: pytest.fail("changed journal loaded SDK"))
+    with pytest.raises(ValueError, match="chain changed"): bridge.execute(out, manifest)
+
+
+def test_credentials_loaded_by_native_runner_after_observer_are_redacted(packets, monkeypatch):
+    root, baseline, _, out, _ = packets
+    secret = "late-test-provider-key"
+    monkeypatch.delenv("PROBE_API_KEY", raising=False)
+    monkeypatch.setattr(native, "load_selected_env", lambda: monkeypatch.setenv("PROBE_API_KEY", secret))
+    def request(**kwargs):
+        if "full-q1" in kwargs["extra_headers"]["x-opencode-session"]:
+            raise ConnectionError(f"The problematic value is {secret}")
+        return dict(status="completed", output_text="Controlled answer.")
+    fake_sdk(monkeypatch, request)
+    manifest = bridge.plan(root, baseline, [], out)
+    assert bridge.execute(out, manifest) == 0
+    path = out / manifest["identity"]["collections"][0] / "faults-full.jsonl"
+    assert secret not in path.read_text() and "[REDACTED]" in path.read_text()
+    assert len(path.read_text().splitlines()) == 2
 
 
 @pytest.mark.parametrize("fault", ["body", "metadata"])
