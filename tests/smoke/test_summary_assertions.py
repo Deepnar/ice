@@ -9,7 +9,8 @@ import pytest
 from src.memory.representation import choose_representation, verify_representations
 from src.memory.source import single_provenance
 from src.memory.summary_support import (
-    assertion_text, original_units, parse_assertions, source_windows, verify_assertions,
+    assertion_text, cited_premise, original_units, parse_assertions, proof_digest,
+    source_windows, verify_assertions,
 )
 from src.memory.support import verify_support
 
@@ -163,3 +164,91 @@ def test_invalid_optional_abstract_does_not_discard_valid_summary(abstract):
         "abstract": abstract}), windows(source("The port is 8391.")), abstract=True)
     assert parsed["summary"][0]["sources"] == ["w0"]
     assert parsed["abstract"] == []
+
+
+def cited_window(identifier, text, start=0, unit="u", role="user", unit_hash="original"):
+    from src.memory.source import digest
+    return dict(id=identifier, unit=unit, role=role, start=start, end=start + len(text),
+        unit_sha256=unit_hash, text_sha256=digest(text),
+        premise=f"The {role} said: " + json.dumps(text, ensure_ascii=False),
+        recorded_at="2025-01-01", timestamp_provenance="original")
+
+
+def test_cited_union_preserves_complete_correction_and_original_order():
+    text = "Use port 8391. Correction: use port 9010 instead."
+    first = cited_window("w0", text[:31])
+    second = cited_window("w1", text[15:], 15)
+    premise, spans = cited_premise([first, second], ["w1", "w0"])
+    assert premise == "The user said: " + json.dumps(text)
+    assert len(spans) == 1 and spans[0]["end"] == len(text)
+
+
+def test_cited_union_keeps_gaps_roles_and_other_originals_separate():
+    spans = [cited_window("w0", "Refused."), cited_window("w1", "Approved.", 50),
+        cited_window("w2", "Refused.", unit="v", role="assistant"),
+        cited_window("w3", "Refused.", unit="z")]
+    premise, merged = cited_premise(spans, [w["id"] for w in reversed(spans)])
+    assert len(merged) == 4 and premise.count("Refused.") == 3
+    assert 'The assistant said: "Refused."' in premise and merged[1]["start"] == 50
+
+
+@pytest.mark.parametrize("mutation", ["role", "offset", "hash", "overlap", "unit_identity"])
+def test_cited_union_refuses_inconsistent_source_spans(mutation):
+    from src.memory.source import digest
+    first = cited_window("w0", "abcdef")
+    second = cited_window("w1", "defghi", 3)
+    if mutation == "role": second["role"] = "assistant"
+    elif mutation == "offset": second["end"] += 1
+    elif mutation == "hash": second["text_sha256"] = "different"
+    elif mutation == "overlap":
+        second["premise"] = 'The user said: "zzzghi"'
+        second["text_sha256"] = digest("zzzghi")
+    else: second["recorded_at"] = "2025-01-02"
+    with pytest.raises(ValueError): cited_premise([first, second], ["w0", "w1"])
+
+
+def test_cited_union_refuses_missing_or_duplicate_citations():
+    for citations in [[], ["missing"], ["w0", "w0"]]:
+        with pytest.raises(ValueError): cited_premise([cited_window("w0", "source")], citations)
+
+
+def test_exact_union_fits_complete_pair_without_dropping_cited_text(monkeypatch):
+    from src.memory import support
+    text = "alpha " * 364
+    spans = [cited_window("w0", text[:208 * 6]), cited_window("w1", text[156 * 6:], 156 * 6)]
+    claim = "assertion " * 100
+    old = "\n".join(w["premise"] for w in spans)
+    assert len(Tokenizer()(old, claim)["input_ids"]) > 512
+    monkeypatch.setattr(support, "support_tokenizer", lambda: Tokenizer())
+    calls = []
+    def score(pairs):
+        calls.extend(pairs)
+        assert all(len(Tokenizer()(p, h)["input_ids"]) <= 512 for p, h in pairs)
+        return [dict(entailment=.99, neutral=.005, contradiction=.005) for _ in pairs]
+    monkeypatch.setattr(support, "score_pairs", score)
+    result = verify_assertions(text, claim.strip(), [dict(text=claim.strip(), sources=["w0", "w1"])], spans)
+    assert len(calls) == 1 and text in calls[0][0]
+    assert result["status"] == "supported" and len(result["assertions"][0]["cited_spans"]) == 1
+    # This controlled scorer qualifies complete-input construction, not semantics.
+
+
+def test_exact_supported_legacy_proof_stays_usable_without_promoting_unknown():
+    row = source("The user approved port 8391.")
+    spans = windows(row)
+    row.summary_text = "The user approved port 8391."
+    claims = [dict(text=row.summary_text, sources=["w0"])]
+    result = verify_representations(row, row.summary_text, None,
+        proof=dict(summary=claims, windows=spans), verifier=supported)
+    legacy = result["summary"]
+    legacy["method"] = legacy["policy"]["method"] = "source_window_assertions_v1"
+    legacy["policy"].pop("premise_composition")
+    for assertion in legacy["assertions"]: assertion.pop("cited_spans")
+    legacy["proof_sha256"] = proof_digest(legacy)
+    row.representation_verification = result
+    assert choose_representation(row)[0] == row.summary_text
+    legacy["status"] = "unknown"
+    assert choose_representation(row)[0] == row.raw_text
+    legacy["status"] = "supported"
+    legacy["method"] = legacy["policy"]["method"] = "invented"
+    legacy["proof_sha256"] = proof_digest(legacy)
+    assert choose_representation(row)[0] == row.raw_text

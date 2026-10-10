@@ -2194,6 +2194,22 @@ mechanism, not corpus faithfulness, completeness or fewer-token answer gains.
 Historical r4 failure rates above remain unchanged. See
 [the repair provenance](PROVENANCE.md#2026-10-08--v3-bounded-summary-support).
 
+**V3 cited-span composition,2026-10-10:** new assertion proofs use exact original
+interval union within each cited source unit. Matching overlaps/adjacent spans
+merge once; separate roles, units and gaps remain separate, in original order.
+Every cited byte survives. Complete claims still use one NLI premise under the
+same512-token/0.95 contract; genuinely oversized unions remain unknown. New
+proofs bind merged intervals and `source_window_assertions_v2`. Readers retain
+exact supported v1 proofs under the known unchanged model/window/threshold/
+source contract; unknown or mutated proofs cannot gain approval. Original-only
+note caches remain source-valid; generated note compositions still require the
+current snapshot policy and may regenerate. No existing cache/store is rewritten.
+The [completed development audit](reviews/2026-10-10-v3-repaired-development-audit.md)
+finds25 of82 oversized assertion pairs fit after union; actual pinned NLI
+supports24 and withholds1. These dependent assertions do not establish whole-
+summary completeness, production substitution or answer gains. All38 existing
+supported turn summaries and41 abstracts remain approved in the untouched store.
+
 ### v3 procedural output and negative bucket receipts — 2026-10-08
 
 The procedural caller now reserves an explicit512 output tokens and checks the

@@ -1,3 +1,62 @@
+## 2026-10-10 — v3 completed repaired development and exact cited-span repair
+
+The maintainer completed the selected251-turn/67-probe tuning replay. Existing
+offline audit validates complete counts and every frozen question/source/task/
+cutoff key across four preparation arms. Private immutable report/template:
+`logs/v3-repaired-dev-audit-2026-10-10-r1/`; original completed bundle remains
+`logs/v3-repaired-dev-tuning-2026-10-10-r1/`. Its trace SHA256 is
+`80e46f45816586b615d7189e1fc5155b49f1c84dda122248b9bccc4c0bd34327`.
+Read-only native counts/fingerprints confirm all35 live tables match the footer.
+No working-store restore, proof rewrite or source mutation occurs. The101-turn
+validation partition stays uninspected. No cloud answers/judgments or tuning
+trial occurred. [Full findings and limits](reviews/2026-10-10-v3-repaired-development-audit.md).
+
+The completed run retains5 degraded writers/12 failed attempts,88 summary
+candidates (38 supported/50 unknown),82 abstracts (41 supported/41 unknown),
+and226 raw-injection turns. Exact source-reviewed content audit exposes one
+required literal generated but lost before full-arm budgeting; no-Codex retains
+it, while warm vector retains the source ID but not the value. This is no
+global graph-harm finding. The exact shortlist/representation/fusion/dedup cause
+remains to isolate. No source-ID count becomes a semantic or answer grade.
+
+All82 oversized saved summary/abstract assertion checks are reconstructed from
+their exact cited window role/hash/offsets. Removing duplicate interval overlap
+makes25 fit:23 summary assertions and2 abstracts. A bounded native check uses
+the existing DeBERTa model/revision, complete512-token limit and0.95 threshold:
+24 supported,1 unknown. Four opposing controls withheld every unsupported
+proposal; a separate positive control remains unknown (4/5 expected controls,
+not5/5). This is dependent saved-assertion evidence, not independent precision,
+whole-summary approval or answer/token improvement. No generation model called.
+
+The maintainer conditionally authorized adoption on evidence. New shared
+`summary_support` v2 proofs compose exact cited interval unions, retaining
+roles, units, gaps, all bytes and corrections. Complete assertions use one
+premise; genuinely oversized unions remain unknown. Known exact supported v1
+proofs remain valid under the unchanged model/window/threshold/source contract;
+unknown/mutated proofs are not upgraded. Native read-only store review after
+the change retains all38 prior supported summaries and41 abstracts. Original-
+only notes retain source-cache validity; generated compositions still need the
+current snapshot policy and may regenerate. No completed artifact is rewritten.
+
+36 focused controls passed0.17s. Final disposable smoke+dynamics1091 passed
+315.49s/327 existing warnings; all disposable stores removed. Ten new controls
+cover exact union, correction/order, role/gap/unit separation, inconsistent
+spans, missing/duplicate citations, real shared complete-pair boundary and
+legacy approval/unknown refusal. Focused tests overlap the broader suite.
+Private code/patch/native/log/preservation evidence lives at
+`logs/v3-cited-union-repair-2026-10-10-r1/`. Initial private candidate control
+1failed/9passed because standalone tests were imported as a package; corrected
+10passed0.13s. Its scoring candidate was edited after receipt binding; the
+original was recovered byte-identically by hash under `native-qualified/`.
+Failed diagnostic role/unique-literal assumptions and guessed missing paths
+are retained in SESSION; no model output or source guard was relaxed.
+
+The original r4 and completed development states/seals remain intact. Subsequent
+source guards must refuse old execution identities: later read/derived
+qualification needs an explicit versioned binding, not a weakened fingerprint
+check or a claim that old proof-method-version1 receipts were written by the new verifier. No push,
+new model/default/threshold, whole-owner closure, final or validation launch.
+
 ## 2026-10-10 — v3 native chronological maintenance and prefix recovery
 
 The [native gap adapter](specs/V3_POST_RESEED_REPAIR.md#23l-chronological-native-maintenance-gap-adapter-2026-10-10)

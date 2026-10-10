@@ -120,6 +120,15 @@ to a separate mutable review file, fill exact original role/hash/offset units an
 through-cutoff reasons, then use the existing `scripts/z1/evidence_content.py`
 auditor. Never edit the sealed template or guess units from answer-text overlap.
 
+The manual251-turn/67-probe replay is now complete; the
+[current audit](../../docs/reviews/2026-10-10-v3-repaired-development-audit.md)
+retains its writer failures and semantic-review limits. Subsequent exact cited-
+span verification repairs do not rewrite this baseline or its existing proofs.
+Old producer/tuning execution fingerprints must still refuse changed source.
+An explicit new read/derived qualification identity is required before adopting
+repairs; do not bypass guards or rerun the old command as a migration. No new
+final/tuning launcher is implied by the completed audit.
+
 The bounded cheap read-side candidate seal is also offline:
 
 ```bash

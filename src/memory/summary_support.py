@@ -13,7 +13,7 @@ from src.api.config import settings
 from src.memory.source import digest, source_units
 
 logger = structlog.get_logger("ice.memory.summary_support")
-METHOD = "source_window_assertions_v1"
+METHOD = "source_window_assertions_v2"
 
 
 def policy():
@@ -22,7 +22,7 @@ def policy():
             "pair_tokens": settings.source_support_max_tokens,
             "threshold": settings.source_support_threshold,
             "window_fraction": 0.5, "window_reserve_tokens": 32,
-            "overlap_fraction": 0.25}
+            "overlap_fraction": 0.25, "premise_composition": "exact_cited_span_union_v1"}
 
 
 def original_units(turns):
@@ -214,6 +214,54 @@ def note_messages(prompt):
             {"role": "user", "content": prompt}]
 
 
+def cited_premise(windows, source_ids):
+    """Resolve every cited original byte once, keeping source units separate."""
+    wanted = set(source_ids)
+    if len(wanted) != len(source_ids):
+        raise ValueError("duplicate_cited_window")
+    units = {}
+    for w in windows:
+        if w["id"] not in wanted:
+            continue
+        prefix = f"The {w['role']} said: "
+        if not w["premise"].startswith(prefix):
+            raise ValueError("cited_window_role_mismatch")
+        text = json.loads(w["premise"][len(prefix):])
+        if (not isinstance(text, str) or type(w["start"]) is not int
+                or type(w["end"]) is not int or not 0 <= w["start"] < w["end"]
+                or len(text) != w["end"] - w["start"] or digest(text) != w["text_sha256"]):
+            raise ValueError("cited_window_span_mismatch")
+        units.setdefault(w["unit"], []).append((w, text))
+        wanted.remove(w["id"])
+    if wanted or not units:
+        raise ValueError("unresolved_cited_window")
+    parts, intervals = [], []
+    for unit, spans in units.items():
+        spans.sort(key=lambda item: (item[0]["start"], item[0]["end"]))
+        anchor = spans[0][0]
+        identity = (anchor["role"], anchor["unit_sha256"], anchor.get("recorded_at"),
+                    anchor.get("timestamp_provenance"))
+        groups = []
+        for w, text in spans:
+            if (w["role"], w["unit_sha256"], w.get("recorded_at"),
+                    w.get("timestamp_provenance")) != identity:
+                raise ValueError("cited_source_unit_mismatch")
+            if groups and w["start"] <= groups[-1][1]:
+                start, end, body = groups[-1]
+                overlap = min(end, w["end"]) - w["start"]
+                if body[w["start"] - start:w["start"] - start + overlap] != text[:overlap]:
+                    raise ValueError("cited_window_overlap_mismatch")
+                if w["end"] > end:
+                    groups[-1] = (start, w["end"], body + text[end - w["start"]:])
+            else:
+                groups.append((w["start"], w["end"], text))
+        for start, end, body in groups:
+            parts.append(f"The {anchor['role']} said: {json.dumps(body, ensure_ascii=False)}")
+            intervals.append(dict(unit=unit, role=anchor["role"], start=start, end=end,
+                                  unit_sha256=anchor["unit_sha256"], text_sha256=digest(body)))
+    return "\n".join(parts), intervals
+
+
 def verify_assertions(source, candidate, assertions, windows, *, verifier=None):
     from src.memory.support import SupportInputError, score_pairs, support_tokenizer, verify_support
     window_map = {w["id"]: w for w in windows}
@@ -221,12 +269,8 @@ def verify_assertions(source, candidate, assertions, windows, *, verifier=None):
             or len(window_map) != len(windows)
             or any(s not in window_map for a in assertions for s in a["sources"])):
         raise ValueError("summary_proof_candidate_mismatch")
-    premises = []
-    for assertion in assertions:
-        cited = [window_map[s] for s in assertion["sources"]]
-        # Verify a complete assertion against all cited evidence TOGETHER.
-        # Long combined premises become unknown under the existing scorer.
-        premises.append("\n".join(w["premise"] for w in cited))
+    resolved = [cited_premise(windows, a["sources"]) for a in assertions]
+    premises = [premise for premise, _ in resolved]
     lengths, scored, scoring_error = {}, {}, None
     if verifier is None:
         try:
@@ -256,7 +300,8 @@ def verify_assertions(source, candidate, assertions, windows, *, verifier=None):
                 return [scored[index]]
             verdict = asdict(verify_support(premise, assertion["text"].strip(), scorer=scorer))
         records.append({"text": assertion["text"].strip(), "sources": assertion["sources"],
-                        "premise": premise, "pair_tokens": lengths.get(i), "verification": verdict})
+                        "premise": premise, "cited_spans": resolved[i][1],
+                        "pair_tokens": lengths.get(i), "verification": verdict})
     statuses = [r["verification"]["status"] for r in records]
     status = ("contradicted" if "contradicted" in statuses else
               "supported" if records and all(s == "supported" for s in statuses) else "unknown")
@@ -285,7 +330,15 @@ def proof_digest(record):
 def proof_current(record, source, candidate):
     """Readers need no tokenizer/model call to recheck frozen assertion receipts."""
     from src.memory.support import supported_current
-    if (record.get("method") != METHOD or record.get("policy") != policy()
+    expected_policy = policy()
+    # Existing supported proofs scored every cited byte with the same model,
+    # threshold and window contract. Preserve those exact legacy approvals.
+    if record.get("method") == "source_window_assertions_v1":
+        expected_policy = {k: v for k, v in expected_policy.items() if k != "premise_composition"}
+        expected_policy["method"] = "source_window_assertions_v1"
+    elif record.get("method") != METHOD:
+        return False
+    if (record.get("policy") != expected_policy
             or record.get("proof_sha256") != proof_digest(record)):
         return False
     rows = record.get("assertions")

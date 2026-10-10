@@ -2521,3 +2521,17 @@ The v3 research adapter executes exact cadence boundaries directly: the legacy
 dispatcher requires positive overdue time and skips equality. Native SQL
 interrupt/restore controls qualify durable time groups, not a completed source-
 event runner or the semantic quality of jobs held ineligible by the fixture.
+
+### 115. Bounded source windows can rebuild an oversized verification premise
+
+**ICE v3,2026-10-10.** Individually bounded224-token windows did not bound their
+combined premise. The repaired251-turn replay still had82 oversized assertion
+checks; repeated overlapping citations made25 exceed the512-token limit even
+though their exact original interval union fit. Merge matching original overlap,
+preserving speakers, unit identity, gaps and corrections; never truncate or pick
+the citation giving the preferred verdict. The actual NLI supports24 newly
+fitting pairs, but fitting is not support and a supported assertion is not whole-
+summary completeness. Larger unions stay unknown. Preserve exact old supported
+proofs under their unchanged contract rather than treating every policy version
+change as permission to erase useful compression. Frozen artifact/code bindings
+must be preserved before edits, not repaired by silently replacing hashes.

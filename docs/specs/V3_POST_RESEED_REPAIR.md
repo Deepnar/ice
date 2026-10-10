@@ -1185,6 +1185,48 @@ warnings, including new SQL-path repetitions). Checks overlap; no threshold or
 scope change. The retained13-case panel's two frame/uncertainty misses are not
 claimed repaired by this copying change.
 
+### 2.1v Exact cited-span composition — repaired-development evidence,2026-10-10
+
+The completed251-turn/67-probe development replay retains88 summary candidates,
+38 supported and50 unknown under the existing verifier. Its summary/abstract
+assertions include82 complete pairs rejected above512 tokens. Exact coalescing
+of overlapping cited intervals makes25 fit:23 summary assertions and2 abstracts.
+The actual pinned NLI supports24 of those25; one remains unknown. These are
+dependent assertion checks, not independent precision or whole-summary/answer
+improvement. Four opposing controls admit no unsupported assertion; a positive
+control remains neutral/unknown, an explicit existing verifier limitation.
+
+At `summary_support.verify_assertions`, compose one complete premise from the
+union of every cited original interval. Resolve the quoted window text against
+its role/hash/offset manifest. Merge only overlapping or adjacent intervals of
+the same original unit with matching role, unit hash and source clock. Verify
+overlap bytes exactly; keep different units/speakers and disjoint intervals
+separate, in original window order. Retain all cited bytes, qualifiers and
+corrections; do not select a favorable subset or invent an intervening gap.
+Count and score that complete premise with the unchanged model/revision,
+threshold0.95 and512-token limit. Larger unions remain unknown and retain
+original evidence. This removes duplicated evidence overhead; genuinely broad
+claims still need smaller source-backed generation, a separate qualification.
+
+New receipts use `source_window_assertions_v2`, explicitly identify the exact
+span-union composition policy and bind the merged intervals in assertion proofs.
+Preserve exact supported legacy v1 approvals: they already scored all their
+cited bytes using the same model/threshold/window policy. Check their complete
+known legacy policy, proof hash, candidate/source identities and individual
+verdicts; an unknown legacy receipt never becomes supported. Changed model,
+threshold, source, candidate, window policy or unknown method still invalidates
+approval. This compatibility decision avoids discarding previously verified
+compression merely because redundant overlap is removed from new inputs.
+
+The maintainer conditionally approves adoption if the evidence shows benefit.
+Capacity/exact-source controls plus the bounded native24/25 support result meet
+that mechanism condition; no answer-quality claim follows. Do not rewrite the
+completed producer, original proofs or frozen tuning seals. Its proof-method-version1 measurements
+remain version1; new producer/read-policy identities must explicitly bind this repair.
+Validate the shared verifier and representation path, overlapping corrections,
+role/gap/unit separation, malformed spans, complete-pair bounds and retained
+legacy proofs. Then propagate actual tests and limits before local commit.
+
 ### 2.2 Absolute scoring and qualification
 
 Reuse all saved successful r4 answers. Build one blinded packet of the 36
@@ -2366,7 +2408,7 @@ outcomes wait. Original broader/product scopes remain visible, never waived.
 | Prerequisite (7) | **G40 — task labels:** [consumer audit/metric contract](../reviews/2026-10-10-v3-task-metric-consumers.md) is implemented (§2.2b), preserving task/age/error strata and separate rank admission. New final probe/source labels still need qualification. |
 | Prerequisite | **G55 — truthful scoring:** check the repaired semantic funnel on new state, including a present source ID with a missing answer span. |
 | Prerequisite | **G71 — old findings:** the16-entry [applicability register](../reviews/2026-10-10-v3-historical-finding-register.md) is audited; identity/counts re-recorded, invalid historical inferences withdrawn. Independent current role/tier truth and answer utility remain pending under the named development/final owners; no old extractor percentage becomes a v3 result. |
-| Prerequisite | **G72 — current state:** selected repaired adapter and actual short SQL recovery controls implemented (§2.3d). Manually create the new251-turn state before corpus qualification; the old writer's saved store cannot measure the new writer. |
+| Prerequisite | **G72 — current state:** the manually completed251-turn/67-probe tuning partition passes source/key/task validation and all35 live-table fingerprints match. [Current writer/reader audit](../reviews/2026-10-10-v3-repaired-development-audit.md) records5 degraded writers and unqualified semantic outputs. Preserve this completed baseline; new read/derived qualification must explicitly bind subsequent repairs, never bypass its producer identity or imply v1 receipts came from the version2 assertion-proof writer. |
 | Prerequisite | **G29 — live consumers:** [all twelve named clusters reconciled](../reviews/2026-10-10-v3-policy-consumers.md), including opposing fusion/window controls; old bookmark/job-key bypass claims were stale. Actual full knob effects remain tuning work; keyword/style limitations and product-only scope remain visible. |
 | Prerequisite | **G27 — background identity/default:** [core consumers/factory query](../reviews/2026-10-10-v3-background-model-consumers.md) audited; §2.3c repairs missing declared model pins in offline identity. Keep E4B/NuExtract research pins, qualify actual replay/freeze identities. Wider unpinned/routed fallback remains unresolved. |
 | Prerequisite | **G65 — scoring reliability:** qualify independent absolute grading against reviewed references before trusting a tuning promotion. Human batches remain parked as directed; diagnostic work may continue without calling its grades qualified. Select/qualify the second final judge before freeze. |
