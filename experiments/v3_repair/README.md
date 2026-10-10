@@ -69,8 +69,12 @@ The static inventory records relevant numeric/boolean/weight settings, defaults,
 resolved values, candidate read sites and dynamic-read gaps. It does not prove
 that changing a setting changes a live decision. All live deltas/costs/verdicts
 remain unmeasured. The retired procedural similarity threshold is excluded from
-the tuning protocol; the known unread leg-guarantee switch still needs a grounded
-consumer disposition before any sweep credits it.
+the tuning protocol. The former unread fusion-diversity switch now has qualified
+opposing main/wide caller controls, retaining default-on behavior. Successful
+reranking ignores that fallback strategy flag; a corpus that always reranks
+successfully cannot credit it with an observed effect. Consumer reachability is
+not answer benefit. Use a new preparation directory after this production-code
+revision; earlier input bundles remain immutable.
 
 Next prepare fresh repaired development state, qualify live consumer deltas and
 implement the bounded tuning instrument. Final readiness then requires reviewed
@@ -80,3 +84,8 @@ recovery, short actual-path controls and the frozen call/cost table. Keep Muse
 Spark 1.3 Contributor as the primary judge and qualify a second independent
 family; each grades every successful final answer independently. No final score,
 source-review completion, tuning result or final launch command exists yet.
+The [remaining-work ledger](../../docs/specs/V3_POST_RESEED_REPAIR.md#52-remaining-work-by-next-evidence-stage--rechecked2026-10-10)
+maps all29 evidence-dependent owners to7 prerequisite,16 development/tuning,
+4 frozen-comparison and2 conditional stages. The eleven repair dispositions do
+not close these owners or the35 later items. Complete relevant development and
+launch-readiness work before moving to final experiments.

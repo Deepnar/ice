@@ -1803,6 +1803,70 @@ tuning/final launcher. Judge semantic qualification stays late as directed;
 unqualified grades may diagnose but cannot select a score-of-record configuration.
 No final campaign or hyperparameter result exists yet.
 
+### 5.2 Remaining work by next evidence stage — rechecked2026-10-10
+
+**The repairs are not the whole roadmap.** The formal count remains160 anchored
+items:93 checked,67 open =29 dependency-sensitive owners +35 later items
++3 experiment gates. The eleven package dispositions do not close those29.
+Offline B/C input preparation does not pass tuning or final readiness.
+
+The following is an exclusive **next-work** partition of the existing29, not
+29 new defects or a guarantee that every parent closes in its assigned stage.
+Seven need prerequisite audits/instrument or scoring decisions, sixteen need
+repaired development qualification and bounded tuning, four mainly need frozen
+answer/contribution comparisons, and two are conditional/after-baseline work.
+These shared observations overlap; a repaired mechanism can serve several owners.
+All23 prerequisite/development owners need their relevant evidence or explicit
+bounded disposition before final launch. The four final-comparison owners still
+need working labels/instruments/conditions before launch; only their final
+outcomes wait. Original broader/product scopes remain visible, never waived.
+
+| Next work | Existing owner and concrete remaining evidence |
+|---|---|
+| Prerequisite (7) | **G40 — task labels:** audit actual taxonomy consumers so a synthesis question is not scored as one-turn recall; qualify the new final probe labels separately. |
+| Prerequisite | **G55 — truthful scoring:** check the repaired semantic funnel on new state, including a present source ID with a missing answer span. |
+| Prerequisite | **G71 — old findings:** give every named historical claim a confirmed/overturned/inapplicable disposition against r4/current evidence; no old extractor percentage becomes a v3 result. |
+| Prerequisite | **G72 — current state:** create versioned repaired development prefixes with complete source/row/job identity; the old writer's saved store cannot measure the new writer. |
+| Prerequisite | **G29 — live consumers:** audit the named policy copies and opposing knob effects, including the unread fusion-diversity control in §2.3b; product-only copies stay later. |
+| Prerequisite | **G27 — background identity/default:** verify every current job's explicit E4B/NuExtract pin and record the default decision. The wider unpinned/routed fallback remains an unresolved parent scope, not a silent change in the experiment. |
+| Prerequisite | **G65 — scoring reliability:** qualify independent absolute grading against reviewed references before trusting a tuning promotion. Human batches remain parked as directed; diagnostic work may continue without calling its grades qualified. Select/qualify the second final judge before freeze. |
+| Development/tuning (16) | **A9 — entity activation:** trace meaning-preserving queries through actual entity search and source arrival. New NER architecture is conditional on measured bottlenecks, not mandatory here. |
+| Development/tuning | **A12 — local model tradeoff:** qualify the deployed pair's job quality and frozen-run capacity. The old all-candidate comparison grid remains wider conditional scope; no new model tournament. |
+| Development/tuning | **G4 — resource budget:** check the longest frozen input/real schedule and headroom;16.44GiB sampled on a small fixture is not a worst-case guarantee. Optional local answering remains a separate profile. |
+| Development/tuning | **G15 — unnecessary retrieval:** include banter/current-supplied facts and historical questions; compare false suppression and actual prompt cost. |
+| Development/tuning | **G28 — style invariance:** measure gate/source/answer changes for the same meaning. Two retained framing/uncertainty misses are explicit limitations, not fixed claims. |
+| Development/tuning | **G49 — procedures:** inspect source-backed activation, relevance, time consumers and final evidence on actual procedure questions; no threshold lowering to force activity. |
+| Development/tuning | **G57 — representation:** review new source-to-summary/claim outcomes and useful substitution at matched context budgets. |
+| Development/tuning | **G63 — extractor precision:** independently review actual source role/direction/negation, with failures and withheld proposals kept in the denominator. |
+| Development/tuning | **G68 — length bounds:** qualify source tails, complete request/output reserves and truncation rates across observed input lengths. |
+| Development/tuning | **G69 — canonicalization:** review current modal/directional predicates and source recovery; a passing authored control is not corpus precision. |
+| Development/tuning | **G73 — conversation folds:** judge support/completeness against actual originals, especially later corrections, and observe cost/substitution. |
+| Development/tuning | **G74 — clusters:** review real members, source-grounded specificity and assignment separately; arbitrary consecutive turns remain an invalid instrument. |
+| Development/tuning | **G60 — updates:** review actual coexistence/correction decisions and historical reads; measure false expiry before relaxing any source-authority guard. |
+| Development/tuning | **G67 — maintenance:** review eligible/applied changes and entity notes under the real lifecycle schedule, beyond counting job completions. |
+| Development/tuning | **G75 — compression trust:** measure actual substitution, required-detail omission and supported-answer/token effects before changing the keep/fallback decision. |
+| Development/tuning | **G76 — attributed graph evidence:** review assertion/source/tier precision and relevant final context on repaired state; calibrated graph truth precedes trust-threshold tuning. |
+| Frozen final comparison (4) | **G30 — full reader quality:** review complete source→stored representation→prompt→answer traces and disclose unexercised branches/product-only scope. |
+| Frozen final comparison | **G70 — write/read/use:** report each representation's writes, candidates, selection, answer support and cost. Reads remain exposure, not new corroboration. |
+| Frozen final comparison | **G66 — supported answers:** compare full versus warm/bare vector at matched budget with the frozen answerer and independent judges. |
+| Frozen final comparison | **G48 — component value:** run the full additive and independent leave-one-out roster on both B and C; source presence alone cannot justify a component. |
+| Conditional/after baseline (2) | **G51 — missing semantic links:** existing candidate remains NO-GO. Reopen only on safe opposing-source controls plus measured recovery/answer benefit; adding links is not a prerequisite to launching the current system. |
+| Conditional/after baseline | **T5 — temporal-label ranking:** preserve a frozen baseline first, then separately compare the temporal-label gate/recency consumer; it may not invent date windows. This is not implicit in the existing temporal questions. |
+
+**Execution order:** finish prerequisite consumer/label/old-finding audits and
+prepare repaired development state → review current writer/maintenance outputs,
+fix demonstrated failures and complete bounded live tuning/interaction checks →
+freeze after qualified promotion/readiness → manually run B/C semi-LSREP and
+oracle → inspect losses and close only earned original scopes. Source/correction/
+repeat labels, lifecycle clock design, both vector controls, actual ablation
+effects, dual-judge identities/costs and short per-unit recovery controls are
+final readiness work, not work postponed until after the final run.
+
+After both final experiments, the35 later items remain outside this repair pass.
+Conditional owners and broader A9/A12/G27/product acceptance can also remain
+open. The number of evidence-led repairs after those results is unknown until
+the results exist. No experiment completion automatically clears the roadmap.
+
 ## 6. Look-ahead and roadmap closure
 
 Existing ownership, with concrete acceptance examples:

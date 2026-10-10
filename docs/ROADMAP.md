@@ -75,6 +75,17 @@ the other two development histories provide352 pairs/73 reviewed keys. The
 keys, unqualified legacy references, archive coverage and static knob candidates.
 It does not seed, tune, qualify final sources, schedule aging or launch Z2.
 
+**v3 remaining-work audit,2026-10-10:** the29 evidence-dependent owners are
+partitioned by next work:7 prerequisite audits/scoring/instruments,16 repaired
+development/tuning qualifications,4 frozen contribution comparisons and2
+conditional/after-baseline decisions. Thus23 owners have relevant unfinished
+prerequisite/development work before final launch, alongside the final labels,
+clock/baseline/ablation/dual-judge/recovery readiness. This is not23 new defects
+or automatic parent closure. Wider original scopes and35 later items remain.
+The [item-by-item readiness ledger](specs/V3_POST_RESEED_REPAIR.md#52-remaining-work-by-next-evidence-stage--rechecked2026-10-10)
+owns the stage explanation; complete those shared prerequisites before tuning
+promotions/freeze. Selecting B/C is preparation, not a passed readiness gate.
+
 **Focused v3 lifecycle repair, 2026-10-09:** ordinary cold-only recall was
 blocked by the older dated-only contract. Restored 0.12 probation sources were
 also blocked by the 0.2 warm floor. Archived/probation originals now remain
@@ -106,7 +117,7 @@ yet; the old r4 command is not a tuning or Z2 launcher. The agent continues
 independent repairs while review is pending. SESSION is retained until the
 maintainer explicitly requests clearing it.
 
-**Current count, rechecked 2026-10-07:** 160 anchored top-level entries, 93 checked and
+**Current count, rechecked 2026-10-10:** 160 anchored top-level entries, 93 checked and
 67 unchecked. The 58/51 counts in the dated 2026-08-10 position below are
 historical, not the current queue size. Fourteen open Track F entries are
 product work, four Track H entries are longer-term research, and Z1/Z2/Z3 are
@@ -1444,6 +1455,7 @@ conversations, and cut the PROBE count instead.**
   - [x] Audit completed artifacts and record aggregate results, counter defects and coverage limits.
   - [x] Freeze the current offline development/final input separation, reviewed development keys and static consumer candidates; all live tuning verdicts remain unmeasured.
   - [ ] Build fresh repaired development state and the resumable live-consumer/bounded tuning instrument; B and C do not select settings.
+  - [ ] Complete the [seven prerequisite and sixteen development/tuning owner dispositions](specs/V3_POST_RESEED_REPAIR.md#52-remaining-work-by-next-evidence-stage--rechecked2026-10-10) at their actual consumers before final freeze; conditional/product-only scopes remain explicit.
   - [ ] Repair diagnosed memory/measurement failures, qualify semantic judgments and finish bounded tuning.
   No new G-entry is created; each dependent owner above carries its r4 evidence.
   **2026-10-07 preserved cloud continuation:** the maintainer completed1471 originals/259 observers and all four117-answer arms. An upstream resume falsely marked successful retries degraded, changing judge input hashes after seven returned orders. A byte-exact, archived restoration retains all answers/orders; completed answer reruns now remain immutable, with a closed read-only old-runner transition and actual-error progress counts. Actual artifact/pending-order preflights use zero API calls. This repairs resumability, not memory quality or judge qualification. [Manual guide](reviews/2026-10-01-v3-manual-campaign.md).

@@ -1,3 +1,29 @@
+## 2026-10-10 — v3 remaining-owner readiness audit
+
+The current roadmap/spec recheck matches all29 dependency-sensitive owners to
+their still-open parent entries. Formal count160/93 checked/67 open is unchanged:
+29 evidence-dependent owners,35 later/product/research entries and3 experiment
+gates. The exclusive next-work grouping is7 prerequisite audits/scoring/state/
+instruments,16 repaired development/tuning qualifications,4 frozen contribution
+comparisons and2 conditional/after-baseline decisions. These are next evidence
+stages, not29 independent fixes or promised parent closures. Broader original
+NER/model/default/product scopes remain visible.
+
+All23 prerequisite/development owners need relevant evidence or explicit bounded
+dispositions before final launch. Final-comparison outcomes wait for frozen
+B/C semi-LSREP and oracle, but their truth/clock/baseline/ablation/judge/recovery
+instruments must be ready first. The eleven repair dispositions and offline
+input preparation do not pass these gates. The35 later items remain outside this
+repair pass; new final failures cannot be counted before results exist.
+
+Private machine-checked receipt: logs/v3-pre-tuning-readiness-2026-10-10/
+readiness-map-r2.json (earlier readiness-map.json retained), binding current
+roadmap/spec hashes,29 unique owner IDs and the
+7/16/4/2 counts. Every mapped parent remains unchecked; no claim was retired or
+promoted solely from the package audit. No DB/model/API/long run for this audit.
+The [current item ledger](specs/V3_POST_RESEED_REPAIR.md#52-remaining-work-by-next-evidence-stage--rechecked2026-10-10)
+and roadmap entry notes own the remaining order.
+
 ## 2026-10-10 — v3 fusion-diversity consumer reachability
 
 The already documented unread `retrieval_leg_guarantee_enabled` is reproduced
