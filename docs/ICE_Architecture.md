@@ -118,6 +118,22 @@ pauses. Completed caches/report are byte-stable. The historical r4 paired judge
 and its saved verdicts remain unchanged; no automatic campaign integration or
 human/model qualification is implied by controlled SDK checks.
 
+**Reviewed task consumers,2026-10-10:** generated catalog `probe_type` remains
+origin/target metadata. The scorer-only `metric_contract.py` preserves reviewed
+knowledge/task labels, source-turn count and age cohort in independent reports
+and offline development keys. Lookup-only, single-source private/assistant
+history with reviewed older-source answerability is the rank-tuning cohort;
+synthesis/multi-hop/temporal/procedural/negative/public/mixed tasks retain separate
+coverage/semantic outcomes. Before controls and unknown age never inflate the
+older-source strata. Own-arm reports preserve uncertain and absent grades,
+overlapping task groups and dependent/unassigned families. New plans bind the
+helper identity; old r4 artifacts remain unchanged. The73 development keys have
+only5 tuning/2 validation rank-eligible occurrences; no calibrated answer result
+or sufficiently powered retrieval optimization follows from those counts.
+The [historical16-claim register](reviews/2026-10-10-v3-historical-finding-register.md)
+also records suspended/withdrawn old findings and current empirical gaps without
+borrowing old extractor percentages. Whole parent acceptance remains pending.
+
 `scripts/z1/seed_v3.py` replays the selected recorded histories through shared
 preflight/final preparation before storing each existing reply and running
 post-flight. An isolated source clock covers Python/ORM and explicit SQL
@@ -296,6 +312,8 @@ state remaining coverage, label and qualification limits.
 `experiments/v3_repair/prepare_inputs.py` seals private original/review/code hashes
 without a DB or model call. Two development histories contain352 recorded pairs
 and73 reviewed keys, reserved67/6 by complete history before new outputs.
+Keys carry reviewed metric contracts and separate partition counts; arbitrary
+generated types cannot replace missing task intent or join single-source tuning.
 Previously exposed development sources are not untouched users. Final semi-LSREP
 reserves both paper histories B and C (1119/325 pairs), with isolated state and
 the same complete additive/leave-one-out/lifecycle/vector-control roster; report
@@ -305,6 +323,10 @@ disagreements/incomplete byte-match coverage rather than rewriting originals.
 Oracle-only scorer keys preserve500 official string/integer answers. All keys
 stay separate from answering evidence. Atomic locked products and a final seal
 verify unchanged resume; input/code/settings drift requires a new private bundle.
+Safe declared local model roles/pins, classifier/schema paths and NLI revision
+are bound too; string pin changes can no longer evade the numeric inventory.
+Unset pins are unresolved. Downloaded weights, serving capacity and job quality
+remain separately unqualified.
 The173 static settings candidates have unmeasured live effects. This is input
 preparation, not a repaired replay store, tuning or final campaign. Full aging,
 condition-path/recovery controls and final runner remain readiness work in

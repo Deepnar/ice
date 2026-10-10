@@ -23,6 +23,7 @@ from scripts.z1.cloud_recovery import judge_fault, terminal_answer_fault
 from scripts.z1.judge_answers import (GRADES, judge_profile, profile_completion,
                                       probe_key)
 from scripts.z1.label_review import KNOWLEDGE_SCOPES, TASK_TYPES
+from scripts.z1.metric_contract import absolute_outcome_strata, metric_contract
 from scripts.z1.replay_checkpoint import atomic_json
 
 POLICY = 'independent_frozen_answer_scoring_v1'
@@ -70,7 +71,8 @@ def implementation():
     return {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in (
         'scripts/z1/score_frozen_answers.py', 'scripts/z1/judge_answers.py',
         'experiments/lme/cloud_provider.py', 'scripts/z1/cloud_recovery.py',
-        'scripts/z1/campaign_recovery.py', 'scripts/z1/replay_checkpoint.py')}
+        'scripts/z1/campaign_recovery.py', 'scripts/z1/replay_checkpoint.py',
+        'scripts/z1/label_review.py', 'scripts/z1/metric_contract.py')}
 
 
 def case(row):
@@ -127,13 +129,20 @@ def collect(paths, identity):
             rows[key] = dict(evidence=evidence, grade_key=grade_key, task=grade_task,
                              answer=row.get('answer'), available=available,
                              prompt_tokens=row.get('prompt_tokens'), family=row.get('label_review', {}).get('question_family_id'))
+            rows[key]['development_repeat'] = row.get('development_repeat')
+            rows[key]['gold_turns'] = row.get('gold_turns')
+            rows[key]['metric_contract'] = metric_contract(
+                row['label_review'], row.get('gold_turns'), development_repeat=row.get('development_repeat'))
         arms[name] = rows
         hashes[name] = hashlib.sha256(raw).hexdigest()
     if not arms:
         raise ValueError('no answer inputs')
     first = next(iter(arms.values()))
     for rows in arms.values():
-        if rows.keys() != first.keys() or any(rows[k]['evidence'] != first[k]['evidence'] for k in first):
+        if rows.keys() != first.keys() or any(
+                any(rows[k][field] != first[k][field] for field in
+                    ('evidence', 'metric_contract', 'development_repeat', 'gold_turns', 'family'))
+                for k in first):
             raise ValueError('matched arms have different occurrences or evidence')
     return arms, hashes
 
@@ -251,6 +260,9 @@ def work(arms, identity, mode, root):
         for occurrence, left in arms[first].items():
             right = arms[other][occurrence]
             pair = dict(occurrence=occurrence, arm_a=first, arm_b=other,
+                        knowledge_scope=left['evidence']['knowledge_scope'],
+                        task_types=left['evidence']['task_types'],
+                        development_repeat=left['development_repeat'], metric_contract=left['metric_contract'],
                         absolute_keys=[left['grade_key'], right['grade_key']],
                         absolute_receipts=[digest(states[k]) if k else None for k in
                                            (left['grade_key'], right['grade_key'])],
@@ -281,7 +293,10 @@ def report(arms, tasks, pairs, states, plan_key, mode):
                 state = states.get(row['grade_key'])
                 result['records'].append(dict(arm=arm, occurrence=occurrence, grade_key=row['grade_key'],
                     status=disposition(state) if state else 'answer_unavailable',
-                    grade=grade_value(state) if state else None, prompt_tokens=row['prompt_tokens'], family=row['family']))
+                    grade=grade_value(state) if state else None, prompt_tokens=row['prompt_tokens'], family=row['family'],
+                    knowledge_scope=row['evidence']['knowledge_scope'], task_types=row['evidence']['task_types'],
+                    development_repeat=row['development_repeat'], metric_contract=row['metric_contract']))
+        result['reviewed_outcomes'] = absolute_outcome_strata(result['records'])
     else:
         for pair in pairs:
             values = [grade_value(states[k]) for k in pair['orders']]

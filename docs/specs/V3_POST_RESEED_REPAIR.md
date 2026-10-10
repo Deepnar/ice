@@ -1327,6 +1327,54 @@ Combined disposable rails874 passed42.94s. Read-only real r4 planning sees
 occurrences remain unavailable. No grading API call or old artifact mutation.
 These validate the instrument, not the proposed rubric's semantic agreement.
 
+### 2.2b Reviewed task consumers and metric admission — grounded2026-10-10
+
+The G40 taxonomy audit finds two current namespaces: generated `probe_type`
+records catalog origin/target, while source-reviewed `task_types` records what
+the question asks. Legacy retrieval scorers still use the former and their
+source-ID/turn-span scores do not establish semantic support. Keep historical
+artifacts, but do not use those mixed scores to select current tuning settings.
+The independent grader already reads semantic labels in its blind input, yet
+`collect`/`report` drop them and the development-repeat marker from its output.
+That would make the new cached grades lose their valid task/age denominators.
+
+Add one scorer-only metric contract consumed by offline development preparation
+and independent grade reporting. Review labels must use the existing vocabulary
+without duplicates; a generated type or target leg never fills a missing label.
+Single-source rank tuning is eligible only for a reviewed episodic-lookup-only
+private/assistant-history task with exactly one valid source turn, outside the
+recent-window before controls. Other annotated source ranks/spans remain coverage
+diagnostics. Multi-hop, synthesis, updates, temporal, procedures, negative and
+abstention tasks never enter that single-source tuning cohort. Public/mixed
+answers do not prove private-memory benefit. All answer/content scores still
+require their separately qualified semantic instrument.
+
+Store the contract on every prepared development key; report counts separately
+by tuning/validation partition. Carry reviewed knowledge/task labels and repeat
+phase through absolute/preference report records. Absolute reports show their
+own arm's grades, including uncertain/pending/ungraded/unavailable denominators,
+by overlapping reviewed task labels and exclusive knowledge scope. Put before
+controls in a separate stratum; their source recency cannot inflate long-term
+scores. Keep family counts conservative and explicitly non-independent. This
+metadata is scorer-only and never enters runtime retrieval or a preference
+prompt. Existing independent cache/attempt/completion rules remain unchanged.
+
+Bind the new helper in preparation and grading identities. Modified instruments
+produce a new revision and refuse old immutable plan reuse; no ignore-hash path
+or mutation of old answers/reports. New preparation remains offline and not
+replay/score ready. Test precise versus synthesis/temporal/negative/mixed controls,
+conflicting labels, missing source identity and age strata in isolation, then
+through actual preparation and SDK→cache→report/resume paths with controlled
+responses. Independent corpus/source labels for final B+C still need review;
+passing this contract does not close the whole G40 parent.
+
+**Implemented qualification:**61 focused task/preparation/SDK controls pass;
+actual four-arm planning keeps115 older/2 before per arm,454 pending unique grade
+tasks and zero calls. Development metric contracts retain5 tuning/2 validation
+rank-eligible occurrences, not73 recall questions. Final combined qualification
+with §2.3c passes976 disposable smoke/background checks; semantic judge and final
+source labels remain unqualified.
+
 ### 2.3 Hyperparameter tuning before Z2
 
 **Inputs:** immutable r4 baseline, versioned repaired development stores and
@@ -1485,6 +1533,42 @@ now changes the off-mode selection while retaining on-mode output. Source-fetch/
 scorer boundaries are controlled in caller tests; SQL/model semantics and answer
 gain are not credited. Selection-mode receipts are observable. Remaining named
 policy consumers and corpus effect qualification keep the parent audit open.
+
+### 2.3c Offline declared model identities — grounded2026-10-10
+
+Actual preparation of the same sealed eight products accepts an independently
+changed `background_model_name` or `codex_extraction_model`: numeric/static
+consumer inventory and code hashes do not bind these string settings. This is
+an instrument identity defect before repaired-state replay, not evidence that
+the pinned production jobs choose the wrong model. Resolve the actual shared
+background factory and trace all ten periodic core jobs plus post-flight helpers.
+General generation/reconciliation/author checks use E4B; only triplet extraction
+uses NuExtract3. Decay/compaction have no generative model. Pinned NLI, embedding,
+NuNER and reranker identities remain distinct from those two generators.
+
+Include a safe allow-list of declared local model/role identifiers in the offline
+preparation identity: background mode/pin, extraction pin, embedder, classifier
+checkpoint/schema paths, background NER, reranker and NLI model/revision. Never
+dump Settings or include credentials. Record whether the shared research writer
+pins are resolved; unset pins can form an explicitly unready offline plan, but
+cannot authorize replay. A pin/mode/revision change must refuse reuse before
+rewriting any product. This binds declared identity only, not downloaded binary
+bytes, effective context/residency or semantic quality; exact runtime artifacts
+and endpoint/decoding still need freeze validation.
+
+Keep current research E4B/NuExtract pins and defaults. Unpinned shared fallback
+continues to warn and remains a separate G27 parent decision; cloud foreground
+choice does not choose the memory writer. Check pure safe-profile construction,
+then actual preparation changed-pin refusal/unchanged resume and the existing
+actual-client background-pin controls. No new model, cloud call or old-writer
+continuation follows from this audit.
+
+**Implemented qualification:**actual earlier preparation accepts either changed
+writer pin without changing its seal. Repaired E4B/extractor/NLI-revision changes
+each refuse reuse with all8 products unchanged; identical resume preserves8 too.
+68 focused controls and976 disposable smoke/background checks pass. This is
+declared identity/consumer qualification, not per-job semantic coverage or a
+weight/residency/final-launch certificate.
 
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
@@ -1823,12 +1907,12 @@ outcomes wait. Original broader/product scopes remain visible, never waived.
 
 | Next work | Existing owner and concrete remaining evidence |
 |---|---|
-| Prerequisite (7) | **G40 — task labels:** audit actual taxonomy consumers so a synthesis question is not scored as one-turn recall; qualify the new final probe labels separately. |
+| Prerequisite (7) | **G40 — task labels:** [consumer audit/metric contract](../reviews/2026-10-10-v3-task-metric-consumers.md) is implemented (§2.2b), preserving task/age/error strata and separate rank admission. New final probe/source labels still need qualification. |
 | Prerequisite | **G55 — truthful scoring:** check the repaired semantic funnel on new state, including a present source ID with a missing answer span. |
-| Prerequisite | **G71 — old findings:** give every named historical claim a confirmed/overturned/inapplicable disposition against r4/current evidence; no old extractor percentage becomes a v3 result. |
+| Prerequisite | **G71 — old findings:** the16-entry [applicability register](../reviews/2026-10-10-v3-historical-finding-register.md) is audited; identity/counts re-recorded, invalid historical inferences withdrawn. Independent current role/tier truth and answer utility remain pending under the named development/final owners; no old extractor percentage becomes a v3 result. |
 | Prerequisite | **G72 — current state:** create versioned repaired development prefixes with complete source/row/job identity; the old writer's saved store cannot measure the new writer. |
 | Prerequisite | **G29 — live consumers:** audit the named policy copies and opposing knob effects, including the unread fusion-diversity control in §2.3b; product-only copies stay later. |
-| Prerequisite | **G27 — background identity/default:** verify every current job's explicit E4B/NuExtract pin and record the default decision. The wider unpinned/routed fallback remains an unresolved parent scope, not a silent change in the experiment. |
+| Prerequisite | **G27 — background identity/default:** [core consumers/factory query](../reviews/2026-10-10-v3-background-model-consumers.md) audited; §2.3c repairs missing declared model pins in offline identity. Keep E4B/NuExtract research pins, qualify actual replay/freeze identities. Wider unpinned/routed fallback remains unresolved. |
 | Prerequisite | **G65 — scoring reliability:** qualify independent absolute grading against reviewed references before trusting a tuning promotion. Human batches remain parked as directed; diagnostic work may continue without calling its grades qualified. Select/qualify the second final judge before freeze. |
 | Development/tuning (16) | **A9 — entity activation:** trace meaning-preserving queries through actual entity search and source arrival. New NER architecture is conditional on measured bottlenecks, not mandatory here. |
 | Development/tuning | **A12 — local model tradeoff:** qualify the deployed pair's job quality and frozen-run capacity. The old all-candidate comparison grid remains wider conditional scope; no new model tournament. |
@@ -1873,13 +1957,13 @@ Existing ownership, with concrete acceptance examples:
 
 | Existing item | This plan supplies / what still earns completion |
 |---|---|
-| G40 — task labels, e.g. synthesis needs several facts | P0/P8 reviewed task/required-fact labels; current 255 dispositions are complete, older taxonomy consumers still need audit. |
+| G40 — task labels, e.g. synthesis needs several facts | Current consumer audit and scorer-only rank/age/task contract implemented; only5/2 development occurrences rank-eligible. Final B+C task/required-fact/source labels still need qualification. |
 | G55 — complete meaningful scoring, e.g. a gold-ID hit loses its value | P0/P2 full semantic funnel; the 1471-turn seed is complete, source IDs alone remain insufficient. |
 | G57 — write representation, e.g. a long source never compresses | P1/P3 actual supported substitution and loss audit. |
 | G63 — extractor truth, e.g. a linked relation reverses its source | P3/P4 independent source/role/direction review. |
 | G68 — input/output ceilings, e.g. a long turn produces incomplete JSON | P1/P3 length-stratified coverage and failure-rate repair. |
 | G69 — relation canonicalization, e.g. “can” becomes “does” | P4 opposing modal/directional controls and real relation review. |
-| G71 — old findings, e.g. an old extractor percentage reused as v3 | Map each remeasure claim to r4/new evidence or inapplicable; no borrowed scores. |
+| G71 — old findings, e.g. an old extractor percentage reused as v3 | All16 claims mapped in the dated register; current empirical gaps remain explicit under original owners. No borrowed scores or parent closure from an applicability audit. |
 | G72 — fresh state and confidence tiers, e.g. low-tier facts excluded from direct reads | Fresh seed/snapshots done; P4 independent tier truth and P0 identity retention remain. |
 | G73 — conversation folds, e.g. a later correction disappears | P1/P10 support, completeness and actual prompt-cost evaluation. |
 | G74 — cluster names, e.g. a label unsupported by its actual members | P10 blind member-grounded specificity review. |
@@ -1889,7 +1973,7 @@ Existing ownership, with concrete acceptance examples:
 | A12 — local model quality/cost, e.g. E4B and NuExtract residency | P3/P9 deployed-pair quality/latency/VRAM; old full model-comparison scope remains separate. |
 | G4 — GPU budget, e.g. overlapping encoder and local writer peaks | P9 measured complete-stack profile, not sum of isolated model sizes. |
 | G15 — noise gate, e.g. banter unnecessarily retrieves | P7 memory/no-memory opposing cases and token effects. |
-| G27 — background defaults, e.g. unpinned fallback changes writer | P9 actual resolved identities and explicit default decision; no silent pin edit. |
+| G27 — background defaults, e.g. unpinned fallback changes writer | Core consumers/factory audited; safe declared roles/pins/revision bound in preparation. Research pair retained; runtime/freeze identity and wider unpinned policy remain visible. |
 | G28 — style invariance, e.g. punctuation changes source access | P7 source/gate/answer changes with intent held fixed. |
 | G29 — duplicate consumers, e.g. tuning a setting leaves a literal active | Tune live consumers and audit the entry's named remaining copies; unrelated product work stays later. |
 | G30 — reader quality coverage, e.g. smoke passes but a useful span is absent | P0/P2/P10 actual-model source-to-answer checks, with product-only readers deferred. |

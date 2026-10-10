@@ -66,7 +66,8 @@ def inputs(tmp_path, monkeypatch):
                  future_reference_block=[]))
     put(root, "experiments/lme/data/longmemeval_oracle", oracle_rows())
     for name in ("src/module.py", "experiments/v3_repair/prepare_inputs.py",
-                 "experiments/v3_repair/settings_inventory.py", "scripts/z1/label_review.py"):
+                 "experiments/v3_repair/settings_inventory.py", "scripts/z1/label_review.py",
+                 "scripts/z1/metric_contract.py"):
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("# controlled code identity\n")
@@ -108,6 +109,48 @@ def test_interruption_before_seal_recovers_existing_artifacts(inputs, monkeypatc
     monkeypatch.setattr(prep, "write_or_verify", original)
     prep.prepare(out, root=root)
     assert all((out / name).read_bytes() == body for name, body in existing.items())
+
+
+def test_preparation_preserves_synthesis_but_excludes_it_from_rank_tuning(inputs):
+    root, out, _ = inputs
+    path = root / 'logs/z1-v3-manual-2026-10-04-r4/source-reviewed-labels-2026-10-03-r3.json'
+    review = json.loads(path.read_text())
+    review['native']['records'][0]['task_types'] = ['summary_synthesis']
+    path.write_text(json.dumps(review))
+    prep.prepare(out, root=root)
+    keys = json.loads((out / 'development-keys.json').read_text())
+    assert len(keys['records']) == 2
+    synthesis = next(r for r in keys['records'] if 'summary_synthesis' in r['review']['task_types'])
+    lookup = next(r for r in keys['records'] if 'episodic_lookup' in r['review']['task_types'])
+    assert not synthesis['metric_contract']['lookup_rank_tuning_eligible']
+    assert lookup['metric_contract']['lookup_rank_tuning_eligible']
+    assert sum(s['lookup_rank_tuning_eligible'] for s in keys['metric_cohorts'].values()) == 1
+
+
+@pytest.mark.parametrize('field', ['background_model_name', 'codex_extraction_model',
+                                  'source_support_revision'])
+def test_actual_preparation_refuses_declared_model_drift_without_overwrites(inputs, monkeypatch, field):
+    from src.api.config import settings
+
+    root, out, _ = inputs
+    prep.prepare(out, root=root)
+    before = {p.name: p.read_bytes() for p in out.glob('*.json')}
+    monkeypatch.setattr(settings, field, 'different-declared-audit-identity')
+    with pytest.raises(ValueError, match='inputs/code/settings changed'):
+        prep.prepare(out, root=root)
+    assert before == {p.name: p.read_bytes() for p in out.glob('*.json')}
+
+
+def test_model_profile_binds_declared_roles_without_credentials_or_weight_claims():
+    values = {name: 'controlled-model-or-path' for name in prep.LOCAL_MODEL_FIELDS}
+    values.update(background_model_mode='shared', background_model_name=None)
+    settings = NS(**values, probe_api_key='SECRET_CANARY_NOT_IN_PROFILE')
+    profile = prep.local_model_profile(settings)
+    assert not profile['research_writer_pins_resolved']
+    assert 'SECRET_CANARY' not in json.dumps(profile)
+    assert profile['downloaded_weight_identity'] == profile['runtime_capacity'] == 'unqualified'
+    settings.background_model_name = 'declared-background-pin'
+    assert prep.local_model_profile(settings)['research_writer_pins_resolved']
 
 
 def test_stale_source_review_fails_before_writing_products(inputs):

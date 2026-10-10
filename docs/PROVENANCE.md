@@ -1,3 +1,63 @@
+## 2026-10-10 — v3 historical claims, reviewed metric consumers and model identity
+
+Three prerequisite audits continue the existing post-reseed plan, without a
+new model tournament, long replay, grading API call or working-store mutation.
+The [16-entry historical register](reviews/2026-10-10-v3-historical-finding-register.md)
+binds the complete original08-11→08-24 window and verifies all12 artifact hashes
+in the immutable r4 campaign report. Later suspensions/withdrawals supersede
+surviving headlines: the direction-rule null used a reversal-blind judge; detector
+rates used simulated anchors; the small NuExtract pre-write pilot is not current
+precision. Independent current tier/role truth and answer benefit remain pending.
+
+Actual r4 recount confirms117 occurrences per arm and113/114/113/116 successful
+answers (full/no-Codex/warm-vector/recent), with4/3/4/1 errors. Admitted full
+prompts select2062 episodic,201 Codex and2 batch-summary fragments,0 procedures/
+cold. Raw259-probe replay instead selects3 procedural and15 batch-summary
+fragments; historical-turn preparation selects24 procedures. These populations
+must not be pooled to declare a component dead. Same-full-answer disagreement
+36/111 includes two before controls; the older-source cohort has36/109 with
+grades in all three contrasts. Both remain unqualified old-rubric diagnostics.
+
+The [taxonomy consumer audit](reviews/2026-10-10-v3-task-metric-consumers.md)
+finds generated origin/target types differ from reviewed semantic intent. New
+independent grading gave labels to the judge but dropped them and repeat phase
+from the report. A shared scorer-only metric contract now reaches prepared keys
+and own-arm absolute reports, retaining overlapping tasks, exclusive scope,
+older/before/unknown-age, uncertain/unavailable grades and dependent families.
+Only5 tuning/2 validation of73 development occurrences qualify for precise
+single-source rank diagnostics; the other tasks remain for separate qualified
+content/answer outcomes. Actual offline four-arm planning has454 unique pending
+grade tasks from456 successful occurrences; each arm retains115 older-source
+records and2 before controls,0 unknown-age,9 rank-eligible. No new grade is made.
+
+The [model consumer audit](reviews/2026-10-10-v3-background-model-consumers.md)
+queries the actual factory as E4B and traces the extractor/general-model split
+and ten periodic registrations. It is a code map, not dynamic coverage of every
+semantic branch. Actual earlier preparation accepted changed background/extractor
+pins while retaining the same seal. Preparation now binds a safe declared-model
+allow-list (including NLI revision and classifier/schema paths), excluding
+credentials. Each actual changed pin/revision refuses reuse before any write.
+Declared identities do not qualify downloaded bytes, runtime capacity or quality.
+The research pair stays E4B/NuExtract; broader unpinned semantics remain open.
+
+Current private offline plan is logs/v3-offline-input-plan-2026-10-10-r4,
+identity d35eff7d087ddd6668ddf1858a4034118910509ddbd24c57334fd68fdd281e67.
+All eight JSON products survive unchanged resume and each changed-model refusal.
+Earlier r1/r2/r3 preparations and original r4 corpus/answers/judges are preserved;
+both replay/score readiness flags stay false. Private historical-section/hash
+receipt is in logs/v3-historical-claims-audit-2026-10-10/; taxonomy/model/plan/
+refusal/test receipts are in logs/v3-taxonomy-consumer-audit-2026-10-10/.
+
+61 focused task/preparation/SDK controls pass2.16s; after the model-identity fix,
+68 focused controls pass2.10s. Final disposable smoke/background rails976/976
+pass60.93s with327 existing warnings; database removed. The earlier965 smoke
+pass52.37s predates the final model-identity addition and is not its final check.
+These counts overlap; controlled provider responses do not qualify Muse or memory
+answer quality. First read-only grading invocation lacked an explicit profile
+and correctly refused before calls; the explicit Muse planning invocation passes.
+No src/default/model change, parent checkmark, tuning promotion, final launch or
+publication occurs. Counts remain160/93 checked/67 open. SESSION remains intact.
+
 ## 2026-10-10 — v3 remaining-owner readiness audit
 
 The current roadmap/spec recheck matches all29 dependency-sensitive owners to

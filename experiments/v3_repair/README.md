@@ -15,6 +15,15 @@ not this final protocol. Long/cloud runs remain manually launched.
 | Paper history C | 325 | 37 legacy families, 154 observations at 10 historical cutoffs | Final source/correction/repeat review pending |
 | LongMemEval oracle | Separate public sessions | 500 official keys: 468 strings, 32 integers | New adapter/judge execution not yet qualified |
 
+Reviewed task labels are scorer inputs, separate from catalog origin/target
+types. Development keys now include explicit metric contracts and per-partition
+counts: only5 tuning and2 validation occurrences qualify for precise single-source
+rank diagnostics. Synthesis, multi-hop, temporal/update, procedures, negative/
+abstention and public/mixed questions cannot silently enter that rank cohort;
+their content/support/answer outcomes stay separately qualified. These7
+occurrences are not7 certified independent families or a powered optimization
+result. See the [consumer audit](../../docs/reviews/2026-10-10-v3-task-metric-consumers.md).
+
 B and C have isolated state, the same complete additive and independent
 leave-one-out ablation roster, full lifecycle/decay and repeated probes. Both
 warm ICE-vector and independent all-originals bare-vector controls are required.
@@ -54,6 +63,12 @@ two preparations from writing together. Every product uses atomic replace and
 fsync. Existing corruption or input/code/policy/settings drift is refused before
 any product is overwritten. Use a new output directory for a new revision;
 there is no ignore-hash option and no need to erase a previous bundle.
+The reviewed metric helper is also bound by the manifest; upgrading the
+instrument requires a new bundle even when the original source bytes match.
+The identity also binds declared local model roles/pins, classifier/schema paths
+and NLI revision. Changed model pins cannot silently resume the same plan.
+Unset pins are unresolved; downloaded weights, runtime capacity and endpoint/
+decoding remain freeze gates.
 
 The outputs are `development-originals.json`, `development-keys.json`, separate
 `final-originals-B.json`/`final-originals-C.json`, `final-legacy-references.json`,

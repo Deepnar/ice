@@ -17,7 +17,9 @@ def row(number=1, answer='7813'):
                 question=f'Which port {number}?', expected_answer='7813',
                 question_time='2026-01-01T00:00:00+00:00', question_time_provenance='original',
                 gold_source_complete=True, gold_turn_text='User: use port 7813. END_SOURCE',
-                label_review=dict(knowledge_scope='private_history', task_types=['episodic_lookup']),
+                gold_turns=[1],
+                label_review=dict(knowledge_scope='private_history', task_types=['episodic_lookup'],
+                                  recent_only_answerable=False),
                 answer=answer, error=None, prompt_tokens=100)
 
 
@@ -113,6 +115,47 @@ def test_actual_sdk_cache_reuses_unique_grades_and_keeps_preferences_separate(ru
     assert len(calls) == 4
     assert all(p.read_bytes() == b and p.stat().st_mtime_ns == stamp for p, (b, stamp) in stamps.items())
     assert {p: p.read_bytes() for p in original} == original
+
+
+def test_actual_sdk_report_preserves_task_age_and_unavailable_denominators(runtime):
+    root, calls, _, run = runtime
+    lookup, synthesis, before, failed = [row(i) for i in range(1, 5)]
+    synthesis['label_review']['task_types'] = ['summary_synthesis', 'temporal']
+    before['development_repeat'] = dict(phase='before')
+    failed.update(answer='', error='incomplete_completion', error_type='CloudCompletionError',
+                  cloud_attempts=2, fault_disposition='degraded_final')
+    full = write_arm(root, 'full', [lookup, synthesis, before, failed])
+    assert run([full]) == 0 and len(calls) == 3
+    result = reports(root)[0]
+    strata = result['reviewed_outcomes']['by_arm']['full']
+    assert strata['all_occurrences']['occurrences'] == 4
+    assert strata['older_source']['occurrences'] == 3
+    assert strata['older_source']['grades']['correct'] == 2
+    assert strata['older_source']['without_grade'] == 1
+    assert strata['recent_controls']['occurrences'] == 1
+    assert strata['task_types']['summary_synthesis']['occurrences'] == 1
+    assert strata['task_types']['temporal']['occurrences'] == 1
+    assert strata['older_source']['contracts']['lookup_rank_tuning_eligible'] == 2
+    assert strata['older_source']['question_families']['independent_sample_count'] is None
+    assert result['reviewed_outcomes']['qualification'] == 'unqualified_diagnostic'
+    saved = {p: p.read_bytes() for p in (root / 'scores/reports').glob('*.json')}
+    assert run([full]) == 0 and len(calls) == 3
+    assert all(p.read_bytes() == body for p, body in saved.items())
+
+
+@pytest.mark.parametrize('change', ['repeat', 'source_turn'])
+def test_actual_collector_refuses_mismatched_metric_metadata_before_cloud(runtime, change):
+    root, calls, _, run = runtime
+    full = write_arm(root, 'full', [row()])
+    changed = row()
+    if change == 'repeat':
+        changed['development_repeat'] = dict(phase='before')
+    else:
+        changed['gold_turns'] = [2]
+    other = write_arm(root, 'other', [changed])
+    with pytest.raises(ValueError, match='different occurrences or evidence'):
+        run([full, other])
+    assert not calls and not (root / 'scores').exists()
 
 
 def test_interrupted_request_consumes_attempt_and_resume_is_bounded(runtime):

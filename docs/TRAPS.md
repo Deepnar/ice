@@ -2455,3 +2455,28 @@ default-on output and successful reranker order unchanged; reranking's fused
 scores are not its relevance order. A reachable fallback control can still be
 unexercised on a corpus that always reranks successfully. Report that explicitly
 instead of claiming a universal effect or answer gain.
+
+### 111. Labels in the judge input can disappear from its report
+
+**ICE v3,2026-10-10.** The independent grader supplied reviewed task/knowledge
+labels to the judge but dropped them and the repeat-before marker during
+collection/reporting. A correct grade could therefore enter the wrong pooled
+denominator. The old36/111 cross-contrast disagreements include two before
+controls; on the older-source cohort the same disagreement count is36/109.
+Trace labels to the saved outcomes and metric admission, not just the prompt.
+Catalog origin/target is not semantic intent. Current73 development keys provide
+only5 tuning/2 validation precise single-source rank occurrences; pretending
+all73 are recall questions would measure a different task. Preserve other tasks,
+unavailable/uncertain grades, overlapping groups and family dependence explicitly.
+Historical registers also need later suspensions: the old direction-rule null
+was invalidated by a reversal-blind judge, even though its headline survived.
+
+### 112. A numeric settings inventory does not bind model identity
+
+**ICE v3,2026-10-10.** Offline preparation hashed code and numeric/boolean
+consumer settings, yet changing the background or extraction model string
+still accepted the identical eight sealed products. A source hash does not bind
+a gitignored model pin. Record a safe model/role/revision allow-list and prove
+each changed pin refuses reuse before writes. Do not dump Settings: it contains
+credentials. Symbolic model IDs and checkpoint paths also do not prove downloaded
+bytes, effective context or semantic quality; those need runtime/freeze checks.

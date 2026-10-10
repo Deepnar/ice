@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 from experiments.v3_repair.settings_inventory import build_inventory
 from scripts.z1.label_review import reviewed_expected_answer, validate_review
+from scripts.z1.metric_contract import metric_contract, summarize_contracts
 
 DEVELOPMENT = {"ecc64aab": 251, "355a5709": 101}
 FINAL = {
@@ -24,9 +25,23 @@ FINAL = {
               checkpoints=10, archives=["EC-a77c15cf-TURN117.json",
                                        "EC-a77c15cf-TURN172.json", "EC-a77c15cf-TURN238.json"]),
 }
-POLICY = dict(version="v3", method="offline_repaired_inputs_v1",
+POLICY = dict(version="v3", method="offline_repaired_inputs_v3",
               final_histories=["B", "C"], tuning_excludes_final_histories=True,
               final_labels="legacy_unqualified", long_run_launched=False)
+LOCAL_MODEL_FIELDS = ("background_model_mode", "background_model_name", "codex_extraction_model",
+                      "embedding_model_name", "classifier_model_path", "label_schema_path",
+                      "background_ner_model", "retrieval_rerank_model",
+                      "source_support_model", "source_support_revision")
+
+
+def local_model_profile(settings):
+    """Declared safe identities only; no credentials, model loads or weight claims."""
+    declared = {field: getattr(settings, field) for field in LOCAL_MODEL_FIELDS}
+    resolved = (declared["background_model_mode"] == "shared" and all(
+        isinstance(declared[k], str) and declared[k].strip()
+        for k in ("background_model_name", "codex_extraction_model")))
+    return dict(declared=declared, research_writer_pins_resolved=bool(resolved),
+                downloaded_weight_identity="unqualified", runtime_capacity="unqualified")
 
 
 def encoded(value):
@@ -95,7 +110,8 @@ def development_keys(review, groups):
                 raise ValueError("invalid reviewed development source/cutoff")
             group = row.get("question_family_id") or "conversation:" + prefix
             selected.append(dict(review=row, reviewed_answer=reviewed_expected_answer(row),
-                                 gold_turns=gold, partition_group=group))
+                                 gold_turns=gold, partition_group=group,
+                                 metric_contract=metric_contract(row, gold)))
     identities = [(r["review"]["conversation"], r["review"]["probe_id"],
                    r["review"]["cutoff_turn"]) for r in selected]
     if len(set(identities)) != len(identities):
@@ -106,7 +122,10 @@ def development_keys(review, groups):
         row["partition"] = "validation" if row["partition_group"] in validation else "tuning"
     return dict(records=selected, excluded=dict(excluded),
                 partition_policy="declared_family_or_conservative_conversation_group",
-                validation_available=bool(validation), untouched_external_test=False)
+                validation_available=bool(validation), untouched_external_test=False,
+                metric_cohorts={partition: summarize_contracts([
+                    row["metric_contract"] for row in selected if row["partition"] == partition])
+                    for partition in ("tuning", "validation")})
 
 
 def verify_review_inputs(review, root):
@@ -264,9 +283,10 @@ def prepare(out, *, root=ROOT):
         code = sorted((root / "src").rglob("*.py")) + [
             root / "experiments/v3_repair/prepare_inputs.py",
             root / "experiments/v3_repair/settings_inventory.py",
-            root / "scripts/z1/label_review.py"]
+            root / "scripts/z1/label_review.py", root / "scripts/z1/metric_contract.py"]
         identity = dict(policy=POLICY, inputs=[fingerprint(p, root) for p in inputs],
-                        code=[fingerprint(p, root) for p in code], inventory_sha256=digest(inventory))
+                        code=[fingerprint(p, root) for p in code], inventory_sha256=digest(inventory),
+                        local_model_profile=local_model_profile(settings))
         artifacts = {
             "development-originals.json": {p: groups[p] for p in DEVELOPMENT},
             "development-keys.json": keys, "final-legacy-references.json": references,
