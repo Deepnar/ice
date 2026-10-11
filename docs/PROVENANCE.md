@@ -1,3 +1,136 @@
+## 2026-10-11 — v3 approved final standing-block observer and research capture
+
+Human-approved exact four-file candidate, applied byte-for-byte:
+native note-option selection, prompt assembler, final budget loop and shared
+memory preparation collect actual rendered recent/slot/bookmark/fold identities.
+Recent metadata follows only accepted fitted role messages in final order; slot
+tiers preserve exact native eligibility. Bookmark IDs are parallel native-selector
+receipts, never inferred from equal text. Callers without receipts remain
+unobserved. Fold options collect actual note rows or compatibility root IDs;
+the budget loop retains only its final assembly's whole-note/eviction metadata.
+System-block character spans and recent message hashes bind receipts to final
+messages; metadata stays outside answerer context. Content versions and complete
+live/eligible/lifetime denominators are still separate unqualified work.
+
+Eleven opposing native SQL/shared-reader controls pass20.24s with six existing
+warnings;56 existing candidate regressions pass2.91s with one existing warning.
+Complete native messages, retrieve/skip decisions and token ledgers are equal,
+including actual multi-note replacement/eviction and explicit bookmark forwarding.
+The first fixture incorrectly expects80 recent tokens to exclude an older clipped
+pair; native minimum shares fit both. Preserve that failed attempt and use an
+actual40-token boundary with offline native tokenizer and fixed query clock.
+No source/model/threshold/query/write policy change or semantic-quality promotion.
+Private evidence: logs/v3-prompt-block-artifacts-2026-10-11-r{1,2}.
+
+Deployed11 permanent native controls pass15.23s with four existing warnings;
+the converted below-required-budget fixture preserves the native overflow ledger
+while checking complete optional-block eviction. Two paired passive current-store
+panels on the actual one development conversation preserve complete messages,
+ledgers, decisions and SQL. The512-budget panel emits no recent items;4096
+emits5. Slots/bookmarks are absent, and the old fold is unreadable under the
+new proof policy; those mechanics are covered by authored SQL, not corpus
+precision. All35 original tables and source/profile/trace bytes/mtimes remain
+unchanged. Native shared embedding uses installed local weights; no model HTTP.
+Three failed fixture/startup attempts are retained: assumed conversation count,
+and two blocked lazy HuggingFace metadata requests. The final check warms the
+same native model/device with local-files-only loading before the strict guard.
+Private deployed evidence: logs/v3-prompt-block-artifacts-applied-2026-10-11-r{1,2,3,4}.
+
+The research parity wrapper now forwards parallel native bookmark receipts;
+serialization captures final block ledgers under an explicit policy. Native
+counting verifies system spans/recent role messages, keeps evidence versus block
+rendered versions separate and deduplicates their final-context union within a
+question. Static/anonymous items and old traces remain explicitly unmapped.
+The13-transition exact frozen-reader profile preserves earlier profiles and the
+original251/67 trace, supports67-question no-call planning and refuses ordinary/
+old-profile reuse. Profile identity:
+feb40243546ab416f72c56e537bc0415200ac56a93a0e6b0eff0e1f8ec42e0b8.
+Private profile evidence: logs/v3-reader-adoption-2026-10-11-r5.
+
+The isolated research inventory collector records13 physical artifact tables,
+explicit stored-payload revisions and separately hashed non-vector row state.
+Passive native catalogs match7805 rows against frozen table counts, repeat
+identically and leave35 tables unchanged; one catalog takes0.77s on this store.
+This is bounded accounting cost, not long-run throughput. The existing fold has
+250 bound sources versus251 now, no missing/changed saved fingerprints,225
+original and4 supported parts, and a changed representation proof policy. Its
+rejection is expected frozen-writer compatibility, not evidence of lost sources
+or a new append-freshness bug. Fresh current-policy writer qualification remains
+necessary; do not relax old proofs. Private catalog/freshness evidence:
+logs/v3-prompt-block-artifacts-applied-2026-10-11-r4/inventory-qualification.json.
+
+Stable combined79 focused checks pass498.74s/4 existing warnings, including
+native chronological writer/read/probe/catalog/report and interrupted quiet
+resume. The earlier87-pass/one-failure epoch correctly refused a harness edited
+mid-qualification; retained as failed, with TRAPS123. Full combined smoke/dynamics
+regressions1276 pass1089.65s/372 existing warnings; disposable stores removed.
+Final r4/final-qualification.json binds deployed source/instrument/test/receipt
+bytes. This count is a new code epoch, not1239 plus1276 independent behaviors.
+
+Observed live/ever-seen rows and row payload revisions are not true lifetime
+write events or all-query eligibility. New parent captures before reads and
+after originals; unseen between-capture transitions remain unmeasured. Answer
+support/use, natural retention, semantic prerequisites and tuning readiness are
+still open. No roadmap owner closure, cloud/long campaign or push.
+
+## 2026-10-11 — v3 remaining retrieved-artifact candidate and writer-control correction
+
+Human-approved two-file orchestrator/timeline metadata candidate, now applied
+byte-for-byte: native
+warm/cold original/chunk row IDs, canonical composite batch/conversation part
+keys, compatibility root IDs and actual rendered graph/claim/name contributors.
+Timeline IDs follow surviving transition/token caps. An empty-window notice
+remains without a stored artifact. Ordinary text/return contracts, scopes,
+scores, trust and writes stay unchanged; chunk SQL additionally selects an
+existing primary key, preserving predicates/order/limits/query count.
+
+Fifteen paired authored native SQL controls pass15.97s/50 existing warnings,
+including complete shared preparation/prompt/ledger equality and opposing
+selected/skipped chunks, indexed/stale/missing parts, quote privacy and timeline
+caps. Wider private-candidate regressions82 pass14.51s/95 existing warnings;
+one separate existing real-encoder test is deliberately deselected, not credited.
+Six read-only retained-development panels (three chunk, three connected-current
+graph queries) preserve existing outputs, declared SQL, scoring/tokens and1024-
+token packing; all35 baseline tables and source/profile/trace bytes/mtimes stay
+unchanged. Native packing uses existing embedding machinery; zero HTTP is not
+zero local inference. Batch/cold paths absent in that retained store qualify
+only mechanically through authored SQL, not corpus quality. Private candidate
+and final receipts: logs/v3-artifact-producers-2026-10-11-r{2,3}.
+
+Preserved failed preparation attempts: malformed fixture fields, unfrozen query
+clocks, an excluded cross-conversation fixture and a below-overhead memory
+budget. The first retained-store attempt also refuses missing isolation env;
+an arbitrary orphan-entity sample then returns no graph output. The final sample
+explicitly names connected current anchors without changing retrieval thresholds.
+These are instrumentation/sampling corrections, not repairs to production memory.
+
+The wider regression reveals a stale pre-author-review writer expectation.
+Both unchanged deployed code and the metadata candidate withhold a proposed
+numeric-disagreement relation plus an assistant suggestion as not asserted;
+both original role-attributed claims survive. Two real author-review calls on
+that same pair confirm this boundary; they are repeated controls, not four
+independent precision cases. Replace the stale positive expectation with a
+negative and add explicitly asserted positive source statements. Seven deployed
+claim/writer/role/link controls pass14.81s with seven existing warnings, using a
+controlled independently qualified author-review boundary. Production is unchanged.
+
+The deployed check repeats the same six retained-development panels, preserving
+all35 tables and old artifacts; it is not twelve independent precision cases.
+Permanent deployed focused checks52 pass17.84s/31 existing warnings. The new
+eight-transition frozen-reader profile preserves the earlier seven-transition
+profile, producer and source keys, permits67-question no-call planning and
+refuses ordinary/old-profile adoption. Current profile identity:
+7e39eb1c10d9bd52031b57ea8411f3a07e794666c72962a8ffaf420f1d3341db.
+Private applied receipts: logs/v3-artifact-producers-applied-2026-10-11-r1;
+new profile: logs/v3-reader-adoption-2026-10-11-r4. Deployed combined smoke/
+dynamics regressions1239 pass915.02s/370 existing warnings; disposable stores
+removed. The earlier1224 count remains a separate code/qualification epoch.
+
+Standing recent/
+slot/bookmark/fold IDs, content versions, live/eligible/lifetime inventories,
+semantic retention and other pre-tuning prerequisites remain open. No owner
+closure, parameter promotion, cloud answer/judge run, long campaign or push.
+
 ## 2026-10-11 — v3 source-exposure counters, artifact IDs and quiet-query clocks
 
 Continued pre-tuning qualification; no new long replay, tuning trial, cloud

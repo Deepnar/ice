@@ -2042,6 +2042,169 @@ No automatic activation/corroboration or retired-artifact truth is inferred.
 Apply only after explicit human approval, then requalify deployed bytes and
 permanent controls. This is a measurement seam, not a memory-quality promotion.
 
+**Remaining retrieved-artifact identity decision,2026-10-11:** ground each
+reference at the native constructor that actually renders it, continuing the
+approved tuple contract. Turn-level warm/cold representations reference their
+actual row in `episodic_memory`/`cold_storage`; alternative raw/summary/abstract
+wording remains a separately observed rendered version, not a guessed stored
+semantic revision. Warm/cold chunk SQL may additionally select the existing
+chunk primary key, preserving predicates, ranking, limits and query count.
+Document excerpt selection collects only the chosen chunk IDs, including the
+opening-chunk fallback, through an optional metadata collector; its ordinary
+text/None return contract remains unchanged.
+
+Batch/conversation indexed parts have composite primary keys, not invented
+UUIDs: use canonical compact JSON `[parent-id,ordinal]` as the tuple's string
+key. A compatibility aggregate references the actual summary root instead;
+never credit candidate part rows whose text was not used. Graph rendering
+collects exact entity, edge and linked claim references alongside existing
+rendered-edge lineage. Traversal candidates/hidden or withheld quotes earn no
+rendered ID. The source-backed sentence path and unverified relation fallback
+retain their current wording and trust policy. Timeline metadata references
+only surviving capped lines and their actual row-backed names; expired-event
+reasons remain support lineage, not an independently rendered memory body.
+An empty-window notice has no stored artifact and keeps an empty tuple.
+
+Implement privately in the existing orchestrator and timeline builder, using
+optional collectors with unchanged ordinary return types; add no model, extra
+query, database write, score, scope or trust change. Paired native SQL checks
+must compare existing text/source/score/token/packing results and query count,
+with only the declared added ID projection permitted. Opposing controls cover
+same-text distinct rows, selected versus unselected chunks/parts, graph quoted
+versus skipped claims, and both timeline caps. Qualify the complete native
+reader path as well as producers before asking for this next concrete src
+approval. Preserve the approved deployed bytes and all old experiment state.
+Standing recent/slot/bookmark/fold blocks and live/eligible/lifetime inventories
+remain separate requirements; do not claim this retriever patch completes them.
+
+**Applied retrieved identity substep:** explicit human approval followed15
+paired authored native controls,82 existing candidate regressions and six
+read-only retained-development panels. Deployed bytes equal the candidate;
+separate deployed checks repeat those six panels with unchanged35 tables and
+original artifacts, and52 focused permanent checks pass. Register the approved
+orchestrator endpoint and timeline bytes in a new eight-transition reader
+profile, preserving earlier profiles and producer seals. No writer replay or
+inferred retroactive metadata. Final block identity and inventories remain open;
+this substep does not qualify semantic component usefulness or decay policy.
+
+**Final standing-block identity decision,2026-10-11:** extend native renderers
+with optional metadata collectors; preserve ordinary text/list return types and
+prompt decisions. Recent-turn collection records only accepted pairs in their
+final chronological order, including the actually fitted role messages, not
+all rows returned by the window query. Slot references follow the exact native
+active/global/project/conversation filter. Bookmark selection may collect its
+actual row IDs alongside the unchanged text list; forward that parallel metadata
+explicitly in research preparation. Ordinary callers without it keep bookmark
+identity unobserved, never reconstructed from shared text. Supplied anonymous
+slot objects likewise retain an unmapped record, never an invented ID.
+
+Conversation-note option selection collects the actual picked rows as each
+existing complete text alternative is constructed. Record indexed composite
+keys or a compatibility root key; do not infer selected rows from substring
+matching. Retain the existing source-ID/prompt-suppression behavior in this
+metadata-only patch; any separate behavioral change needs its own grounded
+evidence/approval. The budget loop rebuilds a fresh block ledger after every
+eviction/whole-note alternative and returns only the final iteration's receipts
+in a default-empty appended BudgetedPrompt field. Record final rendered block/
+message hashes separately from stored content versions; metadata never enters
+answer messages or model instructions.
+
+Prepare privately in existing conversation-note/assembler/budget/preparation
+functions; no new query, model, write, threshold, scope or answer policy. Verify
+old/new complete native messages, token ledgers and decisions, opposing same-text
+row identity, recent clipping/order, slot scope filtering, compatibility roots,
+whole-note replacement and complete eviction. Include shared preparation and
+explicit bookmark forwarding before a concrete src approval. Research stage
+serialization, inventory/version denominators and counter integration remain
+subsequent measured observer work; an optional collector alone does not satisfy
+their full capture requirement.
+
+**Applied standing-block substep,2026-10-11:** the maintainer approved the exact
+four-file observer candidate. Apply byte-identical candidates; preserve its
+private11 native and56 compatibility receipt epoch. Permanent deployed controls
+must bind actual recent message indices, system-block character spans and exact
+row/composite keys through native shared preparation, budget replacement and
+complete eviction. Missing bookmark metadata remains explicitly unknown.
+
+**Research final-block capture decision,2026-10-11:** extend the shared research
+parity wrapper with an optional parallel bookmark receipt argument. The existing
+trace preparation calls the native bookmark selector once with that collector,
+forwards its receipt, and serializes the final BudgetedPrompt ledger under
+`prompt_artifact_blocks` with an explicit observer policy. Legacy objects without
+that field retain their old record schema; no old trace is backfilled.
+
+The native-only offline exposure accountant verifies each captured system span
+against the final system message and hash, and recent pair indices/hash against
+all actual historical role messages before evidence/current question. Refuse
+invalid spans, overlapping/duplicate message indices, removed populated blocks,
+missing policy/messages and malformed exact references. Item hashes inside a
+system block describe the native selected item; the verified containing block
+is the exposure boundary, not independently supplied per-item character offsets.
+Static constraints/session blocks stay unattributed; anonymous memory items
+stay unmapped. Neither a current question nor discarded budget iteration earns
+memory exposure.
+
+Count exact artifacts once per occurrence in each block channel, and report the
+union of final retrieved evidence and standing/history context separately from
+evidence-only exposure. Keep evidence and block rendered versions separately
+named; stored-content versions/live/eligible denominators remain the next step.
+Native older records without the field report unobserved standing blocks. Legacy
+non-native counting defaults and output stay unchanged. Bind the new research
+serializer/parity helper endpoints and four approved source files to a new exact
+frozen-reader profile; normal and older-profile mismatch refusal remains.
+Qualify isolation/opposing counters and actual native preparation/serialization,
+then independently recount a retained complete native trace without querying or
+changing its original store, profiles, source clocks or writer outcomes.
+
+**Stored-row version/live inventory decision,2026-10-11:** add a research-only
+collector for the13 native artifact tables already referenced by fragments and
+standing blocks. Use their real single/composite primary keys, with explicit
+versioned content-field projections. Hash stored payload separately from all
+non-vector row state; decay/access/strength updates must not create a new content
+version. These are row-payload revisions, not semantic equivalence or changed
+truth. Related source/proof/link state is bound separately by the native store
+snapshot; one row hash is not a complete support verdict. Warm/cold copies with
+one original UUID share a logical-source identity, while physical table keys
+remain distinct. Chunk copies likewise share their preserved UUID.
+
+Capture on the isolated chronological store before each native read, and after
+each original writer. Never enable it in foreground production. Use the existing
+serial parent and read-only/no-autoflush SELECTs; no model, ALTER/TRIGGER or
+memory write. Bind the collector's exact bytes and schema/field policy in the
+parent identity. Record all live artifacts, including rows never retrieved, so
+per-arm sampled live opportunities and zero-context reads can be reported. A
+read can restore cold rows; its opportunity inventory is the pre-read catalog,
+not the post-restoration table. Refuse captured exact references absent from
+that catalog rather than silently moving the denominator.
+
+Distinguish lifetime observed IDs/versions across catalogs from true lifetime
+writes: rows created and removed between observation points are unobserved, and
+a before/after catalog is not a transaction journal. Keep total write-event and
+all-query eligibility counts explicitly unobserved pending actual producer/job
+receipts. Generated candidates describe bounded fetch opportunities, not every
+row eligible before top-k/thresholds. Do not duplicate native source/scope/trust
+policy in an approximate catalog filter. This partial collector does not close
+the final lifetime-write/eligible-inventory requirement or a roadmap owner.
+
+Validate distinct-ID equal bodies, unchanged payload under access/decay changes,
+changed payload under source/text edits, indexed composite keys, logical archive
+identity, zero-read live rows, missing-reference refusal and serialized catalog
+hashes. Qualify native preparation + writer/recovery capture, and passive actual
+retained-store catalogs with unchanged35 tables and no model/HTTP calls. Preserve
+all earlier producer/observer receipt epochs and their missing metadata.
+
+**Legacy writer-control divergence,2026-10-11:** the wider claim suite still
+expects an asserted `uses 9` edge from “the port is8” and an assistant suggestion
+of9, despite the approved author-argument gate. The unchanged deployed reader
+and private metadata candidate both fail that expectation; actual author review
+withholds both proposals as not asserted while keeping both original claims.
+Repair the instrument, never relax production author support. Keep this false/
+hypothetical pair as a negative writer control, add an explicit asserted positive
+pair, and control the already independently qualified author-review boundary in
+this deterministic regression. It must exercise real claim/edge/link storage,
+role-preserving rendering and withheld-claim retention. Native model receipts
+remain separate evidence, not synthetic validator accuracy.
+
 Current worker faults contain only500 characters and no exception chain/stack.
 Add a private fsynced append-only fault recorder with whole sanitized exception
 chain/traceback, status/request/provider receipt and explicit context (run,

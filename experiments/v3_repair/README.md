@@ -174,13 +174,14 @@ collector command intentionally refuses changed code. Preserve that frozen
 writer and seal a separate current-reader profile, with no replay/model/DB call:
 
 ```bash
-uv run --no-sync python experiments/v3_repair/reader_adoption.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-reader-adoption-2026-10-11-r2/profile.json
+uv run --no-sync python experiments/v3_repair/reader_adoption.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-reader-adoption-2026-10-11-r5/profile.json
 ```
 
 When reader qualification is ready, pass that exact path as `--reader-adoption`
 to each collector coordinate and use new output bundles. Only the exact
-registered summary, graph-argument, matching extraction-transport and optional
-summary-retry byte transitions are accepted (five exact paths); earlier profiles remain retained
+registered summary, graph-argument, matching extraction-transport, optional
+summary-retry and exact native artifact/final-block observer transitions are
+accepted (13 exact paths, including research serializer/parity helpers); earlier profiles remain retained
 and refuse under the later source bytes. Any other change, changed prefix/dump,
 settings/model drift or altered profile refuses. Identical sealed exports are
 byte-stable. Existing completed units remain tied to their own reader identity.
@@ -261,9 +262,22 @@ uv run --no-sync python experiments/v3_repair/native_reader_usage.py --chronolog
 It checks complete source/probe receipts and final native recovery/dump/trace
 bytes offline. Actual original preflights and read-only probes stay separate;
 the current source is excluded from its own preflight inventory. Visibility
-requires the real retrieved-context block and evidence ledger. Explicit procedure/
-claim row IDs and rendered versions count per stage/occurrence, while absent
-identities, live/eligible inventories and answer use stay unobserved. The old
+requires the real retrieved-context block and evidence ledger. Native exact
+turn/chunk/note/claim/procedure/graph IDs count per stage. New final-block receipts
+verify actual system spans and recent role messages, separately count each
+block's items/versions and deduplicate their union with retrieved evidence.
+The explicit research bookmark selector forwards its parallel IDs; missing or
+anonymous metadata remains unknown. Older native producers have no retroactive
+block receipts.
+
+The isolated new parent additionally captures13-table physical live catalogs
+before reads and after original writers. Stored payload revisions stay separate
+from rendered versions and mutable access/decay state. Sampled per-arm live
+opportunities include zero-context rows; observed-ever physical/logical IDs and
+payload versions are not true lifetime write events. Whole-query eligibility,
+unseen between-capture writes and answer support/use remain unobserved. Complete
+catalogs are currently a bounded research instrument; large final-run storage/
+overhead qualification still precedes launch. The old
 `seed.jsonl` format is not silently accepted as this new format, or vice versa.
 
 `chronological_sources.build(..., clock_basis="simulated", probe_times={...})`

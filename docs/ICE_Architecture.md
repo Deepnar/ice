@@ -799,8 +799,50 @@ exact stored procedure/claim IDs, independent of shared text/source lineage.
 Existing replacement/fusion/packing retains them; the research trace records
 nonempty IDs and rendered-text versions. Six paired native reads preserve SQL,
 wording, score and token/budget outcomes. Source exposure and explicit artifact
-frequencies are observations; other artifact producers, complete live/eligible
-inventories and semantic answer use remain unqualified. Reads confer no truth.
+frequencies are observations; final block collectors and sampled live inventories
+are described below. Complete eligible/lifetime-write inventories and semantic
+answer use remain unqualified. Reads confer no truth.
+
+The separately approved remaining retrieved producers now attach actual warm/
+cold original and chunk IDs, indexed note composite keys or compatibility root
+IDs, and graph row contributors. Linked claims are collected only when their
+source sentence actually renders; names and capped timeline lines retain their
+real contributing row IDs. Source aliases are not substituted for these keys.
+Chunk SQL additionally selects existing primary keys, preserving query count,
+predicates/order/limits. Fifteen paired authored native SQL controls,82 existing
+candidate checks and six retained-development panels preserve text, scores,
+ordinary/tight packing, scopes and trust. Applied bytes match the candidate;
+separate applied receipts retain35 baseline tables and all old artifacts. The
+eight-transition frozen-reader profile preserves earlier profiles and supports
+current-reader no-call planning without replaying old writers. Recent/slot/
+bookmark/fold block IDs, stored content versions and live/eligible/lifetime
+inventories were separate work at that qualification epoch; rendered contributor
+counts are not precision.
+
+The separately approved final-block observer collects actual fitted recent role
+messages, native slot tiers, explicitly forwarded bookmark IDs and actual whole
+note options. Budget assembly returns only its final iteration's metadata after
+replacement/eviction, outside the model messages. Native system character spans
+and historical role-message indices/hashes verify final exposure; missing
+bookmark/anonymous identities stay unknown. The research wrapper/serializer now
+forwards these receipts. Native-only counting separates evidence/block versions,
+deduplicates their final-context union and preserves older non-native defaults.
+Eleven deployed controls and two paired passive retained-store panels preserve
+messages, ledgers and queries. A new13-transition reader profile preserves all
+old writer state and guards; no old trace receives retroactive receipts.
+
+A research-only13-table catalog records physical live IDs, logical warm/cold
+source identities, stored row-payload hashes and separate non-vector state hashes.
+Access/decay/strength changes do not manufacture content revisions. The isolated
+serial parent captures before reads (including possible cold restoration) and
+after original writers. Sampled live opportunities include zero-read artifacts;
+whole-query eligibility and true lifetime write events stay unobserved. A row
+hash is neither semantic equivalence nor complete linked-source support. The
+passive development catalog matches7805 rows and preserves all35 native tables;
+its0.77s single-store cost is not a frozen-run throughput guarantee. The older
+mixed generated/original fold correctly fails the current proof-policy gate;
+none of its saved source fingerprints changed. Current-writer retention and
+content qualification still precede tuning.
 
 The first integration qualifies14 authored controls, actual local-model two-source/
 eight-preparation paths and completed byte-stable resume. The subsequent checkpoint

@@ -2638,3 +2638,14 @@ The frozen development seal also includes the serializer: register its exact
 observer transition alongside approved production bytes, never suppress its
 guard or retrospectively invent fields in old traces. Ground the producer and
 consumer functions before claiming a missing hook from their names.
+
+### 123. Editing a bound harness during qualification invalidates its resume test
+
+ICE v3,2026-10-11: a chronological qualification saved an identity, then its
+instrument file changed while another repair was being implemented. The same
+process resumed with a new file fingerprint and its fault-chain guard correctly
+refused. A stale stack line also made the failure look like changed clock logic.
+Freeze every bound source/helper/instrument file until qualification finishes;
+independent documentation can continue. Preserve the failed epoch and rerun the
+affected native control on stable bytes. Never weaken the identity guard or
+credit the interrupted run as a clean resume qualification.
