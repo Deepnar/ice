@@ -108,8 +108,9 @@ def test_unknown_verification_preserves_full_context():
         db.rollback()
 
 
-@pytest.mark.parametrize("subject,expected_edges", [("...",0),("port configuration",1)])
-def test_extractor_keeps_source_claims_even_when_graph_names_fail(monkeypatch,subject,expected_edges):
+@pytest.mark.parametrize("subject,asserted,expected_edges", [
+    ("...",False,0), ("port configuration",False,0), ("port configuration",True,1)])
+def test_extractor_keeps_source_claims_even_when_graph_names_fail(monkeypatch,subject,asserted,expected_edges):
     import json
     from src.workers import codex_extractor as cx
     from src.memory.models import IdempotencyKey
@@ -121,8 +122,16 @@ def test_extractor_keeps_source_claims_even_when_graph_names_fail(monkeypatch,su
     monkeypatch.setattr(cx,'canonical_relation',lambda relation,**kwargs:relation)
     monkeypatch.setattr(cx,'extract_entities',lambda *args,**kwargs:[])
     monkeypatch.setattr(cx,'make_llm_reconciler',lambda:None)
-    # Invalid endpoints are deliberately rejected by the real handle_triplet.
-    statements=['The port is 8.','You could choose port 9.']
+    # Numeric disagreement and a suggestion do not assert the extracted uses9.
+    # The explicit positive exercises the same writer under a supported review.
+    statements=(['The port configuration uses 9.','The port configuration also uses 9.']
+        if asserted else ['The port is 8.','You could choose port 9.'])
+    def author_review(items):
+        assert items and all(item.object_name=='9' and item.relation=='uses' for item in items)
+        assert {item.role for item in items}=={'user','assistant'}
+        return [dict(status='supported' if asserted else 'not_asserted',
+            reason='Controlled source assertion boundary.') for item in items]
+    monkeypatch.setattr(cx,'review_assertions',author_review)
     def create(**kwargs):
         assert kwargs['model']==settings.codex_extraction_model
         prompt=kwargs['messages'][-1]['content']
@@ -146,6 +155,8 @@ def test_extractor_keeps_source_claims_even_when_graph_names_fail(monkeypatch,su
     with SessionLocal() as db:
         claims=db.query(CodexClaim).filter_by(source_batch=batch).all()
         assert len(claims)==2 and {c.role for c in claims}=={'user','assistant'}
+        assert all(c.verification['author_assertions'][0]['status']==(
+            'supported' if asserted else 'not_asserted') for c in claims)
         from src.memory.models import CodexEdge
         assert db.query(CodexEdge).filter_by(source_batch=batch).count()==expected_edges
         from src.memory.models import CodexClaimLink
