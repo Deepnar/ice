@@ -3,6 +3,7 @@ wide‑net full‑vector, Codex/Procedural scoping, grounded query expansion, pr
 trigger matching, micro‑NER integration, and dynamic token budget."""
 
 import hashlib
+import json
 import math
 import re
 import uuid
@@ -1071,7 +1072,7 @@ class HybridRetrievalOrchestrator:
         ts_center, _, rec_tau = self._recency_params(creative=False)  # boost passed in by caller
         cluster_filter = self._cluster_filter(scope, "e.id")
         query = text(f"""
-            SELECT c.chunk_text, c.chunk_index, e.id AS parent_id,
+            SELECT c.id AS chunk_id, c.chunk_text, c.chunk_index, e.id AS parent_id,
                    e.conversation_id, e.is_bookmarked, e.timestamp, e.ts_provenance,
                    e.raw_text, e.source_spans,
                    (1 - (c.embedding <=> :prompt_embedding)) * COALESCE(e.decay_score, 1.0)
@@ -1120,6 +1121,7 @@ class HybridRetrievalOrchestrator:
                 score=score_val,
                 token_count=count_tokens(chunk_text),
                 source_batch_id=pid,
+                stored_artifact_ids=(("episodic_chunks", str(row.chunk_id)),),
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
             ))
         return fragments
@@ -1631,7 +1633,7 @@ class HybridRetrievalOrchestrator:
 
         return max(candidates, key=rank)
 
-    def _fact_line(self, src, edge, tgt, allowed_batch_ids=None) -> str:
+    def _fact_line(self, src, edge, tgt, allowed_batch_ids=None, artifact_ids=None) -> str:
         """Separate source-recorded time from when ICE learned the claim."""
         source_batch = self._edge_source_batch(edge, allowed_batch_ids)
         if source_batch is None and self.db is not None:
@@ -1659,11 +1661,16 @@ class HybridRetrievalOrchestrator:
                 original = source_for_claim(self.db, claim)
                 if original is None or original.is_private or not excerpt_is_current(original, claim):
                     continue
-                lines.append(f"[Source excerpt; speaker: {claim.role}; {'; '.join(dates)}] "
-                             f"{source_order_stamp(original)}"
-                             f"{claim_representation(claim, source=original)}")
+                line = (f"[Source excerpt; speaker: {claim.role}; {'; '.join(dates)}] "
+                        f"{source_order_stamp(original)}"
+                        f"{claim_representation(claim, source=original)}")
+                if artifact_ids is not None and line not in lines:
+                    artifact_ids.append(("codex_claims", str(claim.id)))
+                lines.append(line)
             return "\n".join(dict.fromkeys(lines))
         rel = f"NOT {edge.relation}" if getattr(edge, "negated", False) else edge.relation
+        if artifact_ids is not None:
+            artifact_ids.extend(("codex_entities", str(entity.id)) for entity in (src, tgt))
         return (f"[Unverified graph relation: {src.canonical_name} --{rel}--> {tgt.canonical_name}"
                 f" ({'; '.join(dates)})]")
 
@@ -1710,7 +1717,7 @@ class HybridRetrievalOrchestrator:
             self._leg_degraded("codex.relation_fit", err)
             return {}, 0.0
 
-    def _relation_facts(self, matched, prompt_embedding, allowed_batch_ids):
+    def _relation_facts(self, matched, prompt_embedding, allowed_batch_ids, artifact_ids=None):
         """A4: surface an anchor's explicit edge facts, ordered by how well each
         edge's relation answers the question. Returns ``(lines, edges, fit)``.
 
@@ -1760,10 +1767,12 @@ class HybridRetrievalOrchestrator:
             src = self.db.query(CodexEntity).get(edge.source_id)
             tgt = self.db.query(CodexEntity).get(edge.target_id)
             if src and tgt:
-                line = self._fact_line(src, edge, tgt, allowed_batch_ids)
+                line = self._fact_line(src, edge, tgt, allowed_batch_ids, artifact_ids)
                 if line:
                     lines.append(line)
                     fact_edges.append(edge)
+                    if artifact_ids is not None:
+                        artifact_ids.append(("codex_edges", str(edge.id)))
         return lines, fact_edges, fit
 
     def _codex_enumeration(self, prompt: str, relations: List[str],
@@ -1795,22 +1804,24 @@ class HybridRetrievalOrchestrator:
                         continue
                     if ent.id not in seen_entities and ent.context_payload:
                         seen_entities.add(ent.id)
-                        texts, rendered = [], []
+                        texts, rendered, artifact_ids = [], [], []
                         self._traverse_graph(ent, 0, 0, set(), texts,
                             allowed_entity_ids=allowed_entity_ids, allowed_batch_ids=allowed_batch_ids,
-                            rendered_edges=rendered)
+                            rendered_edges=rendered, artifact_ids=artifact_ids)
                         if texts:
                             t = "\n\n".join(texts)
                             fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
                                 token_count=count_tokens(t),
                                 origin_batch_ids=tuple({str(b) for e in rendered
                                     if (b := self._edge_source_batch(e, allowed_batch_ids))}),
-                                origin_edge_ids=tuple({str(e.id) for e in rendered})))
+                                origin_edge_ids=tuple({str(e.id) for e in rendered}),
+                                stored_artifact_ids=tuple(dict.fromkeys(artifact_ids))))
             # (b) relation-driven facts: "who inspired ..." → inspired_by edges,
             #     grouped into a single facts fragment (they're a list answer).
             fact_lines = []
             fact_batches: list = []
             fact_ids: list = []
+            artifact_ids = []
             if relations:
                 q = self.db.query(CodexEdge).filter(
                     *self._edge_valid_filters(),
@@ -1829,11 +1840,12 @@ class HybridRetrievalOrchestrator:
                     src = self.db.query(CodexEntity).get(edge.source_id)
                     tgt = self.db.query(CodexEntity).get(edge.target_id)
                     if src and tgt:
-                        line = self._fact_line(src, edge, tgt, allowed_batch_ids)
+                        line = self._fact_line(src, edge, tgt, allowed_batch_ids, artifact_ids)
                         if not line:
                             continue
                         fact_lines.append(line)
                         fact_ids.append(str(edge.id))
+                        artifact_ids.append(("codex_edges", str(edge.id)))
                         batch = self._edge_source_batch(edge, allowed_batch_ids)
                         if batch:
                             fact_batches.append(str(batch))
@@ -1842,7 +1854,8 @@ class HybridRetrievalOrchestrator:
                 fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
                                                  token_count=count_tokens(t),
                                                  origin_batch_ids=tuple(fact_batches),
-                                                 origin_edge_ids=tuple(fact_ids)))
+                                                 origin_edge_ids=tuple(fact_ids),
+                                                 stored_artifact_ids=tuple(dict.fromkeys(artifact_ids))))
             if fragments:
                 logger.info("codex_enumeration", entities=len(seen_entities),
                             facts=len(fact_lines), relations=relations)
@@ -1999,11 +2012,12 @@ class HybridRetrievalOrchestrator:
                     continue
                 if anchor.id in self._denied_entity_ids:   # C6 exclusion
                     continue
-                local_texts, direct_edges, rendered_edges = [], [], []
+                local_texts, direct_edges, rendered_edges, artifact_ids = [], [], [], []
                 self._traverse_graph(anchor, 0, settings.codex_max_depth, set(),
                                      local_texts, direct_edges,
                                      allowed_entity_ids, allowed_batch_ids,
-                                     exclude_ids=anchor_ids - {anchor.id}, rendered_edges=rendered_edges)
+                                     exclude_ids=anchor_ids - {anchor.id}, rendered_edges=rendered_edges,
+                                     artifact_ids=artifact_ids)
                 if not local_texts:
                     continue
                 # Per-anchor score from THIS anchor's direct-edge trust (A3).
@@ -2016,7 +2030,7 @@ class HybridRetrievalOrchestrator:
                 # fired on every prompt), so it decided nothing while looking
                 # like precision.
                 fact_lines, fact_edges, fit = self._relation_facts(
-                    [anchor], prompt_embedding, allowed_batch_ids)
+                    [anchor], prompt_embedding, allowed_batch_ids, artifact_ids)
                 if fact_lines:
                     existing_text = "\n\n".join(local_texts)
                     local_texts.extend(line for line in fact_lines if line not in existing_text)
@@ -2041,7 +2055,8 @@ class HybridRetrievalOrchestrator:
                     origin_batch_ids=tuple(
                         {str(b) for e in rendered_edges + fact_edges
                          if (b := self._edge_source_batch(e, allowed_batch_ids))}),
-                    origin_edge_ids=tuple({str(e.id) for e in rendered_edges + fact_edges})))
+                    origin_edge_ids=tuple({str(e.id) for e in rendered_edges + fact_edges}),
+                    stored_artifact_ids=tuple(dict.fromkeys(artifact_ids))))
 
                 # T4: attach the anchor's evolution timeline whenever it
                 # carries real supersession history (D-U2: provided in any
@@ -2050,18 +2065,21 @@ class HybridRetrievalOrchestrator:
                 # own score; capped per D7 so a life story can't eat the
                 # window.
                 if len(timeline_frags) < timeline_cap and history_exists(self.db, anchor.id):
+                    timeline_artifacts = []
                     tl, timeline_batches = build_entity_timeline(
                         self.db, anchor, allowed_batch_ids,
                         t0=ts.t0 if ts.source_clock else None,
                         t1=ts.t1 if ts.source_clock else None,
                         max_transitions=settings.timeline_max_transitions,
                         source_batch_for_edge=lambda edge: self._edge_source_batch(
-                            edge, allowed_batch_ids), return_sources=True)
+                            edge, allowed_batch_ids), return_sources=True,
+                        artifact_ids=timeline_artifacts)
                     if tl:
                         timeline_frags.append(ContextFragment(
                             text=tl, source_type="timeline", score=0.9 * score,
                             token_count=count_tokens(tl),
-                            origin_batch_ids=timeline_batches))
+                            origin_batch_ids=timeline_batches,
+                            stored_artifact_ids=tuple(dict.fromkeys(timeline_artifacts))))
 
             if best_fit > 0.0:
                 # G34: reports the measured fit rather than a list of "detected"
@@ -2107,15 +2125,19 @@ class HybridRetrievalOrchestrator:
         return base
 
     def _render_codex_entity(self, entity, depth, out_edges, in_edges,
-                             allowed_batch_ids, context_texts, rendered_edges=None):
+                             allowed_batch_ids, context_texts, rendered_edges=None, artifact_ids=None):
         """Rich source notes at anchors; compact navigation at deeper nodes."""
         derived = getattr(entity, "source", None) not in (None, "conversation")
         if derived and depth == 0:
             if entity.context_payload:
                 context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
+                if artifact_ids is not None:
+                    artifact_ids.append(("codex_entities", str(entity.id)))
             return
         if depth > 0:
             context_texts.append(f"[{entity.canonical_name} ({getattr(entity, 'entity_type', None) or 'entity'})]")
+            if artifact_ids is not None:
+                artifact_ids.append(("codex_entities", str(entity.id)))
             return
         lines = []
         self._prime_edge_times(out_edges + in_edges)
@@ -2142,17 +2164,21 @@ class HybridRetrievalOrchestrator:
             source = self.db.get(CodexEntity, edge.source_id)
             target = self.db.get(CodexEntity, edge.target_id)
             if source and target:
-                line = self._fact_line(source, edge, target, allowed_batch_ids)
+                line = self._fact_line(source, edge, target, allowed_batch_ids, artifact_ids)
                 if line:
                     lines.append(line)
                     if rendered_edges is not None:
                         rendered_edges.append(edge)
+                    if artifact_ids is not None:
+                        artifact_ids.append(("codex_edges", str(edge.id)))
         if lines:
             context_texts.append(f"[Entity: {entity.canonical_name}]\n" + "\n".join(dict.fromkeys(lines)))
+            if artifact_ids is not None:
+                artifact_ids.append(("codex_entities", str(entity.id)))
 
     def _traverse_graph(self, entity, depth, max_depth, visited, context_texts, anchor_edges=None,
                         allowed_entity_ids=None, allowed_batch_ids=None, exclude_ids=None,
-                        rendered_edges=None):
+                        rendered_edges=None, artifact_ids=None):
         if entity.id in visited or depth > max_depth:
             return
         visited.add(entity.id)
@@ -2179,7 +2205,7 @@ class HybridRetrievalOrchestrator:
                     if self._edge_source_batch(e, allowed_batch_ids) is not None]
 
         self._render_codex_entity(entity, depth, out_edges, in_edges,
-                                  allowed_batch_ids, context_texts, rendered_edges)
+                                  allowed_batch_ids, context_texts, rendered_edges, artifact_ids)
 
         # A7.2: traverse both directions (into the target of outgoing edges and
         # the source of incoming ones), trust-gated and scope-bounded as before.
@@ -2248,7 +2274,7 @@ class HybridRetrievalOrchestrator:
             if other and self._entity_visible(other):
                 self._traverse_graph(other, depth + 1, max_depth, visited,
                                      context_texts, anchor_edges,
-                                     allowed_entity_ids, allowed_batch_ids, exclude_ids, rendered_edges)
+                                     allowed_entity_ids, allowed_batch_ids, exclude_ids, rendered_edges, artifact_ids)
 
     # ------------------------------------------------------------------
     # Procedural lookup (scoped + trigger‑condition evaluation)
@@ -2510,7 +2536,9 @@ class HybridRetrievalOrchestrator:
                         source_note_row_id=(r.source_ids[0] if indexed and r.mode == 'source'
                                             and len(r.source_ids) == 1 else None),
                         source_note_body=(r.text if indexed and r.mode == 'source'
-                                          and len(r.source_ids) == 1 else None)))
+                                          and len(r.source_ids) == 1 else None),
+                        stored_artifact_ids=(("batch_notes", json.dumps([str(r.id), r.ordinal],
+                            separators=(",", ":"))),) if indexed else (("batch_summaries", str(r.id)),)))
                     if len(fragments) >= own_limit:
                         break
                 if len(fragments) < own_limit:
@@ -2536,7 +2564,8 @@ class HybridRetrievalOrchestrator:
                             text=rendered, source_type="batch_summary", score=r.score,
                             token_count=count_tokens(rendered), conversation_id=str(conv_id),
                             origin_batch_ids=tuple(item['batch_id']
-                                                   for item in r.source_manifest['sources'])))
+                                                   for item in r.source_manifest['sources']),
+                            stored_artifact_ids=(("batch_summaries", str(r.id)),)))
                         if len(fragments) >= own_limit:
                             break
             except Exception as err:
@@ -2606,7 +2635,8 @@ class HybridRetrievalOrchestrator:
                             text=rendered, source_type="batch_summary", score=r.score,
                             token_count=count_tokens(rendered), conversation_id=cid,
                             origin_batch_ids=tuple(item['batch_id']
-                                                   for item in r.source_manifest['sources'])))
+                                                   for item in r.source_manifest['sources']),
+                            stored_artifact_ids=(("conversation_summaries", cid),)))
                         aggregate_fallbacks.add(cid)
                         cross_added += 1
                     if cross_added >= settings.retrieval_conversation_summary_limit:
@@ -2624,7 +2654,9 @@ class HybridRetrievalOrchestrator:
                     source_note_row_id=(r.source_ids[0] if r.mode == 'source'
                                         and len(r.source_ids) == 1 else None),
                     source_note_body=(r.text if r.mode == 'source'
-                                      and len(r.source_ids) == 1 else None)))
+                                      and len(r.source_ids) == 1 else None),
+                    stored_artifact_ids=(("conversation_notes", json.dumps([cid, r.ordinal],
+                        separators=(",", ":"))),)))
                 cross_added += 1
                 if cross_added >= settings.retrieval_conversation_summary_limit:
                     break
@@ -2674,7 +2706,8 @@ class HybridRetrievalOrchestrator:
                         token_count=count_tokens(rendered),
                         conversation_id=str(r.conversation_id),
                         origin_batch_ids=tuple(item['batch_id']
-                                               for item in r.source_manifest['sources'])))
+                                               for item in r.source_manifest['sources']),
+                        stored_artifact_ids=(("conversation_summaries", str(r.conversation_id)),)))
         except Exception as err:
             self._leg_degraded("batch_summary.cross", err)
         return fragments
@@ -2776,6 +2809,7 @@ class HybridRetrievalOrchestrator:
                 token_count=count_tokens(text_),
                 source_batch_id=str(row.id),
                 conversation_id=str(row.conversation_id) if row.conversation_id else None,
+                stored_artifact_ids=(("cold_storage", str(row.id)),),
             ))
             try:
                 fragments.extend(self._cold_chunk_candidates(row, prompt_keywords, prompt_embedding))
@@ -2790,14 +2824,14 @@ class HybridRetrievalOrchestrator:
         """Only called for already eligible cold parents; text stays complete."""
         if prompt_embedding is not None:
             query = text("""
-                SELECT chunk_text, 1 - (embedding <=> :probe) AS score
+                SELECT id, chunk_text, 1 - (embedding <=> :probe) AS score
                 FROM cold_chunks WHERE turn_id = :id AND embedding IS NOT NULL
                 ORDER BY embedding <=> :probe, chunk_index, id LIMIT 3
             """).bindparams(bindparam("probe", type_=PgVector))
             rows = self.db.execute(query, {"id": parent.id, "probe": prompt_embedding}).all()
         else:
             rows = self.db.execute(text("""
-                SELECT chunk_text, 0.0 AS score FROM cold_chunks
+                SELECT id, chunk_text, 0.0 AS score FROM cold_chunks
                 WHERE turn_id = :id ORDER BY chunk_index, id
             """), {"id": parent.id}).all()
             terms = {str(k).casefold() for k in keywords if k}
@@ -2809,6 +2843,7 @@ class HybridRetrievalOrchestrator:
             source_batch_id=str(parent.id),
             conversation_id=str(parent.conversation_id) if parent.conversation_id else None,
             leg="cold_chunk", covers_entire_source=False,
+            stored_artifact_ids=(("cold_chunks", str(row.id)),),
         ) for row in rows]
 
     def _resurrect_cold_hits(self, final: List[ContextFragment]):
@@ -3446,14 +3481,14 @@ class HybridRetrievalOrchestrator:
         """Use the same eligible representations as chat and explicit reads."""
         return choose_representation(row, classification, prompt_keywords)
 
-    def _relevant_doc_chunks(self, turn_id, prompt_keywords, limit: int = 2):
+    def _relevant_doc_chunks(self, turn_id, prompt_keywords, limit: int = 2, *, artifact_ids=None):
         """C2: pick a document's most query-relevant chunks (keyword-hit count,
         earliest-first tiebreak; the opening chunk as fallback — it usually
         identifies the document). Returns joined text or None when the doc has
         no chunks yet (legacy pre-C2; the catch-up worker heals those)."""
         try:
             rows = self.db.execute(text("""
-                SELECT chunk_text, chunk_index FROM episodic_chunks
+                SELECT id, chunk_text, chunk_index FROM episodic_chunks
                 WHERE turn_id = :tid ORDER BY chunk_index ASC
             """), {"tid": turn_id}).fetchall()
         except Exception as err:
@@ -3469,7 +3504,11 @@ class HybridRetrievalOrchestrator:
             scored = sorted(rows, key=lambda r: (-hits(r.chunk_text), r.chunk_index))
             if hits(scored[0].chunk_text) > 0:
                 chosen = sorted(scored[:limit], key=lambda r: r.chunk_index)
+                if artifact_ids is not None:
+                    artifact_ids.extend(("episodic_chunks", str(r.id)) for r in chosen)
                 return "\n[…]\n".join(r.chunk_text for r in chosen)
+        if artifact_ids is not None:
+            artifact_ids.append(("episodic_chunks", str(rows[0].id)))
         return rows[0].chunk_text
 
     def _rows_to_fragments(self, rows, source_type, prompt_text: Optional[str] = None,
@@ -3485,13 +3524,17 @@ class HybridRetrievalOrchestrator:
             # Query-selected document excerpts are alternatives, never a prefix
             # of an otherwise complete turn. Legacy/no-chunk rows keep raw text.
             complete_source = text == getattr(row, "raw_text", None)
+            artifact_ids = [("episodic_memory", str(row.id))]
             if getattr(row, "is_document", False):
-                chunk_text_ = self._relevant_doc_chunks(row.id, prompt_keywords)
+                chunk_artifacts = []
+                chunk_text_ = self._relevant_doc_chunks(row.id, prompt_keywords,
+                                                        artifact_ids=chunk_artifacts)
                 if chunk_text_:
                     text = chunk_text_
                     degrade_text = None
                     abstract_text = None
                     complete_source = False
+                    artifact_ids = chunk_artifacts
 
             if not text:
                 continue
@@ -3519,5 +3562,6 @@ class HybridRetrievalOrchestrator:
                 degrade_text=degrade_text,
                 abstract_text=abstract_text,
                 covers_entire_source=complete_source,
+                stored_artifact_ids=tuple(artifact_ids),
             ))
         return fragments

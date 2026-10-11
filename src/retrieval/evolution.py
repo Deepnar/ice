@@ -73,7 +73,7 @@ def history_exists(db: Session, entity_id) -> bool:
 
 def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
                           t0=None, t1=None, max_transitions=8,
-                          source_batch_for_edge=None, return_sources=False):
+                          source_batch_for_edge=None, return_sources=False, artifact_ids=None):
     """Render an entity's supersession history as a compact dated block:
 
         [Timeline: saga 2 ending]
@@ -142,7 +142,7 @@ def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
             rel = f"NOT {e.relation}" if e.negated else e.relation
             src = names.get(e.source_id, "?")
             tgt = names.get(e.target_id, "?")
-            lines.append((f"{start} – {end}: {src} --{rel}--> {tgt}{suffix}", batch))
+            lines.append((f"{start} – {end}: {src} --{rel}--> {tgt}{suffix}", batch, e))
 
     omitted = False
     if len(lines) > max_transitions:
@@ -152,7 +152,7 @@ def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
 
     def _render():
         parts = [header] + (["(earlier history omitted)"] if omitted else []) \
-            + [line for line, _ in lines]
+            + [line for line, _, _ in lines]
         return "\n".join(parts)
 
     # Token cap (D7: a life story must not eat the window) — drop the oldest
@@ -161,8 +161,14 @@ def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
         lines.pop(0)
         omitted = True
     rendered = _render()
+    if artifact_ids is not None:
+        artifact_ids.append(("codex_entities", str(entity.id)))
+        for _, _, edge in lines:
+            artifact_ids.append(("codex_edges", str(edge.id)))
+            artifact_ids.extend(("codex_entities", str(ident))
+                                for ident in (edge.source_id, edge.target_id) if ident in names)
     if return_sources:
-        return rendered, tuple(dict.fromkeys(str(batch) for _, batch in lines
+        return rendered, tuple(dict.fromkeys(str(batch) for _, batch, _ in lines
                                              if batch is not None))
     return rendered
 
