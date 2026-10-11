@@ -293,7 +293,7 @@ standalone CLI. It requires a restored isolated native checkpoint, matching
 code/settings/registry/clock-basis identity and complete per-job ledgers. It
 merges exact cadence events, runs the ten existing job functions and preserves
 native bounded degradation/pause policy. Research checkpoint_every_groups
-defaults1; a parent may explicitly freeze1..32 in its version2 identity. This
+defaults1; a parent may explicitly freeze1..32 in its version3 identity. This
 batches checkpoint publication only; no job, cadence or observer is skipped.
 End-of-drain and outage always publish fully observed groups. An interruption
 must restore the previous native checkpoint and replay the bounded uncommitted
@@ -303,10 +303,13 @@ cadence is declared research policy, not measured production idle/tick latency.
 Native SQL controls preserve original source through cold movement, age graph
 retention without confidence promotion, retire an explicitly stale procedure,
 and restore interrupted writes to the same tables as uninterrupted execution.
-Full private uncaught-job/observer/checkpoint/pause receipts are retained. Other
+Full private uncaught-job/observer/checkpoint/pause receipts are retained;
+version3 also captures logged caught exceptions with actual job/attempt context.
+It retains native logs/fallback decisions; unlogged swallowed errors remain
+unobserved. Other
 semantic jobs are no-op/gated on that fixture; they are not quality-qualified.
-Source events/preflight/exposure/post-flight/probes, per-condition freeze/model
-pins and final manual orchestration still require the new parent. The current
+Per-condition effects, complete model/clock qualification and final manual
+orchestration remain unfinished. The current
 selected replay and its command do not adopt this adapter automatically.
 
 `chronological_sources` is the separate source/probe identity seam for that
@@ -319,8 +322,27 @@ replacement clocks must cover every turn and do not change original dates.
 The explicit frozen-tuning view revalidates current-reader adoption, the complete
 producer audit and original full source hash; it does not bypass the old fresh
 preparation guard or rebuild that bundle. Actual251/67 input checks make no
-model or DB call. Native source ingestion, condition effects, writer/read/probe
-checkpoint execution and final label/clock qualification remain unfinished.
+model or DB call. Final condition/label/clock qualification remains unfinished.
+
+`chronological_replay.run` is the new full-memory one-history native integration
+API, currently under qualification; it has no launch CLI. It owns its isolated
+store/checkpoint lease and binds complete sources/keys, settings, installed
+writer digests, classifier/schema files, native/instrument bytes and enabled
+job/reader-arm roster. Successful actual bootstrap calls establish cadence;
+due groups precede each original. Native preparation exposes selected evidence
+once, then the importer stores the recorded reply and post-flight runs normally.
+Source/classification/ordinal checks catch swallowed importer failures.
+Diagnostic probes prepare question-only envelopes with writes off and unchanged
+table fingerprints. Complete events publish full dumps/state/trace; unfinished
+events restore their earlier prefix; completed resume retains bytes and skips
+writer/preparation. The scoped caught-fault observer restores every logger on
+exit and records full active exception chains without locals.
+
+This API does not adopt a frozen-writer audit as new writer state, change the
+completed producer, generate historical replies or run cloud answers. It accepts
+only supplied source clocks; replacement-aging execution is not qualified.
+Final full-mechanism ablations, separate bare vector, stable artifact inventory,
+retention panels, qualified labels/judges and final manual orchestration remain.
 
 ## Tuning and final readiness still to earn
 

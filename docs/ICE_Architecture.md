@@ -736,12 +736,14 @@ native core jobs at exact per-job cadence boundaries, serially in fixed order.
 It requires a matching isolated parent/checkpoint lease, restored trace/state/
 table fingerprints and unchanged code/settings/job/provenance identity. Research
 checkpoint_every_groups defaults1; an explicit1..32 value is frozen in the
-version2 adapter identity. Every job still runs at its exact boundary. Completely
+version3 adapter identity. Every job still runs at its exact boundary. Completely
 observed batches publish native store+trace checkpoints, always at drain end
 and before an outage pause. Interruption restores the preceding full checkpoint
-and replays the bounded uncommitted suffix. Full uncaught job/observer/checkpoint/pause receipts
-remain private. Source events, preflight/exposure/post-flight, final probe keys/
-conditions and model freeze still belong to the unfinished new parent runner.
+and replays the bounded uncommitted suffix. Version3 additionally observes logged
+caught exceptions with exact job/attempt context, preserving native logs and
+fault policy. Full uncaught job/observer/checkpoint/pause receipts remain private;
+unlogged swallowed errors remain unobserved. Final condition/model/clock
+qualification and orchestration still belong to the unfinished final runner.
 This ideal cadence protocol does not measure production idle/lease/tick latency
 and is not retrofitted into the active selected replay or deployed runtime.
 
@@ -756,6 +758,27 @@ frozen-tuning view validates current-reader adoption and the existing complete
 producer audit before projecting its selected history, without rebuilding old
 preparation or connecting to the store. This planning seam adds no writer/job/
 model and does not complete the native parent or certify retention quality.
+
+The research-only v3 `chronological_replay.run` now connects the native source,
+preparation/exposure, recorded-reply importer/post-flight, exact-cadence gap and
+read-only diagnostic seams in one new isolated history. Initial cadence anchors
+come from actual successful empty-memory job calls. Each complete source/probe
+event publishes the native store/state/trace checkpoint; unfinished events restore
+the preceding dump while already-published gap groups retain their anchors.
+Source roles/hash/ordinal/timestamp and frozen classification are checked even
+when the importer internally catches classification errors. Completed resume
+retains trace bytes and performs no writer/preparation work. Scorer metadata
+joins diagnostic receipts only after question-only preparation; full table
+fingerprints must remain unchanged. This API is under qualification, has no CLI,
+cloud/tuning/final launch and currently runs only the full writer condition.
+The four diagnostic arms do not implement whole-mechanism writer ablations.
+Supplied source clocks/provenance remain unchanged; replacement aging clocks
+refuse execution pending independent storage/session/calendar qualification.
+
+The first integration qualifies14 authored controls, actual local-model two-source/
+eight-preparation paths and completed byte-stable resume. Durable as-of evaluation
+stores still need explicit probe-cutoff pinning; ordinary recovery keeps only
+current/prior generations. The completed development producer remains unchanged.
 
 **V3 episodic decay** starts strictly after seven days and reads daily targets:
 

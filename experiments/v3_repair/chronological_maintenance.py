@@ -13,6 +13,7 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
+from experiments.v3_repair.caught_faults import observe as observe_caught
 from experiments.v3_repair.fault_receipts import CONTEXT_FIELDS, FaultRecorder
 from experiments.v3_repair.lifecycle_plan import cadence, clock
 from experiments.v3_repair.prepare_inputs import digest, fingerprint
@@ -42,14 +43,15 @@ def identity(enabled=CORE_JOBS, *, clock_basis, checkpoint_every_groups=1):
     enabled = enabled_roster(enabled)
     if clock_basis not in {"original", "simulated"}:
         raise ValueError("declare chronological clock provenance")
-    return dict(method="native_chronological_maintenance_v2", enabled=list(enabled),
+    return dict(method="native_chronological_maintenance_v3", enabled=list(enabled),
         clock_basis=clock_basis, simultaneous_order="reverse_job_name", worker_attempts=1,
         checkpoint_every_groups=checkpoint_groups(checkpoint_every_groups),
         registry={job: asdict(JOBS[job]) for job in CORE_JOBS},
         settings_sha256=digest(settings.model_dump(mode="json")),
         native_code_sha256=replay_checkpoint.code_digest(),
         instruments=[fingerprint(Path(__file__)), fingerprint(Path(__file__).with_name("fault_receipts.py")),
-                     fingerprint(Path(__file__).with_name("lifecycle_plan.py"))])
+                     fingerprint(Path(__file__).with_name("lifecycle_plan.py")),
+                     fingerprint(Path(__file__).with_name("caught_faults.py"))])
 
 
 def stamp(value):
@@ -121,7 +123,7 @@ def drain(db, sink, *, until, state, checkpoints, recovery, faults, clock_basis,
     Completed batches and the final group are durable before outage checks.
     Incomplete groups leave the previous pointer; native recovery archives their
     trace suffix and replays the bounded uncommitted batch.
-    Internal caught exceptions are not visible at this uncaught-job boundary.
+    Logged caught exceptions are observed; unlogged swallowed errors are not.
     """
     if set(context) - CONTEXT_FIELDS or not context.get("conversation") or type(context.get("turn")) is not int:
         raise ValueError("explicit frozen turn/conversation fault context required")
@@ -159,7 +161,8 @@ def drain(db, sink, *, until, state, checkpoints, recovery, faults, clock_basis,
                 observer_ms = (time.perf_counter() - observation_start) * 1000
                 fn = functions[job]
                 def work():
-                    return fn(db, **kwargs) if spec.needs_db else fn(**kwargs)
+                    with observe_caught(faults, {**details, "stage": "maintenance", "attempt": 1, "attempts": 1}):
+                        return fn(db, **kwargs) if spec.needs_db else fn(**kwargs)
                 start = time.perf_counter()
                 succeeded, result = recovery.call(
                     lambda: faults.call(work, context={**details, "stage": "maintenance", "attempt": 1, "attempts": 1}),
@@ -178,7 +181,7 @@ def drain(db, sink, *, until, state, checkpoints, recovery, faults, clock_basis,
                     observer_elapsed_ms=observer_ms, job_elapsed_ms=elapsed,
                     worker_status="complete" if succeeded else "degraded", result=result,
                     schedule_method=binding["method"], clock_basis=clock_basis,
-                    fault_capture="uncaught_boundary_only"), default=str) + "\n")
+                    fault_capture="uncaught_boundaries_and_logged_caught_exceptions"), default=str) + "\n")
                 sink.flush()
                 if succeeded: state["last_maintenance"][job] = target.isoformat()
                 else: recovery.state["last_attempt"][job] = target.isoformat()
@@ -197,4 +200,5 @@ def drain(db, sink, *, until, state, checkpoints, recovery, faults, clock_basis,
         completed_time_groups=len(schedule), calls=dict(totals), disabled=[j for j in CORE_JOBS if j not in enabled],
         checkpoint_every_groups=checkpoint_every_groups, published_checkpoints=captures,
         max_uncommitted_complete_groups=checkpoint_every_groups - 1,
-        score_of_record=False, semantic_quality="unqualified", fault_capture="uncaught_boundary_only")
+        score_of_record=False, semantic_quality="unqualified",
+        fault_capture="uncaught_boundaries_and_logged_caught_exceptions")

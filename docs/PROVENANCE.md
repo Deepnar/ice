@@ -1,3 +1,42 @@
+## 2026-10-11 — v3 native chronological source, writer and probe integration
+
+New research-only full-memory one-history parent: actual successful job
+bootstrap anchors, exact due groups before originals, shared native preparation
+and exposure, recorded-reply importer/post-flight, read-only question-only
+diagnostics and complete store/state/trace event checkpoints. Source roles,
+hash, ordinal, supplied clock/provenance and frozen preflight classification
+are checked after storage. Scoped logged-caught-exception observation retains
+native logs/fallback policy and full active exception chains without locals;
+unlogged swallowed exceptions remain unobserved. Maintenance binds version3
+instrument identity; original version2 measurements remain historical.
+
+Fourteen distinct authored controls qualify logger restoration/chain capture,
+native summary fallback, input/key isolation, actual SQL writer/read/gap ordering,
+interrupted store restore, responsive versus structural failure, missing-only
+bootstrap resume and completed byte-stable resume. The initial10-control pass
+has a failed network-guard teardown: lazy tokenizer metadata attempts trigger
+native token estimates. Preserve it; corrected controls load the installed real
+tokenizer offline before the strict HTTP guard. A malformed summary fixture
+also remains as an attempt; only its input map is corrected.
+
+Actual installed local models process two authored originals, all10 empty-memory
+bootstrap jobs and eight diagnostic arm preparations at two cutoffs, preserving
+exact source roles/ordinal/dates and completed-resume trace/table bytes. Zero
+worker failures/logged exception receipts and no generated historical replies
+or cloud answers. Empty bootstrap eligibility and short recent-answerable probes
+do not qualify maintenance utility, long-term retention, graph precision or
+answer improvement. Private evidence: logs/v3-chronological-parent-2026-10-11-r{1,2}.
+
+Full regression1183 pass854.79s/346 existing warnings; the added bootstrap
+control is separately qualified. All35 completed development tables, trace and
+six input/producer artifacts remain unchanged; approved source and reader profile
+bytes remain equal. Receipt: logs/v3-chronological-parent-2026-10-11-r2/qualification-receipt.json.
+Durable probe-cutoff snapshots remain in progress. Ordinary recovery retains
+current/prior generations, so the final
+parent also needs pinned as-of evaluation stores. No production/model/default
+change, existing producer rewrite, tuning/final launch or roadmap-owner closure.
+The API has no CLI and is not a final/manual execution-ready campaign.
+
 ## 2026-10-11 — v3 chronological source and diagnostic event contract
 
 The new research-only source contract binds one complete history and interleaves

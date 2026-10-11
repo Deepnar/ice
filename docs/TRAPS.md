@@ -2603,3 +2603,13 @@ producer audit and source-file hash before a separately bound input projection.
 That projection is not a fresh-writer quality result. Also guard DB connections,
 not harmless lazy engine construction, when proving a command makes no DB calls;
 an overstrict diagnostic can fail during import without any query or outage.
+
+### 120. Blocking tokenizer metadata can silently change the test's ruler
+
+ICE v3 chronological-parent control,2026-10-11: a strict no-HTTP fixture blocks
+the lazy tokenizer's remote metadata lookup. Native code catches that exception
+and uses its token estimate, so writer/probe assertions can pass under a different
+budget ruler. A teardown guard catches three HTTP attempts despite ten passing
+test bodies. Load the installed actual tokenizer with local_files_only=True
+before enabling the HTTP guard, then keep the guard strict. Preserve the failed
+attempt; do not count it as zero-network or native-tokenizer qualification.

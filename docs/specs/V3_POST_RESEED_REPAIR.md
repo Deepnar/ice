@@ -2496,6 +2496,99 @@ logs/v3-source-event-contract-2026-10-11-r3. Final disposable smoke/dynamics
 fingerprints and original trace remain equal. The full native parent is still
 unfinished; this seam cannot authorize a tuning/final launch.
 
+#### Native chronological parent decision —2026-10-11
+
+Implement `experiments/v3_repair/chronological_replay.py` as a research-only
+one-history, full-memory parent; no CLI or automatic tuning/final launch yet.
+Use the source contract, actual production preamble/final preparation, importer,
+post-flight chain and chronological maintenance adapter. The parent owns its
+native checkpoint lease, empty isolated store, trace, recovery state and fault
+journal. Bind exact source/probe plan, all native/instrument bytes, settings,
+classifier/schema bytes, installed writer-model digests, enabled core jobs,
+diagnostic preparation arms and publication cadence. Reject a frozen-writer
+audit plan as new-writer execution; rebuild a separate source plan for a new
+store. Validate every projection before model loading or any write. Resume
+restores the complete dump/state/trace prefix, then verifies the event prefix;
+a completed resume performs no writer/preparation work and retains trace bytes.
+
+Bootstrap enabled jobs at the first source clock on the empty store with their
+actual registry signatures. Publish each successful anchor separately; never
+label a failed attempt successful. A failed bootstrap is recorded and paused,
+not given a fabricated ledger. Drain every due group before the next source,
+using the existing ideal-cadence identity. Execute historical preflight and
+selected-evidence exposure once per original, store its exact recorded reply
+and verified ordinal, then call native post-flight with bounded worker recovery.
+Verify raw roles/hash/ordinal, supplied timestamp/provenance and the stored
+classification against frozen preflight: importer classification exceptions
+are internally caught, so propagated exceptions alone cannot prove parity.
+Preserve initial representations, proofs and derivative observations privately.
+Publish each complete source/probe event; incomplete events restore the earlier
+durable state, while already-published gap groups retain their actual anchors.
+Diagnostic event checkpoints also publish immutable native evaluation snapshots
+under deterministic hashed event keys. Ordinary recovery retains only its latest
+two generations; relying on that retention would lose earlier as-of stores.
+Pin each completed probe cutoff for future current-reader/coordinate comparisons.
+An interrupted boundary restores/re-publishes its exact native manifest; completed
+resume must not regenerate or overwrite the pinned evaluation. Qualify restore
+of the earlier cutoff after later ingestion, full table identity, single-source
+state and byte-stable evaluation manifests.
+
+For this first execution boundary, source clocks equal the supplied source
+timestamps. Synthetic imports retain synthetic provenance. Replacement-clock
+plans remain valid planning artifacts but refuse execution before calls: native
+session resolution and temporal evidence currently share `turn.timestamp`, so
+silently substituting an aging clock would also change source-calendar evidence.
+Independent simulated-gap/clock-authority execution remains retention work;
+this narrower parent cannot qualify it or the full final ablation roster.
+
+Observe probes in the existing read-only transaction with exposure writes off.
+Pass question-only runtime projections; scorer keys/source mapping stay in
+separate receipt metadata. Capture all four existing preparation arms, source
+lineage and gold-fragment/source ranks, without generating or storing diagnostic
+replies. Assert complete table fingerprints unchanged across each probe. Final
+whole-mechanism ablations, bare-vector control and cloud stages remain separate.
+
+Add a scoped research logger observer for caught exceptions: temporarily wrap
+loaded native module loggers, preserve bind/new context and every original log,
+capture the active exception chain without frame locals before its catch exits,
+and restore every logger on success/failure/interrupt. It records faults only;
+it must not alter native fallback/retry/trust decisions. Label captures as
+uncaught boundaries plus logged caught exceptions, never exhaustive capture of
+unlogged swallowed exceptions. Record each attempt's turn/job/cutoff context;
+bound the observer bytes into the new parent identity. Qualify exception chains,
+binding, restoration and native importer/summary catches with opposing controls.
+
+Maintenance observer extension binds a separate version3 adapter identity and
+the caught-observer file. Exact job context includes its actual attempt/time;
+cadences, cycles, recovery policy and grouped publication are unchanged. The
+version2 measurements above remain historical and are not silently adopted.
+Unlogged swallowed exceptions remain unobservable. This implements the scoped
+logged-catch instrumentation specified here, not a production logging change.
+
+Qualify event execution and recovery in a new disposable SQL store with authored
+sources and controlled model boundaries, then a separately identified bounded
+native check. Prove pre-source jobs, exact reply/roles/ordinal/session clocks,
+read-only probes, no key leakage, recoverable/persistent faults, drift refusal,
+interruption through a real dump restore and completed no-op resume. Do not
+reuse or rewrite the completed251/67 writer state or its five-transition reader
+profile. Counts from these controls are mechanism qualification, not memory
+precision, answer improvement or tuning readiness.
+
+**First implementation qualified,2026-10-11:**14 distinct authored controls,
+1183 smoke/dynamics regression checks854.79s/346 existing warnings and a
+separately added bootstrap-failure/resume control pass. The actual installed
+local models process two authored originals, ten successful empty-memory
+bootstrap calls and eight diagnostic preparation arms at two cutoffs; completed
+resume preserves trace/table bytes. No generated historical replies, cloud calls,
+worker failures or logged exceptions. Empty job eligibility/recent-only source
+answerability do not qualify maintenance utility, retention or semantic precision.
+All35 completed development tables, original trace, six input/producer artifacts,
+approved summary source and reader profile remain unchanged. Failed tokenizer-
+guard and malformed-fixture attempts are retained separately. Private receipt:
+logs/v3-chronological-parent-2026-10-11-r2/qualification-receipt.json.
+Immutable probe-cutoff pinning above is the next implementation; ordinary
+recovery alone is not historical-store reuse. No final launch or owner closure.
+
 **Fixture selection:** two separate complete long histories with ordered originals,
 updates, recurring topics/procedures and interpretable sessions. Prefer a
 different history from r4 to reduce development leakage. Inspect the existing
@@ -2873,8 +2966,10 @@ final readiness work, not work postponed until after the final run.
 **Retention readiness clarification,2026-10-10:** section2.3k adds four omitted
 exposure/cap fields and qualifies current catch-up limitations through native
 SQL/dispatcher controls. The planner and native ten-job gap adapter in section2.3l
-are implemented; full source-event/parent integration and revisited/quiet/corrected retention panels
-still precede lifecycle parameter selection. Do not treat the current cap,
+are implemented; the new full-memory native source/writer/read/probe parent in
+section2.4 now has bounded execution/recovery qualification underway.
+Final condition/clock/inventory integration and revisited/quiet/corrected retention
+panels still precede lifecycle parameter selection. Do not treat the current cap,
 larger endpoint batches or a no-call schedule as that completed qualification.
 
 After both final experiments, the35 later items remain outside this repair pass.
