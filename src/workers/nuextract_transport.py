@@ -5,6 +5,7 @@ inside its default document-content task. Ordinary background calls stay on
 OpenAI-compatible chat. Named-model ownership belongs to the existing factory.
 """
 
+import json
 import time
 
 import httpx
@@ -15,7 +16,7 @@ from src.api.config import settings
 from src.workers.extraction_result import ExtractionOutputError
 
 logger = structlog.get_logger("ice.workers.nuextract_transport")
-PROTOCOL = "nuextract3-structured-text-v1"
+PROTOCOL = "nuextract3-structured-text-json-v2"
 
 
 def render_prompt(source, template, instructions=""):
@@ -25,6 +26,31 @@ def render_prompt(source, template, instructions=""):
             + (f"【instructions_start】{instructions}【instructions_end】\n" if instructions else "")
             + f"【document_start】\n{source.strip()}\n【document_end】<|im_end|>\n"
               "<|im_start|>assistant\n<think>\n\n</think>\n\n")
+
+
+
+def extraction_schema(template):
+    """Constrain the specialist's own facts envelope, including nullable fields."""
+    try:
+        parsed = json.loads(template)
+        fields = parsed["facts"][0]
+        valid = (set(parsed) == {"facts"} and len(parsed["facts"]) == 1
+            and isinstance(fields, dict)
+            and set(fields) in ({"subject", "relation", "object"},
+                                {"subject", "relation", "object", "source_sentence"})
+            and all(fields[name] == "string" for name in ("subject", "relation", "object"))
+            and ("source_sentence" not in fields or fields["source_sentence"] == "verbatim-string"))
+    except (TypeError, ValueError, KeyError, IndexError):
+        valid = False
+    if not valid:
+        raise ExtractionOutputError("invalid facts template for constrained extraction")
+    properties = {name: dict(type=["string", "null"]) for name in ("subject", "relation", "object")}
+    if "source_sentence" in fields:
+        properties["source_sentence"] = dict(type="string", minLength=1)
+    properties["negated"] = dict(type="boolean")
+    return dict(type="object", required=["facts"], additionalProperties=False,
+        properties=dict(facts=dict(type="array", items=dict(type="object",
+            required=list(fields), additionalProperties=False, properties=properties))))
 
 
 def native_completion(**kwargs):
@@ -44,13 +70,15 @@ def native_completion(**kwargs):
         raise ExtractionOutputError("invalid structured extraction request")
     prompt = render_prompt(messages[0]["content"], template_args["template"],
                            template_args.get("instructions", ""))
+    payload = {"model": kwargs["model"], "prompt": prompt, "raw": True,
+               "stream": False, "think": False, "keep_alive": -1,
+               "options": {"temperature": kwargs["temperature"],
+                           "num_ctx": extra["ice_context_window"],
+                           "num_predict": kwargs["max_tokens"]}}
+    if settings.codex_constrain_shape:
+        payload["format"] = extraction_schema(template_args["template"])
     response = httpx.post(settings.ollama_base_url.rstrip('/') + '/api/generate',
-                          json={"model": kwargs["model"], "prompt": prompt, "raw": True,
-                                "stream": False, "think": False, "keep_alive": -1,
-                                "options": {"temperature": kwargs["temperature"],
-                                            "num_ctx": extra["ice_context_window"],
-                                            "num_predict": kwargs["max_tokens"]}},
-                          timeout=kwargs["timeout"])
+                          json=payload, timeout=kwargs["timeout"])
     response.raise_for_status()
     try:
         data = response.json()

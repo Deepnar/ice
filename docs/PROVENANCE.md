@@ -35,13 +35,21 @@ These checks overlap inputs and do not sum to independent accuracy observations.
 
 Immutable candidate, code/request identities, complete native packets, healthy
 parity, actual-path receipts, tests and exact two-file proposal are retained in
-`logs/v3-extraction-contract-2026-10-10-r2/`. The source changes would affect
-native transport and correct its extractor comment. **Approval pending; no
-production change applied.** Current native template generation remains
-unconstrained. Existing reader profiles and writer/checkpoint/proof artifacts
-remain sealed; later adoption requires a new explicitly bound profile. No new
-model/default/trust/cap change, validation inspection, tuning, cloud/final launch,
-push or whole roadmap closure. Work pauses at the maintainer's sleep request.
+`logs/v3-extraction-contract-2026-10-10-r2/`. The source changes affect
+native transport and correct its extractor comment. **Approved and applied
+unchanged,2026-10-11.** The shared native template now uses the matching grammar
+under the existing default-true shape switch. Applied-source focused64 checks
+pass16.22s; final disposable smoke/dynamics1135 pass354.82s/346 warnings.
+Two actual read-only extraction/NER/encoder units complete37.96s,
+40 relation proposals and46 source sentences, including six source-only rows;
+no graph admission or independent precision is measured. All35 original tables
+remain unchanged. Applied receipts: `logs/v3-extraction-applied-2026-10-11-r1/`.
+Existing candidate/writer/checkpoint/proof/profile artifacts remain sealed.
+A new four-transition reader profile exports/reuses unchanged; current no-call
+planning sees67 probes, while ordinary and old-profile commands still refuse.
+Profile receipts: `logs/v3-reader-adoption-2026-10-11-r1/`. No new model, trust
+floor, cap change, validation inspection, tuning, cloud/final launch, push or
+whole roadmap closure.
 
 ## 2026-10-10 — v3 graph argument consistency after source review
 

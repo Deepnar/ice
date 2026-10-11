@@ -1,12 +1,17 @@
 """v3 raw structured-template dispatch, exact source separation and completion."""
 
+import json
 from types import SimpleNamespace as NS
 
 import pytest
 
 from src.api.config import settings
 from src.workers.bg_client_factory import _BgClient
-from src.workers.extraction_result import ExtractionOutputError
+from src.workers.extraction_result import (
+    ExtractionOutputError,
+    original_source_quote,
+    parse_extraction_response,
+)
 from src.workers.nuextract_transport import PROTOCOL, render_prompt
 
 
@@ -19,11 +24,14 @@ class Response:
         return self.data
 
 
-def request():
+def request(template=None):
+    if template is None:
+        template = json.dumps(dict(facts=[dict(subject='string', relation='string',
+            object='string', source_sentence='verbatim-string')]))
     return dict(model='local-specialist', messages=[{'role': 'user', 'content': 'Aster uses Redis.'}],
                 temperature=0., max_tokens=3000, timeout=60,
                 extra_body={'ice_template_protocol': PROTOCOL, 'ice_context_window': 8192,
-                            'chat_template_kwargs': {'template': '{"facts": ["string"]}',
+                            'chat_template_kwargs': {'template': template,
                                                      'instructions': 'Preserve facts.', 'enable_thinking': False}})
 
 
@@ -83,3 +91,90 @@ def test_renderer_does_not_put_instruction_or_schema_inside_the_source_document(
     document = prompt.split('【document_start】\n')[1].split('【document_end】')[0]
     assert document == 'Aster uses Redis.\n'
     assert prompt.endswith('<|im_start|>assistant\n<think>\n\n</think>\n\n')
+
+
+def native_factory(monkeypatch, calls, content='{"facts": []}', finish='stop'):
+    from src.workers import nuextract_transport as transport
+
+    def post(url, **kwargs):
+        calls.append(kwargs['json'])
+        return Response(dict(done=True, done_reason=finish, response=content,
+                             prompt_eval_count=99, eval_count=7))
+
+    monkeypatch.setattr(transport.httpx, 'post', post)
+    inner = NS(chat=NS(completions=NS(create=lambda **_: pytest.fail(
+        'specialist called ordinary chat'))))
+    return _BgClient(inner, owned=True)
+
+
+@pytest.mark.parametrize('enabled', [False, True])
+def test_native_shape_switch_preserves_envelope_and_other_fields(monkeypatch, enabled):
+    monkeypatch.setattr(settings, 'codex_constrain_shape', enabled)
+    calls = []
+    result = native_factory(monkeypatch, calls).chat.completions.create(**request())
+    assert result.choices[0].finish_reason == 'stop' and result.usage.total_tokens == 106
+    body = calls[0]
+    assert body['raw'] is True and body['think'] is False and body['keep_alive'] == -1
+    assert body['options'] == dict(temperature=0., num_ctx=8192, num_predict=3000)
+    assert ('format' in body) == enabled
+    if enabled:
+        schema = body['format']
+        item = schema['properties']['facts']['items']
+        assert schema['type'] == 'object' and schema['required'] == ['facts']
+        assert set(item['required']) == {'subject', 'relation', 'object', 'source_sentence'}
+        assert item['properties']['subject']['type'] == ['string', 'null']
+        assert item['properties']['source_sentence'] == dict(type='string', minLength=1)
+        assert item['properties']['negated']['type'] == 'boolean'
+        assert 'negated' not in item['required']
+        assert schema['additionalProperties'] is False and item['additionalProperties'] is False
+
+
+@pytest.mark.parametrize('template', ['not-json', '[]', '{}', '{"facts": []}',
+    '{"facts": ["string"]}',
+    '{"facts": [{"subject": "integer", "relation": "string", "object": "string"}]}',
+    '{"facts": [{"subject": "string", "relation": "string", "object": "string", "extra": "string"}]}'])
+def test_wrong_template_refuses_before_native_provider(monkeypatch, template):
+    monkeypatch.setattr(settings, 'codex_constrain_shape', True)
+    calls = []
+    client = native_factory(monkeypatch, calls)
+    with pytest.raises(ExtractionOutputError, match='invalid facts template'):
+        client.chat.completions.create(**request(template))
+    assert calls == []
+
+
+def test_quotes_off_keeps_matching_three_field_template(monkeypatch):
+    monkeypatch.setattr(settings, 'codex_constrain_shape', True)
+    calls = []
+    client = native_factory(monkeypatch, calls)
+    client.chat.completions.create(**request(json.dumps(dict(facts=[dict(
+        subject='string', relation='string', object='string')]))))
+    item = calls[0]['format']['properties']['facts']['items']
+    assert set(item['required']) == {'subject', 'relation', 'object'}
+    assert 'source_sentence' not in item['properties']
+
+
+def test_escaped_source_and_nullable_tuple_keep_exact_evidence(monkeypatch):
+    monkeypatch.setattr(settings, 'codex_constrain_shape', True)
+    source = 'Aster uses "Redis".\tThe exact mode is unknown.'
+    content = json.dumps(dict(facts=[
+        dict(subject='Aster', relation='uses', object='Redis', source_sentence='Aster uses "Redis".'),
+        dict(subject=None, relation='has_mode', object=None, source_sentence='The exact mode is unknown.'),
+    ]))
+    client = native_factory(monkeypatch, [], content)
+    value = client.chat.completions.create(**request()).choices[0]
+    facts = parse_extraction_response(value.message.content, value.finish_reason,
+                                     template_mode=True, allow_source_only=True)
+    assert len(facts) == 2 and facts[1]['_source_only'] is True
+    assert all(original_source_quote(source, fact['source_sentence']) == fact['source_sentence']
+               for fact in facts)
+
+
+@pytest.mark.parametrize('content,finish', [('{"facts": []}', 'length'),
+    ('{"facts": [', 'stop'),
+    ('{"facts": [{"subject":"Aster","relation":"uses","object":"Redis","negated":1}]}', 'stop')])
+def test_grammar_keeps_strict_completion_and_polarity_checks(monkeypatch, content, finish):
+    monkeypatch.setattr(settings, 'codex_constrain_shape', True)
+    choice = native_factory(monkeypatch, [], content, finish).chat.completions.create(**request()).choices[0]
+    with pytest.raises(ExtractionOutputError):
+        parse_extraction_response(choice.message.content, choice.finish_reason,
+                                  template_mode=True, allow_source_only=True)

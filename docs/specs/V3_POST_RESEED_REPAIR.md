@@ -1334,10 +1334,17 @@ proposals plus44 source sentences, including six source-only nullable rows;
 no graph write or independent semantic judgment. All35 original table identities
 remain unchanged. Candidate/code/request/response/test/patch receipts are frozen
 under private logs/v3-extraction-contract-2026-10-10-r2. The exact two-file patch
-changes the native transport plus its extractor comment; production approval
-has not been requested or granted. Current main still uses the old unconstrained
-native template transport. Resume at that concrete approval, not another model
-search or a rerun of the completed producer.
+changes the native transport plus its extractor comment. The maintainer approved
+this exact prepared repair on2026-10-11. Apply unchanged qualified source bytes,
+promote the focused contract controls into the production suite, then qualify
+the applied path and register a new exact reader profile. Preserve old producer
+and profile artifacts. Do not rerun the completed producer or infer new writer
+quality from its historical outputs. Applied-source64 focused checks pass16.22s.
+Two actual extraction/NER/encoder units complete37.96s with40 relation proposals,
+46 sentences and six source-only rows; all35 original tables are unchanged.
+This is not graph admission or independent precision. Applied receipts are in
+private logs/v3-extraction-applied-2026-10-11-r1. Final disposable smoke/
+dynamics1135 pass354.82s/346 existing warnings; test stores removed.
 
 ### 2.2 Absolute scoring and qualification
 
@@ -2238,6 +2245,19 @@ passes1121 smoke/dynamics checks376.21s/346 warnings; earlier1107 checks precede
 the later production/registry revision. Current three-transition profile export
 and identical reuse are byte-stable. Actual collector planning validates67
 pending probes without model/DB calls; no coordinate collection or promotion.
+
+**Approved extraction transition,2026-10-11:** section2.1x now changes the
+native extraction protocol and its graph-constructor comment. Register those
+exact approved bytes as a fourth transition and a revised constructor digest;
+retain both earlier profiles unchanged and export a separate current profile.
+The baseline native digest must still come from the original frozen bytes.
+An old profile must refuse under these new bytes. New-writer outcomes remain
+unobserved on the completed producer; this profile only qualifies later readers.
+Applied-source64 controls pass16.22s and two native extraction units complete.
+The new four-transition profile exports/reuses byte-and-mtime-stably; current
+planning validates67 probes with no model/DB call. Ordinary and old-profile
+commands retain their refusal. Private receipts:
+logs/v3-reader-adoption-2026-10-11-r1. No collection or tuning promotion.
 
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 

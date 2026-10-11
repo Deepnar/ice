@@ -2248,8 +2248,10 @@ correctly skipped because the specialist emits a facts object. Its matching
 native decoder candidate instead completes11 captured requests, preserves five
 healthy fact arrays and the empty control, and passes two actual extraction
 paths. Eight quotes remain unresolved; syntax is not precision. Keep nullable
-source-only evidence and downstream source gates. Approval remains pending;
-never describe the prepared grammar as already active in default template mode.
+source-only evidence and downstream source gates. The exact matching native
+grammar was approved/applied2026-10-11; two actual applied extraction paths
+complete with original tables unchanged. Keep dedicated serving and independent
+precision unqualified; do not turn syntax success into a truth measurement.
 
 ### 94. Original-source coverage and successful generation are different receipts
 

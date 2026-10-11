@@ -174,12 +174,14 @@ collector command intentionally refuses changed code. Preserve that frozen
 writer and seal a separate current-reader profile, with no replay/model/DB call:
 
 ```bash
-uv run --no-sync python experiments/v3_repair/reader_adoption.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-reader-adoption-2026-10-10-r2/profile.json
+uv run --no-sync python experiments/v3_repair/reader_adoption.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-reader-adoption-2026-10-11-r1/profile.json
 ```
 
 When reader qualification is ready, pass that exact path as `--reader-adoption`
 to each collector coordinate and use new output bundles. Only the exact
-registered summary and graph-argument byte transitions are accepted; any other change, changed prefix/dump,
+registered summary, graph-argument and matching extraction-transport byte
+transitions are accepted (four exact paths); earlier profiles remain retained
+and refuse under the later source bytes. Any other change, changed prefix/dump,
 settings/model drift or altered profile refuses. Identical sealed exports are
 byte-stable. Existing completed units remain tied to their own reader identity.
 The original writer/proofs never become new-writer outcomes; generated-note

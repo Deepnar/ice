@@ -28,8 +28,13 @@ TRANSITIONS = {
     },
     "src/workers/codex_extractor.py": {
         "before": "ae4b57f6cbb31d76d889fe63349cb5afecbd7cef8f13f7fb742e13bb13ac5b3d",
-        "after": "4409397f9e003d4eb134dfe604c98ad5420b13571b3ef49e25fe755351c6562b",
-        "reason": "Approved explicit tuple passed to source-author checker; no frozen writer replay.",
+        "after": "b21e8b287596d01d5f3526674ad3ba9f89ed2909f2436a981baaa3683bea08df",
+        "reason": "Approved explicit graph tuple and native-envelope comment; no frozen writer replay.",
+    },
+    "src/workers/nuextract_transport.py": {
+        "before": "4a0338a9719dc542838383c820a7732d36be429d6804310e95fc51acbd94139d",
+        "after": "a11099a6a2b80029a8eb952e5f1933d7f536c2b0333b029ba1cf66d0e17addf8",
+        "reason": "Approved matching nullable facts grammar; frozen extraction outcomes are retained.",
     },
 }
 

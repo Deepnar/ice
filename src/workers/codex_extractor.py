@@ -1105,9 +1105,9 @@ def extract_triplets(text: str, model_override: str = "",
                 max_tokens=settings.codex_extraction_max_tokens,
                 timeout=bg_timeout(settings.codex_extraction_max_tokens),
             )
-            # ⚑ The schema constraint FIGHTS a template model — it is trained to
-            # emit its own envelope, and forcing a different one is a second
-            # format instruction. Skipped in template mode, unchanged otherwise.
+            # The generalist array schema differs from NuExtract's facts object.
+            # Keep it off template requests; the native transport constrains its
+            # own matching envelope when codex_constrain_shape is enabled.
             if settings.codex_constrain_shape and not template_mode:
                 shape = json.loads(json.dumps(_TRIPLET_SHAPE))
                 if settings.codex_sentence_claims:
