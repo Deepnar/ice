@@ -9,6 +9,7 @@ import json
 import sys
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace as NS
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -16,7 +17,7 @@ import pytest
 from experiments.v3_repair import chronological_replay as runner
 from experiments.v3_repair import chronological_sources as sources
 from experiments.v3_repair.fault_receipts import FaultRecorder
-from scripts.z1 import production_parity as pp, snapshot
+from scripts.z1 import production_parity as pp, replay_checkpoint, snapshot
 from src.api.config import settings
 
 START = datetime(2025, 1, 1, tzinfo=timezone.utc)
@@ -257,3 +258,36 @@ def test_failed_bootstrap_has_no_fabricated_anchor_and_resumes_missing_jobs_only
     records = [json.loads(line) for line in (native.root / "chronological.jsonl").read_text().splitlines()]
     bootstrap = [r["job"] for r in records if r["event"] == "maintenance_bootstrap"]
     assert bootstrap == ["decay_episodic", "compaction"]
+
+
+def test_probe_cutoff_stays_restorable_after_later_sources_and_complete_resume(native):
+    from src.memory.models import EpisodicMemory
+    state = execute(native)
+    trace = native.root / "chronological.jsonl"
+    records = [json.loads(line) for line in trace.read_text().splitlines()]
+    probe = next(r for r in records if r["event"] == "chronological_probe")
+    completed = next(r for r in records if r["event"] == "chronological_event_complete" and r["event_id"] == "probe:first")
+    target = native.root / "recovery" / "evaluation" / completed["evaluation_key"]
+    manifest_bytes = (target / "recovery.json").read_bytes()
+    manifest = json.loads(manifest_bytes)
+    assert manifest["state"]["event_prefix"]["completed"] == 2
+    assert manifest["identity"]["probe_snapshots"] == "immutable_native_event_cutoffs"
+    assert json.loads((target / "store.manifest.json").read_text())["sha256_by_table"] == probe["table_sha256"]
+    final_rows, final_trace = snapshot.fingerprints(), trace.read_bytes()
+    assert execute(native, resume=True) == state
+    assert (target / "recovery.json").read_bytes() == manifest_bytes
+    with patch.object(snapshot, "SNAPDIR", target):
+        assert snapshot.restore("store") == 0
+    assert snapshot.fingerprints() == probe["table_sha256"]
+    with native.sessions() as db:
+        assert db.query(EpisodicMemory).count() == 1
+        assert db.query(EpisodicMemory).one().raw_text.startswith("User: Original choice 1:")
+    with pytest.raises(ValueError, match="completed chronological trace/store changed"):
+        execute(native, resume=True)
+    identity = records[0]["identity"]
+    cp = replay_checkpoint.Checkpoints(native.root / "recovery", trace, identity)
+    try: assert cp.recover()["complete"]
+    finally: cp.close()
+    assert snapshot.fingerprints() == final_rows and trace.read_bytes() == final_trace
+    assert execute(native, resume=True) == state
+    assert (target / "recovery.json").read_bytes() == manifest_bytes

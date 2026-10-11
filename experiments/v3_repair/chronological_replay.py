@@ -256,6 +256,7 @@ def run(root, plan, originals, probes, *, resume=False, enabled=maintenance.CORE
     identity = dict(format=POLICY, database=snapshot.DB, source_plan=plan["identity_sha256"],
         code_sha256=replay_checkpoint.code_digest(), chronological_maintenance=binding,
         diagnostic_arms=list(arms), condition="full", models=pins, tables=snapshot.TABLES,
+        probe_snapshots="immutable_native_event_cutoffs",
         instruments=[fingerprint(Path(__file__)), fingerprint(Path(sources.__file__)),
                      fingerprint(Path(__file__).with_name("caught_faults.py"))])
     root.mkdir(parents=True, exist_ok=True)
@@ -321,10 +322,12 @@ def run(root, plan, originals, probes, *, resume=False, enabled=maintenance.CORE
                             classifier, embedder, arms, faults),
                             context={**context, "job": "probe", "stage": "probe_event"})
                     state["event_prefix"] = sources.prefix_receipt(plan, index + 1)
+                    evaluation_key = "probe-" + digest(event) if event["kind"] == "probe" else None
                     emit(sink, event="chronological_event_complete", event_id=event["id"],
-                         completed=index + 1, elapsed_ms=(time.perf_counter() - start) * 1000)
+                         completed=index + 1, evaluation_key=evaluation_key,
+                         elapsed_ms=(time.perf_counter() - start) * 1000)
                     db.rollback()
-                    cp.capture(sink, state)
+                    cp.capture(sink, state, evaluation_key=evaluation_key)
                     recovery.check_outage()
                 state["complete"] = True
                 emit(sink, event="chronological_complete", version="v3", events=len(runtime),

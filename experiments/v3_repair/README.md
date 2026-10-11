@@ -333,7 +333,10 @@ due groups precede each original. Native preparation exposes selected evidence
 once, then the importer stores the recorded reply and post-flight runs normally.
 Source/classification/ordinal checks catch swallowed importer failures.
 Diagnostic probes prepare question-only envelopes with writes off and unchanged
-table fingerprints. Complete events publish full dumps/state/trace; unfinished
+table fingerprints. Complete events publish full dumps/state/trace; probe cutoffs
+also retain immutable evaluation snapshots under their event hash keys. These
+remain restorable after later ingestion; completion receipts expose the matching
+key. Unfinished
 events restore their earlier prefix; completed resume retains bytes and skips
 writer/preparation. The scoped caught-fault observer restores every logger on
 exit and records full active exception chains without locals.

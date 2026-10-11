@@ -776,9 +776,14 @@ Supplied source clocks/provenance remain unchanged; replacement aging clocks
 refuse execution pending independent storage/session/calendar qualification.
 
 The first integration qualifies14 authored controls, actual local-model two-source/
-eight-preparation paths and completed byte-stable resume. Durable as-of evaluation
-stores still need explicit probe-cutoff pinning; ordinary recovery keeps only
-current/prior generations. The completed development producer remains unchanged.
+eight-preparation paths and completed byte-stable resume. The subsequent checkpoint
+extension pins immutable native evaluation stores at probe cutoffs under bound
+event hashes, while ordinary recovery keeps current/prior generations. An actual
+SQL restore verifies the earlier complete table state after later ingestion,
+refuses a completed resume on that older live store and restores the final state
+with trace/evaluation bytes intact. Model/source/writer/read callbacks are unchanged;
+final1185 smoke/dynamics checks pass. These mechanism controls do not qualify
+answer or retention quality. The completed development producer remains unchanged.
 
 **V3 episodic decay** starts strictly after seven days and reads daily targets:
 

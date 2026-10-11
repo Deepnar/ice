@@ -2589,6 +2589,20 @@ logs/v3-chronological-parent-2026-10-11-r2/qualification-receipt.json.
 Immutable probe-cutoff pinning above is the next implementation; ordinary
 recovery alone is not historical-store reuse. No final launch or owner closure.
 
+**Probe-cutoff pin implemented,2026-10-11:** parent identity declares immutable
+native event cutoffs, completion receipts bind hashed probe-event keys and native
+Checkpoints publishes each evaluation dump permanently. The actual isolated SQL
+control restores an earlier one-source cutoff after later ingestion, verifies all
+35 table fingerprints, refuses a completed resume on that earlier live state,
+restores the final prefix and confirms trace/evaluation-manifest byte stability.
+One focused control passes79.39s; final1185 smoke/dynamics checks pass935.06s/
+346 existing warnings. Source/preparation/writer/probe callback bodies and model policy
+are unchanged from r2's actual local-model qualification. R2 code/receipt stays
+immutable; new r3 evidence records only this checkpoint-orchestration extension.
+The separate r3 preservation receipt binds all unchanged callback ASTs, the
+original35 table fingerprints/trace/input artifacts and the unchanged r2 model
+outcomes. No model experiment is repeated for a checkpoint-only extension.
+
 **Fixture selection:** two separate complete long histories with ordered originals,
 updates, recurring topics/procedures and interpretable sessions. Prefer a
 different history from r4 to reduce development leakage. Inspect the existing

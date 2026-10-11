@@ -31,9 +31,17 @@ Full regression1183 pass854.79s/346 existing warnings; the added bootstrap
 control is separately qualified. All35 completed development tables, trace and
 six input/producer artifacts remain unchanged; approved source and reader profile
 bytes remain equal. Receipt: logs/v3-chronological-parent-2026-10-11-r2/qualification-receipt.json.
-Durable probe-cutoff snapshots remain in progress. Ordinary recovery retains
-current/prior generations, so the final
-parent also needs pinned as-of evaluation stores. No production/model/default
+Subsequent checkpoint extension pins immutable as-of evaluation stores at each
+probe event under bound hashed keys. One actual SQL control restores the earlier
+one-source cutoff after later ingestion, verifies all35 tables, rejects a
+completed resume on the older live state and restores the final prefix with
+trace/evaluation bytes unchanged. Focused1 pass79.39s; final1185 smoke/dynamics
+pass935.06s/346 existing warnings. All15 new controls are included in this final
+suite. Source/preparation/writer/read callback ASTs are unchanged from the actual
+r2 local-model pass; those model outcomes stay immutable and are not regraded.
+Separate r3 receipt binds that scope and preservation, without repeating model
+experiments. Ordinary recovery still retains current/prior generations; pinned
+evaluations survive separately. No production/model/default
 change, existing producer rewrite, tuning/final launch or roadmap-owner closure.
 The API has no CLI and is not a final/manual execution-ready campaign.
 
