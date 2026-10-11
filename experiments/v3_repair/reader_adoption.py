@@ -43,13 +43,43 @@ TRANSITIONS = {
     },
     "src/retrieval/orchestrator.py": {
         "before": "5027817122bad3a1eb9952132f056daebd3acaf574778da57826ac0a446d5b61",
-        "after": "b417eac6977072b1fb97243415b63be5b3d05fc99267fb9b4e6a2879d62074c6",
-        "reason": "Approved exact procedure/claim artifact IDs; wording, SQL, scoring and frozen writer outcomes are retained.",
+        "after": "686c47b9298da01be1e6586bf30a3bb9d50c90357100f9436710bd9ef7ad509e",
+        "reason": "Approved exact native artifact IDs; chunk queries add existing IDs only, preserving wording, ranking, scopes and frozen writer outcomes.",
+    },
+    "src/retrieval/evolution.py": {
+        "before": "a05d0f0923daf0a545d45ffe7a9412854e86504bec43726624b75942a9fd8051",
+        "after": "5b9656eeda70f340d6a5c67cbd01d2f47ce4972bbb698d4a1708102d305d1cf5",
+        "reason": "Approved rendered timeline contributors follow existing transition/token caps; source/clock and frozen writer outcomes are retained.",
+    },
+    "src/memory/conversation_notes.py": {
+        "before": "a791b5b28674b2b0fff55501935c6df4eba59878f66efd6f8bd11476eab5a8b8",
+        "after": "475d3f593e55f73a7d5abeb766c90ddc7aa05c1df4015f22252d7ef456a4f75d",
+        "reason": "Approved exact selected note options; no new content or source policy.",
+    },
+    "src/api/prompt_assembler.py": {
+        "before": "87ad681c5e9cb879334030de0b9de054f4c2ffb2ae404425c0c4231cf019f328",
+        "after": "ad2b28e209adcf203d7d6d9274caa7e7f1d4e4f02c7b03bfc6070988ffded920",
+        "reason": "Approved actual final recent/slot/bookmark/note block receipts; ordinary messages preserved.",
+    },
+    "src/api/prompt_budget.py": {
+        "before": "e745aef5ce138de38e0b7020114ef4092b1b42ec45ff56b1937dd372ca373b32",
+        "after": "662af0fdaa9c802919459100d8c63939d3675f82294975f59dfbdab9f8e4576b",
+        "reason": "Approved fresh observer ledger after each native replacement and eviction.",
+    },
+    "src/api/memory_preparation.py": {
+        "before": "9e398224c93a64de475f8299132ae8e6119eac2b8bec14b1d6c5f86cecb8bbee",
+        "after": "79b966252ead94e36b8f43968fa94171e03c729860813b42daa6ab81c23781ba",
+        "reason": "Approved explicit note/bookmark metadata forwarding through shared preparation.",
+    },
+    "scripts/z1/production_parity.py": {
+        "before": "ed058e799864c1128c705b45d6a1098c26ab144ea922b35b941b6a59d1bdc5f5",
+        "after": "8dd9a0e0401046ab4adbdee01fb807544c51bbd4d6954d975fb08d39d8c475ce",
+        "reason": "Optional research bookmark receipts reach the approved shared observer without changed messages or writer outcomes.",
     },
     "scripts/z1/seed_v3.py": {
         "before": "053e893b754aceccb1989aac0aefe7a5feafc26875094d9239ff101e08fb5e53",
-        "after": "6a1c8256d601ec039019c4ebe64c9005c5d5a0d63fcaa1308772374a45e8a32f",
-        "reason": "Exact research serialization of nonempty artifact IDs/rendered versions; old captured writer/reader outcomes are retained.",
+        "after": "9ec0814f29a82390b48d5e17424ee568e238c93c47216adfa68df125e3e8277f",
+        "reason": "Exact research serialization of stored IDs, rendered versions and final block receipts; old captured writer/reader outcomes are retained.",
     },
 }
 
