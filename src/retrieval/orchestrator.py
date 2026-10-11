@@ -1893,8 +1893,9 @@ class HybridRetrievalOrchestrator:
             return []
         conv_filter, conv_params, _ = self._conv_scope_filter(
             scope, (scope or {}).get("conversation_id") or conv_id, "e.conversation_id")
-        excl_filter, excl_params = self._exclusion_filters(scope, "e.conversation_id", "e.id")
-        cluster_filter = self._cluster_filter(scope, "e.id")
+        excl_filter, excl_params = self._exclusion_filters(
+            scope, "e.conversation_id", "e.id", membership_column="e.cluster_ids")
+        cluster_filter = self._cluster_filter(scope, "e.id", membership_column="e.cluster_ids")
         time_filter, _, ts_params, _ = self._timescope_leg_filters("e.")
         params = {"prompt": prompt, "limit": settings.codex_claim_candidate_limit,
                   **conv_params, **excl_params, **ts_params}
@@ -1907,12 +1908,19 @@ class HybridRetrievalOrchestrator:
             params["denied"] = list(self._denied_batch_ids)
         if scope and scope.get("cluster_ids"):
             params["cluster_ids"] = scope["cluster_ids"]
-        cold_allowed = not (scope and (scope.get("cluster_ids") or scope.get("cluster_ids_explicit")
-                                      or scope.get("exclude_cluster_ids")))
-        source_rows = "SELECT id, batch_id, conversation_id, is_private, timestamp FROM episodic_memory"
-        if cold_allowed:
-            source_rows += (" UNION ALL SELECT cold.id, cold.batch_id, cold.conversation_id, cold.is_private, cold.timestamp "
-                            "FROM cold_storage cold WHERE NOT EXISTS (SELECT 1 FROM episodic_memory warm WHERE warm.id = cold.id)")
+        # Warm membership comes from current links; archived membership is the
+        # exact preserved array. NULL legacy cold membership stays unknown.
+        source_rows = """
+            SELECT warm.id, warm.batch_id, warm.conversation_id, warm.is_private, warm.timestamp,
+                   ARRAY(SELECT l.cluster_id FROM episodic_cluster_links l
+                         WHERE l.episodic_id = warm.id) AS cluster_ids
+            FROM episodic_memory warm
+            UNION ALL
+            SELECT cold.id, cold.batch_id, cold.conversation_id, cold.is_private, cold.timestamp,
+                   cold.cluster_ids
+            FROM cold_storage cold
+            WHERE NOT EXISTS (SELECT 1 FROM episodic_memory warm WHERE warm.id = cold.id)
+        """
         base = f"""FROM codex_claims c JOIN ({source_rows}) e ON e.id = c.episodic_id AND e.batch_id = c.source_batch
             WHERE e.is_private = false {conv_filter} {excl_filter} {cluster_filter}
             {time_filter} {filters}"""
