@@ -146,6 +146,16 @@ def test_native_recorded_writer_readonly_probe_gap_jobs_and_complete_resume(nati
     before, tables, calls = trace.read_bytes(), snapshot.fingerprints(), copy.deepcopy(native.calls)
     assert execute(native, resume=True) == state
     assert trace.read_bytes() == before and snapshot.fingerprints() == tables and native.calls == calls
+    # The observer loads the actual native path, without restoring/re-preparing.
+    from experiments.v3_repair import native_reader_usage as usage
+    with patch.object(usage, "ROOT", native.root.parent.parent), patch.object(
+            usage, "file_receipt", lambda p: dict(path=str(p), bytes=p.stat().st_size,
+                sha256=runner.replay_checkpoint.prefix_digest(p, p.stat().st_size))):
+        counted = usage.report(native.root)
+    assert len(counted["actual_preflight_exposure"]["occurrences"]) == 2
+    assert len(counted["readonly_diagnostic_preparation"]["occurrences"]) == 1
+    assert [r["own_stored_originals"] for r in counted["actual_preflight_exposure"]["occurrences"]] == [0, 1]
+    assert trace.read_bytes() == before and snapshot.fingerprints() == tables and native.calls == calls
 
 
 def test_interrupt_after_committed_source_restores_prefix_and_skips_completed_events(native, monkeypatch):

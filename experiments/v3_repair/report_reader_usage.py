@@ -23,11 +23,16 @@ def source_ids(fragment):
     return {s for s in [fragment.get("source_row"), *(fragment.get("origin_batches") or [])] if s}
 
 
-def count_usage(rows, probes=None):
-    aliases, inventory, arm_counts = {}, {}, {arm: Counter() for arm in ARMS}
-    frequencies = {arm: defaultdict(Counter) for arm in ARMS}
-    edge_counts = {arm: Counter() for arm in ARMS}
-    versions = {arm: Counter() for arm in ARMS}
+def count_usage(rows, probes=None, *, arms=ARMS, native_evidence_only=False):
+    arms = tuple(arms)
+    if not arms or len(set(arms)) != len(arms) or set(arms) - set(ARMS):
+        raise ValueError("unknown/duplicate reader arm roster")
+    aliases, inventory, arm_counts = {}, {}, {arm: Counter() for arm in arms}
+    frequencies = {arm: defaultdict(Counter) for arm in arms}
+    edge_counts = {arm: Counter() for arm in arms}
+    versions = {arm: Counter() for arm in arms}
+    artifact_counts = {arm: defaultdict(Counter) for arm in arms}
+    artifact_versions = {arm: defaultdict(Counter) for arm in arms}
     occurrences, seen_probes = [], set()
     for row in rows:
         if row["event"] == "written":
@@ -46,7 +51,7 @@ def count_usage(rows, probes=None):
         if (current["conversation"], current["split_turn"]) != (row["conversation"], row["split_turn"]):
             raise ValueError("reader cutoff differs from original inventory")
         stages = {"full": current["preflight"], **current["controls"]}
-        if set(stages) != set(ARMS): raise ValueError("reader arm roster incomplete")
+        if set(stages) != set(arms): raise ValueError("reader arm roster incomplete")
         own_inventory = {name for name, item in inventory.items() if item["conversation"] == row["conversation"]}
         if row["state_turns"] != len(own_inventory): raise ValueError("stored original denominator differs")
         observation = dict(probe_id=key, conversation=row["conversation"], cutoff=row["split_turn"],
@@ -58,7 +63,23 @@ def count_usage(rows, probes=None):
             groups = dict(generated=[f for fs in stage["generated_by_leg"].values() for f in fs],
                           ranked=stage["ranked_candidates"], budgeted=stage["budgeted"], selected=stage["selected"])
             messages = stage.get("prompt_messages")
-            visible = "\n".join(str(m.get("content", "")) for m in messages) if messages is not None else None
+            if native_evidence_only:
+                # Native assembly puts retrieved evidence immediately before
+                # its acknowledgement and the final question. Neither that
+                # question nor an identical recent-history string is evidence.
+                if (not isinstance(messages, list) or not messages or any(
+                        not isinstance(m.get("content"), str) or m.get("role") not in {"system", "user", "assistant"}
+                        for m in messages)):
+                    raise ValueError("native final prompt messages missing/incomplete")
+                evidence_cost = stage["context_ledger"]["blocks"]["evidence"]
+                visible = (messages[-3]["content"] if evidence_cost > 0 and len(messages) >= 3
+                    and messages[-3].get("role") == "user"
+                    and messages[-3].get("content", "").startswith("=== RETRIEVED CONTEXT ===")
+                    and messages[-2].get("role") == "assistant"
+                    and messages[-2].get("content") == "Understood — I have the background context. What would you like to know?"
+                    and messages[-1].get("role") == "user" else "")
+            else:
+                visible = "\n".join(str(m.get("content", "")) for m in messages) if messages is not None else None
             rendered = [f for f in groups["selected"] if visible is not None and f.get("text") and f["text"] in visible]
             groups["rendered_selected"] = rendered
             missing = len(groups["selected"]) - len(rendered)
@@ -72,12 +93,38 @@ def count_usage(rows, probes=None):
                 arm_counts[arm][f"{label}_fragments"] += len(fragments)
                 for f in fragments: arm_counts[arm][f"{label}_leg:{f['leg']}"] += 1
                 per_stage[label] = dict(fragments=len(fragments), unique_originals=len(known))
+                if native_evidence_only:
+                    refs, unmapped = set(), 0
+                    for f in fragments:
+                        raw_refs = f.get("stored_artifact_ids") or []
+                        if not raw_refs:
+                            unmapped += 1
+                        for ref in raw_refs:
+                            if (not isinstance(ref, (list, tuple)) or len(ref) != 2
+                                    or any(not isinstance(v, str) or not v for v in ref)):
+                                raise ValueError("native artifact reference malformed")
+                            refs.add(tuple(ref))
+                    for ref in refs:
+                        artifact_counts[arm][ref][label] += 1
+                    per_stage[label].update(unique_observed_stored_artifacts=len(refs),
+                                            unmapped_artifact_fragments=unmapped)
             rendered_versions = set()
             for f in rendered:
                 identity = dict(type=f["type"], text_sha256=hashlib.sha256(f["text"].encode()).hexdigest(),
                                 source_ids=sorted(source_ids(f)), edges=sorted(set(f.get("origin_edges") or [])))
                 rendered_versions.add(digest(identity))
             for version in rendered_versions: versions[arm][version] += 1
+            if native_evidence_only:
+                rendered_artifacts = set()
+                for f in rendered:
+                    if not f.get("stored_artifact_ids"):
+                        continue
+                    version = hashlib.sha256(f["text"].encode()).hexdigest()
+                    if version != f.get("rendered_text_sha256"):
+                        raise ValueError("native rendered artifact version differs from text")
+                    rendered_artifacts.update((tuple(ref), version) for ref in f["stored_artifact_ids"])
+                for ref, version in rendered_artifacts:
+                    artifact_versions[arm][ref][version] += 1
             # Aggregate fragments credit edge lineage, not exact per-edge wording.
             for edge in {e for f in rendered for e in f.get("origin_edges") or []}: edge_counts[arm][edge] += 1
             notes = set(stage.get("source_note_ids") or [])
@@ -94,7 +141,7 @@ def count_usage(rows, probes=None):
         occurrences.append(observation)
     if probes is not None and seen_probes != set(probes): raise ValueError("reader occurrence roster differs")
     final = {}
-    for arm in ARMS:
+    for arm in arms:
         originals = []
         for key, item in sorted(inventory.items()):
             counters = frequencies[arm][key]
@@ -106,6 +153,11 @@ def count_usage(rows, probes=None):
             observed_originals=len(observed), zero_evidence_reads_observed=sum(x["final_evidence_occurrences"] == 0 for x in observed),
             originals=originals, credited_graph_edge_frequency=dict(sorted(edge_counts[arm].items())),
             rendered_fragment_version_frequency=dict(sorted(versions[arm].items())))
+        if native_evidence_only:
+            final[arm]["observed_stored_artifact_frequency"] = [dict(table=ref[0], key=ref[1],
+                counts=dict(counts), rendered_version_frequency=dict(sorted(artifact_versions[arm][ref].items())),
+                eligible_opportunities="unobserved", live_inventory="unobserved")
+                for ref, counts in sorted(artifact_counts[arm].items())]
     return dict(version="v3", policy=POLICY, score_of_record=False, arms=final, occurrences=occurrences,
         limits=["Final source lineage is exposure, not required-content support or answer use.",
                 "Observed opportunities are sampled probes after storage, not eligibility or all live requests.",

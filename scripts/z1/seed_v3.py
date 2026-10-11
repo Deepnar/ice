@@ -431,6 +431,11 @@ def fragment(f, *, include_text=False):
            "origin_edges": [str(v) for v in (f.origin_edge_ids or ())]}
     if include_text:
         row["text"] = f.text
+    artifact_ids = getattr(f, "stored_artifact_ids", ())
+    if artifact_ids:
+        row["stored_artifact_ids"] = [list(item) for item in artifact_ids]
+        # The displayed form can vary without the stored row changing.
+        row["rendered_text_sha256"] = hashlib.sha256(f.text.encode()).hexdigest()
     return row
 
 

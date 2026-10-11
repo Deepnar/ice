@@ -115,6 +115,8 @@ class ContextFragment:
     # original turn. Final packing can share its slot with that episodic row.
     source_note_row_id: Optional[str] = None
     source_note_body: Optional[str] = None
+    # Exact stored rows, separate from source-turn and rendered-text lineage.
+    stored_artifact_ids: tuple = ()
 
 # G9 (2026-08-08): every tunable number in this module moved to settings, so
 # Z1 can sweep it without editing code. What remains here are label SETS —
@@ -1932,7 +1934,8 @@ class HybridRetrievalOrchestrator:
                 fragments.append(ContextFragment(rendered, "codex", scores[ident],
                     count_tokens(rendered), conversation_id=str(source.conversation_id),
                     origin_batch_ids=(str(claim.source_batch),), leg="codex",
-                    claim_source_row_id=str(source.id), claim_excerpt=excerpt))
+                    claim_source_row_id=str(source.id), claim_excerpt=excerpt,
+                    stored_artifact_ids=(("codex_claims", str(claim.id)),)))
             return fragments
         except Exception as exc:
             self._leg_degraded("codex.claims", exc)
@@ -2373,6 +2376,7 @@ class HybridRetrievalOrchestrator:
                     # computed above for scoping and then thrown away, so a
                     # procedural fragment could never be credited to a turn.
                     origin_batch_ids=tuple(str(b) for b in source_batches),
+                    stored_artifact_ids=(("procedural_memory", str(pattern.id)),),
                 ))
             return fragments
         except Exception as err:

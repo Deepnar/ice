@@ -41,6 +41,16 @@ TRANSITIONS = {
         "after": "4aa0d135361bbd11878d9b7eb50af00859ca1335984522ae8770fab5fe82c879",
         "reason": "Approved complete-first summary preservation after incomplete optional retry; frozen writer outcomes are retained.",
     },
+    "src/retrieval/orchestrator.py": {
+        "before": "5027817122bad3a1eb9952132f056daebd3acaf574778da57826ac0a446d5b61",
+        "after": "b417eac6977072b1fb97243415b63be5b3d05fc99267fb9b4e6a2879d62074c6",
+        "reason": "Approved exact procedure/claim artifact IDs; wording, SQL, scoring and frozen writer outcomes are retained.",
+    },
+    "scripts/z1/seed_v3.py": {
+        "before": "053e893b754aceccb1989aac0aefe7a5feafc26875094d9239ff101e08fb5e53",
+        "after": "6a1c8256d601ec039019c4ebe64c9005c5d5a0d63fcaa1308772374a45e8a32f",
+        "reason": "Exact research serialization of nonempty artifact IDs/rendered versions; old captured writer/reader outcomes are retained.",
+    },
 }
 
 
