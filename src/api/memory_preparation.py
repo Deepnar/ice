@@ -30,7 +30,8 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
                            user_message, scope, turn_count, total_tokens,
                            total_budget, serving_window, base_retrieve,
                            memory_slots, bookmarked_texts,
-                           session_start_text=None, constraints_text=None):
+                           session_start_text=None, constraints_text=None,
+                           bookmarked_artifacts=None):
     """Assemble before judging; candidate fetches are not final exposures.
 
     Used by the chat route and available to answer/replay instruments. The
@@ -51,9 +52,11 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
     def assemble(fragments, recent_budget):
         if summary_exists and total_tokens > recent_budget:
             embedding()
+        artifact_options = {}
         choices = conversation_summary_block(
             db, str(conversation_id), turn_count, total_tokens, recent_budget,
-            prompt_embedding, include_options=True, include_source_ids=True) or []
+            prompt_embedding, include_options=True, include_source_ids=True,
+            artifact_options=artifact_options) or []
         options = [text for text, _ in choices]
         source_ids = {text: ids for text, ids in choices}
         return assemble_budgeted_prompt(
@@ -67,7 +70,9 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
             max_recent_tokens=recent_budget, session_start_text=session_start_text,
             conversation_summary_text=options[0] if options else None,
             constraints_text=constraints_text, conversation_summary_options=options,
-            conversation_summary_source_ids=source_ids)
+            conversation_summary_source_ids=source_ids,
+            conversation_summary_artifact_options=artifact_options,
+            bookmarked_artifacts=bookmarked_artifacts)
 
     recent_budget = estimate_recent_window_tokens(turn_count, total_budget)
     base_prompt = assemble([], recent_budget)

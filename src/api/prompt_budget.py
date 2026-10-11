@@ -1,5 +1,5 @@
 """Assemble, account, evict optional blocks, then verify the actual result."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import structlog
 
@@ -17,6 +17,7 @@ class BudgetedPrompt:
     removed: list[str]
     item_counts: dict
     visible_fragments: list
+    artifact_blocks: dict = field(default_factory=dict)
 
 
 def _covered_by_active_original(fragment, source_ids, conversation_id, summary_text):
@@ -37,6 +38,7 @@ def assemble_budgeted_prompt(*, serving_window, generation_reserve,
     arguments = dict(kwargs)
     summary_options = arguments.pop('conversation_summary_options', None) or []
     summary_sources = arguments.pop('conversation_summary_source_ids', None) or {}
+    summary_artifacts = arguments.pop('conversation_summary_artifact_options', None) or {}
     source_fragments = list(arguments.get('retrieved_fragments') or [])
     evidence_enabled = True
     removed = []
@@ -52,8 +54,9 @@ def assemble_budgeted_prompt(*, serving_window, generation_reserve,
                 fragment, active_sources, active_conv,
                 arguments.get('conversation_summary_text'))
         ] if evidence_enabled else [])
-        costs, counts = {}, {}
-        messages = assemble_prompt(**arguments, block_tokens=costs, block_counts=counts)
+        costs, counts, artifacts = {}, {}, {}
+        arguments['conversation_summary_artifacts'] = summary_artifacts.get(arguments.get('conversation_summary_text'), ())
+        messages = assemble_prompt(**arguments, block_tokens=costs, block_counts=counts, block_artifacts=artifacts)
         ledger = ContextLedger(serving_window=serving_window,
             generation_reserve=generation_reserve, safety_margin=safety_margin)
         for name, tokens in costs.items():
@@ -61,11 +64,11 @@ def assemble_budgeted_prompt(*, serving_window, generation_reserve,
         ledger.evictions = list(evictions)
         if ledger.fits():
             return BudgetedPrompt(messages, ledger, removed, counts,
-                                  arguments['retrieved_fragments'])
+                                  arguments['retrieved_fragments'], artifacts)
         plan = [name for name in ledger.evict_plan() if name not in removed]
         if not plan:
             return BudgetedPrompt(messages, ledger, removed, counts,
-                                  arguments['retrieved_fragments'])
+                                  arguments['retrieved_fragments'], artifacts)
         # Reassemble after EACH change. A source-note block has whole-note
         # alternatives, so a small overflow need not discard every note.
         name = plan[0]

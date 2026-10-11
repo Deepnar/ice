@@ -29,6 +29,8 @@ TWO CHANGES FROM THE PREVIOUS VERSION:
    leaving it implicit.
 """
 
+import hashlib
+import json
 import uuid as _uuid
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -66,6 +68,7 @@ def conversation_summary_block(
     max_tokens: Optional[int] = None,
     include_options: bool = False,
     include_source_ids: bool = False,
+    artifact_options: Optional[dict] = None,
 ) -> str | list[str] | tuple[str, tuple[str, ...]] | list[tuple[str, tuple[str, ...]]] | None:
     """C4 (D3a): the active conversation's evolving summary, injected only
     once the conversation outgrew the sliding window (B2's memory-pressure
@@ -94,6 +97,8 @@ def conversation_summary_block(
                        conversation_id=str(row.conversation_id),
                        reason='falling back to current complete aggregate')
         options = [f"{stamp}{row.summary_text}"]
+        if artifact_options is not None:
+            artifact_options[options[0]] = [("conversation_summaries", str(row.conversation_id))]
         if include_source_ids:
             return [(options[0], ())] if include_options else (options[0], ())
         return options if include_options else options[0]
@@ -104,7 +109,9 @@ def conversation_summary_block(
             (1 - ConversationNote.embedding.cosine_distance(query_embedding)).label('score')
         ).filter(ConversationNote.conversation_id == row.conversation_id).all()
         scores = {ordinal: float(score) for ordinal, score in scored}
-    options = select_note_options(notes, max_tokens - _estimate_tokens(stamp), scores)
+    selected_notes = [] if artifact_options is not None else None
+    options = select_note_options(notes, max_tokens - _estimate_tokens(stamp), scores,
+                                  selected_notes=selected_notes)
     if not options:
         logger.warning('conversation_note_no_fit',
                        conversation_id=str(row.conversation_id),
@@ -112,6 +119,12 @@ def conversation_summary_block(
         return None
     stamped = [f"{stamp}{option}" for option in options
                if _estimate_tokens(f"{stamp}{option}") <= max_tokens]
+    if artifact_options is not None:
+        artifact_options.update({f"{stamp}{option}": [
+            ("conversation_notes", json.dumps([str(row.conversation_id), note.ordinal],
+                                             separators=(",", ":"))) for note in picked]
+            for option, picked in zip(options, selected_notes)
+            if _estimate_tokens(f"{stamp}{option}") <= max_tokens})
     if not stamped:
         logger.warning('conversation_note_no_fit',
                        conversation_id=str(row.conversation_id),
@@ -127,7 +140,7 @@ def conversation_summary_block(
     return stamped if include_options else stamped[0]
 
 
-def bookmarked_turn_texts(db_session, conversation_id):
+def bookmarked_turn_texts(db_session, conversation_id, *, artifact_receipts=None):
     """Pinned evidence uses the same verification contract without source cuts."""
     rows = db_session.query(EpisodicMemory).filter_by(is_bookmarked=True,
         conversation_id=conversation_id).order_by(EpisodicMemory.timestamp.desc()).limit(5).all()
@@ -135,7 +148,11 @@ def bookmarked_turn_texts(db_session, conversation_id):
     for row in rows:
         selected = choose_representation(row)[0]
         if selected:
-            result.append(f"{source_stamp(row)} {selected}")
+            rendered = f"{source_stamp(row)} {selected}"
+            result.append(rendered)
+            if artifact_receipts is not None:
+                artifact_receipts.append(dict(stored_artifact_ids=(("episodic_memory", str(row.id)),),
+                    rendered_text_sha256=hashlib.sha256(rendered.encode()).hexdigest()))
     return result
 
 
@@ -226,6 +243,7 @@ def get_recent_turns(
     conversation_id: str,
     max_tokens: int = 4000,
     max_count: int = None,
+    artifact_receipts: Optional[list] = None,
 ) -> List[dict]:
     """The recent-turn window, newest-first and bounded by the sitting.
 
@@ -261,7 +279,7 @@ def get_recent_turns(
     max_turn_frac = float(getattr(settings, "recent_window_max_turn_frac", 0.35))
     per_turn_cap = max(64, int(max_tokens * max_turn_frac))
 
-    pairs, used = [], 0
+    pairs, pair_receipts, used = [], [], 0
     for t in turns:                              # newest first
         text, summary, abstract = choose_representation(t)
         if not text:
@@ -304,11 +322,18 @@ def get_recent_turns(
             break                                 # the OLDEST turns fall off
         used += cost
         pairs.append(pair)
+        if artifact_receipts is not None:
+            ident = getattr(t, "id", None)
+            pair_receipts.append(dict(stored_artifact_ids=(("episodic_memory", str(ident)),) if ident else (),
+                message_count=len(pair), rendered_messages_sha256=hashlib.sha256(
+                    json.dumps(pair, sort_keys=True, ensure_ascii=False).encode()).hexdigest()))
 
     # Selection ran newest-first; the model reads oldest-first.
     out = []
     for pair in reversed(pairs):
         out.extend(pair)
+    if artifact_receipts is not None:
+        artifact_receipts.extend(reversed(pair_receipts))
     return out
 
 
@@ -327,6 +352,9 @@ def assemble_prompt(
     constraints_text: Optional[str] = None,
     block_tokens: Optional[dict] = None,
     block_counts: Optional[dict] = None,
+    block_artifacts: Optional[dict] = None,
+    conversation_summary_artifacts: Optional[list] = None,
+    bookmarked_artifacts: Optional[list] = None,
 ) -> List[dict]:
     """Build messages and optional structured accounting for the budget consumer.
 
@@ -361,11 +389,18 @@ def assemble_prompt(
     }
 
     costs = {}
+    if block_artifacts is not None:
+        block_artifacts.clear()
 
     def append_system(name, content):
+        char_start = len(system_msg["content"])
         before = _estimate_tokens(system_msg["content"])
         system_msg["content"] += content
         costs[name] = _estimate_tokens(system_msg["content"]) - before
+        if block_artifacts is not None:
+            block_artifacts[name] = dict(items=[], message_index=0, char_start=char_start,
+                char_end=len(system_msg["content"]),
+                rendered_text_sha256=hashlib.sha256(content.encode()).hexdigest())
 
     if constraints_text:
         append_system("constraints", "\n\n=== PROJECT CONSTRAINTS ===\n" + constraints_text)
@@ -392,6 +427,13 @@ def assemble_prompt(
                    and conv_id_str and str(s.conversation_id) == conv_id_str]
     if slot_lines:
         append_system("slots", "\n\n=== PERSISTENT CONTEXT ===\n" + "\n\n".join(slot_lines))
+        if block_artifacts is not None:
+            eligible = ([s for s in active if _tier(s) == "global"]
+                + [s for s in active if _tier(s) == "project" and project_id and str(s.project_id) == project_id]
+                + [s for s in active if _tier(s) == "conversation" and conv_id_str and str(s.conversation_id) == conv_id_str])
+            block_artifacts["slots"]["items"] = [dict(stored_artifact_ids=(("memory_slots", str(s.id)),)
+                if getattr(s, "id", None) else (), rendered_text_sha256=hashlib.sha256(line.encode()).hexdigest())
+                for s, line in zip(eligible, slot_lines)]
 
     # E4 (D6): coding-scoped conversations open a sitting with the project's
     # where-was-I block (state + diffstat + tasks + decisions). Required
@@ -405,6 +447,9 @@ def assemble_prompt(
     if conversation_summary_text:
         append_system("conversation_summary", "\n\n=== CONVERSATION SUMMARY ===\n"
                       + conversation_summary_text)
+        if block_artifacts is not None:
+            block_artifacts["conversation_summary"]["items"] = [dict(
+                stored_artifact_ids=tuple(conversation_summary_artifacts or ()))]
 
     # C16: bookmarks are INJECTED. This parameter was declared here and never
     # read — the caller queried up to five bookmarked turns, word-capped each
@@ -417,10 +462,19 @@ def assemble_prompt(
             "\n\n=== BOOKMARKED BY THE USER ===\n"
             "(turns the user pinned as important — treat as standing context)\n"
             + "\n\n".join(bookmarked_texts))
+        if block_artifacts is not None:
+            if bookmarked_artifacts is not None and (len(bookmarked_artifacts) != len(bookmarked_texts)
+                    or any(item["rendered_text_sha256"] != hashlib.sha256(body.encode()).hexdigest()
+                           for item, body in zip(bookmarked_artifacts, bookmarked_texts))):
+                raise ValueError("bookmark observer differs from native selected texts")
+            block_artifacts["bookmarks"]["items"] = list(bookmarked_artifacts) if bookmarked_artifacts is not None else [
+                dict(stored_artifact_ids=(), rendered_text_sha256=hashlib.sha256(body.encode()).hexdigest())
+                for body in bookmarked_texts]
 
-    recent_messages = []
+    recent_messages, recent_receipts = [], []
     if db_session and conversation_id:
-        recent_messages = get_recent_turns(db_session, conversation_id, max_tokens=max_recent_tokens)
+        recent_messages = get_recent_turns(db_session, conversation_id, max_tokens=max_recent_tokens,
+            artifact_receipts=recent_receipts if block_artifacts is not None else None)
 
     fragments_block = ""
     if retrieved_fragments:
@@ -428,6 +482,12 @@ def assemble_prompt(
 
     messages = [system_msg]
     messages.extend(recent_messages)
+    if block_artifacts is not None:
+        offset = 1
+        for item in recent_receipts:
+            item["message_indices"] = list(range(offset, offset + item["message_count"]))
+            offset += item["message_count"]
+        block_artifacts["recent_turns"] = dict(items=recent_receipts)
 
     if fragments_block:
         cluster_names = []

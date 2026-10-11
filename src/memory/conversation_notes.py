@@ -51,7 +51,7 @@ def render_note(note):
             f"recorded range: {note.recorded_range or 'unknown'}]\n{note.text}")
 
 
-def select_note_options(notes, max_tokens, scores=None):
+def select_note_options(notes, max_tokens, scores=None, *, selected_notes=None):
     """Whole-part prompt alternatives, from fullest fit to best single part."""
     if max_tokens <= 0:
         return []
@@ -64,5 +64,8 @@ def select_note_options(notes, max_tokens, scores=None):
         if count_tokens(rendered) > max_tokens:
             continue
         picked = proposed
+    if selected_notes is not None:
+        selected_notes.extend(tuple(sorted(picked[:end], key=lambda n: n.ordinal))
+                              for end in range(len(picked), 0, -1))
     return ['\n\n'.join(render_note(n) for n in sorted(picked[:end], key=lambda n: n.ordinal))
             for end in range(len(picked), 0, -1)]
