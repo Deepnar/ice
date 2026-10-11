@@ -1,3 +1,28 @@
+## 2026-10-11 — v3 actual procedural activation and selected content
+
+Read-only inventory of the completed251-turn/67-probe development baseline
+resolves all35 current pattern proofs against unchanged original user sources.
+Twelve active/23 pending patterns each have one source session. The271 supported
+observations are typed observed_request; this is internal currency/type evidence,
+not independent semantic precision. Agent diagnosis reads all35 descriptions
+and115 distinct complete originals. Saved160 merge comparisons are157 unknown/
+three different; similarity/shared sources do not establish equivalence.
+
+The actual full-arm traces contain51 ranked procedural fragments on51/67
+occurrences,37 selected on37/67,3899 final tokens. Eight current descriptions
+match those historical texts, but stable historical procedural IDs are absent;
+retain the first text-to-ID diagnostic and corrected descriptive grouping.
+Thirty-five overlapping procedural task labels do not prove habit utility or
+that historical assistant advice survived in these behavioral descriptions.
+No answers, tuning, threshold/model change or component removal occurred.
+
+[Diagnostic and bounded decision](reviews/2026-10-11-v3-procedural-development-audit.md):
+retain current source/activation/equivalence guards and qualify actual required
+content, instruction scope and answer/context effects. Private complete packet,
+selected text, failed datetime export and corrected source/telemetry receipts:
+`logs/v3-procedural-review-2026-10-11-r1/`. All35 original tables are unchanged;
+zero model calls/store writes. Independent source/answer quality remains open.
+
 ## 2026-10-11 — v3 retained extraction failures and matching decoder candidate
 
 The [bounded contract diagnosis](specs/V3_POST_RESEED_REPAIR.md#21x-matching-extraction-json-contract--retained-failures2026-10-11)
