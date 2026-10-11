@@ -1,3 +1,62 @@
+## 2026-10-11 — v3 source-exposure counters, artifact IDs and quiet-query clocks
+
+Continued pre-tuning qualification; no new long replay, tuning trial, cloud
+answer/judge campaign or final run. The completed251-turn/67-occurrence producer
+and its source/answer keys remain unchanged. No roadmap owner closes.
+
+The new native reader bridge validates complete event ordering, source aliases,
+question/scorer bindings and final recovery/dump/trace identity entirely offline.
+Actual original preflights and read-only diagnostics have separate frequency
+channels; inventory before a source excludes that new source. Native evidence
+visibility checks the ledger and actual retrieved-context/acknowledgement block.
+Copied current-question/history text cannot impersonate retrieved evidence.
+Legacy default accounting matches the original actual251/67 trace exactly.
+The retained actual local-model parent independently recounts two preflights,
+two diagnostic occurrences/four arms with zero replay/model/DB calls; prior
+producer bytes/mtimes and35 baseline tables remain intact.
+The final current-instrument reader receipt is separately retained in private
+logs/v3-native-reader-accounting-2026-10-11-r4; earlier receipt epochs stay intact.
+
+An exact human-approved single production-file patch appends default-empty
+`ContextFragment.stored_artifact_ids` and attaches native procedure/claim row
+IDs. Six paired native development-store reads (three per mechanism) preserve
+SQL, wording, score, token and ordinary/tight-budget outcomes. Equal-wording
+rows retain different IDs; replacement/fusion/packing and research serialization
+preserve the actual winner's identity. Deployed bytes match the candidate;
+separate applied checks repeat those same six controls, not twelve independent
+quality observations. No model/lookup/write/trust change. Original35 tables and
+trace bytes/mtime remain unchanged. Rendered-text versions are separate from
+stored semantic revisions; other producers/live/eligible inventories and answer
+use remain unqualified. Private candidate/applied receipts are respectively in
+logs/v3-artifact-producer-2026-10-11-r1 and
+logs/v3-artifact-producer-applied-2026-10-11-r1.
+
+Optional complete simulated probe clocks use source-event contract v2, preserving
+all supplied original source clocks/provenance/ordinals/session semantics.
+Delayed probes stay inside their source prefix and run actual due maintenance
+before a read-only observation. A native two-source/three-hour interruption
+control verifies six due calls, retained completed gap anchors, no repeated
+writer, unchanged originals and stable immutable cutoff/completed resume.
+One isolated SQL control passes92.43s with two existing warnings; its store is
+removed. This qualifies clock/execution mechanics, not natural retention or
+half-life selection. Revisited/quiet/correction/cold-crossing quality remains.
+
+Applied focused controls80 pass3.40s; final combined smoke/dynamics1224 pass
+952.30s with346 existing warnings; all disposable stores removed. The new
+frozen-writer/current-reader profile admits exactly six approved src transitions
+plus the research artifact serializer. Seven registered byte transitions,
+stable reuse, old-profile/ordinary refusal and67-question no-call planning
+preserve all old state; no writer is replayed. Profile identity:
+af084e0ecf3536dae42d92d8597794d14c68bfc0e2b86ddcdff114bdd8c37a1b.
+
+Audit correction: the native digest already covers eleven scripts/z1 helpers
+beside src. The initial draft's missing-serializer-resume-guard claim was wrong;
+spec/architecture/trap propagation was corrected before commit. Explicit helper
+header fingerprints disclose existing coverage, not another guard repair.
+Other artifact/block IDs, lifetime/live/eligible inventory, complete retention
+and independent content/role/tier/gate/judge prerequisites still precede tuning.
+No new model, default parameter, data fixture selection or final launch decision.
+
 ## 2026-10-11 — v3 native chronological source, writer and probe integration
 
 New research-only full-memory one-history parent: actual successful job

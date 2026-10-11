@@ -252,6 +252,31 @@ by arm and distinguish final selected-text visibility, source lineage, unknown
 eligibility and missing derived artifact IDs. This is not answer-use attribution
 or complete recent/slot/artifact accounting; final granular capture is pending.
 
+For a completed **new native chronological parent** use its separate adapter:
+
+```bash
+uv run --no-sync python experiments/v3_repair/native_reader_usage.py --chronological-run logs/YOUR-NATIVE-PARENT --out logs/YOUR-READER-REPORT/report.json
+```
+
+It checks complete source/probe receipts and final native recovery/dump/trace
+bytes offline. Actual original preflights and read-only probes stay separate;
+the current source is excluded from its own preflight inventory. Visibility
+requires the real retrieved-context block and evidence ledger. Explicit procedure/
+claim row IDs and rendered versions count per stage/occurrence, while absent
+identities, live/eligible inventories and answer use stay unobserved. The old
+`seed.jsonl` format is not silently accepted as this new format, or vice versa.
+
+`chronological_sources.build(..., clock_basis="simulated", probe_times={...})`
+accepts a complete explicitly supplied question-time map. Delayed questions
+must remain before the next source; after the last source they can measure a
+declared quiet interval. Native maintenance ages the store before that read,
+with original source dates/provenance/session semantics unchanged. The map binds
+a separate source-event v2 identity; no-map v1 plans remain byte-identical.
+This is an API for retention qualification, not a long/manual campaign launcher
+or evidence that a new decay value is better. Replacement source clocks still
+refuse. Native parent headers now list already-bound serializer/parity/clock/
+recovery bytes explicitly; this does not repair a missing digest guard.
+
 Inspect every sealed tuning field and its disposition without running trials:
 
 ```bash

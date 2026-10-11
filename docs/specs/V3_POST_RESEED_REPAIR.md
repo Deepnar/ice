@@ -1996,6 +1996,52 @@ The oracle has evidence supplied externally; label that inventory supplied,
 not a learned writer-store denominator. Capture remains an observer, never
 changes decay strength/corroboration or feeds scorer keys to runtime.
 
+**New-parent reader bridge decision,2026-10-11:** extend the existing accounting
+helper with an explicit arm roster and opt-in native evidence-block visibility;
+keep its legacy defaults/output unchanged. Add a separate validated adapter for
+the native chronological trace. Require its complete bound source plan, exactly
+one preflight/write per source, matching sequential event-completion receipts,
+exact diagnostic roster/cutoffs and final complete summary. Report original
+preflight exposures separately from read-only diagnostic preparations; never
+invent comparator preparations for originals. Preflight opportunities exclude
+the source about to be written. Count selected fragment visibility only in the
+actual retrieved-context block before the current question, so an identical
+question or recent-history string cannot impersonate supplied evidence. Keep
+missing stable derived IDs/eligibility explicitly unknown; this bridge does not
+close the exact-artifact capture requirement above.
+
+The offline loader requires the final native recovery manifest's exact identity,
+source-event prefix, trace path/length/hash and complete state, and verifies its
+store manifest/dump hashes without restoring or querying a database. Bind input
+and instrument bytes in a separate immutable private report. Refuse partial,
+changed, duplicated, misordered or appended traces; do not acquire a run lease
+or modify producer files. Validate opposing accounting fixtures and the retained
+actual native producer, including independently checked counts and unchanged
+input bytes/mtimes. This is source exposure accounting, not answer support or
+semantic retention qualification.
+
+**First stable-artifact producer proposal,2026-10-11:** production fragments
+need an appended default-empty immutable `stored_artifact_ids` tuple. The first
+bounded patch supplies actual `procedural_memory.id` and `codex_claims.id` at
+their existing producer constructors. Two rows with equal wording are still
+different artifacts; a common source turn does not identify a procedure or
+claim. Carry the tuple through existing dataclass replacement, RRF, reranking,
+deduplication and final packing without changing their comparisons, scoring,
+text, source lineage or trust policy. Add no model, lookup or write. Other
+producer paths remain explicitly unmapped until separately grounded; do not
+credit them from this patch.
+
+Prepare the exact one-file candidate privately before the src approval gate.
+Qualify opposing same-text/different-ID controls, native current-store procedure
+and claim reads, identical SQL/text/score/token/source outputs and budget results,
+plus original35-table/trace preservation. Research stage serialization records
+only nonempty exact IDs with a separately named rendered-text version hash;
+that hash is a rendered version, not a stored semantic revision. A report counts
+those IDs per stage and occurrence without inferred live/eligible denominators.
+No automatic activation/corroboration or retired-artifact truth is inferred.
+Apply only after explicit human approval, then requalify deployed bytes and
+permanent controls. This is a measurement seam, not a memory-quality promotion.
+
 Current worker faults contain only500 characters and no exception chain/stack.
 Add a private fsynced append-only fault recorder with whole sanitized exception
 chain/traceback, status/request/provider receipt and explicit context (run,
@@ -2541,6 +2587,48 @@ silently substituting an aging clock would also change source-calendar evidence.
 Independent simulated-gap/clock-authority execution remains retention work;
 this narrower parent cannot qualify it or the full final ablation roster.
 
+#### Quiet-query clock decision —2026-10-11
+
+Extend the source contract with optional complete `probe_times` under a distinct
+version2 source-event identity. This is an explicitly simulated query/aging
+schedule; require `clock_basis="simulated"`. Source event clocks, stored source
+dates, provenance, session resolution and ordinals stay exactly supplied. Each
+probe clock must be at/after its cutoff source and strictly before the next
+source; after the last source it may declare a quiet interval. Sort same-cutoff
+occurrences by clock then ID; bind the complete question-time map. No invented
+source event, silent timestamp shift, future source or scorer input reaches the
+native runtime. With no probe-time map retain the exact version1 plan bytes.
+Replacement source-clock plans remain refused by execution.
+
+The parent explicitly rebuilds the version2 plan from its inputs and drains
+native due groups before a delayed probe, with actual per-job anchors and one
+cycle per numeric boundary, then prepares it read-only. A probe that does not
+advance the event clock adds no maintenance call/checkpoint. A failed delayed
+probe restores its complete committed cadence prefix and repeats only that
+unfinished observation. Bind each delayed occurrence's existing immutable
+evaluation pin to its runtime event clock; retain source cutoff and query clock
+as separate fields. Existing complete source/probe bundles stay unchanged.
+
+Qualify ordering/full-map/timezone/future-source refusals before any model or
+store call, scorer-free projections, and actual native source→quiet gap→probe
+execution and interruption/resume. Verify original timestamps/roles/ordinals,
+exact maintenance boundaries, probe read-only fingerprints, prior-cutoff pins
+and completed-resume bytes. A short controlled clock panel qualifies execution,
+not natural memory half-lives, long-term answer accuracy or decay selection.
+Revisited/quiet/correction and real cold-crossing quality panels still remain
+before changing lifecycle values; the new seam makes those panels executable.
+
+**Helper-identity grounding correction:** native `code_files` already binds
+eleven scripts/z1 helpers alongside src, including serialization, parity, clock,
+recovery and checkpoint/snapshot code. The initial draft incorrectly inferred
+coverage from the digest name; this is not a missing-resume-guard defect. The
+new parent's explicit helper fingerprints expose that existing inventory in its
+header, without replacing or weakening the digest. Keep old producers unchanged.
+Register the separately approved artifact-ID src transition in a sixth exact
+frozen-writer/current-reader profile, rather than weakening its code guard.
+The seven exact transitions are six production files plus the artifact-ID
+research serializer, which the old producer also seals. No generic allowlist.
+
 Observe probes in the existing read-only transaction with exposure writes off.
 Pass question-only runtime projections; scorer keys/source mapping stay in
 separate receipt metadata. Capture all four existing preparation arms, source
@@ -2602,6 +2690,29 @@ immutable; new r3 evidence records only this checkpoint-orchestration extension.
 The separate r3 preservation receipt binds all unchanged callback ASTs, the
 original35 table fingerprints/trace/input artifacts and the unchanged r2 model
 outcomes. No model experiment is repeated for a checkpoint-only extension.
+
+**Reader/quiet-clock substeps qualified,2026-10-11:** the explicit native reader
+bridge independently recounts the retained actual two-source/two-probe parent,
+separating real preflights from four-arm diagnostics; legacy251/67 accounting is
+unchanged. Final evidence ledger/block controls exclude question/history copies.
+Human-approved exact procedure/claim IDs are applied byte-for-byte; six paired
+native reads and the same six applied verifications preserve SQL/text/scores/
+tokens/packing and original35 tables/trace. Rendered versions remain separate
+from stored semantic revisions; other artifact/block IDs and live/eligible/
+lifetime-write inventories are still pending. The candidate receipt is retained
+unchanged, with a separate applied receipt.
+
+Source-event v2's complete simulated question-time map preserves v1 no-map plans
+and original source timestamps. The native interrupted three-hour panel verifies
+exact six due calls, retained gap anchors, no repeated writer, original dates,
+read-only probe state and byte-stable final cutoff/resume:1 pass92.43s. Applied
+focused80 pass3.40s; combined1224 regressions pass952.30s/346 existing warnings;
+all disposable stores removed. Seven exact frozen-reader transitions qualify
+stable profile reuse/old-profile refusal and67-question no-call planning, without
+replaying the writer. Explicit helper header hashes disclose coverage already
+present in code_files, correcting the initial missing-guard assumption. These
+are execution/measurement qualifications, not semantic retention or tuning
+readiness; no owner closure or new long/cloud/final campaign.
 
 **Fixture selection:** two separate complete long histories with ordered originals,
 updates, recurring topics/procedures and interpretable sessions. Prefer a

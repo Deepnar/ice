@@ -769,11 +769,38 @@ Source roles/hash/ordinal/timestamp and frozen classification are checked even
 when the importer internally catches classification errors. Completed resume
 retains trace bytes and performs no writer/preparation work. Scorer metadata
 joins diagnostic receipts only after question-only preparation; full table
-fingerprints must remain unchanged. This API is under qualification, has no CLI,
+fingerprints must remain unchanged. The execution boundary has focused
+qualification; the API has no CLI,
 cloud/tuning/final launch and currently runs only the full writer condition.
 The four diagnostic arms do not implement whole-mechanism writer ablations.
 Supplied source clocks/provenance remain unchanged; replacement aging clocks
 refuse execution pending independent storage/session/calendar qualification.
+
+An explicit complete simulated `probe_times` map can now advance a diagnostic
+query clock inside its reviewed source prefix, including after the last original.
+Source-event contract v2 sorts these observations by time/ID and the parent
+drains native due groups before each delayed read. Stored original dates,
+provenance, ordinals and session semantics stay unchanged. No-map plans retain
+their exact v1 output. A two-source/three-hour native SQL interruption control
+verifies six due calls, retained gap anchors, unchanged original dates and an
+immutable final cutoff with byte-stable completed resume. This qualifies the
+clock/execution seam, not natural retention, cold-crossing quality or decay values.
+The parent explicitly lists stage serializer, parity/checkpoint/snapshot,
+historical-clock and recovery helper bytes in its header. Its native digest
+already includes these helpers; the list exposes existing coverage rather than
+repairing an absent resume guard.
+
+`native_reader_usage` validates the complete native trace and final dump/recovery
+binding without restoring or querying a store. Real preflight exposures and
+read-only diagnostic preparations are separate channels. Visibility uses the
+actual final retrieved-context block and evidence ledger; matching question or
+history text does not establish retrieved exposure. `ContextFragment` now carries
+exact stored procedure/claim IDs, independent of shared text/source lineage.
+Existing replacement/fusion/packing retains them; the research trace records
+nonempty IDs and rendered-text versions. Six paired native reads preserve SQL,
+wording, score and token/budget outcomes. Source exposure and explicit artifact
+frequencies are observations; other artifact producers, complete live/eligible
+inventories and semantic answer use remain unqualified. Reads confer no truth.
 
 The first integration qualifies14 authored controls, actual local-model two-source/
 eight-preparation paths and completed byte-stable resume. The subsequent checkpoint

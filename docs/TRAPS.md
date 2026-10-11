@@ -2613,3 +2613,28 @@ budget ruler. A teardown guard catches three HTTP attempts despite ten passing
 test bodies. Load the installed actual tokenizer with local_files_only=True
 before enabling the HTTP guard, then keep the guard strict. Preserve the failed
 attempt; do not count it as zero-network or native-tokenizer qualification.
+
+### 121. Text anywhere in a prompt does not prove retrieved evidence exposure
+
+ICE v3 reader-frequency audit,2026-10-11: the legacy helper scans all final
+messages for a selected fragment string. Identical current-question or recent-
+history text can therefore impersonate the retrieved block. The new native
+bridge checks the actual evidence ledger and final retrieved-context/acknowledgement
+position; opposing copied-text and zero-evidence controls cannot earn exposure.
+Keep legacy default results unchanged as historical accounting, and bind the
+new rule explicitly. A row ID alone is still not required-content or answer use.
+Two procedures with identical wording also remain different stored artifacts;
+source IDs and content signatures cannot reconstruct their absent row IDs.
+
+### 122. A function name is not its measured coverage
+
+ICE v3 chronological-parent audit,2026-10-11: a draft wrongly describes the native
+digest as all-src only and credits an absent serializer/resume guard as a new
+repair. Reading `code_files` shows eleven scripts/z1 helpers are already bound,
+including serializer, parity, clock, recovery and checkpoint/snapshot code.
+Correct the spec and all draft propagation before committing. Explicit helper
+fingerprints are an inventory of existing coverage, not a second guard repair.
+The frozen development seal also includes the serializer: register its exact
+observer transition alongside approved production bytes, never suppress its
+guard or retrospectively invent fields in old traces. Ground the producer and
+consumer functions before claiming a missing hook from their names.
