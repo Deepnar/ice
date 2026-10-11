@@ -1,3 +1,32 @@
+## 2026-10-11 — v3 chronological source and diagnostic event contract
+
+The new research-only source contract binds one complete history and interleaves
+recorded originals with reviewed diagnostic occurrences after their exact cutoff.
+Original dates/provenance remain distinct from explicitly simulated replacement
+clocks; no gaps are invented. Source/key/prefix drift refuses reuse and runtime
+projections omit answer/source-review metadata. This adds no deployed code,
+model, writer or standalone launch command; full native parent execution remains
+unfinished.
+
+Seventeen authored source/order/projection/prefix controls pass. The actual
+explicit frozen-reader audit projects251 originals and67 reviewed occurrences,
+checking all318 runtime projections. Zero model calls/DB connections, no source
+ingestion or prefix execution. The six input/producer artifacts remain byte-and-
+mtime stable. All clocks are simulated; this is source identity/planning, not
+calendar retention, independent semantic precision or new-writer outcomes.
+
+The first diagnostic uses the old fresh loader, whose all-src preparation seal
+correctly refuses approved source changes. Re-ground the spec and use the explicit
+registered reader profile, complete producer audit and original full input SHA;
+do not bypass preparation or rebuild its artifacts. A second diagnostic guard
+incorrectly blocks harmless SQLAlchemy engine construction during native imports;
+guard actual Engine.connect instead. Both failed attempts remain retained.
+Current source/input/code/projection receipts:
+logs/v3-source-event-contract-2026-10-11-r3. Final disposable smoke/dynamics
+1170 pass489.07s/346 existing warnings; the test database is removed. Original
+35 tables, input artifacts, producer trace and approved retry source remain
+unchanged. No validation/final body review, campaign or owner closure.
+
 ## 2026-10-11 — v3 summary field fidelity and optional retry preservation
 
 [Source/field/retry review](reviews/2026-10-11-v3-summary-field-and-retry-audit.md)

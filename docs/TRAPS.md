@@ -2591,3 +2591,15 @@ NLI-unknown and earns no token-budget admission; a separate off-default controll
 failure recovers a supported47-token abstract. Do not turn preservation into
 an implicit approval. Full trace logging must exclude frame locals: rich console
 exc_info otherwise serializes original text/completions into the receipt.
+
+### 119. A frozen source loader is not fresh preparation under later code
+
+ICE v3 chronological-source audit,2026-10-11: load_selected invokes prepare,
+which binds all production source bytes. Approved repairs therefore make the
+old fresh command refuse even though the completed original data remains valid.
+Do not suppress the guard or recreate its manifest under old hashes. Validate
+an explicit registered frozen-writer/current-reader profile, complete original
+producer audit and source-file hash before a separately bound input projection.
+That projection is not a fresh-writer quality result. Also guard DB connections,
+not harmless lazy engine construction, when proving a command makes no DB calls;
+an overstrict diagnostic can fail during import without any query or outage.

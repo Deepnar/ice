@@ -309,6 +309,19 @@ Source events/preflight/exposure/post-flight/probes, per-condition freeze/model
 pins and final manual orchestration still require the new parent. The current
 selected replay and its command do not adopt this adapter automatically.
 
+`chronological_sources` is the separate source/probe identity seam for that
+parent, with no CLI or implicit run. It binds one complete history, original
+source order, reviewed probe cutoffs and explicit clock provenance. Source
+events precede their diagnostic questions; runtime projections omit expected
+answers and source keys. Prefix receipts refuse changed source/clock/question
+identity on resume. Synthetic import dates require simulated-clock labeling;
+replacement clocks must cover every turn and do not change original dates.
+The explicit frozen-tuning view revalidates current-reader adoption, the complete
+producer audit and original full source hash; it does not bypass the old fresh
+preparation guard or rebuild that bundle. Actual251/67 input checks make no
+model or DB call. Native source ingestion, condition effects, writer/read/probe
+checkpoint execution and final label/clock qualification remain unfinished.
+
 ## Tuning and final readiness still to earn
 
 The static inventory records relevant numeric/boolean/weight settings, defaults,

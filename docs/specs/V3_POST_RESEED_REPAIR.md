@@ -2431,6 +2431,71 @@ pre-application receipts remain unchanged. No quality promotion or owner closure
 
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
+#### Source-event boundary decision —2026-10-11
+
+Before building the new chronological parent, add a research-only source-event
+contract in `experiments/v3_repair/chronological_sources.py`. One plan contains
+one history; B/C remain separate stores, never a globally sorted mixed user.
+Bind every complete original prompt/reply, turn number, original timestamp and
+provenance, plus each diagnostic occurrence's question and through-cutoff source
+key. Unknown timezone, non-increasing original/replay clock, missing/reordered
+turns, duplicate occurrence, future gold or mismatched reviewed cutoff refuses
+before any DB/model call. Do not include answer keys in runtime projections.
+Bind question, reviewed answer, task, scope and exact through-cutoff review
+using the existing review vocabulary. Preserve both recent-only and older-source
+observations: first-answerability controls must not be rejected by reusing the
+older LTM-only admission rule that requires recent_only_answerable=False.
+
+Use the supplied original clock only when every timestamp has original authority.
+Synthetic import timestamps require an explicitly simulated plan. Optional
+simulated replacement clocks must cover every turn, keep strict source order
+and retain the original dates/provenance separately. Never use generation wall
+time, silently create quiet gaps, or reinterpret a simulated gap as calendar
+evidence. A changed question, source, label or clock creates another identity.
+
+The plan interleaves each original's source event with its sorted diagnostic
+occurrences, all after that source write and before the next original. Event IDs
+and source sequence hashes are deterministic. A native parent must drain due
+jobs before each source event, ingest the recorded reply once, and observe
+probes read-only. Bind a prefix by count and digest; completed event-prefix
+resume must refuse changed events before any remaining dispatch. The contract
+is a planning/identity seam, not a launched runner or proof of semantic review.
+Initial successful maintenance anchors, native checkpoint/condition/model
+identity, writer/read loops and full artifact/fault capture remain parent work.
+
+Qualify strict refusal, source/answer-metadata isolation, repeated family/cutoff
+ordering and prefix drift in authored controls. Also use the actual frozen
+reader audit to build its complete251-turn/67-occurrence timeline offline,
+preserving all completed producer bytes. Do not inspect reserved
+validation or final B/C question bodies. Report the clock as simulated, with
+no automatic aging or retention-quality claim.
+
+**Loader divergence,2026-10-11:** the first diagnostic used load_selected,
+which intentionally invokes fresh prepare and refuses the approved source
+changes under the old all-src input seal. Retain that failed attempt; do not
+patch that guard, recreate old manifest bytes or monkeypatch its preparation.
+Add an explicit frozen-tuning view to the new source contract: revalidate the
+five-transition reader profile, current resolved settings, original coordinate
+seal and complete producer audit first. Verify the original-file full SHA from
+the producer identity, then project only its selected history and actual bound
+as-of records. Bind producer/profile/source/input/current instrument identities
+into the new timeline. This is a frozen-writer audit, not fresh-writer outcomes
+or a qualification of the original fresh preparation command. No store restore,
+validation execution, source rewriting or model/DB call occurs.
+
+**Implemented input boundary:**17 authored controls pass; the actual explicit
+frozen-reader audit builds251 source events and67 diagnostic events, checking
+all318 runtime projections without scorer keys, model calls or DB connections.
+The six original input/producer artifacts remain byte-and-mtime stable. Every
+source clock is explicitly simulated; no quiet gap is added. Earlier fresh-loader
+refusal and an overstrict engine-construction diagnostic are retained as attempts,
+not system failures. Full native parent execution and semantic qualification
+remain open. Private source-contract evidence:
+logs/v3-source-event-contract-2026-10-11-r3. Final disposable smoke/dynamics
+1170 pass489.07s/346 existing warnings; test store removed. Baseline35 table
+fingerprints and original trace remain equal. The full native parent is still
+unfinished; this seam cannot authorize a tuning/final launch.
+
 **Fixture selection:** two separate complete long histories with ordered originals,
 updates, recurring topics/procedures and interpretable sessions. Prefer a
 different history from r4 to reduce development leakage. Inspect the existing

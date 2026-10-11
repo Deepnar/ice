@@ -745,6 +745,18 @@ conditions and model freeze still belong to the unfinished new parent runner.
 This ideal cadence protocol does not measure production idle/lease/tick latency
 and is not retrofitted into the active selected replay or deployed runtime.
 
+The v3 `chronological_sources` contract supplies the new parent's one-history
+source/probe timeline. Complete recorded originals remain in source order;
+diagnostic occurrences follow their reviewed cutoff before the next source.
+Every source and key is bound, while runtime projections contain only the
+original turn or question. Simulated replacement clocks retain original dates/
+provenance separately and never become authentic calendar evidence. Completed
+event-prefix receipts refuse changed source, question or chronology. The explicit
+frozen-tuning view validates current-reader adoption and the existing complete
+producer audit before projecting its selected history, without rebuilding old
+preparation or connecting to the store. This planning seam adds no writer/job/
+model and does not complete the native parent or certify retention quality.
+
 **V3 episodic decay** starts strictly after seven days and reads daily targets:
 
 - `decay_daily_unaccessed=0.95`: non-creative originals with no exposure.
