@@ -32,12 +32,19 @@ def enabled_roster(enabled):
     return tuple(job for job in CORE_JOBS if job in enabled)
 
 
-def identity(enabled=CORE_JOBS, *, clock_basis):
+def checkpoint_groups(value):
+    if type(value) is not int or not 1 <= value <= 32:
+        raise ValueError("checkpoint group interval must be an integer from 1 to 32")
+    return value
+
+
+def identity(enabled=CORE_JOBS, *, clock_basis, checkpoint_every_groups=1):
     enabled = enabled_roster(enabled)
     if clock_basis not in {"original", "simulated"}:
         raise ValueError("declare chronological clock provenance")
-    return dict(method="native_chronological_maintenance_v1", enabled=list(enabled),
+    return dict(method="native_chronological_maintenance_v2", enabled=list(enabled),
         clock_basis=clock_basis, simultaneous_order="reverse_job_name", worker_attempts=1,
+        checkpoint_every_groups=checkpoint_groups(checkpoint_every_groups),
         registry={job: asdict(JOBS[job]) for job in CORE_JOBS},
         settings_sha256=digest(settings.model_dump(mode="json")),
         native_code_sha256=replay_checkpoint.code_digest(),
@@ -108,17 +115,19 @@ def validate_parent(db, sink, state, checkpoints, recovery, faults, binding):
 
 
 def drain(db, sink, *, until, state, checkpoints, recovery, faults, clock_basis,
-          context, enabled=CORE_JOBS, event_limit=100_000):
+          context, enabled=CORE_JOBS, event_limit=100_000, checkpoint_every_groups=1):
     """Execute native time groups; the caller must restore after any interruption.
 
-    Successful and degraded groups are durable before outage checks. Incomplete
-    groups leave the previous pointer; native recovery archives their trace suffix.
+    Completed batches and the final group are durable before outage checks.
+    Incomplete groups leave the previous pointer; native recovery archives their
+    trace suffix and replays the bounded uncommitted batch.
     Internal caught exceptions are not visible at this uncaught-job boundary.
     """
     if set(context) - CONTEXT_FIELDS or not context.get("conversation") or type(context.get("turn")) is not int:
         raise ValueError("explicit frozen turn/conversation fault context required")
     enabled = enabled_roster(enabled)
-    binding = identity(enabled, clock_basis=clock_basis)
+    binding = identity(enabled, clock_basis=clock_basis,
+                       checkpoint_every_groups=checkpoint_every_groups)
     schedule = list(events(state.get("last_maintenance", {}),
                            recovery.state["last_attempt"], until, enabled, event_limit=event_limit))
     engine = validate_parent(db, sink, state, checkpoints, recovery, faults, binding)
@@ -133,7 +142,8 @@ def drain(db, sink, *, until, state, checkpoints, recovery, faults, clock_basis,
                 raise ValueError("native job factory differs from the owned parent store")
         functions[job] = getattr(module, function)
     totals = Counter()
-    for target, jobs in schedule:
+    captures = 0
+    for group_number, (target, jobs) in enumerate(schedule, 1):
         # All jobs in a time group must have complete observations before publishing.
         with historical_clock(target, engine):
             for job in jobs:
@@ -175,10 +185,16 @@ def drain(db, sink, *, until, state, checkpoints, recovery, faults, clock_basis,
                 totals[job + (":complete" if succeeded else ":degraded")] += 1
         boundary_context = {**context, "source_time": target.isoformat(), "profile": binding["method"],
                             "artifact_id": digest([target.isoformat(), jobs]), "model": None}
-        faults.call(lambda: checkpoints.capture(sink, state),
-                    context={**boundary_context, "job": "checkpoint", "stage": "checkpoint"})
-        faults.call(recovery.check_outage,
-                    context={**boundary_context, "job": "recovery", "stage": "outage_check"})
+        outage = any(streak >= 3 for streak in recovery.state["streaks"].values())
+        if (group_number % checkpoint_every_groups == 0
+                or group_number == len(schedule) or outage):
+            faults.call(lambda: checkpoints.capture(sink, state),
+                        context={**boundary_context, "job": "checkpoint", "stage": "checkpoint"})
+            captures += 1
+            faults.call(recovery.check_outage,
+                        context={**boundary_context, "job": "recovery", "stage": "outage_check"})
     return dict(method=binding["method"], until=stamp(until).isoformat(), clock_basis=clock_basis,
         completed_time_groups=len(schedule), calls=dict(totals), disabled=[j for j in CORE_JOBS if j not in enabled],
+        checkpoint_every_groups=checkpoint_every_groups, published_checkpoints=captures,
+        max_uncommitted_complete_groups=checkpoint_every_groups - 1,
         score_of_record=False, semantic_quality="unqualified", fault_capture="uncaught_boundary_only")

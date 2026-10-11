@@ -291,10 +291,13 @@ values prepare comparisons and do not change defaults or qualify memory gains.
 `chronological_maintenance.drain` is the new parent's execution seam, with no
 standalone CLI. It requires a restored isolated native checkpoint, matching
 code/settings/registry/clock-basis identity and complete per-job ledgers. It
-merges exact cadence events, runs the ten existing job functions, saves complete
-time groups and preserves native bounded degradation/pause policy. An interrupted
-group must restore the previous native checkpoint before continuing; saved groups
-do not rerun. Disabled jobs retain their ledger and execute nothing. Exact serial
+merges exact cadence events, runs the ten existing job functions and preserves
+native bounded degradation/pause policy. Research checkpoint_every_groups
+defaults1; a parent may explicitly freeze1..32 in its version2 identity. This
+batches checkpoint publication only; no job, cadence or observer is skipped.
+End-of-drain and outage always publish fully observed groups. An interruption
+must restore the previous native checkpoint and replay the bounded uncommitted
+suffix; durable groups do not rerun. Disabled jobs retain their ledger and execute nothing. Exact serial
 cadence is declared research policy, not measured production idle/tick latency.
 
 Native SQL controls preserve original source through cold movement, age graph

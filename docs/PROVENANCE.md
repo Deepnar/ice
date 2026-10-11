@@ -1,3 +1,30 @@
+## 2026-10-11 — v3 grouped chronological checkpoint qualification
+
+The research-only native maintenance adapter versions its identity and adds an
+explicit checkpoint_every_groups integer1..32, default1. Every job, cadence,
+one-cycle call and semantic observation remains unchanged. Complete batches,
+end-of-drain and persistent-outage boundaries publish durable state; interruption
+restores the last native store/trace/state prefix before bounded suffix replay.
+No production settings, cadence or model changed. The full source-event parent
+and chronological semantic quality remain unfinished.
+
+The no-call forecast under a common known initial anchor is4290 native calls/
+1440 groups over30 hypothetical quiet days and25740/8640 over180 days. It does
+not measure actual runtime, model cost or retention. Fifteen focused controls
+pass349.96s/two warnings. Seven new cases exercise40 native calls with two
+captures instead of four, actual committed SQL interrupted between grouped
+boundaries, missing-only restore with60 unique observations/final fingerprint
+parity, forced publication before outage at interval12, cache reuse and invalid/
+drifted identity refusal. The single-original fixture leaves seven semantic
+jobs without eligible candidates; these are durability, not quality controls.
+
+Full disposable smoke/dynamics1142 pass494.56s/346 warnings. Both databases
+removed. Preserved v1 adapter, no-call forecast, full test outputs and hash-bound
+qualification receipt: `logs/v3-maintenance-durability-2026-10-11-r1/`.
+The frozen development producer, original35 tables and current-reader profile
+remain unchanged; no cloud/tuning/final launch or whole roadmap closure.
+[Decision and limits](specs/V3_POST_RESEED_REPAIR.md#23n-bounded-durable-maintenance-groups-2026-10-11).
+
 ## 2026-10-11 — v3 actual procedural activation and selected content
 
 Read-only inventory of the completed251-turn/67-probe development baseline

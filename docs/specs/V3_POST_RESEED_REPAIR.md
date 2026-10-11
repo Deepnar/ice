@@ -2259,6 +2259,47 @@ planning validates67 probes with no model/DB call. Ordinary and old-profile
 commands retain their refusal. Private receipts:
 logs/v3-reader-adoption-2026-10-11-r1. No collection or tuning promotion.
 
+### 2.3n Bounded durable maintenance groups —2026-10-11
+
+The current default ten-job cadences forecast4290 calls/1440 time groups over
+a hypothetical30-day quiet gap,25740 calls/8640 groups over180 days. These are
+no-call schedule counts assuming a common known initial boundary, not measured
+work, model cost or retention quality. Section2.3l currently snapshots the whole
+store after every group. Keep every actual job/cadence/one-cycle/observer call;
+optimize checkpoint publication only, never approximate aging or skip jobs.
+
+Add an explicit research-only checkpoint_every_groups integer1..32, default1.
+A future long-gap parent may freeze12 in its own identity; do not select this
+as a memory hyperparameter or change production runtime/settings. Version the
+adapter identity and bind this value. Publish after the specified number of
+fully observed groups, at the end of every drain, and before any outage pause.
+No incomplete group can advance the durable pointer. Append-only full faults
+remain recorded before recovery. Interruption requires restoring the native
+store/trace/state prefix; at most N-1 completed groups plus the incomplete group
+are replayed. Successful durable groups do not rerun. Never claim every merely
+flushed group was durable. A changed cadence refuses an old parent identity.
+
+Validate actual all-ten-job SQL effects against group1, interruption after real
+SQL between grouped boundaries, native suffix archival/restore and missing-only
+continuation, forced checkpoint before the third outage even when N is larger,
+end-of-drain capture, unchanged complete-cache reuse and invalid/drifted identity
+refusal before any job. This is not the full source-event/final parent, semantic
+job qualification or permission to run tuning/final experiments. Original
+producer and reader profiles remain untouched.
+
+**Implemented research adapter,2026-10-11:** fifteen focused SQL controls pass
+349.96s, including seven new grouped-publication checks. Four time groups
+publish twice at interval3 while all40 native job calls and final fingerprints
+match interval1. Interruption after a committed group5 SQL effect restores
+durable group3 and runs only groups4..6; the final store and60 unique observations
+match uninterrupted work. A persistent transport outage forces publication
+at group3 even with interval12. Invalid/drifted intervals refuse before jobs.
+Full disposable smoke/dynamics1142 pass494.56s; both test databases removed.
+The native fixture contains one original pair and seven jobs have no eligible
+semantic candidates. These are execution/durability controls, not a memory
+quality result or the full event parent. Evidence:
+logs/v3-maintenance-durability-2026-10-11-r1. No source/default/model change.
+
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
 **Fixture selection:** two separate complete long histories with ordered originals,

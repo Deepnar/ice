@@ -61,7 +61,7 @@ def parent(empty_replay_database, monkeypatch, tmp_path):
         db.add_all([edge, proc]); db.commit()
         identifiers = dict(conversation=str(conv.id), row=row.id, edge=edge.id, procedure=proc.id)
     parents = []
-    def make(label="main", enabled=cm.CORE_JOBS):
+    def make(label="main", enabled=cm.CORE_JOBS, checkpoint_every_groups=1):
         root = tmp_path / label; root.mkdir()
         trace = root / "trace.jsonl"
         trace.write_text(json.dumps(dict(event="controlled_original", turn=1)) + "\n")
@@ -69,12 +69,14 @@ def parent(empty_replay_database, monkeypatch, tmp_path):
         recovery = WorkerRecovery(sink, "continue")
         state = dict(completed={"fixture": 1}, probe_count=0,
             last_maintenance={job: START.isoformat() for job in cm.CORE_JOBS}, worker_recovery=recovery.state)
-        bound = dict(database=snapshot.DB, chronological_maintenance=cm.identity(enabled, clock_basis="simulated"))
+        bound = dict(database=snapshot.DB, chronological_maintenance=cm.identity(
+            enabled, clock_basis="simulated", checkpoint_every_groups=checkpoint_every_groups))
         cp = replay_checkpoint.Checkpoints(root / "recovery", trace, bound)
         cp.capture(sink, state, evaluation_key="initial-prefix")
         faults = FaultRecorder(root / "faults.jsonl", digest(bound), private_root=tmp_path)
         item = NS(root=root, trace=trace, sink=sink, cp=cp, recovery=recovery, state=state,
-            faults=faults, enabled=enabled, ids=identifiers, http_attempts=http_attempts, sessions=SessionLocal)
+            faults=faults, enabled=enabled, ids=identifiers, http_attempts=http_attempts,
+            sessions=SessionLocal, checkpoint_every_groups=checkpoint_every_groups)
         parents.append(item)
         return item
     main = make()
@@ -90,6 +92,7 @@ def run(parent, hours=12):
         return cm.drain(db, parent.sink, until=START + timedelta(hours=hours),
             state=parent.state, checkpoints=parent.cp, recovery=parent.recovery,
             faults=parent.faults, enabled=parent.enabled, clock_basis="simulated",
+            checkpoint_every_groups=parent.checkpoint_every_groups,
             context=dict(conversation=parent.ids["conversation"], history="controlled", turn=2, arm="full"))
 
 
@@ -149,6 +152,94 @@ def test_real_snapshot_interrupt_mid_group_restores_and_matches_uninterrupted(pa
     records = [json.loads(line) for line in interrupted.trace.read_text().splitlines()][1:]
     assert len(records) == 40 and all(r["worker_status"] == "complete" for r in records)
     assert len({(r["job"], r["source_time_trigger"]) for r in records}) == 40
+
+
+def test_grouped_publication_preserves_every_native_job_and_final_state(parent):
+    run(parent, hours=4)
+    expected = snapshot.fingerprints()
+    with patch.object(snapshot, "SNAPDIR", parent.cp.root / "evaluation/initial-prefix"):
+        assert snapshot.restore("store") == 0
+    grouped = parent.make("grouped", checkpoint_every_groups=3)
+    result = run(grouped, hours=4)
+    assert result["completed_time_groups"] == 4 and result["published_checkpoints"] == 2
+    assert result["calls"] == {job + ":complete": 4 for job in cm.CORE_JOBS}
+    assert result["max_uncommitted_complete_groups"] == 2
+    assert snapshot.fingerprints() == expected
+    _, durable = grouped.cp.validate()
+    assert set(durable["state"]["last_maintenance"].values()) == {
+        (START + timedelta(hours=4)).isoformat()}
+    saved = grouped.trace.read_bytes()
+    again = run(grouped, hours=4)
+    assert again["completed_time_groups"] == again["published_checkpoints"] == 0
+    assert grouped.trace.read_bytes() == saved and snapshot.fingerprints() == expected
+
+
+def test_grouped_interrupt_archives_and_replays_only_the_uncommitted_suffix(parent, monkeypatch):
+    from src.workers import decay
+
+    run(parent, hours=6)
+    expected = snapshot.fingerprints()
+    with patch.object(snapshot, "SNAPDIR", parent.cp.root / "evaluation/initial-prefix"):
+        assert snapshot.restore("store") == 0
+    grouped = parent.make("grouped-interrupt", checkpoint_every_groups=3)
+    original = decay.apply_decay
+    raised = []
+    def interrupt(cycles=1):
+        original(cycles)
+        if cm.stamp(decay.datetime.now(timezone.utc)) == START + timedelta(hours=5) and not raised:
+            raised.append(1)
+            raise KeyboardInterrupt("interrupt after committed SQL beyond grouped boundary")
+    monkeypatch.setattr(decay, "apply_decay", interrupt)
+    with pytest.raises(KeyboardInterrupt): run(grouped, hours=6)
+    _, durable = grouped.cp.validate()
+    assert set(durable["state"]["last_maintenance"].values()) == {
+        (START + timedelta(hours=3)).isoformat()}
+    grouped.sink.close()
+    grouped.state = grouped.cp.recover()
+    assert list(grouped.cp.root.glob("unfinished-*.jsonl"))
+    grouped.sink = grouped.trace.open("a")
+    grouped.recovery = WorkerRecovery(grouped.sink, "continue", grouped.state["worker_recovery"])
+    result = run(grouped, hours=6)
+    assert result["completed_time_groups"] == 3 and result["published_checkpoints"] == 1
+    assert snapshot.fingerprints() == expected
+    rows = [json.loads(line) for line in grouped.trace.read_text().splitlines()][1:]
+    assert len(rows) == 60
+    assert len({(r["job"], r["source_time_trigger"]) for r in rows}) == 60
+    assert grouped.faults.verify() == 1
+
+
+def test_grouped_outage_publishes_before_a_longer_checkpoint_interval(parent, monkeypatch):
+    from src.workers import decay
+
+    grouped = parent.make("grouped-outage", checkpoint_every_groups=12)
+    def fail(cycles=1):
+        raise ConnectionError("controlled persistent outage")
+    monkeypatch.setattr(decay, "apply_decay", fail)
+    with pytest.raises(WorkerOutage): run(grouped, hours=12)
+    _, durable = grouped.cp.validate()
+    assert durable["state"]["worker_recovery"]["streaks"]["decay_episodic"] == 3
+    assert durable["state"]["worker_recovery"]["last_attempt"]["decay_episodic"] == (
+        START + timedelta(hours=3)).isoformat()
+    assert len(grouped.trace.read_text().splitlines()) == 1 + 30 + 6  # three attempt/failure pairs
+    assert grouped.faults.verify() == 4
+
+
+@pytest.mark.parametrize("value", [0, 33, True, 1.5])
+def test_invalid_or_drifted_checkpoint_interval_refuses_before_jobs(parent, monkeypatch, value):
+    from src.workers import decay
+
+    monkeypatch.setattr(decay, "apply_decay", lambda **_: pytest.fail("invalid profile called a worker"))
+    with parent.sessions() as db:
+        with pytest.raises(ValueError, match="checkpoint group interval"):
+            cm.drain(db, parent.sink, until=START + timedelta(hours=1), state=parent.state,
+                checkpoints=parent.cp, recovery=parent.recovery, faults=parent.faults,
+                clock_basis="simulated", checkpoint_every_groups=value,
+                context=dict(conversation=parent.ids["conversation"], turn=2))
+        with pytest.raises(ValueError, match="identity"):
+            cm.drain(db, parent.sink, until=START + timedelta(hours=1), state=parent.state,
+                checkpoints=parent.cp, recovery=parent.recovery, faults=parent.faults,
+                clock_basis="simulated", checkpoint_every_groups=2,
+                context=dict(conversation=parent.ids["conversation"], turn=2))
 
 
 def test_changed_profile_ledger_trace_and_store_refuse_before_any_job(parent, monkeypatch):

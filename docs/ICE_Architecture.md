@@ -734,10 +734,12 @@ prepare final research scheduling without changing the running producer.
 The separate v3 `chronological_maintenance.drain` adapter now executes all ten
 native core jobs at exact per-job cadence boundaries, serially in fixed order.
 It requires a matching isolated parent/checkpoint lease, restored trace/state/
-table fingerprints and unchanged code/settings/job/provenance identity. Complete
-time groups publish native store+trace checkpoints; incomplete groups require
-restore, while degraded groups save bounded native recovery state before a
-persistent-outage pause. Full uncaught job/observer/checkpoint/pause receipts
+table fingerprints and unchanged code/settings/job/provenance identity. Research
+checkpoint_every_groups defaults1; an explicit1..32 value is frozen in the
+version2 adapter identity. Every job still runs at its exact boundary. Completely
+observed batches publish native store+trace checkpoints, always at drain end
+and before an outage pause. Interruption restores the preceding full checkpoint
+and replays the bounded uncommitted suffix. Full uncaught job/observer/checkpoint/pause receipts
 remain private. Source events, preflight/exposure/post-flight, final probe keys/
 conditions and model freeze still belong to the unfinished new parent runner.
 This ideal cadence protocol does not measure production idle/lease/tick latency
