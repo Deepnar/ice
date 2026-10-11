@@ -46,7 +46,7 @@ def test_controls_keep_budgeting_but_suppress_out_of_arm_searches(monkeypatch, a
     query = SimpleNamespace(filter_by=lambda **kw: SimpleNamespace(all=lambda: []))
     db = SimpleNamespace(query=lambda *_a: query)
     from src.api import prompt_assembler
-    monkeypatch.setattr(prompt_assembler, "bookmarked_turn_texts", lambda *_: [])
+    monkeypatch.setattr(prompt_assembler, "bookmarked_turn_texts", lambda *_a, **_k: [])
     pre = SimpleNamespace(model_name="fixture", conversation_id="fixture")
     result = seed_v3.prepare_with_trace(db, pre, None, arm=arm)[0]
     assert calls[0] == "budget" and settings.confidence_fallback_threshold == 0.5

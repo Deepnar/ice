@@ -14,6 +14,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 
+from experiments.v3_repair import artifact_inventory
 from experiments.v3_repair import chronological_maintenance as maintenance
 from experiments.v3_repair import chronological_sources as sources
 from experiments.v3_repair.caught_faults import observe
@@ -126,10 +127,13 @@ def bootstrap(db, sink, state, cp, recovery, faults, functions, first, enabled):
 def preparation(db, event, conv, classifier, embedder, *, arm, exposure):
     pre = seed_v3.pp.build(db, event.get("question", event.get("prompt")), conv,
                           classifier, embedder, source_time=datetime.fromisoformat(event["clock"]))
+    inventory = artifact_inventory.capture(db)
     memory, generated, ranked, budgeted, notes = seed_v3.prepare_with_trace(
         db, pre, classifier, arm=arm, source_time=datetime.fromisoformat(event["clock"]),
         graph_exposure=exposure)
-    return pre, seed_v3.stage_record(pre, memory, generated, ranked, budgeted, notes, include_prompt=True)
+    stage = seed_v3.stage_record(pre, memory, generated, ranked, budgeted, notes, include_prompt=True)
+    stage["artifact_inventory"] = inventory
+    return pre, stage
 
 
 def write_source(db, sink, state, event, classifier, embedder, background, recovery, faults):
@@ -200,7 +204,8 @@ def write_source(db, sink, state, event, classifier, embedder, background, recov
              summary_coverage=row.summary_coverage, representation_verification=row.representation_verification,
              lossless=row.lossless_flag, inject_raw=row.inject_raw,
              author_assertions=seed_v3.author_assertion_counts(db, row.batch_id),
-             procedural_source_review=seed_v3.procedural_source_review(db, row.batch_id))
+             procedural_source_review=seed_v3.procedural_source_review(db, row.batch_id),
+             artifact_inventory=artifact_inventory.capture(db))
     db.rollback()
 
 
@@ -261,6 +266,7 @@ def run(root, plan, originals, probes, *, resume=False, enabled=maintenance.CORE
         diagnostic_arms=list(arms), condition="full", models=pins, tables=snapshot.TABLES,
         probe_snapshots="immutable_native_event_cutoffs",
         instruments=[fingerprint(Path(__file__)), fingerprint(Path(sources.__file__)),
+                     fingerprint(Path(artifact_inventory.__file__)),
                      fingerprint(Path(__file__).with_name("caught_faults.py")),
                      fingerprint(Path(seed_v3.__file__)), fingerprint(Path(seed_v3.pp.__file__)),
                      fingerprint(Path(replay_checkpoint.__file__)), fingerprint(Path(snapshot.__file__)),

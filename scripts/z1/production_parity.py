@@ -188,7 +188,8 @@ def retrieve(orchestrator, pre: Preamble):
 
 
 def prepare(db, pre: Preamble, classifier, *, memory_slots, bookmarked_texts,
-            serving_window, session_start_text=None, constraints_text=None):
+            serving_window, session_start_text=None, constraints_text=None,
+            bookmarked_artifacts=None):
     """The shared final chat preparation with caller-supplied standing context."""
     from src.api.memory_preparation import prepare_memory_context
     return prepare_memory_context(
@@ -198,7 +199,7 @@ def prepare(db, pre: Preamble, classifier, *, memory_slots, bookmarked_texts,
         total_budget=pre.total_budget, serving_window=serving_window,
         base_retrieve=pre.retrieve, memory_slots=memory_slots,
         bookmarked_texts=bookmarked_texts, session_start_text=session_start_text,
-        constraints_text=constraints_text)
+        constraints_text=constraints_text, bookmarked_artifacts=bookmarked_artifacts)
 
 
 def provenance_fields(pre: Preamble, memory=None) -> dict:

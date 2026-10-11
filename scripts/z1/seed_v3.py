@@ -559,12 +559,15 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
     with (patch.object(mp, "HybridRetrievalOrchestrator", factory),
           patch.object(mp, "conversation_summary_block", capture_notes),
           source_gate_patch, prompt_clock, retrieval_clock):
+        bookmark_receipts = []
+        bookmarks = (bookmarked_turn_texts(db, pre.conversation_id,
+                     artifact_receipts=bookmark_receipts)
+                     if arm in {"full", "no_codex"} else [])
         memory = pp.prepare(
             db, pre, classifier,
             memory_slots=(db.query(MemorySlot).filter_by(is_active=True).all()
                           if arm in {"full", "no_codex"} else []),
-            bookmarked_texts=(bookmarked_turn_texts(db, pre.conversation_id)
-                              if arm in {"full", "no_codex"} else []),
+            bookmarked_texts=bookmarks, bookmarked_artifacts=bookmark_receipts,
             serving_window=window)
         if graph_exposure:
             from src.memory.usage import record_graph_access
@@ -600,6 +603,10 @@ def stage_record(pre, memory, produced, ranked_candidates, budgeted,
               "prompt_tokens": count_messages(messages),
               "selected_tokens": sum(f["tokens"] for f in selected),
               "answer_use": "unknown_until_new_answer_is_generated"}
+    artifacts = getattr(memory.prepared, "artifact_blocks", None)
+    if artifacts is not None:
+        result["prompt_artifact_policy"] = "ice-v3-native-final-blocks-1"
+        result["prompt_artifact_blocks"] = artifacts
     if include_prompt:
         result["prompt_messages"] = messages
     return result

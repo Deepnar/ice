@@ -11,7 +11,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from experiments.v3_repair.artifact_inventory import validate as validate_inventory
 from experiments.v3_repair.compare_tuning_contexts import load_contexts
+from experiments.v3_repair.final_prompt_artifacts import observe as observe_final_blocks
 from experiments.v3_repair.prepare_inputs import digest, fingerprint, write_or_verify
 from experiments.v3_repair.run_tuning_contexts import source_probes
 
@@ -33,6 +35,8 @@ def count_usage(rows, probes=None, *, arms=ARMS, native_evidence_only=False):
     versions = {arm: Counter() for arm in arms}
     artifact_counts = {arm: defaultdict(Counter) for arm in arms}
     artifact_versions = {arm: defaultdict(Counter) for arm in arms}
+    block_versions = {arm: defaultdict(Counter) for arm in arms}
+    stored_versions = {arm: defaultdict(Counter) for arm in arms}
     occurrences, seen_probes = [], set()
     for row in rows:
         if row["event"] == "written":
@@ -125,6 +129,39 @@ def count_usage(rows, probes=None, *, arms=ARMS, native_evidence_only=False):
                     rendered_artifacts.update((tuple(ref), version) for ref in f["stored_artifact_ids"])
                 for ref, version in rendered_artifacts:
                     artifact_versions[arm][ref][version] += 1
+            catalog = (validate_inventory(stage["artifact_inventory"])
+                       if native_evidence_only and "artifact_inventory" in stage else None)
+            if catalog is not None:
+                for ref, item in catalog.items():
+                    artifact_counts[arm][ref]["live_catalog_opportunities"] += 1
+                    stored_versions[arm][ref][item["stored_content_sha256"]] += 1
+                observed_refs = {tuple(ref) for values in groups.values() for f in values
+                                 for ref in f.get("stored_artifact_ids", [])}
+                if observed_refs - catalog.keys():
+                    raise ValueError("native retrieved artifact absent from pre-read live catalog")
+            block_observation = "unobserved"
+            if native_evidence_only:
+                blocks = observe_final_blocks(stage)
+                if blocks is not None:
+                    final_refs = {ref for ref, _ in rendered_artifacts}
+                    block_observation = {}
+                    for name, details in blocks.items():
+                        for ref in details["refs"]:
+                            artifact_counts[arm][ref]["final_block:" + name] += 1
+                        for ref, version in details["versions"]:
+                            block_versions[arm][ref][name + ":" + version] += 1
+                        final_refs.update(details["refs"])
+                        block_observation[name] = {k: v for k, v in details.items() if k not in {"refs", "versions"}}
+                        block_observation[name]["unique_observed_stored_artifacts"] = len(details["refs"])
+                    if catalog is not None and final_refs - catalog.keys():
+                        raise ValueError("native final context artifact absent from pre-read live catalog")
+                    for ref in final_refs:
+                        artifact_counts[arm][ref]["any_final_context"] += 1
+                    arm_counts[arm]["final_block_observed_occurrences"] += 1
+                else:
+                    if catalog is not None:
+                        raise ValueError("live inventory lacks native final context observation")
+                    arm_counts[arm]["final_block_unobserved_occurrences"] += 1
             # Aggregate fragments credit edge lineage, not exact per-edge wording.
             for edge in {e for f in rendered for e in f.get("origin_edges") or []}: edge_counts[arm][edge] += 1
             notes = set(stage.get("source_note_ids") or [])
@@ -138,6 +175,9 @@ def count_usage(rows, probes=None, *, arms=ARMS, native_evidence_only=False):
             observation["arms"][arm] = dict(stages=per_stage, unknown_source_aliases=sorted(unknown),
                 any_final_evidence_lineage=len(rendered_originals), selected_text_unconfirmed=missing,
                 exact_derived_artifact_inventory="unobserved", answer_use="unmeasured")
+            if native_evidence_only:
+                observation["arms"][arm]["final_prompt_blocks"] = block_observation
+                observation["arms"][arm]["live_artifact_inventory"] = len(catalog) if catalog is not None else "unobserved"
         occurrences.append(observation)
     if probes is not None and seen_probes != set(probes): raise ValueError("reader occurrence roster differs")
     final = {}
@@ -156,7 +196,12 @@ def count_usage(rows, probes=None, *, arms=ARMS, native_evidence_only=False):
         if native_evidence_only:
             final[arm]["observed_stored_artifact_frequency"] = [dict(table=ref[0], key=ref[1],
                 counts=dict(counts), rendered_version_frequency=dict(sorted(artifact_versions[arm][ref].items())),
-                eligible_opportunities="unobserved", live_inventory="unobserved")
+                final_block_version_frequency=dict(sorted(block_versions[arm][ref].items())),
+                stored_payload_revision_opportunities=dict(sorted(stored_versions[arm][ref].items())),
+                zero_context_reads_at_observed_live_opportunities=(counts.get("any_final_context", 0) == 0
+                    if counts.get("live_catalog_opportunities", 0) else "unobserved"),
+                eligible_opportunities="unobserved", live_inventory="captured_at_sampled_read_start"
+                    if counts.get("live_catalog_opportunities", 0) else "unobserved")
                 for ref, counts in sorted(artifact_counts[arm].items())]
     return dict(version="v3", policy=POLICY, score_of_record=False, arms=final, occurrences=occurrences,
         limits=["Final source lineage is exposure, not required-content support or answer use.",

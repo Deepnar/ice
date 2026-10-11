@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from experiments.v3_repair import chronological_sources as sources
+from experiments.v3_repair.artifact_inventory import validate as validate_inventory
 from experiments.v3_repair.prepare_inputs import digest, write_or_verify
 from experiments.v3_repair.report_reader_usage import ARMS, count_usage
 from scripts.z1.replay_checkpoint import prefix_digest
@@ -114,10 +115,33 @@ def adapt(rows):
     # Counting checks aliases and duplicate source/occurrence denominators too.
     actual = count_usage(preflights, arms=("full",), native_evidence_only=True)
     diagnostic = count_usage(diagnostics, native_evidence_only=True)
+    catalogs = []
+    expected_catalogs = 0
+    for row in rows:
+        if row["event"] in {"source_written", "source_preflight"}:
+            owners = [row if row["event"] == "source_written" else row["preflight"]]
+        elif row["event"] == "chronological_probe":
+            owners = list(row["stages"].values())
+        else:
+            continue
+        expected_catalogs += len(owners)
+        catalogs.extend(validate_inventory(owner["artifact_inventory"])
+                        for owner in owners if "artifact_inventory" in owner)
+    if catalogs and len(catalogs) != expected_catalogs:
+        raise ValueError("native observed catalogs have partial capture coverage")
+    refs = {ref for catalog in catalogs for ref in catalog}
+    logical = {tuple(item["logical_identity"]) for catalog in catalogs for item in catalog.values()}
+    revisions = {(ref, item["stored_content_sha256"]) for catalog in catalogs for ref, item in catalog.items()}
+    catalog_summary = (dict(captured_catalogs=len(catalogs), observed_physical_ids=len(refs),
+        observed_logical_ids=len(logical), observed_payload_revisions=len(revisions),
+        lifetime_write_events="unobserved", all_query_eligibility="unobserved",
+        boundary="Observed before reads/after originals; between-capture writes/removals are unobserved.")
+        if catalogs else "unobserved")
     return dict(version="v3", policy=POLICY, score_of_record=False,
         actual_preflight_exposure=actual, readonly_diagnostic_preparation=diagnostic,
+        observed_catalog_lifetime=catalog_summary,
         source_ids=originals, event_prefix=sources.prefix_receipt(plan, completed),
-        limits=["Exact derived artifacts, recent/slot/bookmark versions and eligibility remain unobserved.",
+        limits=["Captured exact artifacts/final blocks are exposure only; absent receipts, stored content versions and eligibility remain unobserved.",
                 "These are separate source-exposure channels, not independent trials or answer support.",
                 "Source inventory is lifetime observed writes, not a warm/live/eligible inventory."])
 
@@ -165,7 +189,9 @@ def report(root):
         raise ValueError("native complete checkpoint/trace/store binding differs")
     value["identity"] = dict(producer=identity, inputs=[file_receipt(p) for p in [trace, *paths]],
         instruments=[file_receipt(Path(__file__)), file_receipt(Path(sources.__file__)),
-                     file_receipt(Path(count_usage.__code__.co_filename))])
+                     file_receipt(Path(count_usage.__code__.co_filename)),
+                     file_receipt(Path(count_usage.__globals__["observe_final_blocks"].__code__.co_filename)),
+                     file_receipt(Path(count_usage.__globals__["validate_inventory"].__code__.co_filename))])
     value["identity_sha256"] = digest(value["identity"])
     return value
 
