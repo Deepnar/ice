@@ -2649,3 +2649,15 @@ Freeze every bound source/helper/instrument file until qualification finishes;
 independent documentation can continue. Preserve the failed epoch and rerun the
 affected native control on stable bytes. Never weaken the identity guard or
 credit the interrupted run as a clean resume qualification.
+
+### 124. A safe old source restriction can outlive its missing metadata
+
+ICE v3,2026-10-11: sentence retrieval excludes all cold sources under cluster
+constraints because archived membership used to be unavailable. Archival now
+preserves the exact membership, but the reader restriction remained. A native
+source→claim→decay→matching-cluster query falls from one claim to zero while the
+unscoped sentence and scoped cold original still return the preserved fact.
+Use the same shared membership filters over warm links and known cold arrays;
+unknown legacy membership still stays closed under constraints. Qualify both
+direct SQL and final preparation under budget pressure, plus opposing exclusions
+and actual warm parity. A passing archive-copy test cannot certify every reader.

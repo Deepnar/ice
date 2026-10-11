@@ -1,3 +1,115 @@
+## 2026-10-11 — v3 catalog storage and repetition audit
+
+Offline private encoding audit, logs/v3-catalog-storage-audit-2026-10-11-r1:
+validates the unchanged actual7805-row catalog and16 observed catalogs from the
+retained two-source native parent. No DB/model access or producer edit. One
+complete catalog is2551283 compact JSON bytes,845618 deterministic gzip bytes;
+decoded bytes equal the original exactly. The small trace has four unique
+complete catalogs:131003 inline bytes versus29983 unique raw/9299 gzip bytes.
+The15.2MB complete trace also includes3216 job receipts; catalog reuse does not
+erase or explain that whole size. A fixed-size1000-catalog illustration is2.55GB
+raw, not a forecast of final corpus growth or the whole ablation roster.
+
+Decision recorded before implementation: use research-only immutable compressed
+sidecars referenced by exact content hashes, preserve every row/version/unknown
+denominator and old inline compatibility, qualify actual capture/recount/resume.
+SQL capture cost, transaction write-event coverage and whole-query eligibility
+remain separate. No storage optimization or final readiness is claimed yet.
+measurement.json binds both original artifact hashes; both remain unchanged.
+
+## 2026-10-11 — v3 default-rate quiet/cold qualification
+
+Private new native parent: logs/v3-natural-retention-native-2026-10-11-r1.
+Two authored recorded role pairs, one correction, three read-only probe
+occurrences; no generated historical answers, cloud answers or judge calls.
+Original-source exposure runs through actual shared preparation once per source.
+Writers use installed gemma4:e4b and NuExtract3 Q8_0, digest-bound in the parent;
+declared classifier is ice_classifier_v4_schema2, shared Qwen3-Embedding0.6B,
+NuNER_Zero, Qwen3-Reranker0.6B and pinned DeBERTa NLI. Installed non-Ollama
+weight-byte identity remains explicitly unqualified. No new model or knob.
+
+The final question advances67 explicitly simulated days without altering source
+dates/provenance/order. Only the three decay cadences are enabled, not all ten
+maintenance jobs. Upfront1072 groups produce3216 native scheduled job calls,
+plus three empty-store bootstrap calls, with grouped checkpoints every32 groups.
+No worker failures/degraded receipts. Both originals move naturally under the
+unchanged configured rates to cold storage; their complete text/roles/dates and
+verified ordinals remain exact. Completed resume preserves trace and table bytes.
+The disposable store is removed; final dumps/cutoff pins and receipts remain.
+This is simulated default-rate aging, not an authentic67-day calendar observation.
+
+Final full/no-Codex shared-store preparations each select both cold originals
+in466 total prompt tokens. Warm-vector/recent diagnostics select none in285.
+The sentence leg generates five claims; their complete role units already occur
+in the admitted originals, so packing avoids duplicates. Graph emits no fragment;
+that does not establish graph precision or usefulness on this small fixture.
+No answers are generated/scored. These are dependent diagnostic preparations
+sharing one aged full-writer store, not independent vector/recent controls. Only
+two originals exist; neither is beyond40 intervening pairs. Source-window labels
+remain separate from the empty warm recent table. Final recent controls must
+use the same original-history window independently of tier changes.
+
+Qualified: cadence, natural threshold crossing under configured defaults,
+preserved source evidence, bounded cold reach and completed resume. Unqualified:
+all-ten-job semantic maintenance, correction-answer accuracy, broad/long-lag
+retention, independent component gain, fewer tokens at matched answer quality,
+decay selection and tuning/final readiness. Immutable native-qualification.json
+and reader-report.json bind the trace/identities; no owner closes or push occurs.
+
+## 2026-10-11 — v3 preserved cold sentence cluster membership
+
+Native authored source→claim→actual decay→SQL reproduction: one warm sentence
+claim becomes zero under a matching cluster filter after archival, while an
+unscoped claim and the cluster-scoped cold original each remain retrievable.
+Known membership and original bytes survive; the claim reader's old restriction
+predates the archived membership contract. Controlled embedding/NLI establishes
+eligibility mechanics, not semantic precision. No model call in reproduction.
+
+The human approves the exact one-file private candidate; applied byte-for-byte
+to orchestrator._codex_claims. Its warm/cold source projection supplies actual
+warm-link arrays and preserved cold cluster_ids to existing shared positive/
+exclusion filters, under warm source precedence. Matching/known-empty sources
+remain eligible; disjoint/excluded and constrained NULL-unknown cold sources
+are withheld. Privacy, conversation/batch/date/source-hash/role checks, caps,
+ranking, full author context, exposure and trust are unchanged. Existing lexical/
+vector channels remain; newly eligible rows use existing source/claim lookups.
+
+Candidate38 controls pass18.78s/14 warnings; existing70 compatibility controls
+pass46.70s/32 warnings. Three native normal explicit/inferred-cluster/wide
+preparations recover the complete50-token user role unit with its qualification,
+in369 prompt tokens, when the24022-token complete original cannot fit; the old
+reader supplied zero fragments. This authored role-separation case is not broad
+long-user-turn compression or generated-answer quality. Models/classifier/NER
+are controlled, native SQL/tokenizer/packing remain real.
+Deployed38 permanent native controls pass38.60s/8 warnings, with fresh isolated
+stores and actual archive job. Six paired actual warm-source reads, then the
+same six applied checks, preserve complete outputs and statement counts, all35
+saved tables and original trace/profile bytes+mtimes. These repeat the same
+sampled cases; no cold corpus precision or throughput/speedup claim.
+
+First authored harness epoch retained: cross-module dataclass type comparison,
+wrong ledger field, fixture FK cleanup order and blocked lazy encoder were
+corrected without changing the candidate. A broader wrapper's46 passes/24
+missing-fixture setup errors remain; final wrapper loads the existing fixture
+plugin explicitly. Private evidence: logs/v3-cold-claim-clusters-2026-10-11-r{1,2,3}
+and logs/v3-cold-claim-clusters-applied-2026-10-11-r1. Candidate, application and
+qualification receipts remain separate immutable epochs.
+
+The new13-path approved frozen-reader profile exports/reuses byte-stably,
+plans67 questions without execution and refuses ordinary/old-profile reuse.
+Identity:9d9921a7aeb721fea17b21a5e93feaa1838d30e48582847fc131e914c657df55.
+Profile SHA:9d87d88ab2bf86a8a1a8305c1056eeb54a222abbf38daba5064ae11c9c3be223.
+Private profile: logs/v3-reader-adoption-2026-10-11-r6. Frozen writers are not
+replayed or relabeled as current; original experiment progress stays unchanged.
+Broader deployed smoke/dynamics1314 pass1174.84s/378 existing warnings; all stores
+removed, source/instrument bytes held fixed. Public test import ordering is
+cleaned afterward with the full-suite bytes preserved; the same focused38
+controls pass39.03s/8 warnings. Import bindings and all non-import AST bodies
+remain equal. Final-qualification.json binds exact deployed bytes, both test
+epochs, original-table preservation and current profile. No source/instrument
+behavior change or unrelated full-suite repetition. No tuning/final launch, new model,
+owner closure or push.
+
 ## 2026-10-11 — v3 approved final standing-block observer and research capture
 
 Human-approved exact four-file candidate, applied byte-for-byte:

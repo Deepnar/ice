@@ -785,6 +785,19 @@ their exact v1 output. A two-source/three-hour native SQL interruption control
 verifies six due calls, retained gap anchors, unchanged original dates and an
 immutable final cutoff with byte-stable completed resume. This qualifies the
 clock/execution seam, not natural retention, cold-crossing quality or decay values.
+
+A second v3 native panel uses actual installed writers, two authored recorded
+pairs including a correction, and a67-day simulated quiet query. The unchanged
+three decay cadences execute3216 scheduled calls without worker failures; both
+originals move cold with roles/dates/ordinals intact and completed resume is
+byte-stable. Full/no-Codex diagnostic preparations supply both originals in466
+prompt tokens; warm-vector/recent shared-store diagnostics supply none. Five
+claim candidates are redundant with the admitted complete originals. This is
+bounded default-rate cold reach, not answered correction precision, >40-turn
+retention or an independent vector comparison. It does not qualify the other
+seven maintenance jobs or select decay values. Final recent-history controls
+must not inherit missing warm rows from an aged full-writer store.
+
 The parent explicitly lists stage serializer, parity/checkpoint/snapshot,
 historical-clock and recovery helper bytes in its header. Its native digest
 already includes these helpers; the list exposes existing coverage rather than
@@ -2263,8 +2276,13 @@ The 20-pair development trace found 236 claim/episodic duplicates before the
 first repair; answer quality has not been inferred from that count. Conversation and
 turn forgetting physically remove associated claims; source edits invalidate
 old excerpts. Cold sources resolve by stable episodic ID, with warm state taking
-precedence. Cold claims are omitted for cluster scopes until archival membership
-is preserved. Graph and tag-enumeration rendering consume linked source evidence
+precedence. The approved v3 membership repair now applies shared cluster filters
+to actual warm links and preserved cold arrays. Matching or known-empty cold
+membership remains eligible; constrained NULL-unknown membership stays closed.
+38 deployed native controls qualify SQL, actual archival and complete role-unit
+arrival under budget pressure; six paired actual warm reads preserve outputs/
+statement counts. This restores evidence reach without a new model, shortening
+author context or changing trust. Graph and tag-enumeration rendering consume linked source evidence
 and collect only rendered edge IDs; negative facts can answer but are not walked.
 Legacy relations and permitted unscoped stored notes are labeled unverified.
 Cached relationship payloads no longer bypass the filtered edge set. Source claims

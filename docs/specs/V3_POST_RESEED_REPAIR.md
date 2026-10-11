@@ -931,6 +931,63 @@ remain narrow. Keep r4 and its resume identities immutable. This decision does
 not change warm archived-row eligibility, decay thresholds or confidence floors;
 test the actual archive/read/restore chain before claiming lifecycle quality.
 
+#### Cold sentence cluster membership — grounded2026-10-11
+
+The native authored source→claim→decay control returns one sentence claim while
+warm. After the actual archival job preserves its cluster membership and removes
+warm links, the same matching cluster query returns zero claims; an unscoped
+claim query and the ordinary cluster-scoped cold original query each return one.
+This is candidate exclusion, not measured sentence/answer precision. The prior
+claim-reader restriction predates preserved cold membership; it now disagrees
+with the archive and original-reader contracts. P10 lifecycle and G76 attributed
+graph evidence, e.g. a sandbox-qualified source sentence, own this repair.
+
+**Decision:** extend `_codex_claims`' existing warm/cold source projection with
+known membership. Warm rows use an ARRAY of their actual current cluster links,
+including a typed empty array for unlinked rows; cold rows use their preserved
+`cluster_ids`. Always include cold sources through the existing warm-precedence
+anti-join. Pass `membership_column="e.cluster_ids"` to the existing shared
+positive/exclusion helpers. Matching membership or known-empty membership is
+eligible; disjoint or excluded membership is withheld. NULL legacy cold
+membership remains unknown and is withheld under cluster constraints, while
+ordinary unscoped search still admits it. Explicit empty positive scope remains
+closed. Do not infer membership from a claim, cluster name or primary-cluster ID.
+
+No new model, schema, retrieval channel, candidate cap, trust threshold, source
+hash/role/context policy, ranking, restoration or reinforcement change. The same
+lexical/vector SELECTs fetch candidates; newly reachable claims use the existing
+claim/source row lookups. Warm output/statement parity must be measured. Privacy,
+conversation/project, batch and explicit source-clock filters remain in the same
+query before LIMIT; warm source identity still overrides a same-ID cold copy.
+This was a private one-file candidate until explicit approval; the exact tested
+patch is now approved and applied. Source-only and withheld proposals retain
+complete attributed context.
+
+Qualify both lexical and controlled-vector SQL channels across matching,
+disjoint, overlapping, empty, unknown and excluded memberships; preserve warm
+outputs, empty conversations/batches, privacy, source-date, stale/missing-source
+and warm-precedence refusals. Exercise the actual decay job and normal/wide
+shared preparation: a short complete user role unit can survive the prompt
+budget when its oversized full original cannot. The meaning/qualifier must
+remain exact; no substring shortening or fabricated graph edge. Controlled
+embeddings/NLI/classifier decisions establish mechanism only. Keep original
+development stores, receipts and frozen reader profiles immutable; any approved
+source change needs a fresh explicit profile before reuse. No whole owner closes.
+
+**Applied focused qualification:**38 permanent native controls pass38.60s;
+candidate38 pass18.78s and70 compatibility controls pass46.70s. Six actual paired
+warm reads and the same six applied verifications preserve complete outputs,
+statement counts, all35 saved tables and original trace/profile bytes+mtimes.
+The controlled24022-token complete original cannot fit; the candidate recovers
+its complete50-token user role unit in369 total prompt tokens through explicit,
+inferred and wide paths. This is role-separation reach, not arbitrary long-user
+compression, corpus precision or answer quality. The new exact13-path profile
+exports/reuses byte-stably, plans67 questions without execution and refuses
+old/ordinary reuse; frozen writer receipts remain unchanged. Broad deployed
+smoke/dynamics1314 pass1174.84s/378 existing warnings, with bound source/helper
+bytes fixed throughout and all disposable stores removed. Test import-order
+cleanup has a separate focused38-control qualification; it changes no source.
+
 ### 2.1p Warm archive and probation reach — grounded decision, 2026-10-09
 
 The actual decay → cold → final preparation → restoration control preserves
@@ -2186,6 +2243,43 @@ row eligible before top-k/thresholds. Do not duplicate native source/scope/trust
 policy in an approximate catalog filter. This partial collector does not close
 the final lifetime-write/eligible-inventory requirement or a roadmap owner.
 
+**Catalog scale decision,2026-10-11:** the actual7805-row retained-store catalog
+occupies2551283 compact JSON bytes, or845618 deterministic lossless gzip bytes.
+The separate two-source native parent records16 catalogs containing four distinct
+complete states:131003 inline bytes versus29983 unique raw/9299 gzip bytes.
+No model, DB access or producer modification in this encoding/repetition audit.
+A fixed-size1000-observation illustration is2.55GB raw; final growth/cost remains
+unqualified. Repeating complete catalogs inside every diagnostic arm is avoidable
+measurement overhead, not useful memory or evidence. Do not remove zero-read
+rows, IDs, payload/state hashes or catalog validation to reduce it.
+
+**Decision:** add a research-only immutable catalog store for the new native
+parent. Capture/query policy and full catalog schema remain unchanged. Persist
+canonical complete catalogs by their exact byte SHA, as deterministic gzip
+sidecars under that run; trace owners store a versioned reference instead of a
+second inline body. Equal complete catalogs reuse one blob. An offline loader
+checks reference/hash/codec and the existing complete catalog validator before
+counting; old inline traces retain their existing interpretation. Missing,
+changed, incomplete or mismatched catalog blobs are a recorded refusal, never an
+empty denominator. Do not weaken source/current-reader/recovery identities.
+
+Bind store/loader bytes and reference policy in new native identities. Write each
+blob atomically and durably before its trace reference can become committed.
+Interrupted unreferenced blobs are harmless and never counted as observations;
+do not delete old evidence. Completed resume and final reports must validate the
+committed referenced blobs; an interrupted new parent repeats only the unfinished
+native event after restoring its durable prefix. Scorer keys never enter capture.
+This improves serialization/storage, not SQL query cost, eligibility or true
+transaction write-event coverage. Those remain explicitly separate requirements.
+
+Qualify inline-versus-sidecar count equivalence, distinct-key equal payloads,
+repeated blob reuse, changed payload versus state-only changes, old inline
+compatibility, complete native writer/read/probe capture and interrupted/completed
+resume. Re-encode the retained7805-row catalog privately to prove exact decoded
+bytes/counts and report actual storage cost; never modify the old trace/store.
+Implement only after current deployed qualification completes, so its bound
+instrument bytes remain fixed. This is still pre-final instrument readiness.
+
 Validate distinct-ID equal bodies, unchanged payload under access/decay changes,
 changed payload under source/text edits, indexed composite keys, logical archive
 identity, zero-read live rows, missing-reference refusal and serialized catalog
@@ -2780,6 +2874,27 @@ and completed-resume bytes. A short controlled clock panel qualifies execution,
 not natural memory half-lives, long-term answer accuracy or decay selection.
 Revisited/quiet/correction and real cold-crossing quality panels still remain
 before changing lifecycle values; the new seam makes those panels executable.
+
+**Default-rate quiet/cold panel,2026-10-11:** a new isolated native parent
+processes two authored recorded pairs, including one correction, with the
+installed local writer models and three read-only diagnostic occurrences. Its
+final occurrence advances67 explicitly simulated days with unchanged decay
+values. Exactly1072 cadence groups/3216 scheduled calls run only the three decay
+jobs, with zero failed/degraded workers. Both originals cross into cold storage;
+raw roles, source dates and ordinals remain exact. Completed resume is byte-stable.
+Full/no-Codex shared-store diagnostics each supply both cold originals in466
+total prompt tokens; warm-vector/recent diagnostics supply none in285. The claim
+leg generates five candidates; complete originals already contain their role
+units, so packing may omit duplicate claims without evidence loss.
+
+This qualifies a default-dynamics/cold-read/source-preservation mechanism, not
+all-ten-job semantic maintenance, independent vector superiority, answered
+correction precision or parameter selection. The quiet age is simulated and
+only two original pairs exist; neither is beyond40 intervening turns. A recent
+control for final quality must use the same original-history window independently
+of tier changes in the full writer store. The final writer conditions and bare
+vector index remain separate. Independent repeated/correction/long-lag supported
+answer qualification and full final condition integration remain open.
 
 **Helper-identity grounding correction:** native `code_files` already binds
 eleven scripts/z1 helpers alongside src, including serialization, parity, clock,

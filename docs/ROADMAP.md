@@ -98,6 +98,18 @@ completes, preserving42 originals; broader semantic and worst-case capacity
 qualification remain. [The repair decision](specs/V3_POST_RESEED_REPAIR.md#21o-undated-cold-recall--grounded-decision-2026-10-09)
 records the deliberate scope change. Roadmap owner counts are unchanged.
 
+**Default-rate v3 quiet/cold qualification,2026-10-11:** two authored recorded
+pairs and an explicitly simulated67-day quiet query exercise3216 actual calls
+of the three decay jobs. Both originals remain intact and retrievable cold;
+completed resume is byte-stable, with zero failed/degraded workers. This is a
+core retention mechanism check, not all-ten-job semantic quality, >40-turn
+retention, cloud answer gains or an independent vector comparison. The native
+source→claim→decay→query check separately exposes a stale cluster restriction:
+preserved cold membership still fails to admit sentence evidence. G76 —
+attributed evidence, e.g. retaining a source's sandbox-only qualification — owns
+the [membership repair](specs/V3_POST_RESEED_REPAIR.md#cold-sentence-cluster-membership--grounded2026-10-11).
+No whole owner closes; formal counts and tuning/final gates remain unchanged.
+
 **Final judging, reaffirmed 2026-10-09:** Muse Spark1.3 Contributor remains
 primary. A separately selected second family independently grades every final
 answer, with per-judge scores and disagreements reported separately. G65 —
@@ -1403,7 +1415,8 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 
 - [x] <a id="g36"></a>**G36 The retrieval legs swallow their own failures** — DONE 2026-08-09. → [full record](ROADMAP_DONE.md#g36)
 - [x] <a id="g37"></a>**G37 A scope that resolves to no batches read the WHOLE graph** — DONE 2026-08-09. → [full record](ROADMAP_DONE.md#g37)
-- [ ] <a id="g76"></a>**G76 Attributed claims and source-support verification — keep an assistant hypothesis from becoming an asserted fact** `(authorized v3 repair in progress — 2026-09-12 onward)`. A source batch is already stored on `CodexEdge`, but the edge has no first-class claim sentence, evidence spans, speaker or assertion-status fields. The extractor consumes combined turn text. Example: “the assistant suggested adding a cache” must not become “the project decided to add a cache.”
+- [ ] <a id="g76"></a>**G76 Attributed claims and source-support verification — keep an assistant hypothesis from becoming an asserted fact** `(authorized v3 repair in progress — 2026-09-12 onward)`. Originally `CodexEdge` stored a source batch without first-class attributed sentence evidence, and extraction consumed combined turn text. New v3 writes now use role-separated original units, claims and source/argument receipts; independent precision and answer usefulness remain unfinished. Example: “the assistant suggested adding a cache” must not become “the project decided to add a cache.”
+  **v3 cold-sentence membership repair,2026-10-11:** approved/applied existing shared cluster filters over current warm links and preserved cold arrays. Matching/known-empty archived evidence stays reachable; constrained unknown/disjoint/excluded membership stays closed.38 permanent controls, six paired actual warm reads and1314 smoke/dynamics checks pass. Complete qualified user wording survives when its larger original cannot fit. [Decision/limits](specs/V3_POST_RESEED_REPAIR.md#cold-sentence-cluster-membership--grounded2026-10-11); current reader profile preserves old writer state. No independent corpus precision or owner closure.
   **v3 argument repair,2026-10-10:** current source/tier review exposes a high-confidence actor reversal accepted by both internal checks. New shared writes supply the exact tuple and require typed subject/object/qualifier agreement;42 focused native decisions and actual production writer3 admitted/3 withheld controls preserve original evidence and repeat idempotency. [Decision and limits](specs/V3_POST_RESEED_REPAIR.md#21w-exact-graph-arguments--completed-development-source-review2026-10-10). No threshold/model change or old edge relabeling; independent tier/extractor and answer utility remain open.
   **v3 repair, 2026-10-08:** new shared writes require existing E4B author-assertion approval alongside NLI; a question or proposed plot cannot override its nonassertive status with a true boolean. Complete original/paragraph context remains searchable, including withheld relations. Actual writer/readers keep6 sources while admitting3 asserted and withholding3 question/proposal relations; broader independent precision/answer benefit remains open. See [grounded source-authority contract](specs/V3_POST_RESEED_REPAIR.md#21c-graph-assertion-authority--grounded-decision-2026-10-08).
   **v3 completed-r4 evidence, 2026-10-07:** 22826 attributed claims and11559 linked edges exist; internal support receipts are not independent precision. P4 audits role/direction/tier truth and source-to-answer gain. See [post-reseed execution contract](specs/V3_POST_RESEED_REPAIR.md). The whole item remains open until its original acceptance scope is met.

@@ -174,7 +174,7 @@ collector command intentionally refuses changed code. Preserve that frozen
 writer and seal a separate current-reader profile, with no replay/model/DB call:
 
 ```bash
-uv run --no-sync python experiments/v3_repair/reader_adoption.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-reader-adoption-2026-10-11-r5/profile.json
+uv run --no-sync python experiments/v3_repair/reader_adoption.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-reader-adoption-2026-10-11-r6/profile.json
 ```
 
 When reader qualification is ready, pass that exact path as `--reader-adoption`
@@ -290,6 +290,28 @@ This is an API for retention qualification, not a long/manual campaign launcher
 or evidence that a new decay value is better. Replacement source clocks still
 refuse. Native parent headers now list already-bound serializer/parity/clock/
 recovery bytes explicitly; this does not repair a missing digest guard.
+
+The focused v3 default-rate panel now qualifies two authored sources through a
+67-day simulated quiet interval:3216 actual calls of the three decay jobs move
+both sources cold without failed/degraded workers, preserving roles/dates/order
+and byte-stable completed resume. Full/no-Codex diagnostics supply the originals;
+these share one aged store and are not independent vector/recent baselines or
+answer-quality comparisons. The final recent control must retain its original
+history window independently of warm/cold storage. Full ten-job semantic and
+long-lag/correction-answer quality still precede lifecycle-value promotion.
+
+Cold source-sentence search now uses preserved membership with existing cluster
+filters.38 deployed native controls qualify direct SQL, actual archival and
+complete qualified role-unit arrival under budget pressure. The current exact
+reader profile is revision6; previous profiles/writer receipts remain unchanged.
+No new model, trust threshold or saved experiment reseeding is involved.
+
+The actual7805-row catalog is2.55MB raw/0.85MB lossless gzip;16 occurrences in the
+small native trace contain only four distinct catalogs. Immutable compressed
+sidecar reuse is the next instrument step; inline full catalogs currently remain.
+It must retain every observed row/version and validate exact offline recounts,
+native capture and resume before adoption. Lifetime write-event and whole-query
+eligibility coverage remain separate from this storage improvement.
 
 Inspect every sealed tuning field and its disposition without running trials:
 
