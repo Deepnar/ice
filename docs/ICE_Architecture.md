@@ -354,9 +354,9 @@ complete-cache reuse. Short actual SQL/snapshot controls qualify recovery and
 cap propagation with controlled encoder/classifier output; native corpus
 content, answers, grading and promotion remain unqualified. No writer replay,
 new resident model or default policy is introduced by this collector.
-After the approved summary-support and graph-argument changes, ordinary old-code
+After the approved summary-support, graph-argument, extraction and retry changes, ordinary old-code
 collection still refuses. The optional `reader_adoption.py` profile binds only
-the exact three approved old/new file transitions, unchanged remaining
+the exact five approved old/new file transitions, unchanged remaining
 producer/coordinate code, all original prefix dumps,
 trace/settings/model identity and current reader/instrument bytes. The collector
 revalidates it before restore, even complete-cache reuse, and separately records
@@ -1465,7 +1465,7 @@ post_flight.evaluate_turn(batch_id, prompt, response, conversation_id, model_use
 
 - **Density** (compute_entropy) — facts-per-token ∈ [0,1] from entity density, figure/identifier density, code presence, and lexical diversity — finally written to **entropy_score** (NULL since v2). lossless_flag = code ∨ creative/emotional ∨ entropy ≥ 0.35 and exempts from batch summarisation. In v3, every non-private turn reaches Codex regardless of this flag.
 
-- **STORE BOTH, CHOOSE AT READ TIME (user design decision).** Every non-document turn \> 350 words gets a **grounded summary** stored *alongside* raw — the storage layer never permanently forces one representation. The summary prompt receives the must-preserve terms (ground-then-generate, as Codex A2 / clustering v5), asks for 4–6 sentences plus trailing `Key terms:` and `Abstract:` lines (C3: the one-line abstract rides in the same call — no extra inference — parsed into abstract_text), and the result is **measured**: summary_coverage = fraction of must-terms retained; one retry names any dropped terms; the score is stored in **summary_coverage**. inject_raw is demoted to a *default hint*: raw for documents/code/creative (continuity) and for short turns; for long dense/diffuse turns the coverage gate sets it (summary-by-default only when it provably kept the key terms). The actual per-query choice happens at retrieval (§6.1a). Emits `summary_quality` + `representation_decided` log events (F5 candidates).
+- **Store both, choose at read time (v3).** Long eligible turns keep complete raw text alongside a generated summary and abstract. The native prompt receives attributed original windows, requires separately cited assertions, and guides retention of supported key terms. Coverage measures term retention; it does not prove fidelity. One optional retry names omitted terms and a better complete result wins. Since the approved2026-10-11 repair, typed incomplete retry warns with finish reason, usage and traceback without frame locals, then retains the exact first candidate and attached citations/abstract. It adds no call/model/cap/prompt change. First-generation failure and unrelated errors keep their prior behavior. Current-source, NLI, coverage and reader gates still determine whether either representation is usable. `inject_raw` is a preference hint, not permanent deletion of an alternative. Emits `summary_quality` and `representation_decided`.
 
 - **Document detection** — raw_words \> 2000 AND assistant_count \< 3 ⇒ is_document = True with raw injection — folded into the decision matrix, which also fixed the old **clobber bug** (the document branch's inject_raw=True was previously overwritten by the general assignment two lines later, so documents silently *lost* raw injection).
 
@@ -1477,15 +1477,18 @@ the recent chat window (including budget degradation), and the explicit
 recent-turn service. Summary eligibility requires finite coverage between
 `settings.turn_summary_coverage_threshold` (default 0.7) and 1 inclusive;
 NULL is unknown, not trusted. **Coverage is term retention, not faithfulness**;
-semantic verification remains open. Every matched query term must survive
+each generated representation also needs its own source-current NLI verdict,
+bound to source, output and verifier identity. Every matched query term must survive
 compression. Exactness intents prefer raw, broad intents an eligible summary,
 otherwise `inject_raw` supplies the preference. Missing eligible summaries
 return full raw text; caller budgets, not a hidden 300-character prefix, fit it.
-An abstract cannot inherit its summary's coverage: until independent support
-verification exists it must be a verbatim source span preserving matched terms.
-This establishes extractiveness, not completeness. The retrieval budget still
-degrades before dropping; recent history can explicitly truncate to its budget.
-Rolling and batch summaries remain separate paths requiring repair.
+An abstract cannot inherit its summary's coverage or support. Its independent
+current support verdict and matched terms govern availability, even when the
+summary is ineligible. Uncertain support, unknown roles or changed source/output/
+model retain raw. The retrieval budget still degrades before dropping; recent
+history can explicitly truncate to its budget. These gates are implemented;
+independent field/attribution/completeness and answer-quality qualification remain
+open. Rolling and batch notes have their own source-bound policies (§8.8, §8.13).
 
 
 ### **8.3 Codex Extractor**

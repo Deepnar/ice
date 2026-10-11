@@ -50,8 +50,14 @@ Matrix (want_summary = generate & store; inject_raw = the default hint):
 """
 
 import re
+import traceback
+
+import structlog
 
 from src.api.config import settings
+from src.workers.completion_text import IncompleteCompletion
+
+logger = structlog.get_logger("ice.workers.turn_density")
 
 # ── Thresholds: G9 moved these to settings.turn_* ──
 
@@ -234,8 +240,8 @@ def retry_on_coverage_miss(summary: str, key_terms: dict, retry_fn):
     ask again, and keep the retry only if it actually scores better.
 
     ``retry_fn(missing)`` re-runs the caller's own LLM call with the dropped
-    terms named; everything around it is identical between the two callers and
-    used to be written out twice.
+    terms named. The v3 turn writer uses this helper; independent conversation
+    notes no longer use this coverage metric. Historical callers follow.
 
     The copies had already drifted, in the way this consolidation exists to
     stop: `conversation_summary` adopted a better retry **without updating its
@@ -246,7 +252,8 @@ def retry_on_coverage_miss(summary: str, key_terms: dict, retry_fn):
     guard also existed on one side only.
 
     Returns ``(summary, coverage)`` — the originals when no retry is warranted,
-    when the retry comes back empty, or when it scores no better.
+    when the retry is incomplete or empty, or when it scores no better.
+    Incomplete retries never replace the first candidate or its attached proof.
     """
     terms = must_terms(key_terms)
     coverage = summary_coverage(summary, key_terms)
@@ -254,7 +261,15 @@ def retry_on_coverage_miss(summary: str, key_terms: dict, retry_fn):
         return summary, coverage
     low = (summary or "").lower()
     missing = [t for t in terms if t.lower() not in low]
-    retry = retry_fn(missing)
+    try:
+        retry = retry_fn(missing)
+    except IncompleteCompletion as exc:
+        logger.warning("summary_coverage_retry_incomplete", reason=str(exc),
+                       finish_reason=exc.finish_reason, provider_usage=exc.details,
+                       coverage=coverage, preserving_first_candidate=True,
+                       error_type=type(exc).__name__,
+                       traceback="".join(traceback.format_exception(exc)))
+        return summary, coverage
     if not retry:
         return summary, coverage
     retry_coverage = summary_coverage(retry, key_terms)

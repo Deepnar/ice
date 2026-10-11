@@ -1,3 +1,62 @@
+## 2026-10-11 — v3 summary field fidelity and optional retry preservation
+
+[Source/field/retry review](reviews/2026-10-11-v3-summary-field-and-retry-audit.md)
+reads79 current internal supported outputs/236 assertions; six complete source/
+output pairs are agent-reviewed, not independent precision. One summary omits a
+ranking column, but its0.68 coverage fails the current0.7 reader prerequisite.
+Do not infer prompt contamination or answer harm from its NLI receipt alone.
+The original35 tables and producer trace remain unchanged.
+
+Unchanged native E4B source checker with its exact model pin rejects the ambiguous
+assistant-only statement and classifies seven unambiguous field/value controls.
+Both four-case combined-input forms still accept it. Native calls/time are4/
+37.18s,3/32.51s and3/31.10s. No extra summary critic is qualified. Complete
+sources/native requests/responses/policies/code/decisions:
+`logs/v3-summary-qualifiers-2026-10-11-r1/`. These overlapping checks cannot
+isolate serialization or establish a general accuracy rate.
+
+One shared-wording candidate and one smaller revision use actual post-flight
+parser/NLI/chooser at unchanged model/windows/caps. The first repairs the field
+and raises one coverage0.68→0.76 but loses a healthy long-input abstract. The
+smaller revision names the field, lowers coverage to0.56 and again loses the
+long result. Both are rejected; production wording remains unchanged. Complete
+private attempts: `logs/v3-summary-bindings-2026-10-11-r1/`, `r2/`, `r3/`.
+An r1 diagnostic callable was shadowed by a result dict: three sender attempts
+fail locally before provider calls; the corrected remaining-only run preserves
+that attempt. The final revision makes seven actual calls59.18s. No answers,
+threshold/cap/policy change or original proof overwrite.
+
+Captured source201 replies finish stop692, then length900 on optional coverage
+retry. The existing helper lets that second exception discard the complete first
+candidate. A one-file repair keeps the exact first object/coverage only when the
+retry raises typed IncompleteCompletion, warning every time with finish/usage/
+traceback excluding locals. Existing citation, source currency, NLI, coverage
+and separate abstract gates decide eligibility. It adds no call/model/prompt.
+
+Final candidate47 focused checks pass13.92s. Four actual parser/NLI/chooser/
+100-token-budget playback panels include unchanged healthy outputs and the
+observed incomplete retry. The retained first result in that observed case stays
+NLI-unknown and earns no budget admission. An explicit off-default coverage1.0
+trigger with a native length packet injected from a different request recovers
+a separately NLI-supported47-token abstract versus no admitted baseline fragment.
+That is controlled fault recovery, not observed answer gain. Playback makes
+zero provider calls/store writes; the two healthy original-wording source paths
+had three live replies31.98s. All35 original fingerprints remain equal.
+
+The initial candidate lacks its new logger binding; focused checks catch four
+failures before production. Its native healthy pass does not exercise that branch.
+An import error and incorrect abstract-support expectation in playback are retained;
+final corrected controls keep unknown support unknown. Final candidate/patch and
+bound outputs: `logs/v3-summary-retry-2026-10-11-r3/`; earlier attempts stay in
+r1/r2 and `logs/v3-summary-retry-native-2026-10-11-r1/`. Maintainer approved the exact final patch; applied bytes match its qualified
+candidate. Actual-source focused47 checks pass14.13s and permanent failure/reader
+controls25 pass13.23s. A fifth exact transition exports a separate byte-and-mtime-
+stable current-reader profile; ordinary and old-profile commands refuse. No-call
+planning validates67 pending probes. Final actual-source smoke/dynamics1153 pass
+541.23s/346 existing warnings; disposable database removed. Separate applied
+receipt: logs/v3-summary-retry-applied-2026-10-11-r1. No validation,
+cloud/tuning/final campaign or whole roadmap owner closure.
+
 ## 2026-10-11 — v3 grouped chronological checkpoint qualification
 
 The research-only native maintenance adapter versions its identity and adds an

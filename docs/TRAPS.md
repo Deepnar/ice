@@ -2567,3 +2567,27 @@ The first argument candidate also rejected an established-story fact by treating
 its preserved source-world scope as a missing qualifier. Keep adopted narrative
 and proposed scenario distinct; one bounded clarification restored the positive
 without admitting hypothetical outcomes. Preserve both candidate versions.
+
+### 117. Correct values can hide a missing qualifying field
+
+ICE v3 source/output diagnosis,2026-10-11: a table distinguishes overall and
+subject rankings, but a generated claim mentions both values without keeping
+their fields distinct. Current NLI support accepts it. The specific summary also
+fails coverage, so it is not proof that the bad statement reached the prompt.
+A source-checker pilot rejects the claim against one original message but accepts
+it with both messages. Word/value presence, a supported receipt and a tiny
+positive checker pilot do not establish qualified content or production use.
+A bounded prompt candidate restores the field but harms another representation;
+its replacement is not automatically the fix. Preserve that negative outcome.
+
+### 118. A failed optional improvement can discard a completed earlier result
+
+ICE v3 native summary replies,2026-10-11: the first response finishes normally
+at692 tokens; a coverage retry hits length900. Its typed incomplete exception
+escapes the retry helper and the caller returns no summary or abstract, losing
+the complete first candidate too. Preserving that exact object must still pass
+source/citation/NLI/coverage checks. Actual recorded default-path recovery stays
+NLI-unknown and earns no token-budget admission; a separate off-default controlled
+failure recovers a supported47-token abstract. Do not turn preservation into
+an implicit approval. Full trace logging must exclude frame locals: rich console
+exc_info otherwise serializes original text/completions into the receipt.

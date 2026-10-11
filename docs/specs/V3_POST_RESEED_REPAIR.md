@@ -2259,6 +2259,15 @@ planning validates67 probes with no model/DB call. Ordinary and old-profile
 commands retain their refusal. Private receipts:
 logs/v3-reader-adoption-2026-10-11-r1. No collection or tuning promotion.
 
+**Approved optional-retry transition,2026-10-11:** section2.3o preserves the
+complete first summary candidate after a typed incomplete optional retry.
+Register the exact fifth turn-density transition, retaining all earlier profiles,
+writer traces, source/proof state and original byte seals. The new separate
+profile under logs/v3-reader-adoption-2026-10-11-r2 exports/reuses byte-and-mtime-
+stably; current planning validates67 probes with no model/DB call. Ordinary and
+the earlier four-transition profile still refuse. No writer replay, coordinate
+collection or tuning promotion occurs. This guards identity, not writer quality.
+
 ### 2.3n Bounded durable maintenance groups —2026-10-11
 
 The current default ten-job cadences forecast4290 calls/1440 time groups over
@@ -2299,6 +2308,126 @@ The native fixture contains one original pair and seven jobs have no eligible
 semantic candidates. These are execution/durability controls, not a memory
 quality result or the full event parent. Evidence:
 logs/v3-maintenance-durability-2026-10-11-r1. No source/default/model change.
+
+### 2.3o Qualified atomic summary generation — diagnostic candidate2026-10-11
+
+Read-only development inventory finds79 current supported summary/abstract
+consumers and236 assertions. Agent review of six complete source/output pairs
+finds one ranking assertion omitting whether a value belongs to the overall
+or subject column. This is a concrete qualifier ambiguity, not independent
+corpus precision. The original table survives. Complete original-only review
+with the existing E4B author checker withholds that statement and correctly
+classifies seven unambiguous matched controls. With both original messages
+compiled as attributed JSON or raw role blocks, the same checker accepts the
+ambiguous statement. Those additional checks do not qualify a summary guard.
+Do not install the checker as an extra pass or label the failure solved.
+
+One bounded candidate changes only shared assertion_instruction wording:
+request independently interpretable atomic facts, preserving each value's
+field, unit, time, entity, speaker and conditions. Different independently
+qualified facts need separate assertions. Table column names must remain
+attached to values; a generic ranking cannot substitute for two different
+ranking kinds. Do not turn the example into a vocabulary detector. Existing
+source windows/citations, completion limits, coverage retry, NLI threshold,
+proof policy and read-time source fallbacks remain unchanged. Add no model,
+resident weights, semantic critic call or new tokenizer rule. Preserve exact
+legacy proofs and all frozen baseline artifacts; new writer behavior needs
+separate qualification rather than rewriting their outcomes.
+
+[FActScore](https://aclanthology.org/2023.emnlp-main.741/) and
+[FENICE](https://aclanthology.org/2024.findings-acl.841/) motivate atomic claims
+for factuality evaluation. They do not certify this prompt or completeness.
+Before production approval, preserve one candidate/patch and check the actual
+post-flight generation/parser/NLI path on the retained failure and matched
+healthy source types. Inspect complete source-to-value assignments, citations,
+completion, accepted representations, fallback and output cost. Keep failures
+in the denominator. A prompt is not a guarantee; require separately qualified
+reader/content and final answer/context measurements. Stop after this bounded
+candidate rather than starting another model or prompt tournament.
+
+**Initial candidate disposition:** the actual path restores explicit columns
+on the retained ranking source (coverage0.68→0.76), but expands a healthy
+clarification and truncates the longest healthy input at the unchanged900-token
+cap, losing its formerly supported abstract. The ambiguous old summary itself
+was below the0.7 coverage prerequisite; support acceptance is not proof that it
+reached a final prompt. Do not adopt this wording or credit answer improvement.
+An SDK-wrapper variable shadow in the first private diagnostic caused three
+local failures before provider calls; retain that attempt and correct only the
+wrapper for the three uncompleted healthy cases. These are instrument errors,
+not production fallback rates.
+
+One final bounded revision removes the new split/atomic elaboration and adds
+only a short value-field/unit/time preservation instruction to the existing
+one-assertion contract. This targets the observed ambiguity without requesting
+more output clauses. Check the same four complete original pairs at the same
+caps/citations/NLI policy, at most eight generation calls. Inspect all completed
+outputs and retained healthy abstracts. Make a final adopt/reject disposition
+after this revision; do not start a prompt/model search. New wording is never
+a hard guarantee or independent precision result.
+
+Neither rejected wording revision is approved or applied. Its candidate evidence
+is retained under logs/v3-summary-bindings-2026-10-11-r1/r2, with the final
+revision under logs/v3-summary-bindings-2026-10-11-r3. This does not close
+G57 — representation quality, for example preserving the right ranking column,
+or G75 — compression trust, for example retaining a value's qualifying field.
+
+**Final wording disposition:** do not adopt either revision. The smaller
+revision names the ranking field but lowers coverage0.68→0.56 and again loses
+the long healthy representation. No extra checker, changed summary prompt or
+new model is justified by this panel. Keep the complete original evidence and
+explicitly retain independent summary field/attribution/completeness qualification.
+
+**Confirmed retry-loss mechanism and repair decision:** on the longest source,
+the final revision's first provider reply finishes normally at692 output tokens.
+Its optional coverage retry finishes at length900. The exception escapes
+retry_on_coverage_miss and generate_summary discards the complete first result.
+An optional unsuccessful improvement cannot invalidate a completed earlier
+candidate. Change only the shared coverage retry helper to catch the existing
+typed IncompleteCompletion at the retry boundary, warn for every rejection and
+return the exact first candidate/coverage. Preserve its SummaryCandidate identity,
+citations and independently verified abstract; do not parse a partial retry or
+approve any candidate through this fallback. Initial-generation failures,
+JobYielded, access/storage/provider failures and unrelated validation/programming
+errors retain their existing propagation. Retry count, caps and all NLI/current-
+source/coverage/read-time gates stay unchanged. No new model or prompt wording.
+
+Before production approval, qualify this one-file candidate with focused typed
+failure/opposing controls, actual post-flight/verification/reader tests and the
+retained complete native reply followed by its incomplete retry. Bind every
+recorded request/output and distinguish playback from live generation. Also
+verify bounded live original-wording source paths without changing the original
+store. Tracebacks must exclude frame locals; the console's rich exc_info renderer
+serializes locals and is unsuitable for this receipt. Preserve old experiments
+and use a new exact reader transition after approval. Final candidate/patch:
+logs/v3-summary-retry-2026-10-11-r3. The maintainer explicitly approves this
+exact patch on2026-10-11; apply unchanged and qualify the deployed bytes.
+
+**Candidate qualification:** corrected final candidate47 focused checks pass
+13.92s, including two actual generation/verification/reader opposing controls.
+Two complete original-wording healthy sources produce three live replies31.98s;
+that earlier native candidate does not enter the failed retry branch. Recorded
+before/after playback of those replies preserves text, coverage, citations and
+budget selections exactly under the final helper. The observed default failed
+retry now retains the first source-linked result, but NLI still withholds its
+summary and abstract: neither reaches the100-token budget. A separate explicitly
+off-default coverage1.0 fault injection retains a native source-supported
+47-token abstract where baseline selects nothing. Its second length-marked
+native packet is injected from another request, not a claimed live occurrence.
+Four complete actual parser/NLI/chooser/budget panels and all35 table fingerprints
+are recorded; no additional provider call or answer experiment. First incomplete
+generation, unrelated failures, missing source currency and weak support remain
+opposing controls. Maintainer explicitly approved the exact final one-file
+production patch on2026-10-11. Apply unchanged; retain the immutable candidate
+receipt and independently verify deployed source, permanent controls, final
+regression and a fifth exact reader transition before committing the repair. A retained initial missing logger candidate and failed
+playback import/assertion are instrument attempts, not production rates. Applied-source focused47 checks pass14.13s, permanent failure/reader controls25
+pass13.23s. The fifth exact transition exports a separate current-reader profile
+under logs/v3-reader-adoption-2026-10-11-r2, with stable identical reuse, strict
+ordinary/old-profile refusals and no-call67-question planning. Final actual-source
+smoke/dynamics1153 pass541.23s/346 existing warnings; disposable store removed.
+All35 baseline tables and original trace remain equal. The separate applied
+receipt lives under logs/v3-summary-retry-applied-2026-10-11-r1; immutable
+pre-application receipts remain unchanged. No quality promotion or owner closure.
 
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 

@@ -36,6 +36,11 @@ TRANSITIONS = {
         "after": "a11099a6a2b80029a8eb952e5f1933d7f536c2b0333b029ba1cf66d0e17addf8",
         "reason": "Approved matching nullable facts grammar; frozen extraction outcomes are retained.",
     },
+    "src/workers/turn_density.py": {
+        "before": "4bf4314d21994907393de946dd43c42d20324263044843df1ecb2ede074d6ecc",
+        "after": "4aa0d135361bbd11878d9b7eb50af00859ca1335984522ae8770fab5fe82c879",
+        "reason": "Approved complete-first summary preservation after incomplete optional retry; frozen writer outcomes are retained.",
+    },
 }
 
 
