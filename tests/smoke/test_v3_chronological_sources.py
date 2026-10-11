@@ -63,6 +63,42 @@ def test_simulated_gap_keeps_original_time_and_cannot_claim_calendar_authority(h
     assert result["identity_sha256"] != plan((rows, probes), clock_basis="simulated")["identity_sha256"]
 
 
+def test_quiet_probe_clocks_preserve_original_sources_and_scorer_free_projection(history):
+    rows, probes = history
+    times = {p["probe_id"]: rows[cutoff - 1]["timestamp"] for cutoff, p in probes}
+    times["older"] = START + timedelta(days=20)
+    times["another"] = START + timedelta(days=10)
+    baseline = plan(history, clock_basis="simulated")
+    result = plan(history, clock_basis="simulated", probe_times=times)
+    assert result["identity"]["policy"] == sources.QUERY_CLOCK_POLICY
+    assert [e for e in result["events"] if e["kind"] == "source"] == [
+        e for e in baseline["events"] if e["kind"] == "source"]
+    assert [e["id"] for e in result["events"]] == [
+        "source:1", "probe:first", "source:2", "source:3", "probe:another", "probe:older"]
+    index = next(i for i, e in enumerate(result["events"]) if e["id"] == "probe:older")
+    probe = next(p for _, p in probes if p["probe_id"] == "older")
+    runtime = sources.runtime_projection(result, index, probe=probe)
+    assert runtime["clock"] == times["older"].isoformat() and runtime["turn"] == 3
+    assert "Private scorer key." not in str(runtime)
+    assert runtime["clock_basis"] == "simulated" and result["identity_sha256"] != baseline["identity_sha256"]
+    assert plan(history, clock_basis="simulated", probe_times=None) == baseline
+
+
+@pytest.mark.parametrize("fault", ["authentic", "missing", "extra", "earlier", "future", "naive", "not_map"])
+def test_unbound_or_future_quiet_clock_refuses_before_dispatch(history, fault):
+    rows, probes = history
+    times = {p["probe_id"]: rows[cutoff - 1]["timestamp"] for cutoff, p in probes}
+    basis = "simulated"
+    if fault == "authentic": basis = "original"
+    elif fault == "missing": del times["first"]
+    elif fault == "extra": times["unknown"] = START
+    elif fault == "earlier": times["first"] = START
+    elif fault == "future": times["first"] = rows[1]["timestamp"]
+    elif fault == "naive": times["older"] = datetime(2025, 1, 1)
+    elif fault == "not_map": times = list(times.values())
+    with pytest.raises(ValueError): plan(history, clock_basis=basis, probe_times=times)
+
+
 @pytest.mark.parametrize("fault", ["missing_turn", "naive", "backward", "unknown", "future_gold",
                                     "duplicate", "wrong_history", "cutoff", "unreviewed", "answer", "question"])
 def test_invalid_timeline_refuses_before_dispatch(history, fault):

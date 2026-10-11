@@ -14,6 +14,7 @@ from experiments.v3_repair.prepare_inputs import ROOT, digest, fingerprint
 from scripts.z1.label_review import KNOWLEDGE_SCOPES, TASK_TYPES, reviewed_expected_answer
 
 POLICY = "ice-v3-chronological-source-events-1"
+QUERY_CLOCK_POLICY = "ice-v3-chronological-source-events-2"
 PROVENANCE = {"original", "synthetic_raw_import"}
 
 
@@ -58,7 +59,7 @@ def validate(plan):
     if (not isinstance(plan, dict) or plan.get("version") != "v3"
             or plan.get("identity_sha256") != digest(plan.get("identity"))
             or plan.get("events_sha256") != digest(plan.get("events"))
-            or plan["identity"].get("policy") != POLICY):
+            or plan["identity"].get("policy") not in {POLICY, QUERY_CLOCK_POLICY}):
         raise ValueError("source timeline identity/events changed")
     events = plan["events"]
     if (not isinstance(events, list) or not events
@@ -67,7 +68,7 @@ def validate(plan):
     return plan
 
 
-def build(history, originals, probes, *, clock_basis, replay_times=None):
+def build(history, originals, probes, *, clock_basis, replay_times=None, probe_times=None):
     """Freeze supplied clocks; never synthesize unrequested gaps or source facts.
 
     probes contains (cutoff, full reviewed occurrence), so the key is bound as
@@ -103,6 +104,16 @@ def build(history, originals, probes, *, clock_basis, replay_times=None):
         reviewed_occurrence(probe, history, cutoff)
         occurrences[identifier] = digest(probe)
         grouped.setdefault(cutoff, []).append(probe)
+    if probe_times is not None:
+        if (clock_basis != "simulated" or not isinstance(probe_times, dict)
+                or not occurrences or set(probe_times) != set(occurrences)):
+            raise ValueError("simulated probe clocks must cover every reviewed occurrence")
+        probe_times = {name: timestamp(value) for name, value in probe_times.items()}
+        for cutoff, probes_at_cutoff in grouped.items():
+            for probe in probes_at_cutoff:
+                when = probe_times[probe["probe_id"]]
+                if when < times[cutoff - 1] or (cutoff < len(times) and when >= times[cutoff]):
+                    raise ValueError("probe clock precedes its cutoff or includes a future source")
     sequence = digest([dict(turn=s["turn"], prompt=s["prompt"], response=s["response"])
                        for s in sources])
     events = []
@@ -112,12 +123,16 @@ def build(history, originals, probes, *, clock_basis, replay_times=None):
         events.append(dict(common, id=f"source:{number}", kind="source",
                            original_time=source["original_time"], provenance=source["provenance"],
                            source_sha256=digest(source)))
-        for probe in sorted(grouped.get(number, []), key=lambda p: p["probe_id"]):
-            events.append(dict(common, id="probe:" + probe["probe_id"], kind="probe",
+        for probe in sorted(grouped.get(number, []), key=lambda p: (
+                probe_times[p["probe_id"]] if probe_times is not None else replay_time, p["probe_id"])):
+            events.append(dict(common, clock=probe_times[probe["probe_id"]] if probe_times is not None else replay_time,
+                               id="probe:" + probe["probe_id"], kind="probe",
                                probe_id=probe["probe_id"], probe_sha256=occurrences[probe["probe_id"]]))
     identity = dict(policy=POLICY, history=history, source_sequence_sha256=sequence,
                     sources=[digest(s) for s in sources], occurrences=occurrences,
                     clock_basis=clock_basis, replay_times=times, events_sha256=digest(events))
+    if probe_times is not None:
+        identity.update(policy=QUERY_CLOCK_POLICY, probe_times=probe_times)
     return dict(version="v3", identity=identity, identity_sha256=digest(identity),
                 events=events, events_sha256=digest(events), execution_ready=False,
                 labels="input bindings only; independent semantic qualification unchanged")

@@ -23,6 +23,16 @@ from src.api.config import settings
 START = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
 
+def quiet_inputs():
+    rows, probes, _plan = inputs()
+    quiet = copy.deepcopy(probes[0][1])
+    quiet["probe_id"] = "quiet-after-last"
+    quiet["label_review"].update(cutoff_turn=2, reviewed_through_turn=2)
+    probes = [*probes, (2, quiet)]
+    times = {probes[0][1]["probe_id"]: START, quiet["probe_id"]: START + timedelta(hours=3)}
+    return rows, probes, sources.build("fixture", rows, probes, clock_basis="simulated", probe_times=times)
+
+
 def inputs():
     rows = [dict(turn_number=i, prompt=f"Original choice {i}: port7319.", response=f"Recorded reply {i}.",
                  timestamp=START + timedelta(hours=i - 1), ts_provenance="original") for i in (1, 2)]
@@ -301,3 +311,50 @@ def test_probe_cutoff_stays_restorable_after_later_sources_and_complete_resume(n
     assert snapshot.fingerprints() == final_rows and trace.read_bytes() == final_trace
     assert execute(native, resume=True) == state
     assert (target / "recovery.json").read_bytes() == manifest_bytes
+
+
+def test_quiet_query_ages_before_read_and_resumes_without_retimestamping_or_rewriting(native, monkeypatch):
+    from src.memory.models import EpisodicMemory
+    native.args = quiet_inputs()
+    original = runner.read_probe
+    attempts = []
+    def interrupt_after_quiet_read(*args, **kwargs):
+        result = original(*args, **kwargs)
+        if args[3]["probe_id"] == "quiet-after-last":
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise KeyboardInterrupt("after bounded quiet-period observation")
+        return result
+    monkeypatch.setattr(runner, "read_probe", interrupt_after_quiet_read)
+    with pytest.raises(KeyboardInterrupt): execute(native, checkpoint_every_groups=2)
+    pointer = json.loads((native.root / "recovery/current.json").read_text())
+    manifest = json.loads((native.root / "recovery" / pointer["generation"] / "recovery.json").read_text())
+    assert manifest["state"]["event_prefix"]["completed"] == 3
+    assert set(manifest["state"]["last_maintenance"].values()) == {(START + timedelta(hours=3)).isoformat()}
+    writers_before = sum(c[0] in {"codex", "procedural"} for c in native.calls)
+    state = execute(native, resume=True, checkpoint_every_groups=2)
+    assert state["complete"] and state["event_prefix"]["completed"] == 4
+    assert sum(c[0] in {"codex", "procedural"} for c in native.calls) == writers_before == 4
+    assert len(attempts) == 2
+    trace = native.root / "chronological.jsonl"
+    records = [json.loads(line) for line in trace.read_text().splitlines()]
+    gaps = [r for r in records if r["event"] == "maintenance"]
+    assert len(gaps) == 6
+    assert [r["source_time_trigger"] for r in gaps] == [
+        (START + timedelta(hours=h)).isoformat() for h in (1, 1, 2, 2, 3, 3)]
+    quiet = [r for r in records if r["event"] == "chronological_probe" and r["probe_id"] == "quiet-after-last"]
+    assert len(quiet) == 1 and quiet[0]["split_turn"] == 2
+    assert quiet[0]["question_time"] == (START + timedelta(hours=3)).isoformat()
+    assert quiet[0]["clock_basis"] == "simulated" and quiet[0]["probe_writes"] is False
+    with native.sessions() as db:
+        stored = db.query(EpisodicMemory).order_by(EpisodicMemory.timestamp).all()
+        assert [r.timestamp for r in stored] == [START, START + timedelta(hours=1)]
+        assert all(r.ts_provenance == "original" for r in stored)
+        assert [r.raw_text for r in stored] == [f"User: {r['prompt']}\n\nAssistant: {r['response']}" for r in native.args[0]]
+    cutoff = next(r for r in records if r["event"] == "chronological_event_complete"
+                  and r["event_id"] == "probe:quiet-after-last")
+    pin = native.root / "recovery/evaluation" / cutoff["evaluation_key"] / "store.manifest.json"
+    assert json.loads(pin.read_text())["sha256_by_table"] == quiet[0]["table_sha256"]
+    before = trace.read_bytes(), snapshot.fingerprints(), copy.deepcopy(native.calls), pin.read_bytes()
+    assert execute(native, resume=True, checkpoint_every_groups=2) == state
+    assert (trace.read_bytes(), snapshot.fingerprints(), native.calls, pin.read_bytes()) == before

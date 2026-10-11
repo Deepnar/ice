@@ -19,7 +19,9 @@ from experiments.v3_repair import chronological_sources as sources
 from experiments.v3_repair.caught_faults import observe
 from experiments.v3_repair.fault_receipts import FaultRecorder
 from experiments.v3_repair.prepare_inputs import ROOT, digest, fingerprint, local_model_profile
+from scripts.z1 import historical_clock as clock_instrument
 from scripts.z1 import replay_checkpoint, seed_v3, snapshot
+from scripts.z1 import worker_recovery as recovery_instrument
 from scripts.z1.historical_clock import CLOCK_MODULES, historical_clock
 from scripts.z1.worker_recovery import WorkerRecovery
 from src.api.config import settings
@@ -39,7 +41,8 @@ def input_projection(plan, originals, probes):
     if any(e["clock"] != e["original_time"] for e in plan["events"] if e["kind"] == "source"):
         raise ValueError("replacement aging clocks need separate source/calendar qualification")
     rebuilt = sources.build(plan["identity"]["history"], originals, probes,
-                            clock_basis=plan["identity"]["clock_basis"])
+                            clock_basis=plan["identity"]["clock_basis"],
+                            probe_times=plan["identity"].get("probe_times"))
     if rebuilt["identity"] != plan["identity"]:
         raise ValueError("chronological source/probe plan differs from complete supplied inputs")
     by_id = {probe["probe_id"]: probe for _, probe in probes}
@@ -258,7 +261,11 @@ def run(root, plan, originals, probes, *, resume=False, enabled=maintenance.CORE
         diagnostic_arms=list(arms), condition="full", models=pins, tables=snapshot.TABLES,
         probe_snapshots="immutable_native_event_cutoffs",
         instruments=[fingerprint(Path(__file__)), fingerprint(Path(sources.__file__)),
-                     fingerprint(Path(__file__).with_name("caught_faults.py"))])
+                     fingerprint(Path(__file__).with_name("caught_faults.py")),
+                     fingerprint(Path(seed_v3.__file__)), fingerprint(Path(seed_v3.pp.__file__)),
+                     fingerprint(Path(replay_checkpoint.__file__)), fingerprint(Path(snapshot.__file__)),
+                     fingerprint(Path(clock_instrument.__file__)),
+                     fingerprint(Path(recovery_instrument.__file__))])
     root.mkdir(parents=True, exist_ok=True)
     cp = replay_checkpoint.Checkpoints(root / "recovery", trace, identity)
     faults = FaultRecorder(root / "faults.jsonl", digest(identity))
@@ -318,6 +325,14 @@ def run(root, plan, originals, probes, *, resume=False, enabled=maintenance.CORE
                             pins["background"], recovery, faults),
                             context={**context, "job": "source", "stage": "source_event"})
                     else:
+                        # Query time may advance while the source prefix stays
+                        # fixed. Age native memory before that read; do not
+                        # manufacture a new source or retimestamp originals.
+                        if event["clock"] > runtime[index - 1]["clock"]:
+                            maintenance.drain(db, sink, until=datetime.fromisoformat(event["clock"]),
+                                state=state, checkpoints=cp, recovery=recovery, faults=faults,
+                                clock_basis=event["clock_basis"], context=context, enabled=enabled,
+                                checkpoint_every_groups=checkpoint_every_groups)
                         faults.call(lambda: read_probe(db, sink, state, event, scorers[event["probe_id"]],
                             classifier, embedder, arms, faults),
                             context={**context, "job": "probe", "stage": "probe_event"})
