@@ -43,8 +43,8 @@ TRANSITIONS = {
     },
     "src/retrieval/orchestrator.py": {
         "before": "5027817122bad3a1eb9952132f056daebd3acaf574778da57826ac0a446d5b61",
-        "after": "686c47b9298da01be1e6586bf30a3bb9d50c90357100f9436710bd9ef7ad509e",
-        "reason": "Approved exact native artifact IDs; chunk queries add existing IDs only, preserving wording, ranking, scopes and frozen writer outcomes.",
+        "after": "f8d9ab23bb7bf4a31f4e8bfbeaf709126f06ed291c7694d46462d74ba601364a",
+        "reason": "Approved native artifact IDs and preserved cold claim membership through existing scope filters; original wording, ranking, source proofs and frozen writer outcomes remain unchanged.",
     },
     "src/retrieval/evolution.py": {
         "before": "a05d0f0923daf0a545d45ffe7a9412854e86504bec43726624b75942a9fd8051",
