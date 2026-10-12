@@ -25,7 +25,7 @@ def source_ids(fragment):
     return {s for s in [fragment.get("source_row"), *(fragment.get("origin_batches") or [])] if s}
 
 
-def count_usage(rows, probes=None, *, arms=ARMS, native_evidence_only=False):
+def count_usage(rows, probes=None, *, arms=ARMS, native_evidence_only=False, catalog_resolver=None):
     arms = tuple(arms)
     if not arms or len(set(arms)) != len(arms) or set(arms) - set(ARMS):
         raise ValueError("unknown/duplicate reader arm roster")
@@ -129,8 +129,14 @@ def count_usage(rows, probes=None, *, arms=ARMS, native_evidence_only=False):
                     rendered_artifacts.update((tuple(ref), version) for ref in f["stored_artifact_ids"])
                 for ref, version in rendered_artifacts:
                     artifact_versions[arm][ref][version] += 1
-            catalog = (validate_inventory(stage["artifact_inventory"])
-                       if native_evidence_only and "artifact_inventory" in stage else None)
+            catalog = None
+            if native_evidence_only:
+                value = (catalog_resolver(stage) if catalog_resolver is not None
+                         else stage.get("artifact_inventory"))
+                if "artifact_inventory_ref" in stage and catalog_resolver is None:
+                    raise ValueError("native catalog references require an explicit resolver")
+                if value is not None:
+                    catalog = validate_inventory(value)
             if catalog is not None:
                 for ref, item in catalog.items():
                     artifact_counts[arm][ref]["live_catalog_opportunities"] += 1

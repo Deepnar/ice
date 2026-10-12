@@ -275,9 +275,13 @@ before reads and after original writers. Stored payload revisions stay separate
 from rendered versions and mutable access/decay state. Sampled per-arm live
 opportunities include zero-context rows; observed-ever physical/logical IDs and
 payload versions are not true lifetime write events. Whole-query eligibility,
-unseen between-capture writes and answer support/use remain unobserved. Complete
-catalogs are currently a bounded research instrument; large final-run storage/
-overhead qualification still precedes launch. The old
+unseen between-capture writes and answer support/use remain unobserved. New native
+traces store complete catalogs as immutable compressed files in
+`artifact-catalogs/`, referenced by exact hashes. Resume validates committed
+references before new work; the offline report binds every used file and resolves
+catalogs with a two-entry cache. Keep this directory with the trace and recovery
+artifacts when moving a run. Older inline traces keep their original interpretation.
+Large final-run growth/SQL-capture overhead still needs qualification. The old
 `seed.jsonl` format is not silently accepted as this new format, or vice versa.
 
 `chronological_sources.build(..., clock_basis="simulated", probe_times={...})`
@@ -307,11 +311,13 @@ reader profile is revision6; previous profiles/writer receipts remain unchanged.
 No new model, trust threshold or saved experiment reseeding is involved.
 
 The actual7805-row catalog is2.55MB raw/0.85MB lossless gzip;16 occurrences in the
-small native trace contain only four distinct catalogs. Immutable compressed
-sidecar reuse is the next instrument step; inline full catalogs currently remain.
-It must retain every observed row/version and validate exact offline recounts,
-native capture and resume before adoption. Lifetime write-event and whole-query
-eligibility coverage remain separate from this storage improvement.
+small native trace contain only four distinct catalogs. The new research storage
+keeps every observed row/version: those sixteen observations use four files with
+9299 compressed bytes, and their offline counts exactly match the inline format.
+Native capture, interrupted/completed recovery and missing-file refusal have
+focused qualification, and1329 full smoke/dynamics checks pass. This reduces duplicated
+catalog storage, with no memory selection/model change. Lifetime write-event and
+whole-query eligibility coverage remain separate requirements.
 
 Inspect every sealed tuning field and its disposition without running trials:
 

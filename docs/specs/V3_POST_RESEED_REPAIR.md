@@ -2272,6 +2272,17 @@ native event after restoring its durable prefix. Scorer keys never enter capture
 This improves serialization/storage, not SQL query cost, eligibility or true
 transaction write-event coverage. Those remain explicitly separate requirements.
 
+**Integration seam:** keep native `preparation`, `write_source`, `read_probe`
+and model/job callbacks unchanged. The existing research `emit` function clones
+only the top-level/preflight/diagnostic catalog owners and replaces full bodies
+with references before serializing. Native identities bind the reference policy
+and store module. Resume verifies committed references after normal prefix
+recovery and before any new model/writer/probe work. Old traces are read without
+rewriting them. Offline counters resolve each stage on demand with a two-catalog
+bounded decoder cache; do not materialize all catalogs into the trace's in-memory
+row list. Record used blob receipts in report identity. Exposure/lifetime sets
+still count all observations, including repeated identical references.
+
 Qualify inline-versus-sidecar count equivalence, distinct-key equal payloads,
 repeated blob reuse, changed payload versus state-only changes, old inline
 compatibility, complete native writer/read/probe capture and interrupted/completed
@@ -2279,6 +2290,22 @@ resume. Re-encode the retained7805-row catalog privately to prove exact decoded
 bytes/counts and report actual storage cost; never modify the old trace/store.
 Implement only after current deployed qualification completes, so its bound
 instrument bytes remain fixed. This is still pre-final instrument readiness.
+
+**Implemented observer,2026-10-11:** the research emitter, reference loader,
+bounded decoder and native offline report implement this decision without
+changing native writer/preparation/probe callback bodies. Fifteen primitive
+controls cover exact decode, separate same-text keys, payload/state revisions,
+file reuse, bounded cache and refusal of missing/changed/ambiguous references.
+The first integrated65-check run covers native capture and interrupted/completed
+recovery; the final62-check targeted run adds missing-committed-file refusal with
+unchanged store/trace/writer calls. Actual retained7805-row decode and sixteen
+observations/four states recount identically,9299 compressed bytes. Original
+catalog/trace/report bytes and mtimes remain unchanged; passive recount uses no
+DB/model. Final1329 smoke/dynamics checks pass1107.52s/378 existing warnings;
+all disposable stores are removed and source/helper/instrument bytes stay fixed.
+The final receipt binds both focused epochs, current code and retained actual
+evidence. Do not promote tuning readiness or close whole-query eligibility/
+lifetime-write coverage from this observer step.
 
 Validate distinct-ID equal bodies, unchanged payload under access/decay changes,
 changed payload under source/text edits, indexed composite keys, logical archive

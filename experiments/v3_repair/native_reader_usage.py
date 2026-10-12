@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from experiments.v3_repair import catalog_store
 from experiments.v3_repair import chronological_sources as sources
 from experiments.v3_repair.artifact_inventory import validate as validate_inventory
 from experiments.v3_repair.prepare_inputs import digest, write_or_verify
@@ -23,7 +24,7 @@ POLICY = "ice-v3-native-source-exposure-frequency-1"
 PARENT = "ice-v3-native-chronological-parent-1"
 
 
-def adapt(rows):
+def adapt(rows, *, root=None):
     """Validate the native event stream before translating its measured stages."""
     if not rows or rows[0].get("event") != "chronological_meta":
         raise ValueError("native chronological metadata missing")
@@ -113,9 +114,13 @@ def adapt(rows):
     if not ended:
         raise ValueError("native chronological trace is incomplete")
     # Counting checks aliases and duplicate source/occurrence denominators too.
-    actual = count_usage(preflights, arms=("full",), native_evidence_only=True)
-    diagnostic = count_usage(diagnostics, native_evidence_only=True)
-    catalogs = []
+    catalog_store.verify_trace(root, rows)
+    resolver = catalog_store.Reader(root)
+    actual = count_usage(preflights, arms=("full",), native_evidence_only=True,
+                         catalog_resolver=resolver)
+    diagnostic = count_usage(diagnostics, native_evidence_only=True, catalog_resolver=resolver)
+    captured = 0
+    refs, logical, revisions = set(), set(), set()
     expected_catalogs = 0
     for row in rows:
         if row["event"] in {"source_written", "source_preflight"}:
@@ -125,18 +130,22 @@ def adapt(rows):
         else:
             continue
         expected_catalogs += len(owners)
-        catalogs.extend(validate_inventory(owner["artifact_inventory"])
-                        for owner in owners if "artifact_inventory" in owner)
-    if catalogs and len(catalogs) != expected_catalogs:
+        for owner in owners:
+            value = resolver(owner)
+            if value is None:
+                continue
+            catalog = validate_inventory(value)
+            captured += 1
+            refs.update(catalog)
+            logical.update(tuple(item["logical_identity"]) for item in catalog.values())
+            revisions.update((ref, item["stored_content_sha256"]) for ref, item in catalog.items())
+    if captured and captured != expected_catalogs:
         raise ValueError("native observed catalogs have partial capture coverage")
-    refs = {ref for catalog in catalogs for ref in catalog}
-    logical = {tuple(item["logical_identity"]) for catalog in catalogs for item in catalog.values()}
-    revisions = {(ref, item["stored_content_sha256"]) for catalog in catalogs for ref, item in catalog.items()}
-    catalog_summary = (dict(captured_catalogs=len(catalogs), observed_physical_ids=len(refs),
+    catalog_summary = (dict(captured_catalogs=captured, observed_physical_ids=len(refs),
         observed_logical_ids=len(logical), observed_payload_revisions=len(revisions),
         lifetime_write_events="unobserved", all_query_eligibility="unobserved",
         boundary="Observed before reads/after originals; between-capture writes/removals are unobserved.")
-        if catalogs else "unobserved")
+        if captured else "unobserved")
     return dict(version="v3", policy=POLICY, score_of_record=False,
         actual_preflight_exposure=actual, readonly_diagnostic_preparation=diagnostic,
         observed_catalog_lifetime=catalog_summary,
@@ -158,7 +167,7 @@ def report(root):
     trace = root / "chronological.jsonl"
     body = trace.read_bytes()
     rows = [json.loads(line) for line in body.splitlines()]
-    value = adapt(rows)
+    value = adapt(rows, root=root)
     pointer_path = root / "recovery" / "current.json"
     pointer = json.loads(pointer_path.read_text())
     generation = pointer["generation"]
@@ -172,6 +181,13 @@ def report(root):
     manifest = json.loads(paths[1].read_text())
     store = json.loads(paths[2].read_text())
     identity = rows[0]["identity"]
+    references = catalog_store.verify_trace(root, rows)
+    for key, reference in sorted(references.items()):
+        path = root / catalog_store.DIRECTORY / (key + ".json.gz")
+        receipt = file_receipt(path)
+        if receipt["sha256"] != reference["stored_sha256"] or receipt["bytes"] != reference["stored_bytes"]:
+            raise ValueError("counted catalog changed before report binding")
+        paths.append(path)
     count_lines = paths[4].read_text().splitlines()[1:]
     saved_counts = {name: int(value) for name, value in (line.split("=", 1) for line in count_lines)}
     if (manifest["identity"] != identity or manifest["generation"] != generation
@@ -191,6 +207,7 @@ def report(root):
         instruments=[file_receipt(Path(__file__)), file_receipt(Path(sources.__file__)),
                      file_receipt(Path(count_usage.__code__.co_filename)),
                      file_receipt(Path(count_usage.__globals__["observe_final_blocks"].__code__.co_filename)),
+                     file_receipt(Path(catalog_store.__file__)),
                      file_receipt(Path(count_usage.__globals__["validate_inventory"].__code__.co_filename))])
     value["identity_sha256"] = digest(value["identity"])
     return value

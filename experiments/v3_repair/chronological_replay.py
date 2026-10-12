@@ -15,6 +15,7 @@ from pathlib import Path
 from sqlalchemy import text
 
 from experiments.v3_repair import artifact_inventory
+from experiments.v3_repair import catalog_store
 from experiments.v3_repair import chronological_maintenance as maintenance
 from experiments.v3_repair import chronological_sources as sources
 from experiments.v3_repair.caught_faults import observe
@@ -90,6 +91,8 @@ def native_functions(db):
 
 
 def emit(sink, **row):
+    if any("artifact_inventory" in owner for owner in catalog_store.owners(row)):
+        row = catalog_store.externalize(Path(sink.name).parent, row)
     sink.write(json.dumps(row, default=str, ensure_ascii=False) + "\n")
     sink.flush()
 
@@ -264,9 +267,11 @@ def run(root, plan, originals, probes, *, resume=False, enabled=maintenance.CORE
     identity = dict(format=POLICY, database=snapshot.DB, source_plan=plan["identity_sha256"],
         code_sha256=replay_checkpoint.code_digest(), chronological_maintenance=binding,
         diagnostic_arms=list(arms), condition="full", models=pins, tables=snapshot.TABLES,
+        artifact_catalogs=catalog_store.POLICY,
         probe_snapshots="immutable_native_event_cutoffs",
         instruments=[fingerprint(Path(__file__)), fingerprint(Path(sources.__file__)),
                      fingerprint(Path(artifact_inventory.__file__)),
+                     fingerprint(Path(catalog_store.__file__)),
                      fingerprint(Path(__file__).with_name("caught_faults.py")),
                      fingerprint(Path(seed_v3.__file__)), fingerprint(Path(seed_v3.pp.__file__)),
                      fingerprint(Path(replay_checkpoint.__file__)), fingerprint(Path(snapshot.__file__)),
@@ -289,8 +294,10 @@ def run(root, plan, originals, probes, *, resume=False, enabled=maintenance.CORE
                     if (trace.stat().st_size != manifest["trace_bytes"]
                             or snapshot.fingerprints() != store["sha256_by_table"]):
                         raise ValueError("completed chronological trace/store changed")
+                    catalog_store.verify_trace(root, [json.loads(line) for line in trace.read_text().splitlines()])
                     return manifest["state"]
                 state = cp.recover()
+                catalog_store.verify_trace(root, [json.loads(line) for line in trace.read_text().splitlines()])
                 db.expire_all()
             else:
                 if cp.pointer.exists() or any(db.execute(text(f'SELECT count(*) FROM "{table}"')).scalar()

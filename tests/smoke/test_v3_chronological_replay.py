@@ -166,6 +166,20 @@ def test_native_recorded_writer_readonly_probe_gap_jobs_and_complete_resume(nati
     assert len(counted["readonly_diagnostic_preparation"]["occurrences"]) == 1
     assert [r["own_stored_originals"] for r in counted["actual_preflight_exposure"]["occurrences"]] == [0, 1]
     assert trace.read_bytes() == before and snapshot.fingerprints() == tables and native.calls == calls
+    # A missing committed catalog cannot silently resume or become zero evidence.
+    from experiments.v3_repair import catalog_store
+    references = catalog_store.verify_trace(native.root, records)
+    assert references
+    key = next(iter(references))
+    blob = native.root / catalog_store.DIRECTORY / (key + ".json.gz")
+    preserved_blob = blob.read_bytes()
+    blob.unlink()
+    with pytest.raises(FileNotFoundError):
+        execute(native, resume=True)
+    assert trace.read_bytes() == before and snapshot.fingerprints() == tables and native.calls == calls
+    blob.write_bytes(preserved_blob)
+    assert execute(native, resume=True) == state
+    assert trace.read_bytes() == before and snapshot.fingerprints() == tables and native.calls == calls
 
 
 def test_interrupt_after_committed_source_restores_prefix_and_skips_completed_events(native, monkeypatch):
