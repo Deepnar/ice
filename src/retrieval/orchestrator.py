@@ -118,6 +118,10 @@ class ContextFragment:
     source_note_body: Optional[str] = None
     # Exact stored rows, separate from source-turn and rendered-text lineage.
     stored_artifact_ids: tuple = ()
+    # Complete source-role units covering a quote-only graph fragment. Final
+    # packing may share their slot with actually retained complete originals.
+    source_quote_requirements: tuple = ()
+    source_quote_text_sha256: Optional[str] = None
 
 # G9 (2026-08-08): every tunable number in this module moved to settings, so
 # Z1 can sweep it without editing code. What remains here are label SETS —
@@ -1656,18 +1660,30 @@ class HybridRetrievalOrchestrator:
                 CodexClaim.source_batch == source_batch).order_by(
                     CodexClaim.start, CodexClaim.id).all() if getattr(edge, "id", None) and self.db is not None else []
         if linked:
-            lines = []
+            lines, units = [], []
+            complete_coverage = bool(source)
             for claim in linked:
                 original = source_for_claim(self.db, claim)
                 if original is None or original.is_private or not excerpt_is_current(original, claim):
                     continue
+                body = claim_representation(claim, source=original)
                 line = (f"[Source excerpt; speaker: {claim.role}; {'; '.join(dates)}] "
-                        f"{source_order_stamp(original)}"
-                        f"{claim_representation(claim, source=original)}")
+                        f"{source_order_stamp(original)}{body}")
+                units.append((str(original.id), body))
+                stamp = getattr(original, "timestamp", None)
+                if (source != (stamp, getattr(original, "ts_provenance", None))
+                        or claim.role == "unknown"
+                        or any(value is not None and value != stamp for value in (learned, valid))):
+                    complete_coverage = False
                 if artifact_ids is not None and line not in lines:
                     artifact_ids.append(("codex_claims", str(claim.id)))
                 lines.append(line)
-            return "\n".join(dict.fromkeys(lines))
+            rendered = "\n".join(dict.fromkeys(lines))
+            collector = getattr(self, "_graph_quote_lines", None)
+            if collector is not None and rendered:
+                collector.setdefault(str(edge.id), []).append(
+                    (rendered, tuple(dict.fromkeys(units)) if complete_coverage else ()))
+            return rendered
         rel = f"NOT {edge.relation}" if getattr(edge, "negated", False) else edge.relation
         if artifact_ids is not None:
             artifact_ids.extend(("codex_entities", str(entity.id)) for entity in (src, tgt))
@@ -1965,6 +1981,9 @@ class HybridRetrievalOrchestrator:
     def _codex_graph(self, classification, scope: Optional[dict] = None,
                      prompt_embedding=None) -> List[ContextFragment]:
         prompt = classification.prompt
+        self._graph_quote_lines = {}
+        self._graph_nonquote_entities = set()
+        self._graph_entity_labels = {}
         self._last_matched_entities = []
         # G35: hand the traversal the request's prompt so it can rank its
         # frontier by relation fit rather than by trust alone.
@@ -2051,6 +2070,8 @@ class HybridRetrievalOrchestrator:
                     score += settings.codex_relation_fit_weight * fit
                     best_fit = max(best_fit, fit)
                 text = "\n\n".join(local_texts)
+                requirements = self._graph_quote_requirements(
+                    text, rendered_edges + fact_edges, artifact_ids)
                 fragments.append(ContextFragment(
                     text=text, source_type="codex", score=score,
                     token_count=count_tokens(text),
@@ -2064,7 +2085,10 @@ class HybridRetrievalOrchestrator:
                         {str(b) for e in rendered_edges + fact_edges
                          if (b := self._edge_source_batch(e, allowed_batch_ids))}),
                     origin_edge_ids=tuple({str(e.id) for e in rendered_edges + fact_edges}),
-                    stored_artifact_ids=tuple(dict.fromkeys(artifact_ids))))
+                    stored_artifact_ids=tuple(dict.fromkeys(artifact_ids)),
+                    source_quote_requirements=requirements,
+                    source_quote_text_sha256=(hashlib.sha256(text.encode("utf-8")).hexdigest()
+                                              if requirements else None)))
 
                 # T4: attach the anchor's evolution timeline whenever it
                 # carries real supersession history (D-U2: provided in any
@@ -2099,6 +2123,33 @@ class HybridRetrievalOrchestrator:
         except Exception as err:
             self._leg_degraded("codex", err)
             return []
+
+    def _graph_quote_requirements(self, text, edges, artifact_ids):
+        """Coverage for actual quoted lines, never inferred from source lineage."""
+        nonquotes = getattr(self, "_graph_nonquote_entities", set())
+        if any(table == "codex_entities" and str(key) in nonquotes for table, key in artifact_ids):
+            return ()
+        collector = getattr(self, "_graph_quote_lines", {})
+        required = []
+        for edge_id in dict.fromkeys(str(edge.id) for edge in edges):
+            observations = [(line, units) for line, units in collector.get(edge_id, ()) if line in text]
+            if not observations or any(not units for _, units in observations):
+                return ()
+            for _, units in observations:
+                required.extend(units)
+        bodies = [" ".join(unit.casefold().split()) for _, unit in required]
+        labels = getattr(self, "_graph_entity_labels", {})
+        for table, key in dict.fromkeys(artifact_ids):
+            if table != "codex_entities":
+                continue
+            name = labels.get(str(key))
+            if not name:
+                return ()
+            literal = " ".join(name.casefold().split())
+            pattern = r"(?<!\w)" + re.escape(literal) + r"(?!\w)"
+            if not any(re.search(pattern, body) for body in bodies):
+                return ()
+        return tuple(dict.fromkeys(required))
 
     def _edge_trust(self, edge) -> float:
         """Source quality gates entry; bounded retention/recency rank candidates.
@@ -2135,14 +2186,22 @@ class HybridRetrievalOrchestrator:
     def _render_codex_entity(self, entity, depth, out_edges, in_edges,
                              allowed_batch_ids, context_texts, rendered_edges=None, artifact_ids=None):
         """Rich source notes at anchors; compact navigation at deeper nodes."""
+        labels = getattr(self, "_graph_entity_labels", None)
+        if labels is not None:
+            labels[str(entity.id)] = entity.canonical_name
         derived = getattr(entity, "source", None) not in (None, "conversation")
         if derived and depth == 0:
+            if getattr(self, "_graph_nonquote_entities", None) is not None:
+                self._graph_nonquote_entities.add(str(entity.id))
             if entity.context_payload:
                 context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
                 if artifact_ids is not None:
                     artifact_ids.append(("codex_entities", str(entity.id)))
             return
         if depth > 0:
+            if ((getattr(entity, "entity_type", None) or "entity") != "entity"
+                    and getattr(self, "_graph_nonquote_entities", None) is not None):
+                self._graph_nonquote_entities.add(str(entity.id))
             context_texts.append(f"[{entity.canonical_name} ({getattr(entity, 'entity_type', None) or 'entity'})]")
             if artifact_ids is not None:
                 artifact_ids.append(("codex_entities", str(entity.id)))
@@ -2160,6 +2219,8 @@ class HybridRetrievalOrchestrator:
             if not note and not out_edges and not in_edges:
                 note = (entity.context_payload or "").strip()
             if note:
+                if getattr(self, "_graph_nonquote_entities", None) is not None:
+                    self._graph_nonquote_entities.add(str(entity.id))
                 from src.memory.entity_notes import current_note_support
                 label = "Source-supported account" if current_note_support(self.db, entity) else "Unverified stored note"
                 lines.append(f"[{label}] {note}")

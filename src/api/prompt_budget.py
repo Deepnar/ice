@@ -1,4 +1,5 @@
 """Assemble, account, evict optional blocks, then verify the actual result."""
+import hashlib
 from dataclasses import dataclass, field
 
 import structlog
@@ -33,6 +34,21 @@ def _covered_by_active_original(fragment, source_ids, conversation_id, summary_t
                 and fragment.source_note_body in (summary_text or ''))
 
 
+def _graph_quotes_covered(fragment, originals):
+    """Suppress only mapped graph evidence covered by actual complete originals."""
+    units = getattr(fragment, 'source_quote_requirements', ())
+    if (fragment.source_type != 'codex' or not units
+            or getattr(fragment, 'source_quote_text_sha256', None)
+            != hashlib.sha256(fragment.text.encode('utf-8')).hexdigest()):
+        return False
+    for row_id, text in units:
+        if not text or not any(source.source_type == 'episodic'
+                and source.covers_entire_source and str(source.source_batch_id) == row_id
+                and text in source.text for source in originals):
+            return False
+    return True
+
+
 def assemble_budgeted_prompt(*, serving_window, generation_reserve,
                              safety_margin=1.0, **kwargs):
     arguments = dict(kwargs)
@@ -54,6 +70,11 @@ def assemble_budgeted_prompt(*, serving_window, generation_reserve,
                 fragment, active_sources, active_conv,
                 arguments.get('conversation_summary_text'))
         ] if evidence_enabled else [])
+        # Recompute after each whole-note/eviction choice. Earlier suppression
+        # cannot survive disappearance or degradation of its covering original.
+        visible = arguments['retrieved_fragments']
+        arguments['retrieved_fragments'] = [fragment for fragment in visible
+            if not _graph_quotes_covered(fragment, visible)]
         costs, counts, artifacts = {}, {}, {}
         arguments['conversation_summary_artifacts'] = summary_artifacts.get(arguments.get('conversation_summary_text'), ())
         messages = assemble_prompt(**arguments, block_tokens=costs, block_counts=counts, block_artifacts=artifacts)
