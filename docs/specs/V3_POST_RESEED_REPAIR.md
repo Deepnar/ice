@@ -2598,6 +2598,16 @@ stably; current planning validates67 probes with no model/DB call. Ordinary and
 the earlier four-transition profile still refuse. No writer replay, coordinate
 collection or tuning promotion occurs. This guards identity, not writer quality.
 
+**Approved source-covered graph transition,2026-10-12:** the exact tested graph
+coverage/final-packing repair is now authorized and applied. Update only the
+registered current after-digests for `orchestrator.py` and `prompt_budget.py`,
+retaining the original before-digests and all thirteen registered paths. Export
+another immutable current-reader profile; retain the earlier profiles, original
+writer/dumps/trace and coordinate seals unchanged. Ordinary collection and the
+previous reader profile must still refuse. Stable export/reuse and no-call
+67-probe planning precede current-reader collection. This is reader adoption,
+not a writer replay, a new tuning configuration or a promotion.
+
 ### 2.3n Bounded durable maintenance groups —2026-10-11
 
 The current default ten-job cadences forecast4290 calls/1440 time groups over
@@ -2922,6 +2932,168 @@ control for final quality must use the same original-history window independentl
 of tier changes in the full writer store. The final writer conditions and bare
 vector index remain separate. Independent repeated/correction/long-lag supported
 answer qualification and full final condition integration remain open.
+
+**Next source/query qualification,2026-10-12:** inspect the actual retained
+two-source parent in an explicitly mapped disposable clone, preserving the
+original dump/manifest/trace bytes and verifying all35 table fingerprints.
+Review its complete original roles, five claim quotations and four graph
+assertions separately from their internal author/NLI receipts. An assistant
+assertion remains an assistant assertion, not independently verified user/world
+truth. Both original values surviving three decay jobs does not diagnose a
+reconciliation failure; that detector was not enabled in this quiet panel.
+
+Then compare the original current-port question with an explicitly named query
+of the same meaning and an earlier-port question through actual current native
+preparation, in a read-only transaction at the saved quiet clock. Observe actual
+entity extraction/matching, generated graph/claim evidence, final selected
+role-qualified wording and prompt cost. No scorer/reference text enters runtime.
+Use installed components and existing local source verification; no cloud
+answer/judge, new model, threshold change or writer replay. Bind current code,
+inputs, local model identity and instrument, and retain every failed attempt.
+Blocked or degraded paths stay explicit; do not call an empty fallback a clean
+semantic result. This is a source/access diagnostic, not independent answer
+accuracy, >40-turn retention, population precision or final ablation evidence.
+Decide a core repair only after tracing an observed wrong/missing source.
+
+**Actual source/query result,2026-10-12:** a separately identified clone matches
+all35 original table fingerprints; five claim quotations resolve within exact
+role-bound source paragraphs. Four graph relations agree with their attributed
+original assertions in session review, three assistant and one user; this is
+not blinded human/population precision or external truth. A first audit wrongly
+assumed claim offsets cover only its sentence; the actual contract covers its
+containing paragraph. Preserve that context, do not shrink offsets to the quote.
+
+Three actual installed-component reads at the67-day simulated quiet cutoff
+preserve clone/original state. Generic current, explicitly named current and
+earlier-value questions supply both complete originals at466/647/747 prompt
+tokens. All retain the user correction, original roles and source order. Actual
+NER matches the generic project's node; its only direct edge is below the0.5
+source-quality floor. Naming the service also matches a high-tier node and
+emits a graph fragment; no further entity model or lower trust floor is justified.
+The earlier-value phrase keeps current graph navigation but both complete
+dated originals remain supplied; no answer or temporal accuracy is inferred.
+
+The named-current graph repeats both assistant source units already supplied
+in full originals, adding181 tokens; the historical query adds280 graph tokens
+of the same evidence plus navigation headings. This is a bounded source-coverage
+and packing inefficiency, not proof that the graph component is useless.
+Nine local transport requests, no cloud answers/judges or writer re-execution.
+Private source/reader receipts: logs/v3-quiet-semantic-review-2026-10-11-r2 and
+logs/v3-quiet-semantic-review-2026-10-12-r5. Retain the refused database identity,
+blocked lazy HF startup and private helper's omitted native observation-context
+attempts; they are instrument failures, not production failure rates.
+
+**Decided candidate: source-covered graph packing.** Prepare privately in
+`orchestrator.py` and `prompt_budget.py`; source editing remains human-gated.
+Append default-empty graph source-unit requirements to ContextFragment. Actual
+source renderers collect current complete role units, exact original IDs and
+their rendered-line association while they already hold source/claim objects;
+no new SQL/model call. Attach complete coverage only when every rendered edge
+has such a current quotation and introduces no distinct learned/valid date,
+generated/derived note, unverified relation or non-generic preview type. Unknown
+or partly mapped graph fragments retain their original behavior. Metadata stays
+outside model messages and is not additional truth/corroboration evidence.
+An opposing alias control exposes missing heading coverage in the first private
+candidate: a resolved canonical name can add information absent from its quoted
+sources. Keep that failed private epoch. Require every actually rendered entity
+name to appear as a complete literal value in the required original role units,
+allowing case/whitespace copying only. Collect names from already loaded render
+objects, with no extra query. Missing or externally resolved names retain the
+graph; do not erase alias/referent information from source-only coverage.
+Bind those requirements to the exact emitted fragment-text hash. Existing
+dataclass replacement/degradation can change text while copying metadata; a
+changed body must retain the graph unless the producer creates a fresh complete
+coverage receipt. Never infer complete coverage from bare lineage/row IDs.
+
+At each final prompt assembly iteration, after current source-note filtering,
+omit a coverage-qualified graph fragment only when every required role unit
+occurs in an actually retained complete episodic original with the same row ID.
+Recompute from the unchanged candidate list on every rebuild: an evicted,
+degraded, partial, wrong-ID or missing original cannot authorize suppression.
+Keep all unique notes, timelines, legacy relations and necessary graph excerpts.
+Do not suppress at the earlier retrieval shortlist/budget, where originals might
+still disappear during final packing. Ranking, source/trust/date/scope decisions,
+models, thresholds, stored facts and originals remain unchanged.
+
+Qualify actual native source→graph construction and final whole-prompt packing,
+both arrival orders and multiple source requirements, unique notes/dates/types,
+stale/missing/partial originals, complete original versus degraded summary,
+legacy/empty metadata and source-note replacement/eviction. Recount required
+content/role/order and actual prompt tokens on the retained three-query clone;
+keep the generic no-graph path unchanged and graph-only/unfit-source paths
+usable. Native controls and compatibility checks precede a concrete source
+approval. This candidate does not close independent answer gains, trust-tier
+calibration, long-lag retention or a complete roadmap owner.
+
+**Private qualification complete,2026-10-12:** the final conservative candidate
+passes18 focused controls,57 existing compatibility controls and the three
+actual installed-component native reads. Full/no-graph generic preparation
+remains466 tokens; the two graph-producing preparations change647→466 and
+747→467 tokens while retaining identical complete originals and source gates.
+Generated/ranked/budgeted text, scores and ordering match; only existing
+unordered edge-lineage arrays are compared as sets. All35 saved tables and
+original producer artifacts remain unchanged. No answer is generated or graded.
+The r2 alias opposing failure remains in the qualification history; the r3
+copied-name guard prevents that information loss. Exact source-before/candidate/
+input/test/log hashes and the two-file patch are sealed privately in
+logs/v3-source-covered-graph-2026-10-12-r3/qualification-receipt.json.
+The human subsequently approved tested source changes; the exact two-file patch
+is applied.18 permanent source/SQL/final-pack controls pass17.29s/154 existing
+warnings. Applied three-query confirmation matches the qualified candidate with
+actual installed MicroNER, unchanged complete originals/models/all35 saved
+tables and no cloud answers. A new exact thirteen-path reader profile exports/
+reuses stably and validates67 no-call planned units; ordinary and prior-profile
+commands retain their refusal. The deployed full smoke/background/dynamics
+regression passes1354 checks1032.33s/530 existing warnings;315 source/native-
+helper/research/test files stay fixed and the isolated store is removed.
+Earlier applied-helper output
+is retained: blocked tokenizer metadata caused a warned regex fallback, then a
+relative fingerprint path failed its receipt. The corrected helper locally
+resolves the same installed native tokenizer and uses absolute receipt paths;
+no production NER/head/threshold change follows. Original semantic and retention
+obligations remain below; token savings are not answer-quality gains.
+
+**Next original retention qualification, grounded2026-10-12:** the exact current
+frozen tuning view contains251 originals and67 reviewed occurrences at12 cutoffs.
+Every occurrence's youngest gold source is at least40 turns old, reaching217.
+All67 question strings are distinct; absent explicit family IDs alone did not
+establish that, so a separate exact-question audit verifies it. This selected
+older-only partition cannot measure first-answerability→older retention for the
+same question. Preserve its labels and admission rule; do not retrospectively
+invent early answers or mix recent controls into lookup tuning scores.
+
+Prepare one bounded, source-by-construction chronological control in a new
+disposable native parent.43 authored recorded pairs contain an initial explicit
+selection,41 unrelated acknowledgements, then an explicit correction. Original
+dates/roles/ordinals are retained; the aging/query clock is explicitly simulated.
+Five separately reviewed diagnostics ask the same current-value question at
+turn1, after41 intervening originals at turn42, immediately after the correction
+at turn43, and after a declared two-hour quiet gap. An additional historical
+question at turn43 asks the earlier value. Every occurrence has its own source
+key, cutoff-reviewed expected value, current/recent answerability and family ID;
+the earlier-value question is a separate family. Runtime projections contain
+questions, never the expected value or gold key.
+
+Use the actual native preflight/import/post-flight chain, installed local model
+pair and the full ten-job chronological roster at unchanged default cadence.
+Do not force an archive, set strengths, change thresholds, forge successful
+anchors, override classification, or fabricate assistant answers. All original
+assistant replies are authored recorded acknowledgements; probes do not generate
+answers. Observe all four shared-store diagnostic preparations, actual final
+role-qualified required content and original-history recent-window membership.
+Bind code/models/source plan, full fault/catalog receipts and every completed
+source/probe prefix. Verify complete source integrity and byte-stable completed
+resume. Review any actually generated maintenance material against its originals;
+job completion alone is not semantic qualification.
+
+This qualifies a full-writer before/after-window/correction mechanism and may
+expose a concrete core defect. It is not corpus accuracy, independent baseline
+superiority, cloud answering, natural calendar retention, broad maintenance
+precision or parameter selection. Empty maintenance branches stay inert. The
+previous default67-day cold panel remains separate evidence; this two-hour gap
+does not promise another cold transition. No validation/final B/C question bodies
+or oracle data are consulted. Local bounded execution starts only after the
+current deployed regression completes; preserve every failed epoch.
 
 **Helper-identity grounding correction:** native `code_files` already binds
 eleven scripts/z1 helpers alongside src, including serialization, parity, clock,
@@ -3335,6 +3507,27 @@ unqualified grades may diagnose but cannot select a score-of-record configuratio
 No final campaign or hyperparameter result exists yet.
 
 ### 5.2 Remaining work by next evidence stage — rechecked2026-10-10
+
+**Original pre-tuning status, rechecked2026-10-12:** the mechanism repairs and
+many prerequisite audits are implemented; the original acceptance work is
+**not complete**. This distinction predates defects found during later checks.
+Current source-to-summary/graph/procedure/maintenance semantic review still
+needs qualified dispositions, especially exact corrections, roles, direction
+and required-detail omissions. The new native chronological parent has recovery
+and simulated quiet/cold controls, but its two-source quiet panel does not
+qualify a question after40 intervening originals or all-job semantic retention.
+Meaningful repeated/correction/long-lag qualification still precedes lifecycle
+parameter selection. Independent scoring used for configuration promotion is
+also pending; human judge review remains parked, so current grades stay
+diagnostic. Complete these obligations and fix demonstrated failures before
+calling the system tuning-ready. A catalog counter or a passing mechanism test
+does not satisfy this acceptance work.
+
+Final B/C condition isolation, all ablation/baseline consumers, oracle adapter,
+dual-judge/cost manifest and final manual launch/recovery qualification remain
+separate launch-readiness work. Some orchestration can be prepared alongside
+the prerequisites; outcomes and configuration freeze follow bounded tuning.
+Do not add these again as new repair packages or equate them with final results.
 
 **The repairs are not the whole roadmap.** The formal count remains160 anchored
 items:93 checked,67 open =29 dependency-sensitive owners +35 later items

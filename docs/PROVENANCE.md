@@ -1,3 +1,117 @@
+## 2026-10-12 — v3 applied source-covered graph packing
+
+Human approval covers the exact tested two-file graph coverage/final-packing
+patch. Applied source bytes match the final private candidate.18 permanent
+native SQL/source/packing controls pass17.29s/154 existing warnings. Three actual
+installed-component reads match the private candidate, preserve both complete
+originals, and change prompt466/647/747 to466/466/467 tokens. Only existing
+unordered edge-lineage arrays are normalized in paired comparisons. All35
+saved-table fingerprints and original producer artifact hashes/mtimes remain
+exact; disposable clones removed. No cloud answer/judge or new model is used.
+
+The first applied confirmation helper completes its queries but blocks lazy
+request-tokenizer metadata, causing a warned regex fallback; its final receipt
+then fails on a relative fingerprint path. Retain that failed epoch, not an
+installed-NER qualification. The corrected helper resolves the same installed
+native tokenizer locally, checks head/tokenizer availability and uses absolute
+receipt paths. Actual MicroNER entities and generated/ranked/budgeted/gate
+fields now match the qualified candidate. Source NER code/head stays unchanged.
+
+New immutable thirteen-transition reader profile exports/reuses byte-and-mtime
+stably; current planning validates67 units without model/DB calls. Ordinary
+and previous-profile commands refuse. Writer/proof/dump/trace state remains
+frozen, never relabeled new-writer outcomes. Profile identity
+`018b86bf25c9f482b52358d7e7a555cce8b54b08c941d556656ab6b37dc8014a`.
+Private export/reuse/refusal receipts:logs/v3-reader-adoption-2026-10-12-r1.
+
+Full disposable smoke/background/dynamics regression passes1354 checks in
+1032.33s with530 existing warnings;315 bound source/native-helper/research/test
+files remain fixed throughout and the store is removed. Checks overlap the
+focused controls; they are not independent accuracy samples. Final immutable
+application/native/profile/regression receipt:
+logs/v3-source-covered-graph-applied-2026-10-12-r2/final-qualification.json.
+The failed first applied helper remains under the corresponding r1 directory.
+
+A passive exact frozen-tuning source audit also confirms251 originals,67
+reviewed occurrences,12 cutoffs and67 distinct question strings. Every youngest
+gold source is at least40 turns old, reaching217. This older-only partition
+does not measure the same question's first-answerability→older retention; absent
+explicit family IDs alone was insufficient, so a second exact-question audit
+checked repetition. Original labels are retained. Private input-only receipts:
+logs/v3-retention-readiness-2026-10-12-r1. No reserved validation/final data,
+DB/model call, tuning or quality promotion is involved.
+
+Independent answer utility, population precision, meaningful chronological
+retention and whole quality-owner acceptance remain open. The newly specified
+43-source chronological control is not yet executed at this record. No whole
+roadmap owner closes, publication occurs, or existing experiment progress resets.
+
+## 2026-10-12 — v3 actual cold source/query review and private graph packing
+
+Retained actual local-writer fixture: two authored recorded pairs, one correction,
+five claims/four edges,67 explicitly simulated quiet days and only three decay
+jobs. An independent disposable clone matches all35 table fingerprints from its
+original complete dump. Five quotations resolve within exact current role-bound
+paragraphs; source review supports four attributed assertions, three assistant
+and one user. This is session review, not blinded human/population precision or
+external truth. Old/current originals both survive. Reconciliation was not run
+in this fixture, so both graph values surviving does not diagnose that detector.
+Private original/state/source receipts: logs/v3-quiet-semantic-review-2026-10-11-r2.
+
+Three actual current native preparations at the saved quiet clock use installed
+classifier v4/schema2, shared Qwen3 encoder, request NER, Qwen3 reranker and pinned
+source proof with existing E4B. Writer digests remain bound; NuExtract is not
+called by these reads. Complete native preamble/shared preparation/final packing
+runs under the existing probe observation context. Original producer artifacts
+and all35 clone tables remain unchanged; stores removed. Generic-current,
+named-current and earlier-value questions supply both complete originals at
+466/647/747 prompt tokens. Generic NER matches the project node, but its0.35
+source tier fails the unchanged0.5 graph admission floor. Named queries also
+match high-tier nodes and emit graph evidence. No trust/NER replacement follows.
+The relative earlier-value question retains current graph navigation while dated
+originals supply both versions; no answer/temporal-accuracy score is inferred.
+Private reader packet: logs/v3-quiet-semantic-review-2026-10-12-r5.
+
+The graph repeats source wording already supplied in full originals, adding181
+tokens on the named-current question and280 on the earlier-value question.
+Prepare a private two-file coverage/packing candidate under the grounded spec:
+actual current role units, original IDs, exact body hashes and copied entity names
+authorize suppression only when complete covering originals survive final prompt
+assembly. Unique notes/types/learned dates/aliases, legacy/unknown metadata and
+partial/missing sources retain graph evidence. No stored fact, model, threshold,
+ranking or source/trust/scope decision changes; no additional SQL in the authored
+paired graph-read control. Metadata stays outside model messages.
+
+Final private r3:18 focused native source/packing/opposing controls pass17.64s/
+154 existing warnings;57 existing compatibility controls pass30.11s/27 warnings.
+Three installed-component candidate reads retain exactly the same complete
+selected originals and gates; generated/ranked/budgeted texts, scores and order
+match, with only the pre-existing unordered edge-lineage array order normalized.
+Prompts become466/466/467 tokens, saving0/181/280. All35 tables and original
+artifacts remain unchanged. Each three-read epoch makes nine local transport
+requests: tags/residency/model metadata plus six actual E4B frame/fill calls.
+No historical answer generation, cloud answer/judge or independent answer grade.
+Model profiles/digests match baseline. Artifact growth/VRAM peaks, population
+precision, long-lag retention and better answers per token remain unqualified.
+
+Failed epochs retained: different-database restore refused before reads; lazy
+HF metadata blocked by the local-network guard; one private helper omitted native
+probe observation and its clone-mutation assertion failed after cold restoration.
+The actual campaign already uses that observation context. A first audit expected
+sentence-only offsets rather than containing paragraphs. Initial candidate's
+ledger-object comparison was corrected to snapshots; an opposing alias control
+then exposed information loss and caused the one conservative name-copy guard
+revision. The first seal incorrectly compared unordered edge IDs by position;
+all candidate ordering/text/scoring remains exact. None is relabeled a clean
+production failure rate or omitted from qualification history.
+
+Private final candidate, patch and immutable qualification-receipt.json:
+logs/v3-source-covered-graph-2026-10-12-r3. Source bytes still match the saved
+before files; apply check passes. Production application requires explicit human
+approval, followed by permanent controls, deployed full regression and a new
+exact reader profile. It is **not applied** at this record. Original pre-tuning
+quality/retention/judge requirements remain; no whole owner closes or push.
+
 ## 2026-10-11 — v3 lossless catalog file capture and recount
 
 Research-only change: `catalog_store.py` and native chronological serialization/

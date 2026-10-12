@@ -1520,6 +1520,7 @@ wins; where it conflicts with the code, the code wins.**
 | Foreground/extraction model separation | `extract_codex` does not pass foreground `model_used` as extraction override; explicit arm overrides remain in `extract_triplets` | existing specialist setting | YES |
 
 | Graph source rendering | `orchestrator._fact_line`, `_render_codex_entity`, tag enumeration; linked attributed evidence replaces cached relationships; exact rendered edge IDs; negative facts remain non-navigable | Existing graph scope/time/trust controls | YES; legacy relations/notes explicitly unverified |
+| Graph/source context sharing (v3,2026-10-12) | `orchestrator.py::_graph_quote_requirements` and `ContextFragment.source_quote_requirements/source_quote_text_sha256`; `prompt_budget.py::_graph_quotes_covered` | No new setting; default-empty metadata cannot suppress graph evidence. Existing final budget/trust/scope remain | YES for completely mapped graph quotations whose same-row complete originals survive final packing. Unique names/notes/types/dates and partial/missing/stale/legacy coverage retain the graph.18 permanent controls and three installed-component reads pass; two authored prompts save181/280 tokens, not an answer-quality result |
 | Cold restoration preserves evidence | `_resurrect_cold_hits`; archived vector reused, NULL vector retained with warning; unknown timestamp provenance remains unknown | `retrieval_strengthen_writes=True` | YES for selected cold hits with conversation identity |
 
 ### v3 turn representation support (2026-09-19)

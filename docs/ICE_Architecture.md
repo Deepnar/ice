@@ -1540,7 +1540,31 @@ There is no separate emotional/creative branch inside assemble_prompt. The bypas
 
 ### **7.4 Token budget enforcement during assembly**
 
-Assembly is a two-layer budget process. The orchestrator's _enforce_token_budget packs fragments to max_retrieval_tokens (§6.5). Then api/main.py recomputes total_words against int(0.9 * 4096 / 1.33) ≈ 2 770 words and, if over budget, iteratively pops **procedural** fragments first, then **episodic** fragments, reassembling after each pop. Codex fragments are preserved — they are the hardest to recompute and the most likely to carry the answer. (The RAG half of that rule died with the leg, C12; a document's sections are episodic fragments now and are shed under the same rule as any other.)
+ICE v3 uses two budget layers. The orchestrator first selects fragments under
+`max_retrieval_tokens` (§6.5). Shared `prompt_budget.assemble_budgeted_prompt`
+then builds the actual messages and accounts for every block with `ContextLedger`,
+using the serving window, configured generation reserve and tokenizer safety
+margin. Conversation notes have whole-note alternatives. After each replacement
+or eviction, assembly rebuilds the visible evidence and its artifact ledger.
+The former fixed4096 word-count loop described here is no longer current code.
+
+The default optional-block eviction order is session-start context, slots,
+bookmarks, conversation summary, recent turns, then retrieved evidence. User
+constraints, the current question and essential system instruction remain.
+If removing all optional blocks cannot make the prompt fit, the final ledger
+still reports the overflow; an unknown serving window warns that fit is unmeasured.
+
+The approved source-covered graph repair collects complete original role units,
+actual original IDs and rendered entity names while building graph quotations.
+It binds coverage to the exact graph-body hash. Final assembly omits that graph
+fragment only when every required unit occurs in a retained complete original
+from the same row. Unique names/notes/types/dates, legacy relations and incomplete
+coverage retain the graph. This decision is recomputed on each rebuild, so note
+replacement or source eviction cannot leave stale suppression. Retrieval ranking,
+trust and stored facts are unchanged.18 permanent controls and three actual
+installed-component reads qualify this packing step; the two graph-producing
+prompts save181/280 tokens with identical complete originals. These authored
+checks do not establish representative answer-quality or component-value gains.
 
 
 ## **8. Background Maintenance Runtime**

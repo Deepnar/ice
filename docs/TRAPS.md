@@ -2661,3 +2661,16 @@ Use the same shared membership filters over warm links and known cold arrays;
 unknown legacy membership still stays closed under constraints. Qualify both
 direct SQL and final preparation under budget pressure, plus opposing exclusions
 and actual warm parity. A passing archive-copy test cannot certify every reader.
+
+### 125. Covering graph quotations does not cover their resolved names
+
+ICE v3,2026-10-12: a private packing candidate removes graph text when complete
+originals cover every quoted role unit. Its first native comparisons save181/280
+tokens while preserving both originals. An opposing source/alias control then
+shows that a resolved canonical name appears only in the graph heading; deleting
+that heading loses information even though every quotation remains. Require the
+actually rendered names as well as quoted role units to be covered, and preserve
+unique notes, types and dates. Bind the complete emitted body hash so later
+fragment replacement cannot copy a stale coverage receipt. Recompute at final
+assembly after every source-note replacement/eviction. A source-ID union alone
+cannot establish complete graph coverage or authorize removal of its context.
