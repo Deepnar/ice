@@ -3270,6 +3270,31 @@ class HybridRetrievalOrchestrator:
                 and episodic.source_type == "episodic" and episodic.covers_entire_source
                 and str(episodic.source_batch_id) == note.source_note_row_id)
 
+    @staticmethod
+    def _same_source_excerpt_contains(source, excerpt):
+        """Exact retained text and contributors, never parent-only deduplication."""
+        return bool(
+            source.source_type == excerpt.source_type == "episodic"
+            and source.source_batch_id and source.conversation_id
+            and source.source_batch_id == excerpt.source_batch_id
+            and source.conversation_id == excerpt.conversation_id
+            and excerpt.text and excerpt.text in source.text
+            and source.stored_artifact_ids and excerpt.stored_artifact_ids
+            and set(excerpt.stored_artifact_ids) <= set(source.stored_artifact_ids)
+            and set(excerpt.origin_batch_ids) <= set(source.origin_batch_ids)
+            and set(excerpt.origin_edge_ids) <= set(source.origin_edge_ids)
+            and (not excerpt.covers_entire_source or source.covers_entire_source)
+        )
+
+    @classmethod
+    def _omit_covered_source_excerpts(cls, fragments):
+        """Spend selected overlapping source text once without budget backfill."""
+        return [excerpt for index, excerpt in enumerate(fragments)
+                if not any(other != index
+                    and (len(source.text) > len(excerpt.text) or other < index)
+                    and cls._same_source_excerpt_contains(source, excerpt)
+                    for other, source in enumerate(fragments))]
+
     def _enforce_token_budget(self, fragments, max_tokens=None, *, relevance_order=False,
                               current_conversation_id=None):
         if max_tokens is None:
@@ -3350,6 +3375,8 @@ class HybridRetrievalOrchestrator:
                        sorted(fragments, key=lambda f: f.score, reverse=True))
             for f in ordered:
                 admit(f)
+            result = self._omit_covered_source_excerpts(result)
+            total = sum(fragment.token_count for fragment in result)
             self._log_leg_budget_share(
                 result, total, max_tokens,
                 selection_mode="reranked_relevance" if relevance_order else "fusion_relevance")
@@ -3383,6 +3410,8 @@ class HybridRetrievalOrchestrator:
                     active.remove(leg)
             # Every queue advances even if nothing fits this round. A later
             # smaller excerpt can still fit; do not stop at an oversized head.
+        result = self._omit_covered_source_excerpts(result)
+        total = sum(fragment.token_count for fragment in result)
         self._log_leg_budget_share(result, total, max_tokens,
                                    selection_mode="fusion_family_diversity")
         return result
