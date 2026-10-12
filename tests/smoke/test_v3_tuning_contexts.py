@@ -146,7 +146,11 @@ def test_native_prefix_collection_recovers_without_duplicate_units_or_writer_eff
 
         monkeypatch.setattr(settings, "context_use_serving_window", False)
         monkeypatch.setattr(settings, "memory_source_gate_enabled", False)
-        code = [fingerprint(path) for path in recovery.code_files()[1]]
+        # The real sealed producer binds research dependencies as well as
+        # native files. Every registered transition must be declared here too.
+        paths = set(recovery.code_files()[1]) | {
+            reader_adoption.ROOT / relative for relative in reader_adoption.TRANSITIONS}
+        code = [fingerprint(path) for path in sorted(paths)]
         for record in code:
             if record["path"] in reader_adoption.TRANSITIONS:
                 old = reader_adoption.before_bytes(record["path"])

@@ -43,8 +43,8 @@ TRANSITIONS = {
     },
     "src/retrieval/orchestrator.py": {
         "before": "5027817122bad3a1eb9952132f056daebd3acaf574778da57826ac0a446d5b61",
-        "after": "754292dcb01bd3400491bb69e375f09d4228e30f83115b42992a92bad7d3f99f",
-        "reason": "Approved native artifact IDs, preserved cold claim membership and source-covered graph metadata; graph text/ranking/proofs and frozen writer outcomes remain unchanged.",
+        "after": "a79a4e93ebae97f4414d2c1cd6fb80fc5ca13de432f186a980ac0735bc0cc7e4",
+        "reason": "Authorized tested native artifact IDs, preserved cold claim membership, source-covered graph packing and exact same-source selected excerpt omission; ranking/proofs and frozen writer outcomes remain unchanged.",
     },
     "src/retrieval/evolution.py": {
         "before": "a05d0f0923daf0a545d45ffe7a9412854e86504bec43726624b75942a9fd8051",
@@ -80,6 +80,11 @@ TRANSITIONS = {
         "before": "053e893b754aceccb1989aac0aefe7a5feafc26875094d9239ff101e08fb5e53",
         "after": "9ec0814f29a82390b48d5e17424ee568e238c93c47216adfa68df125e3e8277f",
         "reason": "Exact research serialization of stored IDs, rendered versions and final block receipts; old captured writer/reader outcomes are retained.",
+    },
+    "experiments/v3_repair/tuning_plan.py": {
+        "before": "c1480d90cfd749ebff1f690c5ce70bb85b7a5438dccccb1b4726b51602a9a070",
+        "after": "ee728a131f54940bf82f7f04122ed0806b7d57a1abc460927fff63eca0c9b5e9",
+        "reason": "Tested required content/noise/opposing-rejection dependency for the existing relevance floor; coordinates and frozen writer outcomes remain unchanged.",
     },
 }
 

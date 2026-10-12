@@ -52,7 +52,7 @@ def test_profile_separates_frozen_native_code_and_current_reader(profile_source)
     assert adoption.build(root, config, seal) == profile
 
 
-@pytest.mark.parametrize("fault", ["reader", "unknown", "missing", "extra_native", "old_bytes", "duplicate", "outside"])
+@pytest.mark.parametrize("fault", ["reader", "unknown", "missing", "extra_native", "old_bytes", "duplicate", "outside", "undeclared_transition"])
 def test_unregistered_changes_refuse_before_bundle_inspection(profile_source, monkeypatch, fault):
     from scripts.z1 import replay_checkpoint
 
@@ -69,6 +69,10 @@ def test_unregistered_changes_refuse_before_bundle_inspection(profile_source, mo
         monkeypatch.setattr(replay_checkpoint, "code_files", lambda: (root, [source, other]))
     elif fault == "old_bytes": monkeypatch.setattr(adoption, "before_bytes", lambda _relative: b"wrong historical bytes")
     elif fault == "duplicate": config["identity"]["code"].append(config["identity"]["code"][0])
+    elif fault == "undeclared_transition":
+        config["identity"]["code"].clear()
+        seal["identity"]["code"].clear()
+        seal["identity_sha256"] = digest(seal["identity"])
     else: config["identity"]["code"][0]["path"] = "../outside.py"
     config["identity_sha256"] = digest(config["identity"])
     with pytest.raises((ValueError, FileNotFoundError)):
