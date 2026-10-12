@@ -1302,13 +1302,25 @@ source-type quotas. Method and available/pool family counts are logged. It
 scores those candidates and each eligible rendered
 alternative using the pinned local Qwen3-Reranker-0.6B. Scores are yes/no logit
 differences, **not factual confidence**. Ordering is ON by default; the optional
-rejection floor is unset because the first controls did not qualify it. A
+rejection floor remains unset pending content/answer calibration. A
 successful rerank bypasses geometric coverage selection and source-type budget
 quotas, packing in relevance order and considering each alternative's own score.
 Oversized fragments do not stop smaller later evidence. Exact source identities
 survive replacements. The stage cannot recover facts absent from its bounded
 candidate pool, and unset rejection can still admit irrelevant content with room
 in the budget.
+
+**v3 relevance admission qualification,2026-10-12:** five paired native reads
+at exact authored first/older/corrected/historical/quiet cutoffs compare the
+existingNone floor with diagnostic -5. Generated candidates/entities/gates and
+all required original user units remain unchanged; full prompts save up to2619
+tokens, including removal of three irrelevant behavioral procedure fragments.
+This is local applicability, not corpus answer improvement. A historical
+zero-floor counterexample would remove required content, and parent-ID losses
+can also reflect unrelated or redundant sources. The research ledger therefore
+marks the existing floor as a pending relevance stage with a named qualification
+dependency and no invented ranges. Runtime defaults, trust/activation and model
+identities stay unchanged. [Evidence and limits](PROVENANCE.md#2026-10-12--v3-chronological-windowcorrection-and-relevance-admission).
 
 The model loads from local cache only, serializes access, leaves pairs beyond
 4096 template-inclusive tokens unscored with a warning, retaining complete fallback evidence while scoring fitting pairs, computes only

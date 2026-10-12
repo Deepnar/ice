@@ -1,3 +1,93 @@
+## 2026-10-12 — v3 chronological window/correction and relevance admission
+
+A new disposable native parent processes43 authored recorded user/assistant
+pairs, including41 unrelated intervening acknowledgements and an explicit later
+correction. Five separately reviewed occurrences ask the same current-value
+question first, after the old source leaves the recent window, after correction,
+and after two simulated quiet hours; a historical question requires both earlier
+selection and correction. Reviewed answers/source keys join only after the native
+question-only preparation. No original or probe reply is generated.
+
+All48 chronological events and20 four-arm shared-store preparations complete
+in839.73s, with all ten default conversation jobs, ten empty bootstrap calls and
+11 scheduled calls. There are zero degraded workers/failed attempts and231
+observed local transport requests.43 complete originals preserve their exact
+role text, dates and verified order. Completed resume preserves trace bytes and
+all35 table fingerprints; the owned test database is removed. No cloud call,
+answer grade, independent baseline result or configuration selection is made.
+Every saved evaluation cutoff retains its immutable complete store. The original
+unexecuted historical-key draft is retained; its reviewed replacement correctly
+includes two sources and a temporal task before native execution.
+
+Full prompt access preserves the exact initial source after41 intervening
+originals while the original-history recent control excludes it. Both sources
+remain after correction. Recent selection is also token-bounded:36 pairs fit at
+the later cutoffs, rather than every pair in the40-turn maximum. These results
+qualify required-content availability on this authored fixture, not answered
+retention, representative accuracy or superiority over independent vector.
+The two-hour clock is simulated and produces no natural cold transition; the
+earlier67-day cold control remains separate evidence. Native receipts and logs:
+logs/v3-window-correction-native-2026-10-12-r1.
+
+A separate read-only disposable clone matches every table fingerprint and leaves
+all original producer hashes/mtimes unchanged. Diagnostic unblinded source review
+checks46 exact role-bound claim spans, six attributed graph assertions, three
+entity accounts/seven cited assertions, two coherent member-backed cluster
+labels, one correction-preserving session summary and two source-consistent
+pending proposals. Four procedures truthfully describe acknowledgements; none
+answers the port questions. Overlapping descriptions with unknown mutual
+entailment remain separate. Turn/rolling/batch summaries are inert here, and
+job completion is not semantic coverage of every branch. No population precision,
+instruction utility or answer-use claim follows. Private state/semantic receipt:
+logs/v3-window-correction-semantic-review-2026-10-12-r1.
+
+This native run exposes context waste despite correct ranking. Existing
+`retrieval_rerank_min_score=None` admits scored candidates without rejection;
+the field was already implemented and inventoried as held current policy. A
+passive historical primary-only audit finds4288 candidates on67 occurrences,
+447 at a zero floor, with seven occurrences losing some available golden-parent
+ID credit. One admitted lookup's negative-score original contains required
+historical content. Some other lost parent credits are irrelevant or redundant;
+an ID loss alone is not an answer loss. Seven diagnostic source-content
+dispositions are retained without changing frozen labels. Alternative scores,
+current-reader effects and answer accuracy are unobserved in this passive audit.
+Private cards:logs/v3-rerank-floor-applicability-2026-10-12-r1.
+
+Ten actual current full preparations compare only `None` versus a conservative
+diagnostic floor of -5 at the five exact as-of states. All normal eligible text
+variants are scored. Complete required original user units, including both
+historical sources, remain; all gates/table fingerprints and producer bytes/
+mtimes are unchanged. Full prompt tokens before/after:481/481 first,5073/2454
+older,5161/2542 corrected,5162/2543 historical,3096/2683 quiet. Three irrelevant
+procedures disappear with the floor.23 local transport requests, zero cloud or
+generated answers. Default settings remain unchanged, and logits are not
+calibrated probabilities. Recent originals still consume their native allocation.
+Private paired native receipt:logs/v3-rerank-floor-native-2026-10-12-r1.
+
+Research ledger revision3 now marks this existing floor as a pending
+`relevance_admission` stage with a required content/noise/rejection-opponent
+dependency, no invented range, no writer replay and no qualified promotion.
+Missing/empty dependencies refuse export; old sealed plans remain immutable.
+53 focused tuning/collector/comparison/answer controls pass74.21s/two warnings.
+Full disposable smoke/background/dynamics regression passes1356 checks in
+992.70s with530 existing warnings. All315 bound source/research/helper/test
+files stay exact; test stores are removed. The suites overlap and are not
+independent memory-quality samples. No whole roadmap owner closes, push occurs,
+or tuning/final campaign launches. Representative source/context/answer and
+independent scoring gates remain.
+
+Fresh offline input/coordinate/ledger bundles seal and reuse with exact bytes
+and mtimes, with no DB/model/API call or trial execution. Selected inputs retain
+352 development pairs/73 keys, separate B1119/C325 originals and500 official
+oracle keys. No new source/correction review is claimed for final legacy
+references. The30 coordinates still cover13 read-grid settings and the hard
+input cap; ledger dispositions are13 planned/30 conditional/129 held/one retired.
+The old seal refuses the new ledger dependency and remains unchanged. New
+bundles:logs/v3-offline-input-plan-2026-10-12-r1,
+logs/v3-bounded-tuning-plan-2026-10-12-r1,
+logs/v3-tuning-ledger-2026-10-12-r1. Final16-artifact native/planning/regression
+qualification receipt:logs/v3-rerank-floor-native-2026-10-12-r1/final-qualification.json.
+
 ## 2026-10-12 — v3 applied source-covered graph packing
 
 Human approval covers the exact tested two-file graph coverage/final-packing
