@@ -2503,6 +2503,20 @@ verification metadata therefore use raw evidence. Archive metadata parity remain
 open. Optional geometric coverage remains off by default and is not qualified by
 this repair. Candidate limits still bound what the reranker can see.
 
+**v3 exact selected-excerpt coverage,2026-10-12:** the existing native budget
+method preserves its original rank/cap/degradation/selection decisions, then
+omits an excerpt whose entire text and artifact/source/edge identities are
+covered by another actually selected episodic fragment from the same original
+and conversation. Shared parent identity or semantic similarity alone cannot
+suppress a window. Disjoint text, unknown metadata, separate sources and complete
+original capability remain. Equal bodies keep an earlier covering representative.
+No freed-budget backfill or new model/setting is introduced; selected costs are
+recalculated. Three actual reads on a frozen writer preserve every other selected
+fragment and required-content disposition, saving407 prompt tokens in the two
+128-candidate cells. This bounded context saving does not establish answer
+accuracy or qualify a global shortlist/rejection setting. Immutable evidence:
+[retained-source provenance](PROVENANCE.md#2026-10-12--v3-retained-source-admission-and-required-unit-readiness).
+
 ### v3 archive collision contract —2026-09-21
 
 Decay locks selected live source rows and upserts transferred evidence into cold

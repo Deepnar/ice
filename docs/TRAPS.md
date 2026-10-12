@@ -2674,3 +2674,16 @@ unique notes, types and dates. Bind the complete emitted body hash so later
 fragment replacement cannot copy a stale coverage receipt. Recompute at final
 assembly after every source-note replacement/eviction. A source-ID union alone
 cannot establish complete graph coverage or authorize removal of its context.
+
+### 126. Removing overlap and refilling budget changes more than overlap
+
+ICE v3,2026-10-12: a private exact-containment packing candidate preserves the
+required historical value and passes its focused controls. On an actual saved
+reader state, reclaiming407 redundant tokens immediately admits a higher-ranked
+430-token candidate and displaces another unique75-token selected source. The
+required-value metric stays green, but this is no longer a pure context saving.
+Keep that unqualified tradeoff separate: the deployed narrow repair omits only
+covered excerpts after the existing selection and does not refill its savings.
+Check every removed selected body and provenance, not only the queried literal.
+Actual final content hashes should change when packing changes; compare exact
+pre-packing inputs, retained evidence and separately reviewed semantic outcomes.

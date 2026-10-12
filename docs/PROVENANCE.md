@@ -1,3 +1,84 @@
+## 2026-10-12 — v3 retained-source admission and required-unit readiness
+
+Offline review of the67 frozen development occurrences resolves49 existing
+short source excerpts to51 exact role-bound spans;18 lack a short excerpt, not
+gold sources. Some matched excerpts are optional, paraphrasable or superseded
+by the corrected source-reviewed key. Exact offset matching cannot approve
+them as necessary answer literals. Current grading/review consumers receive
+the full original sources and corrected references, not these short metadata
+anchors. The source/required-unit semantic review remains incomplete. One
+strict historical code-literal source review traverses the unchanged content
+instrument on all four old arms: full/warm-vector generate it but lose it before
+ranked/final context; no-Codex retains it and recent-only lacks it. This recount
+confirms the previously documented admission failure, not a new current-code
+result. Private review/audit:logs/v3-required-unit-readiness-2026-10-12-r1.
+
+Three separately bound actual current-reader preparations restore the exact
+128-turn frozen-writer state in a newly owned disposable database, using its
+original physical schema and all35 table fingerprints. Existing64 candidates
+with no floor still lose the required original value;128 candidates recover
+it. Adding a diagnostic -5 floor preserves it while reducing total prompt
+tokens12975/13006/3526 across those three cells. Generated leg candidates,
+classification/gates/entities remain identical. The two selected final
+excerpts refer to the same original; the shorter complete text and chunk
+identities are covered by the larger excerpt. This motivates a bounded exact
+overlap packing check, not global cap/floor promotion.
+
+Nine local transport requests, zero cloud/generated answers/writer replay.
+All35 fingerprints and original producer SHA/mtime identities remain unchanged;
+the owned clone is removed. Old rolling-note receipts correctly warn as stale;
+this is a current reader on frozen old writer evidence. It does not qualify new
+writer summaries, general content retention, semantic support, answer accuracy
+or a selected configuration. Original failed instrument attempts remain.
+Native stage panels/model/code bindings and qualification:
+logs/v3-retained-literal-native-2026-10-12-r1/qualification.json.
+
+The exact-overlap candidate first reclaims tokens during admission. Its49
+focused/compatibility checks and three native reads preserve the required value,
+but backfilling displaces another unique75-token selected source. That tradeoff
+is unqualified; retain the refused candidate. One evidence-led revision instead
+omits only exact covered excerpts after original selection, with no refill or
+changed rank/cap/representation choice. Same original/conversation and covered
+artifact/source/edge identities are required; disjoint or unknown evidence and
+complete-original capability remain.49 private controls and three native reads
+preserve every other selected body, saving0/407/407 prompt tokens. Private epochs:
+logs/v3-same-source-overlap-2026-10-12-r1 through-r3.
+
+Conditional authorization for thoroughly tested core source changes applies the
+exact one-file revision.28 permanent controls plus compatibility pass51 checks
+in3.95s/two existing warnings. Three actual deployed reads match candidate
+generation/ranking/gates/selected context/messages/ledger/artifacts exactly at
+12975/12599/3119 prompt tokens. All35 tables and producer SHA/mtime identities
+remain unchanged; owned stores removed. No default/cap/floor/trust change, new
+model, cloud answer or tuning promotion. Deployed evidence:
+logs/v3-same-source-overlap-applied-2026-10-12-r1.
+
+The existing adoption instrument initially refuses the newly committed
+relevance-stage research change. Its old bytes match the frozen historical
+producer; register only that exact transition and the deployed orchestrator
+target. The new cumulative14-path profile exports and reuses byte/mtime-stably,
+plans67 diagnostic units without model calls and refuses old/implicit profiles.
+Old producer/profile bytes remain unchanged. New profile:
+logs/v3-reader-adoption-2026-10-12-r3/profile.json, identity
+558dc13df554e24a699f8c51a0dd668771a2715fe7dbe3fc30f1ec552b8be99d.
+The first full regression began before actual profile export completed and was
+interrupted in its owned test process; its857 passes/interruption-induced
+failure are not a completed pass. The separate final316-file regression epoch
+and actual profile receipt remain bound to the stable final instrument. Private
+control errors used nonexistent prompt arguments, compared changed content
+hashes as though packing were unchanged, and expected the wrong guarded CLI
+exit code. Retain those attempts; no source guard was weakened to pass them.
+
+Final broad regression records1382 passes and one refused adopted-prefix fixture
+in916.78s/530 existing warnings. The fixture declared native paths only, omitting
+the newly registered research dependency; actual14-path CLI checks had passed.
+Correct only that test producer's declared path set, keeping the production
+exact-set guard. Add the opposing undeclared-transition case. All26 adoption/
+actual SQL prefix-collection/recovery controls then pass64.89s/two warnings.
+Source/research/helper bytes remain identical to the full run; only those two
+test files change afterward. This is a full run plus targeted fixture correction,
+not a claimed second clean1384-case run or independent quality sample.
+
 ## 2026-10-12 — v3 chronological window/correction and relevance admission
 
 A new disposable native parent processes43 authored recorded user/assistant

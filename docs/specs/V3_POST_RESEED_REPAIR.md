@@ -3189,6 +3189,125 @@ missing-stage refusal, unchanged hard proof floors and byte-stable export/reuse.
 The passive -5 loss is one unrelated golden-parent source, not a demonstrated
 required-answer loss; the counterexamples to zero still prevent blind adoption.
 
+**Next retained-source admission check, grounded2026-10-12:** one reviewed
+historical code-literal task now traverses the unchanged source-content instrument
+across all four old development arms. Full and warm-vector generate the required
+literal but lose it before ranked/final context; no-Codex retains it. This is a
+recount of an already documented P2/G55 admission problem, not a new failure or
+an assertion that current code still behaves that way. Other source excerpts
+can be optional, paraphrasable or superseded by a corrected reference; their
+exact offset match alone cannot approve them as required-answer literals.
+
+Prepare one separate current-reader diagnosis on that frozen writer's exact
+128-turn as-of store, restoring only a newly owned disposable clone under its
+original physical schema/all35-table fingerprints. Bind current source/helper/
+model identities separately from the old writer and preserve all original
+producer artifacts. Do not resume or rewrite the old campaign, alter source
+rows, fake current writer quality or pass its reference literal to runtime.
+Use actual preamble/classifiers/all retrieval legs/final packing with read-only
+probe observation. Compare existing64-candidate/None baseline, the already
+planned128-candidate/None shortlist, and128/-5 as a small interaction diagnostic.
+Record generation→rank→budget→selected→final required-literal availability,
+true source-text identity, actual call/context costs, gates and candidate counts.
+No expected value guides ranking, new model is added or answer is generated.
+Missing content remains a measured failure, not a suppressed assertion. This
+can diagnose the remaining admission seam and prepare tuning qualification;
+one source cannot select a global threshold/cap or establish useful answers.
+
+**Actual retained-source result,2026-10-12:** three current native preparations
+on the unchanged exact128-turn store reproduce the admission loss at64/None;
+128/None retains the required original literal, and128/-5 preserves it while
+reducing prompt12975/13006/3526 tokens respectively. Generated candidates,
+gate/classification/entities and all35 table fingerprints match across cells.
+Nine local transport requests, zero answers/cloud calls or default changes.
+The old rolling-note proof correctly warns as stale; this is current-reader
+qualification on a frozen writer, not new writer or answer-quality evidence.
+Private identities and complete stage receipts:
+logs/v3-retained-literal-native-2026-10-12-r1/qualification.json.
+
+**Decided same-source overlap repair:** the last cell supplies two episodic
+excerpts from the same original; the407-token excerpt is wholly contained in
+the947-token excerpt. Its actual chunk identities are a subset of the larger
+fragment's contributors. This is redundant evidence, not independent support.
+Prepare one private candidate at existing token-budget admission: only complete,
+nonempty exact text containment within the same original and conversation,
+with covered source/edge/artifact identities, permits omission or replacement.
+Do not use cosine, shared parent identity alone or topic similarity. Preserve
+disjoint/partly overlapping windows, distinct sources and missing provenance.
+Never replace a complete-original capability with an excerpt capability.
+Recheck containment after any degradation; a compact alternative may not cover
+the shorter source. A covering candidate must actually fit after reclaiming
+redundant tokens; otherwise retain the smaller admitted excerpt. Existing caps,
+session limits, ranking, alternatives and source-truth gates remain unchanged.
+
+Validate opposing provenance/text/budget/degradation cases in isolation, then
+the actual native reader on this exact saved store and unchanged installed
+models. Required source bytes, generation/ranking/gates and all35 stored tables
+must remain exact; only selected overlapping context/cost may change. Keep
+private candidate/failure epochs. Apply only after both qualifications under
+the maintainer's conditional tested-src authorization, followed by permanent
+controls and deployed regression. No broader cap/floor promotion follows.
+
+**Qualification-led revision,2026-10-12:** the first private candidate passes49
+isolated/compatibility controls and preserves required-literal/gate/rank/store
+state on three actual reads. But its immediate reclamation refills budget and
+displaces another unique75-token source at128/None. Source-label support for
+that change is not qualified. Keep its epoch and do not apply it as a pure
+overlap saving. Narrow this repair to the existing admission method's final
+selected list: preserve all prior caps/order/budget choices, then omit only
+excerpts covered by another actually selected same-source fragment under the
+exact text/provenance contract above. Equal bodies keep an earlier covering
+representative; strict containment cannot suppress every member of a chain.
+Recompute logged selected token totals after omission. Do not refill the freed
+budget, replace existing representations or change degradation decisions here.
+This conservative revision yields a directly attributable context saving;
+broader relevance/budget backfilling remains the separately reviewed tuning task.
+Qualify unique selected text preservation and exact-native candidate parity,
+then apply only this revised candidate. No runtime source edit has occurred.
+
+After deployed confirmation, update only the registered orchestrator target
+hash/reason in the existing reader-adoption instrument. Export a separate new
+profile against the same frozen producer and original coordinate seal; keep
+the cumulative13 changed paths, original writer/dump/source bindings and old
+profile bytes. Prove completed identical reuse, old-profile refusal and ordinary
+collector refusal without an explicit current profile. This is a new reader
+epoch, not permission to resume an old coordinate cache under changed bytes,
+replay the writer, weaken a source seal or call the final experiment ready.
+
+**Actual adoption divergence:** export correctly refuses the already committed
+`tuning_plan.py` relevance-admission dependency. Its exact old bytes match the
+same historical producer ref; the one-line new dependency was qualified in the
+prior tuning-ledger controls. Register this specific research transition as well
+as the new orchestrator target, with unchanged original before-hash/source
+checks. The cumulative profile therefore binds14 changed paths, not13. It does
+not replay writer outcomes or adopt arbitrary research code. Keep the failed
+export and incomplete regression attempt; finish export/refusal qualification
+before sealing the final regression epoch.
+
+**Native-control fixture divergence:** the actual14-path exporter/collector
+planning/reuse/refusal checks pass, but the full suite's adopted-prefix fixture
+constructs its historical identity from native files only. It omits the newly
+registered research transition, so the unchanged exact-set guard correctly
+refuses it before prefix collection. Update that controlled producer to declare
+all registered paths, just as the actual frozen producer does. Add an opposing
+omitted-transition control. Do not relax the exact-set guard or treat the failed
+fixture as a passed recovery check. Re-run the actual SQL collection/recovery
+and adoption suites on the unchanged source/helper epoch; preserve the complete
+1382-pass/one-failure run and bind the subsequent test-only correction separately.
+
+**Applied/qualification result:** the exact revised source is active with28
+permanent opposing controls; source/packing compatibility totals51 passes.
+Three actual deployed preparations exactly match the private candidate at
+12975/12599/3119 prompt tokens, saving0/407/407 with every other selected body
+and required-content disposition preserved. All35 stored tables/producer bytes
+remain exact, no writer replay/cloud/default promotion. Source/research/helper
+bytes stay fixed through1382 broad passes; the one refused native-only fixture
+is corrected without changing the guard and all26 adoption/SQL recovery controls
+pass. The actual14-path profile and its67-unit no-call planning/reuse/refusals
+are qualified separately. Private application, failed epochs and exact final
+bindings:logs/v3-same-source-overlap-applied-2026-10-12-r1. Broader semantic
+support, answer effects and source-admission parameter selection remain open.
+
 **Helper-identity grounding correction:** native `code_files` already binds
 eleven scripts/z1 helpers alongside src, including serialization, parity, clock,
 recovery and checkpoint/snapshot code. The initial draft incorrectly inferred
@@ -3646,7 +3765,7 @@ outcomes wait. Original broader/product scopes remain visible, never waived.
 | Next work | Existing owner and concrete remaining evidence |
 |---|---|
 | Prerequisite (7) | **G40 — task labels:** [consumer audit/metric contract](../reviews/2026-10-10-v3-task-metric-consumers.md) is implemented (§2.2b), preserving task/age/error strata and separate rank admission. New final probe/source labels still need qualification. |
-| Prerequisite | **G55 — truthful scoring:** the repaired source/hash/offset content funnel detects a present source ID with its required value missing. A verified disposable as-of reconstruction isolates64-candidate admission on one retained case; alternative representations were unrecorded. Broader required-unit/semantic review and actual reader qualification remain pending; no source-ID hit becomes answer accuracy. |
+| Prerequisite | **G55 — truthful scoring:** the repaired source/hash/offset content funnel detects a present source ID with its required value missing. Actual current-reader64/128 candidate preparations isolate the retained case:128 restores its literal, and128/-5 preserves it with9480 fewer tokens than128/None. Alternatives now traverse the native scorer.49 short anchors resolve but cannot all be approved as required literals. Broader required-unit/semantic review remains pending; no source-ID hit becomes answer accuracy. |
 | Prerequisite | **G71 — old findings:** the16-entry [applicability register](../reviews/2026-10-10-v3-historical-finding-register.md) is audited; identity/counts re-recorded, invalid historical inferences withdrawn. Independent current role/tier truth and answer utility remain pending under the named development/final owners; no old extractor percentage becomes a v3 result. |
 | Prerequisite | **G72 — current state:** the manually completed251-turn/67-probe tuning partition passes source/key/task validation and all35 live-table fingerprints match. [Current writer/reader audit](../reviews/2026-10-10-v3-repaired-development-audit.md) records5 degraded writers and unqualified semantic outputs. Preserve this completed baseline; new read/derived qualification must explicitly bind subsequent repairs, never bypass its producer identity or imply v1 receipts came from the version2 assertion-proof writer. |
 | Prerequisite | **G29 — live consumers:** [all twelve named clusters reconciled](../reviews/2026-10-10-v3-policy-consumers.md), including opposing fusion/window controls; old bookmark/job-key bypass claims were stale. Actual full knob effects remain tuning work; keyword/style limitations and product-only scope remain visible. |
