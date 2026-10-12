@@ -43,8 +43,8 @@ TRANSITIONS = {
     },
     "src/retrieval/orchestrator.py": {
         "before": "5027817122bad3a1eb9952132f056daebd3acaf574778da57826ac0a446d5b61",
-        "after": "f8d9ab23bb7bf4a31f4e8bfbeaf709126f06ed291c7694d46462d74ba601364a",
-        "reason": "Approved native artifact IDs and preserved cold claim membership through existing scope filters; original wording, ranking, source proofs and frozen writer outcomes remain unchanged.",
+        "after": "754292dcb01bd3400491bb69e375f09d4228e30f83115b42992a92bad7d3f99f",
+        "reason": "Approved native artifact IDs, preserved cold claim membership and source-covered graph metadata; graph text/ranking/proofs and frozen writer outcomes remain unchanged.",
     },
     "src/retrieval/evolution.py": {
         "before": "a05d0f0923daf0a545d45ffe7a9412854e86504bec43726624b75942a9fd8051",
@@ -63,8 +63,8 @@ TRANSITIONS = {
     },
     "src/api/prompt_budget.py": {
         "before": "e745aef5ce138de38e0b7020114ef4092b1b42ec45ff56b1937dd372ca373b32",
-        "after": "662af0fdaa9c802919459100d8c63939d3675f82294975f59dfbdab9f8e4576b",
-        "reason": "Approved fresh observer ledger after each native replacement and eviction.",
+        "after": "30c1a6611937e8d385469caa8231441c07b276603dba6d32d6cc63e8c52a403e",
+        "reason": "Approved fresh final observer and sharing of graph quotations only with complete covering originals retained after each native replacement and eviction.",
     },
     "src/api/memory_preparation.py": {
         "before": "9e398224c93a64de475f8299132ae8e6119eac2b8bec14b1d6c5f86cecb8bbee",

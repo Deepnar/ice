@@ -174,13 +174,14 @@ collector command intentionally refuses changed code. Preserve that frozen
 writer and seal a separate current-reader profile, with no replay/model/DB call:
 
 ```bash
-uv run --no-sync python experiments/v3_repair/reader_adoption.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-reader-adoption-2026-10-11-r6/profile.json
+uv run --no-sync python experiments/v3_repair/reader_adoption.py --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-reader-adoption-2026-10-12-r1/profile.json
 ```
 
 When reader qualification is ready, pass that exact path as `--reader-adoption`
 to each collector coordinate and use new output bundles. Only the exact
 registered summary, graph-argument, matching extraction-transport, optional
-summary-retry and exact native artifact/final-block observer transitions are
+summary-retry, exact native artifact/final-block observers, preserved cold claim
+membership and source-covered graph packing transitions are
 accepted (13 exact paths, including research serializer/parity helpers); earlier profiles remain retained
 and refuse under the later source bytes. Any other change, changed prefix/dump,
 settings/model drift or altered profile refuses. Identical sealed exports are
@@ -307,7 +308,7 @@ long-lag/correction-answer quality still precede lifecycle-value promotion.
 Cold source-sentence search now uses preserved membership with existing cluster
 filters.38 deployed native controls qualify direct SQL, actual archival and
 complete qualified role-unit arrival under budget pressure. The current exact
-reader profile is revision6; previous profiles/writer receipts remain unchanged.
+reader profile is2026-10-12 revision1; previous profiles/writer receipts remain unchanged.
 No new model, trust threshold or saved experiment reseeding is involved.
 
 The actual7805-row catalog is2.55MB raw/0.85MB lossless gzip;16 occurrences in the
