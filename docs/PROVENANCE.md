@@ -1,3 +1,37 @@
+## 2026-10-11 — v3 lossless catalog file capture and recount
+
+Research-only change: `catalog_store.py` and native chronological serialization/
+offline accounting. Complete canonical catalogs use deterministic gzip files
+published durably before trace references. New parent identities bind this
+policy and module; committed references validate before resumed work. The counter
+keeps a two-catalog decoder cache, preserving separate physical/logical IDs,
+payload/state revisions, repeated observations and explicitly unknown denominators.
+No production source/model/threshold/capture-query/memory-selection change.
+
+Private evidence: logs/v3-catalog-sidecars-2026-10-11-r1/r2. First integrated
+65 checks pass511.56s/2 existing warnings. Final targeted62 checks pass82.20s/
+2 warnings, including actual native writer/read/probe capture, interrupted and
+completed recovery, and missing committed file refusal with unchanged saved
+store/trace/writer calls. Both isolated stores removed. The final targeted run
+also contains fifteen primitive storage/opposing controls. Counts overlap;
+they are not independent accuracy samples. Final1329 smoke/dynamics checks pass
+1107.52s/378 existing warnings, with source/helper/instrument bytes held fixed
+and all disposable stores removed. The final-qualification.json receipt binds
+the exact code, focused epochs and retained data; sealed2026-10-12.
+
+Actual passive retained check uses no DB/model calls: the7805-row catalog decodes
+exactly from845618 gzip bytes to2551283 compact JSON bytes. Sixteen observations
+with four distinct catalog states use9299 compressed bytes and recount identically
+to the old inline trace. The old actual native report metrics also remain equal;
+only current instrument identity changes. Original catalog/trace/report hashes
+and mtimes are unchanged. Old producers are never re-encoded in place.
+
+Limits: reduced duplicate storage does not measure SQL-capture/whole-run overhead,
+future corpus growth, all-query eligibility, true transaction write events,
+answer support/use or better memory per prompt token. Native qualification uses
+controlled components; the passive receipt is actual retained data. No cloud
+answer/judge call, tuning promotion, whole roadmap closure or push.
+
 ## 2026-10-11 — v3 catalog storage and repetition audit
 
 Offline private encoding audit, logs/v3-catalog-storage-audit-2026-10-11-r1:

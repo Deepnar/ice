@@ -857,6 +857,17 @@ mixed generated/original fold correctly fails the current proof-policy gate;
 none of its saved source fingerprints changed. Current-writer retention and
 content qualification still precede tuning.
 
+New native research parents serialize complete catalogs into immutable,
+content-addressed deterministic gzip files under `artifact-catalogs/`, publishing
+each durable file before its trace reference. Resume verifies committed files
+before new work; reports validate decoded catalog identities, bind used file
+receipts and resolve stages with a two-catalog cache. Older inline traces retain
+their original interpretation. Sixteen observed catalogs/four distinct states
+recount identically using9299 compressed bytes; the actual7805-row catalog decodes
+exactly from845618 bytes. Focused native/counter/recovery checks and1329 full smoke/dynamics checks
+pass; exact bound code remains unchanged. This reduces serialization/storage duplication, not SQL
+capture cost, eligibility gaps, true write-event coverage or model prompt tokens.
+
 The first integration qualifies14 authored controls, actual local-model two-source/
 eight-preparation paths and completed byte-stable resume. The subsequent checkpoint
 extension pins immutable native evaluation stores at probe cutoffs under bound
