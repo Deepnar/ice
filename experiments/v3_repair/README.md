@@ -320,19 +320,32 @@ focused qualification, and1329 full smoke/dynamics checks pass. This reduces dup
 catalog storage, with no memory selection/model change. Lifetime write-event and
 whole-query eligibility coverage remain separate requirements.
 
-Inspect every sealed tuning field and its disposition without running trials:
+Inspect every newly sealed tuning field and its disposition without running
+trials. The original2026-10-10 coordinate seal predates the explicit relevance
+admission dependency and is retained; it now refuses current ledger export.
+Use a fresh current offline input/coordinate seal, such as the verified
+2026-10-12 planning bundles below. They are not executed tuning results:
 
 ```bash
-uv run --no-sync python experiments/v3_repair/export_tuning_ledger.py --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 --out logs/v3-tuning-ledger-2026-10-10/ledger.json
+uv run --no-sync python experiments/v3_repair/export_tuning_ledger.py --tuning-plan logs/v3-bounded-tuning-plan-2026-10-12-r1 --out logs/v3-tuning-ledger-2026-10-12-r1/ledger.json
 ```
 
-Current30 coordinates touch13 settings plus a hard input cap;29 conditional fields
-await source/gate/aging qualification,130 stay held and one retired threshold is
+Current30 coordinates touch13 settings plus a hard input cap;30 conditional fields
+await source/relevance/gate/aging qualification,129 stay held and one retired threshold is
 excluded. Sixteen fixed maintenance controls are explicit too. Current-profile
 drift refuses reuse. The [full observation/automation/tuning audit](../../docs/reviews/2026-10-10-v3-observation-and-tuning-audit.md)
 lists exact ranges, human gates and future capture requirements. Private complete
 fault observer qualification does not mean it is wired into the running producer
 or final dispatcher; those integrations still need their actual-path controls.
+
+The existing optional `retrieval_rerank_min_score` is now explicitly pending
+relevance qualification in ledger revision3. Five paired native authored
+first/older/corrected/historical/quiet preparations preserve required complete
+original units and save up to2619 full-prompt tokens with diagnostic -5. A zero
+floor can discard required historical content. No default setting changes or
+cloud answers follow from this panel; no trial ranges are invented. Missing
+stage dependencies refuse export, and older bundles remain unchanged. See
+[the v3 window/relevance evidence](../../docs/PROVENANCE.md#2026-10-12--v3-chronological-windowcorrection-and-relevance-admission).
 
 Inspect chronological decay preparation without running jobs:
 

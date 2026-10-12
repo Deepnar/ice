@@ -164,10 +164,19 @@ required before selecting a winner. Planned capped settings are not results.
 
 ## Subsequent parameters and explicit exclusions
 
-These **29 named conditional fields** await qualified stages. Their
+These **30 named conditional fields** await qualified stages. Their
 current/default values and actual static read sites are in the private exported
 ledger; changing a source-sensitive threshold without its negative controls
 would maximize activity rather than correctness.
+
+- Relevance admission,1 field: `retrieval_rerank_min_score`. Existing ordering
+  does not reject scored distractors while the floor isNone. Five authored native
+  before/older/corrected/historical/quiet pairs preserve required original content
+  and save up to2619 prompt tokens with diagnostic -5; a passive zero-floor
+  counterexample loses required historical content. Require content/noise/rejection
+  opponents and supported-answer qualification before promotion; no trial range
+  or default change is implied. Revision3 binds this dependency and refuses old
+  seals lacking it. The stage is read-only, not another writer replay.
 
 - Trust/activation,7 fields: `codex_direct_trust_floor`,
   `codex_deep_strength_floor`, `codex_entity_match_threshold`,
@@ -195,13 +204,19 @@ would maximize activity rather than correctness.
   added in ledger revision2; old exports remain immutable.
 
 The complete **173-field static inventory** now exports an explicit disposition
-for every field:13 planned read-grid,29 pending qualified stage,130 held current
+for every field:13 planned read-grid,30 pending qualified stage,129 held current
 policy and1 retired procedural cosine threshold. The count is an inventory,
 not173 executed trials. Hard NLI/source ordering/privacy/completion guards stay
 fixed; admission safety is not tuned against the final answer score. Other sizing,
 allocation and heuristic candidates stay held until an observed bottleneck merits
 a new grounded coordinate. Static missing-read fields remain unresolved, not
 automatically deleted. Model identities remain fixed, without a tournament.
+
+Earlier revision2 exports retain29 pending/130 held. They are historical sealed
+artifacts, not missing-field defects to overwrite. The original floor existed
+there under held policy; the new disposition follows measured context waste,
+not a rebuilt feature. Actual native/preserved-state evidence and its limits are
+in [the v3 window/relevance provenance](../PROVENANCE.md#2026-10-12--v3-chronological-windowcorrection-and-relevance-admission).
 
 Sixteen additional explicit fixed-profile controls cover `maintenance_intervals`,
 `runtime_cycles_cap`, `auto_finetune`, the eleven named `agent_*` caps/detector ages/

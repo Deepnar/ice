@@ -15,6 +15,7 @@ from experiments.v3_repair.prepare_inputs import digest, fingerprint, write_or_v
 from experiments.v3_repair.run_tuning_contexts import load_coordinate
 
 PENDING = {
+    "relevance_admission": ("retrieval_rerank_min_score",),
     "trust_activation": ("codex_direct_trust_floor", "codex_deep_strength_floor",
         "codex_entity_match_threshold", "codex_relation_fit_weight", "procedural_min_conf",
         "procedural_min_cited_turns", "turn_summary_coverage_threshold"),
@@ -41,6 +42,9 @@ def build(coordinates, inventory, profile):
     ranges, stages, caps = {}, {}, []
     pending = {name: stage for stage, names in PENDING.items() for name in names}
     if not set(pending).issubset(by_name): raise ValueError("named pending knob absent from sealed inventory")
+    dependencies = coordinates["blocked_stages"]
+    if any(not dependencies.get(stage) for stage in PENDING):
+        raise ValueError("pending tuning stage lacks a bound qualification dependency")
     for coordinate in coordinates["rows"]:
         if "input_prompt_cap" in coordinate: caps.append(coordinate["input_prompt_cap"])
         for name, value in coordinate["overrides"].items():
@@ -56,8 +60,8 @@ def build(coordinates, inventory, profile):
             requires_writer_replay=((name in PENDING["lifecycle"] and name != "codex_retention_rank_weight") or
                 name in {"procedural_min_cited_turns", "turn_summary_coverage_threshold"}) if name in pending else
                 False if name in ranges else None,
-            dependency=coordinates["blocked_stages"].get(pending.get(name)), qualified=False)
-    return dict(version="v3", method="named_tuning_dispositions_v2", score_of_record=False,
+            dependency=dependencies.get(pending.get(name)), qualified=False)
+    return dict(version="v3", method="named_tuning_dispositions_v3", score_of_record=False,
         coordinate_count=len(coordinates["rows"]), planned_settings_fields=len(ranges),
         disposition_counts=dict(Counter(r["disposition"] for r in rows)), settings=rows,
         research_input_cap=dict(name="input_prompt_cap", trial_values=sorted(set(caps)),

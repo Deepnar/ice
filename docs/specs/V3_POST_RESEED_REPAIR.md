@@ -2385,6 +2385,16 @@ sixteen fixed maintenance controls without any model/API call or tuning result.
 The direct pending-items slot append is a named qualification branch, not
 implicitly waived by the review policy. No whole roadmap owner closes.
 
+**Relevance disposition revision3,2026-10-12:** the existing optional reranker
+floor now requires a named content/noise/rejection-opponent stage rather than
+remaining held. The complete inventory is13 read-grid/30 conditional/129 held/
+one retired; coordinates remain30 across13 settings and the hard cap. Missing
+qualification dependencies refuse export. New offline input/coordinate/ledger
+bundles seal and reuse byte/mtime stably; the older seal remains unchanged and
+refuses the current exporter. This prepares a measured bottleneck for later
+calibration; defaultNone, trial ranges and quality-promotion gates are unchanged.
+The historical first-export and revision2 counts above remain their own records.
+
 ### 2.3k Retention targets, exposure amounts and chronological gaps —2026-10-10
 
 The maintainer explicitly includes decay amounts and limits in the remaining
@@ -3074,6 +3084,14 @@ key, cutoff-reviewed expected value, current/recent answerability and family ID;
 the earlier-value question is a separate family. Runtime projections contain
 questions, never the expected value or gold key.
 
+The historical diagnostic's reviewed key includes both the original selection
+and the explicit later correction, and its task is temporal. A first offline
+draft used one gold and the lookup label; retain that unexecuted draft and seal
+the corrected review before any native call. This distinguishes old-value source
+access from the evidence establishing which correction the question refers to.
+Recent-answerability remains false because the earlier value is outside recent
+context; do not admit this two-source temporal task as single-source rank tuning.
+
 Use the actual native preflight/import/post-flight chain, installed local model
 pair and the full ten-job chronological roster at unchanged default cadence.
 Do not force an archive, set strengths, change thresholds, forge successful
@@ -3094,6 +3112,82 @@ previous default67-day cold panel remains separate evidence; this two-hour gap
 does not promise another cold transition. No validation/final B/C question bodies
 or oracle data are consulted. Local bounded execution starts only after the
 current deployed regression completes; preserve every failed epoch.
+
+**Completed bounded window/correction control,2026-10-12:** the43 originals,
+five occurrences and20 shared-store arm preparations complete through all ten
+default core jobs, with11 scheduled maintenance calls and no degraded or failed
+attempt. Complete role/date/ordinal checks and byte-stable completed resume pass.
+Full context preserves the exact earlier source after41 intervening originals;
+the original-history recent control excludes it. Both sources survive correction,
+including the historical diagnostic requiring the old selection and correction.
+No cloud answers or answer accuracy are measured. The two-hour aging clock is
+simulated; the older67-day cold panel remains separate. Private native receipt:
+logs/v3-window-correction-native-2026-10-12-r1/native-qualification.json.
+
+A verified disposable clone supports a diagnostic semantic review of46 exact
+role-bound claim spans, six attributed graph assertions, three entity accounts
+with seven cited assertions, two member-supported cluster labels, one session
+summary preserving the correction, and two source-consistent pending proposals.
+All35 table fingerprints and original producer hashes/mtimes are unchanged.
+Four procedures accurately describe acknowledgement behavior; none supplies
+the required port information. Near-overlap does not authorize merging differing
+descriptions when mutual-entailment remains unknown. No turn summary, rolling
+note, batch summary or natural cold crossing is exercised here; those quality
+denominators stay inert. This is an unblinded authored-fixture review, not
+independent population precision or a claim of procedural utility. Private
+state and review:logs/v3-window-correction-semantic-review-2026-10-12-r1.
+
+**Next relevance admission qualification, grounded2026-10-12:** full prompts
+after the recent window retain many negatively scored acknowledgement originals
+and behavioral procedures despite ranking the useful fact first. Existing
+`retrieval_rerank_min_score=None` means ordering without rejection; the named
+tuning ledger already holds this field under current policy. It is implemented
+and live, not a missing reader or omitted settings inventory.
+
+A passive historical primary-only zero-floor diagnostic on67 occurrences loses
+some golden-parent ID credit on seven. Only one belongs to the admitted
+single-source rank panel; its negative-score original contains required historical
+answer content. Some other lost credits belong to irrelevant derived descriptions
+or unrelated originals, so a parent-ID loss is not necessarily an answer loss.
+This does not qualify a default zero floor, semantic rejection or current-reader
+effects. Private source cards and applicability receipts remain under
+logs/v3-rerank-floor-applicability-2026-10-12-r1; alternative scores are unobserved.
+
+Qualify the existing seam with five matched current native full preparations at
+each saved source/query cutoff: current `None` versus a conservative diagnostic
+floor of -5. Hold all other settings, originals, model pins and source helpers
+fixed. Score every eligible text variant normally; do not reuse only a captured
+primary score. Check exact complete original role units for every required source,
+including both historical sources, final context, all35 table fingerprints and
+unchanged producer artifacts. Use existing read-only probe observations, never
+write exposure or expected-answer-guided runtime selection. Bind the actual
+setting and local call/context costs. No defaults or original sealed tuning
+bundles change in this qualification. A candidate that loses required content
+fails; source-preserving savings establish only local applicability. Broader
+calibration and supported-answer effects still gate tuning promotion.
+
+**Qualified applicability and ledger decision,2026-10-12:** all ten native
+preparations complete, preserving complete required user units, the five exact
+as-of states, gates, all35 table fingerprints and producer hashes/mtimes. Full
+prompts with floor `None` versus -5 are481/481 first,5073/2454 older,
+5161/2542 corrected,5162/2543 historical and3096/2683 quiet. The three irrelevant
+active procedure fragments are absent with the floor.23 local transport requests,
+zero cloud/answer calls. Recent originals remain under the existing ledger; this
+does not promise a one-fact-sized whole prompt. Private paired native receipt:
+logs/v3-rerank-floor-native-2026-10-12-r1/paired-comparison.json.
+
+Decision: change only the research tuning ledger's disposition for the existing
+floor from held to `pending_qualified_stage`, under `relevance_admission`.
+Bind a named required-content/noise/rejection-opponent dependency in every new
+coordinate seal, and refuse a ledger lacking that stage's dependency instead
+of silently exporting a pending field with no gate. Keep trial ranges unset,
+writer replay false and qualified false. This is not another coordinate grid,
+configuration promotion or source-runtime change. Previous sealed coordinate
+plans and ledgers remain untouched and cannot be rewritten to acquire the new
+status. Version the derived ledger method; test every field's disposition,
+missing-stage refusal, unchanged hard proof floors and byte-stable export/reuse.
+The passive -5 loss is one unrelated golden-parent source, not a demonstrated
+required-answer loss; the counterexamples to zero still prevent blind adoption.
 
 **Helper-identity grounding correction:** native `code_files` already binds
 eleven scripts/z1 helpers alongside src, including serialization, parity, clock,
@@ -3514,9 +3608,13 @@ many prerequisite audits are implemented; the original acceptance work is
 Current source-to-summary/graph/procedure/maintenance semantic review still
 needs qualified dispositions, especially exact corrections, roles, direction
 and required-detail omissions. The new native chronological parent has recovery
-and simulated quiet/cold controls, but its two-source quiet panel does not
-qualify a question after40 intervening originals or all-job semantic retention.
-Meaningful repeated/correction/long-lag qualification still precedes lifecycle
+and simulated quiet/cold controls. The subsequent43-source/five-occurrence
+control qualifies first/older/corrected required-content access after41
+intervening originals, all-ten-job execution and the actually generated semantic
+material on that authored fixture. Broad retention and answer/context utility
+remain unqualified; zero generated turn summaries and inert maintenance branches
+are not semantic coverage. Representative repeated/correction/long-lag
+qualification still precedes lifecycle
 parameter selection. Independent scoring used for configuration promotion is
 also pending; human judge review remains parked, so current grades stay
 diagnostic. Complete these obligations and fix demonstrated failures before

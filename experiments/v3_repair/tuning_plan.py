@@ -79,6 +79,7 @@ def plan(inputs, out):
     candidates = coordinates(settings)
     products = {"coordinates.json": dict(version="v3", policy=POLICY, rows=candidates,
         blocked_stages={"trust_activation": "independent_source_truth_required",
+                        "relevance_admission": "required_content_noise_and_rejection_opponents_required",
                         "gates_style": "opposing_style_source_controls_required",
                         "lifecycle": "declared_aging_targets_schedule_required"},
         cloud_call_rule="baseline_and_at_most_two_survivors_per_stage_after_source_guards",
