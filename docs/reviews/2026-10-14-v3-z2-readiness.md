@@ -58,3 +58,12 @@ Read-only groups (1, 2, 10) and both vector controls reuse the full store.
 This is an estimate from one 251-turn run, not a measured Z2 profile.
 Z2 is expected to run more than once (roadmap Z2). It means the roster, the histories each arm runs on, or the replay speed has to
 change before launch; that is a maintainer decision.
+
+## Decision after this audit (maintainer, 2026-10-14)
+
+Ablations become read-time switches on the saved checkpoint stores of one
+full semi-LSREP replay per history (spec §2.5 Z2 design decision). Compute drops
+from about 20 replays to 2 replays plus read passes (about 13 s per question per
+condition). The missing switches shrink to read switches: graph, turn
+summaries, conversation fold, procedures, learned gate, cluster scoping, a
+neutral-decay treatment and maintenance outputs.

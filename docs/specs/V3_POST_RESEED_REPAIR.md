@@ -3749,6 +3749,21 @@ Full-ICE and both vector baselines also run the oracle condition. Additional
 oracle ablations are diagnostics only if explicitly included before its freeze;
 the comprehensive mechanism ablations belong to semi-LSREP.
 
+**Z2 design decision, maintainer 2026-10-14 (supersedes the state rules below for
+ablations):** one full-system semi-LSREP replay per history (B, C) builds the
+store and saves every as-of checkpoint; all additive and leave-one-out
+conditions are **read-time switches on those saved checkpoint stores**, each
+asked that checkpoint's questions (FINAL_experiments D1: one memory build,
+conditions differ only at query time). Decay is separated from ablation: every
+ablation condition reads with the same neutral decay treatment, and decay is
+reported as its own condition and settings sensitivity on the same store.
+Semantic maintenance is its own leave-one-out condition (read without its
+outputs), so graph-off and maintenance-off are not conflated. Label: read-time
+ablation on a fully seeded store; indirect write-time effects are not removed.
+Replay speed is measured and improved before the Z2 replays. Decay intervals
+are long but plausible for a conversation of this length. Z2 reruns only for
+parts still broken after the first run.
+
 **State rules:** read-only omissions can reuse the identical frozen as-of store
 only for labeled read-side contrasts. Writer, entity identity, summary,
 procedural, gate-exposure, maintenance or decay changes require their own
