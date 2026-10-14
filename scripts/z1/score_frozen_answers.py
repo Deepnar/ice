@@ -59,6 +59,22 @@ NOT assign or revise absolute grades. Return ONLY JSON with exactly:
 """
 BASES = {'source', 'public_knowledge', 'mixed', 'insufficient_evidence'}
 REASONS = {'more_grounded', 'more_complete', 'contradicts_source', 'both_failed', 'equivalent'}
+CONTRACT_POLICY = 'v3_editorial_required_content_v1'
+
+
+def editorial_contract(value):
+    """A blind diagnostic rubric, never source truth or an answer verdict."""
+    fields = {'policy', 'kind', 'requirements', 'qualifications', 'qualification'}
+    if (not isinstance(value, dict) or set(value) != fields
+            or value['policy'] != CONTRACT_POLICY
+            or value['kind'] not in {'semantic_propositions', 'exact_literal'}
+            or value['qualification'] != 'unblinded_editorial; not independent truth or an answer grade'
+            or not value['requirements']
+            or any(not isinstance(value[key], list)
+                   or any(not isinstance(item, str) or not item.strip() for item in value[key])
+                   for key in ('requirements', 'qualifications'))):
+        raise ValueError('invalid editorial answer contract')
+    return value
 
 
 def digest(value):
@@ -87,15 +103,24 @@ def case(row):
             or review.get('knowledge_scope') not in KNOWLEDGE_SCOPES
             or not review.get('task_types') or set(review['task_types']) - TASK_TYPES):
         raise ValueError('answer occurrence lacks complete reviewed evidence')
-    return dict(occurrence=probe_key(row), question=row['question'],
+    evidence = dict(occurrence=probe_key(row), question=row['question'],
                 question_time=row.get('question_time'),
                 question_time_provenance=row.get('question_time_provenance'),
                 expected_answer=row['expected_answer'], source=row['gold_turn_text'],
                 knowledge_scope=review['knowledge_scope'], task_types=sorted(review['task_types']))
+    if 'editorial_answer_contract' in row:
+        evidence['editorial_answer_contract'] = editorial_contract(row['editorial_answer_contract'])
+    return evidence
 
 
 def task(kind, evidence, candidates, identity, *, order=None):
     rubric = ABSOLUTE if kind == 'absolute' else PREFERENCE
+    if 'editorial_answer_contract' in evidence:
+        rubric += ('\nEditorial answer criteria are unblinded diagnostic guidance, separate from source evidence. '
+                   'They do not override the question or establish world truth. '
+                   'Required meaning accepts paraphrases unless the task explicitly requires exact identity. '
+                   'Optional details and alternative examples are not additional required answer parts. '
+                   'Preserve qualifications; unresolved conflicts remain uncertain.\n')
     payload = {**evidence, **candidates}
     # The occurrence binds the cutoff for caching, but never discloses an arm.
     messages = [{'role': 'system', 'content': rubric},
