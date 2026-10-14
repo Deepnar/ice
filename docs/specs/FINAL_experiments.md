@@ -369,6 +369,20 @@ questions and evolving ground truth from the Z2 question machinery
 | 1 | BEAM (ICLR 2026; 100K-10M-token conversations, 2,000 validated questions) | native, scale | 128K-1M tiers fully (B is ~0.73M and C ~1.2M tokens already); 10M sampled if replay speed allows. Replay cost scales with turn count, not tokens |
 | 2 | MemoryAgentBench (ICLR 2026) | native, agent-memory benchmark | accurate-retrieval and selective-forgetting subsets only, ingested through the chat path; reported as conversational memory on an agent-memory benchmark, not as an agentic-memory claim (the MCP tool path is not evaluated) |
 
+**Private conversation groups (proposed 2026-10-15; ids and sizes in
+`docs/PRIVATE_CONTEXT.md` [PRIVATE:final-private-roster]):**
+
+| Group | Size | Why |
+|---|---|---|
+| ICE project — full stitched chat (six chats) | 1,737 user turns, ~5.9M tokens, one month, real timestamps | longest real project memory; its first segment is Z2's C |
+| Creative saga + a separate review chat | ~1.07M tokens; reviews span 71 days | evolving story facts referenced across two chats |
+| Fan-fiction history (v2 paper's fourth set) | 290 pairs | untouched by tuning and Z2 |
+| Laptop/hardware decision (two chats) | ~144K tokens | a decision that changes across chats |
+| Linux setup (three chats) | ~370K tokens | how-to recall across separate chats |
+| Software project (one chat) | 128 pairs | technical decisions and requirements |
+
+The v2 paper's tuning history and the reserved validation history are excluded.
+
 **Not used, with reasons:**
 - *LSREP-adapted public datasets (LME, LoCoMo):* adapting public corpora to LSREP is
   protocol work for a separate LSREP study, not this system evaluation.
