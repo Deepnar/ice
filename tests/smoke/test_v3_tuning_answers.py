@@ -261,3 +261,11 @@ def test_three_survivors_in_one_stage_refuse_but_a_baseline_repeat_is_the_noise_
     manifest = bridge.plan(root, baseline, [repeat, *three[:2]], tmp_path / "answers2")
     assert manifest["identity"]["coordinate_ids"] == ["baseline", "baseline-repeat", "budget-0", "budget-1"]
     assert manifest["identity"]["stages"] == ["budget"]
+
+
+def test_later_stage_can_answer_only_the_baseline_full_arm(packets, tmp_path):
+    root, baseline, _, out, probes = packets
+    candidate = full_arm_candidate(tmp_path, probes)
+    manifest = bridge.plan(root, baseline, [candidate], out, baseline_full_only=True)
+    assert manifest["identity"]["collection_arms"] == [["full"], ["full"]]
+    assert manifest["expected_answers"] == 4

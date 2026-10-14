@@ -61,12 +61,16 @@ def label(identity):
     return "baseline-repeat" if coordinate == "baseline" and identity.get("arms") == ["full"] else coordinate
 
 
-def plan(root, baseline, candidates, out):
+def plan(root, baseline, candidates, out, *, baseline_full_only=False):
     if collection_arms(baseline) != ARMS: raise ValueError("answer baseline must hold all four arms")
     producer, probes = source_probes(root)
     paths = [baseline, *candidates]
     collections = [load(path, probes) for path in paths]
     rosters = [list(collection_arms(path)) for path in paths]
+    if baseline_full_only:
+        # A later stage reuses the controls already answered once; it re-asks
+        # only the baseline's full arm, which is also another noise sample.
+        rosters[0] = ["full"]
     common = collections[0][0]["identity"]
     if (common["coordinate"]["id"] != "baseline"
             or common["producer"] != producer["producer_identity"]
@@ -122,6 +126,7 @@ def plan(root, baseline, candidates, out):
         for key in sorted(probes):
             row = copy.deepcopy(current[key])
             row["review"] = row["label_review"]
+            if arms == ["full"]: row["controls"] = {}  # project only what is answered
             rows.append(row)
         trace = directory / "projected.jsonl"
         immutable_lines(trace, [meta, *rows])
@@ -239,6 +244,8 @@ def main():
     parser.add_argument("--candidate", type=Path, action="append", default=[])
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--run", action="store_true")
+    parser.add_argument("--baseline-full-only", action="store_true",
+                        help="Answer only the baseline's full arm (controls answered in an earlier plan).")
     args = parser.parse_args()
     root, baseline, candidates, out = args.development_run.resolve(), args.baseline.resolve(), [p.resolve() for p in args.candidate], args.out.resolve()
     if (any(not p.is_relative_to((ROOT / "logs").resolve()) for p in [root, baseline, *candidates, out])
@@ -247,7 +254,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     with (out / ".answer-bridge.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        manifest = plan(root, baseline, candidates, out)
+        manifest = plan(root, baseline, candidates, out, baseline_full_only=args.baseline_full_only)
         print(json.dumps(dict(version="v3", answer_model=manifest["identity"]["answer_model"],
             coordinates=len(manifest["identity"]["collections"]), expected_answers=manifest["expected_answers"],
             bounded_transient_attempts=manifest["bounded_transient_attempts"], diagnostic_only=True, score_of_record=False)))
