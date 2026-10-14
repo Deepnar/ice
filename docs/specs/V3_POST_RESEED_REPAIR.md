@@ -3940,6 +3940,21 @@ remain evidence; unfinished quality outcomes remain open measurements.
    B/C semi-LSREP with ablations and both vector controls, and the LongMemEval
    oracle. Broad contribution, retention and quality conclusions belong there.
 
+**Maintainer decisions, 2026-10-14 (later the same day):** (a) Muse Spark 1.3
+remains the judge; tuning promotes on its independent absolute grades, labelled
+as such, with no separate judge-qualification gate before tuning. Answer-quality
+questions are measured in semi-LSREP, the ablations and the oracle, not in a
+pre-tuning pass. (b) Cloud answering cost is not a constraint (call-based plan).
+(c) Read coordinates collect only the full arm
+(`run_full_arm_coordinates.py`); the completed four-arm baseline
+`logs/v3-read-baseline-2026-10-14-r1` (67/67) holds the controls. Its saved
+conversation fold is refused on every read, because it was written under
+`summary_support` v1 and the current reader requires v2 (PROVENANCE 2026-10-11).
+Label it "fold withheld"; at turn 251 that fold is 225 copied originals plus 4
+compressed parts. The final run's fresh writer will produce one; recheck the
+chosen budget once at freeze. The two-judge final requirement (G65) is unchanged
+by (a) and still needs an explicit decision.
+
 This changes ordering, not roadmap checkmarks. A new failure blocks only the
 measurement it invalidates unless it demonstrates a shared correctness defect.
 Do not turn each lower-quality answer into another whole-system pre-tuning run.

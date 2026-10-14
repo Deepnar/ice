@@ -192,6 +192,40 @@ four-arm traces and marks answer quality unmeasured. No writer replay or cloud
 calls occur here; independent content review and later bounded Luna/Muse calls
 remain required. Validation is still reserved until qualified tuning/freeze.
 
+**Tuning coordinates, full arm only (2026-10-14).** The baseline above completed
+67/67 with all four arms, so it already holds the controls. Every sealed
+coordinate, including a repeated `baseline` that measures the run-to-run floor,
+collects only the full arm (about 13 s per question versus about 38 s for four):
+
+```bash
+uv run --no-sync python experiments/v3_repair/run_full_arm_coordinates.py \
+  --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 \
+  --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 \
+  --reader-adoption logs/v3-reader-adoption-2026-10-14-r2/profile.json \
+  --out logs/v3-read-full-arm-2026-10-14-r1 --run
+```
+
+Without `--run` it validates every coordinate against the producer/profile and
+prints what is pending. `--coordinate ID` (repeatable) restricts the set. Ctrl+C
+and the identical command resume saved questions and completed coordinates.
+`run_tuning_contexts.py` and `compare_tuning_contexts.py` stay byte-identical,
+so the shared producer/code/profile identity equals the four-arm baseline's;
+the wrapper adds `arms=["full"]` and its own fingerprint. Compare afterwards:
+
+```bash
+uv run --no-sync python experiments/v3_repair/run_full_arm_coordinates.py \
+  --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 \
+  --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 \
+  --reader-adoption logs/v3-reader-adoption-2026-10-14-r2/profile.json \
+  --out logs/v3-read-full-arm-2026-10-14-r1 \
+  --compare-baseline logs/v3-read-baseline-2026-10-14-r1
+```
+
+It prints, per coordinate, how many of the 67 full prompts changed. Read each
+count against the repeated-baseline floor: a coordinate that changes no more
+prompts than the floor cannot change answers and is not sent for answering.
+Answering/grading of the full-only coordinates is a separate next step.
+
 The completed replay predates the approved cited-span repair. Its ordinary
 collector command intentionally refuses changed code. Preserve that frozen
 writer and seal a separate current-reader profile, with no replay/model/DB call:

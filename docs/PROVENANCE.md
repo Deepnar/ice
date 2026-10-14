@@ -1,3 +1,23 @@
+## 2026-10-14 — v3 full-arm tuning coordinates and repeat floor
+
+The four-arm current-reader baseline `logs/v3-read-baseline-2026-10-14-r1`
+completed 67/67 (12:15–12:56, about 38 s per question; about 13 s per arm).
+Its conversation fold is refused on all 268 reads: it was written under
+`summary_support` v1 and the reader requires v2; at turn 251 it holds 225 copied
+original parts and 4 compressed parts. Label the baseline "fold withheld".
+
+`run_full_arm_coordinates.py` collects only the full arm for sealed read
+coordinates. It leaves the original collector/comparator byte-identical, so the
+shared producer/code/profile identity equals the baseline's and adds
+`arms=["full"]`. A repeated `baseline` coordinate (13:29–13:44, 67/67) against
+the four-arm baseline changes **2/67** full prompts, one with different selected
+sources (net -16 tokens), no gate change. The original run logged one
+`source_support_uncertain` local proof verdict and the repeat none: the floor is
+local-model run-to-run variance. A coordinate changing about this many prompts
+cannot be distinguished from no change. Maintainer decisions recorded in spec
+§5.2: Muse remains the judge, cloud cost is not a constraint, coordinates are
+full-arm only. No cloud answers, grades or promotion.
+
 ## 2026-10-14 — v3 current-reader baseline plan over preserved development state
 
 Offline baseline preparation first refused the changed source-content observer,
