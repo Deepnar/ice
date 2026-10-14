@@ -244,6 +244,9 @@ dropped, dead code and lying comments fixed in place, one-off scripts *moved*
 
 ### Git, commits, and the public repo
 
+**Work on `main`; do not create task branches.** The experiment-phase push freeze
+remains in force; an explicit user request to push authorizes that push only.
+
 **⚑ THE REPO IS PUBLIC** (`origin` → `github.com/Deepnar/ice`) — **every push is
 a publication.** Pushing during normal development is pre-authorized. The commit
 format and granularity rule, the experiment-phase push freeze, the
@@ -302,9 +305,17 @@ exception is `tests/smoke/` and a few `test_*_freeze`/`invariants` files, which
 are pytest.
 
 ```bash
-uv run python tests/test_retrieval.py     # a behavioural suite
-uv run pytest tests/smoke -q              # the rails — run before every commit
+uv run python tests/test_retrieval.py                 # a behavioural suite
+uv run --no-sync pytest tests/smoke -q -m quick       # per commit: ICE code, no DB (~20 s)
+uv run --no-sync pytest tests/smoke -q -m "research and not db"   # when research tooling changed
+uv run --no-sync python tests/support/disposable_database.py -m pytest tests/smoke -q
+                                                      # full rails (~18 min): before long runs and pushes
 ```
+
+`tests/smoke/conftest.py` tags every test `quick` / `research` / `db`
+automatically. Run the group the change touches, not the full suite after every
+step; a plain `pytest tests/smoke` without the disposable database errors on the
+`db` group by design.
 
 They need docker up, and for pipeline tests Ollama running. No lint config;
 match existing style. **Suites leak rows and the residue fails a *different*
