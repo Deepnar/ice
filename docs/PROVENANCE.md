@@ -21,6 +21,16 @@ one 251-turn history (whole messages fit the budget more easily than on B's
 1,119 turns); the baseline's conversation fold was withheld. The answer/grade
 comparison in tuning and Z2 decides; this is a warning, not a verdict.
 
+By task type (whitespace-normalised ICE vs bare): lookup 38 vs 42, procedural 33 vs
+32, negative 13/13, entity relation 7 vs 9, summary 8/8, temporal 6/6, update 4 vs 5.
+At ICE's own capped budgets with bare vector given the identical per-question
+memory budget: 8k cap (~3.5k memory tokens) ICE 57 vs bare 58; 16k ICE 62 vs 65;
+32k ICE 61 vs 65; 4k leaves ~114 memory tokens and both fail (1 vs 4). Bare
+vector with 200-word chunks is far worse (37-38/67): whole messages matter.
+Structural bias to state with it: reviewed spans are verbatim original text, so a
+system returning whole originals scores them by construction; paraphrased
+summaries/graph facts cannot. Bare vector is not yet in the answer/grade runs.
+
 ## 2026-10-14 — v3 full-arm tuning coordinates and repeat floor
 
 The four-arm current-reader baseline `logs/v3-read-baseline-2026-10-14-r1`
