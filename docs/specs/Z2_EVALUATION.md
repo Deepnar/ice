@@ -36,7 +36,10 @@ configuration), `T_temporal.md` (timescope modes).
 **D2 — Histories.** B (1,119 original pairs, long-range entity/revision memory)
 and C (325 pairs, dense long-input/compression), frozen in
 `logs/v3-offline-input-plan-2026-10-10-r4/final-originals-{B,C}.json`. Both are
-excluded from tuning. Their legacy v2 probes (B: 91 families/638 observations;
+excluded from tuning. C is only the first segment (ICE-1, 325 pairs, ~1.1M tokens)
+of the stitched ICE project conversation (1,737 user turns, ~5.9M tokens, real
+timestamps); Z2 keeps C as frozen for replay cost, and FINAL uses the full
+stitched conversation. Their legacy v2 probes (B: 91 families/638 observations;
 C: 37/154) are **replaced**, kept only as a historical reference: they were mostly
 single-message lookups with end-state answers.
 

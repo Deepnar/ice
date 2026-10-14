@@ -364,7 +364,7 @@ questions and evolving ground truth from the Z2 question machinery
 | Tier | Dataset | Use | Notes |
 |---|---|---|---|
 | 1 | Synthetic long-form conversations with a planted-fact ledger | LSREP, headline reproducible | ledger loads directly as ground truth; released if permissible |
-| 1 | Maintainer's conversations: the four v2-paper histories plus suitable v1 experiment conversations; FINAL-sealed B/C families | LSREP, private | aggregate results only, separate table, never published raw |
+| 1 | Maintainer's conversations: proposed groups (full stitched ICE project chat, creative saga with its review chat, the untouched fan-fiction history, two cross-chat decision/how-to groups, one software project) plus FINAL-sealed B/C families; roster in `docs/PRIVATE_CONTEXT.md` [PRIVATE:final-private-roster] | LSREP, private | aggregate results only, separate table, never published raw. The tuning history and the reserved validation history are excluded |
 | 1 | LongMemEval oracle **and** LongMemEval-S | native | the field's standard; v2 trailed vector RAG here. S was excluded from Z2 only. Non-official judge, labelled |
 | 1 | BEAM (ICLR 2026; 100K-10M-token conversations, 2,000 validated questions) | native, scale | 128K-1M tiers fully (B is ~0.73M and C ~1.2M tokens already); 10M sampled if replay speed allows. Replay cost scales with turn count, not tokens |
 | 2 | MemoryAgentBench (ICLR 2026) | native, agent-memory benchmark | accurate-retrieval and selective-forgetting subsets only, ingested through the chat path; reported as conversational memory on an agent-memory benchmark, not as an agentic-memory claim (the MCP tool path is not evaluated) |
