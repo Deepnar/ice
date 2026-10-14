@@ -1,3 +1,24 @@
+## 2026-10-14 — v3 bare-vector development tuning and span availability
+
+`experiments/v3_repair/bare_vector.py --tune` on the 251-turn development history,
+67 questions, each at the vector-only arm's own evidence budget (about 10.8k
+tokens; 725k total, equal across arms within 0.2%). Measure: every reviewed
+evidence span (127 spans from the 67 content contracts) present in the input,
+recent turns included. Chunk size x k grid: whole messages filling the budget is
+best (64/67 questions, 124/127 spans); 100-word chunks at k=10 is worst (32/67).
+Frozen development choice for Z2's bare-vector control: whole role-tagged
+messages, no k cap.
+
+Same measure on the four-arm current-reader baseline
+`logs/v3-read-baseline-2026-10-14-r1`: full ICE 60/67 (117/127), no-Codex 58/67
+(112/127), ICE vector-only 52/67 (105/127), recent-only 0/67. At matched budget a
+plain whole-message vector search delivers required text at least as often as
+full ICE on this history. Limits: span availability is not answer quality; ICE
+spans are counted by decoded text containment and bare-vector spans by offsets;
+one 251-turn history (whole messages fit the budget more easily than on B's
+1,119 turns); the baseline's conversation fold was withheld. The answer/grade
+comparison in tuning and Z2 decides; this is a warning, not a verdict.
+
 ## 2026-10-14 — v3 full-arm tuning coordinates and repeat floor
 
 The four-arm current-reader baseline `logs/v3-read-baseline-2026-10-14-r1`
