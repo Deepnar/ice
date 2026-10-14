@@ -25,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -38,15 +39,55 @@ from scripts.z1.evidence_content import audit_probe
 
 POLICY = "ice-v3-read-coordinate-full-arm-1"
 ARMS = ("full",)
+SUPPLEMENT_POLICY = "ice-v3-leg-profile-supplement-1"
+SUPPLEMENT_LEGS, SUPPLEMENT_SCALES = ("bm25", "vector", "codex", "procedural"), (0.5, 1.5)
 
 
-def setup(root, plan, identifier, out, *, owned=False, reader_adoption):
-    """Extend the unchanged collector's identity; never recompute its fields."""
+def supplement_rows(settings):
+    """Scale one leg across every intent profile; the sealed base-weight rows
+    never reach a decision when every detected intent has a profile."""
+    base = settings.model_dump(mode="json")
+    profiles = base["retrieval_leg_profiles"]
+    rows = []
+    for leg in SUPPLEMENT_LEGS:
+        for scale in SUPPLEMENT_SCALES:
+            scaled = {intent: {k: (round(v * scale, 6) if k == leg else v) for k, v in weights.items()}
+                      for intent, weights in profiles.items()}
+            overrides = dict(retrieval_leg_profiles=scaled)
+            type(settings).model_validate(base | overrides)
+            rows.append(dict(id=f"leg_profile-{leg}-x{scale}", stage="leg_profile", overrides=overrides,
+                             live_delta=None, cost=None, verdict="unmeasured", requires_writer_replay=False))
+    return rows
+
+
+@contextmanager
+def supplement_applied(settings, coordinate):
+    """Apply exactly one declared supplement row, never an arbitrary override."""
+    if coordinate not in supplement_rows(settings):
+        raise ValueError("supplement coordinate differs from its declared row")
+    with patch.multiple(settings, **coordinate["overrides"]): yield
+
+
+def setup(root, plan, identifier, out, *, owned=False, reader_adoption, supplement=None):
+    """Extend the unchanged collector's identity; never recompute its fields.
+
+    A supplement row is validated against the baseline's sealed identity and
+    replaces only `coordinate`, declaring that it lies outside the sealed plan.
+    """
     with tempfile.TemporaryDirectory() as scratch:
         config, base, coordinate, probes = runner.setup(
-            root, plan, identifier, Path(scratch), owned=owned, reader_adoption=reader_adoption)
+            root, plan, "baseline" if supplement else identifier, Path(scratch),
+            owned=owned, reader_adoption=reader_adoption)
     identity = dict(base["identity"], arms=list(ARMS), collector_policy=POLICY,
                     collector=fingerprint(Path(__file__).resolve()))
+    if supplement is not None:
+        from src.api.config import settings
+        rows = supplement_rows(settings)
+        if supplement["id"] != identifier or supplement not in rows:
+            raise ValueError("supplement row differs from its declaration")
+        coordinate = supplement
+        identity.update(coordinate=supplement, supplement=dict(
+            policy=SUPPLEMENT_POLICY, outside_sealed_plan=True, rows_sha256=digest(rows)))
     header = dict(base, identity=identity, identity_sha256=digest(identity))
     out.mkdir(parents=True, exist_ok=True)
     write_or_verify(out / "run.json", header)
@@ -65,7 +106,8 @@ def validate_unit(path, header, probes):
 
 def collect(root, out, header, coordinate, probes, config):
     from scripts.z1 import seed_v3
-    with patch.object(seed_v3, "PROMPT_ARMS", ARMS):
+    policy = supplement_applied if header["identity"].get("supplement") else runner.applied
+    with patch.object(seed_v3, "PROMPT_ARMS", ARMS), patch.object(runner, "applied", policy):
         runner.collect(root, out, header, coordinate, probes, config)
     return load_contexts(out, probes)
 
@@ -153,8 +195,12 @@ def compare(root, baseline, candidate, requirements=None):
                 "Required-literal retention is not semantic support or answer quality."])
 
 
-def plan_ids(plan, wanted):
-    rows = json.loads((plan / "coordinates.json").read_text())["rows"]
+def plan_ids(plan, wanted, supplement=False):
+    if supplement:
+        from src.api.config import settings
+        rows = supplement_rows(settings)
+    else:
+        rows = json.loads((plan / "coordinates.json").read_text())["rows"]
     ids = [row["id"] for row in rows]
     if not wanted: return ids
     if len(set(wanted)) != len(wanted) or set(wanted) - set(ids):
@@ -162,13 +208,19 @@ def plan_ids(plan, wanted):
     return [identifier for identifier in ids if identifier in wanted]
 
 
-def execute(root, plan, out, ids, profile, *, owned):
+def supplement_row(identifier):
+    from src.api.config import settings
+    return next(r for r in supplement_rows(settings) if r["id"] == identifier)
+
+
+def execute(root, plan, out, ids, profile, *, owned, supplement=False):
     from src.workers.bg_client_factory import release_owned_models
     try:
         for number, identifier in enumerate(ids, 1):
             directory = out / identifier
-            config, header, coordinate, probes = setup(root, plan, identifier, directory,
-                                                       owned=owned, reader_adoption=profile)
+            config, header, coordinate, probes = setup(
+                root, plan, identifier, directory, owned=owned, reader_adoption=profile,
+                supplement=supplement_row(identifier) if supplement else None)
             if (directory / "contexts.json").exists():
                 load_contexts(directory, probes)
             else:
@@ -178,11 +230,11 @@ def execute(root, plan, out, ids, profile, *, owned):
         release_owned_models()
 
 
-def summarize(root, plan, out, baseline, reports, requirements):
+def summarize(root, plan, out, baseline, reports, requirements, supplement=False):
     reports.mkdir(parents=True, exist_ok=True)
     _, probes = runner.source_probes(root)
     lines = []
-    for identifier in plan_ids(plan, None):
+    for identifier in plan_ids(plan, None, supplement):
         directory = out / identifier
         if not (directory / "contexts.json").exists():
             lines.append(dict(coordinate=identifier, status="not_collected")); continue
@@ -219,6 +271,8 @@ def main():
     parser.add_argument("--compare-baseline", type=Path, help="Completed four-arm baseline collection to compare against.")
     parser.add_argument("--reports", type=Path, help="Comparison output directory (with --compare-baseline).")
     parser.add_argument("--source-units", type=Path)
+    parser.add_argument("--leg-profiles", action="store_true",
+                        help="Run/compare the declared leg-profile supplement rows instead of the sealed plan.")
     parser.add_argument("--execute-owned", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     root, plan, out, profile = (p.resolve() for p in (args.development_run, args.tuning_plan, args.out, args.reader_adoption))
@@ -230,19 +284,20 @@ def main():
         private_paths(baseline, reports)
         if reports.is_relative_to(baseline) or reports.is_relative_to(root):
             raise ValueError("derived reports must not alter their immutable input bundles")
-        summarize(root, plan, out, baseline, reports, args.source_units)
+        summarize(root, plan, out, baseline, reports, args.source_units, args.leg_profiles)
         return 0
-    ids = plan_ids(plan, args.coordinate)
+    ids = plan_ids(plan, args.coordinate, args.leg_profiles)
     with (root / ".operator.lock").open("a") as lock:
         if not args.execute_owned: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if args.execute_owned:
-            execute(root, plan, out, ids, profile, owned=True)
+            execute(root, plan, out, ids, profile, owned=True, supplement=args.leg_profiles)
             return 0
         pending = [i for i in ids if not (out / i / "contexts.json").exists()]
         if not args.run:
             # Same producer/profile/coordinate validation as collection, no models.
             for identifier in ids:
-                setup(root, plan, identifier, out / identifier, reader_adoption=profile)
+                setup(root, plan, identifier, out / identifier, reader_adoption=profile,
+                      supplement=supplement_row(identifier) if args.leg_profiles else None)
             print(json.dumps(dict(version="v3", arms=list(ARMS), coordinates=len(ids), pending=pending,
                                   cloud_calls=False), indent=1))
             return 0
@@ -251,7 +306,8 @@ def main():
         env = database_environment(config, root)
         command = [sys.executable, str(Path(__file__).resolve()), "--development-run", str(root),
                    "--tuning-plan", str(plan), "--reader-adoption", str(profile), "--out", str(out),
-                   "--execute-owned", *[f"--coordinate={i}" for i in args.coordinate]]
+                   "--execute-owned", *[f"--coordinate={i}" for i in args.coordinate],
+                   *(["--leg-profiles"] if args.leg_profiles else [])]
         out.mkdir(parents=True, exist_ok=True)
         log = out / "collector.log"
         print(f"v3 full-arm collection of {len(pending)}/{len(ids)} coordinates; details: {log}", flush=True)

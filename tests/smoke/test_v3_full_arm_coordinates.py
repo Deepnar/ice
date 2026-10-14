@@ -158,3 +158,36 @@ def test_mismatched_or_undeclared_candidate_is_refused(collections, fault):
         match = "full-arm collection identity"
     with pytest.raises(ValueError, match=match):
         full.compare(root, baseline, candidate)
+
+
+def test_leg_profile_rows_scale_one_leg_in_every_intent_profile():
+    from src.api.config import settings
+    rows = full.supplement_rows(settings)
+    assert len(rows) == 8 and len({r["id"] for r in rows}) == 8
+    base = settings.retrieval_leg_profiles
+    for row in rows:
+        _, leg, scale = row["id"].split("-")
+        scale = float(scale[1:])
+        scaled = row["overrides"]["retrieval_leg_profiles"]
+        for intent, weights in base.items():
+            for name, value in weights.items():
+                assert scaled[intent][name] == (round(value * scale, 6) if name == leg else value)
+
+
+def test_supplement_keeps_baseline_identity_and_applies_only_declared_rows(sealed):
+    from src.api.config import settings
+    root, plan, out, _, _ = sealed
+    _, four, _, _ = runner.setup(root, plan, "baseline", out)
+    row = full.supplement_rows(settings)[0]
+    _, one, coordinate, _ = full.setup(root, plan, row["id"], out.parent / "leg", reader_adoption=None, supplement=row)
+    assert all(one["identity"][k] == four["identity"][k] for k in matched.COMMON)
+    assert one["identity"]["coordinate"] == coordinate == row
+    assert one["identity"]["supplement"]["outside_sealed_plan"] is True
+    before = settings.retrieval_leg_profiles
+    with full.supplement_applied(settings, row):
+        assert settings.retrieval_leg_profiles == row["overrides"]["retrieval_leg_profiles"]
+    assert settings.retrieval_leg_profiles == before
+    with pytest.raises(ValueError, match="declared row"):
+        with full.supplement_applied(settings, dict(row, overrides={"retrieval_rrf_k": 1})): pass
+    with pytest.raises(ValueError, match="declaration"):
+        full.setup(root, plan, row["id"], out.parent / "bad", reader_adoption=None, supplement=dict(row, stage="x"))
