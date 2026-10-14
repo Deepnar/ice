@@ -355,6 +355,28 @@ the user gets access — seam only, no dependency); **better ground truth is man
 
 ### 2.1 Datasets
 
+**Current roster, maintainer 2026-10-15 (supersedes the table below, kept as the
+record).** Reported in separate tables, never pooled. *Native* = the dataset's own
+questions and protocol; *LSREP-adapted* = replayed in order with checkpoints,
+cutoff-local questions and evolving ground truth from the Z2 question machinery
+([Z2_EVALUATION](Z2_EVALUATION.md) D4). Native and adapted numbers are never
+presented as the same task.
+
+| Tier | Dataset | Use | Notes |
+|---|---|---|---|
+| 1 | Synthetic long-form conversations with a planted-fact ledger | headline reproducible LSREP | ledger loads directly as Z2 ground truth; released if permissible |
+| 1 | LongMemEval oracle **and** LongMemEval-S | native | S was excluded from Z2 only; FINAL runs it. Non-official judge, labelled |
+| 1 | LoCoMo | native | answer key ~6.4% wrong in a public audit; known-bad keys excluded and listed; judge checked with deliberately wrong but on-topic answers |
+| 1 | Maintainer's v1 conversations (all, not only the four of the v2 paper), plus the FINAL-sealed B/C families | LSREP, private | aggregate results only, separate table, never published raw |
+| 2 | LongMemEval-S and LoCoMo histories, LSREP-adapted | LSREP | sessions/timestamps give checkpoints; new derived questions, leakage-checked |
+| 2 | BEAM (ICLR 2026; 100K-10M-token conversations, 2,000 validated questions) | native, scale | 128K/500K/1M tiers first; 10M only if replay speed allows |
+| 3 | MemoryAgentBench (ICLR 2026) | native, agentic memory | accurate-retrieval and selective-forgetting subsets fit ICE's chat ingestion; test-time-learning and long-range-understanding subsets do not, and are excluded unless an adapter is justified |
+
+Tier 1 must run; tier 2 runs if Z3 sizing fits; tier 3 is optional. Controls on
+every dataset: recent/window-only, budget-matched bare vector (whole messages),
+ICE warm vector, full ICE. Third-party published scores are context only, never
+ranked against these. Final sizes, licences and adapters are fixed at Z3.
+
 | id | source | role | cloud-allowed |
 |---|---|---|---|
 | `flaw` | existing (1,119 turns, creative) | temporal-rich personal set (saga evolution = real evolution probes) | no (default) |
@@ -451,6 +473,12 @@ bootstrap on score deltas; report the CI, not stars. **No pooled cross-dataset
 headline (D4).** Longitudinal curves (score vs checkpoint) kept from exp2.
 
 ### 2.7 Ablation (subtraction, redesigned)
+
+**2026-10-15:** Z2's ablations are development evidence (Z2 results get fixed
+against), so FINAL repeats them on the frozen post-fix system: read-time
+leave-one-out (and the additive ladder if answer limits allow) on the saved stores
+of the synthetic set and one public set (LongMemEval-S or LoCoMo-adapted), plus
+the private set. No new replays are needed for read-time ablations.
 
 From `full_ice`, subtract one at a time: `rrf`, `chunk_retrieval (C2/C3)`,
 `cluster_restrict (C5)`, `codex (A-track)`, `recency (C8)`, `timescope (T)`,
