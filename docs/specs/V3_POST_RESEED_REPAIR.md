@@ -3790,6 +3790,8 @@ and cluster links and copies them (with `cluster_ids`) into `cold_storage`/
 condition is the real system; or (B) replay without decay, overlays only apply
 decay forward — simpler, but even the main condition's decay is applied after
 the fact.
+**Decided (maintainer, 2026-10-14): A** — live default decay during the Z2 replay, so
+real-use quirks surface; alternate profiles reverse cold moves on restored copies.
 
 **State rules:** read-only omissions can reuse the identical frozen as-of store
 only for labeled read-side contrasts. Writer, entity identity, summary,
