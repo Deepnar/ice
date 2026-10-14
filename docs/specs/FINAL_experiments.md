@@ -357,25 +357,31 @@ the user gets access — seam only, no dependency); **better ground truth is man
 
 **Current roster, maintainer 2026-10-15 (supersedes the table below, kept as the
 record).** Reported in separate tables, never pooled. *Native* = the dataset's own
-questions and protocol; *LSREP-adapted* = replayed in order with checkpoints,
-cutoff-local questions and evolving ground truth from the Z2 question machinery
-([Z2_EVALUATION](Z2_EVALUATION.md) D4). Native and adapted numbers are never
-presented as the same task.
+questions and protocol; *LSREP* = ordered replay with checkpoints, cutoff-local
+questions and evolving ground truth from the Z2 question machinery
+([Z2_EVALUATION](Z2_EVALUATION.md) D4).
 
 | Tier | Dataset | Use | Notes |
 |---|---|---|---|
-| 1 | Synthetic long-form conversations with a planted-fact ledger | headline reproducible LSREP | ledger loads directly as Z2 ground truth; released if permissible |
-| 1 | LongMemEval oracle **and** LongMemEval-S | native | S was excluded from Z2 only; FINAL runs it. Non-official judge, labelled |
-| 1 | LoCoMo | native | answer key ~6.4% wrong in a public audit; known-bad keys excluded and listed; judge checked with deliberately wrong but on-topic answers |
-| 1 | Maintainer's v1 conversations (all, not only the four of the v2 paper), plus the FINAL-sealed B/C families | LSREP, private | aggregate results only, separate table, never published raw |
-| 2 | LongMemEval-S and LoCoMo histories, LSREP-adapted | LSREP | sessions/timestamps give checkpoints; new derived questions, leakage-checked |
-| 2 | BEAM (ICLR 2026; 100K-10M-token conversations, 2,000 validated questions) | native, scale | 128K/500K/1M tiers first; 10M only if replay speed allows |
-| 3 | MemoryAgentBench (ICLR 2026) | native, agentic memory | accurate-retrieval and selective-forgetting subsets fit ICE's chat ingestion; test-time-learning and long-range-understanding subsets do not, and are excluded unless an adapter is justified |
+| 1 | Synthetic long-form conversations with a planted-fact ledger | LSREP, headline reproducible | ledger loads directly as ground truth; released if permissible |
+| 1 | Maintainer's conversations: the four v2-paper histories plus suitable v1 experiment conversations; FINAL-sealed B/C families | LSREP, private | aggregate results only, separate table, never published raw |
+| 1 | LongMemEval oracle **and** LongMemEval-S | native | the field's standard; v2 trailed vector RAG here. S was excluded from Z2 only. Non-official judge, labelled |
+| 1 | BEAM (ICLR 2026; 100K-10M-token conversations, 2,000 validated questions) | native, scale | 128K and 500K tiers fully, 1M sampled, 10M only if replay speed allows |
+| 2 | MemoryAgentBench (ICLR 2026) | native, agentic memory | accurate-retrieval and selective-forgetting subsets only; test-time learning and long-range understanding do not fit chat memory |
 
-Tier 1 must run; tier 2 runs if Z3 sizing fits; tier 3 is optional. Controls on
-every dataset: recent/window-only, budget-matched bare vector (whole messages),
-ICE warm vector, full ICE. Third-party published scores are context only, never
-ranked against these. Final sizes, licences and adapters are fixed at Z3.
+**Not used, with reasons:**
+- *LSREP-adapted public datasets (LME, LoCoMo):* adapting public corpora to LSREP is
+  protocol work for a separate LSREP study, not this system evaluation.
+- *LoCoMo:* histories short enough to fit a long-context window, so it cannot show
+  what memory adds; a public audit found about 6.4% of its answer key wrong and
+  its common judge accepting about 63% of deliberately wrong, on-topic answers.
+  LongMemEval-S and BEAM test the same abilities at more informative scale. It is
+  cheap (10 conversations) and can be added with an audited key if a venue
+  requires it.
+
+Controls on every dataset: recent/window-only, budget-matched bare vector (whole
+messages), ICE warm vector, full ICE. Third-party published scores are context
+only, never ranked against these. Final sizes, licences and adapters are fixed at Z3.
 
 | id | source | role | cloud-allowed |
 |---|---|---|---|
@@ -477,8 +483,7 @@ headline (D4).** Longitudinal curves (score vs checkpoint) kept from exp2.
 **2026-10-15:** Z2's ablations are development evidence (Z2 results get fixed
 against), so FINAL repeats them on the frozen post-fix system: read-time
 leave-one-out (and the additive ladder if answer limits allow) on the saved stores
-of the synthetic set and one public set (LongMemEval-S or LoCoMo-adapted), plus
-the private set. No new replays are needed for read-time ablations.
+of the synthetic set, LongMemEval-S and the private set. No new replays are needed for read-time ablations.
 
 From `full_ice`, subtract one at a time: `rrf`, `chunk_retrieval (C2/C3)`,
 `cluster_restrict (C5)`, `codex (A-track)`, `recency (C8)`, `timescope (T)`,
