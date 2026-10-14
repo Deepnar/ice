@@ -86,6 +86,16 @@ TRANSITIONS = {
         "after": "ee728a131f54940bf82f7f04122ed0806b7d57a1abc460927fff63eca0c9b5e9",
         "reason": "Tested required content/noise/opposing-rejection dependency for the existing relevance floor; coordinates and frozen writer outcomes remain unchanged.",
     },
+    "scripts/z1/evidence_content.py": {
+        "before": "cb9caed2b5540eb4caaa04d507c00d0b2a0c8d93382b6689161ed7b5fbee9af7",
+        "after": "4806b8373ff3a87e06d5ac07dae0849b394e1308bc3eba3f11e6048b36ba1c79",
+        "reason": "Qualified research-only native attributed JSON observation; source-role/hash/offset and semantic gates preserved. Old measurements and frozen writer outputs are not rewritten.",
+    },
+    "scripts/z1/score_frozen_answers.py": {
+        "before": "7d7b7025639f210b7c6f75948511058b8566329d9ed053d7d6fb5c8b2aa298a3",
+        "after": "0edb0371d9b011bb1f42579600aeacb70b8b69a067dfc82469d6ce674c1b350c",
+        "reason": "Qualified optional editorial required-content criteria in diagnostic judge inputs; answering messages, original references and saved answers/grades are unchanged. This reader profile performs no grading.",
+    },
 }
 
 

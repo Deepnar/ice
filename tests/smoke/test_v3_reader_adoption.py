@@ -100,3 +100,25 @@ def test_old_collector_without_explicit_profile_still_refuses(profile_source, mo
     monkeypatch.setattr(run_tuning_contexts, "fingerprint", lambda path: fingerprint(path, root=root))
     with pytest.raises(ValueError, match="code changed"):
         run_tuning_contexts.current_code(config["identity"])
+
+
+def test_exact_measurement_helper_changes_profile_without_relabeling_native_writer(profile_source, monkeypatch):
+    root, _source, config, seal, old_native = profile_source
+    helper = root / "scripts/z1/evidence_content.py"
+    before, after = b"old content observer\n", b"qualified content observer\n"
+    helper.write_bytes(before)
+    config["identity"]["code"].append(fingerprint(helper, root=root))
+    config["identity_sha256"] = digest(config["identity"])
+    helper.write_bytes(after)
+    transitions = {**adoption.TRANSITIONS, "scripts/z1/evidence_content.py": dict(
+        before=hashlib.sha256(before).hexdigest(), after=hashlib.sha256(after).hexdigest(),
+        reason="Qualified research observer only.")}
+    monkeypatch.setattr(adoption, "TRANSITIONS", transitions)
+    monkeypatch.setattr(adoption, "before_bytes", lambda name: before if name.endswith("evidence_content.py") else old_native)
+    profile = adoption.build(root, config, seal)
+    assert profile["identity"]["producer_native_code_sha256"] == hashlib.sha256(b"src/reader.py" + old_native).hexdigest()
+    assert set(profile["identity"]["approved_changes"]) == {"src/reader.py", "scripts/z1/evidence_content.py"}
+    assert adoption.validate(profile, root, config, seal) == profile
+    helper.write_bytes(after + b"unregistered change\n")
+    with pytest.raises(ValueError, match="unregistered"):
+        adoption.build(root, config, seal)
