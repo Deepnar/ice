@@ -11,10 +11,38 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+LITERAL_POLICY = "native_attributed_json_once_v2"
+ATTRIBUTED_QUOTE = re.compile(r'The (?:user|assistant|document) said: (?=")')
+
+
+def rendered_text_units(text):
+    """Decode only complete native attributed JSON strings, exactly once.
+
+    Source code containing a literal backslash remains distinct from the
+    transport escape for a newline. Neither adjacent roles nor raw surrounding
+    text are joined to manufacture a source span.
+    """
+    decoder = json.JSONDecoder()
+    cursor = 0
+    while match := ATTRIBUTED_QUOTE.search(text, cursor):
+        start = match.end()
+        try:
+            value, length = decoder.raw_decode(text[start:])
+        except json.JSONDecodeError:
+            # Leave malformed/incomplete quotes untouched, not partly decoded.
+            yield text[cursor:start]
+            cursor = start
+            continue
+        yield text[cursor:start]
+        yield value
+        cursor = start + length
+    yield text[cursor:]
 
 
 def sha(value):
@@ -36,7 +64,8 @@ def stage_content(stage):
 
 def content_status(fragments, literals):
     texts = [f.get("text") for f in fragments]
-    if any(literal in text for text in texts if isinstance(text, str) for literal in literals):
+    if any(literal in unit for text in texts if isinstance(text, str)
+           for unit in rendered_text_units(text) for literal in literals):
         return "retained"
     if any(not isinstance(text, str) for text in texts):
         return "unobserved"
@@ -90,7 +119,7 @@ def audit_probe(probe, review, *, arm="full"):
         requirements.append({"id": identifier, "kind": "exact_literal", "stages": states})
     if not requirements:
         raise ValueError("content review has no required units")
-    return {"probe_id": probe["probe_id"], "arm": arm,
+    return {"probe_id": probe["probe_id"], "arm": arm, "literal_policy": LITERAL_POLICY,
             "split_turn": probe["split_turn"], "requirements": requirements,
             "source_id_coverage": stage.get("gold_fragment_coverage"),
             "indexed_and_eligible_content": "unobserved",
@@ -124,7 +153,7 @@ def main():
             raise ValueError("duplicate content probe review")
         seen.add(identifier)
         records.append(audit_probe(probes[identifier], review, arm=args.arm))
-    result = {"version": "v3", "score_of_record": False,
+    result = {"version": "v3", "score_of_record": False, "literal_policy": LITERAL_POLICY,
               "trace_sha256": hashlib.sha256(raw).hexdigest(),
               "review_sha256": hashlib.sha256(packet_bytes).hexdigest(),
               "evaluator_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
