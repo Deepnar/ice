@@ -1,16 +1,48 @@
 """Smoke controls, including explicitly isolated SQL/snapshot controls.
 
-Full suite: uv run --no-sync python tests/support/disposable_database.py
-            -m pytest tests/smoke -q
+Every test is tagged automatically (no test file declares it):
+  research — the module imports `experiments` or `scripts` research tooling
+  db       — the module needs a disposable database (ICE_TEST_DATABASE)
+  quick    — neither: ICE's own code, no database
+
+Quick, per commit:      uv run --no-sync pytest tests/smoke -q -m quick
+Research tooling:       uv run --no-sync pytest tests/smoke -q -m "research and not db"
+Full suite (before long runs and pushes):
+  uv run --no-sync python tests/support/disposable_database.py -m pytest tests/smoke -q
 """
 
 import pathlib
+import re
 import sys
 
 import pytest
 
 # Repo root on sys.path (same convention as the standalone tests/ scripts).
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+
+RESEARCH = re.compile(r"^\s*(from|import)\s+(experiments|scripts)\b", re.M)
+DATABASE = re.compile(r"ICE_TEST_DATABASE|empty_replay_database|disposable_database")
+
+
+def pytest_configure(config):
+    for name, text in (("quick", "ICE code without a database"),
+                       ("research", "research tooling under experiments/ or scripts/"),
+                       ("db", "needs a disposable ICE_TEST_DATABASE")):
+        config.addinivalue_line("markers", f"{name}: {text}")
+
+
+def pytest_collection_modifyitems(items):
+    groups = {}
+    for item in items:
+        path = pathlib.Path(str(item.fspath))
+        if path not in groups:
+            source = path.read_text()
+            groups[path] = (bool(RESEARCH.search(source)), bool(DATABASE.search(source)))
+        research, database = groups[path]
+        database = database or "empty_replay_database" in getattr(item, "fixturenames", ())
+        if research: item.add_marker("research")
+        if database: item.add_marker("db")
+        if not (research or database): item.add_marker("quick")
 
 
 @pytest.fixture
