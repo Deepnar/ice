@@ -1567,7 +1567,7 @@ Mechanical G items: opportunistic per [G_mechanical.md](specs/G_mechanical.md), 
 - [ ] <a id="z2"></a>**Z2 Frozen v3 semi-LSREP and LongMemEval oracle** `(gate — current user decision 2026-10-09)` — after the post-r4 repairs and hyperparameter freeze, run original paper histories B and C separately with full memory lifecycle, repeated cutoff-reviewed probes, additive and independent leave-one-out ablations on both; then the oracle evidence-session benchmark. Use cloud answers/judges and local background workers, with both warm-vector and independent bare-vector controls. Report each history before combining; both share one author and are reserved from new tuning. → [complete execution/validation contract](specs/V3_POST_RESEED_REPAIR.md).
 
   **v3 sequencing correction, 2026-10-14:** tuning does not depend on completing
-  this final experiment first. Finish the executable instruments for each tuning
+  Z2 first. Finish the executable instruments for each tuning
   family, then measure its parameter effects during tuning. Broad answer and
   retention outcomes are not another full pre-tuning qualification run. Preserve
   the active saved-prefix baseline and reuse its contexts. Conditional lifecycle

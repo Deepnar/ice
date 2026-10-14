@@ -1,7 +1,7 @@
-# v3 final-run readiness — ablation switches, runners and compute (2026-10-14)
+# v3 Z2 readiness — ablation switches, runners and compute (2026-10-14)
 
-Read-only audit of what the final semi-LSREP + ablation + LongMemEval-oracle run
-needs (spec §2.4–2.6) against what `main` has. No code changed; `src/` and the
+Read-only audit of what Z2 (semi-LSREP + ablations + LongMemEval oracle — not
+FINAL, the paper experiment) needs (spec §2.4–2.6) against what `main` has. No code changed; `src/` and the
 pinned collector files were frozen while the tuning collection ran.
 
 ## Ablation switches for the twelve groups (spec §2.5)
@@ -40,10 +40,10 @@ small guarded flag defaulting to today's behaviour.
 - **LongMemEval oracle**: dataset present and its 500 keys frozen
   (`prepare_inputs.py::oracle_keys`). The existing `experiments/lme/lme_run.py`
   is pinned to the v2 tree; a v3 per-instance adapter is still needed.
-- **Second judge**: role decided (final run only, untuned second opinion);
-  model identity not yet chosen.
+- **Second judge**: not part of Z2 — used only in FINAL (the paper experiment),
+  untuned, as a second opinion; model identity not yet chosen.
 
-## Compute — the binding constraint
+## Compute — the binding constraint for Z2
 
 The repaired 251-turn development replay took 5.5 h with no pauses (about 65 s
 per turn of memory writing plus about 1 h of question preparation). At that
@@ -55,6 +55,6 @@ after BM25/reranker. Deduplicated, that is roughly **20 replays ≈ 500+ hours
 (about three weeks) of continuous local compute**, before thermal throttling.
 Read-only groups (1, 2, 10) and both vector controls reuse the full store.
 
-This is an estimate from one 251-turn run, not a measured final-run profile.
-It means the roster, the histories each arm runs on, or the replay speed has to
+This is an estimate from one 251-turn run, not a measured Z2 profile.
+Z2 is expected to run more than once (roadmap Z2). It means the roster, the histories each arm runs on, or the replay speed has to
 change before launch; that is a maintainer decision.

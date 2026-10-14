@@ -41,6 +41,11 @@ This is the next plan referenced by the retained, private `docs/SESSION.md`.
 
 ### 1.1 Scope, sequence and completion
 
+**Terminology, maintainer 2026-10-14:** semi-LSREP + ablations + LongMemEval
+oracle is the **Z2** phase. **FINAL** is only the paper experiment that follows
+Z2, the fix pass and Z3 (roadmap gates). Where older text in this spec says
+"final run", "final B/C" or "final launch", read Z2.
+
 The maintainer requests evidence-led core memory repair, including bounded
 design improvements where the likely cause is not yet settled. Execute:
 
@@ -3951,13 +3956,13 @@ pre-tuning pass. (b) Cloud answering cost is not a constraint (call-based plan).
 conversation fold is refused on every read, because it was written under
 `summary_support` v1 and the current reader requires v2 (PROVENANCE 2026-10-11).
 Label it "fold withheld"; at turn 251 that fold is 225 copied originals plus 4
-compressed parts. The final run's fresh writer will produce one; recheck the
-chosen budget once at freeze. (d) The second judge family is used only in the final
-run, as an untuned second opinion reported beside Muse to show the result does
+compressed parts. Z2's fresh writer will produce one; recheck the
+chosen budget once at freeze. (d) The second judge family is used only in FINAL (the paper
+experiment), not Z2, as an untuned second opinion reported beside Muse to show the result does
 not depend on one chosen judge; it is not qualified, tuned or used for selection.
 (e) Lifecycle/decay coordinates are not tuned: their wiring (step 3) is
 skipped, defaults are frozen as-is, and decay/retention is exercised and reported
-in semi-LSREP and the oracle. Only the read coordinates are tuned.
+in Z2 (semi-LSREP and the oracle). Only the read coordinates are tuned.
 
 This changes ordering, not roadmap checkmarks. A new failure blocks only the
 measurement it invalidates unless it demonstrates a shared correctness defect.
