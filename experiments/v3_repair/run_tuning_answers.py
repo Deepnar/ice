@@ -55,8 +55,13 @@ def load(directory, probes):
     return load_contexts(directory, probes)
 
 
+def label(identity):
+    """A full-arm repeat of the baseline is the answer-noise control, not a duplicate."""
+    coordinate = identity["coordinate"]["id"]
+    return "baseline-repeat" if coordinate == "baseline" and identity.get("arms") == ["full"] else coordinate
+
+
 def plan(root, baseline, candidates, out):
-    if len(candidates) > 2: raise ValueError("at most two surviving coordinates per stage")
     if collection_arms(baseline) != ARMS: raise ValueError("answer baseline must hold all four arms")
     producer, probes = source_probes(root)
     paths = [baseline, *candidates]
@@ -68,16 +73,19 @@ def plan(root, baseline, candidates, out):
             or common["producer_trace_sha256"] != producer["trace_sha256"]
             or common["probes"] != sorted(probes)):
         raise ValueError("answer baseline differs from complete repaired producer")
-    identifiers, stages = set(), set()
+    identifiers, per_stage = set(), {}
     for header, _ in collections:
         identity = header["identity"]; coordinate = identity["coordinate"]
-        identifier = coordinate["id"]
+        identifier = label(identity)
         if (identifier in identifiers or any(identity[key] != common[key] for key in COMMON)
                 or coordinate.get("requires_writer_replay", False)):
             raise ValueError("answer shortlist differs in source/code/profile or repeats a coordinate")
         identifiers.add(identifier)
-        if identifier != "baseline": stages.add(coordinate["stage"])
-    if len(stages) > 1: raise ValueError("survivors must belong to one cheap read stage")
+        if coordinate["id"] != "baseline":
+            per_stage[coordinate["stage"]] = per_stage.get(coordinate["stage"], 0) + 1
+    if any(count > 2 for count in per_stage.values()):
+        raise ValueError("at most two surviving coordinates per stage")
+    stages = sorted(per_stage)
     # No provider credentials or SDK client are loaded during planning.
     from experiments.lme.cloud_provider import PROFILES
     profile = PROFILES[PROFILE]
@@ -91,8 +99,8 @@ def plan(root, baseline, candidates, out):
     identity = dict(version="v3", policy=POLICY, producer=common["producer"],
         producer_trace_sha256=common["producer_trace_sha256"],
         collections=[header["identity_sha256"] for header, _ in collections],
-        coordinate_ids=[header["identity"]["coordinate"]["id"] for header, _ in collections],
-        stage=next(iter(stages), "baseline"), collection_arms=rosters, probes=sorted(probes),
+        coordinate_ids=[label(header["identity"]) for header, _ in collections],
+        stages=stages or ["baseline"], collection_arms=rosters, probes=sorted(probes),
         answer_profile=PROFILE, answer_model=profile.model, endpoint=profile.endpoint,
         decoding=dict(max_output_tokens=1500, temperature=0, temperature_sent=profile.supports_temperature),
         code=[fingerprint(path) for path in sorted(code)])

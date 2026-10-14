@@ -72,7 +72,7 @@ def test_offline_plan_real_parser_and_two_survivor_bound_without_client_or_crede
     before = {str(p.relative_to(out)): p.read_bytes() for p in out.rglob("*") if p.is_file()}
     assert bridge.plan(root, baseline, [candidate], out) == manifest
     assert before == {str(p.relative_to(out)): p.read_bytes() for p in out.rglob("*") if p.is_file()}
-    with pytest.raises(ValueError, match="at most two"): bridge.plan(root, baseline, [candidate] * 3, out)
+    with pytest.raises(ValueError, match="repeats"): bridge.plan(root, baseline, [candidate] * 3, out)
     with pytest.raises(ValueError, match="repeats"): bridge.plan(root, baseline, [candidate, candidate], out)
 
 
@@ -210,13 +210,13 @@ def test_changed_cached_answer_or_source_metadata_refuses_before_sdk(packets, mo
     with pytest.raises(ValueError, match="body changed|metadata changed"): bridge.execute(out, manifest)
 
 
-def full_arm_candidate(tmp_path, probes):
+def full_arm_candidate(tmp_path, probes, name="full-arm", coordinate_id="budget2"):
     """A full-arm collection over the same producer: controls are absent, not copied."""
     from experiments.v3_repair import run_full_arm_coordinates as full_arm
-    path = tmp_path / "full-arm"; path.mkdir(); (path / "units").mkdir()
+    path = tmp_path / name; path.mkdir(); (path / "units").mkdir()
     identity = dict(producer="writer", producer_trace_sha256="trace", coordinate_seal="same-seal", code=[],
                     probes=sorted(probes), settings_sha256="same-baseline",
-                    coordinate=dict(id="budget2", stage="budget", requires_writer_replay=False),
+                    coordinate=dict(id=coordinate_id, stage="budget", requires_writer_replay=False),
                     arms=["full"], collector_policy=full_arm.POLICY, collector=dict(path="c", sha256="c", bytes=1))
     header = dict(identity=identity, identity_sha256=digest(identity), complete=False)
     write_or_verify(path / "run.json", header)
@@ -250,3 +250,14 @@ def test_full_arm_candidate_answers_only_full_beside_four_arm_baseline(packets, 
     # A full-arm collection can never stand in for the four-arm baseline.
     with pytest.raises(ValueError, match="all four arms"):
         bridge.plan(root, candidate, [], tmp_path / "other")
+
+
+def test_three_survivors_in_one_stage_refuse_but_a_baseline_repeat_is_the_noise_control(packets, tmp_path):
+    root, baseline, _, out, probes = packets
+    three = [full_arm_candidate(tmp_path, probes, f"c{i}", f"budget-{i}") for i in range(3)]
+    with pytest.raises(ValueError, match="at most two"):
+        bridge.plan(root, baseline, three, out)
+    repeat = full_arm_candidate(tmp_path, probes, "repeat", "baseline")
+    manifest = bridge.plan(root, baseline, [repeat, *three[:2]], tmp_path / "answers2")
+    assert manifest["identity"]["coordinate_ids"] == ["baseline", "baseline-repeat", "budget-0", "budget-1"]
+    assert manifest["identity"]["stages"] == ["budget"]
