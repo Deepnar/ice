@@ -2700,3 +2700,17 @@ Keep roles/quoted units separate. Test actual source rendering as well as genuin
 omissions and negations. Even representation-correct literal presence cannot
 establish semantic support; alternative wording also means a missing exact span
 is not necessarily missing meaning. Preserve old reports and version the checker.
+
+### 128. A swept setting can be read live and still reach no decision
+
+ICE v3, 2026-10-14: the sealed tuning plan swept `retrieval_leg_base_weights` in
+ten coordinates. Every one changed the same 3/67 prompts as the repeated-baseline
+noise floor (2/67) with identical token deltas, whatever leg or direction moved.
+`leg_weights.resolve` reads the setting live, but base weights are blended only
+for an intent with no profile row, and all 13 intents have profiles; 0/67 questions
+touched them. The plan's consumer audit had found the reader, not the decision.
+About 2.5 h of local collection measured nothing; no cloud call was spent because
+the cheap prompt comparison ran first. Before sweeping, count on real questions
+how many decisions the value enters (here: profile rows used vs base fallback),
+and compare identical-looking coordinates against each other, not only against
+the baseline: ten coordinates matching each other exactly is the signature.
