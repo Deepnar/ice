@@ -224,7 +224,9 @@ uv run --no-sync python experiments/v3_repair/run_full_arm_coordinates.py \
 It prints, per coordinate, how many of the 67 full prompts changed. Read each
 count against the repeated-baseline floor: a coordinate that changes no more
 prompts than the floor cannot change answers and is not sent for answering.
-Answering/grading of the full-only coordinates is a separate next step.
+Answer survivors with `run_tuning_answers.py --baseline logs/v3-read-baseline-2026-10-14-r1
+--candidate <full-arm coordinate dir>`: the baseline answers all four arms, each
+full-arm coordinate answers only `full` (at most two survivors per read stage).
 
 The completed replay predates the approved cited-span repair. Its ordinary
 collector command intentionally refuses changed code. Preserve that frozen

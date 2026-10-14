@@ -1,7 +1,8 @@
 """Plan or manually answer a bounded v3 development coordinate shortlist.
 
 Reuse the existing cloud SDK/answer cache and fault policy. No writer work,
-qualified grade, validation execution or automatic tuning promotion.
+qualified grade, validation execution or automatic tuning promotion. The
+baseline answers all four arms; a full-arm coordinate answers only `full`.
 """
 
 import argparse
@@ -17,6 +18,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from experiments.v3_repair import run_full_arm_coordinates as full_arm
 from experiments.v3_repair.compare_tuning_contexts import COMMON, load_contexts
 from experiments.v3_repair.fault_receipts import FaultRecorder
 from experiments.v3_repair.prepare_inputs import digest, encoded, fingerprint, write_or_verify
@@ -41,10 +43,25 @@ def immutable_lines(path, rows):
     finally: os.close(fd)
 
 
+def collection_arms(directory):
+    arms = tuple(json.loads((directory / "run.json").read_text())["identity"].get("arms", ARMS))
+    if arms not in (ARMS, full_arm.ARMS): raise ValueError("unknown collection arm roster")
+    return arms
+
+
+def load(directory, probes):
+    if collection_arms(directory) == full_arm.ARMS:
+        return full_arm.load_contexts(directory, probes)
+    return load_contexts(directory, probes)
+
+
 def plan(root, baseline, candidates, out):
     if len(candidates) > 2: raise ValueError("at most two surviving coordinates per stage")
+    if collection_arms(baseline) != ARMS: raise ValueError("answer baseline must hold all four arms")
     producer, probes = source_probes(root)
-    collections = [load_contexts(path, probes) for path in [baseline, *candidates]]
+    paths = [baseline, *candidates]
+    collections = [load(path, probes) for path in paths]
+    rosters = [list(collection_arms(path)) for path in paths]
     common = collections[0][0]["identity"]
     if (common["coordinate"]["id"] != "baseline"
             or common["producer"] != producer["producer_identity"]
@@ -67,6 +84,7 @@ def plan(root, baseline, candidates, out):
     from scripts.z1 import answer_as_of
     code = [Path(__file__), ROOT / "experiments/v3_repair/fault_receipts.py", ROOT / "experiments/v3_repair/compare_tuning_contexts.py",
             ROOT / "experiments/v3_repair/run_tuning_contexts.py", ROOT / "experiments/v3_repair/audit_development.py",
+            ROOT / "experiments/v3_repair/run_full_arm_coordinates.py",
             ROOT / "experiments/lme/cloud_provider.py", ROOT / "scripts/z1/answer_as_of.py",
             ROOT / "scripts/z1/cloud_recovery.py", ROOT / "scripts/z1/answer_resume.py",
             ROOT / "scripts/z1/answer_resume_repairs.json"]
@@ -74,19 +92,19 @@ def plan(root, baseline, candidates, out):
         producer_trace_sha256=common["producer_trace_sha256"],
         collections=[header["identity_sha256"] for header, _ in collections],
         coordinate_ids=[header["identity"]["coordinate"]["id"] for header, _ in collections],
-        stage=next(iter(stages), "baseline"), arms=list(ARMS), probes=sorted(probes),
+        stage=next(iter(stages), "baseline"), collection_arms=rosters, probes=sorted(probes),
         answer_profile=PROFILE, answer_model=profile.model, endpoint=profile.endpoint,
         decoding=dict(max_output_tokens=1500, temperature=0, temperature_sent=profile.supports_temperature),
         code=[fingerprint(path) for path in sorted(code)])
     manifest = dict(identity=identity, identity_sha256=digest(identity),
-        expected_answers=len(probes) * len(collections) * len(ARMS),
-        bounded_transient_attempts=2 * len(probes) * len(collections) * len(ARMS),
+        expected_answers=len(probes) * sum(map(len, rosters)),
+        bounded_transient_attempts=2 * len(probes) * sum(map(len, rosters)),
         source_labels="complete_selected_producer_reviewed_keys",
         content_writer_and_judge_qualification="pending_separate_gates",
         diagnostic_only=True, score_of_record=False, promotion="not_performed")
     out.mkdir(parents=True, exist_ok=True)
     with (root / "seed.jsonl").open() as source: source_run = json.loads(next(source))
-    for header, current in collections:
+    for (header, current), arms in zip(collections, rosters):
         directory = out / header["identity_sha256"]; directory.mkdir(exist_ok=True)
         meta = copy.deepcopy(source_run)
         meta["meta"]["extra"]["diagnostic_coordinate_projection"] = dict(
@@ -100,7 +118,9 @@ def plan(root, baseline, candidates, out):
         trace = directory / "projected.jsonl"
         immutable_lines(trace, [meta, *rows])
         # Qualify the real parser's input contract before any client construction.
-        if len(answer_as_of.load_probes(trace, allow_partial=True)) != len(probes):
+        with patch.object(answer_as_of, "PROMPT_ARMS", tuple(arms)):
+            parsed = answer_as_of.load_probes(trace, allow_partial=True)
+        if len(parsed) != len(probes):
             raise ValueError("cloud parser dropped selected occurrences")
     write_or_verify(out / "answer-plan.json", manifest)
     return manifest
@@ -143,11 +163,14 @@ def validate_answers(output, probes, arm, *, profile_model):
 def execute(out, manifest):
     from scripts.z1 import answer_as_of as native
     original_generator, original_atomic = native.TextGenerator, native.atomic_json
-    for coordinate_id, identifier in zip(manifest["identity"]["coordinate_ids"], manifest["identity"]["collections"]):
+    identity = manifest["identity"]
+    for coordinate_id, identifier, arms in zip(identity["coordinate_ids"], identity["collections"], identity["collection_arms"]):
         directory = out / identifier
         trace = directory / "projected.jsonl"
-        probes = native.load_probes(trace, allow_partial=True)
-        for arm in ARMS:
+        # A full-arm collection has no controls; the native parser expects only `full`.
+        with patch.object(native, "PROMPT_ARMS", tuple(arms)):
+            probes = native.load_probes(trace, allow_partial=True)
+        for arm in arms:
             output = directory / f"answers-{arm}.json"
             validate_answers(output, probes, arm, profile_model=manifest["identity"]["answer_model"])
             faults = FaultRecorder(directory / f"faults-{arm}.jsonl", manifest["identity_sha256"], private_root=native.LOGS)
@@ -186,7 +209,8 @@ def execute(out, manifest):
                 "--arm", arm, "--profile", PROFILE, "--allow-partial", "--failure-policy", "continue"]
             if output.exists(): arguments.append("--resume")
             print(f"v3 diagnostic tuning answers: {identifier[:12]} {arm}; saved successes resume", flush=True)
-            with patch.object(sys, "argv", arguments), patch.object(native, "TextGenerator", NamespacedGenerator), patch.object(native, "atomic_json", bound_save):
+            with patch.object(sys, "argv", arguments), patch.object(native, "TextGenerator", NamespacedGenerator), \
+                    patch.object(native, "atomic_json", bound_save), patch.object(native, "PROMPT_ARMS", tuple(arms)):
                 code = native.main()
             if code: return code
             validate_answers(output, probes, arm, profile_model=manifest["identity"]["answer_model"])

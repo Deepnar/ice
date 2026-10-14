@@ -208,3 +208,45 @@ def test_changed_cached_answer_or_source_metadata_refuses_before_sdk(packets, mo
     path.write_text(json.dumps(value))
     monkeypatch.setattr(native, "TextGenerator", lambda *_a: pytest.fail("corruption loaded SDK client"))
     with pytest.raises(ValueError, match="body changed|metadata changed"): bridge.execute(out, manifest)
+
+
+def full_arm_candidate(tmp_path, probes):
+    """A full-arm collection over the same producer: controls are absent, not copied."""
+    from experiments.v3_repair import run_full_arm_coordinates as full_arm
+    path = tmp_path / "full-arm"; path.mkdir(); (path / "units").mkdir()
+    identity = dict(producer="writer", producer_trace_sha256="trace", coordinate_seal="same-seal", code=[],
+                    probes=sorted(probes), settings_sha256="same-baseline",
+                    coordinate=dict(id="budget2", stage="budget", requires_writer_replay=False),
+                    arms=["full"], collector_policy=full_arm.POLICY, collector=dict(path="c", sha256="c", bytes=1))
+    header = dict(identity=identity, identity_sha256=digest(identity), complete=False)
+    write_or_verify(path / "run.json", header)
+    records = []
+    for key, probe in sorted(probes.items()):
+        unit = dict(probe_id=key, identity_sha256=header["identity_sha256"], source_probe_sha256=digest(probe),
+                    probe=dict(copy.deepcopy(probe), controls={}), answer_quality="unmeasured")
+        unit["unit_sha256"] = digest(unit)
+        write_or_verify(path / "units" / (digest(key) + ".json"), unit); records.append(unit)
+    result = dict(**header, records=records); result["complete"] = True
+    write_or_verify(path / "contexts.json", result)
+    return path
+
+
+def test_full_arm_candidate_answers_only_full_beside_four_arm_baseline(packets, monkeypatch, tmp_path):
+    root, baseline, _, out, probes = packets
+    candidate = full_arm_candidate(tmp_path, probes)
+    calls = []
+    def request(**kwargs):
+        calls.append(kwargs)
+        return dict(status="completed", output_text="Controlled answer.", id=f"response{len(calls)}", usage=dict(input_tokens=12))
+    fake_sdk(monkeypatch, request)
+    manifest = bridge.plan(root, baseline, [candidate], out)
+    assert manifest["identity"]["collection_arms"] == [list(bridge.ARMS), ["full"]]
+    assert manifest["expected_answers"] == 10
+    assert bridge.execute(out, manifest) == 0 and len(calls) == 10
+    directory = out / manifest["identity"]["collections"][1]
+    assert sorted(p.name for p in directory.glob("answers-*.json")) == ["answers-full.json"]
+    from scripts.z1 import seed_v3
+    assert native.PROMPT_ARMS == seed_v3.PROMPT_ARMS == bridge.ARMS
+    # A full-arm collection can never stand in for the four-arm baseline.
+    with pytest.raises(ValueError, match="all four arms"):
+        bridge.plan(root, candidate, [], tmp_path / "other")
