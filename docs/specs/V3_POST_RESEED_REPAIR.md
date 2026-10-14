@@ -2786,6 +2786,13 @@ pre-application receipts remain unchanged. No quality promotion or owner closure
 
 ### 2.4 Z2 semi-LSREP: recorded replies, complete memory effects
 
+**Superseded for execution, 2026-10-15:** Z2 is now specified in
+[Z2_EVALUATION](Z2_EVALUATION.md) — new question machinery with computed evolving
+ground truth, a declared session clock, one full replay per history, read-time
+ablations, a background-content quality audit and the oracle. The sections below
+remain the record and are cited by that spec for the replay, bare-vector and
+oracle contracts.
+
 #### Source-event boundary decision —2026-10-11
 
 Before building the new chronological parent, add a research-only source-event

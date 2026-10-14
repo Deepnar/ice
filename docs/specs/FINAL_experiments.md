@@ -1,5 +1,16 @@
 # FINAL — Full experiment redo (evaluation redesign)
 
+**Correction, maintainer 2026-10-15:** the 2026-10-09 paragraph below conflates
+Z2 with FINAL. **Z2** (semi-LSREP on B and C, read-time ablations, background-
+content audit, LongMemEval oracle) is specified in [Z2_EVALUATION](Z2_EVALUATION.md)
+and is not the paper experiment. **FINAL** remains the paper experiment after Z2,
+the fix pass and Z3. It reuses Z2's question machinery (cited two-family ledger,
+computed evolving ground truth, type quotas), replay, read-pass and scoring
+runners; its inputs are the FINAL-sealed B/C question families, the
+maintainer's other v1 conversations (private, reported separately) and public/
+synthetic data, with a second untuned judge. Its data roster and public adapters
+are decided at Z3. §2.4/§2.5 below are adopted and extended by Z2_EVALUATION.
+
 **Current v3 scope and execution decision, 2026-10-09:** the maintainer's
 requested Z2 is now semi-LSREP on both original paper histories B and C with full
 memory lifecycle, repeated cutoff-reviewed questions and additive plus
