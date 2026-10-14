@@ -332,6 +332,15 @@ preparation, not a repaired replay store, tuning or final campaign. Full aging,
 condition-path/recovery controls and final runner remain readiness work in
 [the current contract](specs/V3_POST_RESEED_REPAIR.md).
 
+**V3 independent retention report, 2026-10-14:** the separate offline
+`experiments/v3_repair/report_retention.py` validates the independent grader's
+sealed plan, saved answers, report and grade receipts, then compares explicit
+unchanged-fact before/after families within each history and arm. It preserves
+unresolved grades and missing phases and reports paired costs separately from
+correctness. It changes no prompts, grade keys or saved experiment artifacts.
+Zero declared pairs yields no retention estimate. This covers the small
+recent-to-old development policy, not the final correction/multiple-lag schedule.
+
 **Selected repaired development adapter,2026-10-10:**
 `experiments/v3_repair/run_development.py` reuses the sequential engine with
 explicit expected counts/inputs/selected-plan identity. One whole tuning history
@@ -343,6 +352,22 @@ old writer store is upgraded in place. This is not the final runner or a new
 quality result. `audit_development.py` checks complete trace/key identity and
 reports admitted lookup ranks separately from other task coverage; it exports
 pending required-content reviews, never positive semantic grades from IDs.
+The subsequent 2026-10-13 editorial review covers all 67 development occurrences:
+66 permit equivalent meaning and one requires exact identity. Its private ledger
+binds source roles, hashes, offsets and cutoffs while preserving frozen metric
+labels. Scoped saved-prompt review distinguishes equivalent excerpts, alternative
+support and conflicting advice; it does not establish whole-context precision
+or answer quality. `scripts/z1/evidence_content.py` decodes complete native
+attributed JSON source strings once for literal observations, preserving code
+backslashes and role boundaries. Supplemental judge-source projections use
+`prepare_scorer_context.py` with immutable preparation/completion receipts and
+the native independent grader's collector. They preserve answering inputs and
+answers. Optional `--content-contracts` validates the separate editorial ledger
+and supplies arm-blind requirements/qualifications to absolute and both-order
+grading, with source-bound exact alternatives and criteria-dependent task keys.
+Uncontracted inputs retain their original payloads. The criteria are diagnostic,
+unblinded guidance rather than original source facts or positive grades. Independent
+qualification and repaired-writer semantic acceptance remain separate gates.
 `tuning_plan.py` seals bounded read-side coordinates and a consumer ledger;
 live deltas/costs remain unmeasured, source-dependent stages pending, and the
 full resumable tuning executor remains to implement.
@@ -363,6 +388,12 @@ revalidates it before restore, even complete-cache reuse, and separately records
 the frozen writer and current reader. It never relabels old proofs as new writer
 outcomes or replays the251 turns. Unknown edits still refuse. No tuning readiness
 or quality result follows from sealing this profile.
+The 2026-10-14 profile extends the earlier registrations to sixteen exact
+transitions, including the research source-content observer and optional editorial
+grader criteria. Neither helper changes the native writer digest. Actual offline
+export/resume and baseline planning preserve every original checkpoint binding;
+67 questions/four arms are planned without changing settings or starting calls.
+Later writer fixes are not retrospectively credited to the preserved store.
 `compare_tuning_contexts.py` validates completed units and aggregate equality,
 matching the producer/code/settings/source/task/control roster before reporting
 local deltas; compared coordinates must also share the same reader-adoption
@@ -1310,10 +1341,10 @@ survive replacements. The stage cannot recover facts absent from its bounded
 candidate pool, and unset rejection can still admit irrelevant content with room
 in the budget.
 
-**v3 relevance admission qualification,2026-10-12:** five paired native reads
+**v3 relevance admission qualification, 2026-10-12:** five paired native reads
 at exact authored first/older/corrected/historical/quiet cutoffs compare the
-existingNone floor with diagnostic -5. Generated candidates/entities/gates and
-all required original user units remain unchanged; full prompts save up to2619
+existing `None` floor with diagnostic -5. Generated candidates/entities/gates and
+all required original user units remain unchanged; full prompts save up to 2619
 tokens, including removal of three irrelevant behavioral procedure fragments.
 This is local applicability, not corpus answer improvement. A historical
 zero-floor counterexample would remove required content, and parent-ID losses
@@ -2503,7 +2534,7 @@ verification metadata therefore use raw evidence. Archive metadata parity remain
 open. Optional geometric coverage remains off by default and is not qualified by
 this repair. Candidate limits still bound what the reranker can see.
 
-**v3 exact selected-excerpt coverage,2026-10-12:** the existing native budget
+**v3 exact selected-excerpt coverage, 2026-10-12:** the existing native budget
 method preserves its original rank/cap/degradation/selection decisions, then
 omits an excerpt whose entire text and artifact/source/edge identities are
 covered by another actually selected episodic fragment from the same original
@@ -2512,7 +2543,7 @@ suppress a window. Disjoint text, unknown metadata, separate sources and complet
 original capability remain. Equal bodies keep an earlier covering representative.
 No freed-budget backfill or new model/setting is introduced; selected costs are
 recalculated. Three actual reads on a frozen writer preserve every other selected
-fragment and required-content disposition, saving407 prompt tokens in the two
+fragment and required-content disposition, saving 407 prompt tokens in the two
 128-candidate cells. This bounded context saving does not establish answer
 accuracy or qualify a global shortlist/rejection setting. Immutable evidence:
 [retained-source provenance](PROVENANCE.md#2026-10-12--v3-retained-source-admission-and-required-unit-readiness).

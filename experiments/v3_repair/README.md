@@ -152,6 +152,29 @@ come from the sealed `coordinates.json`; use a separate output directory for
 each coordinate. This is local retrieval/prompt collection, not answering,
 grading or automatic selection of a winning setting.
 
+The current repaired-reader **baseline qualification**, prepared on 2026-10-14,
+uses the existing development seed and unchanged settings. The script name
+includes tuning, but `--coordinate baseline` performs no parameter search.
+From the repository root, the operator can collect its 67 questions/four context
+arms with:
+
+```bash
+uv run --no-sync python experiments/v3_repair/run_tuning_contexts.py \
+  --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 \
+  --tuning-plan logs/v3-bounded-tuning-plan-2026-10-10-r1 \
+  --coordinate baseline \
+  --reader-adoption logs/v3-reader-adoption-2026-10-14-r2/profile.json \
+  --out logs/v3-read-baseline-2026-10-14-r1 --run
+```
+
+No virtualenv activation is needed. This collects local contexts, not cloud
+answers or grades. Ctrl+C and the identical command resume durable question
+units. Keep the original run and the new output directory. The exact current
+profile registers sixteen tested transitions, including the two research-only
+scoring helpers; it preserves original writer identity and every saved prefix.
+It does not retrofit later writer repairs into the old state. Code/configuration
+changes still require explicit qualification, never an ignore-hash flag.
+
 The collector locks the producer bundle against concurrent writer/read operators,
 restores each exact historical prefix once for its unanswered question group,
 and uses real shared preamble/final preparation under a read-only transaction.
@@ -243,6 +266,62 @@ stack/chain. Journal hashes are checked on resume even with a complete answer
 cache; previous answers remain unchanged. Final writer/judge/internal caught-error
 hooks remain separate work.
 
+For completed independent **absolute** grading, the small declared recent-to-old
+comparison can be reported offline without regrading. Supply the exact answer
+files used by that score plan and its native report path:
+
+```bash
+uv run --no-sync python experiments/v3_repair/report_retention.py \
+  --answers logs/YOUR-SCORER-INPUTS/answers-*.json \
+  --score-report logs/YOUR-SCORE-CACHE/reports/PLAN_HASH.json \
+  --out logs/YOUR-RETENTION-REPORT/report.json
+```
+
+The command validates the native plan and every cached receipt before producing
+per-arm grade transitions and paired prompt-token changes. Missing, uncertain,
+failed or incompatible phases remain unresolved. Repeating the same command
+verifies the completed output without rewriting it. No provider/DB call or change
+to grader keys occurs. The 67-occurrence development producer has no repeated
+families; its report correctly has no retention estimate. This command does not
+create missing early answers or implement the final corrected/multiple-lag
+semi-LSREP schedule.
+
+For completed answer collections, prepare the reviewed supplemental judge
+sources separately. Replace `COORDINATE_HASH` with the completed coordinate
+directory; this is an offline preparation command, not a tuning launcher:
+
+```bash
+uv run --no-sync python experiments/v3_repair/prepare_scorer_context.py \
+  --development-run logs/v3-repaired-dev-tuning-2026-10-10-r1 \
+  --scorer-context logs/v3-required-unit-contracts-2026-10-12-r2/scorer-context.json \
+  --content-contracts logs/v3-content-contract-ledger-2026-10-13-r1/ledger.json \
+  --answers logs/v3-tuning-answers/CANDIDATE/COORDINATE_HASH/grading-*.json \
+  --out logs/v3-scorer-inputs/CANDIDATE
+```
+
+This preserves the answers, answering prompts, model/cost receipts, task labels
+and retrieval gold. Only judge inputs and derived provenance change.
+The source packet adds later qualifications in five occurrences and optional
+context in three; those sources do not become mandatory retrieval targets.
+The new directory holds `answers-*.json` projections, an immutable
+`scorer-context-plan.json`, and, only after validation through the independent
+grader, `scorer-context-complete.json`. Rerunning the same command resumes or
+verifies completed files. Changed bindings require a separate output directory.
+
+The independent grader's `--answers` may then receive these projected files.
+Its content-addressed keys prevent reuse of grades with different evidence;
+existing answer and grade files remain untouched. Preparation makes no model,
+provider or database call. It does not qualify the judge, promote configuration
+or unlock final experiments. The optional `--content-contracts` flag supplies
+all 67 source-bound editorial requirements and qualifications separately from
+original evidence. It excludes arm names, retrieval measurements and review
+verdicts. Criteria changes invalidate derived task keys and require a new output
+directory; original grade caches remain intact. These are unblinded criteria,
+not answer grades. Omit the option for source-only preparation. Saved-source
+span checks distinguish native JSON rendering
+from missing literal content; semantic examples, alternative sources and later
+qualifications must not become mandatory verbatim answer strings.
+
 After the complete repaired replay, export partial per-source reader frequency:
 
 ```bash
@@ -308,7 +387,7 @@ long-lag/correction-answer quality still precede lifecycle-value promotion.
 Cold source-sentence search now uses preserved membership with existing cluster
 filters.38 deployed native controls qualify direct SQL, actual archival and
 complete qualified role-unit arrival under budget pressure. The current exact
-reader profile is2026-10-12 revision1; previous profiles/writer receipts remain unchanged.
+reader profile is 2026-10-14 revision 2; previous profiles/writer receipts remain unchanged.
 No new model, trust threshold or saved experiment reseeding is involved.
 
 The actual7805-row catalog is2.55MB raw/0.85MB lossless gzip;16 occurrences in the
@@ -321,7 +400,7 @@ catalog storage, with no memory selection/model change. Lifetime write-event and
 whole-query eligibility coverage remain separate requirements.
 
 Inspect every newly sealed tuning field and its disposition without running
-trials. The original2026-10-10 coordinate seal predates the explicit relevance
+trials. The original 2026-10-10 coordinate seal predates the explicit relevance
 admission dependency and is retained; it now refuses current ledger export.
 Use a fresh current offline input/coordinate seal, such as the verified
 2026-10-12 planning bundles below. They are not executed tuning results:
@@ -330,8 +409,8 @@ Use a fresh current offline input/coordinate seal, such as the verified
 uv run --no-sync python experiments/v3_repair/export_tuning_ledger.py --tuning-plan logs/v3-bounded-tuning-plan-2026-10-12-r1 --out logs/v3-tuning-ledger-2026-10-12-r1/ledger.json
 ```
 
-Current30 coordinates touch13 settings plus a hard input cap;30 conditional fields
-await source/relevance/gate/aging qualification,129 stay held and one retired threshold is
+Current 30 coordinates touch 13 settings plus a hard input cap; 30 conditional fields
+await source/relevance/gate/aging qualification, 129 stay held and one retired threshold is
 excluded. Sixteen fixed maintenance controls are explicit too. Current-profile
 drift refuses reuse. The [full observation/automation/tuning audit](../../docs/reviews/2026-10-10-v3-observation-and-tuning-audit.md)
 lists exact ranges, human gates and future capture requirements. Private complete
@@ -339,9 +418,9 @@ fault observer qualification does not mean it is wired into the running producer
 or final dispatcher; those integrations still need their actual-path controls.
 
 The existing optional `retrieval_rerank_min_score` is now explicitly pending
-relevance qualification in ledger revision3. Five paired native authored
+relevance qualification in ledger revision 3. Five paired native authored
 first/older/corrected/historical/quiet preparations preserve required complete
-original units and save up to2619 full-prompt tokens with diagnostic -5. A zero
+original units and save up to 2619 full-prompt tokens with diagnostic -5. A zero
 floor can discard required historical content. No default setting changes or
 cloud answers follow from this panel; no trial ranges are invented. Missing
 stage dependencies refuse export, and older bundles remain unchanged. See

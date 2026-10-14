@@ -2385,15 +2385,15 @@ sixteen fixed maintenance controls without any model/API call or tuning result.
 The direct pending-items slot append is a named qualification branch, not
 implicitly waived by the review policy. No whole roadmap owner closes.
 
-**Relevance disposition revision3,2026-10-12:** the existing optional reranker
+**Relevance disposition revision 3, 2026-10-12:** the existing optional reranker
 floor now requires a named content/noise/rejection-opponent stage rather than
-remaining held. The complete inventory is13 read-grid/30 conditional/129 held/
-one retired; coordinates remain30 across13 settings and the hard cap. Missing
+remaining held. The complete inventory is 13 read-grid/30 conditional/129 held/
+one retired; coordinates remain 30 across 13 settings and the hard cap. Missing
 qualification dependencies refuse export. New offline input/coordinate/ledger
 bundles seal and reuse byte/mtime stably; the older seal remains unchanged and
 refuses the current exporter. This prepares a measured bottleneck for later
 calibration; defaultNone, trial ranges and quality-promotion gates are unchanged.
-The historical first-export and revision2 counts above remain their own records.
+The historical first-export and revision 2 counts above remain their own records.
 
 ### 2.3k Retention targets, exposure amounts and chronological gaps —2026-10-10
 
@@ -3113,22 +3113,22 @@ does not promise another cold transition. No validation/final B/C question bodie
 or oracle data are consulted. Local bounded execution starts only after the
 current deployed regression completes; preserve every failed epoch.
 
-**Completed bounded window/correction control,2026-10-12:** the43 originals,
-five occurrences and20 shared-store arm preparations complete through all ten
-default core jobs, with11 scheduled maintenance calls and no degraded or failed
+**Completed bounded window/correction control, 2026-10-12:** the 43 originals,
+five occurrences and 20 shared-store arm preparations complete through all ten
+default core jobs, with 11 scheduled maintenance calls and no degraded or failed
 attempt. Complete role/date/ordinal checks and byte-stable completed resume pass.
-Full context preserves the exact earlier source after41 intervening originals;
+Full context preserves the exact earlier source after 41 intervening originals;
 the original-history recent control excludes it. Both sources survive correction,
 including the historical diagnostic requiring the old selection and correction.
 No cloud answers or answer accuracy are measured. The two-hour aging clock is
-simulated; the older67-day cold panel remains separate. Private native receipt:
+simulated; the older 67-day cold panel remains separate. Private native receipt:
 logs/v3-window-correction-native-2026-10-12-r1/native-qualification.json.
 
-A verified disposable clone supports a diagnostic semantic review of46 exact
+A verified disposable clone supports a diagnostic semantic review of 46 exact
 role-bound claim spans, six attributed graph assertions, three entity accounts
 with seven cited assertions, two member-supported cluster labels, one session
 summary preserving the correction, and two source-consistent pending proposals.
-All35 table fingerprints and original producer hashes/mtimes are unchanged.
+All 35 table fingerprints and original producer hashes/mtimes are unchanged.
 Four procedures accurately describe acknowledgement behavior; none supplies
 the required port information. Near-overlap does not authorize merging differing
 descriptions when mutual-entailment remains unknown. No turn summary, rolling
@@ -3144,7 +3144,7 @@ and behavioral procedures despite ranking the useful fact first. Existing
 tuning ledger already holds this field under current policy. It is implemented
 and live, not a missing reader or omitted settings inventory.
 
-A passive historical primary-only zero-floor diagnostic on67 occurrences loses
+A passive historical primary-only zero-floor diagnostic on 67 occurrences loses
 some golden-parent ID credit on seven. Only one belongs to the admitted
 single-source rank panel; its negative-score original contains required historical
 answer content. Some other lost credits belong to irrelevant derived descriptions
@@ -3158,7 +3158,7 @@ each saved source/query cutoff: current `None` versus a conservative diagnostic
 floor of -5. Hold all other settings, originals, model pins and source helpers
 fixed. Score every eligible text variant normally; do not reuse only a captured
 primary score. Check exact complete original role units for every required source,
-including both historical sources, final context, all35 table fingerprints and
+including both historical sources, final context, all 35 table fingerprints and
 unchanged producer artifacts. Use existing read-only probe observations, never
 write exposure or expected-answer-guided runtime selection. Bind the actual
 setting and local call/context costs. No defaults or original sealed tuning
@@ -3166,12 +3166,12 @@ bundles change in this qualification. A candidate that loses required content
 fails; source-preserving savings establish only local applicability. Broader
 calibration and supported-answer effects still gate tuning promotion.
 
-**Qualified applicability and ledger decision,2026-10-12:** all ten native
+**Qualified applicability and ledger decision, 2026-10-12:** all ten native
 preparations complete, preserving complete required user units, the five exact
-as-of states, gates, all35 table fingerprints and producer hashes/mtimes. Full
-prompts with floor `None` versus -5 are481/481 first,5073/2454 older,
-5161/2542 corrected,5162/2543 historical and3096/2683 quiet. The three irrelevant
-active procedure fragments are absent with the floor.23 local transport requests,
+as-of states, gates, all 35 table fingerprints and producer hashes/mtimes. Full
+prompts with floor `None` versus -5 are 481/481 first, 5073/2454 older,
+5161/2542 corrected, 5162/2543 historical and 3096/2683 quiet. The three irrelevant
+active procedure fragments are absent with the floor. 23 local transport requests,
 zero cloud/answer calls. Recent originals remain under the existing ledger; this
 does not promise a one-fact-sized whole prompt. Private paired native receipt:
 logs/v3-rerank-floor-native-2026-10-12-r1/paired-comparison.json.
@@ -3200,13 +3200,13 @@ exact offset match alone cannot approve them as required-answer literals.
 
 Prepare one separate current-reader diagnosis on that frozen writer's exact
 128-turn as-of store, restoring only a newly owned disposable clone under its
-original physical schema/all35-table fingerprints. Bind current source/helper/
+original physical schema/all 35-table fingerprints. Bind current source/helper/
 model identities separately from the old writer and preserve all original
 producer artifacts. Do not resume or rewrite the old campaign, alter source
 rows, fake current writer quality or pass its reference literal to runtime.
 Use actual preamble/classifiers/all retrieval legs/final packing with read-only
-probe observation. Compare existing64-candidate/None baseline, the already
-planned128-candidate/None shortlist, and128/-5 as a small interaction diagnostic.
+probe observation. Compare existing 64-candidate/None baseline, the already
+planned 128-candidate/None shortlist, and 128/-5 as a small interaction diagnostic.
 Record generation→rank→budget→selected→final required-literal availability,
 true source-text identity, actual call/context costs, gates and candidate counts.
 No expected value guides ranking, new model is added or answer is generated.
@@ -3214,11 +3214,11 @@ Missing content remains a measured failure, not a suppressed assertion. This
 can diagnose the remaining admission seam and prepare tuning qualification;
 one source cannot select a global threshold/cap or establish useful answers.
 
-**Actual retained-source result,2026-10-12:** three current native preparations
-on the unchanged exact128-turn store reproduce the admission loss at64/None;
-128/None retains the required original literal, and128/-5 preserves it while
-reducing prompt12975/13006/3526 tokens respectively. Generated candidates,
-gate/classification/entities and all35 table fingerprints match across cells.
+**Actual retained-source result, 2026-10-12:** three current native preparations
+on the unchanged exact 128-turn store reproduce the admission loss at 64/None;
+128/None retains the required original literal, and 128/-5 preserves it while
+reducing prompt 12975/13006/3526 tokens respectively. Generated candidates,
+gate/classification/entities and all 35 table fingerprints match across cells.
 Nine local transport requests, zero answers/cloud calls or default changes.
 The old rolling-note proof correctly warns as stale; this is current-reader
 qualification on a frozen writer, not new writer or answer-quality evidence.
@@ -3226,8 +3226,8 @@ Private identities and complete stage receipts:
 logs/v3-retained-literal-native-2026-10-12-r1/qualification.json.
 
 **Decided same-source overlap repair:** the last cell supplies two episodic
-excerpts from the same original; the407-token excerpt is wholly contained in
-the947-token excerpt. Its actual chunk identities are a subset of the larger
+excerpts from the same original; the 407-token excerpt is wholly contained in
+the 947-token excerpt. Its actual chunk identities are a subset of the larger
 fragment's contributors. This is redundant evidence, not independent support.
 Prepare one private candidate at existing token-budget admission: only complete,
 nonempty exact text containment within the same original and conversation,
@@ -3242,16 +3242,16 @@ session limits, ranking, alternatives and source-truth gates remain unchanged.
 
 Validate opposing provenance/text/budget/degradation cases in isolation, then
 the actual native reader on this exact saved store and unchanged installed
-models. Required source bytes, generation/ranking/gates and all35 stored tables
+models. Required source bytes, generation/ranking/gates and all 35 stored tables
 must remain exact; only selected overlapping context/cost may change. Keep
 private candidate/failure epochs. Apply only after both qualifications under
 the maintainer's conditional tested-src authorization, followed by permanent
 controls and deployed regression. No broader cap/floor promotion follows.
 
-**Qualification-led revision,2026-10-12:** the first private candidate passes49
+**Qualification-led revision, 2026-10-12:** the first private candidate passes 49
 isolated/compatibility controls and preserves required-literal/gate/rank/store
 state on three actual reads. But its immediate reclamation refills budget and
-displaces another unique75-token source at128/None. Source-label support for
+displaces another unique 75-token source at 128/None. Source-label support for
 that change is not qualified. Keep its epoch and do not apply it as a pure
 overlap saving. Narrow this repair to the existing admission method's final
 selected list: preserve all prior caps/order/budget choices, then omit only
@@ -3268,7 +3268,7 @@ then apply only this revised candidate. No runtime source edit has occurred.
 After deployed confirmation, update only the registered orchestrator target
 hash/reason in the existing reader-adoption instrument. Export a separate new
 profile against the same frozen producer and original coordinate seal; keep
-the cumulative13 changed paths, original writer/dump/source bindings and old
+the cumulative 13 changed paths, original writer/dump/source bindings and old
 profile bytes. Prove completed identical reuse, old-profile refusal and ordinary
 collector refusal without an explicit current profile. This is a new reader
 epoch, not permission to resume an old coordinate cache under changed bytes,
@@ -3279,12 +3279,12 @@ replay the writer, weaken a source seal or call the final experiment ready.
 same historical producer ref; the one-line new dependency was qualified in the
 prior tuning-ledger controls. Register this specific research transition as well
 as the new orchestrator target, with unchanged original before-hash/source
-checks. The cumulative profile therefore binds14 changed paths, not13. It does
+checks. The cumulative profile therefore binds 14 changed paths, not 13. It does
 not replay writer outcomes or adopt arbitrary research code. Keep the failed
 export and incomplete regression attempt; finish export/refusal qualification
 before sealing the final regression epoch.
 
-**Native-control fixture divergence:** the actual14-path exporter/collector
+**Native-control fixture divergence:** the actual 14-path exporter/collector
 planning/reuse/refusal checks pass, but the full suite's adopted-prefix fixture
 constructs its historical identity from native files only. It omits the newly
 registered research transition, so the unchanged exact-set guard correctly
@@ -3295,18 +3295,212 @@ fixture as a passed recovery check. Re-run the actual SQL collection/recovery
 and adoption suites on the unchanged source/helper epoch; preserve the complete
 1382-pass/one-failure run and bind the subsequent test-only correction separately.
 
-**Applied/qualification result:** the exact revised source is active with28
-permanent opposing controls; source/packing compatibility totals51 passes.
+**Applied/qualification result:** the exact revised source is active with 28
+permanent opposing controls; source/packing compatibility totals 51 passes.
 Three actual deployed preparations exactly match the private candidate at
-12975/12599/3119 prompt tokens, saving0/407/407 with every other selected body
-and required-content disposition preserved. All35 stored tables/producer bytes
+12975/12599/3119 prompt tokens, saving 0/407/407 with every other selected body
+and required-content disposition preserved. All 35 stored tables/producer bytes
 remain exact, no writer replay/cloud/default promotion. Source/research/helper
-bytes stay fixed through1382 broad passes; the one refused native-only fixture
-is corrected without changing the guard and all26 adoption/SQL recovery controls
-pass. The actual14-path profile and its67-unit no-call planning/reuse/refusals
+bytes stay fixed through 1382 broad passes; the one refused native-only fixture
+is corrected without changing the guard and all 26 adoption/SQL recovery controls
+pass. The actual 14-path profile and its 67-unit no-call planning/reuse/refusals
 are qualified separately. Private application, failed epochs and exact final
 bindings:logs/v3-same-source-overlap-applied-2026-10-12-r1. Broader semantic
 support, answer effects and source-admission parameter selection remain open.
+
+**Required-content and scorer-source review, 2026-10-12:** the five frozen
+single-source lookup occurrences have editorial content contracts. Four allow
+semantic paraphrases; only the historical code value requires exact literal
+identity. All eight selected original sentences supporting the four semantic
+questions occur in the saved full/no-Codex/warm-vector prompts and not in the
+recent-only prompts. This establishes source wording availability on that old
+run, not correct answers or an independently qualified semantic score.
+
+Reviewing all 67 expected answers identifies five supporting-source omissions:
+the corrected references rely on later qualifications absent from the original
+gold list. Three additional cases have optional historical context. A separate
+67-occurrence scorer packet supplies those original messages, with exact role
+hashes, cutoffs and old input bindings. All original gold bodies match the
+frozen trace. One added qualifying source is inside the recent window; retain
+that mixed-age context rather than label every supporting source old.
+
+**Decision:** use the supplemental sources as explicitly bound scorer context
+in future grading. Do not turn their union into an all-required retrieval target,
+change runtime inputs or rewrite frozen gold/rank results. A conservative private
+projection excludes one ambiguous occurrence from the five-question single-source
+cohort, but this is not a promoted replacement cohort. Source sets can contain
+alternatives, optional context or qualifications for conditional details; their
+count cannot certify answer completeness. Every one of the 268 old four-arm
+source metrics reproduces exactly in the offline recount.
+
+The source-scope review does not complete the remaining semantic work. Required
+proposition/output dispositions for the other 62 occurrences, independent judge
+qualification and explicit scorer-packet integration still precede promotion.
+Private content contracts: `logs/v3-required-unit-contracts-2026-10-12-r1`.
+Schema-checked source review, recount and scorer packet:
+`logs/v3-required-unit-contracts-2026-10-12-r2/scorer-context.json`.
+The first candidate projection used trace-source field names instead of reviewer
+field names; retain it as superseded, not an input for future scoring. No native
+write, model call, parameter choice or new roadmap owner follows from this review.
+
+**Decided scorer-context adapter:** add a research-only preparation command that
+reads a completed answer arm and the explicitly selected supplemental source
+packet. Validate the packet against the original producer, complete probe roster,
+question/reference/cutoff, preserved retrieval gold, actual source bodies and
+role hashes before writing any projection. Reject future sources, duplicate
+occurrences, changed source inputs and attempts to overwrite original answers.
+Keep the saved answer, answering messages, labels, model and costs unchanged.
+Only the judge's source text and derived provenance change; preserve the original
+record hash separately and recompute any derived record hash.
+
+Write distinct immutable answer projections plus a manifest under a new private
+output directory, with a directory lock and the existing atomic write/verify
+helper. Reuse identical products after interruption; changed bindings refuse.
+Seal the input/output plan before the first projection, then write a distinct
+completion receipt after validation. An interruption cannot silently adopt a
+changed second answer arm just because its projection was not written yet.
+Pass the projections through the existing independent grader's real collector
+before completing preparation. Its evidence-based task keys must change when
+judging source text changes. The adapter makes no model/provider/DB calls and
+cannot qualify judges or execute grading. Test actual collector/absolute and
+both-order preference tasks, answering-input preservation, stale identities,
+source mismatches, incomplete answers and idempotent preparation. Long runs
+remain manually launched; old answer and grade caches remain intact.
+
+**Implemented and qualified, 2026-10-13:**
+`experiments/v3_repair/prepare_scorer_context.py` passes 62 focused controls with
+the existing answer bridge and independent grader. Actual complete-producer
+validation and two CLI preparations cover 67 occurrences and four controlled
+answer arms. All 268 answer/runtime records and original input bytes/mtimes are
+preserved; eight occurrences gain context. Changed evidence receives distinct
+grade keys. This is offline instrument qualification, not generated answers or
+judge accuracy. Required-proposition review and the broader pre-tuning
+acceptance work remain open. See the [qualification record](../PROVENANCE.md#2026-10-13--v3-supplemental-judge-source-integration).
+
+**Source-rendering measurement correction, 2026-10-13:** the next thirteen
+semantic contracts reveal four false verbatim-loss indications: source-note
+replacement retains complete attributed messages as JSON strings, so newlines
+and tabs are escaped. Raw substring matching cannot recognize the original
+multiline span. Fix the offline evidence checker at the existing seam: decode
+one complete JSON string only after the native `The user/assistant/document
+said:` marker, search its decoded body and the surrounding unencoded text
+separately, and never decode arbitrary backslashes or recursively decode source
+content. Exclude the encoded wrapper from raw matching, so an escaped newline
+cannot masquerade as a literal backslash-n in source code. Invalid/incomplete
+JSON remains raw text; no partial unescaping or cross-message joining is added.
+Keep source role/hash/offset checks and semantic-review gates. Literal presence
+still cannot approve a negated or unrelated assertion. Version the interpretation,
+retain old reports, and test native source rendering, exact code/Unicode/quote
+cases, genuine omissions, partial quotes and the actual saved source-note path.
+This is a research-instrument repair, not a reader or memory-policy change.
+
+Implemented with 92 combined focused checks and actual source-bound audits on
+the eight affected arm/occurrence cells. All thirteen reviewed tasks retain
+their observed spans in full/no-Codex/warm-vector final contexts; this is not
+semantic completeness or an answer grade. Required-content contracts now cover
+22/67 occurrences, with 45 still pending. Original reports remain unchanged.
+
+**Required-content review completed, 2026-10-13:** the subsequent batches cover
+all 67 frozen development occurrences (66 semantic, one exact-value). Every
+evidence example is bound to its original role, body hash, offsets and cutoff.
+The consolidated ledger preserves all 268 metric labels, explicitly retaining
+the earlier proposed source-union cohort change as unpromoted. The strict case
+uses its existing native exact-content review. Validation sources remain held.
+
+Saved final prompts contain every selected example in 60 full, 59 no-Codex and
+52 warm-vector occurrences; recent-only contains none verbatim. Do not call this
+semantic completeness or accuracy. Thirty memory-arm cells miss at least one
+example. Scoped inspection finds whitespace variation, useful paraphrases,
+alternative support, incomplete qualifications and conflicting historical advice;
+the two exact-value misses are the already qualified shortlist case. The other
+171 memory-arm cells do not gain automatic semantic approval from presence.
+
+**Next acceptance obligation:** use the completed requirements to judge actual
+supplied meaning and answer effects, keeping whole-context precision and current
+repaired-writer outputs distinct from these saved-prompt observations. The
+scorer-source adapter passes supplemental original messages and, with the
+explicit option qualified below, separate editorial criteria. Writing contracts
+alone does not establish a change in judge decisions. Independent qualification remains
+parked, and these diagnostic reviews cannot promote a tuning coordinate.
+Private ledger/dispositions and aggregate evidence are recorded in
+[provenance](../PROVENANCE.md#2026-10-13--v3-complete-development-content-contracts).
+
+**Decided editorial-contract consumer, 2026-10-13:** extend the existing offline
+scorer preparation with an optional explicit contract ledger. Validate its
+complete roster, frozen trace/scorer-packet bindings, source-role hashes and
+offsets, cutoff, original gold and metric contract before creating projections.
+Forward only the required meaning and clearly labelled qualifications/optional
+details to the independent grader, separate from original source text. Do not
+forward arm names, context-survival observations, source-stage metrics, proposed
+cohort changes or editorial output dispositions. Keep the original reference,
+answer, answering messages and costs unchanged. This is unblinded editorial
+guidance, not independent truth or permission to override question/source evidence.
+
+Bind the ledger and its source files in the immutable preparation plan. Refuse
+changed-contract resume, differing arm contracts, invalid source spans and
+incomplete rosters. Grader task keys must include the supplied criteria, for
+absolute grading and both preference orders. Legacy inputs with no contract
+retain their existing task payloads. Test actual grader consumption and opposing
+controls, then qualify offline against all 67 real source records with explicitly
+controlled answer arms. No cloud call, production change or promotion is implied.
+
+**Implemented/qualified:** 116 focused controls pass, including actual grader
+payloads, exact-value proof/schema checks and unchanged legacy payloads. Two
+actual CLI preparations validate the 67 real source contracts across four
+controlled answer arms, preserving all 268 answer/runtime records and original
+input bytes/mtimes. All 67 unique absolute tasks and 536 controlled preference
+payload checks receive the criteria; no real answer or grade is generated.
+Exact-input resume is byte/mtime stable. The first native check exposed the
+strict record's structured alternatives; the final adapter validates those
+against its source spans instead of treating them as prose. See
+[qualification](../PROVENANCE.md#2026-10-13--v3-editorial-criteria-reach-the-independent-grader).
+
+**Query-role audit, completed 2026-10-12 — no production change:** the installed
+Qwen embedding model defines a query instruction and no default prompt. Its
+[model card](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) recommends an
+instruction for queries and plain document encoding. Shared chat preparation,
+the retrieval service and the research preamble currently encode queries without
+that instruction. This motivated a bounded comparison, not a finding that ICE's
+current vectors are invalid. Writer embeddings, classifier features, source
+indices and the global model default must retain their existing policy.
+
+The valid comparisons use one frozen 128-turn source state with the current
+reader, 64 reranker candidates and no rejection floor. Only the query's per-call
+encoding changes. R3 compares raw encoding with the vendor query instruction;
+R4 compares raw encoding with one fixed memory-task instruction: "Given a user's
+request, retrieve earlier conversation passages that provide the specific
+information needed to answer the request." No expected answer or source hint
+enters either runtime query. Candidate function code uses the actual native
+module globals, preserving retrieval, note and clock observers. Each accepted
+comparison verifies all seven expected leg traces and a populated ranking trace.
+
+Both variants still generate two fragments containing the required literal and
+lose them at the 64-candidate shortlist. Prompt tokens change from 12,975 to
+12,931, without recovering the required answer content. All 35 table fingerprints
+and original producer hashes/mtimes remain unchanged; both owned clones are
+removed. No cloud answers, writer replay, new model or default changes occur.
+**Decision: retain production query encoding and stop this prompt investigation.**
+This single case neither qualifies a new query policy nor proves that query
+instructions cannot help elsewhere. Source selection and required-content review
+remain open under the existing repair plan.
+
+Two earlier diagnostic attempts are invalid for comparing retrieval effectiveness:
+
+- R1 changes only the research preamble vector, which shared preparation does
+  not consume. Identical outputs are not a measured null result. Its copied
+  footer says three preparations although only two panels exist.
+- R2 changes the actual query vector but gives the private function separate
+  globals, bypassing retrieval and note trace hooks. Empty trace maps were
+  incorrectly called a generation-stage loss. **That conclusion is withdrawn.**
+  An exact-vector SQL check selects the same cluster and permits the real source
+  in both cases. A batch attribution ID was also incorrectly considered a warm
+  row ID; its absence is not a scope rejection.
+
+Preserve all failed and corrected artifacts in the private
+`logs/v3-query-role-native-2026-10-12-r1` through `-r4` directories, with the
+separate routing check in `logs/v3-query-cluster-routing-2026-10-12-r1`.
+No source repair, cluster-policy change, threshold promotion or roadmap closure
+may be justified from the invalid comparisons.
 
 **Helper-identity grounding correction:** native `code_files` already binds
 eleven scripts/z1 helpers alongside src, including serialization, parity, clock,
@@ -3721,14 +3915,116 @@ No final campaign or hyperparameter result exists yet.
 
 ### 5.2 Remaining work by next evidence stage — rechecked2026-10-10
 
+**Execution correction, maintainer direction 2026-10-14:** the broad pre-tuning
+acceptance language below is historical and superseded as an execution gate.
+Do not require a successful semi-LSREP-like outcome experiment before tuning.
+The completed source reviews, repair controls and instrument qualifications
+remain evidence; unfinished quality outcomes remain open measurements.
+
+1. Preserve the operator's active current-reader baseline collection. Reuse its
+   saved contexts for tuning; no replacement seed or overlapping database run.
+2. Before a parameter family runs, finish only its executable measurement path:
+   source labels, exact configuration identity, actual parameter consumers,
+   scoring inputs, bounded correctness controls and resumable units. Existing
+   qualified components need no repeated qualification absent a relevant change.
+3. Read/admission/budget coordinates can proceed independently of lifecycle
+   coordinates. Lifecycle coordinates require independent chronological states,
+   native decay/exposure scheduling and repeated/corrected probe scoring; wire
+   the existing components and test the connection before that family runs.
+   Their answer/retention comparisons are tuning measurements, not an extra
+   prerequisite experiment. Final B/C data remain reserved.
+4. Keep unqualified trust/authority thresholds fixed. Judge qualification gates
+   promotion of a configuration on answer scores, not unrelated implementation
+   or local context collection. Parked human review is not silently waived.
+5. After bounded tuning, finish final launch readiness and freeze, then run
+   B/C semi-LSREP with ablations and both vector controls, and the LongMemEval
+   oracle. Broad contribution, retention and quality conclusions belong there.
+
+This changes ordering, not roadmap checkmarks. A new failure blocks only the
+measurement it invalidates unless it demonstrates a shared correctness defect.
+Do not turn each lower-quality answer into another whole-system pre-tuning run.
+The earlier seven/sixteen/four/two partition counts roadmap owners, not unfinished
+coding tasks, and must not be presented as a remaining implementation count.
+
+**Bounded acceptance update, 2026-10-13:** all 67 development content
+contracts and all 30 flagged saved-context dispositions are complete. The
+43-source retention control, its semantic maintenance review, and the existing
+procedural development review are also complete within their stated scope;
+do not repeat them as unstarted work. A further review of four saved original-
+wording summary/abstract outputs finds one unsupported category attachment.
+That candidate was withheld for input-length uncertainty, not because NLI
+detected the error. One supported abstract preserves an attributed recommendation
+but omits detailed lists. No new writer run, independent precision or answer
+benefit follows from this bounded review. Keep the rejected prompt variants
+retired; remaining quality acceptance concerns actual supported answers and
+representative lifecycle effects, not another copy of these source audits.
+
+**Decided independent retention-report bridge, 2026-10-13:** the legacy
+paired judge computes recent-to-old comparisons, but the independent absolute
+grader currently retains repeat metadata without computing those comparisons.
+Add a separate offline report over its sealed plan, answer inputs and actual
+cached grade receipts. Do not modify its rubric, grade keys or cached outputs
+to add a reporting feature. Rebuild and verify the existing report before using
+any grade; refuse changed inputs or inconsistent receipts. Pair only explicitly
+declared unchanged-fact families within the same history and arm. Validate both
+cutoffs, source ages/window, question, reviewed answer and original source turns;
+missing, uncertain, failed, unsupported-policy or incompatible phases remain
+unresolved rather than a loss or success. Report per-arm transitions, resolved
+denominators and paired prompt costs, with no independent-sample or causal claim.
+No repeated families means zero pairs, not perfect retention. This serves the
+small development-repeat policy; future correction/multiple-lag final schedules
+need their own reviewed contracts. Qualify via opposing controls and the actual
+independent scorer/cache/report path, with no provider calls or old-file writes.
+
+**Implemented and qualified, 2026-10-14:** `report_retention.py` verifies
+native absolute plans/reports/cache receipts and produces a separate immutable
+report. The grader and all existing task keys remain unchanged. Twenty-three
+new controls plus 129 relevant compatibility controls pass (152 total), including
+actual reviewed-repeat generation, native scoring and CLI resume. A draft wrong
+occurrence tuple was caught and corrected. Two offline CLI calls over all 268
+controlled development outcomes correctly find zero repeat families; no retention
+score is invented. Original hashes/mtimes, cached grades and completed report
+bytes are preserved. Provider/model/DB calls are zero. This completes the small
+independent-report bridge, not the final corrected/multiple-lag schedule or
+semantic judge qualification. See the dated provenance and research README.
+
+**Exact measurement-helper adoption, 2026-10-14:** offline baseline planning
+correctly refuses the 2026-10-12 reader profile after the qualified source-note
+JSON observation repair. The original producer binds both `scripts/z1/evidence_content.py`
+and `scripts/z1/score_frozen_answers.py`, although neither is part of the native
+writer/reader digest. The first export stopped at the second helper; a complete
+sealed-file comparison confirms exactly these two additional qualified changes.
+Register their exact original/current hashes as transitions fifteen and sixteen,
+retaining the earlier fourteen transitions and the original native digest. The
+second helper is the already-qualified optional editorial-criteria consumer,
+not a new grader change. No new source, threshold,
+writer replay or measurement backfill is allowed. Export a new profile and plan
+the unchanged-parameter baseline against the complete original producer. Prove
+the research-only transition separately from native code and retain refusal of
+unknown/omitted edits. Verify original profile, trace and all prefix bindings on
+repeat planning. This is an offline launch plan, not parameter selection, current
+answer quality or tuning readiness; actual collection remains manual.
+
+
+**Actual qualification:** 32 adoption/content controls pass. The new sixteen-
+transition profile exports and resumes exactly; repeated baseline planning binds
+all 67 questions/four arms with unchanged parameters. The complete original
+trace/checkpoint/dump bindings, old profile and modification times remain equal;
+the original native digest is preserved and the old profile still refuses.
+No model/provider/DB calls or execution. Qualification is in
+`logs/v3-reader-adoption-2026-10-14-r2/qualification.json`; the baseline plan is
+`logs/v3-read-baseline-2026-10-14-r1/run.json`. The manual command lives in the
+research README. This is the next current-reader qualification step, not a
+replacement seed or a claim that tuning prerequisites have all passed.
+
 **Original pre-tuning status, rechecked2026-10-12:** the mechanism repairs and
 many prerequisite audits are implemented; the original acceptance work is
 **not complete**. This distinction predates defects found during later checks.
 Current source-to-summary/graph/procedure/maintenance semantic review still
 needs qualified dispositions, especially exact corrections, roles, direction
 and required-detail omissions. The new native chronological parent has recovery
-and simulated quiet/cold controls. The subsequent43-source/five-occurrence
-control qualifies first/older/corrected required-content access after41
+and simulated quiet/cold controls. The subsequent 43-source/five-occurrence
+control qualifies first/older/corrected required-content access after 41
 intervening originals, all-ten-job execution and the actually generated semantic
 material on that authored fixture. Broad retention and answer/context utility
 remain unqualified; zero generated turn summaries and inert maintenance branches
@@ -3765,7 +4061,7 @@ outcomes wait. Original broader/product scopes remain visible, never waived.
 | Next work | Existing owner and concrete remaining evidence |
 |---|---|
 | Prerequisite (7) | **G40 — task labels:** [consumer audit/metric contract](../reviews/2026-10-10-v3-task-metric-consumers.md) is implemented (§2.2b), preserving task/age/error strata and separate rank admission. New final probe/source labels still need qualification. |
-| Prerequisite | **G55 — truthful scoring:** the repaired source/hash/offset content funnel detects a present source ID with its required value missing. Actual current-reader64/128 candidate preparations isolate the retained case:128 restores its literal, and128/-5 preserves it with9480 fewer tokens than128/None. Alternatives now traverse the native scorer.49 short anchors resolve but cannot all be approved as required literals. Broader required-unit/semantic review remains pending; no source-ID hit becomes answer accuracy. |
+| Prerequisite | **G55 — truthful scoring:** the repaired source/hash/offset content funnel detects a present source ID with its required value missing. Actual current-reader 64/128 candidate preparations isolate the retained case:128 restores its literal, and 128/-5 preserves it with 9480 fewer tokens than 128/None. Alternatives now traverse the native scorer. 49 short anchors resolve but cannot all be approved as required literals. Broader required-unit/semantic review remains pending; no source-ID hit becomes answer accuracy. |
 | Prerequisite | **G71 — old findings:** the16-entry [applicability register](../reviews/2026-10-10-v3-historical-finding-register.md) is audited; identity/counts re-recorded, invalid historical inferences withdrawn. Independent current role/tier truth and answer utility remain pending under the named development/final owners; no old extractor percentage becomes a v3 result. |
 | Prerequisite | **G72 — current state:** the manually completed251-turn/67-probe tuning partition passes source/key/task validation and all35 live-table fingerprints match. [Current writer/reader audit](../reviews/2026-10-10-v3-repaired-development-audit.md) records5 degraded writers and unqualified semantic outputs. Preserve this completed baseline; new read/derived qualification must explicitly bind subsequent repairs, never bypass its producer identity or imply v1 receipts came from the version2 assertion-proof writer. |
 | Prerequisite | **G29 — live consumers:** [all twelve named clusters reconciled](../reviews/2026-10-10-v3-policy-consumers.md), including opposing fusion/window controls; old bookmark/job-key bypass claims were stale. Actual full knob effects remain tuning work; keyword/style limitations and product-only scope remain visible. |

@@ -2677,13 +2677,26 @@ cannot establish complete graph coverage or authorize removal of its context.
 
 ### 126. Removing overlap and refilling budget changes more than overlap
 
-ICE v3,2026-10-12: a private exact-containment packing candidate preserves the
+ICE v3, 2026-10-12: a private exact-containment packing candidate preserves the
 required historical value and passes its focused controls. On an actual saved
-reader state, reclaiming407 redundant tokens immediately admits a higher-ranked
-430-token candidate and displaces another unique75-token selected source. The
+reader state, reclaiming 407 redundant tokens immediately admits a higher-ranked
+430-token candidate and displaces another unique 75-token selected source. The
 required-value metric stays green, but this is no longer a pure context saving.
 Keep that unqualified tradeoff separate: the deployed narrow repair omits only
 covered excerpts after the existing selection and does not refill its savings.
 Check every removed selected body and provenance, not only the queried literal.
 Actual final content hashes should change when packing changes; compare exact
 pre-packing inputs, retained evidence and separately reviewed semantic outcomes.
+
+### 127. Source-note escaping can look like lost answer content
+
+ICE v3, 2026-10-13: four reviewed source spans seem to disappear between budgeted
+fragments and final full/no-Codex prompts. All eight cells instead contain the
+complete source in native attributed JSON strings, with escaped newlines/tabs.
+Decode complete native quoted bodies once for literal observation; never apply
+general backslash unescaping to source code. Exclude the encoded wrapper from
+raw matching, or a transport newline can impersonate a literal backslash-n.
+Keep roles/quoted units separate. Test actual source rendering as well as genuine
+omissions and negations. Even representation-correct literal presence cannot
+establish semantic support; alternative wording also means a missing exact span
+is not necessarily missing meaning. Preserve old reports and version the checker.

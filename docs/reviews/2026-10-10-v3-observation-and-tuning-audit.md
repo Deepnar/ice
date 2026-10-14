@@ -169,13 +169,13 @@ current/default values and actual static read sites are in the private exported
 ledger; changing a source-sensitive threshold without its negative controls
 would maximize activity rather than correctness.
 
-- Relevance admission,1 field: `retrieval_rerank_min_score`. Existing ordering
-  does not reject scored distractors while the floor isNone. Five authored native
+- Relevance admission, 1 field: `retrieval_rerank_min_score`. Existing ordering
+  does not reject scored distractors while the floor is `None`. Five authored native
   before/older/corrected/historical/quiet pairs preserve required original content
-  and save up to2619 prompt tokens with diagnostic -5; a passive zero-floor
+  and save up to 2619 prompt tokens with diagnostic -5; a passive zero-floor
   counterexample loses required historical content. Require content/noise/rejection
   opponents and supported-answer qualification before promotion; no trial range
-  or default change is implied. Revision3 binds this dependency and refuses old
+  or default change is implied. Revision 3 binds this dependency and refuses old
   seals lacking it. The stage is read-only, not another writer replay.
 
 - Trust/activation,7 fields: `codex_direct_trust_floor`,
@@ -212,7 +212,7 @@ allocation and heuristic candidates stay held until an observed bottleneck merit
 a new grounded coordinate. Static missing-read fields remain unresolved, not
 automatically deleted. Model identities remain fixed, without a tournament.
 
-Earlier revision2 exports retain29 pending/130 held. They are historical sealed
+Earlier revision 2 exports retain 29 pending/130 held. They are historical sealed
 artifacts, not missing-field defects to overwrite. The original floor existed
 there under held policy; the new disposition follows measured context waste,
 not a rebuilt feature. Actual native/preserved-state evidence and its limits are
