@@ -3776,6 +3776,21 @@ own retrievals happened under the default profile; that feedback is not
 recomputed (labelled). Feasibility check of the decay/cold-tier code precedes
 building it; fallback is a second replay with probe exposure off.
 
+**Decay overlay feasibility, read 2026-10-14:** episodic decay is a pure function of
+logged events: per pass `decay_score *= rate^cycles`, the rate class set by
+`access_count > 0`, the creative tag, bookmarks and immunity windows; strengthening
+adds a capped amount; archiving and cold movement are thresholds. Graph edges and
+procedures decay by score/active flag only. So decay can be recomputed for any
+profile from a harness-level log of decay passes and strengthenings (wrapping the
+jobs, no `src/` change) and applied to the *restored copy* of a checkpoint before
+a read pass; no reader change is needed. Cold movement deletes the episodic row
+and cluster links and copies them (with `cluster_ids`) into `cold_storage`/
+`cold_chunks`, so a profile that warms a row must reverse that move. Open choice:
+(A) replay with live default decay, overlays move rows both ways — the main full
+condition is the real system; or (B) replay without decay, overlays only apply
+decay forward — simpler, but even the main condition's decay is applied after
+the fact.
+
 **State rules:** read-only omissions can reuse the identical frozen as-of store
 only for labeled read-side contrasts. Writer, entity identity, summary,
 procedural, gate-exposure, maintenance or decay changes require their own
