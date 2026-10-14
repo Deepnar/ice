@@ -3955,6 +3955,9 @@ compressed parts. The final run's fresh writer will produce one; recheck the
 chosen budget once at freeze. (d) The second judge family is used only in the final
 run, as an untuned second opinion reported beside Muse to show the result does
 not depend on one chosen judge; it is not qualified, tuned or used for selection.
+(e) Lifecycle/decay coordinates are not tuned: their wiring (step 3) is
+skipped, defaults are frozen as-is, and decay/retention is exercised and reported
+in semi-LSREP and the oracle. Only the read coordinates are tuned.
 
 This changes ordering, not roadmap checkmarks. A new failure blocks only the
 measurement it invalidates unless it demonstrates a shared correctness defect.
