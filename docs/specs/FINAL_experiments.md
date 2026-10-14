@@ -366,8 +366,8 @@ questions and evolving ground truth from the Z2 question machinery
 | 1 | Synthetic long-form conversations with a planted-fact ledger | LSREP, headline reproducible | ledger loads directly as ground truth; released if permissible |
 | 1 | Maintainer's conversations: the four v2-paper histories plus suitable v1 experiment conversations; FINAL-sealed B/C families | LSREP, private | aggregate results only, separate table, never published raw |
 | 1 | LongMemEval oracle **and** LongMemEval-S | native | the field's standard; v2 trailed vector RAG here. S was excluded from Z2 only. Non-official judge, labelled |
-| 1 | BEAM (ICLR 2026; 100K-10M-token conversations, 2,000 validated questions) | native, scale | 128K and 500K tiers fully, 1M sampled, 10M only if replay speed allows |
-| 2 | MemoryAgentBench (ICLR 2026) | native, agentic memory | accurate-retrieval and selective-forgetting subsets only; test-time learning and long-range understanding do not fit chat memory |
+| 1 | BEAM (ICLR 2026; 100K-10M-token conversations, 2,000 validated questions) | native, scale | 128K-1M tiers fully (B is ~0.73M and C ~1.2M tokens already); 10M sampled if replay speed allows. Replay cost scales with turn count, not tokens |
+| 2 | MemoryAgentBench (ICLR 2026) | native, agent-memory benchmark | accurate-retrieval and selective-forgetting subsets only, ingested through the chat path; reported as conversational memory on an agent-memory benchmark, not as an agentic-memory claim (the MCP tool path is not evaluated) |
 
 **Not used, with reasons:**
 - *LSREP-adapted public datasets (LME, LoCoMo):* adapting public corpora to LSREP is
