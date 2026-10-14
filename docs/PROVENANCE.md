@@ -11,7 +11,9 @@ messages, no k cap.
 
 Same measure on the four-arm current-reader baseline
 `logs/v3-read-baseline-2026-10-14-r1`: full ICE 60/67 (117/127), no-Codex 58/67
-(112/127), ICE vector-only 52/67 (105/127), recent-only 0/67. At matched budget a
+(112/127), ICE vector-only 52/67 (105/127), recent-only 0/67; with whitespace
+normalised: full 61/67 (120/127), no-Codex 60/67 (116/127), vector-only 56/67
+(112/127). At matched budget a
 plain whole-message vector search delivers required text at least as often as
 full ICE on this history. Limits: span availability is not answer quality; ICE
 spans are counted by decoded text containment and bare-vector spans by offsets;
