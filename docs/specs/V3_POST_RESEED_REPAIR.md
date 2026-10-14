@@ -3764,6 +3764,18 @@ Replay speed is measured and improved before the Z2 replays. Decay intervals
 are long but plausible for a conversation of this length. Z2 reruns only for
 parts still broken after the first run.
 
+**Probe exposure and decay overlay, maintainer 2026-10-14 (supersedes "probes
+never write or reinforce"):** test questions retrieve like real use, so their
+effect on memory is part of what Z2 measures. The replay logs every strengthening
+(row, source time, amount, probe or turn) and every decay cycle instead of
+relying only on the folded `decay_score`. Decay values are then computed per
+profile **outside the snapshot** (an overlay keyed by row) and supplied to the
+reader, so one checkpoint store can be read with: probe exposure counted or not,
+different decay settings, or neutral decay for ablations. Limit: the replay's
+own retrievals happened under the default profile; that feedback is not
+recomputed (labelled). Feasibility check of the decay/cold-tier code precedes
+building it; fallback is a second replay with probe exposure off.
+
 **State rules:** read-only omissions can reuse the identical frozen as-of store
 only for labeled read-side contrasts. Writer, entity identity, summary,
 procedural, gate-exposure, maintenance or decay changes require their own
