@@ -3952,8 +3952,9 @@ conversation fold is refused on every read, because it was written under
 `summary_support` v1 and the current reader requires v2 (PROVENANCE 2026-10-11).
 Label it "fold withheld"; at turn 251 that fold is 225 copied originals plus 4
 compressed parts. The final run's fresh writer will produce one; recheck the
-chosen budget once at freeze. The two-judge final requirement (G65) is unchanged
-by (a) and still needs an explicit decision.
+chosen budget once at freeze. (d) The second judge family is used only in the final
+run, as an untuned second opinion reported beside Muse to show the result does
+not depend on one chosen judge; it is not qualified, tuned or used for selection.
 
 This changes ordering, not roadmap checkmarks. A new failure blocks only the
 measurement it invalidates unless it demonstrates a shared correctness defect.
