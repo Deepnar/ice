@@ -4004,6 +4004,11 @@ compressed parts. Z2's fresh writer will produce one; recheck the
 chosen budget once at freeze. (d) The second judge family is used only in FINAL (the paper
 experiment), not Z2, as an untuned second opinion reported beside Muse to show the result does
 not depend on one chosen judge; it is not qualified, tuned or used for selection.
+(f) Survivors pre-registered before any answer (2026-10-14): recent share x0.75 and
+x1.25, vector candidates 200, claim candidates 128, rerank shortlist 128, plus up to
+two leg-profile rows after their read pass; baseline answered twice for the noise
+floor. Budget is not swept: the derived budget (0.75 x model window, clamped
+4k-40k) stays. Base leg weights are inert (every detected intent has a profile).
 (e) Lifecycle/decay coordinates are not tuned: their wiring (step 3) is
 skipped, defaults are frozen as-is, and decay/retention is exercised and reported
 in Z2 (semi-LSREP and the oracle). Only the read coordinates are tuned.
