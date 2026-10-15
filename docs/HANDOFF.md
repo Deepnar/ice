@@ -37,6 +37,12 @@ settle it.
 
 ## Position and next work
 
+**⚑ Do first, before the Z2 replay:** the short list in ROADMAP's
+[CURRENT POSITION](ROADMAP.md#-current-position--2026-10-15-v3) block — G27 (wrong
+background model in shared mode), G12 (timeouts), G4 + G32 (explicit Ollama control,
+inside S0), G68 truncation check on C. That block also sorts every other open fixing
+item into after-Z2 / conditional / parked.
+
 **Next: build Z2** in the spec's order (S0 → S12): replay speed profile on a 50-pair
 slice of B; question machinery (two-family cited ledger, computed evolving ground
 truth, quotas incl. cumulative mega-span) **dry-run on the 251-pair development
