@@ -1,3 +1,56 @@
+## 2026-10-15 — v3 non-codex audit fixes and graph read-side measurements
+
+All v3, development history (251 turns, store `ice_v3_campaign_3ff2593d…`) and
+the 2026-10-14 read baseline (67 reviewed questions) unless stated. Private
+evidence under `logs/audit-*-2026-10-15-r1/` and `logs/z2-s0-*-2026-10-15-r1/`.
+
+**Graph read side (findings; codex rework scheduled, nothing fixed).** Relation
+check vs the source paragraph on 188 proposed facts from 14 B turns: 76%
+supported, 16% unknown (mostly bad extractions, hypotheticals or wrong facts on
+reading), 7% over the 512-token pair bound; sentence-only premise 97/188.
+Grounding (`_ground_triplets`, NER token match) marked 3,781/4,266 triplets
+(89%) at confidence 0.35 < `codex_direct_trust_floor` 0.5, so they never reach
+retrieval; live edges at 0.35: dev 1,160/1,355, largest store 9,240/11,551,
+`ice_db` 4,693/6,603. Eyeball samples (16 each): ~7 useful hidden vs ~10 useful
+visible, junk in both. Retrieved "Source excerpt" fragments (89): sentence
+median 52 chars, rendered whole message median 3,488; 30/89 duplicate a turn
+already in the same prompt; 29/89 link to any edge. Events: 1,356 edges added,
+2 strengthened, 1 expired; reconciler 630 calls → review 571 / keep_both 58 /
+expire 1; 294 same-message multi-value edges; the 24 subject+relation pairs
+spanning >1 message are lists or paraphrases, none a real change. NOT shown:
+answer impact of any of this; real updates may sit under different names.
+
+**A4 reranker (6255e2a).** Over-length passages scored by best window: a
+17,867-token C turn → 11 windows, matching question +3.5, unrelated −3.5,
+~1.3 s warm per over-length passage. NOT shown: ranking or answer change on a
+question set.
+
+**A10 procedures (cd47c52).** Selected notes in 67 prompts: 37 = 8 paraphrases
+of "seeks validation". Prompt qualified on 25 blocks (15 dev, 10 B): old
+wording validation ~16, personality 3; negative-rule variant ~12; example
+variant copied an example 8/25 (≥1 with non-supporting citations); shipped
+example-free variant 0 / 0 / 0 copies, 13/25 the broad "prefers detailed,
+comprehensive answers". Trigger topic tags now written from cited turns. NOT
+shown: downstream answer effect; equivalence merging still uncalibrated.
+
+**A11 retrieve decision (f200699).** base_retrieve 518/519 on historical prompts
+(unbounded length logit). Cap 3 keeps 67/67 reviewed memory questions
+retrieving with bumps ignored; cap 2 drops one (p_ltm 0.082). NOT shown: how
+many non-memory prompts now skip (needs context-aware classification).
+
+**A12 clustering (22d8f1d).** Largest store's biggest cluster 1,075/1,471, 552
+members below 0.6 raw cosine. Dev-store copy re-clustered: floor 0.0/0.45/0.50/
+0.55 → largest 247/237/222/110 of 251, clusters 4/12/17/38; gold turns inside
+automatic top-10 scope 106/102/101/89 of 108. Floor 0.55 shipped; automatic
+scoping off. NOT shown: cluster name quality; answer effect of scoping off
+(expected neutral: it was inert).
+
+**G68 (folded into the codex rework).** Production-style extraction (per unit,
+source sentences) on C's three largest turns: 0 errors, 909/959/916 facts,
+output truncated 1/502 calls, 941/823/736 s per turn; chunk budget 4,096 but
+~124–137 chunks per turn (heading-split). An earlier run that joined roles and
+passed no sentence list reported 23/30 failures — invalid harness (TRAPS 1).
+
 ## 2026-10-15 — v3 pre-Z2: Ollama doors, summary claims v3, design audit
 
 **Ollama 0.32.13 (24 GB card, no `OLLAMA_CONTEXT_LENGTH`).** `/v1` loads

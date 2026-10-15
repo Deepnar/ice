@@ -19,6 +19,11 @@ concrete case. An entry with no worked example is a platitude.
 never run `classify()`. A change upstream of the head is invisible to both, so
 a green run means nothing about it.
 
+**Re-earned 2026-10-15 (G68 check):** a harness called `extract_triplets` on the
+joined `User:/Assistant:` text with no `source_sentences`, so the incomplete-fact
+tolerance production gets was off — it reported 23/30 C turns failing. Called
+per source unit with a sentence list, as `extract_codex` does: 0 failures.
+
 ### 2. A spec can contradict itself, or go stale
 `docs/specs/README.md` rule 12: stop, verify against current code, record the
 divergence in the entry, fix the spec first, then code. Never improvise past a
@@ -2753,3 +2758,41 @@ runs that test. Before committing a change to any file under `src/`, grep
 `TRANSITIONS` in `reader_adoption.py`; if the file is listed, register the new
 "after" bytes with a reason, and run the db group (disposable database) before
 the commit, not after.
+
+### 132. A gate's rate written in its docstring goes stale when its upstream producer changes
+
+ICE v3, 2026-10-15: `_ground_triplets` says its strict rule "marks 4.8% of
+existing edges" — measured 2026-08-12 with the generalist extractor. After
+extraction moved to NuExtract3 the same rule marked 89% (3,781/4,266) at
+confidence 0.35, below the 0.5 retrieval floor, so 70–89% of live edges never
+reached a prompt. Nothing failed; the gate kept doing what its comment said.
+When a producer upstream of a gate changes, re-measure the gate's RATE on the
+new output; a recorded rate is a dated observation, not a property.
+
+### 133. Fixing a broken component can switch on a dormant restriction downstream
+
+ICE v3, 2026-10-15: clustering produced one mega-cluster, which made "search only
+the 10 nearest clusters" a no-op. Fixing cluster quality (raw floor 0.55: 38
+clusters) turned that restriction on and it scoped out 19/108 gold turns of the
+reviewed questions. The broken component had been protecting recall. Before
+repairing something, list what consumes its output and measure that consumer
+with the repaired version — here automatic scoping was turned off instead.
+
+### 134. A relevance field that nothing writes matches everything
+
+ICE v3, 2026-10-15: `_procedural_lookup` filters patterns on
+`trigger_conditions.topic_tags`, treating an empty list as "applies to all".
+No writer ever set it, so every procedural pattern was eligible for every prompt,
+and the nearest generic note ("the user seeks validation…") landed in 37 of 67
+measured prompts. Check that a filter's field is actually populated on real rows
+before trusting the filter (`SELECT … GROUP BY trigger_conditions`).
+
+### 135. An unbounded term in a log-odds sum turns a decision always-on
+
+ICE v3, 2026-10-15: the retrieve decision added `0.8 × logit(P_len)`, where
+`P_len` saturates with history beyond the recent window; its logit grows without
+bound (~+20 at 100K tokens) and swamped the classifier, so base_retrieve was True
+on 518/519 prompts. Every individual term looked like "a nudge". Clamp each
+additive term to the range its comment intends, and check the decision's rate on
+real long histories, not on short fixtures.
+

@@ -502,6 +502,8 @@ Templates are versioned alongside the schema — the v1 strings are frozen verba
 
 ### **2.4 The memory-retrieval decision (B2)**
 
+> **⚑ v3 2026-10-15 (audit A11):** the memory-pressure term's logit is clamped to ±`ltm_length_logit_cap` (3.0) before its 0.8 weight. Unbounded, it reached ~+20 log-odds on long histories and base_retrieve was True on 518/519 development prompts, leaving the source-need LLM gate as the only real decision. Cap 3 keeps all 67 reviewed memory questions retrieving (bumps ignored).
+
 **Reworked 2026-07 (roadmap B2).** The old design forced Long_Term_Memory from four scattered places — `_apply_hard_overrides` (Creative ⇒ LTM; Software+referential ⇒ LTM), DI3's reference rule, an api/main.py bias (`turn_count>10 or max_confidence<0.95 ⇒ LTM`), and an orchestrator safety override (`Zero_Shot+conversation_id ⇒ LTM`). Together they made retrieval fire for almost every turn regardless of the classifier — "safe, not smart." All four are removed. In their place, `api/memory_decision.py::decide_memory_retrieval` makes **one** decision, in log-odds space, that *prefers* memory but never *forces* it:
 
 ```
@@ -700,6 +702,8 @@ Sentence-claim and semantic-verification consumers remain in the repair phase.
 The Codex store is a versioned knowledge graph spread over four tables (full schema in §4): codex_entities (canonical name, aliases, tags, properties JSONB, auto-regenerated context_payload, embedding Vector(1024)), codex_edges (typed relations with strength, confidence ∈ \{pending, active\}, valid_from, valid_until, **learned_at, unlearned_at**), codex_events (append-only event log), and codex_snapshots (compaction output). It is populated by the Codex Extractor (§4.3) and the manual Codex Inject Watcher (§8.9), enriched by the Reflection worker, and queried by the Codex graph-traversal retrieval leg (§4.8).
 
 ### **3.3 Procedural memory**
+
+> **⚑ v3 2026-10-15 (audit A10):** extraction asks for ONE answer preference (format, structure, length/detail, step order, tools, language) cited by ≥ 2 messages (`pattern_prompt`, example-free; qualified on 25 real blocks — validation-seeking 16 → 0, personality notes 3 → 0). `trigger_conditions.topic_tags` is now written from the cited turns' tags, so the procedural leg's existing trigger filter scopes patterns to matching topics; before, nothing wrote it and every pattern matched every prompt.
 
 The procedural_memory table stores recurring behavioural patterns (e.g. "the user always asks for tests after code generation"). Its schema:
 
@@ -1336,7 +1340,10 @@ differences, **not factual confidence**. Ordering is ON by default; the optional
 rejection floor remains unset pending content/answer calibration. A
 successful rerank bypasses geometric coverage selection and source-type budget
 quotas, packing in relevance order and considering each alternative's own score.
-Oversized fragments do not stop smaller later evidence. Exact source identities
+Oversized fragments do not stop smaller later evidence. **Since 2026-10-15 (audit
+A4)** a candidate over `retrieval_rerank_max_tokens` is scored by its best
+overlapping window (every window read) instead of staying unscored and ranking
+after all scored ones (111 such pairs in the development replay). Exact source identities
 survive replacements. The stage cannot recover facts absent from its bounded
 candidate pool, and unset rejection can still admit irrelevant content with room
 in the budget.
@@ -1399,6 +1406,8 @@ the control testable without a default/policy retirement or measured answer win.
 22. **`_strengthen_retrieved`**: for each episodic fragment, access_count += 1 and decay_score = min(1.0, decay_score + 0.15) — retrieval acts as a partial reversal of decay.
 
 ### **6.6 Cluster-scoped retrieval**
+
+> **⚑ v3 2026-10-15 (audit A12): automatic cluster scoping is OFF** (`retrieval_auto_cluster_scope=False`). It was inert under the old mega-cluster; once clusters were meaningful (raw floor 0.55) it scoped out 19/108 gold turns of the reviewed questions. An explicit, user-chosen cluster scope still applies.
 
 Before the legs run, _relevant_cluster_ids(prompt_embedding, classification, conversation_id, top_k=10, scope) identifies the relevant clusters: it pulls the top-30 clusters by centroid cosine similarity and re-scores each as **combined = sim + 0.3 × tag_overlap** (the count of overlapping topic tags). If the best combined score is below 0.50 it returns [] and the orchestrator falls back to global search. Otherwise it returns an **adaptive band** — every cluster scoring within 80 % of the best, capped at top_k — rather than a flat top-10: a single dominant cluster scopes tightly, several comparably-relevant clusters all stay in, and weak tails drop out instead of padding the scope to a fixed count. **C5 deleted the third term:** scoring used to add `0.15 × name_sim` against a *freshly embedded* name + description per row, costing up to 30 model forward passes on the synchronous hot path for a signal the centroid already encodes. **Scope (G29, 2026-07-28):** the cluster query resolves its conversation filter through the shared `_conv_scope_filter`, so a project-scoped request ranks only that project's clusters — it previously hand-rolled `if conversation_id`, which under project scope (conv_id None, ids in `scope["conversation_ids"]`) emitted no filter and ranked every cluster in the store. The scoped cluster IDs are injected into scope["cluster_ids"], and both episodic legs apply a filter that admits any turn linked to one of the scoped clusters **or** any turn with no cluster links yet (so unassigned turns stay retrievable). The ConfigurableOrchestrator can disable this with cluster_restrict=False.
 
@@ -1640,7 +1649,7 @@ Cadences (`settings.maintenance_intervals`, seconds — the old beat schedule ca
 
 **Import replay is an event-only gpu-lane job (F10/F14, 2026-07-20, §13).** `import_replay` has no cadence: `services/ingestion.py` enqueues it, and each dispatch processes conversations for a ~10-min slice budget, then re-enqueues the next slice (`seq+1`) — so an hours-long import never starves live chat's post-flight behind it. Every resumption goes through the same `_gpu_ready(for_event=True)` gate, and mid-slice the engine pauses between turns while `generation_in_flight`. Resume after a kill rides the `import_conversations` hash ledger + per-turn idempotency keys, not the runtime.
 
-> **v3 owned-model idle cleanup,2026-09-27.** A genuinely empty and idle maintenance drain releases identities actually called through the local shared client, including the separate NuExtract override. Native E4B source judges share the same per-model call lock and ownership registry, so an active call cannot be unloaded by cleanup. Dedicated-server calls and unrelated host residents are excluded. `release_owned_models()` retains busy/failed identities for a later idle tick; each native unload must be followed by confirmed exact-name absence from `/api/ps` within `bg_release_timeout_seconds`. Successful cleanup is remembered, while a new native call makes it due again. The same drain invokes the existing NuNER cache release under its inference lock and resets lazy-load state. The shared encoder remains resident. `bg_release_after_drain=True` controls this mechanism. Background generation remains on the compatible SDK; request source judges send native `keep_alive=-1` until the same owned idle drain. This repairs ownership and scheduling, not a global GPU budget or serialization of all foreground, embedding and reranking work.
+> **v3 owned-model idle cleanup,2026-09-27.** A genuinely empty and idle maintenance drain releases identities actually called through the local shared client, including the separate NuExtract override. Native E4B source judges share the same per-model call lock and ownership registry, so an active call cannot be unloaded by cleanup. Dedicated-server calls and unrelated host residents are excluded. `release_owned_models()` retains busy/failed identities for a later idle tick; each native unload must be followed by confirmed exact-name absence from `/api/ps` within `bg_release_timeout_seconds`. Successful cleanup is remembered, while a new native call makes it due again. The same drain invokes the existing NuNER cache release under its inference lock and resets lazy-load state. The shared encoder remains resident. `bg_release_after_drain=True` controls this mechanism. Background generation moved to native `/api/chat` on 2026-10-15 (`bg_native_transport`, `bg_keep_alive`); request source judges send native `keep_alive=-1` until the same owned idle drain. This repairs ownership and scheduling, not a global GPU budget or serialization of all foreground, embedding and reranking work.
 
 **v3 bounded lifecycle/resource qualification,2026-10-09:** actual shared
 preparation/all-ten-periodic/cold-read control preserves42 original hashes and
@@ -1795,6 +1804,8 @@ observed, legacy-unobserved and invalid receipts. Neither attempt count nor a
 repeated entity is independent precision. Scheduling and model roles are unchanged.
 
 ### **8.7 Clustering Worker**
+
+> **⚑ v3 2026-10-15 (audit A12):** tag/entity/session bonuses count only when raw cosine ≥ `cluster_min_raw_similarity` (0.55), in assignment and in union-find pair grouping. Without the floor, bonuses up to +0.5 carried ~0.1-similar turns over the 0.6 threshold: the development history was one cluster and the largest store's biggest cluster held 1,075/1,471 turns.
 
 **Reworked 2026-07 (roadmap C5, "v5") — the structural fixes for Exp2's "2–3 mega-clusters + dozens of singletons," which were creation/assignment-side, not threshold-side.** The plain callables (`run_cluster_assignment(db, conversation_ids=None)` / `run_cluster_merge(db, conversation_ids=None)`) are driven directly by the maintenance runtime — cadence plus C7's session-gap freshening, which passes the new sitting's conversation id — and later by Track D's agent (the C5-era Celery wrappers were deleted with C7).
 
