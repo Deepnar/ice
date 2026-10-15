@@ -165,7 +165,9 @@ FROZEN = [
     ("cluster_session_affinity_bonus", CLUSTERING, 112, r"SESSION_AFFINITY_BONUS = ([\d.]+)"),
     ("cluster_singleton_age_hours", CLUSTERING, 113, r"SINGLETON_AGE_HOURS = ([\d.]+)"),
     ("cluster_name_regen_interval", CLUSTERING, 115, r"NAME_REGEN_INTERVAL = (\d+)"),
-    ("cluster_entity_extraction_max_chars", CLUSTERING, 119, r"MAX_CHARS = (\d+)"),
+    # cluster_entity_extraction_max_chars's row was retired 2026-10-15: G74
+    # (5fc47c7, 2026-10-09) changed it on purpose from 2000 to None (NuNER
+    # reads complete native windows). Its proof moves below.
     ("agent_max_scanned", AGENT, 42, r"MAX_SCANNED = (\d+)"),
     ("agent_max_llm_decisions", AGENT, 43, r"MAX_LLM_DECISIONS = (\d+)"),
     ("agent_max_tier2_proposals", AGENT, 44, r"MAX_TIER2_PROPOSALS = (\d+)"),
@@ -468,3 +470,16 @@ def test_cycles_per_day_still_derives_to_the_base_commit_value():
     # thing that actually decides how fast memory fades.
     assert decay.rate_unaccessed() == 0.95 ** (1.0 / 16.0)
     assert codex_decay.decay_rate() == 0.99 ** (1.0 / 16.0)
+
+
+def test_cluster_entity_max_chars_was_retired_deliberately():
+    """G74 (5fc47c7) replaced the 2000-char prefix cap with None — complete
+    originals through NuNER's native windows; an explicit cap still warns. The
+    frozen row compared float(None) and failed from that commit on; the
+    proof that the old value existed and that None is the recorded change
+    lives here instead of disappearing."""
+    line = _base_lines(CLUSTERING)[119 - 1]
+    m = re.search(r"MAX_CHARS = (\d+)", line)
+    assert m and int(m.group(1)) == 2000, "the base-commit anchor for the retired cap drifted"
+    assert _declared("cluster_entity_extraction_max_chars") is None, (
+        "the cap is back; record the reversal of G74's change rather than re-freezing it")
