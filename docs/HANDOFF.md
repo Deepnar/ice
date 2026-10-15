@@ -72,9 +72,8 @@ recent-only; share decided at the Z2 build. CLAUDE.md: shared-mode line correcte
 and TRAPS is read by titles, not in full (`a231e40`), both maintainer-approved. Z2's
 USER-REQUIRED items are unchanged.
 
-Open: commit `cd47c52`'s message quotes a personal procedure note (the docstring was fixed in
-`f875ad3`); reword it before the next push if the maintainer agrees — all session commits are
-unpushed.
+Decided: commit `cd47c52`'s message (quotes a stored procedure note) stays as is — maintainer,
+2026-10-15; the docstring copy was neutralised in `f875ad3`. All session commits are unpushed.
 
 ## Validation and propagation
 
