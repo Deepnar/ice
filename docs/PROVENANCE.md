@@ -1,3 +1,23 @@
+## 2026-10-15 — v3 bounded read tuning results and freeze
+
+Muse Spark 1.3 graded 855 answers (Luna, 1,500-token reserve) over the 67
+development questions: the four-arm baseline, two repeated baseline answers and
+seven pre-registered survivors (recent share x0.75/x1.25, vector candidates 200,
+claim candidates 128, rerank shortlist 128, leg profiles vector/codex x1.5).
+Baseline full ICE 61/67 correct; repeated identical prompts 58/67 twice (up to 7
+questions flip, net ±3): the noise floor. Every survivor is within it (net -3..+1)
+and none saves ≥10% tokens at equal quality, so every current value stays
+(`experiments/v3_repair/tuning_results.py`; private results
+`logs/v3-tuning-results-2026-10-15-r1/results.json`). Controls: no-Codex 63, ICE
+vector-only 63, recent-only 41. The set is near ceiling and cannot separate read
+settings; graph/extra legs show no answer benefit over vector-only here
+(development evidence, not a score of record). Seven + two answers were
+unavailable (output-reserve truncation; P9). `export_tuning_ledger.py` refuses
+because pending stages lack bound qualification dependencies under the old gate;
+the freeze is recorded directly in `experiments/v3_repair/results/tuning-freeze-2026-10-15.md`.
+Frozen for Z2: settings digest `a03cae64…` unchanged plus the 4,000-token answer
+reserve (Z2_EVALUATION D7).
+
 ## 2026-10-14 — v3 bare-vector development tuning and span availability
 
 `experiments/v3_repair/bare_vector.py --tune` on the 251-turn development history,

@@ -4011,6 +4011,9 @@ compressed parts. Z2's fresh writer will produce one; recheck the
 chosen budget once at freeze. (d) The second judge family is used only in FINAL (the paper
 experiment), not Z2, as an untuned second opinion reported beside Muse to show the result does
 not depend on one chosen judge; it is not qualified, tuned or used for selection.
+(g) **Tuning closed 2026-10-15:** every survivor within the ±3 noise floor of 67;
+no value changes; configuration frozen at digest `a03cae64…` plus Z2's 4,000-token
+answer reserve ([results](../../experiments/v3_repair/results/tuning-freeze-2026-10-15.md)).
 (f) Survivors pre-registered before any answer (2026-10-14): recent share x0.75 and
 x1.25, vector candidates 200, claim candidates 128, rerank shortlist 128, plus up to
 two leg-profile rows after their read pass; baseline answered twice for the noise
