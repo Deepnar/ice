@@ -76,6 +76,45 @@ def _source_session_ids(db, batch_ids: set) -> set | None:
     return set(sessions_by_batch.values())
 
 
+def pattern_prompt(numbered: str, count: int) -> str:
+    """Audit A10 (2026-10-15). A procedural memory is an answer preference the
+    assistant should follow (ICE_Architecture §3.3: "always asks for tests
+    after code"). Qualified on 25 real blocks (dev session + history B,
+    logs/audit-a10-procedural-prompt-2026-10-15-r1/): the earlier wording gave
+    "the user seeks validation/feedback" on ~16/25 and personality notes on 3
+    ("feelings of inadequacy" reached a store); a negative rule ("validation is
+    NOT a habit") was ignored by gemma4:e4b (~12/25); a positive target with
+    example sentences had the model copy an example 8/25, at least once with
+    citations that did not show it. This positive, example-free wording gave
+    0 validation, 0 personality and 0 copies — all answer preferences, though
+    often the broad "prefers detailed, comprehensive answers" (13/25)."""
+    return (
+        f"Below are {count} messages the SAME user wrote during one session, in order.\n\n"
+        f"{numbered}\n\n"
+        "Find ONE answer preference this user shows in two or more messages: how they want the "
+        "assistant's answers shaped. It must be about the answer's FORMAT (list, table, code, "
+        "prose), STRUCTURE (summary first, consolidated version, sections), LENGTH or DETAIL, "
+        "ORDER of steps, TOOLS, or LANGUAGE. Describe it in your own words from what the "
+        "cited messages actually ask for.\n\n"
+        "Rules:\n"
+        "- It MUST be visible in two or more of the numbered messages.\n"
+        "- Write it in this exact format: PATTERN: The user wants <answer preference> | "
+        "EVIDENCE: <comma-separated message numbers>\n"
+        "- Only an answer preference counts. If the messages show none, output exactly: NONE\n"
+        "Output nothing else."
+    )
+
+
+def cited_topics(session_turns, cited_batch_ids) -> list:
+    """Topic tags of the cited turns: the pattern's relevance trigger.
+
+    `_procedural_lookup` already filters on trigger_conditions.topic_tags, but
+    nothing ever wrote them, so every pattern matched every prompt (A10)."""
+    cited = {str(b) for b in cited_batch_ids}
+    return sorted({tag for t in session_turns if str(t.batch_id) in cited
+                   for tag in (t.topic_tags or [])})
+
+
 def extract_procedural(batch_id: str, model_used: str = ""):
     """Identify a habit from a SESSION of the user's prompts.
 
@@ -177,28 +216,7 @@ def extract_procedural(batch_id: str, model_used: str = ""):
         block.reverse()
         numbered = "\n".join(f"{i}. {p}" for i, (_, p) in enumerate(block, 1))
 
-        # The old prompt asked for a pattern "the user consistently follows"
-        # while showing ONE turn — an instruction that cannot be satisfied
-        # honestly, so it was answered dishonestly. It now shows several of the
-        # user's prompts and demands the recurrence be pointed at.
-        prompt = (
-            f"Below are {len(block)} messages the SAME user wrote during one "
-            "session, in order.\n\n"
-            f"{numbered}\n\n"
-            "Identify ONE habit or workflow this user repeats — something visible "
-            "in at least TWO of the messages above. Examples: \"asks for the error "
-            "message before showing code\", \"restates the plan before agreeing to "
-            "it\".\n\n"
-            "Rules:\n"
-            "- It MUST be supported by two or more of the numbered messages.\n"
-            "- Cite them, in this exact format: PATTERN: <one sentence> | "
-            "EVIDENCE: <comma-separated message numbers>\n"
-            "- Describe what the user DOES, not what they talked about.\n"
-            "- Preserve requests as requests and reported actions as reports; do not invent execution.\n"
-            "- Retain conditions and actors. Do not infer always/never traits from task requests.\n"
-            "- If no habit repeats across messages, output exactly: NONE\n"
-            "Output nothing else."
-        )
+        prompt = pattern_prompt(numbered, len(block))
         model_name = get_bg_model_name()
         messages = [
             {"role": "system", "content": "You are a behavioural pattern detector."},
@@ -330,7 +348,9 @@ def extract_procedural(batch_id: str, model_used: str = ""):
                              {old_proof['kind'], source_proof['kind']} else 'observed_behavior')}
                 existing.trigger_conditions = {**(existing.trigger_conditions or {}),
                     '_last_equivalence': proof, '_equivalence_candidates': checks,
-                    '_source_support': combined_proof}
+                    '_source_support': combined_proof,
+                    'topic_tags': sorted(set((existing.trigger_conditions or {}).get('topic_tags') or [])
+                                         | set(cited_topics(session_turns, cited_batch_ids)))}
                 if (existing.reinforcement_count >= 3 or
                         len(existing.source_batch_ids) >= settings.procedural_min_cited_turns):
                     existing.confidence_score = 0.8
@@ -349,7 +369,8 @@ def extract_procedural(batch_id: str, model_used: str = ""):
                 pattern_name=pattern_text[:80],
                 pattern_description=pattern_text,
                 topic_tags=turn.topic_tags or [],
-                trigger_conditions={'_equivalence_candidates': checks, '_source_support': source_proof},
+                trigger_conditions={'_equivalence_candidates': checks, '_source_support': source_proof,
+                                    'topic_tags': cited_topics(session_turns, cited_batch_ids)},
                 reinforcement_count=1,
                 first_observed=datetime.now(timezone.utc),
                 last_observed=datetime.now(timezone.utc),
