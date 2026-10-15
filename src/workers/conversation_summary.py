@@ -76,10 +76,9 @@ def _default_llm(prompt: str, max_tokens: int = None, *, schema=None) -> str:
 
 
 def _shared_embedder():
-    # Lazy: codex_extractor loads the SentenceTransformer at import (G13 —
-    # one load per process; never instantiate another).
-    from src.workers.codex_extractor import embedder
-    return embedder
+    # The process singleton (G13 — one load per process; never instantiate another).
+    from src.memory.embedder import get_embedder
+    return get_embedder()
 
 
 def _original_source(turn):

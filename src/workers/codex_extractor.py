@@ -31,7 +31,7 @@ from src.memory.models import (
 )
 from src.memory.relation_support import relation_proposition, verify_relation_pairs
 from src.memory.source import source_units
-from src.retrieval.ner_utils import extract_entities
+from src.retrieval.ner_utils import KNOWN_ENTITY_TYPES, extract_entities
 from src.workers.extraction_result import (
     ExtractionOutputError,
     original_source_quote,
@@ -1596,12 +1596,7 @@ _TYPE_SYNONYMS = {"location": "place", "org": "organization", "company": "organi
                   "app": "software", "npc": "character", "char": "character",
                   "paper": "document", "article": "document", "metric": "concept",
                   "theory": "concept", "topic": "concept"}
-_KNOWN_TYPES = set(_TYPE_HINTS.keys()) | {
-    "person", "place", "organization", "event", "concept", "object",    # universal
-    "software", "function", "class", "file", "module", "dataset",       # coding / research
-    "document", "product",                                              # academic / business
-    "character", "location", "item", "creature", "faction",             # creative / narrative
-}
+_KNOWN_TYPES = set(_TYPE_HINTS.keys()) | KNOWN_ENTITY_TYPES
 
 
 # G33: relations whose two ends are the SAME kind of thing, so an incoming edge

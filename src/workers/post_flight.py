@@ -14,8 +14,8 @@ import structlog
 from sqlalchemy import text
 
 from src.api.config import settings
-from src.workers.completion_text import complete_text
 from src.api.db import SessionLocal
+from src.memory.embedder import get_embedder
 from src.memory.models import EpisodicMemory, IdempotencyKey
 from src.memory.representation import choose_representation, verify_representations
 from src.memory.summary_support import (
@@ -23,8 +23,8 @@ from src.memory.summary_support import (
     METHOD_V3, generate_claims, original_units, source_windows, window_prompt,
 )
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name, json_schema
-from src.workers.codex_extractor import embedder as shared_embedder
 from src.workers.codex_extractor import extract_codex
+from src.workers.completion_text import complete_text
 from src.workers.document_chunker import run_chunk_turn
 from src.workers.idempotency import job_key
 from src.workers.procedural_extractor import extract_procedural
@@ -41,6 +41,7 @@ from src.workers.turn_density import (
 logger = structlog.get_logger("ice.workers.post_flight")
 
 bg_client = get_bg_client()
+shared_embedder = get_embedder()
 
 def _summary_llm_call(prompt: str, response: str, model_name: str,
                       terms: list, missing: list = None,

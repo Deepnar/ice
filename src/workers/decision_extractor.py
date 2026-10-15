@@ -113,9 +113,9 @@ def _extract_llm(llm, text_content: str, cue: str) -> Optional[dict]:
 
 
 def _embed(decision_text: str):
-    # The shared extraction embedder (one process, one model — G13).
-    from src.workers.codex_extractor import embedder
-    vec = embedder.encode(decision_text, convert_to_tensor=False)
+    # The process singleton (one process, one model — G13).
+    from src.memory.embedder import get_embedder
+    vec = get_embedder().encode(decision_text, convert_to_tensor=False)
     return vec.tolist() if hasattr(vec, "tolist") else list(vec)
 
 

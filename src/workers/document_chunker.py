@@ -21,16 +21,17 @@ leaks; the conversation needs its own chunks for self-retrieval.
 
 import uuid
 
-from src.api.config import settings
 import structlog
 
+from src.api.config import settings
 from src.memory.chunking import chunk_text
+from src.memory.embedder import get_embedder
 from src.memory.models import EpisodicChunk, EpisodicMemory
 
-# Reuse the process's already-loaded embedder (no extra model copy, G13).
-from src.workers.codex_extractor import embedder as shared_embedder
-
 logger = structlog.get_logger("ice.workers.document_chunker")
+
+# Reuse the process's already-loaded embedder (no extra model copy, G13).
+shared_embedder = get_embedder()
 
 
 

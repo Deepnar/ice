@@ -127,6 +127,17 @@ def _merge_word_spans(entities, text):
     return merged
 
 
+#: Entity types ICE recognises, across ALL domains it serves — coding,
+#: research, academic, business, personal, creative. Open-ended: any tag can be
+#: an entity_type; these are the ones with label and inference support. Lives
+#: here (not in the codex writer) because the NER label list is built from it.
+KNOWN_ENTITY_TYPES = frozenset({
+    "person", "place", "organization", "event", "concept", "object",    # universal
+    "software", "function", "class", "file", "module", "dataset",       # coding / research
+    "document", "product",                                              # academic / business
+    "character", "location", "item", "creature", "faction",             # creative / narrative
+})
+
 #: Types held back from the background tier's default label list. They are junk
 #: magnets on conversational text, absorbing every abstract noun ('existence',
 #: 'connection', 'events') and undoing the precision that tier is chosen for.
@@ -148,9 +159,8 @@ def _background_labels(extra_types: Sequence[str] = ()) -> List[str]:
     benefiting from it; a strict one loses facts outright. Per consumer, never
     globally — widening the default would regress the two that want it narrow.
     """
-    from src.workers.codex_extractor import _KNOWN_TYPES
     keep = _BACKGROUND_EXCLUDED_TYPES - {t.strip().lower() for t in extra_types}
-    return sorted(t.lower() for t in _KNOWN_TYPES if t not in keep)
+    return sorted(t.lower() for t in KNOWN_ENTITY_TYPES if t not in keep)
 
 
 def _background_model_windows(piece: str, model) -> List[str]:
