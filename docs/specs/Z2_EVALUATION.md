@@ -108,6 +108,17 @@ USER-REQUIRED review.
   never sees turns after its checkpoint, and its ground truth never uses them.
 - *Volume targets:* B about 300 occurrences, C about 120, after the split (D5).
 
+**D4b — No-memory control prompts (maintainer, 2026-10-15).** Besides the memory
+question types, each checkpoint gets prompts that need **no memory at all**:
+general knowledge, self-contained tasks, small talk and follow-ups answerable from
+the recent window. They are not abstention items (those ask about the history and
+expect "don't know"); they test the retrieve-or-not decision (B2 + source-need gate;
+audit A11 found base_retrieve True on 518/519 development prompts before its fix)
+and whether injected memory costs tokens or harms an answer. Reported per system:
+retrieve rate, memory tokens injected, and answer quality against recent-only on the
+same prompts. Their share and generation are decided at the Z2 build; they sit
+outside the D4 quota table so the memory types keep their shares.
+
 **D5 — Keeping FINAL clean.** Questions are generated over B and C and split **by
 question family**: 60% to Z2, 40% sealed for FINAL (hash-recorded, never read,
 answered or graded before FINAL). FINAL additionally covers the maintainer's other
