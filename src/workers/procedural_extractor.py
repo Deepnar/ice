@@ -82,7 +82,7 @@ def pattern_prompt(numbered: str, count: int) -> str:
     after code"). Qualified on 25 real blocks (dev session + history B,
     logs/audit-a10-procedural-prompt-2026-10-15-r1/): the earlier wording gave
     "the user seeks validation/feedback" on ~16/25 and personality notes on 3
-    ("feelings of inadequacy" reached a store); a negative rule ("validation is
+    (a personality characterisation of the user reached a store); a negative rule ("validation is
     NOT a habit") was ignored by gemma4:e4b (~12/25); a positive target with
     example sentences had the model copy an example 8/25, at least once with
     citations that did not show it. This positive, example-free wording gave
