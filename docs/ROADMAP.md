@@ -61,11 +61,31 @@ needs the maintainer's approval):
   speaker, text}` claims, enforced schema, per-claim acceptance, pieces, output cap
   scaled to input (1.3×). Qualified: reader-usable pieces 9 → 28 of 31. The fold no
   longer freezes on an oversized single turn (C would have stopped near turn 37).
-- **⚑ NEXT: design-audit fix session** (maintainer, 2026-10-15) — measured in
-  [PROVENANCE 2026-10-15](PROVENANCE.md): graph relations stored 30% of proposed,
-  mostly checker-undecided; pronoun facts (`I`/`you`) dropped with no speaker
-  mapping; reranker ranks over-long passages last; on the 10-14 reads only 6/920
-  turns reached prompts as summaries and the graph leg produced 42 candidates.
+- **⚑ ORDER DECIDED (maintainer, 2026-10-15): non-codex audit fixes → FULL CODEX REWORK → Z2.**
+  Z2 runs once, on the finished system; fixing after Z2 would mean re-running it.
+  - ~~*Non-codex audit fixes*~~ — **done 2026-10-15**: reranker scores over-long
+    passages by their best window (A4), procedures extract answer preferences
+    scoped by topic (A10), the history-length term in the retrieve decision is
+    bounded (A11), cluster bonuses need real similarity and automatic cluster
+    scoping is off (A12). Findings: [PROVENANCE 2026-10-15](PROVENANCE.md).
+  - *First check after the codex rework (A6):* replay the development history on
+    the new write path and count what reaches prompts — on 2026-10-14 only 6/920
+    selected turns arrived as summaries and the graph leg produced 42 candidates
+    over 67 questions. One check covers summaries, procedures and codex together.
+  - *Z2 reporting note (A7):* full ICE fills ~28% of its reported memory budget by
+    design (growth cap, no reallocation; median 10K of 38K). Budget comparisons
+    and token-efficiency figures must use the budget ICE actually used.
+  - *Next session:* **codex rework — remove and rewrite, not patch.** Target design
+    (maintainer): a relation is a term (not only familial); the triple carries
+    validity (valid from / until), strength and confidence; the attached source
+    sentence(s) are what the answering model sees — close facts, not walls of text.
+    Why: measured 2026-10-15 — grounding hides 70–89% of live edges (conf 0.35 <
+    trust floor 0.5); a rendered "Source excerpt" is the whole message (median 3,488
+    chars for a 52-char sentence), 34% duplicating a raw turn already in the prompt;
+    paraphrased re-observations become new edges (2 strengthened of 1,356), so
+    changes never meet (1 expired); pronoun facts dropped; extraction splits big
+    turns at every heading (~130 chunks, 12–16 min per C turn). G68 folds in:
+    output truncation is negligible (1/502 calls on C's largest turns).
 - **[G12](#g12)** — *audited 2026-10-15, not a Z2 risk:* 0 timeouts and 0 failed background
   calls in the 5.5 h development replay; every replay-path call scales its timeout via
   `bg_timeout()`. Left: an input-size term (folded into the transport change) and the
