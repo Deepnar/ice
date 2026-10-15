@@ -7,9 +7,9 @@ two things follow: background work can hold a second ~17 GB model against a 24 G
 card, and no run can state what produced its output, because the choice follows
 the registry's file order.
 
-Resolving the session's routed model is deferred to Z2, which will measure which
-background model is worth defaulting to. Until then the pin is the supported
-answer — and the fallback must not be silent, because a fallback nobody hears is
+Since 2026-10-15 the setting defaults to gemma4:e4b (A12's measured choice), so
+this path runs only when the pin is unset on purpose — and then the fallback must
+not be silent, because a fallback nobody hears is
 how this survived unnoticed in the first place (CLAUDE.md, TRAPS #11).
 
 Run:  uv run pytest tests/smoke/test_bg_model_pin.py -q
@@ -61,3 +61,10 @@ def test_it_warns_every_time_not_just_once(monkeypatch):
     for _ in range(3):
         bg.get_bg_model_name()
     assert len(warnings) == 3
+
+
+def test_the_shipped_default_is_the_small_background_model():
+    """A stranger's install with no .env must not fall through to the registry,
+    whose first confirmed entry is an 18 GB model (G27, measured 2026-10-15)."""
+    from src.api.config import Settings
+    assert Settings.model_fields["background_model_name"].default == "gemma4:e4b"

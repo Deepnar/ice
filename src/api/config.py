@@ -49,13 +49,15 @@ class Settings(BaseSettings):
     # "dedicated" is the power-user config: a separate OpenAI-compatible
     # server on port 8002 (started manually — ./ice no longer launches it).
     background_model_mode: str = "shared"
-    # None ⇒ resolve the chat model (registry get_fallback_model) in shared
-    # mode / the vLLM default in dedicated mode. Pin a specific model here to
-    # override — e.g. a small always-available Ollama model (BACKGROUND_MODEL_
-    # NAME=qwen3:4b-instruct) gives you a "dedicated" bg model with no second
-    # server: Ollama spins it up on demand, the runtime's idle gating hides
-    # the model swap. That replaces the old vLLM side-server for most setups.
-    background_model_name: Optional[str] = None
+    # G27/A12: the general background model (summaries, folds, reflection,
+    # procedures, maintenance agent, naming). gemma4:e4b was chosen by the
+    # 2026-08-27 bake-off (11 candidates × 9 jobs) and the background prompts
+    # are tuned for it — swapping it is a re-measure, not a config edit.
+    # Codex extraction uses `codex_extraction_model` instead.
+    # Explicitly None ⇒ shared mode falls through to the first confirmed
+    # registry entry (NOT the chat model, and possibly a large one), warned on
+    # every call as `bg_model_unpinned`; dedicated mode uses the vLLM default.
+    background_model_name: Optional[str] = "gemma4:e4b"
     # ⚑ ICE MANAGES ITS OWN MODEL RESIDENCY (maintainer, standing requirement:
     # "dont let default ollama do it"). After the maintenance runtime drains its
     # queue, the background model is explicitly unloaded rather than left to the

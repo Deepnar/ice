@@ -1,8 +1,8 @@
 """Factory for the background LLM client + model name (C7 D7/G2/G12).
 
-Shared mode (the default): background work reuses the main Ollama server and,
-when settings.background_model_name is None, the chat model itself (registry
-fallback) — no second model in VRAM. Dedicated mode is the power-user path: a
+Shared mode (the default): background work reuses the main Ollama server with
+the small background model `settings.background_model_name` (default
+gemma4:e4b; G27). Dedicated mode is the power-user path: a
 separate OpenAI-compatible server on :8002, started manually (./ice no longer
 launches it).
 """
@@ -244,8 +244,8 @@ def get_bg_client():
 
 
 def get_bg_model_name() -> str:
-    """settings.background_model_name wins; None ⇒ the chat model (shared)
-    or the dedicated default."""
+    """settings.background_model_name wins; explicitly None ⇒ the first
+    confirmed registry entry (shared, warned) or the dedicated default."""
     if settings.background_model_name:
         return settings.background_model_name
     if settings.background_model_mode == "shared":
@@ -262,10 +262,8 @@ def get_bg_model_name() -> str:
         # Warned on EVERY call, not once: a fallback that fires on 100% of calls
         # is an outage wearing resilience as a costume (CLAUDE.md / TRAPS #11),
         # and the reason this stayed invisible is that it never said anything.
-        # Resolving the session's routed model is deferred to Z2, where the
-        # background-model comparison will say which default is worth having;
-        # `BACKGROUND_MODEL_NAME` is the supported way to make this
-        # deterministic in the meantime.
+        # Since 2026-10-15 the setting defaults to gemma4:e4b (A12's choice),
+        # so this branch runs only when someone unsets it on purpose.
         logger.warning("bg_model_unpinned",
                        chosen=chosen,
                        reason="shared mode with no BACKGROUND_MODEL_NAME falls "
