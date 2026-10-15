@@ -8,7 +8,7 @@ from experiments.v3_repair import tuning_results as tr
 
 
 def report(path, rows, complete=True):
-    path.write_text(json.dumps(dict(complete=complete, records=[
+    path.write_text(json.dumps(dict(complete=complete, processing_complete=complete, records=[
         dict(arm=arm, occurrence={"q": q}, grade=g, status="graded" if g else "pending", prompt_tokens=t)
         for arm, q, g, t in rows])))
     return path

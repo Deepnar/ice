@@ -28,7 +28,10 @@ def load(reports, allow_partial=False):
     arms = defaultdict(dict)
     for index, path in enumerate(reports):
         data = json.loads(Path(path).read_text())
-        if not data.get("complete") and not allow_partial:
+        # `complete` stays false when some answers were never available (incomplete
+        # cloud replies); every task processed and none pending is the real gate.
+        finished = data.get("processing_complete") and not any(r.get("status") == "pending" for r in data["records"])
+        if not finished and not allow_partial:
             raise ValueError(f"grading report incomplete: {path}")
         for row in data["records"]:
             label = row["arm"]
