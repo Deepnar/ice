@@ -18,8 +18,8 @@ BEFORE_REF = "80730ae"
 TRANSITIONS = {
     "src/memory/summary_support.py": {
         "before": "be07047be33e3a2c6e0461264229104e51224ffd028c3a2dee2bb7ecd6ae1016",
-        "after": "d391701b127e3e53a4978f983d3f7784e41e071daecbbbdfa95fa4e29a51405c",
-        "reason": "Approved exact cited-span union and exact supported-v1-proof compatibility.",
+        "after": "299e565ce2246d94a681aa433bb2f5502c88b6dc324424cb4186bcf089ab0f1a",
+        "reason": "Approved exact cited-span union and exact supported-v1-proof compatibility. 2026-10-15 (SUMMARY_CLAIMS_V3): v3 quoted-claim method added behind summary_assertion_method; v2/v1 records verify under their own policy exactly as before; pieces and input-scaled caps are producer-side.",
     },
     "src/memory/assertion_support.py": {
         "before": "91feaf48c4672cd40de83d1841132f4a3c2466c8b5414d5edc6f09fe5d03d5b1",
@@ -33,8 +33,8 @@ TRANSITIONS = {
     },
     "src/workers/nuextract_transport.py": {
         "before": "4a0338a9719dc542838383c820a7732d36be429d6804310e95fc51acbd94139d",
-        "after": "a11099a6a2b80029a8eb952e5f1933d7f536c2b0333b029ba1cf66d0e17addf8",
-        "reason": "Approved matching nullable facts grammar; frozen extraction outcomes are retained.",
+        "after": "c0a2ed80223d15dbb1e6d0cde9f0889c5fda91f466a05a50c7a0785b78fd680f",
+        "reason": "Approved matching nullable facts grammar; frozen extraction outcomes are retained. 2026-10-15: docstring only (ordinary background calls now use bg_native_transport); no behaviour change.",
     },
     "src/workers/turn_density.py": {
         "before": "4bf4314d21994907393de946dd43c42d20324263044843df1ecb2ede074d6ecc",

@@ -21,6 +21,13 @@ from src.workers.codex_extractor import _regenerate_context_payload
 from test_summary_assertions import Tokenizer
 
 
+@pytest.fixture(autouse=True)
+def v2_claims(monkeypatch):
+    """These pin the SQL/source-receipt mechanics on the legacy v2 claim shape
+    (exact schema, 900 cap). v3 entity notes: test_summary_claims_v3.py."""
+    monkeypatch.setattr(settings, 'summary_assertion_method', 'v2')
+
+
 @pytest.fixture
 def created():
     assert os.getenv('ICE_TEST_DATABASE', '').startswith('ice_test_')

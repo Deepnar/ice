@@ -13,16 +13,30 @@ from src.api.config import settings
 from src.memory.source import digest, source_units
 
 logger = structlog.get_logger("ice.memory.summary_support")
-METHOD = "source_window_assertions_v2"
+METHOD_V2 = "source_window_assertions_v2"
+# v3 (docs/specs/SUMMARY_CLAIMS_V3.md): quoted pointers, speaker, 1-2 sources,
+# per-claim acceptance. Selected by settings.summary_assertion_method.
+METHOD_V3 = "source_window_assertions_v3"
+METHOD = METHOD_V2  # legacy name, kept for readers of frozen records
+SPEAKERS = ("user", "assistant", "document")
 
 
-def policy():
-    return {"method": METHOD, "model": settings.source_support_model,
-            "revision": settings.source_support_revision,
-            "pair_tokens": settings.source_support_max_tokens,
-            "threshold": settings.source_support_threshold,
-            "window_fraction": 0.5, "window_reserve_tokens": 32,
-            "overlap_fraction": 0.25, "premise_composition": "exact_cited_span_union_v1"}
+def current_method():
+    return METHOD_V3 if settings.summary_assertion_method == "v3" else METHOD_V2
+
+
+def policy(method=None):
+    method = method or current_method()
+    result = {"method": method, "model": settings.source_support_model,
+              "revision": settings.source_support_revision,
+              "pair_tokens": settings.source_support_max_tokens,
+              "threshold": settings.source_support_threshold,
+              "window_fraction": 0.5, "window_reserve_tokens": 32,
+              "overlap_fraction": 0.25, "premise_composition": "exact_cited_span_union_v1"}
+    if method == METHOD_V3:
+        result.update(claim_shape="sources_quote_speaker_text_v1", max_sources=2,
+                      acceptance="per_claim_supported_only")
+    return result
 
 
 def original_units(turns):
@@ -83,6 +97,92 @@ def source_windows(units, *, tokenizer=None):
     return windows
 
 
+def piece_windows(windows, budget=None):
+    """Group windows, in order, into pieces of at most *budget* prompt tokens.
+
+    One call per piece (SUMMARY_CLAIMS_V3 S5): an oversized turn or group is
+    summarised in parts instead of being cut by the server or refused. A
+    single window always forms a piece, so this cannot loop or drop text.
+    """
+    from src.memory import tokens
+    budget = budget or settings.summary_piece_tokens
+    pieces, current, used = [], [], 0
+    for window in windows:
+        size = tokens.count(window_prompt([window])) + 2
+        if current and used + size > budget:
+            pieces.append(current)
+            current, used = [], 0
+        current.append(window)
+        used += size
+    if current:
+        pieces.append(current)
+    return pieces
+
+
+def output_cap(input_tokens, floor):
+    """Output stop that scales with the input (SUMMARY_CLAIMS_V3 S6).
+
+    A cap is a safety stop, not a length control: below it the prompt decides
+    the length. *floor* is the job's legacy cap, so small inputs keep it.
+    """
+    import math
+    scaled = math.ceil(settings.summary_output_ratio * max(0, input_tokens))
+    return int(min(settings.summary_output_ceiling, max(floor, scaled)))
+
+
+def generate_claims(call, windows, *, floor, abstract=False):
+    """Claims for *windows*, one model call per piece, merged in order.
+
+    ``call(piece, max_tokens, schema, abstract)`` returns the raw generation;
+    *schema* is the v3 `format` (None under v2). Only a single-piece source asks
+    for an abstract — a piece's overview would claim to describe the whole.
+    A failed piece is logged and skipped (per-claim acceptance extends to
+    pieces); if every piece fails, the last error propagates so the caller's
+    existing fallback runs. Returns ``(parsed, failures)``.
+    """
+    from src.memory import tokens
+    from src.workers.runtime import JobYielded
+    pieces = piece_windows(windows)
+    want_abstract = abstract and len(pieces) == 1
+    merged = {"summary": [], "dropped": []}
+    if want_abstract:
+        merged["abstract"] = []
+    failures, last_error = [], None
+    for index, piece in enumerate(pieces):
+        cap = output_cap(tokens.count(window_prompt(piece)), floor)
+        schema = claim_schema(piece, abstract=want_abstract) if current_method() == METHOD_V3 else None
+        generated = None
+        try:
+            generated = call(piece, cap, schema, want_abstract)
+            if not isinstance(generated, str) or not generated.lstrip().startswith(("{", "```")):
+                raise ValueError("unstructured_generation")
+            parsed = parse_assertions(generated, piece, abstract=want_abstract)
+        except JobYielded:
+            raise
+        except Exception as exc:                                    # noqa: BLE001
+            # Keep the failed text for the caller's diagnostic record.
+            exc.generated_candidate = generated if isinstance(generated, str) else None
+            last_error = exc
+            failures.append({"piece": index, "error": type(exc).__name__,
+                             "finish_reason": getattr(exc, "finish_reason", None),
+                             "max_tokens": cap})
+            if len(pieces) > 1:
+                # A single piece's failure is the caller's to report, once.
+                logger.warning("summary_piece_failed", piece=index, pieces=len(pieces),
+                               error=f"{type(exc).__name__}: {str(exc)[:120]}", max_tokens=cap)
+            continue
+        merged["summary"].extend(parsed["summary"])
+        merged["dropped"].extend(parsed.get("dropped", []))
+        if want_abstract:
+            merged["abstract"] = parsed.get("abstract", [])
+    if len(failures) == len(pieces):
+        raise last_error
+    if len(pieces) > 1:
+        logger.info("summary_pieces", pieces=len(pieces), failed=len(failures),
+                    claims=len(merged["summary"]))
+    return merged, failures
+
+
 def window_prompt(windows):
     return "\n\n".join(
         f"[{w['id']}; source unit {w['unit']}; original offsets {w['start']}:{w['end']}; "
@@ -119,6 +219,53 @@ def windows_current(units, windows):
 
 
 def assertion_instruction(*, abstract=False):
+    if current_method() == METHOD_V3:
+        return _assertion_instruction_v3(abstract=abstract)
+    return _assertion_instruction_v2(abstract=abstract)
+
+
+def _assertion_instruction_v3(*, abstract=False):
+    example = {"summary": [{"sources": ["w0"], "quote": "exact words copied from w0",
+                            "speaker": "user", "text": "One complete claim."}]}
+    if abstract:
+        example["abstract"] = [{"sources": ["w0"], "quote": "exact words copied from w0",
+                                "speaker": "user", "text": "One short overview claim."}]
+    return (
+        "\nReturn JSON in this structure: " + json.dumps(example) + ". For each "
+        "memory fact, in this order: (1) sources: the one window (at most two) that "
+        "states it; (2) quote: a short exact copy, up to about 25 words, of the words "
+        "in that window that state it - copy, do not paraphrase; (3) speaker: who "
+        "said those words (the role shown on that window); (4) text: the fact as one "
+        "complete sentence that the quote supports, naming the speaker ('The user "
+        "said...', 'The assistant said...'). One fact per entry. Keep names, numbers, "
+        "dates and code values with what they belong to. An assistant proposal is not "
+        "a user decision; a question is not a statement. Do not assert current truth "
+        "from an older mention. Skip pleasantries, repeated background and "
+        "descriptions of the discussion process. Never put window IDs inside text. "
+        + ("The abstract is at most one entry giving a one-sentence overview, with its "
+           "own source and quote; use [] if none is supported. " if abstract else "")
+        + "\n"
+    )
+
+
+def claim_schema(windows, *, abstract=False):
+    """Ollama `format` for v3: window ids as an enum, 1-2 sources, pointer first."""
+    ids = [w["id"] for w in windows]
+    row = {"type": "object", "additionalProperties": False,
+           "required": ["sources", "quote", "speaker", "text"],
+           "properties": {"sources": {"type": "array", "items": {"type": "string", "enum": ids},
+                                      "minItems": 1, "maxItems": 2},
+                          "quote": {"type": "string", "minLength": 1},
+                          "speaker": {"type": "string", "enum": list(SPEAKERS)},
+                          "text": {"type": "string", "minLength": 1}}}
+    props = {"summary": {"type": "array", "items": row}}
+    if abstract:
+        props["abstract"] = {"type": "array", "items": row, "maxItems": 1}
+    return {"type": "object", "additionalProperties": False, "required": list(props),
+            "properties": props}
+
+
+def _assertion_instruction_v2(*, abstract=False):
     example = {"summary": [{"text": "One complete source-supported assertion.", "sources": ["w0"]}]}
     if abstract:
         example["abstract"] = [{"text": "One short source-supported assertion.", "sources": ["w0"]}]
@@ -152,6 +299,8 @@ def parse_assertions(generated, windows, *, abstract=False):
     fields = {"summary", "abstract"} if abstract else {"summary"}
     if not isinstance(parsed, dict) or "summary" not in parsed or not set(parsed) <= fields:
         raise ValueError("invalid_summary_assertion_fields")
+    if current_method() == METHOD_V3:
+        return _parse_v3(parsed, windows, abstract=abstract)
     if abstract:
         parsed.setdefault("abstract", [])
     known = {w["id"] for w in windows}
@@ -173,6 +322,75 @@ def parse_assertions(generated, windows, *, abstract=False):
                     parsed[kind] = []
                     break
                 raise ValueError("unresolved_summary_citation")
+    return parsed
+
+
+_MARKUP = str.maketrans({"*": " ", "`": " ", "#": " ", "\u2018": "'", "\u2019": "'",
+                         "\u201c": '"', "\u201d": '"'})
+
+
+def _collapse(text):
+    """Compare words, not formatting. Measured 2026-10-15 (C, gemma4:e4b): of
+    12 failed quotes, 10 were the exact words with Markdown markers dropped
+    (`**Phase 2 is done.**` quoted as `Phase 2 is done.`, backticked names
+    quoted bare). Word order and spelling must still match exactly."""
+    return " ".join(text.translate(_MARKUP).split())
+
+
+def _claim_problem(row, by_id):
+    """Mechanical v3 checks for one claim; None when it may go to the verifier."""
+    if (not isinstance(row, dict) or set(row) != {"sources", "quote", "speaker", "text"}
+            or not all(isinstance(row[k], str) and row[k].strip() for k in ("quote", "speaker", "text"))
+            or not isinstance(row["sources"], list)):
+        return "invalid_claim_shape"
+    sources = row["sources"]
+    if (not 1 <= len(sources) <= 2 or len(set(sources)) != len(sources)
+            or any(not isinstance(x, str) or x not in by_id for x in sources)):
+        return "unresolved_source"
+    quote = _collapse(row["quote"])
+    try:
+        premise, intervals = cited_premise(list(by_id.values()), sources)
+    except ValueError:
+        return "unresolved_source"
+    roles = []
+    for part, interval in zip(premise.split("\n"), intervals):
+        text = json.loads(part[len(f"The {interval['role']} said: "):])
+        if quote in _collapse(text):
+            roles.append(interval["role"])
+    if not roles:
+        return "quote_not_in_source"
+    if row["speaker"] not in roles:
+        return "speaker_mismatch"
+    return None
+
+
+def _parse_v3(parsed, windows, *, abstract=False):
+    """A bad claim is dropped with its reason; it never rejects its siblings."""
+    by_id = {w["id"]: w for w in windows}
+    if abstract:
+        parsed.setdefault("abstract", [])
+    dropped = []
+    for kind in list(parsed):
+        rows = parsed[kind]
+        if not isinstance(rows, list) or (kind == "abstract" and len(rows) > 1):
+            if kind == "abstract":
+                logger.warning("summary_abstract_unresolved", reason="invalid_optional_abstract_shape")
+                parsed[kind] = []
+                continue
+            raise ValueError("invalid_summary_assertions")
+        kept = []
+        for row in rows:
+            problem = _claim_problem(row, by_id)
+            if problem is None:
+                kept.append(row)
+            else:
+                dropped.append({"kind": kind, "reason": problem,
+                                "text": row.get("text") if isinstance(row, dict) else None})
+        parsed[kind] = kept
+    if dropped:
+        logger.warning("summary_claims_dropped", stage="mechanical", count=len(dropped),
+                       reasons=sorted({d["reason"] for d in dropped}))
+    parsed["dropped"] = dropped
     return parsed
 
 
@@ -262,7 +480,7 @@ def cited_premise(windows, source_ids):
     return "\n".join(parts), intervals
 
 
-def verify_assertions(source, candidate, assertions, windows, *, verifier=None):
+def verify_assertions(source, candidate, assertions, windows, *, verifier=None, dropped=()):
     from src.memory.support import SupportInputError, score_pairs, support_tokenizer, verify_support
     window_map = {w["id"]: w for w in windows}
     if (assertion_text(assertions) != candidate
@@ -301,7 +519,21 @@ def verify_assertions(source, candidate, assertions, windows, *, verifier=None):
             verdict = asdict(verify_support(premise, assertion["text"].strip(), scorer=scorer))
         records.append({"text": assertion["text"].strip(), "sources": assertion["sources"],
                         "premise": premise, "cited_spans": resolved[i][1],
-                        "pair_tokens": lengths.get(i), "verification": verdict})
+                        "pair_tokens": lengths.get(i), "verification": verdict,
+                        **{k: assertion[k] for k in ("quote", "speaker") if k in assertion}})
+    method = current_method()
+    unsupported = []
+    if method == METHOD_V3:
+        # Per-claim acceptance: keep exactly the supported claims; the stored
+        # text is rebuilt from them, so the reader's digest check binds to it.
+        unsupported = [{"kind": "summary", "reason": r["verification"]["status"],
+                        "text": r["text"], "scores": r["verification"]["scores"]}
+                       for r in records if r["verification"]["status"] != "supported"]
+        records = [r for r in records if r["verification"]["status"] == "supported"]
+        if unsupported:
+            logger.warning("summary_claims_dropped", stage="verification", count=len(unsupported),
+                           kept=len(records))
+        candidate = assertion_text(records)
     statuses = [r["verification"]["status"] for r in records]
     status = ("contradicted" if "contradicted" in statuses else
               "supported" if records and all(s == "supported" for s in statuses) else "unknown")
@@ -313,11 +545,13 @@ def verify_assertions(source, candidate, assertions, windows, *, verifier=None):
     result = {"status": status, "scores": scores, "reason": reason,
             "source_sha256": digest(source), "claim_sha256": digest(candidate),
             "verifier": f"{settings.source_support_model}@{settings.source_support_revision}",
-            "method": METHOD, "policy": policy(), "assertions": records,
+            "method": method, "policy": policy(method), "assertions": records,
             "source_windows": [{k: v for k, v in w.items() if k != "premise"} for w in windows],
             "cited_windows": sorted({s for r in records for s in r["sources"]}),
             "completeness": "originals_retained_not_inferred_from_entailment"}
     result["proof_sha256"] = proof_digest(result)
+    if method == METHOD_V3:
+        result["dropped"] = list(dropped) + unsupported  # outside the digest: audit only
     return result
 
 
@@ -330,13 +564,15 @@ def proof_digest(record):
 def proof_current(record, source, candidate):
     """Readers need no tokenizer/model call to recheck frozen assertion receipts."""
     from src.memory.support import supported_current
-    expected_policy = policy()
     # Existing supported proofs scored every cited byte with the same model,
     # threshold and window contract. Preserve those exact legacy approvals.
     if record.get("method") == "source_window_assertions_v1":
-        expected_policy = {k: v for k, v in expected_policy.items() if k != "premise_composition"}
+        expected_policy = {k: v for k, v in policy(METHOD_V2).items() if k != "premise_composition"}
         expected_policy["method"] = "source_window_assertions_v1"
-    elif record.get("method") != METHOD:
+    elif record.get("method") in (METHOD_V2, METHOD_V3):
+        # A record is judged under its own method, whichever one writes today.
+        expected_policy = policy(record["method"])
+    else:
         return False
     if (record.get("policy") != expected_policy
             or record.get("proof_sha256") != proof_digest(record)):

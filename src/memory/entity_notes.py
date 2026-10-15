@@ -6,8 +6,9 @@ from sqlalchemy import select
 
 from src.memory.models import CodexEvent, ColdStorage, EpisodicMemory
 from src.memory.source import digest
-from src.memory.summary_support import (SourceNotePrompt, assertion_instruction,
-    assertion_text, original_units, parse_assertions, source_windows,
+from src.api.config import settings
+from src.memory.summary_support import (METHOD_V3, SourceNotePrompt, assertion_instruction,
+    assertion_text, generate_claims, original_units, source_windows,
     verify_assertions, window_prompt)
 from src.memory.support import supported_current
 from src.workers.completion_text import IncompleteCompletion
@@ -60,23 +61,33 @@ def generate_note(entity, turns, *, llm=None, verifier=None):
         'claim current truth from an older mention or use recording time as event time. '
         'If the entity cannot be described from the sources, return an empty summary. '
         + assertion_instruction())
-    prompt = SourceNotePrompt(instruction, 'Entity: ' + json.dumps(entity.canonical_name) + '\n\n' + window_prompt(windows))
+    head = 'Entity: ' + json.dumps(entity.canonical_name) + '\n\n'
+
+    def call(piece, cap, schema, _abstract):
+        # SUMMARY_CLAIMS_V3 S5/S6: up to SOURCE_LIMIT whole turns can exceed one
+        # call, so sources are read in pieces with an input-scaled output cap.
+        prompt = SourceNotePrompt(instruction, head + window_prompt(piece))
+        if llm:
+            return llm(prompt, max_tokens=cap, **({'schema': schema} if schema else {}))
+        return _default_llm(prompt, max_tokens=cap, schema=schema or SCHEMA)
     try:
-        generated = llm(prompt, max_tokens=900) if llm else _default_llm(prompt, max_tokens=900, schema=SCHEMA)
+        parsed, _ = generate_claims(call, windows, floor=settings.entity_note_max_tokens)
     except IncompleteCompletion as exc:
         return None, dict(method=METHOD, status='unknown', reason='incomplete_generation',
                           sources=len(turns), finish_reason=exc.finish_reason, **exc.details)
-    try:
-        parsed = parse_assertions(generated, windows)
-    except (ValueError, AttributeError, TypeError):
+    except (ValueError, AttributeError, TypeError) as exc:
         return None, dict(method=METHOD, status='unknown', reason='invalid_summary_assertions', sources=len(turns),
-                          source_sha256=digest(source), generated_candidate=generated if isinstance(generated, str) else None)
+                          source_sha256=digest(source),
+                          generated_candidate=getattr(exc, 'generated_candidate', None))
     candidate = assertion_text(parsed['summary'])
-    proof = verify_assertions(source, candidate, parsed['summary'], windows, verifier=verifier)
+    proof = verify_assertions(source, candidate, parsed['summary'], windows, verifier=verifier,
+                              dropped=parsed.get('dropped', []))
+    if proof.get('method') == METHOD_V3:
+        candidate = assertion_text(proof['assertions'])
     review = dict(method=METHOD, status=proof['status'], reason=proof['reason'],
                   sources=len(turns), verification=proof, entity_id=str(entity.id),
                   canonical_name=entity.canonical_name)
-    return (candidate if supported_current(proof, source, candidate) else None), review
+    return (candidate if candidate and supported_current(proof, source, candidate) else None), review
 
 
 def current_note_support(db, entity):

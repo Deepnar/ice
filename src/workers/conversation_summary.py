@@ -21,8 +21,8 @@ from src.memory.summary_snapshot import (
 )
 from src.memory.support import supported_current, verify_support
 from src.memory.summary_support import (
-    SourceNotePrompt, assertion_instruction, assertion_text, note_messages, original_units, parse_assertions,
-    source_windows, verify_assertions, window_prompt,
+    METHOD_V3, SourceNotePrompt, assertion_instruction, assertion_text, generate_claims, note_messages,
+    original_units, source_windows, verify_assertions, window_prompt,
 )
 from src.memory.time_format import recorded_stamp
 from src.memory.tokens import estimate_from_chars
@@ -59,7 +59,9 @@ def _default_llm(prompt: str, max_tokens: int = None, *, schema=None) -> str:
         logger.warning("conversation_summary_input_over_budget", required=required,
                        window=window, model=model,
                        reason="complete evidence cannot fit; retaining previous checkpoint")
-        raise IncompleteCompletion("complete conversation-summary input exceeds known capacity")
+        raise IncompleteCompletion("complete conversation-summary input exceeds known capacity",
+                                   finish_reason="input_over_budget",
+                                   details={"required": required, "window": window})
     completion = get_bg_client().chat.completions.create(
         model=model,
         messages=messages,
@@ -126,45 +128,60 @@ def _note_prompt(source, *, structured=False):
 
 def _source_note(turns, source, known_roles, llm, verifier, *, max_tokens=None):
     max_tokens = settings.conversation_summary_max_tokens if max_tokens is None else max_tokens
-    windows = None
-    prompt = _note_prompt(source)
+    recorded_range = (f"{recorded_stamp(turns[0].timestamp, turns[0].ts_provenance)} to "
+                      f"{recorded_stamp(turns[-1].timestamp, turns[-1].ts_provenance)}")
+
+    def source_part(failure, **extra):
+        return {"source_ids": [str(t.id) for t in turns], "mode": "source",
+                "recorded_range": recorded_range, "text": source, "verification": None,
+                "support_failure": failure, **extra}
+
+    def incomplete(exc, cap):
+        # "length": the note outgrew its cap. "input_over_budget": the group
+        # cannot fit at all — not transient, so retrying would only repeat it
+        # every cycle (the 2026-10-15 freeze on history C).
+        if exc.finish_reason not in ("length", "input_over_budget"):
+            raise exc
+        logger.warning("conversation_note_source_fallback", reason="incomplete_generation",
+                       finish_reason=exc.finish_reason, source_turns=len(turns), max_tokens=cap,
+                       **exc.details)
+        return source_part("incomplete_generation", generation_failure={
+            "finish_reason": exc.finish_reason, "max_tokens": cap, **exc.details})
+
     if known_roles and verifier is verify_support:
         windows = source_windows(original_units(turns))
-        prompt = _note_prompt(window_prompt(windows), structured=True)
-    try:
-        generated = llm(prompt, max_tokens=max_tokens)
-    except IncompleteCompletion as exc:
-        if exc.finish_reason != "length":
-            raise
-        logger.warning("conversation_note_source_fallback", reason="incomplete_generation",
-                       finish_reason=exc.finish_reason, source_turns=len(turns), max_tokens=max_tokens,
-                       **exc.details)
-        return {"source_ids": [str(t.id) for t in turns], "mode": "source",
-                "recorded_range": (f"{recorded_stamp(turns[0].timestamp, turns[0].ts_provenance)} to "
-                                   f"{recorded_stamp(turns[-1].timestamp, turns[-1].ts_provenance)}"),
-                "text": source, "verification": None, "support_failure": "incomplete_generation",
-                "generation_failure": {"finish_reason": exc.finish_reason, "max_tokens": max_tokens,
-                                       **exc.details}}
-    if not generated or not generated.strip():
-        return None
-    if windows and generated.lstrip().startswith(("{", "```")):
+
+        def call(piece, cap, schema, _abstract):
+            prompt = _note_prompt(window_prompt(piece), structured=True)
+            return llm(prompt, max_tokens=cap, **({"schema": schema} if schema else {}))
+        # SUMMARY_CLAIMS_V3 S5: an oversized group — including a single huge
+        # turn, which grouping never splits — is noted in pieces.
         try:
-            parsed = parse_assertions(generated, windows)
+            parsed, _ = generate_claims(call, windows, floor=max_tokens)
+        except IncompleteCompletion as exc:
+            return incomplete(exc, max_tokens)
         except ValueError:
             logger.warning("conversation_note_source_fallback", reason="invalid_summary_assertions",
                            status="unknown", source_turns=len(turns))
-            return {"source_ids": [str(t.id) for t in turns], "mode": "source",
-                    "recorded_range": (f"{recorded_stamp(turns[0].timestamp, turns[0].ts_provenance)} to "
-                                       f"{recorded_stamp(turns[-1].timestamp, turns[-1].ts_provenance)}"),
-                    "text": source, "verification": None,
-                    "support_failure": "invalid_summary_assertions"}
+            return source_part("invalid_summary_assertions")
         generated = assertion_text(parsed["summary"])
-        verdict = verify_assertions(source, generated, parsed["summary"], windows)
+        if not generated:
+            logger.warning("conversation_note_source_fallback", reason="no_claims_kept",
+                           source_turns=len(turns))
+            return source_part("no_claims_kept")
+        verdict = verify_assertions(source, generated, parsed["summary"], windows,
+                                    dropped=parsed.get("dropped", []))
+        if verdict.get("method") == METHOD_V3:
+            generated = assertion_text(verdict["assertions"])
     else:
-        if windows:
-            logger.warning("summary_citations_missing", reason="unstructured_note_generation")
+        try:
+            generated = llm(_note_prompt(source), max_tokens=max_tokens)
+        except IncompleteCompletion as exc:
+            return incomplete(exc, max_tokens)
+        if not generated or not generated.strip():
+            return None
         verdict = asdict(verifier(source, generated)) if known_roles else None
-    supported = supported_current(verdict, source, generated)
+    supported = bool(generated) and supported_current(verdict, source, generated)
     if not supported:
         logger.warning("conversation_note_source_fallback",
                        reason=verdict["reason"] if verdict else "source_roles_unknown",
@@ -172,8 +189,7 @@ def _source_note(turns, source, known_roles, llm, verifier, *, max_tokens=None):
                        source_turns=len(turns))
     return {"source_ids": [str(t.id) for t in turns],
             "mode": "supported" if supported else "source",
-            "recorded_range": (f"{recorded_stamp(turns[0].timestamp, turns[0].ts_provenance)} to "
-                               f"{recorded_stamp(turns[-1].timestamp, turns[-1].ts_provenance)}"),
+            "recorded_range": recorded_range,
             "text": generated if supported else source,
             "verification": verdict}
 

@@ -501,6 +501,26 @@ class Settings(BaseSettings):
     # requirement and still an order of magnitude under the background model's
     # window; the truncation rate is the number to watch after changing it.
     turn_summary_max_tokens: int = 900
+    # SUMMARY_CLAIMS_V3 (2026-10-15): v2 = legacy cited assertions accepted
+    # all-or-nothing; v3 = {sources, quote, speaker, text} claims with
+    # mechanical quote/speaker checks, enforced JSON schema and per-claim
+    # acceptance. v3 since 2026-10-15 after the spec's §3 qualification
+    # (31 pieces: usable pieces 9 → 28, verified claims 163 → 290,
+    # contradicted 1 → 1, broken JSON 1 → 0).
+    summary_assertion_method: Literal["v2", "v3"] = "v3"
+    # Entity-note output floor (was a literal 900 in entity_notes.py).
+    entity_note_max_tokens: int = 900
+    # Windows are summarised in pieces of at most this many prompt tokens, one
+    # call each (turn summary, fold group, entity note). 2026-10-15: C's largest
+    # turn is ~70K tokens; one call at that size was cut silently by the server.
+    summary_piece_tokens: int = Field(default=4096, ge=512)
+    # Output cap = clamp(ratio × piece input tokens, job floor, ceiling). The
+    # job floor is its legacy cap (turn/conversation summary 900, entity note
+    # 900). Set from the SUMMARY_CLAIMS_V3 §3 run (31 pieces, 2026-10-15): v3
+    # output/input median 0.53, max 1.05 on ≥2K-token pieces (list-dense turns
+    # emit ~one claim + quote per line); 1.3 = max × 1.25.
+    summary_output_ratio: float = Field(default=1.3, gt=0)
+    summary_output_ceiling: int = Field(default=8192, ge=256)
 
     # ⚑ The extraction prompt's DIRECTION rule (2026-08-22). ~25-28% of stored
     # triplets are reversed — right entities, right relation, backwards — and

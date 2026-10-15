@@ -20,9 +20,9 @@ from src.memory.models import EpisodicMemory, IdempotencyKey
 from src.memory.representation import choose_representation, verify_representations
 from src.memory.summary_support import (
     SummaryCandidate, SummaryResult, assertion_instruction, assertion_text,
-    original_units, parse_assertions, source_windows, window_prompt,
+    METHOD_V3, generate_claims, original_units, source_windows, window_prompt,
 )
-from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name, json_schema
 from src.workers.codex_extractor import embedder as shared_embedder
 from src.workers.codex_extractor import extract_codex
 from src.workers.document_chunker import run_chunk_turn
@@ -45,7 +45,8 @@ bg_client = get_bg_client()
 def _summary_llm_call(prompt: str, response: str, model_name: str,
                       terms: list, missing: list = None,
                       source_kind: str = "chat", source_title: str = "",
-                      windows=None) -> str:
+                      windows=None, max_tokens=None, schema=None,
+                      abstract: bool = True) -> str:
     """One grounded summarisation call. *terms* is the MUST-PRESERVE list;
     *missing* (retry only) names the terms the first attempt dropped.
 
@@ -112,7 +113,7 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
         "- Do NOT include pleasantries, speculation, or meta-commentary.\n"
         f"- If the {noun} contains code, describe what the code does.\n"
         f"{must_block}{retry_block}"
-        + assertion_instruction(abstract=True)
+        + assertion_instruction(abstract=abstract)
     )
     body = window_prompt(windows) if windows else (prompt if source_kind == "document"
                                                   else f"User: {prompt}\nAssistant: {response}")
@@ -123,17 +124,14 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
             {"role": "user", "content": body},
         ],
         temperature=0.0,
-        # TRAPS #17: a literal here is a knob nobody can reach. This one was
-        # 300 and bound on 40% of turns — see the setting's note.
-        max_tokens=settings.turn_summary_max_tokens,
-        timeout=bg_timeout(settings.turn_summary_max_tokens),
+        # TRAPS #17: a literal here is a knob nobody can reach. The cap scales
+        # with the piece's input (summary_support.output_cap); the setting is
+        # its floor.
+        max_tokens=max_tokens or settings.turn_summary_max_tokens,
+        timeout=bg_timeout(max_tokens or settings.turn_summary_max_tokens),
+        **({"response_format": json_schema("summary_claims", schema)} if schema else {}),
     )
-    generated = complete_text(completion)
-    if windows:
-        if generated.lstrip().startswith(("{", "```")):
-            return SummaryCandidate(parse_assertions(generated, windows, abstract=True), windows)
-        logger.warning("summary_citations_missing", reason="unstructured_generation")
-    return generated
+    return complete_text(completion)
 
 
 def _split_abstract(summary: str):
@@ -167,15 +165,22 @@ def generate_summary(prompt: str, response: str, key_terms: dict,
                 single_provenance(raw, "document") if source_kind == "document"
                 else chat_provenance(prompt, response)))
         windows = source_windows(original_units([source_row]))
-        summary = _summary_llm_call(prompt, response, model_name, terms,
-                                    source_kind=source_kind,
-                                    source_title=source_title, windows=windows)
+
+        def claims(missing=None):
+            # SUMMARY_CLAIMS_V3 S5: one call per piece, merged onto this turn.
+            def call(piece, cap, schema, abstract):
+                return _summary_llm_call(prompt, response, model_name, terms, missing,
+                                         source_kind=source_kind, source_title=source_title,
+                                         windows=piece, max_tokens=cap, schema=schema,
+                                         abstract=abstract)
+            parsed, _ = generate_claims(call, windows, floor=settings.turn_summary_max_tokens,
+                                        abstract=True)
+            parsed.setdefault("abstract", [])
+            return SummaryCandidate(parsed, windows)
+
+        summary = claims()
         # G29: shared with conversation_summary's fold (turn_density).
-        summary, coverage = retry_on_coverage_miss(
-            summary, key_terms,
-            lambda missing: _summary_llm_call(prompt, response, model_name, terms,
-                                              missing, source_kind=source_kind,
-                                              source_title=source_title, windows=windows))
+        summary, coverage = retry_on_coverage_miss(summary, key_terms, claims)
         proof = None
         if isinstance(summary, SummaryCandidate):
             proof = {**summary.assertions, "windows": summary.windows}
@@ -300,6 +305,23 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             else:
                 turn.representation_verification = verify_representations(
                     turn, summary, turn.abstract_text, proof=proof)
+                records = turn.representation_verification or {}
+                if (records.get("summary") or {}).get("method") == METHOD_V3:
+                    # Per-claim acceptance: the stored text is exactly the
+                    # supported claims, so coverage and the raw/summary choice
+                    # are re-decided on what is actually kept.
+                    kept = assertion_text(records["summary"]["assertions"]) or None
+                    summary = kept
+                    coverage = summary_coverage(kept, key_terms) if kept else None
+                    turn.summary_text, turn.summary_coverage = kept, coverage
+                    if decision["summary_decides"]:
+                        inject_raw = not (kept and coverage >= settings.turn_summary_coverage_threshold)
+                    abstract_record = records.get("abstract") or {}
+                    turn.abstract_text = (assertion_text(abstract_record.get("assertions") or [])
+                                          or None) if kept else None
+                    log.info("summary_claims_kept", kept=len(records["summary"]["assertions"]),
+                             dropped=len(records["summary"].get("dropped") or []),
+                             coverage=coverage)
             turn.inject_raw = inject_raw
             if not inject_raw:
                 preferred, _, _ = choose_representation(turn)

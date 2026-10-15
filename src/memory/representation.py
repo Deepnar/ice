@@ -99,8 +99,10 @@ def verify_representations(row, summary, abstract, *, verifier=None, proof=None)
         if proof is not None:
             from src.memory.summary_support import verify_assertions
             if proof_current:
+                dropped = [d for d in proof.get("dropped") or [] if d.get("kind") == kind]
                 result[kind] = verify_assertions(source, candidate, proof[kind],
-                                                 proof["windows"], verifier=verifier)
+                                                 proof["windows"], verifier=verifier,
+                                                 dropped=dropped)
             else:
                 from src.memory.source import digest
                 structlog.get_logger("ice.memory.representation").warning(

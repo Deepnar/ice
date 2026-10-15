@@ -15,6 +15,15 @@ from src.workers import post_flight, turn_density
 from src.workers.completion_text import IncompleteCompletion
 from src.workers.runtime import JobYielded
 
+
+@pytest.fixture(autouse=True)
+def v2_claims(monkeypatch):
+    """Pins the legacy v2 contract (all-or-nothing acceptance, {text, sources}
+    claims). v2 records stay readable and v2 stays selectable; the v3 contract
+    is tested in test_summary_claims_v3.py."""
+    from src.api.config import settings as _settings
+    monkeypatch.setattr(_settings, "summary_assertion_method", "v2")
+
 TERMS = dict(entities=["Atlas", "Orion"], figures=["8391"], identifiers=["build_v7"])
 
 
