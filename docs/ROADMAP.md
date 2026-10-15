@@ -76,7 +76,11 @@ needs the maintainer's approval):
   - *Z2 reporting note (A7):* full ICE fills ~28% of its reported memory budget by
     design (growth cap, no reallocation; median 10K of 38K). Budget comparisons
     and token-efficiency figures must use the budget ICE actually used.
-  - *Next session:* **codex rework — remove and rewrite, not patch.** Target design
+  - *Next session:* **codex rework — remove and rewrite, not patch.** Read first:
+    [prior art and design review](research/2026-10-15-codex-prior-art.md) (Graphiti/Mem0
+    source read; proposes showing a verified self-contained fact sentence — a v3 claim —
+    with the verbatim quote attached, and finding duplicates/changes by entity + fact
+    similarity rather than by relation term). Target design
     (maintainer): a relation is a term (not only familial); the triple carries
     validity (valid from / until), strength and confidence; the attached source
     sentence(s) are what the answering model sees — close facts, not walls of text.
