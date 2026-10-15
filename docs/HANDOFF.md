@@ -1,78 +1,85 @@
-# Handoff — ICE v3, 2026-10-15 (Claude Code; resumed from a Codex session)
+# Handoff — ICE v3, 2026-10-15 (b) (Claude Code)
 
 **State, not a queue.** ROADMAP owns work; the v2 paper remains frozen.
 
 ## Told → did
 
-**Previous handoff (2026-10-08) told:** implement the eleven post-reseed repair
-packages, then bounded tuning, freeze, then Z2. Codex then ran 77 commits of repairs
-and instrument qualification (10-08 → 10-14), and the maintainer stopped it for
-expanding pre-tuning gates instead of tuning.
+**Previous handoff (2026-10-15) told:** do the pre-Z2 short list first — G27 (wrong
+background model), G12 (timeouts), G4 + G32 (explicit Ollama control), G68 check on
+C — then build Z2 in spec order (S0 → S12).
 
-**This session was told:** stop the loop, finish tuning, act on what tuning exposes,
-then close out and push. **Did:**
+**This session was told:** the pre-Z2 list and Z2 prep; mid-session the maintainer
+added a design audit ("things that look correct but are badly designed") and then
+**re-ordered the work: non-codex fixes → full codex rework → Z2.** Z2 build did not
+start, by that decision. **Did (all local commits; push freeze):**
 
-- **Tuning finished and closed.** Four-arm current-reader baseline (67/67), 30
-  sealed + 8 leg-profile full-arm read coordinates, two Luna answer plans (855
-  answers), Muse grades. No survivor beat the ±3/67 noise floor; settings frozen
-  unchanged ([results](../experiments/v3_repair/results/tuning-freeze-2026-10-15.md)).
-- **Exposed and recorded:** base leg weights inert (G29, kept as fallback, TRAPS 128);
-  incomplete answers = 1,500-token output reserve eaten by reasoning (P9; Z2 uses
-  4,000); the old development store's conversation fold is refused (frozen v1
-  proofs; PROVENANCE 10-14); development set near ceiling.
-- **Bare-vector control built and tuned** (whole messages): 64/67 reviewed-span
-  availability vs full ICE 60-61 at matched budget (PROVENANCE 10-14).
-- **Z2 specified and approved:** [Z2_EVALUATION](specs/Z2_EVALUATION.md). FINAL
-  roster rewritten in [FINAL_experiments](specs/FINAL_experiments.md) §2.1/§2.7.
-- **Tests grouped** quick/research/db (`tests/smoke/conftest.py`); CLAUDE.md test
-  commands and work-on-main line updated (maintainer-approved).
+- **G27** `3a12359` — `background_model_name` defaults to `gemma4:e4b`.
+- **G32/G4/G12** `d9e3707` — background calls over native `/api/chat`, context sized
+  to the counted input, server-side cuts fail loudly (both Ollama doors cut an
+  oversized input silently on 0.32.13 and the model invented the cut fact; TRAPS 130).
+- **Summary claims v3** `692033c` ([spec](specs/SUMMARY_CLAIMS_V3.md)) — quoted
+  `{sources, quote, speaker, text}` claims, enforced schema, per-claim acceptance,
+  pieces, output cap 1.3 × input; fold no longer freezes on an oversized turn.
+  Qualified: reader-usable pieces 9 → 28 of 31.
+- **Audit fixes:** A4 reranker best-window `6255e2a`; A10 procedures = answer
+  preferences + topic triggers `cd47c52`; A11 bounded memory-pressure term `f200699`;
+  A12 cluster bonus floor + automatic cluster scoping off `22d8f1d`.
+- **Stale tests repaired:** settings-freeze row retired with proof `ae13d3e`;
+  `test_turn_density` 32/32 `f69a81d`; `test_documents` 52/53 `2cfda93`.
+- **Docs:** roadmap order + A6/A7, provenance, architecture, inventory, MODELS,
+  TRAPS 130–135.
 
-## Current measured state (v3, development history, not a score of record)
+## Current measured state (v3, development data; not a score of record)
 
-Full ICE 61/67 correct; ICE vector-only 63; ICE without graph 63; recent-only 41.
-Re-asking the identical prompt flips up to 7 answers (net ±3). Memory clearly helps;
-on this easy, lookup-heavy, 183K-token set ICE's extra machinery shows no answer
-benefit over its own vector leg. That is a warning, not a verdict — Z2 is designed to
-settle it.
+The machinery mostly did not reach prompts before these fixes: on the 2026-10-14
+reads only 6/920 selected turns arrived as summaries; the graph leg produced 42
+candidates over 67 questions; procedures were one generic note. Summaries and
+procedures are fixed but **not re-measured end to end** (A6 — counted in Z2 S0's
+slice). **The codex is broken by design, not by a bug:** grounding hides 70–89% of
+live edges (confidence 0.35 < floor 0.5); a "Source excerpt" renders the whole
+message (median 3,488 chars for a 52-char sentence), 34% duplicating a turn already
+in the prompt; reworded re-observations become new edges (2 strengthened / 1,356),
+so changes never meet (1 expired); `I`/`you` facts are dropped; extraction splits a
+big turn at every heading (~130 chunks, 12–16 min per C turn). Numbers:
+[PROVENANCE 2026-10-15](PROVENANCE.md).
 
 ## Position and next work
 
-**⚑ Do first, before the Z2 replay:** the short list in ROADMAP's
-[CURRENT POSITION](ROADMAP.md#-current-position--2026-10-15-v3) block — G27 (wrong
-background model in shared mode), G12 (timeouts), G4 + G32 (explicit Ollama control,
-inside S0), G68 truncation check on C. That block also sorts every other open fixing
-item into after-Z2 / conditional / parked.
+**Next session: the codex rework — remove and rewrite, not patch** (maintainer).
+Target design: a relation is a term (not only familial); the triple carries validity
+(valid from / until), strength and confidence; the attached source sentence(s) are
+what the answering model sees — close facts, not walls of text. It absorbs G68 / A8
+(extraction chunking), A1 (512-token check bound on graph checks), A3, A9, B1–B6.
+**Read first:** [codex prior-art review](research/2026-10-15-codex-prior-art.md) — Graphiti and
+Mem0 source read: both show the answering model a short, self-contained fact sentence and find
+duplicates/changes by entity + fact similarity. Proposal: a v3 summary claim (`{sources, quote,
+speaker, text}`, quote-checked and NLI-verified) IS the fact; one write pass serves summaries and
+facts; stay on Postgres; port ideas, not the libraries (graph server, cloud-class models, no
+quote verification). LangGraph is agent orchestration, not memory.
+Then **Z2**, unchanged spec, with two notes in ROADMAP CURRENT POSITION: A6 (count
+what reaches prompts on S0's 50-pair slice) and A7 (report the budget ICE actually
+used — ~28% of the stated one, by design).
 
-**Next: build Z2** in the spec's order (S0 → S12): replay speed profile on a 50-pair
-slice of B; question machinery (two-family cited ledger, computed evolving ground
-truth, quotas incl. cumulative mega-span) **dry-run on the 251-pair development
-history first** and checked against the 67 content contracts; prompt qualification
-(D6a) for every generation/verifier/judge prompt; read switches (production code,
-maintainer-approved 2026-10-14); declared session clock (USER-REQUIRED review);
-replay with live decay and event log; background-content audit; read passes with
-ablations, bare vector and budget curves; LME oracle.
+Decided, do not re-derive: order fixes → codex rework → Z2; summary storage is merged
+on the turn row (option a); every Ollama-facing call is native (OpenAI-compatible
+door only for cloud, dedicated vLLM, or `background_transport=openai`); automatic
+cluster scoping stays off unless recall is re-measured.
 
-Decided, do not re-derive: Z2 ≠ FINAL; Muse judges, Luna answers (4,000 reserve in
-Z2), writers DeepSeek V4.1 Flash + MiMo Flash, LongCat tie-break, second judge FINAL
-only; ablations are read-time switches on saved checkpoint stores; decay live (option
-A) with an overlay computed from logged events; questions retrieve like real use with
-exposure logged; difficulty by construction, never by filtering on a competitor's
-failures; component keep rule D11c; B/C timestamps are compressed synthetic imports
-(declared clock); C is only ICE-1 of the 1,737-turn stitched project chat (FINAL uses
-the full chat); FINAL roster tiered (synthetic, private groups, native LME oracle+S,
-BEAM; MemoryAgentBench subsets tier 2; LoCoMo and LSREP-adapted public sets dropped).
+Z2 spec gained **D4b** (maintainer): no-memory control prompts at each checkpoint
+(general knowledge, self-contained tasks, small talk, recent-window follow-ups),
+outside the D4 quotas — retrieve rate, memory tokens injected, answer quality vs
+recent-only; share decided at the Z2 build. CLAUDE.md: shared-mode line corrected (`5eef60e`)
+and TRAPS is read by titles, not in full (`a231e40`), both maintainer-approved. Z2's
+USER-REQUIRED items are unchanged.
 
-USER-REQUIRED pending: approve the declared clock table; review the S5 ledger queue;
-launch long replay/answer/grading runs; confirm opencode profile availability.
+Open: commit `cd47c52`'s message quotes a personal procedure note (the docstring was fixed in
+`f875ad3`); reword it before the next push if the maintainer agrees — all session commits are
+unpushed.
 
 ## Validation and propagation
 
-Full disposable smoke suite before push: 1,467 passed (17 min 45 s). Quick group 598 tests
-~20 s; research-not-db ~570 ~1 min; db 292 ~17 min. Propagated: ROADMAP (current
-phase, Z1/Z2/Z3/G29), PROVENANCE (10-14 baseline/floor, bare vector; 10-15 tuning),
-TRAPS 128-129, FEATURE_INVENTORY, MODELS, CLEANUP, README, repair spec, Z2 and FINAL
-specs. ICE_Architecture n/a (no production behaviour change). No `src/` change this
-session. Alembic head unchanged (`80f1ac593d72`). Private evidence stays under
-`logs/`; the private conversation roster is in gitignored `docs/PRIVATE_CONTEXT.md`.
-Pushed at the end of this session by maintainer request; the push freeze then
-resumes.
+Quick group 636 passed; db group 292/292 (disposable database, 16 min) at close; standalone summary/clustering/scoping/decision suites pass.
+`test_documents` keeps 1 failing check (codex entities from stub triplets without a
+source sentence) — left to the codex rework. Known costs: v3 summaries ~2.2×
+background time; long-passage rerank ~1.3 s each. Alembic head unchanged. Private
+evidence under `logs/` (gitignored). Not pushed (experiment-phase freeze).
