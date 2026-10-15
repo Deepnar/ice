@@ -1,6 +1,6 @@
 # Z2 — question machinery, semi-LSREP, background-content quality, LME oracle
 
-**Version: v3.** Decided with the maintainer 2026-10-14/15. **Z2 is not FINAL.**
+**Version: v3.** Decided with the maintainer 2026-10-14/15. **Approved by the maintainer 2026-10-15**; build starts in the next session, after tuning closes. **Z2 is not FINAL.**
 FINAL is only the paper experiment that follows Z2 → fix pass → Z3 (roadmap
 gates). Z2 builds the evaluation machinery FINAL will reuse, then measures the
 frozen, tuned v3 system once. Z2 reruns only for parts still broken after its
