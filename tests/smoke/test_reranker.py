@@ -263,3 +263,55 @@ def test_overlength_pair_does_not_disable_other_model_scores(monkeypatch):
     monkeypatch.setattr(settings, 'retrieval_rerank_max_tokens', 4096)
     assert module.score_pairs([('q','large'), ('q','small')]) == [None, 2.]
     assert calls == [('q','small')]
+
+
+def _length_model(monkeypatch, limit_chars):
+    """Fake cross-encoder: a pair 'fits' when its passage is <= limit_chars;
+    it scores 5.0 when the passage contains NEEDLE, else 1.0."""
+    import numpy as np
+    import src.retrieval.reranker as module
+    from src.memory import embedder
+    monkeypatch.setattr(embedder, "resolve_device", lambda preference: "cpu")
+    monkeypatch.setattr(module, "_model_key", (settings.retrieval_rerank_model,
+        settings.retrieval_rerank_revision, settings.retrieval_rerank_device))
+    seen = []
+
+    def predict(batch, **kwargs):
+        seen.extend(batch)
+        return np.array([5.0 if "NEEDLE" in p else 1.0 for _q, p in batch])
+    monkeypatch.setattr(module, "_model", SimpleNamespace(
+        preprocess=lambda batch, **kw: {"input_ids": SimpleNamespace(
+            shape=(1, 5000 if len(batch[0][1]) > limit_chars else 50))},
+        predict=predict))
+    monkeypatch.setattr(settings, "retrieval_rerank_max_tokens", 4096)
+    return module, seen
+
+
+def test_overlength_passage_is_scored_by_its_best_window_and_fully_read(monkeypatch):
+    """Audit A4, 2026-10-15: an over-bound passage used to rank after every
+    scored one. Its relevant part near the END must now carry its score."""
+    module, seen = _length_model(monkeypatch, limit_chars=400)
+    # Unique words, so each window's position in the passage is unambiguous.
+    passage = " ".join(f"word{i}." for i in range(300)) + " NEEDLE the answer. " + " ".join(
+        f"tail{i}." for i in range(10))
+    scores = module.score_pairs([("q", passage), ("q", "short plain text")])
+    assert scores == [5.0, 1.0]
+    windows = [p for _q, p in seen if p != "short plain text"]
+    assert len(windows) > 1 and all(len(w) <= 400 for w in windows)
+    covered = set()
+    for w in windows:
+        start = passage.find(w)
+        assert start >= 0, "a window must be an exact slice of the passage"
+        covered.update(range(start, start + len(w)))
+    assert covered == set(range(len(passage))), "every character is read by some window"
+
+
+def test_a_long_relevant_passage_no_longer_ranks_last(monkeypatch):
+    import src.retrieval.reranker as module
+    _length_model(monkeypatch, limit_chars=400)
+    long_hit = ContextFragment(text=("background. " * 100) + "NEEDLE", source_type="episodic",
+                               score=0.1, token_count=400)
+    short_miss = ContextFragment(text="unrelated short note", source_type="episodic",
+                                 score=0.9, token_count=5)
+    ranked, ok = module.rerank("q", [short_miss, long_hit])
+    assert ok and ranked[0].text == long_hit.text

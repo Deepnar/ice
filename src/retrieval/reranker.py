@@ -71,25 +71,35 @@ def score_pairs(pairs):
             scores = [None] * len(pairs)
             batch_size = settings.retrieval_rerank_batch_size
             processing = {"text": {"truncation": False}}
-            eligible = []
-            for index, pair in enumerate(pairs):
+
+            def fits(pair):
                 # The exact inference template must fit: tokenizing raw strings
-                # alone misses the instruction/chat wrapper. Never score a prefix
-                # and credit the unseen rest with its relevance.
+                # alone misses the instruction/chat wrapper.
                 features = _model.preprocess(
                     [pair], prompt=INSTRUCTION, processing_kwargs=processing
                 )
-                if (
-                    features["input_ids"].shape[-1]
-                    > settings.retrieval_rerank_max_tokens
-                ):
+                return features["input_ids"].shape[-1] <= settings.retrieval_rerank_max_tokens
+
+            # Audit A4 (2026-10-15): an over-bound passage used to stay
+            # unscored and was appended after every scored one, so the
+            # longest (often densest) memories always ranked last. It is now
+            # scored by its best window: every window is read, none is
+            # credited for text the model did not see.
+            units, owners = [], []
+            for index, pair in enumerate(pairs):
+                windows = [pair] if fits(pair) else _windows(pair, fits)
+                if not windows:
                     logger.warning("retrieval_rerank_pair_unscored",
-                                   reason="complete_input_over_token_bound")
+                                   reason="no_window_fits_token_bound")
                     continue
-                eligible.append(index)
+                if len(windows) > 1:
+                    logger.info("retrieval_rerank_pair_windowed", windows=len(windows))
+                units.extend(windows)
+                owners.extend([index] * len(windows))
+            eligible = list(range(len(units)))
             for offset in range(0, len(eligible), batch_size):
                 indices = eligible[offset:offset + batch_size]
-                batch = [pairs[index] for index in indices]
+                batch = [units[index] for index in indices]
                 values = _model.predict(
                         batch,
                         batch_size=batch_size,
@@ -101,7 +111,8 @@ def score_pairs(pairs):
                         use_cache=False,
                     ).tolist()
                 for index, value in zip(indices, values, strict=True):
-                    scores[index] = value
+                    owner = owners[index]
+                    scores[owner] = value if scores[owner] is None else max(scores[owner], value)
             return scores
         finally:
             if device.startswith("cuda"):
@@ -129,6 +140,24 @@ def candidate_pool(fragments, cap):
             break
         selected.add(index)
     return [fragments[index] for index in sorted(selected)]
+
+
+def _windows(pair, fits):
+    """Overlapping passage windows that each fit with the query and template.
+
+    Character windows halve until every window fits; a quarter overlaps the
+    next, so evidence on a boundary is read whole by one of them.
+    """
+    query, passage = pair
+    size = max(1, len(passage) // 2)
+    while size >= 64:
+        step = max(1, size - size // 4)
+        starts = range(0, max(1, len(passage) - size + step), step)
+        windows = [(query, passage[a:a + size]) for a in starts if passage[a:a + size].strip()]
+        if windows and all(fits(w) for w in windows):
+            return windows
+        size //= 2
+    return []
 
 
 def rerank(query, fragments, scorer=None):
