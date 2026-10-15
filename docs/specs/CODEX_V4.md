@@ -92,9 +92,13 @@ Exact `text_sha256` match → duplicate without a model call. Otherwise one batc
 background call per turn (all new facts + their candidates, both quotes, conversation
 order) returns per pair `same | replaces | both_true`, enforced schema. Rules:
 - `same` → add the new source to the existing fact (support +1); no new row.
-- `replaces` → only when both are `asserted`, same speaker role, and the new source is
-  later in conversation order (`source_order.compare_observations`); old fact gets
-  `valid_until` = the new source's recorded time and `superseded_by`. Never deleted.
+- `replaces` → only when neither is labelled `asked`/`suggested`/`hypothetical`, same
+  speaker role, and the new source is later in conversation order
+  (`source_order.compare_observations`); old fact gets `valid_until` = the new source's
+  recorded time and `superseded_by`. Never deleted. The modality label is a pre-filter,
+  not the guard: on the §5.1 controls it was right 28/31 and both misses called a "might"
+  `asserted` while the sentence kept the "might". The call reads both sentences, and
+  §5.2 tests it on exactly those sentences.
 - anything else, an unknown order, or a failed call → both kept (`both_true`), counted.
   Unknown never expires anything (TRAPS 99).
 
