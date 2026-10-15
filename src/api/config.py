@@ -1091,6 +1091,7 @@ class Settings(BaseSettings):
     ltm_decision_threshold: float = 0.5        # τ: retrieve iff P(need_mem) > τ
     ltm_prior_bias: float = 0.4                # log-odds tilt: "prefer LTM, don't force"
     ltm_length_weight: float = 0.8             # β on the memory-pressure prior
+    ltm_length_logit_cap: float = 3.0          # |logit(P_len)| bound (audit A11; unbounded ⇒ always retrieve)
     ltm_pressure_midpoint_tokens: int = 2000   # history-beyond-window at which P_len=0.5
     ltm_pressure_scale_tokens: int = 4000      # logistic steepness of the pressure prior
     ltm_bump_creative: float = 0.7             # Creative_&_Media topic → bump (not slam)

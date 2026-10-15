@@ -173,7 +173,14 @@ def decide_memory_retrieval(
         total_tokens, recent_window_tokens,
         settings.ltm_pressure_midpoint_tokens, settings.ltm_pressure_scale_tokens,
     )
-    lo += settings.ltm_length_weight * _logit(p_len)
+    # Audit A11 (2026-10-15): logit(p_len) grows without bound with the
+    # history beyond the window (~+20 log-odds at 100K tokens), so in any long
+    # conversation it overrode the classifier and every prompt retrieved
+    # (518/519 on the development replay). Bounded, it stays a nudge. Cap 3
+    # keeps all 67 reviewed development memory questions retrieving even
+    # ignoring bumps (cap 2 drops one at p_ltm 0.082).
+    cap = settings.ltm_length_logit_cap
+    lo += settings.ltm_length_weight * max(-cap, min(cap, _logit(p_len)))
 
     # 3. Feature bumps — the old hard signals, demoted to additive nudges.
     creative = "Creative_&_Media" in result.topic_tags

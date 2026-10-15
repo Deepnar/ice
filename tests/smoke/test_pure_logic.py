@@ -15,6 +15,7 @@ SETTINGS = SimpleNamespace(
     ltm_decision_threshold=0.5,
     ltm_prior_bias=0.4,
     ltm_length_weight=0.8,
+    ltm_length_logit_cap=3.0,
     ltm_pressure_midpoint_tokens=2000,
     ltm_pressure_scale_tokens=4000,
     ltm_bump_creative=0.7,
@@ -62,6 +63,14 @@ def test_out_of_window_history_pushes_toward_memory():
         _cr(0.35), turn_count=300, total_tokens=80_000, settings=SETTINGS
     )
     assert high.p_need_mem > low.p_need_mem
+
+
+def test_long_history_nudges_but_cannot_override_a_confident_classifier():
+    """Audit A11 (2026-10-15): unbounded, the pressure term reached ~+20
+    log-odds on a 100K-token history and every prompt retrieved (518/519)."""
+    huge = dict(turn_count=2000, total_tokens=400_000, settings=SETTINGS)
+    assert not decide_memory_retrieval(_cr(0.01), **huge).retrieve
+    assert decide_memory_retrieval(_cr(0.10), **huge).retrieve, "uncertain prompts still retrieve"
 
 
 def test_memory_pressure_monotone_and_one_sided():
