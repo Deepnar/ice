@@ -95,17 +95,24 @@ _calls = {"n": 0}
 
 
 class _FakeCompletions:
+    """2026-10-15: background summaries are cited claims (SUMMARY_CLAIMS_V3) and
+    a completion needs finish_reason "stop"; the old plain-text fake failed the
+    completeness check before reaching the retry it was written to test."""
     def create(self, **kw):
+        import json as _json
+        import re as _re
         _calls["n"] += 1
-        content = ("A vague summary without the names.\nKey terms: none"
-                   if _calls["n"] == 1 else
-                   "Orien defeated Kazama with 42% odds.\nKey terms: Orien, Kazama, 42%")
+        window = _re.search(r"\[(w\d+);", kw["messages"][1]["content"]).group(1)
+        text = ("A duel happened." if _calls["n"] == 1 else
+                "The user said Orien beat Kazama with 42% odds.")
+        body = {"summary": [{"sources": [window], "quote": "Orien beat Kazama",
+                             "speaker": "user", "text": text}], "abstract": []}
         return SimpleNamespace(choices=[SimpleNamespace(
-            message=SimpleNamespace(content=content))])
+            message=SimpleNamespace(content=_json.dumps(body)), finish_reason="stop")])
 
 
 pf.bg_client = SimpleNamespace(chat=SimpleNamespace(completions=_FakeCompletions()))
-summ, cov, _ab = pf.generate_summary("q", "a", kt, "test-model")
+summ, cov, _ab = pf.generate_summary("Orien beat Kazama with 42% odds", "a", kt, "test-model")
 check("retry fired when first summary dropped terms", _calls["n"] == 2)
 check(f"retry recovered coverage ({cov})", cov >= 0.7 and "Orien" in summ)
 
@@ -114,10 +121,28 @@ from src.retrieval.orchestrator import HybridRetrievalOrchestrator, ContextFragm
 orch = HybridRetrievalOrchestrator(None, None)
 
 
+from dataclasses import asdict as _asdict
+from src.memory.representation import verify_representations as _verify_representations
+from src.memory.source import chat_provenance as _chat_provenance
+from src.memory.source import single_provenance as _single_provenance
+from src.memory.support import verify_support as _verify_support
+
+
+def _supported(premise, claim):
+    # Stub the NLI model only; the record is the reader's real contract.
+    return _verify_support(premise, claim, scorer=lambda pairs: [
+        dict(entailment=0.99, neutral=0.005, contradiction=0.005)])
+
+
 def row(raw="raw text about the zephyr protocol details", summ="summary of protocol",
         cov=0.9, inject_raw=True):
-    return SimpleNamespace(raw_text=raw, summary_text=summ, summary_coverage=cov,
-                           inject_raw=inject_raw)
+    # Since 2026-10-08 the reader trusts a summary only with a current
+    # verification record; rows without one always chose raw.
+    r = SimpleNamespace(raw_text=raw, summary_text=summ, summary_coverage=cov,
+                        inject_raw=inject_raw, abstract_text=None,
+                        source_spans=_single_provenance(raw, "document"))
+    r.representation_verification = _verify_representations(r, summ, None, verifier=_supported)
+    return r
 
 
 clf_exact = SimpleNamespace(intent_tags=["Factual_Retrieval"])
@@ -159,6 +184,8 @@ ner.extract_entities = _real_extract   # real NER from here on
 from src.api.db import SessionLocal
 from src.memory.models import Conversation, EpisodicMemory, IdempotencyKey
 
+pf.verify_representations = (lambda turn, summary, abstract, proof=None:
+                             _verify_representations(turn, summary, abstract, verifier=_supported))
 pf.is_gpu_busy = lambda: False
 pf.is_user_active = lambda: False
 # **kw absorbs C12's source_kind/source_title (a document section tells the
@@ -181,6 +208,9 @@ def run_case(response_body, prompt="tell me"):
         topic_tags=["Software_&_Tech"], intent_tags=["Factual_Retrieval"],
         context_reliance="Long_Term_Memory", is_private=True,
         raw_text=f"User: {prompt}\n\nAssistant: {response_body}",
+        # Production turns carry speaker spans (v3); without them no summary
+        # can be verified and every representation falls back to raw.
+        source_spans=_chat_provenance(prompt, response_body),
         idempotency_key=f"test-c1-{batch}",
     )
     db.add(turn)
