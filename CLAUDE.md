@@ -286,7 +286,8 @@ uv run alembic revision --autogenerate -m "message"   # ⚠ read every generated
 
 There is **no Celery, no Redis and no separate worker process**: C7 replaced
 them with an in-process maintenance runtime that the proxy owns. Background
-model mode is `shared` by default (reuses the main Ollama model); `dedicated`
+model mode is `shared` by default (the same Ollama server, with the small
+background model `background_model_name`, default `gemma4:e4b`); `dedicated`
 starts a separate vLLM on :8002 and is a manual, power-user path.
 
 **⚠ Assume `./ice`, `./stop_ice` and `setup.sh` DO NOT WORK.** They are dev
