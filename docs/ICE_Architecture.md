@@ -2439,6 +2439,34 @@ supports24 and withholds1. These dependent assertions do not establish whole-
 summary completeness, production substitution or answer gains. All38 existing
 supported turn summaries and41 abstracts remain approved in the untouched store.
 
+
+### v3 quoted claims, per-claim acceptance and pieces — 2026-10-15
+
+Spec: [SUMMARY_CLAIMS_V3](specs/SUMMARY_CLAIMS_V3.md); `summary_assertion_method`
+= `v3` (v2 selectable; v1/v2 records verify under their own policy). Applies to
+turn summaries, conversation-fold notes and entity notes (batch summaries keep
+free text).
+
+- **Claim shape:** `{sources (1–2), quote, speaker, text}`, enforced as an Ollama
+  JSON schema with the piece's window ids as an enum. Before verification each
+  claim is checked mechanically: its quote must occur in a cited window
+  (whitespace, Markdown `*`/`` ` ``/`#` and curly quote marks ignored) and its
+  speaker must equal that window's role.
+- **Acceptance per claim:** a claim failing a mechanical check or the unchanged
+  NLI check (0.95, 512-token pair) is dropped and listed in the record's
+  `dropped`; the stored text is exactly the supported claims, so the reader's
+  digest check binds to it. Zero supported claims ⇒ `unknown` ⇒ raw.
+- **Pieces:** windows are summarised in pieces of ≤ `summary_piece_tokens`
+  (4,096), merged in order on the one row; a multi-piece source gets no abstract.
+  A failed piece is skipped and logged; all failing ⇒ the caller's fallback. The
+  fold splits an oversized single-turn group the same way, and an over-budget
+  group falls back to source instead of retrying forever.
+- **Output cap:** `clamp(1.3 × piece input tokens, job floor, 8,192)`; floors are
+  the legacy caps (900).
+
+Qualified on 31 real B/C pieces: reader-usable pieces 9 → 28, supported claims
+163 → 290, contradicted 1 → 1; ~2.2× background time per summary.
+
 ### v3 procedural output and negative bucket receipts — 2026-10-08
 
 The procedural caller now reserves an explicit512 output tokens and checks the

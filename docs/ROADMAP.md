@@ -52,16 +52,20 @@ needs the maintainer's approval):
 - ~~**[G27](#g27)**~~ — *default fixed 2026-10-15:* `background_model_name` now defaults
   to `gemma4:e4b`. Before, an install with no `.env` pin fell through to the first
   confirmed registry entry, `gemma4:26b-a4b` (18 GB). Z2 was already safe (`.env` pins it).
-- **[G32](#g32) + [G4](#g4)** — *measured 2026-10-15, the real pre-Z2 hazard:* background
-  summaries go through Ollama's `/v1` door, which loads at 32,768 tokens and **silently
-  keeps only the tail** of a longer input (HTTP 200, `stop`; the model then invented the
-  dropped fact). 11 of C's 325 turns exceed it in the turn summariser (largest ~70K
-  tokens). Ollama 0.32.13 truncates silently on the native API too, so ICE must count
-  tokens itself. Fix in design: switchable native/OpenAI background transport plus
-  chunked mini-summaries for long turns.
-- **Summary output cap** (G68-shaped, found 2026-10-15) — the turn summary's 900-token
-  output cap truncated 24 of ~228 dev-replay summaries, and 14 of 19 ~8K-token pieces of
-  C's largest turns. Measure piece size × output cap before the replay.
+- ~~**[G32](#g32) + [G4](#g4)**~~ — *fixed 2026-10-15:* background calls use Ollama's
+  own `/api/chat` with the context sized to the counted input (both doors silently
+  cut an oversized input and the model invented the cut fact — TRAPS 130); a
+  server-side cut now fails the call loudly on either door.
+- ~~**Summary output cap / all-or-nothing acceptance**~~ — *fixed 2026-10-15:*
+  [SUMMARY_CLAIMS_V3](specs/SUMMARY_CLAIMS_V3.md) — quoted `{sources, quote,
+  speaker, text}` claims, enforced schema, per-claim acceptance, pieces, output cap
+  scaled to input (1.3×). Qualified: reader-usable pieces 9 → 28 of 31. The fold no
+  longer freezes on an oversized single turn (C would have stopped near turn 37).
+- **⚑ NEXT: design-audit fix session** (maintainer, 2026-10-15) — measured in
+  [PROVENANCE 2026-10-15](PROVENANCE.md): graph relations stored 30% of proposed,
+  mostly checker-undecided; pronoun facts (`I`/`you`) dropped with no speaker
+  mapping; reranker ranks over-long passages last; on the 10-14 reads only 6/920
+  turns reached prompts as summaries and the graph leg produced 42 candidates.
 - **[G12](#g12)** — *audited 2026-10-15, not a Z2 risk:* 0 timeouts and 0 failed background
   calls in the 5.5 h development replay; every replay-path call scales its timeout via
   `bg_timeout()`. Left: an input-size term (folded into the transport change) and the

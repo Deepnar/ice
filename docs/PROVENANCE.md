@@ -1,3 +1,41 @@
+## 2026-10-15 — v3 pre-Z2: Ollama doors, summary claims v3, design audit
+
+**Ollama 0.32.13 (24 GB card, no `OLLAMA_CONTEXT_LENGTH`).** `/v1` loads
+`gemma4:e4b` at 32,768; a ~50K-token prompt returned HTTP 200 / `stop` with
+16,387 tokens read and an invented answer about the dropped head. Native
+`/api/chat` at `num_ctx` 65,536 also cut a 69K prompt silently (32,771 read).
+Context reload ≈ 4 s; VRAM +0.3 GB at 64K, +0.8 GB at 128K (q4_0 KV). At
+temperature 0 native repeated 6/6, `/v1` 0/6 against itself. 11/325 C turns
+exceed 32,768 in the turn summariser (largest ~70K); B max ~16K. A 70K-token
+summary call completes in 21–28 s (prefill 14.6 s). Background calls moved to
+native `/api/chat` with sized context and a server-count check (TRAPS 130).
+
+**Summary output and acceptance (C largest turns, v2 prompt).** 900-token cap cut
+21/23 ~4K pieces; complete outputs needed 0.32 (median)–0.49 (max) output per
+input token. Verifier over 1,074 claims: 64% supported, 8% in 0.80–0.95, 10.5%
+over the 512-token pair bound, 10% < 0.5, 4 contradicted; pieces passing
+all-or-nothing 2/86. Short B turns: 8/24 summaries unparseable (no schema).
+
+**SUMMARY_CLAIMS_V3 qualification** (31 pieces; spec §3.1): reader-usable pieces
+9 → 28, supported claims 163 → 290, contradicted 1 → 1, outputs lost 3 → 2 (cap);
+quote drops 65, of a 12-sample 10 Markdown-only (now ignored). Default → v3,
+`summary_output_ratio` 1.3. Private: `logs/z2-s0-summary-v3-qualification-2026-10-15-r1/`.
+
+**Design audit, 2026-10-10 dev replay + 2026-10-14 read baseline (pre-fix,
+findings only).** Graph relations stored 1,338/4,531 proposed (30%); withheld
+variants mostly checker-undecided (3,198) vs unsupported (101). 168 graph
+writes refused on pronoun endpoints with no I/you → speaker mapping. Reranker
+leaves pairs over 4,096 tokens unscored and ranks them last (111). Full-ICE
+prompts (67 questions): 920 episodic fragments selected, 6 as summaries; graph
+leg produced 42 candidates in total; batch summaries 0. Full ICE fills ~28% of
+its reported memory budget by design (growth cap). Fixes are pending a
+maintainer session.
+
+**Z2 frozen configuration changes.** The 2026-10-15 tuning freeze recorded
+settings digest `a03cae64…`; today's approved pre-Z2 fixes (background model
+default, native background transport, summary v3, pieces/caps, fold fallback)
+change it. Z2 records its own settings digest at S0.
+
 ## 2026-10-15 — v3 bounded read tuning results and freeze
 
 Muse Spark 1.3 graded 855 answers (Luna, 1,500-token reserve) over the 67
