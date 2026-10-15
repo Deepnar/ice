@@ -51,13 +51,13 @@ needs the same gate as any other production change.
 
 ## Start here
 
-**⚑ READ IN FULL — both are short and both are about *this* session:**
+**⚑ READ AT THE START — both short files in full, TRAPS by its titles:**
 
 | Read | What it is |
 |---|---|
-| [docs/HANDOFF.md](docs/HANDOFF.md) | **Where the last session left off, and what it was told to do.** Rewritten every session. It is state, never a queue. |
-| [docs/TRAPS.md](docs/TRAPS.md) | Mistakes this project has actually made — failure *shapes*, so you recognise one from inside it. Add to it the same session something bites. |
-| [docs/SESSION.md](docs/SESSION.md) | **This session's live task list and findings.** Gitignored, emptied at the end. Start one if it is absent. |
+| [docs/HANDOFF.md](docs/HANDOFF.md) | **In full.** Where the last session left off, and what it was told to do. Rewritten every session. It is state, never a queue. |
+| [docs/SESSION.md](docs/SESSION.md) | **In full.** This session's live task list and findings. Gitignored, emptied at the end. Start one if it is absent. |
+| [docs/TRAPS.md](docs/TRAPS.md) | **Titles first, never the whole file** (~2,800 lines): `grep -n '^### ' docs/TRAPS.md`, then read in full every entry whose title touches the subsystem or kind of work at hand, and re-check the titles before a long run or a commit. Mistakes this project has actually made — failure *shapes*, so you recognise one from inside it. Add to it the same session something bites. |
 
 **⚑ CONSULT, NEVER READ WHOLE.** These are reference works, not reading. Opening
 one end-to-end burns the context the actual work needs:
