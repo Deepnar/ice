@@ -49,15 +49,26 @@ spot are kept verbatim in [outdated/roadmap_top_history_2026-10-15.md](outdated/
 
 **⚑ BEFORE THE Z2 REPLAY — next session, inside Z2's build** (each production change
 needs the maintainer's approval):
-- **[G27](#g27)** — in shared mode the background model can resolve to the *wrong*
-  model (the first confirmed registry entry, not the intended pin). Pin and verify.
-- **[G12](#g12)** — fixed 30 s local-model timeouts cause retry storms on long inputs;
-  C's turns average ~3,700 tokens. Scale the timeout with input and output size.
-- **[G4](#g4) + [G32](#g32)** — ICE states context size, keep-alive and unloading to
-  Ollama explicitly, and background work leaves the OpenAI-compatible endpoint that
-  drops those options. Done inside Z2's first step (S0, speed).
-- **[G68](#g68)** — *check, not fix:* extraction truncation rates on a C slice during
-  S0 (550-token chunks, 1,200-token output cap), before the replay writes a store.
+- ~~**[G27](#g27)**~~ — *default fixed 2026-10-15:* `background_model_name` now defaults
+  to `gemma4:e4b`. Before, an install with no `.env` pin fell through to the first
+  confirmed registry entry, `gemma4:26b-a4b` (18 GB). Z2 was already safe (`.env` pins it).
+- **[G32](#g32) + [G4](#g4)** — *measured 2026-10-15, the real pre-Z2 hazard:* background
+  summaries go through Ollama's `/v1` door, which loads at 32,768 tokens and **silently
+  keeps only the tail** of a longer input (HTTP 200, `stop`; the model then invented the
+  dropped fact). 11 of C's 325 turns exceed it in the turn summariser (largest ~70K
+  tokens). Ollama 0.32.13 truncates silently on the native API too, so ICE must count
+  tokens itself. Fix in design: switchable native/OpenAI background transport plus
+  chunked mini-summaries for long turns.
+- **Summary output cap** (G68-shaped, found 2026-10-15) — the turn summary's 900-token
+  output cap truncated 24 of ~228 dev-replay summaries, and 14 of 19 ~8K-token pieces of
+  C's largest turns. Measure piece size × output cap before the replay.
+- **[G12](#g12)** — *audited 2026-10-15, not a Z2 risk:* 0 timeouts and 0 failed background
+  calls in the 5.5 h development replay; every replay-path call scales its timeout via
+  `bg_timeout()`. Left: an input-size term (folded into the transport change) and the
+  fixed 15 s in model auto-tagging (`registry.py:227`, not on the replay path).
+- **[G68](#g68)** — *check, not fix:* extraction already chunks at up to 4,096 tokens with a
+  3,000-token output cap (shipped 2026-08-25; this block used to say 550/1,200). Dev
+  replay: 511/512 turns in one piece, 5/537 calls hit the cap. Still check C.
 
 **AFTER Z2, from its evidence (the fix pass):**
 graph — [G63](#g63) wrong speaker/direction, [G76](#g76) assistant suggestion stored
@@ -589,6 +600,7 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 - [x] <a id="g26"></a>**G26 chat_completions classifies before the conversation is resolved** — DONE 2026-07-11. → [full record](ROADMAP_DONE.md#g26)
 - [ ] <a id="g27"></a>**G27 Shared-mode background model resolves to the WRONG model** `(bug — announced 2026-07-25, entry written 2026-08-10; PRE-FINAL)` — In shared mode (no `background_model_name` pin) `bg_client_factory.get_bg_model_name()` returns `registry.get_fallback_model()`, i.e. **the first `confirmed: true` entry in `models/model_registry.json`** — not "the chat model currently in use", which is what shared mode is documented to mean (C7 D7) and what the user believes it does.
   - **Schedule (2026-10-15):** before the Z2 replay (Z2 build, S0). See CURRENT POSITION at the top.
+  - **Default fixed 2026-10-15 (maintainer-approved):** `background_model_name` defaults to `gemma4:e4b` (A12's choice). Unpinned, this host resolved to `gemma4:26b-a4b-it-q4_K_M` (18 GB). Still open: option (a), resolving the chat session's routed model — now a product question, since A12 closed on a fixed small model.
   **v3 model-identity audit/repair,2026-10-10:** [core job consumers](reviews/2026-10-10-v3-background-model-consumers.md) and actual factory resolution confirm the explicit E4B/NuExtract research pair. Offline preparation formerly accepted either changed model pin under the same seal; a safe declared-model allow-list now binds these identities and NLI revision, with actual changed-pin refusal and eight-file stable resume. This is a harness identity repair, not new per-job quality or a global default change. Wider unpinned shared/dedicated semantics remain open.
   **v3 completed-r4 evidence, 2026-10-07:** R4 used the pinned background pair; pinned-versus-unpinned fallback semantics were not compared. P9 records actual job identities and an explicit default decision. See [post-reseed execution contract](specs/V3_POST_RESEED_REPAIR.md). The whole item remains open until its original acceptance scope is met.
   - **v3 repair 2026-09-20:** turn summary and procedural extraction no longer pass the foreground model name to the background client. They honor the background pin even for a cloud reader. The unpinned default and residency policy remain open.
