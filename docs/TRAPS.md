@@ -2714,3 +2714,13 @@ the cheap prompt comparison ran first. Before sweeping, count on real questions
 how many decisions the value enters (here: profile rows used vs base fallback),
 and compare identical-looking coordinates against each other, not only against
 the baseline: ten coordinates matching each other exactly is the signature.
+
+### 129. A second GPU job beside a long local run
+
+ICE v3, 2026-10-14: a bare-vector tuning pass started on the same GPU as a running
+read-coordinate collection. Embedding whole long messages 32 at a time took 16.7 GB
+and failed with out-of-memory. The collection survived, and its log showed no
+failed or fallback source-proof calls in that window, but a fallback there would
+have silently changed that coordinate's prompts. Do not start GPU work beside a
+long local run; if it is unavoidable, cap batch memory first and check the
+long run's log for fallbacks over the overlap window.

@@ -48,6 +48,15 @@ production gates and pre-reseed sequencing are superseded within this scope;
 privacy, frozen v2 history and the public-push freeze remain. No new G-number
 for the phase. [Execution contract](specs/V3_REPAIR.md).
 
+**Current phase, 2026-10-15:** bounded read tuning is closed — no survivor beat the
+±3/67 answer-noise floor, so settings are frozen unchanged ([results](../experiments/v3_repair/results/tuning-freeze-2026-10-15.md)).
+The development set was near ceiling and showed no answer benefit from ICE's extra
+legs over its vector leg. Next: build **Z2** per the approved
+[Z2_EVALUATION](specs/Z2_EVALUATION.md) — speed profile first, then the cited
+question machinery (dry run on the development history), read switches, replay,
+background audit, read passes, oracle. Z2 is not FINAL. The 2026-10-07 text below
+is history.
+
 **Current phase, 2026-10-07:** r4 completed all five stages diagnostically.
 [PROVENANCE](PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign)
 records the actual results and their limits. The next work is
