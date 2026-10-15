@@ -361,6 +361,8 @@ Use the bracket form — `pgrep -f "[s]eed_store.py"` — which matches the targ
 but not the literal pattern text in the watcher's own argv. Same trap applies to
 `ps | grep`.
 
+**Re-earned 2026-10-15, by name collision:** `pgrep -f '[s]weep.py' | xargs kill` meant for `sweep.py` also killed `verify_sweep.py`, a separate CPU job, mid-run. Match the full path (`[l]ogs/z2-.../sweep.py`) or kill by the PID the launch printed.
+
 ### 23. Reasoning about the code instead of querying the running system
 **The most productive failure mode in this repo, measured 2026-08-12: FOUR wrong
 conclusions in a single session, every one from reading source and reasoning
@@ -2724,3 +2726,17 @@ failed or fallback source-proof calls in that window, but a fallback there would
 have silently changed that coordinate's prompts. Do not start GPU work beside a
 long local run; if it is unavoidable, cap batch memory first and check the
 long run's log for fallbacks over the overlap window.
+
+### 130. Both Ollama doors cut an oversized input silently — and the model invents what was cut
+
+ICE v3, Ollama 0.32.13, 2026-10-15: background calls on `/v1` run at the host's
+32,768-token default. A ~50K-token probe came back HTTP 200, `finish=stop`, with
+16,387 prompt tokens kept (the head dropped) — and the model answered the
+question about the dropped head with an invented value. Native `/api/chat` with an
+explicit `num_ctx` did the same (69K sent at 65,536 → 32,771 kept, HTTP 200);
+G32's "typed 400 over context" was a 0.30.7 result. Count the input before
+sending, size the context to it, and compare the server's `prompt_eval_count`
+afterwards (`bg_native_transport.check_prompt_count`). The same check showed the
+`/v1` door does not even repeat itself at temperature 0 (0/6 identical
+back-to-back; native 6/6) — so an identity comparison across doors needs a
+same-door repeat control first.
