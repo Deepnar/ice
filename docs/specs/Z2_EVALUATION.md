@@ -215,6 +215,40 @@ checkpoint's questions:
   **question families**, not occurrences; repeats reported as retention
   transitions. Incomplete answers are ungraded, never counted as wrong.
 
+**D11a — Difficulty by construction (maintainer, 2026-10-15).** Tuning's
+development set was near ceiling (full ICE 61/67, ICE vector-only 63/67), so it
+could not show what ICE's machinery adds. Z2 must be hard enough to separate
+systems, and the difficulty must come from how questions are built, never from
+selecting questions a competitor happens to fail:
+
+- weighted toward what plain retrieval cannot do from one message: updates and
+  corrections (a stale value is retrievable and wrong), cumulative mega-span and
+  aggregation (more items than one budget of raw messages holds), temporal order,
+  abstention, and long-gap retention repeats;
+- questions asked late in B and C (730K-1.2M tokens), so the history far exceeds
+  any memory budget;
+- **ceiling check on the development dry run:** a question type on which full ICE
+  scores above 85% is made harder for every system (longer gaps, more required
+  items, later cutoffs) before B/C generation. The check uses full ICE's score,
+  never a competitor's failure.
+
+**D11b — Token evidence: budget curves.** ICE may help by needing fewer tokens
+for the same quality. Full ICE, ICE warm vector and bare vector are each read and
+answered at four memory budgets (2k, 4k, 8k tokens and the derived default) on
+every Z2 question. Report quality per budget and the smallest budget at which
+each system reaches its own default-budget quality. Read passes are local and
+identical prompts reuse answers.
+
+**D11c — When a component earns its place (pre-registered, maintainer
+2026-10-15).** A component keeps its place only if, in the leave-one-out
+ablations, removing it costs answers beyond the noise floor (repeated identical
+prompts, measured in Z2 as in tuning) on at least one question type, **or**
+keeping it saves ≥ 10% of tokens at equal quality (D11b). Otherwise it is
+reported as "no measured benefit", and the default becomes simplification, which
+is a maintainer decision. ICE as a whole is judged the same way against bare
+vector and warm vector: better answers beyond noise on some type, or equal
+answers at ≥ 10% fewer tokens.
+
 **D12 — LongMemEval oracle.** As V3_POST_RESEED_REPAIR §2.6: pinned release, all
 500 instances, sessions sorted and checked, isolated per-instance replay; full
 ICE, ICE warm vector, bare vector, and the all-evidence oracle control with the
