@@ -61,6 +61,13 @@ USER-REQUIRED review.
   superseded, `superseded_by` (the turn and entry that replaced it). Agreement
   between the two families marks an entry verified. A disagreement goes to a
   third-family tie-break, then to the review queue.
+- *Evolving ground truth: ledger first, v2's forward walk as the audit.* Changes
+  are captured when they are extracted (a correction or reversal links to the
+  entry it supersedes). Then v2's method runs as an independent check: for each
+  family, a verifier reads the new turns between consecutive checkpoints and
+  answers "does anything here change this answer? cite it", with v2's
+  temporal-anchor guard so a later step cannot swap in a different event. A change
+  the walk finds but the ledger missed (or the reverse) goes to the review queue.
 - *Ground truth is computed, not written.* A question's answer at checkpoint t is
   derived from the ledger state at t: the entries valid at t, plus the history
   of superseded ones for "what did it used to be" questions. Each occurrence
@@ -70,15 +77,27 @@ USER-REQUIRED review.
 
   | Type | Share | What it asks |
   |---|---:|---|
-  | Fact recall (user- or assistant-stated) | 20% | a stated fact or decision |
+  | Fact recall (user- or assistant-stated) | 15% | a stated fact or decision |
   | Knowledge update / correction | 15% | the *current* value after a change |
-  | Temporal | 15% | when, in what order, or as of a date |
-  | Aggregation across sessions | 10% | counts, "all the …", lists spread over time |
+  | Temporal | 12% | when, in what order, or as of a date |
+  | **Cumulative mega-span** | 10% | reconstruct a whole thread from many entries spread over ≥ 100 turns: "list all the characters and their powers", "re-explain the whole plan", "the full timeline so far" (the shape of the maintainer's handwritten B questions); the answer grows and changes over time |
+  | Aggregation across sessions | 8% | counts and narrow lists spread over time |
   | Procedure / advice recall | 10% | steps or advice given earlier |
   | Negative / abstention | 10% | never stated by t: "don't know" is correct |
   | Preference | 5% | stable likes, dislikes, constraints |
   | Multi-hop | 5% | two cited entries combined |
   | Messy-phrasing variants | 10% | an existing family re-asked with typos, lowercase, terse or rambling wording (style invariance) |
+
+- *Fact-based ground truth.* An occurrence's reference is a set of required ledger
+  items plus their qualifiers, not a model-written model answer. An answer is
+  correct when it carries every required item's meaning (any wording) with its
+  qualifiers and contradicts none; cumulative and aggregation questions are also
+  scored by item coverage (how many of the required items, and any wrong extras).
+- *How questions are asked.* The question writer phrases each question the way the
+  user actually writes in that history (casual, lowercase, "do you remember…",
+  "can you list down…"), never leaks the answer, and asks something answerable
+  from the cited entries alone and unambiguous at its checkpoint. A verifier
+  rejects questions that fail any of these.
 
 - *Cutoffs and repeats.* A family is first asked only after its supporting turns
   have left the recent window (40 turns). Every fact-like family is asked at
@@ -108,6 +127,14 @@ against, so Z2 families are development material for FINAL purposes.
 
 Writers never answer or judge. If a profile becomes unavailable, the replacement
 is recorded before use; no silent substitution.
+
+**D6a — Every prompt is qualified before use.** Each writer, verifier,
+question-phrasing and judge prompt is run on the development history first and
+passes measured checks before it touches B or C: citation pass rate, two-family
+agreement, question rejection rate, planted-control accuracy for judges (a
+deliberately wrong but on-topic answer must not pass), plus a maintainer-reviewed
+sample of its outputs. A prompt that fails is revised and re-qualified; the
+qualification record is kept with the prompt's hash.
 
 **D7 — Answer output cap.** Raise the answer output reserve from 1,500 to 4,000
 tokens for Z2. Evidence: on the tuning answers, one question failed in 6 of 9
@@ -163,8 +190,21 @@ checkpoint's questions:
 **D11 — Scoring.**
 
 - *Answers:* Muse absolute grades (correct, partial, incorrect, uncertain) against
-  the checkpoint's reference answer, required-content list and cited sources; the
-  arm is never disclosed.
+  the checkpoint's required items, qualifiers and cited sources; the arm is never
+  disclosed.
+- *LSREP-native scores (v2, reformed):*
+  - **1-5 score** per answer, anchored to required items: 5 all items and
+    qualifiers, no errors; 4 one minor omission; 3 partial; 2 mostly missing or
+    stale; 1 wrong or invented. Separate flags: used a superseded value; invented
+    content (replaces v2's hallucination percentage); abstained.
+  - **Ranking** of the conditions per question (v2 ranked four answers 1-4):
+    blind, order randomised and repeated in two orders, ties allowed, judged
+    separately from the absolute score; reported as win rates against bare vector
+    and warm vector.
+  - **Token efficiency** (v2): TUR = 1-5 score per 1,000 injected tokens, SPF =
+    score per retrieved fragment, plus quality at matched budget; full prompts
+    counted on both sides. Reported beside quality, never instead of it.
+  - **Item coverage** for cumulative and aggregation questions.
 - *Retrieval diagnostics:* source-ID credit (existing); verbatim span presence
   (existing); and **semantic credit**: every graph fact, claim or summary in the
   prompt that cites a gold turn is judged for "carries requirement X (meaning,
@@ -282,6 +322,8 @@ answer output cap (D7); speed fixes from S0.
    Development data never enters Z2 or FINAL results.
 2. Citation checker: planted wrong offset, wrong turn, future turn and paraphrased
    span all refuse.
+2a. Prompt qualification (D6a) passed and recorded for every generation, verifier
+   and judge prompt, including the ranking and 1-5 rubrics.
 3. Ground truth: a planted correction yields different answers before and after it.
 4. Split: sealed FINAL families are unreadable by every Z2 stage (test asserts the
    Z2 code paths never open them).
