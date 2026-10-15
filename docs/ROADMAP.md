@@ -44,7 +44,7 @@
 floor, so settings are frozen unchanged ([results](../experiments/v3_repair/results/tuning-freeze-2026-10-15.md)).
 The [Z2 spec](specs/Z2_EVALUATION.md) is **approved**; the next session builds Z2.
 **Z2 is not FINAL** (FINAL = the paper experiment after Z2 → fix pass → Z3).
-Count: 160 anchored entries, 94 checked / 66 open. Older dated status notes from this
+Count: 161 anchored entries, 94 checked / 67 open. Older dated status notes from this
 spot are kept verbatim in [outdated/roadmap_top_history_2026-10-15.md](outdated/roadmap_top_history_2026-10-15.md).
 
 **⚑ BEFORE THE Z2 REPLAY — next session, inside Z2's build** (each production change
@@ -76,7 +76,8 @@ needs the maintainer's approval):
   - *Z2 reporting note (A7):* full ICE fills ~28% of its reported memory budget by
     design (growth cap, no reallocation; median 10K of 38K). Budget comparisons
     and token-efficiency figures must use the budget ICE actually used.
-  - *Next session:* **codex rework — remove and rewrite, not patch.** Read first:
+  - *In progress 2026-10-15 (c):* **codex rework** — spec [CODEX_V4](specs/CODEX_V4.md) approved.
+    Earlier note: **codex rework — remove and rewrite, not patch.** Read first:
     [prior art and design review](research/2026-10-15-codex-prior-art.md) (Graphiti/Mem0
     source read; proposes showing a verified self-contained fact sentence — a v3 claim —
     with the verbatim quote attached, and finding duplicates/changes by entity + fact
@@ -91,6 +92,10 @@ needs the maintainer's approval):
     changes never meet (1 expired); pronoun facts dropped; extraction splits big
     turns at every heading (~130 chunks, 12–16 min per C turn). G68 folds in:
     output truncation is negligible (1/502 calls on C's largest turns).
+  - *After the codex rework:* **[G77](#g77)** — no human wall outside the codex (maintainer,
+    2026-10-15). Pinned-memory updates, cluster names, coding-decision conflicts and stale-work
+    notices wait in a review queue nobody reads (largest store: 391 cluster proposals, 120 slot
+    updates, none applied), so Z2 — which has no human — would see them do nothing.
 - **[G12](#g12)** — *audited 2026-10-15, not a Z2 risk:* 0 timeouts and 0 failed background
   calls in the 5.5 h development replay; every replay-path call scales its timeout via
   `bg_timeout()`. Left: an input-size term (folded into the transport change) and the
@@ -1282,6 +1287,7 @@ The experiments showed Codex is the most ambitious *and* most handicapped subsys
 
 - [x] <a id="g36"></a>**G36 The retrieval legs swallow their own failures** — DONE 2026-08-09. → [full record](ROADMAP_DONE.md#g36)
 - [x] <a id="g37"></a>**G37 A scope that resolves to no batches read the WHOLE graph** — DONE 2026-08-09. → [full record](ROADMAP_DONE.md#g37)
+- [ ] <a id="g77"></a>**G77 No human wall — background decisions apply themselves, journaled and undoable** `(opened 2026-10-15, maintainer; before Z2, after the codex rework)`. ICE is research: a decision that waits in `review_queue` for a person never acts, so its effect can never be measured, and Z2's replays have no person in them. Measured 2026-10-15, largest store (`46df67a9`): `new_cluster_proposal` 391, `memory_slot_update` 120, `codex_reconciliation` 7,641 — all pending, none ever applied. Scope: `reflection.py` slot proposals (pinned `project_context` / `user_preferences` / `guidance` text) and motif cluster proposals; `decision_extractor.py` tier-2 `decision_supersession`; `maintenance_agent.py` `stale_work` and slot proposals. Each becomes decide → apply → journal (enough payload to undo) → `review_queue` row with `status='applied'` as the audit log. **Stays gated:** `forget_request` (user-started, fuzzy-matched — C10 trap) and `finetune_proposal` (replaces model weights; B4 owns its validation). The codex's own review items are retired by [CODEX_V4](specs/CODEX_V4.md) D12. Example: reflection proposes "user prefers terse answers" for the `user_preferences` slot — today it sits pending forever; after G77 it is written, logged, and one call restores the previous slot text.
 - [ ] <a id="g76"></a>**G76 Attributed claims and source-support verification — keep an assistant hypothesis from becoming an asserted fact** `(authorized v3 repair in progress — 2026-09-12 onward)`. Originally `CodexEdge` stored a source batch without first-class attributed sentence evidence, and extraction consumed combined turn text. New v3 writes now use role-separated original units, claims and source/argument receipts; independent precision and answer usefulness remain unfinished. Example: “the assistant suggested adding a cache” must not become “the project decided to add a cache.”
   - **Schedule (2026-10-15):** fix after Z2, from its background audit/ablation evidence. See CURRENT POSITION at the top.
   **v3 source-covered packing repair,2026-10-12:** actual cold-source reads expose repeated graph quotations already supplied in complete originals. The approved/applied exact patch preserves unique names/notes/dates and omits covered graph text only during final packing.18 private controls,57 compatibility controls,18 permanent controls and private/applied three-query native reads pass; two graph-producing prompts save181/280 tokens with identical complete originals and unchanged saved state. [Decision/limits](specs/V3_POST_RESEED_REPAIR.md#quiet-query-clock-decision-2026-10-11). A new exact reader profile preserves old writer progress;1354 deployed smoke/background/dynamics checks pass with315 code/test files fixed. No independent answer quality or owner closure.
