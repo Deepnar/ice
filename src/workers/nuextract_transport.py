@@ -1,8 +1,9 @@
 """Text-only NuExtract3 structured-task transport for shared Ollama.
 
 The specialist's official template is a separate task, not an instruction
-inside its default document-content task. Ordinary background calls stay on
-OpenAI-compatible chat. Named-model ownership belongs to the existing factory.
+inside its default document-content task. Ordinary background calls go through
+`bg_native_transport` (native /api/chat) instead. Named-model ownership belongs
+to the existing factory.
 """
 
 import json

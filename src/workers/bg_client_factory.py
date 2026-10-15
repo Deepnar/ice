@@ -17,6 +17,7 @@ import structlog
 from openai import OpenAI
 
 from src.api.config import settings
+from src.workers import bg_native_transport
 
 logger = structlog.get_logger("ice.workers.bg_client")
 
@@ -79,8 +80,16 @@ class _OwnedCompletions:
                 if extra.get("ice_template_protocol") is not None:
                     from src.workers.nuextract_transport import native_completion
                     result = native_completion(**kwargs)
+                elif bg_native_transport.use_native():
+                    result = bg_native_transport.chat_completion(**kwargs)
                 else:
+                    # The OpenAI-compatible door cannot size the context, so
+                    # at least check that the server read what was sent.
+                    estimated = bg_native_transport.estimate_input_tokens(kwargs.get("messages") or [])
                     result = self._inner.create(*args, **kwargs)
+                    bg_native_transport.check_prompt_count(
+                        model, estimated, getattr(getattr(result, "usage", None), "prompt_tokens", None),
+                        transport="openai")
             except Exception as exc:
                 logger.warning("background_model_call_failed", model=model,
                                wall_seconds=round(time.monotonic() - started, 3),
@@ -100,9 +109,8 @@ class _NoReasoningCompletions:
     This lives at the factory rather than at the ~17 call sites deliberately:
     the parameter is not a property of any one task, it is a property of *how
     ICE uses a chat model for structured background work*, and 17 copies of it
-    is exactly the drift G29 catalogues. It is also the seam G32(a) needs — when
-    background calls move to Ollama's native endpoint, this class becomes the
-    place that translates, and no caller changes.
+    is exactly the drift G29 catalogues. On the native door
+    (`bg_native_transport`, 2026-10-15) it becomes `think: false`.
 
     Why it exists at all (measured 2026-08-03, see PROVENANCE): a reasoning
     model spends the whole `max_tokens` budget inside a thinking block that
@@ -227,9 +235,11 @@ def json_schema(name: str, schema: dict) -> dict:
 
 
 def get_bg_client():
-    """Return an OpenAI-compatible client for the background model.
+    """Return an OpenAI-SDK-shaped client for the background model.
 
-    Wrapped so structured background work never loses its answer to a hidden
+    In shared mode the wrapped calls go over Ollama's own /api/chat
+    (`background_transport`, default "auto"; G32/G4) — the SDK object is then
+    only the fallback door for `background_transport="openai"`. Wrapped so structured background work never loses its answer to a hidden
     reasoning block (`bg_disable_reasoning`, default on).
     """
     if settings.background_model_mode == "shared":
@@ -280,10 +290,10 @@ def release_bg_model(model: Optional[str] = None) -> bool:
     ⚑ WHY THIS EXISTS — the maintainer's standing requirement: *"WE need to work
     and manage our own ai models memory, dont let default ollama do it."*
 
-    ICE posts background work to Ollama's OpenAI-compatible
+    Until 2026-10-15 ICE posted background work to Ollama's OpenAI-compatible
     `/v1/chat/completions`, and that shim **silently drops `keep_alive`** (G32
-    audit, measured). So ICE cannot say how long its own model should stay
-    resident, and inherits whatever the host decided. On the development machine
+    audit, measured). So ICE could not say how long its own model should stay
+    resident, and inherited whatever the host decided. On the development machine
     that is `OLLAMA_KEEP_ALIVE=-1` — deliberately, for the owner's personal use —
     and the observed result during the 2026-08-27 bake-off was **three
     background models resident at once, ~14 GB of a 24 GB card, all
@@ -294,7 +304,8 @@ def release_bg_model(model: Optional[str] = None) -> bool:
     overrides. Idle cleanup calls this under the same per-model lock used by
     completions and native source judges. An unload acknowledgement is not
     enough: confirm the model has disappeared from `/api/ps` within the timeout.
-    This does not migrate background generation or impose a whole-GPU budget.
+    Native background calls now send `bg_keep_alive` explicitly (resident while
+    working); this release is what ends that residency. No whole-GPU budget.
 
     ⚠ **Deliberately best-effort and LOUD.** A failure here wastes VRAM; it must
     never break background work, and it must never be silent — a release that

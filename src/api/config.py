@@ -74,6 +74,29 @@ class Settings(BaseSettings):
     # G12: bg-client calls scale their timeout with the requested output size:
     # timeout = bg_timeout_base_seconds × clamp(max_tokens / 500, 1, 6).
     bg_timeout_base_seconds: float = 30.0
+    # G12, input half (2026-10-15): native background calls add this much per
+    # 1,000 input tokens on top of the output-scaled timeout. Measured on
+    # gemma4:e4b: a 69K-token prompt reads in 14.6 s (+~4 s reload when the
+    # context size changes), so 1 s per 1K is ~4x headroom.
+    bg_timeout_seconds_per_1k_input: float = 1.0
+    # G32/G4 (2026-10-15): which door background calls use in shared mode.
+    # "auto" ⇒ Ollama's own /api/chat, which honours num_ctx and keep_alive;
+    # "openai" ⇒ the OpenAI-compatible /v1 door (for a server that only speaks
+    # that). Dedicated mode always uses the OpenAI-compatible door.
+    # Measured on Ollama 0.32.13: /v1 loads at 32,768 tokens and a ~50K-token
+    # input came back HTTP 200 / "stop" with its head silently dropped — and
+    # the model invented the dropped fact.
+    background_transport: Literal["auto", "ollama", "openai"] = "auto"
+    # Native background calls size num_ctx to the input: the smallest of
+    # floor, 2×floor, 4×floor… that fits, capped by the model's own maximum.
+    # The floor matches what Ollama loads by default on a 24 GB card, so the
+    # common case never changes the runner (each change reloads, ~4 s).
+    bg_num_ctx_floor: int = Field(default=32_768, ge=2_048)
+    # ICE keeps its background model resident while it works and releases it
+    # itself after the queue drains (`bg_release_after_drain`), so the host's
+    # OLLAMA_KEEP_ALIVE never decides. Ollama duration or seconds; -1 = until
+    # released.
+    bg_keep_alive: int | str = -1
     # Ask the background model NOT to think. Measured 2026-08-03: every model in
     # the live registry except qwen3:4b-instruct is a reasoning model, and the
     # hidden reasoning block consumes the whole max_tokens budget before a single

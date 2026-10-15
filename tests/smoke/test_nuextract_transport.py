@@ -59,12 +59,24 @@ def test_owned_factory_routes_template_to_native_with_caps_and_source(monkeypatc
     assert completion.usage.total_tokens == 106
 
 
-def test_ordinary_owned_chat_still_uses_existing_client(monkeypatch):
-    calls = []
+def test_ordinary_owned_chat_uses_the_selected_door_not_the_extraction_protocol(monkeypatch):
+    """Since 2026-10-15 ordinary background chat goes over native /api/chat by
+    default; the NuExtract template protocol stays its own path either way."""
+    from src.workers import bg_native_transport, nuextract_transport
+    from src.api.config import settings
+    monkeypatch.setattr(nuextract_transport, 'native_completion',
+                        lambda **kw: pytest.fail('ordinary chat must not use the extraction protocol'))
+    calls, native = [], []
     inner = NS(chat=NS(completions=NS(create=lambda **kw: calls.append(kw) or NS(choices=[]))))
+    monkeypatch.setattr(bg_native_transport, 'chat_completion',
+                        lambda **kw: native.append(kw) or NS(choices=[]))
+    monkeypatch.setattr(settings, 'background_transport', 'auto')
     _BgClient(inner, owned=True).chat.completions.create(model='general-background', messages=[])
-    assert len(calls) == 1
-    assert calls[0]['extra_body']['reasoning_effort'] == 'none'
+    assert len(native) == 1 and not calls
+    assert native[0]['extra_body']['reasoning_effort'] == 'none'
+    monkeypatch.setattr(settings, 'background_transport', 'openai')
+    _BgClient(inner, owned=True).chat.completions.create(model='general-background', messages=[])
+    assert len(calls) == 1 and calls[0]['extra_body']['reasoning_effort'] == 'none'
 
 
 @pytest.mark.parametrize('data', [dict(done=False, done_reason='stop', response='{"facts": []}'),

@@ -237,6 +237,13 @@ async def store_turn_async(
                  predicted=predicted_prompt_tokens, actual=actual,
                  ratio=round(predicted_prompt_tokens / max(1, actual), 4),
                  model=model_used)
+        # Ollama 0.32.13 cuts an oversized prompt silently on BOTH doors
+        # (measured 2026-10-15; G32's typed 400 was a 0.30.7 result). The
+        # answer has already streamed, so this cannot refuse — it must say so.
+        if actual < predicted_prompt_tokens * 0.7:
+            log.warning("foreground_input_truncated", predicted=predicted_prompt_tokens,
+                        actual=actual, model=model_used,
+                        reason="the server read far less prompt than was sent")
     elif predicted_prompt_tokens and settings.token_usage_reconciliation:
         # A serving stack that ignores stream_options leaves the prediction
         # unverifiable — say so rather than assuming it was fine.

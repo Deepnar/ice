@@ -19,6 +19,9 @@ def ownership(monkeypatch):
     monkeypatch.setattr(bg, "_model_locks", {})
     monkeypatch.setattr(settings, "bg_release_after_drain", True)
     monkeypatch.setattr(settings, "background_model_mode", "shared")
+    # Ownership is door-independent; the fake below is the SDK door. The native
+    # door's ownership is pinned in test_bg_native_transport.py.
+    monkeypatch.setattr(settings, "background_transport", "openai")
     calls, released = [], []
     def create(**kwargs):
         calls.append(kwargs)
