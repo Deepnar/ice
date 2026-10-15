@@ -156,6 +156,50 @@ still confirms — C10 trap). The codex review item types (`codex_reconciliation
 `codex_contradiction`, `entity_merge` proposals) are retired; their pending rows are
 archived with the backup.
 
+## 1b. Models in the codex — before and after (maintainer request, 2026-10-15)
+
+Every model call the conversation codex makes, per turn (write) and per question (read).
+"Stays elsewhere" = the model remains in ICE for a non-codex job.
+
+**Write path (per turn)**
+
+| Step | Before | After |
+|---|---|---|
+| Fact extraction | **NuExtract3** (5.2 GB), one call per heading chunk — ~130 calls, 12–16 min on a large C turn | **Removed.** Facts come from the claim pass `gemma4:e4b` already runs for summaries (pieces ≤ 4,096 tokens). New cost only for short turns and documents, which get no claims today. NuExtract3 leaves ICE (no other user); `extraction_result.original_source_quote` moves, since `api/source_proof.py` and `api/source_need.py` import it. |
+| Grounding gate | **NuNER Zero** over every chunk; a subject/object not in its list → confidence 0.35 → hidden | **Removed** (the A9 gate). NuNER now runs once over each short *fact sentence* and only **adds links**; a miss loses a link, never a fact. Stays elsewhere: clustering entity hints, summary must-keep terms. |
+| Relation canonicaliser | **Qwen3-Embedding** compares each relation with ~111 seed + live relations, merges at cosine 0.90 | **Removed.** The relation is the source's words. |
+| Sentence-claim verdicts | **DeBERTa NLI**, paragraph → sentence, stored but never gating | **Removed.** |
+| Relation support | **DeBERTa NLI**, paragraph vs "subject relation object.", twice (canonical + source relation); 7% over the 512-token bound | **Removed.** Replaced by the claim pass's own NLI check: claim sentence vs its 1–2 cited windows (≤ 224 tokens each, always inside 512). Long turns already pay it for summaries; short turns are new. |
+| Author-assertion review | **gemma4:e4b** with thinking, batches of 12 facts, 8K input | **Removed.** Guard moves to `modality` + the §5.1 controls (TRAPS 70/97/116). |
+| Conflict reconciler | **gemma4:e4b**, one-word verdict per same-subject+relation pair; 571 left pending for a human | **Replaced** by one batched `gemma4:e4b` call per turn (D6: same / replaces / both_true), only when candidate facts exist; applies itself (D12). |
+| Entity embedding | Qwen3-Embedding per new entity | **Stays.** |
+| Fact / claim embedding | Qwen3-Embedding per claim paragraph (`codex_claims`) | **Stays**, per fact sentence (shorter input). |
+| Entity name matching | exact → alias → `merge_key` | **Same + trigram** (`pg_trgm`, not a model). |
+
+**Background jobs**
+
+| Job | Before | After |
+|---|---|---|
+| Maintenance: reconciliation, contradiction, pending pile-up detectors | gemma4:e4b decisions → review queue | **Removed** (D6 owns changes at write time). |
+| Maintenance: duplicate entities | embedding cosine 0.90 → gemma4:e4b → review queue | **Stays**, now applies itself with undo (D12). |
+| Reflection: entity description enrichment | gemma4:e4b per entity | **Removed** for conversation entities (D11.1). |
+| Entity notes (quoted claims per entity) | gemma4:e4b + DeBERTa NLI | **Removed** for conversation entities (D11.1); stays elsewhere for summaries. |
+| Compaction snapshots | no model | **Removed** (D11.2). |
+
+**Read path (per question)**
+
+| Step | Before | After |
+|---|---|---|
+| Names in the question | **micro-NER** (our 384-dim head on Qwen3-Embedding); missed names in 48/58 short prompts (2026-09-24, old corpus) → graph not consulted | **Known-name lookup first**: the store's own entity names searched in the question with `pg_trgm` (no model). micro-NER kept as a second source for unseen names. Measured on the 67 development questions before adoption. |
+| Question → entity match | Qwen3-Embedding cosine ≥ 0.85, payload ILIKE fallback | Embedding match **stays**; payload ILIKE **removed**. |
+| Relation detection / relation fit | Qwen3-Embedding against relation glosses | **Removed** (no relation vocabulary to fit). |
+| Fact search | — | **New**: BM25 + fact-embedding cosine (the query is already embedded once for episodic search). |
+| Reranker | **Qwen3-Reranker** over whole source messages (best-window scoring, ~1.3 s per over-length passage) | **Stays**, over short fact sentences (no over-length windows for facts). |
+
+Net: four model steps leave the write path (NuExtract3 extraction, NuNER gate, relation
+canonicaliser, relation NLI + author review), one batched gemma call is added, and NLI moves
+onto the claim pass that already runs.
+
 ## 2. Algorithm & data model
 
 ```sql
