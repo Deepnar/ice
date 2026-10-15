@@ -68,10 +68,11 @@ needs the maintainer's approval):
     scoped by topic (A10), the history-length term in the retrieve decision is
     bounded (A11), cluster bonuses need real similarity and automatic cluster
     scoping is off (A12). Findings: [PROVENANCE 2026-10-15](PROVENANCE.md).
-  - *First check after the codex rework (A6):* replay the development history on
-    the new write path and count what reaches prompts — on 2026-10-14 only 6/920
-    selected turns arrived as summaries and the graph leg produced 42 candidates
-    over 67 questions. One check covers summaries, procedures and codex together.
+  - *A6 — what reaches prompts:* measured by Z2 itself (D9 reports how often each
+    artifact kind reached a prompt). Attach the count to **Z2 S0's 50-pair B slice**
+    as the early warning before the long replay — on 2026-10-14 only 6/920 selected
+    turns arrived as summaries and the graph leg produced 42 candidates over 67
+    questions. No separate run (maintainer, 2026-10-15).
   - *Z2 reporting note (A7):* full ICE fills ~28% of its reported memory budget by
     design (growth cap, no reallocation; median 10K of 38K). Budget comparisons
     and token-efficiency figures must use the budget ICE actually used.

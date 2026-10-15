@@ -131,7 +131,7 @@ def install_pipeline_stubs():
     post_flight.generate_summary = lambda *a, **k: (
         f"{MARK} summary.", 1.0, f"{MARK} abstract.")
 
-    def _triplets(t, model_override="", topic_tags=None, gaps=None):
+    def _triplets(t, model_override="", topic_tags=None, gaps=None, source_sentences=None):
         _codex_calls.append(t)
         return [{"subject": MARK + "sub", "relation": "describes",
                  "object": MARK + "obj"}]
@@ -140,8 +140,18 @@ def install_pipeline_stubs():
         f"When {MARK}, the user asks about the document.")
 
 
-def stub_summary_llm(prompt, max_tokens=400):
-    return f"{MARK} document-level summary."
+def stub_summary_llm(prompt, max_tokens=400, schema=None):
+    """Plain text under v2; under SUMMARY_CLAIMS_V3 (2026-10-15) one cited
+    claim quoting the first window it was shown."""
+    if schema is None:
+        return f"{MARK} document-level summary."
+    import json as _json
+    import re as _re
+    m = _re.search(r'\[(w\d+);[^\]]*\]\nThe (\w+) said: ("(?:[^"\\]|\\.)*")', prompt.source)
+    window, role, excerpt = m.group(1), m.group(2), _json.loads(m.group(3))
+    quote = " ".join(excerpt.split()[:6])
+    return _json.dumps({"summary": [{"sources": [window], "quote": quote, "speaker": role,
+                                     "text": f"{MARK} document-level summary: {quote}"}]})
 
 
 def clf(prompt):
