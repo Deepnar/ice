@@ -127,14 +127,16 @@ try:
 
     print("── session-affinity bonus (C6 payoff) ──")
     # Mirrored setups (assignment moves the centroid, so the control needs
-    # clean geometry in its own conversation): raw sim cos(57°)≈0.545 < 0.6;
-    # only the +0.10 same-session bonus crosses the threshold.
+    # clean geometry in its own conversation): raw sim cos(55°)≈0.574 < 0.6;
+    # only the +0.10 same-session bonus crosses the threshold. (Audit A12,
+    # 2026-10-15: bonuses now need raw ≥ cluster_min_raw_similarity 0.55, so
+    # the borderline sits between that floor and the threshold.)
     c = convs["session"]
     sess = uuid.uuid4()
     m1 = mk_turn(c, "session seed one", unit(0), session_id=sess)
     m2 = mk_turn(c, "session seed two", unit(0), session_id=sess)
     mk_cluster(c, unit(0), [m1, m2], "S")
-    borderline_in = mk_turn(c, "borderline same sitting", unit(57),
+    borderline_in = mk_turn(c, "borderline same sitting", unit(55),
                             ts=NOW + timedelta(minutes=4), session_id=sess)
     cw.run_cluster_assignment(db, conversation_ids=[c.id])
     check("borderline turn in SAME session → assigned", len(links_of(borderline_in)) == 1)
@@ -144,7 +146,7 @@ try:
     n1 = mk_turn(c2, "session seed one", unit(0), session_id=sess2)
     n2 = mk_turn(c2, "session seed two", unit(0), session_id=sess2)
     mk_cluster(c2, unit(0), [n1, n2], "S2")
-    borderline_out = mk_turn(c2, "borderline other sitting", unit(57),
+    borderline_out = mk_turn(c2, "borderline other sitting", unit(55),
                              ts=NOW + timedelta(minutes=5), session_id=uuid.uuid4())
     cw.run_cluster_assignment(db, conversation_ids=[c2.id])
     check("identical turn in OTHER session → waits", len(links_of(borderline_out)) == 0)

@@ -43,8 +43,8 @@ TRANSITIONS = {
     },
     "src/retrieval/orchestrator.py": {
         "before": "5027817122bad3a1eb9952132f056daebd3acaf574778da57826ac0a446d5b61",
-        "after": "a79a4e93ebae97f4414d2c1cd6fb80fc5ca13de432f186a980ac0735bc0cc7e4",
-        "reason": "Authorized tested native artifact IDs, preserved cold claim membership, source-covered graph packing and exact same-source selected excerpt omission; ranking/proofs and frozen writer outcomes remain unchanged.",
+        "after": "47e0c86ad8eb9fe6f7c884a61a63c8c3b226ec6dfa7dce54b37623e1fa9d0099",
+        "reason": "Authorized tested native artifact IDs, preserved cold claim membership, source-covered graph packing and exact same-source selected excerpt omission; ranking/proofs and frozen writer outcomes remain unchanged. 2026-10-15 (audit A12): automatic top-k cluster scoping gated behind retrieval_auto_cluster_scope (default off); explicit cluster scope unchanged.",
     },
     "src/retrieval/evolution.py": {
         "before": "a05d0f0923daf0a545d45ffe7a9412854e86504bec43726624b75942a9fd8051",

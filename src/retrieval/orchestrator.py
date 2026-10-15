@@ -562,7 +562,7 @@ class HybridRetrievalOrchestrator:
         if scope and scope.get("cluster_ids_explicit"):
             logger.debug("cluster_scope_explicit_kept",
                          clusters=len(scope.get("cluster_ids") or []))
-        else:
+        elif settings.retrieval_auto_cluster_scope:
             # G29: top_k omitted so settings.retrieval_cluster_top_k decides. The
             # literal 10 that used to sit here matched the setting, so nothing
             # moves — but it made the knob unreachable, same as the

@@ -243,9 +243,18 @@ try:
                   prompt_embedding=EMB, scope=explicit_scope)
     check("retrieve() leaves an explicit cluster choice intact",
           explicit_scope["cluster_ids"] == [str(clus_keep.id)])
+    # Audit A12 (2026-10-15): automatic cluster scoping is OFF by default (it
+    # scoped out 19/108 gold turns once clusters were meaningful).
+    default_scope = {"conversation_ids": [str(conv_in.id)]}
+    orch.retrieve(classification=clf(MARK_CK), conversation_id=str(conv_in.id),
+                  prompt_embedding=EMB, scope=default_scope)
+    check("by default an unmarked scope gets NO automatic cluster restriction",
+          not default_scope.get("cluster_ids"))
+    settings.retrieval_auto_cluster_scope = True
     auto_scope = {"conversation_ids": [str(conv_in.id)]}
     orch.retrieve(classification=clf(MARK_CK), conversation_id=str(conv_in.id),
                   prompt_embedding=EMB, scope=auto_scope)
+    settings.retrieval_auto_cluster_scope = False
     # The other side: the picker DOES run here and DOES produce a different
     # set (it reaches clus_drop, which the explicit choice left out) — so the
     # check above is the flag working, not the picker being idle.

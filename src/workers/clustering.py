@@ -197,6 +197,8 @@ def _score_against_cluster(turn_emb, turn_tags, turn_entities, turn_session, sta
     session_bonus = settings.cluster_session_affinity_bonus if (
         turn_session is not None and turn_session in state["sessions"]
     ) else 0.0
+    if base_sim < settings.cluster_min_raw_similarity:
+        return base_sim  # audit A12: bonuses separate similar turns, never rescue unrelated ones
     return base_sim + tag_bonus + entity_bonus + session_bonus
 
 
@@ -209,6 +211,8 @@ def _pair_score(a, b):
     session_bonus = settings.cluster_session_affinity_bonus if (
         a["session_id"] is not None and a["session_id"] == b["session_id"]
     ) else 0.0
+    if base < settings.cluster_min_raw_similarity:
+        return base  # audit A12: see _score_against_cluster
     return base + entity_bonus + session_bonus
 
 

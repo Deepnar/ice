@@ -428,6 +428,12 @@ class Settings(BaseSettings):
     # Cluster restriction: how many clusters scope a query, and how many
     # candidates the SQL over-fetches before tag-overlap re-ranking.
     retrieval_cluster_top_k: int = 10
+    # Audit A12 (2026-10-15): automatic scoping to the top-k clusters is OFF.
+    # Re-clustering the dev history so clusters became meaningful (raw floor
+    # 0.55: 38 clusters, largest 44%) scoped out 19/108 gold turns of the 67
+    # reviewed questions (2/108 even with today's single mega-cluster). An
+    # explicit user-chosen cluster scope still applies.
+    retrieval_auto_cluster_scope: bool = False
     retrieval_cluster_candidate_multiplier: int = 3
 
     # ── G9 (Tier 2): operational knobs ─────────────────────────────────────
@@ -729,6 +735,14 @@ class Settings(BaseSettings):
     # centroid similarity. Merging is permanent, which is why it carries both
     # a higher bar and a stricter bonus cap than assignment.
     cluster_similarity_threshold: float = 0.6
+    # Audit A12 (2026-10-15): bonuses (tags ≤0.10 + entities ≤0.30 + session
+    # 0.10) could lift a raw cosine of ~0.1 over the 0.6 threshold, and union-
+    # find chained such pairs: the dev history became ONE cluster and the
+    # largest store's biggest cluster held 1,075/1,471 turns, 51% of them
+    # below 0.6 raw. Bonuses now apply only at or above this raw similarity.
+    # Measured on a dev-store copy: 0.45 → largest cluster 237/251, 0.50 → 222,
+    # 0.55 → 110 (38 clusters); logs/audit-a12-clustering-2026-10-15-r1/.
+    cluster_min_raw_similarity: float = 0.55
     cluster_merge_similarity_threshold: float = 0.90
     cluster_merge_min_raw_sim: float = 0.82
     cluster_max_turns_per_run: int = 25
