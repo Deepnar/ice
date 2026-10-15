@@ -153,20 +153,19 @@ recovers it (+0.82 [+0.39,+1.24]) in that buildup, without a general safety clai
 - 🏷 Evaluated snapshot — git tag `v2-paper-eval`
 - 🤗 Frozen **ICE v2** paper models — [classifier](https://huggingface.co/Deepnar/ice-v2-classifier), [MicroNER](https://huggingface.co/Deepnar/ice-v2-microner), and [reproducibility collection](https://huggingface.co/collections/Deepnar/ice-lsrep-reproducibility-6ac6210257541dd6f8594e14). Original `.pt` files, SHA-256 checksums and frozen preprocessing are included; these are separate from current ICE v3 models.
 
-Current **v3** work uses the completed diagnostic reseed to repair memory
-mechanisms before bounded tuning. Final preparation reserves both original
-paper histories B and C for separate semi-LSREP runs with the same complete
-ablations, lifecycle and warm/bare-vector controls, plus LongMemEval oracle.
-The [development preparation guide](experiments/v3_repair/README.md) covers
-frozen source/scorer keys, selected resumable repaired replay, source/task audits
-and bounded tuning-coordinate planning/local prompt collection, comparison and
-manually launched diagnostic cloud-answer collection.
-It also documents partial per-source exposure counters, full private error
-capture seams and the exact tuning/maintenance policy; final granular capture
-remains to integrate.
-Independent quality qualification,
-the full tuning executor and the resumable final runner remain.
-These preparations are not a new memory-quality result or a full LME-S campaign.
+Current **v3** work used the completed diagnostic reseed to repair memory
+mechanisms, then ran bounded read tuning on a development history
+([results](experiments/v3_repair/results/tuning-freeze-2026-10-15.md)): no
+setting beat the defaults beyond answer noise, so the configuration is frozen
+unchanged. On that near-ceiling development set, ICE's extra memory machinery
+showed no answer benefit over its own vector leg; this is development evidence,
+not a result. The next phase, **Z2** ([spec](docs/specs/Z2_EVALUATION.md)), is
+built to be difficult by design: cited evolving ground truth on two long
+histories (0.7-1.2M tokens), read-time ablations, budget curves, a
+background-content quality audit and the LongMemEval oracle, with a
+pre-registered rule for when a component earns its place. Z2 is not the paper's
+final experiment. The [development preparation guide](experiments/v3_repair/README.md)
+covers the tuning instruments.
 
 ## Repository layout
 
