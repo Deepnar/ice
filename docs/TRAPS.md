@@ -2740,3 +2740,16 @@ afterwards (`bg_native_transport.check_prompt_count`). The same check showed the
 `/v1` door does not even repeat itself at temperature 0 (0/6 identical
 back-to-back; native 6/6) — so an identity comparison across doors needs a
 same-door repeat control first.
+
+### 131. A docstring edit in a bound file breaks a frozen harness — and the quick group cannot see it
+
+ICE v3, 2026-10-15: the native-transport commit changed only the docstring of
+`src/workers/nuextract_transport.py`, ran the quick group (green) and was
+committed. That file is a registered transition in
+`experiments/v3_repair/reader_adoption.py` with a pinned "after" fingerprint, so
+the db-group test `test_v3_tuning_contexts::test_native_prefix_collection...`
+refused it ("unregistered reader/producer code change"). The quick group never
+runs that test. Before committing a change to any file under `src/`, grep
+`TRANSITIONS` in `reader_adoption.py`; if the file is listed, register the new
+"after" bytes with a reason, and run the db group (disposable database) before
+the commit, not after.
