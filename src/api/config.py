@@ -524,8 +524,11 @@ class Settings(BaseSettings):
     # job floor is its legacy cap (turn/conversation summary 900, entity note
     # 900). Set from the SUMMARY_CLAIMS_V3 §3 run (31 pieces, 2026-10-15): v3
     # output/input median 0.53, max 1.05 on ≥2K-token pieces (list-dense turns
-    # emit ~one claim + quote per line); 1.3 = max × 1.25.
-    summary_output_ratio: float = Field(default=1.3, gt=0)
+    # emit ~one claim + quote per line); 1.3 = max × 1.25. Raised to 2.0 by
+    # the CODEX_V4 §5.1 run (41 pieces, 2026-10-15): at 1.3, 5/26 v3 and
+    # 15/26 v4 2K-token C pieces were cut mid-JSON; the v4 fact shape needs up
+    # to 1.58 on ≥2K-token pieces (cap 8,192 run) → 2.0 = 1.58 × 1.25.
+    summary_output_ratio: float = Field(default=2.0, gt=0)
     summary_output_ceiling: int = Field(default=8192, ge=256)
 
     # ⚑ The extraction prompt's DIRECTION rule (2026-08-22). ~25-28% of stored

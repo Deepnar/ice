@@ -86,6 +86,9 @@ Private units: `logs/z2-s0-summary-v3-qualification-2026-10-15-r1/`.
 
 Output/input ratio (v3, pieces ≥ 2K tokens): median 0.53, max 1.05 — list-dense
 turns emit about one claim per source line → `summary_output_ratio` = 1.3.
+**Revised 2026-10-15 (c) → 2.0** ([CODEX_V4](CODEX_V4.md) §5.1, 41 pieces): at 1.3,
+5/26 v3 and 15/26 v4 2K-token C pieces were cut mid-JSON (their natural length was
+never seen); the v4 fact shape needs up to 1.58 on ≥ 2K-token pieces → 1.58 × 1.25.
 Quote failures read against their sources: 10 of 12 were the exact words with
 Markdown markers dropped (`**…**`, backticks), so the quote comparison ignores
 `*`, `` ` ``, `#` and curly quote marks; word order and spelling still must
