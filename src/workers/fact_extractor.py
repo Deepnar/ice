@@ -74,7 +74,7 @@ def extract_facts(batch_id, model_used: str = ""):
         if record is None:
             record = _claim_record(turn, model_used)
         counts = facts.write_turn_facts(db, turn, record, embedder=get_embedder(),
-                                        mentions=_mentions)
+                                        ask=_ask, mentions=_mentions)
         words = len((turn.raw_text or "").split())
         if counts["new"] + counts["supported"] == 0 and words > 50:
             # Silent-fallback rule (TRAPS 11): say every time a real turn gives nothing.
@@ -93,3 +93,18 @@ def extract_facts(batch_id, model_used: str = ""):
 def _mentions(sentence: str):
     from src.retrieval.ner_utils import extract_entities
     return extract_entities(sentence, get_embedder(), tier="background")
+
+
+def _ask(earlier: str, newer: str) -> dict:
+    """D6's two questions on the background model (or codex_fact_reconcile_model)."""
+    import json
+    from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name, json_schema
+    from src.workers.completion_text import complete_text
+    model = settings.codex_fact_reconcile_model or get_bg_model_name()
+    completion = get_bg_client().chat.completions.create(
+        model=model, temperature=0.0, max_tokens=60, timeout=bg_timeout(60),
+        messages=[{"role": "system", "content": facts.RECONCILE_SYSTEM},
+                  {"role": "user", "content": json.dumps({"earlier": earlier, "newer": newer},
+                                                         ensure_ascii=False)}],
+        response_format=json_schema("fact_relation", facts.RECONCILE_SCHEMA))
+    return json.loads(complete_text(completion))

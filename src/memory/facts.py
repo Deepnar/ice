@@ -155,16 +155,90 @@ def _source_row(fact_id, turn, assertion) -> CodexFactSource:
         verification=assertion.get("verification") or {})
 
 
+# ── D6: same / replaces / both_true ──────────────────────────────────────────
+# Qualified 2026-10-16 (CODEX_V4 §5.2, 99 real same-speaker pairs + 12 planted):
+# asking "which verdict" made both gemma4:e4b and a 27B call "replaces" on 18-23
+# of 94 both-true pairs; asking "same information?" and "can both be true now?"
+# (Graphiti's framing) cut gemma to 6, and the label rule below to 2 — both a
+# newer, more detailed version of the same details.
+RECONCILE_SYSTEM = (
+    "You compare two memory facts said by the same speaker: an EARLIER one and a NEWER one. "
+    "Answer two questions about what the sentences say:\n"
+    "1. same_information: do both sentences state the same thing, with neither adding or "
+    "changing any information?\n"
+    "2. both_can_be_true: could both sentences be true at the same time, right now? Answer "
+    "false only if the newer one says the earlier one is no longer so - a changed value, a "
+    "cancelled or reversed decision, a stopped habit, a correction. Different details, extra "
+    "detail, items of a list, a question, a suggestion, a possibility or a different direction "
+    "of a relation can all be true together: answer true.\n"
+    "Use only what the sentences say.")
+RECONCILE_SCHEMA = {"type": "object", "additionalProperties": False,
+                    "required": ["same_information", "both_can_be_true"],
+                    "properties": {"same_information": {"type": "boolean"},
+                                   "both_can_be_true": {"type": "boolean"}}}
+# A label that is not a statement of fact never replaces, and is never replaced
+# (the label is ~85-90% reliable; this rule removed 3 of 5 false replacements).
+_NO_REPLACE = {"asked", "suggested", "hypothetical"}
+
+
+def candidates(db, claim: dict, vector, *, exclude=()) -> list:
+    """Current facts of the same speaker that share a named entity with the
+    claim, or are among the k nearest at cosine >= the floor."""
+    from pgvector.sqlalchemy import Vector as PgVector
+    from sqlalchemy import bindparam
+    from src.workers.maintenance_agent import merge_key
+    keys = [merge_key(canonical(claim.get(r) or "")) for r in ("subject", "object")
+            if claim.get(r) and party(claim[r], claim["speaker"]) is None and linkable(claim[r])]
+    ids = set()
+    if keys:
+        ids |= {r[0] for r in db.execute(text("""
+            SELECT DISTINCT f.id FROM codex_facts f
+            JOIN codex_fact_entities fe ON fe.fact_id = f.id
+            JOIN codex_entities e ON e.id = fe.entity_id
+            WHERE f.valid_until IS NULL AND f.speaker = :sp AND fe.role IN ('subject', 'object')
+              AND e.properties->>'merge_key' = ANY(:keys)
+            LIMIT 20"""), {"sp": claim["speaker"], "keys": keys})}
+    rows = db.execute(text("""
+        SELECT id, 1 - (embedding <=> :v) AS sim FROM codex_facts
+        WHERE valid_until IS NULL AND speaker = :sp AND embedding IS NOT NULL
+        ORDER BY embedding <=> :v LIMIT :k""").bindparams(bindparam("v", type_=PgVector)),
+        {"v": [float(x) for x in vector], "sp": claim["speaker"],
+         "k": settings.codex_fact_candidate_k}).fetchall()
+    ids |= {r.id for r in rows if r.sim >= settings.codex_fact_candidate_cosine}
+    ids -= set(exclude)
+    return [db.get(CodexFact, i) for i in sorted(ids, key=str)]
+
+
+def reconcile(claim: dict, earlier, *, ask: Callable, when) -> str:
+    """'same' | 'replaces' | 'both_true' for one earlier fact. *ask(earlier_text,
+    newer_text)* returns the two booleans. An older observation never replaces a
+    newer one; unknown or failed answers are both_true (TRAPS 99)."""
+    try:
+        answer = ask(earlier.text, claim["text"].strip())
+        same, compatible = bool(answer["same_information"]), bool(answer["both_can_be_true"])
+    except Exception as exc:                                  # noqa: BLE001
+        logger.warning("fact_reconcile_failed", error_type=type(exc).__name__)
+        return "both_true"
+    if same:
+        return "same"
+    if (compatible or claim.get("modality") in _NO_REPLACE or earlier.modality in _NO_REPLACE
+            or (earlier.mentioned_at and when and when < earlier.mentioned_at)):
+        return "both_true"
+    return "replaces"
+
+
 def write_turn_facts(db, turn, record: dict, *, embedder,
-                     decide: Optional[Callable] = None, mentions: Optional[Callable] = None) -> dict:
+                     ask: Optional[Callable] = None, mentions: Optional[Callable] = None) -> dict:
     """Write one turn's verified v4 assertions as facts. Caller commits.
 
-    *decide(new_fact, candidates)* is D6's same / replaces / both_true call; None
-    (until CODEX_V4 §5.2 qualifies it) means exact-text duplicates merge and
-    everything else is a new fact. *mentions(text)* returns entity names found
-    in a fact sentence (NuNER, background tier); None skips mention links.
+    Exact-text duplicates of the same speaker merge without a model. *ask* is
+    D6's question (see `reconcile`); None skips it, so every other claim is a
+    new fact. *mentions(text)* returns entity names found in a fact sentence
+    (NuNER, background tier); None skips mention links.
     """
-    counts = {"assertions": 0, "dropped": 0, "new": 0, "supported": 0, "links": 0}
+    counts = {"assertions": 0, "dropped": 0, "new": 0, "supported": 0, "links": 0,
+              "superseded": 0, "reconcile_calls": 0}
+    written = set()
     rows = [a for a in (record or {}).get("assertions") or []]
     counts["assertions"] = len(rows)
     when = getattr(turn, "timestamp", None) or datetime.now(timezone.utc)
@@ -185,8 +259,16 @@ def write_turn_facts(db, turn, record: dict, *, embedder,
                     .filter(CodexFact.text_sha256 == sha, CodexFact.speaker == claim["speaker"],
                             CodexFact.valid_until.is_(None))
                     .order_by(CodexFact.mentioned_at).first())
-        if existing is None and decide is not None:
-            existing = decide(claim, db=db)
+        replaced = []
+        if existing is None and ask is not None:
+            for earlier in candidates(db, claim, vector, exclude=written):
+                counts["reconcile_calls"] += 1
+                verdict = reconcile(claim, earlier, ask=ask, when=when)
+                if verdict == "same":
+                    existing = earlier
+                    break
+                if verdict == "replaces":
+                    replaced.append(earlier)
         if existing is not None:
             source = _source_row(existing.id, turn, assertion)
             if db.get(CodexFactSource, (existing.id, source.source_batch, source.window_sha256)) is None:
@@ -207,9 +289,15 @@ def write_turn_facts(db, turn, record: dict, *, embedder,
         db.add(fact)
         db.flush()
         db.add(_source_row(fact.id, turn, assertion))
+        written.add(fact.id)
         counts["new"] += 1
         counts["links"] += _link(db, fact, claim, embedder=embedder, mentions=mentions)
         _journal(db, fact, "fact_added", turn.batch_id)
+        for old in replaced:
+            # Kept, never deleted: valid_until + superseded_by; undo = restore_fact.
+            old.valid_until, old.superseded_by = when, fact.id
+            _journal(db, old, "fact_superseded", turn.batch_id, superseded_by=str(fact.id))
+            counts["superseded"] += 1
     db.flush()
     return counts
 
@@ -336,3 +424,16 @@ def entity_facts(db, entity_id, *, current: bool = True, limit: int = 30) -> lis
         if len(out) >= limit:
             break
     return out
+
+
+
+def restore_fact(db, fact_id, batch=None) -> bool:
+    """D12 undo for an automatic replacement: the fact is current again."""
+    fact = db.get(CodexFact, fact_id)
+    if fact is None or fact.valid_until is None:
+        return False
+    replaced_by = fact.superseded_by
+    fact.valid_until, fact.superseded_by = None, None
+    _journal(db, fact, "fact_restored", batch or uuid.uuid4(),
+             was_superseded_by=str(replaced_by) if replaced_by else None)
+    return True

@@ -183,6 +183,8 @@ def test_stage_reuses_summary_claims_and_skips_private(monkeypatch):
     from src.workers import fact_extractor
     monkeypatch.setattr(settings, "summary_assertion_method", "v4")
     monkeypatch.setattr(fact_extractor, "get_embedder", lambda: ENC)
+    monkeypatch.setattr(fact_extractor, "_ask", lambda *_a: {"same_information": False,
+                                                             "both_can_be_true": True})
     monkeypatch.setattr(fact_extractor, "_claim_record",
                         lambda *_a, **_k: pytest.fail("claim pass called despite a v4 summary record"))
     with SessionLocal() as db:
@@ -286,3 +288,79 @@ def test_entity_view_lists_current_and_replaced_facts():
         assert view["replaced_facts"][0]["superseded_by"] == str(new.id)
         timeline = graph.entity_timeline(db, tool)
         assert timeline["has_history"] and timeline["replaced_facts"]
+
+
+
+def _ask(same=False, compatible=True, only=""):
+    """Stub D6 model; answers about facts containing *only*, both_true otherwise
+    (stub embeddings make every same-speaker fact a candidate)."""
+    def ask(earlier, newer):
+        mine = only in earlier
+        return {"same_information": same and mine, "both_can_be_true": compatible or not mine}
+    return ask
+
+
+def test_reconcile_same_adds_support_and_replaces_supersedes_with_undo():
+    with SessionLocal() as db:
+        first, second, third = _turn(db), _turn(db), _turn(db)
+        third.timestamp = WHEN.replace(month=6)
+        tag = uuid.uuid4().hex[:6]
+        facts.write_turn_facts(db, first, {"assertions": [
+            _a(f"The user said they live in Porto {tag}.", "I moved to Lisbon in March")]}, embedder=ENC)
+        old = db.query(CodexFact).filter(CodexFact.text.like(f"%Porto {tag}%")).one()
+        counts = facts.write_turn_facts(db, second, {"assertions": [
+            _a(f"The user stated they live in Porto {tag} now.", "I moved to Lisbon in March")]},
+            embedder=ENC, ask=_ask(same=True, only=tag))
+        assert counts["supported"] == 1 and counts["new"] == 0 and old.support_count == 2
+        counts = facts.write_turn_facts(db, third, {"assertions": [
+            _a(f"The user said they moved from Porto to Lisbon {tag}.", "I moved to Lisbon in March")]},
+            embedder=ENC, ask=_ask(compatible=False, only=tag))
+        new = db.query(CodexFact).filter(CodexFact.text.like(f"%to Lisbon {tag}%")).one()
+        assert counts["superseded"] >= 1 and old.valid_until == third.timestamp and old.superseded_by == new.id
+        assert db.query(CodexEvent).filter(CodexEvent.event_type == "fact_superseded",
+                                           CodexEvent.payload["fact_id"].astext == str(old.id)).count() >= 1
+        assert facts.restore_fact(db, old.id) and old.valid_until is None and old.superseded_by is None
+        db.rollback()
+
+
+def test_reconcile_guards():
+    with SessionLocal() as db:
+        earlier = _turn(db)
+        later = _turn(db)
+        later.timestamp = WHEN.replace(month=9)
+        tag = uuid.uuid4().hex[:6]
+        facts.write_turn_facts(db, later, {"assertions": [
+            _a(f"The user said they use Rust {tag}.", "I moved to Lisbon in March")]}, embedder=ENC)
+        newest = db.query(CodexFact).filter(CodexFact.text.like(f"%Rust {tag}%")).one()
+        # an OLDER observation arriving later never replaces a newer fact
+        facts.write_turn_facts(db, earlier, {"assertions": [
+            _a(f"The user said they use Python {tag}.", "I moved to Lisbon in March")]},
+            embedder=ENC, ask=_ask(compatible=False, only=tag))
+        assert newest.valid_until is None
+        # a suggestion never replaces; the other speaker is never a candidate
+        sugg = _turn(db)
+        sugg.timestamp = WHEN.replace(month=12)
+        seen = []
+        def spy(e, n):
+            seen.append(e)
+            return {"same_information": False, "both_can_be_true": False}
+        facts.write_turn_facts(db, sugg, {"assertions": [
+            _a(f"The user suggested they might switch to Go {tag}.", "I moved to Lisbon in March",
+               modality="suggested")]}, embedder=ENC, ask=spy)
+        assert newest.valid_until is None and seen
+        db.add(CodexFact(text=f"The assistant said Go compiles fast {tag}.", text_sha256=uuid.uuid4().hex,
+                         speaker="assistant", modality="asserted", embedding=[1.0] * 1024,
+                         mentioned_at=WHEN, valid_from=WHEN))
+        db.flush()
+        seen.clear()
+        facts.write_turn_facts(db, sugg, {"assertions": [
+            _a(f"The assistant said Zig is fast {tag}.", "Nice", speaker="assistant", subject="Zig",
+               relation="is", obj="fast")]}, embedder=ENC, ask=spy)
+        assert seen and all(e.startswith("The assistant") for e in seen)   # never a user fact
+        # a failed call is both_true, never an expiry
+        boom = lambda e, n: (_ for _ in ()).throw(TimeoutError())
+        facts.write_turn_facts(db, sugg, {"assertions": [
+            _a(f"The user said they stopped using Rust {tag}.", "I moved to Lisbon in March")]},
+            embedder=ENC, ask=boom)
+        assert newest.valid_until is None
+        db.rollback()

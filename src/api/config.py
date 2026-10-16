@@ -653,6 +653,16 @@ class Settings(BaseSettings):
     # decayed usage 1/3). 0 until §5.3 sets B from the measured spread of
     # rerank logits on the development questions; not a guessed value.
     codex_fact_strength_bonus: float = 0.0
+    # CODEX_V4 D6 — same / replaces / both_true between a new fact and earlier
+    # facts of the SAME speaker. Candidates: shares a named entity, or the 8
+    # nearest by fact embedding at cosine >= the floor (dev history: 262 of
+    # 11,878 nearest pairs clear 0.80, ~1 per turn). The decision model is the
+    # background model unless set: a 27B judged 2/94 false replaces vs gemma's 2
+    # after the label rule, but cannot sit beside the background stack on a
+    # 24 GB card (§5.2, 2026-10-16).
+    codex_fact_candidate_cosine: float = 0.80
+    codex_fact_candidate_k: int = 8
+    codex_fact_reconcile_model: str = ""
     # G44 second half — node promotion. When a MORE SPECIFIC name arrives for a
     # generic node already in the graph ("master plan" against a stored "plan"),
     # the generic one is registered as an alias of the specific one so later
