@@ -303,7 +303,10 @@ Private turns: no facts (unchanged). Idempotency: `job_key("facts", batch_id)`.
 8. **Harnesses:** `scripts/z1/seed_v3.py` (`no_codex` arm → disable `_facts_leg`),
    `experiments/v3_repair/chronological_replay.py` (`graph_exposure`),
    `experiments/v3_repair/artifact_inventory.py` (fact columns for Z2 D9).
-9. **Docs:** FEATURE_INVENTORY rows (§3/§7/§8 graph rows replaced), ICE_Architecture §4
+9. **End-of-rework checks (maintainer, 2026-10-16):** re-embed — `reembed._validate_registry`
+   already refuses `ice_db` (no rule for `batch_notes`, `cold_chunks`, `conversation_notes`,
+   `codex_claims`); add the three surviving rules and prove it on an `ice_db` copy.
+10. **Docs:** FEATURE_INVENTORY rows (§3/§7/§8 graph rows replaced), ICE_Architecture §4
    rewritten (+ the partial mentions listed in SESSION), MODELS (NuExtract3 role ends),
    ROADMAP (A1/A3/A8/A9/B1–B6/G68 closed by this item; G63/G69/G76/G60 re-pointed).
 
