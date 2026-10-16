@@ -382,6 +382,30 @@ risky direction — "might"/"if" sentences labelled `asserted`, and pasted-spec 
 labelled `asserted` (sheet 2 S5, S7) — to show the call, not the label, blocks them. Report per label precision/recall; pass: `replaces` never
 fires on a converse or a list member; `same` precision ≥ 0.95.
 
+**5.2 Result — 2026-10-16** (scratch harness: `logs/codex-v4-qualification-2026-10-15-r1/
+dedupe_*`). Candidates from the v4 pass over the whole development history (1,463 facts,
+251 turns): **0 exact-text duplicates** (the model rewords every time, so a model decision
+is required); 11,878 nearest pairs, 262 at cosine ≥ 0.80, 490 sharing an entity. Gold by
+reading for 103 real same-speaker pairs (same 8 / replaces 1 / both_true 90 / 4 excluded
+as ambiguous) + 12 planted from the real control sentences.
+
+| instrument | real right | false replaces / 94 | planted |
+|---|---:|---:|---:|
+| gemma4:e4b, "which verdict" | 73/99 | 23 | 8/12 |
+| DeBERTa NLI (mutual entailment / contradiction) | — | contradiction 0.97–0.999 on might / question / list | — |
+| qwen3.8:27b, "which verdict" | 76/99 | 18 | 9/12 |
+| **gemma4:e4b, "same information? / can both be true now?"** | **88/99** | **6 → 2 with the label rule** | 10/12 |
+| qwen3.8:27b, same framing | 90/99 | 2 | 12/12 |
+
+Shipped: gemma4:e4b, compatibility framing, label rule (asked / suggested / hypothetical
+never replace or get replaced), same speaker only, candidates at cosine ≥ 0.80 or a shared
+entity. Residual: two "newer, more detailed version" pairs read as replaces (old fact kept
+as "earlier: …", `restore_fact` undoes); planted list member (Python → Rust) read as
+replaces; one planted move missed. A 27B is not the default: it cannot sit beside the
+~8 GB background stack on a 24 GB card; `codex_fact_reconcile_model` lets a bigger machine
+choose it. Same-speaker only (maintainer-visible decision 2026-10-16): the user's own
+statement is never folded into the assistant's.
+
 **5.3 Strength bound `B`.** Rerank logits of fact candidates on the 67 development
 questions: set `B` = median gap between adjacent selected candidates; report how many
 selections flip with the bonus on vs off (standing rule: "turning it off changes N").
