@@ -306,6 +306,68 @@ class CodexClaimLink(Base):
     relation_verification = Column(JSONB, nullable=True)
 
 
+class CodexFact(Base):
+    """CODEX_V4: one verified, self-contained fact sentence — what readers see.
+
+    The sentence passed the claim pass's quote check and NLI against its cited
+    window; subject/relation/object are navigation metadata in the source's own
+    words, never the identity key. Replaced facts are kept (valid_until +
+    superseded_by), never rewritten in place.
+    """
+    __tablename__ = "codex_facts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    text = Column(Text, nullable=False)
+    text_sha256 = Column(Text, nullable=False, index=True)
+    speaker = Column(Text, nullable=False)    # user | assistant | document
+    # asserted | shared | suggested | hypothetical | asked — ~85-90% reliable
+    # (CODEX_V4 §5.1); the sentence carries the act, so no decision rests on it alone.
+    modality = Column(Text, nullable=False)
+    subject = Column(Text, nullable=False, default="")
+    relation = Column(Text, nullable=False, default="")
+    object = Column(Text, nullable=False, default="")
+    negated = Column(Boolean, nullable=False, default=False)
+    embedding = Column(Vector(1024), nullable=True)
+    confidence = Column(Float, nullable=True)   # NLI entailment of the first supporting source
+    support_count = Column(Integer, nullable=False, default=1)
+    usage = Column(Float, nullable=False, default=0.0)  # decayed prompt exposures (D7)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    mentioned_at = Column(DateTime(timezone=True), nullable=False)  # first source's recorded time
+    valid_from = Column(DateTime(timezone=True), nullable=False)
+    valid_until = Column(DateTime(timezone=True), nullable=True)
+    superseded_by = Column(UUID(as_uuid=True), ForeignKey("codex_facts.id"), nullable=True)
+    flags = Column(JSONB, nullable=False, default=list)  # post-rule flags, e.g. object_cut
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class CodexFactSource(Base):
+    """Every turn and quote that supports a fact. No cascade from conversations:
+    deletion goes through the C10 service, which expires a fact left unsupported."""
+    __tablename__ = "codex_fact_sources"
+
+    fact_id = Column(UUID(as_uuid=True), ForeignKey("codex_facts.id", ondelete="CASCADE"),
+                     primary_key=True)
+    source_batch = Column(UUID(as_uuid=True), primary_key=True, index=True)
+    window_sha256 = Column(Text, primary_key=True)
+    episodic_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    conversation_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    window = Column(JSONB, nullable=False)    # unit, start, end, unit_sha256, text_sha256
+    quote = Column(Text, nullable=False)
+    recorded_at = Column(DateTime(timezone=True), nullable=True)
+    verification = Column(JSONB, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class CodexFactEntity(Base):
+    __tablename__ = "codex_fact_entities"
+
+    fact_id = Column(UUID(as_uuid=True), ForeignKey("codex_facts.id", ondelete="CASCADE"),
+                     primary_key=True)
+    entity_id = Column(UUID(as_uuid=True), ForeignKey("codex_entities.id"), primary_key=True,
+                       index=True)
+    role = Column(Text, primary_key=True)     # subject | object | mention
+
+
 class CodexEvent(Base):
     __tablename__ = "codex_events"
 

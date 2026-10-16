@@ -21,6 +21,7 @@ Every rule was verified against its writer (spec §1 rev note 2):
                         sources (code-graph rows carry embedding=NULL by
                         design). Re-encoding a husk would silently resurrect
                         a deleted entity into vector matching.
+  * codex_facts       → text (the verified fact sentence, CODEX_V4)
   * procedural_memory → pattern_description * decisions → decision
   * batch_summaries / conversation_summaries → summary_text
   * context_clusters  → NOT encoded: centroids are recomputed as the
@@ -102,6 +103,10 @@ RULES: dict[str, TableRule] = {
             WHERE source = 'conversation'
               AND NOT (properties ? 'merged_into')
               AND NOT (properties ? 'deleted_reason')"""),
+    # CODEX_V4: the embedded text IS the fact sentence (what readers see).
+    "codex_facts": TableRule(
+        kind="text",
+        select_sql="SELECT id, text AS src FROM codex_facts"),
     "procedural_memory": TableRule(
         kind="text",
         select_sql="SELECT id, pattern_description AS src FROM procedural_memory"),
