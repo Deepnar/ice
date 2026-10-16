@@ -185,3 +185,23 @@ def test_entity_channel_finds_known_names_whole_word(monkeypatch):
         assert o._facts_entities(f"orbit-labs{tag} and zephyr{tag}") == []          # not whole words
         assert o._facts_entities(f"zephyr {tag}") == []                             # merged husk never
         db.rollback()
+
+
+def test_code_graph_anchor_renders_inside_its_project_only(monkeypatch):
+    from src.memory.models import CodexEntity
+    from src.retrieval import orchestrator as orch
+    monkeypatch.setattr(orch, "extract_entities", lambda *_a, **_k: [])
+    with SessionLocal() as db:
+        project = uuid.uuid4()
+        name = f"minipkg.core.greet{uuid.uuid4().hex[:4]}"
+        db.add(CodexEntity(canonical_name=name, source="static_analysis", project_id=project,
+                           entity_type="function", context_payload="defined at minipkg/core.py:4"))
+        db.flush()
+        o = HybridRetrievalOrchestrator(db, None)
+        o._resolve_exclusion_sets(None)
+        assert not any(f.leg == "code_graph" for f in o._facts_leg(f"what does {name} do", None))
+        o._scope_project_id = project
+        frags = o._facts_leg(f"what does {name} do", None)
+        anchor = [f for f in frags if f.leg == "code_graph"]
+        assert anchor and "minipkg/core.py:4" in anchor[0].text and anchor[0].origin_fact_ids == ()
+        db.rollback()

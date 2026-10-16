@@ -2068,6 +2068,8 @@ class HybridRetrievalOrchestrator:
                 channels.append(list(self.db.execute(
                     semantic, {**params, "embedding": prompt_embedding}).scalars()))
             matched = self._facts_entities(prompt)
+            code_anchors = self._code_graph_anchors(matched)
+            matched = [e for e in matched if getattr(e, "source", None) in (None, "conversation")]
             if matched:
                 channels.append(list(self.db.execute(text(f"""SELECT f.id {base}
                     AND f.id IN (SELECT fact_id FROM codex_fact_entities WHERE entity_id = ANY(:ents))
@@ -2079,7 +2081,7 @@ class HybridRetrievalOrchestrator:
                     scores[ident] = scores.get(ident, 0.0) + 1.0 / (settings.retrieval_rrf_k + rank)
             chosen = sorted(scores, key=lambda k: (-scores[k], str(k)))[:limit]
             if not chosen:
-                return []
+                return code_anchors
             sources = {}
             for fact_id, row_id, batch, _when in self.db.execute(
                     text(f"SELECT * FROM ({visible}) v WHERE v.fact_id = ANY(:chosen)"),
@@ -2097,10 +2099,25 @@ class HybridRetrievalOrchestrator:
                     fact_source_row_ids=tuple(sorted({r for r, _ in rows})),
                     origin_fact_ids=(str(ident),),
                     stored_artifact_ids=(("codex_facts", str(ident)),)))
-            return fragments
+            return code_anchors + fragments
         except Exception as exc:
             self._leg_degraded("codex.facts", exc)
             return []
+
+    def _code_graph_anchors(self, entities):
+        """E1b under CODEX_V4: a derived (code-graph / project-fact) entity the
+        question names renders its stored pointer payload, exactly as the legacy
+        graph leg did for derived anchors. Visible only inside its project (the
+        name matchers already apply _entity_source_filters)."""
+        out = []
+        for entity in entities:
+            if getattr(entity, "source", None) in (None, "conversation") or not entity.context_payload:
+                continue
+            rendered = f"[Entity: {entity.canonical_name}]\n{entity.context_payload}"
+            out.append(ContextFragment(rendered, "codex", 1.0 / (settings.retrieval_rrf_k + 1),
+                                       count_tokens(rendered), leg="code_graph",
+                                       stored_artifact_ids=(("codex_entities", str(entity.id)),)))
+        return out
 
     def _facts_entities(self, prompt):
         """Entities the question names; also the grounded BM25 expansion's input (A4).
