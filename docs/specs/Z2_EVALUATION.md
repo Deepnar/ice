@@ -139,6 +139,20 @@ against, so Z2 families are development material for FINAL purposes.
 Writers never answer or judge. If a profile becomes unavailable, the replacement
 is recorded before use; no silent substitution.
 
+**D6b — Free tier first (maintainer, 2026-10-16).** OpenCode Zen
+(`https://opencode.ai/zen/v1`) serves free variants of some selected models; use
+them first and move to the OpenCode Go subscription (`https://opencode.ai/zen/go/v1`)
+only when the free quota is exhausted. Catalog checked 2026-10-16:
+`deepseek-v4.1-flash-free`, `mimo-v2.6-flash-free`, `muse-spark-1.3-contributor-free`
+exist; LongCat 2.0 and GPT 6 Luna have no free variant (`longcat-2.5-preview-free` is a
+different model, not a substitute), so those run on Go. Rules: (1) the free variant is
+qualified under D6a like any profile — same model name on another endpoint is not
+assumed identical (TRAPS 59); (2) every call records endpoint + model id; (3) a stage
+(one writer pass, one checkpoint's judging) runs on one identity — if the quota runs
+out mid-stage, the remainder runs on Go and a 30-item overlap is run on both to show
+agreement, reported with the stage; (4) check the free tier's data-use terms before
+sending B/C text, record them in the run manifest.
+
 **D6a — Every prompt is qualified before use.** Each writer, verifier,
 question-phrasing and judge prompt is run on the development history first and
 passes measured checks before it touches B or C: citation pass rate, two-family
