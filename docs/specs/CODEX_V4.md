@@ -65,13 +65,25 @@ relation canonicalisation, sentence-claim paragraphs, relation-support NLI and t
 author review are deleted.
 
 **D4 — Claim shape (extends S1 of SUMMARY_CLAIMS_V3).**
-`{"sources": [..], "quote": "..", "speaker": "user|assistant|document",
-"modality": "asserted|suggested|hypothetical|asked", "subject": "..", "relation": "..",
+`{"sources": [..], "quote": "..", "speaker": "<roles present in the piece>",
+"modality": "asserted|shared|suggested|hypothetical|asked", "subject": "..", "relation": "..",
 "object": "..", "text": ".."}` — pointer first, sentence last. `subject`/`relation`/`object`
 may be empty strings when the claim has no clean two-place form. `modality` follows the
-Z2 ledger's `asserted|suggested|hypothetical` plus `asked`. The qualification (§5.1)
-decides whether the 4B model holds this shape; fallback is the bare v3 claim plus local
-NER links (D5).
+Z2 ledger's `asserted|suggested|hypothetical` plus `asked` and **`shared`** (material the
+speaker pastes, quotes or forwards — a document, spec, tutorial, log, code or data — not
+said in their own voice). **Qualified 2026-10-15/16 (§5.1 result): this shape holds**, with
+the locked instruction (m5, in the §5.1 scratch harness) and three mechanical additions:
+- the `speaker` enum offers only the roles present in the piece (offered all three, a
+  document piece lost 9/9 and 12/12 claims to `speaker_mismatch`);
+- a piece that starts inside a long message gets one header line, marked "context, not a
+  source", showing how that message began — the only way the model can see a paste's
+  framing in a later piece; the NLI premise never includes it;
+- post-rules: `shared` from the assistant or a document → `asserted` (only the user pastes
+  into a conversation; the model ignored "never" 43×); subject == object → dropped; an
+  object cut mid-token against its source → flagged (catches trimmed URLs and log lines).
+The `modality` label is ~85–90% reliable whatever the wording (four instructions tried;
+risky errors 2–5 of ~31 controls) while the sentence carries the act correctly — so the
+sentence is what readers trust and D6 must not rest on the label alone.
 
 **D5 — Entities.** Links per fact: subject, object, plus NuNER mentions in the fact text
 (`ner_utils.extract_entities`, background tier). Pronouns resolve by speaker before any
@@ -212,7 +224,7 @@ CREATE TABLE codex_facts (
   id uuid PRIMARY KEY,
   text text NOT NULL, text_sha256 text NOT NULL,
   speaker text NOT NULL,            -- user|assistant|document
-  modality text NOT NULL,           -- asserted|suggested|hypothetical|asked
+  modality text NOT NULL,           -- asserted|shared|suggested|hypothetical|asked
   subject text, relation text, object text, negated boolean NOT NULL DEFAULT false,
   embedding vector(1024),
   confidence double precision,      -- NLI entailment of the first supporting source
@@ -334,9 +346,34 @@ hypothetical, question, other speaker, former state, same names in an unrelated 
 reversed direction. Pass: no rise in contradicted claims vs v3, false admissions on the
 controls ≤ 1 of ~20, and modality right on ≥ 90% of the sample. Fail → bare v3 claims.
 
+**5.1 Result — 2026-10-15/16, passed with the D4 additions** (scratch harness and private
+units: `logs/codex-v4-qualification-2026-10-15-r1/`; 41 real pieces — C large/mid/small,
+B, short development turns, 2 document pieces).
+- *Output cap was the main loss, not the shape.* At a 4,096 cap 6/10 large pieces were
+  cut mid-JSON (v3 3/10); at 2.0 × input (shipped as `summary_output_ratio`, `180daf0`)
+  41/41 parse. v4 needs up to 1.58 output/input on ≥ 2K-token pieces.
+- *Extractor, maintainer blind grade* (16 turns, model hidden): relationships gemma v4
+  14/16 correct, 0 reversed; NuExtract3 9/16, 1 reversed (≈ +31 pts, rough CI [+2, +60]).
+  NuExtract3's 0.5 trust gate did not separate its good from bad triplets (visible 4✓/3✗,
+  hidden 5✓/3✗/1 reversed). ⇒ gemma writes facts and relations; NuExtract3 goes (D3).
+- *Source-varied controls* (5 real anchors × 6–7 variants): fact sentences right 33/33 for
+  v3 and v4 — no false admission; the label is the weak part (above).
+- *Attribution, maintainer grades:* sheet 1 (pre-`shared`) 2 right / 2 not self-contained /
+  6 wrong — all six pasted material written as "the user asserted"; sheet 2 (locked m5)
+  9 right / 1 not self-contained / 2 wrong — both an unframed pasted design spec. Pasted vs
+  own-words pairs 8/8 (pre-`shared` 4/8). **Known limit:** a document pasted with no
+  framing anywhere in the message (a 16K-word spec starting "# PHASE 9 …") cannot be told
+  from the user's own writing by its text; it stays `asserted`. Z2 D9's "attributed" axis
+  measures it.
+- *Figurative language* 4/4 kept figurative ("said the semester was a war zone"). Pasted
+  logs still yield one fact per line (instruction ineffective); each is dated and `shared`.
+- *Cost:* median ~12 s per 4K piece on the shared Ollama (NuExtract3 arm 18 s).
+
 **5.2 Qualification of the dedupe call.** Planted corrections + paraphrases + converses +
 "both true" lists (from real dev/B/C sentences, not invented — TRAPS 13) and the real
-updates the dev history holds. Report per label precision/recall; pass: `replaces` never
+updates the dev history holds. Must include the §5.1 sentences whose label is wrong in the
+risky direction — "might"/"if" sentences labelled `asserted`, and pasted-spec sentences
+labelled `asserted` (sheet 2 S5, S7) — to show the call, not the label, blocks them. Report per label precision/recall; pass: `replaces` never
 fires on a converse or a list member; `same` precision ≥ 0.95.
 
 **5.3 Strength bound `B`.** Rerank logits of fact candidates on the 67 development
