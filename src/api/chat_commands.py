@@ -288,7 +288,9 @@ def _cmd_forget(db, conv, args: str, body: str):
         lines.append(f"- turn {t['date'] or '?'} (sim {t['similarity']}): "
                      f"“{t['excerpt']}”")
     for e in res["edges"]:
-        lines.append(f"- fact: {e['description']}")
+        lines.append(f"- graph relation: {e['description']}")
+    for f in res.get("facts", []):
+        lines.append(f"- fact (sim {f['similarity']}): {f['description']}")
     return "\n".join(lines), "applied"
 
 
@@ -306,9 +308,10 @@ def _render_manifest(m: dict) -> str:
         f"- summaries: {d['batch_summaries']} batch, "
         f"{d['conversation_summaries']} conversation, "
         f"{d['session_summaries']} session; {d['session_replays']} replays",
-        f"- codex: {c['edges_expired']} edge(s) expired (sole-support), "
-        f"{c['edges_kept_corroborated']} kept (corroborated by other "
-        f"conversations), {c['entities_expired']} entity(ies) expired",
+        f"- codex: {c['facts_expired']} fact(s) expired (sole-support), "
+        f"{c['facts_support_pruned']} kept (corroborated by other conversations); "
+        f"{c['edges_expired']} legacy edge(s) expired, {c['edges_kept_corroborated']} kept; "
+        f"{c['entities_expired']} entity(ies) expired",
         f"- other: {d['conversation_slots']} conversation slot(s), "
         f"{d['curated_labels']} curated label(s), "
         f"{m['decisions_expired']} decision(s) expired, "

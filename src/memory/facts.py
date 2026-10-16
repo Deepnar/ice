@@ -196,7 +196,7 @@ def write_turn_facts(db, turn, record: dict, *, embedder,
                     "SELECT count(DISTINCT source_batch) FROM codex_fact_sources WHERE fact_id = :f"),
                     {"f": existing.id}).scalar()
                 counts["supported"] += 1
-                _journal(db, existing, "fact_supported", turn)
+                _journal(db, existing, "fact_supported", turn.batch_id)
             continue
         scores = (assertion.get("verification") or {}).get("scores") or {}
         fact = CodexFact(
@@ -209,7 +209,7 @@ def write_turn_facts(db, turn, record: dict, *, embedder,
         db.add(_source_row(fact.id, turn, assertion))
         counts["new"] += 1
         counts["links"] += _link(db, fact, claim, embedder=embedder, mentions=mentions)
-        _journal(db, fact, "fact_added", turn)
+        _journal(db, fact, "fact_added", turn.batch_id)
     db.flush()
     return counts
 
@@ -238,10 +238,67 @@ def _link(db, fact, claim, *, embedder, mentions) -> int:
     return len(seen)
 
 
-def _journal(db, fact, event_type: str, turn) -> None:
-    """codex_events is per entity: one row per entity the fact links to."""
-    entity_ids = [r[0] for r in db.execute(text(
-        "SELECT DISTINCT entity_id FROM codex_fact_entities WHERE fact_id = :f"), {"f": fact.id})]
+def _journal(db, fact, event_type: str, batch, **extra) -> set:
+    """codex_events is per entity: one row per entity the fact links to.
+    Returns those entity ids."""
+    entity_ids = {r[0] for r in db.execute(text(
+        "SELECT DISTINCT entity_id FROM codex_fact_entities WHERE fact_id = :f"), {"f": fact.id})}
     for entity_id in entity_ids:
-        db.add(CodexEvent(entity_id=entity_id, event_type=event_type, batch_source=turn.batch_id,
-                          payload={"fact_id": str(fact.id), "text_sha256": fact.text_sha256}))
+        db.add(CodexEvent(entity_id=entity_id, event_type=event_type, batch_source=batch,
+                          payload={"fact_id": str(fact.id), "text_sha256": fact.text_sha256, **extra}))
+    return entity_ids
+
+
+# ── Deletion and forget (C10 contract: expire + journal, never hard-delete) ──
+
+def source_plan(db, removed_batches) -> tuple[list, list]:
+    """Current facts with a source among *removed_batches*: (sole, surviving) ids.
+    Sole = every source is being removed; surviving = support remains elsewhere."""
+    if not removed_batches:
+        return [], []
+    rows = db.execute(text("""
+        SELECT f.id, array_agg(DISTINCT s.source_batch) AS batches
+        FROM codex_facts f JOIN codex_fact_sources s ON s.fact_id = f.id
+        WHERE f.valid_until IS NULL
+          AND f.id IN (SELECT fact_id FROM codex_fact_sources WHERE source_batch = ANY(:b))
+        GROUP BY f.id"""), {"b": list(removed_batches)}).fetchall()
+    removed = set(removed_batches)
+    sole = [r.id for r in rows if set(r.batches) <= removed]
+    surviving = [r.id for r in rows if not set(r.batches) <= removed]
+    return sole, surviving
+
+
+def expire_fact(db, fact, batch, reason: str, **extra) -> set:
+    """Retire a fact (valid_until now), journaled with *reason*; never deleted."""
+    fact.valid_until = datetime.now(timezone.utc)
+    return _journal(db, fact, "fact_expired", batch, reason=reason, **extra)
+
+
+def apply_source_plan(db, sole, surviving, removed_batches, event_batch, *,
+                      reason: str = "source_deleted") -> set:
+    """Remove deleted support. The quotes of removed turns are deleted (they are
+    the deleted text); a fact left with no source is expired and journaled; a
+    corroborated fact keeps going with its support recounted. Returns touched
+    entity ids."""
+    touched = set()
+    for fact_id in sole:
+        touched |= expire_fact(db, db.get(CodexFact, fact_id), event_batch, reason)
+    if removed_batches:
+        db.query(CodexFactSource).filter(CodexFactSource.source_batch.in_(list(removed_batches))).delete(
+            synchronize_session=False)
+    db.flush()
+    for fact_id in surviving:
+        fact = db.get(CodexFact, fact_id)
+        fact.support_count = db.execute(text(
+            "SELECT count(DISTINCT source_batch) FROM codex_fact_sources WHERE fact_id = :f"),
+            {"f": fact_id}).scalar() or 1
+        touched |= _journal(db, fact, "fact_source_removed", event_batch, reason=reason)
+    return touched
+
+
+def live_fact_links(db, entity_id, excluding=()) -> int:
+    """Current facts linked to an entity, ignoring *excluding* fact ids."""
+    return db.execute(text("""
+        SELECT count(*) FROM codex_fact_entities fe JOIN codex_facts f ON f.id = fe.fact_id
+        WHERE fe.entity_id = :e AND f.valid_until IS NULL AND NOT (f.id = ANY(:x))"""),
+        {"e": entity_id, "x": list(excluding)}).scalar() or 0

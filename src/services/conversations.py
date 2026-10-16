@@ -29,6 +29,7 @@ import structlog
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
+from src.memory import facts as fact_store
 from src.memory.models import (
     BatchSummary,
     CodexClaim,
@@ -36,6 +37,9 @@ from src.memory.models import (
     CodexEdge,
     CodexEntity,
     CodexEvent,
+    CodexFact,
+    CodexFactEntity,
+    CodexFactSource,
     CodexRelationGap,
     ColdStorage,
     ContextCluster,
@@ -238,11 +242,18 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
     kept_edges = sum(edge.source_batch in batches
                      for edge, _remaining, _removed in surviving_edges)
     sole_ids = {e.id for e in sole_edges}
+    # CODEX_V4 D10: facts follow the same contract — sole support expires,
+    # corroborated facts keep going on their other sources.
+    sole_facts, surviving_facts = fact_store.source_plan(db, batches)
+    n_fact_sources = db.query(CodexFactSource).filter(
+        CodexFactSource.source_batch.in_(batches)).count() if batches else 0
 
     # Entities the sole-support expiries may orphan: conversation-source,
-    # zero live edges left after ours expire, no user-authored description.
+    # zero live edges AND facts left after ours expire, no user-authored description.
     touched_entity_ids = ({e.source_id for e in sole_edges}
-                          | {e.target_id for e in sole_edges})
+                          | {e.target_id for e in sole_edges}
+                          | {r.entity_id for r in db.query(CodexFactEntity.entity_id).filter(
+                              CodexFactEntity.fact_id.in_(sole_facts)).all()})
     entities_to_expire: list = []
     if touched_entity_ids:
         user_authored = _user_authored_entities(db, list(touched_entity_ids))
@@ -255,6 +266,7 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
                 ~CodexEdge.id.in_(sole_ids),
             ).count()
             if (remaining == 0 and ent.source == "conversation"
+                    and fact_store.live_fact_links(db, ent.id, excluding=sole_facts) == 0
                     and str(ent.id) not in user_authored):
                 entities_to_expire.append(ent)
 
@@ -405,6 +417,9 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
                                         in surviving_edges),
             "entities_expired": len(entities_to_expire),
             "relation_gaps_deleted": n_relation_gaps,
+            "facts_expired": len(sole_facts),
+            "facts_support_pruned": len(surviving_facts),
+            "fact_sources_deleted": int(n_fact_sources),
         },
         "decisions_expired": len(decisions_to_expire),
         "procedural_pruned": len(proc_rows),
@@ -423,6 +438,8 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
     deletion_batch = uuid.uuid4()
     changed_entities = _apply_edge_source_plan(
         db, sole_edges, surviving_edges, batches, deletion_batch)
+    changed_entities |= fact_store.apply_source_plan(
+        db, sole_facts, surviving_facts, batches, deletion_batch)
     for ent in entities_to_expire:
         _expire_entity(db, ent, deletion_batch)
     for ent in db.query(CodexEntity).filter(
@@ -563,27 +580,44 @@ def propose_forget(db: Session, conv_id: str, query: str,
             edges.append({"id": str(e.id),
                           "description": f"{src} --{rel}--> {tgt}"})
 
-    if not turns and not edges:
+    fact_rows = db.execute(text("""
+        SELECT f.id, f.text, 1 - (f.embedding <=> :emb) AS sim
+        FROM codex_facts f
+        WHERE f.embedding IS NOT NULL AND f.valid_until IS NULL
+          AND EXISTS (SELECT 1 FROM codex_fact_sources s
+                      JOIN episodic_memory e ON e.id = s.episodic_id
+                      WHERE s.fact_id = f.id
+                        AND (e.is_private = FALSE OR e.conversation_id = :conv))
+        ORDER BY f.embedding <=> :emb
+        LIMIT :lim
+    """).bindparams(bindparam("emb", type_=PgVector)),
+        {"emb": emb, "conv": str(conv_id), "lim": limit}).fetchall()
+    facts = [{"id": str(r.id), "description": r.text[:200],
+              "similarity": round(float(r.sim), 3)} for r in fact_rows]
+
+    if not turns and not edges and not facts:
         logger.info("forget_no_matches", query_words=len(query.split()))
-        return {"queued": False, "matches": 0, "turns": [], "edges": []}
+        return {"queued": False, "matches": 0, "turns": [], "edges": [], "facts": []}
 
     item = ReviewQueue(item_type="forget_request", item_content={
         "query": query,
         "conversation_id": str(conv_id),
         "turns": turns,
         "edges": edges,
+        "facts": facts,
         "proposed_by": proposed_by,
         "suggested_action": (
             f"forget: delete {len(turns)} turn(s) and expire "
-            f"{len(edges)} edge(s) matching the request"),
+            f"{len(edges)} edge(s) and {len(facts)} fact(s) matching the request"),
     })
     db.add(item)
     db.flush()
     out = {"queued": True, "item_id": str(item.id),
-           "matches": len(turns) + len(edges), "turns": turns, "edges": edges}
+           "matches": len(turns) + len(edges) + len(facts), "turns": turns, "edges": edges,
+           "facts": facts}
     db.commit()
     logger.info("forget_proposed", item_id=out["item_id"],
-                turns=len(turns), edges=len(edges), proposed_by=proposed_by)
+                turns=len(turns), edges=len(edges), facts=len(facts), proposed_by=proposed_by)
     return out
 
 
@@ -604,11 +638,13 @@ def apply_forget(db: Session, item_content: dict) -> dict:
     )
     turn_ids = [uuid.UUID(t["id"]) for t in item_content.get("turns", [])]
     edge_ids = [uuid.UUID(e["id"]) for e in item_content.get("edges", [])]
+    fact_ids = [uuid.UUID(f["id"]) for f in item_content.get("facts", [])]
     source = item_content.get("proposed_by", "chat_command")
 
     deleted_turns = 0
     batches = set()
     sole_edges, surviving_edges = [], []
+    sole_facts, surviving_facts = [], []
     if turn_ids:
         batch_rows = db.query(EpisodicMemory.batch_id).filter(
             EpisodicMemory.id.in_(turn_ids)).all()
@@ -616,6 +652,7 @@ def apply_forget(db: Session, item_content: dict) -> dict:
         batches.update(r.batch_id for r in db.query(ColdStorage.batch_id).filter(
             ColdStorage.id.in_(turn_ids)).all() if r.batch_id is not None)
         sole_edges, surviving_edges = _edge_source_plan(db, batches)
+        sole_facts, surviving_facts = fact_store.source_plan(db, batches)
         db.query(CodexClaim).filter(CodexClaim.episodic_id.in_(turn_ids)).delete(
             synchronize_session=False)
         db.query(EpisodicClusterLink).filter(
@@ -634,6 +671,14 @@ def apply_forget(db: Session, item_content: dict) -> dict:
     forget_batch = uuid.uuid4()
     touched = _apply_edge_source_plan(db, sole_edges, surviving_edges, batches,
         forget_batch, reason="user_forget", source=source)
+    touched |= fact_store.apply_source_plan(db, sole_facts, surviving_facts, batches,
+                                            forget_batch, reason="user_forget")
+    facts_expired = len(sole_facts)
+    for fid in fact_ids:
+        fact = db.get(CodexFact, fid)
+        if fact is not None and fact.valid_until is None:
+            touched |= fact_store.expire_fact(db, fact, forget_batch, "user_forget", source=source)
+            facts_expired += 1
     expired = len(sole_edges)
     for eid in edge_ids:
         edge = db.query(CodexEdge).filter_by(id=eid).first()
@@ -647,5 +692,6 @@ def apply_forget(db: Session, item_content: dict) -> dict:
             _regenerate_context_payload(ent, db)
 
     logger.info("forget_applied", turns_deleted=deleted_turns,
-                edges_expired=expired, source=source)
-    return {"turns_deleted": deleted_turns, "edges_expired": expired}
+                edges_expired=expired, facts_expired=facts_expired, source=source)
+    return {"turns_deleted": deleted_turns, "edges_expired": expired,
+            "facts_expired": facts_expired}
