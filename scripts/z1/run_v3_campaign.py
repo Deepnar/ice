@@ -271,6 +271,7 @@ def install_schema(root: Path, source, target) -> None:
             return
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))   # CODEX_V4 name matching
         with template.open("rb") as dump:
             subprocess.run(["docker", "exec", "-i", CONTAINER, "psql", "-U", USER,
                 "-d", target.database, "-v", "ON_ERROR_STOP=1", "--single-transaction"],
