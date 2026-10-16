@@ -302,3 +302,37 @@ def live_fact_links(db, entity_id, excluding=()) -> int:
         SELECT count(*) FROM codex_fact_entities fe JOIN codex_facts f ON f.id = fe.fact_id
         WHERE fe.entity_id = :e AND f.valid_until IS NULL AND NOT (f.id = ANY(:x))"""),
         {"e": entity_id, "x": list(excluding)}).scalar() or 0
+
+
+
+# ── Entity view (CODEX_V4 D11.1: an entity's page is its facts) ──
+
+def _fact_out(fact, role=None) -> dict:
+    return {"id": str(fact.id), "text": fact.text, "role": role, "speaker": fact.speaker,
+            "modality": fact.modality, "support": fact.support_count,
+            "mentioned_at": fact.mentioned_at.isoformat() if fact.mentioned_at else None,
+            "until": fact.valid_until.isoformat() if fact.valid_until else None,
+            "superseded_by": str(fact.superseded_by) if fact.superseded_by else None}
+
+
+def entity_facts(db, entity_id, *, current: bool = True, limit: int = 30) -> list:
+    """Facts linked to an entity: current ones by support then recency, or the
+    replaced history newest first."""
+    query = (db.query(CodexFact, CodexFactEntity.role)
+             .join(CodexFactEntity, CodexFactEntity.fact_id == CodexFact.id)
+             .filter(CodexFactEntity.entity_id == entity_id))
+    if current:
+        query = query.filter(CodexFact.valid_until.is_(None)).order_by(
+            CodexFact.support_count.desc(), CodexFact.mentioned_at.desc())
+    else:
+        query = query.filter(CodexFact.valid_until.is_not(None)).order_by(
+            CodexFact.valid_until.desc())
+    seen, out = set(), []
+    for fact, role in query.limit(limit * 3):
+        if fact.id in seen:
+            continue
+        seen.add(fact.id)
+        out.append(_fact_out(fact, role))
+        if len(out) >= limit:
+            break
+    return out

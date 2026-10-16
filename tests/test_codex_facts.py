@@ -264,3 +264,25 @@ def test_forget_proposes_and_expires_facts():
         result = apply_forget(db, {"facts": [{"id": str(fact_id)}], "proposed_by": "test"})
         db.commit()
         assert result["facts_expired"] == 1 and db.get(CodexFact, fact_id).valid_until is not None
+
+
+def test_entity_view_lists_current_and_replaced_facts():
+    from src.services import graph
+    with SessionLocal() as db:
+        one, two = _turn(db, user="I use Vim."), _turn(db, user="I switched to Helix.")
+        tool = f"editor-{uuid.uuid4().hex[:6]}"
+        facts.write_turn_facts(db, one, {"assertions": [
+            _a("The user said they use Vim.", "I use Vim", relation="uses", obj=tool)]}, embedder=ENC)
+        facts.write_turn_facts(db, two, {"assertions": [
+            _a("The user said they switched to Helix.", "I switched to Helix", relation="switched", obj=tool)]},
+            embedder=ENC)
+        old = db.query(CodexFact).filter_by(text="The user said they use Vim.").one()
+        new = db.query(CodexFact).filter_by(text="The user said they switched to Helix.").one()
+        old.valid_until, old.superseded_by = datetime.now(timezone.utc), new.id
+        db.commit()
+        view = graph.entity_view(db, tool)
+        assert [f["text"] for f in view["facts"]] == ["The user said they switched to Helix."]
+        assert [f["text"] for f in view["replaced_facts"]] == ["The user said they use Vim."]
+        assert view["replaced_facts"][0]["superseded_by"] == str(new.id)
+        timeline = graph.entity_timeline(db, tool)
+        assert timeline["has_history"] and timeline["replaced_facts"]

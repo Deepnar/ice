@@ -37,12 +37,14 @@ def _bookmark_out(turn: EpisodicMemory) -> dict:
 
 
 def _enqueue_extraction(batch_id: str) -> None:
+    from src.memory.summary_support import METHOD_V4, current_method
+    job = "facts_extract" if current_method() == METHOD_V4 else "codex_extract"
     runtime = get_runtime()
     if runtime is not None:
-        runtime.enqueue("codex_extract", batch_id=batch_id, priority=True)
+        runtime.enqueue(job, batch_id=batch_id, priority=True)
     else:
         logger.error("maintenance_core_not_started_codex_extract_skipped",
-                     batch_id=batch_id)
+                     batch_id=batch_id, job=job)
 
 
 def bookmark_turn(db: Session, turn_id: str) -> dict:

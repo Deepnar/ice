@@ -76,6 +76,8 @@ JOBS: dict[str, JobSpec] = {
     # Standalone codex extraction (user_control's bookmark endpoint) — the
     # normal path is the direct call inside post_flight.
     "codex_extract":           JobSpec("src.workers.codex_extractor:extract_codex", "gpu"),
+    # CODEX_V4: the same standalone role under summary_assertion_method=v4.
+    "facts_extract":           JobSpec("src.workers.fact_extractor:extract_facts", "gpu"),
     "chunk_pending_documents": JobSpec("src.workers.document_chunker:run_pending_documents", "gpu", needs_db=True),
     "cluster_assignment":      JobSpec("src.workers.clustering:run_cluster_assignment", "gpu", needs_db=True),
     "cluster_merge":           JobSpec("src.workers.clustering:run_cluster_merge", "gpu", needs_db=True),

@@ -190,6 +190,7 @@ def context_for(db: Session, task_text: str, scope: Optional[dict] = None,
                 "source_batch_id": f.source_batch_id,
                 "origin_batch_ids": list(f.origin_batch_ids),
                 "origin_edge_ids": list(f.origin_edge_ids),
+                "origin_fact_ids": list(f.origin_fact_ids),
                 "leg": f.leg,
                 "conversation_id": f.conversation_id,
             }

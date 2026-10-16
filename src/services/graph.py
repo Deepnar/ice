@@ -15,6 +15,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from src.api.config import settings
+from src.memory import facts as fact_store
 from src.memory.models import CodexEdge, CodexEntity
 from src.retrieval.evolution import build_entity_timeline, log_description_update
 from src.retrieval.evolution import entity_diff as _evolution_diff
@@ -74,6 +75,10 @@ def entity_view(db: Session, name_or_id: str) -> dict:
         "properties": entity.properties or {},
         "links": [_edge_out(db, e, entity.id) for e in out_edges],
         "backlinks": [_edge_out(db, e, entity.id) for e in in_edges],
+        # CODEX_V4 D11.1: a conversation entity's page is its facts; replaced
+        # facts stay listed with what replaced them.
+        "facts": fact_store.entity_facts(db, entity.id),
+        "replaced_facts": fact_store.entity_facts(db, entity.id, current=False, limit=10),
         "last_updated": entity.last_updated.isoformat() if entity.last_updated else None,
     }
 
@@ -119,8 +124,12 @@ def entity_timeline(db: Session, name_or_id: str,
     timeline = build_entity_timeline(
         db, entity,
         max_transitions=max_transitions or settings.timeline_max_transitions)
+    replaced = fact_store.entity_facts(
+        db, entity.id, current=False,
+        limit=max_transitions or settings.timeline_max_transitions)
     return {"entity": entity.canonical_name, "timeline": timeline,
-            "has_history": timeline is not None}
+            "replaced_facts": replaced,
+            "has_history": timeline is not None or bool(replaced)}
 
 
 def _parse_ts(value, name: str) -> datetime:
