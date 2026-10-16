@@ -143,9 +143,11 @@ is recorded before use; no silent substitution.
 (`https://opencode.ai/zen/v1`) serves free variants of some selected models; use
 them first and move to the OpenCode Go subscription (`https://opencode.ai/zen/go/v1`)
 only when the free quota is exhausted. Catalog checked 2026-10-16:
-`deepseek-v4.1-flash-free`, `mimo-v2.6-flash-free`, `muse-spark-1.3-contributor-free`
-exist; LongCat 2.0 and GPT 6 Luna have no free variant (`longcat-2.5-preview-free` is a
-different model, not a substitute), so those run on Go. Rules: (1) the free variant is
+`deepseek-v4.1-flash-free` and `mimo-v2.6-flash-free` exist and are used first.
+**Muse Spark 1.3 Contributor (the judge) always runs on Go**, never its free variant —
+the Go quota for it is generous, and one judge identity across all of Z2 keeps grades
+comparable. LongCat 2.0 and GPT 6 Luna have no free variant (`longcat-2.5-preview-free`
+is a different model, not a substitute), so those run on Go. Rules: (1) the free variant is
 qualified under D6a like any profile — same model name on another endpoint is not
 assumed identical (TRAPS 59); (2) every call records endpoint + model id; (3) a stage
 (one writer pass, one checkpoint's judging) runs on one identity — if the quota runs
