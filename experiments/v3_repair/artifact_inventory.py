@@ -22,6 +22,12 @@ CONTENT = {
                     "valid_from", "valid_until", "learned_at", "unlearned_at"),
     "codex_claims": ("source_batch", "episodic_id", "conversation_id", "raw_sha256", "start", "end",
                      "role", "sentence", "sentence_sha256", "text"),
+    # CODEX_V4: verified fact sentences, their sources and entity links.
+    "codex_facts": ("text", "speaker", "modality", "subject", "relation", "object", "negated",
+                    "mentioned_at", "valid_from", "valid_until", "superseded_by"),
+    "codex_fact_sources": ("source_batch", "episodic_id", "conversation_id", "window", "quote",
+                           "recorded_at"),
+    "codex_fact_entities": ("entity_id", "role"),
     "procedural_memory": ("pattern_name", "pattern_description", "topic_tags", "trigger_conditions", "source_batch_ids"),
     "memory_slots": ("slot_name", "content", "scope_tier", "project_id", "conversation_id"),
 }

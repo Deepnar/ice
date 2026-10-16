@@ -82,6 +82,11 @@ REPLAY_SETTINGS = [
     "compaction_event_threshold",
     "retrieval_strengthen_writes", "decay_strengthen_amount",
     "codex_retention_increment", "codex_retention_cap",
+    # CODEX_V4: the fact codex (claim method, reconciliation, read leg).
+    "summary_assertion_method", "summary_output_ratio", "summary_piece_tokens",
+    "codex_fact_entity_max_words", "codex_fact_entity_max_chars", "codex_fact_candidate_limit",
+    "codex_fact_strength_bonus", "codex_fact_candidate_cosine", "codex_fact_candidate_k",
+    "codex_fact_reconcile_model",
 ]
 MEMORY_JOBS = (
     "cluster_assignment", "cluster_merge", "conversation_summary", "batch_summarize",
@@ -90,7 +95,8 @@ MEMORY_JOBS = (
 )
 SEMANTIC_TABLES = (
     "episodic_memory", "cold_storage", "context_clusters", "episodic_cluster_links",
-    "codex_entities", "codex_edges", "codex_claim_links", "procedural_memory",
+    "codex_entities", "codex_edges", "codex_claim_links", "codex_facts",
+    "codex_fact_sources", "codex_fact_entities", "procedural_memory",
     "batch_summaries", "batch_notes", "conversation_summaries", "conversation_notes",
     "memory_slots", "session_summaries", "review_queue",
 )
@@ -139,7 +145,7 @@ def procedural_source_review(db, batch_id):
 
 JOB_OBSERVATION_TABLES = {
     "decay_episodic": ("episodic_memory", "cold_storage"),
-    "decay_codex": ("codex_edges",),
+    "decay_codex": ("codex_edges", "codex_facts"),
     "decay_procedural": ("procedural_memory",),
     "compaction": ("codex_events", "codex_snapshots"),
 }
@@ -428,7 +434,8 @@ def fragment(f, *, include_text=False):
            "tokens": f.token_count, "score": f.score,
            "source_row": str(f.source_batch_id) if f.source_batch_id else None,
            "origin_batches": [str(v) for v in (f.origin_batch_ids or ())],
-           "origin_edges": [str(v) for v in (f.origin_edge_ids or ())]}
+           "origin_edges": [str(v) for v in (f.origin_edge_ids or ())],
+           "origin_facts": [str(v) for v in (getattr(f, "origin_fact_ids", ()) or ())]}
     if include_text:
         row["text"] = f.text
     artifact_ids = getattr(f, "stored_artifact_ids", ())
@@ -468,13 +475,14 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
     note_options = {}
     methods = {"bm25": "_bm25_episodic", "vector": "_vector_episodic",
                "codex_graph": "_codex_graph", "codex_claims": "_codex_claims",
+               "codex_facts": "_facts_leg",
                "procedural": "_procedural_lookup", "batch_summary": "_batch_summary_lookup",
                "cold": "_cold_lookup"}
 
     def factory(session, embedder):
         orchestrator = HybridRetrievalOrchestrator(session, embedder)
         if arm != "full":
-            disabled = ({"codex_graph", "codex_claims"} if arm == "no_codex"
+            disabled = ({"codex_graph", "codex_claims", "codex_facts"} if arm == "no_codex"
                         else set(methods) - {"vector"} if arm == "vector_only"
                         else set(methods))
             for label in disabled:
@@ -712,6 +720,9 @@ def memory_state(db):
         "archived_warm_turns": "SELECT count(*) FROM episodic_memory WHERE is_archived",
         "warm_decay_total": "SELECT COALESCE(sum(decay_score),0) FROM episodic_memory",
         "graph_strength_total": "SELECT COALESCE(sum(strength),0) FROM codex_edges",
+        "current_facts": "SELECT count(*) FROM codex_facts WHERE valid_until IS NULL",
+        "superseded_facts": "SELECT count(*) FROM codex_facts WHERE superseded_by IS NOT NULL",
+        "fact_usage_total": "SELECT COALESCE(sum(usage),0) FROM codex_facts",
         "active_procedural": "SELECT count(*) FROM procedural_memory WHERE is_active",
         "graph_snapshots": "SELECT count(*) FROM codex_snapshots",
         "compacted_graph_events": "SELECT count(*) FROM codex_events WHERE compacted",
