@@ -212,7 +212,16 @@ def _enrich_codex_entities(db):
     Writes to `description`, NOT context_payload (which is auto-generated and
     would otherwise be overwritten on the next edge). Priority: entities with
     an EMPTY description first (the big win), then a few stale ones to refresh.
-    Domain-general — works for code, research, business, people, or lore."""
+    Domain-general — works for code, research, business, people, or lore.
+
+    CODEX_V4 D11.1: under the v4 codex an entity's page IS its facts (each a
+    verified sentence), so no model-written note is generated for it; a
+    description the user wrote stays and is shown as their note."""
+    from src.memory.summary_support import METHOD_V4, current_method
+    if current_method() == METHOD_V4:
+        logger.info("codex_enrichment_skipped", reason="v4 entity pages are their facts")
+        return dict(method="entity_enrichment_receipt_v1", selected=0, attempted=0,
+                    skipped="codex_v4_facts")
     # Priority 1: no description yet — richest-mentioned first.
     to_enrich = db.execute(text("""
         SELECT e.id
