@@ -364,3 +364,29 @@ def test_reconcile_guards():
             embedder=ENC, ask=boom)
         assert newest.valid_until is None
         db.rollback()
+
+
+def test_entity_merge_moves_fact_links_and_unmerge_restores_them():
+    from src.workers.codex_ops import merge_entities, unmerge_entities
+    with SessionLocal() as db:
+        turn = _turn(db)
+        tag = uuid.uuid4().hex[:6]
+        facts.write_turn_facts(db, turn, {"assertions": [
+            _a(f"The user said they love ICE {tag}.", "I moved to Lisbon in March", relation="loves",
+               obj=f"ice-{tag}"),
+            _a(f"The user said ICE engine {tag} is fast.", "I moved to Lisbon in March",
+               subject=f"ice engine {tag}", relation="is", obj="fast")]}, embedder=ENC)
+        db.commit()
+        keep = db.query(CodexEntity).filter_by(canonical_name=f"ice-{tag}").one()
+        absorb = db.query(CodexEntity).filter_by(canonical_name=f"ice engine {tag}").one()
+        keep_id, absorb_id = keep.id, absorb.id
+        before = {(r.fact_id, r.entity_id, r.role) for r in db.query(CodexFactEntity)}
+        result = merge_entities(db, keep_id, absorb_id)
+        db.expire_all()
+        assert result["status"] == "merged"
+        assert db.query(CodexFactEntity).filter_by(entity_id=absorb_id).count() == 0
+        assert db.query(CodexFactEntity).filter_by(entity_id=keep_id).count() == 2
+        assert unmerge_entities(db, result["merge_event_id"])["status"] == "unmerged"
+        db.expire_all()
+        assert {(r.fact_id, r.entity_id, r.role) for r in db.query(CodexFactEntity)} == before
+        assert db.get(CodexEntity, absorb_id).canonical_name == f"ice engine {tag}"

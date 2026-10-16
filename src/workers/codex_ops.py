@@ -41,7 +41,7 @@ def merge_entities(db, keep_id, absorb_id, agent_run_id=None) -> dict:
     instead of raising when either entity is missing/already merged — the
     caller may be the review-approve endpoint acting on a stale proposal."""
     # Lazy imports: codex_extractor loads a SentenceTransformer at import time.
-    from src.memory.models import CodexEdge, CodexEntity, CodexEvent
+    from src.memory.models import CodexEdge, CodexEntity, CodexEvent, CodexFactEntity
     from src.retrieval.evolution import log_description_update
     from src.workers.codex_extractor import _regenerate_context_payload
 
@@ -68,6 +68,16 @@ def merge_entities(db, keep_id, absorb_id, agent_run_id=None) -> dict:
 
     now = datetime.now(timezone.utc)
     absorbed_name = absorb.canonical_name
+    # CODEX_V4 D12: a merge applies itself, so it must be undoable exactly —
+    # every state it changes is recorded here and in the entity_merged event.
+    undo = {"keep_before": {"aliases": list(keep.aliases or []), "tags": list(keep.tags or []),
+                            "properties": dict(keep.properties or {}),
+                            "description": keep.description},
+            "absorb_before": {"canonical_name": absorbed_name, "aliases": list(absorb.aliases or []),
+                              "properties": dict(absorb.properties or {}),
+                              "context_payload": absorb.context_payload},
+            "edges_repointed": [], "edges_expired": [], "events_moved": [],
+            "fact_links_moved": [], "fact_links_dropped": []}
 
     # ── 1. Re-point absorb's edges (live AND expired — the keeper owns the
     # history; the events move with them below). A live edge that duplicates
@@ -93,6 +103,7 @@ def merge_entities(db, keep_id, absorb_id, agent_run_id=None) -> dict:
         if e.source_id in pair_ids and e.target_id in pair_ids:
             if e.valid_until is None:
                 e.valid_until = now
+                undo["edges_expired"].append(str(e.id))
                 db.add(CodexEvent(
                     entity_id=keep.id, event_type="edge_expired",
                     payload={"edge_id": str(e.id), "reason": "entity_merge_self_loop",
@@ -103,9 +114,11 @@ def merge_entities(db, keep_id, absorb_id, agent_run_id=None) -> dict:
         if e.source_id == absorb.id:
             e.source_id = keep.id
             direction, other = "out", e.target_id
+            undo["edges_repointed"].append([str(e.id), "source"])
         else:
             e.target_id = keep.id
             direction, other = "in", e.source_id
+            undo["edges_repointed"].append([str(e.id), "target"])
         if e.valid_until is not None:
             repointed += 1
             continue
@@ -121,6 +134,7 @@ def merge_entities(db, keep_id, absorb_id, agent_run_id=None) -> dict:
             if e.valid_from and survivor.valid_from:
                 survivor.valid_from = min(survivor.valid_from, e.valid_from)
             e.valid_until = now
+            undo["edges_expired"].append(str(e.id))
             db.add(CodexEvent(
                 entity_id=keep.id, event_type="edge_expired",
                 payload={"edge_id": str(e.id), "reason": "duplicate_merged",
@@ -154,9 +168,25 @@ def merge_entities(db, keep_id, absorb_id, agent_run_id=None) -> dict:
 
     # ── 4. Move absorb's journal to keep (autoflush lands the events added
     # above first, so merge-time expiries move too — they are keep's history).
+    db.flush()
+    undo["events_moved"] = [str(r.id) for r in db.query(CodexEvent.id).filter(
+        CodexEvent.entity_id == absorb.id)]
     events_moved = db.query(CodexEvent).filter(
         CodexEvent.entity_id == absorb.id).update(
         {CodexEvent.entity_id: keep.id}, synchronize_session=False)
+
+    # ── 4b. CODEX_V4: re-point fact links; a link the keeper already has for
+    # the same fact and role is dropped (and remembered for undo).
+    for link in db.query(CodexFactEntity).filter(CodexFactEntity.entity_id == absorb.id).all():
+        fact_id, role = link.fact_id, link.role
+        if db.get(CodexFactEntity, (fact_id, keep.id, role)) is not None:
+            db.delete(link)
+            undo["fact_links_dropped"].append([str(fact_id), role])
+        else:
+            undo["fact_links_moved"].append([str(fact_id), role])
+    db.flush()
+    db.query(CodexFactEntity).filter(CodexFactEntity.entity_id == absorb.id).update(
+        {CodexFactEntity.entity_id: keep.id}, synchronize_session=False)
 
     # ── 5. Expire the absorbed entity: rename it out of the resolution space
     # (marker suffix keeps the original readable), empty its aliases (they
@@ -180,11 +210,18 @@ def merge_entities(db, keep_id, absorb_id, agent_run_id=None) -> dict:
         payload={"absorbed_id": str(absorb.id), "absorbed_name": absorbed_name,
                  "edges_repointed": repointed, "edges_deduped": deduped,
                  "self_loops_expired": loops, "events_moved": int(events_moved or 0),
-                 "source": SOURCE, "agent_run_id": run_ref},
+                 "fact_links_moved": len(undo["fact_links_moved"]),
+                 "source": SOURCE, "agent_run_id": run_ref, "undo": undo},
         timestamp=now, batch_source=batch))
 
+    db.flush()
+    merge_event = db.query(CodexEvent).filter(
+        CodexEvent.entity_id == keep.id, CodexEvent.event_type == "entity_merged",
+        CodexEvent.payload["absorbed_id"].astext == str(absorb.id)).order_by(
+        CodexEvent.timestamp.desc()).first()
     db.commit()
     result = {"status": "merged", "kept_id": str(keep.id),
+              "merge_event_id": str(merge_event.id) if merge_event else None,
               "absorbed_id": str(absorb.id), "edges_repointed": repointed,
               "edges_deduped": deduped, "self_loops_expired": loops,
               "events_moved": int(events_moved or 0)}
@@ -193,3 +230,58 @@ def merge_entities(db, keep_id, absorb_id, agent_run_id=None) -> dict:
                 agent_run_id=run_ref, **{k: v for k, v in result.items()
                                          if k not in ("status",)})
     return result
+
+
+def unmerge_entities(db, merge_event_id, agent_run_id=None) -> dict:
+    """CODEX_V4 D12: reverse one merge exactly, from its entity_merged event's
+    undo record. Owns its transaction. The keeper's aliases / tags / properties /
+    description return to their pre-merge values (a later edit to the keeper is
+    overwritten — journaled, so it stays recoverable)."""
+    from src.memory.models import CodexEdge, CodexEntity, CodexEvent, CodexFactEntity
+    from src.retrieval.evolution import log_description_update
+
+    batch, run_ref = _run_batch(agent_run_id)
+    event = db.get(CodexEvent, uuid.UUID(str(merge_event_id)))
+    if event is None or event.event_type != "entity_merged" or "undo" not in (event.payload or {}):
+        return {"status": "skipped", "reason": "not_an_undoable_merge"}
+    payload, undo = event.payload, event.payload["undo"]
+    keep = db.get(CodexEntity, event.entity_id)
+    absorb = db.get(CodexEntity, uuid.UUID(payload["absorbed_id"]))
+    if absorb is None or (absorb.properties or {}).get("merged_into") != str(keep.id):
+        return {"status": "skipped", "reason": "absorbed_entity_not_merged_into_keeper"}
+    for key, value in undo["absorb_before"].items():
+        setattr(absorb, key, value)
+    flag_modified(absorb, "properties")
+    old_desc = keep.description
+    keep.aliases = undo["keep_before"]["aliases"]
+    keep.tags = undo["keep_before"]["tags"]
+    keep.properties = undo["keep_before"]["properties"]
+    flag_modified(keep, "properties")
+    if undo["keep_before"]["description"] != old_desc:
+        keep.description = undo["keep_before"]["description"]
+        log_description_update(db, keep, old_desc, keep.description, source=SOURCE, batch_source=batch)
+    for edge_id, side in undo["edges_repointed"]:
+        edge = db.get(CodexEdge, uuid.UUID(edge_id))
+        if edge is not None:
+            setattr(edge, "source_id" if side == "source" else "target_id", absorb.id)
+    for edge_id in undo["edges_expired"]:
+        edge = db.get(CodexEdge, uuid.UUID(edge_id))
+        if edge is not None and edge.valid_until is not None:
+            edge.valid_until = None
+    if undo["events_moved"]:
+        db.query(CodexEvent).filter(CodexEvent.id.in_([uuid.UUID(e) for e in undo["events_moved"]])).update(
+            {CodexEvent.entity_id: absorb.id}, synchronize_session=False)
+    for fact_id, role in undo["fact_links_moved"]:
+        db.query(CodexFactEntity).filter_by(fact_id=uuid.UUID(fact_id), entity_id=keep.id, role=role).update(
+            {CodexFactEntity.entity_id: absorb.id}, synchronize_session=False)
+    for fact_id, role in undo["fact_links_dropped"]:
+        db.add(CodexFactEntity(fact_id=uuid.UUID(fact_id), entity_id=absorb.id, role=role))
+    now = datetime.now(timezone.utc)
+    for entity in (keep, absorb):
+        db.add(CodexEvent(entity_id=entity.id, event_type="entity_unmerged", timestamp=now,
+                          batch_source=batch, payload={"merge_event_id": str(event.id),
+                                                       "source": SOURCE, "agent_run_id": run_ref}))
+    db.commit()
+    logger.info("agent_action", action="entity_unmerge", outcome="applied",
+                kept=keep.canonical_name, restored=absorb.canonical_name, merge_event=str(event.id))
+    return {"status": "unmerged", "kept_id": str(keep.id), "restored_id": str(absorb.id)}

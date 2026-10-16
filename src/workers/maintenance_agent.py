@@ -877,25 +877,31 @@ def _apply_reconciliation(db, item: WorkItem, decision: str, run_id) -> str:
     return "applied" if decision in ("expire_old", "reject_new") else decision
 
 
-def _propose_merge(db, item: WorkItem, run_id) -> str:
+def _apply_merge_audited(db, item: WorkItem, run_id) -> str:
+    """Tier 2 'same': merge now, then record it in review_queue as applied
+    (F2 can list and undo it; nothing waits for approval)."""
     from src.memory.models import CodexEntity, ReviewQueue
+    from src.workers.codex_ops import merge_entities
     keep = db.query(CodexEntity).get(uuid.UUID(item.payload["keep_id"]))
     absorb = db.query(CodexEntity).get(uuid.UUID(item.payload["absorb_id"]))
-    cos = item.payload.get("cosine")
-    # Self-describing for F2 (renders from item_content alone).
-    db.add(ReviewQueue(item_type="entity_merge", item_content={
+    keep_name = keep.canonical_name if keep else "?"
+    absorb_name = absorb.canonical_name if absorb else "?"
+    result = merge_entities(db, uuid.UUID(item.payload["keep_id"]),
+                            uuid.UUID(item.payload["absorb_id"]), agent_run_id=str(run_id))
+    if result.get("status") != "merged":
+        return "skipped"
+    db.add(ReviewQueue(item_type="entity_merge", status="applied", item_content={
         "keep_id": item.payload["keep_id"], "absorb_id": item.payload["absorb_id"],
-        "keep_name": keep.canonical_name if keep else "?",
-        "absorb_name": absorb.canonical_name if absorb else "?",
+        "keep_name": keep_name, "absorb_name": absorb_name,
         "pair_key": item.payload["pair_key"],
-        "evidence": {"cosine": cos, "llm_verdict": "same"},
-        "suggested_action": f'merge "{absorb.canonical_name if absorb else "?"}" '
-                            f'into "{keep.canonical_name if keep else "?"}"',
+        "evidence": {"cosine": item.payload.get("cosine"), "llm_verdict": "same"},
+        "merge_event_id": result.get("merge_event_id"),
+        "undo": "codex_ops.unmerge_entities(merge_event_id)",
         "agent_run_id": str(run_id)}))
     db.commit()
-    logger.info("agent_action", action="duplicate_entities", outcome="proposed",
+    logger.info("agent_action", action="duplicate_entities", outcome="applied",
                 pair_key=item.payload["pair_key"], agent_run_id=str(run_id))
-    return "proposed"
+    return "applied"
 
 
 def _dismiss_pair(db, item: WorkItem, verdict: str, run_id) -> str:
@@ -1028,10 +1034,15 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
     if item.item_type == "duplicate_entities":       # tier 2
         verdict = _decide_duplicate(db, item, llm_decider)
         if verdict == "same":
-            if counters["proposals"] >= settings.agent_max_tier2_proposals:
+            # CODEX_V4 D12: no human wall — the model-confirmed merge applies
+            # itself (undoable via codex_ops.unmerge_entities) and the review
+            # queue keeps an audit row, not a pending gate.
+            if counters["applications"] >= settings.agent_max_applications:
                 return "skipped_cap"
-            counters["proposals"] += 1
-            return _propose_merge(db, item, run_id)
+            outcome = _apply_merge_audited(db, item, run_id)
+            if outcome == "applied":
+                counters["applications"] += 1
+            return outcome
         if verdict == "different":
             return _dismiss_pair(db, item, verdict, run_id)
         return "unsure"

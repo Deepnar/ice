@@ -186,36 +186,37 @@ try:
     run1 = newrun()
     outcome = ma._process(db, mine12[0], stub_same, run1,
                           {"llm_decisions": 0, "applications": 0, "proposals": 0})
-    rq = db.query(ReviewQueue).filter(
-        ReviewQueue.item_type == "entity_merge",
-        ReviewQueue.status == "pending",
-        ReviewQueue.item_content["pair_key"].astext == key_12).first()
-    check("'same' verdict wrote one pending entity_merge proposal",
-          outcome == "proposed" and rq is not None)
-    check("proposal is self-describing (names + evidence for F2)",
-          rq is not None and rq.item_content.get("keep_name", "").startswith(MARK)
-          and rq.item_content.get("evidence", {}).get("cosine") is not None)
-
-    review.approve(db, str(rq.id))          # the EXISTING E0 dispatch
     db.expire_all()
-    kept_id = uuid.UUID(rq.item_content["keep_id"])
-    absorbed = db.query(CodexEntity).get(uuid.UUID(rq.item_content["absorb_id"]))
-    check("approve dispatched the REAL merge (absorb expired into keep)",
+    audit = db.query(ReviewQueue).filter(
+        ReviewQueue.item_type == "entity_merge",
+        ReviewQueue.item_content["pair_key"].astext == key_12).first()
+    # CODEX_V4 D12: no human wall — the model-confirmed merge applies itself and
+    # the review queue keeps an audit row (status applied), not a pending gate.
+    check("'same' verdict applied the merge and wrote an applied audit row",
+          outcome == "applied" and audit is not None and audit.status == "applied")
+    check("audit row is self-describing and names its undo",
+          audit is not None and audit.item_content.get("keep_name", "").startswith(MARK)
+          and audit.item_content.get("merge_event_id"))
+    kept_id = uuid.UUID(audit.item_content["keep_id"])
+    absorbed_id = uuid.UUID(audit.item_content["absorb_id"])
+    absorbed = db.query(CodexEntity).get(absorbed_id)
+    absorbed_name = audit.item_content["absorb_name"]
+    check("the REAL merge ran (absorb expired into keep)",
           (absorbed.properties or {}).get("merged_into") == str(kept_id))
 
-    # rejected pair is never re-proposed
+    from src.workers.codex_ops import unmerge_entities
+    result = unmerge_entities(db, audit.item_content["merge_event_id"])
+    db.expire_all()
+    restored = db.query(CodexEntity).get(absorbed_id)
+    keeper = db.query(CodexEntity).get(kept_id)
+    check("unmerge restores the absorbed entity exactly",
+          result.get("status") == "unmerged"
+          and "merged_into" not in (restored.properties or {})
+          and restored.canonical_name == absorbed_name
+          and absorbed_name not in (keeper.aliases or []))
     items = ma._detect_duplicate_entities(db, 500)
-    mine34 = [i for i in items if i.payload["pair_key"] == key_34]
-    run2 = newrun()
-    ma._process(db, mine34[0], stub_same, run2,
-                {"llm_decisions": 0, "applications": 0, "proposals": 0})
-    rq34 = db.query(ReviewQueue).filter(
-        ReviewQueue.item_type == "entity_merge",
-        ReviewQueue.item_content["pair_key"].astext == key_34).first()
-    review.reject(db, str(rq34.id))
-    items = ma._detect_duplicate_entities(db, 500)
-    check("rejected pair never re-proposed (detector skips it)",
-          not any(i.payload["pair_key"] == key_34 for i in items))
+    check("an undone pair is not re-merged (detector skips it)",
+          not any(i.payload["pair_key"] == key_12 for i in items))
 
     # ═══ 3. Pending-edge pileup → Tier-1 dedupe/expire ═════════════════════
     print("── 3. Pileup: pending duplicates expired with events ──")
@@ -413,9 +414,10 @@ try:
           result["llm_decisions"] == 25
           and result["outcomes"].get("reconciliation_leftover:skipped_cap") == 5)
 
-    # proposals cap: 8 'same' verdict pairs → 5 proposals
+    # applications cap (CODEX_V4 D12: model-confirmed merges apply themselves, so
+    # the per-run bound is agent_max_applications, 10): 12 'same' pairs → 10 merges
     pairs = []
-    for i in range(8):
+    for i in range(12):
         x = mkent(f"{MARK} pcap x{i}")
         y = mkent(f"{MARK} pcap y{i}")
         pairs.append(ma.WorkItem("duplicate_entities", 2, {
@@ -425,9 +427,9 @@ try:
     ma.DETECTORS = {"duplicate_entities": lambda db, cap: pairs[:cap]}
     result = ma.run_maintenance_agent(db, llm_decider=stub_same)
     run_ids.append(uuid.UUID(result["agent_run_id"]))
-    check("8 'same' pairs → exactly 5 proposals (queue-flood guard)",
-          result["proposals"] == 5
-          and result["outcomes"].get("duplicate_entities:skipped_cap") == 3)
+    check("12 'same' pairs → exactly 10 merges applied, 2 skipped by the cap",
+          result["applications"] == 10
+          and result["outcomes"].get("duplicate_entities:skipped_cap") == 2)
 
     # contradiction proposal cap: 12 candidates → 5 proposals, no expiry
     app_items, app_edge_ids = [], []
