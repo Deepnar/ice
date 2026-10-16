@@ -641,6 +641,11 @@ class Settings(BaseSettings):
     # and demoting those would cost more than the junk is worth. This is a rule
     # about SHAPE, not vocabulary, so it does not re-create what G45 removed.
     codex_relation_max_words: int = 5
+    # CODEX_V4 D5 — fact entity links. An object longer than this is a value
+    # (a sentence, a tensor, a URL with a query), kept as text on the fact, not
+    # an entity.
+    codex_fact_entity_max_words: int = 6
+    codex_fact_entity_max_chars: int = 80
     # G44 second half — node promotion. When a MORE SPECIFIC name arrives for a
     # generic node already in the graph ("master plan" against a stored "plan"),
     # the generic one is registered as an alias of the specific one so later

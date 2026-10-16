@@ -90,9 +90,12 @@ sentence is what readers trust and D6 must not rest on the label alone.
 lookup: `I/me/my/mine/myself/we/our` → the **user** entity, `you/your/yours` → the
 **assistant** entity of that source unit's speaker (fixes A3). Resolution online is
 deterministic only: (1) normalised exact canonical name / alias; (2) `merge_key`
-(G50, `maintenance_agent.py:110`); (3) trigram similarity ≥ 0.9 via Postgres `pg_trgm`
-for names of ≥ 6 characters (short names are unstable — Graphiti's entropy gate);
-otherwise a new entity. Embedding near-matches (cosine ≥ `agent_dup_cosine_threshold`
+(G50, `maintenance_agent.py:110`); otherwise a new entity. **No trigram tier**
+(measured 2026-10-16): a plural scores 0.885–0.893 and a different model's version suffix
+0.882 (`devstral-small` / `devstral-small-2`), so no threshold separates them; at 0.9 even
+typos (0.75–0.88) miss, and anything above is already an exact or `merge_key` match.
+`pg_trgm` stays for the question-side known-name lookup (§1b), pending its measurement.
+Embedding near-matches (cosine ≥ `agent_dup_cosine_threshold`
 0.90, same type) go to the maintenance agent's Tier 2 LLM call, which **decides and
 applies** the merge itself (D12) — journaled with every moved fact link so
 `unmerge_entities(event_id)` restores it exactly. Cosine alone never authorises identity
@@ -190,7 +193,7 @@ Every model call the conversation codex makes, per turn (write) and per question
 | Conflict reconciler | **gemma4:e4b**, one-word verdict per same-subject+relation pair; 571 left pending for a human | **Replaced** by one batched `gemma4:e4b` call per turn (D6: same / replaces / both_true), only when candidate facts exist; applies itself (D12). |
 | Entity embedding | Qwen3-Embedding per new entity | **Stays.** |
 | Fact / claim embedding | Qwen3-Embedding per claim paragraph (`codex_claims`) | **Stays**, per fact sentence (shorter input). |
-| Entity name matching | exact → alias → `merge_key` | **Same + trigram** (`pg_trgm`, not a model). |
+| Entity name matching | exact → alias → `merge_key` | **Same** (a trigram tier was measured and dropped — D5). |
 
 **Background jobs**
 

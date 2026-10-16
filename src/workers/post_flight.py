@@ -19,8 +19,8 @@ from src.memory.embedder import get_embedder
 from src.memory.models import EpisodicMemory, IdempotencyKey
 from src.memory.representation import choose_representation, verify_representations
 from src.memory.summary_support import (
-    SummaryCandidate, SummaryResult, assertion_instruction, assertion_text,
-    PER_CLAIM_METHODS, generate_claims, original_units, source_windows, window_prompt,
+    METHOD_V4, PER_CLAIM_METHODS, SummaryCandidate, SummaryResult, assertion_instruction,
+    assertion_text, current_method, generate_claims, original_units, source_windows, window_prompt,
 )
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name, json_schema
 from src.workers.codex_extractor import extract_codex
@@ -360,8 +360,14 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             from src.workers.runtime import JobYielded
 
             failures = []
-            for stage_name, extractor in (("codex", extract_codex),
-                                          ("procedural", extract_procedural)):
+            # CODEX_V4 D3: under v4 the claim pass writes the codex; the legacy
+            # extractor runs only under v2/v3 until it is deleted.
+            if current_method() == METHOD_V4:
+                from src.workers.fact_extractor import extract_facts
+                codex_stage = ("facts", extract_facts)
+            else:
+                codex_stage = ("codex", extract_codex)
+            for stage_name, extractor in (codex_stage, ("procedural", extract_procedural)):
                 try:
                     extractor(batch_id=batch_id, model_used=model_used)
                 except JobYielded:
