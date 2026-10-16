@@ -646,6 +646,13 @@ class Settings(BaseSettings):
     # an entity.
     codex_fact_entity_max_words: int = 6
     codex_fact_entity_max_chars: int = 80
+    # CODEX_V4 D8 — candidates per channel (keyword, meaning, entity) of the
+    # facts leg; same scale as the claim leg it replaces.
+    codex_fact_candidate_limit: int = 64
+    # CODEX_V4 D7 — the post-rerank strength bonus bound B (support 2/3,
+    # decayed usage 1/3). 0 until §5.3 sets B from the measured spread of
+    # rerank logits on the development questions; not a guessed value.
+    codex_fact_strength_bonus: float = 0.0
     # G44 second half — node promotion. When a MORE SPECIFIC name arrives for a
     # generic node already in the graph ("master plan" against a stored "plan"),
     # the generic one is registered as an alias of the specific one so later

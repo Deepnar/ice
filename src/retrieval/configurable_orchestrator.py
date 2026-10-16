@@ -126,6 +126,13 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
         self.enable_enumeration = self._on("mera")
         return super()._codex_graph(classification, scope, prompt_embedding)
 
+    def _facts_leg(self, prompt, prompt_embedding, scope=None, conv_id=None):
+        # CODEX_V4: the same `codex` ablation flag switches the facts leg off.
+        if self._off("codex"):
+            return []
+        self.use_fuzzy_match = self._on("fuzzy_match")
+        return super()._facts_leg(prompt, prompt_embedding, scope, conv_id)
+
     # ── Override post‑processing ─────────────────────────────────────────
 
     def _apply_rrf(self, legs, alpha_map=None, k=None):

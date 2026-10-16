@@ -49,6 +49,24 @@ def _graph_quotes_covered(fragment, originals):
     return True
 
 
+def _fact_sources_in_prompt(fragment, originals, recent_ids):
+    """CODEX_V4 D8: a fact adds nothing when EVERY source turn it rests on is
+    already in the prompt — a complete retrieved original or a recent-window
+    turn. Ids are episodic ROW ids on both sides (an episodic fragment's
+    source_batch_id holds the row id). One visible source missing keeps it."""
+    rows = getattr(fragment, 'fact_source_row_ids', ())
+    if getattr(fragment, 'leg', None) != 'facts' or not rows:
+        return False
+    present = set(recent_ids) | {str(o.source_batch_id) for o in originals
+                                 if o.source_type == 'episodic' and o.covers_entire_source}
+    return all(row in present for row in rows)
+
+
+def _recent_row_ids(artifacts):
+    return {ident for item in (artifacts.get('recent_turns') or {}).get('items', [])
+            for table, ident in item.get('stored_artifact_ids', ()) if table == 'episodic_memory'}
+
+
 def assemble_budgeted_prompt(*, serving_window, generation_reserve,
                              safety_margin=1.0, **kwargs):
     arguments = dict(kwargs)
@@ -57,6 +75,7 @@ def assemble_budgeted_prompt(*, serving_window, generation_reserve,
     summary_artifacts = arguments.pop('conversation_summary_artifact_options', None) or {}
     source_fragments = list(arguments.get('retrieved_fragments') or [])
     evidence_enabled = True
+    fact_skip = frozenset()
     removed = []
     evictions = []
     if not serving_window:
@@ -72,12 +91,23 @@ def assemble_budgeted_prompt(*, serving_window, generation_reserve,
         ] if evidence_enabled else [])
         # Recompute after each whole-note/eviction choice. Earlier suppression
         # cannot survive disappearance or degradation of its covering original.
-        visible = arguments['retrieved_fragments']
+        visible = [fragment for fragment in arguments['retrieved_fragments']
+                   if not _graph_quotes_covered(fragment, arguments['retrieved_fragments'])]
         arguments['retrieved_fragments'] = [fragment for fragment in visible
-            if not _graph_quotes_covered(fragment, visible)]
+            if not set(getattr(fragment, 'origin_fact_ids', ())) & fact_skip]
         costs, counts, artifacts = {}, {}, {}
         arguments['conversation_summary_artifacts'] = summary_artifacts.get(arguments.get('conversation_summary_text'), ())
         messages = assemble_prompt(**arguments, block_tokens=costs, block_counts=counts, block_artifacts=artifacts)
+        # Recomputed from THIS assembly every round: if the recent window is
+        # evicted later, the facts it made redundant come back (TRAPS 125).
+        skip_now = frozenset(fid for fragment in visible
+                             if _fact_sources_in_prompt(fragment, visible, _recent_row_ids(artifacts))
+                             for fid in fragment.origin_fact_ids)
+        if skip_now != fact_skip:
+            if skip_now - fact_skip:
+                logger.info("facts_skipped_source_in_prompt", count=len(skip_now))
+            fact_skip = skip_now
+            continue
         ledger = ContextLedger(serving_window=serving_window,
             generation_reserve=generation_reserve, safety_margin=safety_margin)
         for name, tokens in costs.items():

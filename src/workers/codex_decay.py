@@ -39,6 +39,12 @@ def decay_codex_edges(cycles: int = 1):
               AND source = 'conversation'
         """), {"rate": decay_rate(), "cycles": cycles,
                "floor": settings.codex_retention_floor})
+        # CODEX_V4 D7: prompt usage fades the same way, with no floor — a fact
+        # nobody reads drifts back to its support-only rank.
+        db.execute(text("""
+            UPDATE codex_facts SET usage = usage * POWER(:rate, :cycles)
+            WHERE usage > 0 AND valid_until IS NULL
+        """), {"rate": decay_rate(), "cycles": cycles})
 
         db.commit()
         logger.info("codex_decay_cycle_complete", cycles=cycles)

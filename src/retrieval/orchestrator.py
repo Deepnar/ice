@@ -29,6 +29,7 @@ from src.memory.models import (
     CodexClaimLink,
     CodexEdge,
     CodexEntity,
+    CodexFact,
     ColdStorage,
     ConversationNote,
     EpisodicMemory,
@@ -36,6 +37,7 @@ from src.memory.models import (
 )
 from src.memory.representation import choose_representation
 from src.memory.recent_window import base_recent_fraction
+from src.memory.summary_support import METHOD_V4, current_method
 from src.memory.summary_snapshot import SUMMARY_SOURCES_SQL, batch_snapshot_readable, summary_snapshot_readable
 from src.memory.source_order import source_order_stamp
 from src.memory.time_format import format_time, recorded_stamp, source_stamp
@@ -122,6 +124,12 @@ class ContextFragment:
     # packing may share their slot with actually retained complete originals.
     source_quote_requirements: tuple = ()
     source_quote_text_sha256: Optional[str] = None
+    # CODEX_V4: the episodic ROW ids of a fact's visible sources (the same id
+    # space as an episodic fragment's source_batch_id and the recent-turn
+    # receipts) — final assembly skips a fact whose every source turn is
+    # already in the prompt (D8). origin_fact_ids feed usage (D7).
+    fact_source_row_ids: tuple = ()
+    origin_fact_ids: tuple = ()
 
 # G9 (2026-08-08): every tunable number in this module moved to settings, so
 # Z1 can sweep it without editing code. What remains here are label SETS —
@@ -168,6 +176,21 @@ META_LEANING_INTENTS = {"Analysis_&_Summarization"}
 # A4: process-wide cache of (relation_names, gloss_embeddings) for relation
 # detection — built lazily on first use by _relation_gloss_cache().
 _RELATION_GLOSSES = None
+
+# Every original turn, warm or archived, with its cluster membership: warm
+# membership from current links, archived membership as preserved. A cold row
+# is the archived copy of the same id, so warm wins when both exist.
+_SOURCE_ROWS = """
+    SELECT warm.id, warm.batch_id, warm.conversation_id, warm.is_private, warm.timestamp,
+           ARRAY(SELECT l.cluster_id FROM episodic_cluster_links l
+                 WHERE l.episodic_id = warm.id) AS cluster_ids
+    FROM episodic_memory warm
+    UNION ALL
+    SELECT cold.id, cold.batch_id, cold.conversation_id, cold.is_private, cold.timestamp,
+           cold.cluster_ids
+    FROM cold_storage cold
+    WHERE NOT EXISTS (SELECT 1 FROM episodic_memory warm WHERE warm.id = cold.id)
+"""
 
 class HybridRetrievalOrchestrator:
     def __init__(self, db: Session, embedder):
@@ -578,13 +601,20 @@ class HybridRetrievalOrchestrator:
 
         # A4: run the codex leg first — the entities it resolves ground the
         # query expansion for the lexical leg below.
-        codex_fragments = self._codex_graph(classification, scope,
-                                            prompt_embedding=prompt_embedding)
-        # T4: timelines ride back with the codex fragments but fuse and
-        # budget as their own leg — RRF weight is keyed by legs-dict entry,
-        # the budget's round-robin lane by source_type.
-        timeline_fragments = [f for f in codex_fragments if f.source_type == "timeline"]
-        codex_fragments = [f for f in codex_fragments if f.source_type != "timeline"]
+        facts_mode = current_method() == METHOD_V4
+        if facts_mode:
+            # CODEX_V4 D8: one facts leg; a fact's predecessor rides in its own
+            # rendering, so there is no separate timeline leg.
+            codex_fragments = self._facts_leg(classification.prompt, prompt_embedding, scope, conv_id)
+            timeline_fragments = []
+        else:
+            codex_fragments = self._codex_graph(classification, scope,
+                                                prompt_embedding=prompt_embedding)
+            # T4: timelines ride back with the codex fragments but fuse and
+            # budget as their own leg — RRF weight is keyed by legs-dict entry,
+            # the budget's round-robin lane by source_type.
+            timeline_fragments = [f for f in codex_fragments if f.source_type == "timeline"]
+            codex_fragments = [f for f in codex_fragments if f.source_type != "timeline"]
 
         # A4 grounded query expansion (the sane replacement for HyDE): append
         # matched entities' canonical names + aliases to the BM25 search prompt
@@ -609,7 +639,8 @@ class HybridRetrievalOrchestrator:
         legs: Dict[str, List[ContextFragment]] = {
             "bm25": self._bm25_episodic(classification, scope, conv_id, search_prompt),
             "vector": self._vector_episodic(prompt_embedding, classification, scope, conv_id),
-            "codex": codex_fragments + self._codex_claims(classification.prompt, prompt_embedding, scope, conv_id),
+            "codex": codex_fragments + ([] if facts_mode else self._codex_claims(
+                classification.prompt, prompt_embedding, scope, conv_id)),
             "procedural": [] if incognito else self._procedural_lookup(prompt_embedding, classification, scope),
             # C4: the cross-conversation summary half is a user-global read —
             # gated off under incognito like procedural; the conv-scoped
@@ -648,6 +679,8 @@ class HybridRetrievalOrchestrator:
         fused = self._apply_bonuses(fused, classification, own_conv_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
         fused, reranked = rerank(classification.prompt, fused)
+        if facts_mode and reranked:
+            fused = self._fact_strength_bonus(fused)
         # G29: no max_per_conversation here — passing the literal 3 is what made
         # settings.retrieval_max_per_conversation unreachable on every live path.
         deduped = self._deduplicate(fused)
@@ -1977,6 +2010,140 @@ class HybridRetrievalOrchestrator:
         except Exception as exc:
             self._leg_degraded("codex.claims", exc)
             return []
+
+    def _facts_leg(self, prompt, prompt_embedding, scope=None, conv_id=None):
+        """CODEX_V4 D8: verified fact sentences by keyword, meaning and one-hop entity.
+
+        A fact is visible when ANY of its source turns is visible under this
+        request's scope (TRAPS 65 — the first source is not the only one).
+        Current facts only, unless an as-of/range timescope asks for the state
+        then. Fragments carry no conversation_id: they are compact facts, not
+        turns, so the per-conversation turn cap does not apply to them.
+        """
+        self._last_matched_entities = []
+        self._fact_strength = {}
+        if (self._scope_resolution_failed
+                or (scope and (scope.get("isolated") or scope.get("incognito")))):
+            return []
+        if scope and scope.get("cluster_ids_explicit") and not scope.get("cluster_ids"):
+            return []
+        conv_filter, conv_params, _ = self._conv_scope_filter(
+            scope, (scope or {}).get("conversation_id") or conv_id, "e.conversation_id")
+        excl_filter, excl_params = self._exclusion_filters(
+            scope, "e.conversation_id", "e.id", membership_column="e.cluster_ids")
+        cluster_filter = self._cluster_filter(scope, "e.id", membership_column="e.cluster_ids")
+        time_filter, _, ts_params, _ = self._timescope_leg_filters("e.")
+        limit = settings.codex_fact_candidate_limit
+        params = {"prompt": prompt, "limit": limit, **conv_params, **excl_params, **ts_params}
+        source_filters = ""
+        if scope and "batch_ids" in scope:
+            source_filters += " AND s.source_batch = ANY(:batches)"
+            params["batches"] = list(scope["batch_ids"] or [])
+        if self._denied_batch_ids:
+            source_filters += " AND s.source_batch <> ALL(:denied)"
+            params["denied"] = list(self._denied_batch_ids)
+        if scope and scope.get("cluster_ids"):
+            params["cluster_ids"] = scope["cluster_ids"]
+        ts = getattr(self, "_active_timescope", CURRENT)
+        if ts.source_clock and ts.mode in ("as_of", "range") and ts.t1:
+            validity = "f.valid_from <= :valid_at AND (f.valid_until IS NULL OR f.valid_until > :valid_at)"
+            params["valid_at"] = ts.t1
+        else:
+            validity = "f.valid_until IS NULL"
+        visible = f"""SELECT s.fact_id, s.episodic_id, s.source_batch, e.timestamp
+            FROM codex_fact_sources s JOIN ({_SOURCE_ROWS}) e
+              ON e.id = s.episodic_id AND e.batch_id = s.source_batch
+            WHERE e.is_private = false {conv_filter} {excl_filter} {cluster_filter}
+              {time_filter} {source_filters}"""
+        base = f"FROM codex_facts f WHERE {validity} AND f.id IN (SELECT fact_id FROM ({visible}) v)"
+        try:
+            channels = [list(self.db.execute(text(f"""SELECT f.id {base}
+                AND to_tsvector('english', f.text) @@ plainto_tsquery('english', :prompt)
+                ORDER BY ts_rank(to_tsvector('english', f.text), plainto_tsquery('english', :prompt)) DESC, f.id
+                LIMIT :limit"""), params).scalars())]
+            if prompt_embedding is not None:
+                semantic = text(f"""SELECT f.id {base} AND f.embedding IS NOT NULL
+                    ORDER BY f.embedding <=> :embedding, f.id LIMIT :limit""").bindparams(
+                        bindparam("embedding", type_=PgVector))
+                channels.append(list(self.db.execute(
+                    semantic, {**params, "embedding": prompt_embedding}).scalars()))
+            matched = self._facts_entities(prompt)
+            if matched:
+                channels.append(list(self.db.execute(text(f"""SELECT f.id {base}
+                    AND f.id IN (SELECT fact_id FROM codex_fact_entities WHERE entity_id = ANY(:ents))
+                    ORDER BY f.support_count DESC, f.mentioned_at DESC, f.id LIMIT :limit"""),
+                    {**params, "ents": [e.id for e in matched]}).scalars()))
+            scores = {}
+            for channel in channels:
+                for rank, ident in enumerate(channel, 1):
+                    scores[ident] = scores.get(ident, 0.0) + 1.0 / (settings.retrieval_rrf_k + rank)
+            chosen = sorted(scores, key=lambda k: (-scores[k], str(k)))[:limit]
+            if not chosen:
+                return []
+            sources = {}
+            for fact_id, row_id, batch, _when in self.db.execute(
+                    text(f"SELECT * FROM ({visible}) v WHERE v.fact_id = ANY(:chosen)"),
+                    {**params, "chosen": chosen}):
+                sources.setdefault(fact_id, []).append((str(row_id), str(batch)))
+            fragments = []
+            for ident in chosen:
+                fact = self.db.get(CodexFact, ident)
+                rendered = self._render_fact(fact, current=validity == "f.valid_until IS NULL")
+                rows = sources.get(ident, [])
+                self._fact_strength[str(ident)] = (fact.support_count or 1, fact.usage or 0.0)
+                fragments.append(ContextFragment(
+                    rendered, "codex", scores[ident], count_tokens(rendered), leg="facts",
+                    origin_batch_ids=tuple(sorted({b for _, b in rows})),
+                    fact_source_row_ids=tuple(sorted({r for r, _ in rows})),
+                    origin_fact_ids=(str(ident),),
+                    stored_artifact_ids=(("codex_facts", str(ident)),)))
+            return fragments
+        except Exception as exc:
+            self._leg_degraded("codex.facts", exc)
+            return []
+
+    def _facts_entities(self, prompt):
+        """Entities the question names (micro-NER → existing matchers); also the
+        grounded BM25 expansion's input (A4)."""
+        names = extract_entities(prompt, self.embedder) if prompt else []
+        matched = []
+        if names:
+            matched = (self._match_entities_by_similarity(names) if self.use_fuzzy_match
+                       else self._match_entities_exact(names))
+        self._last_matched_entities = matched
+        return matched
+
+    def _render_fact(self, fact, *, current):
+        """D1: the sentence is what the model reads; one predecessor clause for a
+        fact that replaced another (knowledge-update questions)."""
+        state = "current" if fact.valid_until is None else f"replaced {fact.valid_until:%Y-%m-%d}"
+        rendered = (f"[Fact; {fact.speaker}, {fact.modality}; {fact.mentioned_at:%Y-%m-%d}; {state}] "
+                    f"{fact.text}")
+        if current:
+            earlier = (self.db.query(CodexFact).filter(CodexFact.superseded_by == fact.id)
+                       .order_by(CodexFact.valid_until.desc()).first())
+            if earlier is not None and earlier.valid_until is not None:
+                rendered += f" (earlier: {earlier.text} — until {earlier.valid_until:%Y-%m-%d})"
+        return rendered
+
+    def _fact_strength_bonus(self, fragments):
+        """D7: after the reranker (a prior before it only moves the candidate cut).
+        support_count carries two thirds, decayed prompt usage one third; both
+        saturate (TRAPS 135). It ranks, it never admits."""
+        bound = settings.codex_fact_strength_bonus
+        strength = getattr(self, "_fact_strength", {})
+        if not bound or not strength:
+            return fragments
+        out = []
+        for frag in fragments:
+            ids = getattr(frag, "origin_fact_ids", ())
+            if frag.leg == "facts" and ids and ids[0] in strength:
+                support, usage = strength[ids[0]]
+                bonus = bound * (2 / 3 * min(1.0, (support - 1) / 3) + 1 / 3 * min(1.0, usage / 5))
+                frag = replace(frag, score=frag.score + bonus)
+            out.append(frag)
+        out.sort(key=lambda f: f.score, reverse=True)
+        return out
 
     def _codex_graph(self, classification, scope: Optional[dict] = None,
                      prompt_embedding=None) -> List[ContextFragment]:
@@ -3552,10 +3719,13 @@ class HybridRetrievalOrchestrator:
             recency_boost=self._recency_params(
                 "Creative_&_Media" in (classification.topic_tags or []))[1]))
 
-        fragments.extend(self._codex_graph(classification, scope,
-                                           prompt_embedding=prompt_embedding))
-
-        fragments.extend(self._codex_claims(classification.prompt, prompt_embedding, scope, conversation_id))
+        if current_method() == METHOD_V4:
+            fragments.extend(self._facts_leg(classification.prompt, prompt_embedding, scope, scope_conv))
+        else:
+            fragments.extend(self._codex_graph(classification, scope,
+                                               prompt_embedding=prompt_embedding))
+            fragments.extend(self._codex_claims(classification.prompt, prompt_embedding, scope,
+                                                conversation_id))
         prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
         cold = self._cold_lookup(prompt_keywords, scope_conv, scope, prompt_embedding)
         fused = self._apply_rrf({"fallback": fragments, "cold": cold},
