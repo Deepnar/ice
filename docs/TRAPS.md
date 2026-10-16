@@ -2796,3 +2796,72 @@ on 518/519 prompts. Every individual term looked like "a nudge". Clamp each
 additive term to the range its comment intends, and check the decision's rate on
 real long histories, not on short fixtures.
 
+
+### 136. A model asked "which verdict" over-calls the dramatic one — ask what must be true instead
+
+ICE v3, 2026-10-16 (CODEX_V4 §5.2): asked to pick same / replaces / both_true for
+two facts of one speaker, gemma4:e4b called "replaces" on 23 of 94 both-true pairs
+and on a "might", a reversed relation and a list member; a 27B model on the same
+prompt did 18. Rephrased as two questions — "same information?" and "can both be
+true at the same time, now?" — the same small model fell to 6 (2 after the label
+rule). The model was not too small; the question invited a change verdict for
+"newer, more detailed". The NLI model was no fallback: contradiction 0.97–0.999 on
+the might / question / list pairs (TRAPS 70). Before buying a bigger model, change
+the question into the property the decision actually rests on, and re-run the
+planted traps.
+
+### 137. An output cap set from one output shape cuts the next shape mid-JSON
+
+ICE v3, 2026-10-15/16: `summary_output_ratio` 1.3 was set from v3 claims (max 1.05
+output/input). Adding five fields to each claim (v4) made answers ~25% longer; 6 of
+10 large pieces then hit the cap and the half-written JSON was lost — read at first
+as "the new shape finds fewer facts" (54 vs 142). Halving the pieces made it worse,
+because the cap halves with the input. At the 8,192 ceiling 9/10 parsed and the
+count rose to 220. When a format change loses output, check finish_reason before
+judging the format, and re-derive the cap from the new shape's own maximum.
+
+### 138. A label the model writes is not the guard; put the act in the sentence
+
+ICE v3, 2026-10-16: across four instruction wordings, gemma4:e4b's
+asserted / suggested / hypothetical / asked label stayed ~85–90% right on 31 source-
+varied controls (risky errors 2–5, i.e. noise), while the sentence it wrote carried
+the act correctly every time ("The user asked if…", "said that if … they might…").
+Tuning the label's wording further was waste. Let readers rely on the sentence; use
+the label only as a pre-filter, and make the irreversible decision read the full
+sentences.
+
+### 139. A piece that starts mid-message cannot see that the message was pasted
+
+ICE v3, 2026-10-16: long user messages are summarised in 4K pieces. The paste
+framing ("here is my spec:") is in the first piece only, so every later piece of a
+pasted document was attributed "the user asserted". A one-line header showing how
+the message began (context, never a premise) fixed the pieces whose message had any
+framing. It cannot fix a document pasted with no framing at all — a 16K-word spec
+starting "# PHASE 9" is indistinguishable from the user's own writing by its text;
+measure that residue rather than claim it fixed.
+
+### 140. A "check" that writes is a change to the real store
+
+ICE v3, 2026-10-16: to see whether pg_trgm was available, `CREATE EXTENSION
+IF NOT EXISTS pg_trgm` was run against the real `ice_db` — it succeeded, so it
+installed the extension. Reverted at once (DROP, verified 0). Probe capabilities in
+a throwaway database (`CREATE DATABASE … ; DROP DATABASE …`), never with a statement
+whose success is itself a write.
+
+### 141. Exact-text dedupe of model-written sentences finds nothing
+
+ICE v3, 2026-10-16: 1,456 facts written by the claim pass over 251 development
+turns contained 0 exact-text duplicates, though the history repeats facts often —
+the model words each sentence afresh. A dedupe step keyed on text equality would
+report "no duplicates" while the store filled with paraphrases. Measure duplicate
+rates with a decision over candidates (shared entities + embedding neighbours), not
+with equality.
+
+### 142. A side run that lazily imports a module you are about to delete
+
+ICE v3, 2026-10-16: the retrieval comparison ran the legacy codex arm in a
+long-lived process; its read path imports codex modules lazily, inside functions.
+Deleting those files while it ran would have broken the run mid-checkpoint, after
+hours of work. Before deleting or moving code, check which running processes still
+reach it lazily (`grep -n "from src… import" <module>` inside function bodies), and
+order the deletion after them.
