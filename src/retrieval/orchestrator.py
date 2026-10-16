@@ -14,7 +14,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import structlog
 from pgvector.sqlalchemy import Vector as PgVector
-from sqlalchemy import bindparam, or_, text
+from sqlalchemy import bindparam, func, literal, or_, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -2103,15 +2103,39 @@ class HybridRetrievalOrchestrator:
             return []
 
     def _facts_entities(self, prompt):
-        """Entities the question names (micro-NER → existing matchers); also the
-        grounded BM25 expansion's input (A4)."""
-        names = extract_entities(prompt, self.embedder) if prompt else []
+        """Entities the question names; also the grounded BM25 expansion's input (A4).
+
+        The store's own entity names found whole-word in the question, plus the
+        micro-NER's matches. Measured 2026-10-16 on the 67 reviewed development
+        questions (CODEX_V4 §1b): micro-NER alone reached gold-turn facts on 15,
+        whole-word lookup on 25, both on 29 at 1.5 entities per question;
+        trigram word-similarity >= 0.6 reached 31 but at 3.1 entities.
+        """
         matched = []
-        if names:
-            matched = (self._match_entities_by_similarity(names) if self.use_fuzzy_match
-                       else self._match_entities_exact(names))
+        if prompt:
+            names = extract_entities(prompt, self.embedder)
+            if names:
+                matched = (self._match_entities_by_similarity(names) if self.use_fuzzy_match
+                           else self._match_entities_exact(names))
+            matched += [e for e in self._known_names_in(prompt) if e.id not in {m.id for m in matched}]
         self._last_matched_entities = matched
         return matched
+
+    def _known_names_in(self, prompt):
+        """Conversation entities whose name occurs whole-word in *prompt*
+        (punctuation folded to spaces on both sides; names of 3+ characters)."""
+        padded = " " + " ".join(re.sub(r"[^\w\s]", " ", prompt.lower()).split()) + " "
+        name = func.regexp_replace(func.regexp_replace(CodexEntity.canonical_name, r"[^\w\s]+", " ", "g"),
+                                   r"\s+", " ", "g")
+        try:
+            return (self.db.query(CodexEntity)
+                    .filter(*self._entity_source_filters(), func.length(CodexEntity.canonical_name) >= 3,
+                            literal(padded).like(func.concat("% ", func.trim(name), " %")))
+                    .order_by(func.length(CodexEntity.canonical_name).desc())
+                    .limit(settings.codex_enum_entity_limit).all())
+        except Exception as exc:                                    # noqa: BLE001
+            self._leg_degraded("codex.facts.names", exc)
+            return []
 
     def _render_fact(self, fact, *, current):
         """D1: the sentence is what the model reads; one predecessor clause for a

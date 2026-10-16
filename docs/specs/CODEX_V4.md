@@ -209,7 +209,7 @@ Every model call the conversation codex makes, per turn (write) and per question
 
 | Step | Before | After |
 |---|---|---|
-| Names in the question | **micro-NER** (our 384-dim head on Qwen3-Embedding); missed names in 48/58 short prompts (2026-09-24, old corpus) → graph not consulted | **Known-name lookup first**: the store's own entity names searched in the question with `pg_trgm` (no model). micro-NER kept as a second source for unseen names. Measured on the 67 development questions before adoption. |
+| Names in the question | **micro-NER** (our 384-dim head on Qwen3-Embedding); missed names in 48/58 short prompts (2026-09-24, old corpus) → graph not consulted | **Store-name lookup + micro-NER** (measured 2026-10-16, 67 reviewed dev questions, entities from the v4 dev-history facts): reaching a gold turn's facts — micro-NER alone 15, whole-word store-name lookup 25, **both 29** at 1.5 entities/question; trigram word-similarity ≥ 0.6 reached 31 but at 3.1 entities, ≥ 0.7 26. Shipped: both. |
 | Question → entity match | Qwen3-Embedding cosine ≥ 0.85, payload ILIKE fallback | Embedding match **stays**; payload ILIKE **removed**. |
 | Relation detection / relation fit | Qwen3-Embedding against relation glosses | **Removed** (no relation vocabulary to fit). |
 | Fact search | — | **New**: BM25 + fact-embedding cosine (the query is already embedded once for episodic search). |

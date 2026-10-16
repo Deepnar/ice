@@ -160,3 +160,28 @@ def test_usage_counts_prompt_exposure_of_current_facts():
         db.expire_all()
         assert db.get(CodexFact, live.id).usage == 2.0 and db.get(CodexFact, live.id).last_used_at
         assert db.get(CodexFact, gone.id).usage == 0.0
+
+
+def test_entity_channel_finds_known_names_whole_word(monkeypatch):
+    from src.memory.models import CodexEntity, CodexFactEntity
+    from src.retrieval import orchestrator as orch
+    monkeypatch.setattr(orch, "extract_entities", lambda *_a, **_k: [])     # micro-NER finds nothing
+    with SessionLocal() as db:
+        tag = uuid.uuid4().hex[:5]
+        turn = _turn(db, "Orbit Lab is my side project.")
+        fact = _fact(db, f"The user said Orbit Lab {tag} is their side project.", turn)
+        ent = CodexEntity(canonical_name=f"orbit-lab {tag}", source="conversation")
+        husk = CodexEntity(canonical_name=f"zephyr {tag} [merged:abc]", source="conversation",
+                           properties={"merged_into": str(uuid.uuid4())})
+        db.add_all([ent, husk])
+        db.flush()
+        db.add(CodexFactEntity(fact_id=fact.id, entity_id=ent.id, role="subject"))
+        db.flush()
+        o = HybridRetrievalOrchestrator(db, None)
+        o._resolve_exclusion_sets(None)
+        assert [e.id for e in o._facts_entities(f"what is Orbit Lab {tag} again?")] == [ent.id]
+        frags = o._facts_leg(f"zzz Orbit-Lab {tag}?", None, None)
+        assert any(str(fact.id) in f.origin_fact_ids for f in frags)
+        assert o._facts_entities(f"orbit-labs{tag} and zephyr{tag}") == []          # not whole words
+        assert o._facts_entities(f"zephyr {tag}") == []                             # merged husk never
+        db.rollback()
