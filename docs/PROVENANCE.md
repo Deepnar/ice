@@ -33,6 +33,14 @@ qwen3.8:27b verdict 76/99 (18); gemma compatibility framing 88/99 (6 → 2 with 
 rule), planted 10/12; qwen3.8:27b compatibility 90/99 (2), planted 12/12; NLI contradiction
 0.97–0.999 on might / question / list pairs.
 
+**Retrieval comparison (maintainer-designed, no answering).** The 12 as-of snapshots of the
+2026-10-10 development replay, 67 reviewed questions, today's code: legacy codex (graph +
+claims) vs v4 facts (written for turns ≤ cutoff, real D6) vs no codex. Codex content in final
+prompts 54,767 tokens / 87 fragments vs 2,904 / 52 (~19× fewer); gold turns in prompt 101 /
+101 / 102 of 108; questions with every gold turn 62 / 61 / 62; total prompt tokens 721,558 /
+715,734 / 722,530. Facts 388 → 1,436 current across checkpoints, 2 superseded. Answer effect
+not measured (Z2). Private: `retrieval-compare/`.
+
 **Question names (§1b).** 67 reviewed dev questions, entities from the v4 dev-history facts
 (1,086): reaching a gold turn's facts — micro-NER + match 15, whole-word store-name lookup
 25, trigram word-similarity ≥ 0.6 / 0.7 / 0.8 / 0.9: 31 / 26 / 24 / 22 (3.1 / 1.8 / 1.4 /
