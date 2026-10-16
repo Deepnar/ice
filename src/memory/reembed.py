@@ -24,6 +24,8 @@ Every rule was verified against its writer (spec §1 rev note 2):
   * codex_facts       → text (the verified fact sentence, CODEX_V4)
   * procedural_memory → pattern_description * decisions → decision
   * batch_summaries / conversation_summaries → summary_text
+  * cold_chunks → chunk_text; batch_notes / conversation_notes → text
+                        (two-column keys addressed as "<owner>:<ordinal>")
   * context_clusters  → NOT encoded: centroids are recomputed as the
                         normalized mean of member embeddings, AFTER the
                         member table finishes (clustering's own function).
@@ -97,6 +99,11 @@ RULES: dict[str, TableRule] = {
         kind="text",
         select_sql="SELECT id, raw_text AS src FROM cold_storage",
         transform=_episodic_source),
+    # C16: archived chunks carry the live chunk's vector across (decay.py), so
+    # their source text is the same chunk_text.
+    "cold_chunks": TableRule(
+        kind="text",
+        select_sql="SELECT id, chunk_text AS src FROM cold_chunks"),
     "codex_entities": TableRule(
         kind="text",
         select_sql="""SELECT id, canonical_name AS src FROM codex_entities
@@ -120,6 +127,17 @@ RULES: dict[str, TableRule] = {
         kind="text", id_col="conversation_id",
         select_sql=("SELECT conversation_id AS id, summary_text AS src "
                     "FROM conversation_summaries")),
+    # Indexed summary parts (conversation_notes.index_parts embeds part text).
+    # Two-column keys, addressed as one text id so the resumable loop and its
+    # UPDATE ... WHERE <id_col> = :id work unchanged.
+    "batch_notes": TableRule(
+        kind="text", id_col="(summary_id::text || ':' || ordinal::text)",
+        select_sql=("SELECT summary_id::text || ':' || ordinal::text AS id, text AS src "
+                    "FROM batch_notes")),
+    "conversation_notes": TableRule(
+        kind="text", id_col="(conversation_id::text || ':' || ordinal::text)",
+        select_sql=("SELECT conversation_id::text || ':' || ordinal::text AS id, text AS src "
+                    "FROM conversation_notes")),
     "context_clusters": TableRule(kind="centroid"),
 }
 
