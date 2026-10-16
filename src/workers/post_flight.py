@@ -20,7 +20,7 @@ from src.memory.models import EpisodicMemory, IdempotencyKey
 from src.memory.representation import choose_representation, verify_representations
 from src.memory.summary_support import (
     SummaryCandidate, SummaryResult, assertion_instruction, assertion_text,
-    METHOD_V3, generate_claims, original_units, source_windows, window_prompt,
+    PER_CLAIM_METHODS, generate_claims, original_units, source_windows, window_prompt,
 )
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name, json_schema
 from src.workers.codex_extractor import extract_codex
@@ -307,7 +307,7 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
                 turn.representation_verification = verify_representations(
                     turn, summary, turn.abstract_text, proof=proof)
                 records = turn.representation_verification or {}
-                if (records.get("summary") or {}).get("method") == METHOD_V3:
+                if (records.get("summary") or {}).get("method") in PER_CLAIM_METHODS:
                     # Per-claim acceptance: the stored text is exactly the
                     # supported claims, so coverage and the raw/summary choice
                     # are re-decided on what is actually kept.

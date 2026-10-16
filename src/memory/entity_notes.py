@@ -7,7 +7,7 @@ from sqlalchemy import select
 from src.memory.models import CodexEvent, ColdStorage, EpisodicMemory
 from src.memory.source import digest
 from src.api.config import settings
-from src.memory.summary_support import (METHOD_V3, SourceNotePrompt, assertion_instruction,
+from src.memory.summary_support import (PER_CLAIM_METHODS, SourceNotePrompt, assertion_instruction,
     assertion_text, generate_claims, original_units, source_windows,
     verify_assertions, window_prompt)
 from src.memory.support import supported_current
@@ -82,7 +82,7 @@ def generate_note(entity, turns, *, llm=None, verifier=None):
     candidate = assertion_text(parsed['summary'])
     proof = verify_assertions(source, candidate, parsed['summary'], windows, verifier=verifier,
                               dropped=parsed.get('dropped', []))
-    if proof.get('method') == METHOD_V3:
+    if proof.get('method') in PER_CLAIM_METHODS:
         candidate = assertion_text(proof['assertions'])
     review = dict(method=METHOD, status=proof['status'], reason=proof['reason'],
                   sources=len(turns), verification=proof, entity_id=str(entity.id),

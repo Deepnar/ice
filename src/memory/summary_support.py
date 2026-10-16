@@ -17,12 +17,22 @@ METHOD_V2 = "source_window_assertions_v2"
 # v3 (docs/specs/SUMMARY_CLAIMS_V3.md): quoted pointers, speaker, 1-2 sources,
 # per-claim acceptance. Selected by settings.summary_assertion_method.
 METHOD_V3 = "source_window_assertions_v3"
+# v4 (docs/specs/CODEX_V4.md D4): a v3 claim plus modality and the source's own
+# subject / relation / object — every supported claim is also a codex fact.
+METHOD_V4 = "source_window_facts_v4"
+# Methods whose records keep only supported claims (per-claim acceptance).
+PER_CLAIM_METHODS = (METHOD_V3, METHOD_V4)
 METHOD = METHOD_V2  # legacy name, kept for readers of frozen records
 SPEAKERS = ("user", "assistant", "document")
+CLAIM_FIELDS = ("sources", "quote", "speaker", "text")
+FACT_FIELDS = ("sources", "quote", "speaker", "modality", "subject", "relation", "object", "text")
+# ~85-90% reliable whatever the wording (CODEX_V4 §5.1); the sentence carries the act.
+MODALITIES = ("asserted", "shared", "suggested", "hypothetical", "asked")
+_METHODS = {"v2": METHOD_V2, "v3": METHOD_V3, "v4": METHOD_V4}
 
 
 def current_method():
-    return METHOD_V3 if settings.summary_assertion_method == "v3" else METHOD_V2
+    return _METHODS[settings.summary_assertion_method]
 
 
 def policy(method=None):
@@ -33,9 +43,12 @@ def policy(method=None):
               "threshold": settings.source_support_threshold,
               "window_fraction": 0.5, "window_reserve_tokens": 32,
               "overlap_fraction": 0.25, "premise_composition": "exact_cited_span_union_v1"}
-    if method == METHOD_V3:
+    if method in PER_CLAIM_METHODS:
         result.update(claim_shape="sources_quote_speaker_text_v1", max_sources=2,
                       acceptance="per_claim_supported_only")
+    if method == METHOD_V4:
+        result.update(claim_shape="sources_quote_speaker_modality_triple_text_v1",
+                      context_header="unit_opening_300_v1")
     return result
 
 
@@ -149,8 +162,10 @@ def generate_claims(call, windows, *, floor, abstract=False):
         merged["abstract"] = []
     failures, last_error = [], None
     for index, piece in enumerate(pieces):
+        if current_method() == METHOD_V4:
+            piece = _with_opening(piece, windows)
         cap = output_cap(tokens.count(window_prompt(piece)), floor)
-        schema = claim_schema(piece, abstract=want_abstract) if current_method() == METHOD_V3 else None
+        schema = claim_schema(piece, abstract=want_abstract) if current_method() in PER_CLAIM_METHODS else None
         generated = None
         try:
             generated = call(piece, cap, schema, want_abstract)
@@ -183,8 +198,29 @@ def generate_claims(call, windows, *, floor, abstract=False):
     return merged, failures
 
 
+_OPENING_CHARS = 300
+
+
+def _with_opening(piece, windows):
+    """CODEX_V4 D4: a piece starting inside a long message gets that message's
+    opening as context. A paste's framing ("here is my spec:") is otherwise
+    invisible to every later piece. The copy keeps stored windows untouched,
+    and the NLI premise never includes it."""
+    first = piece[0]
+    unit_first = next(w for w in windows if w["unit"] == first["unit"])
+    if unit_first is first or unit_first["start"] >= first["start"]:
+        return piece
+    excerpt = json.loads(unit_first["premise"][len(f"The {unit_first['role']} said: "):])
+    opening = " ".join(excerpt[:_OPENING_CHARS].split())
+    return [dict(first, continues=opening)] + list(piece[1:])
+
+
 def window_prompt(windows):
-    return "\n\n".join(
+    header = ""
+    if windows and windows[0].get("continues"):
+        header = (f"[context, not a source: this part continues a {windows[0]['role']} "
+                  f"message that began: \"{windows[0]['continues']}…\"]\n\n")
+    return header + "\n\n".join(
         f"[{w['id']}; source unit {w['unit']}; original offsets {w['start']}:{w['end']}; "
         f"recorded {w['recorded_at']} ({w['timestamp_provenance']})]\n{w['premise']}"
         for w in windows)
@@ -219,6 +255,8 @@ def windows_current(units, windows):
 
 
 def assertion_instruction(*, abstract=False):
+    if current_method() == METHOD_V4:
+        return _assertion_instruction_v4(abstract=abstract)
     if current_method() == METHOD_V3:
         return _assertion_instruction_v3(abstract=abstract)
     return _assertion_instruction_v2(abstract=abstract)
@@ -248,16 +286,80 @@ def _assertion_instruction_v3(*, abstract=False):
     )
 
 
+def _assertion_instruction_v4(*, abstract=False):
+    """Locked 2026-10-16 after four measured wordings (CODEX_V4 §5.1, instruction
+    "m5"). Model-coupled to gemma4:e4b: changing the background model means
+    re-qualifying this text, not editing a value."""
+    example = {"summary": [{"sources": ["w0"], "quote": "exact words copied from w0",
+                            "speaker": "user", "modality": "asserted", "subject": "user",
+                            "relation": "works at", "object": "Acme",
+                            "text": "The user said they work at Acme."}]}
+    if abstract:
+        example["abstract"] = [{"sources": ["w0"], "quote": "exact words copied from w0",
+                                "speaker": "user", "modality": "asserted", "subject": "",
+                                "relation": "", "object": "", "text": "One short overview claim."}]
+    return (
+        "\nReturn JSON in this structure: " + json.dumps(example) + ". For each "
+        "memory fact, in this order: (1) sources: the one window (at most two) that "
+        "states it; (2) quote: a short exact copy, up to about 25 words, of the words "
+        "in that window that state it - copy, do not paraphrase; (3) speaker: who "
+        "said those words (the role shown on that window); (4) modality - what the speaker "
+        "DOES with it in those words: 'asserted' only if the speaker presents it as true or as "
+        "their own decided plan, in their own voice; 'shared' if the words are material the "
+        "speaker pastes, quotes or forwards into the conversation - a document, specification, "
+        "design notes, tutorial, article, log, code or data, even one they wrote themselves "
+        "elsewhere - rather than saying it in this message; the assistant's own explanations, "
+        "analysis and answers are never 'shared'; 'suggested' if the speaker "
+        "offers it as an option, idea or recommendation; 'hypothetical' if it is a "
+        "possibility, a condition or not decided; 'asked' if the speaker asks about it. "
+        "When unsure between 'asserted' and another, do not choose 'asserted'; "
+        "(5) subject: who or what the fact is about, named "
+        "as in the source - write 'user' when the user speaks about themselves and "
+        "'assistant' when the assistant speaks about itself; (6) relation: the source's "
+        "own short verb phrase linking subject and object; (7) object: the other thing or "
+        "the value; use empty strings for subject, relation and object when the fact has "
+        "no such form; (8) text: the fact as one complete sentence that the quote "
+        "supports, naming the speaker and what they did ('The user said...', 'The assistant "
+        "suggested...', 'The user shared a design document stating...'), understandable on "
+        "its own without the conversation: name the person, story, project or document the "
+        "fact belongs to when the source names it. One fact per entry. For pasted data or "
+        "long lists of records, state facts about the collection, not one per record; for pasted "
+        "logs, measurements or program output, state one fact about that run (what ran and its "
+        "key result), not one per line. Keep figurative language figurative: write that the "
+        "speaker described something as like or as the equivalent of something, never state a "
+        "metaphor as a literal event. Keep "
+        "names, numbers, dates and code values with what they belong to. An assistant "
+        "proposal is not a user decision; a question is not a statement; pasted material is "
+        "not the speaker's own statement. Do not assert current truth from an older mention. "
+        "Skip pleasantries, repeated background and descriptions of the discussion process. "
+        "Never put window IDs inside text."
+        + (" The abstract is at most one entry giving a one-sentence overview, with its "
+           "own source and quote; use [] if none is supported." if abstract else "")
+        + "\n"
+    )
+
+
 def claim_schema(windows, *, abstract=False):
-    """Ollama `format` for v3: window ids as an enum, 1-2 sources, pointer first."""
+    """Ollama `format` for v3/v4: window ids as an enum, 1-2 sources, pointer first.
+
+    The speaker enum offers only the roles present in these windows: offered all
+    three, a document piece lost 9/9 and 12/12 claims to speaker_mismatch (the
+    model wrote "user"; CODEX_V4 §5.1)."""
     ids = [w["id"] for w in windows]
-    row = {"type": "object", "additionalProperties": False,
-           "required": ["sources", "quote", "speaker", "text"],
-           "properties": {"sources": {"type": "array", "items": {"type": "string", "enum": ids},
-                                      "minItems": 1, "maxItems": 2},
-                          "quote": {"type": "string", "minLength": 1},
-                          "speaker": {"type": "string", "enum": list(SPEAKERS)},
-                          "text": {"type": "string", "minLength": 1}}}
+    roles = [r for r in SPEAKERS if any(w["role"] == r for w in windows)]
+    props = {"sources": {"type": "array", "items": {"type": "string", "enum": ids},
+                         "minItems": 1, "maxItems": 2},
+             "quote": {"type": "string", "minLength": 1},
+             "speaker": {"type": "string", "enum": roles},
+             "text": {"type": "string", "minLength": 1}}
+    fields = list(CLAIM_FIELDS)
+    if current_method() == METHOD_V4:
+        props.update(modality={"type": "string", "enum": list(MODALITIES)},
+                     subject={"type": "string"}, relation={"type": "string"},
+                     object={"type": "string"})
+        fields = list(FACT_FIELDS)
+    row = {"type": "object", "additionalProperties": False, "required": fields,
+           "properties": {k: props[k] for k in fields}}
     props = {"summary": {"type": "array", "items": row}}
     if abstract:
         props["abstract"] = {"type": "array", "items": row, "maxItems": 1}
@@ -299,7 +401,7 @@ def parse_assertions(generated, windows, *, abstract=False):
     fields = {"summary", "abstract"} if abstract else {"summary"}
     if not isinstance(parsed, dict) or "summary" not in parsed or not set(parsed) <= fields:
         raise ValueError("invalid_summary_assertion_fields")
-    if current_method() == METHOD_V3:
+    if current_method() in PER_CLAIM_METHODS:
         return _parse_v3(parsed, windows, abstract=abstract)
     if abstract:
         parsed.setdefault("abstract", [])
@@ -338,7 +440,13 @@ def _collapse(text):
 
 
 def _claim_problem(row, by_id):
-    """Mechanical v3 checks for one claim; None when it may go to the verifier."""
+    """Mechanical v3/v4 checks for one claim; None when it may go to the verifier."""
+    if current_method() == METHOD_V4:
+        if (not isinstance(row, dict) or set(row) != set(FACT_FIELDS)
+                or row.get("modality") not in MODALITIES
+                or not all(isinstance(row[k], str) for k in ("subject", "relation", "object"))):
+            return "invalid_claim_shape"
+        row = {k: row[k] for k in CLAIM_FIELDS}
     if (not isinstance(row, dict) or set(row) != {"sources", "quote", "speaker", "text"}
             or not all(isinstance(row[k], str) and row[k].strip() for k in ("quote", "speaker", "text"))
             or not isinstance(row["sources"], list)):
@@ -520,10 +628,10 @@ def verify_assertions(source, candidate, assertions, windows, *, verifier=None, 
         records.append({"text": assertion["text"].strip(), "sources": assertion["sources"],
                         "premise": premise, "cited_spans": resolved[i][1],
                         "pair_tokens": lengths.get(i), "verification": verdict,
-                        **{k: assertion[k] for k in ("quote", "speaker") if k in assertion}})
+                        **{k: assertion[k] for k in FACT_FIELDS[1:-1] if k in assertion}})
     method = current_method()
     unsupported = []
-    if method == METHOD_V3:
+    if method in PER_CLAIM_METHODS:
         # Per-claim acceptance: keep exactly the supported claims; the stored
         # text is rebuilt from them, so the reader's digest check binds to it.
         unsupported = [{"kind": "summary", "reason": r["verification"]["status"],
@@ -550,7 +658,7 @@ def verify_assertions(source, candidate, assertions, windows, *, verifier=None, 
             "cited_windows": sorted({s for r in records for s in r["sources"]}),
             "completeness": "originals_retained_not_inferred_from_entailment"}
     result["proof_sha256"] = proof_digest(result)
-    if method == METHOD_V3:
+    if method in PER_CLAIM_METHODS:
         result["dropped"] = list(dropped) + unsupported  # outside the digest: audit only
     return result
 
@@ -569,7 +677,7 @@ def proof_current(record, source, candidate):
     if record.get("method") == "source_window_assertions_v1":
         expected_policy = {k: v for k, v in policy(METHOD_V2).items() if k != "premise_composition"}
         expected_policy["method"] = "source_window_assertions_v1"
-    elif record.get("method") in (METHOD_V2, METHOD_V3):
+    elif record.get("method") in (METHOD_V2, *PER_CLAIM_METHODS):
         # A record is judged under its own method, whichever one writes today.
         expected_policy = policy(record["method"])
     else:

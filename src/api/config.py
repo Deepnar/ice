@@ -512,8 +512,10 @@ class Settings(BaseSettings):
     # mechanical quote/speaker checks, enforced JSON schema and per-claim
     # acceptance. v3 since 2026-10-15 after the spec's §3 qualification
     # (31 pieces: usable pieces 9 → 28, verified claims 163 → 290,
-    # contradicted 1 → 1, broken JSON 1 → 0).
-    summary_assertion_method: Literal["v2", "v3"] = "v3"
+    # contradicted 1 → 1, broken JSON 1 → 0). v4 = v3 + modality and the
+    # source's subject/relation/object (CODEX_V4 D4): every supported claim is
+    # also a codex fact. Default stays v3 until the CODEX_V4 build is measured.
+    summary_assertion_method: Literal["v2", "v3", "v4"] = "v3"
     # Entity-note output floor (was a literal 900 in entity_notes.py).
     entity_note_max_tokens: int = 900
     # Windows are summarised in pieces of at most this many prompt tokens, one

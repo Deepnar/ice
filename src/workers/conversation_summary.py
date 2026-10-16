@@ -21,7 +21,7 @@ from src.memory.summary_snapshot import (
 )
 from src.memory.support import supported_current, verify_support
 from src.memory.summary_support import (
-    METHOD_V3, SourceNotePrompt, assertion_instruction, assertion_text, generate_claims, note_messages,
+    PER_CLAIM_METHODS, SourceNotePrompt, assertion_instruction, assertion_text, generate_claims, note_messages,
     original_units, source_windows, verify_assertions, window_prompt,
 )
 from src.memory.time_format import recorded_stamp
@@ -170,7 +170,7 @@ def _source_note(turns, source, known_roles, llm, verifier, *, max_tokens=None):
             return source_part("no_claims_kept")
         verdict = verify_assertions(source, generated, parsed["summary"], windows,
                                     dropped=parsed.get("dropped", []))
-        if verdict.get("method") == METHOD_V3:
+        if verdict.get("method") in PER_CLAIM_METHODS:
             generated = assertion_text(verdict["assertions"])
     else:
         try:
