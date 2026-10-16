@@ -1,3 +1,44 @@
+## 2026-10-16 — v3 codex rework (CODEX_V4): qualification runs
+
+All v3, development data, local `gemma4:e4b` (Ollama 0.32.13, native door, temperature 0)
+unless stated; NLI DeBERTa-v3-large-mnli @ b3546ea6; embedder Qwen3-Embedding-0.6B. Private
+units and scratch harnesses: `logs/codex-v4-qualification-2026-10-15-r1/` (gitignored).
+Spec: [CODEX_V4](specs/CODEX_V4.md) §5.1/§5.2 and §1b. Not scores of record.
+
+**Write prompt (§5.1).** 41 pieces (C large/mid/small, B, 8 short dev turns, 2 document
+pieces of VISION.md). v3 vs v4 at cap 4,096: supported 354 vs 244 — 6/10 large v4 pieces cut
+by the cap (v3 3/10); at cap 8,192 large v4 9/10 parse, 220 supported. Shipped
+`summary_output_ratio` 2.0 (v4 max 1.58 on ≥ 2K-token pieces). Document pieces lost 9/9 and
+12/12 claims to `speaker_mismatch` until the speaker enum was limited to the piece's roles.
+NuExtract3 (production `extract_triplets`, same text): 1,042 triplets, 766 below the 0.5
+read floor, median 18.4 s/piece vs 12.3. Maintainer blind sheet (16 turns, model hidden):
+relationships gemma 14/16 correct 0 reversed, NuExtract3 9/16 1 reversed. Fact sentences
+(sheet 1) 2 right / 2 not self-contained / 6 wrong — all pasted material as "user asserted";
+`shared` added; sheet 2 (locked m5 + opening header) 9 / 1 / 2, both misses an unframed
+pasted design spec. Controls: 5 real anchors × 6–7 source variants — sentences 33/33 for v3
+and v4; label 28/32 → 28/31 → 24/28 → 26/31 across four wordings. m2 vs m4 on 41 pieces at
+ratio 2.0: 488 vs 347 supported (C-large 294 → 160, B 62 → 44); m5 + header 368; pasted /
+own-words pairs 8/8.
+
+**Production path.** Real `post_flight.evaluate_turn` with `summary_assertion_method=v4`,
+5 real turns in a disposable DB: short dev turns 3 and 4 facts (own pass), B845 1 fact and
+C131 9 facts (summary claims reused), C176 (19,571 words, classed a document) 363 facts;
+second call idempotent; 0 legacy edges.
+
+**Reconciliation (§5.2).** v4 pass over all 251 dev turns: 1,463 facts, 2 piece errors, 17
+turns with none; candidates 11,878 pairs, 0 exact-text duplicates, 262 at cosine ≥ 0.80, 490
+sharing an entity. Gold by reading: 103 real same-speaker pairs (8 same / 1 replaces / 90
+both_true / 4 excluded) + 12 planted. Results: gemma verdict 73/99 (23 false replaces);
+qwen3.8:27b verdict 76/99 (18); gemma compatibility framing 88/99 (6 → 2 with the label
+rule), planted 10/12; qwen3.8:27b compatibility 90/99 (2), planted 12/12; NLI contradiction
+0.97–0.999 on might / question / list pairs.
+
+**Question names (§1b).** 67 reviewed dev questions, entities from the v4 dev-history facts
+(1,086): reaching a gold turn's facts — micro-NER + match 15, whole-word store-name lookup
+25, trigram word-similarity ≥ 0.6 / 0.7 / 0.8 / 0.9: 31 / 26 / 24 / 22 (3.1 / 1.8 / 1.4 /
+1.2 entities per question), micro + whole-word 29 (1.5). Trigram for entity merging:
+plural 0.885–0.893 vs version suffix 0.882; typos 0.75–0.88.
+
 ## 2026-10-15 — v3 non-codex audit fixes and graph read-side measurements
 
 All v3, development history (251 turns, store `ice_v3_campaign_3ff2593d…`) and
