@@ -151,7 +151,7 @@ def test_native_recorded_writer_readonly_probe_gap_jobs_and_complete_resume(nati
     probe = next(r for r in records if r["event"] == "chronological_probe")
     assert set(probe["stages"]) == set(runner.seed_v3.PROMPT_ARMS)
     assert all("SCORER_ONLY_SECRET" not in json.dumps(s["prompt_messages"]) for s in probe["stages"].values())
-    assert sum(c[0] == "codex" for c in native.calls) == 2
+    assert sum(c[0] == "facts" for c in native.calls) == 2
     assert sum(c[0] == "procedural" for c in native.calls) == 2
     before, tables, calls = trace.read_bytes(), snapshot.fingerprints(), copy.deepcopy(native.calls)
     assert execute(native, resume=True) == state
@@ -199,7 +199,7 @@ def test_interrupt_after_committed_source_restores_prefix_and_skips_completed_ev
     manifest = json.loads((checkpoint / "recovery.json").read_text())
     assert manifest["state"]["event_prefix"]["completed"] == 2
     first_id = manifest["state"]["source_ids"]["1"][0]
-    before_calls = sum(c[0] == "codex" for c in native.calls)
+    before_calls = sum(c[0] == "facts" for c in native.calls)
     restored = []
     def check_restore(*args, **kwargs):
         db, _sink, _state, event = args[:4]
@@ -211,7 +211,7 @@ def test_interrupt_after_committed_source_restores_prefix_and_skips_completed_ev
     monkeypatch.setattr(runner, "write_source", check_restore)
     state = execute(native, resume=True)
     assert restored == [True] and state["complete"]
-    assert sum(c[0] == "codex" for c in native.calls) == before_calls + 1
+    assert sum(c[0] == "facts" for c in native.calls) == before_calls + 1
     records = [json.loads(line) for line in (native.root / "chronological.jsonl").read_text().splitlines()]
     assert sum(r["event"] == "maintenance_bootstrap" for r in records) == 2
     assert sum(r["event"] == "chronological_probe" for r in records) == 1
@@ -345,10 +345,10 @@ def test_quiet_query_ages_before_read_and_resumes_without_retimestamping_or_rewr
     manifest = json.loads((native.root / "recovery" / pointer["generation"] / "recovery.json").read_text())
     assert manifest["state"]["event_prefix"]["completed"] == 3
     assert set(manifest["state"]["last_maintenance"].values()) == {(START + timedelta(hours=3)).isoformat()}
-    writers_before = sum(c[0] in {"codex", "procedural"} for c in native.calls)
+    writers_before = sum(c[0] in {"facts", "procedural"} for c in native.calls)
     state = execute(native, resume=True, checkpoint_every_groups=2)
     assert state["complete"] and state["event_prefix"]["completed"] == 4
-    assert sum(c[0] in {"codex", "procedural"} for c in native.calls) == writers_before == 4
+    assert sum(c[0] in {"facts", "procedural"} for c in native.calls) == writers_before == 4
     assert len(attempts) == 2
     trace = native.root / "chronological.jsonl"
     records = [json.loads(line) for line in trace.read_text().splitlines()]

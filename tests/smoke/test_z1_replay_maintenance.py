@@ -41,7 +41,7 @@ def test_periodic_schedule_uses_real_registry_and_missed_cycles(monkeypatch):
     assert all(kwargs == ({"cycles": 3} if JOBS[name].pass_cycles else {})
                for name, kwargs in calls)
     rows = [json.loads(line) for line in sink.getvalue().splitlines()]
-    assert len(rows) == 20 and all(row["before"] == row["after"] for row in rows)
+    assert len(rows) == 2 * len(seed_v3.MEMORY_JOBS) and all(row["before"] == row["after"] for row in rows)
     assert all(row["event"] == "maintenance" for row in rows)
 
 
