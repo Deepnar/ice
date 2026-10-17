@@ -9,7 +9,7 @@ patch (a relation is a term; facts carry validity, strength, confidence; the mod
 short close facts) — then Z2.
 
 **This session did the codex rework end to end** ([CODEX_V4](specs/CODEX_V4.md), steps
-1–10; ~50 local commits `9950854..HEAD`, none pushed — experiment-phase freeze). Z2 build
+1–10; ~70 commits `9950854..HEAD`, pushed 2026-10-17 by explicit maintainer request). Z2 build
 did not start, by that order.
 
 - **Spec + qualification first:** blind grading (relationships gemma 14/16 vs NuExtract3
@@ -36,7 +36,10 @@ did not start, by that order.
 
 ## Position
 
-Codex rework done. **Next: G77, then build Z2** (spec unchanged). G77's five features
+Codex rework done and **pushed** (maintainer, 2026-10-17). **Next: G77, then build
+Z2.** The Z2 spec gained D1a (how its semi-LSREP fixes v2's weaknesses, row by row),
+D7b/S6b (a pre-launch flow audit: one prompt traced through every section before the
+S7 replay) and a CODEX_V4 re-point of D9/D10. G77's five features
 each have a decision brief in its ROADMAP entry — the next session starts by getting the
 maintainer's yes/no per feature, then builds. Then Z2 in spec order (S0 → S12), with the
 A6/A7 notes in ROADMAP CURRENT POSITION.
@@ -49,6 +52,9 @@ A6/A7 notes in ROADMAP CURRENT POSITION.
 - No yield point inside the claim pass (abandoning mid-pass discards every piece
   written); the inert `timeline` leg weight is kept as a seam.
 - Stays gated: `forget_request`, `finetune_proposal`.
+- Private-detail scan is STEP 0 of every commit (ice-git skill), not a push-time check;
+  the G77 note's quoted slot/cluster text and one CODEX_V4 example were published as-is
+  by maintainer choice.
 - Migration applied to ice_db only after a verified `pg_dump` (maintainer, 2026-10-17);
   restore command in CLEANUP. CLAUDE.md code map updated (maintainer-approved).
 - Z2 models: OpenCode free variants first (deepseek-v4.1-flash-free, mimo-v2.6-flash-
@@ -75,4 +81,4 @@ Each such leak was invisible to green suites until a ported test asked the quest
 Quick group 530 passed after the last commit; full disposable rails 1,313 passed and every follow-up failure
 ported and re-run green (chronological maintenance 15/15, C10/C11 55/55, services 54/54,
 MCP 31/31, runtime 49/49, timescope 56/56, fail-open 27/27, coding core 54/54, facts
-25/25). Alembic head `d5e8a1c3b7f2` on ice_db. Not pushed.
+25/25). Alembic head `d5e8a1c3b7f2` on ice_db. Pushed on explicit request; the experiment-phase freeze otherwise stands.
