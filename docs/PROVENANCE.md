@@ -1,3 +1,37 @@
+## 2026-10-17 — v3 codex rework (CODEX_V4) step 7: final-code checks
+
+**What ran (v3, main after `def7309`; development history; no answering, no cloud).**
+
+**Retrieval comparison, rerun on the final code.** Same 12 as-of snapshots and 67 reviewed
+questions as 2026-10-16, same fact writing (locked-wording dev-history claims, real D6 on
+gemma4:e4b, NuNER links); arms facts and no_codex (the legacy arm's code is deleted; its
+2026-10-16 numbers stand). Same summariser, which reproduces the 2026-10-16 table exactly.
+
+| | legacy (10-16) | facts (10-16) | facts (final) | no_codex (final) |
+|---|---:|---:|---:|---:|
+| codex fragments in prompts (questions) | 87 (37) | 52 (28) | 54 (30) | 0 |
+| tokens on codex content | 54,767 | 2,904 | 2,981 | 0 |
+| gold turns in prompt / 108 | 101 | 101 | 101 | 102 |
+| questions with all gold in prompt | 62 | 61 | 61 | 62 |
+
+no_codex is byte-identical to the 2026-10-16 run (722,530 prompt tokens), and the fact store
+is identical (1,436 current, 2 replaced at turn 251) — the step-7 fixes (as-of window,
+forget/deletion visibility, NER channel isolation) moved 2 fact fragments, not coverage.
+Private: `logs/codex-v4-qualification-2026-10-15-r1/retrieval-compare-final/`.
+
+**One recorded turn through the production replay** (`tests/test_z1_replay_path.py`, v4 default):
+7 facts, 18 entities, 26 links from one turn; 9 maintenance jobs; read-only probes; snapshot
+restore exact on every table. Private: `logs/codex-v4-replay-path-2026-10-16-r1/`.
+
+**Re-embed** on a migrated `ice_db` copy (migrations `c0d4e7f1a2b3` + `d5e8a1c3b7f2`: 6,691
+conversation edges deleted, 11 legacy review items archived): `_validate_registry` passes on
+13 tables; `reembed.run(force=True)` re-encoded 5,227 rows, 0 empty sources. Batch size 256
+and 16 ran out of GPU memory (another job held ~8 GB); 2 completed. The composite-key note
+tables have no rows in ice_db; `tests/smoke/test_reembed_registry.py` proves them.
+
+**Limits.** Retrieval coverage only; answer effect is Z2's. Usage is never recorded in these
+replays (read-only probes), so D7's usage third is untested here.
+
 ## 2026-10-16 — v3 codex rework (CODEX_V4): qualification runs
 
 All v3, development data, local `gemma4:e4b` (Ollama 0.32.13, native door, temperature 0)
