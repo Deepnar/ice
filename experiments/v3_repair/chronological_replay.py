@@ -206,7 +206,6 @@ def write_source(db, sink, state, event, classifier, embedder, background, recov
              post_flight_complete=ok, summary_text=row.summary_text, abstract_text=row.abstract_text,
              summary_coverage=row.summary_coverage, representation_verification=row.representation_verification,
              lossless=row.lossless_flag, inject_raw=row.inject_raw,
-             author_assertions=seed_v3.author_assertion_counts(db, row.batch_id),
              procedural_source_review=seed_v3.procedural_source_review(db, row.batch_id),
              artifact_inventory=artifact_inventory.capture(db))
     db.rollback()

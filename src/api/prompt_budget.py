@@ -1,5 +1,4 @@
 """Assemble, account, evict optional blocks, then verify the actual result."""
-import hashlib
 from dataclasses import dataclass, field
 
 import structlog
@@ -32,21 +31,6 @@ def _covered_by_active_original(fragment, source_ids, conversation_id, summary_t
     return bool(fragment.source_note_row_id in source_ids
                 and fragment.source_note_body
                 and fragment.source_note_body in (summary_text or ''))
-
-
-def _graph_quotes_covered(fragment, originals):
-    """Suppress only mapped graph evidence covered by actual complete originals."""
-    units = getattr(fragment, 'source_quote_requirements', ())
-    if (fragment.source_type != 'codex' or not units
-            or getattr(fragment, 'source_quote_text_sha256', None)
-            != hashlib.sha256(fragment.text.encode('utf-8')).hexdigest()):
-        return False
-    for row_id, text in units:
-        if not text or not any(source.source_type == 'episodic'
-                and source.covers_entire_source and str(source.source_batch_id) == row_id
-                and text in source.text for source in originals):
-            return False
-    return True
 
 
 def _fact_sources_in_prompt(fragment, originals, recent_ids):
@@ -91,8 +75,7 @@ def assemble_budgeted_prompt(*, serving_window, generation_reserve,
         ] if evidence_enabled else [])
         # Recompute after each whole-note/eviction choice. Earlier suppression
         # cannot survive disappearance or degradation of its covering original.
-        visible = [fragment for fragment in arguments['retrieved_fragments']
-                   if not _graph_quotes_covered(fragment, arguments['retrieved_fragments'])]
+        visible = list(arguments['retrieved_fragments'])
         arguments['retrieved_fragments'] = [fragment for fragment in visible
             if not set(getattr(fragment, 'origin_fact_ids', ())) & fact_skip]
         costs, counts, artifacts = {}, {}, {}

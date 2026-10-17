@@ -1,6 +1,7 @@
 """Authoritative speaker boundaries supplied by writers, never inferred by NER."""
 
 import hashlib
+import re
 from dataclasses import dataclass
 
 
@@ -55,3 +56,43 @@ def source_units(row) -> list[SourceUnit]:
         result.append(SourceUnit(role, raw[start:end], start, end))
         previous_end = end
     return result
+
+
+# Moved from the deleted workers/extraction_result.py (NuExtract3 codex extractor)
+# (CODEX_V4); the read-side source checks still resolve quotes with it.
+def original_source_quote(source: str, quote: str, *, allow_case_copy=False) -> str | None:
+    """Resolve copying changes to original bytes, never accept a paraphrase.
+
+    Whitespace-only matching is the default. Source selection may explicitly
+    permit case copies; ambiguous originals still stay unresolved. The returned
+    value always has the original spelling, including case and whitespace.
+    """
+    if not isinstance(quote, str) or not quote.strip():
+        return None
+    quote = quote.strip()
+    if quote in source:
+        return quote
+    def resolve(case_copy):
+        parts, positions = [], []
+        for match in re.finditer(r"\s+|\S", source):
+            part = " " if match.group().isspace() else match.group()
+            part = part.casefold() if case_copy else part
+            parts.append(part)
+            positions.extend([(match.start(), match.end())] * len(part))
+        normalized = "".join(parts)
+        wanted = re.sub(r"\s+", " ", quote)
+        wanted = wanted.casefold() if case_copy else wanted
+        matches, offset = set(), 0
+        while (start := normalized.find(wanted, offset)) >= 0:
+            end = start + len(wanted)
+            original = source[positions[start][0]:positions[end - 1][1]]
+            spelling = re.sub(r"\s+", " ", original)
+            # A match must consume complete source characters, including a
+            # Unicode case-fold expansion (never match half of ß → ss).
+            if (spelling.casefold() if case_copy else spelling) == wanted:
+                matches.add(original)
+            offset = start + 1
+        return next(iter(matches)) if len(matches) == 1 else None
+
+    original = resolve(False)
+    return original if original is not None or not allow_case_copy else resolve(True)

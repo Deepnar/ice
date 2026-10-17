@@ -15,43 +15,16 @@ from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.services.retrieval_svc import recent_turns
 
 
-def test_fact_source_time_is_separate_from_learning_time():
-    cid, batch = uuid.uuid4(), uuid.uuid4()
-    with SessionLocal() as db:
-        try:
-            db.add(Conversation(id=cid))
-            db.flush()
-            db.add(
-                EpisodicMemory(
-                    conversation_id=cid,
-                    batch_id=batch,
-                    raw_text="Atlas uses Redis.",
-                    timestamp=datetime(2021, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
-                    ts_provenance="original",
-                    context_reliance="Long_Term_Memory",
-                    idempotency_key=f"source-clock-control:{batch}",
-                )
-            )
-            db.flush()
-            o = HybridRetrievalOrchestrator(db, None)
-            edge = SimpleNamespace(
-                source_batch=batch,
-                relation="uses",
-                negated=False,
-                learned_at=datetime(2026, 9, 13, tzinfo=timezone.utc),
-                valid_from=None,
-            )
-            o._prime_edge_times([edge, edge])
-            assert len(o._source_times) == 1
-            rendered = o._fact_line(
-                SimpleNamespace(canonical_name="Atlas"),
-                edge,
-                SimpleNamespace(canonical_name="Redis"),
-            )
-            assert "source recorded: 2021-01-02T03:04:05Z" in rendered
-            assert "learned: 2026-09-13T00:00:00Z" in rendered
-        finally:
-            db.rollback()
+def test_fact_renders_its_source_time_not_its_ingest_time():
+    """CODEX_V4: mentioned_at is the source turn's recorded time; the rendered
+    fact carries that date, whatever day ICE wrote the row."""
+    o = HybridRetrievalOrchestrator(None, None)
+    fact = SimpleNamespace(speaker="user", modality="asserted", text="The user said Atlas uses Redis.",
+                           mentioned_at=datetime(2021, 1, 2, 3, 4, 5, tzinfo=timezone.utc),
+                           valid_until=None)
+    rendered = o._render_fact(fact, current=True)
+    assert rendered.startswith("[Fact; user, asserted; 2021-01-02; current]")
+    assert rendered.endswith("The user said Atlas uses Redis.")
 
 
 def test_database_readers_preserve_uncompressed_evidence():
@@ -96,5 +69,5 @@ def test_database_readers_preserve_uncompressed_evidence():
 
 if __name__ == "__main__":
     test_database_readers_preserve_uncompressed_evidence()
-    test_fact_source_time_is_separate_from_learning_time()
+    test_fact_renders_its_source_time_not_its_ingest_time()
     print("v3: three database reader paths passed; transaction rolled back")

@@ -74,7 +74,7 @@ from src.memory.models import (  # noqa: E402
 from src.services import documents as documents_svc  # noqa: E402
 from src.services import scoping as scoping_svc  # noqa: E402
 from src.services.errors import ValidationError  # noqa: E402
-from src.workers import codex_extractor, post_flight, procedural_extractor  # noqa: E402
+from src.workers import fact_extractor, post_flight, procedural_extractor  # noqa: E402
 
 _passed = 0
 _failed = 0
@@ -125,17 +125,32 @@ class _FakeBG:
 _codex_calls = []
 
 
+def _fact_record(turn, model_used, RELATION):
+    """CODEX_V4: one canned verified fact in place of the claim pass → real fact
+    and entity rows appear through the real writer."""
+    speaker = "document" if turn.is_document else "user"
+    return {"assertions": [{
+        "text": f"The {speaker} said {MARK}sub {RELATION} {MARK}obj.", "sources": ["w0"],
+        "premise": "p", "pair_tokens": 20,
+        "cited_spans": [{"id": "w0", "role": speaker, "start": 0, "end": len(MARK)}],
+        "verification": {"status": "supported", "scores": {"entailment": 0.99}},
+        "quote": MARK, "speaker": speaker, "modality": "asserted",
+        "subject": MARK + "sub", "relation": RELATION, "object": MARK + "obj"}]}
+
+
 def install_pipeline_stubs():
     post_flight.extract_key_terms = lambda t, e, max_chars=2500: {
         "entities": [MARK], "figures": [], "identifiers": []}
     post_flight.generate_summary = lambda *a, **k: (
         f"{MARK} summary.", 1.0, f"{MARK} abstract.")
 
-    def _triplets(t, model_override="", topic_tags=None, gaps=None, source_sentences=None):
-        _codex_calls.append(t)
-        return [{"subject": MARK + "sub", "relation": "describes",
-                 "object": MARK + "obj"}]
-    codex_extractor.extract_triplets = _triplets
+    def _facts(turn, model_used=""):
+        _codex_calls.append(turn.raw_text)
+        return _fact_record(turn, model_used, "describes")
+    fact_extractor._claim_record = _facts
+    fact_extractor._ask = lambda earlier, newer: {"same_information": False,
+                                                  "both_can_be_true": True}
+    fact_extractor._mentions = lambda sentence: []
     procedural_extractor.bg_client = _FakeBG(
         f"When {MARK}, the user asks about the document.")
 
@@ -608,14 +623,16 @@ finally:
                 CodexEvent.batch_source.in_(batch_ids)).delete(
                     synchronize_session=False)
         db.commit()
-    # Edges reference entities, and events reference entities: both go first
-    # or the entity DELETE raises and the "cleaned up" store keeps the rows
-    # (trap 6 — a `finally` that fails silently is worse than none).
+    # Edges, fact links and events reference entities: all go first or the
+    # entity DELETE raises and the "cleaned up" store keeps the rows (trap 6 —
+    # a `finally` that fails silently is worse than none).
     doomed = [e.id for e in db.query(CodexEntity).filter(
         CodexEntity.canonical_name.like(f"{MARK}%")).all()]
     doomed += [e.id for e in db.query(CodexEntity).filter_by(
         canonical_name=SHARED).all()]
     if doomed:
+        db.execute(sql_text("DELETE FROM codex_facts WHERE id IN (SELECT fact_id FROM "
+                        "codex_fact_entities WHERE entity_id = ANY(:e))"), {"e": doomed})
         db.query(CodexEdge).filter(
             (CodexEdge.source_id.in_(doomed))
             | (CodexEdge.target_id.in_(doomed))).delete(

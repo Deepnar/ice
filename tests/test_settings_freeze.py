@@ -45,14 +45,14 @@ ORCH = "src/retrieval/orchestrator.py"
 DECAY = "src/workers/decay.py"
 CODEX_DECAY = "src/workers/codex_decay.py"
 PROC_DECAY = "src/workers/procedural_decay.py"
-COMPACTION = "src/workers/compaction.py"
+COMPACTION = "src/workers/compaction.py"   # base-commit path; retired rows only
 IMPORTER = "src/ingestion/importer.py"
 DENSITY = "src/workers/turn_density.py"
 CHUNKING = "src/memory/chunking.py"
 CONV_SUM = "src/workers/conversation_summary.py"
 REFLECTION = "src/workers/reflection.py"
 BATCH_SUM = "src/workers/batch_summarizer.py"
-EXTRACTOR = "src/workers/codex_extractor.py"
+EXTRACTOR = "src/workers/codex_extractor.py"   # base-commit path; retired rows only
 TEMPLATES = "src/classifier/templates.py"
 CLUSTERING = "src/workers/clustering.py"
 AGENT = "src/workers/maintenance_agent.py"
@@ -75,19 +75,8 @@ FROZEN = [
     ("retrieval_meta_downweight_factor", ORCH, 138, r"META_DOWNWEIGHT_FACTOR = ([\d.]+)"),
 
     # ── __init__ instance attributes ────────────────────────────────────
-    ("codex_relation_top_k", ORCH, 169, r"RELATION_TOP_K = (\d+)"),
-    ("codex_relation_sim_floor", ORCH, 170, r"RELATION_SIM_FLOOR = ([\d.]+)"),
-    # codex_relation_overlap_boost's row was retired 2026-08-11 (G34) — the
-    # setting no longer exists. Its proof moves below rather than disappearing,
-    # per the same rule as cycles-per-day.
     ("codex_expansion_max_terms", ORCH, 172, r"EXPANSION_MAX_TERMS = (\d+)"),
-    ("codex_enum_edge_limit", ORCH, 173, r"ENUM_EDGE_LIMIT = (\d+)"),
     ("codex_enum_entity_limit", ORCH, 174, r"ENUM_ENTITY_LIMIT = (\d+)"),
-    ("codex_max_depth", ORCH, 181, r"CODEX_MAX_DEPTH = (\d+)"),
-    ("codex_direct_trust_floor", ORCH, 182, r"CODEX_DIRECT_TRUST_FLOOR = ([\d.]+)"),
-    ("codex_deep_strength_floor", ORCH, 183, r"CODEX_DEEP_STRENGTH_FLOOR = ([\d.]+)"),
-    ("codex_recency_boost", ORCH, 191, r"CODEX_RECENCY_BOOST = ([\d.]+)"),
-    ("codex_recency_tau_days", ORCH, 192, r"CODEX_RECENCY_TAU_DAYS = ([\d.]+)"),
 
     # ── literals that were buried inside function bodies ────────────────
     ("retrieval_long_narrative_words", ORCH, 281, r"word_count > (\d+)"),
@@ -100,8 +89,6 @@ FROZEN = [
     ("retrieval_cluster_top_k", ORCH, 212, r"top_k=(\d+)"),
     ("retrieval_cluster_candidate_multiplier", ORCH, 230, r'"limit": top_k \* (\d+)'),
     ("codex_entity_match_threshold", ORCH, 1166, r"threshold: float = ([\d.]+)"),
-    ("codex_entity_payload_match_limit", ORCH, 1442, r"\.limit\((\d+)\)\.all\(\)"),
-    ("codex_entity_edge_limit", ORCH, 1493, r"\.limit\((\d+)\)\.all\(\):"),
     ("retrieval_rrf_k", ORCH, 2223, r"k: int = (\d+)"),
     ("retrieval_max_per_conversation", ORCH, 2372, r"max_per_conversation=(\d+)"),
     ("retrieval_bm25_candidate_limit", ORCH, 920, r"LIMIT (\d+)"),
@@ -130,7 +117,6 @@ FROZEN = [
     ("codex_decay_daily", CODEX_DECAY, 16, r"= ([\d.]+) \*\* \(1\.0 / CYCLES_PER_DAY\)"),
     ("procedural_stale_days", PROC_DECAY, 11, r"STALE_DAYS = (\d+)"),
     ("procedural_min_reinforcement", PROC_DECAY, 12, r"MIN_REINFORCEMENT = (\d+)"),
-    ("compaction_event_threshold", COMPACTION, 12, r"EVENT_THRESHOLD = (\d+)"),
 
     # ── write path ──────────────────────────────────────────────────────
     ("turn_raw_keep_max_words", DENSITY, 55, r"RAW_KEEP_MAX_WORDS = (\d+)"),
@@ -142,12 +128,7 @@ FROZEN = [
     ("chunk_overlap_words", CHUNKING, 22, r"OVERLAP_WORDS = (\d+)"),
     ("conversation_summary_max_words", CONV_SUM, 36, r"SUMMARY_MAX_WORDS = (\d+)"),
     ("conversation_summary_chunk_words", CONV_SUM, 37, r"CHUNK_WORDS = (\d+)"),
-    ("reflection_enrich_limit", REFLECTION, 299, r"ENRICH_LIMIT = (\d+)"),
-    ("reflection_enrich_refresh_days", REFLECTION, 300, r"ENRICH_REFRESH_DAYS = (\d+)"),
     ("batch_summary_age_days", BATCH_SUM, 22, r"BATCH_SUMMARY_AGE_DAYS = (\d+)"),
-    ("codex_conf_grounded", EXTRACTOR, 308, r"CONF_GROUNDED = ([\d.]+)"),
-    ("codex_conf_ungrounded", EXTRACTOR, 309, r"CONF_UNGROUNDED = ([\d.]+)"),
-    ("codex_conf_rejected", EXTRACTOR, 310, r"CONF_REJECTED = ([\d.]+)"),
     ("classifier_context_turns", TEMPLATES, 98, r"CONTEXT_TURNS = (\d+)"),
     ("classifier_context_max_words", TEMPLATES, 99, r"CONTEXT_MAX_WORDS = (\d+)"),
     ("classifier_turn_word_cap", TEMPLATES, 100, r"TURN_WORD_CAP = (\d+)"),
@@ -172,11 +153,8 @@ FROZEN = [
     ("agent_max_llm_decisions", AGENT, 43, r"MAX_LLM_DECISIONS = (\d+)"),
     ("agent_max_tier2_proposals", AGENT, 44, r"MAX_TIER2_PROPOSALS = (\d+)"),
     ("agent_max_applications", AGENT, 45, r"MAX_APPLICATIONS = (\d+)"),
-    ("agent_pileup_min_pending", AGENT, 49, r"PILEUP_MIN_PENDING = (\d+)"),
-    ("agent_pileup_min_active_overlap", AGENT, 50, r"PILEUP_MIN_ACTIVE_OVERLAP = (\d+)"),
     ("agent_dup_cosine_threshold", AGENT, 54, r"DUP_COSINE_THRESHOLD = ([\d.]+)"),
     ("agent_dup_pairs_per_run", AGENT, 55, r"DUP_PAIRS_PER_RUN = (\d+)"),
-    ("agent_max_attempts", AGENT, 58, r"MAX_AGENT_ATTEMPTS = (\d+)"),
     ("agent_stale_slot_days", AGENT, 62, r"STALE_SLOT_DAYS = (\d+)"),
     ("agent_stale_task_days", AGENT, 304, r"STALE_TASK_DAYS = (\d+)"),
 ]
@@ -424,25 +402,46 @@ def test_operational_default_matches_base_commit(name, path, const):
                         f"{old} at {BASE[:7]} -> {new} now")
 
 
-def test_relation_overlap_boost_was_retired_deliberately():
-    """G34 removed `codex_relation_overlap_boost`; its magnitude did not move.
+# Rows retired 2026-10-16 with the v2/v3 codex (CODEX_V4 step 7): their
+# settings were deleted with the code that read them. Kept as rows so the proof
+# that each value existed moves below instead of disappearing.
+RETIRED_CODEX_V4 = [
+    ("codex_relation_top_k", ORCH, 169, r"RELATION_TOP_K = (\d+)"),
+    ("codex_relation_sim_floor", ORCH, 170, r"RELATION_SIM_FLOOR = ([\d.]+)"),
+    ("codex_enum_edge_limit", ORCH, 173, r"ENUM_EDGE_LIMIT = (\d+)"),
+    ("codex_max_depth", ORCH, 181, r"CODEX_MAX_DEPTH = (\d+)"),
+    ("codex_direct_trust_floor", ORCH, 182, r"CODEX_DIRECT_TRUST_FLOOR = ([\d.]+)"),
+    ("codex_deep_strength_floor", ORCH, 183, r"CODEX_DEEP_STRENGTH_FLOOR = ([\d.]+)"),
+    ("codex_recency_boost", ORCH, 191, r"CODEX_RECENCY_BOOST = ([\d.]+)"),
+    ("codex_recency_tau_days", ORCH, 192, r"CODEX_RECENCY_TAU_DAYS = ([\d.]+)"),
+    ("codex_entity_payload_match_limit", ORCH, 1442, r"\.limit\((\d+)\)\.all\(\)"),
+    ("codex_entity_edge_limit", ORCH, 1493, r"\.limit\((\d+)\)\.all\(\):"),
+    ("compaction_event_threshold", COMPACTION, 12, r"EVENT_THRESHOLD = (\d+)"),
+    ("reflection_enrich_limit", REFLECTION, 299, r"ENRICH_LIMIT = (\d+)"),
+    ("reflection_enrich_refresh_days", REFLECTION, 300, r"ENRICH_REFRESH_DAYS = (\d+)"),
+    ("codex_conf_grounded", EXTRACTOR, 308, r"CONF_GROUNDED = ([\d.]+)"),
+    ("codex_conf_ungrounded", EXTRACTOR, 309, r"CONF_UNGROUNDED = ([\d.]+)"),
+    ("codex_conf_rejected", EXTRACTOR, 310, r"CONF_REJECTED = ([\d.]+)"),
+    ("agent_pileup_min_pending", AGENT, 49, r"PILEUP_MIN_PENDING = (\d+)"),
+    ("agent_pileup_min_active_overlap", AGENT, 50, r"PILEUP_MIN_ACTIVE_OVERLAP = (\d+)"),
+    ("agent_max_attempts", AGENT, 58, r"MAX_AGENT_ATTEMPTS = (\d+)"),
+    # G34 (2026-08-11) had already retired this one into codex_relation_fit_weight,
+    # itself retired above.
+    ("codex_relation_overlap_boost", ORCH, 171, r"RELATION_OVERLAP_BOOST = ([\d.]+)"),
+]
 
-    Dropping a frozen row silently is indistinguishable from losing a value, so
-    the proof moves here instead of disappearing — same rule as cycles-per-day
-    below. The old setting was a FLAT bonus applied whenever any relation was
-    detected, a condition that was true on every prompt. It is replaced by
-    `codex_relation_fit_weight` times a measured fit, so the *shape* of the
-    bonus changed on purpose while its scale deliberately did not.
-    """
-    assert not hasattr(settings, "codex_relation_overlap_boost"), (
-        "the retired setting is back; either the retirement was reverted or a "
-        "second copy has appeared")
-    line = _base_lines(ORCH)[171 - 1]
-    m = re.search(r"RELATION_OVERLAP_BOOST = ([\d.]+)", line)
-    assert m, "the base-commit anchor for the retired boost drifted"
-    assert float(_declared("codex_relation_fit_weight")) == float(m.group(1)), (
-        "the replacement weight no longer matches the boost it replaced — the "
-        "G34 change would then also be an unrecorded re-tuning")
+
+@pytest.mark.parametrize("name,path,line_no,pattern", RETIRED_CODEX_V4,
+                         ids=[r[0] for r in RETIRED_CODEX_V4])
+def test_codex_v4_retired_settings_are_gone_and_anchored(name, path, line_no, pattern):
+    """Dropping a frozen row silently is indistinguishable from losing a value.
+    Each retired setting must be absent from Settings (not quietly back), and
+    its base-commit anchor must still read — the record that it existed."""
+    assert not hasattr(settings, name), (
+        f"{name} is back in Settings; either the CODEX_V4 retirement was reverted "
+        f"or a second copy has appeared")
+    line = _base_lines(path)[line_no - 1]
+    assert re.search(pattern, line), f"the base-commit anchor for retired {name} drifted"
 
 
 def test_cycles_per_day_still_derives_to_the_base_commit_value():

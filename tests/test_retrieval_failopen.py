@@ -9,9 +9,10 @@ Two properties, both of which used to be false.
    `_procedural_lookup` sat dead exactly that way from the psycopg3 move
    until C9 removed the intent gate hiding it.
 
-2. **Direction.** `_codex_scope_sets` returned `(None, None)` on failure, and
-   `None` there means UNSCOPED, not "no scope" — so failing to resolve the
-   caller's scope handed the codex leg the whole graph. `_resolve_exclusion_sets`
+2. **Direction.** `_codex_scope_sets` (now `_scope_batch_ids`) returned
+   `(None, None)` on failure, and `None` there means UNSCOPED, not "no scope" —
+   so failing to resolve the caller's scope handed the codex leg the whole
+   graph. Since CODEX_V4 the codex leg is the facts leg, scoped by its sources. `_resolve_exclusion_sets`
    was the mirror: it cleared the deny sets, and the graph then served exactly
    the conversations the user had excluded. Both widen visibility on failure,
    which is the direction G16 forbids.
@@ -44,7 +45,7 @@ from src.api.db import SessionLocal
 from src.classifier.schemas import ClassificationResult
 from src.memory.embedder import get_embedder
 from src.memory.models import (
-    CodexEdge, CodexEntity, CodexEvent, Conversation, EpisodicMemory,
+    CodexEntity, CodexFact, CodexFactEntity, CodexFactSource, Conversation, EpisodicMemory,
 )
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 
@@ -74,7 +75,7 @@ STUB_EMB = [0.05] * 1024
 db = SessionLocal()
 embedder = get_embedder()
 now = datetime.now(timezone.utc)
-made = {"convs": [], "turns": [], "ents": [], "edges": [], "events": []}
+made = {"convs": [], "turns": [], "ents": [], "facts": []}
 
 
 def enc(text):
@@ -106,21 +107,26 @@ def seed():
                           context_payload=f"# {obj}", embedding=enc(obj.capitalize()))
         db.add_all([src, tgt])
         db.commit()
-        edge = CodexEdge(source_id=src.id, target_id=tgt.id, relation="lives_in",
-                         source_batch=batch, confidence="active", strength=1.0,
+        sentence = f"The user said {subj} lives in {obj}."
+        fact = CodexFact(text=sentence, text_sha256=uuid.uuid4().hex, speaker="user",
+                         modality="asserted", embedding=enc(sentence), mentioned_at=now,
                          valid_from=now)
-        event = CodexEvent(entity_id=src.id, event_type="edge_added",
-                           batch_source=batch, timestamp=now)
-        db.add_all([edge, event])
+        db.add(fact)
+        db.flush()
+        db.add_all([CodexFactSource(fact_id=fact.id, source_batch=batch,
+                                    window_sha256=uuid.uuid4().hex, episodic_id=turn.id,
+                                    conversation_id=conv.id, window={}, quote=f"{subj} lives in",
+                                    recorded_at=now, verification={}),
+                    CodexFactEntity(fact_id=fact.id, entity_id=src.id, role="subject"),
+                    CodexFactEntity(fact_id=fact.id, entity_id=tgt.id, role="object")])
         db.commit()
         made["turns"].append(turn)
         made["ents"] += [src, tgt]
-        made["edges"].append(edge)
-        made["events"].append(event)
+        made["facts"].append(fact)
 
 
 def cleanup():
-    for row in made["events"] + made["edges"]:
+    for row in made["facts"]:
         db.delete(row)
     db.commit()
     for row in made["ents"] + made["turns"]:
@@ -138,12 +144,7 @@ def codex_text(scope):
     orch._active_timescope = orch._resolve_timescope(scope)
     orch._scope_project_id = orch._resolve_project_scope(scope)
     orch._resolve_exclusion_sets(scope)
-    cls = ClassificationResult(
-        prompt=PROMPT, topic_tags=["Software_&_Tech"],
-        intent_tags=["Factual_Retrieval"], context_reliance="Long_Term_Memory",
-        raw_probs=[0.0] * 27, max_confidence=0.9)
-    return "\n".join(f.text for f in
-                     orch._codex_graph(cls, scope, prompt_embedding=STUB_EMB))
+    return "\n".join(f.text for f in orch._facts_leg(PROMPT, enc(PROMPT), scope))
 
 
 def legs_reported(captured):
@@ -185,8 +186,8 @@ try:
     check("broken scope: B does NOT leak in", NAME_B not in broken)
     check("broken scope: A is dropped too (closed, not widened)",
           NAME_A not in broken)
-    check("broken scope: reported as scope.codex_sets",
-          "scope.codex_sets" in legs_reported(cap))
+    check("broken scope: reported (the facts leg names itself)",
+          "codex.facts" in legs_reported(cap))
 
     print("── exclusion: working, then broken ──")
     excl_scope = {"exclude_conversation_ids": [str(conv_b.id)]}

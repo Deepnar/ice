@@ -1,22 +1,18 @@
-"""Reflection Worker – session synthesis, slot evolution, Codex enrichment,
-   and motif detection. Procedural patterns have one cited-source writer."""
+"""Reflection Worker – session synthesis, slot evolution and motif detection.
+   Procedural patterns have one cited-source writer."""
 
 from datetime import datetime, timezone
 
 import structlog
 from sqlalchemy import text
 
-from src.api.config import settings
 from src.api.db import SessionLocal
-from src.memory.entity_notes import PROOF_KEY, REVIEW_KEY, generate_note, note_sources
 from src.memory.models import (
-    CodexEntity,
     EpisodicMemory,
     MemorySlot,
     ReviewQueue,
     SessionSummary,
 )
-from src.retrieval.evolution import log_description_update
 from src.workers.bg_client_factory import (
     bg_timeout,
     get_bg_client,
@@ -103,8 +99,10 @@ def run_reflection():
             _evolve_memory_slots(db, recent)
             _detect_motifs(db, recent)
 
-        # Codex enrichment is global — it works on thin entities regardless of conversation
-        enrichment = _enrich_codex_entities(db)
+        # CODEX_V4 D11.1: no model-written entity notes — an entity's page is
+        # its verified facts. The receipt stays so replay reports see the state.
+        enrichment = dict(method="entity_enrichment_receipt_v1", selected=0, attempted=0,
+                          skipped="codex_v4_facts")
 
         db.commit()
         logger.info("reflection_full_pass_complete")
@@ -204,87 +202,6 @@ def _evolve_memory_slots(db, turns):
 # Codex Enrichment
 # ------------------------------------------------------------------
 
-
-def _enrich_codex_entities(db):
-    """A7.3: fill each entity's `description` (the rich 'note body') by
-    summarising the conversation passages that mention it, then reassemble
-    context_payload so the note = description + properties + links + backlinks.
-    Writes to `description`, NOT context_payload (which is auto-generated and
-    would otherwise be overwritten on the next edge). Priority: entities with
-    an EMPTY description first (the big win), then a few stale ones to refresh.
-    Domain-general — works for code, research, business, people, or lore.
-
-    CODEX_V4 D11.1: under the v4 codex an entity's page IS its facts (each a
-    verified sentence), so no model-written note is generated for it; a
-    description the user wrote stays and is shown as their note."""
-    from src.memory.summary_support import METHOD_V4, current_method
-    if current_method() == METHOD_V4:
-        logger.info("codex_enrichment_skipped", reason="v4 entity pages are their facts")
-        return dict(method="entity_enrichment_receipt_v1", selected=0, attempted=0,
-                    skipped="codex_v4_facts")
-    # Priority 1: no description yet — richest-mentioned first.
-    to_enrich = db.execute(text("""
-        SELECT e.id
-        FROM codex_entities e
-        JOIN codex_events ev ON ev.entity_id = e.id
-        WHERE COALESCE(e.description, '') = ''
-        GROUP BY e.id
-        ORDER BY COUNT(ev.id) DESC
-        LIMIT :lim
-    """), {"lim": settings.reflection_enrich_limit}).fetchall()
-    ids = [r[0] for r in to_enrich]
-
-    # Priority 2: fill remaining budget by refreshing stale, well-mentioned notes.
-    if len(ids) < settings.reflection_enrich_limit:
-        stale = db.execute(text("""
-            SELECT e.id
-            FROM codex_entities e
-            JOIN codex_events ev ON ev.entity_id = e.id
-            WHERE COALESCE(e.description, '') <> ''
-              AND e.last_updated < NOW() - (:days || ' days')::interval
-            GROUP BY e.id
-            HAVING COUNT(ev.id) >= 3
-            ORDER BY COUNT(ev.id) DESC
-            LIMIT :lim
-        """), {"days": settings.reflection_enrich_refresh_days, "lim": settings.reflection_enrich_limit - len(ids)}).fetchall()
-        ids.extend(r[0] for r in stale)
-
-    receipt = dict(method="entity_enrichment_receipt_v1", selected=len(ids), attempted=0,
-                   supported=0, contradicted=0, unknown=0, errors=0)
-    for eid in ids:
-        entity = db.get(CodexEntity, eid)
-        if not entity:
-            continue
-        receipt["attempted"] += 1
-        try:
-            note, review = generate_note(entity, note_sources(db, entity))
-        except Exception as exc:
-            from src.workers.runtime import JobYielded
-            if isinstance(exc, JobYielded):
-                raise
-            logger.error("codex_enrich_failed", entity=entity.canonical_name, error=str(exc))
-            receipt["errors"] += 1
-            continue
-        entity.properties = {**(entity.properties or {}), REVIEW_KEY: review}
-        receipt[review["status"]] += 1
-        if not note:
-            logger.warning("codex_enrich_withheld", status=review["status"], reason=review["reason"],
-                           sources=review["sources"])
-            continue
-        from src.workers.codex_extractor import _regenerate_context_payload
-        # T4 (D13): journal the overwrite — description is the one
-        # mutable-in-place field, so every write leaves a description_updated
-        # event (replaces the old opaque context_appended emit; those stay in
-        # the journal as readable history).
-        old_desc = entity.description
-        entity.description = note
-        entity.properties = {**entity.properties, PROOF_KEY: review}
-        _regenerate_context_payload(entity, db)   # note = description + props + links + backlinks
-        entity.last_updated = datetime.now(timezone.utc)
-        log_description_update(db, entity, old_desc, note,
-                               source="reflection_enrichment")
-    logger.info("codex_enrichment_done", **receipt)
-    return receipt
 
 
 # ------------------------------------------------------------------

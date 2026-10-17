@@ -25,7 +25,7 @@ START = datetime(2020, 1, 1, tzinfo=timezone.utc)
 @pytest.fixture
 def parent(empty_replay_database, monkeypatch, tmp_path):
     from src.api.db import SessionLocal
-    from src.memory.models import CodexEdge, CodexEntity, Conversation, EpisodicMemory, ProceduralMemory
+    from src.memory.models import CodexFact, Conversation, EpisodicMemory, ProceduralMemory
     from scripts.z1.historical_clock import CLOCK_MODULES
     for name in CLOCK_MODULES: importlib.import_module(name)
     # Cached module factories must never escape this nested disposable store.
@@ -34,7 +34,7 @@ def parent(empty_replay_database, monkeypatch, tmp_path):
             monkeypatch.setattr(module, "SessionLocal", SessionLocal)
     for name, value in dict(decay_daily_unaccessed=.95, decay_daily_accessed=.98,
             decay_daily_creative=.99, decay_creative_floor=.3, decay_archive_threshold=.1,
-            decay_cold_threshold=.05, codex_decay_daily=.99, codex_retention_floor=.1,
+            decay_cold_threshold=.05, codex_decay_daily=.99,
             runtime_cycles_cap=96, procedural_stale_days=180, procedural_min_reinforcement=3).items():
         monkeypatch.setattr(settings, name, value)
     monkeypatch.setattr(settings, "maintenance_intervals", {**settings.maintenance_intervals,
@@ -52,14 +52,14 @@ def parent(empty_replay_database, monkeypatch, tmp_path):
             idempotency_key="chronology_" + uuid.uuid4().hex, raw_text="USER: original value7319",
             source_spans={"controlled": "original"}, context_reliance="independent",
             timestamp=START - timedelta(days=8), decay_score=.051, is_private=True)
-        a, b = [CodexEntity(canonical_name="chronology_" + uuid.uuid4().hex) for _ in range(2)]
-        db.add_all([row, a, b]); db.flush()
-        edge = CodexEdge(source_id=a.id, target_id=b.id, relation="uses", source_batch=row.batch_id,
-            strength=1, confidence="pending", extraction_confidence=.9, valid_from=START)
+        db.add(row); db.flush()
+        fact = CodexFact(text="The user said chronology uses a value.", text_sha256=uuid.uuid4().hex,
+            speaker="user", modality="asserted", mentioned_at=START, valid_from=START,
+            support_count=1, usage=1.0, confidence=.9)
         proc = ProceduralMemory(pattern_name="controlled legacy pattern", reinforcement_count=1,
             first_observed=START - timedelta(days=190), last_observed=START - timedelta(days=181), is_active=True)
-        db.add_all([edge, proc]); db.commit()
-        identifiers = dict(conversation=str(conv.id), row=row.id, edge=edge.id, procedure=proc.id)
+        db.add_all([fact, proc]); db.commit()
+        identifiers = dict(conversation=str(conv.id), row=row.id, fact=fact.id, procedure=proc.id)
     parents = []
     def make(label="main", enabled=cm.CORE_JOBS, checkpoint_every_groups=1):
         root = tmp_path / label; root.mkdir()
@@ -96,22 +96,22 @@ def run(parent, hours=12):
             context=dict(conversation=parent.ids["conversation"], history="controlled", turn=2, arm="full"))
 
 
-def test_all_ten_native_jobs_actual_effects_and_cached_groups_do_not_repeat(parent):
-    from src.memory.models import CodexEdge, ColdStorage, EpisodicMemory, ProceduralMemory
+def test_all_native_jobs_actual_effects_and_cached_groups_do_not_repeat(parent):
+    from src.memory.models import CodexFact, ColdStorage, EpisodicMemory, ProceduralMemory
     result = run(parent)
     assert result["completed_time_groups"] == 12 and result["disabled"] == []
     assert result["calls"] == {job + ":complete": 12 for job in cm.CORE_JOBS}
     rows = [json.loads(line) for line in parent.trace.read_text().splitlines()][1:]
-    assert len(rows) == 120 and all(r["worker_status"] == "complete" for r in rows)
+    assert len(rows) == 12 * len(cm.CORE_JOBS) and all(r["worker_status"] == "complete" for r in rows)
     assert all(r["call_kwargs"] == ({"cycles": 1} if cm.JOBS[r["job"]].pass_cycles else {}) for r in rows)
     with parent.sessions() as db:
         assert db.get(EpisodicMemory, parent.ids["row"]) is None
         cold = db.get(ColdStorage, parent.ids["row"])
         assert cold.raw_text == "USER: original value7319" and cold.source_spans == {"controlled": "original"}
         assert cold.archived_at == START + timedelta(hours=10)
-        edge = db.get(CodexEdge, parent.ids["edge"])
-        assert edge.strength == pytest.approx(.99 ** .5) and edge.confidence == "pending"
-        assert edge.valid_until is None and edge.extraction_confidence == .9
+        fact = db.get(CodexFact, parent.ids["fact"])
+        assert fact.usage == pytest.approx(.99 ** .5) and fact.support_count == 1
+        assert fact.valid_until is None and fact.confidence == .9
         assert db.get(ProceduralMemory, parent.ids["procedure"]).is_active is False
     saved = parent.trace.read_bytes(); fingerprints = snapshot.fingerprints()
     again = run(parent)
@@ -150,8 +150,8 @@ def test_real_snapshot_interrupt_mid_group_restores_and_matches_uninterrupted(pa
     assert resumed["completed_time_groups"] == 3
     assert snapshot.fingerprints() == expected
     records = [json.loads(line) for line in interrupted.trace.read_text().splitlines()][1:]
-    assert len(records) == 40 and all(r["worker_status"] == "complete" for r in records)
-    assert len({(r["job"], r["source_time_trigger"]) for r in records}) == 40
+    assert len(records) == 4 * len(cm.CORE_JOBS) and all(r["worker_status"] == "complete" for r in records)
+    assert len({(r["job"], r["source_time_trigger"]) for r in records}) == 4 * len(cm.CORE_JOBS)
 
 
 def test_grouped_publication_preserves_every_native_job_and_final_state(parent):
@@ -203,8 +203,8 @@ def test_grouped_interrupt_archives_and_replays_only_the_uncommitted_suffix(pare
     assert result["completed_time_groups"] == 3 and result["published_checkpoints"] == 1
     assert snapshot.fingerprints() == expected
     rows = [json.loads(line) for line in grouped.trace.read_text().splitlines()][1:]
-    assert len(rows) == 60
-    assert len({(r["job"], r["source_time_trigger"]) for r in rows}) == 60
+    assert len(rows) == 6 * len(cm.CORE_JOBS)
+    assert len({(r["job"], r["source_time_trigger"]) for r in rows}) == 6 * len(cm.CORE_JOBS)
     assert grouped.faults.verify() == 1
 
 
@@ -220,7 +220,7 @@ def test_grouped_outage_publishes_before_a_longer_checkpoint_interval(parent, mo
     assert durable["state"]["worker_recovery"]["streaks"]["decay_episodic"] == 3
     assert durable["state"]["worker_recovery"]["last_attempt"]["decay_episodic"] == (
         START + timedelta(hours=3)).isoformat()
-    assert len(grouped.trace.read_text().splitlines()) == 1 + 30 + 6  # three attempt/failure pairs
+    assert len(grouped.trace.read_text().splitlines()) == 1 + 3 * len(cm.CORE_JOBS) + 6  # three attempt/failure pairs
     assert grouped.faults.verify() == 4
 
 

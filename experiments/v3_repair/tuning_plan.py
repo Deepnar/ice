@@ -38,7 +38,7 @@ def coordinates(settings):
             context_recent_fraction_ladder=[[n, bounded(f)] for n, f in settings.context_recent_fraction_ladder],
             context_recent_fraction_default=bounded(settings.context_recent_fraction_default)))
     for field in ("retrieval_bm25_candidate_limit", "retrieval_vector_candidate_limit",
-                  "retrieval_chunk_candidate_limit", "codex_claim_candidate_limit"):
+                  "retrieval_chunk_candidate_limit", "codex_fact_candidate_limit"):
         for scale in (0.5, 2.0): add("candidates", {field: max(1, round(getattr(settings, field) * scale))})
     for size in (32, 64, 128): add("rerank_shortlist", dict(retrieval_rerank_candidates=size))
     for k in (30, 60, 90): add("fusion", dict(retrieval_rrf_k=k))

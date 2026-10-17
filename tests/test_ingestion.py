@@ -64,11 +64,9 @@ from src.memory.models import (
     CodexEntity,
     ConversationSummary,
     EpisodicMemory,
-    ImportConversation,
-    ImportRun,
     ProceduralMemory,
 )
-from src.workers import codex_extractor, procedural_extractor
+from src.workers import fact_extractor, procedural_extractor
 from src.workers import post_flight
 from src.workers.decay import apply_decay
 
@@ -97,6 +95,7 @@ db = SessionLocal()
 class _Msg:
     def __init__(self, c):
         self.message = type("M", (), {"content": c})
+        self.finish_reason = "stop"      # complete_text refuses a choice without one
 
 
 class _Resp:
@@ -117,27 +116,52 @@ class _FakeBG:
         self.chat = type("C", (), {"completions": _Completions(c)})
 
 
+def _fact_record(turn, model_used, RELATION):
+    """CODEX_V4: one canned verified fact in place of the claim pass → real fact
+    and entity rows appear through the real writer."""
+    speaker = "document" if turn.is_document else "user"
+    return {"assertions": [{
+        "text": f"The {speaker} said {MARK}sub {RELATION} {MARK}obj.", "sources": ["w0"],
+        "premise": "p", "pair_tokens": 20,
+        "cited_spans": [{"id": "w0", "role": speaker, "start": 0, "end": len(MARK)}],
+        "verification": {"status": "supported", "scores": {"entailment": 0.99}},
+        "quote": MARK, "speaker": speaker, "modality": "asserted",
+        "subject": MARK + "sub", "relation": RELATION, "object": MARK + "obj"}]}
+
+
 def install_pipeline_stubs():
     # No NER / no summary LLM: canned key terms, no per-turn summary.
     post_flight.extract_key_terms = lambda t, e, max_chars=2500: {
         "entities": [MARK], "figures": [], "identifiers": []}
     post_flight.generate_summary = lambda *a, **k: (None, None, None)
-    # Codex: one canned triplet → real graph rows appear.
-    codex_extractor.extract_triplets = lambda t, model_override="", topic_tags=None, gaps=None, source_sentences=None: [
-        {"subject": MARK + "sub", "relation": "calls", "object": MARK + "obj"}]
+    # Codex: one canned fact → real fact + entity rows appear.
+    fact_extractor._claim_record = lambda turn, model_used="": _fact_record(turn, model_used, "calls")
+    fact_extractor._ask = lambda earlier, newer: {"same_information": False,
+                                                  "both_can_be_true": True}
+    fact_extractor._mentions = lambda sentence: []
     # Procedural: canned pattern → a procedural row appears.
     procedural_extractor.bg_client = _FakeBG(
         f"When {MARK}, the user asks for code then the class.")
 
 
-def stub_summary_llm(prompt, max_tokens=400):
-    return f"{MARK} summary of the conversation so far."
+def stub_summary_llm(prompt, max_tokens=400, schema=None):
+    """Plain text; under the claim methods one cited claim quoting the first
+    window shown (same stub shape as test_documents)."""
+    if schema is None:
+        return f"{MARK} summary of the conversation so far."
+    import json as _json
+    import re as _re
+    m = _re.search(r'\[(w\d+);[^\]]*\]\nThe (\w+) said: ("(?:[^"\\]|\\.)*")', prompt.source)
+    window, role, excerpt = m.group(1), m.group(2), _json.loads(m.group(3))
+    quote = " ".join(excerpt.split()[:6])
+    return _json.dumps({"summary": [{"sources": [window], "quote": quote, "speaker": role,
+                                     "text": f"{MARK} summary of the conversation: {quote}"}]})
 
 
 # ── snapshot-diff cleanup ───────────────────────────────────────────────────
 # (table, pk-column) for the derived/global stores we clean by diff.
 DERIVED = [
-    ("codex_edges", "id"), ("codex_events", "id"), ("codex_snapshots", "id"),
+    ("codex_edges", "id"), ("codex_events", "id"), ("codex_facts", "id"),
     ("codex_entities", "id"), ("procedural_memory", "id"),
     ("context_clusters", "id"), ("batch_summaries", "id"),
     ("idempotency_keys", "key"), ("import_runs", "id"),
@@ -252,7 +276,7 @@ try:
 
     codex_new = db.query(CodexEntity).filter(
         CodexEntity.canonical_name.like(f"{MARK}%")).count()
-    check("codex rows appear (canned triplet extracted)", codex_new >= 1)
+    check("codex rows appear (canned fact written)", codex_new >= 1)
     proc_new = db.query(ProceduralMemory).filter(
         ProceduralMemory.pattern_name.like(f"When {MARK}%")).count()
     check("procedural rows appear (canned pattern)", proc_new >= 1)
@@ -320,9 +344,9 @@ try:
             "INSERT INTO episodic_memory (id, conversation_id, batch_id, "
             "context_reliance, raw_text, timestamp, decay_score, "
             "decay_immune, is_bookmarked, access_count, is_archived, "
-            "topic_tags, decay_immune_until, idempotency_key) VALUES "
+            "topic_tags, decay_immune_until, idempotency_key, is_private) VALUES "
             "(:id, :c, :b, 'Zero_Shot', :rt, :ts, 1.0, FALSE, FALSE, 0, "
-            "FALSE, '{}', :until, :k)"),
+            "FALSE, '{}', :until, :k, FALSE)"),
             {"id": rid, "c": decay_conv_id, "b": uuid.uuid4(),
              "rt": f"User: {MARK}\n\nAssistant: x", "ts": old_ts,
              "until": until, "k": f"decayimm-{rid}"})

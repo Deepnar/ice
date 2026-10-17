@@ -571,7 +571,7 @@ def test_aggregate_requires_every_source_in_explicit_batch_scope(context, subset
 def test_full_retrieve_passes_resolved_scope_to_real_summary_reader(context, monkeypatch):
     ctx = context
     orch = HybridRetrievalOrchestrator(ctx.db, NS())
-    for name in ('_codex_graph', '_codex_claims', '_relevant_cluster_ids',
+    for name in ('_facts_leg', '_relevant_cluster_ids',
                  '_bm25_episodic', '_vector_episodic', '_procedural_lookup', '_cold_lookup'):
         monkeypatch.setattr(orch, name, lambda *a, **kw: [])
     monkeypatch.setattr(settings, 'retrieval_rerank_enabled', False)
@@ -590,7 +590,7 @@ def test_full_retrieve_passes_resolved_scope_to_real_summary_reader(context, mon
 def test_auto_retrieve_keeps_current_identity_without_narrowing_search(context, monkeypatch):
     ctx = context
     orch = HybridRetrievalOrchestrator(ctx.db, NS())
-    for name in ('_codex_graph', '_codex_claims', '_relevant_cluster_ids',
+    for name in ('_facts_leg', '_relevant_cluster_ids',
                  '_bm25_episodic', '_vector_episodic', '_procedural_lookup', '_cold_lookup'):
         monkeypatch.setattr(orch, name, lambda *a, **kw: [])
     monkeypatch.setattr(settings, 'retrieval_rerank_enabled', False)

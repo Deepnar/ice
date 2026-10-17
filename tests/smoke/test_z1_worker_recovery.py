@@ -7,7 +7,11 @@ import pytest
 from sqlalchemy.exc import TimeoutError as DatabaseTimeout
 
 from scripts.z1.worker_recovery import WorkerOutage, WorkerRecovery
-from src.workers.extraction_result import ExtractionOutputError
+
+
+class ExtractionOutputError(ValueError):
+    """Recovery classifies by exception NAME; this is the name persisted
+    failures of the deleted v2/v3 codex extractor carry (CODEX_V4)."""
 
 
 def test_isolated_model_fault_is_bounded_recorded_and_resumable(monkeypatch):

@@ -35,8 +35,7 @@ def packet(tmp_path, monkeypatch):
     monkeypatch.setattr(dev, "DEVELOPMENT", dict.fromkeys(groups, 2))
     monkeypatch.setattr(settings, "background_model_mode", "shared")
     monkeypatch.setattr(settings, "background_model_name", "fixture-writer")
-    monkeypatch.setattr(settings, "codex_extraction_model", "fixture-extractor")
-    monkeypatch.setattr(settings, "codex_extraction_ner_tier", "background")
+    monkeypatch.setattr(settings, "codex_fact_reconcile_model", "")
     return inputs, run, records
 
 
@@ -169,7 +168,7 @@ def test_shared_engine_real_sql_recovers_sources_and_measures_content_loss(tmp_p
     monkeypatch.setattr(seed_v3.pp, "get_model_context_window", lambda *_a: 8192)
     monkeypatch.setattr(bg_client_factory, "get_bg_model_name", lambda: "controlled-writer")
     monkeypatch.setattr(recovery, "background_model_digests", lambda *_a: {"controlled-writer": "fixture-digest"})
-    monkeypatch.setattr(post_flight, "extract_codex", lambda **_k: None)
+    monkeypatch.setattr(post_flight, "extract_facts", lambda **_k: None)
     monkeypatch.setattr(post_flight, "extract_procedural", lambda **_k: None)
     functions, job_calls = {}, []
     for name in seed_v3.MEMORY_JOBS:
@@ -219,7 +218,7 @@ def test_shared_engine_real_sql_recovers_sources_and_measures_content_loss(tmp_p
         expected_turns={"fixture": 2}, input_files=bound_files, selected_plan=receipt) == 0
     rows = [json.loads(s) for s in (root / "seed.jsonl").read_text().splitlines()]
     assert [r["turn"] for r in rows if r["event"] == "written"] == [1, 2]
-    assert len(set(job_calls)) == 10
+    assert len(set(job_calls)) == len(seed_v3.MEMORY_JOBS)
     probe = next(r for r in rows if r["event"] == "as_of_probe")
     assert "Chosen port7319." in probe["gold_sources"][0]["prompt"]
     assert "7319" not in json.dumps(probe["preflight"]["prompt_messages"])

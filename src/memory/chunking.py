@@ -1,4 +1,4 @@
-"""Shared chunking primitive (C2) — extracted verbatim from codex_extractor
+"""Shared chunking primitive (C2) — extracted verbatim from codex_extractor (deleted with CODEX_V4)
 (A1) so one implementation serves all consumers, per the density sub-project
 rule ("build one chunker"):
 

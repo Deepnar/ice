@@ -6,8 +6,8 @@ thing that matters, which is what happens when parsing fails:
   * ``model_registry/registry.py`` — bare ``json.loads``. Any fenced reply threw,
     and the caller returned empty tags, which is **indistinguishable from a model
     that genuinely has no tags**. That is how a 404 stayed invisible.
-  * ``codex_extractor`` / ``maintenance_agent`` — byte-identical fence-strips,
-    written twice.
+  * ``codex_extractor`` (deleted with CODEX_V4) / ``maintenance_agent`` —
+    byte-identical fence-strips, written twice.
   * ``reflection`` — the only one that got it right: extract, and if that fails,
     **say so at WARNING with the head of the text**. Its reasoning is the module
     docstring's now.
@@ -35,8 +35,8 @@ logger = structlog.get_logger("ice.workers.llm_json")
 def strip_fences(raw: str) -> str:
     """Remove a markdown code fence if the model wrapped its reply in one.
 
-    Byte-identical to the copies in codex_extractor and maintenance_agent, which
-    is why it lives here now.
+    Was byte-identical in the (since deleted) codex_extractor and in
+    maintenance_agent, which is why it lives here.
     """
     raw = (raw or "").strip()
     if raw.startswith("```"):

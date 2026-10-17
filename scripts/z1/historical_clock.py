@@ -21,13 +21,12 @@ CLOCK_MODULES = (
     "src.memory.models", "src.memory.store_meta", "src.memory.usage",
     "src.api.prompt_assembler", "src.retrieval.orchestrator",
     "src.retrieval.timescope", "src.retrieval.evolution",
-    "src.workers.post_flight", "src.workers.codex_extractor",
+    "src.workers.post_flight", "src.memory.facts", "src.workers.fact_extractor",
     "src.workers.codex_ops", "src.workers.procedural_extractor",
     "src.workers.clustering", "src.workers.conversation_summary",
     "src.workers.batch_summarizer", "src.workers.reflection",
     "src.workers.maintenance_agent", "src.workers.decay",
     "src.workers.codex_decay", "src.workers.procedural_decay",
-    "src.workers.compaction",
 )
 SQL_NOW = re.compile(r"\bNOW\s*\(\s*\)", re.IGNORECASE)
 

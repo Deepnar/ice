@@ -16,8 +16,9 @@ Edges: ``imports`` (module → module, project-internal) and ``calls``
 names, imported names, ``self.``-methods, ``module.attr`` on imported project
 modules — and tagged via ``extraction_confidence`` (1.0 resolved / 0.6
 heuristic; codex_edges has no properties column — spec rev 3). All static
-edges share the deterministic per-project batch id (rev 5), which is what
-``_codex_scope_sets`` admits for project-scoped retrieval.
+edges share the deterministic per-project batch id (rev 5), which
+``_scope_batch_ids`` adds to an attached project's scope. The read side renders
+a project's derived entities as code-graph anchors (``_code_graph_anchors``).
 
 Other languages arrive later behind the same ``CodeExtractor`` seam
 (tree-sitter candidate); only Python ships now — ICE itself is the first
@@ -50,7 +51,7 @@ DEFAULT_IGNORES = {
 
 def code_graph_batch_id(project_id) -> uuid.UUID:
     """The deterministic source_batch for a project's static edges — and the
-    'code-graph allowance' _codex_scope_sets grants project-scoped queries."""
+    'code-graph allowance' _scope_batch_ids grants project-scoped queries."""
     return uuid.uuid5(uuid.NAMESPACE_URL, f"ice:code-graph:{project_id}")
 
 

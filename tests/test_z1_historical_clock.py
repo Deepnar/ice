@@ -15,7 +15,7 @@ from scripts.z1.seed_v3 import (isolated_database, memory_state, original_turn_c
                                probe_observation, source_storage_at_cutoff)
 from src.api.config import settings
 from src.api.db import SessionLocal
-from src.memory.models import CodexEdge, CodexEntity, ColdStorage, Conversation, EpisodicMemory, MemorySlot
+from src.memory.models import CodexEntity, CodexFact, ColdStorage, Conversation, EpisodicMemory, MemorySlot
 from src.memory.usage import record_graph_access
 from src.workers import maintenance_agent
 
@@ -83,23 +83,20 @@ def main():
         assert settings.retrieval_strengthen_writes == writes
         assert db.get(EpisodicMemory, fresh_id).decay_score == 1.0
         with historical_clock(source, db.get_bind()):
-            target = CodexEntity(canonical_name="clock-target")
-            db.add(target)
-            db.flush()
-            edge = CodexEdge(source_id=entity.id, target_id=target.id, relation="uses",
-                             confidence="active", strength=1.0, source_batch=uuid.uuid4())
-            db.add(edge)
+            fact = CodexFact(text="The user said clock-control uses a clock.",
+                             text_sha256=uuid.uuid4().hex, speaker="user", modality="asserted",
+                             mentioned_at=source, valid_from=source, support_count=1)
+            db.add(fact)
             db.commit()
-            fragment = SimpleNamespace(origin_edge_ids=[edge.id])
+            fragment = SimpleNamespace(origin_fact_ids=[fact.id])
             record_graph_access(db, [fragment], stage="prompt_prepared")
-            db.refresh(edge)
-            assert edge.usage_count == 1 and edge.last_accessed_at == source
-            strength = edge.strength
+            db.refresh(fact)
+            assert fact.usage == 1 and fact.last_used_at == source
             with probe_observation(db):
                 record_graph_access(db, [fragment], stage="prompt_prepared")
-            db.refresh(edge)
-            assert edge.usage_count == 1 and edge.strength == strength
-            assert edge.confidence == "active"  # Exposure never creates corroboration.
+            db.refresh(fact)
+            assert fact.usage == 1
+            assert fact.support_count == 1  # Exposure never creates corroboration.
         from src.memory import models
         assert models.datetime is datetime
         assert maintenance_agent.datetime is datetime

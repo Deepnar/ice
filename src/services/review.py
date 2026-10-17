@@ -1,15 +1,11 @@
 """Review-queue service (E0): list / approve / reject.
 
-Approval APPLIES the item, not just flips status (D1/D2 spec D6). The two
-agent arms are live:
+Approval APPLIES the item, not just flips status (D1/D2 spec D6):
 
-  * ``entity_merge``         → ``codex_ops.merge_entities`` (D5's real merge —
-                               the maintenance agent's Tier-2 proposals land
-                               here and merge on approval)
-  * ``codex_reconciliation`` → apply the supersession the in-line reconciler
-                               refused to guess at: expire the old edge
-                               (journaled ``edge_expired``, reason
-                               "supersession")
+  * ``entity_merge``         → ``codex_ops.merge_entities`` (legacy pending
+                               proposals; since CODEX_V4 D12 the agent applies
+                               model-confirmed merges itself and writes an
+                               ``applied`` audit row)
 
 The queue holds *agent/worker proposals only* (D8), plus the ONE deliberate
 exception: ``forget_request`` (C10/C11) — /forget is fuzzy AND destructive,
@@ -42,40 +38,15 @@ def list_items(db: Session, status: Optional[str] = "pending") -> list[dict]:
 
 
 def approve(db: Session, item_id: str, *, keep_edge_ids: Optional[list[str]] = None) -> dict:
+    # keep_edge_ids is accepted for API compatibility; the edge-conflict arm it
+    # served was retired with the legacy codex (CODEX_V4).
     item = db.query(ReviewQueue).filter_by(id=uuid.UUID(item_id)).first()
     if not item:
         raise NotFoundError("Item not found")
     if item.item_type in ("codex_contradiction", "codex_reconciliation"):
-        if item.status != "pending":
-            raise ValidationError("This conflict has already been reviewed.")
-        pair = set((item.item_content or {}).get("edge_ids", []))
-        if item.item_type == "codex_reconciliation":
-            from src.workers.maintenance_agent import _find_edge_by_names
-            content = item.item_content or {}
-            new = content.get("new") or {}
-            candidate = _find_edge_by_names(db, new.get("subject"), new.get("relation"),
-                                           new.get("object"), new.get("negated", False))
-            pair = {content.get("old_edge_id"), str(candidate.id)} if candidate else set()
-        if (keep_edge_ids is None or not isinstance(keep_edge_ids, list)
-                or any(not isinstance(e, str) for e in keep_edge_ids)
-                or not set(keep_edge_ids).issubset(pair) or len(pair) != 2):
-            raise ValidationError("Choose keep_edge_ids from the two conflict edges; use [] to retract both.")
-        from src.memory.models import CodexEdge, CodexEntity
-        from src.workers.codex_extractor import _expire_edge, _regenerate_context_payload
-        edges = [db.get(CodexEdge, uuid.UUID(e)) for e in sorted(pair)]
-        if any(e is None or e.valid_until is not None for e in edges):
-            raise ValidationError("Conflict edges changed; refresh before resolving.")
-        batch = uuid.uuid4()
-        touched = set()
-        for edge in edges:
-            if str(edge.id) not in keep_edge_ids:
-                _expire_edge(db, edge.id, batch, "manual_conflict_resolution", source="user_review")
-                touched.update((edge.source_id, edge.target_id))
-        db.flush()
-        for entity_id in touched:
-            entity = db.get(CodexEntity, entity_id)
-            if entity is not None:
-                _regenerate_context_payload(entity, db)
+        # CODEX_V4: the legacy edge-conflict queue is retired (facts decide
+        # same / replaces / both_true at write time; old rows are archived).
+        raise ValidationError("Legacy graph conflict items are archived and cannot be applied.")
     item.status = "approved"
 
     if item.item_type == "memory_slot_update":
@@ -100,8 +71,7 @@ def approve(db: Session, item_id: str, *, keep_edge_ids: Optional[list[str]] = N
                                   created_at=datetime.now(timezone.utc)))
 
     elif item.item_type == "entity_merge":
-        # D1/D2 arm: heavy import stays lazy (codex_ops pulls codex_extractor,
-        # which loads an embedder at import).
+        # D1/D2 arm: the import stays lazy, like the other dispatch arms.
         from src.workers.codex_ops import merge_entities
         merge_entities(
             db,

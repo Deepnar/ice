@@ -7,14 +7,12 @@ the exact work lists; phase B applies them in FK-safe order inside the one
 open transaction. `dry_run=True` runs phase A only — the confirmation dialog
 and the C11 confirm step render the identical manifest a real run would.
 
-Cascade semantics (spec D2): codex facts corroborated by OTHER conversations
-survive; sole-support edges are expired-with-journal (`edge_expired`, reason
-`source_deleted` — excluded from T4 timelines: deletion is not evolution),
-never hard-deleted. Everything conversation-owned (turns, chunks, links, cold
-rows, summaries, replays, curated labels, conversation-tier slots, and the
-G32/a1 relation-gap rows — which hold raw subject/object text, so a cascade
-that skipped them left content behind) is
-deleted; procedural patterns are pruned; live decisions extracted from the
+Cascade semantics (spec D2, CODEX_V4 D10): codex facts corroborated by OTHER
+conversations survive with their support recounted; a fact left with no source
+is expired-with-journal (`fact_expired`, reason `source_deleted`), never
+hard-deleted, and the deleted turns' quotes are removed. Everything
+conversation-owned (turns, chunks, links, cold rows, summaries, replays,
+curated labels, conversation-tier slots) is deleted; procedural patterns are pruned; live decisions extracted from the
 conversation expire bi-temporally; pending review items referencing its
 batches go `stale`. Logs are NOT touched — G25 owns redaction, and the
 manifest's caveat string says so (honesty over pretense).
@@ -26,21 +24,17 @@ import uuid
 from datetime import datetime, timezone
 
 import structlog
-from sqlalchemy import or_, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.memory import facts as fact_store
 from src.memory.models import (
     BatchSummary,
-    CodexClaim,
-    CodexClaimLink,
-    CodexEdge,
     CodexEntity,
     CodexEvent,
     CodexFact,
     CodexFactEntity,
     CodexFactSource,
-    CodexRelationGap,
     ColdStorage,
     ContextCluster,
     Conversation,
@@ -66,107 +60,6 @@ LOGS_CAVEAT = (
     "conversation until rotation or G25 log redaction. Deletion covers the "
     "memory stores listed in this manifest."
 )
-
-
-def _edge_source_plan(db: Session, removed_batches: set) -> tuple[list, list]:
-    """Plan expiry/rebase from actual surviving warm or cold observations.
-
-    `edge_added` records the first observation; repeated independent source
-    batches produce `edge_strengthened`. Reads never produce either event.
-    The old delete path checked only a second `edge_added`, which normal
-    reinforcement cannot emit, and left true edges pointing at deleted turns.
-    """
-    from src.memory.claims import excerpt_is_current, source_for_claim
-
-    if not removed_batches:
-        return [], []
-    rows = db.execute(text("""
-        SELECT id FROM codex_edges
-        WHERE source = 'conversation' AND valid_until IS NULL
-          AND (source_batch = ANY(:batches)
-               OR observed_batches && CAST(:batches AS uuid[]))
-    """), {"batches": list(removed_batches)}).fetchall()
-    edges = db.query(CodexEdge).filter(CodexEdge.id.in_([r.id for r in rows])).all()
-    if not edges:
-        return [], []
-    event_sources: dict = {}
-    for row in db.execute(text("""
-        SELECT payload->>'edge_id' AS edge_id, batch_source
-        FROM codex_events
-        WHERE event_type IN ('edge_added', 'edge_strengthened')
-          AND payload->>'edge_id' = ANY(:edge_ids)
-          AND batch_source IS NOT NULL
-    """), {"edge_ids": [str(edge.id) for edge in edges]}):
-        event_sources.setdefault(row.edge_id, set()).add(row.batch_source)
-    candidates = {batch for edge in edges
-                  for batch in ({edge.source_batch} | set(edge.observed_batches or [])
-                                | event_sources.get(str(edge.id), set()))}
-    source_times = {}
-    for row in db.execute(text("""
-        SELECT batch_id, timestamp FROM episodic_memory
-        WHERE batch_id = ANY(:batches) AND is_private = FALSE
-        UNION
-        SELECT batch_id, timestamp FROM cold_storage
-        WHERE batch_id = ANY(:batches) AND is_private = FALSE
-    """), {"batches": list(candidates)}):
-        stamp = row.timestamp or datetime.min.replace(tzinfo=timezone.utc)
-        source_times[row.batch_id] = max(
-            stamp, source_times.get(row.batch_id, stamp))
-    available = set(source_times)
-    sole, surviving = [], []
-    for edge in edges:
-        sources = ({edge.source_batch} | set(edge.observed_batches or [])
-                   | event_sources.get(str(edge.id), set()))
-        remaining = list((sources & available) - removed_batches)
-        if not remaining:
-            sole.append(edge)
-        else:
-            # The reader renders the primary source's linked quote. Rebase to
-            # current attributed evidence when possible; otherwise prefer the
-            # newest surviving original. UUID ordering has no semantic value.
-            linked = set()
-            if edge.source_batch in removed_batches:
-                claims = db.query(CodexClaim).join(
-                    CodexClaimLink, CodexClaimLink.claim_id == CodexClaim.id).filter(
-                        CodexClaimLink.edge_id == edge.id,
-                        CodexClaim.source_batch.in_(remaining)).all()
-                for claim in claims:
-                    original = source_for_claim(db, claim)
-                    if (original is not None and not original.is_private
-                            and excerpt_is_current(original, claim)):
-                        linked.add(claim.source_batch)
-            remaining.sort(key=lambda batch: (
-                batch in linked, source_times[batch].timestamp(), str(batch)),
-                reverse=True)
-            surviving.append((edge, remaining, len(sources & removed_batches)))
-    return sole, surviving
-
-
-def _apply_edge_source_plan(db: Session, sole: list, surviving: list,
-                            removed_batches: set, event_batch,
-                            *, reason="source_deleted", source="user_deletion") -> set:
-    """Remove deleted support and point each retained edge at a real source."""
-    from src.workers.codex_extractor import _expire_edge
-
-    touched = set()
-    for edge in sole:
-        _expire_edge(db, edge.id, event_batch, reason, source=source)
-        touched.update((edge.source_id, edge.target_id))
-    for edge, remaining, removed_count in surviving:
-        if not removed_count:
-            continue
-        old_batch = edge.source_batch
-        if old_batch in removed_batches:
-            edge.source_batch = remaining[0]
-            db.add(CodexEvent(entity_id=edge.source_id,
-                event_type="edge_source_rebased", batch_source=event_batch,
-                payload={"edge_id": str(edge.id), "old_batch": str(old_batch),
-                         "new_batch": str(edge.source_batch), "reason": reason}))
-        edge.observed_batches = remaining
-        edge.confidence = "active" if len(remaining) >= 2 else "pending"
-        edge.strength = max(0.1, (edge.strength or 1.0) - removed_count)
-        touched.update((edge.source_id, edge.target_id))
-    return touched
 
 
 def _user_authored_entities(db: Session, entity_ids: list) -> set:
@@ -215,7 +108,6 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
     manifest (identical for dry_run and real runs); one transaction, one
     commit at the end. Refused mid-generation (the live stream's post-flight
     would write into the void)."""
-    from src.workers.codex_extractor import _regenerate_context_payload  # lazy
     from src.workers.runtime import get_runtime
 
     conv_uuid = uuid.UUID(str(conv_id))
@@ -236,36 +128,22 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
     batches.update(r.batch_id for r in db.query(ColdStorage.batch_id).filter_by(
         conversation_id=conv_uuid).all() if r.batch_id is not None)
 
-    # Include secondary observations too: their support must be pruned when
-    # this conversation goes, even if the edge's first source lives elsewhere.
-    sole_edges, surviving_edges = _edge_source_plan(db, batches)
-    kept_edges = sum(edge.source_batch in batches
-                     for edge, _remaining, _removed in surviving_edges)
-    sole_ids = {e.id for e in sole_edges}
-    # CODEX_V4 D10: facts follow the same contract — sole support expires,
-    # corroborated facts keep going on their other sources.
+    # CODEX_V4 D10: sole support expires (journaled), corroborated facts keep
+    # going on their other sources; secondary observations are pruned too.
     sole_facts, surviving_facts = fact_store.source_plan(db, batches)
     n_fact_sources = db.query(CodexFactSource).filter(
         CodexFactSource.source_batch.in_(batches)).count() if batches else 0
 
-    # Entities the sole-support expiries may orphan: conversation-source,
-    # zero live edges AND facts left after ours expire, no user-authored description.
-    touched_entity_ids = ({e.source_id for e in sole_edges}
-                          | {e.target_id for e in sole_edges}
-                          | {r.entity_id for r in db.query(CodexFactEntity.entity_id).filter(
-                              CodexFactEntity.fact_id.in_(sole_facts)).all()})
+    # Entities the sole-support expiries may orphan: conversation-source, no
+    # current fact left after ours expire, no user-authored description.
+    touched_entity_ids = {r.entity_id for r in db.query(CodexFactEntity.entity_id).filter(
+        CodexFactEntity.fact_id.in_(sole_facts)).all()}
     entities_to_expire: list = []
     if touched_entity_ids:
         user_authored = _user_authored_entities(db, list(touched_entity_ids))
         for ent in db.query(CodexEntity).filter(
                 CodexEntity.id.in_(touched_entity_ids)).all():
-            remaining = db.query(CodexEdge).filter(
-                or_(CodexEdge.source_id == ent.id,
-                    CodexEdge.target_id == ent.id),
-                CodexEdge.valid_until.is_(None),
-                ~CodexEdge.id.in_(sole_ids),
-            ).count()
-            if (remaining == 0 and ent.source == "conversation"
+            if (ent.source == "conversation"
                     and fact_store.live_fact_links(db, ent.id, excluding=sole_facts) == 0
                     and str(ent.id) not in user_authored):
                 entities_to_expire.append(ent)
@@ -342,17 +220,6 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
         conversation_id=conv_uuid).count()
     n_conv_slots = db.query(MemorySlot).filter_by(
         conversation_id=conv_uuid).count()
-    # G32/a1's gap ledger holds the SUBJECT and OBJECT of facts the vocabulary
-    # could not express — real content from this conversation's turns. The table
-    # arrived (2026-08-04) after this cascade was written (2026-07-19) and has
-    # no FK, so deletion silently left it behind: "forget this conversation"
-    # kept the model's wording plus both entity names. Matched on either
-    # provenance column, because batch_id is nullable on rows written by paths
-    # that had no batch.
-    gap_filter = or_(CodexRelationGap.conversation_id == conv_uuid,
-                     CodexRelationGap.batch_id.in_(batches)) if batches \
-        else (CodexRelationGap.conversation_id == conv_uuid)
-    n_relation_gaps = db.query(CodexRelationGap).filter(gap_filter).count()
     n_curated = 0
     decisions_to_expire: list = []
     if batches:
@@ -369,16 +236,9 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
     for item in db.query(ReviewQueue).filter(
             ReviewQueue.status == "pending",
             ReviewQueue.item_type.in_(
-                ["codex_reconciliation", "decision_supersession",
-                 "forget_request"])).all():
+                ["decision_supersession", "forget_request"])).all():
         content = item.item_content or {}
-        if item.item_type == "codex_reconciliation" and batches:
-            ref = content.get("old_edge_id")
-            edge = db.query(CodexEdge).filter_by(
-                id=uuid.UUID(ref)).first() if ref else None
-            if edge is not None and edge.source_batch in batches:
-                stale_items.append(item)
-        elif item.item_type == "decision_supersession" and batches:
+        if item.item_type == "decision_supersession" and batches:
             ref_ids = [content.get("new_id"), content.get("old_id")]
             refs = [uuid.UUID(r) for r in ref_ids if r]
             if refs and db.query(Decision).filter(
@@ -411,12 +271,7 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
             "curated_labels": n_curated,
         },
         "codex": {
-            "edges_expired": len(sole_edges),
-            "edges_kept_corroborated": kept_edges,
-            "edges_support_pruned": sum(removed > 0 for _edge, _remaining, removed
-                                        in surviving_edges),
             "entities_expired": len(entities_to_expire),
-            "relation_gaps_deleted": n_relation_gaps,
             "facts_expired": len(sole_facts),
             "facts_support_pruned": len(surviving_facts),
             "fact_sources_deleted": int(n_fact_sources),
@@ -431,22 +286,14 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
     if dry_run:
         logger.info("conversation_delete_dry_run",
                     conversation_id=str(conv_uuid),
-                    turns=len(turn_ids), edges_expired=len(sole_edges))
+                    turns=len(turn_ids), facts_expired=len(sole_facts))
         return manifest
 
     # ── Phase B: apply, FK-safe order, one commit ──
     deletion_batch = uuid.uuid4()
-    changed_entities = _apply_edge_source_plan(
-        db, sole_edges, surviving_edges, batches, deletion_batch)
-    changed_entities |= fact_store.apply_source_plan(
-        db, sole_facts, surviving_facts, batches, deletion_batch)
+    fact_store.apply_source_plan(db, sole_facts, surviving_facts, batches, deletion_batch)
     for ent in entities_to_expire:
         _expire_entity(db, ent, deletion_batch)
-    for ent in db.query(CodexEntity).filter(
-            CodexEntity.id.in_(changed_entities)).all():
-        if ent in entities_to_expire:
-            continue
-        _regenerate_context_payload(ent, db)
     db.flush()
 
     if turn_ids:
@@ -480,12 +327,6 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
         db.query(CuratedLabel).filter(
             CuratedLabel.batch_id.in_(batches)).delete(
             synchronize_session=False)
-    # Deleted, not expired: a gap row is not a fact the graph holds, so there is
-    # no bi-temporal history to preserve — it is raw extracted content from a
-    # turn the user asked to be forgotten. Same `gap_filter` phase A counted, so
-    # the manifest and the delete cannot disagree.
-    db.query(CodexRelationGap).filter(gap_filter).delete(
-        synchronize_session=False)
     for d in decisions_to_expire:
         d.valid_until = datetime.now(timezone.utc)
     for item in stale_items:
@@ -504,8 +345,8 @@ def delete_conversation(db: Session, conv_id: str, dry_run: bool = False) -> dic
         synchronize_session=False)
     db.commit()
     logger.info("conversation_deleted", conversation_id=str(conv_uuid),
-                turns=len(turn_ids), edges_expired=len(sole_edges),
-                edges_kept=kept_edges,
+                turns=len(turn_ids), facts_expired=len(sole_facts),
+                facts_kept=len(surviving_facts),
                 entities_expired=len(entities_to_expire))
     return manifest
 
@@ -525,8 +366,7 @@ def propose_forget(db: Session, conv_id: str, query: str,
                    embedder=None, proposed_by: str = "chat_command",
                    limit: int = 5) -> dict:
     """Build a `forget_request` review-queue proposal: the top matching turns
-    (embedding, visibility-guarded) and live edges (entity-name containment)
-    listed for approval. NEVER applies anything — the day a fuzzy match eats
+    and current facts (embedding, visibility-guarded) listed for approval. NEVER applies anything — the day a fuzzy match eats
     the wrong memory is the day trust dies. Zero matches ⇒ nothing queued."""
     query = (query or "").strip()
     if not query:
@@ -558,28 +398,6 @@ def propose_forget(db: Session, conv_id: str, query: str,
         for r in turn_rows
     ]
 
-    ent_rows = db.execute(text("""
-        SELECT id, canonical_name FROM codex_entities
-        WHERE length(canonical_name) >= 3
-          AND source = 'conversation'
-          AND :q ILIKE '%' || canonical_name || '%'
-        LIMIT 10
-    """), {"q": query}).fetchall()
-    edges: list = []
-    if ent_rows:
-        ent_ids = [r.id for r in ent_rows]
-        names = {r.id: r.canonical_name for r in ent_rows}
-        for e in db.query(CodexEdge).filter(
-                or_(CodexEdge.source_id.in_(ent_ids),
-                    CodexEdge.target_id.in_(ent_ids)),
-                CodexEdge.valid_until.is_(None),
-                CodexEdge.source == "conversation").limit(limit).all():
-            src = names.get(e.source_id) or _entity_name(db, e.source_id)
-            tgt = names.get(e.target_id) or _entity_name(db, e.target_id)
-            rel = f"NOT {e.relation}" if e.negated else e.relation
-            edges.append({"id": str(e.id),
-                          "description": f"{src} --{rel}--> {tgt}"})
-
     fact_rows = db.execute(text("""
         SELECT f.id, f.text, 1 - (f.embedding <=> :emb) AS sim
         FROM codex_facts f
@@ -595,55 +413,42 @@ def propose_forget(db: Session, conv_id: str, query: str,
     facts = [{"id": str(r.id), "description": r.text[:200],
               "similarity": round(float(r.sim), 3)} for r in fact_rows]
 
-    if not turns and not edges and not facts:
+    if not turns and not facts:
         logger.info("forget_no_matches", query_words=len(query.split()))
-        return {"queued": False, "matches": 0, "turns": [], "edges": [], "facts": []}
+        return {"queued": False, "matches": 0, "turns": [], "facts": []}
 
     item = ReviewQueue(item_type="forget_request", item_content={
         "query": query,
         "conversation_id": str(conv_id),
         "turns": turns,
-        "edges": edges,
         "facts": facts,
         "proposed_by": proposed_by,
         "suggested_action": (
             f"forget: delete {len(turns)} turn(s) and expire "
-            f"{len(edges)} edge(s) and {len(facts)} fact(s) matching the request"),
+            f"{len(facts)} fact(s) matching the request"),
     })
     db.add(item)
     db.flush()
     out = {"queued": True, "item_id": str(item.id),
-           "matches": len(turns) + len(edges) + len(facts), "turns": turns, "edges": edges,
-           "facts": facts}
+           "matches": len(turns) + len(facts), "turns": turns, "facts": facts}
     db.commit()
     logger.info("forget_proposed", item_id=out["item_id"],
-                turns=len(turns), edges=len(edges), facts=len(facts), proposed_by=proposed_by)
+                turns=len(turns), facts=len(facts), proposed_by=proposed_by)
     return out
-
-
-def _entity_name(db: Session, entity_id) -> str:
-    ent = db.query(CodexEntity).filter_by(id=entity_id).first()
-    return ent.canonical_name if ent else "?"
 
 
 def apply_forget(db: Session, item_content: dict) -> dict:
     """The review-approve arm for `forget_request`: delete the listed turns
     (links first, chunks CASCADE, curated labels + cold rows by provenance)
-    and expire the listed edges (journaled, reason `user_forget`). Tolerates
+    and expire the listed facts (journaled, reason `user_forget`). Tolerates
     rows that vanished since the proposal (bulk deletes no-op on missing ids).
     The caller (review service) owns the commit."""
-    from src.workers.codex_extractor import (  # lazy: embedder at import
-        _expire_edge,
-        _regenerate_context_payload,
-    )
     turn_ids = [uuid.UUID(t["id"]) for t in item_content.get("turns", [])]
-    edge_ids = [uuid.UUID(e["id"]) for e in item_content.get("edges", [])]
     fact_ids = [uuid.UUID(f["id"]) for f in item_content.get("facts", [])]
     source = item_content.get("proposed_by", "chat_command")
 
     deleted_turns = 0
     batches = set()
-    sole_edges, surviving_edges = [], []
     sole_facts, surviving_facts = [], []
     if turn_ids:
         batch_rows = db.query(EpisodicMemory.batch_id).filter(
@@ -651,10 +456,7 @@ def apply_forget(db: Session, item_content: dict) -> dict:
         batches = {r.batch_id for r in batch_rows}
         batches.update(r.batch_id for r in db.query(ColdStorage.batch_id).filter(
             ColdStorage.id.in_(turn_ids)).all() if r.batch_id is not None)
-        sole_edges, surviving_edges = _edge_source_plan(db, batches)
         sole_facts, surviving_facts = fact_store.source_plan(db, batches)
-        db.query(CodexClaim).filter(CodexClaim.episodic_id.in_(turn_ids)).delete(
-            synchronize_session=False)
         db.query(EpisodicClusterLink).filter(
             EpisodicClusterLink.episodic_id.in_(turn_ids)).delete(
             synchronize_session=False)
@@ -669,29 +471,15 @@ def apply_forget(db: Session, item_content: dict) -> dict:
             ColdStorage.id.in_(turn_ids)).delete(synchronize_session=False)
 
     forget_batch = uuid.uuid4()
-    touched = _apply_edge_source_plan(db, sole_edges, surviving_edges, batches,
-        forget_batch, reason="user_forget", source=source)
-    touched |= fact_store.apply_source_plan(db, sole_facts, surviving_facts, batches,
-                                            forget_batch, reason="user_forget")
+    fact_store.apply_source_plan(db, sole_facts, surviving_facts, batches,
+                                 forget_batch, reason="user_forget")
     facts_expired = len(sole_facts)
     for fid in fact_ids:
         fact = db.get(CodexFact, fid)
         if fact is not None and fact.valid_until is None:
-            touched |= fact_store.expire_fact(db, fact, forget_batch, "user_forget", source=source)
+            fact_store.expire_fact(db, fact, forget_batch, "user_forget", source=source)
             facts_expired += 1
-    expired = len(sole_edges)
-    for eid in edge_ids:
-        edge = db.query(CodexEdge).filter_by(id=eid).first()
-        if edge is not None and edge.valid_until is None:
-            _expire_edge(db, eid, forget_batch, "user_forget", source=source)
-            expired += 1
-            touched |= {edge.source_id, edge.target_id}
-    if touched:
-        for ent in db.query(CodexEntity).filter(
-                CodexEntity.id.in_(touched)).all():
-            _regenerate_context_payload(ent, db)
 
     logger.info("forget_applied", turns_deleted=deleted_turns,
-                edges_expired=expired, facts_expired=facts_expired, source=source)
-    return {"turns_deleted": deleted_turns, "edges_expired": expired,
-            "facts_expired": facts_expired}
+                facts_expired=facts_expired, source=source)
+    return {"turns_deleted": deleted_turns, "facts_expired": facts_expired}

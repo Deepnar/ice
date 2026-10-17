@@ -35,7 +35,6 @@ def main():
         engine = create_engine(target)
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))   # CODEX_V4 name matching
         Base.metadata.create_all(engine)
         env = dict(
             os.environ,

@@ -15,18 +15,17 @@ from src.api import memory_preparation
 from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
 from src.memory import tokens
-from src.memory.models import (BatchNote, BatchSummary, CodexClaim, CodexClaimLink,
-    CodexEdge, CodexEntity, CodexEvent, ColdChunk, ColdStorage, Conversation,
+from src.memory.models import (BatchNote, BatchSummary, CodexEntity, CodexFact,
+    CodexFactEntity, CodexFactSource, ColdChunk, ColdStorage, Conversation,
     ConversationNote, ConversationSummary, EpisodicChunk, EpisodicMemory)
-from src.memory.source import chat_provenance, digest, source_units
+from src.memory.source import chat_provenance, digest
 from src.memory.summary_snapshot import bind_snapshot, compose_parts, source_snapshot
-from src.retrieval import evolution as old_timeline, orchestrator as old
+from src.retrieval import orchestrator as old
 from scripts.z1.historical_clock import historical_clock
 
 VEC = [1.] + [0.] * 1023
 NOW = datetime.now(timezone.utc)
 candidate = old
-timeline = old_timeline
 
 class Encoder:
     def encode(self, value, **_kwargs):
@@ -160,91 +159,41 @@ def test_note_parts_use_composite_keys_and_fallback_roots(store, kind, mode):
         assert native_fragments(db, '_batch_summary_lookup', VEC, None) == []
 
 def graph(db):
+    """A CODEX_V4 fact from one source turn, linked to its subject and object."""
     row = source(db)
-    rhea, harbor, excluded = [CodexEntity(id=uuid.uuid4(), canonical_name=name,
-        entity_type='person', context_payload='', description='', source='conversation', embedding=VEC)
-        for name in ('rhea', 'harbor city', 'excluded city')]
-    db.add_all([rhea, harbor, excluded]); db.flush()
-    edges = []
-    for index, target in enumerate((harbor, excluded)):
-        edge = CodexEdge(id=uuid.uuid4(), source_id=rhea.id, target_id=target.id,
-            relation='lives_in', source_batch=row.batch_id, observed_batches=[row.batch_id],
-            strength=1., confidence='active', extraction_confidence=1.,
-            valid_from=NOW - timedelta(days=20-index), negated=False)
-        db.add(edge); edges.append(edge)
+    rhea, harbor = [CodexEntity(id=uuid.uuid4(), canonical_name=name, entity_type='person',
+        context_payload='', description='', source='conversation', embedding=VEC)
+        for name in ('rhea', 'harbor city')]
+    db.add_all([rhea, harbor]); db.flush()
+    sentence = 'The user said Rhea lives in harbor city.'
+    fact = CodexFact(id=uuid.uuid4(), text=sentence, text_sha256=digest(sentence), speaker='user',
+        modality='asserted', subject='Rhea', relation='lives in', object='harbor city', embedding=VEC,
+        mentioned_at=row.timestamp, valid_from=row.timestamp, confidence=.99)
+    db.add(fact); db.flush()
+    db.add(CodexFactSource(fact_id=fact.id, source_batch=row.batch_id, window_sha256=digest('w'),
+        episodic_id=row.id, conversation_id=row.conversation_id, window={},
+        quote='Rhea lives in harbor city.', recorded_at=row.timestamp, verification={}))
+    db.add_all([CodexFactEntity(fact_id=fact.id, entity_id=rhea.id, role='subject'),
+                CodexFactEntity(fact_id=fact.id, entity_id=harbor.id, role='object')])
     db.flush()
-    unit = source_units(row)[0]
-    claim = CodexClaim(id=uuid.uuid4(), source_batch=row.batch_id, episodic_id=row.id,
-        conversation_id=row.conversation_id, raw_sha256=digest(row.raw_text),
-        start=unit.start, end=unit.end, role='user', sentence=unit.text,
-        sentence_sha256=digest(unit.text), text=unit.text, embedding=VEC, verification={})
-    db.add(claim); db.flush()
-    db.add(CodexClaimLink(claim_id=claim.id, edge_id=edges[0].id)); db.flush()
-    return row, rhea, harbor, excluded, edges, claim
+    return row, rhea, harbor, fact
 
-def test_native_graph_claim_and_skipped_private_quote_metadata(store, monkeypatch):
+def test_native_fact_ids_and_private_source_hides_the_fact(store, monkeypatch):
     db = store
-    row, rhea, harbor, _excluded, edges, claim = graph(db)
-    for module in (old, candidate):
-        monkeypatch.setattr(module, 'extract_entities', lambda *_a, **_k: ['rhea'])
-    classification = ClassificationResult([], ['Factual_Retrieval'], 'Long_Term_Memory',
-        [0.] * 27, 1., prompt='Where does rhea live?', p_ltm=1.)
-    values = native_fragments(db, '_codex_graph', classification, {'conversation_id': str(row.conversation_id)}, VEC)
-    assert values and ('codex_claims', str(claim.id)) in values[0].stored_artifact_ids
-    assert ('codex_entities', str(rhea.id)) in values[0].stored_artifact_ids
-    reader = candidate.HybridRetrievalOrchestrator(db, Encoder())
-    ids = []
-    assert reader._fact_line(rhea, edges[0], harbor, artifact_ids=ids)
-    assert ids == [('codex_claims', str(claim.id))]
+    row, _rhea, _harbor, fact = graph(db)
+    monkeypatch.setattr(old, 'extract_entities', lambda *_a, **_k: ['rhea'])
+    scope = {'conversation_id': str(row.conversation_id)}
+    values = native_fragments(db, '_facts_leg', 'Where does rhea live?', VEC, scope)
+    assert values and values[0].stored_artifact_ids == (('codex_facts', str(fact.id)),)
     row.is_private = True; db.flush()
-    ids = []
-    assert not reader._fact_line(rhea, edges[0], harbor, artifact_ids=ids)
-    assert ids == []
-
-def test_enumeration_and_unverified_names_have_actual_row_ids(store):
-    db = store
-    row, rhea, harbor, excluded, edges, claim = graph(db)
-    rhea.tags = ['character']; rhea.context_payload = 'A stored account.'; db.flush()
-    values = native_fragments(db, '_codex_enumeration', 'list all characters', ['lives_in'], None, None)
-    assert len(values) == 2
-    assert ('codex_entities', str(rhea.id)) in values[0].stored_artifact_ids
-    assert ('codex_claims', str(claim.id)) in values[1].stored_artifact_ids
-    assert ('codex_entities', str(excluded.id)) in values[1].stored_artifact_ids
     reader = candidate.HybridRetrievalOrchestrator(db, Encoder())
-    ids = []
-    result = reader._fact_line(rhea, edges[1], excluded, artifact_ids=ids)
-    assert result.startswith('[Unverified graph relation:')
-    assert ids == [('codex_entities', str(rhea.id)), ('codex_entities', str(excluded.id))]
-
-def test_no_history_timeline_emits_no_artifact(store):
-    db = store
-    _row, anchor, *_rest = graph(db)
-    refs = []
-    assert timeline.build_entity_timeline(db, anchor, return_sources=True, artifact_ids=refs) == (None, ())
-    assert refs == []
-
-@pytest.mark.parametrize('token_cap', [1000, 1])
-def test_timeline_ids_follow_transition_and_token_caps(store, monkeypatch, token_cap):
-    db = store
-    row, anchor, _harbor, _excluded, edges, _claim = graph(db)
-    edges[0].valid_until = NOW - timedelta(days=1)
-    db.add(CodexEvent(event_type='edge_expired', entity_id=anchor.id,
-        payload={'edge_id': str(edges[0].id), 'reason': 'corrected'}, batch_source=row.batch_id))
-    db.flush()
-    monkeypatch.setattr(settings, 'timeline_max_tokens', token_cap)
-    for cap in (1, 2):
-        refs = []
-        after = timeline.build_entity_timeline(db, anchor, max_transitions=cap, return_sources=True, artifact_ids=refs)
-        assert after[0] and after[1] == (str(row.batch_id),)
-        selected = [edges[-1]] if cap == 1 or token_cap == 1 else edges
-        assert {key for table, key in refs if table == 'codex_edges'} == {str(e.id) for e in selected}
-        assert ('codex_entities', str(anchor.id)) in refs
-        assert ('codex_entities', str(edges[-1].target_id)) in refs
-        if selected == [edges[-1]]: assert ('codex_entities', str(edges[0].target_id)) not in refs
+    reader._resolve_exclusion_sets(scope)
+    assert not any(('codex_facts', str(fact.id)) in f.stored_artifact_ids
+                   for f in reader._facts_leg('Where does rhea live?', VEC, scope))
 
 def test_final_native_preparation_retains_source_identity_and_exact_current_question(store, monkeypatch):
     db = store
-    row, _anchor, _harbor, _excluded, _edges, _claim = graph(db)
+    row, _anchor, _harbor, _fact = graph(db)
     monkeypatch.setattr(candidate, 'extract_entities', lambda *_a, **_k: ['rhea'])
     classification = ClassificationResult([], ['Factual_Retrieval'], 'Long_Term_Memory',
         [0.] * 27, 1., prompt='Where does rhea live?', p_ltm=1.,

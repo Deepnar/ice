@@ -1,7 +1,8 @@
 """CODEX_V4 post-flight stage: one turn's verified claims become codex facts.
 
-Replaces `extract_codex` when `summary_assertion_method == "v4"` (D3). A turn
-whose summary was generated already carries verified v4 claims, so this stage
+The only codex writer since CODEX_V4 (D3); inert, with a WARNING, unless
+`summary_assertion_method == "v4"`. A turn whose summary was generated already
+carries verified v4 claims, so this stage
 re-uses them (no second model call); short turns and documents, which get no
 summary, get their own claim pass here. Self-idempotent like every chained
 stage: a retry after a partial chain failure completes only what is missing.

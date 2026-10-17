@@ -37,7 +37,7 @@ def test_periodic_schedule_uses_real_registry_and_missed_cycles(monkeypatch):
     seed_v3.due_maintenance(db, sink, now + timedelta(seconds=10), "example", last_run)
     assert not calls  # Production requires overdue > 0, not >= 0.
     seed_v3.due_maintenance(db, sink, now + timedelta(seconds=101), "example", last_run)
-    assert len(calls) == 10
+    assert len(calls) == len(seed_v3.MEMORY_JOBS)
     assert all(kwargs == ({"cycles": 3} if JOBS[name].pass_cycles else {})
                for name, kwargs in calls)
     rows = [json.loads(line) for line in sink.getvalue().splitlines()]

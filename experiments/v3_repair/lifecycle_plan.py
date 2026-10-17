@@ -15,11 +15,11 @@ sys.path.insert(0, str(ROOT))
 from experiments.v3_repair.prepare_inputs import digest, fingerprint, write_or_verify
 
 JOBS = ("decay_episodic", "decay_codex", "decay_procedural")
+FACT_USAGE_SATURATION = 5           # orchestrator._fact_strength_bonus: min(1, usage / 5)
 FIELDS = ("decay_daily_unaccessed", "decay_daily_accessed", "decay_daily_creative",
           "decay_archive_threshold", "decay_cold_threshold", "decay_creative_floor",
           "decay_strengthen_amount", "retrieval_strengthen_writes", "codex_decay_daily",
-          "codex_retention_floor", "codex_retention_increment", "codex_retention_cap",
-          "codex_retention_rank_weight", "procedural_stale_days",
+          "codex_fact_strength_bonus", "procedural_stale_days",
           "procedural_min_reinforcement", "runtime_cycles_cap")
 CONSUMERS = ("src/api/config.py", "src/workers/runtime.py", "src/workers/decay.py",
              "src/workers/codex_decay.py", "src/workers/procedural_decay.py",
@@ -94,8 +94,6 @@ def validate_policy(policy):
         raise ValueError("invalid archive/cold ordering")
     if not 0 <= policy["decay_creative_floor"] <= 1:
         raise ValueError("creative floor outside normalized score")
-    if not 0 < policy["codex_retention_floor"] <= 1 <= policy["codex_retention_cap"]:
-        raise ValueError("invalid graph retention bounds")
     for key in ("runtime_cycles_cap", "procedural_stale_days", "procedural_min_reinforcement"):
         if type(policy[key]) is not int or policy[key] < 1: raise ValueError("invalid lifecycle integer")
 
@@ -123,20 +121,20 @@ def build(policy, intervals, start, end, *, clock_basis, event_limit=200_000):
         remainder_seconds=(clock(end) - clock(start)).total_seconds() - count * intervals[job],
         semantics="absolute_observation_age" if job == "decay_procedural" else "numeric_retention")
         for job, count in counts.items()}
-    exposure = {}
-    for name, amount, initial, ceiling in (
-        ("episodic", policy["decay_strengthen_amount"], policy["decay_archive_threshold"], 1.0),
-        ("graph", policy["codex_retention_increment"], 1.0, policy["codex_retention_cap"])):
-        exposure[name] = dict(amount=amount, initial_strength=initial, ceiling=ceiling,
-            uninterrupted_exposures_to_ceiling=math.ceil(max(0, ceiling - initial) / amount) if amount else None,
-            increment_sensitivity=sorted(set((0, amount / 2, amount, amount * 2))),
-            baseline_writes_enabled=policy["retrieval_strengthen_writes"],
-            qualified=False)
-    graph_cap = policy["codex_retention_cap"]
-    exposure["graph"]["cap_sensitivity"] = [dict(cap=c,
-        bonus_factor_at_unchanged_strength1=1 + policy["codex_retention_rank_weight"] * min(1, 1 / c))
-        for c in sorted(set((max(1, graph_cap / 2), graph_cap, graph_cap * 2)))]
-    return dict(version="v3", method="chronological_retention_plan_v1", score_of_record=False,
+    amount, initial = policy["decay_strengthen_amount"], policy["decay_archive_threshold"]
+    exposure = dict(episodic=dict(amount=amount, initial_strength=initial, ceiling=1.0,
+        uninterrupted_exposures_to_ceiling=math.ceil(max(0, 1.0 - initial) / amount) if amount else None,
+        increment_sensitivity=sorted(set((0, amount / 2, amount, amount * 2))),
+        baseline_writes_enabled=policy["retrieval_strengthen_writes"], qualified=False))
+    # CODEX_V4 D7: a fact gains 1 usage per prompt exposure, aged by codex_decay_daily;
+    # its rank share saturates at FACT_USAGE_SATURATION and is a third of the bound.
+    bound = policy["codex_fact_strength_bonus"]
+    exposure["facts"] = dict(amount=1.0, initial_usage=0.0, saturation=FACT_USAGE_SATURATION,
+        uninterrupted_exposures_to_saturation=FACT_USAGE_SATURATION,
+        usage_half_life_days=crossing_days(policy["codex_decay_daily"], .5),
+        max_usage_bonus=bound / 3, bonus_enabled=bool(bound),
+        baseline_writes_enabled=policy["retrieval_strengthen_writes"], qualified=False)
+    return dict(version="v3", method="chronological_retention_plan_v2", score_of_record=False,
         clock_basis=clock_basis, start=clock(start).isoformat(), end=clock(end).isoformat(),
         policy=policy, intervals=intervals, endpoint_dispatch=dispatch, rates=rates,
         exposure=exposure, schedule=list(decay_events(start, end, intervals)),
@@ -146,7 +144,7 @@ def build(policy, intervals, start, end, *, clock_basis, event_limit=200_000):
             "Accessed means any positive lifetime access count, not a recent-use clock.",
             "Archive/cold transitions affect location, not source truth or ordinary bounded reachability.",
             "Cold moves stop warm numeric aging; endpoint batching can overshoot the first crossing.",
-            "Graph decay/exposure changes retention priority only, never confidence or validity.",
+            "Fact usage decay/exposure changes rank only (bounded), never support, confidence or validity.",
             "Zero increment still changes counts/access class; use master-off for no exposure writes.",
             "This plans three native decay jobs; other core jobs/events/recovery still need final integration."])
 

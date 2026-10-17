@@ -12,11 +12,11 @@ from scripts.z1.label_review import blank_review, validate_packet, validate_revi
 
 def config():
     identity = "a" * 32
-    return {"format": "ice-v3-manual-campaign-1", "campaign_id": identity,
+    return {"format": "ice-v3-manual-campaign-2", "campaign_id": identity,
             "database": "ice_v3_campaign_" + identity[:16],
             "snapshot_arm": "manual-v3-" + identity,
             "answer_profile": "opencode-luna6", "checkpoint_every": 10,
-            "background_model": "writer", "codex_extraction_model": "extractor",
+            "background_model": "writer", "fact_reconcile_model": "extractor",
             "probe_panel": "existing"}
 
 
@@ -220,7 +220,7 @@ def test_init_cannot_launch_a_run_or_overwrite_reviews(tmp_path, monkeypatch):
 
 def test_background_manifest_change_is_not_the_same_writer(monkeypatch):
     from scripts.z1 import replay_checkpoint
-    settings = SimpleNamespace(ollama_base_url="http://test.invalid", codex_extraction_model="extractor:q8")
+    settings = SimpleNamespace(ollama_base_url="http://test.invalid", codex_fact_reconcile_model="extractor:q8")
     monkeypatch.setattr(replay_checkpoint.httpx, "get", lambda *_a, **_k:
         SimpleNamespace(raise_for_status=lambda: None,
                         json=lambda: {"models": [{"name": "writer:latest", "digest": "one"},

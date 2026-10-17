@@ -287,11 +287,11 @@ def ice_slots(action: str, name: Optional[str] = None,
 def ice_graph(action: str, name: str, description: Optional[str] = None,
               t0: Optional[str] = None, t1: Optional[str] = None,
               include_expired: bool = False) -> dict:
-    """Knowledge-graph control. action="view" → entity note + links/backlinks;
-    "edit" → rewrite the entity's description (name + description; journaled,
-    the derived note regenerates — the payload itself is never writable);
-    "edges" → its edges (include_expired for history); "timeline" → the
-    supersession timeline; "diff" → changes in [t0, t1) (ISO datetimes)."""
+    """Knowledge-graph control. action="view" → the entity's current and
+    replaced facts + links/backlinks; "edit" → rewrite the entity's description
+    (the user's note; journaled); "edges" → its code-graph edges
+    (include_expired for history); "timeline" → its replaced facts, each naming
+    its successor; "diff" → facts stated/replaced in [t0, t1) (ISO datetimes)."""
     _journal("ice_graph", action=action, name=name)
     with _session() as db:
         if action == "view":

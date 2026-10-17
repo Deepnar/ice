@@ -49,11 +49,11 @@ class Settings(BaseSettings):
     # "dedicated" is the power-user config: a separate OpenAI-compatible
     # server on port 8002 (started manually — ./ice no longer launches it).
     background_model_mode: str = "shared"
-    # G27/A12: the general background model (summaries, folds, reflection,
-    # procedures, maintenance agent, naming). gemma4:e4b was chosen by the
+    # G27/A12: the general background model (summaries and their claim pass —
+    # which also writes the codex facts —, folds, reflection, procedures,
+    # maintenance agent, naming). gemma4:e4b was chosen by the
     # 2026-08-27 bake-off (11 candidates × 9 jobs) and the background prompts
     # are tuned for it — swapping it is a re-measure, not a config edit.
-    # Codex extraction uses `codex_extraction_model` instead.
     # Explicitly None ⇒ shared mode falls through to the first confirmed
     # registry entry (NOT the chat model, and possibly a large one), warned on
     # every call as `bg_model_unpinned`; dedicated mode uses the vLLM default.
@@ -131,8 +131,8 @@ class Settings(BaseSettings):
     # agreed rather than anything enforcing it.
     auto_finetune: bool = False
     finetune_min_curated: int = 20
-    # Per-job cadences in seconds (G9-aligned: today's beat schedule, plus
-    # compaction which beat never scheduled — G10). Keys = runtime job names.
+    # Per-job cadences in seconds (G9-aligned: the old beat schedule).
+    # Keys = runtime job names.
     maintenance_intervals: dict[str, int] = {
         "cluster_assignment": 1800,
         "cluster_merge": 10800,
@@ -145,7 +145,6 @@ class Settings(BaseSettings):
         # C4: evolving whole-conversation summaries (also a session-end burst
         # member; the cadence pass is a no-op for quiet conversations).
         "conversation_summary": 7200,
-        "compaction": 86400,
         # D1/D2: the maintenance agent (worklist + bounded LLM decisions);
         # also runs in the session-end burst.
         "maintenance_agent": 43200,
@@ -373,6 +372,9 @@ class Settings(BaseSettings):
         "codex": 0.5,
         "procedural": 0.2,
         # T4: pinned, not blended — its firing condition is the gate.
+        # ⚠ INERT since CODEX_V4 (2026-10-16): no leg emits timeline fragments
+        # (a current fact carries its replaced predecessor inline). Kept, not
+        # deleted, pending a maintainer decision — it is a designed seam.
         "timeline": 0.6,
     }
     # intent label → per-leg override. An intent absent from this table
@@ -514,17 +516,16 @@ class Settings(BaseSettings):
     # (31 pieces: usable pieces 9 → 28, verified claims 163 → 290,
     # contradicted 1 → 1, broken JSON 1 → 0). v4 = v3 + modality and the
     # source's subject/relation/object (CODEX_V4 D4): every supported claim is
-    # also a codex fact. Default stays v3 until the CODEX_V4 build is measured.
-    summary_assertion_method: Literal["v2", "v3", "v4"] = "v3"
-    # Entity-note output floor (was a literal 900 in entity_notes.py).
-    entity_note_max_tokens: int = 900
+    # also a codex fact — the only path that writes the codex (CODEX_V4, measured
+    # 2026-10-16: §5.1 qualification, §5.2 reconciliation, the side retrieval
+    # comparison). Under v2/v3 no facts are written (facts_stage_skipped).
+    summary_assertion_method: Literal["v2", "v3", "v4"] = "v4"
     # Windows are summarised in pieces of at most this many prompt tokens, one
-    # call each (turn summary, fold group, entity note). 2026-10-15: C's largest
+    # call each (turn summary, fold group). 2026-10-15: C's largest
     # turn is ~70K tokens; one call at that size was cut silently by the server.
     summary_piece_tokens: int = Field(default=4096, ge=512)
     # Output cap = clamp(ratio × piece input tokens, job floor, ceiling). The
-    # job floor is its legacy cap (turn/conversation summary 900, entity note
-    # 900). Set from the SUMMARY_CLAIMS_V3 §3 run (31 pieces, 2026-10-15): v3
+    # job floor is its legacy cap (turn/conversation summary 900). Set from the SUMMARY_CLAIMS_V3 §3 run (31 pieces, 2026-10-15): v3
     # output/input median 0.53, max 1.05 on ≥2K-token pieces (list-dense turns
     # emit ~one claim + quote per line); 1.3 = max × 1.25. Raised to 2.0 by
     # the CODEX_V4 §5.1 run (41 pieces, 2026-10-15): at 1.3, 5/26 v3 and
@@ -533,17 +534,7 @@ class Settings(BaseSettings):
     summary_output_ratio: float = Field(default=2.0, gt=0)
     summary_output_ceiling: int = Field(default=8192, ge=256)
 
-    # ⚑ The extraction prompt's DIRECTION rule (2026-08-22). ~25-28% of stored
-    # triplets are reversed — right entities, right relation, backwards — and
-    # the rate did NOT move when 1,611 direction-changing canonicalisation
-    # merges were blocked, which places the cause at generation rather than
-    # downstream. The prompt had no direction instruction at all and every
-    # example was active SVO, while ALLOWED_RELATIONS mixes voices inside one
-    # category. Kept as a setting so the prompt can be A/B'd against itself:
-    # the same turns, the same model, this flag the only variable.
-    codex_extraction_direction_rule: bool = True
-
-    # Chunking (A1), shared by the document ingest and the codex extractor.
+    # Chunking (A1), used by document ingest.
     chunk_tokens: int = 550
     chunk_overlap_words: int = 50
 
@@ -559,17 +550,6 @@ class Settings(BaseSettings):
     # G11: a turn is batch-summarised once its decay falls below the retrieval
     # floor OR it passes this age, whichever comes first. Handed to G9 by G11.
     batch_summary_age_days: int = 30
-
-    # Reflection's codex enrichment pass.
-    reflection_enrich_limit: int = 25
-    reflection_enrich_refresh_days: int = 14
-
-    # A3: extraction confidence seeded onto codex_edges.extraction_confidence.
-    # Rejected edges are stored anyway and gated out of retrieval until
-    # something corroborates them — deletion would lose the evidence.
-    codex_conf_grounded: float = 0.9
-    codex_conf_ungrounded: float = 0.7
-    codex_conf_rejected: float = 0.35
 
     # What the classifier sees of the conversation before the current turn.
     # ⚠ Changing these changes what the classifier was TRAINED against, so
@@ -604,43 +584,6 @@ class Settings(BaseSettings):
     # `min_session_turns` are skipped rather than guessed at; `session_step`
     # re-extracts as a session grows instead of once per turn (a 20-turn session
     # costs 5 calls, not 20).
-    # G45: the relation vocabulary is OPEN. An incoming relation is reused as an
-    # existing one only above this cosine; otherwise it is accepted as a new
-    # relation rather than destroyed. Was a closed 197-word list that threw away
-    # 1,259 true relations in one seed (`i --didnt_get--> csi` among them).
-    # CALIBRATED 2026-08-13 (was a guessed 0.86). Measured on the live encoder
-    # over 15 pairs that should merge and 15 that must not:
-    #   * with converses guarded deterministically (_RELATION_SEPARATION_PAIRS), the highest
-    #     scoring pair that MUST NOT merge is `likes`/`dislikes` at **0.787**;
-    #   * true synonyms run 0.786–0.954 (`using`/`uses` 0.872,
-    #     `carrying`/`carries` 0.911, `needs`/`requires` 0.808).
-    # 0.86 produced 0 wrong merges but caught only 9/15 real ones; 0.82 keeps
-    # 0 wrong merges with clear margin over 0.787 and catches 11/15.
-    # ⚠ Calibrated on 30 hand-built pairs — enough to move off a guess, not
-    # enough to be final. The classes OVERLAP (one true synonym scores 0.645),
-    # so no threshold separates them perfectly and the deterministic guards do
-    # the load-bearing work. Erring high is deliberate: a wrong merge writes a
-    # false relation permanently, a missed merge only leaves two synonyms.
-    # ⚑ 0.82 -> 0.90, measured 2026-08-16 while fixing the same-turn attractor
-    # bug (G50). At 0.82 the tense variants merge — but so does `has` into
-    # `contains` at 0.8608, which is a FALSE relation, and once the known-set
-    # grows within a turn that wrong attractor propagates to everything after
-    # it. At 0.90: have->has 0.948 and had->has 0.9255 still merge, has/contains
-    # (0.8848) no longer does, and the built/built_by converse stays split.
-    # Cost, stated: asks/asked (0.8912) no longer merge. That is the trade this
-    # setting's own note already chooses — a wrong merge writes a false relation
-    # permanently, a missed merge only leaves two synonyms.
-    codex_relation_canonical_threshold: float = 0.90
-    codex_relation_open_vocabulary: bool = True
-    # G49 — a relation longer than this many words is a CLAUSE, not a predicate,
-    # and is demoted (never dropped: G45's lesson is that dropping loses true
-    # facts). Measured on 7,052 real edges: >5 words is 126 of 1,801 relation
-    # types and 146 edges, and the ones it catches are assistant prose that
-    # became an edge — `was_waiting_for_a_reason_to_come_back`. The cut is 5 and
-    # not 4 because real predicates reach five words (`belongs_to_same_person_as`)
-    # and demoting those would cost more than the junk is worth. This is a rule
-    # about SHAPE, not vocabulary, so it does not re-create what G45 removed.
-    codex_relation_max_words: int = 5
     # CODEX_V4 D5 — fact entity links. An object longer than this is a value
     # (a sentence, a tensor, a URL with a query), kept as text on the fact, not
     # an entity.
@@ -663,19 +606,6 @@ class Settings(BaseSettings):
     codex_fact_candidate_cosine: float = 0.80
     codex_fact_candidate_k: int = 8
     codex_fact_reconcile_model: str = ""
-    # G44 second half — node promotion. When a MORE SPECIFIC name arrives for a
-    # generic node already in the graph ("master plan" against a stored "plan"),
-    # the generic one is registered as an alias of the specific one so later
-    # mentions resolve to the node worth walking.
-    # ⚠ DEFAULT OFF, and that is a decision, not an oversight: promotion merges
-    # identities, and merging "plan" into "master plan" is WRONG whenever the
-    # user also has an unrelated plan. Only stub nodes (no edges at all) are
-    # eligible even when enabled, because merging a stub cannot destroy a fact.
-    # The aggressive form — promoting nodes that already carry edges, migrating
-    # those edges across — changes stored history and needs its own decision.
-    codex_node_promotion: bool = False
-    codex_node_promotion_max_degree: int = 0
-
     # ── Z1 probe generation (tooling, not a runtime path) ───────────────────
     # An external model writes the typed probe set (G48). Declared here because
     # Settings forbids extra keys: leaving these as bare .env lines made EVERY
@@ -742,20 +672,14 @@ class Settings(BaseSettings):
     # months apart, so the usual "unused means unwanted" inference is wrong.
     decay_creative_floor: float = 0.3
 
-    # Graph usage maintains retention priority, never source support.
+    # Daily fade of codex facts' prompt usage (CODEX_V4 D7) — ranks, never
+    # admits, never touches source support.
     codex_decay_daily: float = 0.99
-    codex_retention_floor: float = Field(default=0.1, gt=0.0, le=1.0)
-    codex_retention_increment: float = Field(default=0.15, ge=0.0)
-    codex_retention_cap: float = Field(default=10.0, ge=1.0)
-    codex_retention_rank_weight: float = Field(default=0.5, ge=0.0, le=1.0)
 
     # Procedural patterns: unreinforced for this long, with fewer than this
     # many reinforcements, and the pattern is retired.
     procedural_stale_days: int = 180
     procedural_min_reinforcement: int = 3
-
-    # Codex events per entity before compaction snapshots and marks them.
-    compaction_event_threshold: int = 100
 
     # ── G9: clustering (C5 v5) ─────────────────────────────────────────────
     # The assignment bar, the merge bars, and the bonuses that adjust raw
@@ -792,13 +716,10 @@ class Settings(BaseSettings):
     agent_max_llm_decisions: int = 25
     agent_max_tier2_proposals: int = 5
     agent_max_applications: int = 10
-    agent_pileup_min_pending: int = 3
-    agent_pileup_min_active_overlap: int = 2
     # Z1's manual review of the first proposals moves this to 0.94 (if >20% of
     # "same" verdicts are wrong) or 0.85 (if it never fires).
     agent_dup_cosine_threshold: float = 0.90
     agent_dup_pairs_per_run: int = 10
-    agent_max_attempts: int = 2
     agent_stale_slot_days: int = 14
     agent_stale_task_days: int = 14
 
@@ -858,63 +779,10 @@ class Settings(BaseSettings):
     context_recent_fraction_min: float = 0.05
     context_recent_fraction_max: float = 0.85
 
-    # ── G9: codex retrieval (A3/A4/A11) ────────────────────────────────────
-    # A4 relation detection. Top-k is recall-only — a detected relation only
-    # surfaces facts when a matched entity actually has such an edge, so the
-    # join is the precision and k can be generous.
-    #
-    # G34: the kill-switch for prompt→vocabulary relation detection. False ⇒
-    # _detect_relations returns [] before doing any work.
-    # ⚠ Its scope SHRANK on 2026-08-11. It once governed the whole A4 relation
-    # path and was the only way to neutralise it for a tuning run. The anchor
-    # path no longer detects relations at all — it ranks each anchor against its
-    # own relations (_relation_fit) — so this now governs `_codex_enumeration`
-    # alone, where an explicit cue word already carries the precision.
-    # Kept as an ablation seam for that leg, not as a fix.
-    codex_relation_detection_enabled: bool = True
-    # G35: max neighbours _traverse_graph expands per node, best-first by
-    # _edge_trust across both edge directions. Before this existed, fan-out was
-    # unbounded and a hub entity's fragment size was a property of the corpus
-    # rather than of the query.
-    # ⚠ THE VALUE IS UNMEASURED. It cannot be measured on the current store,
-    # which is effectively empty — the pathological case only exists once Z1/Z2
-    # populate the graph. 12 is chosen to be a certain no-op today while making
-    # the cost bounded; it is a recall/token trade and therefore a Z1 tuning
-    # knob, not a constant anybody has evidence for.
-    codex_max_fanout: int = 12
-    codex_relation_top_k: int = 5
-    codex_relation_sim_floor: float = 0.45
-    # G34: replaced codex_relation_overlap_boost, which was a FLAT +0.25 applied
-    # whenever any relation was detected — a condition that was true on every
-    # prompt, so it boosted noise unconditionally. The per-anchor bonus is now
-    # this weight times `fit` (how sharply one of the anchor's own relations
-    # stood out), so a contentless prompt earns zero by construction.
-    # ⚠ 0.25 matches the magnitude it replaces so this change is not silently
-    # also a re-tuning. UNMEASURED, and a Z1 knob — say so wherever it is quoted.
-    codex_relation_fit_weight: float = 0.25
-    # G34/G35: how many of an anchor's edges compete for the
-    # codex_entity_edge_limit output slots. Bounded because a hub entity has
-    # hundreds (G35), at a multiple of the output so strength decides only who
-    # competes and relation fit decides who wins. Also unmeasured.
-    codex_relation_pool_multiplier: int = 5
+    # ── G9: codex retrieval ────────────────────────────────────────────────
     codex_expansion_max_terms: int = 8
-    codex_enum_edge_limit: int = 15
     codex_enum_entity_limit: int = 8
     codex_entity_match_threshold: float = 0.85
-    codex_entity_payload_match_limit: int = 20
-    codex_entity_edge_limit: int = 10
-
-    # A3: an edge's effective trust is strength × extraction_confidence.
-    # Strength carries extraction corroboration/decay; confidence
-    # carries extraction trust (NER grounding, corroboration).
-    codex_max_depth: int = 3
-    codex_direct_trust_floor: float = 0.5
-    codex_deep_strength_floor: float = 1.0
-    codex_reconcile_input_tokens: int = Field(default=8192, ge=256, le=32768)
-    # A11: a recently-asserted fact outranks a stale one of equal strength.
-    # Rewards recent assertion; never penalises age (decay does that).
-    codex_recency_boost: float = 0.3
-    codex_recency_tau_days: float = 30.0
 
     # The recent-turns window is CONTINUITY, not evidence — it is never
     # relevance-filtered. It is bounded by the sitting instead: this session's
@@ -925,198 +793,12 @@ class Settings(BaseSettings):
     recent_window_max_turns: int = 40      # marathon-sitting rail
     recent_window_max_turn_frac: float = 0.35   # one turn may not eat the window
 
-    # ── G32/a1: constrained decoding for background extraction ──
-    # Shape only, by default. Measured on 300 real turns (2026-08-04, see
-    # PROVENANCE): the JSON *shape* constraint is a clear win — it removes
-    # malformed-by-confusion output entirely. Constraining `relation` to the
-    # 197-value vocabulary as well is a different bet, and on the same run it
-    # kept 100% of triplets but ~78% of the ones it rescued were WRONG,
-    # because a few relations act as attractors for anything the vocabulary
-    # cannot express (`is` → `is_employed_by`, `is_sibling_of` →
-    # `is_separated_from`).
-    # ⚠ The enum is NOT settled and this flag is NOT decoration: whether it
-    # ends up off, on over a repaired vocabulary, or on for a subset of call
-    # sites is a **Z2 decision** (user, 2026-08-04). It is wired and usable so
-    # Z2 can flip it and measure rather than rebuild it.
-    # Raised from the historical 500 by G32/a1: at 500, finish_reason came
-    # back "length" on 2 of 12 real turns and the JSON was unparseable every
-    # time — the whole turn's extraction lost, silently, because the salvage
-    # path cannot tell a truncated answer from a thin one. The schema does not
-    # help: it guarantees a valid prefix, not a complete document.
-    # ⚑ RAISED 1200 -> 3000 (G68, 2026-08-25). The 500 -> 1200 raise above fixed
-    # the same defect one size too small, and it is still firing:
-    #
-    #   * template mode at 1200: **30 of 60 turns produced nothing** (50%).
-    #     At 3000: 3 of 60 (5%).
-    #   * `bg_model_output_truncated content_chars=3648 max_tokens=1200` was
-    #     logged on **qwen3:4b-instruct** during the same sweep — so this is
-    #     losing facts on the SHIPPED path today, not only on the new one.
-    #
-    # A reasoning model makes it worse: its thinking block consumes the budget
-    # before any fact is emitted, so a low cap returns an empty answer rather
-    # than a short one.
-    #
-    # ⚠ THIS CHANGES THE INSTRUCT PATH TOO, and every published ICE graph
-    # number was produced at 1200. Reproduce those with
-    # `CODEX_EXTRACTION_MAX_TOKENS=1200`. The defect was judged worse than the
-    # drift: [G71](../../docs/ROADMAP.md#g71) already marks those findings as
-    # needing re-test against the new extractor.
-    #
-    # ⚠ COUPLED TO THE TIMEOUT. `bg_timeout()` is base x clamp(max_tokens/500,
-    # 1, 6), so this moves the per-call ceiling 72s -> 180s (the clamp maximum).
-    # A hung background call now blocks three times longer. Costs nothing when
-    # the model answers normally — max_tokens is a cap, not a reservation.
-    codex_extraction_max_tokens: int = 3000
-    # 2026-08-17: adds a SHAPE rule for subjects/objects to the extraction
-    # prompt (noun phrase naming a thing, never a clause/verb/question span).
-    # The entity whitelist constrains WHICH entities are legal, never what shape
-    # they take, so the model returns copied spans like `what the flaw`, and
-    # `_ground_triplets` cannot reject them without also rejecting legitimate
-    # qualified mentions. OFF until the paired A/B run says it works.
-    codex_extraction_entity_shape_rule: bool = False
-    # Which NER confirms the entities extraction is allowed to relate —
-    # "preflight" (micro-NER) or "background" (NuNER Zero, see
-    # `background_ner_model`). A9b moved clustering and key-term extraction to
-    # the background tier on 2026-08-03 and left THIS call site on the
-    # micro-NER, because the evidence for the swap was 10 turns and this is the
-    # path the codex graph is built from. The two behave differently in a way
-    # that matters here rather than there: the micro-NER emits 52.7 entities a
-    # turn against NuNER's 15.6, and the list becomes a whitelist, so the
-    # narrower one pushes triplets from `codex_conf_grounded` down to
-    # `codex_conf_rejected` instead of deleting them. Default reproduced the
-    # pre-2026-08-17 behaviour exactly; the two-arm re-seed flips it.
-    #
-    # ⚑ FLIPPED TO "background" 2026-08-25 (G63/P4) — this IS that re-seed's
-    # settlement. Over 60 random turns, same turns both tiers, scored by ICE's
-    # own gates:
-    #
-    #                    junk entity names   capitalised subjects
-    #   NuNER            **8.7%**            54.0%
-    #   micro-NER        19.5%               68.7%
-    #
-    # micro-NER produced more facts (838 vs 748) and grounded more of them
-    # (53.7% vs 38.2%) — but grounding is scored against the tagger's OWN list,
-    # so a looser tagger flatters itself. Junk-name rate is the tier-independent
-    # number, and it more than doubles.
-    #
-    # This also aligns the default with reality: EVERY measured arm
-    # (`ner-b-nuner`, `ner-b-postfix`, all four `dir-*`, the whole G63 sweep)
-    # set `CODEX_EXTRACTION_NER_TIER=background` by env var in the seed scripts,
-    # so "stay on NuNER" was a decision that had never reached the default.
-    #
-    # ⚠ DECIDED ON SHAPE, NEVER JUDGED. No blind round has compared the two
-    # tiers for TRUTH — only for name quality and grounding rate. Reproduce the
-    # old behaviour with `CODEX_EXTRACTION_NER_TIER=preflight`.
-    codex_extraction_ner_tier: str = "background"
-    # Entity types the CODEX grounding whitelist puts BACK on top of the
-    # background tier's default list, comma-separated. Empty = that tier's own
-    # list, unchanged. Inert unless `codex_extraction_ner_tier` is "background".
-    # Why a per-consumer override rather than widening the default: the two
-    # existing background consumers (`turn_density.extract_key_terms`,
-    # `clustering`) want PRECISION and the exclusion of `concept`/`object` was
-    # measured for them. Codex grounding wants the opposite — PROVENANCE
-    # 2026-08-03: "a long noisy list gives the model more legal subjects and it
-    # discards the junk itself, while a short clean list FORBIDS REAL FACTS."
-    # Default is "" so the setting is a no-op until a run says otherwise.
-    codex_grounding_ner_extra_types: str = ""
-
-    codex_constrain_shape: bool = True
-    codex_constrain_relation_enum: bool = False
-
-    # ⚑ G63: WHICH MODEL EXTRACTS. Empty ⇒ fall through to the general
-    # background model (`background_model_name` → registry fallback).
-    #
-    # This exists because ICE had exactly ONE background-model setting and ten
-    # jobs shared it: the turn summary, batch summaries, conversation summary,
-    # cluster naming, reflection, the maintenance agent, procedural extraction,
-    # document-kind classification, the raw slicer — and codex extraction.
-    # Only the last of those is "pull stated facts out of text", and it is the
-    # only one where a specialist beats a generalist (63% vs 15% correct,
-    # G63). Pinning the shared setting to NuExtract3 would hand a
-    # JSON-template filler to the summariser and the cluster namer, which is
-    # not a degradation anyone would see in a log — the summaries would simply
-    # be wrong.
-    #
-    # ⚠ MOVES WITH `codex_extraction_mode`, ALWAYS. Each model is usable only
-    # in its own prompt shape (table below): NuExtract3 on the instruct prompt
-    # emits `affordable education --offers--> europe`. Setting one without the
-    # other is worse than setting neither.
-    #
-    # ⚠ NOT the reconciler. `make_llm_reconciler` in codex_extractor.py is a
-    # one-word reasoning call and deliberately stays on the general model.
+    # Source support (NLI) for summary claims and codex facts.
     source_support_model: str = "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
     source_support_revision: str = "b3546ea6b0346eb6f8d5d68b13c7dc6d0376b3d7"
     source_support_device: str = "auto"
     source_support_threshold: float = Field(default=0.95, gt=0.5, le=1.0)
     source_support_max_tokens: int = Field(default=512, ge=16, le=512)
-    codex_sentence_claims: bool = True
-    codex_assertion_check_enabled: bool = True
-    codex_assertion_input_tokens: int = Field(default=8192, gt=0)
-    codex_assertion_context_tokens: int = Field(default=32768, gt=0)
-    codex_assertion_output_tokens: int = Field(default=4096, gt=0)
-    codex_assertion_batch_size: int = Field(default=12, ge=1, le=12)
-    codex_claim_candidate_limit: int = Field(default=64, ge=1)
-
-    codex_extraction_model: str = "hf.co/numind/NuExtract3-GGUF:Q8_0"
-
-    # ⚑ G63: which SHAPE of prompt the extractor sends.
-    #
-    #   "instruct" — the nine numbered rules + worked examples. Built for a
-    #                general-purpose model that does not know the task.
-    #   "template" — a JSON schema for the model to FILL, and nothing else.
-    #                What extraction specialists (NuExtract-class) are trained on.
-    #
-    # Measured 2026-08-24/25 over 60 random turns, blind maintainer labels:
-    #
-    #   qwen3:4b-instruct  + instruct   15% correct, 30% reversed   (pooled n=20)
-    #   NuExtract3         + template   63% correct,  0% reversed   (pooled n=30)
-    #   NuExtract3         + instruct   garbage (`affordable education --offers--> europe`)
-    #   qwen3:4b-instruct  + template   unusable — clause-triplets, 30% unparseable
-    #
-    # ⇒ each model is usable ONLY in its own shape, and neither survives the
-    # other's. The +48 points is the MODEL, not the removal of ICE's guards:
-    # stripping them from qwen makes it dramatically worse.
-    #
-    # ⚑ DEFAULT WAS "instruct", AND THE REASON IT WAS HAS EXPIRED (2026-08-26).
-    # It read: "every published ICE graph number was produced by that path;
-    # changing the default would silently invalidate the ability to reproduce
-    # any of them." Two things ended that argument — the paper's numbers are
-    # frozen at the `v2-paper-eval` tag and do not depend on main's defaults,
-    # and G72 declared every pre-2026-08-26 store dead data, so there is no
-    # longer a live number this default protects. Default is now the measured
-    # winner, per the standing rule: pick a side on evidence, then delete the
-    # loser.
-    codex_extraction_mode: str = "template"
-
-    # ⚑ G68/P3: how much TURN TEXT goes into one extraction call.
-    #
-    # The extractor chunked every turn at the shared `chunk_tokens` (550),
-    # a limit from when context windows were small. Measured 2026-08-25: a
-    # 1,178-token turn was split into THREE chunks, so an entity introduced in
-    # chunk 1 and described in chunk 3 is extracted by two calls that cannot
-    # link them. Both models we run report a **262,144**-token window.
-    #
-    # `adaptive` asks the serving stack what the window actually is
-    # (`serving_window`, already used by the request path) and sizes the chunk
-    # to it — minus the prompt and the output budget — then clamps to the
-    # ceiling below.
-    #
-    # ⚠ THE CEILING IS THE POINT, NOT A FORMALITY. Every NuExtract3 measurement
-    # was on whole turns of 600-6,000 chars (~150-1,500 tokens). **Nothing has
-    # been measured at 30,000 tokens**, and long-context extraction is a known
-    # weak spot for small models. 4,096 keeps the current corpus unsplit
-    # (its largest turn is 29,704 chars) while staying near measured ground.
-    # Raise it only after somebody measures extraction quality at that size.
-    #
-    # ⚠ DO NOT set the ceiling so high that chunking effectively disappears:
-    # the frozen ICE-Dev corpus has genuinely massive turns and chunking is
-    # what makes them survivable.
-    #
-    # Falling back: when the probe cannot reach the server, the chunk size is
-    # `chunk_tokens` — i.e. exactly the old behaviour, loudly logged.
-    codex_extraction_chunk_adaptive: bool = True
-    codex_extraction_chunk_max: int = 4096
-
     # G32(b): the native local foreground path explicitly owns its window.
     # "fit" sizes to the guarded prompt + generation reserve; "max" allocates
     # the known serving ceiling. Opting out restores the host's Ollama default.
@@ -1148,8 +830,6 @@ class Settings(BaseSettings):
     # "current", byte-identical to pre-T behavior). Pads/fractions shape the
     # detector's windows (specs/T_temporal.md §2.1 table); probation is D-U1's
     # cold-resurrection score, just above decay.ARCHIVE_THRESHOLD (0.1).
-    # timeline_*/evolution_* are consumed by T4 (timeline builder — next
-    # session); declared here so the settings block ships once.
     timescope_enabled: bool = True
     ltm_bump_timescope: float = 3.0
     # B1 D7: the Temporal_Recall sigmoid counts as the same evidence as a fired
@@ -1178,10 +858,7 @@ class Settings(BaseSettings):
     timescope_rel_long_cap_days: int = 120
     timescope_probation_score: float = 0.12
     timescope_cold_limit: int = 5
-    timeline_max_tokens: int = 300
     timeline_max_transitions: int = 8
-    timeline_max_fragments: int = 2
-    timeline_max_fragments_evolution: int = 4
     evolution_era_buckets: int = 4
     evolution_per_era: int = 3
 

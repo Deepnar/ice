@@ -58,24 +58,6 @@ def test_date_survives_each_eligible_representation_and_budget():
     assert selected[0].token_count == count(selected[0].text)
 
 
-def test_fact_without_source_time_does_not_invent_event_date():
-    o = HybridRetrievalOrchestrator(None, None)
-    e = SimpleNamespace(
-        relation="uses",
-        negated=True,
-        source_batch=None,
-        learned_at=datetime(2026, 9, 13, 1, 2, tzinfo=timezone.utc),
-        valid_from=None,
-    )
-    rendered = o._fact_line(
-        SimpleNamespace(canonical_name="Atlas"),
-        e,
-        SimpleNamespace(canonical_name="Redis"),
-    )
-    assert "NOT uses" in rendered and "source time unknown" in rendered
-    assert "learned: 2026-09-13T01:02:00Z" in rendered
-
-
 def test_system_anchor_supplies_clock_time():
     messages = assemble_prompt([], [], "hello")
     assert "Current date and time (UTC):" in messages[0]["content"]

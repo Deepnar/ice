@@ -16,23 +16,20 @@ from experiments.v3_repair.run_tuning_contexts import load_coordinate
 
 PENDING = {
     "relevance_admission": ("retrieval_rerank_min_score",),
-    "trust_activation": ("codex_direct_trust_floor", "codex_deep_strength_floor",
-        "codex_entity_match_threshold", "codex_relation_fit_weight", "procedural_min_conf",
+    "trust_activation": ("codex_fact_strength_bonus", "codex_fact_candidate_cosine",
+        "codex_entity_match_threshold", "procedural_min_conf",
         "procedural_min_cited_turns", "turn_summary_coverage_threshold"),
     "gates_style": ("ltm_decision_threshold", "ltm_prior_bias", "ltm_length_weight",
         "ltm_pressure_midpoint_tokens", "ltm_pressure_scale_tokens", "confidence_fallback_threshold"),
     "lifecycle": ("decay_daily_unaccessed", "decay_daily_accessed", "decay_daily_creative",
         "decay_archive_threshold", "decay_cold_threshold", "decay_creative_floor", "decay_strengthen_amount",
-        "codex_decay_daily", "codex_retention_floor", "codex_retention_increment",
-        "codex_retention_cap", "codex_retention_rank_weight", "procedural_stale_days",
+        "codex_decay_daily", "procedural_stale_days",
         "procedural_min_reinforcement", "cluster_similarity_threshold", "cluster_merge_similarity_threshold"),
 }
 FIXED_PROFILE = ("maintenance_intervals", "runtime_cycles_cap", "auto_finetune",
     "agent_max_scanned", "agent_max_llm_decisions", "agent_max_tier2_proposals",
-    "agent_max_applications", "agent_pileup_min_pending", "agent_pileup_min_active_overlap",
-    "agent_dup_cosine_threshold", "agent_dup_pairs_per_run", "agent_max_attempts",
-    "agent_stale_slot_days", "agent_stale_task_days", "reflection_enrich_limit",
-    "reflection_enrich_refresh_days")
+    "agent_max_applications", "agent_dup_cosine_threshold", "agent_dup_pairs_per_run",
+    "agent_stale_slot_days", "agent_stale_task_days")
 
 
 def build(coordinates, inventory, profile):
@@ -57,7 +54,7 @@ def build(coordinates, inventory, profile):
             disposition="planned_read_grid" if name in ranges else
                         "pending_qualified_stage" if name in pending else
                         "retired_no_tuning" if name == "procedural_similarity_threshold" else "held_current_policy",
-            requires_writer_replay=((name in PENDING["lifecycle"] and name != "codex_retention_rank_weight") or
+            requires_writer_replay=(name in PENDING["lifecycle"] or
                 name in {"procedural_min_cited_turns", "turn_summary_coverage_threshold"}) if name in pending else
                 False if name in ranges else None,
             dependency=dependencies.get(pending.get(name)), qualified=False)

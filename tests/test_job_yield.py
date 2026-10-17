@@ -96,23 +96,20 @@ finally:
 
 print("── the real call sites have a yield point ──")
 import inspect  # noqa: E402
-from src.workers import batch_summarizer, codex_extractor, conversation_summary  # noqa: E402
+from src.workers import batch_summarizer, conversation_summary  # noqa: E402
 
-for mod, fn_name in [(codex_extractor, "extract_triplets"),
-                     (batch_summarizer, "batch_summarize"),
+# (The v2/v3 codex extractor yielded between chunks; it was deleted with
+#  CODEX_V4. The claim pass that now writes facts has NO yield point — an open
+#  maintainer decision, recorded in docs/SESSION.md / HANDOFF, not an oversight.)
+for mod, fn_name in [(batch_summarizer, "batch_summarize"),
                      (conversation_summary, "run_conversation_summaries")]:
     src = inspect.getsource(getattr(mod, fn_name))
     check(f"{mod.__name__.split('.')[-1]}.{fn_name} yields inside its loop",
           "yield_if_user_active" in src)
 
 print("── a yield does not lose work already committed ──")
-# codex_extract writes the graph in extract_codex AFTER extraction returns, so
-# abandoning between chunks leaves no half-written graph. conversation_summary
-# carries `covers_through`, so a folded conversation is not refolded. Both are
-# properties of where the yield point was placed, so pin them.
-check("extract_triplets yields BEFORE the LLM call, not after the graph write",
-      inspect.getsource(codex_extractor.extract_triplets).index("yield_if_user_active")
-      < inspect.getsource(codex_extractor.extract_triplets).index("bg_client.chat"))
+# conversation_summary carries `covers_through`, so a folded conversation is
+# not refolded — a property of where the yield point was placed, so pin it.
 check("conversation_summary still has covers_through to resume from",
       "covers_through" in inspect.getsource(
           conversation_summary.run_conversation_summaries))

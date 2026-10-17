@@ -127,7 +127,7 @@ def test_preparation_preserves_synthesis_but_excludes_it_from_rank_tuning(inputs
     assert sum(s['lookup_rank_tuning_eligible'] for s in keys['metric_cohorts'].values()) == 1
 
 
-@pytest.mark.parametrize('field', ['background_model_name', 'codex_extraction_model',
+@pytest.mark.parametrize('field', ['background_model_name', 'codex_fact_reconcile_model',
                                   'source_support_revision'])
 def test_actual_preparation_refuses_declared_model_drift_without_overwrites(inputs, monkeypatch, field):
     from src.api.config import settings

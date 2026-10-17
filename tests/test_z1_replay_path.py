@@ -55,8 +55,7 @@ def main():
     assert len(probe["source_storage_at_cutoff"]) == 1
     assert next(iter(probe["source_storage_at_cutoff"].values()))["tier"] == "warm"
     no_codex = probe["controls"]["no_codex"]
-    assert not no_codex["generated_by_leg"].get("codex_graph")
-    assert not no_codex["generated_by_leg"].get("codex_claims")
+    assert not no_codex["generated_by_leg"].get("codex_facts")
     assert all(fragment["type"] not in {"codex", "timeline"}
                for fragment in no_codex["ranked_candidates"])
     assert len(load_probes(args.out, allow_partial=True)) == sum(
@@ -86,7 +85,7 @@ def main():
     report = summarize(args.out)
     assert not report["complete_corpus_replay"] and not report["failures"]
     assert report["historical_clock"]["historical_turn_scopes"] == 1
-    print(f"v3 replay path: one recorded turn ({provenance}), ten real memory jobs, "
+    print(f"v3 replay path: one recorded turn ({provenance}), {len(seed_v3.MEMORY_JOBS)} real memory jobs, "
           "read-only matched probes, rank/clock trace and full snapshot restore passed; answer quality unmeasured")
     return 0
 

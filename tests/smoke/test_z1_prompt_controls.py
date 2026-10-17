@@ -17,7 +17,7 @@ def test_controls_keep_budgeting_but_suppress_out_of_arm_searches(monkeypatch, a
     note = retrieval.ContextFragment("Store-derived eras", "episodic", 1, 3)
     class Orchestrator:
         def __init__(self, *_a):
-            for name in ("_bm25_episodic", "_codex_graph", "_codex_claims", "_procedural_lookup",
+            for name in ("_bm25_episodic", "_facts_leg", "_procedural_lookup",
                          "_batch_summary_lookup", "_cold_lookup"):
                 setattr(self, name, lambda *_a, **_k: [])
             self._vector_episodic = lambda *_a, **_k: [vector]

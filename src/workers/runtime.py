@@ -73,17 +73,14 @@ class JobSpec:
 # burst (D6/H5), never cadence-run.
 JOBS: dict[str, JobSpec] = {
     "post_flight":             JobSpec("src.workers.post_flight:evaluate_turn", "gpu"),
-    # Standalone codex extraction (user_control's bookmark endpoint) — the
+    # Standalone fact extraction (user_control's bookmark endpoint) — the
     # normal path is the direct call inside post_flight.
-    "codex_extract":           JobSpec("src.workers.codex_extractor:extract_codex", "gpu"),
-    # CODEX_V4: the same standalone role under summary_assertion_method=v4.
     "facts_extract":           JobSpec("src.workers.fact_extractor:extract_facts", "gpu"),
     "chunk_pending_documents": JobSpec("src.workers.document_chunker:run_pending_documents", "gpu", needs_db=True),
     "cluster_assignment":      JobSpec("src.workers.clustering:run_cluster_assignment", "gpu", needs_db=True),
     "cluster_merge":           JobSpec("src.workers.clustering:run_cluster_merge", "gpu", needs_db=True),
-    "compaction":              JobSpec("src.workers.compaction:compact_entities", "cpu"),
     "decay_episodic":          JobSpec("src.workers.decay:apply_decay", "cpu", pass_cycles=True),
-    "decay_codex":             JobSpec("src.workers.codex_decay:decay_codex_edges", "cpu", pass_cycles=True),
+    "decay_codex":             JobSpec("src.workers.codex_decay:decay_fact_usage", "cpu", pass_cycles=True),
     "decay_procedural":        JobSpec("src.workers.procedural_decay:decay_procedural_patterns", "cpu", pass_cycles=True),
     "reflection":              JobSpec("src.workers.reflection:run_reflection", "gpu"),
     "batch_summarize":         JobSpec("src.workers.batch_summarizer:batch_summarize", "gpu"),
@@ -811,8 +808,9 @@ def yield_if_user_active(where: str = "") -> None:
 
     Python cannot interrupt a running thread, so this is the only honest shape:
     the job asks, at points where abandoning is cheap and leaves no half-written
-    state. `extract_triplets` already loops over chunks and the summarisers over
-    turns, so the boundaries exist — they were simply never checked.
+    state. The summarisers loop over conversations and source groups, so the
+    boundaries exist. (The claim pass that writes summaries and facts has no
+    yield point yet — an open maintainer decision since CODEX_V4.)
 
     A no-op when there is no runtime (scripts, tests, one-off tools), which is
     why every call site stays safe outside the app.

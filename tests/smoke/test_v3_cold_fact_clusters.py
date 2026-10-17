@@ -1,6 +1,9 @@
-"""ICE v3 archived sentence reach uses preserved cluster membership.
+"""ICE v3 archived-source fact reach uses preserved cluster membership.
 
-Authored evidence, controlled embeddings/classification/NLI/NER; no model calls.
+A CODEX_V4 fact is visible through its source turn, warm or archived; the
+source's cluster membership, scope, privacy and time window decide. Authored
+facts, controlled embeddings/classification/NER; no model calls. (Was
+test_v3_cold_claim_clusters.py over v3 attributed claims.)
 """
 import copy
 import os
@@ -25,11 +28,9 @@ from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
 from src.memory import embedder as embedding_module
 from src.memory import tokens
-from src.memory.claims import store_claims
-from src.memory.models import (ColdStorage, ContextCluster, Conversation,
-                               EpisodicClusterLink, EpisodicMemory)
+from src.memory.models import (CodexFact, CodexFactSource, ColdStorage, ContextCluster,
+                               Conversation, EpisodicClusterLink, EpisodicMemory)
 from src.memory.source import chat_provenance
-from src.memory.support import verify_support
 from src.retrieval import orchestrator as deployed
 from src.retrieval.timescope import TimeScope
 from src.workers import decay
@@ -56,7 +57,6 @@ def store(empty_replay_database, monkeypatch):
     monkeypatch.setattr(tokens, "_tokenizer", AutoTokenizer.from_pretrained(
         "Qwen/Qwen3-Embedding-0.6B", local_files_only=True))
     monkeypatch.setattr(tokens, "_load_attempted", True)
-    monkeypatch.setattr(settings, "codex_sentence_claims", True)
     monkeypatch.setattr(settings, "memory_source_gate_enabled", False)
     monkeypatch.setattr(settings, "retrieval_strengthen_writes", False)
     monkeypatch.setattr(settings, "retrieval_rerank_enabled", False)
@@ -66,7 +66,7 @@ def store(empty_replay_database, monkeypatch):
     attempts = []
     def deny(*_args, **_kwargs):
         attempts.append(1)
-        raise AssertionError("Unexpected HTTP in isolated cold-claim controls")
+        raise AssertionError("Unexpected HTTP in isolated cold-fact controls")
     with database.SessionLocal() as db, patch.object(httpx.Client, "request", deny), patch.object(
             httpx.AsyncClient, "request", deny):
         yield db
@@ -82,7 +82,7 @@ def cohort(db, *, cold=True, long_assistant=False):
     db.add_all([ContextCluster(id=a, name="Atlas", conversation_id=cid, embedding=VEC),
                 ContextCluster(id=b, name="Boreal", conversation_id=cid)])
     db.flush()
-    rows, claims = {}, {}
+    rows, facts = {}, {}
     for name, memberships in [("a", [a]), ("b", [b]), ("both", [a, b]),
                                ("empty", []), ("unknown", None)]:
         user = f"Atlas uses PostgreSQL. It applies to the sandbox only. Cohort {name}."
@@ -101,15 +101,21 @@ def cohort(db, *, cold=True, long_assistant=False):
             for membership in memberships or []:
                 db.add(EpisodicClusterLink(episodic_id=row.id, cluster_id=membership))
             db.flush()
-        claim = store_claims(db, row, ["Atlas uses PostgreSQL."], encoder=Encoder(),
-            verifier=lambda source, text: verify_support(source, text, scorer=lambda pairs:
-                [dict(entailment=.99, neutral=.005, contradiction=.005)]))[0]
-        rows[name], claims[name] = row, claim
-    return cid, a, b, rows, claims
+        sentence = "The user said Atlas uses PostgreSQL, for the sandbox only."
+        fact = CodexFact(text=sentence, text_sha256=uuid.uuid4().hex, speaker="user",
+            modality="asserted", embedding=VEC, mentioned_at=row.timestamp,
+            valid_from=row.timestamp, confidence=.99)
+        db.add(fact); db.flush()
+        db.add(CodexFactSource(fact_id=fact.id, source_batch=row.batch_id,
+            window_sha256=uuid.uuid4().hex, episodic_id=row.id, conversation_id=cid, window={},
+            quote="Atlas uses PostgreSQL.", recorded_at=row.timestamp, verification={}))
+        db.flush()
+        rows[name], facts[name] = row, fact
+    return cid, a, b, rows, facts
 
 
 def identities(reader, scope, embedding):
-    return {f.stored_artifact_ids[0][1] for f in reader._codex_claims(
+    return {f.stored_artifact_ids[0][1] for f in reader._facts_leg(
         "PostgreSQL", embedding, scope)}
 
 
@@ -124,7 +130,7 @@ def identities(reader, scope, embedding):
     ("explicit_empty", set()),
 ])
 def test_cold_membership_candidates(store, embedding, mode, expected):
-    cid, a, b, _rows, claims = cohort(store)
+    cid, a, b, _rows, facts = cohort(store)
     scope = {"conversation_id": str(cid)}
     options = {"ordinary": {}, "matching": {"cluster_ids": [a]},
         "explicit_matching": {"cluster_ids": [a], "cluster_ids_explicit": True},
@@ -134,7 +140,7 @@ def test_cold_membership_candidates(store, embedding, mode, expected):
         "explicit_empty": {"cluster_ids": [], "cluster_ids_explicit": True}}
     scope.update(options[mode])
     reader = deployed.HybridRetrievalOrchestrator(store, Encoder())
-    assert identities(reader, scope, embedding) == {str(claims[n].id) for n in expected}
+    assert identities(reader, scope, embedding) == {str(facts[n].id) for n in expected}
 
 
 @pytest.mark.parametrize("embedding", [None, VEC])
@@ -145,23 +151,26 @@ def test_cold_membership_candidates(store, embedding, mode, expected):
     ("include_exclude", {"a", "empty", "unknown"}),
 ])
 def test_warm_link_membership_unchanged(store, embedding, mode, expected):
-    cid, a, b, _rows, claims = cohort(store, cold=False)
+    cid, a, b, _rows, facts = cohort(store, cold=False)
     scope = {"conversation_id": str(cid)}
     if mode in ("matching", "include_exclude"): scope["cluster_ids"] = [a]
     if mode in ("exclude", "include_exclude"): scope["exclude_cluster_ids"] = [b]
     reader = deployed.HybridRetrievalOrchestrator(store, Encoder())
-    assert identities(reader, scope, embedding) == {str(claims[n].id) for n in expected}
+    assert identities(reader, scope, embedding) == {str(facts[n].id) for n in expected}
 
 
+# (v3 claims had a "stale" case — source text edited after extraction — because
+# a claim re-checked its character offsets on read. Facts do not re-read their
+# source; turns are not edited in place.)
 @pytest.mark.parametrize("mode", ["empty_conversations", "other_conversation", "excluded_conversation",
-    "empty_batches", "other_batch", "denied_batch", "private", "stale", "missing",
+    "empty_batches", "other_batch", "denied_batch", "private", "missing",
     "record_window", "event_window", "warm_private_override"])
 def test_other_source_contracts_preserved(store, mode):
-    cid, a, _b, rows, claims = cohort(store)
-    row, claim = rows["a"], claims["a"]
+    cid, a, _b, rows, facts = cohort(store)
+    row, fact = rows["a"], facts["a"]
     scope = {"conversation_id": str(cid), "cluster_ids": [a], "batch_ids": [row.batch_id]}
     reader = deployed.HybridRetrievalOrchestrator(store, Encoder())
-    expected = {str(claim.id)}
+    expected = {str(fact.id)}
     if mode == "empty_conversations": scope["conversation_ids"] = []; expected = set()
     if mode == "other_conversation": scope["conversation_id"] = str(uuid.uuid4()); expected = set()
     if mode == "excluded_conversation": scope["exclude_conversation_ids"] = [cid]; expected = set()
@@ -169,7 +178,6 @@ def test_other_source_contracts_preserved(store, mode):
     if mode == "other_batch": scope["batch_ids"] = [uuid.uuid4()]; expected = set()
     if mode == "denied_batch": reader._denied_batch_ids = {row.batch_id}; expected = set()
     if mode == "private": row.is_private = True; expected = set()
-    if mode == "stale": row.raw_text += " Later change."; expected = set()
     if mode == "missing": store.delete(row); expected = set()
     if mode in ("record_window", "event_window"):
         reader._active_timescope = TimeScope(mode="range", t0=NOW - timedelta(days=2),
@@ -184,8 +192,8 @@ def test_other_source_contracts_preserved(store, mode):
     assert identities(reader, scope, VEC) == expected
 
 
-def test_actual_decay_preserves_cluster_sentence_reach(store):
-    cid, a, b, rows, claims = cohort(store, cold=False)
+def test_actual_decay_preserves_cluster_fact_reach(store):
+    cid, a, b, rows, facts = cohort(store, cold=False)
     ids = {name: (row.id, row.raw_text, row.source_spans) for name, row in rows.items()}
     for row in rows.values(): row.decay_score = .001; row.is_archived = True
     store.commit()
@@ -198,9 +206,10 @@ def test_actual_decay_preserves_cluster_sentence_reach(store):
             assert cold.raw_text == raw and cold.source_spans == spans
             assert store.get(EpisodicMemory, ident) is None
         after_new = identities(deployed.HybridRetrievalOrchestrator(store, Encoder()), scope, VEC)
-        assert before == after_new == {str(claims[n].id) for n in ("a", "empty", "unknown")}
+        assert before == after_new == {str(facts[n].id) for n in ("a", "empty", "unknown")}
     finally:
         store.rollback()
+        store.query(CodexFact).filter(CodexFact.id.in_([f.id for f in facts.values()])).delete()
         store.query(ColdStorage).filter_by(conversation_id=cid).delete()
         store.query(ContextCluster).filter(ContextCluster.id.in_([a, b])).delete()
         store.query(Conversation).filter_by(id=cid).delete()
@@ -208,8 +217,8 @@ def test_actual_decay_preserves_cluster_sentence_reach(store):
 
 
 @pytest.mark.parametrize("scope_kind", ["explicit", "inferred", "wide"])
-def test_short_complete_role_unit_reaches_native_prompt(store, scope_kind):
-    cid, a, _b, rows, claims = cohort(store, long_assistant=True)
+def test_short_fact_reaches_native_prompt_when_its_source_cannot(store, scope_kind):
+    cid, a, _b, rows, facts = cohort(store, long_assistant=True)
     # Keep one allowed source, so packing is measured without unrelated fixture competition.
     scope = {"conversation_id": str(cid), "batch_ids": [rows["a"].batch_id]}
     if scope_kind != "inferred":
@@ -227,8 +236,8 @@ def test_short_complete_role_unit_reaches_native_prompt(store, scope_kind):
     assert new.prepared.messages[-1] == dict(role="user", content=classification.prompt)
     assert len(new.fragments) == 1
     fragment = new.fragments[0]
-    assert fragment.stored_artifact_ids == (("codex_claims", str(claims["a"].id)),)
-    assert "speaker: user" in fragment.text and "sandbox only" in fragment.text
+    assert fragment.stored_artifact_ids == (("codex_facts", str(facts["a"].id)),)
+    assert fragment.text.startswith("[Fact; user, asserted;") and "sandbox only" in fragment.text
     assert "Unrelated commentary" not in fragment.text
     assert any(fragment.text in message["content"] for message in new.prepared.messages)
     assert not store.get(EpisodicMemory, rows["a"].id)

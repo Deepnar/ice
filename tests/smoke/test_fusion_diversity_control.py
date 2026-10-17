@@ -43,9 +43,6 @@ def test_oversize_source_does_not_block_late_evidence_or_duplicate_claim(monkeyp
              ContextFragment('The correction was applied.', 'episodic', 9., 8,
                              source_batch_id='source', conversation_id='history',
                              covers_entire_source=True),
-             ContextFragment('The correction was applied.', 'codex', 8., 4,
-                             claim_source_row_id='source',
-                             claim_excerpt='The correction was applied.'),
              ContextFragment('Another candidate', 'episodic', 7., 2,
                              source_batch_id='other', conversation_id='history')]
     selected = HybridRetrievalOrchestrator(None, None)._enforce_token_budget(
@@ -76,11 +73,11 @@ def test_real_retrieve_callers_reach_switch_and_report_mode(monkeypatch, wide, e
     reader = HybridRetrievalOrchestrator(db, None)
     reader.max_retrieval_tokens = 100
     items = candidates()
-    monkeypatch.setattr(reader, '_codex_graph', lambda *_a, **_kw: items[2:])
+    monkeypatch.setattr(reader, '_facts_leg', lambda *_a, **_kw: items[2:])
     monkeypatch.setattr(reader, '_vector_episodic', lambda *_a, **_kw: items[:2])
     monkeypatch.setattr(reader, '_rows_to_fragments', lambda *_a, **_kw: items[:2])
     for name in ('_relevant_cluster_ids', '_bm25_episodic', '_procedural_lookup',
-                 '_batch_summary_lookup', '_cold_lookup', '_codex_claims', '_vector_chunks'):
+                 '_batch_summary_lookup', '_cold_lookup', '_vector_chunks'):
         monkeypatch.setattr(reader, name, lambda *_a, **_kw: [])
     monkeypatch.setattr(reader, '_apply_bonuses', lambda fragments, *_a: fragments)
     query = SimpleNamespace(prompt='Earlier evidence', context_reliance='Long_Term_Memory',

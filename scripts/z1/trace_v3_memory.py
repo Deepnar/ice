@@ -26,15 +26,13 @@ from src.api.memory_decision import decide_memory_retrieval, estimate_recent_win
 from src.api.prompt_assembler import bookmarked_turn_texts
 from src.classifier.classifier import PyTorchClassifier
 from src.ingestion.importer import _store_turn
-from src.memory.models import (BatchSummary, Conversation, ConversationNote,
-                               ConversationSummary, CodexClaim, CodexEdge,
-                               MemorySlot)
+from src.memory.models import (BatchSummary, CodexFact, Conversation, ConversationNote,
+                               ConversationSummary, MemorySlot)
 from src.memory.tokens import count_messages
 from src.memory.usage import record_graph_access
 from src.model_registry.registry import get_model_context_window
 from src.model_registry.runtime_probe import serving_window
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
-from src.workers import codex_extractor
 from src.workers.post_flight import evaluate_turn
 
 
@@ -69,7 +67,7 @@ def _fragment_record(fragment) -> dict:
         "tokens": fragment.token_count,
         "source_row": str(fragment.source_batch_id) if fragment.source_batch_id else None,
         "origin_batches": [str(i) for i in (fragment.origin_batch_ids or ())],
-        "origin_edges": [str(i) for i in (fragment.origin_edge_ids or ())],
+        "origin_facts": [str(i) for i in (fragment.origin_fact_ids or ())],
     }
 
 
@@ -137,8 +135,7 @@ def _prepare(db, pre, classifier, conversation_id, *, arm="full"):
 
 def _disable_codex(orchestrator):
     orchestrator._last_matched_entities = []
-    orchestrator._codex_graph = lambda *_args, **_kwargs: []
-    orchestrator._codex_claims = lambda *_args, **_kwargs: []
+    orchestrator._facts_leg = lambda *_args, **_kwargs: []
 
 
 def _disable_nonvector(orchestrator):
@@ -179,21 +176,6 @@ def main() -> None:
     report = {"version": "v3", "source": Path(args.source).name,
               "source_start": args.start, "pairs_requested": args.pairs,
               "conversation_id": str(conversation_id), "turns": []}
-    parse_response = codex_extractor.parse_extraction_response
-
-    def capture_parse(content, finish_reason=None, *, template_mode=False,
-                      allow_source_only=False):
-        try:
-            return parse_response(content, finish_reason, template_mode=template_mode,
-                                  allow_source_only=allow_source_only)
-        except Exception as exc:
-            report.setdefault("invalid_extractions", []).append({
-                "reason": str(exc), "finish_reason": finish_reason,
-                "template_mode": template_mode, "model_output": content})
-            output.write_text(json.dumps(report, ensure_ascii=False, indent=2))
-            raise
-
-    codex_extractor.parse_extraction_response = capture_parse
     try:
         for index, (user, assistant) in enumerate(pairs):
             question = user["content"]
@@ -203,8 +185,7 @@ def main() -> None:
                 db, pre, classifier, conversation_id)
             prepared, survivors = memory.prepared, memory.fragments
             record_graph_access(db, survivors, stage="prompt_prepared")
-            before_edges = db.query(CodexEdge).count()
-            before_claims = db.query(CodexClaim).count()
+            before_facts = db.query(CodexFact).count()
             turn = {"index": index, "source_row": args.start + 2 * index,
                     "question": question, "recorded_answer": recorded_answer,
                     "source_timestamp": user.get("timestamp"),
@@ -236,16 +217,14 @@ def main() -> None:
                 raise
             db.expire_all()
             turn["postflight"] = {
-                "new_edges": db.query(CodexEdge).count() - before_edges,
-                "new_claims": db.query(CodexClaim).count() - before_claims,
+                "new_facts": db.query(CodexFact).count() - before_facts,
                 "batch_id": str(batch_id),
             }
             turn["complete"] = True
             output.write_text(json.dumps(report, ensure_ascii=False, indent=2))
             print(f"pair {index + 1}/{args.pairs}: action={memory.action} "
                   f"matched={matched} selected={len(survivors)} "
-                  f"edges+={turn['postflight']['new_edges']} "
-                  f"claims+={turn['postflight']['new_claims']}", flush=True)
+                  f"facts+={turn['postflight']['new_facts']}", flush=True)
         if args.maintenance:
             from src.workers.batch_summarizer import batch_summarize
             from src.workers.conversation_summary import run_conversation_summaries

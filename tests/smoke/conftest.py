@@ -77,7 +77,6 @@ def empty_replay_database(monkeypatch):
         engine = create_engine(target)
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))   # CODEX_V4 name matching
         Base.metadata.create_all(engine)
         sessions = sessionmaker(bind=engine)
         for module in (database, seed_v3, post_flight):

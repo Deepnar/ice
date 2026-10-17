@@ -1,5 +1,4 @@
-"""Codex surgery callables (the D1/D2 seam; future graph surgery lives here —
-codex_extractor is big enough).
+"""Codex surgery callables (the D1/D2 seam; entity merge and its exact undo).
 
 `merge_entities` is D5's real merge. It is dispatched by review-queue approval
 (`src/services/review.py`, Tier-2 `entity_merge` proposals) and called directly
@@ -40,10 +39,8 @@ def merge_entities(db, keep_id, absorb_id, agent_run_id=None) -> dict:
     (commits on success); returns a summary dict. Skips loudly (log + status)
     instead of raising when either entity is missing/already merged — the
     caller may be the review-approve endpoint acting on a stale proposal."""
-    # Lazy imports: codex_extractor loads a SentenceTransformer at import time.
     from src.memory.models import CodexEdge, CodexEntity, CodexEvent, CodexFactEntity
     from src.retrieval.evolution import log_description_update
-    from src.workers.codex_extractor import _regenerate_context_payload
 
     batch, run_ref = _run_batch(agent_run_id)
     keep = db.query(CodexEntity).get(keep_id)
@@ -202,8 +199,7 @@ def merge_entities(db, keep_id, absorb_id, agent_run_id=None) -> dict:
     absorb.context_payload = f"[merged into {keep.canonical_name}]"
     absorb.last_updated = now
 
-    # ── 6. Rebuild the keeper's note + one summarizing journal entry.
-    _regenerate_context_payload(keep, db)
+    # ── 6. One summarizing journal entry (the entity page is its facts — CODEX_V4).
     keep.last_updated = now
     db.add(CodexEvent(
         entity_id=keep.id, event_type="entity_merged",

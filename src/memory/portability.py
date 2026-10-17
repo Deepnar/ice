@@ -19,8 +19,8 @@ local-private, exports are shareable).
 Import is staged: manifest validation (alembic heads must MATCH — a
 state-copy never skips schema versions) → id-preserving inserts into an
 empty store by default (``merge=True`` skips existing ids) → re-embed pass
-(force=True: inherited stamps describe the SOURCE store) → codex
-context_payload regeneration sweep.
+(force=True: inherited stamps describe the SOURCE store). (The codex
+context_payload regeneration sweep went with CODEX_V4: facts are self-contained.)
 """
 
 import json
@@ -266,28 +266,7 @@ def import_store(db, in_dir, merge: bool = False, skip_reembed: bool = False,
         from src.memory import reembed
         report["reembed"] = reembed.run(db, embedder=embedder, force=True)
 
-    report["payloads_regenerated"] = _regen_payload_sweep(db)
     logger.info("import_complete", tables=len(tables))
     return report
 
 
-def _regen_payload_sweep(db) -> int:
-    """Rebuild codex context_payloads from the imported graph state (they
-    were carried as-is, but links/backlinks are cheap to re-derive and this
-    guarantees payload↔graph consistency)."""
-    from src.memory.models import CodexEntity
-    from src.workers.codex_extractor import _regenerate_context_payload
-
-    n = 0
-    entities = db.query(CodexEntity).filter(
-        CodexEntity.source == "conversation").all()
-    for ent in entities:
-        props = ent.properties or {}
-        if "merged_into" in props or "deleted_reason" in props:
-            continue
-        _regenerate_context_payload(ent, db)
-        n += 1
-        if n % 100 == 0:
-            db.commit()
-    db.commit()
-    return n

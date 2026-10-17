@@ -104,6 +104,60 @@ def test_current_only_with_predecessor_clause():
         db.rollback()
 
 
+def test_predecessor_clause_obeys_scope_and_deletion():
+    """The replaced fact's text reaches the prompt only if it is itself visible."""
+    from src.memory import facts as fact_store
+    with SessionLocal() as db:
+        old_t, new_t = _turn(db, "I live in Porto."), _turn(db, "I moved to Lisbon.", when=T0 + timedelta(days=40))
+        old = _fact(db, "The user said they live in Porto.", old_t)
+        new = _fact(db, "The user said they moved to Lisbon.", new_t, when=T0 + timedelta(days=40))
+        old.valid_until, old.superseded_by = T0 + timedelta(days=40), new.id
+        db.flush()
+        query = "where does the user live Porto Lisbon"
+        _, frags = _leg(db, query, embedding=VEC)
+        assert any("(earlier: The user said they live in Porto." in f.text for f in frags)
+        _, frags = _leg(db, query, embedding=VEC,
+                        scope={"exclude_conversation_ids": [str(old_t.conversation_id)]})
+        lisbon = [f.text for f in frags if "moved to Lisbon" in f.text]
+        assert lisbon and not any("Porto" in t for t in lisbon)          # excluded predecessor
+        fact_store.apply_source_plan(db, [], [], {old_t.batch_id}, uuid.uuid4())
+        db.flush()
+        _, frags = _leg(db, query, embedding=VEC)
+        lisbon = [f.text for f in frags if "moved to Lisbon" in f.text]
+        assert lisbon and not any("Porto" in t for t in lisbon)          # deleted predecessor
+        db.rollback()
+
+
+def test_as_of_serves_replaced_history_but_never_a_forgotten_fact():
+    from src.memory import facts as fact_store
+    from src.retrieval.timescope import TimeScope
+    with SessionLocal() as db:
+        old_t, new_t = _turn(db, "I live in Porto."), _turn(db, "I moved to Lisbon.", when=T0 + timedelta(days=40))
+        old = _fact(db, "The user said they live in Porto.", old_t)
+        new = _fact(db, "The user said they moved to Lisbon.", new_t, when=T0 + timedelta(days=40))
+        old.valid_until, old.superseded_by = T0 + timedelta(days=40), new.id
+        secret_t = _turn(db, "I owe Marta money.")
+        secret = _fact(db, "The user said they owe Marta money.", secret_t)
+        fact_store.expire_fact(db, secret, uuid.uuid4(), "user_forget")
+        db.flush()
+        o = HybridRetrievalOrchestrator(db, None)
+        o._resolve_exclusion_sets(None)
+        o._facts_entities = lambda _p: []
+        # The window opens AFTER the Porto fact was stated: as-of means the
+        # state then, not "said inside the window".
+        o._active_timescope = TimeScope(mode="as_of", t0=T0 + timedelta(days=5),
+                                        t1=T0 + timedelta(days=10))
+        texts = " ".join(f.text for f in o._facts_leg("Porto Lisbon Marta money", VEC, None))
+        assert "live in Porto" in texts and "moved to Lisbon" not in texts   # the state then
+        assert "Marta" not in texts                                          # forgotten ≠ history
+        # A range is what was stated in it: the Lisbon move, not Porto.
+        o._active_timescope = TimeScope(mode="range", t0=T0 + timedelta(days=30),
+                                        t1=T0 + timedelta(days=50))
+        texts = " ".join(f.text for f in o._facts_leg("Porto Lisbon Marta money", VEC, None))
+        assert "moved to Lisbon" in texts and "live in Porto." not in texts.replace("earlier: ", "")
+        db.rollback()
+
+
 def test_keyword_and_meaning_channels():
     with SessionLocal() as db:
         turn = _turn(db, "The deploy key rotates every 90 days.")

@@ -144,7 +144,7 @@ def initialize(root: Path) -> dict:
     from scripts.z1.build_longterm_label_review import build_packet as linked_packet
     from scripts.z1.build_checkpoint_source_review import build_packet as native_packet
     identity = uuid.uuid4().hex
-    value = {"format": "ice-v3-manual-campaign-1", "campaign_id": identity,
+    value = {"format": "ice-v3-manual-campaign-2", "campaign_id": identity,
              "database": "ice_v3_campaign_" + identity[:16],
              "snapshot_arm": "manual-v3-" + identity,
              "answer_profile": "opencode-luna6", "checkpoint_every": 1,
@@ -152,7 +152,7 @@ def initialize(root: Path) -> dict:
              "worker_failure_policy": "continue",
              "cloud_failure_policy": "continue",
              "background_model": "gemma4:e4b",
-             "codex_extraction_model": "hf.co/numind/NuExtract3-GGUF:Q8_0",
+             "fact_reconcile_model": "",            # "" = background_model (CODEX_V4 D6)
              "probe_panel": "existing"}
     atomic_json(root / "labels-source-linked.json", linked_packet(0, 0))
     atomic_json(root / "labels-native.json", native_packet())
@@ -163,7 +163,9 @@ def initialize(root: Path) -> dict:
 def read_config(root: Path) -> dict:
     config = json.loads((root / "campaign.json").read_text())
     identity = config.get("campaign_id", "")
-    if (config.get("format") != "ice-v3-manual-campaign-1"
+    # -1 campaigns pinned the v2/v3 NuExtract3 extractor (deleted with CODEX_V4);
+    # they resume only at a commit before it.
+    if (config.get("format") != "ice-v3-manual-campaign-2"
             or len(identity) != 32 or any(c not in "0123456789abcdef" for c in identity)
             or config.get("database") != "ice_v3_campaign_" + identity[:16]
             or config.get("snapshot_arm") != "manual-v3-" + identity
@@ -173,7 +175,7 @@ def read_config(root: Path) -> dict:
             or config.get("answer_profile") not in PROFILES
             or (config.get("judge_profile") is not None and config["judge_profile"] not in PROFILES)
             or not isinstance(config.get("background_model"), str) or not config["background_model"].strip()
-            or not isinstance(config.get("codex_extraction_model"), str) or not config["codex_extraction_model"].strip()
+            or not isinstance(config.get("fact_reconcile_model"), str)
             or config.get("probe_panel") != "existing"):
         raise ValueError("invalid campaign identity or replay policy")
     return config
@@ -271,7 +273,6 @@ def install_schema(root: Path, source, target) -> None:
             return
         with engine.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))   # CODEX_V4 name matching
         with template.open("rb") as dump:
             subprocess.run(["docker", "exec", "-i", CONTAINER, "psql", "-U", USER,
                 "-d", target.database, "-v", "ON_ERROR_STOP=1", "--single-transaction"],
@@ -306,8 +307,7 @@ def database_environment(config: dict, root: Path) -> dict:
     return dict(os.environ, DATABASE_URL=target.render_as_string(hide_password=False),
                 ICE_TEST_DATABASE=name, BACKGROUND_MODEL_MODE="shared",
                 BACKGROUND_MODEL_NAME=config["background_model"],
-                CODEX_EXTRACTION_MODEL=config["codex_extraction_model"],
-                CODEX_EXTRACTION_NER_TIER="background")
+                CODEX_FACT_RECONCILE_MODEL=config["fact_reconcile_model"])
 
 
 def campaign_report(root: Path, config: dict) -> dict:

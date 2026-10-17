@@ -11,7 +11,6 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-import numpy as np
 import structlog
 from pgvector.sqlalchemy import Vector as PgVector
 from sqlalchemy import bindparam, func, literal, or_, text
@@ -21,29 +20,21 @@ from sqlalchemy.orm import Session
 
 from src.api.config import settings
 from src.classifier.schemas import ClassificationResult
-from src.memory.claims import claim_representation, excerpt_is_current, source_for_claim
 from src.memory.conversation_notes import indexed_parts, note_matches, render_note
 from src.memory.models import (
     BatchNote,
-    CodexClaim,
-    CodexClaimLink,
-    CodexEdge,
     CodexEntity,
     CodexFact,
-    ColdStorage,
     ConversationNote,
     EpisodicMemory,
     ProceduralMemory,
 )
 from src.memory.representation import choose_representation
 from src.memory.recent_window import base_recent_fraction
-from src.memory.summary_support import METHOD_V4, current_method
 from src.memory.summary_snapshot import SUMMARY_SOURCES_SQL, batch_snapshot_readable, summary_snapshot_readable
-from src.memory.source_order import source_order_stamp
-from src.memory.time_format import format_time, recorded_stamp, source_stamp
+from src.memory.time_format import format_time, source_stamp
 from src.memory.tokens import count as count_tokens
 from src.retrieval import coverage, leg_weights
-from src.retrieval.evolution import build_entity_timeline, history_exists
 from src.retrieval.ner_utils import extract_entities
 from src.retrieval.reranker import rerank
 from src.retrieval.timescope import CURRENT, from_scope
@@ -68,7 +59,7 @@ def _count_by(items, key) -> dict:
 @dataclass(frozen=True)
 class ContextFragment:
     text: str
-    source_type: str          # "episodic", "codex", "procedural", "timeline"
+    source_type: str          # "episodic", "codex", "procedural", "batch_summary", … ("timeline": no producer since CODEX_V4)
     score: float              # RRF fused score
     token_count: int
     source_batch_id: Optional[str] = None
@@ -107,23 +98,13 @@ class ContextFragment:
     # do not have today, as a side effect of a measurement change. Conditional
     # legs stay bounded by their own firing conditions.
     leg: Optional[str] = None
-    origin_edge_ids: tuple = ()  # exact rendered fact lines, not traversed candidates
     covers_entire_source: bool = False  # complete raw turn, not summary/excerpt
-    # Sentence claims need the source row and exact displayed excerpt for
-    # budget-time containment. Their source_batch_id remains unset: it is an
-    # episodic-fragment cap key, not an attribution field for Codex claims.
-    claim_source_row_id: Optional[str] = None
-    claim_excerpt: Optional[str] = None
     # An indexed, manifest-checked note that contains exactly one complete
     # original turn. Final packing can share its slot with that episodic row.
     source_note_row_id: Optional[str] = None
     source_note_body: Optional[str] = None
     # Exact stored rows, separate from source-turn and rendered-text lineage.
     stored_artifact_ids: tuple = ()
-    # Complete source-role units covering a quote-only graph fragment. Final
-    # packing may share their slot with actually retained complete originals.
-    source_quote_requirements: tuple = ()
-    source_quote_text_sha256: Optional[str] = None
     # CODEX_V4: the episodic ROW ids of a fact's visible sources (the same id
     # space as an episodic fragment's source_batch_id and the recent-turn
     # receipts) — final assembly skips a fact whose every source turn is
@@ -173,10 +154,6 @@ def _head_confidences(classification):
 NARRATIVE_FACT_INTENTS = {"Factual_Retrieval", "Decision_Making"}
 META_LEANING_INTENTS = {"Analysis_&_Summarization"}
 
-# A4: process-wide cache of (relation_names, gloss_embeddings) for relation
-# detection — built lazily on first use by _relation_gloss_cache().
-_RELATION_GLOSSES = None
-
 # Every original turn, warm or archived, with its cluster membership: warm
 # membership from current links, archived membership as preserved. A cold row
 # is the archived copy of the same id, so warm wins when both exist.
@@ -202,20 +179,6 @@ class HybridRetrievalOrchestrator:
         self._coverage_record = None   # C16: last coverage decision, for audit
         # A4: entity resolution mode (ablation `fuzzy_match` flag maps here).
         self.use_fuzzy_match = True
-        # A4: relation/tag-driven enumeration for entity-less category queries
-        # ("list all the characters"). Replaces MERA (−0.21 in the ablation):
-        # same capability, but grounded in the controlled vocabulary + entity
-        # tags via embedding similarity — no LLM call in the hot path.
-        # The ablation `mera` flag maps onto this.
-        self.enable_enumeration = True
-
-        # A4 — relation detection. Empirical note: prompt↔gloss similarity is
-        # only reliable as a *joint* signal (top-3 accuracy is good, but neutral
-        # prompts score ~0.69 absolute), so detected relations are never a
-        # trigger on their own — they only boost/annotate edges of matched
-        # entities, or drive enumeration when explicit cue words are present.
-        # (G9: the numbers are settings.codex_relation_* now; the feasibility
-        # probe behind the default k=5 was top-3 11/12, top-5 12/12.)
         self._last_matched_entities = []         # per-call: for grounded expansion
 
         # T2/T3: the request's TimeScope (set from scope["timescope"] at the
@@ -237,14 +200,8 @@ class HybridRetrievalOrchestrator:
         self._denied_entity_ids = set()
         # G36: set when a scope/exclusion resolver failed. Both used to fail
         # OPEN (unscoped / nothing excluded), so a broken scope query widened
-        # visibility. The flag makes _codex_scope_sets fail CLOSED instead.
+        # visibility. The facts leg fails CLOSED on it instead.
         self._scope_resolution_failed = False
-        # G35: the request's prompt embedding, so _traverse_graph can rank its
-        # frontier by relation fit (same instance-attr pattern as
-        # _active_timescope — one orchestrator per request). None means "rank by
-        # trust alone", which is the pre-G35 behaviour and the honest fallback
-        # when the encoder is degraded.
-        self._prompt_embedding = None
 
         # Load micro‑NER model (fallback to None if not available)
 
@@ -601,20 +558,9 @@ class HybridRetrievalOrchestrator:
 
         # A4: run the codex leg first — the entities it resolves ground the
         # query expansion for the lexical leg below.
-        facts_mode = current_method() == METHOD_V4
-        if facts_mode:
-            # CODEX_V4 D8: one facts leg; a fact's predecessor rides in its own
-            # rendering, so there is no separate timeline leg.
-            codex_fragments = self._facts_leg(classification.prompt, prompt_embedding, scope, conv_id)
-            timeline_fragments = []
-        else:
-            codex_fragments = self._codex_graph(classification, scope,
-                                                prompt_embedding=prompt_embedding)
-            # T4: timelines ride back with the codex fragments but fuse and
-            # budget as their own leg — RRF weight is keyed by legs-dict entry,
-            # the budget's round-robin lane by source_type.
-            timeline_fragments = [f for f in codex_fragments if f.source_type == "timeline"]
-            codex_fragments = [f for f in codex_fragments if f.source_type != "timeline"]
+        # CODEX_V4 D8: one facts leg; a fact's predecessor rides in its own
+        # rendering, so there is no separate timeline leg.
+        codex_fragments = self._facts_leg(classification.prompt, prompt_embedding, scope, conv_id)
 
         # A4 grounded query expansion (the sane replacement for HyDE): append
         # matched entities' canonical names + aliases to the BM25 search prompt
@@ -639,8 +585,7 @@ class HybridRetrievalOrchestrator:
         legs: Dict[str, List[ContextFragment]] = {
             "bm25": self._bm25_episodic(classification, scope, conv_id, search_prompt),
             "vector": self._vector_episodic(prompt_embedding, classification, scope, conv_id),
-            "codex": codex_fragments + ([] if facts_mode else self._codex_claims(
-                classification.prompt, prompt_embedding, scope, conv_id)),
+            "codex": codex_fragments,
             "procedural": [] if incognito else self._procedural_lookup(prompt_embedding, classification, scope),
             # C4: the cross-conversation summary half is a user-global read —
             # gated off under incognito like procedural; the conv-scoped
@@ -659,7 +604,6 @@ class HybridRetrievalOrchestrator:
             # a date is a query constraint, not permission to remember.
             "cold": self._cold_lookup(prompt_keywords, conv_id, scope,
                                       prompt_embedding),
-            "timeline": timeline_fragments,
         }
 
         # ── Dynamic leg weighting (blended over all active intents) ──
@@ -679,7 +623,7 @@ class HybridRetrievalOrchestrator:
         fused = self._apply_bonuses(fused, classification, own_conv_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
         fused, reranked = rerank(classification.prompt, fused)
-        if facts_mode and reranked:
+        if reranked:
             fused = self._fact_strength_bonus(fused)
         # G29: no max_per_conversation here — passing the literal 3 is what made
         # settings.retrieval_max_per_conversation unreachable on every live path.
@@ -1218,7 +1162,6 @@ class HybridRetrievalOrchestrator:
                 continue
 
             # 2) Fallback: exact canonical name / alias match
-            from sqlalchemy import or_
             norm = candidate_str.lower().strip()
             fallback = self.db.query(CodexEntity).filter(
                 or_(CodexEntity.canonical_name == norm, CodexEntity.aliases.any(norm)),
@@ -1231,161 +1174,30 @@ class HybridRetrievalOrchestrator:
         return matched
 
     # ------------------------------------------------------------------
-    # A4: relation detection + enumeration + grounded expansion helpers
-    # ------------------------------------------------------------------
-    _ENUM_CUES = ("list", "all", "who are", "what are", "every", "each",
-                  "which", "name the", "tell me about", "enumerate")
 
-    def _relation_gloss_cache(self):
-        """Lazily embed the controlled relation vocabulary (as 'inspired by'
-        style glosses) once per process. ~200 relations × native dims —
-        trivial to hold and scan. (A4's per-vector re-normalization died with
-        C17: native-width encode is already unit-norm.)"""
-        global _RELATION_GLOSSES
-        if _RELATION_GLOSSES is None:
-            from src.workers.codex_extractor import ALLOWED_RELATIONS
-            # G45: the vocabulary is open, so relation fit must be scored over
-            # the relations the graph ACTUALLY uses — not a 197-word list it has
-            # outgrown. G34 needs an embedding per relation, never a closed set,
-            # so this is the one function that changes: score against the union
-            # and the feature keeps working instead of going quietly inert on
-            # every relation invented after it was written.
-            rels = set(ALLOWED_RELATIONS)
-            try:
-                rels |= {r[0] for r in self.db.execute(text(
-                    "SELECT DISTINCT relation FROM codex_edges "
-                    "WHERE relation IS NOT NULL")).all() if r[0]}
-            except Exception as err:
-                self._leg_degraded("codex.relation_vocab", err)
-            rels = sorted(rels)
-            embs = self.embedder.encode([r.replace("_", " ") for r in rels],
-                                        convert_to_tensor=False, show_progress_bar=False)
-            # G41: cached as ONE float64 ndarray, not a list of 197 lists.
-            # Measured: the matmul against these is 0.018 ms, but converting the
-            # list-of-lists to an array on every call cost 2.97 ms — so the
-            # per-prompt bill was the marshalling, not the arithmetic. Vectorising
-            # the loop without fixing this bought 25%; fixing this buys ~165x on
-            # the same line.
-            _RELATION_GLOSSES = (rels, np.asarray(embs, dtype=np.float64))
-        return _RELATION_GLOSSES
+    def _scope_batch_ids(self, scope: Optional[dict]):
+        """A5: resolve a scope into the set of batch_ids it admits, for the
+        legs that filter by source batch (procedural). None means UNSCOPED.
 
-    @staticmethod
-    def _stem(word: str) -> str:
-        """Crude suffix-stripper so 'inspired'/'inspires'/'inspiring' all meet
-        the relation lexeme 'inspired'. Both sides are stemmed identically, so
-        crudeness cancels out.
-
-        G34: the guard was `len(w) > 4`, which made the symmetry claim above
-        MEASURABLY FALSE for short vocabulary words — `uses`/`using`,
-        `uses`/`use`, `owns`/`owning`, `has`/`have` all failed to meet, and both
-        `uses` and `owns` are live vocabulary. End to end, "what does Kael use
-        for the ritual" produced zero channel-1 hits and "what does Kael own"
-        found `owned_by` while missing `owns`: one concept, two entries,
-        reachability decided by word length. The floor is now the length of what
-        REMAINS, so stripping never empties a word and short entries still stem.
-
-        ⚠ This makes the docstring true; it does not make the channel sound.
-        Lexical matching is a bet on how a thing is written, which CLAUDE.md's
-        invariance rule forbids and [G28] owns. G34 removed this channel from the
-        anchor path entirely for that reason — it survives only for
-        `_codex_enumeration`, whose gate is explicitly lexical anyway.
-        """
-        w = word.lower()
-        for suf in ("ing", "ed", "es", "s"):
-            if w.endswith(suf) and len(w) - len(suf) >= 2:
-                return w[: -len(suf)]
-        return w
-
-    def _detect_relations(self, prompt: str, prompt_embedding) -> List[str]:
-        """Controlled-vocabulary relations relevant to the prompt, from two
-        channels: (1) lexical — a relation's own content word appears in the
-        prompt ('who inspired X' → inspired_by), which is a direct grounded
-        hit; (2) embedding — top-k gloss cosine for paraphrases ('who is X's
-        wife' → married_to). Joint-signal only (see __init__ note): callers
-        must pair the result with matched entities or enumeration cues, never
-        use it alone.
-
-        ⚠ G34 (2026-08-11): the ANCHOR path no longer calls this. It ranks each
-        anchor against its own relations instead (`_relation_fit`), because this
-        function could not be made to say "no" — measured, three candidate fixes,
-        none separating. `_codex_enumeration` is now the only caller, and there
-        the explicit cue word carries the precision this cannot.
-
-        The kill-switch therefore governs enumeration alone, and returns before
-        any work so "off" costs nothing."""
-        if not settings.codex_relation_detection_enabled:
-            return []
-        try:
-            rels, gloss_embs = self._relation_gloss_cache()
-            detected: List[str] = []
-
-            # Channel 1 — lexical hit on relation content words.
-            func_words = {"by", "of", "in", "to", "at", "on", "from", "is", "the", "with", "for"}
-            prompt_stems = {self._stem(w.strip(".,!?'\"")) for w in prompt.lower().split()}
-            for rel in rels:
-                lexemes = {self._stem(w) for w in rel.split("_") if w not in func_words}
-                if not lexemes:
-                    continue
-                # Single-word relations hit on that word; multi-word relations
-                # require all content words (one common word alone is too loose).
-                hit = (lexemes <= prompt_stems) if len(lexemes) > 1 else bool(lexemes & prompt_stems)
-                if hit:
-                    detected.append(rel)
-
-            # Channel 2 — embedding paraphrase channel (true cosine — both
-            # sides unit-norm natively since C17).
-            if prompt_embedding is not None:
-                # G41: 197 x 1024 as one matmul rather than 197 Python loops —
-                # this is the median 12.2 ms that used to sit on every
-                # pre-flight, now confined to enumeration-cue prompts (G34).
-                all_sims = gloss_embs @ np.asarray(prompt_embedding,
-                                                   dtype=np.float64)
-                scored = []
-                for rel, sim in zip(rels, all_sims):
-                    if rel in detected:
-                        continue
-                    sim = float(sim)
-                    if sim >= settings.codex_relation_sim_floor:
-                        scored.append((sim, rel))
-                scored.sort(reverse=True)
-                detected.extend(rel for _, rel in scored[:settings.codex_relation_top_k])
-            return detected
-        except Exception as err:
-            self._leg_degraded("codex.relations", err)
-            return []
-
-    def _codex_scope_sets(self, scope: Optional[dict]):
-        """A5: resolve a scope into (allowed_entity_ids, allowed_batch_ids).
-        Both None means UNSCOPED — search the whole graph (auto).
-
-        The scope is resolved down to a **set of batch_ids**, which is the
-        forward-compatible primitive for the C6 scoping rework: today only a
-        single `conversation_id` is populated (project scope), but any future
-        scoping — several ticked conversations (cross-chat), a session_id, an
-        @-mentioned conversation/turn — is just a different way of computing
-        this same batch set, and the traversal filters downstream never change.
-        C6 will populate one of:
-          scope["batch_ids"]         — pre-resolved (session / @-mention)
-          scope["conversation_ids"]  — several conversations (cross-chat)
-          scope["conversation_id"]   — one conversation (today's project scope)
-          scope["isolated"] = True   — incognito / none: empty set, matches nothing
+        One of: scope["batch_ids"] (pre-resolved), scope["conversation_ids"]
+        (several conversations), scope["conversation_id"] (one), or
+        scope["isolated"] = True (incognito / none: empty set, matches nothing).
+        Until CODEX_V4 this also resolved the conversation graph's entity set
+        (`_codex_scope_sets`); facts are scoped by their own source rows.
         """
         if not scope:
-            return None, None
+            return None
         if scope.get("isolated"):                 # C6 'none' = true incognito
-            return set(), set()
+            return set()
         if self._scope_resolution_failed:
             # G36: the exclusion resolver could not work out what to deny.
-            # Reading the graph unscoped would serve the excluded material;
-            # match nothing instead. Checked before the `not batch_ids`
-            # branch below.
-            return set(), set()
+            # Reading unscoped would serve the excluded material; match nothing.
+            return set()
         # G37: did the caller RESTRICT the conversation set, or merely scope by
-        # something else? Tested by key PRESENCE, not truthiness — C6's rule,
-        # because an exclusion can empty a closed set and `[]` must still mean
-        # "these conversations, of which there are none". A cluster-only or
-        # timescope-only scope names no conversations at all and stays
-        # unscoped, which is what keeps `auto` traffic working.
+        # something else? Tested by key PRESENCE, not truthiness — an exclusion
+        # can empty a closed set and `[]` must still mean "these conversations,
+        # of which there are none". A cluster-only or timescope-only scope names
+        # no conversations at all and stays unscoped.
         restricted = ("batch_ids" in scope or "conversation_ids" in scope
                       or "conversation_id" in scope)
         try:
@@ -1407,69 +1219,27 @@ class HybridRetrievalOrchestrator:
                         {"cids": list(conv_ids)}
                     ).fetchall()
                     batch_ids = {row.batch_id for row in rows}
-            # E1b (D11): the code-graph allowance — an attached project adds
-            # its derived entities + the deterministic static-edge batch to
-            # the allowed sets, and a project scope NEVER falls back to
-            # unscoped (a fresh project conversation with zero turns still
-            # reads only its own graph).
+            # E1b (D11): an attached project adds the deterministic static-edge
+            # batch, and a project scope NEVER falls back to unscoped.
             pid = self._scope_project_id
             if pid is None and not batch_ids:
                 # G37: a named conversation set that resolves to no batches
-                # reads NOTHING, not everything. It resolves to nothing on the
-                # first turn of every manually-scoped conversation (no stored
-                # turns yet) and whenever exclusions empty a closed set — and
-                # the old `return None, None` meant UNSCOPED, so exactly then
-                # the graph leg served the whole store. C6 already settled this
-                # for the episodic legs (`_conv_scope_filter`: "an empty set
-                # must match nothing"); the codex and procedural legs never got
-                # it. A project attachment was exempted long ago by the `pid`
-                # test above, with a comment naming this same hazard.
-                # User decision 2026-08-09: starting fresh should give nothing,
-                # which is what codex scoping was built for.
-                if restricted:
-                    return set(), set()
-                return None, None
-            entity_ids = set()
-            if batch_ids:
-                event_rows = self.db.execute(
-                    text("SELECT DISTINCT entity_id FROM codex_events "
-                         "WHERE batch_source = ANY(:bids)"),
-                    {"bids": list(batch_ids)}
-                ).fetchall()
-                entity_ids = {row.entity_id for row in event_rows}
-                edge_rows = self.db.execute(text("""
-                    SELECT source_id, target_id FROM codex_edges
-                    WHERE source = 'conversation' AND valid_until IS NULL
-                      AND (source_batch = ANY(:bids)
-                           OR observed_batches && CAST(:bids AS uuid[]))
-                """), {"bids": list(batch_ids)}).fetchall()
-                entity_ids.update(eid for row in edge_rows
-                                  for eid in (row.source_id, row.target_id))
+                # reads NOTHING, not everything (first turn of a manually-scoped
+                # conversation; exclusions emptying a closed set). User decision
+                # 2026-08-09: starting fresh should give nothing.
+                return set() if restricted else None
             if pid is not None:
                 from src.coding.code_graph import code_graph_batch_id
-                derived = self.db.execute(
-                    text("SELECT id FROM codex_entities "
-                         "WHERE project_id = :pid AND source != 'conversation'"),
-                    {"pid": pid}).fetchall()
-                entity_ids |= {row.id for row in derived}
                 batch_ids.add(code_graph_batch_id(pid))
             if self._denied_batch_ids:
                 batch_ids -= self._denied_batch_ids
-                entity_ids -= self._denied_entity_ids
-            return entity_ids, batch_ids
+            return batch_ids
         except Exception as err:
-            # G36: this used to return (None, None) — which does NOT mean
-            # "no scope", it means UNSCOPED, i.e. search the entire graph.
-            # A failure resolving the scope the caller asked for therefore
-            # WIDENED visibility, silently, in the one direction G16 forbids.
-            # Fail closed instead: the empty sets match nothing, which is the
-            # same value the `isolated` (incognito) branch above returns, so
-            # every downstream admission point already handles it.
-            # Reached only when a scope EXISTS (`if not scope` returns above),
-            # so this never turns an ordinary `auto` query into a dead one.
-            self._leg_degraded("scope.codex_sets", err)
+            # G36: fail CLOSED. None would mean unscoped — a failure resolving
+            # the scope the caller asked for must not widen visibility.
+            self._leg_degraded("scope.batch_ids", err)
             self._scope_resolution_failed = True
-            return set(), set()
+            return set()
 
     def _resolve_exclusion_sets(self, scope: Optional[dict]) -> None:
         """C6: compute the codex/procedural DENY sets once per request.
@@ -1531,8 +1301,8 @@ class HybridRetrievalOrchestrator:
             # exactly the conversations they asked it not to read. Reached only
             # when an exclusion list exists (the `if not excluded` return
             # above), so failing closed costs nothing in the common case:
-            # _codex_scope_sets sees the flag and scopes the codex and
-            # procedural legs to nothing rather than to everything.
+            # _scope_batch_ids and the facts leg see the flag and scope the
+            # codex and procedural legs to nothing rather than to everything.
             self._leg_degraded("scope.exclusions", err)
             self._denied_batch_ids = set()
             self._denied_entity_ids = set()
@@ -1554,364 +1324,6 @@ class HybridRetrievalOrchestrator:
                 seen.add(ent.id)
         return matched
 
-    def _match_entities_by_payload(self, entity_strings: List[str]) -> List:
-        """A4 descriptor fallback: when name/alias/vector matching fails, look
-        for the *descriptor* inside entity payloads — 'main fortress' matches
-        the entity whose context_payload mentions 'fortress'. Closes part of
-        the semantic-vs-lexical gap without a schema change."""
-        stop = {"main", "this", "that", "what", "where", "when", "primary", "the"}
-        words = {w.lower() for s in entity_strings for w in s.split()
-                 if len(w) >= 4 and w.lower() not in stop}
-        if not words:
-            return []
-        try:
-            scored = {}
-            for w in words:
-                rows = self.db.query(CodexEntity).filter(
-                    CodexEntity.context_payload.ilike(f"%{w}%"),
-                    *self._entity_source_filters(),
-                ).limit(settings.codex_entity_payload_match_limit).all()
-                for ent in rows:
-                    scored[ent.id] = (scored.get(ent.id, (0, ent))[0] + 1, ent)
-            ranked = sorted(scored.values(), key=lambda t: t[0], reverse=True)
-            return [ent for hits, ent in ranked[:2] if hits >= 1]
-        except Exception as err:
-            self._leg_degraded("codex.payload_match", err)
-            return []
-
-    def _edge_valid_filters(self):
-        """T3 (D4): the bi-temporal valid_at(T) read the schema was built for.
-        as_of/range: an edge counts if established by T = window end and not
-        yet expired at T ("state as of then" = everything established *by*
-        then). Legacy NULL valid_from = -infinity (passes). current keeps the
-        exact old predicate (valid_until IS NULL ≡ valid_at(now), since
-        expiries are stamped at write time). Used by every codex read —
-        traversal (both directions), relation facts, enumeration."""
-        ts = getattr(self, "_active_timescope", CURRENT)
-        if ts.source_clock and ts.mode in ("as_of", "range") and ts.t1:
-            return [or_(CodexEdge.valid_from.is_(None), CodexEdge.valid_from <= ts.t1),
-                    or_(CodexEdge.valid_until.is_(None), CodexEdge.valid_until > ts.t1)]
-        return [CodexEdge.valid_until.is_(None)]
-
-    def _prime_edge_times(self, edges):
-        """Fetch source dates in batches, for edges already filtered by scope."""
-        cache = getattr(self, "_source_times", None)
-        if cache is None:
-            cache = self._source_times = {}
-        batches = {batch for e in edges
-                   for batch in ({getattr(e, "source_batch", None)}
-                                 | set(getattr(e, "observed_batches", None) or []))
-                   if batch and str(batch) not in cache}
-        if not batches:
-            return
-        rows = self.db.query(EpisodicMemory.batch_id, EpisodicMemory.timestamp,
-                             EpisodicMemory.ts_provenance, EpisodicMemory.is_private).filter(
-            EpisodicMemory.batch_id.in_(batches)).all()
-        missing = batches - {row.batch_id for row in rows}
-        if missing:
-            rows += self.db.query(ColdStorage.batch_id, ColdStorage.timestamp,
-                                 ColdStorage.ts_provenance, ColdStorage.is_private).filter(
-                ColdStorage.batch_id.in_(missing)).all()
-        private = getattr(self, "_private_source_batches", None)
-        if private is None:
-            private = self._private_source_batches = set()
-        private.update(str(b) for b, _, _, is_private in rows if is_private)
-        cache.update({str(b): None for b in batches})
-        cache.update({str(b): (stamp, provenance) for b, stamp, provenance, _ in rows})
-
-    def _edge_source_batch(self, edge, allowed_batch_ids=None):
-        """Choose a current visible source, including independent observations.
-
-        The first batch is a write origin, not the only conversation that can
-        truthfully supply the edge. Keep its original for derived code edges.
-        """
-        candidates = {getattr(edge, "source_batch", None)} \
-            | set(getattr(edge, "observed_batches", None) or [])
-        candidates.discard(None)
-        if allowed_batch_ids is not None:
-            allowed = {str(b) for b in allowed_batch_ids}
-            candidates = {b for b in candidates if str(b) in allowed}
-        denied = {str(b) for b in self._denied_batch_ids}
-        candidates = {b for b in candidates if str(b) not in denied}
-        if self.db is None:
-            return getattr(edge, "source_batch", None)
-        if not candidates:
-            return None
-        self._prime_edge_times([edge])
-        if getattr(edge, "source", None) not in (None, "conversation"):
-            return edge.source_batch if edge.source_batch in candidates else None
-
-        candidates = {b for b in candidates
-                      if self._source_times.get(str(b)) is not None
-                      and str(b) not in getattr(self, "_private_source_batches", set())}
-        ts = self._active_timescope
-        if ts.source_clock and ts.mode in ("as_of", "range") and ts.t1:
-            candidates = {b for b in candidates
-                          if self._source_times[str(b)][0] is None
-                          or self._source_times[str(b)][0] <= ts.t1}
-        if not candidates:
-            return None
-        if len(candidates) == 1:
-            return next(iter(candidates))
-        linked = set()
-        for claim in self.db.query(CodexClaim).join(
-                CodexClaimLink, CodexClaimLink.claim_id == CodexClaim.id).filter(
-                    CodexClaimLink.edge_id == edge.id,
-                    CodexClaim.source_batch.in_(candidates)).all():
-            original = source_for_claim(self.db, claim)
-            if (original is not None and not original.is_private
-                    and excerpt_is_current(original, claim)):
-                linked.add(claim.source_batch)
-
-        def rank(batch):
-            stamp = (self._source_times[str(batch)] or (None, None))[0]
-            return (batch in linked, stamp.timestamp() if stamp else float("-inf"),
-                    batch == edge.source_batch, str(batch))
-
-        return max(candidates, key=rank)
-
-    def _fact_line(self, src, edge, tgt, allowed_batch_ids=None, artifact_ids=None) -> str:
-        """Separate source-recorded time from when ICE learned the claim."""
-        source_batch = self._edge_source_batch(edge, allowed_batch_ids)
-        if source_batch is None and self.db is not None:
-            return ""
-        source = self._source_times.get(str(source_batch))
-        dates = []
-        if source:
-            dates.append(recorded_stamp(*source).strip().strip("[]"))
-        else:
-            dates.append("source time unknown")
-        learned = getattr(edge, "learned_at", None)
-        valid = getattr(edge, "valid_from", None)
-        if learned:
-            dates.append(f"learned: {format_time(learned)}")
-        if valid and format_time(valid) != format_time(learned):
-            dates.append(f"recorded valid from: {format_time(valid)}")
-        linked = self.db.query(CodexClaim).join(CodexClaimLink,
-            CodexClaimLink.claim_id == CodexClaim.id).filter(
-                CodexClaimLink.edge_id == edge.id,
-                CodexClaim.source_batch == source_batch).order_by(
-                    CodexClaim.start, CodexClaim.id).all() if getattr(edge, "id", None) and self.db is not None else []
-        if linked:
-            lines, units = [], []
-            complete_coverage = bool(source)
-            for claim in linked:
-                original = source_for_claim(self.db, claim)
-                if original is None or original.is_private or not excerpt_is_current(original, claim):
-                    continue
-                body = claim_representation(claim, source=original)
-                line = (f"[Source excerpt; speaker: {claim.role}; {'; '.join(dates)}] "
-                        f"{source_order_stamp(original)}{body}")
-                units.append((str(original.id), body))
-                stamp = getattr(original, "timestamp", None)
-                if (source != (stamp, getattr(original, "ts_provenance", None))
-                        or claim.role == "unknown"
-                        or any(value is not None and value != stamp for value in (learned, valid))):
-                    complete_coverage = False
-                if artifact_ids is not None and line not in lines:
-                    artifact_ids.append(("codex_claims", str(claim.id)))
-                lines.append(line)
-            rendered = "\n".join(dict.fromkeys(lines))
-            collector = getattr(self, "_graph_quote_lines", None)
-            if collector is not None and rendered:
-                collector.setdefault(str(edge.id), []).append(
-                    (rendered, tuple(dict.fromkeys(units)) if complete_coverage else ()))
-            return rendered
-        rel = f"NOT {edge.relation}" if getattr(edge, "negated", False) else edge.relation
-        if artifact_ids is not None:
-            artifact_ids.extend(("codex_entities", str(entity.id)) for entity in (src, tgt))
-        return (f"[Unverified graph relation: {src.canonical_name} --{rel}--> {tgt.canonical_name}"
-                f" ({'; '.join(dates)})]")
-
-    def _relation_fit(self, relations: List[str], prompt_embedding):
-        """G34: score each of *relations* against the prompt, and report how
-        sharply the best one stands out. Returns ``(scores, fit)``.
-
-        This is the inverted question. The old detector asked "which of the 197
-        vocabulary glosses is this prompt near?" and could not be made to answer
-        — measured 2026-08-11, three candidate fixes, none separating, because
-        absolute cosine is anti-correlated with relational content ("ok" clears
-        197/197 at 0.844; "who inspired Kael" clears 43 at 0.575). Asking instead
-        which of an anchor's OWN handful of relations the prompt points at scored
-        93.2% top-1 against 8.0% for strength ordering, at a 10-edge anchor.
-
-        It works because it never has to say "no". Ranking a set we are already
-        rendering is a strictly weaker claim than judging relational intent.
-
-        ``fit`` — best minus mean across *relations* — is the one place a "no"
-        is expressed, and it is expressed as a continuous zero rather than a
-        gate: a contentless prompt is uniformly near everything, so the spread
-        collapses and the caller's bonus vanishes without any threshold deciding
-        that it should.
-        """
-        if not relations or prompt_embedding is None:
-            return {}, 0.0
-        try:
-            vocab, embs = self._relation_gloss_cache()
-            index = {r: i for i, r in enumerate(vocab)}
-            known = [r for r in relations if r in index]
-            if len(known) < 2:
-                # Ranking one item is theatre, and the spread of one is zero.
-                return {}, 0.0
-            # G41: fancy-index the cached array and take one matmul. Building an
-            # intermediate list here would reintroduce the marshalling cost that
-            # was the whole bill (see _relation_gloss_cache).
-            sims = embs[[index[r] for r in known]] @ np.asarray(
-                prompt_embedding, dtype=np.float64)
-            scores = dict(zip(known, (float(s) for s in sims)))
-            vals = list(scores.values())
-            fit = max(vals) - (sum(vals) / len(vals))
-            return scores, max(0.0, min(1.0, fit))
-        except Exception as err:
-            self._leg_degraded("codex.relation_fit", err)
-            return {}, 0.0
-
-    def _relation_facts(self, matched, prompt_embedding, allowed_batch_ids, artifact_ids=None):
-        """A4: surface an anchor's explicit edge facts, ordered by how well each
-        edge's relation answers the question. Returns ``(lines, edges, fit)``.
-
-        G34 inverted this. It used to take a list of relations detected from the
-        prompt and filter edges to them — but with ~197 relations detected on
-        every prompt that filter was a **no-op**, so the leg returned the
-        anchor's strongest edges regardless of what was asked, and A4's
-        documented "entity ∩ relation joint hit" was never actually a joint hit.
-        Now every valid edge of the anchor is a candidate and the *ordering*
-        carries the relation signal.
-
-        The candidate pool stays bounded by strength (G35's concern: a hub
-        entity has hundreds of edges), but at a multiple of the output size, so
-        strength decides only who competes and fit decides who wins.
-        """
-        if not matched:
-            return [], [], 0.0
-        matched_ids = [e.id for e in matched]
-        q = self.db.query(CodexEdge).filter(
-            *self._edge_valid_filters(),
-            ((CodexEdge.source_id.in_(matched_ids)) | (CodexEdge.target_id.in_(matched_ids)))
-        )
-        if allowed_batch_ids is not None:
-            q = q.filter(or_(CodexEdge.source_batch.in_(allowed_batch_ids),
-                             CodexEdge.observed_batches.op("&&")(
-                                 list(allowed_batch_ids))))
-        pool = [edge for edge in q.order_by(CodexEdge.strength.desc()).all()
-                if self._edge_source_batch(edge, allowed_batch_ids) is not None][
-                    :settings.codex_entity_edge_limit
-                     * settings.codex_relation_pool_multiplier]
-        # A negative source statement can answer a question; only navigation
-        # treats negation as a reason not to walk the relationship.
-        pool = [e for e in pool if self._edge_trust(e) >= settings.codex_direct_trust_floor]
-        if not pool:
-            return [], [], 0.0
-
-        scores, fit = self._relation_fit(
-            sorted({e.relation for e in pool}), prompt_embedding)
-        # No usable scores ⇒ keep the strength order the pool already carries.
-        if scores:
-            pool.sort(key=lambda e: (scores.get(e.relation, 0.0), self._edge_trust(e)),
-                      reverse=True)
-
-        self._prime_edge_times(pool[:settings.codex_entity_edge_limit])
-        lines, fact_edges = [], []
-        for edge in pool[:settings.codex_entity_edge_limit]:
-            src = self.db.query(CodexEntity).get(edge.source_id)
-            tgt = self.db.query(CodexEntity).get(edge.target_id)
-            if src and tgt:
-                line = self._fact_line(src, edge, tgt, allowed_batch_ids, artifact_ids)
-                if line:
-                    lines.append(line)
-                    fact_edges.append(edge)
-                    if artifact_ids is not None:
-                        artifact_ids.append(("codex_edges", str(edge.id)))
-        return lines, fact_edges, fit
-
-    def _codex_enumeration(self, prompt: str, relations: List[str],
-                           allowed_entity_ids, allowed_batch_ids) -> List[ContextFragment]:
-        """A4: re-homed MERA. Entity-less category/enumeration queries ('list
-        all the characters') answered from the graph itself. Joint gate:
-        an explicit enumeration cue AND a grounded signal (a tag matching a
-        prompt token, or a detected relation) — no LLM, no loose triggers."""
-        pl = prompt.lower()
-        if not any(cue in pl for cue in self._ENUM_CUES):
-            return []
-        tokens = {w.strip(".,!?'s\"") for w in pl.split()}
-        candidate_tags = {t for w in tokens if len(w) >= 4 for t in (w, w.rstrip("s"))}
-        # A10: enumeration also emits per-entity fragments (+ one facts fragment)
-        # so each competes on its own in fusion/budget rather than as one blob.
-        fragments: List[ContextFragment] = []
-        seen_entities = set()
-        try:
-            # (a) tag-matched entities: "characters" → tag 'character'
-            if candidate_tags:
-                from sqlalchemy import or_
-                q = self.db.query(CodexEntity).filter(
-                    or_(*[CodexEntity.tags.any(t) for t in candidate_tags]),
-                    *self._entity_source_filters())
-                for ent in q.limit(settings.codex_enum_entity_limit).all():
-                    if allowed_entity_ids is not None and ent.id not in allowed_entity_ids:
-                        continue
-                    if ent.id in self._denied_entity_ids:   # C6 exclusion
-                        continue
-                    if ent.id not in seen_entities and ent.context_payload:
-                        seen_entities.add(ent.id)
-                        texts, rendered, artifact_ids = [], [], []
-                        self._traverse_graph(ent, 0, 0, set(), texts,
-                            allowed_entity_ids=allowed_entity_ids, allowed_batch_ids=allowed_batch_ids,
-                            rendered_edges=rendered, artifact_ids=artifact_ids)
-                        if texts:
-                            t = "\n\n".join(texts)
-                            fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
-                                token_count=count_tokens(t),
-                                origin_batch_ids=tuple({str(b) for e in rendered
-                                    if (b := self._edge_source_batch(e, allowed_batch_ids))}),
-                                origin_edge_ids=tuple({str(e.id) for e in rendered}),
-                                stored_artifact_ids=tuple(dict.fromkeys(artifact_ids))))
-            # (b) relation-driven facts: "who inspired ..." → inspired_by edges,
-            #     grouped into a single facts fragment (they're a list answer).
-            fact_lines = []
-            fact_batches: list = []
-            fact_ids: list = []
-            artifact_ids = []
-            if relations:
-                q = self.db.query(CodexEdge).filter(
-                    *self._edge_valid_filters(),
-                    CodexEdge.relation.in_(relations))
-                if allowed_batch_ids is not None:
-                    q = q.filter(or_(CodexEdge.source_batch.in_(allowed_batch_ids),
-                                     CodexEdge.observed_batches.op("&&")(
-                                         list(allowed_batch_ids))))
-                edges = [edge for edge in q.order_by(CodexEdge.strength.desc()).all()
-                         if self._edge_source_batch(edge, allowed_batch_ids) is not None][
-                             :settings.codex_enum_edge_limit]
-                self._prime_edge_times(edges)
-                for edge in edges:
-                    if self._edge_trust(edge) < settings.codex_direct_trust_floor:
-                        continue
-                    src = self.db.query(CodexEntity).get(edge.source_id)
-                    tgt = self.db.query(CodexEntity).get(edge.target_id)
-                    if src and tgt:
-                        line = self._fact_line(src, edge, tgt, allowed_batch_ids, artifact_ids)
-                        if not line:
-                            continue
-                        fact_lines.append(line)
-                        fact_ids.append(str(edge.id))
-                        artifact_ids.append(("codex_edges", str(edge.id)))
-                        batch = self._edge_source_batch(edge, allowed_batch_ids)
-                        if batch:
-                            fact_batches.append(str(batch))
-            if fact_lines:
-                t = "\n".join(fact_lines)
-                fragments.append(ContextFragment(text=t, source_type="codex", score=1.0,
-                                                 token_count=count_tokens(t),
-                                                 origin_batch_ids=tuple(fact_batches),
-                                                 origin_edge_ids=tuple(fact_ids),
-                                                 stored_artifact_ids=tuple(dict.fromkeys(artifact_ids))))
-            if fragments:
-                logger.info("codex_enumeration", entities=len(seen_entities),
-                            facts=len(fact_lines), relations=relations)
-            return fragments
-        except Exception as err:
-            self._leg_degraded("codex.enumeration", err)
-            return []
 
     def _expansion_terms(self) -> List[str]:
         """A4 grounded query expansion (the sane replacement for HyDE): expand
@@ -1933,83 +1345,6 @@ class HybridRetrievalOrchestrator:
     # ------------------------------------------------------------------
     # Codex graph traversal (conversation‑scoped, NER‑powered)
     # ------------------------------------------------------------------
-    def _codex_claims(self, prompt, prompt_embedding, scope=None, conv_id=None):
-        """Search attributed sentences without requiring an entity match."""
-        if (not settings.codex_sentence_claims or self._scope_resolution_failed
-                or (scope and (scope.get("isolated") or scope.get("incognito")))):
-            return []
-        if scope and scope.get("cluster_ids_explicit") and not scope.get("cluster_ids"):
-            return []
-        conv_filter, conv_params, _ = self._conv_scope_filter(
-            scope, (scope or {}).get("conversation_id") or conv_id, "e.conversation_id")
-        excl_filter, excl_params = self._exclusion_filters(
-            scope, "e.conversation_id", "e.id", membership_column="e.cluster_ids")
-        cluster_filter = self._cluster_filter(scope, "e.id", membership_column="e.cluster_ids")
-        time_filter, _, ts_params, _ = self._timescope_leg_filters("e.")
-        params = {"prompt": prompt, "limit": settings.codex_claim_candidate_limit,
-                  **conv_params, **excl_params, **ts_params}
-        filters = ""
-        if scope and "batch_ids" in scope:
-            filters += " AND c.source_batch = ANY(:batches)"
-            params["batches"] = list(scope["batch_ids"] or [])
-        if self._denied_batch_ids:
-            filters += " AND c.source_batch <> ALL(:denied)"
-            params["denied"] = list(self._denied_batch_ids)
-        if scope and scope.get("cluster_ids"):
-            params["cluster_ids"] = scope["cluster_ids"]
-        # Warm membership comes from current links; archived membership is the
-        # exact preserved array. NULL legacy cold membership stays unknown.
-        source_rows = """
-            SELECT warm.id, warm.batch_id, warm.conversation_id, warm.is_private, warm.timestamp,
-                   ARRAY(SELECT l.cluster_id FROM episodic_cluster_links l
-                         WHERE l.episodic_id = warm.id) AS cluster_ids
-            FROM episodic_memory warm
-            UNION ALL
-            SELECT cold.id, cold.batch_id, cold.conversation_id, cold.is_private, cold.timestamp,
-                   cold.cluster_ids
-            FROM cold_storage cold
-            WHERE NOT EXISTS (SELECT 1 FROM episodic_memory warm WHERE warm.id = cold.id)
-        """
-        base = f"""FROM codex_claims c JOIN ({source_rows}) e ON e.id = c.episodic_id AND e.batch_id = c.source_batch
-            WHERE e.is_private = false {conv_filter} {excl_filter} {cluster_filter}
-            {time_filter} {filters}"""
-        try:
-            lexical = text(f"""SELECT c.id {base}
-                AND to_tsvector('english', c.text) @@ plainto_tsquery('english', :prompt)
-                ORDER BY ts_rank(to_tsvector('english', c.text), plainto_tsquery('english', :prompt)) DESC, c.id
-                LIMIT :limit""")
-            channels = [list(self.db.execute(lexical, params).scalars())]
-            if prompt_embedding is not None:
-                semantic = text(f"""SELECT c.id {base} AND c.embedding IS NOT NULL
-                    ORDER BY c.embedding <=> :embedding, c.id LIMIT :limit""").bindparams(
-                        bindparam("embedding", type_=PgVector))
-                channels.append(list(self.db.execute(semantic, {**params, "embedding": prompt_embedding}).scalars()))
-            scores = {}
-            for channel in channels:
-                for rank, ident in enumerate(channel, 1):
-                    scores[ident] = scores.get(ident, 0.0) + 1.0 / (settings.retrieval_rrf_k + rank)
-            fragments, sources = [], {}
-            for ident in sorted(scores, key=lambda k: (-scores[k], str(k)))[:settings.codex_claim_candidate_limit]:
-                claim = self.db.get(CodexClaim, ident)
-                if claim.source_batch not in sources:
-                    sources[claim.source_batch] = source_for_claim(self.db, claim)
-                source = sources[claim.source_batch]
-                if source is None or not excerpt_is_current(source, claim):
-                    logger.warning("claim_source_stale", claim_id=str(ident))
-                    continue
-                excerpt = claim_representation(claim, source=source)
-                rendered = (f"[Source excerpt; speaker: {claim.role}] "
-                            f"{source_stamp(source)}\n"
-                            f"{excerpt}")
-                fragments.append(ContextFragment(rendered, "codex", scores[ident],
-                    count_tokens(rendered), conversation_id=str(source.conversation_id),
-                    origin_batch_ids=(str(claim.source_batch),), leg="codex",
-                    claim_source_row_id=str(source.id), claim_excerpt=excerpt,
-                    stored_artifact_ids=(("codex_claims", str(claim.id)),)))
-            return fragments
-        except Exception as exc:
-            self._leg_degraded("codex.claims", exc)
-            return []
 
     def _facts_leg(self, prompt, prompt_embedding, scope=None, conv_id=None):
         """CODEX_V4 D8: verified fact sentences by keyword, meaning and one-hop entity.
@@ -2033,6 +1368,11 @@ class HybridRetrievalOrchestrator:
             scope, "e.conversation_id", "e.id", membership_column="e.cluster_ids")
         cluster_filter = self._cluster_filter(scope, "e.id", membership_column="e.cluster_ids")
         time_filter, _, ts_params, _ = self._timescope_leg_filters("e.")
+        ts = getattr(self, "_active_timescope", CURRENT)
+        if time_filter and ts.mode == "as_of":
+            # As of a moment: the state THEN — anything stated by the window's
+            # end that was still valid at it, however long before it was said.
+            time_filter = "AND e.timestamp < :ts_t1"
         limit = settings.codex_fact_candidate_limit
         params = {"prompt": prompt, "limit": limit, **conv_params, **excl_params, **ts_params}
         source_filters = ""
@@ -2044,10 +1384,16 @@ class HybridRetrievalOrchestrator:
             params["denied"] = list(self._denied_batch_ids)
         if scope and scope.get("cluster_ids"):
             params["cluster_ids"] = scope["cluster_ids"]
-        ts = getattr(self, "_active_timescope", CURRENT)
-        if ts.source_clock and ts.mode in ("as_of", "range") and ts.t1:
-            validity = "f.valid_from <= :valid_at AND (f.valid_until IS NULL OR f.valid_until > :valid_at)"
+        # A fact expired by /forget or deletion is never history: only a
+        # REPLACED fact (superseded_by) is served from the past.
+        if time_filter and ts.mode == "as_of":
+            validity = ("f.valid_from <= :valid_at AND (f.valid_until IS NULL OR "
+                        "(f.valid_until > :valid_at AND f.superseded_by IS NOT NULL))")
             params["valid_at"] = ts.t1
+        elif time_filter:
+            # A range: what was stated in it, current or replaced after it began.
+            validity = ("(f.valid_until IS NULL OR "
+                        "(f.valid_until > :ts_t0 AND f.superseded_by IS NOT NULL))")
         else:
             validity = "f.valid_until IS NULL"
         visible = f"""SELECT s.fact_id, s.episodic_id, s.source_batch, e.timestamp
@@ -2087,10 +1433,23 @@ class HybridRetrievalOrchestrator:
                     text(f"SELECT * FROM ({visible}) v WHERE v.fact_id = ANY(:chosen)"),
                     {**params, "chosen": chosen}):
                 sources.setdefault(fact_id, []).append((str(row_id), str(batch)))
+            current = validity == "f.valid_until IS NULL"
+            # The predecessor clause obeys the same visibility as the fact: a
+            # replaced fact whose source was deleted, forgotten or is out of
+            # scope must not reach the prompt through its successor.
+            earlier = {}
+            if current:
+                for successor, ident in self.db.execute(text(f"""
+                        SELECT f.superseded_by, f.id FROM codex_facts f
+                        WHERE f.superseded_by = ANY(:chosen) AND f.valid_until IS NOT NULL
+                          AND f.id IN (SELECT fact_id FROM ({visible}) v)
+                        ORDER BY f.valid_until DESC"""), {**params, "chosen": chosen}):
+                    earlier.setdefault(successor, ident)
             fragments = []
             for ident in chosen:
                 fact = self.db.get(CodexFact, ident)
-                rendered = self._render_fact(fact, current=validity == "f.valid_until IS NULL")
+                previous = self.db.get(CodexFact, earlier[ident]) if ident in earlier else None
+                rendered = self._render_fact(fact, current=current, earlier=previous)
                 rows = sources.get(ident, [])
                 self._fact_strength[str(ident)] = (fact.support_count or 1, fact.usage or 0.0)
                 fragments.append(ContextFragment(
@@ -2130,7 +1489,13 @@ class HybridRetrievalOrchestrator:
         """
         matched = []
         if prompt:
-            names = extract_entities(prompt, self.embedder)
+            try:
+                names = extract_entities(prompt, self.embedder)
+            except Exception as exc:                                # noqa: BLE001
+                # One channel's failure must not take the keyword and meaning
+                # channels down with it; the store-name lookup still runs.
+                self._leg_degraded("codex.facts.ner", exc)
+                names = []
             if names:
                 matched = (self._match_entities_by_similarity(names) if self.use_fuzzy_match
                            else self._match_entities_exact(names))
@@ -2154,17 +1519,15 @@ class HybridRetrievalOrchestrator:
             self._leg_degraded("codex.facts.names", exc)
             return []
 
-    def _render_fact(self, fact, *, current):
+    def _render_fact(self, fact, *, current, earlier=None):
         """D1: the sentence is what the model reads; one predecessor clause for a
-        fact that replaced another (knowledge-update questions)."""
+        fact that replaced another (knowledge-update questions). *earlier* is the
+        newest replaced predecessor that is visible under this request's scope."""
         state = "current" if fact.valid_until is None else f"replaced {fact.valid_until:%Y-%m-%d}"
         rendered = (f"[Fact; {fact.speaker}, {fact.modality}; {fact.mentioned_at:%Y-%m-%d}; {state}] "
                     f"{fact.text}")
-        if current:
-            earlier = (self.db.query(CodexFact).filter(CodexFact.superseded_by == fact.id)
-                       .order_by(CodexFact.valid_until.desc()).first())
-            if earlier is not None and earlier.valid_until is not None:
-                rendered += f" (earlier: {earlier.text} — until {earlier.valid_until:%Y-%m-%d})"
+        if current and earlier is not None:
+            rendered += f" (earlier: {earlier.text} — until {earlier.valid_until:%Y-%m-%d})"
         return rendered
 
     def _fact_strength_bonus(self, fragments):
@@ -2186,372 +1549,6 @@ class HybridRetrievalOrchestrator:
         out.sort(key=lambda f: f.score, reverse=True)
         return out
 
-    def _codex_graph(self, classification, scope: Optional[dict] = None,
-                     prompt_embedding=None) -> List[ContextFragment]:
-        prompt = classification.prompt
-        self._graph_quote_lines = {}
-        self._graph_nonquote_entities = set()
-        self._graph_entity_labels = {}
-        self._last_matched_entities = []
-        # G35: hand the traversal the request's prompt so it can rank its
-        # frontier by relation fit rather than by trust alone.
-        self._prompt_embedding = prompt_embedding
-        entity_strings = extract_entities(prompt, self.embedder)
-
-        matched = []
-        if entity_strings:
-            matched = (self._match_entities_by_similarity(entity_strings)
-                       if self.use_fuzzy_match
-                       else self._match_entities_exact(entity_strings))
-            if not matched:
-                # A4 descriptor fallback: 'main fortress' → payload mentions 'fortress'
-                matched = self._match_entities_by_payload(entity_strings)
-
-        # A5: project-scope sets (both None when unscoped).
-        allowed_entity_ids, allowed_batch_ids = self._codex_scope_sets(scope)
-
-        if not matched:
-            # A4: re-homed MERA — entity-less enumeration ("list all the characters").
-            if self.enable_enumeration:
-                # G34: _detect_relations is computed HERE, not at the top of the
-                # leg. It is now enumeration's only consumer — the anchor path
-                # ranks against each anchor's own relations instead — and
-                # enumeration additionally needs an explicit cue word, so the
-                # 12.2 ms gloss loop went from every prompt to the rare ones
-                # that could use it.
-                return self._codex_enumeration(
-                    prompt, self._detect_relations(prompt, prompt_embedding),
-                    allowed_entity_ids, allowed_batch_ids)
-            return []
-
-        self._last_matched_entities = matched   # grounded query expansion (BM25)
-
-        try:
-            # A10: emit ONE fragment per anchor entity (its full note + trust-gated
-            # neighbor previews + its relation facts), scored by that anchor's own
-            # edge trust. Each anchor gets its OWN visited set so a shared neighbor
-            # appears (as a preview) in each anchor's self-contained fragment; the
-            # OTHER anchors are excluded from being absorbed as neighbors, so every
-            # matched entity keeps its own fragment (A7.2 bidirectional traversal
-            # would otherwise merge connected anchors via a shared visited set).
-            fragments: List[ContextFragment] = []
-            timeline_frags: List[ContextFragment] = []   # T4: own leg (RRF weight + budget lane)
-            best_fit = 0.0   # G34: max across anchors, not the last one's
-            anchor_ids = {a.id for a in matched}
-            ts = self._active_timescope
-            timeline_cap = (settings.timeline_max_fragments_evolution
-                            if ts.mode == "evolution"
-                            else settings.timeline_max_fragments)
-            for anchor in matched:
-                if allowed_entity_ids is not None and anchor.id not in allowed_entity_ids:
-                    continue
-                if anchor.id in self._denied_entity_ids:   # C6 exclusion
-                    continue
-                local_texts, direct_edges, rendered_edges, artifact_ids = [], [], [], []
-                self._traverse_graph(anchor, 0, settings.codex_max_depth, set(),
-                                     local_texts, direct_edges,
-                                     allowed_entity_ids, allowed_batch_ids,
-                                     exclude_ids=anchor_ids - {anchor.id}, rendered_edges=rendered_edges,
-                                     artifact_ids=artifact_ids)
-                if not local_texts:
-                    continue
-                # Per-anchor score from THIS anchor's direct-edge trust (A3).
-                mean_trust = (sum(self._edge_trust(e) for e in direct_edges) / len(direct_edges)
-                              if direct_edges else 0.0)
-                score = 1.0 + min(0.5, 0.25 * mean_trust)
-                # A4/G34: this anchor's facts, ordered by how well each edge's
-                # relation answers the question. Runs unconditionally now — the
-                # old `if detected_relations:` gate was always true (the detector
-                # fired on every prompt), so it decided nothing while looking
-                # like precision.
-                fact_lines, fact_edges, fit = self._relation_facts(
-                    [anchor], prompt_embedding, allowed_batch_ids, artifact_ids)
-                if fact_lines:
-                    existing_text = "\n\n".join(local_texts)
-                    local_texts.extend(line for line in fact_lines if line not in existing_text)
-                    direct_edges.extend(fact_edges)
-                    # G34: proportional to how sharply one relation stood out,
-                    # replacing a flat +0.25 that was applied on every prompt
-                    # because its condition could never be false. A contentless
-                    # prompt scores every relation alike, so fit collapses to 0
-                    # and this adds nothing — without a threshold saying so.
-                    score += settings.codex_relation_fit_weight * fit
-                    best_fit = max(best_fit, fit)
-                text = "\n\n".join(local_texts)
-                requirements = self._graph_quote_requirements(
-                    text, rendered_edges + fact_edges, artifact_ids)
-                fragments.append(ContextFragment(
-                    text=text, source_type="codex", score=score,
-                    token_count=count_tokens(text),
-                    # G48: the turns these facts were extracted FROM. This is the
-                    # path that actually produces the codex fragments retrieval
-                    # returns — the enumeration path below is a different one —
-                    # and without this a codex fragment can never be credited to
-                    # a gold turn, which is why recall has only ever scored the
-                    # episodic leg.
-                    origin_batch_ids=tuple(
-                        {str(b) for e in rendered_edges + fact_edges
-                         if (b := self._edge_source_batch(e, allowed_batch_ids))}),
-                    origin_edge_ids=tuple({str(e.id) for e in rendered_edges + fact_edges}),
-                    stored_artifact_ids=tuple(dict.fromkeys(artifact_ids)),
-                    source_quote_requirements=requirements,
-                    source_quote_text_sha256=(hashlib.sha256(text.encode("utf-8")).hexdigest()
-                                              if requirements else None)))
-
-                # T4: attach the anchor's evolution timeline whenever it
-                # carries real supersession history (D-U2: provided in any
-                # mode — including current, the saga case — never forced;
-                # the model decides how much to narrate). 0.9× the anchor's
-                # own score; capped per D7 so a life story can't eat the
-                # window.
-                if len(timeline_frags) < timeline_cap and history_exists(self.db, anchor.id):
-                    timeline_artifacts = []
-                    tl, timeline_batches = build_entity_timeline(
-                        self.db, anchor, allowed_batch_ids,
-                        t0=ts.t0 if ts.source_clock else None,
-                        t1=ts.t1 if ts.source_clock else None,
-                        max_transitions=settings.timeline_max_transitions,
-                        source_batch_for_edge=lambda edge: self._edge_source_batch(
-                            edge, allowed_batch_ids), return_sources=True,
-                        artifact_ids=timeline_artifacts)
-                    if tl:
-                        timeline_frags.append(ContextFragment(
-                            text=tl, source_type="timeline", score=0.9 * score,
-                            token_count=count_tokens(tl),
-                            origin_batch_ids=timeline_batches,
-                            stored_artifact_ids=tuple(dict.fromkeys(timeline_artifacts))))
-
-            if best_fit > 0.0:
-                # G34: reports the measured fit rather than a list of "detected"
-                # relations. The old field listed whatever cleared the floor —
-                # typically all 197 — so it logged noise as though it were a hit.
-                logger.info("codex_relation_overlap", best_fit=round(best_fit, 4),
-                            fragments=len(fragments))
-            return fragments + timeline_frags
-        except Exception as err:
-            self._leg_degraded("codex", err)
-            return []
-
-    def _graph_quote_requirements(self, text, edges, artifact_ids):
-        """Coverage for actual quoted lines, never inferred from source lineage."""
-        nonquotes = getattr(self, "_graph_nonquote_entities", set())
-        if any(table == "codex_entities" and str(key) in nonquotes for table, key in artifact_ids):
-            return ()
-        collector = getattr(self, "_graph_quote_lines", {})
-        required = []
-        for edge_id in dict.fromkeys(str(edge.id) for edge in edges):
-            observations = [(line, units) for line, units in collector.get(edge_id, ()) if line in text]
-            if not observations or any(not units for _, units in observations):
-                return ()
-            for _, units in observations:
-                required.extend(units)
-        bodies = [" ".join(unit.casefold().split()) for _, unit in required]
-        labels = getattr(self, "_graph_entity_labels", {})
-        for table, key in dict.fromkeys(artifact_ids):
-            if table != "codex_entities":
-                continue
-            name = labels.get(str(key))
-            if not name:
-                return ()
-            literal = " ".join(name.casefold().split())
-            pattern = r"(?<!\w)" + re.escape(literal) + r"(?!\w)"
-            if not any(re.search(pattern, body) for body in bodies):
-                return ()
-        return tuple(dict.fromkeys(required))
-
-    def _edge_trust(self, edge) -> float:
-        """Source quality gates entry; bounded retention/recency rank candidates.
-
-        This ranking score is not a calibrated probability of truth. Legacy NULL
-        confidence retains its historical behavior pending evidence migration.
-        """
-        conf = edge.extraction_confidence if edge.extraction_confidence is not None else 1.0
-        # Usage must never lift a low-support assertion across the quality gate.
-        if conf < settings.codex_direct_trust_floor:
-            return conf
-        retention = min(1.0, max(0.0, edge.strength or 0.0) / settings.codex_retention_cap)
-        base = conf * (1.0 + settings.codex_retention_rank_weight * retention)
-        # A11: reward recently-asserted facts; old edges tend to 1.0 (no penalty).
-        # T3 (D9): under a window, "recent" means near the window end — the
-        # multiplier stays >= 1.0, so A11's never-penalize-age invariant
-        # survives the re-anchoring.
-        vf = getattr(edge, "valid_from", None)
-        ts = getattr(self, "_active_timescope", CURRENT)
-        if ts.mode != 'current' and not ts.source_clock:
-            return base
-        if vf is not None:
-            try:
-                ts = getattr(self, "_active_timescope", CURRENT)
-                if ts.mode in ("as_of", "range") and ts.t1:
-                    age_days = abs((ts.t1 - vf).total_seconds()) / 86400.0
-                else:
-                    age_days = max(0.0, (datetime.now(timezone.utc) - vf).total_seconds() / 86400.0)
-                base *= 1.0 + settings.codex_recency_boost * math.exp(-age_days / settings.codex_recency_tau_days)
-            except Exception as err:
-                self._leg_degraded("codex.edge_recency", err)
-        return base
-
-    def _render_codex_entity(self, entity, depth, out_edges, in_edges,
-                             allowed_batch_ids, context_texts, rendered_edges=None, artifact_ids=None):
-        """Rich source notes at anchors; compact navigation at deeper nodes."""
-        labels = getattr(self, "_graph_entity_labels", None)
-        if labels is not None:
-            labels[str(entity.id)] = entity.canonical_name
-        derived = getattr(entity, "source", None) not in (None, "conversation")
-        if derived and depth == 0:
-            if getattr(self, "_graph_nonquote_entities", None) is not None:
-                self._graph_nonquote_entities.add(str(entity.id))
-            if entity.context_payload:
-                context_texts.append(f"[Entity: {entity.canonical_name}]\n{entity.context_payload}")
-                if artifact_ids is not None:
-                    artifact_ids.append(("codex_entities", str(entity.id)))
-            return
-        if depth > 0:
-            if ((getattr(entity, "entity_type", None) or "entity") != "entity"
-                    and getattr(self, "_graph_nonquote_entities", None) is not None):
-                self._graph_nonquote_entities.add(str(entity.id))
-            context_texts.append(f"[{entity.canonical_name} ({getattr(entity, 'entity_type', None) or 'entity'})]")
-            if artifact_ids is not None:
-                artifact_ids.append(("codex_entities", str(entity.id)))
-            return
-        lines = []
-        self._prime_edge_times(out_edges + in_edges)
-        has_private_source = any(str(batch) in self._private_source_batches
-                                 for e in out_edges + in_edges
-                                 for batch in ({e.source_batch} | set(e.observed_batches or []))) \
-            if hasattr(self, "_private_source_batches") else False
-        unscoped_current = (allowed_batch_ids is None and not self._denied_batch_ids
-                            and not has_private_source and self._active_timescope.mode == "current")
-        if unscoped_current:
-            note = (entity.description or "").strip()
-            if not note and not out_edges and not in_edges:
-                note = (entity.context_payload or "").strip()
-            if note:
-                if getattr(self, "_graph_nonquote_entities", None) is not None:
-                    self._graph_nonquote_entities.add(str(entity.id))
-                from src.memory.entity_notes import current_note_support
-                label = "Source-supported account" if current_note_support(self.db, entity) else "Unverified stored note"
-                lines.append(f"[{label}] {note}")
-        edges = list({e.id: e for e in out_edges + in_edges}.values())
-        edges.sort(key=lambda e: (-self._edge_trust(e), str(e.id)))
-        self._prime_edge_times(edges[:settings.codex_entity_edge_limit])
-        for edge in edges[:settings.codex_entity_edge_limit]:
-            if self._edge_trust(edge) < settings.codex_direct_trust_floor:
-                continue
-            source = self.db.get(CodexEntity, edge.source_id)
-            target = self.db.get(CodexEntity, edge.target_id)
-            if source and target:
-                line = self._fact_line(source, edge, target, allowed_batch_ids, artifact_ids)
-                if line:
-                    lines.append(line)
-                    if rendered_edges is not None:
-                        rendered_edges.append(edge)
-                    if artifact_ids is not None:
-                        artifact_ids.append(("codex_edges", str(edge.id)))
-        if lines:
-            context_texts.append(f"[Entity: {entity.canonical_name}]\n" + "\n".join(dict.fromkeys(lines)))
-            if artifact_ids is not None:
-                artifact_ids.append(("codex_entities", str(entity.id)))
-
-    def _traverse_graph(self, entity, depth, max_depth, visited, context_texts, anchor_edges=None,
-                        allowed_entity_ids=None, allowed_batch_ids=None, exclude_ids=None,
-                        rendered_edges=None, artifact_ids=None):
-        if entity.id in visited or depth > max_depth:
-            return
-        visited.add(entity.id)
-
-        # A7.2: fetch BOTH directions — outgoing links and incoming backlinks —
-        # so the graph is navigable both ways (Obsidian backlinks). T3: the
-        # validity predicate is valid_at(T) under a window (D4); evolution
-        # mode deliberately navigates the CURRENT graph (D5 — history is the
-        # T4 timeline builder's job, dead-edge walking makes incoherent
-        # neighborhoods).
-        valid = self._edge_valid_filters()
-        out_edges = self.db.query(CodexEdge).filter(
-            CodexEdge.source_id == entity.id, *valid
-        ).order_by(CodexEdge.strength.desc()).all()
-        in_edges = self.db.query(CodexEdge).filter(
-            CodexEdge.target_id == entity.id, *valid
-        ).order_by(CodexEdge.strength.desc()).all()
-        # A source in the allowed set keeps a corroborated edge visible even
-        # when its first observation was outside scope. The rendered quote and
-        # origin batch use the same source decision.
-        out_edges = [e for e in out_edges
-                     if self._edge_source_batch(e, allowed_batch_ids) is not None]
-        in_edges = [e for e in in_edges
-                    if self._edge_source_batch(e, allowed_batch_ids) is not None]
-
-        self._render_codex_entity(entity, depth, out_edges, in_edges,
-                                  allowed_batch_ids, context_texts, rendered_edges, artifact_ids)
-
-        # A7.2: traverse both directions (into the target of outgoing edges and
-        # the source of incoming ones), trust-gated and scope-bounded as before.
-        # G35: collect the surviving frontier, then expand only the best
-        # `codex_max_fanout` of it. Two changes here, both load-bearing:
-        #   * a cap exists at all. Expansion was unbounded, so the size and the
-        #     cost of a codex fragment were set by graph topology — how many
-        #     edges the anchor happens to have — instead of by relevance to the
-        #     question. Invisible on a sparse store, unavoidable on a hub.
-        #   * candidates from BOTH directions now compete in ONE ranking keyed
-        #     on _edge_trust. The old loop walked every out_edge and then every
-        #     in_edge, each ordered by raw `strength` in SQL — a different
-        #     ordering from the _edge_trust that gates them, and one under which
-        #     a well-connected outgoing set starves every backlink.
-        frontier = []
-        for edge, other_id in ([(e, e.target_id) for e in out_edges] +
-                               [(e, e.source_id) for e in in_edges]):
-            # A8: a negated edge ("X does NOT use Y") is a stored fact, not a
-            # navigable link — it's rendered in the note (Negations section) but
-            # we don't walk into it as if the relationship held.
-            if getattr(edge, "negated", False):
-                continue
-            trust = self._edge_trust(edge)
-            if depth == 0:
-                # Direct-edge trust gates candidate expansion, never promotion.
-                if trust < settings.codex_direct_trust_floor:
-                    continue
-                # Candidate lineage/trust summary, not proof of final exposure.
-                if anchor_edges is not None:
-                    anchor_edges.append(edge)
-            # A3: trust-gate deep hops — weak/decayed edges don't expand the frontier.
-            elif trust < settings.codex_deep_strength_floor:
-                continue
-            # A5: traversal never leaves the conversation's entity set under scope.
-            if allowed_entity_ids is not None and other_id not in allowed_entity_ids:
-                continue
-            if other_id in self._denied_entity_ids:   # C6 exclusion
-                continue
-            # A10/A7.2: don't absorb another matched anchor as a neighbor — it has
-            # its own fragment.
-            if exclude_ids and other_id in exclude_ids:
-                continue
-            frontier.append((trust, other_id, edge.relation))
-
-        # G35's second half, unblocked by G34: rank the frontier by how well each
-        # edge's RELATION answers the question, then by trust. Which edges we
-        # walk into was previously decided by trust alone — i.e. by how often the
-        # graph had seen them, never by what was asked. Relation fit leads
-        # because trust is the tiebreak *within* an equally relevant set, not a
-        # substitute for relevance.
-        #
-        # When there is no prompt embedding, or fewer than two distinct relations
-        # to choose between, `scores` is empty and this degrades to exactly the
-        # trust ordering it replaces — the same fallback the fact path takes.
-        scores, _ = self._relation_fit(
-            sorted({r for _, _, r in frontier}),
-            getattr(self, "_prompt_embedding", None))
-        # Highest first. A node already in `visited`, or one that fails the
-        # visibility check below, still consumes a slot — the cap bounds the
-        # WORK done per node, which is the property being bought.
-        frontier.sort(key=lambda c: (scores.get(c[2], 0.0), c[0]), reverse=True)
-        for _trust, other_id, _rel in frontier[:settings.codex_max_fanout]:
-            other = self.db.query(CodexEntity).get(other_id)
-            # E1b (D3): derived entities stay invisible outside their project
-            # even when reachable through a conversation edge.
-            if other and self._entity_visible(other):
-                self._traverse_graph(other, depth + 1, max_depth, visited,
-                                     context_texts, anchor_edges,
-                                     allowed_entity_ids, allowed_batch_ids, exclude_ids, rendered_edges, artifact_ids)
 
     # ------------------------------------------------------------------
     # Procedural lookup (scoped + trigger‑condition evaluation)
@@ -2577,7 +1574,7 @@ class HybridRetrievalOrchestrator:
         # because this leg is also a direct entry point (tests, direct calls);
         # idempotent and query-free when reached via retrieve().
         self._resolve_exclusion_sets(scope)
-        _, allowed_batch_ids = self._codex_scope_sets(scope)
+        allowed_batch_ids = self._scope_batch_ids(scope)
         excluded_batch_ids = self._denied_batch_ids
 
         # T3: under a window, a pattern is relevant only if its observation
@@ -3463,16 +2460,6 @@ class HybridRetrievalOrchestrator:
         return unique
 
     @staticmethod
-    def _complete_source_contains_claim(source, claim):
-        source_id = (source.source_batch_id if source.source_type == "episodic"
-                     else source.source_note_row_id if source.source_type == "batch_summary"
-                     else None)
-        return (source_id and claim.claim_source_row_id
-                and str(source_id) == claim.claim_source_row_id
-                and claim.claim_excerpt
-                and claim.claim_excerpt in source.text)
-
-    @staticmethod
     def _source_note_contains_episodic(note, episodic):
         return (note.source_type == "batch_summary" and note.source_note_row_id
                 and episodic.source_type == "episodic" and episodic.covers_entire_source
@@ -3490,7 +2477,6 @@ class HybridRetrievalOrchestrator:
             and source.stored_artifact_ids and excerpt.stored_artifact_ids
             and set(excerpt.stored_artifact_ids) <= set(source.stored_artifact_ids)
             and set(excerpt.origin_batch_ids) <= set(source.origin_batch_ids)
-            and set(excerpt.origin_edge_ids) <= set(source.origin_edge_ids)
             and (not excerpt.covers_entire_source or source.covers_entire_source)
         )
 
@@ -3536,29 +2522,23 @@ class HybridRetrievalOrchestrator:
 
         def admit(fragment):
             nonlocal total
-            if fragment.claim_source_row_id and any(
-                    self._complete_source_contains_claim(source, fragment)
-                    for source in result):
-                return False
             if fragment.source_type == "episodic" and any(
                     self._source_note_contains_episodic(note, fragment)
                     for note in result):
                 return False
-            redundant = [claim for claim in result
-                         if self._complete_source_contains_claim(fragment, claim)
-                         or self._source_note_contains_episodic(fragment, claim)]
-            reclaimable = sum(claim.token_count for claim in redundant)
+            redundant = [held for held in result
+                         if self._source_note_contains_episodic(fragment, held)]
+            reclaimable = sum(held.token_count for held in redundant)
             fitted = (fragment if fragment.token_count <= max_tokens - total + reclaimable
                       else _degraded(fragment, max_tokens - total))
             if fitted is None:
                 return False
-            # A degraded summary need not contain the excerpt that the raw
-            # source contained. Recheck against the exact admitted text.
-            redundant = [claim for claim in result
-                         if self._complete_source_contains_claim(fitted, claim)
-                         or self._source_note_contains_episodic(fitted, claim)]
+            # A degraded summary need not contain what the raw source
+            # contained. Recheck against the exact admitted text.
+            redundant = [held for held in result
+                         if self._source_note_contains_episodic(fitted, held)]
             if fitted.token_count > max_tokens - total + sum(
-                    claim.token_count for claim in redundant):
+                    held.token_count for held in redundant):
                 return False
             if settings.retrieval_collapse_enabled and fitted.source_batch_id:
                 same = [f for f in result if f.source_batch_id == fitted.source_batch_id]
@@ -3760,13 +2740,7 @@ class HybridRetrievalOrchestrator:
             recency_boost=self._recency_params(
                 "Creative_&_Media" in (classification.topic_tags or []))[1]))
 
-        if current_method() == METHOD_V4:
-            fragments.extend(self._facts_leg(classification.prompt, prompt_embedding, scope, scope_conv))
-        else:
-            fragments.extend(self._codex_graph(classification, scope,
-                                               prompt_embedding=prompt_embedding))
-            fragments.extend(self._codex_claims(classification.prompt, prompt_embedding, scope,
-                                                conversation_id))
+        fragments.extend(self._facts_leg(classification.prompt, prompt_embedding, scope, scope_conv))
         prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
         cold = self._cold_lookup(prompt_keywords, scope_conv, scope, prompt_embedding)
         fused = self._apply_rrf({"fallback": fragments, "cold": cold},

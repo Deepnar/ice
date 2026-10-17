@@ -76,11 +76,7 @@ class _OwnedCompletions:
         with local_model_call(model):
             started = time.monotonic()
             try:
-                extra = kwargs.get("extra_body") or {}
-                if extra.get("ice_template_protocol") is not None:
-                    from src.workers.nuextract_transport import native_completion
-                    result = native_completion(**kwargs)
-                elif bg_native_transport.use_native():
+                if bg_native_transport.use_native():
                     result = bg_native_transport.chat_completion(**kwargs)
                 else:
                     # The OpenAI-compatible door cannot size the context, so

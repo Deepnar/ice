@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Callable, Optional
 
 import structlog
+from sqlalchemy import exists as db_exists
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -403,17 +404,26 @@ def _fact_out(fact, role=None) -> dict:
             "superseded_by": str(fact.superseded_by) if fact.superseded_by else None}
 
 
+def has_source():
+    """A fact still backed by at least one source turn. Deletion and /forget
+    remove the deleted turns' sources (C10), so a fact without one carries
+    deleted text and is never shown, as current OR as history."""
+    return db_exists().where(CodexFactSource.fact_id == CodexFact.id)
+
+
 def entity_facts(db, entity_id, *, current: bool = True, limit: int = 30) -> list:
     """Facts linked to an entity: current ones by support then recency, or the
-    replaced history newest first."""
+    replaced history (facts another fact superseded) newest first. Expiry by
+    deletion is not history (T4: deletion is not evolution)."""
     query = (db.query(CodexFact, CodexFactEntity.role)
              .join(CodexFactEntity, CodexFactEntity.fact_id == CodexFact.id)
-             .filter(CodexFactEntity.entity_id == entity_id))
+             .filter(CodexFactEntity.entity_id == entity_id, has_source()))
     if current:
         query = query.filter(CodexFact.valid_until.is_(None)).order_by(
             CodexFact.support_count.desc(), CodexFact.mentioned_at.desc())
     else:
-        query = query.filter(CodexFact.valid_until.is_not(None)).order_by(
+        query = query.filter(CodexFact.valid_until.is_not(None),
+                             CodexFact.superseded_by.is_not(None)).order_by(
             CodexFact.valid_until.desc())
     seen, out = set(), []
     for fact, role in query.limit(limit * 3):

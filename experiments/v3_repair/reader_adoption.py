@@ -15,26 +15,16 @@ from experiments.v3_repair.prepare_inputs import digest, fingerprint, write_or_v
 
 POLICY = "ice-v3-frozen-writer-current-reader-1"
 BEFORE_REF = "80730ae"
+# ⚠ CODEX_V4 (2026-10-16) deleted assertion_support.py, codex_extractor.py and
+# nuextract_transport.py, so their transitions are retired: a frozen bundle that
+# bound them now refuses at fingerprinting, which is correct — a pre-CODEX_V4
+# writer's codex (edges/claims) is not readable by the facts reader. Adopt such
+# a bundle at commit 8079eb2; Z2 builds fresh stores.
 TRANSITIONS = {
     "src/memory/summary_support.py": {
         "before": "be07047be33e3a2c6e0461264229104e51224ffd028c3a2dee2bb7ecd6ae1016",
-        "after": "299e565ce2246d94a681aa433bb2f5502c88b6dc324424cb4186bcf089ab0f1a",
-        "reason": "Approved exact cited-span union and exact supported-v1-proof compatibility. 2026-10-15 (SUMMARY_CLAIMS_V3): v3 quoted-claim method added behind summary_assertion_method; v2/v1 records verify under their own policy exactly as before; pieces and input-scaled caps are producer-side.",
-    },
-    "src/memory/assertion_support.py": {
-        "before": "91feaf48c4672cd40de83d1841132f4a3c2466c8b5414d5edc6f09fe5d03d5b1",
-        "after": "5521b2d8cae84ad72923b6c128bfa05fb40b74f1927095331d73814d7d856fe8",
-        "reason": "Approved exact graph-argument consistency; frozen graph is not rewritten.",
-    },
-    "src/workers/codex_extractor.py": {
-        "before": "ae4b57f6cbb31d76d889fe63349cb5afecbd7cef8f13f7fb742e13bb13ac5b3d",
-        "after": "b21e8b287596d01d5f3526674ad3ba9f89ed2909f2436a981baaa3683bea08df",
-        "reason": "Approved explicit graph tuple and native-envelope comment; no frozen writer replay.",
-    },
-    "src/workers/nuextract_transport.py": {
-        "before": "4a0338a9719dc542838383c820a7732d36be429d6804310e95fc51acbd94139d",
-        "after": "c0a2ed80223d15dbb1e6d0cde9f0889c5fda91f466a05a50c7a0785b78fd680f",
-        "reason": "Approved matching nullable facts grammar; frozen extraction outcomes are retained. 2026-10-15: docstring only (ordinary background calls now use bg_native_transport); no behaviour change.",
+        "after": "5d68720a307e5bc9be95b5f5c57db94458c92940b2ef6a16e3fc9c3295c57e1e",
+        "reason": "Approved exact cited-span union and exact supported-v1-proof compatibility. 2026-10-15 (SUMMARY_CLAIMS_V3): v3 quoted-claim method added behind summary_assertion_method; v2/v1 records verify under their own policy exactly as before; pieces and input-scaled caps are producer-side. 2026-10-16 (CODEX_V4): v4 claim method (modality + subject/relation/object, opening-context header, role-present speaker enum) behind summary_assertion_method, now the default; v2/v3 records still verify under their own policy.",
     },
     "src/workers/turn_density.py": {
         "before": "4bf4314d21994907393de946dd43c42d20324263044843df1ecb2ede074d6ecc",
@@ -43,13 +33,13 @@ TRANSITIONS = {
     },
     "src/retrieval/orchestrator.py": {
         "before": "5027817122bad3a1eb9952132f056daebd3acaf574778da57826ac0a446d5b61",
-        "after": "47e0c86ad8eb9fe6f7c884a61a63c8c3b226ec6dfa7dce54b37623e1fa9d0099",
-        "reason": "Authorized tested native artifact IDs, preserved cold claim membership, source-covered graph packing and exact same-source selected excerpt omission; ranking/proofs and frozen writer outcomes remain unchanged. 2026-10-15 (audit A12): automatic top-k cluster scoping gated behind retrieval_auto_cluster_scope (default off); explicit cluster scope unchanged.",
+        "after": "ab4fd7a7145a58d469d1f6191dbbefc53a87793c429da90b8b8cab7ace843566",
+        "reason": "Authorized tested native artifact IDs, preserved cold claim membership, source-covered graph packing and exact same-source selected excerpt omission; ranking/proofs and frozen writer outcomes remain unchanged. 2026-10-15 (audit A12): automatic top-k cluster scoping gated behind retrieval_auto_cluster_scope (default off); explicit cluster scope unchanged. 2026-10-16 (CODEX_V4): the facts leg replaced the graph, claims, enumeration and timeline legs; procedural scope resolver kept as _scope_batch_ids; inert claim/edge fragment fields removed. A pre-CODEX_V4 bundle's codex cannot be read by this reader.",
     },
     "src/retrieval/evolution.py": {
         "before": "a05d0f0923daf0a545d45ffe7a9412854e86504bec43726624b75942a9fd8051",
-        "after": "5b9656eeda70f340d6a5c67cbd01d2f47ce4972bbb698d4a1708102d305d1cf5",
-        "reason": "Approved rendered timeline contributors follow existing transition/token caps; source/clock and frozen writer outcomes are retained.",
+        "after": "7d2bcfa2c6e4a1fc3766f0e48dcb40426152cd63d13dcdf9e2743818eae117e3",
+        "reason": "Approved rendered timeline contributors follow existing transition/token caps; source/clock and frozen writer outcomes are retained. 2026-10-16 (CODEX_V4): rewritten over facts (entity_diff + log_description_update only); the edge timeline is gone.",
     },
     "src/memory/conversation_notes.py": {
         "before": "a791b5b28674b2b0fff55501935c6df4eba59878f66efd6f8bd11476eab5a8b8",
@@ -63,8 +53,8 @@ TRANSITIONS = {
     },
     "src/api/prompt_budget.py": {
         "before": "e745aef5ce138de38e0b7020114ef4092b1b42ec45ff56b1937dd372ca373b32",
-        "after": "30c1a6611937e8d385469caa8231441c07b276603dba6d32d6cc63e8c52a403e",
-        "reason": "Approved fresh final observer and sharing of graph quotations only with complete covering originals retained after each native replacement and eviction.",
+        "after": "0ebe9573ea8ca689012154e2fb7ce429251a879dd62d8f72049a219b354fa029",
+        "reason": "Approved fresh final observer and sharing of graph quotations only with complete covering originals retained after each native replacement and eviction. 2026-10-16 (CODEX_V4): graph-quote sharing removed; a fact is skipped when every source turn is already in the prompt.",
     },
     "src/api/memory_preparation.py": {
         "before": "9e398224c93a64de475f8299132ae8e6119eac2b8bec14b1d6c5f86cecb8bbee",
@@ -78,13 +68,13 @@ TRANSITIONS = {
     },
     "scripts/z1/seed_v3.py": {
         "before": "053e893b754aceccb1989aac0aefe7a5feafc26875094d9239ff101e08fb5e53",
-        "after": "9ec0814f29a82390b48d5e17424ee568e238c93c47216adfa68df125e3e8277f",
-        "reason": "Exact research serialization of stored IDs, rendered versions and final block receipts; old captured writer/reader outcomes are retained.",
+        "after": "408ee25028b9f2b19e000ff37b4136a13d60bdf3220f32dc5a8b2f3049ac5daf",
+        "reason": "Exact research serialization of stored IDs, rendered versions and final block receipts; old captured writer/reader outcomes are retained. 2026-10-16 (CODEX_V4): fact tables, facts leg in the arms, fact metrics; legacy codex settings, tables and receipts removed.",
     },
     "experiments/v3_repair/tuning_plan.py": {
         "before": "c1480d90cfd749ebff1f690c5ce70bb85b7a5438dccccb1b4726b51602a9a070",
-        "after": "ee728a131f54940bf82f7f04122ed0806b7d57a1abc460927fff63eca0c9b5e9",
-        "reason": "Tested required content/noise/opposing-rejection dependency for the existing relevance floor; coordinates and frozen writer outcomes remain unchanged.",
+        "after": "52ba9734183961976bd500357ff714aedc767709c2e4783a1154cd652d48e1c6",
+        "reason": "Tested required content/noise/opposing-rejection dependency for the existing relevance floor; coordinates and frozen writer outcomes remain unchanged. 2026-10-16 (CODEX_V4): candidate-limit knob codex_claim_candidate_limit → codex_fact_candidate_limit.",
     },
     "scripts/z1/evidence_content.py": {
         "before": "cb9caed2b5540eb4caaa04d507c00d0b2a0c8d93382b6689161ed7b5fbee9af7",

@@ -28,7 +28,7 @@ FINAL = {
 POLICY = dict(version="v3", method="offline_repaired_inputs_v3",
               final_histories=["B", "C"], tuning_excludes_final_histories=True,
               final_labels="legacy_unqualified", long_run_launched=False)
-LOCAL_MODEL_FIELDS = ("background_model_mode", "background_model_name", "codex_extraction_model",
+LOCAL_MODEL_FIELDS = ("background_model_mode", "background_model_name", "codex_fact_reconcile_model",
                       "embedding_model_name", "classifier_model_path", "label_schema_path",
                       "background_ner_model", "retrieval_rerank_model",
                       "source_support_model", "source_support_revision")
@@ -37,9 +37,12 @@ LOCAL_MODEL_FIELDS = ("background_model_mode", "background_model_name", "codex_e
 def local_model_profile(settings):
     """Declared safe identities only; no credentials, model loads or weight claims."""
     declared = {field: getattr(settings, field) for field in LOCAL_MODEL_FIELDS}
-    resolved = (declared["background_model_mode"] == "shared" and all(
-        isinstance(declared[k], str) and declared[k].strip()
-        for k in ("background_model_name", "codex_extraction_model")))
+    # The fact writer is the background model; its reconcile call may name another
+    # ("" = the background model, CODEX_V4 D6).
+    resolved = (declared["background_model_mode"] == "shared"
+                and isinstance(declared["background_model_name"], str)
+                and bool(declared["background_model_name"].strip())
+                and isinstance(declared["codex_fact_reconcile_model"], str))
     return dict(declared=declared, research_writer_pins_resolved=bool(resolved),
                 downloaded_weight_identity="unqualified", runtime_capacity="unqualified")
 

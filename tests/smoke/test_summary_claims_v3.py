@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.api.config import settings  # noqa: E402
 from src.memory import summary_support as ss  # noqa: E402
 from src.memory import support  # noqa: E402
-from src.memory.source import chat_provenance, digest  # noqa: E402
+from src.memory.source import chat_provenance  # noqa: E402
 from src.workers.completion_text import IncompleteCompletion  # noqa: E402
 
 USER = "The project codename is Atlas and the service listens on port 8391."
@@ -60,7 +60,7 @@ def _claim(w, quote, speaker, text):
     return {"sources": [w["id"]], "quote": quote, "speaker": speaker, "text": text}
 
 
-def test_schema_pins_window_ids_and_puts_the_pointer_first():
+def test_schema_pins_window_ids_and_puts_the_pointer_first(v3):
     ws = _windows()
     schema = ss.claim_schema(ws, abstract=True)
     row = schema["properties"]["summary"]["items"]
@@ -228,28 +228,8 @@ def test_a_quote_without_markdown_markers_still_matches_but_a_paraphrase_does_no
     assert [d["reason"] for d in parsed["dropped"]] == ["quote_not_in_source"]
 
 
-def test_entity_note_keeps_only_the_quoted_supported_claim(v3, nli):
-    from src.memory import entity_notes
-    turn = _turn()
-    entity = NS(id="e1", canonical_name="Atlas")
-    calls = []
-
-    def llm(prompt, max_tokens, schema=None):
-        calls.append(schema)
-        ws = ss.source_windows(ss.original_units([turn]))
-        u, a = _role_window(ws, "user"), _role_window(ws, "assistant")
-        return json.dumps({"summary": [
-            _claim(u, "port 8391", "user", "The user said Atlas listens on port 8391."),
-            _claim(a, "reserve port 8392", "user", "The user reserved port 8392.")]})
-    note, review = entity_notes.generate_note(entity, [turn], llm=llm)
-    assert calls and calls[0] is not None, "v3 sends its schema"
-    assert note == "The user said Atlas listens on port 8391."
-    assert [d["reason"] for d in review["verification"]["dropped"]] == ["speaker_mismatch"]
-
-
 def test_turn_summary_retries_dropped_key_terms_and_stores_quoted_claims(v3, monkeypatch):
     from src.workers import post_flight as pf
-    from src.workers.turn_density import extract_key_terms
     calls = []
 
     def fake(prompt, response, model, terms, missing=None, *, windows, max_tokens, schema, abstract, **_):

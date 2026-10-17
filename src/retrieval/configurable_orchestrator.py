@@ -44,7 +44,7 @@ logger = structlog.get_logger("ice.retrieval.configurable")
 # leg worth nothing and a leg name that does not exist look identical.
 SUPPORTED_FLAGS = frozenset({
     "vector", "rrf", "cluster_restrict", "session_diversify", "codex",
-    "mera", "fuzzy_match", "procedural", "batch_summary", "dynamic_budget",
+    "fuzzy_match", "procedural", "batch_summary", "dynamic_budget",
     "keyword_boost", "recency_boost", "timescope", "cold",
 })
 
@@ -112,22 +112,9 @@ class ConfigurableOrchestrator(HybridRetrievalOrchestrator):
     # "documents" now means ablating those — there is no separate leg to
     # switch off.)
 
-    # ── Codex graph — flag mapping over the base implementation ──────────
-    # The base leg (A3/A4) natively supports exact-vs-fuzzy matching and the
-    # relation/tag enumeration that replaced MERA, so this override just maps
-    # ablation flags onto base-class switches. The `mera` flag now toggles the
-    # re-homed enumeration capability (capability-level ablation continuity).
-
-    def _codex_graph(self, classification, scope: Optional[dict] = None,
-                     prompt_embedding=None) -> List[ContextFragment]:
-        if self._off("codex"):
-            return []
-        self.use_fuzzy_match = self._on("fuzzy_match")
-        self.enable_enumeration = self._on("mera")
-        return super()._codex_graph(classification, scope, prompt_embedding)
+    # ── Codex facts leg (CODEX_V4) — the `codex` flag switches it off ─────
 
     def _facts_leg(self, prompt, prompt_embedding, scope=None, conv_id=None):
-        # CODEX_V4: the same `codex` ablation flag switches the facts leg off.
         if self._off("codex"):
             return []
         self.use_fuzzy_match = self._on("fuzzy_match")

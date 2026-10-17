@@ -1,7 +1,7 @@
 """C10/C11 behavioral test — specs/C10_C11_deletion_chat_control.md §4 checks 1–9.
 
 C10: the manifest-first deletion cascade (sole-support vs corroborated codex
-edges, entity husking, the full per-store sweep, dry_run identity, the T4
+facts — CODEX_V4 D10, entity husking, the full per-store sweep, dry_run identity, the T4
 timeline exclusion for `source_deleted`, review-item staling, mid-generation
 refusal). C11: the deterministic slash-command parser over the E0 services
 (/remember tiers + journaling, /slots, /search with zero LLM, /forget's
@@ -9,7 +9,7 @@ review-queue proposal + the D6 apply arm, unknown-command help hint, the
 /delete-conversation two-step confirm).
 
 House pattern: live Postgres, uniquely-marked fixture rows, stubbed
-classifier/embedder core (no model loads beyond codex_extractor's import),
+classifier/embedder core (no model loads),
 cleanup in `finally` — NEVER truncates; deletion runs ONLY against fixture
 conversations. The /forget proposal created through the command path is
 never approved (its fuzzy top-5 may list live rows); the apply arm is
@@ -29,10 +29,11 @@ from src.api.db import SessionLocal
 from src.classifier.schemas import ClassificationResult
 from src.memory.models import (
     BatchSummary,
-    CodexEdge,
     CodexEntity,
     CodexEvent,
-    CodexRelationGap,
+    CodexFact,
+    CodexFactEntity,
+    CodexFactSource,
     ColdStorage,
     ContextCluster,
     Conversation,
@@ -113,8 +114,8 @@ import src.api.core as core_mod
 import src.retrieval.orchestrator as orch_mod
 import src.workers.runtime as runtime_mod
 from src.api.chat_commands import _PENDING_DELETES, try_handle
-from src.retrieval.evolution import build_entity_timeline, history_exists
 from src.services import conversations as conversations_svc
+from src.services import graph as graph_svc
 from src.services import review as review_svc
 
 _orig_active_core = core_mod._active_core
@@ -127,7 +128,7 @@ bA1, bA2, bB1, bS, bF = (uuid.uuid4() for _ in range(5))
 turn_ids: list = []
 cluster_ids: list = []
 entity_ids: list = []
-edge_ids: list = []
+fact_ids: list = []
 proc_ids: list = []
 review_item_ids: list = []
 cold_id = uuid.uuid4()
@@ -212,20 +213,6 @@ try:
     db.add(CuratedLabel(batch_id=bF, prompt=f"{MARK} forget label",
                         corrected_context_reliance="Zero_Shot"))
 
-    # G32/a1's gap ledger. It arrived after this cascade was written and has no
-    # FK, so deletion used to leave it behind — and the row carries the raw
-    # subject and object, i.e. real content from a turn the user asked to be
-    # forgotten. Two rows: one inside the doomed conversation, one outside it,
-    # so the check is two-sided rather than "the table is empty".
-    db.add(CodexRelationGap(proposed_relation="is_capital_of",
-                            raw_relation="is_capital_of",
-                            subject=f"{MARK}_subj", object=f"{MARK}_obj",
-                            batch_id=bA1, conversation_id=conv_A_id))
-    db.add(CodexRelationGap(proposed_relation="includes",
-                            raw_relation="includes",
-                            subject=f"{MARK}_keep", object=f"{MARK}_keep_obj",
-                            batch_id=bB1, conversation_id=conv_B_id))
-
     p1 = ProceduralMemory(pattern_name=f"{MARK}_p1", source_batch_ids=[bA1, bB1],
                           confidence_score=0.5, is_active=True)
     p2 = ProceduralMemory(pattern_name=f"{MARK}_p2", source_batch_ids=[bA2],
@@ -245,48 +232,49 @@ try:
     db.flush()
     decision_id = dec.id
 
-    # Codex: X sole-support (event from A only), Y corroborated (event from
-    # B too), Z legacy (no events at all — spec §3 edge case).
+    # Codex (CODEX_V4 facts): X sole-support (sourced from A only), Y
+    # corroborated (sourced from A and B), W the /forget target in C.
     e_solo = CodexEntity(canonical_name=f"{MARK}_solo", source="conversation")
     e_hub = CodexEntity(canonical_name=f"{MARK}_hub", source="conversation")
     e_other = CodexEntity(canonical_name=f"{MARK}_other", source="conversation")
-    e_leg = CodexEntity(canonical_name=f"{MARK}_leg", source="conversation")
     e_f1 = CodexEntity(canonical_name=f"{MARK}fone", source="conversation")
     e_f2 = CodexEntity(canonical_name=f"{MARK}ftwo", source="conversation")
-    db.add_all([e_solo, e_hub, e_other, e_leg, e_f1, e_f2])
+    db.add_all([e_solo, e_hub, e_other, e_f1, e_f2])
     db.flush()
     e_solo_id, e_hub_id, e_other_id = e_solo.id, e_hub.id, e_other.id
-    e_leg_id, e_f1_id, e_f2_id = e_leg.id, e_f1.id, e_f2.id
-    entity_ids.extend([e_solo_id, e_hub_id, e_other_id,
-                       e_leg_id, e_f1_id, e_f2_id])
+    e_f1_id, e_f2_id = e_f1.id, e_f2.id
+    entity_ids.extend([e_solo_id, e_hub_id, e_other_id, e_f1_id, e_f2_id])
 
-    edge_X = CodexEdge(source_id=e_solo_id, target_id=e_hub_id,
-                       relation="planned_as", source_batch=bA1)
-    edge_Y = CodexEdge(source_id=e_hub_id, target_id=e_other_id,
-                       relation="ends_with", source_batch=bA1)
-    edge_Z = CodexEdge(source_id=e_leg_id, target_id=e_hub_id,
-                       relation="references", source_batch=bA2)
-    edge_W = CodexEdge(source_id=e_f1_id, target_id=e_f2_id,
-                       relation="uses", source_batch=uuid.uuid4())
-    db.add_all([edge_X, edge_Y, edge_Z, edge_W])
-    db.flush()
-    edge_X_id, edge_Y_id = edge_X.id, edge_Y.id
-    edge_Z_id, edge_W_id = edge_Z.id, edge_W.id
-    edge_ids.extend([edge_X_id, edge_Y_id, edge_Z_id, edge_W_id])
-    db.add_all([
-        CodexEvent(entity_id=e_solo_id, event_type="edge_added",
-                   payload={"edge_id": str(edge_X_id), "relation": "planned_as",
-                            "target_id": str(e_hub_id)}, batch_source=bA1),
-        CodexEvent(entity_id=e_hub_id, event_type="edge_added",
-                   payload={"edge_id": str(edge_Y_id), "relation": "ends_with",
-                            "target_id": str(e_other_id)}, batch_source=bA1),
-        CodexEvent(entity_id=e_hub_id, event_type="edge_added",
-                   payload={"edge_id": str(edge_Y_id), "relation": "ends_with",
-                            "target_id": str(e_other_id)}, batch_source=bB1),
-    ])
+    def add_fact(sentence, sources, subject, obj, embedding=None):
+        f = CodexFact(text=sentence, text_sha256=uuid.uuid4().hex, speaker="user",
+                      modality="asserted", embedding=embedding,
+                      mentioned_at=NOW - timedelta(days=2), valid_from=NOW - timedelta(days=2),
+                      support_count=len(sources))
+        db.add(f)
+        db.flush()
+        for turn_id, batch, conv_id in sources:
+            db.add(CodexFactSource(fact_id=f.id, source_batch=batch,
+                                   window_sha256=uuid.uuid4().hex, episodic_id=turn_id,
+                                   conversation_id=conv_id, window={}, quote=sentence[:40],
+                                   recorded_at=NOW, verification={}))
+        db.add_all([CodexFactEntity(fact_id=f.id, entity_id=subject, role="subject"),
+                    CodexFactEntity(fact_id=f.id, entity_id=obj, role="object")])
+        db.flush()
+        fact_ids.append(f.id)
+        return f.id
 
-    recon_item = ReviewQueue(item_type="codex_reconciliation", item_content={
-        "old_edge_id": str(edge_X_id), "conflict_type": "supersession"})
+    fact_X_id = add_fact(f"The user said {MARK}_solo is planned as {MARK}_hub.",
+                         [(tA1_id, bA1, conv_A_id)], e_solo_id, e_hub_id)
+    fact_Y_id = add_fact(f"The user said {MARK}_hub ends with {MARK}_other.",
+                         [(tA1_id, bA1, conv_A_id), (tB1_id, bB1, conv_B_id)],
+                         e_hub_id, e_other_id)
+    fact_W_id = add_fact(f"The user said {MARK}fone uses {MARK}ftwo.",
+                         [(t_forget_id, bF, conv_C_id)], e_f1_id, e_f2_id, embedding=EMB)
+
+    # Deletion stales the pending items that can reference its content: a
+    # decision supersession over the deleted conversation's decision.
+    recon_item = ReviewQueue(item_type="decision_supersession", item_content={
+        "old_id": str(decision_id), "new_id": str(decision_id)})
     db.add(recon_item)
     db.flush()
     recon_item_id = recon_item.id
@@ -303,8 +291,8 @@ try:
           db.query(EpisodicMemory).filter_by(
               conversation_id=conv_A_id).count() == 2)
     db.expire_all()
-    edge_X_row = db.query(CodexEdge).filter_by(id=edge_X_id).first()
-    check("dry_run leaves edge X live", edge_X_row.valid_until is None)
+    check("dry_run leaves fact X current",
+          db.query(CodexFact).filter_by(id=fact_X_id).first().valid_until is None)
     check("dry_run manifest flagged", manifest_dry["dry_run"] is True)
 
     # ═══ 1+2) real deletion: cascade semantics + counts ═══════════════════
@@ -316,23 +304,22 @@ try:
     check("manifest identical dry vs real", d_dry == d_real)
 
     db.expire_all()
-    edge_X_row = db.query(CodexEdge).filter_by(id=edge_X_id).first()
-    edge_Y_row = db.query(CodexEdge).filter_by(id=edge_Y_id).first()
-    edge_Z_row = db.query(CodexEdge).filter_by(id=edge_Z_id).first()
-    check("sole-support edge X expired", edge_X_row.valid_until is not None)
-    x_event = db.query(CodexEvent).filter_by(event_type="edge_expired").filter(
-        CodexEvent.payload["edge_id"].astext == str(edge_X_id)).first()
+    fact_X_row = db.query(CodexFact).filter_by(id=fact_X_id).first()
+    fact_Y_row = db.query(CodexFact).filter_by(id=fact_Y_id).first()
+    check("sole-support fact X expired", fact_X_row.valid_until is not None)
+    x_event = db.query(CodexEvent).filter_by(event_type="fact_expired").filter(
+        CodexEvent.payload["fact_id"].astext == str(fact_X_id)).first()
     check("X expiry journaled reason=source_deleted",
-          x_event is not None
-          and x_event.payload.get("reason") == "source_deleted"
-          and x_event.payload.get("source") == "user_deletion")
-    check("legacy eventless edge Z expired (own provenance only)",
-          edge_Z_row.valid_until is not None)
-    check("corroborated edge Y alive", edge_Y_row.valid_until is None)
+          x_event is not None and x_event.payload.get("reason") == "source_deleted")
+    check("corroborated fact Y current, support recounted to B alone",
+          fact_Y_row.valid_until is None and fact_Y_row.support_count == 1
+          and db.query(CodexFactSource).filter_by(fact_id=fact_Y_id).count() == 1)
+    check("deleted turns' fact sources (their quotes) are gone",
+          db.query(CodexFactSource).filter(
+              CodexFactSource.source_batch.in_([bA1, bA2])).count() == 0)
 
     e_solo_row = db.query(CodexEntity).filter_by(id=e_solo_id).first()
     e_hub_row = db.query(CodexEntity).filter_by(id=e_hub_id).first()
-    e_leg_row = db.query(CodexEntity).filter_by(id=e_leg_id).first()
     check("orphaned entity husked (solo)",
           (e_solo_row.properties or {}).get("deleted_reason") == "source_deleted"
           and "[deleted:" in e_solo_row.canonical_name
@@ -340,9 +327,7 @@ try:
     check("entity_expired event journaled",
           db.query(CodexEvent).filter_by(
               entity_id=e_solo_id, event_type="entity_expired").count() == 1)
-    check("legacy-edge entity husked too",
-          (e_leg_row.properties or {}).get("deleted_reason") == "source_deleted")
-    check("hub entity with surviving edge intact",
+    check("hub entity with a surviving fact intact",
           e_hub_row.canonical_name == f"{MARK}_hub"
           and (e_hub_row.properties or {}).get("deleted_reason") is None)
     check("conversation B untouched",
@@ -410,10 +395,10 @@ try:
           and m["deleted"]["session_summaries"] == 1
           and m["deleted"]["conversation_slots"] == 1
           and m["deleted"]["curated_labels"] == 1
-          and m["codex"]["relation_gaps_deleted"] == 1
-          and m["codex"]["edges_expired"] == 2
-          and m["codex"]["edges_kept_corroborated"] == 1
-          and m["codex"]["entities_expired"] == 2
+          and m["codex"]["facts_expired"] == 1
+          and m["codex"]["facts_support_pruned"] == 1
+          and m["codex"]["fact_sources_deleted"] == 2
+          and m["codex"]["entities_expired"] == 1
           and m["decisions_expired"] == 1
           and m["procedural_pruned"] == 2
           and m["procedural_deactivated"] == 1
@@ -421,24 +406,15 @@ try:
     check("manifest carries the G25 logs caveat",
           "Logs are NOT touched" in m["logs_caveat"])
 
-    # G32/a1 gap ledger, two-sided: the deleted conversation's row is gone (it
-    # held raw subject/object text from a forgotten turn), and another
-    # conversation's row is untouched — an absence-only check would pass if the
-    # cascade wiped the whole table.
-    check("deleted conversation's relation-gap row is gone",
-          db.query(CodexRelationGap).filter_by(
-              subject=f"{MARK}_subj").count() == 0)
-    check("...while another conversation's gap row survives",
-          db.query(CodexRelationGap).filter_by(
-              subject=f"{MARK}_keep").count() == 1)
-
     # ═══ 4) T4 timeline: deletion is not evolution ════════════════════════
     print("\n── C10: timeline exclusion ──")
-    check("history_exists False for deletion-only expiry",
-          history_exists(db, e_solo_id) is False
-          and history_exists(db, e_hub_id) is False)
-    tl = build_entity_timeline(db, e_solo_row)
-    check("no timeline built from source_deleted expiries", tl is None)
+    check("no history from deletion-only expiry",
+          graph_svc.entity_timeline(db, str(e_hub_id))["has_history"] is False
+          and graph_svc.entity_timeline(db, str(e_solo_id))["timeline"] is None)
+    check("the deleted fact's text is in no entity view",
+          all(f"{MARK}_solo is planned" not in f["text"]
+              for f in graph_svc.entity_view(db, str(e_hub_id))["replaced_facts"]
+              + graph_svc.entity_view(db, str(e_hub_id))["facts"]))
 
     # mid-generation refusal (spec §3 / traps)
     rt = runtime_mod.MaintenanceRuntime()
@@ -541,19 +517,19 @@ try:
     listed_turns = {t["id"] for t in
                     (forget_item.item_content.get("turns", [])
                      if forget_item else [])}
-    listed_edges = {e["id"] for e in
-                    (forget_item.item_content.get("edges", [])
+    listed_facts = {f["id"] for f in
+                    (forget_item.item_content.get("facts", [])
                      if forget_item else [])}
     check("/forget queues, never applies",
           forget_item is not None and "queued" in r["text"].lower()
           and db.query(EpisodicMemory).filter_by(id=t_forget_id).count() == 1)
-    check("/forget lists matching turns + edges",
-          str(t_forget_id) in listed_turns and str(edge_W_id) in listed_edges)
+    check("/forget lists matching turns + facts",
+          str(t_forget_id) in listed_turns and str(fact_W_id) in listed_facts)
 
     apply_item = ReviewQueue(item_type="forget_request", item_content={
         "query": "fixture", "conversation_id": str(conv_C_id),
         "turns": [{"id": str(t_forget_id)}],
-        "edges": [{"id": str(edge_W_id)}],
+        "facts": [{"id": str(fact_W_id)}],
         "proposed_by": "chat_command"})
     db.add(apply_item)
     db.flush()
@@ -562,13 +538,13 @@ try:
     review_item_ids.append(apply_item_id)
     review_svc.approve(db, str(apply_item_id))
     db.expire_all()
-    edge_W_row = db.query(CodexEdge).filter_by(id=edge_W_id).first()
-    w_event = db.query(CodexEvent).filter_by(event_type="edge_expired").filter(
-        CodexEvent.payload["edge_id"].astext == str(edge_W_id)).first()
+    fact_W_row = db.query(CodexFact).filter_by(id=fact_W_id).first()
+    w_event = db.query(CodexEvent).filter_by(event_type="fact_expired").filter(
+        CodexEvent.payload["fact_id"].astext == str(fact_W_id)).first()
     check("forget approval deletes the turn via the D6 dispatch",
           db.query(EpisodicMemory).filter_by(id=t_forget_id).count() == 0)
-    check("forget approval expires the edge, journaled user_forget",
-          edge_W_row.valid_until is not None and w_event is not None
+    check("forget approval expires the fact, journaled user_forget",
+          fact_W_row.valid_until is not None and w_event is not None
           and w_event.payload.get("reason") == "user_forget")
     check("forget approval clears the batch's curated labels",
           db.query(CuratedLabel).filter_by(batch_id=bF).count() == 0)
@@ -634,19 +610,12 @@ finally:
         db.query(CuratedLabel).filter(
             CuratedLabel.batch_id.in_([bA1, bA2, bB1, bS, bF])).delete(
             synchronize_session=False)
-        # The conv_B gap row SURVIVES the cascade by design (that is the
-        # two-sided half of the check), so this suite owns removing it — a
-        # fixture that outlives its run is TRAPS #6, and test_longevity was
-        # caught doing exactly this on 2026-08-08.
-        db.query(CodexRelationGap).filter(
-            CodexRelationGap.batch_id.in_([bA1, bA2, bB1, bS, bF])).delete(
-            synchronize_session=False)
         if entity_ids:
             db.query(CodexEvent).filter(
                 CodexEvent.entity_id.in_(entity_ids)).delete(
                 synchronize_session=False)
-        if edge_ids:
-            db.query(CodexEdge).filter(CodexEdge.id.in_(edge_ids)).delete(
+        if fact_ids:
+            db.query(CodexFact).filter(CodexFact.id.in_(fact_ids)).delete(
                 synchronize_session=False)
         if entity_ids:
             db.query(CodexEntity).filter(

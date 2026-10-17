@@ -19,13 +19,13 @@ from src.memory.embedder import get_embedder
 from src.memory.models import EpisodicMemory, IdempotencyKey
 from src.memory.representation import choose_representation, verify_representations
 from src.memory.summary_support import (
-    METHOD_V4, PER_CLAIM_METHODS, SummaryCandidate, SummaryResult, assertion_instruction,
-    assertion_text, current_method, generate_claims, original_units, source_windows, window_prompt,
+    PER_CLAIM_METHODS, SummaryCandidate, SummaryResult, assertion_instruction, assertion_text,
+    generate_claims, original_units, source_windows, window_prompt,
 )
 from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name, json_schema
-from src.workers.codex_extractor import extract_codex
 from src.workers.completion_text import complete_text
 from src.workers.document_chunker import run_chunk_turn
+from src.workers.fact_extractor import extract_facts
 from src.workers.idempotency import job_key
 from src.workers.procedural_extractor import extract_procedural
 from src.workers.turn_density import (
@@ -69,8 +69,8 @@ def _summary_llm_call(prompt: str, response: str, model_name: str,
     # `summary_coverage` then scores it well for having done so. The order
     # manufactured the defect the metric rewarded.
     #
-    # ⚠ THIS IS MODEL-COUPLED, exactly like the extraction prompt is coupled to
-    # NuExtract3 (G63). The SAME change measured on `qwen3:4b-instruct` was a
+    # ⚠ THIS IS MODEL-COUPLED, exactly like the old extraction prompt was coupled
+    # to NuExtract3 (G63). The SAME change measured on `qwen3:4b-instruct` was a
     # LOSS — 54% -> 34% faithful, incomplete 7% -> 56%: that model converts the
     # freedom into omission rather than accuracy. **Changing the background
     # model means re-measuring this prompt, not editing a config value.**
@@ -360,14 +360,10 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             from src.workers.runtime import JobYielded
 
             failures = []
-            # CODEX_V4 D3: under v4 the claim pass writes the codex; the legacy
-            # extractor runs only under v2/v3 until it is deleted.
-            if current_method() == METHOD_V4:
-                from src.workers.fact_extractor import extract_facts
-                codex_stage = ("facts", extract_facts)
-            else:
-                codex_stage = ("codex", extract_codex)
-            for stage_name, extractor in (codex_stage, ("procedural", extract_procedural)):
+            # CODEX_V4 D3: the claim pass writes the codex (extract_facts warns
+            # and writes nothing if summary_assertion_method is not v4).
+            for stage_name, extractor in (("facts", extract_facts),
+                                          ("procedural", extract_procedural)):
                 try:
                     extractor(batch_id=batch_id, model_used=model_used)
                 except JobYielded:

@@ -311,7 +311,6 @@ try:
     scratch_engine = create_engine(SCRATCH_URL)
     with scratch_engine.begin() as c:
         c.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        c.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))   # CODEX_V4 name matching
     Base.metadata.create_all(scratch_engine)
     with scratch_engine.begin() as c:
         c.execute(text("CREATE TABLE alembic_version "

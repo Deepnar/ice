@@ -21,7 +21,7 @@ def background_model_digests(settings, background_model: str) -> dict[str, str]:
     response = httpx.get(settings.ollama_base_url.rstrip("/") + "/api/tags", timeout=10)
     response.raise_for_status()
     tags = {row["name"]: row.get("digest") for row in response.json()["models"]}
-    wanted = {background_model, settings.codex_extraction_model}
+    wanted = {background_model, settings.codex_fact_reconcile_model or background_model}
     result = {}
     for name in sorted(wanted):
         lookup = name if ":" in name else name + ":latest"

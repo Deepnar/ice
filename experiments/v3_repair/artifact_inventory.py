@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from experiments.v3_repair.prepare_inputs import digest
 
-POLICY = "ice-v3-stored-row-catalog-1"
+POLICY = "ice-v3-stored-row-catalog-2"   # -2: codex_claims out, CODEX_V4 fact tables in
 CONTENT = {
     "episodic_memory": ("raw_text", "source_spans", "summary_text", "abstract_text", "timestamp", "ts_provenance"),
     "cold_storage": ("raw_text", "source_spans", "summary_text", "abstract_text", "timestamp", "ts_provenance"),
@@ -20,8 +20,6 @@ CONTENT = {
     "codex_entities": ("canonical_name", "aliases", "entity_type", "description", "properties", "context_payload"),
     "codex_edges": ("source_id", "target_id", "relation", "negated", "source_batch", "observed_batches",
                     "valid_from", "valid_until", "learned_at", "unlearned_at"),
-    "codex_claims": ("source_batch", "episodic_id", "conversation_id", "raw_sha256", "start", "end",
-                     "role", "sentence", "sentence_sha256", "text"),
     # CODEX_V4: verified fact sentences, their sources and entity links.
     "codex_facts": ("text", "speaker", "modality", "subject", "relation", "object", "negated",
                     "mentioned_at", "valid_from", "valid_until", "superseded_by"),

@@ -77,9 +77,6 @@ try:
     print("── shared chunker ──")
     chunks = chunk_text("A sentence here. " * 500)
     check("chunker splits long prose", len(chunks) > 2)
-    from src.workers.codex_extractor import _chunk_text as codex_alias
-    check("codex extractor still chunks via the shared module (alias)",
-          codex_alias("A sentence here. " * 500) == chunks)
 
     print("── chunking worker ──")
     n = dc.run_chunk_turn(db, turn)

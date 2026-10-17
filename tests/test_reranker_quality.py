@@ -99,7 +99,7 @@ def pipeline_controls():
             )
             o = HybridRetrievalOrchestrator(db, None)
             o.max_retrieval_tokens = count_tokens(answer)
-            o._codex_graph = lambda *a, **kw: [
+            o._facts_leg = lambda *a, **kw: [
                 ContextFragment(distractor, "codex", 2, count_tokens(distractor)),
                 ContextFragment(answer, "codex", 1, count_tokens(answer)),
             ]

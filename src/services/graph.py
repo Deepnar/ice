@@ -1,11 +1,12 @@
-"""Codex-graph service (E0 D3) — the one surface for reading and editing
-entities. Wraps T4's evolution functions AS BUILT (build_entity_timeline /
-entity_diff / history_exists in src/retrieval/evolution.py); F3's graph view
-and D1's agent consume these same functions.
+"""Codex service (E0 D3) — the one surface for reading and editing entities.
+An entity's page is its current and replaced facts (CODEX_V4 D11.1) plus, for
+code-graph entities, their typed edges; F3's graph view and D1's agent consume
+these same functions.
 
 The A7/F3 rule is enforced here and nowhere else: edits go to `description`
-(journaled via T's log_description_update, D13), and `context_payload` is
-DERIVED — regenerated after every edit, never written directly.
+(journaled via T's log_description_update, D13), the user's note on the entity
+page. `context_payload` is never written here; since CODEX_V4 it carries only
+the code graph's derived pointer payloads.
 """
 import uuid
 from datetime import datetime, timezone
@@ -17,8 +18,8 @@ from sqlalchemy.orm import Session
 from src.api.config import settings
 from src.memory import facts as fact_store
 from src.memory.models import CodexEdge, CodexEntity
-from src.retrieval.evolution import build_entity_timeline, log_description_update
 from src.retrieval.evolution import entity_diff as _evolution_diff
+from src.retrieval.evolution import log_description_update
 from src.services.errors import NotFoundError, ValidationError
 
 logger = structlog.get_logger("ice.services.graph")
@@ -86,17 +87,14 @@ def entity_view(db: Session, name_or_id: str) -> dict:
 def entity_edit(db: Session, name_or_id: str, description: str,
                 source: str = "manual_edit") -> dict:
     """Manual description editing is BORN here (T-spec rev note 5): journal
-    the overwrite (D13), regenerate the derived note, never accept a
-    context_payload write."""
+    the overwrite (D13); the description is the user's note on the entity
+    page (CODEX_V4 D11.1), never a context_payload write."""
     if description is None:
         raise ValidationError("entity_edit requires a description")
     entity = _resolve(db, name_or_id)
-    # Heavy import stays lazy — codex_extractor loads an embedder at import.
-    from src.workers.codex_extractor import _regenerate_context_payload
     old = entity.description
     entity.description = description
     log_description_update(db, entity, old, description, source=source)
-    _regenerate_context_payload(entity, db)
     entity.last_updated = datetime.now(timezone.utc)
     name = entity.canonical_name          # capture before commit (expiry trap)
     db.commit()
@@ -117,19 +115,14 @@ def edges_list(db: Session, name_or_id: str, include_expired: bool = False) -> d
 
 def entity_timeline(db: Session, name_or_id: str,
                     max_transitions: Optional[int] = None) -> dict:
-    """T4's `log` porcelain. timeline is None when the entity has no
-    event-backed supersession history (a story of purely-current facts would
-    just repeat the note)."""
+    """T4's `log` porcelain over facts: the entity's replaced facts, newest
+    first, each naming what replaced it (CODEX_V4)."""
     entity = _resolve(db, name_or_id)
-    timeline = build_entity_timeline(
-        db, entity,
-        max_transitions=max_transitions or settings.timeline_max_transitions)
     replaced = fact_store.entity_facts(
         db, entity.id, current=False,
         limit=max_transitions or settings.timeline_max_transitions)
-    return {"entity": entity.canonical_name, "timeline": timeline,
-            "replaced_facts": replaced,
-            "has_history": timeline is not None or bool(replaced)}
+    return {"entity": entity.canonical_name, "timeline": replaced or None,
+            "replaced_facts": replaced, "has_history": bool(replaced)}
 
 
 def _parse_ts(value, name: str) -> datetime:

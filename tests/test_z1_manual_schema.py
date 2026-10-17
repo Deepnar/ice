@@ -24,7 +24,7 @@ def main():
     identity = uuid.uuid4().hex
     name = "ice_v3_campaign_" + identity[:16]
     config = {"database": name, "campaign_id": identity,
-              "background_model": "gemma4:e4b", "codex_extraction_model": "hf.co/numind/NuExtract3-GGUF:Q8_0"}
+              "background_model": "gemma4:e4b", "fact_reconcile_model": ""}
     source = make_url(settings.database_url)
     admin = create_engine(source.set(database="postgres"), isolation_level="AUTOCOMMIT")
     target = None

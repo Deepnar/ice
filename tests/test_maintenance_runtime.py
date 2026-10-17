@@ -18,7 +18,6 @@ Run: uv run python tests/test_maintenance_runtime.py
 import asyncio
 import os
 import sys
-import threading
 import time
 import types
 import uuid
@@ -286,7 +285,7 @@ def test_finetune_gating():
 
 async def test_post_flight_chain():
     print("── 9. post-flight chain in-process (LLM stubbed) ──")
-    import src.workers.codex_extractor as cx
+    import src.workers.fact_extractor as fx
     import src.workers.post_flight as pf
     import src.workers.procedural_extractor as px
 
@@ -296,8 +295,8 @@ async def test_post_flight_chain():
             return types.SimpleNamespace(choices=[types.SimpleNamespace(message=msg)])
 
     stub_client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=_StubCompletions()))
-    orig_triplets, orig_px, orig_pf = cx.extract_triplets, px.bg_client, pf.bg_client
-    cx.extract_triplets = lambda text_, model_override="", topic_tags=None, gaps=None, source_sentences=None: []
+    orig_claims, orig_px, orig_pf = fx._claim_record, px.bg_client, pf.bg_client
+    fx._claim_record = lambda turn, model_used="": {"assertions": []}
     px.bg_client = stub_client
     pf.bg_client = stub_client
     # extract_procedural returns "NONE" (stubbed LLM) and — pre-existing
@@ -342,23 +341,23 @@ async def test_post_flight_chain():
         keys = {k: db.execute(text("SELECT 1 FROM idempotency_keys WHERE key = :key"),
                               {"key": key}).first() is not None
                 for k, key in [("main", job_key("post_flight", batch_id)),
-                               ("codex", job_key("codex", batch_id))]}
+                               ("facts", job_key("facts", batch_id))]}
         check("post-flight idempotency key committed", keys["main"])
-        check("chained codex stage ran (own idempotency key)", keys["codex"])
+        check("chained facts stage ran (own idempotency key)", keys["facts"])
         check("chained procedural stage ran (call recorded; NONE writes no key)",
               len(proc_calls) == 1 and proc_calls[0]["batch_id"] == str(batch_id))
         ledger = db.execute(text("SELECT last_status FROM maintenance_ledger "
                                  "WHERE job_name='post_flight'")).first()
         check("ledger row post_flight = ok", ledger is not None and ledger.last_status == "ok")
     finally:
-        cx.extract_triplets, px.bg_client, pf.bg_client = orig_triplets, orig_px, orig_pf
+        fx._claim_record, px.bg_client, pf.bg_client = orig_claims, orig_px, orig_pf
         pf.extract_procedural = orig_chain_px
         settings.idle_burst_seconds, settings.user_active_threshold_seconds = orig_burst, orig_idle
         db.execute(text("DELETE FROM idempotency_keys WHERE key IN ("
                         "encode(sha256(convert_to(:a,'UTF8')),'hex'),"
                         "encode(sha256(convert_to(:b,'UTF8')),'hex'),"
                         "encode(sha256(convert_to(:c,'UTF8')),'hex'))"),
-                   {"a": str(batch_id), "b": f"codex:{batch_id}", "c": f"procedural:{batch_id}"})
+                   {"a": str(batch_id), "b": f"facts:{batch_id}", "c": f"procedural:{batch_id}"})
         db.query(EpisodicMemory).filter_by(batch_id=batch_id).delete()
         db.query(Conversation).filter_by(id=conv.id).delete()
         db.commit()

@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
-    event,
     ARRAY,
     BigInteger,
     Boolean,
@@ -15,7 +14,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Text,
-    UniqueConstraint,
+    event,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import declarative_base, relationship
@@ -266,44 +265,13 @@ class CodexEdge(Base):
     valid_until = Column(DateTime(timezone=True), nullable=True)  # NULL = currently true
     learned_at = Column(DateTime(timezone=True), default=utcnow)
     # NULL = still believed. Set when an edge is retracted (A8 negation
-    # supersedes it, a contradiction expires it, compaction drops it).
+    # supersedes it, a contradiction expires it — the v2/v3 conversation paths;
+    # today codex_ops' merge/edit over code-graph edges).
     unlearned_at = Column(DateTime(timezone=True), nullable=True)
     # E1b (D3): mirrors codex_entities.source — static-analysis edges are
     # derived memory (decay-exempt, journal-free, regenerable).
     source = Column(Text, nullable=False, default="conversation",
                     server_default="conversation")
-
-
-class CodexClaim(Base):
-    """Attributed source sentences; graph links are navigation, not evidence."""
-    __tablename__ = "codex_claims"
-    __table_args__ = (UniqueConstraint("source_batch", "raw_sha256", "start", "end",
-                                      "sentence_sha256", name="uq_codex_claim_span"),)
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    source_batch = Column(UUID(as_uuid=True), nullable=False, index=True)
-    episodic_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
-    raw_sha256 = Column(Text, nullable=False)
-    start = Column(Integer, nullable=False)
-    end = Column(Integer, nullable=False)
-    role = Column(Text, nullable=False)
-    sentence = Column(Text, nullable=False)
-    sentence_sha256 = Column(Text, nullable=False)
-    text = Column(Text, nullable=False)  # full evidence paragraph
-    embedding = Column(Vector(1024), nullable=True)
-    verification = Column(JSONB, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utcnow)
-
-
-class CodexClaimLink(Base):
-    __tablename__ = "codex_claim_links"
-    claim_id = Column(UUID(as_uuid=True), ForeignKey("codex_claims.id", ondelete="CASCADE"), primary_key=True)
-    edge_id = Column(UUID(as_uuid=True), ForeignKey("codex_edges.id", ondelete="CASCADE"), primary_key=True)
-    # One sentence can propose several edges, and an edge can have several
-    # independent sources. Its relation support belongs to this link, not to
-    # the sentence-level compression verdict on CodexClaim.
-    relation_verification = Column(JSONB, nullable=True)
 
 
 class CodexFact(Base):
@@ -378,16 +346,6 @@ class CodexEvent(Base):
     timestamp = Column(DateTime(timezone=True), default=utcnow)
     batch_source = Column(UUID(as_uuid=True), nullable=False)
     compacted = Column(Boolean, default=False)
-
-
-class CodexSnapshot(Base):
-    __tablename__ = "codex_snapshots"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    entity_id = Column(UUID(as_uuid=True), ForeignKey("codex_entities.id"), nullable=False)
-    snapshot_ts = Column(DateTime(timezone=True), default=utcnow)
-    last_event_id = Column(UUID(as_uuid=True), nullable=False)
-    full_state = Column(JSONB, default={})
 
 
 class ProceduralMemory(Base):
@@ -684,6 +642,7 @@ class ReviewQueue(Base):
     item_content = Column(JSONB, default={})
     # pending | approved | rejected | resolved (agent-settled, D1/D2)
     # | stale (referenced conversation deleted, C10)
+    # | archived (legacy graph-conflict kinds, no handler since CODEX_V4)
     status = Column(Text, default="pending")
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
@@ -823,67 +782,19 @@ class ImportConversation(Base):
     n_turns = Column(Integer, nullable=False, default=0)
     imported_at = Column(DateTime(timezone=True), default=utcnow)
 
-class CodexRelationGap(Base):
-    """G32/a1: the fact the extractor wanted to state but the vocabulary
-    cannot express — kept instead of destroyed.
-
-    `codex_extractor` filters every triplet whose relation is not in
-    ALLOWED_RELATIONS. Measured on 300 real turns (2026-08-04, see
-    PROVENANCE): **67.8% of produced relations fail that filter**, and the
-    three most common are `is`, `has` and `includes` — ordinary English the
-    197-word vocabulary lacks, not near-misses of it. Those rows were dropped
-    with no log line, which is why nobody knew.
-
-    The row keeps BOTH halves, and that is the point: `proposed_relation` is
-    what the model actually said, so the accumulated table ranks what the
-    vocabulary is missing — the input Z2's mini-experiment needs and today
-    cannot get, because the evidence is deleted at the moment it is created.
-    Keeping subject and object too means a relation added later can be
-    replayed straight into the graph with **no new LLM call**: the fact was
-    already extracted, it just had nowhere to go.
-
-    Deliberately NOT a codex_edges row: an unmappable relation is not a fact
-    the graph can hold, and writing it as one is exactly the confident-lie
-    failure the enum measurement rejected (~78% of forced picks were wrong).
-    """
-    __tablename__ = "codex_relation_gaps"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    # What the model asked for, normalized only for grouping (lowercase,
-    # separators unified) — the raw form is kept alongside it because the
-    # surface form is itself evidence about the model's habits.
-    proposed_relation = Column(Text, nullable=False, index=True)
-    raw_relation = Column(Text, nullable=False)
-    subject = Column(Text, nullable=False)
-    object = Column(Text, nullable=False)
-    negated = Column(Boolean, default=False)
-    # Provenance: enough to re-read the source turn when judging whether the
-    # relation deserves to exist.
-    batch_id = Column(UUID(as_uuid=True), nullable=True, index=True)
-    conversation_id = Column(UUID(as_uuid=True), nullable=True)
-    # pending | promoted (the relation was added and this row replayed)
-    # | dismissed (judged not worth a vocabulary entry)
-    status = Column(Text, default="pending", index=True)
-    # Set when the ladder found a mapping but it was not confident enough to
-    # apply — records the near-miss without acting on it.
-    suggested_relation = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=utcnow)
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Bi-temporal invariant (G45 §5)
 # ─────────────────────────────────────────────────────────────────────────────
 # `valid_until` (the fact stopped being true) and `unlearned_at` (ICE stopped
-# believing it) are set at the same instant by every retraction path there is:
-# A8 negation, contradiction supersession, property replacement, expiry, and
-# codex_ops' manual edits — SEVEN call sites across two modules at the time of
-# writing.
+# believing it) are set at the same instant by every edge retraction path.
+# Since CODEX_V4 the conversation edges are gone (facts carry their own
+# validity — `CodexFact`); what remains is codex_ops' merge/edit over the code
+# graph's static-analysis edges.
 #
-# Mirroring them here rather than at each site is deliberate. The alternative is
-# seven identical two-line edits, and the eighth retraction site somebody adds
-# next month silently writes an edge that was retracted but never unlearned —
-# a half-populated column that reads as "still believed". This listener cannot
-# be forgotten by a new call site.
+# Mirroring them here rather than at each site is deliberate: the next
+# retraction site somebody adds silently writes an edge that was retracted but
+# never unlearned — a half-populated column that reads as "still believed".
+# This listener cannot be forgotten by a new call site.
 #
 # ⚠ It fires on ORM attribute assignment only. A bulk `query.update()` or raw
 # SQL retraction bypasses it and must set `unlearned_at` itself; there is no

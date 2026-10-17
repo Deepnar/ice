@@ -24,7 +24,6 @@ E1 look-ahead: detectors are a pluggable registry keyed by item type — the
 coding-side decisions table reuses this exact pattern.
 """
 import inspect
-import json
 import re
 import uuid
 from collections import Counter
@@ -37,7 +36,6 @@ import structlog
 
 from src.workers.llm_json import parse_object
 from sqlalchemy import text
-from sqlalchemy.orm.attributes import flag_modified
 
 logger = structlog.get_logger("ice.workers.maintenance_agent")
 
@@ -57,42 +55,6 @@ class WorkItem:
 
 
 # ═══ Detectors (D3) — deterministic SQL, run first, capped ═══════════════════
-
-def _detect_reconciliation_leftovers(db, cap: int) -> list:
-    """D3.1: pending codex_reconciliation items the in-line reconciler refused
-    to guess at. The agent re-decides WITH context the in-line pass lacked
-    (both edges' source turns). ≥settings.agent_max_attempts prior attempts ⇒ never
-    retried (check 6)."""
-    rows = db.execute(text("""
-        SELECT id, item_content FROM review_queue
-        WHERE item_type = 'codex_reconciliation' AND status = 'pending'
-          AND COALESCE((item_content->>'agent_attempts')::int, 0) < :max_att
-        ORDER BY created_at ASC
-        LIMIT :cap
-    """), {"max_att": settings.agent_max_attempts, "cap": cap}).fetchall()
-    return [WorkItem("reconciliation_leftover", 1,
-                     {"review_id": str(r.id), "content": dict(r.item_content or {})})
-            for r in rows]
-
-
-def _detect_pending_pileup(db, cap: int) -> list:
-    """D3.2: the sentinel's one real query (JOIN/HAVING shape ported; LIMIT 1
-    existence check replaced by the capped entity list, and pending edges
-    filtered to live ones so already-fixed entities stop re-detecting)."""
-    rows = db.execute(text("""
-        SELECT e.id FROM codex_entities e
-        JOIN codex_edges pe ON pe.source_id = e.id AND pe.confidence = 'pending'
-            AND pe.valid_until IS NULL
-        JOIN codex_edges ae ON ae.source_id = e.id AND ae.target_id = pe.target_id
-            AND ae.confidence = 'active' AND ae.relation = pe.relation
-            AND ae.valid_until IS NULL
-        GROUP BY e.id
-        HAVING COUNT(DISTINCT pe.id) > :min_pen
-           AND COUNT(DISTINCT ae.id) > :min_act
-        LIMIT :cap
-    """), {"min_pen": settings.agent_pileup_min_pending, "min_act": settings.agent_pileup_min_active_overlap,
-           "cap": cap}).fetchall()
-    return [WorkItem("pending_pileup", 1, {"entity_id": str(r.id)}) for r in rows]
 
 
 def _norm(name: str) -> str:
@@ -269,8 +231,7 @@ def _detect_duplicate_entities(db, cap: int) -> list:
     ranked += [(_pair_key(r.a_id, r.b_id), (r.a_id, r.b_id), float(r.cos))
                for r in cos_rows]
 
-    # Lazy, like every other model import in this module (codex_extractor
-    # loads a SentenceTransformer at import time).
+    # Lazy, like the other imports in this module's decision paths.
     from src.memory.models import CodexEvent
 
     # G50: names for the typed rejection below. One query rather than a lookup
@@ -345,65 +306,6 @@ def _merge_order(db, id_a, id_b):
     keep, absorb = sorted([id_a, id_b], key=rank)
     return keep, absorb
 
-
-def _detect_contradictions(db, cap: int) -> list:
-    """Nominate polarity/opposition pairs for source-required review.
-
-    Observation order only stabilizes presentation; it does not decide truth.
-    Converse labels are not contradiction candidates.
-    """
-    items = []
-    rows = db.execute(text("""
-        SELECT p.id AS pos_id, n.id AS neg_id, p.source_id, p.target_id,
-               p.relation, p.valid_from AS pos_from, n.valid_from AS neg_from
-        FROM codex_edges p
-        JOIN codex_edges n ON n.source_id = p.source_id
-         AND n.target_id = p.target_id AND n.relation = p.relation
-         AND n.negated = TRUE AND n.valid_until IS NULL
-        WHERE p.negated = FALSE AND p.valid_until IS NULL
-        LIMIT :cap
-    """), {"cap": cap}).fetchall()
-    for r in rows:
-        # Deterministic presentation order, not an expiry decision.
-        if r.pos_from and r.neg_from and r.pos_from > r.neg_from:
-            old_id, old_rel, new_id, new_rel = r.neg_id, r.relation, r.pos_id, r.relation
-        else:
-            old_id, old_rel, new_id, new_rel = r.pos_id, r.relation, r.neg_id, r.relation
-        items.append(WorkItem("contradiction", 2, {
-            "kind": "polarity", "old_edge_id": str(old_id),
-            "old_relation": old_rel, "new_edge_id": str(new_id),
-            "new_relation": new_rel, "source_id": str(r.source_id),
-            "target_id": str(r.target_id)}))
-
-    if len(items) < cap:
-        # Lazy: codex_extractor loads an embedder at import.
-        from src.workers.codex_extractor import _OPPOSITION_PAIRS
-        for rel_a, rel_b in _OPPOSITION_PAIRS:
-            if len(items) >= cap:
-                break
-            rows = db.execute(text("""
-                SELECT a.id AS a_id, b.id AS b_id, a.source_id, a.target_id,
-                       a.valid_from AS a_from, b.valid_from AS b_from
-                FROM codex_edges a
-                JOIN codex_edges b ON a.source_id = b.source_id
-                 AND a.target_id = b.target_id AND b.relation = :rel_b
-                 AND b.valid_until IS NULL AND b.negated = FALSE
-                WHERE a.relation = :rel_a AND a.valid_until IS NULL
-                  AND a.negated = FALSE
-                LIMIT :cap
-            """), {"rel_a": rel_a, "rel_b": rel_b,
-                   "cap": cap - len(items)}).fetchall()
-            for r in rows:
-                if r.a_from and r.b_from and r.a_from > r.b_from:
-                    old_id, old_rel, new_id, new_rel = r.b_id, rel_b, r.a_id, rel_a
-                else:
-                    old_id, old_rel, new_id, new_rel = r.a_id, rel_a, r.b_id, rel_b
-                items.append(WorkItem("contradiction", 2, {
-                    "kind": "antonym", "old_edge_id": str(old_id),
-                    "old_relation": old_rel, "new_edge_id": str(new_id),
-                    "new_relation": new_rel, "source_id": str(r.source_id),
-                    "target_id": str(r.target_id)}))
-    return items
 
 
 def _detect_stale_slot(db, cap: int) -> list:
@@ -486,10 +388,7 @@ def _detect_stale_work(db, cap: int) -> list:
 
 # Registry (E1 look-ahead: item types are pluggable; spec order = priority).
 DETECTORS: dict = {
-    "reconciliation_leftover": _detect_reconciliation_leftovers,
-    "pending_pileup": _detect_pending_pileup,
     "duplicate_entities": _detect_duplicate_entities,
-    "contradiction": _detect_contradictions,
     "stale_slot": _detect_stale_slot,
     # E3: stale project work (coding core) — deterministic, Tier-2.
     "stale_work": _detect_stale_work,
@@ -581,8 +480,8 @@ def make_llm_decider():
                 logger.warning('agent_llm_incomplete', finish_reason=getattr(choice, 'finish_reason', None))
                 return None
             raw = (choice.message.content or "").strip()
-            # G29: shared salvage — this fence-strip was byte-identical to
-            # codex_extractor's, and both are in llm_json now.
+            # G29: shared salvage — this fence-strip was byte-identical to the
+            # (since deleted) codex_extractor's; it lives in llm_json now.
             return parse_object(raw, where="maintenance_agent")
         except Exception as exc:
             logger.warning("agent_llm_failed", error=str(exc))
@@ -591,25 +490,16 @@ def make_llm_decider():
     return _decide
 
 
-def _turn_for_batch(db, batch_id) -> str:
-    if batch_id is None:
-        return ""
-    row = db.execute(text(
-        "SELECT raw_text, summary_text FROM episodic_memory "
-        "WHERE batch_id = :b LIMIT 1"), {"b": batch_id}).first()
-    if row is None:
-        return ""
-    return (row.raw_text or row.summary_text or "")[:600]
-
 
 def _ask_enum(llm_decider, prompt: str, key: str, allowed: tuple) -> str:
     """One decider call, answer forced into the enum; anything else ⇒ unsure.
 
-    An enum is the right tool HERE, unlike the codex relation vocabulary: this
-    is a closed decision set that already contains "unsure", so a model with no
-    good answer has a legal way to say so. The relation vocabulary has no such
-    escape and forcing a choice there produced ~78% wrong facts (PROVENANCE,
-    2026-08-04) — the difference is whether declining is expressible.
+    An enum is the right tool HERE, unlike the old codex relation vocabulary
+    (removed with CODEX_V4): this is a closed decision set that already contains
+    "unsure", so a model with no good answer has a legal way to say so. The
+    vocabulary had no such escape and forcing a choice there produced ~78% wrong
+    facts (PROVENANCE, 2026-08-04) — the difference is whether declining is
+    expressible.
     """
     options = tuple(allowed) + (() if "unsure" in allowed else ("unsure",))
     schema = {"type": "object",
@@ -625,70 +515,6 @@ def _ask_enum(llm_decider, prompt: str, key: str, allowed: tuple) -> str:
     value = str(parsed.get(key, "")).strip().lower().replace(" ", "_").replace("-", "_")
     return value if value in allowed else "unsure"
 
-
-def _reconciliation_sources(db, content, *, diagnostics=None):
-    from src.memory.models import CodexClaim, CodexClaimLink, CodexEdge
-    from src.workers.codex_extractor import _reconciliation_evidence
-    old = db.get(CodexEdge, uuid.UUID(content["old_edge_id"]))
-    new = content.get("new") or {}
-    edge = _find_edge_by_names(db, new.get("subject"), new.get("relation"),
-                              new.get("object"), new.get("negated", False))
-    if old is None or edge is None:
-        if diagnostics is not None:
-            diagnostics.update(reason="edge_missing", eligible=False)
-        return old, edge, None
-    claims = db.query(CodexClaim).join(CodexClaimLink).filter(
-        CodexClaimLink.edge_id == edge.id)
-    if content.get("new_batch_id"):
-        claims = claims.filter(CodexClaim.source_batch == uuid.UUID(content["new_batch_id"]))
-    return old, edge, _reconciliation_evidence(db, content, claims.all(), diagnostics=diagnostics)
-
-
-def _decide_reconciliation(db, item: WorkItem, llm_decider) -> str:
-    """Use the same source authority and complete context as ingestion."""
-    from src.memory.tokens import count
-    from src.workers.codex_extractor import reconciliation_prompt
-    content = item.payload["content"]
-    authority = {}
-    old, edge, evidence = _reconciliation_sources(db, content, diagnostics=authority)
-    item.payload["_source_authority"] = authority
-    logger.info("codex_reconcile_source_authority", consumer="maintenance", **authority)
-    if old is None or old.valid_until is not None:
-        return "already_resolved"
-    if evidence is None:
-        return "unsure"
-    new = content.get("new") or {}
-    prompt = reconciliation_prompt(dict(subject=new.get("subject", "?"),
-        relation=new.get("relation", "?"), object=new.get("object", "?"),
-        old_relation=content.get("old_relation", "?"),
-        old_object=content.get("old_object", "?"), old_negated=old.negated,
-        negated=edge.negated, old_source=evidence[0], new_source=evidence[1],
-        turn=evidence[1]["text"]))
-    prompt = prompt.replace("Reply with exactly ONE word:",
-                            'Reply with one JSON object {"decision": "<value>"}:')
-    if count(prompt) > settings.codex_reconcile_input_tokens:
-        logger.warning("codex_reconcile_source_too_long", consumer="maintenance")
-        return "unsure"
-    return _ask_enum(llm_decider, prompt, "decision",
-                     ("expire_old", "keep_both", "reject_new", "unsure"))
-
-
-def _find_edge_by_names(db, subject, relation, obj, negated=False):
-    """Resolve the reconciliation item's stored triplet names back to the live
-    edge (names are canonical — reconcile_conflict wrote them from the
-    entities). Lookup only; never creates entities."""
-    from src.memory.models import CodexEdge, CodexEntity
-    if not (subject and relation and obj):
-        return None
-    subj_e = db.query(CodexEntity).filter_by(canonical_name=_norm(subject)).first()
-    obj_e = db.query(CodexEntity).filter_by(canonical_name=_norm(obj)).first()
-    if subj_e is None or obj_e is None:
-        return None
-    return db.query(CodexEdge).filter(
-        CodexEdge.source_id == subj_e.id, CodexEdge.target_id == obj_e.id,
-        CodexEdge.relation == relation, CodexEdge.negated == negated,
-        CodexEdge.valid_until == None,  # noqa: E711
-    ).first()
 
 
 def _decide_duplicate(db, item: WorkItem, llm_decider) -> str:
@@ -763,118 +589,6 @@ def _apply_merge(db, item: WorkItem, run_id) -> str:
                             agent_run_id=str(run_id))
     return "applied" if result.get("status") == "merged" else "skipped"
 
-
-def _apply_pileup(db, item: WorkItem, run_id) -> str:
-    """Expire live pending edges that exactly duplicate a live active edge
-    (same source/target/relation); the active edge keeps the max
-    extraction_confidence seen. Deterministic, journaled via _expire_edge."""
-    from src.memory.models import CodexEdge
-    from src.workers.codex_extractor import _expire_edge
-    entity_id = uuid.UUID(item.payload["entity_id"])
-    rows = db.execute(text("""
-        SELECT pe.id AS pending_id, ae.id AS active_id
-        FROM codex_edges pe
-        JOIN codex_edges ae ON ae.source_id = pe.source_id
-         AND ae.target_id = pe.target_id AND ae.relation = pe.relation
-         AND ae.confidence = 'active' AND ae.valid_until IS NULL
-        WHERE pe.source_id = :eid AND pe.confidence = 'pending'
-          AND pe.valid_until IS NULL
-    """), {"eid": entity_id}).fetchall()
-    if not rows:
-        return "noop"
-    for r in rows:
-        pending = db.query(CodexEdge).get(r.pending_id)
-        active = db.query(CodexEdge).get(r.active_id)
-        if pending is None or active is None or pending.valid_until is not None:
-            continue
-        active.extraction_confidence = max(
-            active.extraction_confidence or 0.0,
-            pending.extraction_confidence or 0.0)
-        _expire_edge(db, pending.id, run_id, "pending_duplicate", source=SOURCE)
-    db.commit()
-    logger.info("agent_action", action="pending_pileup", outcome="applied",
-                entity_id=str(entity_id), expired=len(rows),
-                agent_run_id=str(run_id))
-    return "applied"
-
-
-def _apply_contradiction(db, item: WorkItem, run_id) -> str:
-    """Record an unresolved pair without treating observation order as truth."""
-    from src.memory.models import CodexEdge, ReviewQueue
-
-    old_edge = db.get(CodexEdge, uuid.UUID(item.payload["old_edge_id"]))
-    new_edge = db.get(CodexEdge, uuid.UUID(item.payload["new_edge_id"]))
-    if (old_edge is None or new_edge is None or old_edge.valid_until is not None
-            or new_edge.valid_until is not None):
-        return "noop"
-    pair = sorted([str(old_edge.id), str(new_edge.id)])
-    existing = db.query(ReviewQueue.id).filter(
-        ReviewQueue.item_type == "codex_contradiction",
-        ReviewQueue.item_content["edge_ids"] == pair,
-    ).first()
-    if existing:
-        return "noop"
-    db.add(ReviewQueue(item_type="codex_contradiction", item_content={
-        "edge_ids": pair, "kind": item.payload.get("kind"),
-        "claims": [{"edge_id": str(e.id), "source_id": str(e.source_id),
-                    "target_id": str(e.target_id), "relation": e.relation,
-                    "negated": e.negated, "source_batch": str(e.source_batch)}
-                   for e in (old_edge, new_edge)],
-        "reason": "source_evidence_required", "source": SOURCE,
-        "agent_run_id": str(run_id),
-    }))
-    db.commit()
-    logger.info("agent_action", action="contradiction", outcome="proposed",
-                agent_run_id=str(run_id))
-    return "proposed"
-
-
-def _apply_reconciliation(db, item: WorkItem, decision: str, run_id) -> str:
-    from src.memory.models import ReviewQueue
-    from src.workers.codex_extractor import _expire_edge
-    review = db.query(ReviewQueue).get(uuid.UUID(item.payload["review_id"]))
-    if review is None:
-        return "noop"
-    content = dict(review.item_content or {})
-    evidence = None
-    if decision in ("expire_old", "reject_new"):
-        _, _, evidence = _reconciliation_sources(db, content)
-        if evidence is None:
-            decision = "unsure"
-
-    if decision == "unsure":
-        content["agent_attempts"] = int(content.get("agent_attempts", 0)) + 1
-        content["source_authority"] = item.payload.get("_source_authority", {})
-        review.item_content = content
-        flag_modified(review, "item_content")
-        db.commit()
-        logger.info("agent_action", action="reconciliation_leftover",
-                    outcome="still_unsure", review_id=item.payload["review_id"],
-                    attempts=content["agent_attempts"], agent_run_id=str(run_id))
-        return "still_unsure"
-
-    if decision == "expire_old":
-        _expire_edge(db, uuid.UUID(content["old_edge_id"]), run_id,
-                     "supersession", source=SOURCE, ordering=evidence[1]["ordering"])
-    elif decision == "reject_new":
-        new = content.get("new") or {}
-        new_edge = _find_edge_by_names(db, new.get("subject"),
-                                       new.get("relation"), new.get("object"),
-                                       new.get("negated", False))
-        if new_edge is not None:
-            _expire_edge(db, new_edge.id, run_id, "reconciliation_reject",
-                         source=SOURCE, ordering=evidence[1]["ordering"])
-    # keep_both / already_resolved: no graph write.
-    content["decision"] = decision
-    content["agent_run_id"] = str(run_id)
-    review.item_content = content
-    flag_modified(review, "item_content")
-    review.status = "resolved"       # not "approved" — the agent decided, not the user
-    db.commit()
-    logger.info("agent_action", action="reconciliation_leftover",
-                outcome=decision, review_id=item.payload["review_id"],
-                agent_run_id=str(run_id))
-    return "applied" if decision in ("expire_old", "reject_new") else decision
 
 
 def _apply_merge_audited(db, item: WorkItem, run_id) -> str:
@@ -978,18 +692,15 @@ def run_maintenance_agent(db, llm_decider=_USE_DEFAULT) -> dict:
             outcome = "error"
         record(item.item_type, outcome)
 
-    authority_counts = dict(Counter(item.payload['_source_authority']['reason']
-        for item in items if item.payload.get('_source_authority')))
     logger.info("agent_run_summary", agent_run_id=str(run_id),
                 scanned=len(items), outcomes=outcomes, detector_receipts=detector_receipts,
-                source_authority_counts=authority_counts, **counters)
+                **counters)
     return {"agent_run_id": str(run_id), "scanned": len(items),
-            "outcomes": outcomes, "detector_receipts": detector_receipts,
-            "source_authority_counts": authority_counts, **counters}
+            "outcomes": outcomes, "detector_receipts": detector_receipts, **counters}
 
 
 def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
-    needs_llm = (item.item_type in ("reconciliation_leftover", "stale_slot")
+    needs_llm = (item.item_type == "stale_slot"
                  or (item.item_type == "duplicate_entities" and item.tier == 2))
     if needs_llm:
         if llm_decider is None:
@@ -1001,32 +712,6 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
         if counters["applications"] >= settings.agent_max_applications:
             return "skipped_cap"
         outcome = _apply_merge(db, item, run_id)
-        if outcome == "applied":
-            counters["applications"] += 1
-        return outcome
-
-    if item.item_type == "pending_pileup":
-        if counters["applications"] >= settings.agent_max_applications:
-            return "skipped_cap"
-        outcome = _apply_pileup(db, item, run_id)
-        if outcome == "applied":
-            counters["applications"] += 1
-        return outcome
-
-    if item.item_type == "contradiction":
-        if counters["proposals"] >= settings.agent_max_tier2_proposals:
-            return "skipped_cap"
-        outcome = _apply_contradiction(db, item, run_id)
-        if outcome == "proposed":
-            counters["proposals"] += 1
-        return outcome
-
-    if item.item_type == "reconciliation_leftover":
-        decision = _decide_reconciliation(db, item, llm_decider)
-        if decision in ("expire_old", "reject_new") and \
-                counters["applications"] >= settings.agent_max_applications:
-            return "skipped_cap"
-        outcome = _apply_reconciliation(db, item, decision, run_id)
         if outcome == "applied":
             counters["applications"] += 1
         return outcome

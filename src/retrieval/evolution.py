@@ -1,210 +1,47 @@
-"""T4: evolution surfacing — git log & diff for ideas.
+"""T4: evolution surfacing — git log & diff for ideas, over the CODEX_V4 facts.
 
-The storage layer already records every supersession (bi-temporal codex_edges
-+ the codex_events journal); this module is the porcelain that reads them.
-T3's valid_at(T) filtering is `checkout`; `build_entity_timeline` is `log`,
-`entity_diff` is `diff`, and `log_description_update` (D13) journals the one
-mutable-in-place field so note bodies never lose history either.
-
-The D6 discriminator lives here and nowhere else: an expired edge counts as
-*history* only when its expiry is event-backed (a real supersession — A6
-reconciliation, A8 negation, property update) and the reason is not
-`source_deleted` (C10: deletion is not evolution). An eventless expiry is
-codex_decay forgetting — a faded idea is not a revised idea, so it never
-enters a timeline.
+Every replacement is recorded on the fact itself (valid_until + superseded_by,
+never rewritten) and journaled in codex_events, so `entity_diff` is `diff` and
+the entity view's replaced facts are `log`. `log_description_update` (D13)
+journals the one mutable-in-place entity field so note bodies never lose
+history either. Expiry by deletion (C10) is not evolution, and a fact whose
+sources were all deleted carries deleted text: neither function shows it.
 
 DB-reading only, no LLM, free of orchestrator state (db + entity in, data
-out) — E0 wraps these as services and D1's agent can drive them unmodified.
-Do NOT add REST endpoints here (E0's job).
+out) — E0 wraps these as services. Do NOT add REST endpoints here (E0's job).
+The v2/v3 edge timeline this module used to build is described in
+docs/outdated/ICE_Architecture_section4_codex_v2_v3.md.
 """
+
 import uuid
-from datetime import datetime, timezone
 
 import structlog
-from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
-from src.api.config import settings
-from src.memory.models import CodexEdge, CodexEntity, CodexEvent
-from src.memory.time_format import format_time
-from src.memory.tokens import count as count_tokens
+from src.memory.facts import has_source
+from src.memory.models import CodexEvent, CodexFact, CodexFactEntity
 
 logger = structlog.get_logger("ice.retrieval.evolution")
 
-_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
-
-
-def _expiry_events(db: Session, edge_ids) -> dict:
-    """edge_id (str) → (event_timestamp, reason) for event-backed expiries,
-    one query for all candidates. Applies the D6/C10 discriminator: eventless
-    expiries simply don't appear, and `source_deleted` expiries are dropped
-    so every consumer (timeline, diff, gate) shares the same rule."""
-    if not edge_ids:
-        return {}
-    rows = db.execute(text("""
-        SELECT payload->>'edge_id' AS edge_id,
-               timestamp,
-               payload->>'reason'  AS reason
-        FROM codex_events
-        WHERE event_type = 'edge_expired'
-          AND payload->>'edge_id' = ANY(:ids)
-    """), {"ids": [str(i) for i in edge_ids]}).fetchall()
-    return {r.edge_id: (r.timestamp, r.reason or "updated")
-            for r in rows if r.reason != "source_deleted"}
-
-
-def history_exists(db: Session, entity_id) -> bool:
-    """Cheap gate for the timeline wiring: does this entity carry any real
-    supersession history — an expired edge whose expiry is event-backed and
-    not a deletion?"""
-    row = db.execute(text("""
-        SELECT 1
-        FROM codex_edges e
-        JOIN codex_events ev
-          ON ev.event_type = 'edge_expired'
-         AND ev.payload->>'edge_id' = e.id::text
-        WHERE (e.source_id = :eid OR e.target_id = :eid)
-          AND e.valid_until IS NOT NULL
-          AND COALESCE(ev.payload->>'reason', '') != 'source_deleted'
-        LIMIT 1
-    """), {"eid": str(entity_id)}).fetchone()
-    return row is not None
-
-
-def build_entity_timeline(db: Session, entity, allowed_batch_ids=None,
-                          t0=None, t1=None, max_transitions=8,
-                          source_batch_for_edge=None, return_sources=False, artifact_ids=None):
-    """Render an entity's supersession history as a compact dated block:
-
-        [Timeline: saga 2 ending]
-        2025-11 – 2026-02: saga 2 ending --planned_as--> multiverse destruction  (superseded: antonym_superseded)
-        2026-02 – now: saga 2 ending --planned_as--> pact mercy killing
-
-    Live edges always belong; expired edges only when event-backed (D6).
-    Returns None when there is no history to tell (no event-backed expired
-    member) — a timeline of purely-current facts would just repeat the note.
-    Month-precision dates (day precision implies false exactness); negated
-    edges render NOT <relation>; the expiry reason comes from the event
-    payload (fallback "updated"). A window bounds the story: candidates must
-    be established by t1 and still alive at t0 (span overlap). Output keeps
-    the most recent `max_transitions` lines and is word-trimmed to
-    `settings.timeline_max_tokens`; truncation is announced, never silent.
-    The optional source resolver filters lines lacking a visible original and
-    lets the caller credit only batches whose lines survive both caps.
-    """
-    until = t1 or datetime.now(timezone.utc)
-    q = db.query(CodexEdge).filter(
-        or_(CodexEdge.source_id == entity.id, CodexEdge.target_id == entity.id),
-        or_(CodexEdge.valid_from.is_(None), CodexEdge.valid_from <= until),
-    )
-    if allowed_batch_ids is not None and source_batch_for_edge is None:
-        q = q.filter(CodexEdge.source_batch.in_(allowed_batch_ids))
-    if t0 is not None:
-        q = q.filter(or_(CodexEdge.valid_until.is_(None), CodexEdge.valid_until >= t0))
-    candidates = q.all()
-    if not candidates:
-        return (None, ()) if return_sources else None
-
-    events = _expiry_events(db, [e.id for e in candidates if e.valid_until is not None])
-    members = [(e, source_batch_for_edge(e) if source_batch_for_edge else e.source_batch)
-               for e in candidates if e.valid_until is None or str(e.id) in events]
-    if source_batch_for_edge is not None:
-        members = [(e, batch) for e, batch in members if batch is not None]
-    # No event-backed expired member = no supersession history (D-U2: real
-    # history only) — the anchor's live edges are already in its codex note.
-    if not any(e.valid_until is not None for e, _ in members):
-        return (None, ()) if return_sources else None
-
-    ent_ids = {e.source_id for e, _ in members} | {e.target_id for e, _ in members}
-    names = {en.id: en.canonical_name for en in
-             db.query(CodexEntity).filter(CodexEntity.id.in_(ent_ids)).all()}
-
-    # Group by (relation, direction): consecutive members of a group form a
-    # supersession chain. Groups ordered by their newest member, lines within
-    # a group oldest→newest, so the block reads chronologically while chains
-    # stay adjacent.
-    groups: dict = {}
-    for e, batch in members:
-        direction = "out" if e.source_id == entity.id else "in"
-        groups.setdefault((e.relation, direction), []).append((e, batch))
-
-    lines = []
-    for key in sorted(groups, key=lambda k: max((e.valid_from or _EPOCH)
-                                                for e, _ in groups[k])):
-        for e, batch in sorted(groups[key], key=lambda pair: pair[0].valid_from or _EPOCH):
-            start = format_time(e.valid_from)
-            if e.valid_until is not None:
-                end = format_time(e.valid_until)
-                suffix = f"  (superseded: {events[str(e.id)][1]})"
-            else:
-                end = "now"
-                suffix = ""
-            rel = f"NOT {e.relation}" if e.negated else e.relation
-            src = names.get(e.source_id, "?")
-            tgt = names.get(e.target_id, "?")
-            lines.append((f"{start} – {end}: {src} --{rel}--> {tgt}{suffix}", batch, e))
-
-    omitted = False
-    if len(lines) > max_transitions:
-        lines = lines[-max_transitions:]
-        omitted = True
-    header = f"[Timeline: {entity.canonical_name}; recorded validity times]"
-
-    def _render():
-        parts = [header] + (["(earlier history omitted)"] if omitted else []) \
-            + [line for line, _, _ in lines]
-        return "\n".join(parts)
-
-    # Token cap (D7: a life story must not eat the window) — drop the oldest
-    # remaining lines before ever cutting mid-line.
-    while len(lines) > 1 and count_tokens(_render()) > settings.timeline_max_tokens:
-        lines.pop(0)
-        omitted = True
-    rendered = _render()
-    if artifact_ids is not None:
-        artifact_ids.append(("codex_entities", str(entity.id)))
-        for _, _, edge in lines:
-            artifact_ids.append(("codex_edges", str(edge.id)))
-            artifact_ids.extend(("codex_entities", str(ident))
-                                for ident in (edge.source_id, edge.target_id) if ident in names)
-    if return_sources:
-        return rendered, tuple(dict.fromkeys(str(batch) for _, batch, _ in lines
-                                             if batch is not None))
-    return rendered
-
 
 def entity_diff(db: Session, entity, t0, t1) -> dict:
-    """What changed for this entity inside [t0, t1): edges established in the
-    window → "added" ("retracted" when negated — an A8 negation is the
-    retraction of a fact, not a new link); event-backed expiries whose event
-    falls in the window → "expired". Items carry raw datetimes (F3's UI
-    formats itself) and the other endpoint's canonical name. Not wired to any
-    endpoint here — the E0 service candidate and F3's timeline-overlay
-    backend; exercised by tests until then."""
-    edges = db.query(CodexEdge).filter(
-        or_(CodexEdge.source_id == entity.id, CodexEdge.target_id == entity.id)
-    ).all()
-    ent_ids = {e.source_id for e in edges} | {e.target_id for e in edges}
-    names = {en.id: en.canonical_name for en in
-             db.query(CodexEntity).filter(CodexEntity.id.in_(ent_ids)).all()} if ent_ids else {}
-
-    def _other(e):
-        oid = e.target_id if e.source_id == entity.id else e.source_id
-        return names.get(oid, "?")
-
-    added, retracted, expired = [], [], []
-    for e in edges:
-        if e.valid_from is not None and t0 <= e.valid_from < t1:
-            item = {"relation": e.relation, "other": _other(e), "date": e.valid_from}
-            (retracted if e.negated else added).append(item)
-
-    events = _expiry_events(db, [e.id for e in edges if e.valid_until is not None])
-    for e in edges:
-        info = events.get(str(e.id))
-        if info and t0 <= info[0] < t1:
-            expired.append({"relation": e.relation, "other": _other(e),
-                            "date": info[0], "reason": info[1]})
-    return {"added": added, "expired": expired, "retracted": retracted}
+    """What changed for this entity inside [t0, t1): facts first stated in the
+    window → "added"; facts that stopped being current in the window →
+    "expired" (with the replacing fact's sentence when one replaced it).
+    "retracted" stays in the shape for callers; facts carry negation in their
+    sentence, so it is empty. Items carry raw datetimes."""
+    rows = (db.query(CodexFact)
+            .join(CodexFactEntity, CodexFactEntity.fact_id == CodexFact.id)
+            .filter(CodexFactEntity.entity_id == entity.id, has_source()).distinct().all())
+    added, expired = [], []
+    for fact in rows:
+        if fact.mentioned_at is not None and t0 <= fact.mentioned_at < t1:
+            added.append({"fact": fact.text, "speaker": fact.speaker, "date": fact.mentioned_at})
+        if fact.valid_until is not None and t0 <= fact.valid_until < t1:
+            successor = db.get(CodexFact, fact.superseded_by) if fact.superseded_by else None
+            expired.append({"fact": fact.text, "date": fact.valid_until,
+                            "replaced_by": successor.text if successor else None})
+    return {"added": added, "expired": expired, "retracted": []}
 
 
 def log_description_update(db: Session, entity, old, new, source,

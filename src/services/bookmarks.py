@@ -2,7 +2,7 @@
 ice_remember's note branch.
 
 Bookmarking promotes a turn to lossless + decay-immune and (C7) enqueues
-codex extraction for it on the maintenance runtime — extract_codex's own
+fact extraction for it on the maintenance runtime — extract_facts's own
 idempotency key makes a re-run a no-op.
 """
 import hashlib
@@ -37,19 +37,18 @@ def _bookmark_out(turn: EpisodicMemory) -> dict:
 
 
 def _enqueue_extraction(batch_id: str) -> None:
-    from src.memory.summary_support import METHOD_V4, current_method
-    job = "facts_extract" if current_method() == METHOD_V4 else "codex_extract"
+    job = "facts_extract"
     runtime = get_runtime()
     if runtime is not None:
         runtime.enqueue(job, batch_id=batch_id, priority=True)
     else:
-        logger.error("maintenance_core_not_started_codex_extract_skipped",
+        logger.error("maintenance_core_not_started_facts_extract_skipped",
                      batch_id=batch_id, job=job)
 
 
 def bookmark_turn(db: Session, turn_id: str) -> dict:
     """C1: flag a turn bookmarked + lossless + decay-immune, then make sure
-    codex extraction runs for it."""
+    fact extraction runs for it."""
     turn = db.query(EpisodicMemory).filter_by(id=uuid.UUID(turn_id)).first()
     if not turn:
         raise NotFoundError("Turn not found")

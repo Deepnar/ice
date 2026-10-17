@@ -66,7 +66,7 @@ def test_full_source_and_as_of_probe_contract():
 
 def test_snapshot_includes_every_current_store_table():
     assert TABLES == sorted(Base.metadata.tables)
-    assert {"codex_claims", "codex_claim_links", "codex_snapshots",
+    assert {"codex_facts", "codex_fact_sources", "codex_fact_entities",
             "batch_notes", "conversation_notes", "cold_chunks",
             "idempotency_keys", "maintenance_ledger"} <= set(TABLES)
 
@@ -110,12 +110,12 @@ def test_gold_fragment_funnel_uses_both_source_id_spaces():
     row = {"source_row": "episodic-row", "origin_batches": [], "leg": "vector"}
     derived = {"source_row": None, "origin_batches": ["source-batch"],
                "leg": "codex"}
-    stage = {"generated_by_leg": {"vector": [row], "codex_claims": [derived]},
+    stage = {"generated_by_leg": {"vector": [row], "codex_facts": [derived]},
              "ranked_candidates": [row, derived],
              "budgeted": [row, derived], "selected": [derived]}
     result = gold_fragment_coverage(stage, {9: {"episodic-row", "source-batch"}})
     assert result["gold_turns"] == 1
-    assert result["generated_by_leg"] == {"vector": 1, "codex_claims": 1}
+    assert result["generated_by_leg"] == {"vector": 1, "codex_facts": 1}
     assert result["generated"] == result["budgeted"] == result["selected"] == 1
     assert result["rank_at_5"] == result["rank_at_10"] == 1
     assert result["first_rank_by_gold_turn"] == {"9": 1}

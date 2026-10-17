@@ -19,9 +19,9 @@ def test_busy_first_detector_cannot_starve_other_detector(monkeypatch):
     calls, receipts = [], []
     monkeypatch.setattr(settings, 'agent_max_scanned', 5)
     monkeypatch.setattr(worker, 'DETECTORS', {
-        n: detector(n, calls) for n in ('reconciliation_leftover', 'pending_pileup', 'contradiction')})
+        n: detector(n, calls) for n in ('duplicate_entities', 'stale_slot', 'stale_work')})
     items = worker.detect_all(None, receipts=receipts)
-    assert calls == [('reconciliation_leftover', 2), ('pending_pileup', 2), ('contradiction', 1)]
+    assert calls == [('duplicate_entities', 2), ('stale_slot', 2), ('stale_work', 1)]
     assert len(items) == sum(r['candidate_scan_limit'] for r in receipts) == 5
 
 
@@ -47,21 +47,19 @@ def test_failed_detector_is_visible_without_consuming_other_quota(monkeypatch):
 
 
 def test_actual_run_reaches_later_detector_despite_blocked_backlog(monkeypatch):
+    # CODEX_V4: the legacy edge detectors are gone; an undecidable duplicate
+    # backlog must still leave room for the stale-slot detector.
     monkeypatch.setattr(settings, 'agent_max_scanned', 4)
     monkeypatch.setattr(worker, 'DETECTORS', {
-        'reconciliation_leftover': detector('reconciliation_leftover', []),
-        'pending_pileup': detector('pending_pileup', [], count=1)})
-    monkeypatch.setattr(worker, '_decide_reconciliation', lambda _db, item, _decider:
-        item.payload.update(_source_authority={'reason': 'source_order_unknown', 'eligible': False})
-        or 'unsure')
-    monkeypatch.setattr(worker, '_apply_reconciliation', lambda *_args: 'still_unsure')
-    applied = []
-    monkeypatch.setattr(worker, '_apply_pileup', lambda _db, item, _run:
-        applied.append(item.item_type) or 'applied')
+        'duplicate_entities': detector('duplicate_entities', []),
+        'stale_slot': detector('stale_slot', [], count=1)})
+    monkeypatch.setattr(worker, '_decide_duplicate', lambda _db, item, _decider: 'unsure')
+    reached = []
+    monkeypatch.setattr(worker, '_decide_stale_slot', lambda _db, item, _decider:
+        reached.append(item.item_type) or None)
     result = worker.run_maintenance_agent(None, llm_decider=lambda *_a: None)
-    assert applied == ['pending_pileup'] and result['applications'] == 1
-    assert result['llm_decisions'] == 0
-    assert result['source_authority_counts'] == {'source_order_unknown': 2}
+    assert reached == ['stale_slot']
+    assert result['outcomes'].get('duplicate_entities:unsure') == 2
     assert result['scanned'] == 3 and len(result['detector_receipts']) == 2
 
 
@@ -71,20 +69,20 @@ def test_job_counting_wrapper_preserves_provider_json_schema(monkeypatch):
     requests = []
     def create(**kwargs):
         requests.append(kwargs)
-        return NS(choices=[NS(finish_reason='stop', message=NS(content='{"decision":"keep_both"}'))])
+        return NS(choices=[NS(finish_reason='stop', message=NS(content='{"verdict":"different"}'))])
     monkeypatch.setattr(bg_client_factory, 'get_bg_client', lambda:
         NS(chat=NS(completions=NS(create=create))))
     monkeypatch.setattr(bg_client_factory, 'get_bg_model_name', lambda: 'controlled-background')
-    monkeypatch.setattr(worker, 'DETECTORS', {'reconciliation_leftover':
-        lambda _db, _cap: [worker.WorkItem('reconciliation_leftover', 1)]})
-    monkeypatch.setattr(worker, '_decide_reconciliation', lambda _db, _item, decider:
-        worker._ask_enum(decider, 'Controlled source comparison.', 'decision', ('keep_both', 'unsure')))
-    monkeypatch.setattr(worker, '_apply_reconciliation', lambda _db, _item, decision, _run: decision)
+    monkeypatch.setattr(worker, 'DETECTORS', {'duplicate_entities':
+        lambda _db, _cap: [worker.WorkItem('duplicate_entities', 2)]})
+    monkeypatch.setattr(worker, '_decide_duplicate', lambda _db, _item, decider:
+        worker._ask_enum(decider, 'Controlled duplicate check.', 'verdict', ('same', 'different', 'unsure')))
+    monkeypatch.setattr(worker, '_dismiss_pair', lambda _db, _item, verdict, _run: verdict)
     result = worker.run_maintenance_agent(None, llm_decider=worker.make_llm_decider())
     assert result['llm_decisions'] == len(requests) == 1
     schema = requests[0]['response_format']
     assert schema['type'] == 'json_schema'
-    assert schema['json_schema']['schema']['properties']['decision']['enum'] == ['keep_both', 'unsure']
+    assert schema['json_schema']['schema']['properties']['verdict']['enum'] == ['same', 'different', 'unsure']
 
 
 @pytest.mark.parametrize('finish', ['length', None, 'content_filter'])

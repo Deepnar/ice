@@ -34,9 +34,10 @@ def test_actual_baseline_daily_units_cap_sensitivity_and_immutable_export(tmp_pa
     assert value["rates"]["creative"]["cold_eligible_days"] is None
     assert value["rates"]["unaccessed"]["daily_sensitivity"]["half_duration"] == pytest.approx(.95 ** 2)
     assert value["exposure"]["episodic"]["uninterrupted_exposures_to_ceiling"] == 6
-    cap_rows = value["exposure"]["graph"]["cap_sensitivity"]
-    assert [r["cap"] for r in cap_rows] == [5, 10, 20]
-    assert [r["bonus_factor_at_unchanged_strength1"] for r in cap_rows] == [1.1, 1.05, 1.025]
+    facts = value["exposure"]["facts"]
+    assert facts["uninterrupted_exposures_to_saturation"] == 5
+    assert facts["usage_half_life_days"] == pytest.approx(math.log(.5) / math.log(.99))
+    assert facts["max_usage_bonus"] == settings.codex_fact_strength_bonus / 3
     out = tmp_path / "plan.json"
     write_or_verify(out, value)
     saved = out.read_bytes()
@@ -78,7 +79,7 @@ def test_real_native_workers_old_and_new_eligibility_are_not_endpoint_equivalent
         empty_replay_database, monkeypatch, tmp_path, mode):
     from sqlalchemy import create_engine
     from src.api.db import SessionLocal
-    from src.memory.models import CodexEdge, CodexEntity, ColdStorage, Conversation, EpisodicMemory
+    from src.memory.models import CodexFact, ColdStorage, Conversation, EpisodicMemory
     from src.workers import codex_decay, decay
     from src.workers.runtime import missed_cycles
     from scripts.z1.historical_clock import historical_clock
@@ -88,7 +89,7 @@ def test_real_native_workers_old_and_new_eligibility_are_not_endpoint_equivalent
     monkeypatch.setattr(codex_decay, "SessionLocal", SessionLocal)
     for name, value in dict(decay_daily_unaccessed=.95, decay_daily_accessed=.98,
             decay_daily_creative=.99, decay_creative_floor=.3, decay_archive_threshold=.1,
-            decay_cold_threshold=.05, codex_decay_daily=.99, codex_retention_floor=.1,
+            decay_cold_threshold=.05, codex_decay_daily=.99,
             runtime_cycles_cap=96).items(): monkeypatch.setattr(settings, name, value)
     monkeypatch.setattr(settings, "maintenance_intervals", {**settings.maintenance_intervals,
         **dict.fromkeys(JOBS, 5400)})
@@ -106,11 +107,10 @@ def test_real_native_workers_old_and_new_eligibility_are_not_endpoint_equivalent
                 context_reliance="independent", decay_score=score, access_count=accesses,
                 topic_tags=topics, is_bookmarked=protected)
             db.add(row); db.flush(); turns[kind] = (row.id, raw, row.source_spans, row.timestamp)
-        a, b = [CodexEntity(canonical_name="clock_" + uuid.uuid4().hex) for _ in range(2)]
-        db.add_all([a, b]); db.flush()
-        edge = CodexEdge(source_id=a.id, target_id=b.id, relation="uses", source_batch=uuid.uuid4(),
-                         strength=1, confidence="pending", extraction_confidence=.9)
-        db.add(edge); db.commit(); edge_id, conversation_id = edge.id, conv.id
+        fact = CodexFact(text="The user said they use clock.", text_sha256=uuid.uuid4().hex,
+                         speaker="user", modality="asserted", mentioned_at=START, valid_from=START,
+                         support_count=1, usage=1.0, confidence=.97)
+        db.add(fact); db.commit(); fact_id, conversation_id = fact.id, conv.id
     end = START + timedelta(days=10)
     engine = create_engine(settings.database_url)
     try:
@@ -118,7 +118,7 @@ def test_real_native_workers_old_and_new_eligibility_are_not_endpoint_equivalent
             for event in decay_events(START, end, intervals()):
                 if event["job"] == "decay_procedural": continue
                 with historical_clock(datetime.fromisoformat(event["source_time"]), engine):
-                    (decay.apply_decay if event["job"] == "decay_episodic" else codex_decay.decay_codex_edges)(cycles=1)
+                    (decay.apply_decay if event["job"] == "decay_episodic" else codex_decay.decay_fact_usage)(cycles=1)
         else:
             if mode == "uncapped_endpoint": monkeypatch.setattr(settings, "runtime_cycles_cap", 480)
             count = missed_cycles(10 * 86400, 5400, settings.runtime_cycles_cap)
@@ -138,7 +138,7 @@ def test_real_native_workers_old_and_new_eligibility_are_not_endpoint_equivalent
                     # Omitted earlier cycles are no longer represented by this ledger.
                     assert missed_cycles((end + timedelta(seconds=5400) - ledger["decay_episodic"]).total_seconds(), 5400, 96) == 1
                 else:
-                    decay.apply_decay(cycles=count); codex_decay.decay_codex_edges(cycles=count)
+                    decay.apply_decay(cycles=count); codex_decay.decay_fact_usage(cycles=count)
         with SessionLocal() as db:
             observed = {}
             for kind, (row_id, raw, spans, stamp) in turns.items():
@@ -162,53 +162,48 @@ def test_real_native_workers_old_and_new_eligibility_are_not_endpoint_equivalent
             assert observed["accessed"]["score"] == pytest.approx(.98 ** effective_old_days)
             assert observed["creative"]["score"] == pytest.approx(.3)
             assert observed["protected"]["score"] == 1
-            edge = db.get(CodexEdge, edge_id)
-            assert edge.strength == pytest.approx(.99 ** effective_old_days)
-            assert edge.confidence == "pending" and edge.extraction_confidence == .9
-            assert edge.valid_until is edge.unlearned_at is None
+            fact = db.get(CodexFact, fact_id)
+            assert fact.usage == pytest.approx(.99 ** effective_old_days)
+            assert fact.support_count == 1 and fact.confidence == .97 and fact.valid_until is None
             (tmp_path / ("native-" + mode + ".json")).write_text(
-                json.dumps(dict(mode=mode, observed=observed, graph_strength=edge.strength)))
+                json.dumps(dict(mode=mode, observed=observed, fact_usage=fact.usage)))
     finally:
         engine.dispose()
 
 
-def test_actual_exposure_zero_amount_dedup_switch_and_cap_rank_coupling(empty_replay_database, monkeypatch):
+def test_actual_exposure_zero_amount_dedup_switch_and_bounded_rank_coupling(empty_replay_database, monkeypatch):
     from src.api.db import SessionLocal
-    from src.memory.models import CodexEdge, CodexEntity, Conversation, EpisodicMemory
+    from src.memory.models import CodexFact, Conversation, EpisodicMemory
     from src.memory.usage import record_graph_access
     from src.retrieval.orchestrator import ContextFragment, HybridRetrievalOrchestrator
     monkeypatch.setattr(settings, "retrieval_strengthen_writes", True)
     monkeypatch.setattr(settings, "decay_strengthen_amount", .15)
-    monkeypatch.setattr(settings, "codex_retention_increment", .15)
-    monkeypatch.setattr(settings, "codex_retention_cap", 10)
-    monkeypatch.setattr(settings, "codex_retention_rank_weight", .5)
     with SessionLocal() as db:
         conv = Conversation(); db.add(conv); db.flush()
         turn = EpisodicMemory(conversation_id=conv.id, batch_id=uuid.uuid4(), raw_text="USER: saved",
             idempotency_key="exposure_" + uuid.uuid4().hex,
             context_reliance="independent", timestamp=START, decay_score=.1, access_count=0)
-        a, b = [CodexEntity(canonical_name="exposure_" + uuid.uuid4().hex) for _ in range(2)]
-        db.add_all([turn, a, b]); db.flush()
-        edge = CodexEdge(source_id=a.id, target_id=b.id, relation="uses", source_batch=uuid.uuid4(),
-            strength=9.9, confidence="pending", extraction_confidence=.9, valid_from=START)
-        weak = CodexEdge(source_id=a.id, target_id=b.id, relation="likes", source_batch=uuid.uuid4(),
-            strength=10, confidence="pending", extraction_confidence=.35, valid_from=START)
-        db.add_all([edge, weak]); db.commit()
+        fact = CodexFact(text="The user said they saved it.", text_sha256=uuid.uuid4().hex,
+            speaker="user", modality="asserted", mentioned_at=START, valid_from=START,
+            support_count=1, usage=0.0, confidence=.97)
+        db.add_all([turn, fact]); db.commit()
         orchestrator = HybridRetrievalOrchestrator(db, None)
         episodic = ContextFragment("saved", "episodic", 1, 1, source_batch_id=str(turn.id))
-        graph = ContextFragment("fact", "codex", 1, 1, origin_edge_ids=(str(edge.id),))
+        graph = ContextFragment("fact", "codex", 1, 1, leg="facts", origin_fact_ids=(str(fact.id),))
         orchestrator._strengthen_retrieved([episodic, episodic]); db.refresh(turn)
         assert turn.access_count == 1 and turn.decay_score == pytest.approx(.25)
         monkeypatch.setattr(settings, "decay_strengthen_amount", 0)
         orchestrator._strengthen_retrieved([episodic]); db.refresh(turn)
         assert turn.access_count == 2 and turn.decay_score == pytest.approx(.25)
-        record_graph_access(db, [graph, graph], stage="prompt_prepared"); db.refresh(edge)
-        assert edge.usage_count == 1 and edge.strength == 10 and edge.extraction_confidence == .9
-        score_before = orchestrator._edge_trust(edge)
-        monkeypatch.setattr(settings, "codex_retention_cap", 20)
-        assert orchestrator._edge_trust(edge) < score_before
-        assert orchestrator._edge_trust(weak) == .35
+        record_graph_access(db, [graph, graph], stage="prompt_prepared"); db.refresh(fact)
+        assert fact.usage == 1 and fact.support_count == 1 and fact.confidence == .97
+        # Usage ranks through a bounded third of the strength bonus, never more.
+        orchestrator._fact_strength = {str(fact.id): (fact.support_count, fact.usage)}
+        monkeypatch.setattr(settings, "codex_fact_strength_bonus", .9)
+        assert orchestrator._fact_strength_bonus([graph])[0].score == pytest.approx(1 + .9 / 3 / 5)
+        orchestrator._fact_strength = {str(fact.id): (1, 1e6)}
+        assert orchestrator._fact_strength_bonus([graph])[0].score == pytest.approx(1 + .9 / 3)
         monkeypatch.setattr(settings, "retrieval_strengthen_writes", False)
         orchestrator._strengthen_retrieved([episodic]); record_graph_access(db, [graph], stage="context_returned")
-        db.refresh(turn); db.refresh(edge)
-        assert turn.access_count == 2 and edge.usage_count == 1
+        db.refresh(turn); db.refresh(fact)
+        assert turn.access_count == 2 and fact.usage == 1

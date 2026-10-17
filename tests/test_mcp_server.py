@@ -18,18 +18,10 @@ import asyncio
 import json
 import os
 import sys
-import types
 import uuid
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-# Stub codex_extractor BEFORE the server import chain can pull it (it loads a
-# SentenceTransformer at import; ice_graph edit only needs the journal here).
-_stub_extractor = types.ModuleType("src.workers.codex_extractor")
-_stub_extractor._regenerate_context_payload = lambda entity, db: None
-_stub_extractor._expire_edge = lambda db, edge_id, batch_id, reason: None
-sys.modules["src.workers.codex_extractor"] = _stub_extractor
 
 from sqlalchemy import text
 

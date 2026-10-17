@@ -58,7 +58,7 @@ def main():
                   patch.object(HybridRetrievalOrchestrator, "_extract_prompt_keywords", lambda *_: set())):
                 # Non-vector model-dependent legs are outside this fixture.
                 with ExitStack() as stack:
-                    for method in ("_bm25_episodic", "_codex_graph", "_codex_claims",
+                    for method in ("_bm25_episodic", "_facts_leg",
                                    "_procedural_lookup", "_batch_summary_lookup", "_cold_lookup"):
                         stack.enter_context(patch.object(HybridRetrievalOrchestrator, method, lambda *_a, **_k: []))
                     for confidence, timescope in ((0.9, temporal), (0.0, None)):
@@ -88,7 +88,7 @@ def main():
                         if timescope:
                             for arm in ("full", "no_codex"):
                                 fragments = results[arm][0].fragments
-                                assert len(fragments) == 1 and "Closest matches" in fragments[0].text
+                                assert len(fragments) == 1 and "Nearby source records" in fragments[0].text
                                 assert "2024-01" in fragments[0].text
                             assert not results["vector_only"][0].fragments
                         else:

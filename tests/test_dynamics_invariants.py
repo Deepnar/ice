@@ -111,8 +111,12 @@ def test_creative_floor_sits_above_the_archive_line():
     assert settings.decay_creative_floor > settings.decay_archive_threshold
 
 
-def test_codex_retention_bounds_preserve_quiet_facts():
-    assert 0 < settings.codex_retention_floor <= settings.codex_retention_cap
+def test_fact_usage_fades_but_never_grows_on_its_own():
+    """CODEX_V4 D7: decayed prompt usage is a third of a bounded rank bonus;
+    the daily rate must shrink it (a rate above 1 would make unused facts
+    climb), and the retention floor/cap it replaced are gone."""
+    assert 0 < settings.codex_decay_daily <= 1
+    assert not hasattr(settings, "codex_retention_floor")
 
 
 # ── the fallback is observable, per the standing rule ──────────────────────

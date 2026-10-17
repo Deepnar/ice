@@ -103,7 +103,7 @@ def exercise_procedural_scope(monkeypatch, case, *, expected=True, actual=False)
         monkeypatch.setattr(reranker, 'score_pairs', score)
         o = HybridRetrievalOrchestrator(db, None)
         o.max_retrieval_tokens = 100
-        for name in ('_bm25_episodic', '_vector_episodic', '_codex_graph', '_codex_claims',
+        for name in ('_bm25_episodic', '_vector_episodic', '_facts_leg',
                      '_batch_summary_lookup', '_cold_lookup', '_relevant_cluster_ids'):
             monkeypatch.setattr(o, name, lambda *_a, **_kw: [])
         final = o.retrieve(classifier, str(conversations[0]), [1., 0.] + [0.] * 1022,

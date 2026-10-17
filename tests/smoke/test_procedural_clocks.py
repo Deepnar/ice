@@ -35,7 +35,7 @@ def _retrieval(monkeypatch, db, conversation, *, actual=False, scope=None):
         monkeypatch.setattr(reranker, 'score_pairs', lambda pairs: [5.] * len(pairs))
     reader = HybridRetrievalOrchestrator(db, None)
     reader.max_retrieval_tokens = 256
-    for name in ('_bm25_episodic', '_vector_episodic', '_codex_graph', '_codex_claims',
+    for name in ('_bm25_episodic', '_vector_episodic', '_facts_leg',
                  '_batch_summary_lookup', '_cold_lookup', '_relevant_cluster_ids'):
         monkeypatch.setattr(reader, name, lambda *_a, **_kw: [])
     final = reader.retrieve(classification, str(conversation), [1.] + [0.] * 1023,

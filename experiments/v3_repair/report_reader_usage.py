@@ -25,6 +25,11 @@ def source_ids(fragment):
     return {s for s in [fragment.get("source_row"), *(fragment.get("origin_batches") or [])] if s}
 
 
+def codex_lineage(fragment):
+    """Codex items a fragment rendered: edges in v2/v3 records, facts since CODEX_V4."""
+    return fragment.get("origin_edges") or fragment.get("origin_facts") or []
+
+
 def count_usage(rows, probes=None, *, arms=ARMS, native_evidence_only=False, catalog_resolver=None):
     arms = tuple(arms)
     if not arms or len(set(arms)) != len(arms) or set(arms) - set(ARMS):
@@ -115,7 +120,7 @@ def count_usage(rows, probes=None, *, arms=ARMS, native_evidence_only=False, cat
             rendered_versions = set()
             for f in rendered:
                 identity = dict(type=f["type"], text_sha256=hashlib.sha256(f["text"].encode()).hexdigest(),
-                                source_ids=sorted(source_ids(f)), edges=sorted(set(f.get("origin_edges") or [])))
+                                source_ids=sorted(source_ids(f)), edges=sorted(set(codex_lineage(f))))
                 rendered_versions.add(digest(identity))
             for version in rendered_versions: versions[arm][version] += 1
             if native_evidence_only:
@@ -168,8 +173,8 @@ def count_usage(rows, probes=None, *, arms=ARMS, native_evidence_only=False, cat
                     if catalog is not None:
                         raise ValueError("live inventory lacks native final context observation")
                     arm_counts[arm]["final_block_unobserved_occurrences"] += 1
-            # Aggregate fragments credit edge lineage, not exact per-edge wording.
-            for edge in {e for f in rendered for e in f.get("origin_edges") or []}: edge_counts[arm][edge] += 1
+            # Aggregate fragments credit codex lineage, not exact per-item wording.
+            for edge in {e for f in rendered for e in codex_lineage(f)}: edge_counts[arm][edge] += 1
             notes = set(stage.get("source_note_ids") or [])
             for original in {aliases[s] for s in notes if s in aliases}:
                 frequencies[arm][original]["rendered_note_lineage"] += 1

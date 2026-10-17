@@ -29,6 +29,9 @@ from src.classifier.schemas import ClassificationResult
 from src.memory.models import (
     CodexEdge,
     CodexEntity,
+    CodexFact,
+    CodexFactEntity,
+    CodexFactSource,
     ContextCluster,
     Conversation,
     EpisodicClusterLink,
@@ -161,8 +164,8 @@ try:
     row = db.query(EpisodicMemory).filter_by(id=uuid.UUID(turn_ids[0])).first()
     check("bookmark sets is_bookmarked+lossless+decay_immune",
           row.is_bookmarked and row.lossless_flag and row.decay_immune)
-    check("bookmark enqueues codex_extract with priority",
-          ("codex_extract", {"batch_id": str(batch_id), "priority": True})
+    check("bookmark enqueues facts_extract with priority",
+          ("facts_extract", {"batch_id": str(batch_id), "priority": True})
           in stub_rt.enqueued)
     check("bookmark returns the turn payload", out["id"] == turn_ids[0])
     try:
@@ -187,7 +190,7 @@ try:
           and note_row.conversation_id == bookmarks.NOTES_CONVERSATION_ID)
     check("remember_note embeds and enqueues extraction",
           note_row.embedding is not None
-          and ("codex_extract", {"batch_id": str(note_row.batch_id),
+          and ("facts_extract", {"batch_id": str(note_row.batch_id),
                                  "priority": True}) in stub_rt.enqueued)
 
     # ═══ 3. Scoping: G16 both directions + override_tags ═════════════════
@@ -282,29 +285,41 @@ try:
                      aliases=[f"{MARK}_newthing"], embedding=EMB)
     db.add_all([e1, e2, e3])
     db.flush()   # no relationship() on the models — entities must land first
+    # Edges stay for the code graph; the list API reads any source.
     edge = CodexEdge(source_id=e1.id, target_id=e2.id, relation="uses",
-                     source_batch=batch_id, valid_from=NOW - timedelta(days=30))
+                     source_batch=batch_id, valid_from=NOW - timedelta(days=30),
+                     valid_until=NOW, source="static_analysis")
     candidate = CodexEdge(source_id=e1.id, target_id=e3.id, relation="uses",
-                          source_batch=batch_id, valid_from=NOW)
+                          source_batch=batch_id, valid_from=NOW, source="static_analysis")
     db.add_all([edge, candidate])
+    # CODEX_V4: an older fact replaced by a newer one (D6 writes this shape).
+    turn_row = db.query(EpisodicMemory).filter_by(id=uuid.UUID(turn_ids[0])).first()
+    facts_made = []
+    for sentence, obj, when in ((f"The user said {MARK}_subj uses {MARK}_obj.", e2, NOW - timedelta(days=30)),
+                                (f"The user said {MARK}_subj uses {MARK}_newthing.", e3, NOW)):
+        fact = CodexFact(text=sentence, text_sha256=uuid.uuid4().hex, speaker="user",
+                         modality="asserted", mentioned_at=when, valid_from=when)
+        db.add(fact)
+        db.flush()
+        db.add_all([CodexFactSource(fact_id=fact.id, source_batch=turn_row.batch_id,
+                                    window_sha256=uuid.uuid4().hex, episodic_id=turn_row.id,
+                                    conversation_id=turn_row.conversation_id, window={},
+                                    quote=sentence, recorded_at=when, verification={}),
+                    CodexFactEntity(fact_id=fact.id, entity_id=e1.id, role="subject"),
+                    CodexFactEntity(fact_id=fact.id, entity_id=obj.id, role="object")])
+        facts_made.append(fact)
+    facts_made[0].valid_until, facts_made[0].superseded_by = NOW, facts_made[1].id
     db.commit()
-    edge_id = edge.id
     rq3 = ReviewQueue(item_type="codex_reconciliation", item_content={
-        "new": {"subject": f"{MARK}_subj", "relation": "uses",
-                "object": f"{MARK}_newthing"},
-        "conflict_type": "supersession", "old_edge_id": str(edge_id),
-        "old_relation": "uses", "old_object": f"{MARK}_obj",
-        "turn_excerpt": "moved off it"})
+        "conflict_type": "supersession", "note": MARK})
     db.add(rq3)
     db.commit()
-    review.approve(db, str(rq3.id), keep_edge_ids=[str(candidate.id)])
-    edge = db.query(CodexEdge).filter_by(id=edge_id).first()
-    ev = db.execute(text(
-        "SELECT payload FROM codex_events WHERE event_type = 'edge_expired' "
-        "AND payload->>'edge_id' = :eid"), {"eid": str(edge_id)}).first()
-    check("approve applies explicit codex conflict choice (edge expired + journaled)",
-          edge.valid_until is not None and candidate.valid_until is None
-          and ev is not None and ev.payload["reason"] == "manual_conflict_resolution")
+    try:
+        review.approve(db, str(rq3.id))
+        check("legacy graph-conflict items are archived, never applied", False)
+    except ValidationError:
+        db.rollback()
+        check("legacy graph-conflict items are archived, never applied", True)
 
     rq4 = ReviewQueue(item_type="sentinel_review", item_content={"note": MARK})
     db.add(rq4)
@@ -346,8 +361,8 @@ try:
                 os.unlink(p)
         reg_mod.REGISTRY_PATH = reg_path_orig
 
-    # ═══ 7. Graph: view/edit journal + payload regeneration ═════════════
-    print("── graph (loads codex_extractor's embedder — one-time) ──")
+    # ═══ 7. Graph: view/edit journal ═══════════════════════════════════
+    print("── graph ──")
     view = graph.entity_view(db, f"{MARK}_subj")
     check("entity_view resolves by name with typed links",
           view["canonical_name"] == f"{MARK}_subj" and
@@ -365,8 +380,6 @@ try:
           edited["description"] == f"{MARK} edited description"
           and ev is not None and ev.payload["source"] == "manual_edit"
           and ev.payload["new"].startswith(f"{MARK} edited"))
-    check("entity_edit regenerates context_payload (derived, contains description)",
-          f"{MARK} edited description" in edited["note"])
     try:
         graph.entity_edit(db, f"{MARK}_subj", None)
         check("entity_edit(None) raises ValidationError", False)
@@ -374,8 +387,9 @@ try:
         check("entity_edit(None) raises ValidationError", True)
 
     tl = graph.entity_timeline(db, f"{MARK}_subj")
-    check("entity_timeline surfaces the approved supersession",
-          tl["has_history"] and "uses" in (tl["timeline"] or ""))
+    check("entity_timeline surfaces the replaced fact",
+          tl["has_history"] and f"uses {MARK}_obj" in tl["timeline"][0]["text"]
+          and tl["timeline"][0]["superseded_by"] == str(facts_made[1].id))
     diff = graph.entity_diff(db, f"{MARK}_subj",
                              (NOW - timedelta(days=60)).isoformat(),
                              (NOW + timedelta(days=1)).isoformat())
@@ -565,6 +579,10 @@ finally:
     db.execute(text(
         "DELETE FROM codex_events WHERE entity_id IN "
         "(SELECT id FROM codex_entities WHERE canonical_name LIKE :m)"),
+        {"m": f"{MARK}%"})
+    db.execute(text(
+        "DELETE FROM codex_facts WHERE id IN (SELECT fact_id FROM codex_fact_entities "
+        "WHERE entity_id IN (SELECT id FROM codex_entities WHERE canonical_name LIKE :m))"),
         {"m": f"{MARK}%"})
     db.execute(text(
         "DELETE FROM codex_edges WHERE source_id IN "

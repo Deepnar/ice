@@ -43,3 +43,27 @@ a promotion it could not carry, because it had already rotted. The sweep's metho
 checked whether a test's **imports** resolved; this one fails at **line 158**, at
 runtime, so an import check could never see it. Re-check retired tests by
 RUNNING them, not by importing them.
+
+---
+
+## `codex_v2_v3/` — the v2/v3 conversation graph's tests (archived 2026-10-16, CODEX_V4)
+
+The CODEX_V4 rework deleted the edge codex: the NuExtract3 extractor
+(`codex_extractor.py`, `nuextract_transport.py`, `extraction_result.py`), attributed
+claims (`memory/claims.py`), relation/author support (`relation_support.py`,
+`assertion_support.py`), entity notes, compaction, the relation vocabulary and
+gap ledger, and the graph/claims/enumeration read legs. These suites tested only
+that code; they cannot import on `main` after it. Last commit they run at:
+`8079eb2` (or tag `v2-paper-eval` for the paper's v2 system).
+
+| file(s) | covered | live replacement |
+|---|---|---|
+| `test_codex_write_path.py`, `test_g50_write_time_tier.py`, `test_extraction_completion.py`, `test_extraction_recovery.py`, `test_extraction_result.py`, `test_nuextract_transport.py` | NuExtract3 extraction, chunking, entity tiers on edges | `tests/test_codex_facts.py` (write, post-rules, entity tiers incl. `merge_key`), `tests/smoke/test_codex_v4_claims.py` (the claim pass) |
+| `test_codex_claims.py`, `test_claim_evidence.py`, `test_author_assertion.py`, `test_author_assertion_writer.py`, `test_author_assertion_path.py`, `author_assertion_case.py` (helper), `test_codex_relation_support.py`, `test_source_relation_variants.py` | attributed claims, author/relation NLI | `tests/smoke/test_codex_v4_claims.py` (quote + NLI on every fact), `tests/smoke/test_source_support.py` |
+| `test_conflict_evidence.py`, `test_ordered_reconciliation.py`, `test_ordered_reconciliation_path.py` | edge conflict/reconciliation | `tests/test_codex_facts.py::test_reconcile_*` (D6) |
+| `test_relation_gaps.py`, `test_relation_fit.py`, `test_relation_killswitch.py` | the 197-word vocabulary, gaps ledger, relation fit/detection | none — a relation is a free term (D2) |
+| `test_codex_fanout.py`, `test_v3_source_covered_graph.py`, `test_codex_source_scope.py`, `test_z1_quote_replay.py` | traversal, edge rendering, graph-quote skip, claim-leg scope | `tests/test_codex_facts_read.py` (scope through any source, skip-if-source-in-prompt, current + predecessor) |
+| `test_codex_source_deletion.py` | C10 deletion over edges/claims | `tests/test_codex_facts.py::test_delete_conversation_*`, `test_forget_*` |
+| `test_graph_retention.py` | edge strength retention | `tests/smoke/test_v3_lifecycle_plan.py` (fact usage decay), `tests/test_codex_facts_read.py::test_usage_*` |
+| `test_entity_notes.py`, `test_entity_note_path.py` | reflection entity notes | none — removed for conversation entities (D11.1); the entity view lists facts |
+| `test_compaction_checkpoint.py` | compaction snapshots | none — removed (D11.2) |

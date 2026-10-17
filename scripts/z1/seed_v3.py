@@ -22,13 +22,13 @@ import time
 import uuid
 from collections import Counter, defaultdict
 from contextlib import contextmanager, nullcontext
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
 
 from scripts.z1 import production_parity as pp
@@ -56,10 +56,7 @@ MARK = "z1seed"
 PROMPT_ARMS = ("full", "no_codex", "vector_only", "recent_only")
 REPLAY_SETTINGS = [
     "recent_window_max_turns", "classifier_model_path", "label_schema_path",
-    "embedding_model_name", "background_model_mode", "background_model_name",
-    "codex_extraction_model", "codex_extraction_mode", "background_ner_model",
-    "codex_sentence_claims", "codex_assertion_check_enabled", "codex_assertion_input_tokens",
-    "codex_assertion_context_tokens", "codex_assertion_output_tokens", "codex_assertion_batch_size",
+    "embedding_model_name", "background_model_mode", "background_model_name", "background_ner_model",
     "memory_source_gate_enabled", "memory_source_rescue_enabled",
     "context_use_serving_window", "context_budget_min", "context_budget_max",
     "context_budget_floor", "context_generation_reserve",
@@ -73,15 +70,12 @@ REPLAY_SETTINGS = [
     "maintenance_intervals", "batch_summary_age_days",
     "conversation_summary_max_tokens", "conversation_summary_max_words", "conversation_summary_chunk_words",
     "turn_summary_max_tokens", "chunk_tokens", "chunk_overlap_words",
-    "codex_extraction_max_tokens", "codex_extraction_chunk_adaptive", "codex_extraction_chunk_max",
     "runtime_cycles_cap", "decay_daily_unaccessed", "decay_daily_accessed",
-    "decay_daily_creative", "codex_decay_daily", "codex_retention_floor",
+    "decay_daily_creative", "codex_decay_daily",
     "procedural_stale_days", "procedural_min_reinforcement",
     "procedural_extraction_max_tokens",
     "procedural_match_candidates",
-    "compaction_event_threshold",
     "retrieval_strengthen_writes", "decay_strengthen_amount",
-    "codex_retention_increment", "codex_retention_cap",
     # CODEX_V4: the fact codex (claim method, reconciliation, read leg).
     "summary_assertion_method", "summary_output_ratio", "summary_piece_tokens",
     "codex_fact_entity_max_words", "codex_fact_entity_max_chars", "codex_fact_candidate_limit",
@@ -91,32 +85,15 @@ REPLAY_SETTINGS = [
 MEMORY_JOBS = (
     "cluster_assignment", "cluster_merge", "conversation_summary", "batch_summarize",
     "reflection", "maintenance_agent", "decay_episodic", "decay_codex",
-    "decay_procedural", "compaction",
+    "decay_procedural",
 )
 SEMANTIC_TABLES = (
     "episodic_memory", "cold_storage", "context_clusters", "episodic_cluster_links",
-    "codex_entities", "codex_edges", "codex_claim_links", "codex_facts",
+    "codex_entities", "codex_edges", "codex_facts",
     "codex_fact_sources", "codex_fact_entities", "procedural_memory",
     "batch_summaries", "batch_notes", "conversation_summaries", "conversation_notes",
     "memory_slots", "session_summaries", "review_queue",
 )
-
-
-def author_assertion_counts(db, batch_id):
-    """Count stored claim-proposal decisions, not source presence or edges."""
-    counts = {"supported": 0, "not_asserted": 0, "unknown": 0}
-    rows = db.execute(text("""
-        SELECT review->>'status', count(*)
-        FROM codex_claims c
-        CROSS JOIN LATERAL jsonb_array_elements(
-            coalesce(c.verification->'author_assertions', '[]'::jsonb)) review
-        WHERE c.source_batch=:b GROUP BY review->>'status'
-    """), {"b": batch_id})
-    for status, count in rows:
-        if status not in counts:
-            raise RuntimeError("invalid author-assertion receipt in new writer")
-        counts[status] = count
-    return counts
 
 
 def procedural_source_review(db, batch_id):
@@ -145,9 +122,8 @@ def procedural_source_review(db, batch_id):
 
 JOB_OBSERVATION_TABLES = {
     "decay_episodic": ("episodic_memory", "cold_storage"),
-    "decay_codex": ("codex_edges", "codex_facts"),
+    "decay_codex": ("codex_facts",),
     "decay_procedural": ("procedural_memory",),
-    "compaction": ("codex_events", "codex_snapshots"),
 }
 
 
@@ -434,7 +410,6 @@ def fragment(f, *, include_text=False):
            "tokens": f.token_count, "score": f.score,
            "source_row": str(f.source_batch_id) if f.source_batch_id else None,
            "origin_batches": [str(v) for v in (f.origin_batch_ids or ())],
-           "origin_edges": [str(v) for v in (f.origin_edge_ids or ())],
            "origin_facts": [str(v) for v in (getattr(f, "origin_fact_ids", ()) or ())]}
     if include_text:
         row["text"] = f.text
@@ -474,7 +449,6 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
     produced, ranked_candidates, budgeted = {}, [], []
     note_options = {}
     methods = {"bm25": "_bm25_episodic", "vector": "_vector_episodic",
-               "codex_graph": "_codex_graph", "codex_claims": "_codex_claims",
                "codex_facts": "_facts_leg",
                "procedural": "_procedural_lookup", "batch_summary": "_batch_summary_lookup",
                "cold": "_cold_lookup"}
@@ -482,7 +456,7 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
     def factory(session, embedder):
         orchestrator = HybridRetrievalOrchestrator(session, embedder)
         if arm != "full":
-            disabled = ({"codex_graph", "codex_claims", "codex_facts"} if arm == "no_codex"
+            disabled = ({"codex_facts"} if arm == "no_codex"
                         else set(methods) - {"vector"} if arm == "vector_only"
                         else set(methods))
             for label in disabled:
@@ -719,13 +693,10 @@ def memory_state(db):
         "cold_turns": "SELECT count(*) FROM cold_storage",
         "archived_warm_turns": "SELECT count(*) FROM episodic_memory WHERE is_archived",
         "warm_decay_total": "SELECT COALESCE(sum(decay_score),0) FROM episodic_memory",
-        "graph_strength_total": "SELECT COALESCE(sum(strength),0) FROM codex_edges",
         "current_facts": "SELECT count(*) FROM codex_facts WHERE valid_until IS NULL",
         "superseded_facts": "SELECT count(*) FROM codex_facts WHERE superseded_by IS NOT NULL",
         "fact_usage_total": "SELECT COALESCE(sum(usage),0) FROM codex_facts",
         "active_procedural": "SELECT count(*) FROM procedural_memory WHERE is_active",
-        "graph_snapshots": "SELECT count(*) FROM codex_snapshots",
-        "compacted_graph_events": "SELECT count(*) FROM codex_events WHERE compacted",
         "batch_notes": "SELECT count(*) FROM batch_notes",
         "conversation_notes": "SELECT count(*) FROM conversation_notes",
         "clusters": "SELECT count(*) FROM context_clusters",
@@ -1084,16 +1055,13 @@ def run(args, conversations, probes, *, expected_turns=None, input_files=None,
                             source_turn_by_id[str(row.id)] = f"{slug}:{number}"
                             source_turn_by_id[str(row.batch_id)] = f"{slug}:{number}"
                             source_counts = {
-                                "claims": db.execute(text("SELECT count(*) FROM codex_claims WHERE source_batch=:b"),
-                                                     {"b": row.batch_id}).scalar(),
-                                "edges_first_source": db.execute(text(
-                                    "SELECT count(*) FROM codex_edges WHERE source_batch=:b"),
+                                "facts": db.execute(text(
+                                    "SELECT count(DISTINCT fact_id) FROM codex_fact_sources WHERE source_batch=:b"),
                                     {"b": row.batch_id}).scalar(),
                                 "chunks": db.execute(text(
                                     "SELECT count(*) FROM episodic_chunks WHERE turn_id=:id"),
                                     {"id": row.id}).scalar(),
                             }
-                            assertion_counts = author_assertion_counts(db, row.batch_id)
                             sink.write(json.dumps({"event": "written", "conversation": slug,
                                                    "turn": number, "episodic_id": str(row.id),
                                                    "batch_id": str(batch_id),
@@ -1108,8 +1076,6 @@ def run(args, conversations, probes, *, expected_turns=None, input_files=None,
                                                    "source_raw_sha256": hashlib.sha256(row.raw_text.encode()).hexdigest(),
                                                    "summary_support": row.representation_verification,
                                                    "procedural_source_review": procedural_source_review(db, row.batch_id),
-                                                   "author_assertions": {"gate_enabled": settings.codex_assertion_check_enabled,
-                                                                         "claim_proposal_counts": assertion_counts},
                                                    "source_counts": source_counts},
                                                   default=str) + "\n")
                             if not args.no_maintenance:

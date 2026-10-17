@@ -1,13 +1,13 @@
-"""Actual dated SQL, claim/cold readers and final preparation; ranking controlled."""
+"""Actual dated SQL, fact/cold readers and final preparation; ranking controlled."""
 
+import hashlib
 import os
-import sys
 import uuid
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from types import SimpleNamespace as NS
 
+import numpy as np
 import pytest
 
 from src.api import memory_preparation
@@ -16,15 +16,36 @@ from src.api.db import SessionLocal
 from src.api.prompt_assembler import get_recent_turns
 from src.api.source_need import SourceNeed
 from src.classifier.schemas import ClassificationResult
-from src.memory.claims import store_claims
-from src.memory.models import ColdStorage, CodexClaim, Conversation, EpisodicMemory
+from src.memory.models import (
+    CodexFact, CodexFactSource, ColdStorage, Conversation, EpisodicMemory,
+)
 from src.memory.source import chat_provenance
-from src.memory.support import verify_support
+from src.retrieval import orchestrator as orchestrator_module
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 from src.retrieval.timescope import detect_timescope, to_scope_dict
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'support'))
-from author_assertion_case import Encoder, SCORES
+
+class Encoder:
+    """One fixed direction: every text is equally near, so ranking is controlled."""
+    max_seq_length = 8192
+
+    def tokenizer(self, text, **_kwargs):
+        return {"input_ids": list(range(len(text.split())))}
+
+    def encode(self, _text, **_kwargs):
+        return np.array([1.] + [0.] * 1023)
+
+
+def plant_fact(db, row, sentence, encoder):
+    """A verified CODEX_V4 fact sourced from *row* (the write path is tested elsewhere)."""
+    fact = CodexFact(text=sentence, text_sha256=hashlib.sha256(sentence.encode()).hexdigest(),
+                     speaker='user', modality='asserted', embedding=encoder.encode(sentence).tolist(),
+                     mentioned_at=row.timestamp, valid_from=row.timestamp, confidence=.99)
+    db.add(fact); db.flush()
+    db.add(CodexFactSource(fact_id=fact.id, source_batch=row.batch_id, window_sha256=uuid.uuid4().hex,
+                           episodic_id=row.id, conversation_id=row.conversation_id, window={},
+                           quote=sentence, recorded_at=row.timestamp, verification={}))
+    return fact
 
 
 def exercise_date_axis(monkeypatch, *, axis='unknown', cold=False, actual_gate=False,
@@ -40,7 +61,8 @@ def exercise_date_axis(monkeypatch, *, axis='unknown', cold=False, actual_gate=F
     ts = replace(detect_timescope(question, now=datetime(2026, 1, 1, tzinfo=timezone.utc),
                                   p_ltm=1., p_temporal=1.), axis=axis)
     monkeypatch.setattr(settings, 'retrieval_rerank_enabled', False)
-    monkeypatch.setattr(HybridRetrievalOrchestrator, '_codex_graph', lambda *_a, **_kw: [])
+    # The stub encoder cannot run the micro-NER; the entity channel is tested elsewhere.
+    monkeypatch.setattr(orchestrator_module, 'extract_entities', lambda *_a, **_kw: [])
     monkeypatch.setattr(settings, 'memory_source_gate_enabled', True)
     if not actual_gate:
         monkeypatch.setattr(memory_preparation, 'judge_source_need',
@@ -59,8 +81,7 @@ def exercise_date_axis(monkeypatch, *, axis='unknown', cold=False, actual_gate=F
         gold = source('Petra worked at Atlas in 2010.', datetime(2020, 6, 1, tzinfo=timezone.utc))
         wrong_year = source('Petra worked at Nimbus in 2011.', datetime(2010, 6, 1, tzinfo=timezone.utc))
         db.add_all([gold, wrong_year]); db.flush()
-        store_claims(db, gold, ['Petra worked at Atlas in 2010.'], encoder=encoder,
-                     verifier=lambda s, c: verify_support(s, c, scorer=lambda _p: [SCORES]))
+        fact_id = plant_fact(db, gold, 'Petra worked at Atlas in 2010.', encoder).id
         for i in range(42):
             db.add(source(f'Unrelated weather note number {i}.',
                 datetime(2021, 1, 1, tzinfo=timezone.utc) + timedelta(minutes=i), sitting))
@@ -77,8 +98,8 @@ def exercise_date_axis(monkeypatch, *, axis='unknown', cold=False, actual_gate=F
             assert 'Atlas' not in str(recent)
             o = HybridRetrievalOrchestrator(db, encoder)
             o._active_timescope = ts
-            claims = o._codex_claims('Petra work 2010', None, scope)
-            assert any('Atlas' in f.text for f in claims) == (axis != 'source_record')
+            facts = o._facts_leg('Petra work 2010', None, scope)
+            assert any('Atlas' in f.text for f in facts) == (axis != 'source_record')
             if cold:
                 candidates = o._cold_lookup(set(), str(cid), scope, encoder.encode(question).tolist())
             else:
@@ -96,7 +117,7 @@ def exercise_date_axis(monkeypatch, *, axis='unknown', cold=False, actual_gate=F
                 assert 'source recorded: 2020-06-01T00:00:00Z' in final
             outcome = dict(axis=axis, cold=cold, turns=44, recent_speaker_messages=len(recent),
                 golden_outside_recent=True, gold_in_final_prompt=present,
-                claim_reader_finds_gold=any('Atlas' in f.text for f in claims),
+                fact_reader_finds_gold=any('Atlas' in f.text for f in facts),
                 source_checked=memory.source_checked, source_action=memory.action,
                 fits=memory.prepared.ledger.fits(), final_fragments=len(memory.fragments))
             if actual_gate and present and base_retrieve:
@@ -119,7 +140,7 @@ def exercise_date_axis(monkeypatch, *, axis='unknown', cold=False, actual_gate=F
             return outcome
         finally:
             db.rollback()
-            db.query(CodexClaim).filter_by(conversation_id=cid).delete(synchronize_session=False)
+            db.query(CodexFact).filter_by(id=fact_id).delete(synchronize_session=False)
             db.query(EpisodicMemory).filter_by(conversation_id=cid).delete(synchronize_session=False)
             db.query(ColdStorage).filter_by(conversation_id=cid).delete(synchronize_session=False)
             db.query(Conversation).filter_by(id=cid).delete(synchronize_session=False)

@@ -6,7 +6,6 @@ production-path replay/checkpoint engine. Rerun identical arguments to resume.
 
 import argparse
 import fcntl
-import hashlib
 import json
 import os
 import subprocess
@@ -81,9 +80,8 @@ def planned_run(inputs, root, partition, every, *, owned=False):
         raise ValueError("checkpoint interval must be positive")
     manifest, conversations, probes, records = load_selected(inputs, partition)
     from src.api.config import settings
-    if (settings.background_model_mode != "shared" or not settings.background_model_name
-            or not settings.codex_extraction_model or settings.codex_extraction_ner_tier != "background"):
-        raise ValueError("development replay requires the declared shared writer/extractor/background-NER profile")
+    if settings.background_model_mode != "shared" or not settings.background_model_name:
+        raise ValueError("development replay requires the declared shared background-writer profile")
     from scripts.z1.replay_checkpoint import code_files
     from sqlalchemy.engine import make_url
     source_database = make_url(settings.database_url).database
@@ -110,7 +108,8 @@ def planned_run(inputs, root, partition, every, *, owned=False):
     identifier = digest(identity)
     config = dict(identity=identity, identity_sha256=identifier, campaign_id=identifier,
         database="ice_v3_campaign_" + identifier[:16], background_model=settings.background_model_name,
-        codex_extraction_model=settings.codex_extraction_model, score_of_record=False,
+        fact_reconcile_model=settings.codex_fact_reconcile_model or settings.background_model_name,
+        score_of_record=False,
         validation_execution="locked_until_qualified_tuning_freeze", answers_generated=False)
     products = {"development-run.json": config, "reviewed-keys.json": {"records": records}}
     for name, value in products.items():

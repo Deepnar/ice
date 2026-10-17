@@ -322,12 +322,6 @@ def test_complete_source_note_does_not_duplicate_its_episodic_turn(batch_context
             [matching[0], note], max_tokens=matching[0].token_count,
             relevance_order=True, current_conversation_id=str(ctx.cid))
         assert tight == [matching[0]]
-        claim = ContextFragment(text='Atlas port is 8391.', source_type='codex', score=2.,
-            token_count=8, claim_source_row_id=source_id,
-            claim_excerpt='Atlas port is 8391.')
-        assert orch._enforce_token_budget(
-            [claim, note], max_tokens=claim.token_count + note.token_count,
-            relevance_order=True, current_conversation_id=str(ctx.cid)) == [note]
 
 
 def test_part_scope_selects_only_visible_sources_from_a_mixed_parent(batch_context, monkeypatch):

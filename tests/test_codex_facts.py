@@ -290,6 +290,42 @@ def test_entity_view_lists_current_and_replaced_facts():
         assert timeline["has_history"] and timeline["replaced_facts"]
 
 
+def test_deleted_source_is_never_history():
+    """T4 + C10: expiry by deletion is not evolution, and a fact whose sources
+    were deleted carries deleted text — not in the view, the timeline or the diff
+    (two-sided: a real replacement still is)."""
+    from src.retrieval.evolution import entity_diff
+    from src.services import graph
+    with SessionLocal() as db:
+        one, two = _turn(db, user="I use Vim."), _turn(db, user="I switched to Helix.")
+        gone = _turn(db, user="I tried Emacs once.")
+        tool = f"editor-{uuid.uuid4().hex[:6]}"
+        vim, helix, emacs = (f"The user said they use Vim ({tool}).",
+                             f"The user said they switched to Helix ({tool}).",
+                             f"The user said they tried Emacs once ({tool}).")
+        for turn, sentence, quote in ((one, vim, "I use Vim"), (two, helix, "I switched to Helix"),
+                                      (gone, emacs, "I tried Emacs once")):
+            facts.write_turn_facts(db, turn, {"assertions": [
+                _a(sentence, quote, relation="uses", obj=tool)]}, embedder=ENC)
+        old = db.query(CodexFact).filter_by(text=vim).one()
+        new = db.query(CodexFact).filter_by(text=helix).one()
+        old.valid_until, old.superseded_by = datetime.now(timezone.utc), new.id
+        db.commit()
+        sole, surviving = facts.source_plan(db, {gone.batch_id})
+        facts.apply_source_plan(db, sole, surviving, {gone.batch_id}, uuid.uuid4())
+        db.commit()
+        view = graph.entity_view(db, tool)
+        shown = [f["text"] for f in view["facts"] + view["replaced_facts"]]
+        assert emacs not in shown
+        assert [f["text"] for f in view["replaced_facts"]] == [vim]
+        assert [f["text"] for f in graph.entity_timeline(db, tool)["replaced_facts"]] == [vim]
+        entity = db.query(CodexEntity).filter_by(canonical_name=facts.canonical(tool)).one()
+        diff = entity_diff(db, entity, datetime(2000, 1, 1, tzinfo=timezone.utc),
+                           datetime(2100, 1, 1, tzinfo=timezone.utc))
+        assert all("Emacs" not in item["fact"] for item in diff["added"] + diff["expired"])
+        assert any("Vim" in item["fact"] for item in diff["expired"])
+
+
 
 def _ask(same=False, compatible=True, only=""):
     """Stub D6 model; answers about facts containing *only*, both_true otherwise

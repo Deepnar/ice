@@ -1,44 +1,49 @@
-"""v3 retrieval popularity must not manufacture graph evidence."""
+"""v3 retrieval popularity must not manufacture codex evidence."""
 
 import uuid
-from types import SimpleNamespace
 
 from src.api.config import settings
 from src.api.db import SessionLocal
-from src.memory.models import CodexEdge, CodexEntity, Conversation, EpisodicMemory
+from src.memory.models import CodexFact, CodexFactSource, Conversation, EpisodicMemory
 from src.retrieval import orchestrator as retrieval
 
 
-def test_repeated_graph_candidates_do_not_promote(monkeypatch):
+def test_repeated_fact_candidates_do_not_promote(monkeypatch):
+    """Reading a fact never strengthens it: support counts re-extraction and
+    usage counts FINAL-prompt exposure (usage.record_graph_access), never a
+    candidate the leg merely returned."""
     with SessionLocal() as db:
         try:
-            a = CodexEntity(canonical_name=f"atlas_{uuid.uuid4().hex}",
-                            context_payload="Atlas uses Beacon.")
-            b = CodexEntity(canonical_name=f"beacon_{uuid.uuid4().hex}")
-            db.add_all([a, b])
+            conv = Conversation(id=uuid.uuid4())
+            db.add(conv)
             db.flush()
-            edge = CodexEdge(source_id=a.id, target_id=b.id, relation="uses",
-                             source_batch=uuid.uuid4(), strength=1.9,
-                             extraction_confidence=1.0, confidence="pending")
-            db.add(edge)
+            turn = EpisodicMemory(conversation_id=conv.id, batch_id=uuid.uuid4(),
+                raw_text="User: Atlas uses Beacon.\n\nAssistant: Noted.",
+                context_reliance="Long_Term_Memory", idempotency_key=str(uuid.uuid4()))
+            db.add(turn)
+            db.flush()
+            fact = CodexFact(text="The user said Atlas uses Beacon.", text_sha256=uuid.uuid4().hex,
+                             speaker="user", modality="asserted", support_count=1, usage=0.0,
+                             mentioned_at=turn.timestamp, valid_from=turn.timestamp)
+            db.add(fact)
+            db.flush()
+            db.add(CodexFactSource(fact_id=fact.id, source_batch=turn.batch_id,
+                                   window_sha256=uuid.uuid4().hex, episodic_id=turn.id,
+                                   conversation_id=conv.id, window={}, quote="Atlas uses Beacon",
+                                   recorded_at=turn.timestamp, verification={}))
             db.flush()
             o = retrieval.HybridRetrievalOrchestrator(db, None)
-            monkeypatch.setattr(retrieval, "extract_entities", lambda *args: [a.canonical_name])
-            monkeypatch.setattr(o, "_match_entities_by_similarity", lambda *args: [a])
-            monkeypatch.setattr(o, "_match_entities_exact", lambda *args: [a])
-            monkeypatch.setattr(o, "_relation_fit", lambda *args: ({}, 0.0))
-            monkeypatch.setattr(settings, "codex_max_depth", 0)
+            monkeypatch.setattr(retrieval, "extract_entities", lambda *args, **kw: [])
             commits = []
             monkeypatch.setattr(db, "commit", lambda: commits.append(True))
-            classification = SimpleNamespace(prompt="What does Atlas use?", intent_tags=[])
             for _ in range(5):
-                fragments = o._codex_graph(classification, None)
+                fragments = o._facts_leg("What does Atlas use Beacon?", None, None)
                 assert fragments
-                assert fragments[0].origin_edge_ids == (str(edge.id),)
-                assert "uses" in fragments[0].text
+                assert fragments[0].origin_fact_ids == (str(fact.id),)
+                assert "Atlas uses Beacon" in fragments[0].text
             db.flush()
-            db.refresh(edge)
-            assert edge.strength == 1.9 and edge.confidence == "pending"
+            db.refresh(fact)
+            assert fact.support_count == 1 and fact.usage == 0.0
             assert commits == []
         finally:
             db.rollback()

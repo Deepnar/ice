@@ -93,12 +93,12 @@ def native(empty_replay_database, monkeypatch, tmp_path):
     monkeypatch.setattr(runner, "components", lambda: (Classifier(), encoder))
     monkeypatch.setattr(embedding, "get_embedder", lambda: encoder)
     monkeypatch.setattr(post_flight, "extract_key_terms", lambda *_a: dict(entities=[], figures=[], identifiers=[]))
-    monkeypatch.setattr(post_flight, "extract_codex", lambda **kwargs: calls.append(("codex", kwargs)))
+    monkeypatch.setattr(post_flight, "extract_facts", lambda **kwargs: calls.append(("facts", kwargs)))
     monkeypatch.setattr(post_flight, "extract_procedural", lambda **kwargs: calls.append(("procedural", kwargs)))
     monkeypatch.setattr(settings, "context_use_serving_window", False)
     monkeypatch.setattr(settings, "memory_source_gate_enabled", False)
     monkeypatch.setattr(settings, "maintenance_intervals", {**settings.maintenance_intervals,
-        "decay_episodic": 3600, "compaction": 3600})
+        "decay_episodic": 3600, "decay_codex": 3600})
     monkeypatch.setattr(pp, "get_model_context_window", lambda *_a: 8192)
     monkeypatch.setattr(registry, "get_model_context_window", lambda *_a: 8192)
     monkeypatch.setattr(pp, "find_best_model", lambda *_a: ("controlled-answerer", None))
@@ -117,7 +117,7 @@ def native(empty_replay_database, monkeypatch, tmp_path):
     monkeypatch.setattr(httpx.Client, "request", deny)
     monkeypatch.setattr(httpx.AsyncClient, "request", async_deny)
     item = NS(root=tmp_path / "logs" / "parent", calls=calls, sessions=SessionLocal,
-              args=inputs(), enabled=("decay_episodic", "compaction"), http_calls=http_calls)
+              args=inputs(), enabled=("decay_episodic", "decay_codex"), http_calls=http_calls)
     yield item
     assert http_calls == []
 
@@ -276,22 +276,22 @@ def test_worker_failure_disposition_keeps_source_and_correct_durable_prefix(nati
 
 
 def test_failed_bootstrap_has_no_fabricated_anchor_and_resumes_missing_jobs_only(native, monkeypatch):
-    from src.workers import compaction
+    from src.workers import codex_decay
     from src.workers.completion_text import IncompleteCompletion
-    original = compaction.compact_entities
-    def fail(): raise IncompleteCompletion("controlled bootstrap output failure", finish_reason="length")
-    monkeypatch.setattr(compaction, "compact_entities", fail)
+    original = codex_decay.decay_fact_usage
+    def fail(cycles=1): raise IncompleteCompletion("controlled bootstrap output failure", finish_reason="length")
+    monkeypatch.setattr(codex_decay, "decay_fact_usage", fail)
     with pytest.raises(RuntimeError, match="successful cadence anchor"):
         execute(native)
     pointer = json.loads((native.root / "recovery" / "current.json").read_text())
     manifest = json.loads((native.root / "recovery" / pointer["generation"] / "recovery.json").read_text())
     assert manifest["state"]["event_prefix"]["completed"] == 0
     assert manifest["state"]["last_maintenance"] == {"decay_episodic": START.isoformat()}
-    monkeypatch.setattr(compaction, "compact_entities", original)
+    monkeypatch.setattr(codex_decay, "decay_fact_usage", original)
     assert execute(native, resume=True)["complete"]
     records = [json.loads(line) for line in (native.root / "chronological.jsonl").read_text().splitlines()]
     bootstrap = [r["job"] for r in records if r["event"] == "maintenance_bootstrap"]
-    assert bootstrap == ["decay_episodic", "compaction"]
+    assert bootstrap == ["decay_episodic", "decay_codex"]
 
 
 def test_probe_cutoff_stays_restorable_after_later_sources_and_complete_resume(native):

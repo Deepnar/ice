@@ -16,9 +16,9 @@ from experiments.v3_repair.prepare_inputs import digest
 def catalog():
     schema = {name: dict(primary=["id"], state=list(fields) + ["id"], content=list(fields))
               for name, fields in inventory.CONTENT.items()}
-    rows = [dict(table="codex_claims", key=name, logical_identity=["codex_claims", name],
+    rows = [dict(table="codex_facts", key=name, logical_identity=["codex_facts", name],
                  stored_content_sha256=digest("same content"), stored_state_sha256=digest("same state"))
-            for name in ("claim-a", "claim-b")]
+            for name in ("fact-a", "fact-b")]
     result = dict(version="v3", policy=inventory.POLICY, schema=schema, rows=rows,
                   eligible_inventory="unobserved", lifetime_write_events="unobserved")
     result["catalog_sha256"] = digest(result)

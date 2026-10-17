@@ -29,6 +29,7 @@ from src.classifier.schemas import ClassificationResult
 from src.memory.models import (
     CodexEdge,
     CodexEntity,
+    CodexFact,
     ColdStorage,
     ContextCluster,
     Conversation,
@@ -63,6 +64,7 @@ def git(repo, *args):
 HEX = uuid.uuid4().hex[:6]
 NAME = f"coretest-{HEX}"
 SLUG = f"ct{HEX}"                      # lowercase (canonicals are casefolded)
+USAGE_FACT_SHA = f"coding-core-usage-{HEX}"
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "mini_repo")
 REPO = os.path.join(tempfile.gettempdir(), f"ice_coding_core_{HEX}")
 # letters-only: BM25 strips non-alpha, a digit-bearing marker never matches
@@ -168,25 +170,23 @@ try:
 
     # ── 3. decay exemption ───────────────────────────────────────────────
     print("── check 3: decay leaves derived entities untouched ──")
-    conv_edge = CodexEdge(
-        source_id=list(ents.values())[0].id, target_id=list(ents.values())[1].id,
-        relation="references", strength=1.0, source_batch=uuid.uuid4(),
-        confidence="active", source="conversation",
-        valid_from=datetime.now(timezone.utc))
-    db.add(conv_edge)
+    used_fact = CodexFact(
+        text=f"The user said {SLUG} uses minipkg.", text_sha256=USAGE_FACT_SHA,
+        speaker="user", modality="asserted", usage=1.0,
+        mentioned_at=datetime.now(timezone.utc), valid_from=datetime.now(timezone.utc))
+    db.add(used_fact)
     db.commit()
     static_before = {e.id: e.strength for e in edges}
-    conv_before = conv_edge.strength
-    from src.workers.codex_decay import decay_codex_edges
-    decay_codex_edges(cycles=4)
+    from src.workers.codex_decay import decay_fact_usage
+    decay_fact_usage(cycles=4)
     db.expire_all()
     static_after = {e.id: e.strength for e in
                     db.query(CodexEdge).filter_by(
                         source_batch=code_graph_batch_id(project_id)).all()}
-    conv_after = db.query(CodexEdge).get(conv_edge.id).strength
     check("static edges: strength unchanged after decay",
           all(abs(static_after[i] - s) < 1e-9 for i, s in static_before.items()))
-    check("conversation edge: decayed", conv_after < conv_before)
+    check("a fact's prompt usage: decayed",
+          db.query(CodexFact).filter_by(text_sha256=USAGE_FACT_SHA).one().usage < 1.0)
 
     # ── 4. source visibility ─────────────────────────────────────────────
     print("── check 4: conversational vs project-scoped visibility ──")
@@ -200,16 +200,12 @@ try:
     matched = orch._match_entities_exact([canonical])
     check("project-scoped exact-match resolves the code entity",
           len(matched) == 1 and matched[0].canonical_name == canonical)
-    ent_set, batch_set = orch._codex_scope_sets(
+    batch_set = orch._scope_batch_ids(
         {"project_id": str(project_id), "conversation_ids": []})
-    check("_codex_scope_sets: code-graph allowance (entities + batch)",
-          ent_set is not None and greet.id in ent_set
-          and code_graph_batch_id(project_id) in batch_set)
-    texts: list = []
-    orch._traverse_graph(matched[0], 0, 1, set(), texts, [],
-                         allowed_entity_ids=ent_set, allowed_batch_ids=batch_set)
-    check("scoped traversal renders the derived pointer payload",
-          any("minipkg/core.py:4" in t for t in texts))
+    check("_scope_batch_ids: code-graph allowance (batch)",
+          batch_set is not None and code_graph_batch_id(project_id) in batch_set)
+    check("project-scoped anchor renders the derived pointer payload",
+          any("minipkg/core.py:4" in f.text for f in orch._code_graph_anchors(matched)))
     orch._scope_project_id = None
     check("_entity_visible: derived hidden unscoped, visible in-project",
           not orch._entity_visible(greet)
@@ -298,7 +294,7 @@ try:
     note_c = orch._append_empty_window_note(
         [], UNIT, None, {"conversation_ids": [str(conv_c.id)]})[-1].text
     check("G29 empty-window probe: era named only when it is IN scope",
-          "Closest matches" not in note_ab and "Closest matches" in note_c)
+          "Nearby source records" not in note_ab and "Nearby source records" in note_c)
 
     # (c) cluster relevance — a cluster on conv_a (in scope) and conv_c (out).
     for conv, tag in ((conv_a, "one"), (conv_c, "three")):
@@ -584,6 +580,7 @@ finally:
     ma.DETECTORS.update(_orig_detectors)
     try:
         db.rollback()
+        db.execute(text("DELETE FROM codex_facts WHERE text_sha256 = :s"), {"s": USAGE_FACT_SHA})
         if other_project_id is not None:
             db.execute(text("DELETE FROM decisions WHERE project_id = :pid"),
                        {"pid": other_project_id})

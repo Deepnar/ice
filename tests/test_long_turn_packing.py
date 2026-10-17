@@ -46,7 +46,7 @@ def test_late_correction_survives_small_budget_through_actual_retrieve(monkeypat
             parent = next(f for f in candidates if f.covers_entire_source)
             assert raw in parent.text and correction in parent.text
             # Keep both real SQL legs; stub unrelated subsystems only.
-            for name in ('_codex_graph', '_codex_claims', '_relevant_cluster_ids',
+            for name in ('_facts_leg', '_relevant_cluster_ids',
                          '_procedural_lookup', '_batch_summary_lookup', '_cold_lookup'):
                 monkeypatch.setattr(orch, name, lambda *a, **kw: [])
             monkeypatch.setattr(settings, 'retrieval_rerank_enabled', ranked)

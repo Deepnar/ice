@@ -1,4 +1,4 @@
-"""CODEX_V4 facts: verified fact sentences, their sources and entity links; pg_trgm."""
+"""CODEX_V4 facts: verified fact sentences, their sources and entity links."""
 from alembic import op
 import sqlalchemy as sa
 from pgvector.sqlalchemy import Vector
@@ -11,8 +11,6 @@ depends_on = None
 
 
 def upgrade():
-    # Fuzzy entity-name matching (CODEX_V4 D5) and the known-name question lookup.
-    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
     op.create_table(
         'codex_facts',
         sa.Column('id', UUID(as_uuid=True), primary_key=True),
@@ -71,14 +69,9 @@ def upgrade():
         sa.Column('role', sa.Text(), primary_key=True),
     )
     op.create_index('ix_codex_fact_entities_entity_id', 'codex_fact_entities', ['entity_id'])
-    op.execute("CREATE INDEX ix_codex_entities_name_trgm ON codex_entities "
-               "USING gin (canonical_name gin_trgm_ops)")
 
 
 def downgrade():
-    op.execute("DROP INDEX IF EXISTS ix_codex_entities_name_trgm")
     op.drop_table('codex_fact_entities')
     op.drop_table('codex_fact_sources')
     op.drop_table('codex_facts')
-    # pg_trgm stays installed: other objects may depend on it by then, and dropping
-    # an extension is not this migration's to undo.

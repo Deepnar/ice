@@ -66,7 +66,7 @@ def exercise_candidate_pool_path(monkeypatch, *, procedural_relevant=True, actua
     monkeypatch.setattr(o, '_vector_episodic', lambda *_a, **_kw: episodic)
     monkeypatch.setattr(o, '_procedural_lookup', lambda *_a, **_kw:
         [ContextFragment(workflow, 'procedural', .001, count(workflow), origin_batch_ids=('a', 'b'))])
-    for name in ('_relevant_cluster_ids', '_codex_graph', '_codex_claims',
+    for name in ('_relevant_cluster_ids', '_facts_leg',
                  '_batch_summary_lookup', '_cold_lookup'):
         monkeypatch.setattr(o, name, lambda *_a, **_kw: [])
     fused_positions = []
@@ -187,7 +187,7 @@ def test_production_retrieve_paths_reach_ranking_and_budget(monkeypatch, wide):
     db = SimpleNamespace(execute=lambda *a, **kw: SimpleNamespace(fetchall=lambda: []))
     o = HybridRetrievalOrchestrator(db, None)
     candidates = [fragment("irrelevant", "codex"), fragment("answer", "codex")]
-    monkeypatch.setattr(o, "_codex_graph", lambda *a, **kw: candidates)
+    monkeypatch.setattr(o, "_facts_leg", lambda *a, **kw: candidates)
     for name in (
         "_relevant_cluster_ids",
         "_bm25_episodic",

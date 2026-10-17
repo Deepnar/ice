@@ -45,7 +45,6 @@ def test_contained_excerpt_spends_budget_once(shorter_first, ranked):
     {'stored_artifact_ids': ()},
     {'stored_artifact_ids': (('episodic_chunks', 'uncovered-chunk'),)},
     {'origin_batch_ids': ('uncovered-original',)},
-    {'origin_edge_ids': ('uncovered-edge',)},
     {'source_type': 'procedural'},
 ])
 def test_missing_or_distinct_evidence_is_not_covered(changes):

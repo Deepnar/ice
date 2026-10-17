@@ -15,7 +15,7 @@ from src.api.config import settings
 from src.memory.support import score_pairs, verify_support
 from src.memory.tokens import count_messages
 from src.workers.bg_client_factory import bg_timeout, local_model_call, native_call_timings
-from src.workers.extraction_result import original_source_quote
+from src.memory.source import original_source_quote
 
 logger = structlog.get_logger("ice.api.source_proof")
 

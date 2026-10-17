@@ -58,9 +58,8 @@ def main() -> int:
     ap.add_argument("--bg-model", default=None,
                     help="⚑ PASS THE ARM'S MODEL. batch_summarize() resolves "
                          "its model through settings.background_model_name — "
-                         "the GENERAL background model, which since 2026-08-26 "
-                         "is qwen3:4b-instruct and is deliberately NOT the "
-                         "extraction specialist (codex_extraction_model). "
+                         "the GENERAL background model, which may differ "
+                         "from the arm's model. "
                          "seed_store overrides it in-process, so its own "
                          "internal call is correct; THIS script is a separate "
                          "process and would silently summarise an arm's turns "
