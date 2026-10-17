@@ -183,6 +183,12 @@ def approve_review_item(item_id: str, body: ReviewApprove = None, db: Session = 
     with service_errors():
         return review_svc.approve(db, item_id, keep_edge_ids=body.keep_edge_ids if body else None)
 
+@router.post("/review-queue/{item_id}/undo")
+def undo_review_item(item_id: str, db: Session = Depends(get_db)):
+    """G77: reverse a background decision that applied itself."""
+    with service_errors():
+        return review_svc.undo(db, item_id)
+
 
 # ------------------------------------------------------------------
 # F10/F14 — Conversation import (replay). The drag-drop UI is F's (ledger);

@@ -151,11 +151,9 @@ def get_slot(db: Session, slot_name: str, scope_tier: str = "global",
     return _format_slot(slot)
 
 
-def update_slot(db: Session, slot_name: str, content: str,
-                updated_by: str = "user", scope_tier: str = "global",
-                project_id=None, conversation_id=None) -> dict:
-    """Update a slot's content (created with version 1 if it doesn't exist).
-    Content is G14-capped; the response carries `truncated` when it was."""
+def _write_slot(db: Session, slot_name: str, content: str, *, updated_by: str,
+                scope_tier: str, project_id, conversation_id) -> tuple[MemorySlot, bool]:
+    """The one slot write (validated, G14-capped, versioned); the caller commits."""
     _validate_tier(slot_name, scope_tier, project_id, conversation_id)
     content, truncated = _cap_content(content)
     if truncated:
@@ -183,9 +181,72 @@ def update_slot(db: Session, slot_name: str, content: str,
         slot.updated_by = updated_by
         if not slot.is_active:
             slot.is_active = True
+    db.flush()
+    return slot, truncated
+
+
+def update_slot(db: Session, slot_name: str, content: str,
+                updated_by: str = "user", scope_tier: str = "global",
+                project_id=None, conversation_id=None) -> dict:
+    """Update a slot's content (created with version 1 if it doesn't exist).
+    Content is G14-capped; the response carries `truncated` when it was."""
+    slot, truncated = _write_slot(db, slot_name, content, updated_by=updated_by,
+                                  scope_tier=scope_tier, project_id=project_id,
+                                  conversation_id=conversation_id)
     db.commit()
     db.refresh(slot)
     return _format_slot(slot, truncated=truncated)
+
+
+def write_journaled(db: Session, slot_name: str, content: str, *, updated_by: str,
+                    scope_tier: str, project_id=None, conversation_id=None,
+                    audit: Optional[dict] = None) -> dict:
+    """G77: a background write that applies itself, no human wall. The slot
+    write and an `applied` memory_slot_update row commit together; the row keeps
+    the previous text, so `review.undo` restores it in one call."""
+    from src.memory.models import ReviewQueue
+    anchor = _tier_anchor(scope_tier, project_id, conversation_id)
+    prior = db.query(MemorySlot).filter_by(slot_name=slot_name, **anchor).first()
+    previous = None if prior is None else {
+        "content": prior.content or "", "is_active": bool(prior.is_active)}
+    slot, truncated = _write_slot(db, slot_name, content, updated_by=updated_by,
+                                  scope_tier=scope_tier, project_id=project_id,
+                                  conversation_id=conversation_id)
+    item = ReviewQueue(item_type="memory_slot_update", status="applied", item_content={
+        **(audit or {}), "slot_id": str(slot.id), "slot_name": slot_name,
+        "scope_tier": scope_tier,
+        "project_id": str(slot.project_id) if slot.project_id else None,
+        "conversation_id": str(slot.conversation_id) if slot.conversation_id else None,
+        "proposed_content": slot.content, "proposed_by": updated_by,
+        "previous": previous, "version_after": slot.version,
+        "undo": "review.undo(item_id)"})
+    db.add(item)
+    db.commit()
+    db.refresh(slot)
+    logger.info("slot_written_journaled", slot=slot_name, tier=scope_tier,
+                updated_by=updated_by, review_item=str(item.id), created=previous is None)
+    return {**_format_slot(slot, truncated=truncated), "review_item_id": str(item.id)}
+
+
+def undo_journaled(db: Session, content: dict) -> dict:
+    """Restore the text a `write_journaled` replaced (or deactivate the slot it
+    created). Refused when the slot changed since: undoing over a later edit
+    would silently drop it. The caller commits."""
+    slot = db.get(MemorySlot, uuid.UUID(content["slot_id"])) if content.get("slot_id") else None
+    if slot is None:
+        raise NotFoundError("Slot not found")
+    if slot.version != content.get("version_after"):
+        raise ConflictError(
+            f"slot {slot.slot_name!r} changed since this write (version "
+            f"{slot.version} vs {content.get('version_after')}); undo the later change first")
+    previous = content.get("previous")
+    slot.content = previous["content"] if previous else ""
+    slot.is_active = previous["is_active"] if previous else False
+    slot.token_count = count_tokens(slot.content)
+    slot.version += 1
+    slot.last_updated = datetime.now(timezone.utc)
+    slot.updated_by = "undo"
+    return _format_slot(slot)
 
 
 def append_to_slot(db: Session, slot_name: str, text: str,

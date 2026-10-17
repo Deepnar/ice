@@ -323,7 +323,9 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
     pick wins over ICE's automatic one); "excluded_conversation_ids" /
     "excluded_cluster_ids" — never retrieve these, in any mode, without
     deleting them. Each is None = leave unchanged, [] = clear);
-    "review_list"/"review_approve"/"review_reject" → agent proposals
+    "review_list"/"review_approve"/"review_reject" → agent proposals;
+    "review_undo" (item_id) reverses a background decision that applied itself
+    (review_list status "applied" lists them);
     (contradiction approval requires data.keep_edge_ids: keep both, one or []);
     "registry_view"/"registry_edit" → the model registry.
     Coding core (E1): "project_register" (data: name, root, install_git_hook
@@ -371,6 +373,8 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
             return review_svc.approve(db, item_id, keep_edge_ids=d.get("keep_edge_ids"))
         if action == "review_reject":
             return review_svc.reject(db, item_id)
+        if action == "review_undo":
+            return review_svc.undo(db, item_id)
         if action == "registry_view":
             return registry_svc.get_registry()
         if action == "registry_edit":
@@ -441,7 +445,7 @@ def ice_control(action: str, conversation_id: Optional[str] = None,
                 db, item_id, conversation_id, action == "document_enable")
     raise _bad_action("ice_control", action,
                       ("scope_get", "scope_set", "review_list",
-                       "review_approve", "review_reject", "registry_view",
+                       "review_approve", "review_reject", "review_undo", "registry_view",
                        "registry_edit", "project_register", "project_list",
                        "project_status", "project_goal", "project_reconcile",
                        "arch_doc", "decisions_list", "decisions_add",

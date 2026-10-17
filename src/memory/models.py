@@ -643,6 +643,10 @@ class ReviewQueue(Base):
     # pending | approved | rejected | resolved (agent-settled, D1/D2)
     # | stale (referenced conversation deleted, C10)
     # | archived (legacy graph-conflict kinds, no handler since CODEX_V4)
+    # | applied (G77: a background decision that applied itself — the audit row)
+    # | undone (an applied item reversed by review.undo)
+    # | dismissed (a background suggestion discarded by its own rule, e.g. a
+    #   stale-slot rewrite that adds text)
     status = Column(Text, default="pending")
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
