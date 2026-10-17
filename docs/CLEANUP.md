@@ -1101,3 +1101,25 @@ Removed `_truncate_at_sentence` after replacing its last cold-reader caller with
 the shared representation selector; removed obsolete prefix-cut controls.
 Removed `RerankerInputTooLong`: oversized pairs now produce explicit unscored
 fallbacks. No files deleted or moved. Adjacent classifier constants/cache retained.
+
+## 2026-10-16/17 — CODEX_V4 step 7: the v2/v3 conversation codex deleted
+
+Recover any of it at commit **`8079eb2`** (last commit with the edge codex; the
+paper's v2 system is tag `v2-paper-eval`). Spec: `docs/specs/CODEX_V4.md` §3 step 7.
+
+| what | action | note |
+|---|---|---|
+| `src/workers/codex_extractor.py`, `nuextract_transport.py`, `extraction_result.py`, `codex_inject_watcher.py`, `compaction.py`; `src/memory/claims.py`, `relation_support.py`, `assertion_support.py`, `entity_notes.py` | **DELETED** (git rm) | the edge extractor, NuExtract3 transport, claims, relation/author NLI, entity notes, compaction (D11.1/D11.2). `original_source_quote` moved to `src/memory/source.py` first, proven byte-identical |
+| orchestrator legacy legs (18 methods: `_codex_graph`, `_codex_claims`, `_codex_enumeration`, `_traverse_graph`, `_fact_line`, `_edge_trust`, relation detection/fit, timeline leg …) | **DELETED** | `_codex_scope_sets` was deleted too and RESTORED batch-only as `_scope_batch_ids` — the procedural leg used it (found by a ported test) |
+| `ContextFragment.origin_edge_ids`, `claim_source_row_id`, `claim_excerpt`, `source_quote_requirements`, `source_quote_text_sha256` + the claim-containment budget branch | **DELETED** | inert once the legs went; note containment kept |
+| maintenance detectors (reconciliation leftovers, pending pile-up, contradictions) + apply fns; `review.py` codex conflict arm (now refuses: "archived"); `conversations.py` edge plans; portability payload sweep; reflection enrichment (receipt kept); `bg_client_factory` NuExtract routing; JOBS `codex_extract`, `compaction` | **DELETED** | |
+| `src/retrieval/evolution.py` | **REWRITTEN** over facts (`entity_diff`, `log_description_update`) | the edge timeline (`build_entity_timeline`, `history_exists`) is gone |
+| ORM `CodexClaim`, `CodexClaimLink`, `CodexRelationGap`, `CodexSnapshot` | **DELETED**; migration `d5e8a1c3b7f2` drops the tables, deletes conversation `codex_edges`, archives pending legacy review items | proven up/down/up on an ice_db copy; **not applied to ice_db** — needs the maintainer's OK and a `pg_dump` first (path to be logged here) |
+| `pg_trgm` + `ix_codex_entities_name_trgm` | removed from the unapplied migration `c0d4e7f1a2b3` and from the four test/campaign DB builders | unused: trigram tier measured and dropped; name lookup is whole-word |
+| 55 settings (`codex_extraction_*`, `codex_relation_*`, `codex_retention_*`, `codex_assertion_*`, `codex_conf_*`, `timeline_max_tokens/fragments*`, `agent_pileup_*`, `agent_max_attempts`, `reflection_enrich_*`, `compaction_event_threshold`, …) | **DELETED**; 20 freeze rows → `RETIRED_CODEX_V4` in `tests/test_settings_freeze.py` (absent + base anchor still reads) | `.env` NuExtract pins replaced by a comment (local file) |
+| `decay_codex_edges` → `decay_fact_usage` | renamed | facts' usage fade only |
+| 29 test files → `tests/archive/codex_v2_v3/` (git mv) | archived | table of live replacements in `tests/archive/README.md` |
+| `tests/smoke/test_v3_cold_claim_clusters.py` → `test_v3_cold_fact_clusters.py` | renamed + ported | |
+| Z2-path harnesses ported (seed_v3, chronological_replay, lifecycle_plan, prepare_inputs, run_development, replay_checkpoint, export_tuning_ledger, tuning_plan, artifact_inventory policy -2, historical_clock, trace_v3_memory, report_reader_usage); `run_v3_campaign` format `ice-v3-manual-campaign-2` | edited | `-1` campaigns resume only at `8079eb2` |
+| Z1-era tools that still import the deleted codex: `scripts/z1/{seed_store,score_retrieval,score_typed,ab_entity_shape_rule,answer_probes,bg_model_bakeoff,compare_bg_models,harvest_probe_context,harvest_vocabulary,sample_bg_output,seed_relation_vocab,store_report}.py`, `two_arm_seed.sh`, `ner_arm_seed.sh`, `prompt_ab_noisefloor.sh`, `experiments/lme/{lme_run,trace_retrieval}.py`, `experiments/v3_repair/qualify_reconciliation.py`, `data/relation_seed.json` | **LEFT + this note** (rule 8) | do not run on main; run at `8079eb2`. Frozen paper zones (`mature/`, `unmature/`, `flaw_ablation/`) untouched |
+| `experiments/v3_repair/reader_adoption.py` | 6 transitions re-pinned with reasons; 3 retired (deleted files) | adopting a pre-CODEX_V4 bundle now refuses, by design |
