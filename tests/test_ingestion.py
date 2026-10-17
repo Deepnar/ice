@@ -139,9 +139,18 @@ def install_pipeline_stubs():
     fact_extractor._ask = lambda earlier, newer: {"same_information": False,
                                                   "both_can_be_true": True}
     fact_extractor._mentions = lambda sentence: []
-    # Procedural: canned pattern → a procedural row appears.
+    # Procedural: a canned pattern that cites two of the session's messages
+    # (the extractor rejects an uncited one — G42), and the semantic source
+    # review stubbed as supporting both. conv2's 8-turn session meets
+    # procedural_min_session_turns; conv1's sessions (2 + 1 turns) do not.
     procedural_extractor.bg_client = _FakeBG(
-        f"When {MARK}, the user asks for code then the class.")
+        f"PATTERN: When {MARK}, the user asks for code then the class. | EVIDENCE: 1, 2")
+    procedural_extractor.review_sources = lambda pattern, sources: {
+        "status": "supported", "kind": "observed_behavior",
+        "observations": [{"evidence": [{"batch_id": src.batch_id, "status": "supported"}
+                                       for src in sources]}]}
+    procedural_extractor.equivalence_receipts = lambda proposed, existing: [
+        {"status": "different", "reason": "stub"} for _ in existing]
 
 
 def stub_summary_llm(prompt, max_tokens=400, schema=None):
@@ -226,7 +235,8 @@ try:
     print("\n[2] replay engine end-to-end")
     now = datetime.now(timezone.utc)
     t0 = now - timedelta(days=3)
-    # conv 1 — small, code in responses (forces lossless → codex), a session gap
+    # conv 1 — small, code in responses (forces lossless → codex), a 3-turn
+    # session then a session gap
     conv1 = NormalizedConversation(
         provider="test", source_id=MARK + "c1", title=MARK + " codeconv",
         turns=[
@@ -234,6 +244,10 @@ try:
             NormalizedTurn("assistant", "sure ```def f(): return 1```", t0),
             NormalizedTurn("user", f"{MARK} and the class now", t0 + timedelta(minutes=5)),
             NormalizedTurn("assistant", "ok ```class C: pass```", t0 + timedelta(minutes=5)),
+            # a third close turn: a 3-turn session is what procedural extraction
+            # needs (procedural_min_session_turns)
+            NormalizedTurn("user", f"{MARK} and the tests for it", t0 + timedelta(minutes=10)),
+            NormalizedTurn("assistant", "here ```def test_c(): C()```", t0 + timedelta(minutes=10)),
             NormalizedTurn("user", f"{MARK} much later question", t0 + timedelta(days=2)),
             NormalizedTurn("assistant", "later ```x = 1```", t0 + timedelta(days=2)),
         ])
@@ -262,12 +276,12 @@ try:
 
     rows1 = db.query(EpisodicMemory).filter_by(conversation_id=c1_id).order_by(
         EpisodicMemory.timestamp).all()
-    check("conv1: 3 turn-pairs stored", len(rows1) == 3)
+    check("conv1: 4 turn-pairs stored", len(rows1) == 4)
     check("conv1: ORIGINAL timestamps preserved",
-          rows1[0].timestamp == t0 and rows1[2].timestamp == t0 + timedelta(days=2))
-    check("conv1: sessions gap-derived (2 close = same, 2-day gap = new)",
-          rows1[0].session_id == rows1[1].session_id
-          and rows1[0].session_id != rows1[2].session_id)
+          rows1[0].timestamp == t0 and rows1[3].timestamp == t0 + timedelta(days=2))
+    check("conv1: sessions gap-derived (3 close = same, 2-day gap = new)",
+          rows1[0].session_id == rows1[1].session_id == rows1[2].session_id
+          and rows1[0].session_id != rows1[3].session_id)
     check("conv1: raw_text has User/Assistant shape, embedding set",
           rows1[0].raw_text.startswith(f"User: {MARK} explain")
           and "\n\nAssistant:" in rows1[0].raw_text
@@ -291,7 +305,7 @@ try:
           summ is not None and MARK in (summ.summary_text or ""))
     check("import_progress fired per conversation (progress_cb)",
           len(cb_calls) == 2)
-    check("report totals", report["conversations"] == 2 and report["turns"] == 11
+    check("report totals", report["conversations"] == 2 and report["turns"] == 12
           and report["complete"] is True)
 
     # ══ Check 3: re-run → 100% skipped by hash, zero duplicates ══
