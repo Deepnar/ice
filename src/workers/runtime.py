@@ -810,7 +810,8 @@ def yield_if_user_active(where: str = "") -> None:
     the job asks, at points where abandoning is cheap and leaves no half-written
     state. The summarisers loop over conversations and source groups, so the
     boundaries exist. (The claim pass that writes summaries and facts has no
-    yield point yet — an open maintainer decision since CODEX_V4.)
+    yield point by decision, 2026-10-17: abandoning it mid-pass discards every
+    piece already written, since post-flight reruns from the start.)
 
     A no-op when there is no runtime (scripts, tests, one-off tools), which is
     why every call site stays safe outside the app.

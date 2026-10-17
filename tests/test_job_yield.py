@@ -99,8 +99,8 @@ import inspect  # noqa: E402
 from src.workers import batch_summarizer, conversation_summary  # noqa: E402
 
 # (The v2/v3 codex extractor yielded between chunks; it was deleted with
-#  CODEX_V4. The claim pass that now writes facts has NO yield point — an open
-#  maintainer decision, recorded in docs/SESSION.md / HANDOFF, not an oversight.)
+#  CODEX_V4. The claim pass that now writes facts has NO yield point by
+#  decision (2026-10-17): abandoning it mid-pass discards the pieces written.)
 for mod, fn_name in [(batch_summarizer, "batch_summarize"),
                      (conversation_summary, "run_conversation_summaries")]:
     src = inspect.getsource(getattr(mod, fn_name))

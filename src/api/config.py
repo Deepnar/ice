@@ -373,8 +373,8 @@ class Settings(BaseSettings):
         "procedural": 0.2,
         # T4: pinned, not blended — its firing condition is the gate.
         # ⚠ INERT since CODEX_V4 (2026-10-16): no leg emits timeline fragments
-        # (a current fact carries its replaced predecessor inline). Kept, not
-        # deleted, pending a maintainer decision — it is a designed seam.
+        # (a current fact carries its replaced predecessor inline). Kept as an
+        # inert seam for a future history leg (decided 2026-10-17).
         "timeline": 0.6,
     }
     # intent label → per-leg override. An intent absent from this table
