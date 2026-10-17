@@ -237,6 +237,11 @@ class Settings(BaseSettings):
     # of VRAM. Every chat turn encodes the prompt, so CPU was adding ~300 ms
     # to every request. Set "cpu" when the generation model needs the VRAM.
     embedding_device: str = "auto"
+    # G78: re-embed encodes in sub-batches bounded by PADDED tokens (rows x the
+    # longest text in the batch) — what the attention buffer scales with. A row
+    # count could not bound it: one 8K-token turn ran 16-row batches out of GPU
+    # memory (2026-10-17, ice_db copy). A text over the budget is encoded alone.
+    reembed_batch_padded_tokens: int = Field(default=16384, ge=512)
 
     # A9b: the BACKGROUND entity tier. The pre-flight tier deliberately keeps
     # the micro-NER — it shares the already-loaded encoder with the classifier

@@ -178,6 +178,38 @@ def _count_eligible(db, rule: TableRule, table: str) -> int:
         f"SELECT count(*) FROM ({rule.select_sql}) s")).scalar() or 0
 
 
+def _token_lengths(embedder, texts: list) -> list:
+    """Tokens each text will occupy in the encoder: its own tokenizer, capped at
+    the encoder's max_seq_length (it truncates there). An encoder without a
+    tokenizer (test stubs) is measured at ~4 characters per token."""
+    tokenizer = getattr(embedder, "tokenizer", None)
+    cap = getattr(embedder, "max_seq_length", None) or 10 ** 9
+    if tokenizer is None:
+        return [min(cap, max(1, len(t) // 4)) for t in texts]
+    ids = tokenizer(texts, add_special_tokens=True, truncation=False)["input_ids"]
+    return [min(cap, len(x)) for x in ids]
+
+
+def token_batches(embedder, texts: list, budget: Optional[int] = None) -> list:
+    """G78: index groups whose PADDED size (rows x longest) stays within
+    *budget* (settings.reembed_batch_padded_tokens); one over-long text is a
+    group of its own. Longest first, so similar lengths share a batch and
+    little is spent on padding. Every index appears exactly once."""
+    from src.api.config import settings
+    budget = budget or settings.reembed_batch_padded_tokens
+    lengths = _token_lengths(embedder, texts)
+    groups, current, longest = [], [], 0
+    for i in sorted(range(len(texts)), key=lambda k: -lengths[k]):
+        if current and max(longest, lengths[i]) * (len(current) + 1) > budget:
+            groups.append(current)
+            current, longest = [], 0
+        current.append(i)
+        longest = max(longest, lengths[i])
+    if current:
+        groups.append(current)
+    return groups
+
+
 def _run_text_table(db, embedder, table: str, rule: TableRule,
                     batch_size: int, stamp: dict) -> dict:
     update = text(
@@ -208,13 +240,13 @@ def _run_text_table(db, embedder, table: str, rule: TableRule,
                 targets.append(row.id)
             else:
                 empty += 1
-        if texts:
-            vecs = embedder.encode(texts, convert_to_tensor=False,
+        for group in token_batches(embedder, texts):
+            vecs = embedder.encode([texts[i] for i in group], convert_to_tensor=False,
                                    show_progress_bar=False)
-            for row_id, vec in zip(targets, vecs):
+            for i, vec in zip(group, vecs):
                 emb = vec.tolist() if hasattr(vec, "tolist") else list(vec)
-                db.execute(update, {"emb": emb, "id": row_id})
-            done += len(texts)
+                db.execute(update, {"emb": emb, "id": targets[i]})
+        done += len(texts)
 
         last_id = str(rows[-1].id)
         set_meta(db, REEMBED_PREFIX + table, {
