@@ -1123,3 +1123,20 @@ paper's v2 system is tag `v2-paper-eval`). Spec: `docs/specs/CODEX_V4.md` §3 st
 | Z2-path harnesses ported (seed_v3, chronological_replay, lifecycle_plan, prepare_inputs, run_development, replay_checkpoint, export_tuning_ledger, tuning_plan, artifact_inventory policy -2, historical_clock, trace_v3_memory, report_reader_usage); `run_v3_campaign` format `ice-v3-manual-campaign-2` | edited | `-1` campaigns resume only at `8079eb2` |
 | Z1-era tools that still import the deleted codex: `scripts/z1/{seed_store,score_retrieval,score_typed,ab_entity_shape_rule,answer_probes,bg_model_bakeoff,compare_bg_models,harvest_probe_context,harvest_vocabulary,sample_bg_output,seed_relation_vocab,store_report}.py`, `two_arm_seed.sh`, `ner_arm_seed.sh`, `prompt_ab_noisefloor.sh`, `experiments/lme/{lme_run,trace_retrieval}.py`, `experiments/v3_repair/qualify_reconciliation.py`, `data/relation_seed.json` | **LEFT + this note** (rule 8) | do not run on main; run at `8079eb2`. Frozen paper zones (`mature/`, `unmature/`, `flaw_ablation/`) untouched |
 | `experiments/v3_repair/reader_adoption.py` | 6 transitions re-pinned with reasons; 3 retired (deleted files) | adopting a pre-CODEX_V4 bundle now refuses, by design |
+
+## 2026-10-17 — G77: no human wall (background decisions apply themselves)
+
+Recover any of it at commit **`659b119`** (last commit before G77). Decisions:
+ROADMAP G77 "DECIDED (maintainer, 2026-10-17 b)".
+
+| what | action | note |
+|---|---|---|
+| `reflection._detect_motifs` + `MOTIF_PROMPT` | **DELETED** (decision 3) | approval made an EMPTY cluster; `review.approve` now refuses `new_cluster_proposal`. No pending rows in `ice_db`; campaign stores (experiment records) untouched |
+| `reflection._evolve_memory_slots` + `SLOT_EVOLUTION_PROMPT` | **REPLACED** by `_refresh_conversation_slots` (decision 1) | global slot proposals from 200-char snippets → conversation-tier, quoted, NLI-checked, journaled |
+| `_synthesize_session`'s append of unresolved items to the GLOBAL `pending_items` slot | **DELETED** (maintainer, 2026-10-17) | moved into the conversation-tier `pending_items` written by the same claim-checked call |
+| `reflection._robust_list` | **DELETED** | only motifs used it |
+| `maintenance_agent._propose_slot` | **REPLACED** by `_apply_slot_removal` (decision 2) | pure removals apply, journaled; additions `dismissed` |
+| `review.py` `new_cluster_proposal` approve arm | **REPLACED** by a refusal | |
+| `tests/smoke/test_reflection_review_schema.py` → `tests/smoke/test_g77_self_applied.py` | renamed (git mv) + rewritten | the old file asserted rows stay `pending` — the retired behaviour |
+| `tests/test_maintenance_agent.py` §3, §4, §6+8 and the reconciliation/contradiction caps in §7 | **DELETED** from the suite (ported) | they called detectors deleted in `def7309`; the suite crashed at HEAD before G77. §7 now caps tier-2 duplicate decisions and stale-work notices |
+| `scripts/z1/bg_model_bakeoff.py` imports `_evolve_memory_slots` / `_detect_motifs` | **LEFT + this note** (rule 8) | already listed above as a Z1-era tool that runs only at `8079eb2` |

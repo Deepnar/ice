@@ -2908,3 +2908,16 @@ answered it (a v2-era check pinned it). For state-at-a-moment, filter on
 "stated by t1 and valid at t1"; keep the window filter for range questions. A
 test whose window happens to contain the old statement cannot see this — open the
 window after the statement.
+
+### 147. A support check proves a line is true, not that it belongs where it is written
+
+ICE v3, 2026-10-17 (G77): reflection's conversation slots passed the claim pass's
+checks perfectly — quotes word for word, every kept line entailed ≥ 0.99 — and only
+about 9 of 20 lines were a *focus* or an *open item*: an assistant's explanation of
+something already settled went into `pending_items`, true and useless, injected into
+every later prompt. NLI answers "does the quote say this?", never "is this still open?". Instruction
+wording did not fix it (two rewrites: 63% → 73%, a third made open items worse); one call
+asking what must be true of each item ("still pending? closed later?", TRAPS 136) took
+open items from 70% to 91%. When a check guards a write, name what it guards — truth,
+fit, currency — and measure the ones it does not.
+

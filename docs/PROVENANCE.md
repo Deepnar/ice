@@ -1,3 +1,47 @@
+## 2026-10-17 — v3 G77: reflection's conversation slots, qualification
+
+All v3. Writer local `gemma4:e4b` (native door, temperature 0) through the production
+`reflection.slot_claims`; NLI DeBERTa-v3-large-mnli @ b3546ea6. Data: development history
+(2 conversations) plus B and C (maintainer, 2026-10-17: B and C may be used here — so Z2's
+numbers for these slots are partly on data this prompt was tuned on). Cases = a conversation
+cut at turn k ("where does it stand at k"). Units, scripts and grades:
+`logs/g77_slot_qualify/` (gitignored). Not scores of record.
+
+**Probe, original G77 prompt** (copy of campaign store 46df67a9, real `run_reflection`):
+mechanism correct — 3 conversations, conversation tier only, 0 global writes, all kept lines
+entailed ≥ 0.99, second pass skipped; but only ~9/20 lines fit their slot. NLI proves a line
+is true to its quote, not that it is a focus or an open item.
+
+**Rounds (26 cases, blind author grading, prompt hidden):** original 43/139 = 31% fit;
+v2 24/38 = 63% (re-graded blind in round 2: identical 24/38); v3 (focus quoted only from the
+user's own words, by schema; open items must state the unresolved act) 24/33 = 73%. Round 1
+also found the 700-token output cap hit (`finish_reason` length) — uncaught, it would have
+aborted the whole reflection pass; cap now 1,500 and each conversation is isolated.
+
+**Judge:** Muse Spark 1.3 (`opencode-muse13`, Z2's background-content judge). Rubric 1
+agreed 84% with the author's 207 grades, misfits caught 118/118, but it failed lines for
+their wording ("The assistant asked whether …"); rubric 2 judges what the line is about:
+agreement 188/207 = 91%, misfits caught 108/118 (lenient on focus lines about the user's
+question).
+
+**Wide sample (60 cases, Muse rubric 2):** v3 51/69 = 74% [62–83]; v4 (exclusion wording
+for closing remarks) 47/68 = 69%, open items 63% — instruction wording plateaued. Open-item
+check (`_open_still_pending`: one call, "still pending?" / "closed later?", fail-closed) on the
+same graded v3 open items: 31/44 = 70% → 21/23 = 91%; removes 11/13 misfits, loses 10/31
+fits.
+
+**Held-out (56 fresh cut points, full path writer → quote/NLI → check, Muse):** 38/41 =
+93% [81–97]; open 21/21, focus 17/20. 22/56 cases write nothing. Final real
+`run_reflection` on a fresh store copy: 4 conversation slots, 0 global, the two noise
+lines of the first probe dropped by the check. Shipped: v3 prompt + open-item check.
+
+**Independent check of the accepted held-out lines (maintainer-requested):** a Claude
+Haiku agent graded blind (no Muse verdicts shown) the 38 Muse-accepted lines mixed with 12
+planted controls (the 3 Muse-rejected held-out lines + 9 rejected wide-v3 lines). Accepted:
+38/38 fit [91–100]; controls: 11/12 rejected (the one passed is a user's story-building
+decision, arguably a fit). Two judges of different families agree the held-out precision
+is above 80%.
+
 ## 2026-10-17 — v3 codex rework (CODEX_V4) step 7: final-code checks
 
 **What ran (v3, main after `def7309`; development history; no answering, no cloud).**

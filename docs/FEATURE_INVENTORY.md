@@ -674,14 +674,14 @@ unqualified. [Methods and limits](PROVENANCE.md#2026-10-09--v3-bounded-resource-
 
 | Feature | Where | Roadmap id | What it does | Setting | Default | On by default? |
 |---|---|---|---|---|---|---|
-| Reflection driver | `src/workers/reflection.py::run_reflection` | — | For each of up to 200 recent conversations with ≥10 non-private turns: synthesis, slot evolution, motif detection. (The global codex enrichment pass was removed with CODEX_V4.) | — (hardcoded 200 / 10) | — | YES |
+| Reflection driver | `src/workers/reflection.py::run_reflection` | G77 | For each of up to 200 recent conversations with ≥10 non-private turns: synthesis, then the conversation's own slots. (Codex enrichment removed with CODEX_V4; global slot proposals and motif detection retired by G77, 2026-10-17.) | — (hardcoded 200 / 10) | — | YES |
 | Session synthesis | `src/workers/reflection.py:139` | — | Writes a `SessionSummary` row (topics, decisions, unresolved items, entities, patterns) via a schema-constrained JSON call. | — | — | YES |
-| Pending-items slot append | `src/workers/reflection.py:176` | — | Unresolved items are appended to the `pending_items` memory slot. **[queried] `memory_slots` is empty, so this is a no-op today.** | — | — | YES (but inert, see DEAD) |
+| ~~Pending-items slot append~~ | removed (G77, 2026-10-17) | G77 | Appended every conversation's unresolved items to the GLOBAL `pending_items` slot, uncapped. Dormant only because replay stores had no slot rows (largest store: 106/109 summaries would have appended). Replaced by the conversation-tier `pending_items` write below. | — | — | **NO — removed** |
 | Reflection pattern observations | `src/workers/reflection.py::_synthesize_session` | G42 | `patterns_observed` remains in the session summary, but reflection no longer writes or reinforces retrievable procedural rows from uncited snippets. | — | — | YES (summary only) |
-| Memory-slot evolution proposals | `src/workers/reflection.py::_evolve_memory_slots` | G67 | Proposes updates to `project_context` / `user_preferences` / `guidance` through the canonical ReviewQueue ORM writer with UUID/pending/time defaults in migrated and experiment schemas; never writes a slot directly. | — | — | YES |
+| Conversation slots from reflection | `src/workers/reflection.py::_refresh_conversation_slots` | G77 | Writes the conversation's OWN `conversation_focus` (≤3) and `pending_items` (≤5) from quoted claims over the newest turns that fit one piece (`summary_piece_tokens`); each claim must quote its window word for word and pass NLI (`source_support_*`); focus is quoted only from the user's words, and open items must pass `_open_still_pending` (pending and not closed later; fail-closed). Qualified: held-out 38/41 fit (PROVENANCE 2026-10-17). Applies itself via `slots.write_journaled` (an `applied` `memory_slot_update` row; `review.undo` restores). Never writes a global slot. Skips a conversation whose newest turn was already reflected on. Replaced `_evolve_memory_slots` (global proposals, 200-char snippets; 107/120 rewrote global `project_context` with the batch topic). | `summary_piece_tokens`, `source_support_threshold` | 4096, — | YES |
 | ~~Codex entity enrichment~~ | removed (CODEX_V4 D11.1); `run_reflection` keeps a `entity_enrichment_receipt_v1` receipt with `skipped: codex_v4_facts` | A7.3/G67 | Model-written entity notes stopped for conversation entities; the entity page lists its facts. | — | — | **NO — removed** |
 | Description-update journalling | `src/workers/reflection.py:358` | T4 D13 | Every overwrite of the one mutable-in-place field leaves a `description_updated` event. | — | — | YES |
-| Motif detection | `src/workers/reflection.py::_detect_motifs` | G67 | Proposes new cluster names through the canonical ReviewQueue ORM writer as pending `new_cluster_proposal`; no automatic cluster creation. | — | — | YES |
+| ~~Motif detection~~ | removed (G77, 2026-10-17) | G77 | Proposed cluster names as pending `new_cluster_proposal`; approval created an EMPTY cluster. Retired by maintainer decision; approval of a legacy row is refused. | — | — | **NO — removed** |
 
 ---
 
@@ -701,8 +701,8 @@ detectors. Source-authority reason counts are separate from model decisions.
 |---|---|---|---|
 | Candidate quotas per run (all detectors combined) | `settings.agent_max_scanned` | 50 | Sum of detector quotas ≤50; a busy first detector cannot take all slots. This is not a count of physical SQL rows examined. |
 | LLM decisions per run | `settings.agent_max_llm_decisions` | 25 | Items needing a verdict past this return `skipped_cap` |
-| Tier-2 proposals per run | `settings.agent_max_tier2_proposals` | 5 | A flooded review queue is worse than no agent |
-| Auto-applications per run | `settings.agent_max_applications` | 10 | Bounds graph writes |
+| Tier-2 notices per run | `settings.agent_max_tier2_proposals` | 5 | Since G77 it bounds `stale_work` notices only (nothing else proposes) |
+| Auto-applications per run | `settings.agent_max_applications` | 10 | Bounds self-applied writes: entity merges and stale-slot removals |
 
 **Detectors 1–2 (`reconciliation_leftover`, `pending_pileup`) and 4 (`contradiction`) — DELETED 2026-10-16 (CODEX_V4 step 7).** They worked on conversation edges, which no longer exist; same/replaces/both-true is decided at write time (D6). Pending legacy `codex_reconciliation` / `codex_contradiction` items are archived by migration `d5e8a1c3b7f2` and refuse approval. Detector 3 is now the first.
 
@@ -720,27 +720,27 @@ detectors. Source-authority reason counts are separate from model decisions.
 | Zero when | (a) the scan budget was consumed; (b) no name/alias collisions; (c) no pair ≥0.90; (d) every candidate pair already has a `pair_key` row; (e) `llm_decider is None`; (f) the LLM answers `different`/`unsure` — only `same` proposes |
 | **[queried]** | 7,949 entities, all with embeddings, all `source='conversation'`. **Name-overlap channel: exactly 0 colliding names.** `canonical_name` is UNIQUE and `get_or_create_entity` sets `aliases=[name]` where `name.lower() == canonical_name`, so two distinct rows can essentially never share a normalised name — **Tier 0 auto-merge is dead on conversation-extracted entities.** Cosine channel: **≥200 pairs above 0.90 exist** — candidates are plentiful; the detector simply never got to run. |
 
-**Detector 5 — `stale_slot` (Tier 2, LLM)**
+**Detector 5 — `stale_slot` (Tier 2, LLM — pure removals apply themselves, G77)**
 
 | Aspect | Detail |
 |---|---|
 | Where | `src/workers/maintenance_agent.py:257` |
-| Finds | The `pending_items` memory slot (a fixed slot NAME, not a knob) with non-empty content untouched for ≥14 days |
-| Decides | LLM proposes updated slot content from the 5 most recent non-private turns; empty suggestion ⇒ nothing proposed |
-| Blockers | Skipped while a `memory_slot_update` proposal for that slot is pending, or the user rejected one since the slot last changed |
+| Finds | Each active `pending_items` slot ROW (any tier — keyed by id since G77; it used to take `LIMIT 1` by name across tiers) with non-empty content untouched for ≥14 days, oldest first, up to the cap |
+| Decides | LLM suggests the lines to keep, from the 5 most recent non-private turns (of the slot's own conversation for a conversation-tier slot); the whole slot is shown. Empty ⇒ nothing. **Applies** only when every suggested line is already a slot line (pure removal) — journaled, undoable; anything added or reworded is written `dismissed` |
+| Blockers | Skipped while a `memory_slot_update` for that slot is pending, or a rejected/dismissed one postdates the slot's last change |
 | Threshold | `agent_stale_slot_days` = 14 |
 | Zero when | The slot does not exist, is empty, was touched within 14 days, a proposal is pending, or a rejection postdates the slot's last change |
 | **[queried]** | `memory_slots` has **0 rows** — this detector returns zero on the live store, always |
 
-**Detector 6 — `stale_work` (Tier 2, deterministic — no LLM)**
+**Detector 6 — `stale_work` (deterministic notice — no LLM; written `applied`, G77)**
 
 | Aspect | Detail |
 |---|---|
 | Where | `src/workers/maintenance_agent.py:291` |
-| Finds | `tasks` rows in status `pending`/`active` untouched for ≥14 days, with no pending/recently-rejected `stale_work` proposal |
-| Applies | The payload IS the proposal (self-describing for the review UI) — branch + goal included so drift is visible |
+| Finds | `tasks` rows in status `pending`/`active` untouched for ≥14 days, with no `stale_work` notice newer than the task's last move (or legacy pending row) |
+| Applies | The payload IS the notice (self-describing for the review UI), written `status='applied'` — nothing waits on a person; branch + goal included |
 | Threshold | `agent_stale_task_days` = 14 |
-| Zero when | No registered projects/tasks. Also silently zero on any DB error — the whole query is wrapped in `try/except: rollback; return []` (`:320`) |
+| Zero when | No registered projects/tasks, or a DB error (rollback + `stale_work_detector_failed` WARNING since 2026-10-17 — no longer silent) |
 | **[queried]** | 0 projects, 0 tasks |
 
 **Agent infrastructure**
@@ -777,7 +777,7 @@ detectors. Source-authority reason counts are separate from model decisions.
 | Bounded JSON extraction | `src/workers/decision_extractor.py:81` | E8 | One call extracts decision / rationale / alternatives / files / type, with an explicit "reply empty if there is no real decision". | — | — | YES |
 | Duplicate skip | `src/workers/decision_extractor.py:184` | E8 D7 | Same type + same files + very high similarity ⇒ nothing written. | `settings.decision_duplicate_threshold` | 0.95 | YES |
 | Auto-supersede (Tier 1) | `src/workers/decision_extractor.py:191` | E8 D7 | Similar + overlapping files ⇒ the old row gets `valid_until` + `superseded_by`. Bi-temporal, no event journal. | `settings.decision_conflict_threshold` | 0.85 | YES |
-| Conflict proposal (Tier 2) | `src/workers/decision_extractor.py:203` | E8 D7 | Similar but different files ⇒ new row plus a `decision_supersession` review item. | `decision_conflict_threshold` | 0.85 | YES |
+| Tier-2 conflict decided | `src/workers/decision_extractor.py::_decide_tier2` | E8 D7 / G77 | Similar but different files ⇒ new row, then one background call in CODEX_V4 D6's framing (`fact_extractor._ask`): not same AND not both-true-now ⇒ supersede (`valid_until` + `superseded_by`, audit row `applied`, `review.undo` clears); otherwise both stand (row `resolved`; a failed call says so at WARNING). D6 was qualified on facts, **never on coding decisions**. | `decision_conflict_threshold`, `codex_fact_reconcile_model` | 0.85, — (bg model) | YES |
 | Single write door | `src/workers/decision_extractor.py:150` | G29 | `reconcile_and_insert` is the ONLY way a Decision row is written — the manual `/decision` path used to bypass it and write unconditional duplicates. | — | — | YES |
 
 ---
@@ -839,9 +839,9 @@ detectors. Source-authority reason counts are separate from model decisions.
 
 3. ~~**`pending_pileup` (detector 2) is structurally near-dead.**~~ **DELETED with the edge codex (CODEX_V4 step 7).** It requires an entity with >3 live pending AND >2 live active edges that share `(source, target, relation)`. `handle_triplet` reinforces the existing edge for a given (source,target) pair instead of writing a duplicate, so extraction cannot produce that state. **[queried]** 4,662 live pending edges, 0 matching entities.
 
-4. **`stale_slot` (detector 5) and reflection's `pending_items` append are both inert on the live store.** **[queried]** `memory_slots` has 0 rows. `reflection.py:179` looks the slot up and silently does nothing when it is absent; `_detect_stale_slot` returns `[]`.
+4. **`stale_slot` (detector 5) is inert until some slot has content.** **[queried]** `memory_slots` has 0 rows. *(G77, 2026-10-17: reflection's global `pending_items` append was removed; reflection now creates conversation-tier `pending_items` rows, which detector 5 then watches.)*
 
-5. **`stale_work` (detector 6) is inert and fails silently.** **[queried]** 0 projects, 0 tasks. Worse, the whole query is wrapped in `except Exception: db.rollback(); return []` (`maintenance_agent.py:320`) — a missing table or a schema error is indistinguishable from "nothing stale".
+5. **`stale_work` (detector 6) is inert.** **[queried]** 0 projects, 0 tasks. *(Its DB-error fallback now warns — `stale_work_detector_failed`, 2026-10-17.)*
 
 6. **Procedural trigger labels remain unwritten.** The sole procedural writer now stores reserved equivalence-proof metadata in `trigger_conditions`; the reader checks only topic/intent labels, so metadata does not create a trigger restriction. Reflection no longer writes procedural rows. Trigger-match precision is still unexercised, independently of semantic description matching.
 
@@ -1035,7 +1035,8 @@ Defaults cross-checked against `src/api/config.py`.
 | Feature | Where | Roadmap id | What it does | Setting | Default | On by default? |
 |---|---|---|---|---|---|---|
 | Review queue listing by status | `src/services/review.py:35` | D8 | Statuses in play: pending, approved, rejected, plus `resolved` (agent-settled) and `stale` (C10). | — (`status="pending"`) | pending | YES |
-| Approval APPLIES the item | `src/services/review.py:44` | D1/D2 D6/G62 | `memory_slot_update` → slots service; `new_cluster_proposal` → creates the cluster; `entity_merge` → `codex_ops.merge_entities`; `forget_request` → `apply_forget`. Codex conflict/reconciliation approval requires explicit `keep_edge_ids` from the two live edges and journals any chosen expiries as manual conflict resolution; it never auto-expires a proposed old edge. | — | — | YES |
+| Approval APPLIES the item | `src/services/review.py::approve` | D1/D2 D6/G77 | `memory_slot_update` → slots service; `entity_merge` → `codex_ops.merge_entities`; `forget_request` → `apply_forget`. Refused: legacy codex conflict kinds (CODEX_V4) and `new_cluster_proposal` (retired, G77). | — | — | YES |
+| Undo a self-applied decision | `src/services/review.py::undo` (REST `POST /user-control/review-queue/{id}/undo`, MCP `ice_control` `review_undo`) | G77 | Reverses one `applied` row: slot text restored (refused if the slot changed since), decision supersession cleared, entity merge unmerged. Row becomes `undone`; a second undo is refused. | — | — | YES |
 | Reject (feeds the never-re-propose check) | `src/services/review.py:100` | D1 | Flips to rejected without applying; D1's detectors query rejected rows so a proposal is not re-raised. | — | — | YES |
 | Explicit cluster creation | `src/services/clusters.py:12` | C5 | Creates a named `ContextCluster` by hand. | — | — | YES (REST-only) |
 | Explicit turn→cluster assignment | `src/services/clusters.py:21` | C5/G29 | Writes authoritative `EpisodicClusterLink` membership and retains the legacy primary `cluster_id` pointer. Duplicate input/repeat calls do not duplicate links; `assigned` counts existing distinct turns found. | — | — | YES (REST-only) |

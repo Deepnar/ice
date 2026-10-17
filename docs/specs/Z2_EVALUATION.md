@@ -58,7 +58,9 @@ token efficiency) and fixes what was weak in it:
 **D2 — Histories.** B (1,119 original pairs, long-range entity/revision memory)
 and C (325 pairs, dense long-input/compression), frozen in
 `logs/v3-offline-input-plan-2026-10-10-r4/final-originals-{B,C}.json`. Both are
-excluded from tuning. C is only the first segment (ICE-1, 325 pairs, ~1.1M tokens)
+excluded from tuning — **one recorded exception** (maintainer, 2026-10-17): the G77
+conversation-slot prompt was qualified on dev + B + C, so Z2's numbers for those slots are
+partly on data the prompt was tuned on (PROVENANCE 2026-10-17). C is only the first segment (ICE-1, 325 pairs, ~1.1M tokens)
 of the stitched ICE project conversation (1,737 user turns, ~5.9M tokens, real
 timestamps); Z2 keeps C as frozen for replay cost, and FINAL uses the full
 stitched conversation. Their legacy v2 probes (B: 91 families/638 observations;
@@ -203,8 +205,8 @@ fixed (reviewed production change) or recorded in PROVENANCE before launch.
 
 **D8 — Replay.** One full-system semi-LSREP replay per history with the frozen
 tuned configuration (spec §5.2 decisions): recorded original replies, full ICE
-preflight and post-flight per historical prompt, all ten maintenance jobs on the
-declared clock, **live default decay** (option A). The replay logs every
+preflight and post-flight per historical prompt, all nine periodic maintenance jobs
+(`seed_v3.MEMORY_JOBS`; ten before CODEX_V4 deleted `compaction`) on the declared clock, **live default decay** (option A). The replay logs every
 strengthening (row, source time, amount, turn or probe) and every decay pass.
 Questions retrieve like real use; their exposure is logged and tagged. Every
 checkpoint store is saved. Speed fixes (D1.1) come first, measured on a short
@@ -217,7 +219,12 @@ batch summaries; **codex facts** (the sentence, speaker, modality and the
 source's subject/relation/object — CODEX_V4) with their entity links; entity
 resolution and automatic entity merges (D12); same/replaces/both-true decisions
 and expiries (D6); cluster names and memberships; procedural patterns; session
-summaries. (Since CODEX_V4, 2026-10-16, there are no conversation edges, entity
+summaries. **Since G77 (2026-10-17), also:** reflection's conversation-tier
+`conversation_focus` / `pending_items` slots (quoted, NLI-checked claims — judged
+faithful/attributed/current like facts), the maintenance agent's self-applied
+stale-slot removals, and tier-2 coding-decision verdicts (superseded vs both-stand —
+D6's framing, never qualified on decisions). All are `applied` rows in
+`review_queue`, so the inventory reads them there. (Since CODEX_V4, 2026-10-16, there are no conversation edges, entity
 notes or compaction snapshots to audit.) For each kind, a stratified sample (all items if fewer than
 100, else 100 per kind per history) is judged with its cited sources supplied:
 

@@ -981,3 +981,19 @@ relation term had to be the dedupe/conflict KEY; CODEX_V4 finds duplicates and
 changes by entity + sentence similarity and one model call reading both sentences
 instead (§5.2: 88/99 on 99 real pairs).
 
+## <a id="g77"></a>G77 — no human wall: background decisions apply themselves (closed 2026-10-17)
+
+Shipped (maintainer decisions per feature, 2026-10-17): `slots.write_journaled` + `review.undo`
+(REST `POST /user-control/review-queue/{id}/undo`, MCP `review_undo`) — an applied decision is a
+`review_queue` row `applied` that one call reverses; reflection writes only the conversation's own
+`conversation_focus` / `pending_items` (quoted, NLI-checked, open items checked "still pending /
+closed later", fail-closed) and never a global slot; its global `pending_items` append removed;
+motif proposals retired (approval refused); stale-slot pure removals apply themselves, additions
+dismissed; tier-2 coding-decision conflicts decided by D6's two questions; stale-work notices
+written `applied`. Qualification: PROVENANCE 2026-10-17. **What the entry got wrong about its
+subject:** it treated G77 as plumbing (decide → apply → journal) and assumed the producers'
+decisions were sound once applied; measured, 107/120 slot proposals would have flipped the GLOBAL
+`project_context` topic every pass, motif approval created empty clusters, two kinds had no apply
+handler at all, and the replacement's claim checks proved lines true but not that they belonged in
+the slot (TRAPS 147) — the work was mostly fixing the producers, not removing the wall.
+
