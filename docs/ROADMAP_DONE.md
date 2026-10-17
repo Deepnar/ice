@@ -997,3 +997,28 @@ decisions were sound once applied; measured, 107/120 slot proposals would have f
 handler at all, and the replacement's claim checks proved lines true but not that they belonged in
 the slot (TRAPS 147) — the work was mostly fixing the producers, not removing the wall.
 
+## <a id="g12"></a>G12 — dynamic LLM timeouts (closed 2026-10-17)
+
+Shipped: `bg_timeout(max_tokens)` across every background call (native door adds 1 s per 1K
+input tokens); the last fixed `timeout=15.0` (model auto-tagging) moved onto it 2026-10-17.
+**What the entry got wrong:** it framed the problem as retry storms from 30 s timeouts; C7's lane
+serialisation answered the storms, the 5.5 h development replay saw 0 timeouts, and what was left
+was three fixed timeouts that degraded silently. Load-based scaling moves to Z2 S0.
+
+## <a id="g32"></a>G32 — ICE↔Ollama control surface (closed 2026-10-17)
+
+Shipped: native `/api/chat` for foreground chat (2026-09-24) and background calls (2026-10-15,
+`d9e3707`) with explicit `num_ctx`, `keep_alive`, a loud server-side-cut check, and JSON-schema
+constrained decoding (honoured on both doors — the entry's original "native-only" claim was struck
+2026-08-03 as never measured). **What the entry got wrong:** it kept a relation-vocabulary matching
+ladder as open work under (a); CODEX_V4 deleted the vocabulary, so the item was obsolete.
+
+## <a id="g78"></a>G78 — re-embed batches by row count (closed 2026-10-17)
+
+Shipped: `reembed.token_batches` — each fetched page is encoded in sub-batches whose padded size
+(rows × longest, the encoder's own tokenizer, capped at `max_seq_length`) stays within
+`reembed_batch_padded_tokens` (16,384); an over-long text is encoded alone. Proof: an `ice_db` copy
+completes at the default 256 (34 s, peak 3.3 GB); budget 1e9 reproduces the OOM. **What the entry
+got wrong:** it proposed batching by SUMMED tokens; attention memory follows the PADDED size
+(rows × longest text), so the budget bounds that instead.
+
