@@ -338,9 +338,10 @@ which is exactly what happened to its predecessor.)
 | `src/api/routers/` | `memory_slots.py`, `user_control.py`, `adapter.py` — thin adapters over `src/services/`. |
 | `src/classifier/` | The MLP head over a frozen `Qwen/Qwen3-Embedding-0.6B` encoder at native 1024 dim. Schema v2: **27 logits — 11 topic + 12 intent (multi-label sigmoid) + 4 independent context sigmoids**. Live checkpoint in `settings.classifier_model_path`; schema in `data/labeled/label_schema.json`. |
 | `src/retrieval/orchestrator.py` | The hybrid retrieval legs, RRF fusion, scoping, budgeting. Leg weights live in `src/retrieval/leg_weights.py` + settings. |
-| `src/memory/models.py` | Every ORM model, one file. `EpisodicMemory` (+pgvector), `Codex*` (the knowledge graph), `ProceduralMemory`, `ContextCluster`, `MemorySlot`, documents, plus operational tables. DB is **pgvector** (`pgvector/pgvector:pg16`). |
+| `src/memory/models.py` | Every ORM model, one file. `EpisodicMemory` (+pgvector), `CodexFact*` (the codex: verified fact sentences, their sources and entity links), `CodexEntity`/`CodexEdge` (entities; edges now only for the code graph), `ProceduralMemory`, `ContextCluster`, `MemorySlot`, documents, plus operational tables. DB is **pgvector** (`pgvector/pgvector:pg16`). |
 | `src/workers/runtime.py` | The in-process maintenance runtime. **`JOBS` is the source of truth for what runs and how often** — register a new background job there. |
-| `src/workers/` | The jobs themselves: `post_flight` → `codex_extractor` / `procedural_extractor`; periodic `clustering`, `decay`, `reflection`, `batch_summarizer`, `maintenance_agent`, `fine_tune`. |
+| `src/memory/facts.py` | The codex (CODEX_V4): fact writer, entity resolution, same/replaces/both-true reconciliation, deletion/forget plans. Read side is `_facts_leg` in the orchestrator. |
+| `src/workers/` | The jobs themselves: `post_flight` → `fact_extractor` / `procedural_extractor`; periodic `clustering`, `decay`, `reflection`, `batch_summarizer`, `maintenance_agent`, `fine_tune`. |
 | `src/services/` | HTTP-free service layer shared by the REST routers and the MCP server. |
 | `src/mcp/server.py` | ICE-as-MCP (`ice-mcp`), with its own headless boot path. |
 | `src/paths.py` | Anchors every model/data path (G31); `ICE_HOME` overrides. |
