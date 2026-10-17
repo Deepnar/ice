@@ -1,6 +1,6 @@
 ---
 name: ice-git
-description: ICE's git rules — commit message format and granularity, the public-repo push policy, the experiment-phase push freeze, never committing personal corpus content, the private-detail-in-a-tracked-doc gate, history-rewrite verification, and the README/paper-link contract. Load BEFORE writing any commit message, before pushing, before removing anything from git history, and before putting a specific personal detail into a tracked doc. The repo is PUBLIC — every push is a publication.
+description: ICE's git rules — commit message format and granularity, the public-repo push policy, the experiment-phase push freeze, never committing personal corpus content, the private-detail-in-a-tracked-doc gate, history-rewrite verification, and the README/paper-link contract. Load BEFORE writing any commit message (it carries the per-commit private-detail scan, step 0), before pushing, before removing anything from git history, and before putting a specific personal detail into a tracked doc. The repo is PUBLIC — every push is a publication.
 ---
 
 # ICE — git, commits, and the public repo
@@ -10,6 +10,24 @@ while. It is not a private backup: **every push is a publication.** Pushing
 during normal development is pre-authorized — push at natural points without
 asking — but write every commit, message and file knowing it is read as soon as
 it lands, with no window to take it back.
+
+## ⚑ STEP 0 OF EVERY COMMIT — scan the staged diff for private detail
+
+**Before `git commit`, every time** — not at push time, not once per session
+(maintainer, 2026-10-17: a private detail was once caught only at push):
+
+```bash
+git diff --cached | grep '^+' | grep -oE '("[^"]{12,}"|“[^”]{12,}”)' | sort -u
+git diff --cached | grep '^+' | grep -inE 'health|medical|family|relationship|money|salary|job|career|school|exam|feel|mood|worr'
+```
+
+Read every hit. Anything quoted from a REAL store — turns, summaries, slots,
+cluster names, procedure notes, facts, entity names, review items, `logs/` — is a
+private detail: apply the gate below (neutral wording in the tracked doc,
+specifics in `docs/PRIVATE_CONTEXT.md`, the user eyeballs the exact lines)
+**before this commit**, and do the same for the commit message. Synthetic test
+fixtures and published-corpus text are fine. If unsure, ask. A push is never the
+first time this is checked.
 
 ## Commit format and granularity are ONE rule
 
@@ -67,7 +85,7 @@ writing it) under a marker like `[PRIVATE:g43-example]`; the tracked doc points
 at the marker.
 
 **Then ask the user to eyeball the exact lines before committing** — not a
-summary, the lines. **What belongs where is the user's call, not a judgement to
+summary, the lines. Step 0 above is how such a line is found: per commit. **What belongs where is the user's call, not a judgement to
 make for them.**
 
 ## History rewrites must rewrite TAGS
