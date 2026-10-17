@@ -148,8 +148,7 @@ def test_cited_user_turns_and_independent_sessions_control_habits(monkeypatch):
         # procedural rows from uncited snippets on repeated periodic passes.
         calls = []
         monkeypatch.setattr(reflection, "_synthesize_session", lambda *_: calls.append("summary"))
-        monkeypatch.setattr(reflection, "_evolve_memory_slots", lambda *_: None)
-        monkeypatch.setattr(reflection, "_detect_motifs", lambda *_: None)
+        monkeypatch.setattr(reflection, "_refresh_conversation_slots", lambda *_: None)
         monkeypatch.setattr(reflection, "bg_client", NS(chat=NS(completions=NS(
             create=lambda **_: (_ for _ in ()).throw(AssertionError("uncited model call"))))))
         reflection.run_reflection()
