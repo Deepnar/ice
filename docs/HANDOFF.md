@@ -1,84 +1,73 @@
-# Handoff — ICE v3, 2026-10-17 (Claude Code)
+# Handoff — ICE v3, 2026-10-17 (b) (Claude Code)
 
 **State, not a queue.** ROADMAP owns work; the v2 paper remains frozen.
 
 ## Told → did
 
-**Previous handoff (2026-10-15 b) told:** the codex rework — remove and rewrite, not
-patch (a relation is a term; facts carry validity, strength, confidence; the model sees
-short close facts) — then Z2.
+**Previous handoff (2026-10-17) told:** G77 — get the maintainer's yes/no on its five
+features, build them — then build Z2 in spec order (S0 → S12).
 
-**This session did the codex rework end to end** ([CODEX_V4](specs/CODEX_V4.md), steps
-1–10; ~70 commits `9950854..HEAD`, pushed 2026-10-17 by explicit maintainer request). Z2 build
-did not start, by that order.
+**This session did G77 end to end, then — by maintainer redirect — the remaining pre-Z2 items;
+Z2's build itself is the next session** (maintainer, 2026-10-17: "pre-Z2 work here, Z2 prep next
+session"). 12 commits `86173ae..HEAD`, **not pushed** (experiment-phase freeze).
 
-- **Spec + qualification first:** blind grading (relationships gemma 14/16 vs NuExtract3
-  9/16; sentences 9 right / 1 not self-contained / 2 wrong on the locked wording m5),
-  §5.2 same/replaces/both-true 88/99 on 99 real pairs, name lookup 29/67. PROVENANCE
-  2026-10-16.
-- **Built:** one claim pass writes summaries and facts (`summary_assertion_method` now
-  defaults to `v4`); fact writer, entity resolution, D6 reconciliation, facts leg, skip-if-
-  source-in-prompt, D7 strength (support ⅔ + decayed usage ⅓), C10 deletion/forget over
-  facts, maintenance merges that apply themselves with undo (D12).
-- **Deleted the v2/v3 edge codex** (`def7309`): extractor, NuExtract3, claims, relation
-  vocabulary, entity notes, compaction, 55 settings; 29 test files archived; ~40 suites
-  ported. Migration `d5e8a1c3b7f2` **applied to ice_db** after a verified backup
-  (`backups/ice_backup_20261017_070607_pre-codex-v4-migration.tar.gz`).
-- **Bugs found while porting, fixed with tests that fail without the fix:** forget/
-  deletion-expired facts leaking into history readers and the predecessor clause; as-of
-  dropping facts stated before the window; one NER failure silencing the facts leg; the
-  procedural leg's scope resolver deleted as "codex" (TRAPS 143–146).
-- **Measured:** retrieval comparison on 67 dev questions — codex prompt tokens 54,767 →
-  2,981, gold-turn coverage unchanged (101/108; all-gold 61 vs 62); one recorded turn
-  through the replay path; re-embed proven on a migrated ice_db copy (5,227 rows).
-  §5.3 strength bound: B = 0.30 (median adjacent rerank-logit gap) — inert on the dev
-  corpus, 0/67 selections change at any B ≤ 2.0 (4 of 1,438 facts had a second source).
+- **G77 (no human wall), all five as recommended** plus `review.undo` (REST/MCP) and the move of
+  reflection's unresolved items from the GLOBAL `pending_items` slot to the conversation's own:
+  reflection writes only conversation-tier `conversation_focus` / `pending_items`; stale-slot pure
+  removals apply themselves; motif proposals retired; tier-2 coding-decision conflicts decided by
+  D6's two questions; stale-work notices `applied`.
+- **G77 slot qualification** (PROVENANCE 2026-10-17): the first real probe showed the claim checks
+  prove a line true, not that it belongs (~9/20 fit — TRAPS 147). Prompt rounds 31% → 63% → 73%,
+  a fourth worse; an "still pending? / closed later?" open-item check (fail-closed) took open items
+  70% → 91%. Held-out, full path, Muse-graded: 38/41; an independent blind Haiku check: 38/38 with
+  11/12 planted controls rejected.
+- **Pre-Z2:** G12 (last fixed timeout), G78 (re-embed by padded tokens — proven two-sided on an
+  `ice_db` copy), G32 closed (its last open line obsolete since CODEX_V4), `test_ingestion`
+  procedural fixture (36/36). Test rot from the CODEX_V4 port fixed: `test_maintenance_agent`
+  (crashed at HEAD), 3 replay tests (stale "codex" tag), `test_z1_replay_maintenance` (9 jobs, not 10).
 
 ## Position
 
-Codex rework done and **pushed** (maintainer, 2026-10-17). **Next: G77, then build
-Z2.** The Z2 spec gained D1a (how its semi-LSREP fixes v2's weaknesses, row by row),
-D7b/S6b (a pre-launch flow audit: one prompt traced through every section before the
-S7 replay) and a CODEX_V4 re-point of D9/D10. G77's five features
-each have a decision brief in its ROADMAP entry — the next session starts by getting the
-maintainer's yes/no per feature, then builds. Then Z2 in spec order (S0 → S12), with the
-A6/A7 notes in ROADMAP CURRENT POSITION.
+G77, G12, G32, G78 closed (ROADMAP 100 checked / 62 open). **Next: build Z2 in spec order
+(S0 → S12)**, [Z2_EVALUATION](specs/Z2_EVALUATION.md), with the A6/A7 notes in ROADMAP CURRENT
+POSITION. S0 owns the speed work that G4 (whole-GPU budget) and G12's load-scaling half moved into;
+G27 option (a) stays Z2's. The spec now audits the G77 artifact kinds (D9), says nine periodic jobs
+(D8), and records the B/C exception (D2).
 
 ## Decided — do not re-derive
 
-- Codex: facts, not edges; relation is a free term; gemma4:e4b writes and reconciles
-  (a 27B cannot sit beside the background stack on 24 GB); no trigram tier; NuExtract3
-  retired; review items for the codex retired (D12).
-- No yield point inside the claim pass (abandoning mid-pass discards every piece
-  written); the inert `timeline` leg weight is kept as a seam.
-- Stays gated: `forget_request`, `finetune_proposal`.
-- Private-detail scan is STEP 0 of every commit (ice-git skill), not a push-time check;
-  the G77 note's quoted slot/cluster text and one CODEX_V4 example were published as-is
-  by maintainer choice.
-- Migration applied to ice_db only after a verified `pg_dump` (maintainer, 2026-10-17);
-  restore command in CLEANUP. CLAUDE.md code map updated (maintainer-approved).
-- Z2 models: OpenCode free variants first (deepseek-v4.1-flash-free, mimo-v2.6-flash-
-  free), Go only when the free quota is gone; Muse always on Go.
+- G77 per feature (ROADMAP G77 "DECIDED"): reflection never writes a global slot; stale slots
+  apply removals only; motifs retired; decisions by D6's framing; stale work is a notice. Still
+  gated: `forget_request`, `finetune_proposal`.
+- B and C may be used for the G77 slot-prompt qualification (maintainer) — so Z2's slot numbers are
+  partly on data that prompt was tuned on; recorded in the Z2 spec D2.
+- Fix and measure now rather than leave it to Z2 when it can be done (maintainer): Z2 is for small
+  fixes, not whole components.
+- Slot judging rubric: judge what a line is ABOUT, not its wording (a wording rule failed the
+  act-form the prompt asks for). Muse rubric-2 agreement with blind author grades 91%.
+- Earlier decisions in the previous handoff (codex facts, gemma4:e4b, no yield in the claim pass,
+  free-tier-first Z2 models, private scan at every commit) stand.
 
 ## The finding that outlives the items
 
-A store with several reasons to end a row's validity needs every history reader to
-say which reasons count — "expired" silently included forgotten and deleted content.
-Each such leak was invisible to green suites until a ported test asked the question.
+A check that guards a write must say WHAT it guards. NLI on a quote guards truth; it said nothing
+about whether a line was a focus or still open, and a perfect-looking claim pass wrote noise into
+every later prompt. Instruction wording did not fix it; one question about what must be true did.
 
 ## Pending / known gaps
 
-- D7's usage third is never exercised by read-only replays — Z2 measures it.
-- Unframed pasted documents stay "asserted" (TRAPS 139) — Z2 D9 attribution axis.
-- `tests/test_ingestion.py` "procedural rows appear" fails (pre-existing stub rot; the
-  extractor needs a 3-turn session + cited-evidence JSON + semantic proof) — task chip.
-- G78 re-embed batches by rows and OOMs on long turns (parked; not a Z2 risk).
-- The old Z1 toolchain (seed_store, score_retrieval, …) still imports deleted code —
-  left in place, runs at `8079eb2` (CLEANUP ledger).
+- `test_v3_chronological_maintenance` failed once in a full run and passed 3× after — an
+  unreproduced flake (PROVENANCE 2026-10-17).
+- Reflection's slots are sparse by design (22/56 held-out cases write nothing); focus judging is
+  slightly lenient (Muse passed 10/118 author-misfits) — Z2 D9 measures both at scale.
+- D6's two questions were never qualified on coding decisions — Z2 D9.
+- D7's usage third unexercised by read-only replays; unframed pastes stay "asserted" (TRAPS 139) —
+  both Z2.
+- The Z1 toolchain still imports deleted code (CLEANUP ledger; runs at `8079eb2`), unchanged.
 
 ## Validation
 
-Quick group 530 passed after the last commit; full disposable rails 1,313 passed and every follow-up failure
-ported and re-run green (chronological maintenance 15/15, C10/C11 55/55, services 54/54,
-MCP 31/31, runtime 49/49, timescope 56/56, fail-open 27/27, coding core 54/54, facts
-25/25). Alembic head `d5e8a1c3b7f2` on ice_db. Pushed on explicit request; the experiment-phase freeze otherwise stands.
+Full disposable rails **1,350 passed, 0 failed** at the docs commit before this handoff. During the session: quick group
+532 passed; G77 suites green (`test_g77_self_applied` 6/6 and `test_g77_reflection_slots` 4/4, all
+failing on pre-G77 code), `test_maintenance_agent` 34/34, `test_coding_core` 54/54, C10/C11 55/55,
+replay + z1 files 14/14, `test_ingestion` 36/36.
