@@ -44,7 +44,7 @@
 floor, so settings are frozen unchanged ([results](../experiments/v3_repair/results/tuning-freeze-2026-10-15.md)).
 The [Z2 spec](specs/Z2_EVALUATION.md) is **approved**; the next session builds Z2.
 **Z2 is not FINAL** (FINAL = the paper experiment after Z2 → fix pass → Z3).
-Count: 161 anchored entries, 94 checked / 67 open. Older dated status notes from this
+Count: 161 anchored entries, 96 checked / 65 open (2026-10-17: G68, G69 closed by CODEX_V4). Older dated status notes from this
 spot are kept verbatim in [outdated/roadmap_top_history_2026-10-15.md](outdated/roadmap_top_history_2026-10-15.md).
 
 **⚑ BEFORE THE Z2 REPLAY — next session, inside Z2's build** (each production change
