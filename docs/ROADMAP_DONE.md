@@ -963,3 +963,21 @@ build. What remains is output quality, which Z2's background-content audit measu
   3b. **The model choice is DEFERRED to Z1, and must come AFTER constrained decoding** — benchmarking now would measure which model is best at *not being constrained*, and the constraint is expected to change the ranking. Shortlist selected by property (non-reasoning · sound quant · structured-output discipline), not size: **Granite 4.1 3B/8B** (Apache-2.0, non-reasoning by design, built for structured output), **Ministral 3 8B**, **Gemma 4 E4B**, **Nemotron-mini 4B**, against incumbents `qwen3.5:4b` / `qwen3:4b-instruct`.
   4. **ICE must state a REQUIREMENT, not a model name** — "returns non-empty JSON within N tokens" — verified once at startup with a throwaway call, failing loudly rather than silently building nothing. ⚠ Today it picks by **JSON key order** in `models/model_registry.json`, and `settings.default_fallback_model` is **`qwen2.5:7b`**, the broken quant — which is also what a wrong working directory silently falls back to (see [G31](#g31)).
 
+## <a id="g68"></a>G68 — extraction chunk size and output cap (closed 2026-10-16 by CODEX_V4)
+
+Shipped: nothing on the old path — the extractor it was about was deleted. The
+claim pass that writes facts uses 4,096-token pieces (no heading cuts) and an
+output cap of `summary_output_ratio` 2.0 × input (ceiling 8,192), set from the
+CODEX_V4 §5.1 run (41 pieces: at 1.3×, 15/26 v4 2K-token C pieces were cut mid-JSON;
+at 2.0×, 0/41 unparsed). **What the entry got wrong about its subject:** it framed
+the cost as output truncation; measured 2026-10-15 truncation was 1/502 calls, and
+the real cost was splitting big turns at every heading (~130 chunks per C turn).
+
+## <a id="g69"></a>G69 — growing the relation vocabulary (closed 2026-10-16, obsolete)
+
+Closed without shipping: CODEX_V4 D2 makes a relation the source's own free term,
+so there is no vocabulary to grow. **What the entry got wrong:** it assumed the
+relation term had to be the dedupe/conflict KEY; CODEX_V4 finds duplicates and
+changes by entity + sentence similarity and one model call reading both sentences
+instead (§5.2: 88/99 on 99 real pairs).
+
