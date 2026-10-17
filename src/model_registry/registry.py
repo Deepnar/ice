@@ -13,6 +13,7 @@ from src.paths import resolve
 
 logger = structlog.get_logger("ice.model_registry")
 from src.workers.bg_client_factory import (
+    bg_timeout,
     get_bg_client,
     get_bg_model_name,
     json_schema,
@@ -224,7 +225,7 @@ def _tag_with_bg_model(name: str) -> dict:
             ],
             temperature=0.0,
             max_tokens=150,
-            timeout=15.0,
+            timeout=bg_timeout(150),   # G12: sized like every other background call
             response_format=json_schema("model_tags", {
                 "type": "object",
                 "properties": {
