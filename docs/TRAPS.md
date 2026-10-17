@@ -2865,3 +2865,46 @@ Deleting those files while it ran would have broken the run mid-checkpoint, afte
 hours of work. Before deleting or moving code, check which running processes still
 reach it lazily (`grep -n "from src… import" <module>` inside function bodies), and
 order the deletion after them.
+
+### 143. Deleting "the legacy methods" deletes a shared one
+
+ICE v3, 2026-10-16: step 7 of the codex rework deleted 18 orchestrator methods
+listed as legacy codex. One of them, `_codex_scope_sets`, was also the PROCEDURAL
+leg's scope resolver. The quick group stayed green; the procedural leg would have
+raised on every scoped request, and the failure was caught only when a ported
+db-group test reached it. The name said "codex"; the callers did not. Before
+deleting a method, grep its callers across the whole module (and its subclasses),
+not the subsystem being removed — and run a check that every `self._x(` still
+resolves (`hasattr`) before the first test.
+
+### 144. One failing channel can silence a whole retrieval leg
+
+ICE v3, 2026-10-16: the facts leg ran its keyword, meaning and entity channels
+inside one `try`. A micro-NER failure (a stub encoder in a test; in production a
+missing NER model) degraded the WHOLE leg, so keyword and meaning matches that
+needed no NER were thrown away too — logged once as `codex.facts`, which reads
+like a database error. Give each optional channel its own degrade point and name
+(`codex.facts.ner`), so a failure costs only what actually failed.
+
+### 145. "Expired" is not "history": deletion and forget leak through history readers
+
+ICE v3, 2026-10-16: the entity view, timeline, diff, as-of retrieval and the
+predecessor clause all treated any fact with `valid_until` set as past state.
+But `/forget` and conversation deletion ALSO expire facts — so forgotten or
+deleted text would have reappeared as "replaced facts", in a diff, in an as-of
+answer, or appended to its successor in a prompt. History must be REPLACEMENT
+(`superseded_by`), and anything whose sources were deleted must be invisible
+everywhere; the predecessor must pass the same visibility query as the fact. Each
+of the four tests written for this fails with the fix removed. When a store has
+several reasons to end a row's validity, every history reader must say which
+reasons count.
+
+### 146. "As of a date" is not "said inside the window"
+
+ICE v3, 2026-10-16: the facts leg reused the episodic rule "source recorded in
+[t0, t1)" for as-of questions, so a fact stated 100 days ago and still true last
+week was dropped from "what was I using last week?". The edge leg it replaced had
+answered it (a v2-era check pinned it). For state-at-a-moment, filter on
+"stated by t1 and valid at t1"; keep the window filter for range questions. A
+test whose window happens to contain the old statement cannot see this — open the
+window after the statement.
