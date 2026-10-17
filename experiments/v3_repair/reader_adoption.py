@@ -33,8 +33,8 @@ TRANSITIONS = {
     },
     "src/retrieval/orchestrator.py": {
         "before": "5027817122bad3a1eb9952132f056daebd3acaf574778da57826ac0a446d5b61",
-        "after": "ab4fd7a7145a58d469d1f6191dbbefc53a87793c429da90b8b8cab7ace843566",
-        "reason": "Authorized tested native artifact IDs, preserved cold claim membership, source-covered graph packing and exact same-source selected excerpt omission; ranking/proofs and frozen writer outcomes remain unchanged. 2026-10-15 (audit A12): automatic top-k cluster scoping gated behind retrieval_auto_cluster_scope (default off); explicit cluster scope unchanged. 2026-10-16 (CODEX_V4): the facts leg replaced the graph, claims, enumeration and timeline legs; procedural scope resolver kept as _scope_batch_ids; inert claim/edge fragment fields removed. A pre-CODEX_V4 bundle's codex cannot be read by this reader.",
+        "after": "b76ca719fac794a6085c5eb0a545b5e7bda2ac706644573cab713b1de5436d3c",
+        "reason": "Authorized tested native artifact IDs, preserved cold claim membership, source-covered graph packing and exact same-source selected excerpt omission; ranking/proofs and frozen writer outcomes remain unchanged. 2026-10-15 (audit A12): automatic top-k cluster scoping gated behind retrieval_auto_cluster_scope (default off); explicit cluster scope unchanged. 2026-10-16 (CODEX_V4): the facts leg replaced the graph, claims, enumeration and timeline legs; procedural scope resolver kept as _scope_batch_ids; inert claim/edge fragment fields removed. A pre-CODEX_V4 bundle's codex cannot be read by this reader. 2026-10-17: the wide-net path applies the D7 strength bonus after reranking, as the main path does.",
     },
     "src/retrieval/evolution.py": {
         "before": "a05d0f0923daf0a545d45ffe7a9412854e86504bec43726624b75942a9fd8051",

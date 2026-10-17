@@ -2748,6 +2748,8 @@ class HybridRetrievalOrchestrator:
         fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
         fused, reranked = rerank(classification.prompt, fused)
+        if reranked:
+            fused = self._fact_strength_bonus(fused)   # D7, as on the main path
         # C15: dynamic ceiling — a fraction of the (model-aware, C16) retrieval
         # budget with a floor, replacing the hardcoded 2,000 tokens.
         wide_budget = max(settings.retrieval_wide_net_budget_floor,
