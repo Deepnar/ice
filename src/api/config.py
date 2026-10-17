@@ -593,9 +593,12 @@ class Settings(BaseSettings):
     # facts leg; same scale as the claim leg it replaces.
     codex_fact_candidate_limit: int = 64
     # CODEX_V4 D7 — the post-rerank strength bonus bound B (support 2/3,
-    # decayed usage 1/3). 0 until §5.3 sets B from the measured spread of
-    # rerank logits on the development questions; not a guessed value.
-    codex_fact_strength_bonus: float = 0.0
+    # decayed usage 1/3). §5.3 (2026-10-17): B = median gap between adjacent
+    # selected candidates' rerank logits on the 67 dev questions (0.30; p25
+    # 0.10, p75 0.83). ⚠ Inert on that corpus: 0/67 selections change at any
+    # B up to 2.0 — only 4 of 1,438 facts had a second source and usage is
+    # never recorded in read-only replays. Z2 measures it on real usage.
+    codex_fact_strength_bonus: float = 0.30
     # CODEX_V4 D6 — same / replaces / both_true between a new fact and earlier
     # facts of the SAME speaker. Candidates: shares a named entity, or the 8
     # nearest by fact embedding at cosine >= the floor (dev history: 262 of

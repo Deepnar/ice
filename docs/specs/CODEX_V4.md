@@ -410,6 +410,13 @@ statement is never folded into the assistant's.
 questions: set `B` = median gap between adjacent selected candidates; report how many
 selections flip with the bonus on vs off (standing rule: "turning it off changes N").
 
+**Result (2026-10-17, final code, 12 snapshots / 67 questions, facts arm):** median gap
+between adjacent selected candidates 0.30 (n = 1,039; p25 0.10, p75 0.83) ⇒ **B = 0.30**.
+Selections changed with the bonus on vs off: **0 of 67** at B ∈ {0.1, 0.25, 0.5, 1, 2};
+ranked scores moved on 4 questions. Why: 4 of 1,438 facts had a second source and usage is
+never recorded in read-only replays, so D7 is **inert on this corpus** — Z2 measures it
+with real usage.
+
 **5.4 Behavioural tests** (standalone `tests/test_codex_facts.py`, inserts and deletes its
 own rows, never truncates, stub LLM): claim → fact written with sources/entities;
 `I`/`you` → user/assistant entity; exact duplicate → support 2, one row; `replaces` →

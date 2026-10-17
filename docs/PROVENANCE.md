@@ -29,6 +29,14 @@ conversation edges deleted, 11 legacy review items archived): `_validate_registr
 and 16 ran out of GPU memory (another job held ~8 GB); 2 completed. The composite-key note
 tables have no rows in ice_db; `tests/smoke/test_reembed_registry.py` proves them.
 
+**§5.3 strength bound B** (same snapshots and fact writing; facts arm at B ∈ {0, 0.1, 0.25,
+0.5, 1, 2}): median gap between adjacent selected candidates' rerank logits 0.30 (n = 1,039;
+p25 0.10, p75 0.83) ⇒ `codex_fact_strength_bonus` = 0.30. Selections changed vs B = 0: 0/67 at
+every B; ranked scores moved on 4 questions; gold in prompt 101 at every B. Only 4 of 1,438
+facts had a second source. B=0 vs B=0 is identical, so the replay is deterministic. What this
+does NOT show: any effect of the bonus — it is inert on this corpus. Private:
+`retrieval-strength-b/`.
+
 **Limits.** Retrieval coverage only; answer effect is Z2's. Usage is never recorded in these
 replays (read-only probes), so D7's usage third is untested here.
 

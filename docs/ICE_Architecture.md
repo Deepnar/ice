@@ -946,7 +946,8 @@ shared write switch. Bookmarks/permanent and open temporary immunity skip aging.
 usage at `codex_decay_daily=0.99` (`codex_decay.decay_fact_usage`). A fact gains
 one usage point each time it reaches the FINAL prompt (or MCP context); usage is a
 third of a bounded post-rerank bonus (support two thirds), `codex_fact_strength_bonus`
-= 0 until §5.3 measures it. Decay never touches support, confidence or validity;
+B = 0.30 (§5.3: the median adjacent rerank-logit gap; inert on the dev corpus — 0/67
+selections change). Decay never touches support, confidence or validity;
 reads never create corroboration. (The v2/v3 edge retention floor/increment/cap
 went with the conversation edges.)
 
@@ -1069,7 +1070,7 @@ its pointer payload (`_code_graph_anchors`).
 
 **Strength (D7):** after the reranker, `B × (⅔·min(1,(support−1)/3) + ⅓·min(1,usage/5))`
 is added to a fact's rerank score; usage = prompt exposures (`record_graph_access`),
-decayed daily by `decay_codex`. `codex_fact_strength_bonus` (B) is 0 until measured.
+decayed daily by `decay_codex`. `codex_fact_strength_bonus` (B) = 0.30, measured §5.3 (2026-10-17); inert on the dev corpus — 0/67 selections change at any B ≤ 2.0, because only 4 of 1,438 facts had a second source and replays record no usage.
 
 ### **4.4 Lifecycle**
 

@@ -188,11 +188,12 @@ def test_skip_only_when_every_source_is_in_the_prompt():
     assert not _fact_sources_in_prompt(_frag(["r1"], leg="vector"), [_orig("r1")], set())
 
 
-def test_strength_bonus_off_by_default_and_bounded(monkeypatch):
+def test_strength_bonus_inert_at_zero_and_bounded(monkeypatch):
     o = HybridRetrievalOrchestrator(None, None)
     a = ContextFragment("a", "codex", 1.0, 1, leg="facts", origin_fact_ids=("a",))
     b = ContextFragment("b", "codex", 1.0, 1, leg="facts", origin_fact_ids=("b",))
     o._fact_strength = {"a": (1, 0.0), "b": (10, 50.0)}
+    monkeypatch.setattr(settings, "codex_fact_strength_bonus", 0.0)
     assert [f.score for f in o._fact_strength_bonus([a, b])] == [1.0, 1.0]
     monkeypatch.setattr(settings, "codex_fact_strength_bonus", 0.9)
     out = {f.text: f.score for f in o._fact_strength_bonus([a, b])}
