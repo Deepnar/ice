@@ -1,84 +1,78 @@
-# Handoff — ICE v3, 2026-10-15 (b) (Claude Code)
+# Handoff — ICE v3, 2026-10-17 (Claude Code)
 
 **State, not a queue.** ROADMAP owns work; the v2 paper remains frozen.
 
 ## Told → did
 
-**Previous handoff (2026-10-15) told:** do the pre-Z2 short list first — G27 (wrong
-background model), G12 (timeouts), G4 + G32 (explicit Ollama control), G68 check on
-C — then build Z2 in spec order (S0 → S12).
+**Previous handoff (2026-10-15 b) told:** the codex rework — remove and rewrite, not
+patch (a relation is a term; facts carry validity, strength, confidence; the model sees
+short close facts) — then Z2.
 
-**This session was told:** the pre-Z2 list and Z2 prep; mid-session the maintainer
-added a design audit ("things that look correct but are badly designed") and then
-**re-ordered the work: non-codex fixes → full codex rework → Z2.** Z2 build did not
-start, by that decision. **Did (all local commits; push freeze):**
+**This session did the codex rework end to end** ([CODEX_V4](specs/CODEX_V4.md), steps
+1–10; ~50 local commits `9950854..HEAD`, none pushed — experiment-phase freeze). Z2 build
+did not start, by that order.
 
-- **G27** `3a12359` — `background_model_name` defaults to `gemma4:e4b`.
-- **G32/G4/G12** `d9e3707` — background calls over native `/api/chat`, context sized
-  to the counted input, server-side cuts fail loudly (both Ollama doors cut an
-  oversized input silently on 0.32.13 and the model invented the cut fact; TRAPS 130).
-- **Summary claims v3** `692033c` ([spec](specs/SUMMARY_CLAIMS_V3.md)) — quoted
-  `{sources, quote, speaker, text}` claims, enforced schema, per-claim acceptance,
-  pieces, output cap 1.3 × input; fold no longer freezes on an oversized turn.
-  Qualified: reader-usable pieces 9 → 28 of 31.
-- **Audit fixes:** A4 reranker best-window `6255e2a`; A10 procedures = answer
-  preferences + topic triggers `cd47c52`; A11 bounded memory-pressure term `f200699`;
-  A12 cluster bonus floor + automatic cluster scoping off `22d8f1d`.
-- **Stale tests repaired:** settings-freeze row retired with proof `ae13d3e`;
-  `test_turn_density` 32/32 `f69a81d`; `test_documents` 52/53 `2cfda93`.
-- **Docs:** roadmap order + A6/A7, provenance, architecture, inventory, MODELS,
-  TRAPS 130–135.
+- **Spec + qualification first:** blind grading (relationships gemma 14/16 vs NuExtract3
+  9/16; sentences 9 right / 1 not self-contained / 2 wrong on the locked wording m5),
+  §5.2 same/replaces/both-true 88/99 on 99 real pairs, name lookup 29/67. PROVENANCE
+  2026-10-16.
+- **Built:** one claim pass writes summaries and facts (`summary_assertion_method` now
+  defaults to `v4`); fact writer, entity resolution, D6 reconciliation, facts leg, skip-if-
+  source-in-prompt, D7 strength (support ⅔ + decayed usage ⅓), C10 deletion/forget over
+  facts, maintenance merges that apply themselves with undo (D12).
+- **Deleted the v2/v3 edge codex** (`def7309`): extractor, NuExtract3, claims, relation
+  vocabulary, entity notes, compaction, 55 settings; 29 test files archived; ~40 suites
+  ported. Migration `d5e8a1c3b7f2` **applied to ice_db** after a verified backup
+  (`backups/ice_backup_20261017_070607_pre-codex-v4-migration.tar.gz`).
+- **Bugs found while porting, fixed with tests that fail without the fix:** forget/
+  deletion-expired facts leaking into history readers and the predecessor clause; as-of
+  dropping facts stated before the window; one NER failure silencing the facts leg; the
+  procedural leg's scope resolver deleted as "codex" (TRAPS 143–146).
+- **Measured:** retrieval comparison on 67 dev questions — codex prompt tokens 54,767 →
+  2,981, gold-turn coverage unchanged (101/108; all-gold 61 vs 62); one recorded turn
+  through the replay path; re-embed proven on a migrated ice_db copy (5,227 rows).
+  §5.3 strength bound: B = 0.30 (median adjacent rerank-logit gap) — inert on the dev
+  corpus, 0/67 selections change at any B ≤ 2.0 (4 of 1,438 facts had a second source).
 
-## Current measured state (v3, development data; not a score of record)
+## Position
 
-The machinery mostly did not reach prompts before these fixes: on the 2026-10-14
-reads only 6/920 selected turns arrived as summaries; the graph leg produced 42
-candidates over 67 questions; procedures were one generic note. Summaries and
-procedures are fixed but **not re-measured end to end** (A6 — counted in Z2 S0's
-slice). **The codex is broken by design, not by a bug:** grounding hides 70–89% of
-live edges (confidence 0.35 < floor 0.5); a "Source excerpt" renders the whole
-message (median 3,488 chars for a 52-char sentence), 34% duplicating a turn already
-in the prompt; reworded re-observations become new edges (2 strengthened / 1,356),
-so changes never meet (1 expired); `I`/`you` facts are dropped; extraction splits a
-big turn at every heading (~130 chunks, 12–16 min per C turn). Numbers:
-[PROVENANCE 2026-10-15](PROVENANCE.md).
+Codex rework done. **Next: G77, then build Z2** (spec unchanged). G77's five features
+each have a decision brief in its ROADMAP entry — the next session starts by getting the
+maintainer's yes/no per feature, then builds. Then Z2 in spec order (S0 → S12), with the
+A6/A7 notes in ROADMAP CURRENT POSITION.
 
-## Position and next work
+## Decided — do not re-derive
 
-**Next session: the codex rework — remove and rewrite, not patch** (maintainer).
-Target design: a relation is a term (not only familial); the triple carries validity
-(valid from / until), strength and confidence; the attached source sentence(s) are
-what the answering model sees — close facts, not walls of text. It absorbs G68 / A8
-(extraction chunking), A1 (512-token check bound on graph checks), A3, A9, B1–B6.
-**Read first:** [codex prior-art review](research/2026-10-15-codex-prior-art.md) — Graphiti and
-Mem0 source read: both show the answering model a short, self-contained fact sentence and find
-duplicates/changes by entity + fact similarity. Proposal: a v3 summary claim (`{sources, quote,
-speaker, text}`, quote-checked and NLI-verified) IS the fact; one write pass serves summaries and
-facts; stay on Postgres; port ideas, not the libraries (graph server, cloud-class models, no
-quote verification). LangGraph is agent orchestration, not memory.
-Then **Z2**, unchanged spec, with two notes in ROADMAP CURRENT POSITION: A6 (count
-what reaches prompts on S0's 50-pair slice) and A7 (report the budget ICE actually
-used — ~28% of the stated one, by design).
+- Codex: facts, not edges; relation is a free term; gemma4:e4b writes and reconciles
+  (a 27B cannot sit beside the background stack on 24 GB); no trigram tier; NuExtract3
+  retired; review items for the codex retired (D12).
+- No yield point inside the claim pass (abandoning mid-pass discards every piece
+  written); the inert `timeline` leg weight is kept as a seam.
+- Stays gated: `forget_request`, `finetune_proposal`.
+- Migration applied to ice_db only after a verified `pg_dump` (maintainer, 2026-10-17);
+  restore command in CLEANUP. CLAUDE.md code map updated (maintainer-approved).
+- Z2 models: OpenCode free variants first (deepseek-v4.1-flash-free, mimo-v2.6-flash-
+  free), Go only when the free quota is gone; Muse always on Go.
 
-Decided, do not re-derive: order fixes → codex rework → Z2; summary storage is merged
-on the turn row (option a); every Ollama-facing call is native (OpenAI-compatible
-door only for cloud, dedicated vLLM, or `background_transport=openai`); automatic
-cluster scoping stays off unless recall is re-measured.
+## The finding that outlives the items
 
-Z2 spec gained **D4b** (maintainer): no-memory control prompts at each checkpoint
-(general knowledge, self-contained tasks, small talk, recent-window follow-ups),
-outside the D4 quotas — retrieve rate, memory tokens injected, answer quality vs
-recent-only; share decided at the Z2 build. CLAUDE.md: shared-mode line corrected (`5eef60e`)
-and TRAPS is read by titles, not in full (`a231e40`), both maintainer-approved. Z2's
-USER-REQUIRED items are unchanged.
+A store with several reasons to end a row's validity needs every history reader to
+say which reasons count — "expired" silently included forgotten and deleted content.
+Each such leak was invisible to green suites until a ported test asked the question.
 
-Decided: commit `cd47c52`'s message (quotes a stored procedure note) stays as is — maintainer,
-2026-10-15; the docstring copy was neutralised in `f875ad3`. All session commits are unpushed.
+## Pending / known gaps
 
-## Validation and propagation
+- D7's usage third is never exercised by read-only replays — Z2 measures it.
+- Unframed pasted documents stay "asserted" (TRAPS 139) — Z2 D9 attribution axis.
+- `tests/test_ingestion.py` "procedural rows appear" fails (pre-existing stub rot; the
+  extractor needs a 3-turn session + cited-evidence JSON + semantic proof) — task chip.
+- G78 re-embed batches by rows and OOMs on long turns (parked; not a Z2 risk).
+- The old Z1 toolchain (seed_store, score_retrieval, …) still imports deleted code —
+  left in place, runs at `8079eb2` (CLEANUP ledger).
 
-Quick group 636 passed; db group 292/292 (disposable database, 16 min) at close; standalone summary/clustering/scoping/decision suites pass.
-`test_documents` keeps 1 failing check (codex entities from stub triplets without a
-source sentence) — left to the codex rework. Known costs: v3 summaries ~2.2×
-background time; long-passage rerank ~1.3 s each. Alembic head unchanged. Private
-evidence under `logs/` (gitignored). Not pushed (experiment-phase freeze).
+## Validation
+
+Quick group 530 passed after the last commit; full disposable rails 1,313 passed and every follow-up failure
+ported and re-run green (chronological maintenance 15/15, C10/C11 55/55, services 54/54,
+MCP 31/31, runtime 49/49, timescope 56/56, fail-open 27/27, coding core 54/54, facts
+25/25). Alembic head `d5e8a1c3b7f2` on ice_db. Not pushed.
