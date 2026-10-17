@@ -18,7 +18,7 @@
 | 1 | [System Overview](#1-system-overview) | request lifecycle, component map |
 | 2 | [Classification Engine](#2-classification-engine) | the 27-logit head, schema v2, the retrieval decision |
 | 3 | [Memory Architecture](#3-memory-architecture) | episodic, codex, procedural, documents, slots, clusters, decay |
-| 4 | [Codex Knowledge Graph](#4-codex-knowledge-graph-v2) | entities, temporal versioning, extraction, graph retrieval |
+| 4 | [Codex — verified facts](#4-codex--verified-facts-codex_v4-v3-system) | fact sentences, validity and replacement, entities, the facts leg |
 | 5 | [Procedural Memory](#5-procedural-memory) | pattern extraction, trigger gating, promotion |
 | 6 | [Hybrid Retrieval Orchestrator](#6-hybrid-retrieval-orchestrator) | the legs, RRF fusion, budgeting, scoping, time-scoped retrieval, leg-failure reporting |
 | 7 | [Prompt Assembly](#7-prompt-assembly) | stable-prefix ordering, rendering, budget enforcement |
@@ -47,7 +47,7 @@ Each turn traverses a **pre-flight** (synchronous, in the request path) and a **
 
 **Pre-flight.** (0) After conversation/scope resolution and *before* any classification, a message whose first line starts with `/` is handed to the deterministic chat-command parser (C11, §11.4) — a handled command streams its confirmation as a normal SSE completion and the rest of the lifecycle (classification, retrieval, the model, storage, post-flight) never runs. (i) The user message is classified by a single PyTorch head over the frozen embedder — 27 all-sigmoid logits across three heads (11 topic, 12 intent, 4 independent context-reliance signals), from which the legacy single `context_reliance` string is derived. The rule-based pre-classifier (DI3) that used to run first was deleted by D8 (§2.2). (ii) A single classifier-trusting decision (B2, §2.4) combines the reliance probability with a memory-pressure prior and soft bumps in log-odds space to decide whether long-term retrieval fires — it *prefers* memory but no longer *forces* it. (iii) A *Hybrid Retrieval Orchestrator* runs its retrieval legs (BM25, vector, Codex graph, procedural, batch summaries, cold storage, timeline — the RAG leg was deleted by C12), fuses them with weighted Reciprocal Rank Fusion (RRF), and post-processes the fused list with keyword/recency/length bonuses, session diversification, deduplication, and a dynamic token budget. (iv) A *Prompt Assembler* concatenates the retrieved fragments with persistent memory slots, recent turns, and the live user message under a stable prefix that maximises KV-cache reuse. (v) A *Mixture-of-Experts* (MoE) router selects the best locally-served model for the assembled prompt, with per-conversation stickiness.
 
-**Post-flight.** (i) A *Post-Flight Evaluator* runs density/document detection and summary generation, writing auxiliary episodic fields. (ii) Every non-private turn reaches Codex and procedural extraction, each independently idempotent. A Codex failure no longer prevents procedural progress; failures remain propagated to bounded runtime retry and never become completion markers. (iii) The in-process maintenance runtime (§8) keeps the stores maintained over time — Decay, Clustering, Reflection, Batch Summariser, Compaction and the Memory Maintenance Agent (which replaced the Sentinel Monitor in D1/D2) on ledger-driven cadences, plus the consent-gated Fine-Tune proposal.
+**Post-flight.** (i) A *Post-Flight Evaluator* runs density/document detection and summary generation, writing auxiliary episodic fields. (ii) Every non-private turn reaches the facts stage (CODEX_V4: the claim pass's verified sentences become codex facts) and procedural extraction, each independently idempotent. A facts failure does not prevent procedural progress; failures remain propagated to bounded runtime retry and never become completion markers. (iii) The in-process maintenance runtime (§8) keeps the stores maintained over time — Decay, Clustering, Reflection, Batch Summariser and the Memory Maintenance Agent (which replaced the Sentinel Monitor in D1/D2) on ledger-driven cadences, plus the consent-gated Fine-Tune proposal.
 
 ### **1.2 High-level component map**
 
@@ -65,11 +65,11 @@ The system decomposes into the following components, each described in the corre
          │  Classification Engine      │  │  Maintenance Runtime (C7)      │
          │  (27-logit head, schema v2) │  │  in-process asyncio + ledger   │
          └──────────────┬──────────────┘  │                                │
-                        │                 │  post_flight · codex_extractor │
+                        │                 │  post_flight · fact_extractor  │
          ┌──────────────▼──────────────┐  │  procedural_extractor · decay  │
          │  Hybrid Retrieval           │  │  codex_decay · procedural_decay│
          │  Orchestrator (7 legs, RRF) │  │  reflection · clustering       │
-         └──────────────┬──────────────┘  │  batch_summarizer · compaction │
+         └──────────────┬──────────────┘  │  batch_summarizer · decision   │
                         │                 │  maintenance_agent · fine_tune │
          ┌──────────────▼──────────────┐  └─────────────┬──────────────────┘
          │  Prompt Assembler           │                │
@@ -699,7 +699,14 @@ Sentence-claim and semantic-verification consumers remain in the repair phase.
 
 ### **3.2 Codex (semantic) memory**
 
-The Codex store is a versioned knowledge graph spread over four tables (full schema in §4): codex_entities (canonical name, aliases, tags, properties JSONB, auto-regenerated context_payload, embedding Vector(1024)), codex_edges (typed relations with strength, confidence ∈ \{pending, active\}, valid_from, valid_until, **learned_at, unlearned_at**), codex_events (append-only event log), and codex_snapshots (compaction output). It is populated by the Codex Extractor (§4.3) and the manual Codex Inject Watcher (§8.9), enriched by the Reflection worker, and queried by the Codex graph-traversal retrieval leg (§4.8).
+Since 2026-10-16 ([CODEX_V4](specs/CODEX_V4.md), §4) the conversation codex is a store of
+**verified facts**: each a self-contained sentence resting on an exact quote, with speaker,
+modality, date, validity and the source turns behind it (`codex_facts`,
+`codex_fact_sources`), linked to entities (`codex_fact_entities` → `codex_entities`). It is
+written by the same claim pass as turn summaries (`fact_extractor.extract_facts` in the
+post-flight chain), reconciled against earlier facts of the same speaker (same / replaces /
+both true), and read by the facts leg (§4.3). `codex_events` journals every change.
+`codex_entities` / `codex_edges` also hold the code graph and project facts (§12.2).
 
 ### **3.3 Procedural memory**
 
@@ -935,16 +942,13 @@ overshooting endpoint batch. Ordinary and temporal readers search cold sources
 under existing caps; final admitted exposure can restore probation under the
 shared write switch. Bookmarks/permanent and open temporary immunity skip aging.
 
-**V3 Codex decay** ages only live conversation-edge retention strength at
-`codex_decay_daily=0.99`, floored at `codex_retention_floor=0.1`. It never demotes
-confidence or expires factual validity; those older mechanics are superseded by
-retention/support separation. Unique final exposed edges gain
-`codex_retention_increment=0.15` up to `codex_retention_cap=10`, plus usage
-count/time. Ranking uses bounded strength/cap with
-`codex_retention_rank_weight=0.5`, separately from the source-quality gate and
-recency. Raising the cap reduces the bonus of unchanged existing strengths.
-Reads never create independent corroboration; quiet supported facts remain
-queryable, and popular weak assertions cannot cross the quality gate.
+**Codex usage decay (CODEX_V4 D7, 2026-10-16)** fades current facts' prompt
+usage at `codex_decay_daily=0.99` (`codex_decay.decay_fact_usage`). A fact gains
+one usage point each time it reaches the FINAL prompt (or MCP context); usage is a
+third of a bounded post-rerank bonus (support two thirds), `codex_fact_strength_bonus`
+= 0 until §5.3 measures it. Decay never touches support, confidence or validity;
+reads never create corroboration. (The v2/v3 edge retention floor/increment/cap
+went with the conversation edges.)
 
 **V3 procedural decay** uses absolute ICE-observation age, not multiplicative
 cycles. Active patterns become inactive when `last_observed` is older than
@@ -992,248 +996,102 @@ Source-current caches survive archival through the shared warm/cold projection;
 known-eligible all-cold sources also participate in normal regeneration.
 
 
-## **4. Codex Knowledge Graph (v2)**
+## **4. Codex — verified facts (CODEX_V4, v3 system)**
 
-ICE v3 Codex retains graph navigation beside attributed source sentences. Relation categories remain extraction/type hints; no category establishes cardinality or authorizes expiry. Source-backed reconciliation decides whether assertions coexist or replace one another.
+Spec: [CODEX_V4](specs/CODEX_V4.md). Replaced the v2/v3 knowledge graph on 2026-10-16; the
+old section is kept verbatim in [outdated/ICE_Architecture_section4_codex_v2_v3.md](outdated/ICE_Architecture_section4_codex_v2_v3.md).
+The **code graph** (E1b, `source='static_analysis'`) and **project facts** (E9) still live in
+`codex_entities` / `codex_edges` — §12.2.
 
-### **4.1 Entity and edge tables**
+### **4.1 The unit is a fact**
 
-codex_entities (PK id — a deterministic UUIDv5 in CODEX_NAMESPACE for new entities) holds canonical_name (unique), aliases ARRAY(Text), tags ARRAY(Text), **entity_type Text (A7 — structural node type; ICE is general-purpose, so the vocabulary spans all domains: universal person/place/organization/event/concept/object, coding/research software/function/class/file/module/dataset, academic/business document/product, creative character/location/item/creature/faction; inferred from an entity's relations via _infer_entity_type, or set deterministically by the code graph E1b)**, **description Text (A7 — the enriched "note body", written by the reflection enrichment worker)**, properties JSONB, an auto-regenerated context_payload Text, embedding Vector(1024), and last_updated. **A7 rich notes:** _regenerate_context_payload assembles context_payload as a bidirectional Obsidian-style "note" — the description (note body), then Properties, then **Links** (outgoing edges, strongest-first) *and* **Backlinks** (incoming edges — what points *to* this entity, previously invisible) — so an entity's full connection picture reaches retrieval in both directions. codex_edges holds id, source_id/target_id FKs to entities, relation Text, strength Float (default 1.0 for all new extracted edges), source_batch UUID (the batch that asserted the edge), confidence Text ∈ \{pending, active\} (ordinary edge promotion requires a distinct source batch; reads never promote), **extraction_confidence Float ∈ [0,1] (A3)** — how much the extraction itself is trusted: seeded by NER grounding at write time (0.9 grounded, 0.7 no-NER chunk, 0.35 grounding-rejected; legacy edges 1.0), raised to the max seen on corroborating re-extraction — valid_from, and valid_until — **`NULL` means not retired, not verified true**; non-NULL means historically superseded — plus **learned_at / unlearned_at (bi-temporal, migration `505f12031434`, 2026-08-13)**. The two pairs answer different questions and conflating them is what made a wrong memory unauditable: `valid_*` is when the FACT was true in the world, `learned_*` is when ICE came to believe it. They diverge constantly — a fact true since 2019 learned yesterday, or a fact believed for months that was never true. Only the second pair can answer *"when did we start believing this?"*, which is the question asked after a fabrication is found. An invariant in models.py mirrors `valid_until` into `unlearned_at` on every retraction path (seven call sites across two modules), so a new retraction site cannot forget it. An edge's **effective trust** used by retrieval is extraction quality with bounded retention/recency ranking (strength carries usage dynamics; extraction_confidence carries extraction trust). Two auxiliary tables complete the graph: codex_events is an append-only event log (event_type ∈ \{edge_added, edge_expired, edge_strengthened, property_updated, context_appended\}, payload JSONB, batch_source, compacted Boolean), and codex_snapshots holds point-in-time full_state JSONB produced by the compaction worker.
+A fact is one self-contained sentence written by the background model, resting on an exact
+quote of one or two source windows, said by a known speaker, with a date and a validity. The
+sentence is what the answering model reads:
+`[Fact; user, asserted; 2025-01-15; current] The user said they moved to Lisbon in March.`
+Subject / relation / object are kept in the source's own words — no vocabulary, no
+canonicaliser — and serve display, filtering and one-hop navigation, never identity.
 
-### **4.2 Controlled relation vocabulary**
+Tables (migration `c0d4e7f1a2b3`): **codex_facts** (text, text_sha256, speaker, modality ∈
+{asserted, shared, suggested, hypothetical, asked}, subject/relation/object, negated,
+embedding, confidence = NLI entailment, support_count, decayed usage + last_used_at,
+mentioned_at = the source turn's time, valid_from / valid_until, superseded_by, flags);
+**codex_fact_sources** (every supporting turn: source_batch, episodic_id, conversation_id,
+the cited window(s), the quote, recorded_at, verification — no FK cascade from
+conversations, so deletion goes through the C10 service); **codex_fact_entities** (fact ↔
+entity, role ∈ {subject, object, mention}). `codex_events` journals fact_added,
+fact_supported, fact_superseded, fact_expired, fact_restored, entity_merged/unmerged.
 
-The vocabulary is defined in workers/codex_extractor.py as three disjoint dicts keyed by category, with an import-time assertion guarding against accidental overlap. Four design rules (quoted verbatim from the source comment) govern it: (i) one canonical relation per meaning (near-synonyms collapsed, look-alikes kept distinct); (ii) generic dumping-ground relations (is, has, applies_to, connects_to) removed entirely so the extractor is forced to be specific; (iii) relations grouped into labeled categories so the extraction prompt renders them grouped, not as a flat 150-item list; (iv) single-vs-multi-valued cardinality reassigned by real-world cardinality (e.g. works_on, founded_by, created moved to multi-valued).
+### **4.2 Write path — one claim pass for summaries and facts**
 
-- **`PROPERTY_RELATIONS`** (11 categories, written to the properties JSONB): identity (name, alias, nickname, full_name, title, description), demographics (age, gender, species, nationality, religion, birthday, blood_type), appearance, professional (role, occupation, profession, affiliation, status), contact_location, metadata_generic (type, genre, format, license, version, language), task_management, attribution (author), technical_specs, narrative_metadata, abstract_metadata. A new property observation expires the prior active edge and overwrites the JSONB key.
+`summary_assertion_method = "v4"` (`source_window_facts_v4`): the SUMMARY_CLAIMS_V3 claim
+pass with the fact shape `{sources, quote, speaker, modality, subject, relation, object,
+text}` under an enforced schema. Pieces ≤ 4,096 tokens, output cap 2.0 × input (ceiling
+8,192), quote checked against the cited window, speaker limited to the roles present in the
+piece, per-claim NLI ≥ 0.95. A piece starting inside a long message gets one header line
+showing how that message began (prompt only). The instruction text is pinned by sha256 in
+`tests/smoke/test_codex_v4_claims.py`; changing it means re-qualifying it.
 
-  **A property VALUE is also a node, deliberately (G33, 2026-08-08).** `handle_triplet` creates the object entity before it checks whether the relation is a property, so `kael --role→ fire mage` writes the property, an edge, **and** a `fire mage` entity. That node is kept rather than suppressed, because the edge behind it is what lets T4 build a timeline when the property *changes* — remove the node and the FK, the `edge_expired` event, and the property's history go with it. What was wrong was that its `context_payload` stayed empty forever: this branch was the only one of `handle_triplet`'s three that refreshed the subject alone (the negation and non-property branches always refreshed both ends), so the value node was a matchable pre-flight anchor that §6 then skipped for being empty — an anchor slot spent on nothing. Both ends are now refreshed and the value renders as `Backlinks: kael --role→`. ⚠ Regenerating exposed a second defect, also fixed: `_infer_entity_type` maps a relation to the type of the entity that has it **outgoing** (`role` ⇒ person, because a thing that *has* a role is a person), but voted over a flat list of both directions — so read from the far end it typed `fire mage` as a *person*. Incoming relations now vote only when the relation is **symmetric** (`married_to`, `colleague`, …); asymmetric incoming edges yield `entity`, which is unknown rather than wrong.
+`post_flight.evaluate_turn` → chained stage `fact_extractor.extract_facts`: a turn whose
+summary was generated reuses its verified claims (no second call); short turns and documents
+get their own claim pass. Private turns are skipped. `facts.write_turn_facts` then applies:
 
-- **`MULTI_VALUED_RELATIONS`** (16 categories): technical_dependency (uses, imports, depends_on, supports, integrates_with, calls, returns, references, cites, extends, implements), technical_distribution, structural_containment, social_relationship (friend, ally, enemy, colleague, knows), social_action, organisational_collab, support_endorsement, activity_participation, categorisation, works_on_projects, founding_creation_multi, data_lineage (ICE-specific: derived_from, trained_on, configured_with, evaluated_on, benchmarks_against), code_structure, research_relations, narrative_structure, conceptual. Multiple active edges coexist; new edges never expire prior ones.
+- **post-rules** — assistant/document `shared` → `asserted`; subject == object dropped;
+  an object cut mid-token against its source flagged; subject/object absent flagged;
+- **entities** — `user`/`assistant` and pronouns by speaker (I/me → the speaker, you → the
+  other party); then exact name/alias → `merge_key` → new (same uuid5 ids as before);
+  values longer than 6 words / 80 characters stay text on the fact; NuNER mentions in the
+  sentence add `mention` links. No trigram tier: a plural (0.885–0.893) and a different
+  model's version suffix (0.882) cannot be separated;
+- **duplicates and changes (D6)** — exact text of the same speaker merges without a model.
+  Otherwise candidates are current facts of the **same speaker** that share a named entity
+  or are among the 8 nearest at cosine ≥ 0.80, and the background model answers two
+  questions: *same information?* and *can both be true now?* `same` adds the source and
+  recounts support; *not compatible* replaces — the old fact gets valid_until and
+  superseded_by, never deleted, undone by `restore_fact`. A fact labelled asked /
+  suggested / hypothetical never replaces or is replaced; an older observation never
+  replaces a newer one; a failed call is both_true.
 
-- **`SINGLE_VALUED_RELATIONS`** (11 categories): organisational_position (part_of, works_at, reports_to, managed_by, …), executive_role, succession, education, production_singular, personal_relationship (married_to, parent_of, child_of, sibling_of, …), biography_location (lives_in, born_in, died_in, …), deployment_ownership, logical_requirement, narrative_singular, conceptual_singular (instance_of, subtype_of). These are historical vocabulary hints; v3 no longer expires another value from this category alone.
+### **4.3 Read path — the facts leg**
 
-### **4.3 Temporal versioning and automatic property updates**
+`HybridRetrievalOrchestrator._facts_leg` fills the `codex` slot: keyword (tsvector),
+meaning (fact embedding) and entity channels (micro-NER matches ∪ the store's own entity
+names found whole-word in the question), internal RRF, then the shared fusion / rerank /
+budget. A fact is visible when **any** of its sources passes the request's scope, exclusion,
+cluster, privacy and time filters. Current facts only, unless an as-of / range timescope
+asks for the state then; a current fact that replaced another renders one predecessor
+clause (`earlier: … — until …`). Fact fragments carry no conversation_id (the
+per-conversation turn cap does not apply), `origin_fact_ids`, and the episodic row ids of
+their visible sources. Final assembly (`prompt_budget`) skips a fact whose every source turn
+is already in the prompt (a complete retrieved original or a recent-window turn), recomputed
+after every eviction. A derived code-graph entity named in a project conversation renders
+its pointer payload (`_code_graph_anchors`).
 
-handle_triplet is the heart of the write path. **G44 (2026-08-13): it first refuses triplets whose subject or object cannot name a node at all.** The measured store held entities literally named `8`, `3`, `6`, `2`, `d` — **typed `person`** — plus `i`, `the` and `~`; 155 of 3,671 entities were ≤3 characters. A node called `i` collects every speaker who ever said "I" and can never be looked up, so the edge hanging off it is not a weaker fact but an unreachable one. ⚑ The test is **functional, not a length rule**: `ai`, `ml`, `q4`, `eq` are two characters and perfectly good nodes, while pronouns, articles, bare numerals and punctuation refer to nothing whatever the writing style — which is what keeps this clear of the style-invariance rule G28 exists to enforce (a length rule is exactly the bet on convention that rule forbids). Rejection is logged at WARNING every time: the rate is the finding, and a silent skip would read as a clean graph.
+**Strength (D7):** after the reranker, `B × (⅔·min(1,(support−1)/3) + ⅓·min(1,usage/5))`
+is added to a fact's rerank score; usage = prompt exposures (`record_graph_access`),
+decayed daily by `decay_codex`. `codex_fact_strength_bonus` (B) is 0 until measured.
 
-Entity resolution (get_or_create_entity) is **three-stage** (G50, 2026-08-17): exact canonical_name match, then alias match, then a **normalisation-key match** — `properties.merge_key` (casefold · split digit/letter runs · collapse separator punctuation · **token order preserved**), matched against live entities only, with the arriving surface form recorded as an alias so the exact tiers catch it next time. Otherwise create with a deterministic UUIDv5 and a fresh embedding, stamping `merge_key` at birth. The third tier exists because the first two are exact-string and `canonical_name` is UNIQUE, so `gemma-4-e4b q4` and `gemma-4-e4b-q4` each minted their own row; relations have had `canonical_relation`'s three-tier ladder since G45 and entities had none, which was never a decision. It is an equality test, not a judgement: it never deletes a row, is not gated behind `codex_node_promotion`, and honours `protect_ids` exactly as promotion does. Migration `a1c4e7b90d22` backfilled 8,280 rows and added a partial index; 51 groups on the live store collapse (`20gb`/`20 gb`, `ai ml`/`ai/ml`). ⚠ Token order is preserved deliberately — sorting finds more groups and two of them are converses (`shiva without brahma`/`brahma without shiva`, live at cosine 0.9639). **Node promotion (G44's second half, `codex_node_promotion`, default OFF):** when a strictly more specific name arrives for a generic node already stored — `master plan` against a bare `plan` — the specific node becomes canonical and the generic name resolves to it thereafter, so later mentions land on the node worth traversing instead of sprouting a second one. ⚠ **Only zero-edge stubs are eligible.** Promotion merges two identities, and `plan` is not always `master plan`; doing it to a node that already carries facts would silently re-attribute them, whereas a stub has none to re-attribute. It is off by default for that reason — the aggressive form (promoting nodes with edges, migrating those edges) changes stored history and is a separate decision. All extracted assertion types now share one writer (v3, 2026-09-19):
+### **4.4 Lifecycle**
 
-- Exact directed relation and polarity observations reinforce once per source
-  batch; repeated reads or the same batch never promote confidence.
-- A new edge starts pending at strength1. Property and negative assertions have
-  no privileged expiry or confidence path.
-- Every same-relation target/polarity alternative and known opposition is a
-  candidate comparison. Complete current linked source units must share a
-  conversation and authoritative role, with original source timestamps strictly
-  ordered, before automatic reconciliation. Unknown authority retains both.
-- Reconciliation compares complete passages and speaker/time metadata. A rejected
-  replacement rolls back prior expiries from its comparison set. Property JSON
-  projects all live positive values, not last-write-wins state.
-- Maintenance shares the evidence boundary and prompt; application rechecks it.
-  Manual reconciliation requires an explicit keep-edge subset. Expiry journals
-  the decision and refreshes both endpoint notes and property projections.
+Conversation deletion and `/forget` (C10): the deleted turns' quotes are removed; a fact
+left with no source is expired and journaled; a corroborated fact keeps going with its
+support recounted; an entity with no live fact or edge is expired. The entity view
+(`ice_why`, `ice_graph view`) lists an entity's current facts and replaced facts; no
+model-written entity notes are generated for conversation entities (user-written
+descriptions stay). Entity duplicates: exact / `merge_key` merge at Tier 0; embedding
+near-matches go to the maintenance agent's model check, which **applies** the merge itself
+and writes an audit row (`review_queue` status `applied`); `codex_ops.unmerge_entities`
+reverses it exactly, fact links included.
 
-Current `valid_*` expiry remains a recorded system decision, not an inferred
-real-world event date. Older imports cannot overwrite newer source assertions;
-source times remain separately labeled. Autonomous event-time interpretation,
-cross-conversation author identity, semantically different open-vocabulary
-relation candidates and long-source verification remain unqualified.
+### **4.5 Measured (development data, v3; not scores of record)**
 
-### **4.4 Extraction pipeline**
-
-> **⚑ EXTRACTION HAS ITS OWN MODEL SETTING (G63, 2026-08-27).** `codex_extraction_model` resolves as `model_override or settings.codex_extraction_model or get_bg_model_name()`, defaulting to `hf.co/numind/NuExtract3-GGUF:Q8_0`. It exists because **one background pin served ten jobs** — turn summary, batch summaries, conversation summary, cluster naming, reflection, the maintenance agent, procedural extraction, document-kind, the raw slicer, and extraction — and only the last wants a specialist. Pointing the shared setting at NuExtract3 would hand a JSON-template filler to the summariser and the cluster namer, which fails *silently*: the summaries keep arriving, just wrong.
-> ⚠ **NOT the conflict reconciler.** `make_llm_reconciler` lives in the same file and is a one-word **reasoning** call (`expire_old` / `keep_both` / `reject_new`); it deliberately follows the general background model. It carries a docstring saying so, because it is the natural thing to sweep along when "the extractor" is repointed.
-> ⚠ **Moves with `codex_extraction_mode`.** Each model is usable only in its own prompt shape: NuExtract3 on the instruct prompt emits garbage; qwen on the template emits unparseable clause-triplets.
-
-
-Bookmark dispatch retains the `priority` argument for compatibility. In v3, the runtime owns scheduling and the extractor cooperatively yields at chunk boundaries; the argument does not bypass user-activity gating.
-
-The Codex Extractor (workers/codex_extractor.py::extract_codex, plain callable since C7 — a direct call inside the post-flight job for every non-private turn; user_control's bookmark endpoint enqueues it standalone as the "codex_extract" runtime job with priority=True) runs the following pipeline:
-
-**v3 completion repair (2026-09-12):** extraction accepts complete arrays or
-explicit facts/triplets envelopes with valid string fields and boolean polarity.
-Empty JSON is a successful no-fact result; empty text, malformed output or a
-provider truncation raises to the runtime. No partial graph or completion key
-commits until every chunk succeeds. Cooperative yields propagate. The old
-emotion-object blacklist and equality-of-endpoints filter are removed: “feels
-happy” and reflexive relations can be supported facts. Parser and live writer
-checks cover these mechanics; this is not a new semantic-quality measurement.
-
-> ⚑ **§4 STEPS 4–6 CHANGED ON 2026-08-25 (G63/G68) — read this before the numbered steps below, which describe the pre-change path.**
->
-> **The background extractor is now `NuExtract3-Q8_0`, not `qwen3:4b-instruct`.** Measured over 60 random turns with the maintainer's own blind labels: **63% of stored triplets true vs 15%, and 0 reversals in 20 judged facts against 6.** That is the only intervention in this project's history to move graph correctness. See [PROVENANCE](PROVENANCE.md) 2026-08-24 and [ROADMAP G63](ROADMAP.md#g63).
->
-> Four things in §4 are now different:
->
-> * **Two prompt SHAPES exist** (`codex_extraction_mode`). `instruct` is the nine-rule prompt in step 5 below — built for a generalist that does not know the task. `template` sends a JSON schema to FILL and nothing else, strips a `</think>` reasoning block, and accepts a `{"facts": […]}` envelope. **Each model is usable only in its own shape**: NuExtract3 on the instruct prompt produces garbage, and qwen on the bare template produces clause-triplets it cannot parse 30% of the time. ⚠ **The v3 default is `template`** (since August 27); historical instruct runs require their original configuration.
-> * ⛔ **The relation vocabulary must NEVER be put in the prompt.** Isolated in a blind round: vocabulary-in-prompt scores **22% correct against the bare template's 60%**. Given a list, the model reaches for a listed word when none fits — `MIT/Stanford/CMU --works_at--> Google India`, `authors --cites--> authors`. It is applied **after** extraction by `canonical_relation` instead, at no prompt cost. See [G69](ROADMAP.md#g69).
-> * **Chunking is no longer a fixed 550.** It is sized from `serving_window()` minus prompt and output budget, clamped by `codex_extraction_chunk_max` (4096), falling back to 550 **with a warning** when the probe fails. Measured over 71,256 turns: at 550, **only 23% of corpus tokens fit in one chunk** — 91% of *turns* did, but the median turn is 24 tokens. ⚠ The ceiling is unresolved; nothing above ~1,500 tokens has been measured ([G68](ROADMAP.md#g68)).
-> * **`codex_extraction_max_tokens` is 3000, not 1200.** At 1200 template mode lost **30 of 60 turns**, and truncation was logged on qwen too. Couples to the timeout: 72s → 180s.
->
-> **Step 4b's tagger changed too:** `codex_extraction_ner_tier` now defaults to **`background` (NuNER Zero)**, not the micro-NER — junk entity names **8.7% vs 19.5%** over 60 turns. ⚠ Decided on shape; never judged for truth.
->
-> ⚠ **Everything downstream of step 6 is UNCHANGED and still earns its place** — grounding, confidence tiers, canonicalisation, the entity-name gate, merge keys, supersession, the context payload. Verified end-to-end on 2026-08-25: 94 edges written, zero expiries, canonicalisation and merge-key both fired. **The model swap replaced the *shaping* machinery, not the *checking* machinery.**
->
-> ⚠ **Every graph number in this document predates that swap** and is being re-measured — [G71](ROADMAP.md#g71) carries the register, [G72](ROADMAP.md#g72) the reseed that supplies the new baseline.
-
-4. **Chunking (roadmap A1).** The turn is split into **sentence/code-line-aware chunks of ≈`settings.chunk_tokens` = 550 tokens** with `settings.chunk_overlap_words` = 50 words carried into each subsequent chunk. `_chunk_text` isolates fenced code blocks from prose (`_split_segments`), breaks each into atomic units that are never split across a chunk boundary — sentences for prose, non-blank lines for code (`_atomic_units`) — and greedy-packs those units up to the token budget; a single unit larger than the budget is hard word-split as a last resort. **C16 (2026-07-29): the packer now counts REAL tokens** (`memory/tokens.py`). The old `words × 1.33` estimate measured 0.53× on fenced Python, so a chunk the packer believed was 550 tokens was really ~1,000 — `CHUNK_TOKENS` meant nothing for exactly the content where chunk size matters most. A no-whitespace blob (minified JS, base64) also never split at all, because the last-resort splitter was word-based; it now falls through to characters. Short turns come back as a single chunk. Each chunk is extracted independently and triplets are concatenated then deduplicated. *(Rationale: a 3–4B extractor's attention dilutes past ~1k tokens; the previous ≈4,511-word windows caused mid-passage entity dropping and self-referential hallucinations like `fastapi uses fastapi`. The 550-token size is shared with the NER-grounding step so both run off one chunking pass. `MAX_EXTRACTION_TOKENS` = 6000 is retained only for import compatibility.)*
-
-4b. **NER grounding — entity confirmation (roadmap A2).** Before the LLM call, each chunk is run through the shared CPU micro-NER (`extract_entities`, §4.6) to produce a confirmed entity list. When non-empty, that list is injected into the extraction prompt as a **CONFIRMED ENTITIES** block instructing the model to use only those as subjects/objects and introduce no new named entities. This splits the cognitive load — the LLM reasons about relations, not entity discovery.
-
-5. **Background-model extraction.** The extractor calls the background model via `get_bg_client()` / `get_bg_model_name()` (mode-selected: dedicated vLLM :8002 Qwen2.5-3B, or shared Ollama; see §10.5). The prompt renders the relation vocabulary as grouped \# category: … headers, imposes **nine** strict rules — ⚠ **corrected 2026-08-23, this said six** — (individual relation words only; canonicalise subjects/objects; property facts use the property relation; the relation must make logical sense; never output a category header as a relation; NEGATION uses the positive word plus `"negated": true`; an optional noun-phrase shape rule; **rule 8 DIRECTION**, added by G59 — which argument goes in `subject`, the `_by` mirror case, and a read-back check; and output only a JSON array). Before G59 the prompt had **two rules numbered 7** whenever the shape rule was enabled, and **no direction instruction at all** while all three of its examples were active SVO, appends a code-specific sub-prompt when Software_&_Tech is in the topic tags, and appends the CONFIRMED ENTITIES block from 4b. Decoding: temperature=0.0, **max_tokens=`codex_extraction_max_tokens` (1,200)**, timeout scaled by G12. **The output SHAPE is constrained at the decoder** (G32/a1): `response_format` carries a JSON schema pinning the triplet array and its required keys, which removes malformed-by-confusion output entirely. `relation` is deliberately left **free text** — see §4.4b. The budget rose from 500 because `finish_reason == "length"` was truncating whole turns into unparseable JSON; a schema guarantees a valid *prefix*, not a complete document, so the constraint does not cover truncation and `bg_client_factory` now warns on it.
-
-6. **Triplet validation.** (i) Markdown-fence strip; (ii) json.JSONDecoder().raw_decode with a regex fallback r'\\\{\\s*"subject"\\s*:\\s*"([^"]+)"\\s*,\\s*"relation"\\s*:\\s*"([^"]+)"\\s*,\\s*"object"\\s*:\\s*"([^"]+)"\\s*\\\}'; (iii) shape filter (all three keys present); (iv) **vocabulary mapping + gap ledger (G32/a1, replaces a silent filter)** — see §4.4b; (v) verb-phrase filter dropping triplets whose object is in \{"blush","laugh","cry","smile","angry","sad","happy","mad"\}; (vi) self-reference filter dropping triplets whose normalised subject equals its object (kills `fastapi uses fastapi`); (vii) **NER grounding → extraction confidence** (`_ground_triplets`, A2+A3) — each triplet's subject (and, for non-property relations, object) is checked against the confirmed entities by normalised-exact or token-subset comparison, and the result sets its confidence: CONF_GROUNDED = 0.9 on pass, CONF_REJECTED = 0.35 on fail (**stored anyway** — retrieval's trust gates keep it out of context until corroborated, and nonuse never declares it false), CONF_UNGROUNDED = 0.7 when NER returned no entities for the chunk (nothing to ground against). Cross-chunk dedup keeps the highest confidence seen per (subject, relation, object). `handle_triplet` stores the value on new edges as extraction_confidence and raises it to the max seen on corroborating re-extraction.
-
-7. **Deduplication.** Keyed on the case-normalised (subject, relation, object) triple, so multi-chunk repeats across overlap windows collapse.
-
-8. **Write + reconcile (A6, v3 repair 2026-09-13).** Canonicalization's relation-separation map prevents inverse/polarity merges; it does not authorize expiry. The narrower opposition candidate map and legacy supersession cues nominate pairs for a source-aware reconciler. Every candidate uses that reconciler or review; none expires deterministically from an opposition label. The model consumes full supplied source within `codex_reconcile_input_tokens` (default8192); over-bound input, missing source, incomplete response or anything other than an exact decision retains both claims for review. The ordinary writer reinforces only the same direction, relation and polarity; sharing endpoints with a different relation does not authorize expiry. As of 2026-09-19, property/single-valued/negative assertions use the shared two-source boundary described in §4.3. Background polarity/opposition pairs become deduplicated `codex_contradiction` proposals, never automatic processing-time expiry. No claim of complete conflict semantics from these controls.
-
-
-9. **Idempotency.** idempotency_key = sha256("codex:" + batch_id); on a hit the callable returns immediately. The key insert shares the worker's transaction, so a crash before commit leaves no key (retry re-runs) and a crash after commit leaves the key (retry is a no-op) — turning the runtime's at-least-once retries into effectively-once side effects.
-
-### **4.4b Relation vocabulary — mapping, and the gap ledger (G32/a1, 2026-08-04)**
-
-> **⚑ SUPERSEDED 2026-08-13 — THE VOCABULARY IS NOW OPEN (G45). Read this box
-> before the three subsections below, which describe the closed-list era.**
->
-> The closed list was the defect, not the filter around it. Re-measured on the
-> 293-turn store: **1,259 relations destroyed in a single seed**, including true
-> facts — `i --didnt_get--> csi`, and `my father --t_get--> first` where an
-> apostrophe split `didn't get` into `t get`. Neither branch of the old choice
-> was acceptable: dropping kept 32% of what the model produced, forcing the enum
-> kept 100% and got ~78% of them wrong.
->
-> **`canonical_relation` replaces the gate**, in three tiers: an exact
-> vocabulary hit (unchanged, keeps existing relations stable); else
-> canonicalisation against relations **the graph already holds** — embed,
-> compare, reuse above `codex_relation_canonical_threshold`; else **accept it as
-> a new relation**. `ALLOWED_RELATIONS` survives as tier 1 and as a kill-switch
-> (`codex_relation_open_vocabulary=False`). `_relation_gloss_cache` now reads
-> the open vocabulary, so G34's relation fit does not go inert on relations
-> coined after it was written. 111 multi-arm candidates ship as
-> `data/relation_seed.json` so a fresh store canonicalises from turn one.
->
-> **⚑ DIRECTION IS SETTLED DETERMINISTICALLY, BEFORE SIMILARITY IS CONSULTED — and as of 2026-08-23 that is finally true of POLARITY and ARGUMENT ROLE too. The guard previously checked only a curated antonym map and "exactly one side is passive", which compares True against True for any `is_*`/`is_*` pair and so could never fire on `can`/`cannot` (0.9134), `is_used_by`/`is_used_for` (0.9327) or `results_from`/`results_in` (0.9266). Replaying one seed's 4,012 real merges, the added checks block 1,611 — led by `is` → `in` ×942 — while `has` → `have` ×958 and `is` → `are` ×715 still merge. ⚠ Blocking them did NOT reduce the reversal rate, which is what showed reversals are generated rather than merged in.**
-> Embeddings cannot separate a converse from a synonym — they share every
-> context word. Measured on the live encoder: `before`/`after` **0.8791**,
-> `parent_of`/`child_of` 0.8569, `teaches`/`learns_from` 0.8159, all above the
-> 0.86 threshold then in force. Merging `before` into `after` reverses every
-> temporal fact in the graph, silently. `_ANTONYM_PAIRS` (converses) and a
-> passive-marker check run first; the threshold only chooses between pairs
-> already known safe. ⚠ **The live threshold is `0.90`, not the 0.82 this line claimed** (`config.py:521`, corrected 2026-08-23) — and the guard it describes was structurally unable to fire on `is_*`/`is_*` pairs until G45's polarity and argument-role checks were added. Negations stay
-> out — A8's `negated` flag owns those, precisely so the vocabulary does not
-> double. See TRAPS #26 and [specs/G45_open_relation_vocabulary.md](specs/G45_open_relation_vocabulary.md).
-
-Step (iv) of the pipeline used to be one line — `[t for t in triplets if t["relation"] in
-ALLOWED_RELATIONS]` — with no log. Measured over 300 real turns (PROVENANCE, 2026-08-04)
-**it was discarding 67.8% of everything the model produced**, and the three most frequent
-casualties were `is` (92×), `has` (68×) and `includes` (29×): ordinary English the 197-word
-vocabulary does not contain, not near-misses of it. Extraction spent the GPU, looked
-healthy, and mostly deleted its own output.
-
-Three things replace it.
-
-**1. Normalisation (`normalize_relation`).** Case, separators and leading helper verbs only —
-`Works On` / `works-on` / `works on` → `works_on`, `is located in` → `located_in`. This is
-safe because **no two vocabulary entries collide once separators are stripped** (verified
-across all 197, and pinned by a test). It is deliberately narrow: the fuller ladder
-(lemmatisation, fuzzy matching, token containment, embeddings) was built and measured at
-**5.7%** recovery while introducing *direction inversions* — `is_used → uses`,
-`is created by → created` — which write a fact backwards. Those tiers are **premature, not
-useless**: once the vocabulary is repaired the residual failures genuinely will be
-near-misses, and they become worth adding.
-
-**2. The gap ledger (`codex_relation_gaps`).** What still does not map is written as a row
-carrying the model's own wording *and* the subject/object, rather than dropped. Two
-consequences: the table ranks what the vocabulary is missing — the input the Z2 vocabulary
-experiment needs and previously could not obtain, because the evidence was destroyed at the
-moment of creation — and a relation added later can be replayed straight into the graph with
-**no new LLM call**, since the fact was already extracted. Rows are `pending` until promoted
-or dismissed.
-
-**3. A loud drop.** `codex_relation_out_of_vocabulary` is emitted at WARNING on every chunk
-that loses a triplet, with the count and a sample. The rate *is* the finding.
-
-**Why the relation is not enum-constrained**, when the shape is: the vocabulary has no way
-to say "none of these". Pinning `relation` to the 197 values keeps 100% of triplets, but on
-the same 300 turns **~78% of the ones it rescued were wrong** — a few relations act as
-attractors for anything inexpressible (`is → is_employed_by`, `is_family_member_of →
-is_dating`, `is_sibling_of → is_separated_from`). A dropped fact costs recall; a wrong fact
-is retrieved and served as truth. The capability is wired and switchable
-(`codex_constrain_relation_enum`, default off) because **the decision belongs to Z2**, with
-the ledger's data in hand. Contrast the enums that *are* used — `DOCUMENT|TRANSCRIPT`, the
-four reconciliation verdicts, `user|assistant` — all genuinely closed sets where declining is
-either impossible or itself a legal answer.
-
-### **4.5 Relation-aware retrieval and enumeration (A4 — replaces MERA)**
-
-*MERA (retrieval/mera.py) was removed in the post-paper A4 rework: it scored −0.21 in the buildup ablation (loose triggers, an LLM tag/relation mapping that often missed the DB's actual tags, and a flat 15-entity payload dump). Its capability — answering category/enumeration and relation-shaped queries from the graph — was re-homed into the primary Codex leg as follows.*
-
-**Relation detection** (`_detect_relations`) maps the prompt onto the controlled relation vocabulary through two LLM-free channels: (1) a **lexical channel** — a relation's own content words appearing in the prompt after crude two-sided stemming ("who inspired X" → inspired_by, "who is X married to" → married_to); multi-word relations require all content words, single-word relations one; and (2) an **embedding channel** — true-cosine similarity between the prompt embedding and once-per-process cached gloss embeddings (both natively unit-norm since C17; A4's re-normalisation workaround is deleted) of all ~200 relations, top-k=5 above a 0.45 floor, for paraphrases ("who is X's wife"). Empirically the joint set is recall-oriented and *deliberately not trusted alone*: neutral prompts also score ~0.69 absolute against random glosses, so detected relations only ever act **jointly** — paired with matched entities (fact surfacing, §4.8) or with explicit enumeration cues (below). Precision comes from the join, never the detector.
-
-**Enumeration** (`_codex_enumeration`) fires only for entity-less prompts when an explicit enumeration cue is present (list, all, who are, what are, every, each, which, name the, tell me about, enumerate) **and** a grounded signal exists: (a) a prompt token (singularised) matching an actual entity tag ("list all the characters" → tag character) — surfacing up to 8 tagged entities' payloads; and/or (b) a detected relation — surfacing up to 15 trust-gated edges as explicit `[Fact: a --rel--> b]` lines. Both channels honor project scope (§4.8) and the A3 trust floor. No LLM call, no separate module — score 1.0, no reinforcement (enumeration edges are not query anchors).
-
-### **4.5b Cluster naming and description — ⛔ UNMEASURED, and one attempt to measure it was invalid**
-
-`_create_cluster_from_members` generates BOTH a `name` and a `description` from the same members, each grounded with `_recurring_member_entities(turns)`. **Neither has a qualified real-cluster aptness rate.**
-
-**V3 source/label repair, 2026-10-09:** generated entity names previously
-supplied assignment/merge overlap. An actual SQL opposing control shows a
-planted cast causes an otherwise ineligible merge. Cast now comes from a
-deterministic cohort of at most ten distinct actual warm/cold originals, using
-existing NuNER plus literal mention grounding. Generated labels have no merge
-authority. Complete attributed member input includes short/chapter/late text;
-unknown roles remain unknown. Existing E4B capacity/finish guards and typed JSON
-use160/500-token name/description reserves; incomplete/invalid outputs preserve
-previous labels. Accepted labels are topical metadata, not NLI-supported facts.
-Worker/replay receipts distinguish admission attempts and failures from model
-calls or semantic accuracy. A real two-member NuNER/E4B/SQL path produced two
-complete labels; this is path validation, not corpus naming/coherence quality.
-
-⛔ **A 2026-08-27 attempt produced a 62-76% "wrong" rate and is RETRACTED**: the harness fed the namer *five arbitrary consecutive turns* with `recurring_entities=None`, so it asked for the shared subject of turns never established to share one, without the grounding production always supplies. It measured the harness. ⇒ **G74**, and the open question underneath it is whether the defect is the naming prompt or the CLUSTERING — if members are weakly grouped, there may be no right name available. Judge cluster coherence first, then naming conditional on it.
-
-### **4.6 Entity extraction — two models, split by path (A9b, 2026-08-03)**
-
-`retrieval/ner_utils.py::extract_entities(text, embedder, max_chars=None, tier="preflight"|"background")` serves two latency classes. **Pre-flight (`tier="preflight"`, the default) keeps the micro-NER** on the synchronous user-prompt path. **Background (`tier="background"`) uses NuNER Zero** (`settings.background_ner_model`, default `numind/NuNER_Zero`) for post-flight key-term extraction, clustering and, by the current `codex_extraction_ner_tier` default, Codex grounding. The Codex tier is independently configurable; earlier micro-vs-NuNER grounding counts were judged on their own whitelists and do not measure graph truth. NuNER is loaded lazily on its configured device; the runtime idle drain calls inference-guarded `release_background_ner()`. Complete-stack peak and reload latency remain unqualified. It uses ICE's entity labels, excluding `concept` and `object` by default but restoring them for the permissive Codex grounding list. Adjacent word spans are merged before entity cleanup.
-
-The background caller keeps its configured 250-whitespace-word coarse pieces, then windows each piece using the loaded model's **own** word splitter and `config.max_len`, with overlap. This matters because punctuation/code can make 250 whitespace words exceed NuNER's 384 model-word limit; the earlier path silently truncated the tail inside the model. Missing model-token bounds cause a warned micro-NER fallback. This preserves input coverage, not proof that the added entities improve Codex facts or answers. The micro-NER's poor short-prompt recall remains a separate pre-flight activation problem; see [PROVENANCE.md](PROVENANCE.md).
-
-The micro-NER model (classifier/ner_model.py) is a BIO tagger — a 3-layer MLP 384 → 128 → 64 → 3 with two ReLU + Dropout(0.2) blocks — that classifies per-token embeddings (not token IDs) from the same shared embedder — since C17 the slice384 MRL prefix of its native output (bit-identical to the old truncate_dim input) — into B-ENT, I-ENT, O. Each token string is embedded **in isolation** (context-free): the model learns which tokens tend to be entities, but cannot use surrounding words to disambiguate — a known limitation (good recall, noisy boundaries; roadmap A9 tracks a context-aware rework). Operating on embeddings lets it generalise across the embedding space (e.g. recognise a misspelling close to a known entity) at the cost of requiring the embedder at inference. A shared singleton in retrieval/ner_utils.py::extract_entities consolidates both the orchestrator's live-prompt NER and the clustering worker's full-chapter NER onto one loaded model; if the .pt file is missing it falls back — **loudly, at WARNING with the working directory** (the path is CWD-relative, roadmap G31) — to a regex \\b[A-Z][a-zA-Z]\{2,\}\\b minus a stoplist (The, This, User, Assistant, Chapter, …). **Output post-processing (roadmap A2 NER cleanup):** decoded entity spans are snapped to whole-word boundaries (`_snap_to_words`, fixes subword truncation like `Pyd`→`Pydantic`), trimmed of leading/trailing function words (`_clean_entity` / `_EDGE_TRIM`, e.g. `on Pydantic`→`Pydantic`), filtered of pronoun/boilerplate junk (`_NER_STOP`), and deduplicated. Empirically ~95% entity recall on a mixed prose/technical probe set; residual verb-led bleed (`uses PostgreSQL`) and descriptor false-positives (`fire mage`) are absorbed by A2's token-subset grounding and await the context-aware rework. The training pipeline (scripts/ner/*) is offline-only: extract_turns combines simulation + labelled + synthetic prompts; label_entities calls mattbucci/gemma-4-12B-AWQ at SGLang port 8003 to extract verbatim entity strings; generate_bio aligns entities to token offsets (longest-first, no-overwrite) producing BIO labels; train_ner trains with Adam(lr=1e-3), BATCH_SIZE=16, EPOCHS=10, CrossEntropyLoss with inverse-frequency class weights clamped at 100.0, early stopping PATIENCE=3.
-
-### **4.7 Vector fuzzy matching for entity resolution**
-
-The Codex retrieval leg resolves prompt-extracted entities to stored CodexEntity rows in three stages (A4): (1) _match_entities_by_similarity(threshold=0.85) — embeds the prompt entity strings and asks Postgres for the nearest entity above 0.85; the source/project visibility predicate is applied before ranking and LIMIT, so hidden project vectors cannot become anchors or crowd out visible ones (G29, v3 2026-09-23). Each prompt entity matches at most one stored entity and vice versa (seen_ids), with an inline exact canonical_name / aliases.any(norm) fallback per string. (2) The base-class _match_entities_exact (exact/alias only, no vectors) — used when use_fuzzy_match=False (the ablation fuzzy_match flag). (3) **Payload descriptor fallback** _match_entities_by_payload — when name-based matching finds nothing, content words (≥4 chars, minus a small stoplist) from the NER strings are ILIKE-searched inside context_payload, ranked by hit count, top 2 accepted: "main fortress" resolves to The Obsidian Citadel because its payload mentions "fortress". This closes part of the semantic-vs-lexical gap without a schema change (payload *embeddings* remain future work).
-
-### **4.8 Retrieval and event-sourced compaction**
-
-The v3 Codex retrieval leg (`_codex_graph`) extracts prompt entities, matches visible graph nodes, and emits a separate fragment for each matched anchor. It traverses time-valid edges in both directions with direct/deep trust floors and bounded fan-out; negated relations render as facts but are not navigated. The anchor's own relations are ranked for query fit, and an entity-less enumeration path can surface tagged entities or relation facts. Grounded names and aliases can expand the episodic full-text query. A closed conversation/project scope resolves eligible warm and cold source batches and graph endpoints; traversal and fact surfacing require an eligible live source, and only that source's current exact quote and timestamp are rendered and credited. Under `auto`, the graph searches all visible non-private sources except excluded conversations. Retrieval does not strengthen or promote graph claims: separately counted context exposure affects retention ranking, while independent source observations determine corroboration. Legacy edges without a linked current claim remain explicitly labeled unverified. The bounded graph and source checks have implementation controls; the resulting answer quality and per-token benefit are not yet measured on a representative v3 conversation.
-
-The codex_events append log is checkpointed by
-`workers/compaction.py::compact_entities` at the existing 100-uncompacted-event
-threshold and 24 h runtime cadence. **V3 repair, 2026-10-09:** the old parser
-rebuilt only the newest batch from an empty set, omitted actual ID-only
-expirations and lost polarity. Version2 JSON now snapshots the existing current
-entity/edge projection in a repeatable-read transaction. It records all outgoing
-edge identities, polarity, source/trust/temporal metadata, unexpired edge IDs and
-entity note/properties/aliases; these are stored graph state, not new proofs.
-Only observed pending events are marked compacted atomically with snapshots.
-All events, graph rows and old snapshots remain. The journal is preserved;
-legacy snapshots are not retrospectively certified. No production retrieval
-consumer reads these checkpoints, so this repair provides no measured answer
-gain or historical field-level replay. The timeline still reads retained events.
-
-
-
-**v3 graph source scope (G76, 2026-09-24).** A conversational edge's first
-`source_batch` is its write origin, not its only evidence. Scoped graph reads
-admit a current edge when its primary or an independently observed batch is
-allowed, including warm and cold originals. The reader chooses a non-private,
-non-excluded source within the requested time, prefers a current linked exact
-claim, renders that source's quote and recorded time, and credits the same batch
-to the fragment. An edge with no available source does not render. Cached entity
-notes remain labeled unverified and are suppressed when private edge sources
-exist. This protects source visibility and attribution; it does not establish
-the graph's answer quality or re-verify old edges.
+Write prompt: 41 real pieces, maintainer blind grades — relationships gemma 14/16 vs
+NuExtract3 9/16; fact sentences right 2/10 → 9/12 after `shared`; 0 false admissions on 33
+source-varied controls; label ~85–90%. Reconciliation: 99 real same-speaker pairs + 12
+planted — 88/99, false replaces 2/94 after the label rule. Question names: reaching a gold
+turn's facts on 29/67 questions vs 15 for the micro-NER alone. Known limits: a document
+pasted with no framing anywhere is written as `asserted`; pasted logs give one fact per
+line; personal chats yield fewer facts than before `shared` (B pieces 62 → 41).
 
 ## **5. Procedural Memory**
 
@@ -1276,7 +1134,7 @@ The procedural retrieval leg (_procedural_lookup) **always runs** — C9 deleted
 
 ## **6. Hybrid Retrieval Orchestrator**
 
-The HybridRetrievalOrchestrator (retrieval/orchestrator.py) is the core of the pre-flight phase. It runs its retrieval legs (six always-on, the time-scoped cold leg, and the history-gated timeline leg, §6.11), fuses their outputs with weighted Reciprocal Rank Fusion, applies a battery of post-fusion transforms, and returns a token-budgeted list of ContextFragments to the Prompt Assembler. Since Track T (2026-07) every leg is additionally **TimeScope-aware**: a temporal query (§6.11) carries its independent date axis, archived-row visibility and recency policy; only source_record permits recording-time windows — one query text per leg, never a timescoped twin.
+The HybridRetrievalOrchestrator (retrieval/orchestrator.py) is the core of the pre-flight phase. It runs its retrieval legs (six always-on — the codex one is the facts leg since CODEX_V4 — and the time-scoped cold leg, §6.11; the timeline leg was deleted with the edge codex), fuses their outputs with weighted Reciprocal Rank Fusion, applies a battery of post-fusion transforms, and returns a token-budgeted list of ContextFragments to the Prompt Assembler. Since Track T (2026-07) every leg is additionally **TimeScope-aware**: a temporal query (§6.11) carries its independent date axis, archived-row visibility and recency policy; only source_record permits recording-time windows — one query text per leg, never a timescoped twin.
 
 The orchestrator's `retrieve()` is now only *called* when the single memory-retrieval decision (§2.4, B2) says so — main.py sets context_reliance = Long_Term_Memory in that case. The old belt-and-suspenders overrides inside `retrieve()` (Zero_Shot+conversation_id ⇒ LTM, Creative ⇒ LTM), which silently re-forced retrieval regardless of that decision, have been removed; the Zero_Shot / Real_Time_Search early-return guards remain purely defensive. So retrieval no longer fires for almost every turn — it fires when the classifier-trusting posterior crosses threshold, which for a genuinely self-contained prompt in a short conversation can be *not at all*.
 
@@ -1286,9 +1144,9 @@ The orchestrator's `retrieve()` is now only *called* when the single memory-retr
 
 11. **Vector** — _vector_episodic. pgvector cosine distance **with decay weighting**: (1 - (embedding \<=\> :prompt_embedding)) * COALESCE(decay_score, 1.0), times the C8 in-score recency factor (origin-parameterized since T3 — §6.11). Same visibility invariant (current-mode filters relax under a window, like BM25), LIMIT 100. The decay multiplier is what distinguishes this leg from a pure semantic search: a high-similarity but decayed turn is down-ranked.
 
-12. **Codex graph traversal** — _codex_graph. NER → three-stage entity resolution (vector fuzzy 0.85 / exact / payload-descriptor fallback) → trust-gated depth-3 BFS (deep hops require trust ≥ 1.0, direct ≥ 0.5) with A5 project-scope isolation, relation-aware fact surfacing with the entity∩relation overlap boost, candidate trust summaries (no strength/promotion writes on read), and grounded query expansion feeding the BM25 leg (§4.5, §4.8). Entity-less category queries answered by the enumeration path (re-homed MERA). Score graded 1.0–1.75.
+12. **Codex facts (CODEX_V4, 2026-10-16)** — `_facts_leg`. Verified fact sentences by keyword, meaning and named-entity channels, fused by RRF inside the leg; visible through ANY visible source turn; current facts only, as-of = stated by the window end and valid then, range = stated in the range. Full description: §4.3 (read side). The v2/v3 `_codex_graph` traversal, `_codex_claims` sentence leg and enumeration were deleted (design in `docs/outdated/ICE_Architecture_section4_codex_v2_v3.md`).
 
-13. **Procedural** — _procedural_lookup (§5.4). Always runs since C9: vector top-5 with the confidence floor, conversation-scope and trigger-condition gates (the intent whitelist is gone). **C6/G29 (2026-07-28):** its scope gate resolves through the shared `_codex_scope_sets`, so all four A5 scope forms work — a hand-rolled copy read `scope["conversation_id"]` only, so under *project or manual* scope (ids in `conversation_ids`, no single id) it resolved no batch set at all and every project-less pattern in the store reached the conversation. That copy escaped the G29 sweep because it resolves a batch *set* instead of emitting SQL.
+13. **Procedural** — _procedural_lookup (§5.4). Always runs since C9: vector top-5 with the confidence floor, conversation-scope and trigger-condition gates (the intent whitelist is gone). **C6/G29 (2026-07-28):** its scope gate resolves through the shared `_codex_scope_sets` (batch half kept as `_scope_batch_ids` since CODEX_V4), so all four A5 scope forms work — a hand-rolled copy read `scope["conversation_id"]` only, so under *project or manual* scope (ids in `conversation_ids`, no single id) it resolved no batch set at all and every project-less pattern in the store reached the conversation. That copy escaped the G29 sweep because it resolves a batch *set* instead of emitting SQL.
 
 14. **~~RAG~~ — DELETED by C12 (2026-07-28).** `_rag_lookup` was triple-gated: `context_reliance == "Long_Term_Memory"` AND `intent_tags ∩ {Factual_Retrieval, Analysis_&_Summarization} ≠ ∅` AND **the prompt containing one of `["document", "pdf", "reference", "manual", "guide"]`** — an inline five-noun list, so "what does the spec say" never fired it. It then read `rag_chunks` **globally, with no scope filter of any kind** (the same leak class G29 found in three other legs), and its only writer was a `watchdog` script nothing had started since C7 deleted Celery. Document content is now ordinary episodic memory in its own conversation (§14), retrieved by legs 1–3 and 5–13 like anything else, so **no lexical trigger remains to be style-dependent** (G28). The leg name, its 1.0 base weight and the ablation flag are gone with it.
 
@@ -1296,7 +1154,7 @@ The orchestrator's `retrieve()` is now only *called* when the single memory-retr
 
 16. **Cold storage (T3 — time-scoped queries only)** — _cold_lookup. Fires only when the TimeScope carries a window (as_of / range, or evolution *with* a window); never under current mode and never from the wide net. **Since C16 (2026-07-29) it ranks by MEANING**: `cold_storage.embedding` carries the episodic vector across at archive time, so the leg orders by distance and the ILIKE patterns are a fallback for pre-migration rows only — this was the last purely lexical query in retrieval, and the one leg coverage could not reach. Windowed timestamp scan of cold_storage with up to six ILIKE patterns built from prompt keywords + grounded expansion terms (a keyword-less "what was I thinking about in march" browse is allowed — the window itself bounds it), conversation/privacy scoping through the **shared `_conv_scope_filter`** like the live legs (G29, 2026-07-28 — it hand-rolled `if conv_id` until then, so a *project*-scoped query, whose ids live in `scope["conversation_ids"]` with conv_id None, searched the entire global cold store), LIMIT timescope_cold_limit (5). Fragments are episodic-typed (they share the episodic budget lane), date-stamped, base score 0.6. A cold hit that survives the token budget is **resurrected on probation** (§6.11).
 
-17. **Timeline (T4 — history-gated, any mode)** — emitted from inside _codex_graph, one per anchor entity that carries *real supersession history* (`history_exists`, §6.11), rendered by `retrieval/evolution.py::build_entity_timeline`. source_type="timeline", scored 0.9× the anchor's own codex fragment, capped at timeline_max_fragments (2; 4 under evolution mode). retrieve() splits them out of the codex return into their own legs-dict entry, so RRF weights them independently (0.6) and the budget's round-robin gives them their own lane.
+17. **~~Timeline (T4)~~ — DELETED with the edge codex (CODEX_V4, 2026-10-16).** A current fact renders its newest visible replaced predecessor inline ("(earlier: … — until …)"), and `graph.entity_timeline` lists an entity's replaced facts. The `timeline` leg weight below is inert (no producer) and kept pending a decision.
 
 ### **6.2 Query rewriting: grounded expansion in production, HyDE rejected**
 
@@ -1306,7 +1164,7 @@ The orchestrator's `retrieve()` is now only *called* when the single memory-retr
 
 ### **6.3 Dynamic leg weighting**
 
-After the legs run, retrieve() blends a per-leg alpha map. Base weights are \{"bm25": 0.8, "vector": 1.0, "codex": 0.5, "procedural": 0.2, "timeline": 0.6\} (the "rag" entry died with the leg, C12). Five **intent profiles** override the four non-timeline legs:
+After the legs run, retrieve() blends a per-leg alpha map. Base weights are \{"bm25": 0.8, "vector": 1.0, "codex": 0.5, "procedural": 0.2, "timeline": 0.6\} (the "rag" entry died with the leg, C12; "timeline" is inert since CODEX_V4 — no producer). Five **intent profiles** override the four non-timeline legs:
 
 | **Profile (active intents)** | **vector** | **bm25** | **codex** | **procedural** |
 | - | - | - | - | - |
@@ -1505,7 +1363,7 @@ Every retrieval leg and post‑processing step can be independently enabled or d
 
 Storage always recorded time on three layers (episodic `timestamp`, bi-temporal codex edges, the event journal), but retrieval read none of them — every query answered "now." Track T makes the stores answerable *at* a time (T1–T3) and serves how ideas *changed* over time (T4). Spec: docs/specs/T_temporal.md. The journal already gives git's semantics; Track T built only the porcelain — valid_at(T) filtering is `checkout` (T3), the timeline builder is `log` and entity_diff is `diff` (T4).
 
-**v3 source-credit repair (2026-09-29):** timeline retrieval resolves a surviving, non-private original for each displayed edge under the current scope. An edge first written in another conversation can still appear when an independently observed in-scope source supports it. If no visible original supports an edge, that line is omitted. The fragment's `origin_batch_ids` contains only sources for lines that remain after transition and token caps, so the typed scorer can attribute a temporal hit to the timeline leg without crediting omitted history. The text-only timeline service retains its original call behavior. This repairs provenance and scoped display; it is not an answer-quality result.
+**v3 source-credit repair (2026-09-29) — superseded by CODEX_V4:** ~~timeline retrieval resolved a surviving, non-private original for each displayed edge under the current scope~~; the timeline leg is gone, and a fact's predecessor clause obeys the fact leg's own visibility query.
 
 - **T1 — date/time grounding (v3, 2026-09-13).** `memory/time_format.py` normalizes known zones to UTC with second precision and labels unknown zones. The system prompt supplies a current UTC datetime. Episodic alternatives, chunks and recent history carry source-recorded timestamps; synthetic imports say source time unknown. Codex explicit fact lines batch-resolve source times independently of learned/recorded-validity time. Timeline ranges are labeled recorded validity and use full datetime precision. Summary labels identify creation/update times and count toward budgets. Cold timestamp provenance is preserved when available; legacy missing provenance stays unknown. Linked graph claims carry source timestamps. These timestamps do not assert real event dates or repair out-of-order validity inference.
 
@@ -1530,7 +1388,7 @@ retrospective evidence, not independent temporal answer accuracy. See
 
 - **T3 — time-scoped reads.** Under `as_of`/`range`, every episodic leg gains `timestamp >= t0 AND timestamp < t1`; the `is_archived = false` filter and the 0.2 decay floor drop under any non-current mode (D10: "archived" means not-relevant-to-*now* — exactly what a time query is not asking). **Mode-aware recency (D9):** the C8 in-score factor becomes `EXP(-ABS(timestamp - center)/τ)` with a movable origin — current: center=now (numerically identical to the old formula for past rows); as_of: center=window midpoint, boost applies even to creative (target-proximity, not freshness), τ widens with the window; range/evolution: flat. A11's codex edge-recency re-anchors to |T − valid_from| the same way. **Codex valid_at(T) (D4):** the four `valid_until IS NULL` read sites became `_edge_valid_filters()` — under a window, `valid_from <= T AND (valid_until IS NULL OR valid_until > T)` with T = window end ("state as of then" = everything established *by* then); evolution mode deliberately navigates the *current* graph (D5 — dead-edge walking makes incoherent neighborhoods; history is T4's timeline builder). Procedural patterns filter on observation-span overlap; post-fusion now-bonuses are gated off. **Cold second chance (D-U1, user decision):** cold hits that survive the budget are resurrected into episodic_memory at their ORIGINAL timestamp with decay = `timescope_probation_score` (0.12, just above the 0.1 archive line) — unengaged, decay re-archives them within days; engaged, write-on-read strengthening saves them; never restored at full strength. Legacy cold rows (NULL conversation_id, pre-migration) are cite-only. **Honest emptiness:** a windowed query with no episodic matches appends a `[Memory note]` naming the window (and the nearest eras from an unwindowed probe) — never silently widens. The probe drops the **window**, never the **scope**: it runs through `_conv_scope_filter` like every other episodic read (G29, 2026-07-28 — it hand-rolled `if conv_id` until then, so a project-scoped question was told about other projects' eras). **Decay fixes (D11/D12):** the archived-freeze bug is fixed (archived rows kept `is_archived = FALSE` filters on the decay UPDATEs, freezing them at ~0.1 forever — cold storage was unreachable); archived rows now keep decaying, a symmetric un-archive clause restores strengthen-driven recoveries, and the cold move carries conversation_id/is_private/batch_id (migration e5b8c2d4a917, which also added the timestamp and (source,valid) indexes).
 
-- **T4 — evolution surfacing** (`retrieval/evolution.py` — DB-reading, no LLM, free of orchestrator state so E0 wraps the functions as services and D1's agent can drive them; no REST endpoints by design). **The D6 discriminator** lives in this module and nowhere else: an expired edge counts as *history* only when its expiry is **event-backed** (a matching `edge_expired` journal event — A6 reconciliation, A8 negation, property update) and the reason is not `source_deleted` (C10: deletion is not evolution). An eventless expiry is codex_decay forgetting — a faded idea is not a revised idea, so it never enters a timeline. Four functions: `history_exists(db, entity_id)` — the cheap EXISTS gate; `build_entity_timeline(db, entity, allowed_batch_ids, t0, t1, max_transitions)` — groups an entity's edges by (relation, direction) into supersession chains and renders one dated line per member with recorded datetime precision (historical rendering: `2025-11 – 2026-02: saga --planned_as--> multiverse destruction  (superseded: antonym_superseded)` / `2026-02 – now: …`; negated edges render `NOT <relation>`; reason falls back to "updated"), returns None when no event-backed expired member exists, keeps the most recent max_transitions lines ("(earlier history omitted)" when truncated), word-trims to timeline_max_tokens by dropping oldest lines; `entity_diff(db, entity, t0, t1)` — \{added, expired, retracted\} dicts with raw datetimes (the E0 service candidate and F3's timeline-overlay backend; exercised by tests until then); `log_description_update(db, entity, old, new, source)` — the **D13 never-overwrite journal**: every `entity.description` write site emits a `description_updated` CodexEvent with old/new snippets (reflection enrichment `source="reflection_enrichment"` — replacing its old opaque `context_appended` emit — and the inject watcher's update path `source="codex_inject"`; a future manual entity editor must use `source="manual_edit"`). **Wiring:** _codex_graph attaches a timeline fragment per history-carrying anchor **in any mode including current** (D-U2, user decision: evolution info is *provided, never forced* — the saga case needs no temporal wording; the model decides how much to narrate), scored 0.9× the anchor, capped (2 normal / 4 evolution), windowed by the active TimeScope; timelines fuse as their own leg (weight 0.6) with their own budget lane. Evolution mode additionally **era-stratifies the vector leg** (_stratify_by_era): the candidate pool widens to LIMIT 300 (no window, flat recency), is sorted by timestamp, cut into evolution_era_buckets (4) equal-count buckets, and each bucket keeps its top evolution_per_era (3) by score — so the idea's early life is represented instead of whichever era dominates similarity (row-shape-agnostic: C4's era digests can join the same candidate list). Evolution traversal stays over the *current* graph (D5) — dead edges are the timeline builder's input, never navigation's. This also completes T1's dated-facts story: expired facts in timelines render with recorded validity timestamps, closing the "…, superseded YYYY-MM" requirement.
+- **T4 — evolution surfacing, over facts since CODEX_V4 (2026-10-16)** (`retrieval/evolution.py` — DB-reading, no LLM, no REST endpoints by design). **History is replacement, never deletion:** an entity's history is its REPLACED facts (`superseded_by` set by D6), each naming its successor; a fact expired by `/forget` or conversation deletion is never history, and a fact whose sources were all deleted is never shown anywhere (`facts.has_source`). Functions: `entity_diff(db, entity, t0, t1)` → `{added, expired, retracted}` (facts first stated in the window; facts that stopped being current in it, with the replacing sentence; `retracted` stays in the shape and is empty — negation lives in the sentence), and `log_description_update(...)` — the **D13 never-overwrite journal** for the one mutable entity field. `services/graph.entity_timeline` lists replaced facts (`facts.entity_facts(current=False)`). **In retrieval** there is no timeline fragment any more: a current fact renders its newest visible replaced predecessor inline (§4.3). Evolution mode still **era-stratifies the vector leg** (_stratify_by_era): the candidate pool widens to LIMIT 300 (no window, flat recency), is sorted by timestamp, cut into evolution_era_buckets (4) equal-count buckets, and each bucket keeps its top evolution_per_era (3) by score. (The v2/v3 edge timeline — `history_exists`, `build_entity_timeline`, the 0.9× timeline leg — is described in `docs/outdated/ICE_Architecture_section4_codex_v2_v3.md`.)
 
 **V3 archival and probation reach, 2026-10-09.** Warm original readers also remove the current-only archive exclusion and 0.2 hard decay floor: the former floor made a newly restored 0.12 probation source disappear on its next ordinary query. BM25/vector/chunks/wide-net keep their candidate caps, positive-score requirement, decay-dependent ranking, source/recording-date constraints and global reranker. Graph validity/confidence and all decay/activation/retirement/reinforcement policies are unchanged. Archival changes priority and storage rather than source truth. Warm-vector controls remain physical-warm only, now including archived/probation rows.
 
@@ -1641,7 +1499,7 @@ budget. This is output integrity, not semantic qualification of rolling summarie
 
 **Runtime lease & standby (E7, 2026-07-16).** A `runtime_lease` pseudo-row in the same ledger (same pattern as the `session_end_burst` stamp) marks which *process* owns maintenance: the owning runtime stamps it on start and every tick, and releases it (`last_started = NULL`) on clean stop. `create_core(start_runtime: bool | None = None)` is lease-checked by default: a fresh foreign lease (< 180 s ≈ 3 ticks) means another process — the app or an `ice-mcp` session — owns maintenance, so this core's runtime starts in **standby**: its event jobs (this process's own post-flight chains, bookmark extractions) still run, but periodic/overdue dispatch, the session-end burst, and lease stamping stay with the owner; when the owner exits and its lease goes stale, the standby **promotes itself** on the next tick (`maintenance_runtime_promoted`). Cross-process event duplication is already safe (idempotency keys + the per-job claim lease above); what the lease serializes is the *dispatcher* — at most one process runs the periodic maintenance schedule. `start_runtime=True` force-owns (recovery), `False` starts no runtime at all (tests, pure-read tools).
 
-Cadences (`settings.maintenance_intervals`, seconds — the old beat schedule carried over, G9-aligned): cluster_assignment 1 800 · cluster_merge 10 800 · chunk_pending_documents 7 200 · decay_episodic/codex/procedural 5 400 · reflection 7 200 · batch_summarize 7 200 · **conversation_summary 7 200 (C4, 2026-07-19 — the evolving whole-conversation summaries, §8.13; also a session-end-burst member; idempotent per covers_through so cadence passes on quiet conversations are no-ops)** · **compaction 86 400 (newly scheduled — G10 settled)** · **maintenance_agent 43 200 (D1, 2026-07-17 — replaced sentinel_monitor's 1 800 entry; gpu lane, also rides the session-end burst)** · **ingest_folder 900 (C12, 2026-07-28 — the watch-folder scan that replaced the never-started drop-zone observer, §8.12)** · **project_poll 600 (E3, 2026-07-18 — the reconcile-on-commit fallback: checks registered projects for hook marker files + HEAD drift; the hook is the design, this is the ≤10-min lag path, §12.3)**. **Fine-tuning has no cadence** — it is consent-gated (D6/H5, §8.8): enough curated labels + a session end → runs only when `settings.auto_finetune` (default False), else one pending review-queue proposal.
+Cadences (`settings.maintenance_intervals`, seconds — the old beat schedule carried over, G9-aligned): cluster_assignment 1 800 · cluster_merge 10 800 · chunk_pending_documents 7 200 · decay_episodic/codex/procedural 5 400 · reflection 7 200 · batch_summarize 7 200 · **conversation_summary 7 200 (C4, 2026-07-19 — the evolving whole-conversation summaries, §8.13; also a session-end-burst member; idempotent per covers_through so cadence passes on quiet conversations are no-ops)** · ~~compaction~~ (deleted with CODEX_V4, D11.2) · **maintenance_agent 43 200 (D1, 2026-07-17 — replaced sentinel_monitor's 1 800 entry; gpu lane, also rides the session-end burst)** · **ingest_folder 900 (C12, 2026-07-28 — the watch-folder scan that replaced the never-started drop-zone observer, §8.12)** · **project_poll 600 (E3, 2026-07-18 — the reconcile-on-commit fallback: checks registered projects for hook marker files + HEAD drift; the hook is the design, this is the ≤10-min lag path, §12.3)**. **Fine-tuning has no cadence** — it is consent-gated (D6/H5, §8.8): enough curated labels + a session end → runs only when `settings.auto_finetune` (default False), else one pending review-queue proposal.
 
 **Decay catch-up is closed-form:** the decay callables take `cycles: int = 1`, and the runtime computes `cycles = clamp(floor((now − last_finished)/interval), 1, 96)` from the job's own ledger row at dispatch — one UPDATE applies `rate ** cycles`, so a week of downtime collapses into a single statement and cycles can never double-count runs the tick already performed.
 
@@ -1700,11 +1558,16 @@ independent field/attribution/completeness and answer-quality qualification rema
 open. Rolling and batch notes have their own source-bound policies (§8.8, §8.13).
 
 
-### **8.3 Codex Extractor**
+### **8.3 Fact extractor (codex)**
 
-Bookmark dispatch retains the `priority` argument for compatibility. In v3, the runtime owns scheduling and the extractor cooperatively yields at chunk boundaries; the argument does not bypass user-activity gating.
-
-codex_extractor.extract_codex(batch_id, model_used, priority) (§4.4) — plain callable since C7, idempotency key sha256("codex:" + batch_id), called directly from evaluate_turn for every non-private turn (gating/retries live in the runtime). Reads EpisodicMemory by batch_id, calls extract_triplets, validates/deduplicates, and calls handle_triplet per triplet.
+`fact_extractor.extract_facts(batch_id)` — the post-flight chained stage under
+`summary_assertion_method = "v4"` (§4.2); idempotency key `job_key("facts", batch_id)`;
+private turns skipped. Reuses the turn summary's verified v4 claims when they exist,
+otherwise runs the claim pass itself, then `facts.write_turn_facts` with the D6 call
+(`_ask`, background model or `codex_fact_reconcile_model`) and NuNER mention links
+(`_mentions`). WARNING `facts_none_written` when a turn over 50 words yields no fact.
+Standalone job `facts_extract` (bookmarks). The NuExtract3 triplet extractor it replaced is
+described in the outdated §4 file.
 
 ### **8.4 Procedural Extractor**
 
@@ -1781,9 +1644,9 @@ store and ORM-created experiment schema. The former raw inserts relied on server
 defaults absent from the latter. Payloads and human approval remain unchanged;
 neither producer directly applies the proposed slot or cluster change.
 
-32. **`_enrich_codex_entities`** (ENRICHMENT_PROMPT, global pass; A7.3) — fills each entity's **description** (the rich "note body"). It selects up to 25/run — entities with an *empty* description ranked by mention count first, then stale well-mentioned notes (>14 days) for refresh — summarises the originating episodic passages with the background model into a concise domain-general note, writes it to **description** (NOT context_payload, which is auto-assembled and would be overwritten), then calls _regenerate_context_payload so the note becomes description + properties + links + backlinks, and journals the overwrite via `log_description_update(..., source="reflection_enrichment")` — a `description_updated` CodexEvent with old/new snippets (T4/D13 never-overwrite; replaces the old opaque `context_appended` emit, which remains in old journals as readable history). Reflection **does not add edges** — it only enriches entity descriptions. This is the engine that turns codex nodes from label strings into real Obsidian-style notes.
+32. **~~`_enrich_codex_entities`~~ — REMOVED (CODEX_V4 D11.1, 2026-10-16).** No model-written entity notes for conversation entities; `run_reflection` keeps an `entity_enrichment_receipt_v1` receipt (`skipped: codex_v4_facts`). An entity page is its facts plus the user's own description.
 
-**v3 entity enrichment contract, 2026-10-09:** the preceding paragraph's
+**v3 entity enrichment contract, 2026-10-09 — superseded by CODEX_V4 (`memory/entity_notes.py` deleted):**
 ENRICHMENT_PROMPT/passage-prefix generator is superseded. Existing25/run and
 14-day refresh policy remain. `memory/entity_notes.py` loads up to eight complete
 event-linked warm/cold originals, preserves supplied roles and uses the P1
@@ -1823,6 +1686,26 @@ membership/primary IDs before deleting the absorbed cluster; unknown legacy
 membership stays unknown. The ten-source label/cast cap does not cap counts or
 centroids. Assignment/merge thresholds and cadence are unchanged. Source casts
 refresh on membership changes independently of the five-member label cadence.
+
+
+### **8.7b Cluster naming and description — ⛔ UNMEASURED, and one attempt to measure it was invalid**
+
+`_create_cluster_from_members` generates BOTH a `name` and a `description` from the same members, each grounded with `_recurring_member_entities(turns)`. **Neither has a qualified real-cluster aptness rate.**
+
+**V3 source/label repair, 2026-10-09:** generated entity names previously
+supplied assignment/merge overlap. An actual SQL opposing control shows a
+planted cast causes an otherwise ineligible merge. Cast now comes from a
+deterministic cohort of at most ten distinct actual warm/cold originals, using
+existing NuNER plus literal mention grounding. Generated labels have no merge
+authority. Complete attributed member input includes short/chapter/late text;
+unknown roles remain unknown. Existing E4B capacity/finish guards and typed JSON
+use160/500-token name/description reserves; incomplete/invalid outputs preserve
+previous labels. Accepted labels are topical metadata, not NLI-supported facts.
+Worker/replay receipts distinguish admission attempts and failures from model
+calls or semantic accuracy. A real two-member NuNER/E4B/SQL path produced two
+complete labels; this is path validation, not corpus naming/coherence quality.
+
+⛔ **A 2026-08-27 attempt produced a 62-76% "wrong" rate and is RETRACTED**: the harness fed the namer *five arbitrary consecutive turns* with `recurring_entities=None`, so it asked for the shared subject of turns never established to share one, without the grounding production always supplies. It measured the harness. ⇒ **G74**, and the open question underneath it is whether the defect is the naming prompt or the CLUSTERING — if members are weakly grouped, there may be no right name available. Judge cluster coherence first, then naming conditional on it.
 
 ### **8.8 Batch Summariser**
 
@@ -1883,13 +1766,13 @@ fine_tune.fine_tune_classifier (proposal-only since C7 — the weekly crontab di
 
 ### **8.11 Compaction Worker**
 
-compaction.compact_entities (§4.8, runtime-scheduled every 24 h since C7 — G10 settled) snapshots entities with ≥100 uncompacted events. Current v3 uses the full projection checkpoint described in §4.8 and returns snapshot/consumed-event counts. A two-round real expiration/registry/collector control preserves unaffected edges and polarity; a concurrent new write stays outside the consistent view and remains pending. Commit failure rolls back snapshot and compacted markers together. These controls do not qualify natural retention or downstream memory quality.
+**DELETED with CODEX_V4 (D11.2, 2026-10-16):** compaction and `CodexSnapshot` (write-only for retrieval) are gone; facts are never rewritten, so there is no event backlog to snapshot. Code at `8079eb2`.
 
 ### **8.12 Watch Folder and Codex Inject Watcher**
 
 - **Watch folder** (`ingestion/documents/watch_folder.py`, C12 2026-07-28) — an ordinary **`ingest_folder` cpu-lane cadence job** (900 s) that scans `ingest_inbox/`, hands each settled file to the document service, and moves it to `processed/` (or `failed/`, so one broken file cannot block the queue forever). Dropped files belong to no conversation, so they land in the library **enabled nowhere** — the folder is not a back door into every chat. *This replaces v1's `workers/drop_zone.py`, a standalone `watchdog.Observer` process that **nothing ever started** (`./ice` launches uvicorn; C7 deleted Celery and drop_zone was never moved into `runtime.JOBS`), instantiated a second `PyTorchClassifier` at import (G13, now closed), and wrote 512-word slices straight into `rag_chunks` with no codex, clustering, summaries or scope.*
 
-- **Codex Inject Watcher** (workers/codex_inject_watcher.py) watches codex_inject/ for .yaml/.yml/.json files describing entities (canonical_name, aliases, tags, properties, context_payload, relations: [\{target, relation\}]). It resolves/creates entities with deterministic UUIDv5, and for each relation inserts a CodexEdge at strength=2.0, confidence="active" (manual injection = high confidence) plus a CodexEvent(event_type="edge_added", payload=\{"manual_injection": True\}), with an edge-existence check serving as idempotency. When an inject file **updates an existing entity's description**, the overwrite is journaled via `log_description_update(..., source="codex_inject")` (T4/D13); creating a new entity with an initial description is not an overwrite and is not journaled.
+- **~~Codex Inject Watcher~~** — `workers/codex_inject_watcher.py` was dead (nothing started it) and was **DELETED** with CODEX_V4 step 7 (2026-10-16).
 
 ### **8.13 Conversation Summary Worker (C4, 2026-07-19)**
 
@@ -2073,7 +1956,7 @@ The fields, grouped by concern:
 
 - **Embedding identity (G23/C17)**: embedding_model_name (Qwen/Qwen3-Embedding-0.6B), embedding_dim (1024) — the pair the startup guard compares against store_meta (§10.7); changing either requires a migration plus scripts/ice_reembed.py.
 
-- **Maintenance runtime (C7)**: maintenance_intervals (per-job cadences dict, §8.1), user_active_threshold_seconds (90), idle_burst_seconds (120), auto_finetune (False), finetune_min_curated (20), background_model_name (None ⇒ chat model), bg_timeout_base_seconds (30), **bg_disable_reasoning (True — sends `reasoning_effort="none"` on every background call; without it the whole background layer returns empty content, see §8)**, **job_yield_grace_seconds (10 — a RUNNING job stands down if the user did anything this recently, G4a §8.1)**, **codex_constrain_shape (True — JSON-schema constrained decoding on extraction; §4.4b)**, **codex_constrain_relation_enum (False — also pin `relation` to the 197-value vocabulary; measured to make ~78% of what it rescues wrong, kept switchable because the call is Z2's, §4.4b)**, **codex_extraction_max_tokens (1200 — raised from 500, where truncation cost whole turns)**.
+- **Maintenance runtime (C7)**: maintenance_intervals (per-job cadences dict, §8.1), user_active_threshold_seconds (90), idle_burst_seconds (120), auto_finetune (False), finetune_min_curated (20), background_model_name (None ⇒ chat model), bg_timeout_base_seconds (30), **bg_disable_reasoning (True — sends `reasoning_effort="none"` on every background call; without it the whole background layer returns empty content, see §8)**, **job_yield_grace_seconds (10 — a RUNNING job stands down if the user did anything this recently, G4a §8.1)**. (The codex extraction settings — `codex_constrain_shape`, `codex_constrain_relation_enum`, `codex_extraction_max_tokens` and ~50 more — were deleted with the edge extractor, CODEX_V4 2026-10-16; the fact codex's settings are listed in §4 and FEATURE_INVENTORY §3/§8.)
 
 - **Upstream LLM**: ollama_base_url (http://localhost:11434), default_fallback_model (qwen2.5:7b — ⚠ **measured broken on this machine**: degenerate repetition on short and long inputs; it is the floor under four different decisions. It used to be what a wrong working directory silently fell back to; **G31 closed that path 2026-08-08**, but the floor itself is still this model — A12 owns replacing it), background_model_mode (**shared** since C7 — dedicated is the manual power-user path).
 
@@ -2139,7 +2022,7 @@ Two members deserve detail:
 
 **`src/api/chat_commands.py` is adapter #3** (C11): in `chat_completions`, after conversation/scope resolution (the parser needs the conv row) and *before* classification (a command must never burn pre-flight latency), a first line starting with `/` routes to `try_handle(db, runtime, conv, text, scope)`. Handled commands **short-circuit the LLM entirely** — the confirmation streams as a minimal OpenAI `chat.completion.chunk` SSE sequence (`model="ice-commands"`) any frontend renders, and the turn is *not* stored (no episodic row, no post-flight; the journal is the record). An unrecognized `/x` gets a help hint, **never silent fallthrough** — a typo'd command must not leak into chat as a prompt. Only the first line is parsed; remaining lines are payload. The v1 set, each handler a short hop into a service: `/remember <text> [in <slot>] [@project|@conversation]` (tiered `append_to_slot`; G14 truncation surfaced in the confirmation), `/slots [tier]`, `/bookmark` (last *stored* turn — the just-streamed reply isn't stored until post-flight), `/search <query>` (`retrieval_svc.context_for` with main.py's scope dict passed verbatim — chat-path parity incl. incognito rules and the E11 project freshen; results render deterministically, date-stamped and source-tagged, **zero LLM**), `/scope auto|project|none` (passes existing cluster/filter state through so a bare `/scope` never wipes assignments), `/forget <text>` (**fuzzy + destructive ⇒ queues** a `forget_request` proposal listing the top matching turns (embedding, visibility-guarded, PgVector bindparam) and live edges (entity-name containment); zero matches queues nothing), `/delete-conversation` (dry-run manifest, then `confirm` within a 10-minute process-local TTL; double-confirm is an idempotent refusal), `/help`. Every applied command journals — slot writes carry `updated_by='chat_command'`, proposals record their proposer, and one `chat_command` structlog event fires per handled command (the F5 telemetry stream beside `mcp_tool_call`; per-command counts feed the F discoverability design conversation).
 
-**Validation (2026-07-19):** `tests/test_c10_c11.py` 56/56 — spec §4 checks 1–9: sole/corroborated/legacy edge fixture with explicit `edge_added` events, husk + hub survival, conversation B untouched, the full per-store sweep with manifest-count equality, dry-run identity, timeline/`history_exists` exclusion, mid-generation refusal, /remember tier + journaling, /slots render, /search dated-and-LLM-free (booby-trapped bg client), /forget queue → approve → apply, unknown-command hint, and the two-step confirm (incl. staling the deleted conversation's pending forget proposal). Regressions: services 48/48, mcp 21/21, c4_c9 28/28, session_scoping 13/13, smoke 72.
+**Validation (2026-07-19; ported to facts 2026-10-16 — 55/55, CODEX_V4 D10: sole-source fact expired + journaled, corroborated fact recounted, deleted quotes gone, no history from deletion):** `tests/test_c10_c11.py` 56/56 — spec §4 checks 1–9: sole/corroborated/legacy edge fixture with explicit `edge_added` events, husk + hub survival, conversation B untouched, the full per-store sweep with manifest-count equality, dry-run identity, timeline/`history_exists` exclusion, mid-generation refusal, /remember tier + journaling, /slots render, /search dated-and-LLM-free (booby-trapped bg client), /forget queue → approve → apply, unknown-command hint, and the two-step confirm (incl. staling the deleted conversation's pending forget proposal). Regressions: services 48/48, mcp 21/21, c4_c9 28/28, session_scoping 13/13, smoke 72.
 
 
 ## **12. Coding ICE (E-coding core, 2026-07-18)**
@@ -2250,11 +2133,15 @@ Text extraction sits behind `settings.document_extraction_engine` (`"builtin"` d
 
 ### v3 retention/support separation — 2026-09-13
 
+> ⚠ **Superseded by CODEX_V4 (2026-10-16):** the edge/claim/extractor machinery described in this dated section was deleted (CLEANUP ledger; code at `8079eb2`). The live codex is §4.
+
 Graph candidate retrieval does not write support. After final evidence eviction, chat records `prompt_prepared`; explicit context retrieval records `context_returned`. Only unique edge IDs attached to rendered fact lines increment `usage_count` and `last_accessed_at`, with retention strength boosted by 0.15 up to10. Cached note-only references are not counted yet. The shared write-off switch disables these updates. Neither stage claims the answer actually used a fact.
 
 Aging reduces conversation-edge strength to0.1 but never expires validity or demotes confidence. Quiet facts remain directly eligible based on extraction quality. Ranking adds at most a0.5 retention multiplier before the existing recency term; low-quality edges cannot use popularity to cross the direct quality gate. A different source batch can raise ordinary-edge support, while the same batch cannot reinforce itself; this is batch independence, not yet speaker/source-claim verification. Existing expired historical rows are not automatically revived. Migration `d9a1f4b72c60` adds usage/observation metadata without guessing old observations.
 
 ### v3 source-sentence Codex and NLI compression — 2026-09-14
+
+> ⚠ **Superseded by CODEX_V4 (2026-10-16):** the edge/claim/extractor machinery described in this dated section was deleted (CLEANUP ledger; code at `8079eb2`). The live codex is §4.
 
 New extraction processes authoritative speaker units separately with the deployed
 specialist, regardless of the foreground answer model. NuExtract's template adds
@@ -2513,6 +2400,8 @@ support, keeping all19,967 characters. Safe fallback is not useful compression
 or evidence of answer gains. [Provenance](PROVENANCE.md#2026-10-08--v3-incomplete-note-source-preservation).
 
 ### v3 NuExtract3 structured task and bounded output recovery — 2026-10-08
+
+> ⚠ **Superseded by CODEX_V4 (2026-10-16):** the edge/claim/extractor machinery described in this dated section was deleted (CLEANUP ledger; code at `8079eb2`). The live codex is §4.
 
 Template extraction now uses the specialist's typed string/verbatim-string
 fields and separate source/instruction/template sections. The old legacy tags

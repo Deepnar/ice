@@ -18,7 +18,7 @@ persistent, structured memory of everything it has discussed — entirely on you
 client  ──▶  ICE proxy  ──▶  local model (Ollama, or vLLM)
                │
                └── PostgreSQL + pgvector
-                   episodic · knowledge graph · procedural · documents
+                   episodic · codex facts · procedural · documents
 ```
 
 ---
@@ -80,12 +80,12 @@ alongside compressed representations and chooses between them at retrieval time.
 | Store | Contents | Retrieval |
 | :--- | :--- | :--- |
 | **Episodic** | every turn, with decay scores, summaries, and access counts | BM25 and decay-weighted vector search |
-| **Codex** | a temporally-versioned knowledge graph: entities, typed edges carrying `valid_from`/`valid_until`, an append-only event log | graph traversal from resolved entities |
+| **Codex** | verified, self-contained fact sentences (each with its quote, speaker and source turns) linked to entities; a fact carries `valid_from`/`valid_until` and the fact that replaced it, plus an append-only event log | keyword, meaning and named-entity search over the facts |
 | **Procedural** | recurring behavioural patterns mined from interaction history | vector match behind trigger conditions |
 | **Documents** | ingested files, chunked and embedded | chunk-level vector search |
 
 These are complemented by persistent **memory slots**, topical **context clusters**, **batch
-summaries**, **cold storage**, and a **timeline** leg serving temporal queries.
+summaries** and **cold storage**.
 V3 cold originals also compete in ordinary memory searches under the existing
 candidate and prompt budgets; a recording date is not required for recall.
 Warm archived and restored probation sources also remain eligible; decay still
@@ -97,11 +97,11 @@ The system has grown several capabilities that sit alongside the core loop:
 
 - **Temporal retrieval.** Memory is queryable along the time axis, not just by similarity:
   *as-of* ("what did I think about this in March?"), *range*, and *evolution* ("how did my
-  design for X change?") — backed by the knowledge graph's `valid_from`/`valid_until` edges,
-  so a superseded fact stays retrievable as history rather than being overwritten.
-- **Agentic maintenance.** A maintenance agent reconciles graph state during idle GPU time —
-  merging duplicate entities, resolving contradictions, and escalating anything ambiguous to
-  a review queue rather than guessing. Deterministic checks run first; the model is consulted
+  design for X change?") — backed by the codex facts' `valid_from`/`valid_until`, so a
+  replaced fact stays retrievable as history rather than being overwritten.
+- **Agentic maintenance.** A maintenance agent tidies memory during idle GPU time — merging
+  duplicate entities (journaled and undoable) and flagging stale slots and work. Whether a
+  new fact repeats, replaces or sits beside an older one is decided when the fact is written. Deterministic checks run first; the model is consulted
   only for genuinely ambiguous supersessions.
 - **Conversation import.** Exported histories from ChatGPT, Claude, and DeepSeek can be
   replayed through the full pipeline, reconstructing episodic, graph, procedural, and cluster
@@ -190,9 +190,10 @@ answer judge. The [next repair, tuning and evaluation plan](docs/specs/V3_POST_R
 keeps these findings separate from the frozen-v2 paper results above.
 
 Current **v3** repairs use bounded source-cited assertions for long summaries,
-preserve answer-bearing document chunks, correct NuExtract3's structured task
-input, and retain originals after incomplete notes. New graph writes combine
-NLI with an author-assertion check using the existing local background model,
+preserve answer-bearing document chunks, and retain originals after incomplete
+notes. The codex was rebuilt (CODEX_V4): the summary claim pass now writes short
+verified fact sentences instead of a graph of NuExtract3 triplets. Earlier v3 graph
+writes combined NLI with an author-assertion check using the local background model,
 so questions and proposed scenarios can remain source evidence without becoming
 established graph facts. These mechanisms have focused validation; corpus answer
 quality, context savings and independent judge qualification remain pending.
