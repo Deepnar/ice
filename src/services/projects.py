@@ -282,8 +282,9 @@ def decision_add(db: Session, ref, decision: str, rationale: str = "",
     entry dedupes and supersedes conflicting older decisions exactly like an
     extracted one. Status is E8's vocabulary — `recorded` | `duplicate`
     (nothing written, `existing` names the row) | `superseded` |
-    `conflict_queued` — never a bare "ok": a caller writing a decision that
-    silently collided with an active one needs to be told."""
+    `both_stand` (similar to `similar`, decided compatible — G77) — never a
+    bare "ok": a caller writing a decision that collided with an active one
+    needs to be told."""
     from src.workers.decision_extractor import _embed, reconcile_and_insert
     project = resolve_project(db, ref)
     if not (decision or "").strip():

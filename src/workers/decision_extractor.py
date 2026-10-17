@@ -19,8 +19,12 @@ similarity (D1-tier rules, thresholds in settings):
   ≥ conflict_threshold + overlapping files        → auto-supersede (Tier 1 —
       old row gets valid_until + superseded_by; supersession is first-class,
       no event journal);
-  ≥ conflict_threshold, no file overlap           → new row + review-queue
-      proposal (Tier 2, item_type='decision_supersession').
+  ≥ conflict_threshold, no file overlap           → new row, then one
+      background call in CODEX_V4 D6's framing ("can both be true now?")
+      decides it (Tier 2, G77 — no human wall): replaced ⇒ supersede as in
+      Tier 1; otherwise both stand. Either way an audit row
+      (item_type='decision_supersession', status applied | resolved);
+      `review.undo` reverses an applied supersession.
 
 Runs in the gpu-lane ``decision_extract`` runtime job (commit messages, via
 the reconciler) and as a direct call inside the post_flight chain for
@@ -148,7 +152,7 @@ def run_decision_extraction(db, project_id=None, text_content: str = "",
 
 
 def reconcile_and_insert(db, pid, extracted: dict, embedding, source_batch=None,
-                         origin: str = "") -> dict:
+                         origin: str = "", ask=None) -> dict:
     """E8's dedupe/supersession machinery — the ONLY way a decision row is
     written. Shared by the automatic extractor above and the manual
     `projects.decision_add` path.
@@ -159,13 +163,15 @@ def reconcile_and_insert(db, pid, extracted: dict, embedding, source_batch=None,
     MCP `decisions_add` wrote an unconditional duplicate active row. Anything
     that inserts a Decision goes through here.
 
-    Returns one of: duplicate (nothing written) | superseded (Tier 1) |
-    conflict_queued (Tier 2) | recorded (no similar active decision)."""
+    Returns one of: duplicate (nothing written) | superseded (Tier 1, or Tier 2
+    decided "replaced") | both_stand (Tier 2 decided compatible, or the call
+    failed) | recorded (no similar active decision). *ask* is D6's
+    two-question call (default `fact_extractor._ask`); tests inject it."""
     from src.api.config import settings
 
     # Dedupe/supersession against ACTIVE decisions of this project.
     sim_rows = db.execute(text("""
-        SELECT id, decision_type, files_affected,
+        SELECT id, decision, decision_type, files_affected,
                1 - (embedding <=> CAST(:emb AS vector)) AS sim
         FROM decisions
         WHERE project_id = :pid AND valid_until IS NULL
@@ -199,23 +205,56 @@ def reconcile_and_insert(db, pid, extracted: dict, embedding, source_batch=None,
                         new=str(new_row.id), sim=round(row.sim, 3))
             return {"status": "superseded", "id": str(new_row.id),
                     "superseded": str(row.id)}
-        # Tier 2: similar but different files — the user decides.
-        db.add(ReviewQueue(item_type="decision_supersession", item_content={
-            "new_id": str(new_row.id), "old_id": str(row.id),
-            "new_decision": extracted["decision"],
-            "similarity": round(float(row.sim), 3),
-            "suggested_action": "review: possibly supersedes an active "
-                                "decision touching different files"}))
-        db.commit()
-        logger.info("decision_conflict_queued", old=str(row.id),
-                    new=str(new_row.id))
-        return {"status": "conflict_queued", "id": str(new_row.id)}
+        # Tier 2: similar but different files — G77: decided now, never queued.
+        return _decide_tier2(db, row, new_row, extracted, ask)
 
     new_row = _insert(db, pid, extracted, embedding, source_batch)
     db.commit()
     logger.info("decision_recorded", id=str(new_row.id),
                 type=extracted["type"], origin=origin)
     return {"status": "recorded", "id": str(new_row.id), "type": extracted["type"]}
+
+
+def _decide_tier2(db, old, new_row, extracted: dict, ask) -> dict:
+    """G77 (maintainer, 2026-10-17): one background call in D6's framing. Only
+    "not the same information AND both cannot be true now" supersedes; a failed
+    call keeps both (TRAPS 99: unknown is never a replacement) and says so at
+    WARNING. D6 was qualified on codex facts (CODEX_V4 §5.2), never on coding
+    decisions — Z2 / the audit rows are where that gets measured."""
+    if ask is None:
+        from src.workers.fact_extractor import _ask as ask
+    answer, error = None, None
+    try:
+        raw = ask(old.decision, extracted["decision"])
+        answer = {"same_information": bool(raw["same_information"]),
+                  "both_can_be_true": bool(raw["both_can_be_true"])}
+    except Exception as exc:                                   # noqa: BLE001
+        error = type(exc).__name__
+        logger.warning("decision_tier2_decide_failed", error=error, old=str(old.id),
+                       new=str(new_row.id), fallback="both_stand")
+    replaced = bool(answer) and not answer["same_information"] \
+        and not answer["both_can_be_true"]
+    if replaced:
+        db.execute(text("""
+            UPDATE decisions SET valid_until = :now, superseded_by = :new
+            WHERE id = :old AND valid_until IS NULL
+        """), {"now": datetime.now(timezone.utc), "new": new_row.id, "old": old.id})
+    db.add(ReviewQueue(
+        item_type="decision_supersession",
+        status="applied" if replaced else "resolved",
+        item_content={
+            "new_id": str(new_row.id), "old_id": str(old.id),
+            "old_decision": old.decision, "new_decision": extracted["decision"],
+            "similarity": round(float(old.sim), 3),
+            "verdict": "superseded" if replaced else "both_stand",
+            "answer": answer, "error": error, "method": "codex_v4_d6_two_questions",
+            "undo": "review.undo(item_id)" if replaced else None}))
+    db.commit()
+    logger.info("decision_tier2_decided", old=str(old.id), new=str(new_row.id),
+                verdict="superseded" if replaced else "both_stand")
+    if replaced:
+        return {"status": "superseded", "id": str(new_row.id), "superseded": str(old.id)}
+    return {"status": "both_stand", "id": str(new_row.id), "similar": str(old.id)}
 
 
 def _insert(db, pid, extracted: dict, embedding, source_batch) -> Decision:
