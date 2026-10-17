@@ -11,8 +11,10 @@ Three risk tiers govern write authority (D2):
   Tier 0 — deterministic, auto-applied: normalization-equal duplicate merges.
   Tier 1 — auto-applied + journaled: reconciliation leftovers re-decided with
            fuller context (LLM), pending-edge dedupe.
-  Tier 2 — LLM-proposed, review-queued (≤5/run): near-duplicate entity merges,
-           stale-slot rewrites and source-unverified contradiction candidates.
+  Tier 2 — LLM-decided: near-duplicate entity merges (CODEX_V4 D12) and
+           stale-slot removals (G77) apply themselves with an `applied` audit
+           row that `review.undo` reverses; a stale-slot rewrite that adds
+           text is dismissed. Stale-work notices are written `applied` (G77).
 
 Every run gets an ``agent_run_id``; every graph write journals CodexEvents
 with ``source: "maintenance_agent"`` (G17) and ``batch_source = agent_run_id``
@@ -309,46 +311,53 @@ def _merge_order(db, id_a, id_b):
 
 
 def _detect_stale_slot(db, cap: int) -> list:
-    """D3.5: the sentinel absence rule, ported — the pending_items slot has
-    content but hasn't been touched in settings.agent_stale_slot_days. Skipped while a
-    proposal for the slot is already pending, or the user rejected one since
-    the slot last changed (their "no" stands until the slot moves)."""
+    """D3.5: the sentinel absence rule, ported — a pending_items slot (any tier)
+    has content but hasn't been touched in settings.agent_stale_slot_days.
+    Keyed by the slot ROW: since C9 the name alone matches one row per tier and
+    anchor. Skipped while a proposal for the slot is pending, or a rejected /
+    dismissed one is newer than the slot's last change (the "no" stands until
+    the slot moves). Python's clock, not SQL NOW() — replays patch it."""
     if cap <= 0:
         return []
     cutoff = datetime.now(timezone.utc) - timedelta(days=settings.agent_stale_slot_days)
-    row = db.execute(text("""
-        SELECT slot_name, last_updated FROM memory_slots
-        WHERE slot_name = :slot
-          AND content IS NOT NULL AND content != ''
-          AND last_updated < :cutoff
-        LIMIT 1
-    """), {"slot": STALE_SLOT_NAME, "cutoff": cutoff}).first()
-    if row is None:
-        return []
-    blocker = db.execute(text("""
-        SELECT 1 FROM review_queue
-        WHERE item_type = 'memory_slot_update'
-          AND item_content->>'slot_name' = :slot
-          AND (status = 'pending'
-               OR (status = 'rejected' AND created_at > :since))
-        LIMIT 1
-    """), {"slot": STALE_SLOT_NAME, "since": row.last_updated}).first()
-    if blocker is not None:
-        return []
+    rows = db.execute(text("""
+        SELECT s.id, s.slot_name, s.scope_tier, s.project_id, s.conversation_id,
+               s.last_updated
+        FROM memory_slots s
+        WHERE s.slot_name = :slot AND s.is_active
+          AND s.content IS NOT NULL AND s.content != ''
+          AND s.last_updated < :cutoff
+          AND NOT EXISTS (
+              SELECT 1 FROM review_queue rq
+              WHERE rq.item_type = 'memory_slot_update'
+                AND (rq.item_content->>'slot_id' = s.id::text
+                     OR (rq.item_content->>'slot_id' IS NULL
+                         AND s.scope_tier = 'global'
+                         AND rq.item_content->>'slot_name' = s.slot_name))
+                AND (rq.status = 'pending'
+                     OR (rq.status IN ('rejected', 'dismissed')
+                         AND rq.created_at > s.last_updated)))
+        ORDER BY s.last_updated ASC
+        LIMIT :cap
+    """), {"slot": STALE_SLOT_NAME, "cutoff": cutoff, "cap": cap}).fetchall()
     return [WorkItem("stale_slot", 2, {
-        "slot_name": row.slot_name,
-        "last_updated": row.last_updated.isoformat() if row.last_updated else None})]
+        "slot_id": str(r.id), "slot_name": r.slot_name, "scope_tier": r.scope_tier,
+        "project_id": str(r.project_id) if r.project_id else None,
+        "conversation_id": str(r.conversation_id) if r.conversation_id else None,
+        "last_updated": r.last_updated.isoformat() if r.last_updated else None})
+        for r in rows]
 
 
 
 
 def _detect_stale_work(db, cap: int) -> list:
     """E3 (coding-core D5 step 4): project tasks untouched > settings.agent_stale_task_days
-    become Tier-2 proposals — detection is deterministic (no LLM), the review
-    queue is the notifier (no parallel notification system). Skipped while a
-    proposal for the task is pending, or rejected since the task last moved
-    (the user's "no" stands until the task moves). Payload carries branch +
-    goal so drift is visible to the reviewer."""
+    become notices — detection is deterministic (no LLM), the review queue is
+    the notifier (no parallel notification system). G77: a notice changes no
+    state, so it is written `applied` (nothing waits on a person). Skipped
+    while a notice for the task is newer than the task's last move (or a legacy
+    pending / rejected one is). Payload carries branch + goal so drift is
+    visible."""
     if cap <= 0:
         return []
     cutoff = datetime.now(timezone.utc) - timedelta(days=settings.agent_stale_task_days)
@@ -366,13 +375,17 @@ def _detect_stale_work(db, cap: int) -> list:
                   WHERE rq.item_type = 'stale_work'
                     AND rq.item_content->>'task_id' = t.id::text
                     AND (rq.status = 'pending'
-                         OR (rq.status = 'rejected' AND rq.created_at > t.updated_at))
+                         OR (rq.status IN ('rejected', 'applied')
+                             AND rq.created_at > t.updated_at))
               )
             ORDER BY t.updated_at ASC
             LIMIT :cap
         """), {"cutoff": cutoff, "cap": cap}).fetchall()
-    except Exception:
+    except Exception as exc:                                       # noqa: BLE001
+        # A schema error must not read as "nothing stale" (TRAPS 11).
         db.rollback()
+        logger.warning("stale_work_detector_failed", error=f"{type(exc).__name__}: {exc}"[:200],
+                       fallback="no_items")
         return []
     now = datetime.now(timezone.utc)
     return [WorkItem("stale_work", 2, {
@@ -549,26 +562,28 @@ def _decide_duplicate(db, item: WorkItem, llm_decider) -> str:
 
 def _decide_stale_slot(db, item: WorkItem, llm_decider) -> Optional[str]:
     """D3.5 Tier 2: a content suggestion (not an enum) from recent turns;
-    empty/None ⇒ nothing to propose."""
+    empty/None ⇒ nothing to propose. A conversation-tier slot is judged
+    against its own conversation's turns; other tiers against any."""
     slot = db.execute(text(
-        "SELECT content FROM memory_slots WHERE slot_name = :s LIMIT 1"),
-        {"s": item.payload["slot_name"]}).first()
+        "SELECT content FROM memory_slots WHERE id = :id"),
+        {"id": item.payload["slot_id"]}).first()
     if slot is None:
         return None
-    recents = db.execute(text("""
+    conv_id = item.payload.get("conversation_id")
+    recents = db.execute(text(f"""
         SELECT timestamp, COALESCE(summary_text, raw_text) AS txt
         FROM episodic_memory
-        WHERE is_private = FALSE
+        WHERE is_private = FALSE{" AND conversation_id = :cid" if conv_id else ""}
         ORDER BY timestamp DESC LIMIT 5
-    """)).fetchall()
+    """), {"cid": conv_id} if conv_id else {}).fetchall()
     recent_lines = "\n".join(
         f"- [{r.timestamp:%Y-%m-%d}] {(r.txt or '')[:200]}" for r in recents)
     prompt = (
         f'The user\'s "{item.payload["slot_name"]}" memory slot has not changed in '
-        f"{settings.agent_stale_slot_days}+ days. Suggest an updated version: keep items that "
-        "still look open, drop ones the recent conversations show as done or "
-        "abandoned. Do not invent new items.\n"
-        f"Current content:\n{(slot.content or '')[:600]}\n\n"
+        f"{settings.agent_stale_slot_days}+ days. Suggest an updated version: copy each "
+        "line that still looks open exactly as written, and leave out lines the recent "
+        "conversations show as done or abandoned. Do not add, merge or reword lines.\n"
+        f"Current content:\n{slot.content or ''}\n\n"
         f"Recent conversation summaries:\n{recent_lines}\n\n"
         'Reply with one JSON object: {"suggestion": "<the updated slot content>"} '
         '— or {"suggestion": ""} if the current content still looks right.'
@@ -633,18 +648,58 @@ def _dismiss_pair(db, item: WorkItem, verdict: str, run_id) -> str:
     return verdict
 
 
-def _propose_slot(db, item: WorkItem, suggestion: str, run_id) -> str:
-    from src.memory.models import ReviewQueue
-    db.add(ReviewQueue(item_type="memory_slot_update", item_content={
-        "slot_name": item.payload["slot_name"],
-        "proposed_content": suggestion,
-        "proposed_by": "agent",       # C9 D7: recorded as updated_by on apply
-        "reason": f"slot untouched > {settings.agent_stale_slot_days}d (maintenance agent)",
-        "agent_run_id": str(run_id)}))
-    db.commit()
-    logger.info("agent_action", action="stale_slot", outcome="proposed",
-                slot=item.payload["slot_name"], agent_run_id=str(run_id))
-    return "proposed"
+def _slot_lines(content: str) -> list:
+    """Lines compared by their words: whitespace and a leading bullet mark do not
+    make a kept line 'new'."""
+    out = []
+    for line in (content or "").splitlines():
+        words = " ".join(line.split()).lstrip("-*•· ").strip()
+        if words:
+            out.append(words)
+    return out
+
+
+def _apply_slot_removal(db, item: WorkItem, suggestion: str, run_id) -> str:
+    """G77 (maintainer, 2026-10-17): a stale-slot suggestion applies itself only
+    when it is a pure removal — every suggested line is already a line of the
+    slot ("drop what is done" is checkable; anything added is not). Applied
+    through slots.write_journaled (undo restores the old text); a suggestion
+    that adds or rewords text is dismissed, which also blocks re-asking until
+    the slot changes."""
+    from src.memory.models import MemorySlot, ReviewQueue
+    from src.services import slots as slots_svc
+    slot = db.get(MemorySlot, uuid.UUID(item.payload["slot_id"]))
+    if slot is None:
+        return "skipped"
+    current = (slot.content or "").splitlines()
+    keys = [_slot_lines(line) for line in current]
+    current_set = {k[0] for k in keys if k}
+    kept = set(_slot_lines(suggestion))
+    if not kept <= current_set:
+        db.add(ReviewQueue(item_type="memory_slot_update", status="dismissed", item_content={
+            "slot_id": str(slot.id), "slot_name": slot.slot_name,
+            "proposed_content": suggestion, "proposed_by": "agent",
+            "reason": "adds_or_rewords_text (G77: only pure removals apply)",
+            "added_lines": sorted(kept - current_set)[:10],
+            "agent_run_id": str(run_id)}))
+        db.commit()
+        logger.info("agent_action", action="stale_slot", outcome="dismissed_adds_text",
+                    slot=slot.slot_name, agent_run_id=str(run_id))
+        return "dismissed"
+    if kept == current_set:
+        return "no_change"
+    new_lines = [line for line, k in zip(current, keys) if not k or k[0] in kept]
+    removed = [k[0] for k in keys if k and k[0] not in kept]
+    slots_svc.write_journaled(
+        db, slot.slot_name, "\n".join(new_lines).strip(), updated_by="agent",
+        scope_tier=slot.scope_tier or "global", project_id=slot.project_id,
+        conversation_id=slot.conversation_id,
+        audit={"reason": f"slot untouched > {settings.agent_stale_slot_days}d; "
+                         "lines shown done or abandoned (maintenance agent)",
+               "removed_lines": removed, "agent_run_id": str(run_id)})
+    logger.info("agent_action", action="stale_slot", outcome="applied",
+                slot=slot.slot_name, removed=len(removed), agent_run_id=str(run_id))
+    return "applied"
 
 
 # ═══ The run (spec §2) ═══════════════════════════════════════════════════════
@@ -736,25 +791,28 @@ def _process(db, item: WorkItem, llm_decider, run_id, counters) -> str:
         suggestion = _decide_stale_slot(db, item, llm_decider)
         if not suggestion:
             return "no_suggestion"
-        if counters["proposals"] >= settings.agent_max_tier2_proposals:
+        if counters["applications"] >= settings.agent_max_applications:
             return "skipped_cap"
-        counters["proposals"] += 1
-        return _propose_slot(db, item, suggestion, run_id)
+        outcome = _apply_slot_removal(db, item, suggestion, run_id)
+        if outcome == "applied":
+            counters["applications"] += 1
+        return outcome
 
     if item.item_type == "stale_work":
-        # E3: deterministic Tier-2 — the item payload IS the proposal
-        # (self-describing for F2); no LLM decision needed.
+        # E3: deterministic — the item payload IS the notice (self-describing
+        # for F2); no LLM decision needed. G77: it changes no state, so it is
+        # written `applied` — a logged notice, not a pending gate.
         if counters["proposals"] >= settings.agent_max_tier2_proposals:
             return "skipped_cap"
         from src.memory.models import ReviewQueue
-        db.add(ReviewQueue(item_type="stale_work", item_content={
+        db.add(ReviewQueue(item_type="stale_work", status="applied", item_content={
             **item.payload, "agent_run_id": str(run_id)}))
         db.commit()
         counters["proposals"] += 1
-        logger.info("agent_action", action="stale_work", outcome="proposed",
+        logger.info("agent_action", action="stale_work", outcome="notified",
                     task_id=item.payload.get("task_id"),
                     agent_run_id=str(run_id))
-        return "proposed"
+        return "notified"
 
     logger.warning("agent_unknown_item_type", item_type=item.item_type)
     return "unknown"

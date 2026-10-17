@@ -218,201 +218,68 @@ try:
     check("an undone pair is not re-merged (detector skips it)",
           not any(i.payload["pair_key"] == key_12 for i in items))
 
-    # ═══ 3. Pending-edge pileup → Tier-1 dedupe/expire ═════════════════════
-    print("── 3. Pileup: pending duplicates expired with events ──")
-    hub = mkent(f"{MARK} hub")
-    targets = [mkent(f"{MARK} spoke{i}") for i in range(4)]
-    pend_ids, act_ids = [], []
-    for t in targets:
-        act_ids.append(mkedge(hub, t, "uses", confidence="active",
-                              extraction_confidence=0.5).id)
-        pend_ids.append(mkedge(hub, t, "uses", confidence="pending",
-                               extraction_confidence=0.95).id)
-    db.commit()
-    hub_id = hub.id
+    # §3 pileup and §4 contradictions tested detectors deleted with the edge
+    # codex (CODEX_V4 step 7, def7309); ported out 2026-10-17.
 
-    items = ma._detect_pending_pileup(db, 50)
-    mine = [i for i in items if i.payload["entity_id"] == str(hub_id)]
-    check("detector 2 (ported sentinel query) finds the pileup entity",
-          len(mine) == 1)
-    run3 = newrun()
-    outcome = ma._process(db, mine[0], None, run3,
-                          {"llm_decisions": 0, "applications": 0, "proposals": 0})
-    db.expire_all()
-    pend_expired = all(db.query(CodexEdge).get(i).valid_until is not None
-                       for i in pend_ids)
-    act_live = all(db.query(CodexEdge).get(i).valid_until is None
-                   for i in act_ids)
-    check("all pending duplicates expired; actives untouched",
-          outcome == "applied" and pend_expired and act_live)
-    check("active kept the max extraction_confidence",
-          db.query(CodexEdge).get(act_ids[0]).extraction_confidence == 0.95)
-    ev3 = agent_events(run3)
-    check("pileup expiries journaled with source=maintenance_agent",
-          len(ev3) == 4 and all(r.payload.get("source") == "maintenance_agent"
-                                and r.payload.get("reason") == "pending_duplicate"
-                                for r in ev3))
-
-    # ═══ 4. Contradiction backlog → reconciled (newer supersedes) ══════════
-    print("── 4. Contradictions: polarity + antonym pairs ──")
-    s1, t1 = mkent(f"{MARK} subj1"), mkent(f"{MARK} obj1")
-    pos = mkedge(s1, t1, "uses", valid_from=NOW - timedelta(days=30))
-    neg = mkedge(s1, t1, "uses", negated=True, valid_from=NOW - timedelta(days=1))
-    s2, t2 = mkent(f"{MARK} subj2"), mkent(f"{MARK} obj2")
-    friend = mkedge(s2, t2, "friend", valid_from=NOW - timedelta(days=30))
-    enemy = mkedge(s2, t2, "enemy", valid_from=NOW - timedelta(days=1))
-    db.commit()
-    pos_id, neg_id, friend_id, enemy_id = pos.id, neg.id, friend.id, enemy.id
-
-    items = ma._detect_contradictions(db, 50)
-    mine_pol = [i for i in items if i.payload["old_edge_id"] == str(pos_id)]
-    mine_ant = [i for i in items if i.payload["old_edge_id"] == str(friend_id)]
-    check("polarity candidate detected (older positive shown first)",
-          len(mine_pol) == 1 and mine_pol[0].payload["kind"] == "polarity")
-    check("opposition candidate detected (older friend shown first)",
-          len(mine_ant) == 1 and mine_ant[0].payload["kind"] == "antonym")
-    run4 = newrun()
-    ctr = {"llm_decisions": 0, "applications": 0, "proposals": 0}
-    o1 = ma._process(db, mine_pol[0], None, run4, ctr)
-    o2 = ma._process(db, mine_ant[0], None, run4, ctr)
-    db.expire_all()
-    check("both candidates proposed without automatic expiry",
-          o1 == "proposed" and o2 == "proposed"
-          and db.query(CodexEdge).get(pos_id).valid_until is None
-          and db.query(CodexEdge).get(neg_id).valid_until is None
-          and db.query(CodexEdge).get(friend_id).valid_until is None
-          and db.query(CodexEdge).get(enemy_id).valid_until is None)
-    check("proposals do not fabricate graph mutations",
-          len(agent_events(run4)) == 0 and ctr["proposals"] == 2)
-
-    # ═══ 5. Stale pending_items slot → Tier-2 proposal ═════════════════════
-    print("── 5. Stale slot: proposal written, blocker respected ──")
-    slot = db.query(MemorySlot).filter_by(slot_name="pending_items").first()
+    # ═══ 5. Stale pending_items slot → pure removal applies (G77) ═════════
+    print("── 5. Stale slot: pure removal applied + undoable ──")
+    slot = db.query(MemorySlot).filter_by(slot_name="pending_items",
+                                          scope_tier="global").first()
     if slot is not None:
         slot_snapshot = (slot.id, slot.content, slot.last_updated, slot.updated_by)
-        slot.content = f"{MARK} old pending stuff"
+        slot.content = f"{MARK} old pending stuff\n{MARK} still open"
         slot.last_updated = NOW - timedelta(days=20)
     else:
         slot_snapshot = None   # created by the test → delete on cleanup
         slot = MemorySlot(slot_name="pending_items",
-                          content=f"{MARK} old pending stuff",
+                          content=f"{MARK} old pending stuff\n{MARK} still open",
                           last_updated=NOW - timedelta(days=20),
                           updated_by="user")
         db.add(slot)
     db.commit()
 
-    items = ma._detect_stale_slot(db, 5)
-    check("detector 5 (ported absence rule) fires on the stale slot",
+    items = [i for i in ma._detect_stale_slot(db, 5) if i.payload["slot_id"] == str(slot.id)]
+    check("detector 5 (ported absence rule) fires on the stale slot, keyed by row",
           len(items) == 1 and items[0].payload["slot_name"] == "pending_items")
-    stub_sugg = lambda prompt, max_tokens=200: {"suggestion": f"{MARK} updated pending list"}  # noqa: E731
+    stub_sugg = lambda prompt, max_tokens=200: {"suggestion": f"{MARK} still open"}  # noqa: E731
     run5 = newrun()
     outcome = ma._process(db, items[0], stub_sugg, run5,
                           {"llm_decisions": 0, "applications": 0, "proposals": 0})
-    prop = db.query(ReviewQueue).filter(
+    applied = db.query(ReviewQueue).filter(
         ReviewQueue.item_type == "memory_slot_update",
         ReviewQueue.item_content["agent_run_id"].astext == str(run5)).first()
-    check("slot proposal written (memory_slot_update — approve arm applies it)",
-          outcome == "proposed" and prop is not None
-          and MARK in prop.item_content.get("proposed_content", ""))
-    check("pending proposal blocks re-detection",
-          ma._detect_stale_slot(db, 5) == [])
+    db.refresh(slot)
+    check("pure removal applied itself, journaled (G77)",
+          outcome == "applied" and applied is not None and applied.status == "applied"
+          and slot.content == f"{MARK} still open")
+    check("applied slot is no longer stale",
+          not [i for i in ma._detect_stale_slot(db, 5) if i.payload["slot_id"] == str(slot.id)])
+    from src.services import review as review_svc
+    review_svc.undo(db, str(applied.id))
+    db.refresh(slot)
+    check("one undo call restores the previous text",
+          slot.content == f"{MARK} old pending stuff\n{MARK} still open")
 
-    # ═══ 6+8. Leftover re-reconcile: unsure/garbage ⇒ no write; ≥2 skips ═══
-    print("── 6+8. Reconciliation leftovers: unsure paths + attempt cap ──")
-    ra, rb = mkent(f"{MARK} recon a"), mkent(f"{MARK} recon b")
-    old_edge = mkedge(ra, rb, "works_with", valid_from=NOW - timedelta(days=10))
-    db.commit()
-    old_edge_id = old_edge.id
-    leftover = ReviewQueue(item_type="codex_reconciliation", item_content={
-        "new": {"subject": ra.canonical_name, "relation": "works_with",
-                "object": rb.canonical_name},
-        "conflict_type": "supersession", "old_edge_id": str(old_edge_id),
-        "old_relation": "works_with", "old_object": rb.canonical_name,
-        "turn_excerpt": f"{MARK} ambiguous turn"})
-    db.add(leftover)
-    db.commit()
-    rq_ids.append(leftover.id)
-    leftover_id = leftover.id
-
-    items = ma._detect_reconciliation_leftovers(db, 50)
-    mine = [i for i in items if i.payload["review_id"] == str(leftover_id)]
-    check("detector 1 picks up the pending leftover", len(mine) == 1)
-
-    run6 = newrun()
-    stub_none = lambda prompt, max_tokens=200: None                      # unparseable JSON
-    stub_junk = lambda prompt, max_tokens=200: {"decision": "banana"}    # out-of-enum
-    ctr = {"llm_decisions": 0, "applications": 0, "proposals": 0}
-    o1 = ma._process(db, mine[0], stub_none, run6, ctr)
-    items = ma._detect_reconciliation_leftovers(db, 50)
-    mine = [i for i in items if i.payload["review_id"] == str(leftover_id)]
-    o2 = ma._process(db, mine[0], stub_junk, run6, ctr)
-    db.expire_all()
-    leftover2 = db.query(ReviewQueue).get(leftover_id)
-    check("missing attributed sources ⇒ unsure ⇒ NO write, item stays pending",
-          o1 == "still_unsure" and o2 == "still_unsure"
-          and leftover2.status == "pending"
-          and db.query(CodexEdge).get(old_edge_id).valid_until is None)
-    check("agent_attempts incremented per attempt",
-          int(leftover2.item_content.get("agent_attempts", 0)) == 2)
-    items = ma._detect_reconciliation_leftovers(db, 50)
-    check("≥2 attempts ⇒ never retried (detector excludes it)",
-          not any(i.payload["review_id"] == str(leftover_id) for i in items))
-
-    # and the applied path: expire_old actually expires + resolves the item
-    leftover3 = ReviewQueue(item_type="codex_reconciliation", item_content={
-        "new": {"subject": ra.canonical_name, "relation": "works_with",
-                "object": rb.canonical_name},
-        "conflict_type": "supersession", "old_edge_id": str(old_edge_id),
-        "old_relation": "works_with", "old_object": rb.canonical_name,
-        "turn_excerpt": f"{MARK} clearer turn"})
-    db.add(leftover3)
-    db.commit()
-    rq_ids.append(leftover3.id)
-    stub_expire = lambda prompt, max_tokens=200: {"decision": "expire_old"}  # noqa: E731
-    run7 = newrun()
-    items = ma._detect_reconciliation_leftovers(db, 50)
-    mine = [i for i in items if i.payload["review_id"] == str(leftover3.id)]
-    o3 = ma._process(db, mine[0], stub_expire, run7,
-                     {"llm_decisions": 0, "applications": 0, "proposals": 0})
-    db.expire_all()
-    check("missing attributed sources cannot authorize expiry even with expire_old stub",
-          o3 == "still_unsure"
-          and db.query(CodexEdge).get(old_edge_id).valid_until is None
-          and db.query(ReviewQueue).get(leftover3.id).status == "pending")
+    # §6+8 reconciliation leftovers: detector deleted with the edge codex (def7309).
 
     # ═══ 7. Caps (run loop with monkeypatched detector registry) ═══════════
     print("── 7. Caps: 25 LLM decisions / 5 proposals / 10 applications ──")
-    ca, cb = mkent(f"{MARK} caps a"), mkent(f"{MARK} caps b")
-    cap_edges = [mkedge(ca, cb, f"rel{i:02d}") for i in range(30)]
+    unsure_pairs = []
+    for i in range(30):
+        x = mkent(f"{MARK} dcap x{i}")
+        y = mkent(f"{MARK} dcap y{i}")
+        unsure_pairs.append(ma.WorkItem("duplicate_entities", 2, {
+            "keep_id": str(x.id), "absorb_id": str(y.id),
+            "pair_key": ma._pair_key(x.id, y.id), "cosine": 0.95}))
     db.commit()
-    cap_items = []
-    for e in cap_edges:
-        r = ReviewQueue(item_type="codex_reconciliation", item_content={
-            "new": {"subject": ca.canonical_name, "relation": e.relation,
-                    "object": cb.canonical_name},
-            "old_edge_id": str(e.id), "old_relation": e.relation,
-            "old_object": cb.canonical_name, "turn_excerpt": MARK})
-        db.add(r)
-        db.commit()
-        rq_ids.append(r.id)
-        cap_items.append(ma.WorkItem("reconciliation_leftover", 1,
-                                     {"review_id": str(r.id),
-                                      "content": dict(r.item_content)}))
-    ma.DETECTORS = {"reconciliation_leftover": lambda db, cap: cap_items[:cap]}
-    stub_keep = lambda prompt, max_tokens=200: {"decision": "keep_both"}  # noqa: E731
-    # This fixture measures the decision-call cap; source eligibility has its
-    # own real database suite. Give each item an eligible controlled decision.
-    saved_decide = ma._decide_reconciliation
-    ma._decide_reconciliation = lambda db, item, decider: ma._ask_enum(
-        decider, "Controlled cap decision", "decision", ("keep_both",))
-    try:
-        result = ma.run_maintenance_agent(db, llm_decider=stub_keep)
-    finally:
-        ma._decide_reconciliation = saved_decide
+    settings.agent_max_scanned = max(settings.agent_max_scanned, 30)
+    ma.DETECTORS = {"duplicate_entities": lambda db, cap: unsure_pairs[:cap]}
+    stub_unsure = lambda prompt, max_tokens=200: {"verdict": "unsure"}  # noqa: E731
+    result = ma.run_maintenance_agent(db, llm_decider=stub_unsure)
     run_ids.append(uuid.UUID(result["agent_run_id"]))
-    check("30 seeded items → exactly 25 LLM decisions, 5 skipped by cap",
+    check("30 tier-2 pairs → exactly 25 LLM decisions, 5 skipped by cap",
           result["llm_decisions"] == 25
-          and result["outcomes"].get("reconciliation_leftover:skipped_cap") == 5)
+          and result["outcomes"].get("duplicate_entities:skipped_cap") == 5)
 
     # applications cap (CODEX_V4 D12: model-confirmed merges apply themselves, so
     # the per-run bound is agent_max_applications, 10): 12 'same' pairs → 10 merges
@@ -431,30 +298,15 @@ try:
           result["applications"] == 10
           and result["outcomes"].get("duplicate_entities:skipped_cap") == 2)
 
-    # contradiction proposal cap: 12 candidates → 5 proposals, no expiry
-    app_items, app_edge_ids = [], []
-    for i in range(12):
-        sx = mkent(f"{MARK} acap s{i}")
-        tx = mkent(f"{MARK} acap t{i}")
-        po = mkedge(sx, tx, "uses", valid_from=NOW - timedelta(days=5))
-        ne = mkedge(sx, tx, "uses", negated=True, valid_from=NOW - timedelta(days=1))
-        db.flush()
-        app_edge_ids.append(po.id)
-        app_items.append(ma.WorkItem("contradiction", 2, {
-            "kind": "polarity", "old_edge_id": str(po.id),
-            "old_relation": "uses", "new_edge_id": str(ne.id),
-            "new_relation": "uses", "source_id": str(sx.id),
-            "target_id": str(tx.id)}))
-    db.commit()
-    ma.DETECTORS = {"contradiction": lambda db, cap: app_items[:cap]}
-    result = ma.run_maintenance_agent(db, llm_decider=None)   # source-required proposals
+    # notice cap (G77: stale-work notices are written applied, ≤5 per run)
+    notices = [ma.WorkItem("stale_work", 2, {"task_id": str(uuid.uuid4()),
+                                             "title": f"{MARK} task {i}"}) for i in range(12)]
+    ma.DETECTORS = {"stale_work": lambda db, cap: notices[:cap]}
+    result = ma.run_maintenance_agent(db, llm_decider=None)
     run_ids.append(uuid.UUID(result["agent_run_id"]))
-    db.expire_all()
-    n_expired = sum(1 for eid in app_edge_ids
-                    if db.query(CodexEdge).get(eid).valid_until is not None)
-    check("12 contradictions → exactly 5 proposals (cap), no expiry",
-          result["applications"] == 0 and result["proposals"] == 5 and n_expired == 0
-          and result["outcomes"].get("contradiction:skipped_cap") == 7)
+    check("12 stale tasks → exactly 5 applied notices (cap)",
+          result["outcomes"].get("stale_work:notified") == 5
+          and result["outcomes"].get("stale_work:skipped_cap") == 7)
 
     # ═══ 9. The Sentinel is gone ═══════════════════════════════════════════
     print("── 9. Sentinel removal ──")
@@ -480,7 +332,7 @@ try:
 
     # ═══ 10. Every applied action journaled under its agent_run_id ═════════
     print("── 10. Audit trail ──")
-    applied_runs = [run0, run3]  # run7 lacks source authority and must not write
+    applied_runs = [run0]
     ok = True
     for rid in applied_runs:
         evs = agent_events(rid)

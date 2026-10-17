@@ -526,11 +526,12 @@ try:
         ReviewQueue.item_type == "stale_work",
         ReviewQueue.item_content["task_id"].astext == task_report["task_id"],
     ).first()
-    check("agent run proposes it (no LLM needed)",
-          run["outcomes"].get("stale_work:proposed") == 1 and proposal is not None)
+    check("agent run notifies it, applied — nothing waits on a person (G77)",
+          run["outcomes"].get("stale_work:notified") == 1 and proposal is not None
+          and proposal.status == "applied")
     ma.DETECTORS.clear()
     ma.DETECTORS.update(_orig_detectors)
-    check("pending proposal blocks re-detection (idempotent)",
+    check("applied notice blocks re-detection until the task moves (idempotent)",
           not [i for i in ma._detect_stale_work(db, 10)
                if i.payload.get("task_id") == task_report["task_id"]])
 
