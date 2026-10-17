@@ -33,6 +33,28 @@ configuration), `T_temporal.md` (timescope modes).
 6. **Answers and grading** for every read pass, plus fair retrieval diagnostics.
 7. **LongMemEval oracle** (500 instances).
 
+**D1a — Why this is a BETTER semi-LSREP than v2's (consolidated 2026-10-17; each row
+points at the decision that does it).** v2's LSREP is the paper's method; Z2 keeps its
+shape (replay a real history, ask questions at checkpoints, score and rank answers,
+token efficiency) and fixes what was weak in it:
+
+| v2 LSREP | Z2 | Where |
+|---|---|---|
+| ground truth written freely by a model (how v2's question set went wrong) | computed from a cited, two-family fact ledger, audited by v2's own forward walk | D4 |
+| one fixed answer per question | evolving ground truth: the answer that was true at each checkpoint | D4 |
+| questions of whatever kind the writer produced | type quotas (updates, temporal, aggregation, …) and difficulty by construction | D4, D11a |
+| no check that memory is not over-used | no-memory control prompts at every checkpoint | D4b |
+| hallucination percentage | invented-content and superseded-value flags anchored to required items | D11 |
+| four answers ranked 1–4 once | blind ranking in two randomised orders, ties allowed, separate from the absolute grade | D11 |
+| a source-ID or verbatim hit counted as recall | semantic credit — compressed memory judged on meaning, and wrong content flagged | D11 |
+| pooled headline numbers, occurrences as samples | per history and question type; bootstrap intervals over question families | D11 |
+| weak or absent baselines | bare vector and warm vector at the matched memory budget, plus recent-only | D10 |
+| component value inferred from one configuration | additive and leave-one-out read-time ablations; pre-registered keep rule | D10, D11c |
+| what the background models wrote never judged | background-content quality audit of every artifact kind | D9 |
+| answering/judging models could overlap with writers | writers never answer or judge; every prompt qualified before use | D6, D6a |
+| ad-hoc clock | declared session clock, live decay, every checkpoint store saved | D3, D8 |
+| — | one pre-launch flow audit of the whole pipeline before the replay | D7b |
+
 **D2 — Histories.** B (1,119 original pairs, long-range entity/revision memory)
 and C (325 pairs, dense long-input/compression), frozen in
 `logs/v3-offline-input-plan-2026-10-10-r4/final-originals-{B,C}.json`. Both are
@@ -168,6 +190,17 @@ tokens for Z2. Evidence: on the tuning answers, one question failed in 6 of 9
 arms, and its successes used 1,427–1,492 tokens, about 1,030 of them reasoning.
 This is a new frozen answer identity; tuning answers are not mixed with Z2 answers.
 
+**D7b — Pre-launch flow audit (maintainer, 2026-10-17).** When the Z2 machinery is
+built and before the S7 replay starts, one small audit traces a prompt through
+every section once, on the frozen build: chat-command check → classification →
+memory decision → each retrieval leg → fusion, reranker, D7 bonus, budget →
+prompt assembly (recent window, slots, notes, facts skip) → the answer call →
+post-flight (density, summary/claim pass, facts stage, procedural, decisions) →
+the maintenance jobs on their cadence. At each hop: what goes in, what comes out,
+and does the next hop receive exactly that (no silent default, no dropped field,
+no inert switch). Read the actual prompts and rows, not the code. Findings are
+fixed (reviewed production change) or recorded in PROVENANCE before launch.
+
 **D8 — Replay.** One full-system semi-LSREP replay per history with the frozen
 tuned configuration (spec §5.2 decisions): recorded original replies, full ICE
 preflight and post-flight per historical prompt, all ten maintenance jobs on the
@@ -180,10 +213,12 @@ slice of B, and never change the stored outputs' identity silently.
 **D9 — Background-content quality audit** (full-system store only). Every kind of
 artifact the background models write is inventoried from the actual writers
 before judging. At minimum: turn summaries and abstracts; conversation folds;
-batch summaries; graph claims and edges (relation, direction, polarity,
-modality); entity notes and descriptions; cluster names and memberships;
-procedural patterns; reconciliation and expiry decisions; session summaries;
-compaction snapshots. For each kind, a stratified sample (all items if fewer than
+batch summaries; **codex facts** (the sentence, speaker, modality and the
+source's subject/relation/object — CODEX_V4) with their entity links; entity
+resolution and automatic entity merges (D12); same/replaces/both-true decisions
+and expiries (D6); cluster names and memberships; procedural patterns; session
+summaries. (Since CODEX_V4, 2026-10-16, there are no conversation edges, entity
+notes or compaction snapshots to audit.) For each kind, a stratified sample (all items if fewer than
 100, else 100 per kind per history) is judged with its cited sources supplied:
 
 - **faithful** — supported by its sources; nothing invented or contradicted;
@@ -192,8 +227,9 @@ compaction snapshots. For each kind, a stratified sample (all items if fewer tha
 - **complete** — required detail kept (summaries, folds, notes);
 - **decision valid** — merges, expiries, supersessions match the ledger.
 
-Graph facts and ledger entries are also matched directly, giving graph precision
-and recall against the verified ledger. Each artifact kind also reports how often
+Codex facts and ledger entries are also matched directly, giving fact precision
+and recall against the verified ledger (the ledger's `asserted|suggested|hypothetical`
+maps to the fact's modality). Each artifact kind also reports how often
 it reached a prompt and the graded answers it appeared in. Muse judges; DeepSeek
 V4.1 Flash re-judges a 20% sample for agreement; disagreements are listed for the
 maintainer. This settles the open quality owners G49, G57, G60, G63, G67, G69,
@@ -206,7 +242,12 @@ checkpoint's questions:
   messages filling the matched memory budget — frozen development choice,
   PROVENANCE 2026-10-14).
 - *Ablations:* the twelve groups of V3_POST_RESEED_REPAIR §2.5 as **read-time
-  switches**. Additive from bare vector up to full ICE in the frozen order;
+  switches**, re-pointed for CODEX_V4 (2026-10-17): groups 3 + 4 become **one codex
+  group** — the facts leg (keyword, meaning and entity channels, the predecessor
+  clause, the D7 strength bonus, grounded query expansion); group 10 keeps temporal
+  filtering and the facts' as-of validity (the timeline leg is gone); group 12 is
+  reflection and entity merges (enrichment and compaction are gone; D6 reconciliation
+  is a write-time decision — report it through D9, it has no read-time switch). Additive from bare vector up to full ICE in the frozen order;
   leave-one-out from full ICE, restoring between removals. Semantic maintenance is
   its own condition. All ablation conditions read with the same **neutral decay
   overlay**; decay is reported separately as its own condition and as settings
@@ -303,6 +344,7 @@ hash-bound to its inputs; private content stays under `logs/`):
 | S4 occurrence ground truth computed from ledger state | `occurrences.json` | none |
 | S5 maintainer review (USER-REQUIRED) | `review-decisions.json` | — |
 | S6 Z2/FINAL split by family, FINAL part sealed | `split.json` + sealed hash | none |
+| S6b pre-launch flow audit (D7b): one prompt traced through every section | audit note in PROVENANCE; fixes as reviewed changes | local |
 | S7 replay B and C on the declared clock | checkpoint stores, event log | local |
 | S8 background-content audit | `bg-audit.json` | Muse + sample |
 | S9 read passes (controls, ablations, decay overlays) | per-condition contexts | local |

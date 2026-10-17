@@ -282,7 +282,7 @@ Point an OpenAI-compatible client at `http://localhost:8000/v1` and address the 
 model name `ice-proxy`. Send an `X-ICE-Conversation-ID` header to scope memory to a
 conversation.
 
-Maintenance — decay, clustering, reflection, extraction, compaction — runs **in-process** on
+Maintenance — decay, clustering, reflection, summaries, entity merges — runs **in-process** on
 an async scheduler. There is no broker and no worker fleet; PostgreSQL is the only external
 service.
 
@@ -303,8 +303,8 @@ are deliberate and documented rather than incidental:
   `v2-paper-eval`. Since then the Celery worker fleet was replaced by an in-process runtime,
   embeddings moved to 1024 dimensions, the RAG leg was replaced by a document store, and
   temporal retrieval, a coding mode, an MCP surface, and conversation import were added.
-- **Several components remain immature.** The knowledge graph under-contributes relative to
-  its design, and some mechanisms have not yet been measured in a fully working state. The
+- **Several components remain immature.** The codex was rebuilt as verified fact sentences
+  (CODEX_V4) and its effect on answers is not yet measured, and some mechanisms have not yet been measured in a fully working state. The
   paper and the fidelity audit identify exactly which, and why.
 - Single-machine, single-user, and not hardened for deployment.
 

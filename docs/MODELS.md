@@ -396,7 +396,7 @@ extraction, summarisation or retrieval**. Several have been used for other jobs.
 | `phi4-mini:3.8b` | dense-per-parameter, competitive at the `granite4:micro` tier which ranked 6th |
 | AWQ/GPTQ build of `qwen3:4b-instruct` | already wanted in §4 so the bg model can run under vLLM |
 
-### NuExtract3 — pulled and working (2026-08-24)
+### NuExtract3 — pulled and working (2026-08-24) — ⚠ retired 2026-10-16 (CODEX_V4); record only
 
 `hf.co/numind/NuExtract3-GGUF:Q8_0` — **5.2 GB on disk**, via Ollama. The
 extraction specialist [MODELS.md §"Not obtained"](#not-obtained-worth-obtaining)

@@ -1518,6 +1518,8 @@ summary utility is unqualified. See [the aggregate evidence](PROVENANCE.md#2026-
 
 ### v3 evaluation instruments (2026-10-01)
 
+> ⚠ **CODEX_V4 (2026-10-16):** rows here naming `_codex_claims`, claim fields or graph legs describe deleted code; the instruments now record `codex_facts` / `origin_facts`.
+
 These are explicit research commands, not default proxy features. Their path
 checks do not establish an answer-quality result.
 
