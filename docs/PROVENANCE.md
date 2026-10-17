@@ -1,3 +1,19 @@
+## 2026-10-17 — v3 G78 re-embed padded-token batching; G77 test-suite state
+
+**G78** (scratch copy of `ice_db`, alembic `d5e8a1c3b7f2`; Qwen3-Embedding-0.6B on CUDA; Ollama
+holding gemma4:e4b ~4.9 GB): `reembed.run(force=True)` at the default page size 256 with
+`reembed_batch_padded_tokens` 16,384 completed — 180 episodic, 665 chunks, 4,380 entities, 2
+centroids — in 34 s, peak 3.3 GB allocated. The same copy with the budget at 1e9 (the pre-G78
+one-batch-per-page behaviour) OOMed on `episodic_memory` (tried to allocate 4.19 GiB, 118 MiB
+free). Shows the bound works on the store that failed; does not show the 16,384 default is
+optimal for speed.
+
+**Rails state found while closing G77** (disposable DB): 5 failures in the first full run; 4 were
+pre-existing at HEAD `659b119` (stale codex tag and stale job count left by the CODEX_V4 port —
+fixed `7fbeac9`), and `test_v3_chronological_maintenance` failed once and passed in 3 later runs
+(alone, after the G77 tests, full rails) — an unreproduced flake, recorded not dismissed.
+`tests/test_maintenance_agent.py` had crashed at HEAD on detectors deleted in `def7309` (ported).
+
 ## 2026-10-17 — v3 G77: reflection's conversation slots, qualification
 
 All v3. Writer local `gemma4:e4b` (native door, temperature 0) through the production

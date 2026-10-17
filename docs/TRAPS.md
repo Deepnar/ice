@@ -368,6 +368,8 @@ but not the literal pattern text in the watcher's own argv. Same trap applies to
 
 **Re-earned 2026-10-15, by name collision:** `pgrep -f '[s]weep.py' | xargs kill` meant for `sweep.py` also killed `verify_sweep.py`, a separate CPU job, mid-run. Match the full path (`[l]ogs/z2-.../sweep.py`) or kill by the PID the launch printed.
 
+**Re-earned 2026-10-17, as a wait that never ends:** `while pgrep -f "<pattern>"; do sleep; done` waiting for a job matched its OWN shell (the pattern is in its command line) and hung after the job finished — four such waiters had to be killed. Wait on a PID, or on a file condition (line count, a DONE marker).
+
 ### 23. Reasoning about the code instead of querying the running system
 **The most productive failure mode in this repo, measured 2026-08-12: FOUR wrong
 conclusions in a single session, every one from reading source and reasoning
