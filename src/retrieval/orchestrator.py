@@ -371,6 +371,30 @@ class HybridRetrievalOrchestrator:
         except Exception as err:
             self._leg_degraded("bonus.meta_lean", err)
             return False
+    _NUMBER = re.compile(r"\b\d[\d.,:/-]*\b")
+
+    def _prompt_entities(self, prompt):
+        """Preflight-NER names in *prompt*, computed once per request: the facts
+        leg's entity channel and the representation guard read the same list."""
+        cache = self.__dict__.setdefault("_prompt_entity_cache", {})
+        if prompt not in cache:
+            cache[prompt] = extract_entities(prompt, self.embedder)
+        return cache[prompt]
+
+    def _guard_terms(self, prompt_text):
+        """Question terms a summary must keep to stand in for its raw turn
+        (settings.representation_guard_terms; see config)."""
+        if not prompt_text:
+            return set()
+        if settings.representation_guard_terms == "every_word":
+            return self._extract_prompt_keywords(prompt_text)
+        terms = set(self._NUMBER.findall(prompt_text))
+        try:
+            terms |= {name.lower() for name in self._prompt_entities(prompt_text)}
+        except Exception as exc:                                    # noqa: BLE001
+            self._leg_degraded("representation.guard_ner", exc)
+        return terms
+
     def _extract_prompt_keywords(self, prompt_text):
         words = set(re.sub(r'[^\w\s]', ' ', prompt_text).lower().split())
         common = {"the","is","of","and","a","to","in","that","it","for","was","on","are",
@@ -1490,7 +1514,7 @@ class HybridRetrievalOrchestrator:
         matched = []
         if prompt:
             try:
-                names = extract_entities(prompt, self.embedder)
+                names = self._prompt_entities(prompt)
             except Exception as exc:                                # noqa: BLE001
                 # One channel's failure must not take the keyword and meaning
                 # channels down with it; the store-name lookup still runs.
@@ -2800,9 +2824,10 @@ class HybridRetrievalOrchestrator:
                            classification=None):
         fragments = []
         prompt_keywords = self._extract_prompt_keywords(prompt_text) if prompt_text else set()
+        guard_terms = self._guard_terms(prompt_text)
 
         for row in rows:
-            text, degrade_text, abstract_text = self._choose_representation(row, classification, prompt_keywords)
+            text, degrade_text, abstract_text = self._choose_representation(row, classification, guard_terms)
             if not text:
                 continue
 

@@ -41,6 +41,9 @@ def store(empty_replay_database, monkeypatch):
     monkeypatch.setattr(settings, 'memory_source_gate_enabled', False)
     monkeypatch.setattr(settings, 'retrieval_strengthen_writes', False)
     monkeypatch.setattr(settings, 'retrieval_rerank_enabled', False)
+    # Metadata controls, not NER: the summary guard reads question names (Z2 S0).
+    from src.retrieval import orchestrator as orchestrator_module
+    monkeypatch.setattr(orchestrator_module, 'extract_entities', lambda *_a, **_k: [])
     attempts = []
     def deny(*_args, **_kwargs):
         attempts.append(1)

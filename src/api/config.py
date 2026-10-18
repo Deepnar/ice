@@ -503,6 +503,13 @@ class Settings(BaseSettings):
     turn_long_turn_chunk_words: int = 600
     turn_density_lossless_threshold: float = 0.35
     turn_summary_coverage_threshold: float = 0.7
+    # Which question terms must survive in a summary for it to stand in for the raw
+    # turn (representation.choose_representation). "specific": the question's names
+    # (preflight NER) and numbers. "every_word": every question word minus ~50
+    # stopwords — the old guard; filler like "like"/"just" blocked 668 of 798
+    # eligible summaries on history B and flipped with wording on 23/200 vs 2/200
+    # (Z2 S0, 2026-10-18). Kept as a read-time switch for Z2's paired comparison.
+    representation_guard_terms: Literal["specific", "every_word"] = "specific"
     turn_max_must_terms: int = 25
     # ⚑ The summariser's generation ceiling, and it BOUND — hard. It was a
     # literal 300 in post_flight, and on the arm-B seed 84 of 212 summaries
