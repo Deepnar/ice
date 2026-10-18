@@ -81,7 +81,7 @@ def build_asks(split_dir, occurrences_path, controls_path=None):
                              checkpoint_turn=o["checkpoint_turn"], question=o["question"], kind="question",
                              type=o["type"]))
     for c in z2.get("controls", []) + (json.loads(Path(controls_path).read_text()) if controls_path else []):
-        asks.append(dict(id=c["id"], checkpoint_turn=c["checkpoint_turn"], question=c["question"],
+        asks.append(dict(id=c["id"], checkpoint_turn=c["checkpoint_turn"], question=c.get("question") or c["prompt"],
                          kind="control", type=c.get("kind")))
     return asks
 

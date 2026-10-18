@@ -779,6 +779,68 @@ def occurrences(families, entries_by_id, points, originals):
     return out
 
 
+# ── S5 / S6: maintainer review, split, Z2 asks ───────────────────────────
+
+REVIEW_POLICY = "ice-z2-review-1"
+
+
+def write_review(history, out, name="families", per_type=6):
+    """A stratified sample (per_type families of each type, deterministic) with each
+    family's question, reference at its first ask and citations, for the maintainer;
+    plus review-decisions.json with an empty drop list to fill in (USER-REQUIRED)."""
+    import hashlib
+    directory = out / history
+    built = json.loads((directory / f"{name}.json").read_text())
+    occ = json.loads((directory / "occurrences.json").read_text())
+    first = {}
+    for o in occ:
+        first.setdefault(o["family"], o)
+    by_type = {}
+    for fam in built["kept"]:
+        by_type.setdefault(fam["type"], []).append(fam)
+    lines = [f"# Z2 question review — history {history}", "",
+             f"{len(built['kept'])} families kept, {len(built['rejected'])} rejected by the verifier, "
+             f"{len(built.get('controls', []))} no-memory controls. Sample: {per_type} per type.", "",
+             "Mark a family to drop by adding its id to `drop` in review-decisions.json "
+             "(with a reason in `notes`). Families not listed are kept.", ""]
+    for kind in sorted(by_type):
+        group = sorted(by_type[kind], key=lambda f: hashlib.sha256(f"{REVIEW_POLICY}|{f['id']}".encode()).hexdigest())
+        lines += [f"## {kind} ({len(group)} families)", ""]
+        for fam in group[:per_type]:
+            o = first.get(fam["id"], {})
+            ref = o.get("reference", {})
+            lines += [f"### {fam['id']}", f"- **question:** {fam['question']}",
+                      f"- **first asked at:** turn {o.get('checkpoint_turn')}"
+                      + (" (expects abstention)" if o.get("expected_abstention") else ""),
+                      f"- **required:** {json.dumps(ref.get('required', []), ensure_ascii=False)}",
+                      f"- **cited turns:** {sorted({c.get('turn') for c in ref.get('citations', [])})}", ""]
+    (directory / "review-packet.md").write_text("\n".join(lines) + "\n")
+    decisions = directory / "review-decisions.json"
+    if not decisions.exists():
+        decisions.write_text(json.dumps(dict(policy=REVIEW_POLICY, history=history, reviewed=False,
+                                             drop=[], notes={}), indent=1) + "\n")
+    print(f"wrote {directory / 'review-packet.md'}; fill {decisions} and set reviewed: true")
+
+
+def finalize(history, out, name="families"):
+    """S6 after S5: drop what the maintainer dropped, seal the 60/40 split, and write
+    z2-asks.json (Z2 families' occurrences + controls) for the read passes."""
+    from experiments.z2 import read_passes, split
+    directory = out / history
+    decisions = json.loads((directory / "review-decisions.json").read_text())
+    if decisions.get("reviewed") is not True:
+        raise RuntimeError("S5 review not done: review-decisions.json has reviewed != true (USER-REQUIRED)")
+    built = json.loads((directory / f"{name}.json").read_text())
+    drop = set(decisions.get("drop", []))
+    families = [f for f in built["kept"] if f["id"] not in drop and f.get("base_family") not in drop]
+    controls = [c for c in built.get("controls", []) if c["id"] not in drop]
+    (directory / "split").mkdir(exist_ok=True)              # write_split itself refuses a re-seal
+    seal = split.write_split(directory / "split", history, families, controls)
+    asks = read_passes.build_asks(directory / "split", directory / "occurrences.json")
+    (directory / "z2-asks.json").write_text(json.dumps(asks, ensure_ascii=False, indent=1) + "\n")
+    print(json.dumps(dict(seal, dropped=len(drop), z2_asks=len(asks))))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Z2 S3 question machinery")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -801,6 +863,22 @@ def main() -> int:
     c.add_argument("--history", required=True)
     c.add_argument("--ledger", type=Path, required=True)
     c.add_argument("--out", type=Path, required=True)
+    oc = sub.add_parser("occurrences", help="S4: every (family, checkpoint) with its computed reference")
+    oc.add_argument("--history", required=True)
+    oc.add_argument("--ledger", type=Path, required=True)
+    oc.add_argument("--out", type=Path, required=True)
+    oc.add_argument("--name", default="families")
+    rv = sub.add_parser("review", help="S5: the maintainer's review packet and an empty decisions file")
+    rv.add_argument("--history", required=True)
+    rv.add_argument("--ledger", type=Path, required=True)
+    rv.add_argument("--out", type=Path, required=True)
+    rv.add_argument("--name", default="families")
+    rv.add_argument("--per-type", type=int, default=6)
+    fz = sub.add_parser("finalize", help="S6: apply review decisions, seal the split, write the Z2 asks")
+    fz.add_argument("--history", required=True)
+    fz.add_argument("--ledger", type=Path, required=True)
+    fz.add_argument("--out", type=Path, required=True)
+    fz.add_argument("--name", default="families")
     args = parser.parse_args()
     for path in (args.ledger, args.out):
         if not path.resolve().is_relative_to(ROOT / "logs"):
@@ -842,6 +920,20 @@ def main() -> int:
             ensure_ascii=False, indent=1) + "\n")
         print(f"{args.history}: families {len(families)}, kept {len(kept)}, rejected {len(rejected)}, "
               f"controls {len(controls)} (rejected {len(controls_rejected)})")
+    elif args.command == "occurrences":
+        built = json.loads((args.out / args.history / f"{args.name}.json").read_text())
+        entries = usable(args.history, args.ledger)
+        changes = args.out / args.history / "changes.json"
+        if changes.exists():
+            entries = with_changes(entries, json.loads(changes.read_text()))
+        occ = occurrences(built["kept"], {e["id"]: e for e in entries}, checkpoints(args.history),
+                          L.load_history(args.history))
+        (args.out / args.history / "occurrences.json").write_text(json.dumps(occ, ensure_ascii=False, indent=1) + "\n")
+        print(f"{args.history}: {len(occ)} occurrences from {len(built['kept'])} families")
+    elif args.command == "review":
+        write_review(args.history, args.out, args.name, args.per_type)
+    elif args.command == "finalize":
+        finalize(args.history, args.out, args.name)
     elif args.command == "changes":
         from experiments.lme.cloud_provider import load_selected_env
         from experiments.z2.profiles import generator, metadata

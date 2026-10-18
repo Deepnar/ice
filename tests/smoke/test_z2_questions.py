@@ -194,3 +194,25 @@ def test_control_prompts_one_per_checkpoint_kinds_cycled(tmp_path, monkeypatch):
                                          "recent_follow_up", "general_knowledge"]
     assert [has_recent for has_recent, _ in seen] == [False, False, False, True, False]
     assert all(k["type"] == "no_memory_control" for k in kept) and not rejected
+
+
+def test_finalize_needs_the_review_then_seals_and_writes_z2_asks(tmp_path):
+    import pytest
+    d = tmp_path / "B"
+    d.mkdir()
+    fams = [dict(id=f"B:fam{i:03d}", type="fact_recall", question=f"q{i}") for i in range(30)]
+    ctl = [dict(id="B:ctl000", type="no_memory_control", kind="small_talk", checkpoint_turn=25, prompt="hey")]
+    (d / "families.json").write_text(json.dumps(dict(kept=fams, rejected=[], controls=ctl)))
+    occ = [dict(family=f["id"], type="fact_recall", checkpoint_turn=25, repeat_index=0, question=f["question"],
+                reference=dict(required=["x"], citations=[dict(turn=3)]), expected_abstention=False) for f in fams]
+    (d / "occurrences.json").write_text(json.dumps(occ))
+    Q.write_review("B", tmp_path, per_type=2)
+    assert "B:fam" in (d / "review-packet.md").read_text()
+    with pytest.raises(RuntimeError, match="USER-REQUIRED"):
+        Q.finalize("B", tmp_path)
+    decisions = json.loads((d / "review-decisions.json").read_text())
+    (d / "review-decisions.json").write_text(json.dumps(dict(decisions, reviewed=True, drop=["B:fam000"])))
+    Q.finalize("B", tmp_path)
+    asks = json.loads((d / "z2-asks.json").read_text())
+    assert not any(a["id"].startswith("B:fam000@") for a in asks)
+    assert [a for a in asks if a["kind"] == "control"][0]["question"] == "hey"
