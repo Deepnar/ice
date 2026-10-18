@@ -454,6 +454,60 @@ class Answers(Stage):
         return run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
+class Grading(Stage):
+    """S11: Muse grades, claim checks, ranking, controls, then the report (grade.py, report.py)."""
+
+    def __init__(self, history):
+        super().__init__(key=f"s11-{history}", title=f"S11 grading + report {history}", needs=(f"s10-{history}",),
+                         unit="calls", estimate=3.0)
+        self.history = history
+
+    def out(self, ctx):
+        return ctx.dir / self.key
+
+    def total(self, ctx):
+        answers = ctx.dir / f"s10-{self.history}" / "status.json"
+        n = json.loads(answers.read_text()).get("contexts") if answers.exists() else {"B": 345, "C": 133}[self.history] * 6
+        return int(n * 1.4)                       # grades + ranking (2 orders) + claim checks, roughly
+
+    def done(self, ctx):
+        path = self.out(ctx) / "grade-raw.jsonl"
+        if not path.exists():
+            return 0
+        with path.open() as handle:
+            return min(sum(1 for _ in handle), self.total(ctx))
+
+    def rate(self, ctx):
+        from experiments.z2 import bg_audit
+        path = self.out(ctx) / "grade-raw.jsonl"
+        if not path.exists():
+            return None
+        seconds = sorted(json.loads(line).get("seconds") or 0 for line in path.read_text().splitlines()[-50:])
+        seconds = [x for x in seconds if x]
+        return seconds[len(seconds) // 2] / bg_audit.WORKERS if len(seconds) >= 3 else None
+
+    def complete(self, ctx):
+        status = self.out(ctx) / "status.json"
+        return status.exists() and json.loads(status.read_text()).get("finished") is True
+
+    def run(self, ctx):
+        log_path = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            (self.out(ctx) / "status.json").unlink(missing_ok=True)
+            cmd = [sys.executable, "experiments/z2/grade.py", "--history", self.history,
+                   "--units", str((ctx.dir / f"s9-{self.history}").relative_to(ROOT)),
+                   "--answers", str((ctx.dir / f"s10-{self.history}").relative_to(ROOT)),
+                   "--questions", str(INPUTS["asks"][self.history].parent.parent.relative_to(ROOT)),
+                   "--ledger", str(INPUTS["ledger"][self.history].relative_to(ROOT)),
+                   "--changes", str(INPUTS["changes"][self.history].relative_to(ROOT)),
+                   "--out", str(self.out(ctx).relative_to(ROOT))]
+            rc = ctx.run_child(cmd, log_path)
+            return rc, _tail(log_path)
+
+        return run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
 class NotBuilt(Stage):
     def __init__(self, key, title, needs):
         super().__init__(key=key, title=title, needs=needs, built=False)
@@ -472,7 +526,9 @@ def stages(limit=None):
         NotBuilt("s9x", "S9 ablation conditions (read switches to decide)", ("s9-B", "s9-C")),
         Answers("B"),
         Answers("C"),
-        NotBuilt("s11", "S11 grading and retrieval diagnostics (Muse)", ("s10",)),
+        Grading("B"),
+        Grading("C"),
+        NotBuilt("s11x", "S11 semantic credit (retrieval diagnostic)", ("s11-B", "s11-C")),
         NotBuilt("s12", "S12 LongMemEval oracle", ()),
     ]
 
