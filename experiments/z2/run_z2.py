@@ -405,6 +405,55 @@ class ReadPasses(Stage):
         return run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
+class Answers(Stage):
+    """S10: Luna answers every S9 context, one per distinct prompt (experiments/z2/answers.py)."""
+
+    def __init__(self, history):
+        # ~4.5 s per answer: 4,000 per rolling 5 hours is the binding pace, not latency.
+        super().__init__(key=f"s10-{history}", title=f"S10 answers {history}", needs=(f"s9-{history}",),
+                         unit="answers", estimate=4.5)
+        self.history = history
+
+    def out(self, ctx):
+        return ctx.dir / self.key
+
+    def units(self, ctx):
+        return ctx.dir / f"s9-{self.history}"
+
+    def total(self, ctx):
+        from experiments.z2 import answers
+        planned = {"B": 345, "C": 133}[self.history] * 5      # identical prompts collapse
+        return answers.progress(self.units(ctx), self.out(ctx))[1] or planned
+
+    def done(self, ctx):
+        from experiments.z2 import answers
+        return answers.progress(self.units(ctx), self.out(ctx))[0]
+
+    def rate(self, ctx):
+        path = self.out(ctx) / "answers.jsonl"
+        if not path.exists():
+            return None
+        walls = [json.loads(line)["wall"] for line in path.read_text().splitlines()[-61:] if line.strip()]
+        gaps = sorted(b - a for a, b in zip(walls, walls[1:]) if 0 <= b - a < 3600)
+        return gaps[len(gaps) // 2] if len(gaps) >= 5 else None
+
+    def complete(self, ctx):
+        status = self.out(ctx) / "status.json"
+        return status.exists() and json.loads(status.read_text()).get("finished") is True
+
+    def run(self, ctx):
+        log_path = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            (self.out(ctx) / "status.json").unlink(missing_ok=True)
+            cmd = [sys.executable, "experiments/z2/answers.py", "--units", str(self.units(ctx).relative_to(ROOT)),
+                   "--out", str(self.out(ctx).relative_to(ROOT))]
+            rc = ctx.run_child(cmd, log_path)
+            return rc, _tail(log_path)
+
+        return run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
 class NotBuilt(Stage):
     def __init__(self, key, title, needs):
         super().__init__(key=key, title=title, needs=needs, built=False)
@@ -421,7 +470,8 @@ def stages(limit=None):
         ReadPasses("B"),
         ReadPasses("C"),
         NotBuilt("s9x", "S9 ablation conditions (read switches to decide)", ("s9-B", "s9-C")),
-        NotBuilt("s10", "S10 answers (Luna)", ("s9-B", "s9-C")),
+        Answers("B"),
+        Answers("C"),
         NotBuilt("s11", "S11 grading and retrieval diagnostics (Muse)", ("s10",)),
         NotBuilt("s12", "S12 LongMemEval oracle", ()),
     ]
@@ -561,7 +611,7 @@ def meter(ctx, note=None):
             f"built stages left ~{_clock(left_total)}{' (partly estimated)' if estimated else ''}")
     lines = [head, *rows]
     if any(not s.built for s in ctx.stages):
-        lines.append(" Stages not built yet stop the run there; everything before is saved.")
+        lines.append(" Stages not built yet are skipped; a stage that needs one waits. Everything done is saved.")
     if note:
         lines.append(f" ⏳ {note}")
     lines.append(f" Ctrl-C stops cleanly; the same command resumes.  Log: {_rel(ctx.dir / 'runner.log')}")

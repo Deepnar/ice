@@ -76,7 +76,7 @@ def test_unbuilt_stages_are_listed_and_end_the_run_cleanly(tmp_path):
     ctx.stages = [Fake("a", 3, [3]), R.NotBuilt("s8", "S8 audit", ("a",))]
     assert R.drive(ctx, ctx.stages) == {"a": "done", "s8": "not_built"}
     text = R.meter(ctx)
-    assert "not built] S8 audit" in text and "3/3" in text and "done" in text
+    assert "not built] S8 audit" in text and "3/3" in text and "done" in text and "skipped" in text
 
 
 def test_meter_shows_estimates_until_a_rate_is_measured(tmp_path):
