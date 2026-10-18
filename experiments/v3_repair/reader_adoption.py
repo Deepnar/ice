@@ -23,8 +23,8 @@ BEFORE_REF = "80730ae"
 TRANSITIONS = {
     "src/memory/summary_support.py": {
         "before": "be07047be33e3a2c6e0461264229104e51224ffd028c3a2dee2bb7ecd6ae1016",
-        "after": "5d68720a307e5bc9be95b5f5c57db94458c92940b2ef6a16e3fc9c3295c57e1e",
-        "reason": "Approved exact cited-span union and exact supported-v1-proof compatibility. 2026-10-15 (SUMMARY_CLAIMS_V3): v3 quoted-claim method added behind summary_assertion_method; v2/v1 records verify under their own policy exactly as before; pieces and input-scaled caps are producer-side. 2026-10-16 (CODEX_V4): v4 claim method (modality + subject/relation/object, opening-context header, role-present speaker enum) behind summary_assertion_method, now the default; v2/v3 records still verify under their own policy.",
+        "after": "423a288b67e5e0f7cc23e4d8bba7a8153cb4957372eb15cae70688a4f4dc7737",
+        "reason": "Approved exact cited-span union and exact supported-v1-proof compatibility. 2026-10-15 (SUMMARY_CLAIMS_V3): v3 quoted-claim method added behind summary_assertion_method; v2/v1 records verify under their own policy exactly as before; pieces and input-scaled caps are producer-side. 2026-10-16 (CODEX_V4): v4 claim method (modality + subject/relation/object, opening-context header, role-present speaker enum) behind summary_assertion_method, now the default; v2/v3 records still verify under their own policy. 2026-10-18 (Z2 S0): output_cap's floor is elastic for mid-size pieces (summary_output_small_ratio × input up to summary_output_small_cap); a stop, not a length control.",
     },
     "src/workers/turn_density.py": {
         "before": "4bf4314d21994907393de946dd43c42d20324263044843df1ecb2ede074d6ecc",

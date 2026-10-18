@@ -545,6 +545,13 @@ class Settings(BaseSettings):
     # to 1.58 on ≥2K-token pieces (cap 8,192 run) → 2.0 = 1.58 × 1.25.
     summary_output_ratio: float = Field(default=2.0, gt=0)
     summary_output_ceiling: int = Field(default=8192, ge=256)
+    # Elastic floor for mid-size inputs (Z2 S0, 2026-10-18): the fixed per-claim
+    # JSON makes short pieces need more than 2× their input. On history B 2 of 476
+    # claim calls were cut, both with caps 901–1500 (inputs ~450–750 tokens; 3/50
+    # in that band used >= 90%); every other band peaked at 88%. The floor grows
+    # as small_ratio × input from the job's floor up to small_cap.
+    summary_output_small_ratio: float = Field(default=3.0, ge=0)
+    summary_output_small_cap: int = Field(default=2048, ge=256)
 
     # Chunking (A1), used by document ingest.
     chunk_tokens: int = 550

@@ -68,7 +68,9 @@ def test_real_writer_indexes_originals_and_persists_length_reason(monkeypatch):
         # prefix being retried or treated as corroboration.
         again = worker.run_conversation_summaries(db, embedder=Encoder(), conversation_ids=[cid])
         assert again['incomplete_note_groups'] == 0 and len(calls) == 1
-    assert calls[0]['max_tokens'] == settings.conversation_summary_max_tokens == 900
+    # The job's floor (900) is never lowered; mid-size pieces get the elastic floor.
+    assert settings.conversation_summary_max_tokens == 900
+    assert 900 <= calls[0]['max_tokens'] <= max(900, settings.summary_output_small_cap)
 
 
 @pytest.mark.parametrize('reason', [None, 'content_filter', 'tool_calls'])

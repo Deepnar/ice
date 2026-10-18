@@ -139,7 +139,12 @@ def output_cap(input_tokens, floor):
     the length. *floor* is the job's legacy cap, so small inputs keep it.
     """
     import math
-    scaled = math.ceil(settings.summary_output_ratio * max(0, input_tokens))
+    inputs = max(0, input_tokens)
+    # The floor itself is elastic: mid-size pieces carry relatively more fixed
+    # per-claim JSON (see settings.summary_output_small_ratio).
+    floor = min(max(floor, settings.summary_output_small_cap),
+                max(floor, math.ceil(settings.summary_output_small_ratio * inputs)))
+    scaled = math.ceil(settings.summary_output_ratio * inputs)
     return int(min(settings.summary_output_ceiling, max(floor, scaled)))
 
 

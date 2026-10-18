@@ -142,9 +142,22 @@ def test_pieces_keep_every_window_in_order_and_never_loop():
 def test_output_cap_scales_with_input_between_floor_and_ceiling(monkeypatch):
     monkeypatch.setattr(settings, "summary_output_ratio", 0.5)
     monkeypatch.setattr(settings, "summary_output_ceiling", 3000)
+    monkeypatch.setattr(settings, "summary_output_small_ratio", 0)       # elastic floor off
     assert ss.output_cap(100, 900) == 900
     assert ss.output_cap(4000, 900) == 2000
     assert ss.output_cap(100_000, 900) == 3000
+
+
+def test_output_cap_floor_grows_for_mid_size_pieces(monkeypatch):
+    monkeypatch.setattr(settings, "summary_output_ratio", 2.0)
+    monkeypatch.setattr(settings, "summary_output_ceiling", 8192)
+    monkeypatch.setattr(settings, "summary_output_small_ratio", 3.0)
+    monkeypatch.setattr(settings, "summary_output_small_cap", 2048)
+    assert ss.output_cap(200, 900) == 900          # short: the job's floor
+    assert ss.output_cap(530, 900) == 1590         # the cut turn: was 1,060
+    assert ss.output_cap(700, 900) == 2048         # elastic floor capped
+    assert ss.output_cap(1500, 900) == 3000        # long: 2x as before
+    assert ss.output_cap(10, 3000) == 3000         # a larger job floor is never lowered
 
 
 def test_generate_claims_merges_pieces_and_survives_one_failed_piece(v3, monkeypatch):
