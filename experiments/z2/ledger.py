@@ -119,7 +119,10 @@ if str(ROOT) not in sys.path:
 # SYSTEM prompt (sha256 771a5616...) named a history-B character as the subject example.
 # -2: the same prompt with a neutral example. Windows bind the SYSTEM hash, so a -1 run
 # never resumes under -2.
-POLICY = "ice-z2-ledger-extract-2"
+# -3 (2026-10-18): list items and the reasons/conditions of advice recorded as separate
+# entries — the -2 ledger found 48/81 reviewed development requirements, missing mostly
+# the specifics inside long assistant replies.
+POLICY = "ice-z2-ledger-extract-3"
 KINDS = ("fact", "preference", "decision", "plan", "advice", "procedure", "event")
 MODALITIES = ("asserted", "suggested", "hypothetical")
 CHANGES = ("correction", "reversal", "update")
@@ -139,6 +142,11 @@ things; preferences, likes, dislikes and constraints; decisions; plans; advice a
 the assistant gave; events that happened; and the content of creative or technical work being
 built (characters and their traits, rules of a world, design choices). Skip greetings, filler,
 one-off reactions, and general knowledge that is not tied to this conversation.
+
+Detail matters. When anyone gives a list — options, steps, reasons, recommendations, directions,
+features, criteria — record EACH item as its own entry with its specifics (not one entry saying
+"the assistant suggested several options"). Keep the reasons and conditions attached to advice
+("because…", "only if…", "unless…") inside that entry's value.
 
 CONTEXT turns are shown only so you understand the new ones. Never record an item that is
 stated only in CONTEXT turns; they were processed already.
@@ -263,7 +271,9 @@ def parse(text):
     fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", body, re.S)
     if fence:
         body = fence.group(1)
-    data = json.loads(body)
+    # strict=False: quotes are copied verbatim and may hold literal tabs/newlines
+    # (table rows), which strict JSON rejects; no content is changed.
+    data = json.loads(body, strict=False)
     entries = data.get("entries") if isinstance(data, dict) else None
     if not isinstance(entries, list):
         raise ValueError("reply has no entries list")
@@ -281,6 +291,8 @@ def admit(originals, raw, window, known_ids, entry_id):
     if not (isinstance(subject, str) and subject.strip() and isinstance(value, str) and value.strip()):
         return None, "bad_field"
     supersedes, change = raw.get("supersedes"), raw.get("change")
+    if supersedes is not None and not isinstance(supersedes, str):
+        return None, "bad_change"                   # an object where an entry id belongs
     if supersedes is not None and supersedes not in known_ids:
         return None, "supersedes_unknown"
     if (supersedes is None) != (change is None) or (change is not None and change not in CHANGES):

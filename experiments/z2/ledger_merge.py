@@ -113,7 +113,7 @@ def _json(text, key):
     body = text.strip()
     if body.startswith("```"):
         body = body.split("\n", 1)[1].rsplit("```", 1)[0]
-    rows = json.loads(body).get(key)
+    rows = json.loads(body, strict=False).get(key)
     if not isinstance(rows, list):
         raise ValueError(f"reply has no {key} list")
     return rows

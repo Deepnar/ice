@@ -40,7 +40,10 @@ TIE_BREAK = "muse"
 # once spent a whole 16,000-token reply thinking and returned no text (dev window
 # 1, 2026-10-17); a run before it on the same window had not thought at all.
 # `reasoning_effort: "none"` turns it off on both writer families (measured).
-WRITER_EXTRA_BODY = {"reasoning_effort": "none"}
+# JSON mode (2026-10-18): MiMo closed long replies with a missing or extra brace —
+# 14 unparseable replies on history B, 4 windows lost after the retry; replies are
+# never repaired, so the provider is asked for valid JSON instead (both accept it).
+WRITER_EXTRA_BODY = {"reasoning_effort": "none", "response_format": {"type": "json_object"}}
 
 
 class _Injecting:

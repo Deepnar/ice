@@ -190,3 +190,15 @@ def test_transient_provider_errors_retry_but_quota_does_not():
     with pytest.raises(ProviderAccessError):
         profiles.retrying(quota, "mimo", sleep=lambda s: None)()
     assert len(calls) == 1
+
+
+def test_literal_tabs_inside_quotes_parse():
+    reply = '{"entries": [{"kind": "fact", "quote": "Section\tTime\tScored?"}]}'
+    assert ledger.parse(reply)[0]["quote"] == "Section\tTime\tScored?"
+
+
+def test_non_string_supersedes_is_rejected_not_a_crash(history):
+    raw = entry("user's cat", "The cat is Tofu.", 30, "the cat is called Tofu now") | dict(
+        supersedes={"id": "x"}, change="correction")
+    entry_, reason = ledger.admit(PAIRS, raw, dict(new=[30], context=[]), {"x"}, "id")
+    assert entry_ is None and reason == "bad_change"
