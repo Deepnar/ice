@@ -120,11 +120,14 @@ def _json(text, key):
 
 
 class Calls:
-    """Durable, resumable model calls keyed by identity."""
+    """Durable, resumable model calls keyed by identity. Safe to share between
+    threads: appends are serialised."""
 
     def __init__(self, path):
+        import threading
         self.path = path
         self.done = {}
+        self._lock = threading.Lock()
         if path.exists():
             for line in path.open():
                 row = json.loads(line)
@@ -137,8 +140,9 @@ class Calls:
         text, usage = run()
         row = dict(policy=CALL_POLICY, identity=identity, text=text, usage=usage,
                    seconds=round(time.monotonic() - started, 2))
-        L._append(self.path, row)
-        self.done[identity] = row
+        with self._lock:
+            L._append(self.path, row)
+            self.done[identity] = row
         return row
 
 
