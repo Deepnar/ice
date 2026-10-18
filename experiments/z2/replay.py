@@ -11,9 +11,10 @@ all from outside (no src change):
   every fact-usage write (turn, fact ids), and every decay job's per-row change
   (episodic decay_score, codex usage, procedural confidence) — what D10's decay
   overlays replay from;
-- a checkpoint store at every session boundary, taken when the user would come
-  back: the overdue maintenance for the gap (decay included) has run at the next
-  session's start time, the next turn not yet processed (`checkpoints/cp-<turn>.sql`).
+- a checkpoint store at every session end, taken when the user would come back:
+  the overdue maintenance for the gap (decay included) has run at the next
+  session's start time, the next turn not yet processed (`checkpoints/cp-<turn>.sql`);
+  after the last session the return is one more seeded gap (clock.session_gap).
 
 Questions are not asked here; read passes (S9) ask them on the saved stores.
 
@@ -126,9 +127,11 @@ def _column_state(db, table, column):
     return {str(r[0]): r[1] for r in db.execute(text(f"SELECT id, {column} FROM {table}"))}
 
 
-def install(log, history, session_ends, next_start, snapdir, stack, turn_at):
+def install(log, history, session_ends, next_start, snapdir, stack, turn_at, final=(None, None)):
     """Patches for the event log and the session-boundary checkpoints.
-    *turn_at* maps a turn's replay timestamp to its number (filled by load_plan)."""
+    *turn_at* maps a turn's replay timestamp to its number (filled by load_plan);
+    *final* = (last turn, gap): the user's return after the last session, so the
+    questions asked at the history's end have a checkpoint store too."""
     import importlib
     from scripts.z1 import seed_v3, snapshot
     from src.memory import usage
@@ -206,18 +209,19 @@ def install(log, history, session_ends, next_start, snapdir, stack, turn_at):
         turn = (context or {}).get("turn")
         log.turn, log.source_time = turn, source_time
         result = real_maintenance(db, sink, source_time, conversation_id, last_run, recovery, context)
-        if turn in session_ends and turn in next_start:
+        back = next_start.get(turn) or (source_time + final[1] if turn == final[0] else None)
+        if turn in session_ends and back is not None:
             # Checkpoint = when the user comes back: run what is overdue at the next
             # session's start (decay over the gap) ON that start's clock — the 7-day
             # and staleness cutoffs read it — then save, before the next turn.
-            log.source_time = next_start[turn]
-            with boundary_clock(next_start[turn], db.get_bind()):
-                real_maintenance(db, sink, next_start[turn], conversation_id, last_run, recovery,
+            log.source_time = back
+            with boundary_clock(back, db.get_bind()):
+                real_maintenance(db, sink, back, conversation_id, last_run, recovery,
                                  dict(context or {}, stage="session_boundary"))
             with patch.object(snapshot, "SNAPDIR", snapdir):
                 if snapshot.save(f"cp-{turn}"):          # returns 1 on a failed pg_dump
                     raise RuntimeError(f"session-boundary checkpoint cp-{turn} could not be saved")
-            log.write(event="checkpoint", store=f"cp-{turn}.sql", at=next_start[turn])
+            log.write(event="checkpoint", store=f"cp-{turn}.sql", at=back)
         return result
 
     real_store = seed_v3._store_turn
@@ -284,7 +288,14 @@ def run_replay(args) -> int:
     slug = HISTORY_SLUG[args.history]
     clock = table(args.history, load_history(args.history))
     sessions = clock["sessions"]
-    session_ends = {s["last_turn"] for s in sessions[:-1]}
+    session_ends = {s["last_turn"] for s in sessions}          # the last one too: questions end there
+    from experiments.z2.clock import session_gap
+    final = (sessions[-1]["last_turn"], session_gap(args.history, len(sessions) + 1))  # same seeded rule
+    if args.limit and args.limit < final[0]:
+        # A slice ends where it stops: its last turn gets the final return and
+        # checkpoint exactly as the full history's does (so slices exercise it).
+        session_ends.add(args.limit)
+        final = (args.limit, final[1])
     next_start = {s["last_turn"]: datetime.fromisoformat(n["start"]) for s, n in zip(sessions, sessions[1:])}
     original_load = seed_v3.load_plan
     turn_at = {}
@@ -316,7 +327,7 @@ def run_replay(args) -> int:
         log = EventLog(args.out / "events.jsonl")
         log.write(event="run_start", policy=POLICY, clock_policy=clock["policy"], argv=argv,
                   resume=bool(args.resume))
-        install(log, args.history, session_ends, next_start, snapdir, stack, turn_at)
+        install(log, args.history, session_ends, next_start, snapdir, stack, turn_at, final)
         stack.enter_context(patch.object(seed_v3, "load_plan", load_plan))
         stack.enter_context(patch.object(sys, "argv", argv))
         return seed_v3.main()
