@@ -509,6 +509,18 @@ answer output cap (D7); speed fixes from S0.
 
 ## 4. Failure modes and resumability
 
+**Who runs what (maintainer, 2026-10-18).** The long runs — S7 replay onward (S8, S9,
+S10, S11, S12) — are launched by the maintainer, not by a session, through one command:
+`experiments/z2/run_z2.py run` runs every built stage in order (or `--only` one stage),
+resumes after any break, crash or stop, and shows the work and time left per stage and
+overall (`run_z2.py status --watch` from any terminal). A production run meets failures a
+test run never does, so the runner never just stops: missing prerequisites (Postgres,
+Ollama, disk) are waited for; a stage process that dies is resumed after a back-off;
+only three failures in a row with no progress mark a stage stuck — its dependents are
+blocked, independent stages still run, and the error is kept in the run log. Every new
+long stage is built as resumable units behind this runner. FINAL reuses it, so starting
+FINAL is a command, not a build.
+
 - A writer returns uncited or wrongly cited entries: dropped by the mechanical
   check, counted, never silently fixed.
 - Two writers agree on a wrong entry: the S5 review sample and the background
