@@ -297,6 +297,7 @@ class Replay(Stage):
 INPUTS = {
     "ledger": {h: ROOT / f"logs/z2-ledger-detail-2026-10-18-r2/{h}/ledger.json" for h in ("B", "C")},
     "changes": {h: ROOT / f"logs/z2-questions-final/{h}/changes.json" for h in ("B", "C")},
+    "asks": {h: ROOT / f"logs/z2-questions-final/{h}/z2-asks.json" for h in ("B", "C")},
 }
 
 
@@ -351,6 +352,59 @@ class Audit(Stage):
         return run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
+class ReadPasses(Stage):
+    """S9: every Z2 question read under every condition on its checkpoint store
+    (experiments/z2/read_passes.py)."""
+
+    def __init__(self, history):
+        super().__init__(key=f"s9-{history}", title=f"S9 read passes {history}", needs=(f"s8-{history}",),
+                         unit="contexts", estimate=6.0)
+        self.history = history
+
+    def out(self, ctx):
+        return ctx.dir / self.key
+
+    def missing(self, ctx):
+        path = INPUTS["asks"][self.history]
+        return [] if path.exists() else [str(_rel(path))]
+
+    def total(self, ctx):
+        from experiments.z2 import read_passes
+        # Planning number until the asks exist: ~300/~120 Z2 occurrences plus one
+        # control per checkpoint (45/13), times the conditions.
+        planned = {"B": 345, "C": 133}[self.history] * len(read_passes.CONDITIONS)
+        return read_passes.progress(self.out(ctx), INPUTS["asks"][self.history])[1] or planned
+
+    def done(self, ctx):
+        from experiments.z2 import read_passes
+        return read_passes.progress(self.out(ctx), INPUTS["asks"][self.history])[0]
+
+    def rate(self, ctx):
+        stamps = sorted(p.stat().st_mtime for p in (self.out(ctx) / "units").glob("*/*.json"))[-60:]
+        gaps = sorted(b - a for a, b in zip(stamps, stamps[1:]) if 0 <= b - a < 600)
+        return gaps[len(gaps) // 2] if len(gaps) >= 5 else None
+
+    def complete(self, ctx):
+        failures = self.out(ctx) / "failures.json"
+        total = self.total(ctx)
+        return bool(total) and self.done(ctx) >= total and failures.exists() \
+            and not json.loads(failures.read_text())
+
+    def run(self, ctx):
+        replay = next(s for s in ctx.stages if s.key == f"s7-{self.history}")
+        log_path = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            cmd = [sys.executable, "experiments/z2/read_passes.py", "--history", self.history,
+                   "--database", replay.database(ctx), "--replay", str(replay.out(ctx).relative_to(ROOT)),
+                   "--asks", str(INPUTS["asks"][self.history].relative_to(ROOT)),
+                   "--out", str(self.out(ctx).relative_to(ROOT))]
+            rc = ctx.run_child(cmd, log_path)
+            return rc, _tail(log_path)
+
+        return run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
 class NotBuilt(Stage):
     def __init__(self, key, title, needs):
         super().__init__(key=key, title=title, needs=needs, built=False)
@@ -364,8 +418,10 @@ def stages(limit=None):
         Replay("C", 325, 200.0, limit),
         Audit("B"),
         Audit("C"),
-        NotBuilt("s9", "S9 read passes (controls, ablations, decay overlays)", ("s8-B", "s8-C")),
-        NotBuilt("s10", "S10 answers (Luna)", ("s9",)),
+        ReadPasses("B"),
+        ReadPasses("C"),
+        NotBuilt("s9x", "S9 ablation conditions (read switches to decide)", ("s9-B", "s9-C")),
+        NotBuilt("s10", "S10 answers (Luna)", ("s9-B", "s9-C")),
         NotBuilt("s11", "S11 grading and retrieval diagnostics (Muse)", ("s10",)),
         NotBuilt("s12", "S12 LongMemEval oracle", ()),
     ]
