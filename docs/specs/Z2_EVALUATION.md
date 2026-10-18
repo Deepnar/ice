@@ -74,7 +74,10 @@ session; between sessions a deterministic seeded gap of 1, 2 or 3 days. B is the
 about 45 sessions over roughly three months, C about 13 sessions over roughly a
 month. Real, authentic timestamps are used unchanged wherever a history has them.
 The clock table (session → start time) is written before the replay and is a
-USER-REQUIRED review.
+USER-REQUIRED review. **Approved by the maintainer, 2026-10-18** (`experiments/z2/clock.py`,
+policy `ice-z2-declared-clock-1`): any split is fine as long as the gaps stay even — never
+small gaps then one very large one. B: 45 sessions over 90.2 days, C: 13 over 32.7 days; every
+gap is 1, 2 or 3 days.
 
 **D4 — Question machinery (built before Z2, reused by FINAL).**
 
@@ -429,6 +432,9 @@ redesign. FINAL's inputs: the sealed B/C families; the maintainer's other v1
 conversations (private, reported separately, never published raw); public and
 synthetic data as the reproducible part; the second judge. FINAL's data roster
 and public-dataset adapters are decided in Z3, not here.
+*Direction for FINAL (maintainer, 2026-10-18):* the ledger tie-breaker should **re-extract**
+a disputed item from the cited source itself — an independent third reading — rather than
+only choose between the two writers' versions.
 
 ## 2. Algorithm and data model
 
