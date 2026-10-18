@@ -48,12 +48,15 @@ That is *why* it no longer enforces anything: every budget decision calls
 ``count()``. Do not reintroduce an estimate on a spending path.
 """
 
+import threading
+
 import structlog
 
 logger = structlog.get_logger("ice.memory.tokens")
 
 _tokenizer = None
 _load_attempted = False
+_load_lock = threading.Lock()
 
 # Chat templates wrap every message in role/turn markers. Measured at ~4 tokens
 # per message across the Qwen/Gemma templates; with a 20-message prompt that is
@@ -68,15 +71,22 @@ def _get_tokenizer():
     nothing after NER has run, and ~570 ms if it hasn't)."""
     global _tokenizer, _load_attempted
     if _tokenizer is None and not _load_attempted:
-        _load_attempted = True
-        try:
-            from transformers import AutoTokenizer
-            _tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-Embedding-0.6B")
-        except Exception as exc:
-            # No silent failure: a fallen-back count is a *different measurement*
-            # and every consumer of it deserves to know which ruler it got.
-            logger.error("tokenizer_load_failed", error=str(exc),
-                         falling_back_to="estimate")
+        # Callers arriving during the first load wait for it. The flag used to be
+        # set before loading, so a second thread in that ~0.5 s got None and
+        # counted with chars/4 (Z2 ledger, 2026-10-18: two writers' window plans
+        # for the same history differed).
+        with _load_lock:
+            if _tokenizer is None and not _load_attempted:
+                try:
+                    from transformers import AutoTokenizer
+                    _tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-Embedding-0.6B")
+                except Exception as exc:
+                    # No silent failure: a fallen-back count is a *different measurement*
+                    # and every consumer of it deserves to know which ruler it got.
+                    logger.error("tokenizer_load_failed", error=str(exc),
+                                 falling_back_to="estimate")
+                finally:
+                    _load_attempted = True
     return _tokenizer
 
 
@@ -91,6 +101,8 @@ def count(text: str) -> int:
         return 0
     tok = _get_tokenizer()
     if tok is None:
+        # Every time, not once: a budget sized by chars/4 is a different ruler.
+        logger.warning("token_count_estimated", reason="tokenizer_unavailable", chars=len(text))
         return estimate(text)
     try:
         return len(tok.encode(text, add_special_tokens=False))
