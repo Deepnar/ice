@@ -505,3 +505,19 @@ def test_entity_merge_moves_fact_links_and_unmerge_restores_them():
         db.expire_all()
         assert {(r.fact_id, r.entity_id, r.role) for r in db.query(CodexFactEntity)} == before
         assert db.get(CodexEntity, absorb_id).canonical_name == f"ice engine {tag}"
+
+
+def test_batch_reply_cap_leaves_room_per_candidate(monkeypatch):
+    """60 + 45 per candidate: replies measured 28-31 tokens each, one cut needed ~38."""
+    from types import SimpleNamespace as NS
+    from src.workers import bg_client_factory, fact_extractor
+    seen = {}
+    def create(**kwargs):
+        seen.update(kwargs)
+        answers = [{"id": f"E{i}", "same_information": False, "both_can_be_true": True} for i in (1, 2, 3, 4, 5)]
+        return NS(choices=[NS(message=NS(content=__import__("json").dumps({"answers": answers})),
+                              finish_reason="stop")])
+    monkeypatch.setattr(bg_client_factory, "get_bg_client",
+                        lambda: NS(chat=NS(completions=NS(create=create))))
+    fact_extractor._ask_many(["a", "b", "c", "d", "e"], "new")
+    assert seen["max_tokens"] == 60 + 45 * 5

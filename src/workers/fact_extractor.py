@@ -118,7 +118,9 @@ def _ask_many(earlier: list, newer: str) -> list:
     from src.workers.completion_text import complete_text
     model = settings.codex_fact_reconcile_model or get_bg_model_name()
     ids = [f"E{i}" for i in range(1, len(earlier) + 1)]
-    cap = 40 + 30 * len(ids)
+    # Replies measured at 28-31 tokens per candidate, one cut needing ~38 (Z2 S0
+    # r4/r5): 40 + 30 per candidate cut a reply in each run; 60 + 45 leaves room.
+    cap = 60 + 45 * len(ids)
     completion = get_bg_client().chat.completions.create(
         model=model, temperature=0.0, max_tokens=cap, timeout=bg_timeout(cap),
         messages=[{"role": "system", "content": facts.RECONCILE_BATCH_SYSTEM},
