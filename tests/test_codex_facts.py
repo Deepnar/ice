@@ -402,6 +402,85 @@ def test_reconcile_guards():
         db.rollback()
 
 
+def _seed(db, tag, n=3):
+    """n current user facts carrying *tag*; stub embeddings make all of them candidates."""
+    turn = _turn(db)
+    facts.write_turn_facts(db, turn, {"assertions": [
+        _a(f"The user said fact {i} about {tag}.", "I moved to Lisbon in March") for i in range(n)]},
+        embedder=ENC)
+    return {f.text: f for f in db.query(CodexFact).filter(CodexFact.text.like(f"%{tag}%"))}
+
+
+def test_batch_screens_candidates_and_single_pair_decides():
+    with SessionLocal() as db:
+        tag = uuid.uuid4().hex[:6]
+        seeded = _seed(db, tag)
+        flagged = f"The user said fact 1 about {tag}."
+        later = _turn(db)
+        later.timestamp = WHEN.replace(month=6)
+        asked_alone, batches = [], []
+        def ask_many(earlier, newer):
+            batches.append(list(earlier))
+            return [{"same_information": False, "both_can_be_true": e != flagged} for e in earlier]
+        def ask(earlier, newer):                    # single pair overrules the batch
+            asked_alone.append(earlier)
+            return {"same_information": False, "both_can_be_true": True}
+        counts = facts.write_turn_facts(db, later, {"assertions": [
+            _a(f"The user said they stopped {tag}.", "I moved to Lisbon in March")]},
+            embedder=ENC, ask=ask, ask_many=ask_many)
+        assert len(batches) == 1 and set(seeded) <= set(batches[0])
+        assert asked_alone == [flagged]                     # only the flagged candidate
+        assert all(f.valid_until is None for f in seeded.values())   # single said both_true
+        assert counts["reconcile_batches"] == 1 and counts["reconcile_calls"] == 1
+        # the same flag confirmed alone as a change does supersede
+        counts = facts.write_turn_facts(db, later, {"assertions": [
+            _a(f"The user said they quit {tag}.", "I moved to Lisbon in March")]},
+            embedder=ENC, ask=lambda e, n: {"same_information": False, "both_can_be_true": e != flagged},
+            ask_many=ask_many)
+        assert seeded[flagged].valid_until == later.timestamp and counts["superseded"] == 1
+        db.rollback()
+
+
+def test_failed_batch_asks_every_candidate_alone_and_warns(caplog):
+    import logging
+    with SessionLocal() as db:
+        tag = uuid.uuid4().hex[:6]
+        seeded = _seed(db, tag)
+        asked = []
+        def ask(earlier, newer):
+            asked.append(earlier)
+            return {"same_information": False, "both_can_be_true": True}
+        def broken(earlier, newer):
+            raise TimeoutError()
+        with caplog.at_level(logging.WARNING):
+            facts.write_turn_facts(db, _turn(db), {"assertions": [
+                _a(f"The user said something new about {tag}.", "I moved to Lisbon in March")]},
+                embedder=ENC, ask=ask, ask_many=broken)
+        assert set(seeded) <= set(asked)
+        short = lambda earlier, newer: [{"same_information": False, "both_can_be_true": True}]
+        asked.clear()
+        facts.write_turn_facts(db, _turn(db), {"assertions": [
+            _a(f"The user said another thing about {tag}.", "I moved to Lisbon in March")]},
+            embedder=ENC, ask=ask, ask_many=short)       # wrong length is a failure too
+        assert set(seeded) <= set(asked)
+        db.rollback()
+
+
+def test_screen_rules_without_a_database():
+    from types import SimpleNamespace as NS
+    pool = [NS(text="a"), NS(text="b"), NS(text="c")]
+    claim = {"text": "new"}
+    calls = []
+    def ask_many(earlier, newer):
+        calls.append(earlier)
+        return [{"same_information": True, "both_can_be_true": True},
+                {"same_information": False, "both_can_be_true": False},
+                {"same_information": False, "both_can_be_true": True}]
+    assert facts.screen(claim, pool, ask_many=ask_many) == [True, True, False]
+    assert facts.screen(claim, pool[:1], ask_many=ask_many) == [True] and len(calls) == 1  # one candidate: no batch
+    assert facts.screen(claim, pool, ask_many=None) == [True, True, True]
+
+
 def test_entity_merge_moves_fact_links_and_unmerge_restores_them():
     from src.workers.codex_ops import merge_entities, unmerge_entities
     with SessionLocal() as db:

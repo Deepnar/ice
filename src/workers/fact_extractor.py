@@ -75,7 +75,7 @@ def extract_facts(batch_id, model_used: str = ""):
         if record is None:
             record = _claim_record(turn, model_used)
         counts = facts.write_turn_facts(db, turn, record, embedder=get_embedder(),
-                                        ask=_ask, mentions=_mentions)
+                                        ask=_ask, mentions=_mentions, ask_many=_ask_many)
         words = len((turn.raw_text or "").split())
         if counts["new"] + counts["supported"] == 0 and words > 50:
             # Silent-fallback rule (TRAPS 11): say every time a real turn gives nothing.
@@ -109,3 +109,22 @@ def _ask(earlier: str, newer: str) -> dict:
                                                          ensure_ascii=False)}],
         response_format=json_schema("fact_relation", facts.RECONCILE_SCHEMA))
     return json.loads(complete_text(completion))
+
+
+def _ask_many(earlier: list, newer: str) -> list:
+    """D6's two questions for several earlier facts in one call (see facts.screen)."""
+    import json
+    from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name, json_schema
+    from src.workers.completion_text import complete_text
+    model = settings.codex_fact_reconcile_model or get_bg_model_name()
+    ids = [f"E{i}" for i in range(1, len(earlier) + 1)]
+    cap = 40 + 30 * len(ids)
+    completion = get_bg_client().chat.completions.create(
+        model=model, temperature=0.0, max_tokens=cap, timeout=bg_timeout(cap),
+        messages=[{"role": "system", "content": facts.RECONCILE_BATCH_SYSTEM},
+                  {"role": "user", "content": json.dumps(
+                      {"newer": newer, "earlier": [{"id": i, "text": t} for i, t in zip(ids, earlier)]},
+                      ensure_ascii=False)}],
+        response_format=json_schema("fact_relations", facts.reconcile_batch_schema(ids)))
+    by_id = {a["id"]: a for a in json.loads(complete_text(completion))["answers"]}
+    return [by_id[i] for i in ids]

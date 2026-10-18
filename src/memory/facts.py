@@ -177,6 +177,54 @@ RECONCILE_SCHEMA = {"type": "object", "additionalProperties": False,
                     "required": ["same_information", "both_can_be_true"],
                     "properties": {"same_information": {"type": "boolean"},
                                    "both_can_be_true": {"type": "boolean"}}}
+# One call screens all of a new fact's candidates with the same two questions; only
+# the ones it calls "same" or "replaces" are re-asked alone with RECONCILE_SYSTEM,
+# whose answer decides (Z2 S0, 2026-10-18). Calls per new fact fell from one per
+# candidate (2.3 per fact by turn 150 of history B, rising toward 28) to one plus
+# about one confirmation in five. Qualified on the §5.2 set against single-pair:
+# 90/99 vs 88/99 real, planted 10/12 both, false replaces 6 -> 1, missed "same"
+# 5 -> 7, 0/60 distractors called "replaces" (logs/z2-s0-reconcile-batch-*).
+RECONCILE_BATCH_SYSTEM = (
+    "You compare memory facts said by the same speaker: one NEWER fact and a list of EARLIER "
+    "facts. For EACH earlier fact, answer two questions about what the sentences say:\n"
+    "1. same_information: do the earlier sentence and the newer sentence state the same thing, "
+    "with neither adding or changing any information?\n"
+    "2. both_can_be_true: could the earlier and the newer sentence both be true at the same time, "
+    "right now? Answer false only if the newer one says the earlier one is no longer so - a "
+    "changed value, a cancelled or reversed decision, a stopped habit, a correction. Different "
+    "details, extra detail, items of a list, a question, a suggestion, a possibility or a "
+    "different direction of a relation can all be true together: answer true.\n"
+    "Judge each earlier fact on its own against the newer one. Use only what the sentences say.")
+
+
+def reconcile_batch_schema(ids) -> dict:
+    return {"type": "object", "additionalProperties": False, "required": ["answers"],
+            "properties": {"answers": {"type": "array", "minItems": len(ids), "maxItems": len(ids),
+                "items": {"type": "object", "additionalProperties": False,
+                          "required": ["id", "same_information", "both_can_be_true"],
+                          "properties": {"id": {"type": "string", "enum": list(ids)},
+                                         "same_information": {"type": "boolean"},
+                                         "both_can_be_true": {"type": "boolean"}}}}}}
+
+
+def screen(claim: dict, earlier: list, *, ask_many: Optional[Callable]) -> list:
+    """Which candidates need the single-pair question: all of them, unless one batched
+    call says a candidate is plainly both_true. *ask_many(earlier_texts, newer_text)*
+    returns one {same_information, both_can_be_true} per text, in order. A failed or
+    short batch falls back to asking every candidate alone — warned every time."""
+    if ask_many is None or len(earlier) < 2:
+        return [True] * len(earlier)
+    try:
+        answers = ask_many([e.text for e in earlier], claim["text"].strip())
+        if len(answers) != len(earlier):
+            raise ValueError(f"{len(answers)} answers for {len(earlier)} facts")
+        return [bool(a["same_information"]) or not bool(a["both_can_be_true"]) for a in answers]
+    except Exception as exc:                                  # noqa: BLE001
+        logger.warning("fact_reconcile_batch_failed", candidates=len(earlier),
+                       error_type=type(exc).__name__)
+        return [True] * len(earlier)
+
+
 # A label that is not a statement of fact never replaces, and is never replaced
 # (the label is ~85-90% reliable; this rule removed 3 of 5 false replacements).
 _NO_REPLACE = {"asked", "suggested", "hypothetical"}
@@ -229,16 +277,17 @@ def reconcile(claim: dict, earlier, *, ask: Callable, when) -> str:
 
 
 def write_turn_facts(db, turn, record: dict, *, embedder,
-                     ask: Optional[Callable] = None, mentions: Optional[Callable] = None) -> dict:
+                     ask: Optional[Callable] = None, mentions: Optional[Callable] = None,
+                     ask_many: Optional[Callable] = None) -> dict:
     """Write one turn's verified v4 assertions as facts. Caller commits.
 
     Exact-text duplicates of the same speaker merge without a model. *ask* is
     D6's question (see `reconcile`); None skips it, so every other claim is a
-    new fact. *mentions(text)* returns entity names found in a fact sentence
+    new fact. *ask_many* screens a claim's candidates in one call (see `screen`). *mentions(text)* returns entity names found in a fact sentence
     (NuNER, background tier); None skips mention links.
     """
     counts = {"assertions": 0, "dropped": 0, "new": 0, "supported": 0, "links": 0,
-              "superseded": 0, "reconcile_calls": 0}
+              "superseded": 0, "reconcile_calls": 0, "reconcile_batches": 0}
     written = set()
     rows = [a for a in (record or {}).get("assertions") or []]
     counts["assertions"] = len(rows)
@@ -262,7 +311,12 @@ def write_turn_facts(db, turn, record: dict, *, embedder,
                     .order_by(CodexFact.mentioned_at).first())
         replaced = []
         if existing is None and ask is not None:
-            for earlier in candidates(db, claim, vector, exclude=written):
+            pool = candidates(db, claim, vector, exclude=written)
+            needs = screen(claim, pool, ask_many=ask_many)
+            counts["reconcile_batches"] += ask_many is not None and len(pool) > 1
+            for earlier, confirm in zip(pool, needs):
+                if not confirm:
+                    continue
                 counts["reconcile_calls"] += 1
                 verdict = reconcile(claim, earlier, ask=ask, when=when)
                 if verdict == "same":
