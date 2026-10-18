@@ -814,6 +814,21 @@ def write_review(history, out, name="families", per_type=6):
                       + (" (expects abstention)" if o.get("expected_abstention") else ""),
                       f"- **required:** {json.dumps(ref.get('required', []), ensure_ascii=False)}",
                       f"- **cited turns:** {sorted({c.get('turn') for c in ref.get('citations', [])})}", ""]
+    walk = directory / "walk-audit.json"
+    if walk.exists():
+        audit = json.loads(walk.read_text())
+        lines += [f"## Walk vs ledger disagreements ({len(audit['queue'])})", "",
+                  f"The forward walk (Muse) agreed with the ledger on {audit['agree']} of {audit['judged']} "
+                  f"occurrences; walk-only changes {audit['walk_only']}, ledger-only {audit['ledger_only']}. "
+                  "For each: is the reference at the ask still right? Drop the family if not.", ""]
+        for item in audit["queue"]:
+            reply = item.get("reply") or {}
+            lines += [f"- **{item['family']}** at turn {item.get('checkpoint')} — {item['kind']}"
+                      + (f"; walk cites turn {reply.get('turn')}: \"{reply.get('quote')}\" → {reply.get('new_answer')}"
+                         if reply.get("changes") else "")]
+        lines.append("")
+    else:
+        lines += ["## Walk vs ledger disagreements", "", "NOT RUN — run walk_audit.py before reviewing.", ""]
     (directory / "review-packet.md").write_text("\n".join(lines) + "\n")
     decisions = directory / "review-decisions.json"
     if not decisions.exists():
