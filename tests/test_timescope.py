@@ -534,6 +534,8 @@ try:
           and abs(res.decay_score - settings.timescope_probation_score) < 1e-9
           and res.embedding is not None and res.is_archived is False
           and res.inject_raw is True and res.access_count == 1)
+    check("27 resurrected row is decay-eligible: bookmark/immune flags FALSE, not NULL",
+          res.is_bookmarked is False and res.decay_immune is False)
     check("27 cold row deleted after resurrection",
           db.get(ColdStorage, cold_id) is None)
     check("27 legacy (NULL-conversation) row cite-only: still cold, not episodic",
@@ -553,6 +555,9 @@ try:
     check("28 archived row keeps decaying (freeze fixed)", t_frozen.decay_score < 0.08)
     check("28 recovered row un-archived by the new clause",
           t_recover.is_archived is False and t_recover.decay_score >= 0.1)
+    resurrected = db.get(EpisodicMemory, cold_id)
+    check("28 resurrected row decays like any other (probation fades)",
+          resurrected is not None and resurrected.decay_score < settings.timescope_probation_score)
 
     # 28b: cold move carries the new columns
     t_cold_bound = mk_turn(real_now - D * 30, f"User: {MARK} nearly cold\n\nAssistant: ok",

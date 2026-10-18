@@ -2167,6 +2167,10 @@ class HybridRetrievalOrchestrator:
                 logger.info("cold_cited_only", cold_id=str(row.id))
                 continue
             try:
+                # is_bookmarked / decay_immune are written explicitly: their
+                # defaults are ORM-side only, so a raw INSERT left them NULL,
+                # and decay's `= FALSE` filters skip NULL — the row never
+                # decayed again (Z2, 2026-10-18).
                 # Restore the representation that found this memory, not a
                 # newly truncated summary embedding. Legacy NULL stays NULL.
                 emb = getattr(row, "embedding", None)
@@ -2182,12 +2186,14 @@ class HybridRetrievalOrchestrator:
                         (id, conversation_id, batch_id, timestamp, topic_tags,
                          intent_tags, context_reliance, raw_text, summary_text,
                          embedding, decay_score, access_count, is_archived,
+                         is_bookmarked, decay_immune,
                          is_private, inject_raw, idempotency_key, source_spans, ts_provenance,
                          summary_coverage, representation_verification, abstract_text,
                          lossless_flag, is_document, session_id, cluster_id, batch_summary_id)
                     VALUES (:id, :conv, :batch, :ts, :tags, :itags,
                             :context_reliance, :raw, :summary, :emb, :score,
-                            1, FALSE, :priv, :inject_raw, :ikey, :source_spans, :ts_provenance,
+                            1, FALSE, FALSE, FALSE,
+                            :priv, :inject_raw, :ikey, :source_spans, :ts_provenance,
                             :summary_coverage, :representation_verification, :abstract_text,
                             :lossless_flag, :is_document, :session_id,
                             (SELECT id FROM context_clusters WHERE id = :primary_cluster),
