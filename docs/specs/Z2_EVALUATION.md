@@ -85,6 +85,19 @@ USER-REQUIRED review.
   superseded, `superseded_by` (the turn and entry that replaced it). Agreement
   between the two families marks an entry verified. A disagreement goes to a
   third-family tie-break, then to the review queue.
+  *How the check works (2026-10-18, after planted controls):* the checker is shown an
+  entry's subject and sentence only, never its speaker or modality, and reports what the
+  turns show — who says it (user / assistant / nobody), how (asserted / suggested /
+  hypothetical / not stated), and any contradicted detail; code compares (TRAPS 136; a
+  yes/no "supported?" made MiMo follow whether it had a similar entry of its own).
+  *Nothing is deleted (maintainer, 2026-10-18).* Every entry keeps a status: `verified`
+  (the other family's observation matches), `tie_break` (kept by the tie-breaker only),
+  `relabeled` (checker and tie-breaker both see the item, same speaker, every detail
+  right, and agree on another modality — the written modality is kept beside it), or
+  `unconfirmed` with its reason (`speaker`, `not_stated`, `wrong_detail`, `modality`,
+  unanswered). Only `verified`, `tie_break` and `relabeled` entries build questions and
+  ground truth; `unconfirmed` ones mark content that has *some* source, so an answer
+  repeating one is flagged as such, never as invented (D9, D11).
 - *Evolving ground truth: ledger first, v2's forward walk as the audit.* Changes
   are captured when they are extracted (a correction or reversal links to the
   entry it supersedes). Then v2's method runs as an independent check: for each
@@ -163,7 +176,22 @@ against, so Z2 families are development material for FINAL purposes.
 Writers never answer or judge. If a profile becomes unavailable, the replacement
 is recorded before use; no silent substitution.
 
-**D6b — Free tier first (maintainer, 2026-10-16).** OpenCode Zen
+**Data-use terms (read 2026-10-17, opencode.ai/docs/go).** MiMo, DeepSeek and LongCat on
+Go: no training, 0-day retention (DeepSeek's zero-retention agreement is renewed monthly;
+the one read was valid through 2026-10-31 — re-check before each stage that sends B/C
+text). GPT 6 Luna: no training, abuse-monitoring logs kept up to 30 days. **Muse Spark 1.3
+Contributor: prompts and completions MAY be used to train future Meta models, and it is not
+zero-retention** — that is the price of its discount, and the judge is sent cited B/C
+source text. **Accepted by the maintainer, 2026-10-17: Muse 1.3 Contributor stays the Z2
+judge on these terms.** Each run manifest records the terms as read.
+
+**D6b — Free tier first (maintainer, 2026-10-16) — NOT AVAILABLE TO THE HARNESS (measured
+2026-10-17).** With a valid key, `deepseek-v4.1-flash-free` and `mimo-v2.6-flash-free` on Zen
+both return `403 FreeTierError` ("OpenCode's free tier can only be used from within
+OpenCode"); the Go `deepseek-v4.1-flash` and `mimo-v2.6-flash` answer. So every Z2 cloud call
+runs on Go, and the free-vs-paid quality comparison the maintainer asked for cannot be run
+through the harness. (Zen's terms also said MiMo-V2.6-Flash Free may use inputs to improve
+the model.) The original rule is kept below as the record. OpenCode Zen
 (`https://opencode.ai/zen/v1`) serves free variants of some selected models; use
 them first and move to the OpenCode Go subscription (`https://opencode.ai/zen/go/v1`)
 only when the free quota is exhausted. Catalog checked 2026-10-16:
@@ -208,8 +236,20 @@ tuned configuration (spec §5.2 decisions): recorded original replies, full ICE
 preflight and post-flight per historical prompt, all nine periodic maintenance jobs
 (`seed_v3.MEMORY_JOBS`; ten before CODEX_V4 deleted `compaction`) on the declared clock, **live default decay** (option A). The replay logs every
 strengthening (row, source time, amount, turn or probe) and every decay pass.
-Questions retrieve like real use; their exposure is logged and tagged. Every
-checkpoint store is saved. Speed fixes (D1.1) come first, measured on a short
+**Every history turn goes through the whole answering pipeline (maintainer,
+2026-10-18 — this is what makes Z2's semi-LSREP an improvement over v2's).** For each
+historical user prompt: classification → memory decision → source gate → every
+retrieval leg → fusion, reranker, bonuses, budget → the final prompt fragments, with
+retrieval exposure and strengthening **written** exactly as in live use; the pipeline
+stops before the answer model, and the recorded original reply is stored and
+post-flighted. So decay, strengthening, usage and everything downstream of them evolve
+from the conversation itself, not from the evaluation's questions (in v2 only the
+probes touched retrieval state). Verified on the Z2 S0 profile (B turns 1–150, no
+questions asked): 133/150 turns accessed (1,396 accesses), 165 facts with usage, all 150
+history turns with exposure writes on (`scripts/z1/seed_v3.py`).
+**Questions never write:** each question retrieves like real use but in a read-only
+transaction that is rolled back (exposure logged and tagged, never applied), so asking
+cannot change the memory it measures (TRAPS 80). Every checkpoint store is saved. Speed fixes (D1.1) come first, measured on a short
 slice of B, and never change the stored outputs' identity silently.
 
 **D9 — Background-content quality audit** (full-system store only). Every kind of
@@ -228,7 +268,9 @@ D6's framing, never qualified on decisions). All are `applied` rows in
 notes or compaction snapshots to audit.) For each kind, a stratified sample (all items if fewer than
 100, else 100 per kind per history) is judged with its cited sources supplied:
 
-- **faithful** — supported by its sources; nothing invented or contradicted;
+- **faithful** — supported by its sources; nothing invented or contradicted (the
+  hallucination check on background output; content matching only an `unconfirmed`
+  ledger entry is flagged *unconfirmed source*, not invented — D11);
 - **attributed** — the right speaker; an assertion kept separate from a suggestion;
 - **current** — not presenting a superseded fact as current (checked against the ledger);
 - **complete** — required detail kept (summaries, folds, notes);
@@ -260,6 +302,46 @@ checkpoint's questions:
   overlay**; decay is reported separately as its own condition and as settings
   sensitivity via overlays (D8 event log). Label: read-time ablation on a fully
   seeded store; indirect write-time effects are not removed.
+- *The groups, as they stand after CODEX_V4 (copied here from V3_POST_RESEED_REPAIR
+  §2.5 so this spec is complete; that section stays the historical record),* in the
+  frozen additive order:
+  1. BM25 / hybrid candidate search.
+  2. Reranker.
+  3. **Codex facts** (old groups 3 + 4): the facts leg's keyword, meaning and entity
+     channels, the predecessor clause, the D7 strength bonus, grounded query expansion.
+  4. Supported turn summaries and abstracts — including the summary guard
+     (`representation_guard_terms`).
+  5. Rolling conversation and batch summary memory, with source-mode notes.
+  6. Procedural extraction, activation and retrieval.
+  7. Learned / source-proof retrieval gating.
+  8. Cluster organisation and scope/ranking effects.
+  9. Temporal query filtering and the facts' as-of validity (source dates stay in every
+     condition; switching this off never admits future evidence).
+  10. Decay / retention / cold lifecycle (read with the neutral overlay in every other
+      condition; reported as its own condition).
+  11. Semantic maintenance: reflection (G77 conversation slots) and entity merges; D6
+      reconciliation is write-time and reported through D9.
+- *Rules (from §2.5):* every condition shares one answer envelope (same question,
+  formatting, recent window, system instruction, answerer, decoding, output reserve and
+  total token cap; expected answers never enter it). Additive starts from bare vector
+  and adds one group at a time in the order above, frozen before any Z2 answer is seen;
+  order-dependent gains are conditional contributions. Leave-one-out starts from full
+  ICE each time, removes one group, then restores — never cumulative; a parent switch
+  that necessarily disables dependents is named as a compound removal. Components are
+  enumerated from actual reachable consumers before launch, each switch is proved to
+  change only its own component (§5 item 6), identical configurations are deduplicated
+  by manifest hash, and the exact arm/call/cost count is produced before launch. All
+  requested conditions run; none is dropped for being cheap or losing.
+- *Warm vector* = ICE's own vector leg with its gate, reranker and representation
+  policy, no other legs. *Bare vector* = an independent append-only index of every
+  original role-tagged chunk at the cutoff, same embedder, cosine top-k, no ICE
+  mechanism; tuned on development data only (PROVENANCE 2026-10-14), never weakened.
+- *Summary guard pair (maintainer, 2026-10-18):* the default reads with
+  `representation_guard_terms = specific` (a summary stands in for its raw turn only if it
+  keeps the question's names and numbers). A stratified sample of 60-100 questions across
+  all checkpoints and question types is also read with `every_word` (the old guard, which
+  demanded every question word) and both are answered and graded. Pre-registered: the
+  default stays unless `every_word` wins beyond the noise floor on some question type.
 - Identical assembled prompts reuse one cached answer.
 
 **D11 — Scoring.**
@@ -272,6 +354,17 @@ checkpoint's questions:
     qualifiers, no errors; 4 one minor omission; 3 partial; 2 mostly missing or
     stale; 1 wrong or invented. Separate flags: used a superseded value; invented
     content (replaces v2's hallucination percentage); abstained.
+    **Invented** means found in neither the checkpoint's originals nor any ledger entry
+    of any status; content matching only an `unconfirmed` entry gets its own flag,
+    *unconfirmed source*, and is not counted as a hallucination (maintainer,
+    2026-10-18). The same rule applies to D9's *faithful*.
+    **A ledger miss is not a hallucination (maintainer, 2026-10-18).** Content that
+    matches no ledger entry is checked against the originals before it counts as
+    invented, the same way abstention ground truth is checked (§2): an embedding search
+    and an exact keyword search over the originals up to the checkpoint, then the
+    verifier reads what they return. Found → *ledger miss* (counted against the ledger's
+    recall and reported, not against the system under test); not found → *confirmed
+    invented*. Applies to answers (D11) and to background output (D9).
   - **Ranking** of the conditions per question (v2 ranked four answers 1-4):
     blind, order randomised and repeated in two orders, ties allowed, judged
     separately from the absolute score; reported as win rates against bare vector
