@@ -1,3 +1,58 @@
+## 2026-10-18 — v3 Z2 S0 speed profiles and fixes; S1/S2 ledgers for B and C
+
+All v3, local `gemma4:e4b` (Ollama, native door) unless stated; histories from
+`logs/v3-offline-input-plan-2026-10-10-r4/final-originals-{B,C}.json`. Private runs
+under `logs/` (gitignored).
+
+**S0 write-path profiles** (`experiments/z2/profile_write_path.py`; history B turns
+1–150 through `scripts/z1/seed_v3.py` on the D3 declared clock, scratch databases,
+`--worker-failure-policy continue`; no questions asked). r2 (`logs/z2-s0-speed-profile-
+2026-10-17-r2`, code at `9c455ce`): 76.7 min, 30.7 s/turn (turns 101–150, length-matched
+to all of B: 38.8 s). r3 (`…-2026-10-18-r3`, after `243518d` reconcile batching and
+`6267a2a` gate thinking off): 57.1 min, 22.9 s/turn (28.3 s). r2 findings: reconcile
+calls per new fact 0 → 2.34 by turn 150 (cap ~28); preflight source proof 197 calls /
+1,035 s; procedural source review 39 calls / 368 s (thinking on, invisible to the
+profiler's transport wrapper); a flat ~0.32 s Ollama load per call, never a reload
+(all calls num_ctx 32,768); claim calls cut at their cap 2/476, all with caps 901–1500.
+Write-time retrieval: 133/150 stored turns accessed (1,396 accesses), 165 facts with
+usage — all from history turns (D8).
+
+**Gate thinking off reverted (`2fb9c9e`).** r2 vs r3 per-turn source decisions: skips
+15 → 48 on the current-message judgment (the frame call framed creative requests as
+factual); the 24-case G28 panel had shown 24/24 identical. Middle-ground test on B's
+150 questions (`logs/z2-s0-gate-middle-2026-10-18-r1/`): thinking-on agrees with
+itself 125/150 (r2 vs a fresh run); thinking off + a sharper "new generation ⇒ null
+frames" line 128/150 and 131/150, 12 skips, 153 s vs 1,048 s. Not adopted yet.
+
+**Summary guard (`111d232`).** r2 store, 798 coverage-eligible selections: the
+every-word guard let a summary stand in on 130; names+numbers 692; wording flips
+23/200 vs 2/200 (`logs/z2-summary-guard-2026-10-18-r1/`). Answer effect unmeasured —
+Z2 D10 pairs both guards.
+
+**S1/S2 ledgers** (`logs/z2-ledger-2026-10-18-r1/{B,C}/`; writers DeepSeek V4.1 Flash
+and MiMo V2.6 Flash on OpenCode Go with `reasoning_effort: none`; tie-breaker Muse
+Spark 1.3 Contributor on Go, provider-default reasoning). B: 56 windows, 1,860 raw
+entries → 1,028 verified groups (557 both writers), 181 disputed → tie_break 57,
+relabeled 59, unconfirmed 65. C: 34 windows, 966 → 485 verified (133 both), 307
+disputed → tie_break 138, relabeled 98, unconfirmed 79, 8 unanswered checks. Change
+links are scarce (C: 12/800 merged entries) — the D4 forward walk must find the rest.
+**As-run prompt:** both ledgers ran under ledger policy `ice-z2-ledger-extract-1`,
+whose writer SYSTEM prompt (sha256 `771a56161463b351ab9505d44ef3df37fa303b4946d672e7307a29d1348b2c3e`,
+bound into every window's `identity`) used a history-B character's name as the
+subject example. The committed code (`ab80fac`, policy `-2`) replaces it with a
+neutral example; the exact as-run text is kept with the private run
+(`writer-system-prompt-ice-z2-ledger-extract-1.txt`, sha256 verified against the run). C's MiMo pass was
+restarted once: its first plan used chars/4 token estimates from a tokenizer
+first-load race (`0bb9b64` fixes the race; the driver now loads the counter first),
+original kept as `C/ledger-raw-mimo.racy-windows.jsonl.bak`.
+
+**Dev qualification** (development history `ecc64aab` windows 1–3 and the 101-turn
+`355a5709` end to end, `logs/z2-s1-ledger-dev-2026-10-17-r4`, `logs/z2-s2-merge-dev-
+2026-10-18-r3`, `logs/z2-ledger-dev355-2026-10-18-r1`): planted controls on the
+checkers with the observation framing — MiMo 17/18 corruptions rejected, 7/9 true kept;
+DeepSeek 16/18, 8/9. Maintainer reviewed 34 disputes: tie-breaker keep/drop agreement
+Muse 29/34 (errs strict), LongCat 28/34 (errs lenient) → Muse.
+
 ## 2026-10-17 — v3 G78 re-embed padded-token batching; G77 test-suite state
 
 **G78** (scratch copy of `ice_db`, alembic `d5e8a1c3b7f2`; Qwen3-Embedding-0.6B on CUDA; Ollama
