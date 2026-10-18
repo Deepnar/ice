@@ -27,7 +27,8 @@ Both forms must allow the SAME range of answers as the original request. Do not 
 Example request: Which glaze did Mira use for the earlier kiln test?
 frame: The glaze Mira used for the earlier kiln test was {{answer}}.
 assertion_frame: Mira used the glaze {{answer}} for the earlier kiln test.
-Return JSON only with frame, assertion_frame and reason."""
+Return JSON only with frame, assertion_frame and reason.
+IMPORTANT: a request to write, continue, create, rewrite, brainstorm, plan, design or imagine something (story text, characters, scenes, ideas, code) asks for NEW generation: return null for both frames, even if it mentions names or facts."""
 FRAME_SCHEMA = {
     "type": "object",
     "properties": {key: {"type": ["string", "null"]}
@@ -76,11 +77,17 @@ def _call(instructions, schema, payload):
             > context_tokens // 2):
         raise ProofError("complete_input_exceeds_proof_bound")
     started = time.monotonic()
+    # Thinking off (Z2 S0, 2026-10-18). Without thinking the frame call used to
+    # frame requests for new writing as factual questions (history B: skips 15 -> 48,
+    # reverted 2fb9c9e); the IMPORTANT line in FRAME_INSTRUCTIONS restores the null
+    # frames. On B's 150 questions: 12 skips like thinking on, decisions agree with
+    # thinking on 128-131/150 where two thinking-on runs agree 125/150, ~7x faster;
+    # the G28 style panel's 24 decisions are identical.
     # Owned model residency ends at the runtime's idle drain, not every proof.
     with local_model_call(settings.memory_source_gate_model):
         response = httpx.post(settings.ollama_base_url.rstrip("/") + "/api/chat", json={
             "model": settings.memory_source_gate_model, "messages": messages,
-            "stream": False, "think": True, "format": schema, "keep_alive": -1,
+            "stream": False, "think": False, "format": schema, "keep_alive": -1,
             "options": {"temperature": 0, "num_ctx": context_tokens,
                         "num_predict": output_tokens},
         }, timeout=bg_timeout(output_tokens))
