@@ -76,14 +76,11 @@ def _call(instructions, schema, payload):
             > context_tokens // 2):
         raise ProofError("complete_input_exceeds_proof_bound")
     started = time.monotonic()
-    # Thinking off (Z2 S0, 2026-10-18): on the G28 style panel every one of 24
-    # decisions was identical with and without it (23/24 correct both), in a
-    # quarter of the time; with it the gate cost ~7 s on every prompt.
     # Owned model residency ends at the runtime's idle drain, not every proof.
     with local_model_call(settings.memory_source_gate_model):
         response = httpx.post(settings.ollama_base_url.rstrip("/") + "/api/chat", json={
             "model": settings.memory_source_gate_model, "messages": messages,
-            "stream": False, "think": False, "format": schema, "keep_alive": -1,
+            "stream": False, "think": True, "format": schema, "keep_alive": -1,
             "options": {"temperature": 0, "num_ctx": context_tokens,
                         "num_predict": output_tokens},
         }, timeout=bg_timeout(output_tokens))

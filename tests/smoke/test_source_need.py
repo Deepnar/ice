@@ -97,7 +97,7 @@ def test_positive_proof_freezes_frames_using_only_current_message(monkeypatch):
     assert calls[0]["format"] == sp.FRAME_SCHEMA
     assert json.loads(calls[0]["messages"][1]["content"]) == {
         "latest_user_request": "What was our choice?"}
-    assert calls[0]["think"] is False
+    assert calls[0]["think"] is True
     assert calls[0]["options"]["num_predict"] == settings.memory_source_proof_output_tokens
     assert sn.judge_source_need([dict(role="system", content="Prior source."),
         dict(role="user", content="Question")], current_only=True).reason == "invalid_current_source_messages"
