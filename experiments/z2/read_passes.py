@@ -304,6 +304,33 @@ def unmerge_all(db):
     return undone
 
 
+def annotate_turns(db, stage):
+    """Each shown fragment's source turns (episodic rows; facts via their sources), so
+    S11's semantic credit can tell which fragments cite a gold turn without the store."""
+    from sqlalchemy import text
+    selected = stage.get("selected") or []
+    rows = {f["source_row"] for f in selected if f.get("source_row")}
+    facts = {i for f in selected for i in f.get("origin_facts") or []}
+    turn_of = {}
+    if rows:
+        turn_of.update({str(i): int(str(k).rsplit("-", 1)[-1]) for i, k in db.execute(text(
+            "SELECT id, idempotency_key FROM episodic_memory WHERE id = ANY(CAST(:ids AS uuid[]))"), {"ids": list(rows)})})
+    fact_turns = {}
+    if facts:
+        for fid, key in db.execute(text(
+                "SELECT s.fact_id, e.idempotency_key FROM codex_fact_sources s JOIN episodic_memory e "
+                "ON e.id = s.episodic_id WHERE s.fact_id = ANY(CAST(:ids AS uuid[]))"), {"ids": list(facts)}):
+            fact_turns.setdefault(str(fid), set()).add(int(str(key).rsplit("-", 1)[-1]))
+    for f in selected:
+        turns = set()
+        if f.get("source_row") in turn_of:
+            turns.add(turn_of[f["source_row"]])
+        for i in f.get("origin_facts") or []:
+            turns |= fact_turns.get(i, set())
+        f["source_turns"] = sorted(turns)
+    return stage
+
+
 def future_sources(db, stage, checkpoint):
     """Selected episodic rows from turns after the checkpoint (must be none)."""
     from sqlalchemy import text
@@ -390,6 +417,7 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                                             overrides=spec.get("settings"), flags=spec.get("flags"),
                                             harness=set(spec.get("harness", ())) - {"unmerged"})
                         future = future_sources(db, stage, cp)
+                        annotate_turns(db, stage)
                     if future:
                         raise ValueError(f"{ask['id']}/{name}: future evidence {future}")
                     if name == "full_default":          # the budget does not depend on decay

@@ -131,7 +131,20 @@ def build(history, units, grades):
     for key, meta in units.items():
         if meta["kind"] == "control":
             memory[key.split("|", 1)[0]].append(meta["memory_tokens"])
+    semantic = collections.defaultdict(lambda: collections.Counter())
+    for key, r in (grades.get("semantic_credit") or {}).items():
+        c = semantic[key.split("|", 1)[0]]
+        c["contexts"] += 1
+        c["with_gold_fragments"] += bool(r.get("gold_fragments"))
+        c["items"] += r.get("items", 0)
+        c["items_carried"] += r.get("items_carried", 0)
+        c["wrong_fragments"] += r.get("wrong", 0)
+        for kinds in (r.get("carried_by_kind") or {}).values():
+            for kind in kinds:
+                c[f"carried_by_{kind}"] += 1
     return dict(policy=POLICY, history=history, by_condition_and_type=table, paired=paired,
+                semantic_credit={c: dict(v, items_carried_rate=round(v["items_carried"] / v["items"], 3)
+                                         if v["items"] else None) for c, v in semantic.items()},
                 ranking_win_rates={f"{c} vs {b}": dict(v) for (c, b), v in wins.items()},
                 retention_transitions={c: dict(v) for c, v in retention.items()},
                 controls={c: dict(verdicts=dict(controls.get(c, {})),

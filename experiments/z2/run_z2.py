@@ -607,7 +607,6 @@ def stages(limit=None):
         Answers("C"),
         Grading("B"),
         Grading("C"),
-        NotBuilt("s11x", "S11 semantic credit (retrieval diagnostic)", ("s11-B", "s11-C")),
         Oracle(),
         Answers("lme", key="s12-answers", title="S12 answers (Luna)", units_key="s12", needs=("s12",),
                 planned=2000),

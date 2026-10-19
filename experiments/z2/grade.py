@@ -314,6 +314,51 @@ def controls(contexts, ask, out, baseline="recent_only"):
     return out_rows, pending
 
 
+SEMANTIC_SYSTEM = """REQUIRED lists what a correct answer to QUESTION must contain. FRAGMENTS are pieces
+of memory a system put in its prompt (facts, notes, summaries, excerpts), each drawn from the
+conversation turns that hold the answer. For each required item, list the fragment ids that carry it
+(meaning, not wording). Also list fragment ids that state something wrong about it (a contradicted or
+stale value).
+Return only JSON: {"carried": {"<item index>": ["F1", ...]}, "wrong": ["F2", ...]}"""
+SEMANTIC_CONDITIONS = ("full_default", "full", "warm_vector")
+
+
+def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
+    """Spec D11 retrieval diagnostic: of the prompt fragments citing a gold turn, which
+    carry each required item and which are wrong — so compressed memory gets credit."""
+    from experiments.z2.bg_audit import _parallel
+    errors = Errors(out / "semantic-errors.json")
+    todo, result, pending = [], {}, 0
+    for unit, _answer, occ in contexts:
+        if unit["condition"] not in conditions or unit["ask"]["kind"] != "question" or occ is None:
+            continue
+        gold = {c.get("turn") for c in occ["reference"].get("citations", [])}
+        cited = [f for f in unit["stage"].get("selected") or [] if gold & set(f.get("source_turns") or [])]
+        key = f"{unit['condition']}|{unit['ask']['id']}"
+        if not cited:
+            result[key] = dict(gold_fragments=0, carried={}, wrong=0, items=len(occ["reference"].get("required", [])))
+            continue
+        alias = {f"F{n}": f for n, f in enumerate(cited, 1)}
+        body = dict(QUESTION=unit["ask"]["question"], REQUIRED=occ["reference"].get("required", []),
+                    FRAGMENTS=[dict(id=a, kind=f.get("leg") or f.get("type"), text=f.get("text")) for a, f in alias.items()])
+        if errors.given_up(_sha(body)):
+            result[key] = dict(status="unjudged")
+        else:
+            todo.append((key, body, alias, occ))
+    for (key, body, alias, occ), value, exc in _parallel(todo, lambda job: ask(SEMANTIC_SYSTEM,
+                                                                               json.dumps(job[1], ensure_ascii=False))):
+        if exc is not None:
+            errors.failed(_sha(body), exc)
+            pending += 1
+            continue
+        carried = {str(i): [alias[a].get("leg") or alias[a].get("type") for a in ids if a in alias]
+                   for i, ids in ((value or {}).get("carried") or {}).items()}
+        result[key] = dict(gold_fragments=len(alias), items=len(occ["reference"].get("required", [])),
+                           items_carried=sum(1 for v in carried.values() if v), carried_by_kind=carried,
+                           wrong=len([a for a in (value or {}).get("wrong") or [] if a in alias]))
+    return result, pending
+
+
 def run(history, units, answers, questions, ledger_path, out, *, ask, changes=None):
     from experiments.z2 import bg_audit
     from experiments.z2.ledger import load_history
@@ -327,9 +372,11 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
                                 originals_index(originals, cache=out / "originals-index.npz"), ask, out)
     ranks, p3 = rank(contexts, ask, out)
     ctl, p4 = controls(contexts, ask, out)
-    pending = p1 + p2 + p3 + p4
+    semantic, p5 = semantic_credit(contexts, ask, out)
+    pending = p1 + p2 + p3 + p4 + p5
     (out / "grades.json").write_text(json.dumps(dict(policy=POLICY, history=history, graded=graded,
-                                                     claims=verdicts, ranks=ranks, controls=ctl),
+                                                     claims=verdicts, ranks=ranks, controls=ctl,
+                                                     semantic_credit=semantic),
                                                 ensure_ascii=False, indent=1) + "\n")
     if not pending:
         from experiments.z2 import report

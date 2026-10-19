@@ -112,3 +112,19 @@ def test_report_pairs_by_family_and_bootstraps_over_families():
     p = r["paired"]["full"]["bare_vector"]["update"]
     assert p == dict(families=6, mean_diff=2.0, ci95_over_families=[2.0, 2.0])
     assert r["ranking_win_rates"]["full vs bare_vector"] == {"win": 6}
+
+
+def test_semantic_credit_judges_only_fragments_citing_gold_turns(tmp_path):
+    unit = dict(condition="full", checkpoint=50, ask=dict(id="f@50#0", kind="question", question="cat?"),
+                stage=dict(selected=[dict(leg="facts", text="The cat is Tofu.", source_turns=[9]),
+                                     dict(leg="vector", text="unrelated", source_turns=[2])]))
+    occ = dict(reference=dict(required=["The cat is called Tofu."], citations=[dict(turn=9)]))
+    seen = []
+    def judge(system, prompt):
+        body = json.loads(prompt)
+        seen.append(body)
+        return dict(carried={"0": ["F1"]}, wrong=[])
+    result, pending = G.semantic_credit([(unit, None, occ)], judge, tmp_path)
+    assert [f["text"] for f in seen[0]["FRAGMENTS"]] == ["The cat is Tofu."] and not pending
+    assert result["full|f@50#0"] == dict(gold_fragments=1, items=1, items_carried=1,
+                                         carried_by_kind={"0": ["facts"]}, wrong=0)
