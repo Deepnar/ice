@@ -176,6 +176,7 @@ class HybridRetrievalOrchestrator:
         # Query expansion is graph-grounded. The shared local reranker scores
         # evidence without generating text or creating a background API client.
         self.max_retrieval_tokens = 5000
+        self._exclude_rows = frozenset()   # recent-window rows the caller already shows
         self._coverage_record = None   # C16: last coverage decision, for audit
         # A4: entity resolution mode (ablation `fuzzy_match` flag maps here).
         self.use_fuzzy_match = True
@@ -494,7 +495,11 @@ class HybridRetrievalOrchestrator:
         prompt_embedding: list[float],
         scope: Optional[dict] = None,
         *, defer_exposure: bool = False,
+        exclude_rows=None,
     ) -> List[ContextFragment]:
+        # Episodic rows the prompt's recent window already shows (memory_preparation
+        # decides when that is safe); they are dropped after fusion on every path.
+        self._exclude_rows = frozenset(str(r) for r in (exclude_rows or ()))
         # The retrieve/no-retrieve decision is now made upstream in one place
         # (B2 plus optional source refinement) — the caller sets
         # context_reliance before a normal or provisional search. The
@@ -638,7 +643,7 @@ class HybridRetrievalOrchestrator:
                                             classification.topic_tags)
 
         # Fuse, diversify, deduplicate, trim
-        fused = self._apply_rrf(legs, alpha_map=blend_weights)
+        fused = self._without_shown(self._apply_rrf(legs, alpha_map=blend_weights))
         # G53: `own_conv_id` — the recency bonus ranks a fragment by its
         # position within THIS conversation (`_recency_bonus` counts turns in
         # it), which is meaningless as a scope filter and was dead under `auto`.
@@ -672,6 +677,18 @@ class HybridRetrievalOrchestrator:
             self._resurrect_cold_hits(final)
 
         return final
+
+    def _without_shown(self, fragments):
+        """Drop episodic fragments (raw, summary or chunk) of rows the prompt's recent
+        window already shows; the budget then goes to memory not in the prompt."""
+        if not self._exclude_rows:
+            return fragments
+        kept = [f for f in fragments if not (f.source_type == "episodic"
+                                             and str(f.source_batch_id) in self._exclude_rows)]
+        if len(kept) != len(fragments):
+            logger.info("retrieval_recent_rows_skipped", dropped=len(fragments) - len(kept),
+                        recent_rows=len(self._exclude_rows))
+        return kept
 
     def record_exposure(self, fragments):
         """Credit admitted surviving sources after a provisional retrieval."""
@@ -2773,8 +2790,8 @@ class HybridRetrievalOrchestrator:
         fragments.extend(self._facts_leg(classification.prompt, prompt_embedding, scope, scope_conv))
         prompt_keywords = self._extract_prompt_keywords(classification.prompt) if classification.prompt else set()
         cold = self._cold_lookup(prompt_keywords, scope_conv, scope, prompt_embedding)
-        fused = self._apply_rrf({"fallback": fragments, "cold": cold},
-                                alpha_map={"fallback": 1.0, "cold": 1.0})
+        fused = self._without_shown(self._apply_rrf({"fallback": fragments, "cold": cold},
+                                                    alpha_map={"fallback": 1.0, "cold": 1.0}))
         fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
         fused, reranked = rerank(classification.prompt, fused)

@@ -175,6 +175,9 @@ def test_actual_multi_note_options_replace_or_evict_with_exact_ids(store):
         if window==400:assert 'conversation_summary' not in after.artifact_blocks
 
 def test_shared_retrieving_preparation_keeps_native_messages_and_visible_fragment_ids(store,monkeypatch):
+    # Retrieval identity, not recent-window dedupe: in a one-row store the source is always
+    # in the recent window, which memory_preparation now excludes from retrieval (2026-10-19).
+    monkeypatch.setattr(preparation, '_shown_recent_rows', lambda *_a, **_k: frozenset())
     db=store
     row=helpers.source(db);row.is_bookmarked=True;db.flush()
     monkeypatch.setattr(helpers.candidate,'extract_entities',lambda *_a,**_k:[])

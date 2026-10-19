@@ -46,8 +46,9 @@ def _fact_sources_in_prompt(fragment, originals, recent_ids):
     return all(row in present for row in rows)
 
 
-def _recent_row_ids(artifacts):
-    return {ident for item in (artifacts.get('recent_turns') or {}).get('items', [])
+def recent_row_ids(artifacts):
+    """Episodic row ids the prompt's recent window shows (from its artifact blocks)."""
+    return {ident for item in ((artifacts or {}).get('recent_turns') or {}).get('items', [])
             for table, ident in item.get('stored_artifact_ids', ()) if table == 'episodic_memory'}
 
 
@@ -84,7 +85,7 @@ def assemble_budgeted_prompt(*, serving_window, generation_reserve,
         # Recomputed from THIS assembly every round: if the recent window is
         # evicted later, the facts it made redundant come back (TRAPS 125).
         skip_now = frozenset(fid for fragment in visible
-                             if _fact_sources_in_prompt(fragment, visible, _recent_row_ids(artifacts))
+                             if _fact_sources_in_prompt(fragment, visible, recent_row_ids(artifacts))
                              for fid in fragment.origin_fact_ids)
         if skip_now != fact_skip:
             if skip_now - fact_skip:

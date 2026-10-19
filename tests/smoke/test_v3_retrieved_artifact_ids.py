@@ -195,6 +195,9 @@ def test_native_fact_ids_and_private_source_hides_the_fact(store, monkeypatch):
                    for f in reader._facts_leg('Where does rhea live?', VEC, scope))
 
 def test_final_native_preparation_retains_source_identity_and_exact_current_question(store, monkeypatch):
+    # Retrieval identity, not recent-window dedupe: in a one-row store the source is always
+    # in the recent window, which memory_preparation now excludes from retrieval (2026-10-19).
+    monkeypatch.setattr(memory_preparation, '_shown_recent_rows', lambda *_a, **_k: frozenset())
     db = store
     row, _anchor, _harbor, _fact = graph(db)
     monkeypatch.setattr(candidate, 'extract_entities', lambda *_a, **_k: ['rhea'])
@@ -212,3 +215,23 @@ def test_final_native_preparation_retains_source_identity_and_exact_current_ques
     assert all(f.text in value.prepared.messages[-3]['content'] for f in value.fragments)
     from scripts.z1.seed_v3 import fragment
     assert all(fragment(f, include_text=True)['stored_artifact_ids'] for f in value.fragments)
+
+
+def test_a_row_the_recent_window_shows_is_not_retrieved_again(store, monkeypatch):
+    """2026-10-19: rows the final recent window shows are excluded from retrieval, so a
+    one-row store's source appears once (recent window), not again as evidence."""
+    db = store
+    row, _anchor, _harbor, _fact = graph(db)
+    monkeypatch.setattr(candidate, 'extract_entities', lambda *_a, **_k: ['rhea'])
+    classification = ClassificationResult([], ['Factual_Retrieval'], 'Long_Term_Memory',
+        [0.] * 27, 1., prompt='Where does rhea live?', p_ltm=1.,
+        head_confidences={'topic': 1., 'intent': 1.})
+    value = memory_preparation.prepare_memory_context(db=db, classifier=NS(embedder=Encoder()),
+        classification=classification, conversation_id=row.conversation_id,
+        user_message=classification.prompt, scope={'conversation_id': str(row.conversation_id)},
+        turn_count=1, total_tokens=100, total_budget=2048, serving_window=8192,
+        base_retrieve=True, memory_slots=[], bookmarked_texts=[])
+    assert value.retrieve and value.prepared.ledger.fits()
+    assert not any(f.source_type == 'episodic' and f.source_batch_id == str(row.id) for f in value.fragments)
+    user_text = row.raw_text.split('\n\nAssistant: ')[0].removeprefix('User: ')
+    assert json.dumps(value.prepared.messages).count(json.dumps(user_text)[1:-1]) == 1

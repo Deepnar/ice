@@ -187,3 +187,42 @@ def test_rescue_shares_question_and_packs_only_proven_original(harness):
     assert result.retrieve and result.fragments == captures["exposed"] == [original]
     assert "7813" in result.prepared.messages[0]["content"]
     assert "amber" not in result.prepared.messages[0]["content"]
+
+
+def _dry(rows, total, available):
+    ledger = SimpleNamespace(serving_window=8192, safety_margin=1.0, total=lambda: total,
+                             available=lambda: available, fits=lambda: True)
+    return SimpleNamespace(ledger=ledger, artifact_blocks={"recent_turns": {"items": [
+        dict(stored_artifact_ids=[("episodic_memory", r)]) for r in rows]}})
+
+
+def test_recent_rows_are_excluded_only_when_the_recent_window_cannot_be_evicted():
+    assert mp._shown_recent_rows(_dry(["r1", "r2"], total=1000, available=6000), 3000) == {"r1", "r2"}
+    assert mp._shown_recent_rows(_dry(["r1"], total=4000, available=6000), 3000) == frozenset()
+    assert mp._shown_recent_rows(_dry([], total=10, available=6000), 3000) == frozenset()
+    assert mp._shown_recent_rows(SimpleNamespace(artifact_blocks=None), 3000) == frozenset()
+
+
+def test_orchestrator_drops_fragments_of_shown_rows():
+    from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+    orch = object.__new__(HybridRetrievalOrchestrator)
+    orch._exclude_rows = frozenset({"row-a"})
+    a = ContextFragment("A", "episodic", 1, 5, "row-a")
+    b = ContextFragment("B", "episodic", 1, 5, "row-b")
+    fact = ContextFragment("F", "codex", 1, 5, "row-a")
+    assert orch._without_shown([a, b, fact]) == [b, fact]
+    orch._exclude_rows = frozenset()
+    assert orch._without_shown([a, b]) == [a, b]
+
+
+def test_turn_summaries_switch_off_reads_raw_only(monkeypatch):
+    from src.memory import representation
+    row = SimpleNamespace(raw_text="User: the port is 7813\n\nAssistant: noted", summary_text="Port 7813.",
+                          summary_coverage=1.0, abstract_text="Port.", representation_verification={})
+    monkeypatch.setattr(settings, "turn_summaries_in_reads", False)
+    assert representation.choose_representation(row) == (row.raw_text, None, None)
+
+
+def test_bm25_is_a_supported_ablation_flag():
+    from src.retrieval.configurable_orchestrator import SUPPORTED_FLAGS
+    assert "bm25" in SUPPORTED_FLAGS

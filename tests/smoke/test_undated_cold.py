@@ -159,6 +159,9 @@ def test_direct_selected_read_restores_only_at_probation(source, monkeypatch, we
 
 @pytest.mark.parametrize('weak', [False, True])
 def test_actual_decay_cold_final_preparation_and_restore(source, monkeypatch, weak):
+    # Retrieval identity, not recent-window dedupe: in a one-row store the source is always
+    # in the recent window, which memory_preparation now excludes from retrieval (2026-10-19).
+    monkeypatch.setattr(memory_preparation, '_shown_recent_rows', lambda *_a, **_k: frozenset())
     db, cid, sid, bid, when = source
     cold = db.get(ColdStorage, sid)
     spans = cold.source_spans

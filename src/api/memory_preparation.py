@@ -7,7 +7,7 @@ import structlog
 from src.api.config import settings
 from src.api.memory_decision import estimate_recent_window_tokens
 from src.api.prompt_assembler import conversation_summary_block
-from src.api.prompt_budget import BudgetedPrompt, assemble_budgeted_prompt
+from src.api.prompt_budget import BudgetedPrompt, assemble_budgeted_prompt, recent_row_ids
 from src.api.source_need import judge_source_need, source_action
 from src.api.source_proof import freeze_source_question, prove_source_fact
 from src.memory.models import ConversationSummary
@@ -24,6 +24,32 @@ class PreparedMemory:
     retrieve: bool
     action: str
     source_checked: bool = False
+
+
+def _shown_recent_rows(dry, retrieval_budget):
+    """Rows the final prompt's recent window will show, which retrieval then skips
+    (Z2, 2026-10-19: 13.8% of evidence tokens on B turns 101-150 re-showed recent
+    turns; skipping them at retrieval lets the budget refill with older memory).
+
+    Only when the recent window cannot be evicted: it is shed BEFORE evidence on
+    overflow (context_ledger.DEFAULT_EVICT_ORDER), so a skipped turn would vanish
+    from the prompt. That is ruled out when the evidence-free prompt plus the whole
+    retrieval budget already fits; otherwise nothing is skipped (said once here)."""
+    from src.memory.tokens import with_margin
+    rows = recent_row_ids(getattr(dry, "artifact_blocks", None))
+    ledger = getattr(dry, "ledger", None)
+    if not rows:
+        return frozenset()
+    try:
+        safe = (retrieval_budget is not None and ledger.serving_window > 0
+                and with_margin(ledger.total() + retrieval_budget, ledger.safety_margin) <= ledger.available())
+    except AttributeError:
+        safe = False
+    if not safe:
+        logger.warning("recent_rows_not_excluded", rows=len(rows), retrieval_budget=retrieval_budget,
+                       reason="evidence could overflow the prompt and evict the recent window")
+        return frozenset()
+    return frozenset(rows)
 
 
 def prepare_memory_context(*, db, classifier, classification, conversation_id,
@@ -99,10 +125,14 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
     orchestrator.set_budget_from_turn_count(
         turn_count, total_tokens=total_tokens, classification=classification,
         total_budget=total_budget)
+    final_recent = getattr(orchestrator, "recent_token_budget", recent_budget)
+    shown = _shown_recent_rows(base_prompt if final_recent == recent_budget else assemble([], final_recent),
+                               getattr(orchestrator, "max_retrieval_tokens", None))
     fragments = orchestrator.retrieve(
         classification=classification, conversation_id=str(conversation_id),
-        prompt_embedding=embedding(), scope=scope, defer_exposure=True)
-    prepared = assemble(fragments, getattr(orchestrator, "recent_token_budget", recent_budget))
+        prompt_embedding=embedding(), scope=scope, defer_exposure=True,
+        **({"exclude_rows": shown} if shown else {}))
+    prepared = assemble(fragments, final_recent)
     selected = evidence_after_eviction(prepared.visible_fragments, prepared.removed)
     if action == "rescue":
         supported = False
