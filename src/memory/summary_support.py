@@ -173,10 +173,24 @@ def generate_claims(call, windows, *, floor, abstract=False):
         schema = claim_schema(piece, abstract=want_abstract) if current_method() in PER_CLAIM_METHODS else None
         generated = None
         try:
-            generated = call(piece, cap, schema, want_abstract)
-            if not isinstance(generated, str) or not generated.lstrip().startswith(("{", "```")):
-                raise ValueError("unstructured_generation")
-            parsed = parse_assertions(generated, piece, abstract=want_abstract)
+            # One retry per piece (Z2, 2026-10-19): of 4 pieces cut in a 30-turn
+            # history-C replay, 3 finished far under their cap when replayed — one-off
+            # runaways — so a second attempt recovers most of them.
+            for attempt in (1, 2):
+                try:
+                    generated = call(piece, cap, schema, want_abstract)
+                    if not isinstance(generated, str) or not generated.lstrip().startswith(("{", "```")):
+                        raise ValueError("unstructured_generation")
+                    parsed = parse_assertions(generated, piece, abstract=want_abstract)
+                    break
+                except JobYielded:
+                    raise
+                except Exception as exc:                            # noqa: BLE001
+                    if attempt == 2:
+                        raise
+                    logger.warning("summary_piece_retry", piece=index, pieces=len(pieces),
+                                   error=f"{type(exc).__name__}: {str(exc)[:120]}", max_tokens=cap)
+                    generated = None
         except JobYielded:
             raise
         except Exception as exc:                                    # noqa: BLE001

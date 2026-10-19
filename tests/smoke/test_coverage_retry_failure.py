@@ -110,7 +110,8 @@ def test_actual_generation_verification_reader_keeps_independent_gates(monkeypat
     monkeypatch.setattr(post_flight.bg_client.chat.completions, "create", create)
     generated = post_flight.generate_summary(prompt, response, TERMS, source_row=row)
     summary, coverage, abstract = generated
-    assert len(calls) == 2 and coverage == .5
+    # first call, then the coverage retry's piece cut twice (summary_support retries a piece once)
+    assert len(calls) == 3 and coverage == .5
     assert "9010" not in summary and "8391" in abstract
     assert generated.proof["summary"][0]["sources"] == ["w0"]
 
@@ -138,7 +139,7 @@ def test_initial_incomplete_generation_still_has_no_candidate(monkeypatch):
     create = Mock(return_value=completion("partial invalid JSON", "length"))
     monkeypatch.setattr(post_flight.bg_client.chat.completions, "create", create)
     assert post_flight.generate_summary(prompt, response, TERMS, source_row=row) == ("", 0., None)
-    assert create.call_count == 1
+    assert create.call_count == 2          # the piece's one retry, then no candidate
 
 
 def test_actual_optional_retry_yields_to_runtime(monkeypatch):

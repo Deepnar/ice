@@ -175,10 +175,29 @@ def test_generate_claims_merges_pieces_and_survives_one_failed_piece(v3, monkeyp
         quote = json.loads(w["premise"].split(" said: ", 1)[1])[:30]
         return json.dumps({"summary": [_claim(w, quote, w["role"], f"Claim from {w['id']}.")]})
     parsed, failures = ss.generate_claims(call, ws, floor=900, abstract=True)
-    assert len(seen) == len(pieces) and all(s[2] for s in seen), "v3 sends the schema every piece"
+    assert len(seen) == len(pieces) + 1 and all(s[2] for s in seen), "v3 sends the schema every piece"
     assert not any(s[3] for s in seen), "a multi-piece source gets no abstract"
-    assert len(parsed["summary"]) == len(pieces) - 1 and len(failures) == 1
+    assert len(parsed["summary"]) == len(pieces) and not failures, "the cut piece's one retry recovered it"
     assert "abstract" not in parsed
+
+
+def test_generate_claims_skips_a_piece_that_fails_its_retry_too(v3, monkeypatch):
+    long_user = " ".join(f"Fact {i}: item{i} has value {i * 7}." for i in range(400))
+    ws = _windows(_turn(user=long_user))
+    monkeypatch.setattr(settings, "summary_piece_tokens", 600)
+    pieces = ss.piece_windows(ws)
+    seen = []
+
+    def call(piece, cap, schema, abstract):
+        seen.append(piece[0]["id"])
+        if piece[0]["id"] == pieces[1][0]["id"]:
+            raise IncompleteCompletion("cut", finish_reason="length")
+        w = piece[0]
+        quote = json.loads(w["premise"].split(" said: ", 1)[1])[:30]
+        return json.dumps({"summary": [_claim(w, quote, w["role"], f"Claim from {w['id']}.")]})
+    parsed, failures = ss.generate_claims(call, ws, floor=900)
+    assert seen.count(pieces[1][0]["id"]) == 2 and len(failures) == 1 and failures[0]["piece"] == 1
+    assert len(parsed["summary"]) == len(pieces) - 1
 
 
 def test_generate_claims_raises_when_every_piece_fails(v3):

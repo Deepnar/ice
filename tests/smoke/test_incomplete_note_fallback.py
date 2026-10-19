@@ -67,7 +67,8 @@ def test_real_writer_indexes_originals_and_persists_length_reason(monkeypatch):
         # The complete original checkpoint is reused without the failed model
         # prefix being retried or treated as corroboration.
         again = worker.run_conversation_summaries(db, embedder=Encoder(), conversation_ids=[cid])
-        assert again['incomplete_note_groups'] == 0 and len(calls) == 1
+        # The first run's piece and its one retry (summary_support); the second run makes none.
+        assert again['incomplete_note_groups'] == 0 and len(calls) == 2
     # The job's floor (900) is never lowered; mid-size pieces get the elastic floor.
     assert settings.conversation_summary_max_tokens == 900
     assert 900 <= calls[0]['max_tokens'] <= max(900, settings.summary_output_small_cap)
