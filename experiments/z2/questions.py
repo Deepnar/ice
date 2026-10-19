@@ -450,7 +450,9 @@ presuppose anything said later):
   were said is part of the entries)
 - unambiguous: true if only one reading is reasonable and only these entries answer it; false
   if the entries give conflicting or overlapping numbers, plans or totals and the question does
-  not say which one it means
+  not say which one it means. An entry marked "replaced_at_turn" was changed by a later entry at
+  that turn: for a question about the current value that is expected, not a conflict — the
+  current value is the replacing entry
 - leaks_answer: true if the question contains any specific detail of the answer (a name,
   number, item, value or choice the answer consists of) or strongly hints at it
 - speaker_right: true if the question attributes every fact to the right person: entries
@@ -545,8 +547,15 @@ def phrase_and_verify(history, families, entries_by_id, originals, out, *, model
         # Only the verifier sees when each fact was said and when the question is asked:
         # it checks grounding (nothing presupposed from later) and, for temporal pairs,
         # the order; the writer never sees turns, so it cannot leak an order.
-        checked = [dict(e, said_at_turn=entries_by_id[x]["valid_from_turn"])
-                   for e, x in zip(ent, fam["entries"])]
+        # A change known by ASKED_AT is shown (2026-10-19: without it the checker called
+        # 15 of 20 C update questions "conflicting values").
+        checked = []
+        for e, x in zip(ent, fam["entries"]):
+            row = dict(e, said_at_turn=entries_by_id[x]["valid_from_turn"])
+            until = entries_by_id[x].get("valid_until_turn")
+            if until is not None and until <= fam["first"]:
+                row["replaced_at_turn"] = until
+            checked.append(row)
         verdict = ask_object(calls, checker, models[checker][1], models[checker][0], VERIFY_Q_SYSTEM,
                              json.dumps(dict(ENTRIES=checked, ASKED_AT=fam["first"], QUESTION=question),
                                         ensure_ascii=False), session(checker)) or {}
