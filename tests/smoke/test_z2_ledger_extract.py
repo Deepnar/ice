@@ -206,5 +206,6 @@ def test_non_string_supersedes_is_rejected_not_a_crash(history):
 
 def test_an_aborted_generation_retries_but_a_length_cut_does_not():
     from experiments.lme.cloud_provider import CloudCompletionError
+    from experiments.z2 import profiles
     assert profiles.transient(CloudCompletionError("cloud answer completion was not successful: abort", receipt={}))
     assert not profiles.transient(CloudCompletionError("cloud answer completion was not successful: length", receipt={}))
