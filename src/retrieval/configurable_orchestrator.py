@@ -7,6 +7,8 @@ Flags (all default ON) — the authoritative list is `SUPPORTED_FLAGS` below,
 because a list in prose drifts and this one had:
 
     ⚑ `bm25` and `sliding_window` were advertised here and NOTHING READ THEM.
+    (`bm25` is read again since `_bm25_episodic` is overridden below, and is
+    listed in SUPPORTED_FLAGS since 2026-10-19; `sliding_window` stays gone.)
     An override dict naming either sets a key no code consults, so the run is
     byte-identical to the full system — and it is written to `score_runs/`
     labelled as an ablation. A leg worth a great deal and a leg name that does
@@ -43,7 +45,7 @@ logger = structlog.get_logger("ice.retrieval.configurable")
 # ablation's name — the one output shape an experiment cannot afford, because a
 # leg worth nothing and a leg name that does not exist look identical.
 SUPPORTED_FLAGS = frozenset({
-    "vector", "rrf", "cluster_restrict", "session_diversify", "codex",
+    "bm25", "vector", "rrf", "cluster_restrict", "session_diversify", "codex",
     "fuzzy_match", "procedural", "batch_summary", "dynamic_budget",
     "keyword_boost", "recency_boost", "timescope", "cold",
 })

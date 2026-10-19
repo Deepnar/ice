@@ -21,6 +21,8 @@ INTENTS_PREFER_SUMMARY = {
 def choose_representation(row, classification=None, prompt_keywords=()):
     """Return (preferred text, shorter summary, independently supported abstract)."""
     raw = getattr(row, "raw_text", None) or ""
+    if not settings.turn_summaries_in_reads:
+        return raw or None, None, None
     summary = getattr(row, "summary_text", None) or ""
     coverage = getattr(row, "summary_coverage", None)
     trusted = (

@@ -1029,8 +1029,9 @@ fact_supported, fact_superseded, fact_expired, fact_restored, entity_merged/unme
 pass with the fact shape `{sources, quote, speaker, modality, subject, relation, object,
 text}` under an enforced schema. Pieces ≤ 4,096 tokens, output cap 2.0 × input (ceiling
 8,192), quote checked against the cited window, speaker limited to the roles present in the
-piece, per-claim NLI ≥ 0.95. A piece starting inside a long message gets one header line
-showing how that message began (prompt only). The instruction text is pinned by sha256 in
+piece, per-claim NLI ≥ 0.95. A failed piece (cut, aborted or unparseable) is retried once,
+then skipped (`summary_piece_retry`, 2026-10-19). A piece starting inside a long message gets
+one header line showing how that message began (prompt only). The instruction text is pinned by sha256 in
 `tests/smoke/test_codex_v4_claims.py`; changing it means re-qualifying it.
 
 `post_flight.evaluate_turn` → chained stage `fact_extractor.extract_facts`: a turn whose
@@ -1065,7 +1066,13 @@ clause (`earlier: … — until …`). Fact fragments carry no conversation_id (
 per-conversation turn cap does not apply), `origin_fact_ids`, and the episodic row ids of
 their visible sources. Final assembly (`prompt_budget`) skips a fact whose every source turn
 is already in the prompt (a complete retrieved original or a recent-window turn), recomputed
-after every eviction. A derived code-graph entity named in a project conversation renders
+after every eviction. Episodic rows the final recent window shows are not retrieved at all
+(2026-10-19, `memory_preparation._shown_recent_rows` → `retrieve(exclude_rows=…)`, dropped after
+fusion on the main and wide-net paths): 13.8% of evidence tokens on history B turns 101–150
+re-showed recent turns. It applies only when the evidence-free prompt plus the whole retrieval
+budget fits, because the recent window is evicted before evidence on overflow; otherwise
+nothing is excluded and `recent_rows_not_excluded` warns. Consequence: a turn counts as accessed
+(strengthened, slower decay class) only when it is recalled from beyond the recent window. A derived code-graph entity named in a project conversation renders
 its pointer payload (`_code_graph_anchors`).
 
 **Strength (D7):** after the reranker, `B × (⅔·min(1,(support−1)/3) + ⅓·min(1,usage/5))`
@@ -1542,7 +1549,8 @@ After the density stage (C7): it calls extract_codex(...) directly (every non-pr
 **§6.1a Read-time representation choice (C1, v3 repair 2026-09-12).**
 `src/memory/representation.py::choose_representation` is shared by retrieval,
 the recent chat window (including budget degradation), and the explicit
-recent-turn service. Summary eligibility requires finite coverage between
+recent-turn service. `turn_summaries_in_reads = False` (Z2 ablation group 4's read
+switch, default True) returns the raw text only — no summary, no abstract. Summary eligibility requires finite coverage between
 `settings.turn_summary_coverage_threshold` (default 0.7) and 1 inclusive;
 NULL is unknown, not trusted. **Coverage is term retention, not faithfulness**;
 each generated representation also needs its own source-current NLI verdict,

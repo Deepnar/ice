@@ -23,8 +23,8 @@ BEFORE_REF = "80730ae"
 TRANSITIONS = {
     "src/memory/summary_support.py": {
         "before": "be07047be33e3a2c6e0461264229104e51224ffd028c3a2dee2bb7ecd6ae1016",
-        "after": "423a288b67e5e0f7cc23e4d8bba7a8153cb4957372eb15cae70688a4f4dc7737",
-        "reason": "Approved exact cited-span union and exact supported-v1-proof compatibility. 2026-10-15 (SUMMARY_CLAIMS_V3): v3 quoted-claim method added behind summary_assertion_method; v2/v1 records verify under their own policy exactly as before; pieces and input-scaled caps are producer-side. 2026-10-16 (CODEX_V4): v4 claim method (modality + subject/relation/object, opening-context header, role-present speaker enum) behind summary_assertion_method, now the default; v2/v3 records still verify under their own policy. 2026-10-18 (Z2 S0): output_cap's floor is elastic for mid-size pieces (summary_output_small_ratio × input up to summary_output_small_cap); a stop, not a length control.",
+        "after": "a79f363f309060a1937f901fb2faf755e938f25f6f2bb079338f7a8fcf3eb1ac",
+        "reason": "Approved exact cited-span union and exact supported-v1-proof compatibility. 2026-10-15 (SUMMARY_CLAIMS_V3): v3 quoted-claim method added behind summary_assertion_method; v2/v1 records verify under their own policy exactly as before; pieces and input-scaled caps are producer-side. 2026-10-16 (CODEX_V4): v4 claim method (modality + subject/relation/object, opening-context header, role-present speaker enum) behind summary_assertion_method, now the default; v2/v3 records still verify under their own policy. 2026-10-18 (Z2 S0): output_cap's floor is elastic for mid-size pieces (summary_output_small_ratio × input up to summary_output_small_cap); a stop, not a length control. 2026-10-19 (Z2): a failed claim piece is retried once before it is skipped.",
     },
     "src/workers/turn_density.py": {
         "before": "4bf4314d21994907393de946dd43c42d20324263044843df1ecb2ede074d6ecc",
@@ -33,8 +33,8 @@ TRANSITIONS = {
     },
     "src/retrieval/orchestrator.py": {
         "before": "5027817122bad3a1eb9952132f056daebd3acaf574778da57826ac0a446d5b61",
-        "after": "2685f3ad31b9a8d5b858cb6b06e4b777462047327b55e2bf7d958c92fca82041",
-        "reason": "Authorized tested native artifact IDs, preserved cold claim membership, source-covered graph packing and exact same-source selected excerpt omission; ranking/proofs and frozen writer outcomes remain unchanged. 2026-10-15 (audit A12): automatic top-k cluster scoping gated behind retrieval_auto_cluster_scope (default off); explicit cluster scope unchanged. 2026-10-16 (CODEX_V4): the facts leg replaced the graph, claims, enumeration and timeline legs; procedural scope resolver kept as _scope_batch_ids; inert claim/edge fragment fields removed. A pre-CODEX_V4 bundle's codex cannot be read by this reader. 2026-10-17: the wide-net path applies the D7 strength bonus after reranking, as the main path does. 2026-10-18 (Z2 S0): the summary-for-raw guard checks only the question's names and numbers (representation_guard_terms, default specific; every_word = the old guard); preflight NER is computed once per request for the facts leg and the guard. 2026-10-18 (Z2): a cold resurrection writes is_bookmarked/decay_immune FALSE (a raw INSERT left them NULL and the row never decayed again); ranking unchanged.",
+        "after": "5a93333f349fac2faf31f926eed5a2dd6c98e6e7ca8102927937906848bf603a",
+        "reason": "Authorized tested native artifact IDs, preserved cold claim membership, source-covered graph packing and exact same-source selected excerpt omission; ranking/proofs and frozen writer outcomes remain unchanged. 2026-10-15 (audit A12): automatic top-k cluster scoping gated behind retrieval_auto_cluster_scope (default off); explicit cluster scope unchanged. 2026-10-16 (CODEX_V4): the facts leg replaced the graph, claims, enumeration and timeline legs; procedural scope resolver kept as _scope_batch_ids; inert claim/edge fragment fields removed. A pre-CODEX_V4 bundle's codex cannot be read by this reader. 2026-10-17: the wide-net path applies the D7 strength bonus after reranking, as the main path does. 2026-10-18 (Z2 S0): the summary-for-raw guard checks only the question's names and numbers (representation_guard_terms, default specific; every_word = the old guard); preflight NER is computed once per request for the facts leg and the guard. 2026-10-18 (Z2): a cold resurrection writes is_bookmarked/decay_immune FALSE (a raw INSERT left them NULL and the row never decayed again); ranking unchanged. 2026-10-19 (Z2): retrieve(exclude_rows=...) drops episodic fragments of rows the recent window shows, after fusion on both paths.",
     },
     "src/retrieval/evolution.py": {
         "before": "a05d0f0923daf0a545d45ffe7a9412854e86504bec43726624b75942a9fd8051",
@@ -53,13 +53,13 @@ TRANSITIONS = {
     },
     "src/api/prompt_budget.py": {
         "before": "e745aef5ce138de38e0b7020114ef4092b1b42ec45ff56b1937dd372ca373b32",
-        "after": "0ebe9573ea8ca689012154e2fb7ce429251a879dd62d8f72049a219b354fa029",
-        "reason": "Approved fresh final observer and sharing of graph quotations only with complete covering originals retained after each native replacement and eviction. 2026-10-16 (CODEX_V4): graph-quote sharing removed; a fact is skipped when every source turn is already in the prompt.",
+        "after": "3e9844b8072b820331ac985289f0c58f72d70b655605bd32d17c80557632be09",
+        "reason": "Approved fresh final observer and sharing of graph quotations only with complete covering originals retained after each native replacement and eviction. 2026-10-16 (CODEX_V4): graph-quote sharing removed; a fact is skipped when every source turn is already in the prompt. 2026-10-19 (Z2): recent_row_ids is public (memory_preparation reads it); no behaviour change.",
     },
     "src/api/memory_preparation.py": {
         "before": "9e398224c93a64de475f8299132ae8e6119eac2b8bec14b1d6c5f86cecb8bbee",
-        "after": "79b966252ead94e36b8f43968fa94171e03c729860813b42daa6ab81c23781ba",
-        "reason": "Approved explicit note/bookmark metadata forwarding through shared preparation.",
+        "after": "ed38415df30dc1d4f3a2520879017f73e28b70c6e5b15085d3d663429a9b408d",
+        "reason": "Approved explicit note/bookmark metadata forwarding through shared preparation. 2026-10-19 (Z2): rows the final recent window shows are excluded from retrieval when the evidence-free prompt plus the whole retrieval budget fits (else none, with a warning).",
     },
     "scripts/z1/production_parity.py": {
         "before": "ed058e799864c1128c705b45d6a1098c26ab144ea922b35b941b6a59d1bdc5f5",

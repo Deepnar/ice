@@ -510,6 +510,9 @@ class Settings(BaseSettings):
     # eligible summaries on history B and flipped with wording on 23/200 vs 2/200
     # (Z2 S0, 2026-10-18). Kept as a read-time switch for Z2's paired comparison.
     representation_guard_terms: Literal["specific", "every_word"] = "specific"
+    # Read switch for Z2 ablation group 4 (spec D10): off = every read shows a turn's
+    # raw text only — no summary standing in for it, no summary/abstract fallback.
+    turn_summaries_in_reads: bool = True
     turn_max_must_terms: int = 25
     # ⚑ The summariser's generation ceiling, and it BOUND — hard. It was a
     # literal 300 in post_flight, and on the arm-B seed 84 of 212 summaries
