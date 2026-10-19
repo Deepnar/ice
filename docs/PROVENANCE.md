@@ -41,6 +41,10 @@ questions that do not change the answer — and 0 false alarms). "Partial" gradi
 informational: reviewed requirements are 1–2 abstract items, so most partial plants still covered
 them. Prompt sha256: grade `308f4eeb…`, rank `145938…`, claim source `95cc5171…`, control `fefcef7f…`,
 S8 judge `f6bf79af…`, walk `3df7ae75…`.
+Added the same day: the S8 part-wise prompt (sources over the judge's capacity; numbered statements
+judged per part, combined) — faithful/unfaithful summaries with their source split in two: 109/113
+(bar 90%), prompt `bg_audit.PART_SYSTEM` recorded in qualification.json; 4 plant sets ended with Muse
+"incomplete" at 8,000 output tokens (recorded, not counted) — the stage allows 16,000 for these calls.
 Two prompt changes made during qualification, both before any B/C use: the grade and ranking
 prompts now carry the reference's cited passages (spec D11; without them a planted ~30% → ~50%
 passed as correct — reviewed requirements name an item, not its value); the walk verifier counts

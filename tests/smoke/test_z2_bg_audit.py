@@ -73,7 +73,8 @@ def test_oversized_and_sourceless_items_are_recorded_not_cut_or_dropped(tmp_path
     big["sources"][0]["text"] = "x" * (A.SOURCE_CHARS + 1)
     none = dict(item("procedural", 1), sources=[])
     results, _ = A.judge_all([big, none], "B", [], 10, tmp_path, models=models(Judge([])))
-    assert results["session_summary:1"]["status"] == "too_large" and results["procedural:1"]["status"] == "no_sources"
+    assert results["session_summary:1"].get("partwise") is True       # judged in parts, never cut
+    assert results["procedural:1"]["status"] == "no_sources"
 
 
 def test_fact_matching_separates_verified_unconfirmed_and_none(tmp_path):
@@ -92,3 +93,27 @@ def test_report_states_agreement_and_disagreements():
     r = A.report("B", {"codex_fact": 1}, {}, sampled, first, second, {}, {}, {})
     assert r["agreement"] == dict(compared=1, same=0, rate=0.0) and r["disagreements"][0]["deepseek"] == "no"
     assert r["kinds"]["codex_fact"]["criteria"]["faithful"]["yes"] == 1
+
+
+def test_oversized_items_are_judged_in_parts_and_combined():
+    item = dict(id="session_summary:1", kind="session_summary",
+                text=json.dumps({"topics_covered": ["cats", "dogs"], "decisions_made": "Adopt Tofu. Skip the fish."}),
+                sources=[dict(turn=t, text="x" * 150_000) for t in (1, 2)])
+    assert A.statements(item) == ["cats", "dogs", "Adopt Tofu.", "Skip the fish."]
+    assert len(A.source_parts(item["sources"])) == 2
+    verdicts, _ = A.combine_parts(4, [{"1": "supported", "2": "absent", "3": "supported", "4": "absent"},
+                                      {"1": "absent", "2": "supported", "3": "absent", "4": "supported"}])
+    assert verdicts == dict(faithful="yes", attributed="yes")
+    verdicts, _ = A.combine_parts(2, [{"1": "supported", "2": "absent"}, {"1": "contradicted", "2": "absent"}])
+    assert verdicts["faithful"] == "no"
+    verdicts, _ = A.combine_parts(1, [{"1": "misattributed"}])
+    assert verdicts == dict(faithful="yes", attributed="no")
+
+
+def test_judge_all_routes_oversized_items_to_partwise(tmp_path):
+    item = dict(id="session_summary:9", kind="session_summary", text="The cat is Tofu. The dog is Rex.",
+                sources=[dict(turn=1, text="y" * (A.SOURCE_CHARS + 1))])
+    judge = Judge([{"1": "supported", "2": "supported"}])
+    results, _ = A.judge_all([item], "C", [], 10, tmp_path, models=models(judge))
+    r = results["session_summary:9"]
+    assert r["partwise"] and r["verdicts"] == dict(faithful="yes", attributed="yes") and "complete" in r["not_judged"]

@@ -292,6 +292,70 @@ def judge_prompt(item, changes):
     return criteria, json.dumps(body, ensure_ascii=False, default=str)
 
 
+PART_SYSTEM = """STATEMENTS are numbered statements an AI memory system wrote about a conversation.
+PASSAGES are one part of the conversation it was written from (the conversation is too long to show
+at once; other parts are judged separately). For EACH statement, say what THIS part shows:
+- "supported": this part states it (meaning, not wording), credited to the right speaker;
+- "misattributed": this part states it but from the other speaker, or as a suggestion where the
+  statement presents it as decided;
+- "contradicted": this part states something incompatible with it;
+- "absent": this part does not bear on it.
+Return only JSON: {"<statement number>": "supported|misattributed|contradicted|absent", ...}"""
+
+
+def statements(item):
+    """An item split into numbered statements for part-wise judging (session summaries'
+    list fields item by item; any text by sentence)."""
+    import re
+    sentences = lambda text: [t.strip() for t in re.split(r"(?<=[.!?])\s+", text or "") if t.strip()]
+    try:
+        body = json.loads(item["text"])
+    except (TypeError, ValueError):
+        body = None
+    if not isinstance(body, dict):
+        return sentences(item["text"])
+    out = []
+    for value in body.values():
+        if isinstance(value, list):
+            out += [str(v) for v in value if str(v).strip()]
+        elif isinstance(value, str):
+            out += sentences(value)
+    return out
+
+
+def source_parts(sources, limit=SOURCE_CHARS):
+    """Consecutive source turns grouped into parts under the judge's capacity."""
+    parts, current, size = [], [], 0
+    for src in sources:
+        n = len(src["text"] or "")
+        if current and size + n > limit:
+            parts.append(current)
+            current, size = [], 0
+        current.append(src)
+        size += n
+    if current:
+        parts.append(current)
+    return parts
+
+
+def combine_parts(statement_count, part_verdicts):
+    """faithful: every statement supported in some part, none contradicted;
+    attributed: no part shows a statement misattributed."""
+    seen = {str(i): set() for i in range(1, statement_count + 1)}
+    for verdicts in part_verdicts:
+        for k, v in (verdicts or {}).items():
+            if k in seen:
+                seen[k].add(v)
+    contradicted = [k for k, v in seen.items() if "contradicted" in v]
+    unsupported = [k for k, v in seen.items() if not v & {"supported", "misattributed"}]
+    misattributed = [k for k, v in seen.items() if "misattributed" in v and "supported" not in v]
+    faithful = "no" if contradicted or unsupported else "yes"
+    attributed = "no" if misattributed else "yes"
+    return dict(faithful=faithful, attributed=attributed), dict(
+        faithful=f"contradicted {contradicted}, unsupported {unsupported}" if faithful == "no" else "all supported",
+        attributed=f"misattributed {misattributed}" if misattributed else "all attributed")
+
+
 class Errors:
     """Per-item error counts across attempts (an item is retried until MAX_ITEM_ERRORS)."""
 
@@ -330,17 +394,45 @@ def judge_all(items, history, ledger, end_turn, out, *, models, judge="muse", ta
     calls = M.Calls(out / f"{tag}-raw.jsonl")
     errors = Errors(out / f"{tag}-errors.json")
     session = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{POLICY}|{history}|{tag}"))
-    results, pending_errors, todo = {}, 0, []
+    results, pending_errors, todo, partwise = {}, 0, [], []
     for item in items:
         key = item["id"]
         if errors.given_up(key):
             results[key] = dict(status="unjudged", reason=errors.counts[key]["last"])
         elif sum(len(s["text"] or "") for s in item["sources"]) > SOURCE_CHARS:
-            results[key] = dict(status="too_large", reason=f"sources over {SOURCE_CHARS} characters")
+            partwise.append(item)                   # judged in parts (faithful, attributed only)
         elif not item["sources"]:
             results[key] = dict(status="no_sources", reason="the store records no source turn for it")
         else:
             todo.append(item)
+
+    def work_parts(item):
+        numbered = statements(item)
+        if not numbered:
+            return None
+        verdicts = []
+        for part in source_parts(item["sources"]):
+            body = dict(STATEMENTS={str(i): t for i, t in enumerate(numbered, 1)},
+                        PASSAGES=[dict(turn=s["turn"], text=s["text"]) for s in part])
+            # Part-wise reasoning runs longer (4 of 113 qualification calls ran out at 8,000).
+            verdicts.append(ask_object(calls, judge, models[judge][1], models[judge][0], PART_SYSTEM,
+                                       json.dumps(body, ensure_ascii=False), session,
+                                       max_output_tokens=2 * JUDGE_OUTPUT_TOKENS))
+        return len(numbered), verdicts
+
+    for item, got, exc in _parallel(partwise, work_parts):
+        if exc is not None:
+            errors.failed(item["id"], exc)
+            pending_errors += 1
+        elif got is None:
+            results[item["id"]] = dict(status="no_statements")
+        else:
+            verdicts, reasons = combine_parts(*got)
+            results[item["id"]] = dict(status="judged", verdicts=verdicts, reasons=reasons, partwise=True,
+                                       parts=len(got[1]), not_judged={c: "sources over the judge's capacity; "
+                                                                        "judged in parts" for c in
+                                                                     KIND_CRITERIA[item["kind"]]
+                                                                     if c not in verdicts})
 
     def work(item):
         changes = later_changes(item, ledger, end_turn)

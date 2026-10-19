@@ -43,7 +43,7 @@ WRITER, CHECKER, JUDGE = "deepseek", "mimo", "muse"
 # Pass bars, fixed before running: a planted wrong answer must essentially never pass;
 # right material must be accepted nearly always.
 BARS = dict(wrong_rejected=0.95, correct_accepted=0.90, ranking_right=0.90, faithful_split=0.90,
-            walk_split=0.90, claims_split=0.90, controls_right=0.90)
+            walk_split=0.90, claims_split=0.90, controls_right=0.90, partwise_split=0.90)
 
 PLANT_SYSTEM = """You build test material for checking an answer grader. You get a QUESTION a user
 asked about their conversation with an AI assistant, the REQUIREMENTS a correct answer must contain
@@ -146,6 +146,18 @@ def judge_runs(rows, out, *, models):
             if chk.get("summary_faithful" if key == "summary_faithful" else "unfaithful_contradicts"):
                 item = dict(id=f"q:{key}", kind="turn_summary", text=text, sources=src)
                 res[key] = (ask(bg_audit.JUDGE_SYSTEM, bg_audit.judge_prompt(item, [])[1]) or {}).get("faithful", {}).get("verdict")
+        # S8 part-wise judging (sources over the judge's capacity): the same summaries with
+        # the source split in two parts, combined as the stage combines them.
+        whole = src[0]["text"]
+        halves = [dict(turn=turn0["turn"], text=whole[:len(whole) // 2]), dict(turn=turn0["turn"], text=whole[len(whole) // 2:])]
+        for key, text in (("partwise_faithful", p["summary"]), ("partwise_unfaithful", p["unfaithful_summary"])):
+            if chk.get("summary_faithful" if key == "partwise_faithful" else "unfaithful_contradicts"):
+                item = dict(id=f"q:{key}", kind="session_summary", text=text, sources=halves)
+                numbered = bg_audit.statements(item)
+                verdicts = [ask(bg_audit.PART_SYSTEM, json.dumps(dict(
+                    STATEMENTS={str(i): t for i, t in enumerate(numbered, 1)}, PASSAGES=[part]), ensure_ascii=False))
+                    for part in halves]
+                res[key] = bg_audit.combine_parts(len(numbered), verdicts)[0]["faithful"]
         if chk.get("correction_changes_answer"):
             later = max(c["gold_turns"]) + 1
             base = dict(QUESTION=c["question"], CURRENT_ANSWER=c["requirements"], ANSWER_TURN=max(c["gold_turns"]))
@@ -155,9 +167,15 @@ def judge_runs(rows, out, *, models):
             res["walk_none"] = (ask(walk_audit.WALK_SYSTEM, json.dumps(unrelated, ensure_ascii=False)) or {}).get("changes")
         return res
 
+    def safe(row):
+        try:
+            return one(row)
+        except Exception as exc:                  # recorded and counted, never fatal
+            return dict(probe_id=row["contract"]["probe_id"], error=f"{type(exc).__name__}: {exc}"[:300])
+
     good = [r for r in rows if r.get("plant")]
     with ThreadPoolExecutor(max_workers=4) as pool:
-        return list(pool.map(one, good))
+        return list(pool.map(safe, good))
 
 
 CONTROL_PLANTS = [("what's 17 times 23", "17 x 23 = 391.", "17 x 23 = 401."),
@@ -199,7 +217,9 @@ def summarize(rows, judged, control_right):
                           + [j.get("claim_false_found") is False for j in judged if "claim_false_found" in j]),
         walk_split=rate([j.get("walk_change") is True for j in judged if "walk_change" in j]
                         + [j.get("walk_none") is False for j in judged if "walk_none" in j]),
-        controls_right=rate(control_right))
+        controls_right=rate(control_right),
+        partwise_split=rate([j["partwise_faithful"] == "yes" for j in judged if "partwise_faithful" in j]
+                            + [j["partwise_unfaithful"] == "no" for j in judged if "partwise_unfaithful" in j]))
     checks = [r.get("check") or {} for r in rows if r.get("plant")]
     plant_quality = {k: rate([c.get(k) is True for c in checks]) for k in
                      ("correct_has_all", "wrong_contradicts", "partial_misses_some", "summary_faithful",
@@ -242,8 +262,10 @@ def main() -> int:
     prompts = {name: sha(text) for name, text in (
         ("grade.GRADE_SYSTEM", grade.GRADE_SYSTEM), ("grade.RANK_SYSTEM", grade.RANK_SYSTEM),
         ("grade.CLAIM_SOURCE_SYSTEM", grade.CLAIM_SOURCE_SYSTEM), ("grade.CONTROL_SYSTEM", grade.CONTROL_SYSTEM),
-        ("bg_audit.JUDGE_SYSTEM", bg_audit.JUDGE_SYSTEM), ("walk_audit.WALK_SYSTEM", walk_audit.WALK_SYSTEM))}
+        ("bg_audit.JUDGE_SYSTEM", bg_audit.JUDGE_SYSTEM), ("bg_audit.PART_SYSTEM", bg_audit.PART_SYSTEM),
+        ("walk_audit.WALK_SYSTEM", walk_audit.WALK_SYSTEM))}
     record = dict(policy=POLICY, judge=metadata(JUDGE), writer=WRITER, checker=CHECKER, contracts=len(items),
+                  judge_errors=[j for j in judged if "error" in j],
                   plants_kept=sum(1 for r in rows if r.get("plant")), prompt_sha256=prompts, bars=BARS,
                   metrics=metrics, plant_quality=plant_quality, passed=passed, all_passed=all(passed.values()))
     (args.out / "qualification.json").write_text(json.dumps(dict(record, judged=judged), indent=1, ensure_ascii=False,
