@@ -68,3 +68,22 @@ def test_budget_curves_and_guard_pair_apply_only_where_specified():
     outside = next(a for a in asks if a["kind"] == "question" and a["id"] not in guard)
     assert not R.applies(R.CONDITIONS["full_guard_every_word"], outside, guard)
     assert R.applies(R.CONDITIONS["bare_b8000"], outside, guard)
+
+
+def test_ablation_chains_follow_the_frozen_order():
+    order = R.ORDER
+    assert order[0] == "bm25" and order[-1] == "maintenance" and len(order) == 10
+    assert R.CONDITIONS["loo_rerank"]["settings"] == {"retrieval_rerank_enabled": False}
+    assert R.CONDITIONS["loo_rerank"]["groups_off"] == ["rerank"]
+    first = R.CONDITIONS["add_1_bm25"]
+    assert set(first["groups_off"]) == set(order[1:])            # only BM25/hybrid on
+    assert R.phase_of(first) == "unmerged"                       # maintenance off -> merges undone
+    assert R.phase_of(R.CONDITIONS["add_9_temporal"]) == "unmerged"
+    assert set(R.CONDITIONS["add_9_temporal"]["groups_off"]) == {"maintenance"}
+    assert R.phase_of(R.CONDITIONS["loo_codex"]) == "neutral"
+    assert "no_fold" in R.CONDITIONS["loo_notes"]["harness"]
+    from src.api.config import settings
+    from src.retrieval.configurable_orchestrator import SUPPORTED_FLAGS
+    for name, spec in R.CONDITIONS.items():
+        assert set(spec.get("flags", {})) <= SUPPORTED_FLAGS, name
+        assert all(hasattr(settings, k) for k in spec.get("settings", {})), name

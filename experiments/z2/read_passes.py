@@ -65,6 +65,49 @@ CONDITIONS = {
                                   settings={"representation_guard_terms": "every_word"}),
 }
 
+# D10 ablation groups in the frozen additive order, each switched off with an existing
+# production knob (maintainer decision 2026-10-19): ConfigurableOrchestrator flags,
+# settings, or a harness patch around the read. Group 10 (decay) is not a switch: it is
+# full_default vs full (live vs neutral overlay). Group 11's entity merges are undone on
+# the restored copy, so conditions with it off read in a third phase ("unmerged").
+GROUPS = (
+    ("bm25", dict(flags={"bm25": False})),
+    ("rerank", dict(settings={"retrieval_rerank_enabled": False})),
+    ("codex", dict(flags={"codex": False})),
+    ("summaries", dict(settings={"turn_summaries_in_reads": False})),
+    ("notes", dict(flags={"batch_summary": False}, harness={"no_fold"})),
+    ("procedural", dict(flags={"procedural": False})),
+    ("gate", dict(settings={"memory_source_gate_enabled": False, "memory_source_rescue_enabled": False},
+                  harness={"always_retrieve"})),
+    ("clusters", dict(flags={"cluster_restrict": False})),
+    ("temporal", dict(flags={"timescope": False}, settings={"timescope_enabled": False})),
+    ("maintenance", dict(harness={"no_slots", "unmerged"})),
+)
+
+
+def switched_off(names):
+    """A full-ICE condition (neutral decay) with the named groups switched off."""
+    flags, settings, harness = {}, {}, set()
+    for name, switch in GROUPS:
+        if name in names:
+            flags.update(switch.get("flags", {}))
+            settings.update(switch.get("settings", {}))
+            harness |= switch.get("harness", set())
+    return dict(overlay="neutral", arm="full", flags=flags, settings=settings, harness=sorted(harness),
+                groups_off=sorted(names))
+
+
+ORDER = [name for name, _ in GROUPS]
+CONDITIONS.update({f"loo_{name}": switched_off({name}) for name in ORDER})          # leave one out
+CONDITIONS.update({f"add_{k}_{ORDER[k - 1]}": switched_off(set(ORDER[k:]))          # groups 1..k on
+                   for k in range(1, len(ORDER))})
+
+
+def phase_of(spec):
+    if spec.get("bare"):
+        return "bare"
+    return "unmerged" if "unmerged" in spec.get("harness", ()) else spec["overlay"]
+
 
 def guard_sample(asks, n=GUARD_SAMPLE):
     """The summary-guard pair's questions: per type in proportion (at least one each),
@@ -160,11 +203,15 @@ class Reader:
         self.classifier = PyTorchClassifier(model_path=settings.classifier_model_path,
                                             schema_path=settings.label_schema_path)
 
-    def read(self, db, cid, ask, arm, now, *, fixed_budget=None, overrides=None):
+    def read(self, db, cid, ask, arm, now, *, fixed_budget=None, overrides=None, flags=None, harness=()):
         from contextlib import ExitStack
+        from types import SimpleNamespace
         from scripts.z1 import production_parity as pp, seed_v3
+        from src.api import memory_preparation as mp
         from src.api.config import settings
-        from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+        from src.retrieval import orchestrator as orchestrator_module
+        from src.retrieval.configurable_orchestrator import ConfigurableOrchestrator, SUPPORTED_FLAGS
+        HybridRetrievalOrchestrator = orchestrator_module.HybridRetrievalOrchestrator
         budget = {}
         real = HybridRetrievalOrchestrator.retrieve
         real_budget = HybridRetrievalOrchestrator.set_budget_from_turn_count
@@ -185,7 +232,28 @@ class Reader:
             if fixed_budget:
                 stack.enter_context(patch.object(HybridRetrievalOrchestrator, "set_budget_from_turn_count", sized))
             for key, value in (overrides or {}).items():
+                if not hasattr(settings, key):
+                    raise ValueError(f"unknown setting {key}: a switch that reaches nothing")
                 stack.enter_context(patch.object(settings, key, value))
+            if flags:
+                unknown = set(flags) - SUPPORTED_FLAGS
+                if unknown:
+                    raise ValueError(f"unsupported orchestrator flags {sorted(unknown)}")
+
+                class Flagged(ConfigurableOrchestrator):
+                    def __init__(self, db_, embedder):
+                        super().__init__(db_, embedder, overrides=dict(flags))
+                stack.enter_context(patch.object(orchestrator_module, "HybridRetrievalOrchestrator", Flagged))
+            if "no_fold" in harness:          # group 5: the conversation fold is not shown
+                stack.enter_context(patch.object(mp, "conversation_summary_block", lambda *_a, **_k: []))
+            if "always_retrieve" in harness:  # group 7: the learned decision does not gate memory
+                real_decide = pp.decide_memory_retrieval
+                stack.enter_context(patch.object(pp, "decide_memory_retrieval", lambda *a, **k: SimpleNamespace(
+                    retrieve=True, p_need_mem=real_decide(*a, **k).p_need_mem)))
+            if "no_slots" in harness:         # group 11: reflection's slots are not shown
+                real_prepare = pp.prepare
+                stack.enter_context(patch.object(pp, "prepare", lambda *a, **k: real_prepare(
+                    *a, **dict(k, memory_slots=[]))))
             pre = pp.build(db, ask["question"], cid, self.classifier, self.embedder, source_time=now)
             current = copy.deepcopy(pre)
             memory, generated, ranked, budgeted, notes = seed_v3.prepare_with_trace(
@@ -201,10 +269,36 @@ class Reader:
                                              classification=classification, total_budget=pre.total_budget)
         stage["retrieval_budget"] = budget.get("max_retrieval_tokens")
         stage["retrieval_budget_if_retrieved"] = would.max_retrieval_tokens
-        stage["read_overrides"] = dict(fixed_budget=fixed_budget, settings=overrides or {})
+        stage["read_overrides"] = dict(fixed_budget=fixed_budget, settings=overrides or {}, flags=flags or {},
+                                       harness=sorted(harness))
         if stage["retrieval_budget"] is not None and stage["retrieval_budget"] != would.max_retrieval_tokens:
             raise ValueError(f"budget replica {would.max_retrieval_tokens} != ICE's {stage['retrieval_budget']}")
         return stage
+
+
+def unmerge_all(db):
+    """Group 11 off: undo every applied entity merge on the restored copy, newest first
+    (codex_ops.unmerge_entities reverses one exactly from its journal). The copy is
+    restored afresh for the next checkpoint. Returns how many were undone."""
+    from sqlalchemy import text
+    from src.workers.codex_ops import unmerge_entities
+    pending = [r[0] for r in db.execute(text(
+        "SELECT id FROM codex_events WHERE event_type = 'entity_merged' ORDER BY timestamp DESC"))]
+    undone = 0
+    while pending:
+        # Merges sharing a timestamp have no recorded order; a nested merge can only be
+        # undone after the one on top of it, so retry the skipped until nothing moves.
+        left = []
+        for event in pending:
+            result = unmerge_entities(db, event)
+            if result.get("status") == "skipped":
+                left.append((event, result))
+            else:
+                undone += 1
+        if len(left) == len(pending):
+            raise RuntimeError(f"{len(left)} entity merges could not be undone: {[r for _, r in left][:3]}")
+        pending = [event for event, _ in left]
+    return undone
 
 
 def future_sources(db, stage, checkpoint):
@@ -252,7 +346,7 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
             episodic, cold, facts = O.read_store(db)
             check = O.validate(O.trajectory(events, episodic, cold, facts, {}), episodic, cold, facts)
             cid = str(db.execute(text("SELECT id FROM conversations")).scalar_one())
-        phases = ("default", "neutral")
+        phases = ("default", "neutral", "unmerged")
         if check["mismatches"]:
             # The live store can still be read; nothing that needs the overlay can.
             failures.append(dict(checkpoint=cp, reason="default decay overlay does not reproduce the store; "
@@ -268,8 +362,16 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                     applied = O.apply(db, target, episodic, cold)
                 if applied["refused"]:
                     failures.append(dict(checkpoint=cp, reason="neutral overlay refused rows", detail=applied))
+            if phase == "unmerged":
+                if not any(phase_of(spec) == "unmerged" and applies(spec, a, guard)
+                           and not unit_path(out, n, a["id"]).exists()
+                           for n, spec in conditions.items() for a in group):
+                    continue
+                with SessionLocal() as db:
+                    undone = unmerge_all(db)
+                print(json.dumps(dict(checkpoint=cp, entity_merges_undone=undone)), flush=True)
             for name, spec in conditions.items():
-                if spec["overlay"] != phase or spec.get("bare"):
+                if phase_of(spec) != phase:
                     continue
                 for ask in group:
                     if not applies(spec, ask, guard):
@@ -282,7 +384,8 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                         continue
                     with SessionLocal() as db:
                         stage = reader.read(db, cid, ask, spec["arm"], now, fixed_budget=spec.get("budget"),
-                                            overrides=spec.get("settings"))
+                                            overrides=spec.get("settings"), flags=spec.get("flags"),
+                                            harness=set(spec.get("harness", ())) - {"unmerged"})
                         future = future_sources(db, stage, cp)
                     if future:
                         raise ValueError(f"{ask['id']}/{name}: future evidence {future}")
@@ -319,6 +422,33 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
     return failures
 
 
+def switch_report(out, asks):
+    """Spec §5 item 6: per leave-one-out condition, what differs from `full` across the
+    asks — selected tokens per retrieval leg, prompt block tokens, the retrieve decision.
+    A switch that changes nothing, or changes a part it does not own, shows up here."""
+    import collections
+    report = {}
+    for name in [n for n in CONDITIONS if n.startswith("loo_")]:
+        legs, blocks, decisions, compared, identical = collections.Counter(), collections.Counter(), 0, 0, 0
+        for ask in asks:
+            a, b = unit_path(out, "full", ask["id"]), unit_path(out, name, ask["id"])
+            if not (a.exists() and b.exists()):
+                continue
+            full, off = json.loads(a.read_text())["stage"], json.loads(b.read_text())["stage"]
+            compared += 1
+            identical += full["prompt_messages"] == off["prompt_messages"]
+            for st, sign in ((full, -1), (off, 1)):
+                for f in st.get("selected") or []:
+                    legs[f.get("leg") or f.get("type")] += sign * (f.get("tokens") or 0)
+                for block, n in ((st.get("context_ledger") or {}).get("blocks") or {}).items():
+                    blocks[block] += sign * n
+            decisions += (full.get("gate") or {}).get("final_retrieve") != (off.get("gate") or {}).get("final_retrieve")
+        report[name] = dict(asks=compared, identical_prompts=identical, retrieve_decisions_changed=decisions,
+                            leg_token_delta={k: v for k, v in legs.items() if v},
+                            block_token_delta={k: v for k, v in blocks.items() if v})
+    return report
+
+
 def progress(out, asks_path, conditions=CONDITIONS):
     """(done, total) units for the runner's meter, from files only."""
     if not Path(asks_path).exists():
@@ -337,7 +467,11 @@ def main() -> int:
     parser.add_argument("--asks", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--limit-checkpoints", type=int)
+    parser.add_argument("--switch-report", action="store_true", help="print §5 item 6 and exit")
     args = parser.parse_args()
+    if args.switch_report:
+        print(json.dumps(switch_report(args.out, json.loads(args.asks.read_text())), indent=1))
+        return 0
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
         raise ValueError("read-pass output is private: keep it under logs/")
     if os.environ.get("ICE_TEST_DATABASE") != args.database:

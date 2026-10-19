@@ -178,27 +178,34 @@ def detect_changes(history, ledger_root, out, *, models, asker="deepseek", check
     by_newer = {}
     for p in found["pairs"]:
         by_newer.setdefault(p["newer"], []).append(p["older"])
+    from concurrent.futures import ThreadPoolExecutor
+    pool = ThreadPoolExecutor(max_workers=4)           # same calls, same order of results
     first, flagged = {}, []
-    for newer_id, older_ids in by_newer.items():
-        earlier = {f"E{n}": entries[i] for n, i in enumerate(older_ids, 1)}
-        v = _verdicts(calls, asker, models[asker][1], models[asker][0], entries[newer_id], earlier,
-                      session(asker))
+    asked = list(by_newer.items())
+    earliers = [{f"E{n}": entries[i] for n, i in enumerate(older_ids, 1)} for _, older_ids in asked]
+    replies = pool.map(lambda job: _verdicts(calls, asker, models[asker][1], models[asker][0],
+                                             entries[job[0]], job[1], session(asker)),
+                       [(newer_id, earlier) for (newer_id, _), earlier in zip(asked, earliers)])
+    for (newer_id, _), earlier, v in zip(asked, earliers, replies):
         for alias, verdict in v.items():
             first[(earlier[alias]["id"], newer_id)] = verdict
             if verdict == "replaces":
                 flagged.append((earlier[alias]["id"], newer_id))
     confirmed, disputed = [], []
-    for older_id, newer_id in flagged:
-        v = _verdicts(calls, checker, models[checker][1], models[checker][0], entries[newer_id],
-                      {"E1": entries[older_id]}, session(checker)).get("E1")
+    checks = pool.map(lambda pair: _verdicts(calls, checker, models[checker][1], models[checker][0],
+                                             entries[pair[1]], {"E1": entries[pair[0]]}, session(checker)).get("E1"),
+                      flagged)
+    for (older_id, newer_id), v in zip(flagged, checks):
         (confirmed if v == "replaces" else disputed).append(dict(older=older_id, newer=newer_id,
                                                                 checker=v))
-    for d in disputed:
-        v = _verdicts(calls, tie_breaker, models[tie_breaker][1], models[tie_breaker][0],
-                      entries[d["newer"]], {"E1": entries[d["older"]]}, session(tie_breaker)).get("E1")
+    ties = pool.map(lambda d: _verdicts(calls, tie_breaker, models[tie_breaker][1], models[tie_breaker][0],
+                                        entries[d["newer"]], {"E1": entries[d["older"]]},
+                                        session(tie_breaker)).get("E1"), disputed)
+    for d, v in zip(disputed, ties):
         d["tie_break"] = v
         if v == "replaces":
             confirmed.append(dict(older=d["older"], newer=d["newer"], checker=d["checker"], tie_break=v))
+    pool.shutdown()
     same = [dict(older=o, newer=n) for (o, n), v in first.items() if v == "same"]
     result = dict(policy=CHANGE_POLICY, history=history, asker=asker, checker=checker,
                   tie_breaker=tie_breaker, models={r: models[r][1] for r in models},
