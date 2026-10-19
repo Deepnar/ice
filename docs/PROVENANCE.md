@@ -1,3 +1,18 @@
+## 2026-10-19 — v3 Z2 question set: S3-S6 complete, FINAL families sealed
+
+All v3; private material under `logs/z2-questions-final/` (gitignored). Ledgers:
+`logs/z2-ledger-detail-2026-10-18-r2/{B,C}` (S1 window extraction + S1b detail pass; usable entries B
+7,779, C 3,587). Changes (two families + Muse ties): B and C `changes.json` (C 500 confirmed).
+Question generation with the question checker told which values were replaced (update questions
+had been rejected as "conflicting": 15/20 on C before). Asks per family measured C 1.5, B 1.84;
+the set was frozen at that point by the maintainer (no further top-ups).
+S5 maintainer review with the forward-walk disagreements (walk vs ledger agreed C 108/123, B 247/269):
+families dropped C 9, B 18 — wrong or stale answer keys (contaminated references, keys missing a
+later change, cumulative keys missing later material); each verified against the original turns.
+S6 split (`experiments/z2/split.py`, 60/40 by base family hash): C 65 Z2 / 42 sealed, sha256
+`596f10ea…`; B 98 Z2 / 64 sealed, sha256 `c93dfd5e…`. Z2 asks (occurrences + no-memory controls):
+B 208, C 86. Thin types are reported as low-n, not padded.
+
 ## 2026-10-19 — v3 Z2 S6b pre-launch flow audit (D7b) on the frozen build
 
 Frozen build = `main` at `a60b9b9` (claim-piece retry `28a2c15`, recent-row exclusion `9df3c94`,
