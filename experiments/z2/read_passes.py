@@ -11,7 +11,7 @@ recorded. `full_default` reads the store as the system ran it (live decay); ever
 other ICE condition reads with the neutral overlay applied (decay reported as its
 own contrast: full_default vs full).
 
-Conditions today — the ones needing no production switch:
+Conditions today — the ones needing no production switch (CONDITIONS holds the exact list):
   full_default   full ICE, live decay (the system as it runs)
   full           full ICE, neutral decay (the ablation reference)
   no_codex       full ICE without the codex facts leg (group 3 removed)
@@ -20,6 +20,9 @@ Conditions today — the ones needing no production switch:
   bare_vector    whole role-tagged original messages before the recent window, cosine
                  order, packed to full ICE's own retrieval budget for that question
                  (frozen development choice, PROVENANCE 2026-10-14); same envelope
+  full_b/warm_b/bare_b<N>  D11b budget curves: the same three systems at fixed memory
+                 budgets of 2k, 4k and 8k tokens (questions only)
+  full_guard_every_word    D10 summary-guard pair: the old guard on a stratified ~80
 The remaining D10 ablation groups join CONDITIONS when their read switches are decided.
 
 Each (question, condition) is one durable unit file: units/<condition>/<sha>.json
@@ -44,15 +47,44 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 POLICY = "ice-z2-read-passes-1"
-# name: (decay overlay, seed_v3 prompt arm)
+BUDGETS = (2_000, 4_000, 8_000)          # D11b memory budgets, beside each system's own default
+GUARD_SAMPLE = 80                        # D10 summary-guard pair: 60-100 questions, stratified
+# name: overlay (decay), arm (seed_v3 prompt arm) or bare, optional fixed memory budget,
+# settings overridden for the read, and the asks it applies to (None = every ask).
 CONDITIONS = {
-    "full_default": ("default", "full"),
-    "full": ("neutral", "full"),
-    "no_codex": ("neutral", "no_codex"),
-    "warm_vector": ("neutral", "vector_only"),
-    "recent_only": ("neutral", "recent_only"),
-    "bare_vector": ("none", None),
+    "full_default": dict(overlay="default", arm="full"),
+    "full": dict(overlay="neutral", arm="full"),
+    "no_codex": dict(overlay="neutral", arm="no_codex"),
+    "warm_vector": dict(overlay="neutral", arm="vector_only"),
+    "recent_only": dict(overlay="neutral", arm="recent_only"),
+    "bare_vector": dict(overlay="none", bare=True),
+    **{f"full_b{b}": dict(overlay="default", arm="full", budget=b, subset="questions") for b in BUDGETS},
+    **{f"warm_b{b}": dict(overlay="neutral", arm="vector_only", budget=b, subset="questions") for b in BUDGETS},
+    **{f"bare_b{b}": dict(overlay="none", bare=True, budget=b, subset="questions") for b in BUDGETS},
+    "full_guard_every_word": dict(overlay="default", arm="full", subset="guard",
+                                  settings={"representation_guard_terms": "every_word"}),
 }
+
+
+def guard_sample(asks, n=GUARD_SAMPLE):
+    """The summary-guard pair's questions: per type in proportion (at least one each),
+    deterministic by hash, so the sample spreads over checkpoints and types."""
+    questions = [a for a in asks if a["kind"] == "question"]
+    by_type = {}
+    for a in questions:
+        by_type.setdefault(a.get("type"), []).append(a)
+    picked = set()
+    for kind, group in sorted(by_type.items(), key=lambda kv: str(kv[0])):
+        take = max(1, round(n * len(group) / max(len(questions), 1)))
+        ranked = sorted(group, key=lambda a: hashlib.sha256(f"{POLICY}|guard|{a['id']}".encode()).hexdigest())
+        picked |= {a["id"] for a in ranked[:take]}
+    return picked
+
+
+def applies(spec, ask, guard):
+    subset = spec.get("subset")
+    return (subset is None or (subset == "questions" and ask["kind"] == "question")
+            or (subset == "guard" and ask["id"] in guard))
 CONTEXT_HEADER = "=== RETRIEVED CONTEXT ==="           # prompt_assembler's evidence pair
 CONTEXT_ACK = "Understood — I have the background context. What would you like to know?"
 
@@ -87,10 +119,11 @@ def build_asks(split_dir, occurrences_path, controls_path=None):
 
 
 def pending(asks, out, conditions=CONDITIONS):
-    """{checkpoint: [ask, ...]} with at least one condition unit still missing."""
-    todo = {}
+    """{checkpoint: [ask, ...]} with at least one applicable condition unit still missing."""
+    guard, todo = guard_sample(asks), {}
     for a in asks:
-        if any(not unit_path(out, c, a["id"]).exists() for c in conditions):
+        if any(applies(spec, a, guard) and not unit_path(out, c, a["id"]).exists()
+               for c, spec in conditions.items()):
             todo.setdefault(a["checkpoint_turn"], []).append(a)
     return dict(sorted(todo.items()))
 
@@ -127,18 +160,32 @@ class Reader:
         self.classifier = PyTorchClassifier(model_path=settings.classifier_model_path,
                                             schema_path=settings.label_schema_path)
 
-    def read(self, db, cid, ask, arm, now):
+    def read(self, db, cid, ask, arm, now, *, fixed_budget=None, overrides=None):
+        from contextlib import ExitStack
         from scripts.z1 import production_parity as pp, seed_v3
+        from src.api.config import settings
         from src.retrieval.orchestrator import HybridRetrievalOrchestrator
         budget = {}
         real = HybridRetrievalOrchestrator.retrieve
+        real_budget = HybridRetrievalOrchestrator.set_budget_from_turn_count
 
         def retrieve(self_, *args, **kwargs):
             result = real(self_, *args, **kwargs)
             budget["max_retrieval_tokens"] = getattr(self_, "max_retrieval_tokens", None)
             return result
 
-        with seed_v3.probe_observation(db), patch.object(HybridRetrievalOrchestrator, "retrieve", retrieve):
+        def sized(self_, *args, **kwargs):
+            result = real_budget(self_, *args, **kwargs)
+            self_.max_retrieval_tokens = fixed_budget        # D11b: the memory budget, set exactly
+            return result
+
+        with ExitStack() as stack:
+            stack.enter_context(seed_v3.probe_observation(db))
+            stack.enter_context(patch.object(HybridRetrievalOrchestrator, "retrieve", retrieve))
+            if fixed_budget:
+                stack.enter_context(patch.object(HybridRetrievalOrchestrator, "set_budget_from_turn_count", sized))
+            for key, value in (overrides or {}).items():
+                stack.enter_context(patch.object(settings, key, value))
             pre = pp.build(db, ask["question"], cid, self.classifier, self.embedder, source_time=now)
             current = copy.deepcopy(pre)
             memory, generated, ranked, budgeted, notes = seed_v3.prepare_with_trace(
@@ -154,6 +201,7 @@ class Reader:
                                              classification=classification, total_budget=pre.total_budget)
         stage["retrieval_budget"] = budget.get("max_retrieval_tokens")
         stage["retrieval_budget_if_retrieved"] = would.max_retrieval_tokens
+        stage["read_overrides"] = dict(fixed_budget=fixed_budget, settings=overrides or {})
         if stage["retrieval_budget"] is not None and stage["retrieval_budget"] != would.max_retrieval_tokens:
             raise ValueError(f"budget replica {would.max_retrieval_tokens} != ICE's {stage['retrieval_budget']}")
         return stage
@@ -211,6 +259,7 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                                  "neutral-decay conditions refused here", detail=check))
             phases = ("default",)
         now = times[cp]
+        guard = guard_sample(asks)
         full_budget = {}
         for phase in phases:
             if phase == "neutral":
@@ -219,10 +268,12 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                     applied = O.apply(db, target, episodic, cold)
                 if applied["refused"]:
                     failures.append(dict(checkpoint=cp, reason="neutral overlay refused rows", detail=applied))
-            for name, (overlay, arm) in conditions.items():
-                if overlay != phase:
+            for name, spec in conditions.items():
+                if spec["overlay"] != phase or spec.get("bare"):
                     continue
                 for ask in group:
+                    if not applies(spec, ask, guard):
+                        continue
                     path = unit_path(out, name, ask["id"])
                     if path.exists():
                         if name == "full_default":
@@ -230,34 +281,39 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                                 "retrieval_budget_if_retrieved")
                         continue
                     with SessionLocal() as db:
-                        stage = reader.read(db, cid, ask, arm, now)
+                        stage = reader.read(db, cid, ask, spec["arm"], now, fixed_budget=spec.get("budget"),
+                                            overrides=spec.get("settings"))
                         future = future_sources(db, stage, cp)
                     if future:
                         raise ValueError(f"{ask['id']}/{name}: future evidence {future}")
                     if name == "full_default":          # the budget does not depend on decay
                         full_budget[ask["id"]] = stage.get("retrieval_budget_if_retrieved")
                     write_unit(path, dict(policy=POLICY, history=history, condition=name, ask=ask,
-                                          checkpoint=cp, question_time=now, decay_overlay=overlay, stage=stage))
-        if "bare_vector" in conditions and "neutral" in phases:   # needs recent_only's envelope
-            for ask in group:
-                path = unit_path(out, "bare_vector", ask["id"])
-                if path.exists():
+                                          checkpoint=cp, question_time=now, decay_overlay=spec["overlay"],
+                                          stage=stage))
+        if "neutral" in phases:                     # bare vector needs recent_only's envelope
+            for name, spec in conditions.items():
+                if not spec.get("bare"):
                     continue
-                recent = json.loads(unit_path(out, "recent_only", ask["id"]).read_text())["stage"]
-                recent_from = cp - sum(1 for m in recent["prompt_messages"][:-1] if m["role"] == "assistant") + 1
-                chunks = chunk_turns([r for r in originals if r["turn_number"] < recent_from], None)
-                budget = full_budget.get(ask["id"])
-                if not budget:
-                    raise ValueError(f"{ask['id']}: full ICE recorded no retrieval budget to match")
-                chosen = select(index, ask["question"], chunks, budget, None, tokens.count)
-                messages = bare_messages(recent, chosen, ask["question"])
-                write_unit(path, dict(policy=POLICY, history=history, condition="bare_vector", ask=ask,
-                                      checkpoint=cp, question_time=now, decay_overlay="none",
-                                      stage=dict(prompt_messages=messages, retrieval_budget=budget,
-                                                 selected=[dict(turn=c.turn, role=c.role, score=s,
-                                                                tokens=tokens.count(c.render()))
-                                                           for c, s in chosen],
-                                                 selected_tokens=sum(tokens.count(c.render()) for c, _ in chosen))))
+                for ask in group:
+                    path = unit_path(out, name, ask["id"])
+                    if not applies(spec, ask, guard) or path.exists():
+                        continue
+                    recent = json.loads(unit_path(out, "recent_only", ask["id"]).read_text())["stage"]
+                    recent_from = cp - sum(1 for m in recent["prompt_messages"][:-1] if m["role"] == "assistant") + 1
+                    chunks = chunk_turns([r for r in originals if r["turn_number"] < recent_from], None)
+                    budget = spec.get("budget") or full_budget.get(ask["id"])
+                    if not budget:
+                        raise ValueError(f"{ask['id']}: full ICE recorded no retrieval budget to match")
+                    chosen = select(index, ask["question"], chunks, budget, None, tokens.count)
+                    write_unit(path, dict(policy=POLICY, history=history, condition=name, ask=ask,
+                                          checkpoint=cp, question_time=now, decay_overlay="none",
+                                          stage=dict(prompt_messages=bare_messages(recent, chosen, ask["question"]),
+                                                     retrieval_budget=budget,
+                                                     selected=[dict(turn=c.turn, role=c.role, score=sc,
+                                                                    tokens=tokens.count(c.render()))
+                                                               for c, sc in chosen],
+                                                     selected_tokens=sum(tokens.count(c.render()) for c, _ in chosen))))
         print(json.dumps(dict(checkpoint=cp, asks=len(group), seconds=round(time.time() - started))), flush=True)
     (out / "failures.json").write_text(json.dumps(failures, indent=1, default=str))
     return failures
@@ -268,9 +324,9 @@ def progress(out, asks_path, conditions=CONDITIONS):
     if not Path(asks_path).exists():
         return 0, None
     asks = json.loads(Path(asks_path).read_text())
-    total = len(asks) * len(conditions)
-    done = sum(1 for a in asks for c in conditions if unit_path(out, c, a["id"]).exists())
-    return done, total
+    guard = guard_sample(asks)
+    wanted = [(c, a) for a in asks for c, spec in conditions.items() if applies(spec, a, guard)]
+    return sum(1 for c, a in wanted if unit_path(out, c, a["id"]).exists()), len(wanted)
 
 
 def main() -> int:

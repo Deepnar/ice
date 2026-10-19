@@ -23,7 +23,8 @@ def test_asks_come_only_from_z2_families_plus_controls(tmp_path):
 
 
 def test_pending_groups_by_checkpoint_and_skips_finished_units(tmp_path):
-    asks = [dict(id="a", checkpoint_turn=50), dict(id="b", checkpoint_turn=25)]
+    asks = [dict(id="a", checkpoint_turn=50, kind="question", type="x"),
+            dict(id="b", checkpoint_turn=25, kind="question", type="x")]
     assert list(R.pending(asks, tmp_path)) == [25, 50]
     for c in R.CONDITIONS:
         R.write_unit(R.unit_path(tmp_path, c, "b"), {})
@@ -51,3 +52,19 @@ def test_bare_vector_uses_icess_evidence_pair_before_the_question():
     assert messages[3]["content"] == f"{R.CONTEXT_HEADER}\n[User, turn 3] hello"
     assert messages[4]["content"] == R.CONTEXT_ACK and messages[-1]["content"] == "Q?"
     assert R.bare_messages(recent, [], "Q?") == recent["prompt_messages"]
+
+
+def test_budget_curves_and_guard_pair_apply_only_where_specified():
+    asks = [dict(id=f"q{i}", kind="question", type=("update" if i % 4 else "temporal"), checkpoint_turn=25)
+            for i in range(200)] + [dict(id="c1", kind="control", type="small_talk", checkpoint_turn=25)]
+    guard = R.guard_sample(asks)
+    assert guard == R.guard_sample(list(reversed(asks)))
+    assert 70 <= len(guard) <= 90 and "c1" not in guard
+    kinds = {a["id"]: a["type"] for a in asks}
+    assert {kinds[g] for g in guard} == {"update", "temporal"}
+    control = asks[-1]
+    assert not R.applies(R.CONDITIONS["full_b2000"], control, guard)
+    assert R.applies(R.CONDITIONS["full_default"], control, guard)
+    outside = next(a for a in asks if a["kind"] == "question" and a["id"] not in guard)
+    assert not R.applies(R.CONDITIONS["full_guard_every_word"], outside, guard)
+    assert R.applies(R.CONDITIONS["bare_b8000"], outside, guard)
