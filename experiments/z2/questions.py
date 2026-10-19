@@ -236,6 +236,9 @@ QUOTAS = {"fact_recall": .15, "update": .15, "temporal": .12, "cumulative": .10,
           "multi_hop": .05, "messy_variant": .10}
 RECENT_TURNS, REPEAT_GAP = 40, 150
 TARGET_OCCURRENCES = {"B": 500, "C": 200}      # before the 60/40 split -> ~300 / ~120 in Z2
+# Asks per family (first ask + repeats): C's short history (325 turns, 13 checkpoints)
+# gave 110 asks from 73 families = 1.5 (2026-10-19); B keeps the planned 2.3.
+ASKS_PER_FAMILY = {"B": 2.3, "C": 1.5}
 MEGA_SPAN, CLUSTER_FLOOR, CLUSTER_MAX = 100, 0.84, 25
 TEMPORAL_MAX = 300
 MULTI_HOP_MAX = 0.90        # two entries this similar are one fact, not two hops
@@ -404,7 +407,7 @@ def candidate_pools(history, ledger_root, out):
             if ok:
                 pools["temporal"].append(dict(entries=[a["id"], b["id"]], first=c))
     pools["negative"] = [dict(cluster=[entries[i]["id"] for i in cl][:3]) for cl in clusters]
-    families = round(TARGET_OCCURRENCES.get(history, 0) / 2.3)
+    families = round(TARGET_OCCURRENCES.get(history, 0) / ASKS_PER_FAMILY.get(history, 2.3))
     need = {k: round(v * families) for k, v in QUOTAS.items()}
     return pools, need
 
