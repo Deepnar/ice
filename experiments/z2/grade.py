@@ -45,9 +45,11 @@ SEARCH_K = 8
 
 GRADE_SYSTEM = """You grade an AI assistant's ANSWER to a user's QUESTION about their own long
 conversation with the assistant. REQUIRED lists what a correct answer must contain (meaning, not
-wording). SUPERSEDED lists values that were true earlier but were changed — presenting one of them
-as current is an error. EXPECT_ABSTENTION true means the conversation never stated the answer and
-the right response says so.
+wording). SOURCES are the conversation passages REQUIRED comes from: use them for the exact values
+(numbers, names, items, directions) — an answer that states a different value than SOURCES is
+wrong on that item even if it sounds right. SUPERSEDED lists values that were true earlier but were
+changed — presenting one of them as current is an error. EXPECT_ABSTENTION true means the
+conversation never stated the answer and the right response says so.
 Return only JSON:
 {"items": [{"item": <index into REQUIRED>, "covered": true|false}],
  "grade": "correct|partial|incorrect|uncertain",
@@ -67,13 +69,20 @@ PASSAGES are original messages from that conversation. Does any passage state or
 CLAIM? Return only JSON: {"found": true|false, "passage": <index or null>, "reason": "..."}"""
 
 RANK_SYSTEM = """Several ANSWERS respond to the same QUESTION about a user's long conversation with an
-AI assistant. REQUIRED lists what a correct answer must contain. Rank the answers from best to
-worst on correctness and completeness against REQUIRED (then clarity); equal answers share a rank.
+AI assistant. REQUIRED lists what a correct answer must contain; SOURCES are the passages it comes
+from (use them for exact values). Rank the answers from best to worst on correctness and
+completeness against REQUIRED (then clarity); equal answers share a rank.
 Return only JSON: {"ranks": {"<answer label>": <rank, 1 = best>, ...}, "reason": "..."}"""
 
 CONTROL_SYSTEM = """A user sent MESSAGE to an AI assistant; it needs no memory of earlier
 conversations. Compare the two replies A and B for how well they answer MESSAGE.
 Return only JSON: {"better": "A|B|tie", "reason": "..."}"""
+
+
+def sources(reference):
+    """The cited passages of a reference (turn, role, exact quote), for the judge."""
+    return [dict(turn=c.get("turn"), role=c.get("role"), text=c.get("quote")) for c in reference.get("citations", [])
+            if c.get("quote")]
 
 
 def _sha(*parts):
@@ -130,7 +139,7 @@ def grade_answers(contexts, out, ask, *, say=print):
             results[key] = dict(status="ungraded", reason=f"answer {answer['finish']}")
             continue
         ref = occ["reference"]
-        body = dict(QUESTION=unit["ask"]["question"], REQUIRED=ref.get("required", []),
+        body = dict(QUESTION=unit["ask"]["question"], REQUIRED=ref.get("required", []), SOURCES=sources(ref),
                     SUPERSEDED=ref.get("superseded", []), EXPECT_ABSTENTION=bool(occ.get("expected_abstention")),
                     ANSWER=answer["text"])
         item_key = _sha(body)                      # identical (answer, reference): graded once
@@ -248,7 +257,7 @@ def rank(contexts, ask, out, seed_key="rank", ranked=RANKED):
         for o in orders:
             labels = {chr(65 + i): t for i, t in enumerate(o)}
             body = dict(QUESTION=unit["ask"]["question"], REQUIRED=occ["reference"].get("required", []),
-                        ANSWERS=[dict(label=l, text=t) for l, t in labels.items()])
+                        SOURCES=sources(occ["reference"]), ANSWERS=[dict(label=l, text=t) for l, t in labels.items()])
             key = _sha(body)
             if errors.given_up(key):
                 break
