@@ -408,21 +408,24 @@ class ReadPasses(Stage):
 class Answers(Stage):
     """S10: Luna answers every S9 context, one per distinct prompt (experiments/z2/answers.py)."""
 
-    def __init__(self, history):
+    def __init__(self, history, *, key=None, title=None, units_key=None, needs=None, planned=None):
         # ~4.5 s per answer: 4,000 per rolling 5 hours is the binding pace, not latency.
-        super().__init__(key=f"s10-{history}", title=f"S10 answers {history}", needs=(f"s9-{history}",),
-                         unit="answers", estimate=4.5)
+        super().__init__(key=key or f"s10-{history}", title=title or f"S10 answers {history}",
+                         needs=needs or (f"s9-{history}",), unit="answers", estimate=4.5)
         self.history = history
+        self.units_key = units_key or f"s9-{history}"
+        self.planned = planned
 
     def out(self, ctx):
         return ctx.dir / self.key
 
     def units(self, ctx):
-        return ctx.dir / f"s9-{self.history}"
+        return ctx.dir / self.units_key
 
     def total(self, ctx):
         from experiments.z2 import answers
-        planned = {"B": 345, "C": 133}[self.history] * 5      # identical prompts collapse
+        # ~35 read conditions per question; identical prompts collapse to ~20 distinct
+        planned = self.planned or {"B": 345, "C": 133}[self.history] * 20
         return answers.progress(self.units(ctx), self.out(ctx))[1] or planned
 
     def done(self, ctx):
@@ -508,6 +511,83 @@ class Grading(Stage):
         return run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
+class Oracle(Stage):
+    """S12: every LongMemEval oracle question replayed in isolation and read under five
+    conditions (experiments/z2/oracle.py run)."""
+
+    def __init__(self):
+        super().__init__(key="s12", title="S12 LongMemEval oracle (replay + reads)", unit="questions",
+                         estimate=300.0)      # ~22 turns per question plus five reads
+
+    def out(self, ctx):
+        return ctx.dir / self.key
+
+    def database(self, ctx):
+        return f"ice_z2_{ctx.name}_lme"
+
+    def total(self, ctx):
+        return 500
+
+    def done(self, ctx):
+        from experiments.z2 import oracle
+        return oracle.progress(self.out(ctx))[0]
+
+    def rate(self, ctx):
+        stamps = sorted(p.stat().st_mtime for p in (self.out(ctx) / "instances").glob("*/done.json"))[-30:]
+        gaps = sorted(b - a for a, b in zip(stamps, stamps[1:]) if 0 <= b - a < 3600)
+        return gaps[len(gaps) // 2] if len(gaps) >= 3 else None
+
+    def complete(self, ctx):
+        return self.done(ctx) >= 500
+
+    def run(self, ctx):
+        log_path = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            cmd = [sys.executable, "experiments/z2/oracle.py", "run", "--database", self.database(ctx),
+                   "--out", str(self.out(ctx).relative_to(ROOT))]
+            rc = ctx.run_child(cmd, log_path)
+            return rc, _tail(log_path)
+
+        return run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
+class OracleGrade(Stage):
+    """S12 grading: LongMemEval's own judge prompts and the qualified Muse grade."""
+
+    def __init__(self):
+        super().__init__(key="s12-grade", title="S12 grading (upstream + Muse)", needs=("s12-answers",),
+                         unit="grades", estimate=1.5)
+
+    def out(self, ctx):
+        return ctx.dir / self.key
+
+    def total(self, ctx):
+        return 2500                             # 500 questions x 5 conditions
+
+    def done(self, ctx):
+        path = self.out(ctx) / "oracle-grade-raw.jsonl"
+        if not path.exists():
+            return 0
+        with path.open() as handle:
+            return min(sum(1 for _ in handle) // 2, 2500)   # two judge calls per answer
+
+    def complete(self, ctx):
+        return (self.out(ctx) / "oracle-report.json").exists()
+
+    def run(self, ctx):
+        log_path = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            cmd = [sys.executable, "experiments/z2/oracle.py", "grade", "--units", str((ctx.dir / "s12").relative_to(ROOT)),
+                   "--answers", str((ctx.dir / "s12-answers").relative_to(ROOT)),
+                   "--out", str(self.out(ctx).relative_to(ROOT))]
+            rc = ctx.run_child(cmd, log_path)
+            return rc, _tail(log_path)
+
+        return run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
 class NotBuilt(Stage):
     def __init__(self, key, title, needs):
         super().__init__(key=key, title=title, needs=needs, built=False)
@@ -523,13 +603,15 @@ def stages(limit=None):
         Audit("C"),
         ReadPasses("B"),
         ReadPasses("C"),
-        NotBuilt("s9x", "S9 ablation conditions (read switches to decide)", ("s9-B", "s9-C")),
         Answers("B"),
         Answers("C"),
         Grading("B"),
         Grading("C"),
         NotBuilt("s11x", "S11 semantic credit (retrieval diagnostic)", ("s11-B", "s11-C")),
-        NotBuilt("s12", "S12 LongMemEval oracle", ()),
+        Oracle(),
+        Answers("lme", key="s12-answers", title="S12 answers (Luna)", units_key="s12", needs=("s12",),
+                planned=2000),
+        OracleGrade(),
     ]
 
 
