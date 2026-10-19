@@ -44,6 +44,23 @@ Each entry:
 Return only JSON: {"entries": [ ... ]}; {"entries": []} if EXISTING already carries everything."""
 
 
+def halves(text):
+    """Two halves of a reply, split at the paragraph break nearest the middle (else a
+    sentence end, else the middle). Both stay exact substrings of the original."""
+    import re
+    middle = len(text) // 2
+    for pattern in (r"\n\s*\n", r"(?<=[.!?])\s+"):
+        cuts = [m.end() for m in re.finditer(pattern, text)]
+        if cuts:
+            cut = min(cuts, key=lambda c: abs(c - middle))
+            if 0 < cut < len(text):
+                return text[:cut], text[cut:]
+    return text[:middle], text[middle:]
+
+
+MAX_SPLITS = 3
+
+
 def long_turns(originals, words=LONG_REPLY_WORDS):
     return [r["turn_number"] for r in originals if len(r["response"].split()) > words]
 
@@ -57,18 +74,39 @@ def run(history, ledger_dir, out, *, models, writers=("deepseek", "mimo"), tie_b
     calls = M.Calls(out / "detail-raw.jsonl")
     session = lambda role: str(uuid.uuid5(uuid.NAMESPACE_URL, f"{POLICY}|{history}|{role}"))
     added, queue = [], []
-    stats = dict(turns=0, proposed=0, admitted=0, dropped=0, verified=0, tie_kept=0, unconfirmed=0)
+    stats = dict(turns=0, proposed=0, admitted=0, dropped=0, verified=0, tie_kept=0, unconfirmed=0,
+                 split_replies=0, unfit_parts=0, failed_turns=[])
     targets = long_turns(originals)[:limit] if limit else long_turns(originals)
     for n, turn in enumerate(targets):
         stats["turns"] += 1
         writer = writers[n % 2]
         checker = writers[(n + 1) % 2]
         existing = [e["value"] for e in entries if turn in {c["turn"] for c in e["citations"]}]
-        prompt = json.dumps(dict(TURN=dict(turn=turn, role="assistant",
-                                           text=L.role_text(originals, turn, "assistant")),
-                                 EXISTING=existing), ensure_ascii=False)
-        rows, _ = M.ask(calls, writer, models[writer][1], models[writer][0], DETAIL_SYSTEM, prompt,
-                        "entries", session(writer))
+
+        def propose(text, depth=0):
+            # A reply listing more items than the output cap allows is asked again in
+            # halves of the reply (2026-10-19: one B reply was cut and stopped the run).
+            prompt = json.dumps(dict(TURN=dict(turn=turn, role="assistant", text=text), EXISTING=existing),
+                                ensure_ascii=False)
+            try:
+                got, _ = M.ask(calls, writer, models[writer][1], models[writer][0], DETAIL_SYSTEM, prompt,
+                               "entries", session(writer))
+                return got or []
+            except Exception as exc:                          # noqa: BLE001
+                if not M._cut(exc):
+                    raise
+                if depth >= MAX_SPLITS:
+                    stats["unfit_parts"] += 1
+                    return []
+                stats["split_replies"] += depth == 0
+                first, second = halves(text)
+                return propose(first, depth + 1) + propose(second, depth + 1)
+
+        try:
+            rows = propose(L.role_text(originals, turn, "assistant"))
+        except Exception as exc:                              # noqa: BLE001 — this turn only
+            stats["failed_turns"].append(dict(turn=turn, error=f"{type(exc).__name__}: {exc}"[:200]))
+            continue
         window = dict(new=[turn], context=[])
         fresh = []
         for k, raw in enumerate(rows or []):

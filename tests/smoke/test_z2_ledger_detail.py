@@ -42,3 +42,10 @@ def test_detail_entries_checked_and_tie_broken(tmp_path, monkeypatch):
     led = json.loads((tmp_path / "out" / "ledger.json").read_text())["entries"]
     assert stats["proposed"] == 3 and stats["dropped"] == 1           # the invented quote never enters
     assert {e["subject"]: e["status"] for e in led} == {"option one": "verified", "option two": "unconfirmed"}
+
+
+def test_halves_split_at_a_paragraph_and_stay_substrings():
+    from experiments.z2.ledger_detail import halves
+    text = "Para one is here.\n\nPara two is longer, much longer.\n\nPara three."
+    a, b = halves(text)
+    assert a + b == text and a.endswith("\n\n") and text.startswith(a)
