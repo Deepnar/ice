@@ -1,3 +1,29 @@
+## 2026-10-19 — v3 Z2 S6b pre-launch flow audit (D7b) on the frozen build
+
+Frozen build = `main` at `a60b9b9` (claim-piece retry `28a2c15`, recent-row exclusion `9df3c94`,
+group-4 read switch `52c5eca`). One fresh 30-turn history-B slice through `run_z2.py`
+(`logs/z2-run-slice_b5`, scratch database), read from the recorded trace and logs, not the code.
+30 turns in 9 min (18 s/turn, cool machine); 30 turns written, 30 clock records, 29 maintenance
+records all `complete`, checkpoints at the turn-25 boundary and the final return (turn 30).
+
+Turn 30 hop by hop (a creative-analysis question): classification Creative_&_Media /
+Analysis_&_Summarization + Open_Exploration → memory decision B2 p = 0.989, retrieve → source gate
+`keep` → legs: facts 64 candidates, BM25 21, vector 46, procedural / notes / cold 0 (nothing to
+find at 30 turns) → fusion, rerank, D7 bonus: 64 ranked → budget 46 → 36 shown (the 10 dropped
+are facts whose source turns are already in the prompt — CODEX_V4 D8's skip; their tokens are not
+refilled, a small known cost) → recent-row exclusion: 0 of the 36 shown re-show a recent-window
+turn (it fired on 29 of 30 turns; `recent_rows_not_excluded` never) → prompt: slots 33, fold 411,
+recent 2,054, evidence 5,751, question 40 tokens of 61,952 available, nothing evicted → answer:
+the recorded reply (semi-LSREP) → post-flight: density lossless (creative continuity, entropy
+0.18), claim pass kept its claims (summary coverage 0.43, below 0.7, so the raw turn stays the
+representation), 5 facts written reusing the summary claims (12 entity links, 0 reconciles —
+no candidates), procedural extraction complete (3 equivalence checks "unknown") → maintenance:
+all nine jobs (`seed_v3.MEMORY_JOBS`) ran at the start, the boundary (gap decay at the next
+session start) and the final return; 0 claim pieces cut or retried on this slice.
+No silent default, dropped field or inert switch found on this path. Earlier S6b measurements
+(C claim-piece cuts, gate "unknown", recent-window duplication) are in the entry below; the
+first and third are fixed by the commits above.
+
 ## 2026-10-19 — v3 Z2 judge-prompt qualification (D6a); pre-launch audit measurements
 
 All v3. Private runs under `logs/` (gitignored).
