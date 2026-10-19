@@ -39,12 +39,27 @@ def usable(history, ledger_root):
     return [e for e in M.chain(entries) if e["usable_for_questions"]]
 
 
-def embed(texts, device="cpu", batch_size=32):
-    import numpy as np
+def default_device():
+    """The GPU when there is one: B's 2,238 originals took 20+ minutes at full CPU
+    (2026-10-18) against seconds on the GPU; the encoder needs ~1.2 GB."""
+    import torch
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+_MODELS = {}
+
+
+def _model(device):
     from sentence_transformers import SentenceTransformer
-    model = SentenceTransformer(EMBEDDER, device=device)
-    vectors = model.encode(texts, batch_size=batch_size, normalize_embeddings=True,
-                           convert_to_numpy=True, show_progress_bar=False)
+    if device not in _MODELS:                      # once per process, not per call
+        _MODELS[device] = SentenceTransformer(EMBEDDER, device=device)
+    return _MODELS[device]
+
+
+def embed(texts, device=None, batch_size=32):
+    import numpy as np
+    vectors = _model(device or default_device()).encode(texts, batch_size=batch_size, normalize_embeddings=True,
+                                                        convert_to_numpy=True, show_progress_bar=False)
     return np.asarray(vectors, dtype="float32")
 
 
@@ -90,7 +105,7 @@ def threads(entries, vectors, *, floor=THREAD_FLOOR):
     return [sorted(g, key=lambda i: entries[i]["valid_from_turn"]) for g in groups.values() if len(g) > 1]
 
 
-def run_threads(history, ledger_root, out, device="cpu"):
+def run_threads(history, ledger_root, out, device=None):
     import numpy as np
     entries = usable(history, ledger_root)
     vectors = embed([entry_text(e) for e in entries], device=device)
@@ -591,12 +606,24 @@ time it is asked), report whether any passage answers it, fully or in part.
 Return only JSON: {"answered": true|false, "by": ["passage ids"], "reason": "..."}"""
 
 
-def originals_index(originals, device="cpu"):
-    """(turn, role, text, vector) for every original message, for the abstention search."""
+def originals_index(originals, device=None, cache=None):
+    """(turn, role, text, vector) for every original message, for the abstention search.
+    *cache*: an .npz path reused while the texts and the encoder are unchanged."""
+    import hashlib
+    import numpy as np
     rows = [(t, role, originals[t - 1][key]) for t in range(1, len(originals) + 1)
             for role, key in (("user", "prompt"), ("assistant", "response"))
             if originals[t - 1][key].strip()]
-    vectors = embed([text[:2000] for _, _, text in rows], device=device)
+    texts = [text[:2000] for _, _, text in rows]
+    digest = hashlib.sha256(json.dumps([EMBEDDER, texts]).encode()).hexdigest()
+    if cache and Path(cache).exists():
+        saved = np.load(cache)
+        if str(saved["digest"]) == digest:
+            return rows, saved["vectors"]
+    vectors = embed(texts, device=device)
+    if cache:
+        Path(cache).parent.mkdir(parents=True, exist_ok=True)
+        np.savez(cache, digest=np.array(digest), vectors=vectors)
     return rows, vectors
 
 
@@ -611,7 +638,7 @@ def negative_families(history, pools, n, entries_by_id, all_entries, originals, 
     calls = M.Calls(out / history / "questions-raw.jsonl")
     session = lambda role: str(uuid.uuid5(uuid.NAMESPACE_URL, f"{NEG_POLICY}|{history}|{role}"))
     points = checkpoints(history)
-    all_vec = embed([entry_text(e) for e in all_entries], device="cpu")      # once, not per question
+    all_vec = embed([entry_text(e) for e in all_entries])      # once, not per question
     seeds = sorted(pools.get("negative", []), key=lambda c: hashlib.sha256(
         f"{NEG_POLICY}|{'|'.join(c['cluster'])}".encode()).hexdigest())
     kept, rejected = [], []
@@ -633,7 +660,7 @@ def negative_families(history, pools, n, entries_by_id, all_entries, originals, 
         q = reply.get("question")
         if not isinstance(q, str) or not q.strip():
             continue
-        qv = embed([q], device="cpu")[0]
+        qv = embed([q])[0]
         # Ledger passages: every entry of any status said by the checkpoint, nearest first.
         led_idx = [j for j, e in enumerate(all_entries) if e["valid_from_turn"] <= cp]
         led_top = sorted(led_idx, key=lambda j: -float(all_vec[j] @ qv))[:top_k]
@@ -863,7 +890,7 @@ def main() -> int:
     t.add_argument("--history", required=True)
     t.add_argument("--ledger", type=Path, required=True)
     t.add_argument("--out", type=Path, required=True)
-    t.add_argument("--device", default="cpu")
+    t.add_argument("--device", default=None, help="default: the GPU when available")
     pl = sub.add_parser("pools")
     pl.add_argument("--history", required=True)
     pl.add_argument("--ledger", type=Path, required=True)
@@ -926,7 +953,8 @@ def main() -> int:
         originals = L.load_history(args.history)
         neg, neg_rejected = negative_families(args.history, pools, need.get("negative", 0),
                                               {e["id"]: e for e in entries}, all_entries, originals,
-                                              originals_index(originals), args.out, models=models)
+                                              originals_index(originals, cache=args.out / args.history / "originals-index.npz"),
+                                              args.out, models=models)
         kept, rejected = kept + messy + neg, rejected + messy_rejected + neg_rejected
         controls, controls_rejected = control_prompts(args.history, originals, args.out, models=models)
         (args.out / args.history / f"{args.name}.json").write_text(json.dumps(

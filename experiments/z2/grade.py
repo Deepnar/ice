@@ -178,7 +178,7 @@ def check_claims(results, contexts, ledger, originals, index, ask, out):
     verdicts, pending = {}, 0
     claims = sorted({(c, checkpoint[k]) for k, r in results.items() if r.get("status") == "graded"
                      for c in r["unsupported_claims"]})
-    claim_vecs = embed([c for c, _ in claims], device="cpu") if claims else []
+    claim_vecs = embed([c for c, _ in claims]) if claims else []
     for (claim, cp), qv in zip(claims, claim_vecs):
         key = _sha(claim, cp)
         if key in verdicts or errors.given_up(key):
@@ -314,7 +314,8 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
     graded, p1 = grade_answers(contexts, out, ask)
     ledger = bg_audit.load_ledger(ledger_path, changes)
     originals = load_history(history)
-    verdicts, p2 = check_claims(graded, contexts, ledger, originals, originals_index(originals), ask, out)
+    verdicts, p2 = check_claims(graded, contexts, ledger, originals,
+                                originals_index(originals, cache=out / "originals-index.npz"), ask, out)
     ranks, p3 = rank(contexts, ask, out)
     ctl, p4 = controls(contexts, ask, out)
     pending = p1 + p2 + p3 + p4

@@ -81,7 +81,7 @@ def audit(history, families, occurrences, entries_by_id, originals, index, out, 
     by_family = {f["id"]: f for f in families}
     queries = [o for o in occurrences if not o.get("expected_abstention") and o["family"] in by_family]
     vectors = Q.embed([o["question"] + " " + json.dumps(o["reference"].get("required", []), ensure_ascii=False)
-                       for o in queries], device="cpu")
+                       for o in queries])
     results, queue = [], []
     for o, qv in zip(queries, vectors):
         fam = by_family[o["family"]]
@@ -155,7 +155,8 @@ def main() -> int:
     originals = L.load_history(args.history)
     models = {VERIFIER: (generator(VERIFIER).generate, metadata(VERIFIER))}
     summary, queue = audit(args.history, families, occurrences, {e["id"]: e for e in entries}, originals,
-                           Q.originals_index(originals), args.out, models=models)
+                           Q.originals_index(originals, cache=directory / "originals-index.npz"), args.out,
+                           models=models)
     print(json.dumps(dict(summary, queue=len(queue))))
     return 0
 
