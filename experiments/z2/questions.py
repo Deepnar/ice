@@ -499,7 +499,15 @@ def ask_object(calls, role, meta, generate, system, prompt, session, *, max_outp
                           temperature=0, max_output_tokens=max_output_tokens, session_id=session)
         return result.text, result.usage
 
-    body = calls.get(identity, run)["text"].strip()
+    try:
+        body = calls.get(identity, run)["text"].strip()
+    except Exception as exc:                                  # noqa: BLE001
+        if not M._cut(exc):
+            raise
+        # A reply cut by its output cap is no answer — the same as an unparseable one —
+        # for this item only; it is not cached, so a rerun asks again.
+        print(f"WARNING: {role} reply cut by its output cap; item treated as unanswered", flush=True)
+        return None
     if body.startswith("```"):
         body = body.split("\n", 1)[1].rsplit("```", 1)[0]
     try:
