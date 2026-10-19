@@ -202,3 +202,9 @@ def test_non_string_supersedes_is_rejected_not_a_crash(history):
         supersedes={"id": "x"}, change="correction")
     entry_, reason = ledger.admit(PAIRS, raw, dict(new=[30], context=[]), {"x"}, "id")
     assert entry_ is None and reason == "bad_change"
+
+
+def test_an_aborted_generation_retries_but_a_length_cut_does_not():
+    from experiments.lme.cloud_provider import CloudCompletionError
+    assert profiles.transient(CloudCompletionError("cloud answer completion was not successful: abort", receipt={}))
+    assert not profiles.transient(CloudCompletionError("cloud answer completion was not successful: length", receipt={}))

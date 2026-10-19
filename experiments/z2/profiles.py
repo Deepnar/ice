@@ -75,7 +75,12 @@ RETRY_WAITS = (10, 30, 60)
 
 def transient(exc) -> bool:
     import openai
+    from experiments.lme.cloud_provider import CloudCompletionError
     if isinstance(exc, (openai.APIConnectionError, openai.APITimeoutError)):
+        return True
+    # A generation the provider aborted mid-way (status "abort", 2026-10-19 on B's
+    # change detection) is transient; a length cut is not (it would cut again).
+    if isinstance(exc, CloudCompletionError) and "abort" in str(exc):
         return True
     return isinstance(exc, openai.APIStatusError) and getattr(exc, "status_code", 0) >= 500
 
