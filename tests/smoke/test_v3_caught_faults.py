@@ -89,6 +89,8 @@ def test_native_summary_fallback_retains_original_behavior_and_full_fault(tmp_pa
             dict(entities=[], figures=[], identifiers=[]), "controlled-model")
     assert result == ("", 0., None)
     rows = [json.loads(line) for line in faults.path.read_text().splitlines()]
-    assert len(rows) == 1 and rows[0]["error_type"] == "IncompleteCompletion"
-    assert rows[0]["context"]["stage"].endswith(":background_summarization_failed")
-    assert "controlled provider length" in rows[0]["traceback"]
+    # The cut piece's one retry is caught and recorded first (summary_support, 2026-10-19).
+    assert len(rows) == 2 and all(r["error_type"] == "IncompleteCompletion" for r in rows)
+    assert rows[0]["context"]["stage"].endswith(":summary_piece_retry")
+    assert rows[1]["context"]["stage"].endswith(":background_summarization_failed")
+    assert "controlled provider length" in rows[1]["traceback"]
