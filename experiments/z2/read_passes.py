@@ -243,6 +243,9 @@ class Reader:
                 class Flagged(ConfigurableOrchestrator):
                     def __init__(self, db_, embedder):
                         super().__init__(db_, embedder, overrides=dict(flags))
+                # seed_v3 patches the source-time clock in the orchestrator class's module;
+                # the inherited retrieval code reads its clock from the orchestrator module.
+                Flagged.__module__ = orchestrator_module.__name__
                 stack.enter_context(patch.object(orchestrator_module, "HybridRetrievalOrchestrator", Flagged))
             if "no_fold" in harness:          # group 5: the conversation fold is not shown
                 stack.enter_context(patch.object(mp, "conversation_summary_block", lambda *_a, **_k: []))
@@ -419,6 +422,8 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                                                      selected_tokens=sum(tokens.count(c.render()) for c, _ in chosen))))
         print(json.dumps(dict(checkpoint=cp, asks=len(group), seconds=round(time.time() - started))), flush=True)
     (out / "failures.json").write_text(json.dumps(failures, indent=1, default=str))
+    # Spec §5 item 6 on every run: what each leave-one-out switch changed vs full.
+    (out / "switch-report.json").write_text(json.dumps(switch_report(out, asks), indent=1))
     return failures
 
 
