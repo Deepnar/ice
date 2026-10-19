@@ -39,10 +39,13 @@ WALK_SYSTEM = """A QUESTION about a long conversation between a user and an AI a
 CURRENT_ANSWER that was true as of turn ANSWER_TURN. NEW_TURNS are later messages from the same
 conversation (turn numbers given), up to the moment the question is asked.
 Does anything in NEW_TURNS change the answer to QUESTION — a corrected or updated value, a
-reversed decision, a stopped habit, a replaced item?
+reversed decision, a stopped habit, a replaced item, or new information from the user that makes
+CURRENT_ANSWER no longer the right answer (e.g. a fact the earlier advice relied on turns out
+different, or the user decides on a different goal the question is about)?
 Temporal-anchor rule: only a change to the SAME thing the question asks about counts. A different
 event, a new item of the same kind that does not replace the old one, or a later topic is NOT a
-change. Restating or repeating the answer is NOT a change.
+change. Restating or repeating the answer is NOT a change; a question or request that leaves the
+facts as they were is NOT a change.
 If it changes, copy an exact quote (3-40 words, character for character) from the message that
 changes it.
 Return only JSON: {"changes": true|false, "turn": <int or null>, "role": "user|assistant|null",

@@ -1,3 +1,37 @@
+## 2026-10-19 — v3 Z2 judge-prompt qualification (D6a); pre-launch audit measurements
+
+All v3. Private runs under `logs/` (gitignored).
+
+**D6a qualification** (`experiments/z2/qualify.py`, `logs/z2-qualify-2026-10-19-r1`): planted
+controls from the 67 reviewed development questions (dev history ecc64aab; never Z2/FINAL data).
+DeepSeek V4.1 Flash wrote correct / wrong (one specific changed) / partial answers, faithful and
+unfaithful summaries and a later correction; MiMo V2.6 Flash checked each plant (67/67 kept as
+sets; individual plants failing their check are skipped); Muse 1.3 judged every prompt as its stage
+runs it. Bars fixed before running. Results: grader rejects planted wrong answers 64/65, accepts
+correct 66/66, abstention never graded correct 67/67; ranking puts the correct answer first
+130/130 (both orders); S8 judge splits faithful/unfaithful 118/120; claim search 124/128;
+controls 10/10; walk verifier 46/50 (4 missed corrections — at least 3 of the plants are requests or
+questions that do not change the answer — and 0 false alarms). "Partial" grading 12/28 is
+informational: reviewed requirements are 1–2 abstract items, so most partial plants still covered
+them. Prompt sha256: grade `308f4eeb…`, rank `145938…`, claim source `95cc5171…`, control `fefcef7f…`,
+S8 judge `f6bf79af…`, walk `3df7ae75…`.
+Two prompt changes made during qualification, both before any B/C use: the grade and ranking
+prompts now carry the reference's cited passages (spec D11; without them a planted ~30% → ~50%
+passed as correct — reviewed requirements name an item, not its value); the walk verifier counts
+new user information that makes the current answer wrong (first run 44/50, 6 missed, 0 false alarms).
+
+**Pre-launch audit measurements (S6b, not yet fixed):**
+- C claim pieces cut: of the 4 cut pieces in the C 30-turn slice, 3 complete on replay well under
+  their cap (e.g. 1,829 of 8,056 tokens) — one-off runaways; 1 reproduces: a pasted progress bar
+  (205 repeated block characters) makes Ollama return `done: false` mid-quote under the JSON schema
+  (1 of 71 C pieces).
+- Source-proof gate "unknown": a standing property, not a regression — on B turns 1–150 it is
+  consulted on ~28–33 questions; thinking on 16 unknown / 12 decided, current setting 21 / 12;
+  unknown keeps the B2 decision.
+- Retrieved memory duplicating the recent window: S0 r5 B turns 101–150, 66,448 of 479,929 evidence
+  tokens (13.8%; median 12.4% per turn) re-show turns already in the recent window (facts have
+  CODEX_V4 D8's skip; episodic fragments have none). On a 25-turn store it is 100%.
+
 ## 2026-10-18 — v3 Z2 S0 speed profiles and fixes; S1/S2 ledgers for B and C
 
 All v3, local `gemma4:e4b` (Ollama, native door) unless stated; histories from
