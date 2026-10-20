@@ -49,7 +49,8 @@ def test_quota_and_bad_key_are_waited_through():
         return r
     row = A.answer_one(gen, [], "x" * 64, say=lambda *_: None, sleep=slept.append,
                        reload_env=lambda: refreshed.append(1))
-    assert row["finish"] == "complete" and slept == [A.QUOTA_WAIT, A.AUTH_WAIT] and refreshed == [1]
+    # the key is re-read after the quota wait too (a swapped key continues the run)
+    assert row["finish"] == "complete" and slept == [A.QUOTA_WAIT, A.AUTH_WAIT] and refreshed == [1, 1]
 
 
 def test_pacer_never_exceeds_the_window():

@@ -152,8 +152,13 @@ def answer_one(generate, messages, sha, *, say=print, sleep=time.sleep, reload_e
                 if reload_env:
                     reload_env()
             else:
-                say(f"answerer quota/rate limit ({exc.status_code}); waiting {QUOTA_WAIT} s")
+                # 5-hour, weekly or monthly limit: wait, and re-read the key each time, so a
+                # key swapped into .env (another account) continues the run without a restart.
+                say(f"answerer quota/rate limit ({exc.status_code}); waiting {QUOTA_WAIT} s — to continue "
+                    f"sooner, put another PROBE_API_KEY in .env (picked up on the next retry)")
                 sleep(QUOTA_WAIT)
+                if reload_env:
+                    reload_env()
 
 
 def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=WORKERS):
