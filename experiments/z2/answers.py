@@ -192,9 +192,22 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=W
     return status
 
 
+_PROMPTS = {}
+
+
+def prompt_set(units_dir):
+    """Distinct prompt hashes of an S9 directory, re-read only when its unit files change
+    (the runner's meter asks every few seconds; S9 B alone is ~7 GB of unit JSON)."""
+    paths = sorted(Path(units_dir).glob("units/*/*.json")) if Path(units_dir).exists() else []
+    key = (len(paths), max((p.stat().st_mtime for p in paths), default=0))
+    cached = _PROMPTS.get(str(units_dir))
+    if cached is None or cached[0] != key:
+        cached = _PROMPTS[str(units_dir)] = (key, {prompt_sha(m) for _, _, m in load_units(units_dir)})
+    return cached[1]
+
+
 def progress(units_dir, out):
-    units = load_units(units_dir) if Path(units_dir).exists() else []
-    prompts = {prompt_sha(m) for _, _, m in units}
+    prompts = prompt_set(units_dir)
     path = Path(out) / "answers.jsonl"
     done = set()
     if path.exists():
