@@ -342,6 +342,31 @@ def future_sources(db, stage, checkpoint):
     return [str(i) for i, k in keys if int(str(k).rsplit("-", 1)[-1]) > checkpoint]
 
 
+def encode_backing_off(embedder, texts, batch_size=8):
+    """Bare-vector chunk embeddings, batch 8; a batch that runs out of GPU memory
+    (whole-message chunks: a few very long messages together) is retried at half the
+    size, down to one text. Same vectors either way, up to float rounding."""
+    import torch
+    out, size, i, small_until = [], batch_size, 0, 0
+    while i < len(texts):
+        batch = texts[i:i + size]
+        try:
+            out.extend(embedder.encode(batch, convert_to_tensor=False, batch_size=size,
+                                       show_progress_bar=False))
+        except torch.cuda.OutOfMemoryError:
+            torch.cuda.empty_cache()
+            if size == 1:
+                raise
+            small_until = max(small_until, i + len(batch))     # keep small past the failed batch
+            size = max(1, size // 2)
+            print(f"[bare_vector] GPU out of memory — retrying at batch {size}", flush=True)
+            continue
+        i += len(batch)
+        if i >= small_until:
+            size = batch_size
+    return out
+
+
 def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=None):
     """Child-side (DATABASE_URL already points at the replay database)."""
     from scripts.z1 import snapshot
@@ -358,9 +383,7 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
         todo = dict(list(todo.items())[:limit_checkpoints])
     reader = Reader()
     originals = load_history(history)
-    encode = lambda texts: reader.embedder.encode(texts, convert_to_tensor=False, batch_size=8,
-                                                  show_progress_bar=False)
-    index = Index(encode)
+    index = Index(lambda texts: encode_backing_off(reader.embedder, texts))
     failures = []
     for cp, group in todo.items():
         started = time.time()
