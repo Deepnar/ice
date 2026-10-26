@@ -94,11 +94,13 @@ def turn_prefix(originals, count=None):
 
 
 def distance(cited, checkpoint, prefix):
-    """Tokens between the farthest cited turn and a question asked before turn *checkpoint*."""
-    turns = [t for t in cited if isinstance(t, int) and 1 <= t < checkpoint]
+    """Tokens after the farthest cited turn, up to a question asked at checkpoint *checkpoint* —
+    the store saved after that turn (replay's cp-<turn>), so turn *checkpoint* itself is
+    history the question can rest on."""
+    turns = [t for t in cited if isinstance(t, int) and 1 <= t <= checkpoint]
     if not turns:
         return None
-    last = min(checkpoint - 1, len(prefix) - 1)
+    last = min(checkpoint, len(prefix) - 1)
     return prefix[last] - prefix[min(turns)]
 
 
@@ -109,8 +111,8 @@ def bin_of(d):
 
 
 def recent_turns(checkpoint, recent_tokens, prefix):
-    """The turns a recent window of *recent_tokens* holds before the question (newest first)."""
-    last = min(checkpoint - 1, len(prefix) - 1)
+    """The turns a recent window of *recent_tokens* holds at the question (newest first)."""
+    last = min(checkpoint, len(prefix) - 1)
     return {t for t in range(1, last + 1) if prefix[last] - prefix[t - 1] <= recent_tokens}
 
 
@@ -253,7 +255,7 @@ def score(history, graded, units, occurrences, prefix, *, semantic=None, prompts
         occ = occurrences[ask]
         cited = [c.get("turn") for c in occ["reference"].get("citations", []) if c.get("current", True)]
         d = distance(cited, occ["checkpoint_turn"], prefix)
-        turns = [t for t in cited if isinstance(t, int) and t < occ["checkpoint_turn"]]
+        turns = [t for t in cited if isinstance(t, int) and t <= occ["checkpoint_turn"]]
         if not turns:
             side = None
         elif ask in lc_from:
