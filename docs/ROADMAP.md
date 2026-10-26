@@ -108,9 +108,13 @@ needs the maintainer's approval):
 **⚑ FIX-PASS BRANCH (maintainer, 2026-10-26).** While Z2 runs from `main`, fix-pass and
 FINAL-prep work is committed on branch **`fix-pass`**, worktree
 **`~/Programs/ice-worktrees/fix-pass`**. Gitignored inputs are symlinks to main's: `.venv`,
-`.env`, `.python-version`, `models`, `logs`, `data/{labeled,synthetic,simulation,archive,
-curated_fixes.jsonl}`, `experiments/lme/data`, `docs/{SESSION,PRIVATE_CONTEXT}.md` — all
-listed in `.git/info/exclude`. Shell commands reset to main's folder between calls: `cd`
+`.env`, `.python-version`, `models`, `data/{labeled,synthetic,simulation,archive,
+curated_fixes.jsonl}`, `experiments/lme/data`, `experiments/beam/data`,
+`docs/{SESSION,PRIVATE_CONTEXT}.md` — all listed in `.git/info/exclude`. `logs/` is a REAL
+folder in the worktree (a linked `logs` failed the scripts' "outputs stay under logs/" check)
+holding links to the main folder's input subfolders (z2-questions-final, the v3 input plan,
+final-private-inputs, z2-ledger-detail-…, z2-run-main, fix-pass, the reconcile/codex
+qualification sets). Shell commands reset to main's folder between calls: `cd`
 into the worktree in every command. Real commits, not yet GPU-tested. `main` keeps the frozen
 system Z2 measures. **Nothing from this branch reaches `main` until the GPU is free
 (after Z2's local stages, ~2026-11-02/03), each item is tested, and then the branch is
