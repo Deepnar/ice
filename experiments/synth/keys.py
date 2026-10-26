@@ -107,20 +107,31 @@ def occurrences(plan):
             ref, abstain = reference(fact, cp)
             out.append(dict(family=fam, type=kind_of(fact), checkpoint_turn=cp, repeat_index=i, question=None,
                             ask=dict(about=fact["about"], status=fact["status"], project=fact.get("project"),
-                                     component=fact.get("component"), topic=fact.get("topic")),
+                                     component=fact.get("component"), topic=fact.get("topic"),
+                                     probe=fact.get("probe")),
                             reference=ref, expected_abstention=abstain))
     for event in plan.get("events") or []:
         fam = f"{pid}:{event['id']}"
         cp = first_after(event["told_turn"], points)
         if cp is not None:
             out.append(dict(family=fam, type="temporal", checkpoint_turn=cp, repeat_index=0, question=None,
-                            ask=dict(about=event["what"], component=event.get("component")),
+                            ask=dict(about=event["what"], component=event.get("component"), probe=event.get("probe")),
                             reference=dict(required=[f"{event['what']} on {event['date']}"], superseded=[],
                                            citations=[dict(turn=event["told_turn"], role="user")],
                                            date=event["date"]), expected_abstention=False))
     cap = CAPS.get(pid)
+    rank = lambda o: _h(o["family"].replace(pid, src, 1), o["checkpoint_turn"])
     if cap and len(out) > cap:
-        keep = sorted(out, key=lambda o: _h(o["family"].replace(pid, src, 1), o["checkpoint_turn"]))[:cap]
+        if any(o["ask"].get("component") for o in out):
+            # The ablation conversation: an equal share per component group, so every
+            # leave-one-out condition has questions it should hurt.
+            groups = {}
+            for o in out:
+                groups.setdefault(o["ask"].get("component"), []).append(o)
+            share = cap // len(groups)
+            keep = [o for g in groups.values() for o in sorted(g, key=rank)[:share]]
+        else:
+            keep = sorted(out, key=rank)[:cap]
         out = [o for o in out if o in keep]
     return sorted(out, key=lambda o: (o["checkpoint_turn"], o["family"]))
 

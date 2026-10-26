@@ -1,7 +1,7 @@
 {
  "id": "S7",
  "persona": {
-  "name": "Ines Varga",
+  "name": "Nadia Varga",
   "situation": "32, works in claims operations at a regional insurer by day. Runs four side projects and keeps them all in one chat: a flatmate bill-splitting app (Pebble), a literary mystery novel (Harrow), a small online ceramics shop (Kiln Road), and half-marathon training (Stride). Switches between them constantly, sometimes twice in one message.",
   "voice": "casual, mostly lowercase, medium-length messages, 'ok so', 'lol', 'pls', few capitals; never formal headers"
  },
@@ -21,7 +21,7 @@
     "Analysis_&_Summarization"
    ],
    "beats": [
-    "Ines says she juggles four side projects and wants the assistant to keep them straight.",
+    "Nadia says she juggles four side projects and wants the assistant to keep them straight.",
     "Pebble: flatmate chore and bill splitter; private beta due 2026-05-15; Brightwave for sync; React Native with Expo; Rafi Mendes on the backend.",
     "Harrow: literary mystery in a Lancashire mill town, working title The Quiet Mills, first full draft due 2026-07-01.",
     "Ends by asking what the assistant has noted about the app so far (Meta_AI)."
@@ -84,7 +84,7 @@
     "Analysis_&_Summarization"
    ],
    "beats": [
-    "Crash reports: assistant proposes Bugsnag, Ines goes with Sentry instead.",
+    "Crash reports: assistant proposes Bugsnag, Nadia goes with Sentry instead.",
     "Pebble beta: 25 testers from two flatmate WhatsApp groups.",
     "Kiln Road: 24 pound tall speckled mug, Shopify Starter plan, restock on Thursdays.",
     "Harrow: victim is Enid Harlow; Marguerite Oyelaran will beta-read each chapter.",
@@ -152,7 +152,7 @@
     "Decision_Making"
    ],
    "beats": [
-    "Kiln Road newsletter runs on Mailchimp; assistant suggests Klaviyo, Ines keeps Mailchimp.",
+    "Kiln Road newsletter runs on Mailchimp; assistant suggests Klaviyo, Nadia keeps Mailchimp.",
     "Pebble rule: never auto-charge a flatmate without asking first.",
     "Harrow: maybe query about 12 agents in September, after the draft.",
     "Stride: coach Dana Whitcombe does a weekly check-in call.",
@@ -174,7 +174,7 @@
     "Generation"
    ],
    "beats": [
-    "Running shoes: assistant suggests Asics Novablast, Ines passes, picks Hoka Clifton 9.",
+    "Running shoes: assistant suggests Asics Novablast, Nadia passes, picks Hoka Clifton 9.",
     "12-week training block starts now.",
     "Kiln Road returns: always 14 days, no questions asked.",
     "VAT registration for Kiln Road came through last Friday.",

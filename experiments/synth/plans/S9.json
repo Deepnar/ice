@@ -1,0 +1,5251 @@
+{
+ "id": "S9",
+ "persona": {
+  "name": "Leona Halloran",
+  "situation": "31-year-old backend engineer at Marlow Freight Software (MFS) in the fictional city of Port Ardell. Runs Halloran Kiln Studio, a part-time ceramics shop with a converted garage kiln, and shoots film photography on weekends. Rehabbing a left shoulder and a knee. Over eight months she manages work deadlines, the shop, tax paperwork, her health routine, and a trip to Lisbon.",
+  "voice": "Uses the assistant as a second brain across work, shop and health. Terse when busy, rambling when tired, precise about numbers and identifiers."
+ },
+ "sessions": [
+  {
+   "index": 1,
+   "date": "2026-01-07",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Leona introduces herself: backend engineer at Marlow Freight Software, a part-time ceramics shop, a shoulder she is rehabbing.",
+    "Sets the goal of a first paid order on Halloran Kiln Studio by 30 June."
+   ]
+  },
+  {
+   "index": 2,
+   "date": "2026-01-12",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Long rambling message about the kiln shelf order (ORD-58213) and the studio rent.",
+    "Gets help thinking about the freight ETA v2 push for the October audit."
+   ]
+  },
+  {
+   "index": 3,
+   "date": "2026-01-15",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Troubleshoots kiln controller fault ERR-K417-3B with a short question.",
+    "Sets up the deploy checklist and the tooling budget; names the Tarrant Logistics API lead."
+   ]
+  },
+  {
+   "index": 4,
+   "date": "2026-01-23",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Asks about the accountant (Dana Whitfield) and the year's tax filing.",
+    "Decides to drop Etsy and sell from the own Shopify site; shares the Sunday reset routine."
+   ]
+  },
+  {
+   "index": 5,
+   "date": "2026-01-29",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Physio is Tom Abara; picks a glaze supplier; plans a 12-week rehab from 2 February with no climbing.",
+    "Long message on the 10k plan and the 5k pace goal; mentions a penicillin allergy."
+   ]
+  },
+  {
+   "index": 6,
+   "date": "2026-01-31",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Asks about the garage conversion (Mo Farrell) and the van plate for the delivery run.",
+    "Stops climbing until rehab ends; names the Harbour Loop route; long message about CI time."
+   ]
+  },
+  {
+   "index": 7,
+   "date": "2026-02-11",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Pins uvicorn for the tracking feed; asks about the evening wheel class taught by Ellis.",
+    "Keeps Postgres on the managed host; long message on the bisque firing schedule."
+   ]
+  },
+  {
+   "index": 8,
+   "date": "2026-02-15",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Lotte Ferreira built the shop site; asks for the rollback steps.",
+    "Notes no stairs while the foot is in a cast; sets test environment and mug price figures."
+   ]
+  },
+  {
+   "index": 9,
+   "date": "2026-02-22",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Cutover deadline for the freight ETA service and the Ardenne Clay wholesale terms.",
+    "Ibuprofen is ruled out after the kidney blood test; introduces the sister Ruth."
+   ]
+  },
+  {
+   "index": 10,
+   "date": "2026-03-03",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Savings target and the Corvane rep Gwen Mistry.",
+    "Rejects the assistant's monthly bookkeeping review in favour of quarterly; the domain goes live."
+   ]
+  },
+  {
+   "index": 11,
+   "date": "2026-03-06",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Glaze test batch deadline and the fair entry form.",
+    "Long message on insurance renewal and the revenue target; mum is Peg.",
+    "Reports the bookkeeping call with Dana went ahead."
+   ]
+  },
+  {
+   "index": 12,
+   "date": "2026-03-12",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Halden's price rise; the replica lag alarm on ledger-replica-07.internal.",
+    "Month-end close routine; gluten-free since March; the cron box migration by the end of March."
+   ]
+  },
+  {
+   "index": 13,
+   "date": "2026-03-25",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Morning routine question; ad budget of 300 GBP a month.",
+    "Mo Farrell's firm Farrell & Sons Joinery; clay bags and kiln firings; the Corvane trade account goes on the orders."
+   ]
+  },
+  {
+   "index": 14,
+   "date": "2026-03-30",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Asks for a planter collection plan for the September fair.",
+    "Long message on the 10k run on the Harbour Loop and a knee test; cloud and clay budgets."
+   ]
+  },
+  {
+   "index": 15,
+   "date": "2026-04-01",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Python 3.11 pin for the tracking feed; the grey backdrop for shop photos.",
+    "Branch hotfix merged; on-call page ceiling; kiln loading steps."
+   ]
+  },
+  {
+   "index": 16,
+   "date": "2026-04-09",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Reverses the Etsy decision: one listing kept for mugs.",
+    "Long message on the mug range glazes; lactose intolerance; the purple band and the gym budget."
+   ]
+  },
+  {
+   "index": 17,
+   "date": "2026-04-13",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Tooling budget raised; coffee cut to two cups; first Etsy order arrived.",
+    "Invoice INV-2026-0931-K from Harrow & Pike; service checklist; mug throw time."
+   ]
+  },
+  {
+   "index": 18,
+   "date": "2026-04-23",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Go or Python for the tracking gateway, in a long rambling thread.",
+    "Physio three times a week; Gwen covers the Midlands; kettlebell return date; prod database through the bastion."
+   ]
+  },
+  {
+   "index": 19,
+   "date": "2026-04-29",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "CFS-22981 is unblocked; the mint watering routine.",
+    "Shop ships UK only; mug shipping steps; skips the spring trade fair."
+   ]
+  },
+  {
+   "index": 20,
+   "date": "2026-05-02",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Asks where the Riverside clinic is; Tarrant wants timestamps with a Z.",
+    "Stops evening freelance work; ETA team now five engineers; dentist booked."
+   ]
+  },
+  {
+   "index": 21,
+   "date": "2026-05-09",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Tarrant sandbox keys rotate on Wednesdays; no early meetings with Berlin.",
+    "Glaze mixing steps; sleep goal raised; planter pre-orders opened."
+   ]
+  },
+  {
+   "index": 22,
+   "date": "2026-05-14",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Tracking feed peak load; warehouse database frozen on Postgres 14.9.",
+    "Gym goal raised; SRE-West on-call handover; invoice chase steps; a stomach bug after a takeaway."
+   ]
+  },
+  {
+   "index": 23,
+   "date": "2026-05-26",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Business_&_Finance",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Goal for the first paid order moved to 15 August.",
+    "Long message: parcel GB-TRK-7730-QWZ lost; Clay Row costs; staging Postgres; wool itch."
+   ]
+  },
+  {
+   "index": 24,
+   "date": "2026-05-30",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Kiln capacity; Monday kiln room; glaze test wall before the September fair.",
+    "Ferritin result; Pentax K1000 known as the Kay; ETA latency target tightened; bedtime on workdays."
+   ]
+  },
+  {
+   "index": 25,
+   "date": "2026-06-08",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "ETA hours per week; Postgres storage quota raised; revenue target raised.",
+    "Photo editing order; open day rehearsal; weekend bedtime."
+   ]
+  },
+  {
+   "index": 26,
+   "date": "2026-06-10",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Savings target raised; owner pay from July; Harrogate stand price raised.",
+    "Production Postgres version; bookkeeping hours; Berlingo cannot do motorways; Jay is Jules Okonkwo; Castle Steps photo walks."
+   ]
+  },
+  {
+   "index": 27,
+   "date": "2026-06-16",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Studio hours per week; release candidate image tag.",
+    "Long message on the studio lease and the kiln budget raised; Farrell's shutter door quote; van brake check."
+   ]
+  },
+  {
+   "index": 28,
+   "date": "2026-06-24",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Mug count on the shelf; accounts due 30 September; rent rises.",
+    "Assistant's wire-cutter wedging idea rejected; swim moves to 7am."
+   ]
+  },
+  {
+   "index": 29,
+   "date": "2026-06-27",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Wake-up time; Mudlark Thursday class.",
+    "Tarrant retry limit; desk stretch routine; photo walk target raised; Gerald the starter."
+   ]
+  },
+  {
+   "index": 30,
+   "date": "2026-07-11",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Rent-share claim; ETA retrain window; HP5 developing.",
+    "Physio drops to two a week; 25 kg clay bags; tooling budget reset; landlord's rent increase; van MOT."
+   ]
+  },
+  {
+   "index": 31,
+   "date": "2026-07-16",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Kiln top element faulty; element replacement after 400 firings; mugs move to 350 ml.",
+    "On-call page ceiling lowered; Lisbon booking reference."
+   ]
+  },
+  {
+   "index": 32,
+   "date": "2026-07-23",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Hartwell Haulage carries Corvane deliveries; retrain procedure with the 3 percent rule.",
+    "Glaze tests up to 64 tiles; Berlingo known as Bertha; freight v1 endpoint retired."
+   ]
+  },
+  {
+   "index": 33,
+   "date": "2026-07-27",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Water target; 5k goal updated to 25:10; test environment reduced to 3 nodes.",
+    "Below the VAT threshold; Lotte's retainer; film order; shutter door finished; audit trail goal."
+   ]
+  },
+  {
+   "index": 34,
+   "date": "2026-08-06",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Sam Oyelaran on leave until August; late fee changed to 45 days.",
+    "Kiln electricity claim share; CI pool upgrade; packing order for Lisbon."
+   ]
+  },
+  {
+   "index": 35,
+   "date": "2026-08-12",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Overcast-day film; standup moved to 09:20; ETA dashboard review on Thursdays.",
+    "Mum is vegetarian and does not eat lamb; EU platform squad."
+   ]
+  },
+  {
+   "index": 36,
+   "date": "2026-08-15",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Street walks on HP5; FRT-CONFLICT-17 meaning; backup drill.",
+    "Mug price raised; overdraft limit; cleaner paid in cash; fair setup routine."
+   ]
+  },
+  {
+   "index": 37,
+   "date": "2026-08-23",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Architecture walks on Fomapan on a tripod; the architecture walk shot came out grainy.",
+    "Open day date; owner pay raised; tax-day steps; Ruth visited for the birthday."
+   ]
+  },
+  {
+   "index": 38,
+   "date": "2026-08-28",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Home broadband claim share; reversal on the trade stand.",
+    "Latency target tightened to 350 ms; walk to the studio; first market setup done."
+   ]
+  },
+  {
+   "index": 39,
+   "date": "2026-09-08",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "Basil watering routine; latency budget 350 ms, at 290 now.",
+    "Gym goal raised to four a week."
+   ]
+  },
+  {
+   "index": 40,
+   "date": "2026-09-14",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "Rosemary watering; hiking boots a half size big.",
+    "Wrapping up the year-long thread."
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "id": "F001",
+   "about": "kiln controller fault ERR-K417-3B",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 65,
+     "value": "ERR-K417-3B on the Corvane KX-220 means the lid thermocouple is loose; reseat the plug and retighten the clamp",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Software_&_Tech",
+   "probe": "what did ERR-K417-3B turn out to be and what fixed it?"
+  },
+  {
+   "id": "F002",
+   "about": "shelf order ORD-58213",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 34,
+     "value": "order ORD-58213: 40 kiln shelves from Corvane Ceramics Supply, due 2026-03-12",
+     "change": "introduce"
+    },
+    {
+     "turn": 330,
+     "value": "order ORD-58213: 40 kiln shelves from Corvane Ceramics Supply, now due 2026-04-09 after the supplier slipped",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    61
+   ],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Business_&_Finance",
+   "probe": "what is the current due date on ORD-58213?"
+  },
+  {
+   "id": "F003",
+   "about": "delivery van plate HB24 TQN",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 142,
+     "value": "van plate HB24 TQN is the white 2019 Citroen Berlingo, insured with Ardell Mutual under AM-88120",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Business_&_Finance",
+   "probe": "which vehicle and which insurer go with plate HB24 TQN?"
+  },
+  {
+   "id": "F004",
+   "about": "glaze Vellum Dusk Cobalt 9B",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 220,
+     "value": "Vellum Dusk Cobalt 9B fires to cone 6 in oxidation, held 15 minutes at top temperature",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    670
+   ],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Creative_&_Media",
+   "probe": "what cone does Vellum Dusk Cobalt 9B fire to?"
+  },
+  {
+   "id": "F005",
+   "about": "replica lag alarm ledger-replica-07.internal",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 298,
+     "value": "ledger-replica-07.internal pages on-call when lag passes 90 seconds for three checks in a row",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    606
+   ],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Software_&_Tech",
+   "probe": "when does ledger-replica-07.internal page on-call for lag?"
+  },
+  {
+   "id": "F006",
+   "about": "invoice INV-2026-0931-K",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 423,
+     "value": "INV-2026-0931-K from Harrow & Pike is 1,284.50 GBP for the year-end filing, paid 2026-04-02",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Business_&_Finance",
+   "probe": "how much was invoice INV-2026-0931-K and when was it paid?"
+  },
+  {
+   "id": "F007",
+   "about": "ticket CFS-22981 webhook signatures",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 99,
+     "value": "ticket CFS-22981 is the freight webhook signature bug, blocked until the header rename ships",
+     "change": "introduce"
+    },
+    {
+     "turn": 464,
+     "value": "ticket CFS-22981 is unblocked: the header rename shipped in build 4.8.1",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    477
+   ],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Software_&_Tech",
+   "probe": "what is the state of ticket CFS-22981 now?"
+  },
+  {
+   "id": "F008",
+   "about": "kiln serial KX220-44107-B",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 504,
+     "value": "kiln serial KX220-44107-B, bought 2025-11, warranty runs to 2027-11",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    978
+   ],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Creative_&_Media",
+   "probe": "what serial do I quote on the kiln warranty claim?"
+  },
+  {
+   "id": "F009",
+   "about": "parcel GB-TRK-7730-QWZ",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 575,
+     "value": "parcel GB-TRK-7730-QWZ holds the cobalt stain from Corvane, signed for on 2026-05-20",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Business_&_Finance",
+   "probe": "when was parcel GB-TRK-7730-QWZ signed for?"
+  },
+  {
+   "id": "F010",
+   "about": "running shoes KS5-0929-GRN",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 649,
+     "value": "Kestrel Stride 5 shoes, SKU KS5-0929-GRN, size 9.5 wide, bought to replace the worn pair",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what size is the KS5-0929-GRN pair?"
+  },
+  {
+   "id": "F011",
+   "about": "kiln insurance PX-449-020817",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 235,
+     "value": "kiln equipment is covered under policy PX-449-020817 with Ardell Mutual up to 3,000 GBP",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    449
+   ],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Business_&_Finance",
+   "probe": "what is the cover limit on policy PX-449-020817?"
+  },
+  {
+   "id": "F012",
+   "about": "Lisbon booking QJ7MRT",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 764,
+     "value": "Lisbon trip booking reference QJ7MRT, outbound 2026-11-14, return 2026-11-18",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what is the booking reference for the Lisbon trip?"
+  },
+  {
+   "id": "F013",
+   "about": "branch hotfix/tz-offset-QR9",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 375,
+     "value": "branch hotfix/tz-offset-QR9 fixes the UTC offset bug in the ETA service, merged 2026-03-30",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    538
+   ],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Software_&_Tech",
+   "probe": "which branch fixed the UTC offset bug in the ETA service?"
+  },
+  {
+   "id": "F014",
+   "about": "uvicorn pin 0.31.7",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 159,
+     "value": "pin uvicorn to exactly 0.31.7; 0.32 breaks the websocket shim on the tracking feed",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Software_&_Tech",
+   "probe": "which uvicorn version does the tracking feed have to stay on?"
+  },
+  {
+   "id": "F015",
+   "about": "Ardenne W-12 motor part AW12-MTR-220V",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 427,
+     "value": "the Ardenne W-12 wheel motor part number is AW12-MTR-220V",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    465
+   ],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Creative_&_Media",
+   "probe": "what is the part number for the W-12 wheel motor?"
+  },
+  {
+   "id": "F016",
+   "about": "physio routine Bannister 4x30",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 478,
+     "value": "physio routine 'Bannister 4x30': four sets of thirty-second isometric holds, twice a day",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how many sets are in the Bannister 4x30 routine?"
+  },
+  {
+   "id": "F017",
+   "about": "mileage claim MC-2291-HV",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 691,
+     "value": "mileage claim MC-2291-HV covers 1,140 business miles in June at 45p, so 513 GBP",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    789
+   ],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Business_&_Finance",
+   "probe": "what did mileage claim MC-2291-HV come to?"
+  },
+  {
+   "id": "F018",
+   "about": "staging image freight-eta:rc-2026.06.3",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 675,
+     "value": "staging runs the release candidate image freight-eta:rc-2026.06.3",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Software_&_Tech",
+   "probe": "which image tag is staging running?"
+  },
+  {
+   "id": "F019",
+   "about": "film order FP-0613-R3",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 804,
+     "value": "film order FP-0613-R3 from Lenscraft: 10 rolls of Fomapan 100",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Creative_&_Media",
+   "probe": "how many rolls were in order FP-0613-R3?"
+  },
+  {
+   "id": "F020",
+   "about": "error FRT-CONFLICT-17",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 876,
+     "value": "the freight API returns FRT-CONFLICT-17 when two bookings claim the same lane slot",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    932
+   ],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Software_&_Tech",
+   "probe": "what does FRT-CONFLICT-17 mean from the freight API?"
+  },
+  {
+   "id": "F021",
+   "about": "Corvane trade account CV-554092",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 311,
+     "value": "Corvane trade account number CV-554092 goes on every purchase order",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    380
+   ],
+   "in_paste": false,
+   "component": "bm25",
+   "topic": "Business_&_Finance",
+   "probe": "what account number goes on the Corvane purchase orders?"
+  },
+  {
+   "id": "F022",
+   "about": "wholesale glaze supplier, deepest bulk discount",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 118,
+     "value": "the wholesale glaze house I picked ships in 48-hour boxes and gives 14 percent off once an order passes 50 kg: Halden Glaze Works",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Creative_&_Media",
+   "probe": "once an order passes fifty kilos, who knocks off the most?"
+  },
+  {
+   "id": "F023",
+   "about": "Corvane wholesale terms",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 176,
+     "value": "Corvane's wholesale terms are 9 percent off above 40 kg with five-day shipping",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Creative_&_Media",
+   "probe": "what did Corvane offer on a big glaze order?"
+  },
+  {
+   "id": "F024",
+   "about": "Ardenne Clay wholesale terms",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 217,
+     "value": "Ardenne Clay's wholesale terms are 12 percent off above 60 kg, but collection only",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Creative_&_Media",
+   "probe": "which supplier wants me to collect and needs sixty kilos?"
+  },
+  {
+   "id": "F025",
+   "about": "ETA production deploy window",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 253,
+     "value": "the freight ETA service goes to production on Thursdays at 16:30, after the change freeze lifts",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Software_&_Tech",
+   "probe": "what is the usual weekly slot for pushing the ETA service live?"
+  },
+  {
+   "id": "F026",
+   "about": "analytics export job timing",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 320,
+     "value": "the analytics export job runs nightly at 02:10 UTC",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Software_&_Tech",
+   "probe": "what time does the analytics export kick off each night?"
+  },
+  {
+   "id": "F027",
+   "about": "ETA cache flush timing",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 392,
+     "value": "the ETA cache flush runs every night at 03:40 UTC",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Software_&_Tech",
+   "probe": "when does the ETA cache get wiped overnight?"
+  },
+  {
+   "id": "F028",
+   "about": "bedtime on workdays",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 593,
+     "value": "on workdays I try to be in bed with the lights off by 22:40 since the blackout blinds went up",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what time do I aim to be lying down on weeknights?"
+  },
+  {
+   "id": "F029",
+   "about": "bedtime at weekends",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 608,
+     "value": "weekend bedtime drifts to 23:50 when Saturday plans run late",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how late do I stay up on Saturdays?"
+  },
+  {
+   "id": "F030",
+   "about": "wake-up time on workdays",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 714,
+     "value": "I wake around 06:10 on weekdays so I can get the commute in before stand-up",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what time does my alarm go off on workdays?"
+  },
+  {
+   "id": "F031",
+   "about": "rent-share claim",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 728,
+     "value": "the studio gets 18 percent of rent and utilities under the rent-share method, claimed through Dana",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Business_&_Finance",
+   "probe": "what share of the rent can I claim for the workshop space?"
+  },
+  {
+   "id": "F032",
+   "about": "kiln electricity claim share",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 838,
+     "value": "the kiln's electricity is claimed at 22 percent of the bill",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Business_&_Finance",
+   "probe": "what percentage of the power bill counts as business for the kiln?"
+  },
+  {
+   "id": "F033",
+   "about": "home broadband claim share",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 933,
+     "value": "home broadband is claimed at 15 percent for the spare-room desk",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Business_&_Finance",
+   "probe": "what share of the internet bill goes on the expenses?"
+  },
+  {
+   "id": "F034",
+   "about": "warehouse analytics Postgres (frozen)",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 547,
+     "value": "the warehouse analytics database runs Postgres 14.9 and can't be upgraded until Q4",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Software_&_Tech",
+   "probe": "which engine version is stuck for the reporting store until the end of the year?"
+  },
+  {
+   "id": "F035",
+   "about": "staging Postgres version",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 553,
+     "value": "staging Postgres is on 15.7 since the May patch",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Software_&_Tech",
+   "probe": "what Postgres is staging on right now?"
+  },
+  {
+   "id": "F036",
+   "about": "production Postgres version",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 648,
+     "value": "production Postgres is on 16.2 with pgvector 0.7",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Software_&_Tech",
+   "probe": "what release is the live database on?"
+  },
+  {
+   "id": "F037",
+   "about": "film for overcast days",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 869,
+     "value": "on overcast days I load Kodak Portra 400 and push it one stop",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Creative_&_Media",
+   "probe": "what do I reach for when the sky is flat grey?"
+  },
+  {
+   "id": "F038",
+   "about": "film for street walks",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 881,
+     "value": "street walks get Ilford HP5 shot at box speed",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Creative_&_Media",
+   "probe": "which stock do I use on the city walks?"
+  },
+  {
+   "id": "F039",
+   "about": "film for architecture walks",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 906,
+     "value": "architecture walks use Fomapan 100 on a tripod",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Creative_&_Media",
+   "probe": "what film do I bring for the building shoots?"
+  },
+  {
+   "id": "F040",
+   "about": "basil watering",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 970,
+     "value": "the basil on the south sill drowns if I water it more than twice a week",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how often should the sweet herb by the window get a drink?"
+  },
+  {
+   "id": "F041",
+   "about": "rosemary watering",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 1000,
+     "value": "the rosemary wants a drink only once a fortnight",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how often does the woody herb need water?"
+  },
+  {
+   "id": "F042",
+   "about": "mint watering",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 452,
+     "value": "the mint gets watered daily through summer and hosed down on Sundays",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "rerank",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what is my routine for the mint on the back step?"
+  },
+  {
+   "id": "F043",
+   "about": "accountant Dana Whitfield",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 77,
+     "value": "my accountant is Dana Whitfield, the person I deal with on everything tax",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "who do I ring about the tax return?"
+  },
+  {
+   "id": "F044",
+   "about": "Dana Whitfield's firm",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 209,
+     "value": "Dana Whitfield works at Harrow & Pike LLP, the firm that handles my returns",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "which firm does my tax person work for?"
+  },
+  {
+   "id": "F045",
+   "about": "Harrow & Pike office location",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 395,
+     "value": "Harrow & Pike's office is on Quayside Row in Port Ardell",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "which street is the office of the person who does my tax on?"
+  },
+  {
+   "id": "F046",
+   "about": "physio Tom Abara",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 123,
+     "value": "my physio is Tom Abara",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Lifestyle_&_Health",
+   "probe": "who has been running my shoulder rehab sessions?"
+  },
+  {
+   "id": "F047",
+   "about": "Tom Abara's clinic",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 295,
+     "value": "Tom Abara practises at Riverside Physio Clinic",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Lifestyle_&_Health",
+   "probe": "where does the man doing my shoulder rehab practise?"
+  },
+  {
+   "id": "F048",
+   "about": "Riverside Physio Clinic street",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 482,
+     "value": "Riverside Physio Clinic is on Mill Lane, next to the bakery",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what street is the clinic that does my rehab on?"
+  },
+  {
+   "id": "F049",
+   "about": "garage conversion builder Mo Farrell",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 150,
+     "value": "Mo Farrell did the garage conversion for the studio",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "who did the garage conversion?"
+  },
+  {
+   "id": "F050",
+   "about": "Mo Farrell's company",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 309,
+     "value": "Mo Farrell runs Farrell & Sons Joinery",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "what company does the garage builder run?"
+  },
+  {
+   "id": "F051",
+   "about": "Farrell & Sons shutter quote",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 669,
+     "value": "Farrell & Sons Joinery quoted 2,300 GBP for the roller shutter door",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "how much did the company that built my shutter door quote?"
+  },
+  {
+   "id": "F052",
+   "about": "web designer Lotte Ferreira",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 178,
+     "value": "Lotte Ferreira built the shop site",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "who built the shop website?"
+  },
+  {
+   "id": "F053",
+   "about": "Lotte's Shopify theme",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 354,
+     "value": "Lotte Ferreira designed the Shopify theme called Clay Row",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "what theme did the web designer make for the shop?"
+  },
+  {
+   "id": "F054",
+   "about": "Clay Row theme yearly cost",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 574,
+     "value": "the Clay Row theme costs 180 GBP a year to keep",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "what does the shop's theme cost each year?"
+  },
+  {
+   "id": "F055",
+   "about": "Corvane rep Gwen Mistry",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 239,
+     "value": "Gwen Mistry is my rep at Corvane Ceramics Supply",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "who is my contact at the kiln supplier?"
+  },
+  {
+   "id": "F056",
+   "about": "Gwen Mistry's territory",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 434,
+     "value": "Gwen Mistry covers the Midlands and the north-west",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "which regions does the Corvane rep look after?"
+  },
+  {
+   "id": "F057",
+   "about": "Corvane regional carrier",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 781,
+     "value": "Corvane deliveries to my region are carried by Hartwell Haulage",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Business_&_Finance",
+   "probe": "which haulier brings the kiln shelves to me?"
+  },
+  {
+   "id": "F058",
+   "about": "pottery teacher Ellis",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 171,
+     "value": "the evening wheel class is taught by Ellis at Mudlark Studio",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Creative_&_Media",
+   "probe": "who teaches the evening wheel class?"
+  },
+  {
+   "id": "F059",
+   "about": "Mudlark Studio location",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 343,
+     "value": "Mudlark Studio is in the old tannery on Vale Street",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Creative_&_Media",
+   "probe": "in which part of town is Ellis's studio?"
+  },
+  {
+   "id": "F060",
+   "about": "Mudlark Thursday beginners class",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 702,
+     "value": "Mudlark's Thursday beginners class starts at 19:00",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Creative_&_Media",
+   "probe": "what time does the Thursday session Ellis teaches start?"
+  },
+  {
+   "id": "F061",
+   "about": "Tarrant API lead Sam Oyelaran",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 63,
+     "value": "Sam Oyelaran is the API lead at Tarrant Logistics",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Software_&_Tech",
+   "probe": "on what day do the sandbox keys rotate for the client whose API lead is Sam Oyelaran?"
+  },
+  {
+   "id": "F062",
+   "about": "Tarrant sandbox key rotation",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 523,
+     "value": "Tarrant Logistics rotates its sandbox keys every Wednesday",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Software_&_Tech",
+   "probe": "on what day do the sandbox keys for the client whose API lead is Sam Oyelaran rotate?"
+  },
+  {
+   "id": "F063",
+   "about": "Sam Oyelaran on leave",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 843,
+     "value": "Sam Oyelaran is on leave until 2026-08-03; route Tarrant sandbox questions to Priyanka Nair meanwhile",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "codex",
+   "topic": "Software_&_Tech",
+   "probe": "who should I send Tarrant sandbox questions to while Sam is away?"
+  },
+  {
+   "id": "F064",
+   "about": "10k race date and target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 120,
+     "value": "I'm running a 10k on 2026-09-27 on the Harbour Loop route, aiming under 55 minutes",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what's the race date and target time for the 10k?"
+  },
+  {
+   "id": "F065",
+   "about": "bisque firing hold",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 170,
+     "value": "the kiln's bisque schedule is six hours to 1000C with a 20-minute hold at the top",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Creative_&_Media",
+   "probe": "what's my bisque hold time at the top?"
+  },
+  {
+   "id": "F066",
+   "about": "liability insurance renewal date",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 274,
+     "value": "I need the studio's public liability insurance renewed before 2026-04-01",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Business_&_Finance",
+   "probe": "by when does the liability cover need renewing?"
+  },
+  {
+   "id": "F067",
+   "about": "ETA off the cron box",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 278,
+     "value": "the migration plan moves the ETA service off the old cron box by the end of March",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Software_&_Tech",
+   "probe": "when is the cron box retirement due?"
+  },
+  {
+   "id": "F068",
+   "about": "coffee before noon",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 412,
+     "value": "I've cut coffee to one cup before noon since the reflux started",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how many coffees am I allowing myself before lunch?"
+  },
+  {
+   "id": "F069",
+   "about": "mug range glazes",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 379,
+     "value": "the mug range has four glazes: oat, teal, ink and rust",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Creative_&_Media",
+   "probe": "which glazes are in the mug range?"
+  },
+  {
+   "id": "F070",
+   "about": "price list review cadence",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 472,
+     "value": "the studio's price list is reviewed on the first working day of every quarter",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Business_&_Finance",
+   "probe": "when do I review prices?"
+  },
+  {
+   "id": "F071",
+   "about": "SRE-West on-call handover",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 537,
+     "value": "the on-call rotation for SRE-West changes hands on Mondays at 09:00 BST",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Software_&_Tech",
+   "probe": "what day does the on-call handover happen?"
+  },
+  {
+   "id": "F072",
+   "about": "ferritin target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 590,
+     "value": "my ferritin came back at 22 and my GP wants it above 30 by autumn",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what target does the GP want the iron number to reach?"
+  },
+  {
+   "id": "F073",
+   "about": "photo walk meeting place",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 632,
+     "value": "the photo walks run on the first Saturday of each month, meeting at Castle Steps",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Creative_&_Media",
+   "probe": "where do the photo walks meet?"
+  },
+  {
+   "id": "F074",
+   "about": "Companies House deadline",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 688,
+     "value": "the year-end accounts must reach Companies House by 2026-09-30",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Business_&_Finance",
+   "probe": "what's the Companies House deadline?"
+  },
+  {
+   "id": "F075",
+   "about": "ETA retrain window",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 733,
+     "value": "the ETA model retrains every second Sunday on the last 90 days of data",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Software_&_Tech",
+   "probe": "how far back does the ETA retrain look?"
+  },
+  {
+   "id": "F076",
+   "about": "kettlebell return date",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 446,
+     "value": "the shoulder rehab says I can lift the 5 kg kettlebell again from 2026-05-04",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Lifestyle_&_Health",
+   "probe": "from what date can I use the 5 kg kettlebell again?"
+  },
+  {
+   "id": "F077",
+   "about": "kiln element replacement",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 775,
+     "value": "the kiln's electric element gets replaced every 400 firings",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Creative_&_Media",
+   "probe": "after how many firings is the element replaced?"
+  },
+  {
+   "id": "F078",
+   "about": "Lotte retainer",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 801,
+     "value": "the retainer with Lotte is 240 GBP a month for updates",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Business_&_Finance",
+   "probe": "what's the monthly retainer for the web person?"
+  },
+  {
+   "id": "F079",
+   "about": "standup time",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 863,
+     "value": "our team's standup moved to 09:20 because the Berlin folks start late",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Software_&_Tech",
+   "probe": "what time is standup now?"
+  },
+  {
+   "id": "F080",
+   "about": "dentist appointment",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 498,
+     "value": "I've booked the dentist for 2026-05-14 at 08:30",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Lifestyle_&_Health",
+   "probe": "when's the dentist appointment?"
+  },
+  {
+   "id": "F081",
+   "about": "workshop open day",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 912,
+     "value": "the workshop open day is 2026-10-04 from 10 to 4",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Creative_&_Media",
+   "probe": "what date is the open day?"
+  },
+  {
+   "id": "F082",
+   "about": "overdraft limit",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 877,
+     "value": "the overdraft limit is 2,500 GBP and I want to keep under 1,000 drawn",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Business_&_Finance",
+   "probe": "what do I want to keep the overdraft under?"
+  },
+  {
+   "id": "F083",
+   "about": "ETA latency budget",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 964,
+     "value": "the ETA p95 latency budget is 350 ms and we're at 290 now",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Software_&_Tech",
+   "probe": "what's the latency budget?"
+  },
+  {
+   "id": "F084",
+   "about": "hiking boots fit",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 980,
+     "value": "the hiking boots I'm breaking in are a half size too big, so I wear two pairs of socks",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "summaries",
+   "topic": "Lifestyle_&_Health",
+   "probe": "why am I wearing two pairs of socks on the hike?"
+  },
+  {
+   "id": "F085",
+   "about": "shop goal: first paid order",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 7,
+     "value": "goal: take the first paid order on Halloran Kiln Studio by 2026-06-30",
+     "change": "introduce"
+    },
+    {
+     "turn": 559,
+     "value": "goal moved to 2026-08-15 after the kiln delivery slipped",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Business_&_Finance",
+   "probe": "what is the target date for the first paid order now?"
+  },
+  {
+   "id": "F086",
+   "about": "sell from own site, drop Etsy",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 87,
+     "value": "decided: sell only from my own Shopify site and drop the Etsy shop",
+     "change": "introduce"
+    },
+    {
+     "turn": 378,
+     "value": "reversal: keep one Etsy listing for the mugs only, for the search traffic",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Business_&_Finance",
+   "probe": "what is the current plan for Etsy?"
+  },
+  {
+   "id": "F087",
+   "about": "freight ETA v2 target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 36,
+     "value": "working towards: freight ETA v2 live in production before the October audit",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    126
+   ],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Software_&_Tech",
+   "probe": "what big deadline is the ETA project aiming for?"
+  },
+  {
+   "id": "F088",
+   "about": "kiln upgrade budget",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 214,
+     "value": "the kiln upgrade budget ceiling is 3,500 GBP",
+     "change": "introduce"
+    },
+    {
+     "turn": 668,
+     "value": "the kiln upgrade budget ceiling is raised to 4,200 GBP for the bigger chamber",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Business_&_Finance",
+   "probe": "what is the kiln upgrade budget ceiling now?"
+  },
+  {
+   "id": "F089",
+   "about": "no climbing until rehab ends",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 143,
+     "value": "decided: no climbing until the shoulder rehab finishes; swimming instead",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Lifestyle_&_Health",
+   "probe": "am I climbing at the moment?"
+  },
+  {
+   "id": "F090",
+   "about": "no pop-up market stall this year",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 284,
+     "value": "decided: no pop-up market stall this year, the travel costs outweigh it",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Creative_&_Media",
+   "probe": "am I doing a market stall this year?"
+  },
+  {
+   "id": "F091",
+   "about": "Postgres on managed host",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 153,
+     "value": "decided: keep Postgres on the managed host rather than self-hosting, after the February outage",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Software_&_Tech",
+   "probe": "why did we keep the database on the managed host?"
+  },
+  {
+   "id": "F092",
+   "about": "stop evening freelance work",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 486,
+     "value": "decided: I stop taking evening freelance gigs from May 2026 to focus on the studio",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    819
+   ],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Business_&_Finance",
+   "probe": "do I still take evening freelance work?"
+  },
+  {
+   "id": "F093",
+   "about": "planter collection for September fair",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 338,
+     "value": "working towards: a 12-piece collection of planters for the September fair",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Creative_&_Media",
+   "probe": "what am I building for the September fair?"
+  },
+  {
+   "id": "F094",
+   "about": "12-week rehab start",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 119,
+     "value": "decided: 12-week rehab before resuming climbing, starting 2026-02-02",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Lifestyle_&_Health",
+   "probe": "when did the 12-week rehab start?"
+  },
+  {
+   "id": "F095",
+   "about": "bookkeeping review cadence",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 249,
+     "value": "rejected: the assistant's monthly bookkeeping review; keep it quarterly",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    811
+   ],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Business_&_Finance",
+   "probe": "how often do I review the books?"
+  },
+  {
+   "id": "F096",
+   "about": "audit trail goal before Tarrant go-live",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 802,
+     "value": "working towards: a clean audit trail for the ETA service before the Tarrant go-live",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    983
+   ],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Software_&_Tech",
+   "probe": "what am I aiming for before the Tarrant go-live?"
+  },
+  {
+   "id": "F097",
+   "about": "grey backdrop for shop photos",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 360,
+     "value": "decided: all shop photos use the grey backdrop only",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Creative_&_Media",
+   "probe": "what backdrop do the shop photos use?"
+  },
+  {
+   "id": "F098",
+   "about": "owner pay from studio account",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 629,
+     "value": "decided: pay myself 1,800 GBP a month from the studio account from July 2026",
+     "change": "introduce"
+    },
+    {
+     "turn": 922,
+     "value": "pay myself 2,100 GBP a month from the studio account from August",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    652
+   ],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Business_&_Finance",
+   "probe": "how much do I pay myself from the studio account?"
+  },
+  {
+   "id": "F099",
+   "about": "weekday swim time",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 692,
+     "value": "decided: the 6am swim becomes a 7am swim on weekdays",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    860
+   ],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what time is my weekday swim now?"
+  },
+  {
+   "id": "F100",
+   "about": "Go for the tracking gateway",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 448,
+     "value": "the thread so far: we chose Go for the tracking gateway after the Python timeouts",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    737
+   ],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Software_&_Tech",
+   "probe": "which language did we pick for the tracking gateway and why?"
+  },
+  {
+   "id": "F101",
+   "about": "mug size standard",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 755,
+     "value": "decided: mugs move to a 350 ml standard after the 300 ml ones cracked",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Business_&_Finance",
+   "probe": "what size are the mugs now?"
+  },
+  {
+   "id": "F102",
+   "about": "glaze test wall before September fair",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 584,
+     "value": "working towards: finish the glaze test wall before the September fair",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    672
+   ],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Creative_&_Media",
+   "probe": "what glaze job am I finishing before the fair?"
+  },
+  {
+   "id": "F103",
+   "about": "weekly ETA error dashboard review",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 861,
+     "value": "decided: a weekly 30-minute review of the ETA error dashboard, Thursdays at 15:00",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Software_&_Tech",
+   "probe": "when do I review the ETA error dashboard?"
+  },
+  {
+   "id": "F104",
+   "about": "sugar in tea trial",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 254,
+     "value": "decided: cut sugar in tea entirely from 2026-03-01 as a trial",
+     "change": "introduce"
+    },
+    {
+     "turn": 616,
+     "value": "reversal: back to one sugar, the trial failed by week three",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how much sugar goes in my tea now?"
+  },
+  {
+   "id": "F105",
+   "about": "spring trade fair skipped, then booked",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 471,
+     "value": "decided: skip the spring trade fair",
+     "change": "introduce"
+    },
+    {
+     "turn": 940,
+     "value": "reversal: booking the stand at the September trade fair after all",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "notes",
+   "topic": "Creative_&_Media",
+   "probe": "am I going to the trade fair after all?"
+  },
+  {
+   "id": "F106",
+   "about": "deploy checklist",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 56,
+     "value": "deploy checklist: run the test suite, tag the release, deploy to staging, smoke-test the tracking feed, then prod at 16:30 on Thursdays",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Software_&_Tech",
+   "probe": "what are the steps before I push a release live?"
+  },
+  {
+   "id": "F107",
+   "about": "rollback steps",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 186,
+     "value": "rollback steps: pin the previous image tag, scale ETA workers to 0 then back to 4, post in #freight-incidents",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Software_&_Tech",
+   "probe": "what do I do first when a deploy goes wrong?"
+  },
+  {
+   "id": "F108",
+   "about": "morning routine",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 323,
+     "value": "morning routine: 10 minutes foam roll, 30-second isometric hold, filter coffee, then the 7am swim",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what does my morning routine look like?"
+  },
+  {
+   "id": "F109",
+   "about": "kiln loading steps",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 355,
+     "value": "kiln loading: wash shelves, space posts, place cones 04 and 6 at the peephole, record in the firing log",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Creative_&_Media",
+   "probe": "what do I check before I load the kiln?"
+  },
+  {
+   "id": "F110",
+   "about": "month-end close",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 286,
+     "value": "month-end close: export bank CSV, match Shopify payouts, tag mileage, send to Dana by the 3rd",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Business_&_Finance",
+   "probe": "what's the month-end close routine?"
+  },
+  {
+   "id": "F111",
+   "about": "desk stretch routine",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 707,
+     "value": "desk stretch: 3 minutes every 50 minutes, chin tucks x10, doorway stretch 30 seconds each side",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what stretches do I do at the desk?"
+  },
+  {
+   "id": "F112",
+   "about": "glaze mixing steps",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 503,
+     "value": "glaze mixing: weigh dry first, sieve through 80 mesh twice, add water to 1.6 specific gravity",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    701
+   ],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Creative_&_Media",
+   "probe": "what order do I mix glaze in?"
+  },
+  {
+   "id": "F113",
+   "about": "new service checklist",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 407,
+     "value": "new service checklist: health endpoint, metrics, runbook page and on-call tag before the first deploy",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    796
+   ],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Software_&_Tech",
+   "probe": "what does a new service need before its first deploy?"
+  },
+  {
+   "id": "F114",
+   "about": "weekly invoice chase",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 545,
+     "value": "weekly invoice chase: Monday list, email at 14 days overdue, phone at 30 days",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Business_&_Finance",
+   "probe": "when do I chase overdue invoices by phone?"
+  },
+  {
+   "id": "F115",
+   "about": "packing order for trips",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 828,
+     "value": "packing: passport in the blue wallet, chargers in the grey pouch, gym kit goes in last",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    947
+   ],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how do I like to pack for a trip?"
+  },
+  {
+   "id": "F116",
+   "about": "HP5 developing times",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 736,
+     "value": "film developing for HP5: 9 minutes at 20C, agitate 30 seconds in the first minute then 10 seconds every minute",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Creative_&_Media",
+   "probe": "how long do I develop HP5 for?"
+  },
+  {
+   "id": "F117",
+   "about": "backup restore drill",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 899,
+     "value": "backup drill: restore the latest dump to the scratch host, run a row-count diff, log the restore time",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    996
+   ],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Software_&_Tech",
+   "probe": "what does the backup drill involve?"
+  },
+  {
+   "id": "F118",
+   "about": "fair setup routine",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 888,
+     "value": "fair setup: shelves first, price tags 2 cm from the edge, card reader tested the day before",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Business_&_Finance",
+   "probe": "what order do I set up at a fair?"
+  },
+  {
+   "id": "F119",
+   "about": "Sunday reset",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 95,
+     "value": "Sunday reset: plan the week, shopping list, prep two lunches, charge the watch",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what do I do on Sunday evenings?"
+  },
+  {
+   "id": "F120",
+   "about": "code review merge rule",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 228,
+     "value": "code review rule: no merge before one approval and green CI; I always squash",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Software_&_Tech",
+   "probe": "what has to be true before I merge?"
+  },
+  {
+   "id": "F121",
+   "about": "photo editing order",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 622,
+     "value": "photo editing order: cull, white balance the whole roll, crop, export at 2400 px on the long edge",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Creative_&_Media",
+   "probe": "what order do I edit photos in?"
+  },
+  {
+   "id": "F122",
+   "about": "mug shipping steps",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 461,
+     "value": "mug shipping: wrap in paper, bubble-wrap base, check the inventory sheet, print label, collect at 16:00",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    656
+   ],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Business_&_Finance",
+   "probe": "what are the steps for shipping a mug order?"
+  },
+  {
+   "id": "F123",
+   "about": "ETA retrain procedure",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 779,
+     "value": "ETA retrain: freeze features, evaluate on last 90 days, compare to baseline, promote only if MAE drops 3 percent",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    993
+   ],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Software_&_Tech",
+   "probe": "when do I promote a new ETA model?"
+  },
+  {
+   "id": "F124",
+   "about": "night routine",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 152,
+     "value": "night routine: lights out, blinds down, phone charging in the kitchen",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what is my bedtime routine?"
+  },
+  {
+   "id": "F125",
+   "about": "wedging clay, rejected wire-cutter idea",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 699,
+     "value": "rejected: the assistant suggested wedging only with a wire cutter; I keep the hand-wedging method",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Creative_&_Media",
+   "probe": "how do I wedge clay?"
+  },
+  {
+   "id": "F126",
+   "about": "tax-day steps",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 925,
+     "value": "tax day: gather receipts, export mileage, call Dana by the 20th, pay on the portal",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "procedural",
+   "topic": "Business_&_Finance",
+   "probe": "what do I do on tax day?"
+  },
+  {
+   "id": "F127",
+   "about": "no ibuprofen, kidney bloods",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 213,
+     "value": "I can't take ibuprofen because the kidney blood test flagged creatinine; paracetamol only",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Lifestyle_&_Health",
+   "probe": "my shoulder is killing me tonight, what can I take from the cabinet?"
+  },
+  {
+   "id": "F128",
+   "about": "gluten-free since March",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 285,
+     "value": "I'm gluten-free since March after the coeliac screen came back positive",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Lifestyle_&_Health",
+   "probe": "suggest somewhere for a Friday lunch near the studio."
+  },
+  {
+   "id": "F129",
+   "about": "UK-only shipping",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 469,
+     "value": "I don't ship outside the UK; overseas buyers get a refund instead",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Business_&_Finance",
+   "probe": "a buyer in Dublin asks if I'll post a mug over, draft my reply."
+  },
+  {
+   "id": "F130",
+   "about": "wool itches",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 560,
+     "value": "wool makes my wrists itch, so I only buy merino or cotton jumpers",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Lifestyle_&_Health",
+   "probe": "I'm going to Porto in October, what layer should I bring?"
+  },
+  {
+   "id": "F131",
+   "about": "tracking feed on Python 3.11",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 365,
+     "value": "the tracking feed is pinned to Python 3.11; the 3.12 build breaks the ORM",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Software_&_Tech",
+   "probe": "I'm spinning up a fresh box for the tracking feed, which Python do I install?"
+  },
+  {
+   "id": "F132",
+   "about": "van can't do motorways",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 646,
+     "value": "the Berlingo can't do motorways above 60 because the gearbox is tired",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Business_&_Finance",
+   "probe": "plan my route to the Leeds delivery with the shelves."
+  },
+  {
+   "id": "F133",
+   "about": "kiln top element faulty",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 772,
+     "value": "the kiln's top element is faulty, so I only fire up to cone 6",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Creative_&_Media",
+   "probe": "a customer wants cone 10 stoneware, can I do that?"
+  },
+  {
+   "id": "F134",
+   "about": "penicillin allergy",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 116,
+     "value": "I'm allergic to penicillin",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Lifestyle_&_Health",
+   "probe": "my dentist wants to prescribe an antibiotic, anything I should flag?"
+  },
+  {
+   "id": "F135",
+   "about": "Tarrant timestamps need Z",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 487,
+     "value": "Tarrant's API only accepts ISO 8601 timestamps with a Z, never offsets",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Software_&_Tech",
+   "probe": "write an example timestamp I can send to Tarrant."
+  },
+  {
+   "id": "F136",
+   "about": "mum is vegetarian, no lamb",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 852,
+     "value": "my mum is vegetarian and doesn't eat lamb",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what should I cook for the family dinner next weekend?"
+  },
+  {
+   "id": "F137",
+   "about": "studio lease notice",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 654,
+     "value": "the studio lease ends 2026-11-30 and the landlord needs 60 days' written notice",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Business_&_Finance",
+   "probe": "is it time to write to the landlord about the lease?"
+  },
+  {
+   "id": "F138",
+   "about": "lactose intolerant, oat milk",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 400,
+     "value": "I'm lactose intolerant, so only oat milk goes in the studio fridge",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what milk do I buy for the studio tea round?"
+  },
+  {
+   "id": "F139",
+   "about": "Tarrant retry limit",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 704,
+     "value": "Tarrant's sandbox stops retrying webhooks after 3 attempts",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Software_&_Tech",
+   "probe": "should I set the Tarrant hook retry count to 5?"
+  },
+  {
+   "id": "F140",
+   "about": "below VAT threshold",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 818,
+     "value": "the shop is below the 90,000 GBP VAT threshold, so I'm not VAT registered",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Business_&_Finance",
+   "probe": "a supplier asks for my VAT number, what do I say?"
+  },
+  {
+   "id": "F141",
+   "about": "Monday kiln room shared",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 591,
+     "value": "the kiln room is shared with the Monday ceramics class, so no firing that day",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Creative_&_Media",
+   "probe": "can I fire the new glaze tests on Monday?"
+  },
+  {
+   "id": "F142",
+   "about": "no stairs with the cast",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 197,
+     "value": "cast on my left foot, so no stairs until 2026-03-30",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Lifestyle_&_Health",
+   "probe": "I'm viewing the first-floor studio space, anything to think about?"
+  },
+  {
+   "id": "F143",
+   "about": "platform team in Berlin",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 505,
+     "value": "the platform team is in Berlin, so no meetings before 10:00 my time",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Software_&_Tech",
+   "probe": "schedule a sync with the platform team for tomorrow morning."
+  },
+  {
+   "id": "F144",
+   "about": "cleaner paid in cash",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 880,
+     "value": "I pay the cleaner in cash on the first Friday of the month",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Business_&_Finance",
+   "probe": "how should I log the cleaner payment for next month?"
+  },
+  {
+   "id": "F145",
+   "about": "clay delivery days",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 259,
+     "value": "my clay supplier only delivers on Tuesdays",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Creative_&_Media",
+   "probe": "I need a delivery of clay by Friday, can I get it?"
+  },
+  {
+   "id": "F146",
+   "about": "no lifting over 10 kg",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 327,
+     "value": "I'm not allowed to lift over 10 kg until the physio clears me",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Lifestyle_&_Health",
+   "probe": "help me plan moving the 25 kg bag of grog into the garage."
+  },
+  {
+   "id": "F147",
+   "about": "prod DB only via bastion",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 450,
+     "value": "our production database is only reachable through the bastion host",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "gate",
+   "topic": "Software_&_Tech",
+   "probe": "how do I run a quick count on the orders table from my laptop?"
+  },
+  {
+   "id": "F148",
+   "about": "ETA cutover deadline",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 206,
+     "value": "the ETA service's cutover deadline is 2026-03-14",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    240
+   ],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Software_&_Tech",
+   "probe": "when is the cutover deadline for the freight ETA service?"
+  },
+  {
+   "id": "F149",
+   "about": "glaze test batch deadline",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 273,
+     "value": "the glaze test batch deadline is 2026-03-21",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Creative_&_Media",
+   "probe": "by when do the glaze test batches need to be done?"
+  },
+  {
+   "id": "F150",
+   "about": "VAT return due date",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 224,
+     "value": "the VAT return is due 2026-03-07",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Business_&_Finance",
+   "probe": "when is the VAT return due?"
+  },
+  {
+   "id": "F151",
+   "about": "physio review date",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 255,
+     "value": "the physio review is on 2026-03-18",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Lifestyle_&_Health",
+   "probe": "when is my physio review date?"
+  },
+  {
+   "id": "F152",
+   "about": "fair entry form deadline",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 238,
+     "value": "the fair entry form is due 2026-03-28",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    623
+   ],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Business_&_Finance",
+   "probe": "what's the deadline for the fair entry form?"
+  },
+  {
+   "id": "F153",
+   "about": "shop ad budget",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 305,
+     "value": "the shop ad budget is 300 GBP a month",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Business_&_Finance",
+   "probe": "what's my monthly ad budget for the shop?"
+  },
+  {
+   "id": "F154",
+   "about": "cloud hosting budget",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 345,
+     "value": "the cloud hosting budget is 850 USD a month",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Software_&_Tech",
+   "probe": "what's the monthly hosting budget for the freight environment?"
+  },
+  {
+   "id": "F155",
+   "about": "clay and glaze spend budget",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 356,
+     "value": "the clay and glaze spend budget is 220 GBP a month",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Creative_&_Media",
+   "probe": "how much a month am I allowed on clay and glaze?"
+  },
+  {
+   "id": "F156",
+   "about": "gym and physio spend limit",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 386,
+     "value": "the gym and physio spend is capped at 180 GBP a month",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what's my monthly spend limit on gym and physio?"
+  },
+  {
+   "id": "F157",
+   "about": "hours a week on ETA project",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 605,
+     "value": "I spend 22 hours a week on the ETA project",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    708
+   ],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Software_&_Tech",
+   "probe": "how many hours a week go to the freight ETA work?"
+  },
+  {
+   "id": "F158",
+   "about": "hours a week in the studio",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 657,
+     "value": "I spend 14 hours a week in the studio",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    706
+   ],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Creative_&_Media",
+   "probe": "how many hours a week am I in the studio?"
+  },
+  {
+   "id": "F159",
+   "about": "hours a week on bookkeeping",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 639,
+     "value": "I spend 4 hours a week on bookkeeping",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    673
+   ],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Business_&_Finance",
+   "probe": "how many hours a week go to the books?"
+  },
+  {
+   "id": "F160",
+   "about": "hours a week on rehab exercises",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 774,
+     "value": "I spend 6 hours a week on rehab exercises",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how many hours a week are my rehab exercises?"
+  },
+  {
+   "id": "F161",
+   "about": "tracking feed peak load",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 539,
+     "value": "the tracking feed handles 1,200 events per second at peak",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Software_&_Tech",
+   "probe": "what's the peak load the tracking feed can take?"
+  },
+  {
+   "id": "F162",
+   "about": "kiln capacity per firing",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 578,
+     "value": "the kiln fits 42 mugs per firing",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    823
+   ],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Creative_&_Media",
+   "probe": "how many mugs go in one kiln load?"
+  },
+  {
+   "id": "F163",
+   "about": "mugs on the shelf",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 682,
+     "value": "I have 310 mugs in the warehouse",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    803
+   ],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Business_&_Finance",
+   "probe": "how many mugs are on the shelf?"
+  },
+  {
+   "id": "F164",
+   "about": "daily water target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 808,
+     "value": "my daily water target is 2.5 litres",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what's my daily water goal?"
+  },
+  {
+   "id": "F165",
+   "about": "CI pipeline duration",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 140,
+     "value": "the CI pipeline runs in 14 minutes end to end",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    569
+   ],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Software_&_Tech",
+   "probe": "how long does the full CI run take?"
+  },
+  {
+   "id": "F166",
+   "about": "throwing and trimming time",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 413,
+     "value": "throwing and trimming one mug takes 25 minutes",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Creative_&_Media",
+   "probe": "how long does one mug take from throw to trim?"
+  },
+  {
+   "id": "F167",
+   "about": "customer payment terms",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 561,
+     "value": "customer payment terms are 30 days",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Business_&_Finance",
+   "probe": "what payment terms do I give customers?"
+  },
+  {
+   "id": "F168",
+   "about": "walk to the studio",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 936,
+     "value": "the walk from home to the studio takes 22 minutes",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    956
+   ],
+   "in_paste": false,
+   "component": "clusters",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how long is the walk to the studio?"
+  },
+  {
+   "id": "F169",
+   "about": "monthly tooling budget",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 66,
+     "value": "monthly tooling budget is 180 GBP",
+     "change": "introduce"
+    },
+    {
+     "turn": 416,
+     "value": "monthly tooling budget is 240 GBP",
+     "change": "update"
+    },
+    {
+     "turn": 726,
+     "value": "monthly tooling budget is 210 GBP",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Business_&_Finance",
+   "probe": "what was my monthly tooling budget back in February?"
+  },
+  {
+   "id": "F170",
+   "about": "freight test environment size",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 188,
+     "value": "the freight test environment runs on 2 nodes",
+     "change": "introduce"
+    },
+    {
+     "turn": 529,
+     "value": "the freight test environment runs on 4 nodes",
+     "change": "update"
+    },
+    {
+     "turn": 805,
+     "value": "the freight test environment runs on 3 nodes",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Software_&_Tech",
+   "probe": "how many nodes did the test environment have in June?"
+  },
+  {
+   "id": "F171",
+   "about": "5k pace goal",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 111,
+     "value": "my 5k goal is 28:00",
+     "change": "introduce"
+    },
+    {
+     "turn": 470,
+     "value": "my 5k goal is 26:30",
+     "change": "update"
+    },
+    {
+     "turn": 810,
+     "value": "my 5k goal is 25:10",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what was my 5k goal in March?"
+  },
+  {
+   "id": "F172",
+   "about": "mug price",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 193,
+     "value": "the mug price is 22 GBP",
+     "change": "introduce"
+    },
+    {
+     "turn": 540,
+     "value": "the mug price is 24 GBP",
+     "change": "update"
+    },
+    {
+     "turn": 896,
+     "value": "the mug price is 26 GBP",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Creative_&_Media",
+   "probe": "what was the mug price back in April?"
+  },
+  {
+   "id": "F173",
+   "about": "shop revenue target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 275,
+     "value": "the shop revenue target is 3,000 GBP a month",
+     "change": "introduce"
+    },
+    {
+     "turn": 615,
+     "value": "the shop revenue target is 4,500 GBP a month",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Business_&_Finance",
+   "probe": "what was the revenue target in April?"
+  },
+  {
+   "id": "F174",
+   "about": "physio sessions per week",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 440,
+     "value": "physio is three sessions a week",
+     "change": "introduce"
+    },
+    {
+     "turn": 744,
+     "value": "physio is two sessions a week",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how many physio sessions a week was I doing in May?"
+  },
+  {
+   "id": "F175",
+   "about": "ETA p95 latency target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 208,
+     "value": "the ETA p95 latency target is 500 ms",
+     "change": "introduce"
+    },
+    {
+     "turn": 579,
+     "value": "the ETA p95 latency target is 400 ms",
+     "change": "update"
+    },
+    {
+     "turn": 937,
+     "value": "the ETA p95 latency target is 350 ms",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Software_&_Tech",
+   "probe": "what was the latency target in July?"
+  },
+  {
+   "id": "F176",
+   "about": "kiln firings per month",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 289,
+     "value": "I run 6 kiln firings a month",
+     "change": "introduce"
+    },
+    {
+     "turn": 662,
+     "value": "I run 9 kiln firings a month",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Creative_&_Media",
+   "probe": "how many firings a month was I doing in May?"
+  },
+  {
+   "id": "F177",
+   "about": "studio rent",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 42,
+     "value": "studio rent is 950 GBP a month",
+     "change": "introduce"
+    },
+    {
+     "turn": 700,
+     "value": "studio rent is 1,050 GBP a month",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Business_&_Finance",
+   "probe": "what was the studio rent in March?"
+  },
+  {
+   "id": "F178",
+   "about": "sleep target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 97,
+     "value": "my sleep target is 7 hours",
+     "change": "introduce"
+    },
+    {
+     "turn": 518,
+     "value": "my sleep target is 7.5 hours",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what sleep target did I have in March?"
+  },
+  {
+   "id": "F179",
+   "about": "ETA team headcount",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 144,
+     "value": "the ETA team has 4 engineers",
+     "change": "introduce"
+    },
+    {
+     "turn": 493,
+     "value": "the ETA team has 5 engineers",
+     "change": "update"
+    },
+    {
+     "turn": 857,
+     "value": "the ETA team has 4 engineers",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Software_&_Tech",
+   "probe": "how many engineers were on the ETA team in June?"
+  },
+  {
+   "id": "F180",
+   "about": "photo walk attendance target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 339,
+     "value": "the photo walk attendance target is 6 people",
+     "change": "introduce"
+    },
+    {
+     "turn": 720,
+     "value": "the photo walk attendance target is 9 people",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Creative_&_Media",
+   "probe": "what was the attendance target for the photo walks in May?"
+  },
+  {
+   "id": "F181",
+   "about": "savings target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 227,
+     "value": "my savings target is 8,000 GBP",
+     "change": "introduce"
+    },
+    {
+     "turn": 638,
+     "value": "my savings target is 12,000 GBP",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Business_&_Finance",
+   "probe": "what was my savings target in April?"
+  },
+  {
+   "id": "F182",
+   "about": "coffee limit",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 155,
+     "value": "my coffee limit is 3 cups a day",
+     "change": "introduce"
+    },
+    {
+     "turn": 406,
+     "value": "my coffee limit is 2 cups a day",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what was my daily coffee limit in March?"
+  },
+  {
+   "id": "F183",
+   "about": "on-call page ceiling",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 366,
+     "value": "the on-call page ceiling is 5 pages a week",
+     "change": "introduce"
+    },
+    {
+     "turn": 770,
+     "value": "the on-call page ceiling is 3 pages a week",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Software_&_Tech",
+   "probe": "what was the weekly on-call page ceiling in June?"
+  },
+  {
+   "id": "F184",
+   "about": "glaze test count",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 276,
+     "value": "the glaze test count is 40 tiles",
+     "change": "introduce"
+    },
+    {
+     "turn": 784,
+     "value": "the glaze test count is 64 tiles",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Creative_&_Media",
+   "probe": "how many glaze tiles was I testing in June?"
+  },
+  {
+   "id": "F185",
+   "about": "invoice late-fee threshold",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 385,
+     "value": "the invoice late-fee threshold is 30 days",
+     "change": "introduce"
+    },
+    {
+     "turn": 839,
+     "value": "the invoice late-fee threshold is 45 days",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Business_&_Finance",
+   "probe": "what was the late-fee threshold in June?"
+  },
+  {
+   "id": "F186",
+   "about": "gym sessions per week",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 55,
+     "value": "I go to the gym 2 times a week",
+     "change": "introduce"
+    },
+    {
+     "turn": 528,
+     "value": "I go to the gym 3 times a week",
+     "change": "update"
+    },
+    {
+     "turn": 962,
+     "value": "I go to the gym 4 times a week",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how many gym sessions a week did I plan in July?"
+  },
+  {
+   "id": "F187",
+   "about": "Postgres storage quota",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 195,
+     "value": "the Postgres storage quota is 200 GB",
+     "change": "introduce"
+    },
+    {
+     "turn": 618,
+     "value": "the Postgres storage quota is 350 GB",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Software_&_Tech",
+   "probe": "what was the Postgres storage quota in April?"
+  },
+  {
+   "id": "F188",
+   "about": "clay bag size",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 308,
+     "value": "I buy clay in 12.5 kg bags",
+     "change": "introduce"
+    },
+    {
+     "turn": 749,
+     "value": "I buy clay in 25 kg bags",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Creative_&_Media",
+   "probe": "what size clay bag was I buying in May?"
+  },
+  {
+   "id": "F189",
+   "about": "Harrogate stand price",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 88,
+     "value": "the Harrogate stand costs 320 GBP",
+     "change": "introduce"
+    },
+    {
+     "turn": 628,
+     "value": "the Harrogate stand costs 380 GBP",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "temporal",
+   "topic": "Business_&_Finance",
+   "probe": "what did the Harrogate stand cost in March?"
+  },
+  {
+   "id": "F190",
+   "about": "Harrow & Pike, short name H&P",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 76,
+     "value": "my accountant firm Harrow & Pike LLP, which I also call H&P in my spreadsheet",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Business_&_Finance",
+   "probe": "what does my spreadsheet call the tax firm?"
+  },
+  {
+   "id": "F191",
+   "about": "kiln Dot, the Corvane KX-220",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 70,
+     "value": "the Corvane KX-220 kiln, which I call Dot",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Creative_&_Media",
+   "probe": "how is Dot, the Corvane kiln, running since the thermocouple fix?"
+  },
+  {
+   "id": "F192",
+   "about": "eta-v2 repo, the ETA beast",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 367,
+     "value": "freight-eta-recalc-v2, which I also call eta-v2 or the ETA beast",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Software_&_Tech",
+   "probe": "how is the ETA beast doing with the audit?"
+  },
+  {
+   "id": "F193",
+   "about": "Riverside Physio, RPC",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 499,
+     "value": "Riverside Physio Clinic, which I shorten to Riverside or RPC on my calendar",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Lifestyle_&_Health",
+   "probe": "what is RPC on my calendar?"
+  },
+  {
+   "id": "F194",
+   "about": "Tarrant Logistics, TLL",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 246,
+     "value": "Tarrant Logistics Ltd, which I also call TLL or Tarrant Haul",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Business_&_Finance",
+   "probe": "any news from TLL this week?"
+  },
+  {
+   "id": "F195",
+   "about": "sister Ruth, Rutie",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 215,
+     "value": "my sister Ruth Halloran, who the family calls Rutie",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Lifestyle_&_Health",
+   "probe": "is Rutie coming up for the birthday?"
+  },
+  {
+   "id": "F196",
+   "about": "mum Margaret, Peg",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 261,
+     "value": "my mum Margaret Halloran, who everyone calls Peg",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    292
+   ],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Business_&_Finance",
+   "probe": "is Peg coming to the open day?"
+  },
+  {
+   "id": "F197",
+   "about": "shop name, HKS",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 27,
+     "value": "Halloran Kiln Studio, which customers shorten to HKS",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    583
+   ],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Business_&_Finance",
+   "probe": "what do customers call the shop?"
+  },
+  {
+   "id": "F198",
+   "about": "ci-pool-b, the blue runners",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 281,
+     "value": "the CI runner pool ci-pool-b, which the team calls the blue runners",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Software_&_Tech",
+   "probe": "why are the blue runners slow today?"
+  },
+  {
+   "id": "F199",
+   "about": "Ardenne W-12 wheel, the Ardie",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 441,
+     "value": "the Ardenne W-12 wheel, which I call the Ardie",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Creative_&_Media",
+   "probe": "is the Ardie still pulling to the left?"
+  },
+  {
+   "id": "F200",
+   "about": "Pentax K1000, the Kay",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 595,
+     "value": "the Pentax K1000 film camera, which I call the Kay",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Creative_&_Media",
+   "probe": "is the Kay the camera I'm taking on the Harbour walk?"
+  },
+  {
+   "id": "F201",
+   "about": "Harbour Loop, the Quay circuit",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 149,
+     "value": "the Harbour Loop running route, also called the Quay circuit",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how long is the Quay circuit?"
+  },
+  {
+   "id": "F202",
+   "about": "Marlow Freight Software, MFS",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 5,
+     "value": "my employer Marlow Freight Software, shortened to MFS or Marlow Haul",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Business_&_Finance",
+   "probe": "how is the ticket queue at MFS looking?"
+  },
+  {
+   "id": "F203",
+   "about": "Platform Reliability, SRE-West",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 515,
+     "value": "the Platform Reliability team, also called SRE-West on the org chart",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Software_&_Tech",
+   "probe": "who owns the SRE-West runbooks?"
+  },
+  {
+   "id": "F204",
+   "about": "Mudlark Studio, the tannery studio",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 336,
+     "value": "Mudlark Studio, which I call the Mudlark or the tannery studio",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    665
+   ],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Creative_&_Media",
+   "probe": "when does the tannery studio class restart?"
+  },
+  {
+   "id": "F205",
+   "about": "Corvane Ceramics Supply, CCS",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 408,
+     "value": "Corvane Ceramics Supply, also called CCS or the kiln people",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Business_&_Finance",
+   "probe": "what's the stock status with CCS?"
+  },
+  {
+   "id": "F206",
+   "about": "PhysioBand resistance band, purple band",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 384,
+     "value": "the PhysioBand resistance band, which I call the purple band",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Lifestyle_&_Health",
+   "probe": "where did I leave the purple band?"
+  },
+  {
+   "id": "F207",
+   "about": "Jules Okonkwo, called Jay",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 626,
+     "value": "Jules Okonkwo, who everyone calls Jay",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Software_&_Tech",
+   "probe": "what did Jay say about the cutover?"
+  },
+  {
+   "id": "F208",
+   "about": "Pemberton starter, Gerald",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 703,
+     "value": "the Pemberton sourdough starter, which I call Gerald",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    944
+   ],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Lifestyle_&_Health",
+   "probe": "how's Gerald doing this week?"
+  },
+  {
+   "id": "F209",
+   "about": "Berlingo van, Bertha",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 778,
+     "value": "the Berlingo delivery van, which I call Bertha",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    873
+   ],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Business_&_Finance",
+   "probe": "is Bertha due a service?"
+  },
+  {
+   "id": "F210",
+   "about": "Berlin team, EU platform squad",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 871,
+     "value": "the Berlin team, also called the EU platform squad",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": "maintenance",
+   "topic": "Software_&_Tech",
+   "probe": "who in the EU squad owns the tracking feed?"
+  }
+ ],
+ "events": [
+  {
+   "id": "E01",
+   "what": "the kiln controller threw ERR-K417-3B mid-firing and I reseated the plug",
+   "date": "2026-01-13",
+   "told_turn": 60,
+   "relative_phrase": "two days ago",
+   "component": "bm25",
+   "probe": "when did the kiln controller throw ERR-K417-3B?"
+  },
+  {
+   "id": "E02",
+   "what": "parcel GB-TRK-7730-QWZ was lost in transit and Corvane refunded it",
+   "date": "2026-05-20",
+   "told_turn": 557,
+   "relative_phrase": "last week",
+   "component": "bm25",
+   "probe": "what happened to parcel GB-TRK-7730-QWZ?"
+  },
+  {
+   "id": "E03",
+   "what": "van HB24 TQN failed its MOT on the first attempt",
+   "date": "2026-07-07",
+   "told_turn": 741,
+   "relative_phrase": "on Thursday",
+   "component": "bm25",
+   "probe": "did plate HB24 TQN pass its MOT first time?"
+  },
+  {
+   "id": "E04",
+   "what": "signed up with Halden Glaze Works after a call at the trade fair",
+   "date": "2026-01-26",
+   "told_turn": 105,
+   "relative_phrase": "a few days ago",
+   "component": "rerank",
+   "probe": "when did I sign up with the glaze house that gives the big discount?"
+  },
+  {
+   "id": "E05",
+   "what": "the first Thursday 16:30 production deploy went out without a rollback",
+   "date": "2026-02-27",
+   "told_turn": 267,
+   "relative_phrase": "last Thursday",
+   "component": "rerank",
+   "probe": "when was the first Thursday deploy that went out clean?"
+  },
+  {
+   "id": "E06",
+   "what": "shot the architecture walk on Fomapan and the grain came out heavy",
+   "date": "2026-08-21",
+   "told_turn": 923,
+   "relative_phrase": "on Saturday",
+   "component": "rerank",
+   "probe": "how did the Fomapan on the building walk turn out?"
+  },
+  {
+   "id": "E07",
+   "what": "met Dana Whitfield in person at Harrow & Pike's office on Quayside Row",
+   "date": "2026-04-05",
+   "told_turn": 377,
+   "relative_phrase": "a few days ago",
+   "component": "codex",
+   "probe": "did I already visit the tax office?"
+  },
+  {
+   "id": "E08",
+   "what": "Tom Abara signed off the shoulder rehab plan",
+   "date": "2026-04-20",
+   "told_turn": 489,
+   "relative_phrase": "a couple of weeks back",
+   "component": "codex",
+   "probe": "who approved the rehab plan?"
+  },
+  {
+   "id": "E09",
+   "what": "Mo Farrell's crew finished the roller shutter door",
+   "date": "2026-07-17",
+   "told_turn": 814,
+   "relative_phrase": "ten days ago",
+   "component": "codex",
+   "probe": "when did the shutter door get finished?"
+  },
+  {
+   "id": "E10",
+   "what": "ran the Harbour Loop in 52 minutes, my first test of the knee",
+   "date": "2026-03-27",
+   "told_turn": 326,
+   "relative_phrase": "on Saturday",
+   "component": "summaries",
+   "probe": "what did my Harbour Loop run come in at?"
+  },
+  {
+   "id": "E11",
+   "what": "a studio open day rehearsal with 12 friends",
+   "date": "2026-05-31",
+   "told_turn": 609,
+   "relative_phrase": "last weekend",
+   "component": "summaries",
+   "probe": "how many people came to the open day rehearsal?"
+  },
+  {
+   "id": "E12",
+   "what": "a batch of bisque mugs cracked in the kiln",
+   "date": "2026-02-09",
+   "told_turn": 174,
+   "relative_phrase": "the other day",
+   "component": "summaries",
+   "probe": "which batch cracked in the kiln?"
+  },
+  {
+   "id": "E13",
+   "what": "the Halloran Kiln Studio domain went live",
+   "date": "2026-02-27",
+   "told_turn": 231,
+   "relative_phrase": "last Sunday",
+   "component": "notes",
+   "probe": "when did the shop domain go live?"
+  },
+  {
+   "id": "E14",
+   "what": "the first Etsy order arrived",
+   "date": "2026-04-07",
+   "told_turn": 421,
+   "relative_phrase": "last week",
+   "component": "notes",
+   "probe": "when did the first Etsy order come in?"
+  },
+  {
+   "id": "E15",
+   "what": "the freight v1 endpoint was retired",
+   "date": "2026-07-18",
+   "told_turn": 783,
+   "relative_phrase": "last Monday",
+   "component": "notes",
+   "probe": "was the freight v1 endpoint retired?"
+  },
+  {
+   "id": "E16",
+   "what": "rolled the ETA service back to the previous image after a bad deploy",
+   "date": "2026-04-14",
+   "told_turn": 438,
+   "relative_phrase": "about a week and a half ago",
+   "component": "procedural",
+   "probe": "have we rolled the ETA service back before?"
+  },
+  {
+   "id": "E17",
+   "what": "first monthly close run with the new checklist",
+   "date": "2026-03-23",
+   "told_turn": 310,
+   "relative_phrase": "two days ago",
+   "component": "procedural",
+   "probe": "when did I first run the month-end close with the checklist?"
+  },
+  {
+   "id": "E18",
+   "what": "first time running the fair setup routine at a market",
+   "date": "2026-08-24",
+   "told_turn": 950,
+   "relative_phrase": "a few days ago",
+   "component": "procedural",
+   "probe": "how did the first market setup go?"
+  },
+  {
+   "id": "E19",
+   "what": "wore the wool jumper to the studio and got an itchy rash on my wrists",
+   "date": "2026-05-27",
+   "told_turn": 582,
+   "relative_phrase": "on Tuesday",
+   "component": "gate",
+   "probe": "how did the new wool jumper work out?"
+  },
+  {
+   "id": "E20",
+   "what": "got a stomach bug after a takeaway curry",
+   "date": "2026-05-06",
+   "told_turn": 546,
+   "relative_phrase": "last Friday",
+   "component": "gate",
+   "probe": "what made me ill recently?"
+  },
+  {
+   "id": "E21",
+   "what": "the Tarrant sandbox rejected my fourth webhook retry",
+   "date": "2026-06-21",
+   "told_turn": 715,
+   "relative_phrase": "last week",
+   "component": "gate",
+   "probe": "what did the Tarrant sandbox do on my fourth retry?"
+  },
+  {
+   "id": "E22",
+   "what": "the bookkeeping review call with Dana went ahead",
+   "date": "2026-03-03",
+   "told_turn": 262,
+   "relative_phrase": "on Monday",
+   "component": "clusters",
+   "probe": "did the bookkeeping call with Dana happen?"
+  },
+  {
+   "id": "E23",
+   "what": "the landlord's letter came with a 4 percent rent increase",
+   "date": "2026-06-30",
+   "told_turn": 746,
+   "relative_phrase": "about ten days back",
+   "component": "clusters",
+   "probe": "what increase did the landlord ask for?"
+  },
+  {
+   "id": "E24",
+   "what": "the CI runner pool was upgraded and the pipeline ran slower for a day",
+   "date": "2026-07-31",
+   "told_turn": 826,
+   "relative_phrase": "last week",
+   "component": "clusters",
+   "probe": "why was CI slow for a day?"
+  },
+  {
+   "id": "E25",
+   "what": "Halden's bulk price rose by 3 percent",
+   "date": "2026-02-20",
+   "told_turn": 299,
+   "relative_phrase": "three weeks ago",
+   "component": "temporal",
+   "probe": "how much did Halden's bulk price go up?"
+  },
+  {
+   "id": "E26",
+   "what": "opened the pre-order page for the planters",
+   "date": "2026-05-04",
+   "told_turn": 524,
+   "relative_phrase": "last Monday",
+   "component": "temporal",
+   "probe": "when did the planter pre-orders open?"
+  },
+  {
+   "id": "E27",
+   "what": "the first session of the 12-week rehab, on 2026-02-02",
+   "date": "2026-02-02",
+   "told_turn": 179,
+   "relative_phrase": "two weeks ago",
+   "component": "temporal",
+   "probe": "when did the 12-week rehab start?"
+  },
+  {
+   "id": "E28",
+   "what": "my friend Jules helped me carry the kiln",
+   "date": "2026-03-31",
+   "told_turn": 399,
+   "relative_phrase": "about a week and a half ago",
+   "component": "maintenance",
+   "probe": "who helped me move the kiln?"
+  },
+  {
+   "id": "E29",
+   "what": "the delivery van failed its brake check",
+   "date": "2026-06-12",
+   "told_turn": 674,
+   "relative_phrase": "last Thursday",
+   "component": "maintenance",
+   "probe": "what happened at the brake check on the delivery van?"
+  },
+  {
+   "id": "E30",
+   "what": "Ruth came up to Port Ardell for my birthday",
+   "date": "2026-08-08",
+   "told_turn": 914,
+   "relative_phrase": "a couple of weeks back",
+   "component": "maintenance",
+   "probe": "who visited for my birthday?"
+  }
+ ],
+ "no_memory_turns": [
+  1,
+  25,
+  39,
+  47,
+  51,
+  58,
+  62,
+  79,
+  85,
+  92,
+  106,
+  112,
+  136,
+  137,
+  145,
+  154,
+  157,
+  169,
+  187,
+  189,
+  199,
+  202,
+  204,
+  210,
+  233,
+  250,
+  266,
+  270,
+  282,
+  296,
+  297,
+  306,
+  318,
+  324,
+  329,
+  346,
+  358,
+  370,
+  387,
+  390,
+  393,
+  404,
+  409,
+  417,
+  436,
+  447,
+  457,
+  460,
+  462,
+  490,
+  494,
+  501,
+  511,
+  527,
+  543,
+  556,
+  571,
+  573,
+  581,
+  585,
+  600,
+  601,
+  607,
+  630,
+  643,
+  647,
+  659,
+  660,
+  676,
+  684,
+  686,
+  710,
+  722,
+  732,
+  747,
+  750,
+  762,
+  763,
+  765,
+  776,
+  786,
+  800,
+  809,
+  825,
+  830,
+  834,
+  851,
+  853,
+  862,
+  889,
+  897,
+  915,
+  916,
+  928,
+  930,
+  957,
+  967,
+  968,
+  977,
+  987
+ ]
+}

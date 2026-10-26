@@ -1,0 +1,3180 @@
+[
+ {
+  "family": "S5:E01",
+  "type": "temporal",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "first 10k of the spring block, the run took 1h06 on the riverside loop",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "first 10k of the spring block, the run took 1h06 on the riverside loop on 2025-02-22"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 2,
+     "role": "user"
+    }
+   ],
+   "date": "2025-02-22"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F002",
+  "type": "preference",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "long run day of the week",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "saturday mornings, 7am start"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 6,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F003",
+  "type": "update",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "physio appointment slot",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "tuesdays 9:30am at Tanner Street Physio"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F005",
+  "type": "update",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Oaxaca trip dates",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "friday 16 may 2025 to friday 23 may 2025"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 5,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F010",
+  "type": "update",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "half marathon goal time",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "sub 1h45"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 7,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E03",
+  "type": "temporal",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "passport photos at the pharmacy, the first set was the wrong size",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "passport photos at the pharmacy, the first set was the wrong size on 2025-03-01"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 20,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-01"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E04",
+  "type": "temporal",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "12 km long run that took 1h21, stopped once to fix a loose shoelace",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "12 km long run that took 1h21, stopped once to fix a loose shoelace on 2025-03-02"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 29,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-02"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E05",
+  "type": "temporal",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "booked the Oaxaca apartment in Jalatlaco for seven nights",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "booked the Oaxaca apartment in Jalatlaco for seven nights on 2025-03-04"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 33,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-04"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F012",
+  "type": "preference",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "sleep target",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "7h30 in bed on weeknights"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 17,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F013",
+  "type": "preference",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "earliest weekday run start",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "no runs before 6am, standup is at 8"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 22,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F025",
+  "type": "update",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Oaxaca apartment stay",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Jalatlaco apartment, 7 nights, check-in friday 16 may 2025"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 33,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E06",
+  "type": "temporal",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "14 km long run, the run took 1h52, my longest so far",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "14 km long run, the run took 1h52, my longest so far on 2025-03-08"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 53,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-08"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F001",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "Desert Sun Half race day",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "sunday 22 june 2025, Desert Sun Half"
+   ],
+   "superseded": [
+    "saturday 21 june 2025, Desert Sun Half"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 3,
+     "role": "user"
+    },
+    {
+     "turn": 58,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F003",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "physio appointment slot",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "tuesdays 9:30am at Tanner Street Physio"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F008",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "dentist appointments",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "cleaning friday 14 march 2025 at 2pm"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 38,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F009",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "long run distance cap",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "16 km cap until the ITB settles"
+   ],
+   "superseded": [
+    "19 km peak long run"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 44,
+     "role": "user"
+    },
+    {
+     "turn": 92,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F010",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "half marathon goal time",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "1h55, the 1h45 was a typo"
+   ],
+   "superseded": [
+    "sub 1h45"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 7,
+     "role": "user"
+    },
+    {
+     "turn": 60,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F022",
+  "type": "attribution",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "cross-training suggestion",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "45 minute swim on wednesdays instead of an easy run"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 48,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E08",
+  "type": "temporal",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "filed the insurance claim for the door dent",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "filed the insurance claim for the door dent on 2025-03-12"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 62,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-12"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E09",
+  "type": "temporal",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "dentist cleaning at 2pm",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "dentist cleaning at 2pm on 2025-03-14"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 68,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-14"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E10",
+  "type": "temporal",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "16 km long run, ITB flared at km 13 and I walked the last 3 km",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "16 km long run, ITB flared at km 13 and I walked the last 3 km on 2025-03-16"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 77,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-16"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E11",
+  "type": "temporal",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "physio follow-up, pain rated 4 out of 10 after the taping",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "physio follow-up, pain rated 4 out of 10 after the taping on 2025-03-18"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 84,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-18"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F018",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "plumber visit for the kitchen faucet",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "thursday 3 april 2025, 1 to 3pm"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 66,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F019",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "ITB pain score",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "4 out of 10 after taping"
+   ],
+   "superseded": [
+    "6 out of 10 on long runs",
+    "7 out of 10 after the flare"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 11,
+     "role": "user"
+    },
+    {
+     "turn": 78,
+     "role": "user"
+    },
+    {
+     "turn": 84,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E12",
+  "type": "temporal",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "the car came back from the body shop with the new door panel",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "the car came back from the body shop with the new door panel on 2025-03-19"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 104,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-19"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F004",
+  "type": "update",
+  "checkpoint_turn": 150,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "passport renewal agency appointment",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "thursday 10 april 2025 at 9:10am, passport agency"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 14,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F007",
+  "type": "update",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Honda service appointment",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "tuesday 22 april 2025 8am drop-off at Ridgeway Auto"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 110,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F009",
+  "type": "update",
+  "checkpoint_turn": 150,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "long run distance cap",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "16 km cap until the ITB settles"
+   ],
+   "superseded": [
+    "19 km peak long run"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 44,
+     "role": "user"
+    },
+    {
+     "turn": 92,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E13",
+  "type": "temporal",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "paid the Oaxaca flight deposit, 380 usd, on the travel card",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "paid the Oaxaca flight deposit, 380 usd, on the travel card on 2025-03-21"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 112,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-21"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E14",
+  "type": "temporal",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "6 km recovery run in the new shoes, took 39 minutes",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "6 km recovery run in the new shoes, took 39 minutes on 2025-03-22"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 131,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-22"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F015",
+  "type": "fact_recall",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "taper actually planned",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": [],
+   "status": "decided",
+   "speaker": "user"
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S5:E15",
+  "type": "temporal",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "physio visit three, given hip strengthening exercises",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "physio visit three, given hip strengthening exercises on 2025-03-27"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 140,
+     "role": "user"
+    }
+   ],
+   "date": "2025-03-27"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E16",
+  "type": "temporal",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "renewed car insurance, premium went up 14 percent to 1086 usd for six months",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "renewed car insurance, premium went up 14 percent to 1086 usd for six months on 2025-04-01"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 157,
+     "role": "user"
+    }
+   ],
+   "date": "2025-04-01"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F016",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "car insurance premium",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "1086 usd per six months from tuesday 1 april 2025"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 159,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F018",
+  "type": "update",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "plumber visit for the kitchen faucet",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "wednesday 2 april 2025, 1 to 3pm, the scheduler had the wrong day"
+   ],
+   "superseded": [
+    "thursday 3 april 2025, 1 to 3pm"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 66,
+     "role": "user"
+    },
+    {
+     "turn": 146,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F019",
+  "type": "update",
+  "checkpoint_turn": 200,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "ITB pain score",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "4 out of 10 after taping"
+   ],
+   "superseded": [
+    "6 out of 10 on long runs",
+    "7 out of 10 after the flare"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 11,
+     "role": "user"
+    },
+    {
+     "turn": 78,
+     "role": "user"
+    },
+    {
+     "turn": 84,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E17",
+  "type": "temporal",
+  "checkpoint_turn": 225,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "plumber fixed the kitchen faucet, worn cartridge, 186 usd",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "plumber fixed the kitchen faucet, worn cartridge, 186 usd on 2025-04-02"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 162,
+     "role": "user"
+    }
+   ],
+   "date": "2025-04-02"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E18",
+  "type": "temporal",
+  "checkpoint_turn": 225,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "15 km long run that took 1h58, pace 7:52 per km",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "15 km long run that took 1h58, pace 7:52 per km on 2025-04-05"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 178,
+     "role": "user"
+    }
+   ],
+   "date": "2025-04-05"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F002",
+  "type": "preference",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "long run day of the week",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "saturday mornings, 7am start"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 6,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F004",
+  "type": "update",
+  "checkpoint_turn": 225,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "passport renewal agency appointment",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "thursday 17 april 2025 at 9:10am, passport agency, the 10th was my misread of the email"
+   ],
+   "superseded": [
+    "thursday 10 april 2025 at 9:10am, passport agency"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 14,
+     "role": "user"
+    },
+    {
+     "turn": 168,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F007",
+  "type": "update",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "Honda service appointment",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "tuesday 22 april 2025 8am drop-off at Ridgeway Auto"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 110,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F012",
+  "type": "preference",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "sleep target",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "7h30 in bed on weeknights"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 17,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F014",
+  "type": "attribution",
+  "checkpoint_turn": 225,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "taper suggestion for the race",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "three-week taper starting sunday 1 june 2025"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 172,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F023",
+  "type": "preference",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "reminder instruction for appointments",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "remind me the day before any appointment"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 23,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E20",
+  "type": "temporal",
+  "checkpoint_turn": 250,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "10 km race at Saguaro Park, finished in 1h03",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "10 km race at Saguaro Park, finished in 1h03 on 2025-04-12"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 204,
+     "role": "user"
+    }
+   ],
+   "date": "2025-04-12"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E21",
+  "type": "temporal",
+  "checkpoint_turn": 250,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "ITB pain 3 out of 10 on the stairs, first day without ice",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "ITB pain 3 out of 10 on the stairs, first day without ice on 2025-04-14"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 207,
+     "role": "user"
+    }
+   ],
+   "date": "2025-04-14"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F001",
+  "type": "update",
+  "checkpoint_turn": 250,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "Desert Sun Half race day",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "sunday 22 june 2025, Desert Sun Half"
+   ],
+   "superseded": [
+    "saturday 21 june 2025, Desert Sun Half"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 3,
+     "role": "user"
+    },
+    {
+     "turn": 58,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F003",
+  "type": "update",
+  "checkpoint_turn": 250,
+  "repeat_index": 3,
+  "question": null,
+  "ask": {
+   "about": "physio appointment slot",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "thursdays 8:15am from thursday 27 march 2025"
+   ],
+   "superseded": [
+    "tuesdays 9:30am at Tanner Street Physio"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    },
+    {
+     "turn": 116,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F006",
+  "type": "update",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "Oaxaca trip budget",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "2400 usd all in, flights included"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 12,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F011",
+  "type": "fact_recall",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "resting heart rate",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "54 bpm resting"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 46,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F015",
+  "type": "fact_recall",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "taper actually planned",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "10-day taper, thursday 12 june 2025 to saturday 21 june 2025"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 188,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F019",
+  "type": "update",
+  "checkpoint_turn": 250,
+  "repeat_index": 3,
+  "question": null,
+  "ask": {
+   "about": "ITB pain score",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "3 out of 10 on the stairs"
+   ],
+   "superseded": [
+    "6 out of 10 on long runs",
+    "7 out of 10 after the flare",
+    "4 out of 10 after taping"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 11,
+     "role": "user"
+    },
+    {
+     "turn": 78,
+     "role": "user"
+    },
+    {
+     "turn": 84,
+     "role": "user"
+    },
+    {
+     "turn": 207,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F022",
+  "type": "attribution",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "cross-training suggestion",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "45 minute swim on wednesdays instead of an easy run"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 48,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E22",
+  "type": "temporal",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "passport agency appointment at 9:10am, took 40 minutes",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "passport agency appointment at 9:10am, took 40 minutes on 2025-04-17"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 215,
+     "role": "user"
+    }
+   ],
+   "date": "2025-04-17"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E23",
+  "type": "temporal",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "started a saturday 8am pilates class at the studio on 4th street",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "started a saturday 8am pilates class at the studio on 4th street on 2025-04-19"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 229,
+     "role": "user"
+    }
+   ],
+   "date": "2025-04-19"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E24",
+  "type": "temporal",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "car service at Ridgeway Auto, new brake pads, 412 usd",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "car service at Ridgeway Auto, new brake pads, 412 usd on 2025-04-24"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 230,
+     "role": "user"
+    }
+   ],
+   "date": "2025-04-24"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F002",
+  "type": "preference",
+  "checkpoint_turn": 275,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "long run day of the week",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "sunday mornings, 6:30am start from late april"
+   ],
+   "superseded": [
+    "saturday mornings, 7am start"
+   ],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 6,
+     "role": "user"
+    },
+    {
+     "turn": 230,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F005",
+  "type": "update",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "Oaxaca trip dates",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "friday 16 may 2025 to friday 23 may 2025"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 5,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F007",
+  "type": "update",
+  "checkpoint_turn": 275,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "Honda service appointment",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "thursday 24 april 2025 8am, no tuesday slot left"
+   ],
+   "superseded": [
+    "tuesday 22 april 2025 8am drop-off at Ridgeway Auto"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 110,
+     "role": "user"
+    },
+    {
+     "turn": 228,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F008",
+  "type": "update",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "dentist appointments",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "cleaning friday 14 march 2025 at 2pm"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 38,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F025",
+  "type": "update",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "Oaxaca apartment stay",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Jalatlaco apartment, 7 nights, check-in friday 16 may 2025"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 33,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F012",
+  "type": "preference",
+  "checkpoint_turn": 300,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "sleep target",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "7h45 now, the tired weeks are real"
+   ],
+   "superseded": [
+    "7h30 in bed on weeknights"
+   ],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 17,
+     "role": "user"
+    },
+    {
+     "turn": 243,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E27",
+  "type": "temporal",
+  "checkpoint_turn": 325,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "dentist check-in, no cavities, next cleaning booked for 2025-11-04",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "dentist check-in, no cavities, next cleaning booked for 2025-11-04 on 2025-05-06"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 284,
+     "role": "user"
+    }
+   ],
+   "date": "2025-05-06"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F008",
+  "type": "update",
+  "checkpoint_turn": 325,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "dentist appointments",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "check-in tuesday 6 may 2025 at 2pm, next cleaning tuesday 4 november 2025"
+   ],
+   "superseded": [
+    "cleaning friday 14 march 2025 at 2pm"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 38,
+     "role": "user"
+    },
+    {
+     "turn": 282,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F013",
+  "type": "preference",
+  "checkpoint_turn": 325,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "earliest weekday run start",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "no runs before 6am, standup is at 8"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 22,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F028",
+  "type": "hypothetical",
+  "checkpoint_turn": 325,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "possible August 15k race",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "mesa ridge 15k in august if the calf holds"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 262,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E28",
+  "type": "temporal",
+  "checkpoint_turn": 350,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "physio cleared me up to 18 km long runs",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "physio cleared me up to 18 km long runs on 2025-05-09"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 303,
+     "role": "user"
+    }
+   ],
+   "date": "2025-05-09"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E29",
+  "type": "temporal",
+  "checkpoint_turn": 350,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "16 km long run that took 1h50, negative splits",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "16 km long run that took 1h50, negative splits on 2025-05-10"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 306,
+     "role": "user"
+    }
+   ],
+   "date": "2025-05-10"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F009",
+  "type": "update",
+  "checkpoint_turn": 350,
+  "repeat_index": 3,
+  "question": null,
+  "ask": {
+   "about": "long run distance cap",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "18 km peak, physio cleared it"
+   ],
+   "superseded": [
+    "19 km peak long run",
+    "16 km cap until the ITB settles"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 44,
+     "role": "user"
+    },
+    {
+     "turn": 92,
+     "role": "user"
+    },
+    {
+     "turn": 306,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F016",
+  "type": "fact_recall",
+  "checkpoint_turn": 350,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "car insurance premium",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "1086 usd per six months from tuesday 1 april 2025"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 159,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F018",
+  "type": "update",
+  "checkpoint_turn": 350,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "plumber visit for the kitchen faucet",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "wednesday 2 april 2025, 1 to 3pm, the scheduler had the wrong day"
+   ],
+   "superseded": [
+    "thursday 3 april 2025, 1 to 3pm"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 66,
+     "role": "user"
+    },
+    {
+     "turn": 146,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F024",
+  "type": "fact_recall",
+  "checkpoint_turn": 350,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "dog Pemberton's rabies booster",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "booster tuesday 29 april 2025 at 4pm, Sonoran Animal Clinic"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 158,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F025",
+  "type": "update",
+  "checkpoint_turn": 350,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "Oaxaca apartment stay",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "check-in moved to saturday 17 may 2025, still 7 nights"
+   ],
+   "superseded": [
+    "Jalatlaco apartment, 7 nights, check-in friday 16 may 2025"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 33,
+     "role": "user"
+    },
+    {
+     "turn": 289,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E30",
+  "type": "temporal",
+  "checkpoint_turn": 375,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "outbound flight to Oaxaca, connecting through Dallas",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "outbound flight to Oaxaca, connecting through Dallas on 2025-05-17"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 312,
+     "role": "user"
+    }
+   ],
+   "date": "2025-05-17"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E32",
+  "type": "temporal",
+  "checkpoint_turn": 375,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "day trip to Hierve el Agua, four hours on the bus each way",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "day trip to Hierve el Agua, four hours on the bus each way on 2025-05-22"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 334,
+     "role": "user"
+    }
+   ],
+   "date": "2025-05-22"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F004",
+  "type": "update",
+  "checkpoint_turn": 375,
+  "repeat_index": 3,
+  "question": null,
+  "ask": {
+   "about": "passport renewal agency appointment",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "thursday 17 april 2025 at 9:10am, passport agency, the 10th was my misread of the email"
+   ],
+   "superseded": [
+    "thursday 10 april 2025 at 9:10am, passport agency"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 14,
+     "role": "user"
+    },
+    {
+     "turn": 168,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F014",
+  "type": "attribution",
+  "checkpoint_turn": 375,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "taper suggestion for the race",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "three-week taper starting sunday 1 june 2025"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 172,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E33",
+  "type": "temporal",
+  "checkpoint_turn": 400,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "flew back from Oaxaca, landed in Tucson at 9:40pm",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "flew back from Oaxaca, landed in Tucson at 9:40pm on 2025-05-24"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 355,
+     "role": "user"
+    }
+   ],
+   "date": "2025-05-24"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E34",
+  "type": "temporal",
+  "checkpoint_turn": 400,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "sent the Oaxaca expense report to finance, 1942 usd total",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "sent the Oaxaca expense report to finance, 1942 usd total on 2025-05-28"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 360,
+     "role": "user"
+    }
+   ],
+   "date": "2025-05-28"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F013",
+  "type": "preference",
+  "checkpoint_turn": 400,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "earliest weekday run start",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "no runs before 6:30am on weekdays, standup moved to 9"
+   ],
+   "superseded": [
+    "no runs before 6am, standup is at 8"
+   ],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 22,
+     "role": "user"
+    },
+    {
+     "turn": 340,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F015",
+  "type": "fact_recall",
+  "checkpoint_turn": 400,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "taper actually planned",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "10-day taper, thursday 12 june 2025 to saturday 21 june 2025"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 188,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F017",
+  "type": "update",
+  "checkpoint_turn": 400,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "quarterly estimated tax payment",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "1240 usd due monday 16 june 2025"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 356,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F007",
+  "type": "update",
+  "checkpoint_turn": 425,
+  "repeat_index": 3,
+  "question": null,
+  "ask": {
+   "about": "Honda service appointment",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "thursday 24 april 2025 8am, no tuesday slot left"
+   ],
+   "superseded": [
+    "tuesday 22 april 2025 8am drop-off at Ridgeway Auto"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 110,
+     "role": "user"
+    },
+    {
+     "turn": 228,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F019",
+  "type": "update",
+  "checkpoint_turn": 425,
+  "repeat_index": 4,
+  "question": null,
+  "ask": {
+   "about": "ITB pain score",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "3 out of 10 on the stairs"
+   ],
+   "superseded": [
+    "6 out of 10 on long runs",
+    "7 out of 10 after the flare",
+    "4 out of 10 after taping"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 11,
+     "role": "user"
+    },
+    {
+     "turn": 78,
+     "role": "user"
+    },
+    {
+     "turn": 84,
+     "role": "user"
+    },
+    {
+     "turn": 207,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F027",
+  "type": "fact_recall",
+  "checkpoint_turn": 425,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Toronto flights cost",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "612 usd total for two seats"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 383,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E37",
+  "type": "temporal",
+  "checkpoint_turn": 450,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "tempo run, 8 km at 6:45 per km, took 54 minutes",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "tempo run, 8 km at 6:45 per km, took 54 minutes on 2025-06-05"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 404,
+     "role": "user"
+    }
+   ],
+   "date": "2025-06-05"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E38",
+  "type": "temporal",
+  "checkpoint_turn": 450,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "12 km long run that took 1h26, legs felt flat",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "12 km long run that took 1h26, legs felt flat on 2025-06-07"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 408,
+     "role": "user"
+    }
+   ],
+   "date": "2025-06-07"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F003",
+  "type": "update",
+  "checkpoint_turn": 450,
+  "repeat_index": 5,
+  "question": null,
+  "ask": {
+   "about": "physio appointment slot",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "back to tuesdays 9:30am, the thursday slot clashed with standup"
+   ],
+   "superseded": [
+    "tuesdays 9:30am at Tanner Street Physio",
+    "thursdays 8:15am from thursday 27 march 2025"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    },
+    {
+     "turn": 116,
+     "role": "user"
+    },
+    {
+     "turn": 256,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F012",
+  "type": "preference",
+  "checkpoint_turn": 450,
+  "repeat_index": 3,
+  "question": null,
+  "ask": {
+   "about": "sleep target",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "7h45 now, the tired weeks are real"
+   ],
+   "superseded": [
+    "7h30 in bed on weeknights"
+   ],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 17,
+     "role": "user"
+    },
+    {
+     "turn": 243,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F006",
+  "type": "update",
+  "checkpoint_turn": 475,
+  "repeat_index": 3,
+  "question": null,
+  "ask": {
+   "about": "Oaxaca trip budget",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "2800 usd, flight prices went up"
+   ],
+   "superseded": [
+    "2400 usd all in, flights included"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 12,
+     "role": "user"
+    },
+    {
+     "turn": 270,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F008",
+  "type": "update",
+  "checkpoint_turn": 475,
+  "repeat_index": 3,
+  "question": null,
+  "ask": {
+   "about": "dentist appointments",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "check-in tuesday 6 may 2025 at 2pm, next cleaning tuesday 4 november 2025"
+   ],
+   "superseded": [
+    "cleaning friday 14 march 2025 at 2pm"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 38,
+     "role": "user"
+    },
+    {
+     "turn": 282,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F017",
+  "type": "update",
+  "checkpoint_turn": 475,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "quarterly estimated tax payment",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "1355 usd after the recalculation, paying early on monday 9 june 2025"
+   ],
+   "superseded": [
+    "1240 usd due monday 16 june 2025"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 356,
+     "role": "user"
+    },
+    {
+     "turn": 418,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F019",
+  "type": "update",
+  "checkpoint_turn": 475,
+  "repeat_index": 5,
+  "question": null,
+  "ask": {
+   "about": "ITB pain score",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "0 out of 10 on the physio test"
+   ],
+   "superseded": [
+    "6 out of 10 on long runs",
+    "7 out of 10 after the flare",
+    "4 out of 10 after taping",
+    "3 out of 10 on the stairs"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 11,
+     "role": "user"
+    },
+    {
+     "turn": 78,
+     "role": "user"
+    },
+    {
+     "turn": 84,
+     "role": "user"
+    },
+    {
+     "turn": 207,
+     "role": "user"
+    },
+    {
+     "turn": 432,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F026",
+  "type": "fact_recall",
+  "checkpoint_turn": 475,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "race start time",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "7:15am start, corral C"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 430,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F028",
+  "type": "hypothetical",
+  "checkpoint_turn": 475,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "possible August 15k race",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "mesa ridge 15k in august if the calf holds"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 262,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E42",
+  "type": "temporal",
+  "checkpoint_turn": 500,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "ran the Desert Sun Half in 2h02, missed the 1h55 target by seven minutes",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "ran the Desert Sun Half in 2h02, missed the 1h55 target by seven minutes on 2025-06-22"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 453,
+     "role": "user"
+    }
+   ],
+   "date": "2025-06-22"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:E43",
+  "type": "temporal",
+  "checkpoint_turn": 500,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "physio race-recovery check, calf tight but nothing torn",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "physio race-recovery check, calf tight but nothing torn on 2025-06-23"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 458,
+     "role": "user"
+    }
+   ],
+   "date": "2025-06-23"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F005",
+  "type": "update",
+  "checkpoint_turn": 500,
+  "repeat_index": 3,
+  "question": null,
+  "ask": {
+   "about": "Oaxaca trip dates",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "saturday 17 may 2025 to saturday 24 may 2025, the flights moved a day"
+   ],
+   "superseded": [
+    "friday 16 may 2025 to friday 23 may 2025"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 5,
+     "role": "user"
+    },
+    {
+     "turn": 288,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F009",
+  "type": "update",
+  "checkpoint_turn": 500,
+  "repeat_index": 4,
+  "question": null,
+  "ask": {
+   "about": "long run distance cap",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "18 km peak, physio cleared it"
+   ],
+   "superseded": [
+    "19 km peak long run",
+    "16 km cap until the ITB settles"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 44,
+     "role": "user"
+    },
+    {
+     "turn": 92,
+     "role": "user"
+    },
+    {
+     "turn": 306,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S5:F025",
+  "type": "update",
+  "checkpoint_turn": 500,
+  "repeat_index": 3,
+  "question": null,
+  "ask": {
+   "about": "Oaxaca apartment stay",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Admin_&_Productivity",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "check-in moved to saturday 17 may 2025, still 7 nights"
+   ],
+   "superseded": [
+    "Jalatlaco apartment, 7 nights, check-in friday 16 may 2025"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 33,
+     "role": "user"
+    },
+    {
+     "turn": 289,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ }
+]
