@@ -43,8 +43,8 @@ margin 2 percentage points (the upper interval bound of ICE minus baseline below
 - **Retention (S4):** score against distance since the fact was said (100 / 300 / 600 / 1,000 turns).
 - **Style invariance:** S1 vs S8 (same plan, different writing) — the paired difference and its
   interval; a difference is reported as sensitivity to writing style.
-- **Ablations (S9, sealed B):** leave-one-out per component group (and the build-up if D10 is
-  decided yes); a group "earns its place" when switching it off lowers the mean score with an
+- **Ablations:** leave-one-out per component group on S9 and sealed B; the additive build-up on S9
+  (D10, decided yes) in Z2's frozen order; a group "earns its place" when switching it off lowers the mean score with an
   interval excluding 0 on the questions planned for it.
 - Memory-system baseline (D11) on LongMemEval-S; the cloud-answerer subset; run-to-run variance
   (S1 replayed twice); cost and speed (prompt tokens, answer seconds, write time per turn).
@@ -60,4 +60,4 @@ margin 2 percentage points (the upper interval bound of ICE minus baseline below
   comparisons, the hallucination measures, the private and synthetic main runs.
 
 ## 6. Open before approval
-- Second judge (D7, benched); the S9 build-up (D10); which memory system (D11, decided at the time).
+- Second judge (D7, benched); which memory system (D11, decided at the time).

@@ -26,7 +26,8 @@ from experiments.z2 import run_z2 as Z  # noqa: E402
 from experiments.z2.histories import BEAM, HISTORIES, SYNTHETIC  # noqa: E402
 
 PRIVATE = ["B", "A", "D", "SW", "LAP"]
-PRESET = {"B": "final_main+final_ablation", "S9": "final_main+final_ablation"}    # D5; build-up: D10 open
+PRESET = {"B": "final_main+final_ablation",                                       # D5
+          "S9": "final_main+final_ablation+final_buildup"}                         # D5 + D10 (yes, 2026-10-26)
 REPLAY_SECONDS = {"B": 35.0, "S3": 120.0}          # per pair; long pastes are slower (Z2's C ran ~160 s)
 
 

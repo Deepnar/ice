@@ -458,7 +458,8 @@ decision (no-memory questions — gate), same-shaped facts in different topics (
 Not on S1–S8 (a conversation built for one target leaves most groups with nothing to
 measure), and not on a molded BEAM or LongMemEval conversation (20 and ~1 questions each;
 molding needs our own ledger and discards the benchmark's validated questions). The 9-step
-additive ladder is reported from Z2, labelled pre-fix development evidence.
+additive ladder is reported from Z2, labelled pre-fix development evidence. **Build-up on S9 too
+(maintainer, 2026-10-26, Z3 D10):** the additive ladder runs on S9 in Z2's frozen order (~2 GPU days).
 
 **⚑ Public data — decided 2026-10-26.** LongMemEval-S as planned, unchanged: a
 100-instance slice stratified by question type, native protocol and upstream prompts,

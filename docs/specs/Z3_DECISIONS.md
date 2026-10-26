@@ -186,7 +186,7 @@ measures the simpler system.
 to defend, cheaper to run, and Z2 is exactly the evidence to decide with. The two cautions are
 rule 2 (batch summaries) and keeping each removal reversible.
 
-## D10 ⚑ Build-up ablation on S9 (open)
+## D10 Build-up ablation on S9 — **decided yes (maintainer, 2026-10-26)**
 
 Leave-one-out (decided) switches off one part at a time with all others on. Its blind spot:
 two parts that cover for each other each look useless alone. A **build-up** starts from the
