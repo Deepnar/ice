@@ -355,24 +355,27 @@ the user gets access — seam only, no dependency); **better ground truth is man
 
 ### 2.1 Datasets
 
-**⚑ FINAL private LSREP corpus — decided by the maintainer, 2026-10-26 (supersedes the
-private rows of the 2026-10-15 roster below; synthetic and public data are decided next).**
-A few private histories, each replayed as one conversation into its own store (no
-cross-chat replay), alongside a larger synthetic set. Ids and sizes:
-`docs/PRIVATE_CONTEXT.md` [PRIVATE:final-private-roster]; histories are registered in
-`experiments/z2/histories.py`.
+**⚑ FINAL private LSREP corpus — locked by the maintainer, 2026-10-26 (supersedes the
+private rows of the 2026-10-15 roster below).** A few private histories alongside a larger
+synthetic set (designed next). Each history is one conversation replayed into its own store
+— nothing is stitched or replayed cross-chat. Ids and sizes: `docs/PRIVATE_CONTEXT.md`
+[PRIVATE:final-private-roster]; histories are registered in `experiments/z2/histories.py`.
 
-| History | What | Reused from Z2 | New work |
+| History | Pairs (sessions on the Z2 clock) | Reused from Z2 | New work |
 |---|---|---|---|
-| **B** (v2 Dataset B, long-form world-building, 1,119 pairs) | the FINAL-sealed 40% of B's question families | ledger, sealed families, answer keys | **replay again** on the fixed system (~11 h): Z2's B stores were built by the pre-fix code |
-| **ICE project, stitched** (six chats stitched into one dialogue, 1,737 user turns, ~5.9M tokens; its first 325 pairs are Z2's C) | replaces C; C's sealed families stay valid as-of their checkpoints | C's ledger and sealed families for the first segment | ledger + questions for the later segments (~4.8M tokens — FINAL's largest prep job); replay ~2–3 days (long pasted documents ran ~160 s/turn in Z2) |
-| **Hardware/laptop decision**, two chats | each chat its own history (not cross-chat) | — | ledger + questions; replay < 1 day |
-| **Linux setup**, three chats | each chat its own history (not cross-chat) | — | ledger + questions; replay < 1 day |
+| **B** — v2 Dataset B, long-form world-building | 1,119 (45) | ledger, FINAL-sealed 40% of families, answer keys | **replay again** on the fixed system (~11 h); labelled a development history (Z2 fixes were made on B evidence) |
+| **A** — v2 Dataset A, fan-fiction continuation | 290 (12) | — | ledger + questions; untouched by tuning and Z2 — the cleanest private test |
+| **D** — v2 Dataset D, academic/personal planning | 251 (10) | — | ledger + questions; **labelled development** (v3 tuning history) |
+| **Laptop decision** — the long thread (two months) | 157 (7) | — | ledger + questions; replayed alone, not stitched with the earlier laptop chats |
+| **Software project** — ERP timetable work project | 128 (5) | — | ledger + questions; a technical domain that is not ICE |
+| **ICE project, stitched** (~1,737 user turns, ~5.9M tokens; first segment = Z2's C) | — | — | **PENDING** — decided after the BEAM check: if BEAM's ~1M-token public conversations cover long-horizon scale, the stitched chat (private, unreleasable, FINAL's largest prep job) is dropped |
 
-Open in this block: v2 Dataset **A** (fan fiction, 290 pairs — untouched by tuning and
-Z2), v2 Dataset **D** (academic planning, 251 pairs — Z2's development/tuning history),
-the software-project chat (128 pairs). Releasing any private history is a later paper's
-work and needs heavy redaction.
+**Dropped, with reasons:** the Linux-setup chats (25/37/51 pairs) and the short laptop chat
+(21 pairs) — on the Z2 clock (25-pair sessions; first ask ≥ 40 turns after the fact)
+they yield almost no valid questions, and their value was cross-chat; the saga review chat
+(overlaps B); the other ICE chats (same subject as the stitched history); the personal and
+off-topic chats (excluded); chats under ~15 pairs. Releasing any private history is a later
+paper's work and needs heavy redaction.
 
 **Current roster, maintainer 2026-10-15 (supersedes the table below, kept as the
 record).** Reported in separate tables, never pooled. *Native* = the dataset's own
