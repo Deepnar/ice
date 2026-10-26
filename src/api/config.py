@@ -824,6 +824,11 @@ class Settings(BaseSettings):
     source_support_device: str = "auto"
     source_support_threshold: float = Field(default=0.95, gt=0.5, le=1.0)
     source_support_max_tokens: int = Field(default=512, ge=16, le=512)
+    # Fix pass (2026-10-26): NLI passes swapped roles and changed values (Z2 S8: turn
+    # summaries B 5%, C 15% unfaithful; fold notes B 9%, C ~17%). When on, the
+    # background model re-reads each NLI-supported claim against its cited source and
+    # keeps only exact restatements. OFF until measured (logs/fix-pass/claim_check_eval.py).
+    summary_claim_check_enabled: bool = False
     # G32(b): the native local foreground path explicitly owns its window.
     # "fit" sizes to the guarded prompt + generation reserve; "max" allocates
     # the known serving ceiling. Opting out restores the host's Ollama default.

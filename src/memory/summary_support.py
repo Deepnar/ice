@@ -607,6 +607,69 @@ def cited_premise(windows, source_ids):
     return "\n".join(parts), intervals
 
 
+CLAIM_CHECK_SYSTEM = (
+    "Each item has a CLAIM a memory system wrote and the SOURCE passage it cites. For each "
+    "item answer exact=true only if the source states the claim with the same people or things "
+    "in the same roles (who did what to whom), the same values written the same way, and the "
+    "same speaker - text quoted or pasted inside a message is what the message contains, not "
+    "something its sender said. Answer exact=false if any role is swapped, any value, name or "
+    "number differs, a detail is added, or the claim states as said what the source only "
+    "considers. Use only the source.")
+
+
+def claim_check_schema(ids) -> dict:
+    return {"type": "object", "additionalProperties": False, "required": ["answers"],
+            "properties": {"answers": {"type": "array", "minItems": len(ids), "maxItems": len(ids),
+                "items": {"type": "object", "additionalProperties": False, "required": ["id", "exact"],
+                          "properties": {"id": {"type": "string", "enum": list(ids)},
+                                         "exact": {"type": "boolean"}}}}}}
+
+
+def _default_claim_check(items):
+    """[(claim, source)] -> [bool] on the background model, one call per summary."""
+    from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name, json_schema
+    from src.workers.completion_text import complete_text
+    ids = [f"C{i}" for i in range(1, len(items) + 1)]
+    cap = 40 + 20 * len(ids)
+    completion = get_bg_client().chat.completions.create(
+        model=get_bg_model_name(), temperature=0.0, max_tokens=cap, timeout=max(60.0, bg_timeout(cap)),
+        messages=[{"role": "system", "content": CLAIM_CHECK_SYSTEM},
+                  {"role": "user", "content": json.dumps(
+                      [{"id": i, "claim": c, "source": s} for i, (c, s) in zip(ids, items)],
+                      ensure_ascii=False)}],
+        response_format=json_schema("claim_check", claim_check_schema(ids)))
+    by_id = {a["id"]: bool(a["exact"]) for a in json.loads(complete_text(completion))["answers"]}
+    return [by_id[i] for i in ids]
+
+
+def check_claims(records, *, checker=None):
+    """Second reading of NLI-supported claims (summary_claim_check_enabled). A claim the
+    model does not call exact becomes 'unknown' (dropped under per-claim methods). A
+    failed check keeps the NLI verdicts and warns - every time, never silently."""
+    picked = [r for r in records if r["verification"]["status"] == "supported"]
+    if not picked:
+        return records
+    try:
+        exact = (checker or _default_claim_check)([(r["text"], r["premise"]) for r in picked])
+        if len(exact) != len(picked):
+            raise ValueError(f"{len(exact)} answers for {len(picked)} claims")
+    except Exception as exc:                                  # noqa: BLE001
+        from src.workers.runtime import JobYielded
+        if isinstance(exc, JobYielded):
+            raise
+        logger.warning("summary_claim_check_failed", claims=len(picked), error_type=type(exc).__name__,
+                       reason="kept the NLI verdicts")
+        return records
+    for record, ok in zip(picked, exact):
+        if not ok:
+            record["verification"] = dict(record["verification"], status="unknown",
+                                          reason="claim_check_not_exact")
+    rejected = sum(1 for ok in exact if not ok)
+    if rejected:
+        logger.info("summary_claims_not_exact", rejected=rejected, checked=len(picked))
+    return records
+
+
 def verify_assertions(source, candidate, assertions, windows, *, verifier=None, dropped=()):
     from src.memory.support import SupportInputError, score_pairs, support_tokenizer, verify_support
     window_map = {w["id"]: w for w in windows}
@@ -648,6 +711,8 @@ def verify_assertions(source, candidate, assertions, windows, *, verifier=None, 
                         "premise": premise, "cited_spans": resolved[i][1],
                         "pair_tokens": lengths.get(i), "verification": verdict,
                         **{k: assertion[k] for k in FACT_FIELDS[1:-1] if k in assertion}})
+    if settings.summary_claim_check_enabled:
+        records = check_claims(records)
     method = current_method()
     unsupported = []
     if method in PER_CLAIM_METHODS:
