@@ -84,9 +84,10 @@ def test_generator_plants_verifies_retries_and_resumes(tmp_path, monkeypatch):
         body = j.loads(prompt)
         vals = " ".join(i["value"] for i in body["MUST_SAY"])
         return f"hi {vals}" if calls["user"] != 3 else "forgot it"      # third call misses -> retry
-    def assistant_llm(system, prompt):
-        import json as j
-        return "ok " + " ".join(i["value"] for i in j.loads(prompt)["MUST_SUGGEST"])
+    def assistant_llm(system, messages):
+        import re
+        assert messages[-1]["role"] == "user"                          # the whole conversation, latest last
+        return "ok " + " ".join(re.findall(r"- [^:]+: (.+)", system))
     status = G.run(p, tmp_path, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None)
     assert status["turns"] == 50 and not status["unverified"]
     rows = j_rows = __import__("json").loads((tmp_path / "originals.json").read_text())
@@ -142,3 +143,12 @@ def test_plan_ledger_chains_changes_and_final_occurrences_add_negatives():
            "negatives": [{"question": "boat?", "about": f"boat {i}"} for i in range(8)]}
     final = Q.final_occurrences(p, occ, phr)
     assert sum(o["type"] == "negative" for o in final) == 8 and all(o["question"] for o in final)
+
+
+def test_assistant_sees_the_whole_conversation_trimmed_from_the_oldest():
+    from experiments.synth import generate as G
+    history = [dict(user=f"u{i} " + "x" * 400, assistant=f"a{i} " + "y" * 400) for i in range(10)]
+    full = G.history_messages(history, "now?", budget=10_000)
+    assert len(full) == 21 and full[0]["content"].startswith("u0") and full[-1]["content"] == "now?"
+    trimmed = G.history_messages(history, "now?", budget=700)
+    assert trimmed[0]["content"].startswith("u7") and trimmed[-1]["content"] == "now?"

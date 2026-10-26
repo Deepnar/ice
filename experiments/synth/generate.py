@@ -29,14 +29,15 @@ sys.path.insert(0, str(ROOT))
 from experiments.synth.plans import PLANS, STYLES, validate  # noqa: E402
 
 POLICY = "ice-final-synth-generate-1"
-RECENT_PAIRS, MAX_TRIES = 6, 3
+RECENT_PAIRS, MAX_TRIES = 5, 3        # the simulated user sees the plan + the last 5 exchanges
+ASSISTANT_HISTORY_TOKENS = 28_000      # the simulated assistant sees the whole conversation, oldest
+                                       # trimmed only past its window (as a real chatbot would)
 SESSION_START, TURN_GAP = "19:00", timedelta(minutes=3)
 # Each side is "local:<ollama model>" or "cloud:<Z2 profile role>". Default (maintainer,
-# 2026-10-26): the simulated user runs locally — from the plan, the last RECENT_PAIRS
-# exchanges and the items due — and the assistant on a cheap cloud model. The local user
-# model is from a family used nowhere else in ICE's stack or FINAL's grading (not Gemma —
-# ICE's background model; not Qwen — the answerer and embedder).
-USER_SIDE, ASSISTANT_SIDE = "local:ministral-3:8b", "cloud:deepseek"
+# 2026-10-26): both sides local — the user from the plan, the last RECENT_PAIRS exchanges and
+# the items due; the assistant from the whole conversation, like a real chatbot. Mistral-family
+# models: neither Gemma (ICE's background model) nor Qwen (the answerer and embedder).
+USER_SIDE, ASSISTANT_SIDE = "local:ministral-3:8b", "local:mistral-nemo"
 LOCAL_NUM_CTX = 32_768
 
 USER_SYSTEM = """You write the next message of a USER chatting with an AI assistant, as the person
@@ -48,10 +49,33 @@ contain every item in MUST_SAY, worded naturally but with each VALUE written exa
 the user turns down that earlier suggestion. If NO_MEMORY_TOPIC is set, the message is
 instead a self-contained question about it. Return only the message text."""
 
-ASSISTANT_SYSTEM = """You are a helpful AI assistant replying to the user's latest message. Be natural and
-useful. If MUST_SUGGEST lists items, your reply proposes each one, with each VALUE written
-exactly as given, as a suggestion (not as something already decided). Never invent facts
-about the user beyond the conversation. Return only the reply text."""
+ASSISTANT_SYSTEM = """You are a helpful AI assistant in an ongoing conversation. Reply to the user's latest
+message naturally and usefully, drawing on everything said earlier in the conversation. Never
+invent facts about the user beyond the conversation."""
+
+
+def suggest_note(items):
+    """This turn's planned assistant suggestions, as an instruction appended to the system prompt."""
+    if not items:
+        return ""
+    lines = "\n".join(f"- {i['about']}: {i['value']}" for i in items)
+    return ("\n\nIn this reply, propose each of the following as a suggestion (not as something already "
+            f"decided), writing each value exactly as given:\n{lines}")
+
+
+def history_messages(history, user, budget=ASSISTANT_HISTORY_TOKENS):
+    """The whole conversation as chat messages, newest kept when it outgrows *budget* tokens."""
+    from src.memory.tokens import estimate_from_chars
+    size = lambda text: estimate_from_chars(len(text or ""))
+    msgs = [dict(role="user", content=user)]
+    used = size(user)
+    for pair in reversed(history):
+        cost = size(pair["user"]) + size(pair["assistant"])
+        if used + cost > budget:
+            break
+        msgs[:0] = [dict(role="user", content=pair["user"]), dict(role="assistant", content=pair["assistant"])]
+        used += cost
+    return msgs
 
 
 def norm(text):
@@ -117,10 +141,7 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
             RECENT=recent, MUST_SAY=must_say,
             NO_MEMORY_TOPIC=(session["topics"][0] if items["quiet"] and not must_say else None)),
             ensure_ascii=False))
-        reply = assistant_llm(ASSISTANT_SYSTEM, json.dumps(dict(
-            CONVERSATION=recent + [dict(user=user)],
-            MUST_SUGGEST=[dict(about=i["about"], value=i["value"]) for i in items["assistant"]]),
-            ensure_ascii=False))
+        reply = assistant_llm(ASSISTANT_SYSTEM + suggest_note(items["assistant"]), history_messages(history, user))
         problems = ([f"user missing {i['id']}: {i['value']}" for i in items["user"]
                      if i["change"] != "event" and not contains(user, i["value"])]
                     + [f"assistant missing {i['id']}: {i['value']}" for i in items["assistant"]
@@ -166,13 +187,15 @@ def run(plan, out, *, user_llm, assistant_llm, say=print):
 
 
 def local_caller(model, num_ctx=LOCAL_NUM_CTX):
-    """(system, prompt) -> text on a local Ollama model (thinking off, held while generating)."""
+    """(system, prompt or chat messages) -> text on a local Ollama model (thinking off, held
+    while generating; Ollama reuses its cache for a prompt that extends the previous one)."""
     import urllib.request
     from src.api.config import settings
 
     def call(system, prompt):
+        turns = prompt if isinstance(prompt, list) else [dict(role="user", content=prompt)]
         body = dict(model=model, stream=False, think=False, keep_alive="30m",
-                    messages=[dict(role="system", content=system), dict(role="user", content=prompt)],
+                    messages=[dict(role="system", content=system)] + turns,
                     options=dict(num_ctx=num_ctx, temperature=0.8, num_predict=2_000))
         request = urllib.request.Request(settings.ollama_base_url.rstrip("/") + "/api/chat",
                                          data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
@@ -199,7 +222,8 @@ def cloud_caller(role):
     gen = generator(role)
 
     def call(system, prompt):
-        result = gen.generate([dict(role="system", content=system), dict(role="user", content=prompt)],
+        turns = prompt if isinstance(prompt, list) else [dict(role="user", content=prompt)]
+        result = gen.generate([dict(role="system", content=system)] + turns,
                               temperature=0.8, max_output_tokens=4_000, session_id=f"ice-final-synth-{role}")
         return result.text
     return call
