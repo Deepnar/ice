@@ -10,8 +10,13 @@ Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DE
 - Datasets, each reported **separately, never pooled**: private B (sealed families; labelled
   development), A, D (labelled development), LAP, SW; synthetic S1–S9; BEAM 128K/500K/1M
   (40 conversations, MANIFEST seed 20261026); LongMemEval-S (100 instances, final_slice.json); LoCoMo (10 conversations, extra table).
-- Answerer local qwen3.8:27b, thinking on (Z2 D6c). Judge Muse 1.3; a second judge if chosen
-  before grading (D7). No tuning on any FINAL data.
+- Answerer Muse Spark 1.2, judge Muse Spark 1.3 (Z2 D6d; Z3 D13) — or the closest available
+  models at freeze if either is retired, recorded here before the first answer. The shared
+  family is measured, not assumed away: a cross-family judge re-grades ~300 answers and the
+  blind human sample is reported per condition; Muse writes none of the ground truth.
+  No tuning on any FINAL data.
+- The long-context window is fixed at freeze from the chosen answerer's window and the
+  measured cost per call, and named in every table ("long context, N K window").
 
 ## 2. The claim, and the three headline measures
 
@@ -85,5 +90,7 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
 ## 6. Left open by design (approved as such)
 - Second judge: benched until a cheap model exists at the time (D7); once chosen, recorded here
   before FINAL's grading.
+- Second-opinion models (cross-family judge, cloud-answerer subset), picked at the time from
+  families other than the answerer's; recorded here before use.
 - The cloud model for the full-history upper bound (≥ 256K window), picked at the time after the
   per-call cost check; recorded here before it answers.

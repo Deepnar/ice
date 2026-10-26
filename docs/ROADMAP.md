@@ -193,6 +193,12 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     **revision 2 approved the same day** (Z3 D12): headline = M1 accuracy, M2 supported current
     accuracy by evidence distance (replaces 1–5), M3 cost per correct answer; + A-Mem, LoCoMo extra
     table, BEAM 128K full-history upper bound. Estimate ≈ 35–38 GPU days.
+  - ✅ Models and run order decided (Z3 D13): Muse 1.2 answers, Muse 1.3 judges, no Muse in the
+    ground truth, GLM-5.3-Flash cross-judge sample; all local, then all cloud.
+  - ⚑ `main` has `d561cb5` + `95df259` (Z2 answerer → Muse 1.2, local-first order, D6d) — the
+    branch must take them at merge (conflicts expected in `experiments/z2/answers.py`).
+  - ☐ D13 code: `run_final.py` answers move into the cloud block; ledger chain without the Muse
+    tie-break (disputes dropped / to review); `muse12` answerer on the branch.
   - ☐ r2 machinery (FINAL_experiments.md §2.1 items 14–17): scoring r2 in grade/report, A-Mem
     adapter, LoCoMo adapter (download needs OK), full-history upper-bound runner.
   - ✅ memory-system baselines: Graphiti + Mem0 in an isolated env (`experiments/final/baselines/`,

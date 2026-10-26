@@ -270,3 +270,40 @@ Comparison set: own baselines (bare_vector, warm_vector, recent_only, long_conte
 BEAM 128K (cloud model, ≥ 256K window — the tier runs 100K–225K tokens, 15 of 20 over 128K)
 with ICE's contexts answered by the same model; **LoCoMo** as an extra table. Drop order and
 the never-dropped list are in the pre-registration §5. Estimate ≈ 35–38 GPU days.
+
+## D13 Models and run order for FINAL (maintainer, 2026-10-27)
+
+**Every role, as decided now** (any model may be swapped for the closest available one at
+the time, recorded before use — never silently):
+
+| Where | Role | Model |
+|---|---|---|
+| ICE itself (local, under test) | background model (summaries, facts, checks) | gemma4:e4b |
+| | encoder (classifier + embeddings) | Qwen3-Embedding-0.6B |
+| Memory-system baselines (local) | their LLM roles | qwen3.8:27b / gemma4:e4b |
+| | their embedder | nomic-embed-text |
+| Synthetic conversations (local) | user side / assistant side | ministral-3:8b / mistral-nemo |
+| Ground truth for private histories (cloud) | ledger + questions: writer / checker | DeepSeek V4.1 Flash / MiMo V2.6 Flash — **no Muse**; disputes dropped or sent to the maintainer's review |
+| | mechanical jobs (quote finding, dedupe, format) | a small local model |
+| Answers (cloud) | answerer, every condition | Muse Spark 1.2 |
+| Grading (cloud) | judge | Muse Spark 1.3 |
+| | cross-family judge, ~300 answers | GLM-5.3-Flash (qualified on the planted controls) |
+| | background-content audit second opinion | DeepSeek V4.1 Flash, 20% sample |
+| Comparisons (cloud) | cloud-answerer subset (~200) | a non-Meta family, picked at the time |
+| | BEAM 128K full-history upper bound | a ≥ 256K-window model, picked after the cost check |
+| People | blind check, ~100 answers | the maintainer |
+
+Already done, not re-run: synthetic plans and questions (Claude Haiku 5.5 agents).
+
+**Run order — all local, then all cloud.** Replay checkpoints at every session end, not at
+question points, so only reads need the questions.
+1. *Cloud, inside Z2's cloud block (same plan period):* the private ground truth for A, D,
+   SW, LAP (ledger, questions), then the maintainer's review.
+2. *Local:* fix-pass GPU tests → freeze → synthetic generation → every replay (private,
+   synthetic, BEAM, LongMemEval-S, LoCoMo, the three memory systems' ingestion) → every
+   read pass.
+3. *Cloud, one block:* every answer, grading, the cross-family judge, the cloud-answerer
+   subset, the full-history upper bound, the background-content audit.
+4. *People:* the blind human check.
+
+Planning rate for the local phase: ~10–12 GPU hours a day, up to ~15–16.
