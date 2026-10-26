@@ -183,7 +183,8 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   - ✅ synthetic generation: the assistant gets a local, plan-built briefing (never the probes) +
     the last 8 exchanges; drift checks; sides `--user/--assistant local:<model>|cloud:<role>`
     (assistant on a free/cheap cloud model when available, else local).
-  - ⚑ second judge: Claude Haiku 5.5 on OpenCode costs about as much as Luna per the plan's table
+  - ✅ resolved by Z3 D13 — a GLM-5.3-Flash cross-family judge on ~300 answers, no second full judge.
+    Was: second judge: Claude Haiku 5.5 on OpenCode costs about as much as Luna per the plan's table
     and the maintainer has no Anthropic API key — candidates GLM-5.3-flash / MiniMax-M3.1-flash
     (fifth families), qualified on the planted controls after the plan renews; pick the cheapest
     that passes. The haiku role stays in profiles.py unused until decided.
@@ -198,7 +199,9 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   - ⚑ `main` has `d561cb5` + `95df259` (Z2 answerer → Muse 1.2, local-first order, D6d) — the
     branch must take them at merge (conflicts expected in `experiments/z2/answers.py`).
   - ☐ D13 code: `run_final.py` answers move into the cloud block; ledger chain without the Muse
-    tie-break (disputes dropped / to review); `muse12` answerer on the branch.
+    tie-break (disputes dropped / to review); `muse12` answerer on the branch; the maintainer's data-use
+    acceptance for Muse 1.2 Contributor on FINAL's private prompts; paper-1 measures (prereg §4) in
+    grade/report — update accuracy, context precision, TUR, fidelity audit.
   - ☐ r2 machinery (FINAL_experiments.md §2.1 items 14–17): scoring r2 in grade/report, A-Mem
     adapter, LoCoMo adapter (download needs OK), full-history upper-bound runner.
   - ✅ memory-system baselines: Graphiti + Mem0 in an isolated env (`experiments/final/baselines/`,
@@ -208,7 +211,9 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     S1 turns for the maintainer to read, fix-pass GPU tests, short BEAM/LME-S/baseline trials; (3) plan
     renews (~Nov 8): Z2 grading, the 20-call cost check, private question chain + review; (4) Z2
     results → D9 clean-up and the fold decision → freeze; (5) pre-registration approved; (6) merge,
-    then FINAL. Pre-registration APPROVED 2026-10-26; second judge benched until a cheap model exists (approved).
+    then FINAL. Pre-registration APPROVED 2026-10-26 (r2); second judge → cross-family sample (Z3 D13).
+    **Superseded 2026-10-27 (Z3 D13):** Z2 S12 local now, then one cloud block (Z2 answers on Muse 1.2 +
+    grading + FINAL's private ground truth); fix-pass tests; freeze; FINAL local; FINAL cloud.
   - ☐ live trials when free: generator on 20 measured cloud calls; replay/read slices on GPU.
 - Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
   non-recursive and dated; S11's `loo_notes` vs `full` superseded-value rate decides it.
@@ -407,6 +412,8 @@ was missing a whole group. Three new items, all evidence-backed, none of them sp
   (unfenced code never reaches the knowledge graph; `is_document` set by counting `"Assistant:"`).
 Plus **[Z2](#z2)** below — the read-the-output pass — which is a *gate*, not a task.
 These are **not** this-session work; they are wired here so the next sessions pick them up in order.
+
+**⚑ For FINAL, superseded 2026-10-27 by [Z3 D13](specs/Z3_DECISIONS.md) (models per role, all local then all cloud, answerer and judge both Muse).**
 
 **🤖 AI-USAGE MAP — where LOCAL runs and where CLOUD earns its cost (decided 2026-07-25, user; standing reference for every later item).** Hardware: **24 GB VRAM + 64 GB RAM**. Cloud budget: **~₹5,000 (~$60) TOTAL, hard cap** — not a subscription.
 

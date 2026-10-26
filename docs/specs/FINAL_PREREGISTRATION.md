@@ -2,14 +2,17 @@
 
 **Status: revision 2 approved 2026-10-26** (revision 1 used the judge's 1–5 score as the headline;
 replaced before anything ran — 1–5 saturates: most answers in every condition score 4–5).
-Fixed before FINAL runs; nothing here changes after the first FINAL answer is graded. A change after that is a new revision, reported beside the first (Z3 D11 item 3).
+Amended before anything ran, 2026-10-27: models (§1, Z3 D13) and paper 1's measures (§4).
+Fixed before FINAL runs; nothing here changes after the first FINAL answer is graded. A change
+after that is a new revision, reported beside the first (Z3 D11 item 3).
 Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DECISIONS.md](Z3_DECISIONS.md).
 
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
 - Datasets, each reported **separately, never pooled**: private B (sealed families; labelled
   development), A, D (labelled development), LAP, SW; synthetic S1–S9; BEAM 128K/500K/1M
-  (40 conversations, MANIFEST seed 20261026); LongMemEval-S (100 instances, final_slice.json); LoCoMo (10 conversations, extra table).
+  (40 conversations, MANIFEST seed 20261026); LongMemEval-S (100 instances, final_slice.json);
+  LoCoMo (10 conversations, extra table).
 - Answerer Muse Spark 1.2, judge Muse Spark 1.3 (Z2 D6d; Z3 D13) — or the closest available
   models at freeze if either is retired, recorded here before the first answer. The shared
   family is measured, not assumed away: a cross-family judge re-grades ~300 answers and the
@@ -71,7 +74,21 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   common judge stated); it is the common ground of most memory papers.
 - **Evidence recall:** did the turn holding the answer reach the prompt? (BEAM evidence ids, plan
   and ledger citations.) Separates "memory did not find it" from "the model misread it".
-- **Pairwise preference** (both orders), the judge's 1–5 score, per-type tables — descriptive.
+- **Paper 1's measures, kept only where they add something (2026-10-27):**
+  *update accuracy* — M2 on the questions whose answer changed, asked after the change
+  (LSREP's evolving key: did the system follow the update?); *context precision* — the share
+  of prompt fragments that carry a required item, and the share that carry a wrong or outdated
+  one, for `full` and `bare_vector` (paper 1's SPF, made independent of fragment length: it
+  separates "memory served stale evidence" from "the model chose the old value"); M3 is
+  reported as **TUR** — correct answers per 1,000 prompt tokens (paper 1's ratio, now on a
+  yes/no outcome, so it is a real rate); the **fidelity audit** on B and S9 — per component:
+  did it run, is its output faithful (background-content audit), does it reach the prompt,
+  does switching it off lower M2 → *defective / unexercised / contributing / no measurable
+  effect*; the judge's 1–5 score and per-type tables as descriptive columns.
+  *Dropped:* the multi-answer ranking (win rate) — M1/M2 already compare conditions question
+  by question, and a preference ranking is where a same-family judge is most exposed;
+  recency Δ (the distance curve replaces it); ordinal net superiority (McNemar replaces it).
+  Human grades never enter an aggregate (paper 1 merged 72 of them); they are agreement only.
 - **Retention (S4)** by distance; **style invariance** S1 vs S8; **ablations** — leave-one-out on
   S9 and sealed B, build-up on S9 (a group earns its place when switching it off lowers M2 on the
   questions planned for it, interval excluding 0); **run-to-run variance** (S1 replayed twice);
@@ -88,9 +105,9 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   synthetic main runs.
 
 ## 6. Left open by design (approved as such)
-- Second judge: benched until a cheap model exists at the time (D7); once chosen, recorded here
-  before FINAL's grading.
-- Second-opinion models (cross-family judge, cloud-answerer subset), picked at the time from
-  families other than the answerer's; recorded here before use.
+- The cross-family judge (GLM-5.3-Flash as of 2026-10-27, Z3 D13) qualifies on the planted
+  controls before use; if it fails, another non-Meta family replaces it, recorded here.
+- The cloud-answerer subset's model, picked at the time from a non-Meta family; recorded here
+  before use.
 - The cloud model for the full-history upper bound (≥ 256K window), picked at the time after the
   per-call cost check; recorded here before it answers.

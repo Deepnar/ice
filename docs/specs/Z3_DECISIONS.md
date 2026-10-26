@@ -104,7 +104,7 @@ recent_only, bare_vector, long_context); not changed by the maintainer, not expl
 
 **Pick:** `recent_only`, `bare_vector` (budget-matched), `warm_vector`, `full` (neutral
 decay) and `full_default`, plus **a long-context baseline**: the newest history packed into
-the answerer's whole window (49,152 tokens), no memory system — the "just use a long
+the answerer's window (49,152 tokens for the local answerer; for FINAL fixed at freeze, D13), no memory system — the "just use a long
 context" answer to the v2 reviewers' straw-man-baseline criticism (FINAL_experiments.md
 criticism 1), which the current roster had lost. Optional: a frontier long-context model
 on a ~50-question sample if a venue requires it (cost per call ~the whole history).
@@ -122,11 +122,17 @@ replays; cost = reads + local answers (GPU days) + grading.
 
 ## D6 Answerer — as Z2 D6c (local qwen3.8:27b, thinking on); cloud-answerer subset built
 
+**Superseded 2026-10-27 by D13:** answers on Muse 1.2 (cloud); the laptop's daily hours made
+local answering too slow. The cloud-answerer subset stays (a non-Meta family).
+
 **Pick:** the same as Z2 D6c — local `qwen3.8:27b`, thinking on — so FINAL's answers cost
 GPU days, not plan money. Plus a ~200-answer cloud-answerer subset (a different family) to
 show whether the conclusions depend on the answerer.
 
 ## D7 ⚑ Judges
+
+**Superseded 2026-10-27 by D13:** judge Muse 1.3; no second full judge — a cross-family
+judge (GLM-5.3-Flash) re-grades ~300 answers. The Haiku pick below is dropped.
 
 **Benched 2026-10-26 (maintainer; confirmed the same day — benched until a cheap model is available
 at the time):** no second judge is fixed yet — no cheap model at hand
@@ -143,6 +149,8 @@ Haiku 5.5 on the plan (3,850 per 5 h by the table — check the real per-call co
 Report agreement; never average the two.
 
 ## D8 Time and money, rough
+
+**Superseded:** estimates in D12 and D13.
 
 **Superseded 2026-10-26** by the build list and run estimate in FINAL_experiments.md §2.1
 (≈ 30–32 GPU days with the S9 build-up and the memory-system baselines). MemoryAgentBench benched;
@@ -199,7 +207,8 @@ Leave-one-out (decided) switches off one part at a time with all others on. Its 
 two parts that cover for each other each look useless alone. A **build-up** starts from the
 bare system and adds one part at a time in Z2's frozen order, showing what each adds on top
 of the earlier ones (order-dependent: the first parts get the easy credit). Cost on S9:
-9 more conditions × 260 asks ≈ 2,300 local answers ≈ 2 GPU days. Recommended: yes.
+9 more conditions × 260 asks ≈ 2,300 local answers ≈ 2 GPU days. Recommended: yes. (With answers on
+the cloud, D13: ~0.3 GPU days of reads plus ~2,300 cloud answers.)
 
 ## D11 Research-paper gaps — when each is done (maintainer, 2026-10-26)
 
@@ -220,7 +229,7 @@ What a reviewer will look for that the current plan does not yet give:
 6. **Error analysis.** A small taxonomy of why answers failed (not retrieved, retrieved but
    misread, stale value used, attribution confused), from the graded answers.
 7. **Threats to validity, stated plainly:** synthetic users written by an LLM; private data is
-   one person's; LLM judges; the answerer is one local model (the cloud-answerer subset
+   one person's; LLM judges; the answerer is one cloud model, Muse 1.2 (the cloud-answerer subset
    addresses part of it); possible benchmark contamination of public sets.
 8. **Reproducibility package:** code, synthetic plans and conversations, BEAM/LongMemEval
    selections and seeds, model ids and settings — everything except the private histories.
@@ -241,12 +250,13 @@ is self-reported under different reader/judge models):** Graphiti (Zep's open-so
 knowledge graph — the closest design to ICE: bi-temporal facts that supersede each other, an
 entity graph; Zep's paper reports 71.2% on LongMemEval with GPT-4o) and Mem0 (the most-cited;
 its open-source SDK, not its managed platform). Both must run entirely in our setup: same
-LongMemEval-S slice, same local answerer, same judge. Cost: their ingestion makes several model
+LongMemEval-S slice, same answerer, same judge. Cost: their ingestion makes several model
 calls per session — on the 100-instance slice roughly 2–4 GPU days each with a local model.
 
 **Requirements (maintainer, 2026-10-26):** no paid service — the system's code must be open
-source and run locally, through our own adapter. Its LLM roles use FINAL's models (answerer
-qwen3.8:27b, background/extraction gemma4:e4b, judge Muse) in place of any API model; its small
+source and run locally, through our own adapter. Its LLM roles use FINAL's models in place of
+any API model — its background/extraction work on gemma4:e4b; its contexts answered by FINAL's
+answerer (Muse 1.2, D13) and graded by FINAL's judge, like every condition; its small
 parts (embedder, reranker) stay as the system itself chose them, run locally. Choose by three
 tests together: it runs locally; it has its own LongMemEval score at a good level; users
 regard its real-world output as good. Candidates: Graphiti (Zep), Mem0 (open-source SDK),
@@ -269,7 +279,9 @@ Comparison set: own baselines (bare_vector, warm_vector, recent_only, long_conte
 **Graphiti, Mem0 and A-Mem** run locally in the same setup; a **full-history upper bound** on
 BEAM 128K (cloud model, ≥ 256K window — the tier runs 100K–225K tokens, 15 of 20 over 128K)
 with ICE's contexts answered by the same model; **LoCoMo** as an extra table. Drop order and
-the never-dropped list are in the pre-registration §5. Estimate ≈ 35–38 GPU days.
+the never-dropped list are in the pre-registration §5. Estimate ≈ 35–38 GPU days with local
+answers (≈ 23–27 after D13). Which of paper 1's measures come back, and which are dropped:
+pre-registration §4.
 
 ## D13 Models and run order for FINAL (maintainer, 2026-10-27)
 
@@ -280,7 +292,8 @@ the time, recorded before use — never silently):
 |---|---|---|
 | ICE itself (local, under test) | background model (summaries, facts, checks) | gemma4:e4b |
 | | encoder (classifier + embeddings) | Qwen3-Embedding-0.6B |
-| Memory-system baselines (local) | their LLM roles | qwen3.8:27b / gemma4:e4b |
+| Memory-system baselines (local) | their background/extraction work | gemma4:e4b |
+| | their answers (cloud) | Muse Spark 1.2, like every condition |
 | | their embedder | nomic-embed-text |
 | Synthetic conversations (local) | user side / assistant side | ministral-3:8b / mistral-nemo |
 | Ground truth for private histories (cloud) | ledger + questions: writer / checker | DeepSeek V4.1 Flash / MiMo V2.6 Flash — **no Muse**; disputes dropped or sent to the maintainer's review |
@@ -306,4 +319,11 @@ question points, so only reads need the questions.
    subset, the full-history upper bound, the background-content audit.
 4. *People:* the blind human check.
 
-Planning rate for the local phase: ~10–12 GPU hours a day, up to ~15–16.
+Planning rate for the local phase: ~10–12 GPU hours a day, up to ~15–16. At ~11 h a day the
+local phase (≈ 23–27 GPU days once answering is on the cloud) takes ≈ 7–9 weeks, ≈ 6 with the
+pre-registered drop-order cuts; the cloud block ≈ 1–2 plan periods of allowance, sized from
+real calls by `experiments/z2/allowance.py` (TRAPS 148).
+
+**⚑ Data use, needs the maintainer's acceptance before FINAL's cloud block:** Muse Contributor
+models may train on prompts and are not zero-retention (Z2 spec, Data-use terms); the
+answerer sees every full memory prompt of the private histories A, D, SW, LAP.

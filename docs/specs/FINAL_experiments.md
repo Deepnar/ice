@@ -1,5 +1,10 @@
 # FINAL — Full experiment redo (evaluation redesign)
 
+**⚑ Current contract, 2026-10-27:** §2.1, [FINAL_PREREGISTRATION.md](FINAL_PREREGISTRATION.md)
+(r2) and [Z3_DECISIONS.md](Z3_DECISIONS.md) D10–D13. Where any older text in this file
+disagrees — answerer, judges and their families, providers, budgets, local answering — those
+win; the older text is kept as the record.
+
 **Correction, maintainer 2026-10-15:** the 2026-10-09 paragraph below conflates
 Z2 with FINAL. **Z2** (semi-LSREP on B and C, read-time ablations, background-
 content audit, LongMemEval oracle) is specified in [Z2_EVALUATION](Z2_EVALUATION.md)
@@ -115,6 +120,9 @@ design requirements:**
 >    kills: (i) **self-preference** — a judge systematically favours text from its own
 >    family, which is fatal here because `cloud_longctx` and `full_ice_cloud` are
 >    *answered by* a cloud model; (ii) idiosyncratic rubric drift. Rules:
+>    - **⚑ Superseded 2026-10-27 (Z3 D13):** answerer Muse 1.2 and judge Muse 1.3 share a family
+>      by decision; the bias is measured (cross-family judge on ~300 answers, blind human
+>      sample) and cancels in paired comparisons, since every condition shares the answerer.
 >    - **The judge must never share a family with the answerer.** If DeepSeek-V4-Flash
 >      answers `cloud_longctx`/`full_ice_cloud`, DeepSeek must NOT be a judge of those
 >      conditions. Record the answerer↔judge family matrix in the manifest and assert
@@ -459,7 +467,8 @@ Not on S1–S8 (a conversation built for one target leaves most groups with noth
 measure), and not on a molded BEAM or LongMemEval conversation (20 and ~1 questions each;
 molding needs our own ledger and discards the benchmark's validated questions). The 9-step
 additive ladder is reported from Z2, labelled pre-fix development evidence. **Build-up on S9 too
-(maintainer, 2026-10-26, Z3 D10):** the additive ladder runs on S9 in Z2's frozen order (~2 GPU days).
+(maintainer, 2026-10-26, Z3 D10):** the additive ladder runs on S9 in Z2's frozen order (~2 GPU days with local answers; ~0.3 of reads
+once answers are on the cloud, Z3 D13).
 
 **⚑ Public data — decided 2026-10-26.** LongMemEval-S as planned, unchanged: a
 100-instance slice stratified by question type, native protocol and upstream prompts,
@@ -495,7 +504,8 @@ per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3
 9. LongMemEval-S: `oracle.py` generalised to haystack instances (per-instance store,
    question-time maintenance, `all_evidence` control).
 10. Long-context baseline condition (newest history packed into the 49,152-token window).
-11. Second judge (Claude Haiku 5.5): D6a qualification with planted controls; agreement report.
+11. ~~Second judge (Claude Haiku 5.5)~~ → cross-family judge on ~300 answers (GLM-5.3-Flash,
+    Z3 D13): D6a qualification with planted controls; agreement report.
 12. Cloud-answerer subset (~200 answers) for answerer sensitivity.
 13. FINAL report: per-dataset tables, never pooled.
 
@@ -514,12 +524,13 @@ per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3
     appended); the same model also answers ICE's `full` contexts for those conversations.
 
 *Run estimate (GPU, continuous):* replays — B 0.5 d, private 0.5 d, synthetic ~2 d, BEAM ~7.3 d,
-LME-S ~4 d (≈ 14 d); reads ~2 d (~16,000 contexts); local answers ~10 d (~11,500 distinct
-prompts); S9 build-up ~2 d; memory-system baselines ~2–4 d; **r2 additions:** A-Mem ~2 d,
-LoCoMo (ICE + three systems) ~2–3 d. **≈ 35–38 GPU days (was ≈ 30–32 before r2) — days of the laptop running
-nonstop, as Z2 does; ≈ 4½–5 weeks with cooling pauses (≈ 3× longer if run only ~8 h a day).** Cloud: private ledgers, synthetic
-generation, two judges — sized from measured per-call cost (TRAPS 148), likely two plan
-periods. Levers if it runs long: BEAM 1M tier 10 → 5 (−3 d), fewer main conditions on BEAM,
+LME-S ~4 d (≈ 14 d); reads ~2 d (~16,000 contexts); answers on the cloud (Muse 1.2, Z3 D13 —
+~11,500 distinct prompts; were ~10 GPU days locally); S9 build-up ~0.3 d of reads (its ~2,300 answers on the cloud); memory-system baselines ~2–4 d; **r2 additions:** A-Mem ~2 d,
+LoCoMo (ICE + three systems) ~2–3 d; synthetic generation (local) ~1–1.5 d. **≈ 23–27 GPU days of
+local work (≈ 35–38 with local answers) — ≈ 7–9 weeks at ~11 GPU hours a day.** Cloud: the private
+ground truth inside Z2's cloud block; then one block — answers, the judge, the cross-family
+sample, the cloud-answerer subset, the full-history upper bound — sized from real calls by
+`experiments/z2/allowance.py` (TRAPS 148), ≈ 1–2 plan periods. Levers if it runs long: BEAM 1M tier 10 → 5 (−3 d), fewer main conditions on BEAM,
 LME-S 100 → 50 (−2 d).
 
 **Current roster, maintainer 2026-10-15 (supersedes the table below, kept as the
@@ -772,6 +783,9 @@ purchase ($0.80 minimum), no markup on inference itself, and **credits may expir
 one year after purchase**. So buy once, near the run — not early and not large.
 
 #### ⚑ FOUR DISTINCT MODEL FAMILIES ARE REQUIRED, not three (derived 2026-08-04)
+
+**Superseded 2026-10-27 by Z3 D13** (one cloud answerer for every condition; judge and
+answerer share the Muse family, measured).
 
 The AI-USAGE MAP's rule is "two judges of different families, and no judge may share
 a family with the answerer." Applying it to the actual condition set gives a
