@@ -30,13 +30,13 @@ from experiments.synth.plans import PLANS, STYLES, validate  # noqa: E402
 
 POLICY = "ice-final-synth-generate-1"
 RECENT_PAIRS, MAX_TRIES = 5, 3        # the simulated user sees the plan + the last 5 exchanges
-ASSISTANT_HISTORY_TOKENS = 28_000      # the simulated assistant sees the whole conversation, oldest
-                                       # trimmed only past its window (as a real chatbot would)
+ASSISTANT_RECENT_PAIRS = 8             # the simulated assistant: a plan-built briefing + the last 8
+                                       # exchanges (FINAL_experiments.md §2.1, decided 2026-10-26)
 SESSION_START, TURN_GAP = "19:00", timedelta(minutes=3)
-# Each side is "local:<ollama model>" or "cloud:<Z2 profile role>". Default (maintainer,
-# 2026-10-26): both sides local — the user from the plan, the last RECENT_PAIRS exchanges and
-# the items due; the assistant from the whole conversation, like a real chatbot. Mistral-family
-# models: neither Gemma (ICE's background model) nor Qwen (the answerer and embedder).
+# Each side is "local:<ollama model>" or "cloud:<Z2 profile role>" (maintainer, 2026-10-26):
+# the assistant runs on whatever free or cheap cloud model is available at the time
+# (--assistant cloud:<role>), else locally; prompts stay a few thousand tokens either way.
+# Mistral-family local defaults: neither Gemma (ICE's background model) nor Qwen (the answerer).
 USER_SIDE, ASSISTANT_SIDE = "local:ministral-3:8b", "local:mistral-nemo"
 LOCAL_NUM_CTX = 32_768
 
@@ -50,8 +50,77 @@ the user turns down that earlier suggestion. If NO_MEMORY_TOPIC is set, the mess
 instead a self-contained question about it. Return only the message text."""
 
 ASSISTANT_SYSTEM = """You are a helpful AI assistant in an ongoing conversation. Reply to the user's latest
-message naturally and usefully, drawing on everything said earlier in the conversation. Never
-invent facts about the user beyond the conversation."""
+message naturally and usefully. WHAT YOU KNOW lists what has been established earlier in this
+conversation: use it to stay consistent, but bring a point up only when the user's message is
+about it — do not recap it. Never invent facts about the user beyond what you know and the
+conversation shown."""
+
+ATTRIBUTION = {"decided": "the user decided", "preference": "the user's preference",
+               "instruction": "the user's standing instruction to you", "hypothetical": "the user only mused about",
+               "suggested": "you suggested", "rejected": "you suggested and the user turned down"}
+
+
+def session_index(plan):
+    out, turn = {}, 0
+    for s in plan["sessions"]:
+        for _ in range(s["pairs"]):
+            turn += 1
+            out[turn] = s["index"]
+    return out
+
+
+def never_again(fact):
+    """Planted once and never touched again (S4's retention facts)."""
+    return len(fact["values"]) == 1 and not fact.get("mentions")
+
+
+def briefing(plan, turn, sessions=None):
+    """The LOCAL facts the assistant may know before *turn*, built from the plan only: already
+    said, current value, attributed, active in this or the previous session or due again in this
+    one; never-again facts drop out once said; no probe ever shapes it."""
+    sessions = sessions or session_index(plan)
+    now = sessions[turn]
+    lines = []
+    for f in plan["facts"]:
+        touches = sorted([v["turn"] for v in f["values"]] + list(f.get("mentions") or []))
+        past = [t for t in touches if t < turn]
+        if not past or never_again(f):
+            continue
+        future = [t for t in touches if t >= turn]
+        active = sessions[past[-1]] >= now - 1 or (future and sessions[future[0]] == now)
+        if active:
+            lines.append(f"- {f['about']}: {value_before(f, turn)} ({ATTRIBUTION[f['status']]})")
+    for e in plan.get("events") or []:
+        if e["told_turn"] < turn and sessions[e["told_turn"]] >= now - 1:
+            lines.append(f"- {e['what']} (on {e['date']})")
+    return "\n".join(lines)
+
+
+def recent_messages(history, user, n=ASSISTANT_RECENT_PAIRS):
+    msgs = []
+    for pair in history[-n:]:
+        msgs += [dict(role="user", content=pair["user"]), dict(role="assistant", content=pair["assistant"])]
+    return msgs + [dict(role="user", content=user)]
+
+
+def drift_problems(plan, turn, user, reply):
+    """A briefed fact restated with an outdated value by the assistant, or a never-again fact
+    reappearing on either side after it was said."""
+    out = []
+    for f in plan["facts"]:
+        said = [v for v in f["values"] if v["turn"] < turn]
+        if not said:
+            continue
+        if never_again(f) and len(norm(f["values"][0]["value"])) >= 4:
+            if contains(user, f["values"][0]["value"]) or contains(reply, f["values"][0]["value"]):
+                out.append(f"never-again fact {f['id']} reappeared")
+            continue
+        current = norm(said[-1]["value"])
+        for old in said[:-1]:
+            o = norm(old["value"])
+            if len(o) >= 4 and o not in current and contains(reply, old["value"]):
+                out.append(f"assistant used outdated value of {f['id']}: {old['value']}")
+    return out
 
 
 def suggest_note(items):
@@ -63,19 +132,7 @@ def suggest_note(items):
             f"decided), writing each value exactly as given:\n{lines}")
 
 
-def history_messages(history, user, budget=ASSISTANT_HISTORY_TOKENS):
-    """The whole conversation as chat messages, newest kept when it outgrows *budget* tokens."""
-    from src.memory.tokens import estimate_from_chars
-    size = lambda text: estimate_from_chars(len(text or ""))
-    msgs = [dict(role="user", content=user)]
-    used = size(user)
-    for pair in reversed(history):
-        cost = size(pair["user"]) + size(pair["assistant"])
-        if used + cost > budget:
-            break
-        msgs[:0] = [dict(role="user", content=pair["user"]), dict(role="assistant", content=pair["assistant"])]
-        used += cost
-    return msgs
+
 
 
 def norm(text):
@@ -129,7 +186,7 @@ def session_of(plan):
     return out
 
 
-def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_llm):
+def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_llm, sessions=None):
     """One verified pair, or the last attempt with its problems."""
     recent = history[-RECENT_PAIRS:]
     must_say = [dict(about=i["about"], value=i["value"], kind=("paste" if i["paste"] else i["change"]))
@@ -141,11 +198,16 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
             RECENT=recent, MUST_SAY=must_say,
             NO_MEMORY_TOPIC=(session["topics"][0] if items["quiet"] and not must_say else None)),
             ensure_ascii=False))
-        reply = assistant_llm(ASSISTANT_SYSTEM + suggest_note(items["assistant"]), history_messages(history, user))
+        known = briefing(plan, turn, sessions)
+        system = (ASSISTANT_SYSTEM + f"\n\nWHAT YOU KNOW:\n{known or '- nothing yet'}"
+                  + "\n\nTODAY THE USER WANTS:\n" + "\n".join(f"- {b}" for b in session["beats"])
+                  + suggest_note(items["assistant"]))
+        reply = assistant_llm(system, recent_messages(history, user))
         problems = ([f"user missing {i['id']}: {i['value']}" for i in items["user"]
                      if i["change"] != "event" and not contains(user, i["value"])]
                     + [f"assistant missing {i['id']}: {i['value']}" for i in items["assistant"]
-                       if not contains(reply, i["value"])])
+                       if not contains(reply, i["value"])]
+                    + drift_problems(plan, turn, user, reply))
         if not problems:
             return dict(turn=turn, user=user, assistant=reply, attempts=attempt, verified=True)
     return dict(turn=turn, user=user, assistant=reply, attempts=MAX_TRIES, verified=False, problems=problems)
@@ -162,7 +224,7 @@ def run(plan, out, *, user_llm, assistant_llm, say=print):
             if line.strip():
                 row = json.loads(line)
                 done[row["turn"]] = row
-    schedule, when = due(plan), session_of(plan)
+    schedule, when, sessions = due(plan), session_of(plan), session_index(plan)
     history = [dict(user=done[t]["user"], assistant=done[t]["assistant"]) for t in sorted(done)]
     total = len(when)
     for turn in range(1, total + 1):
@@ -170,7 +232,8 @@ def run(plan, out, *, user_llm, assistant_llm, say=print):
             continue
         session, _ = when[turn]
         items = schedule.get(turn, dict(user=[], assistant=[], quiet=False))
-        row = generate_turn(plan, turn, session, history, items, user_llm=user_llm, assistant_llm=assistant_llm)
+        row = generate_turn(plan, turn, session, history, items, user_llm=user_llm, assistant_llm=assistant_llm,
+                            sessions=sessions)
         with store.open("a") as handle:
             handle.write(json.dumps(dict(row, policy=POLICY), ensure_ascii=False) + "\n")
         done[turn] = row

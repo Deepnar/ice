@@ -145,10 +145,28 @@ def test_plan_ledger_chains_changes_and_final_occurrences_add_negatives():
     assert sum(o["type"] == "negative" for o in final) == 8 and all(o["question"] for o in final)
 
 
-def test_assistant_sees_the_whole_conversation_trimmed_from_the_oldest():
+def test_briefing_holds_only_local_current_attributed_facts():
     from experiments.synth import generate as G
-    history = [dict(user=f"u{i} " + "x" * 400, assistant=f"a{i} " + "y" * 400) for i in range(10)]
-    full = G.history_messages(history, "now?", budget=10_000)
-    assert len(full) == 21 and full[0]["content"].startswith("u0") and full[-1]["content"] == "now?"
-    trimmed = G.history_messages(history, "now?", budget=700)
-    assert trimmed[0]["content"].startswith("u7") and trimmed[-1]["content"] == "now?"
+    p = plan()
+    p["facts"].append(dict(id="F3", about="childhood town", speaker="user", status="decided",
+                           values=[dict(turn=4, value="Ostmere", change="introduce")]))
+    assert "TransEuropa" not in G.briefing(p, 6)                                 # said once, never again
+    p["facts"][1]["mentions"] = [20]
+    early = G.briefing(p, 6)
+    assert "moving budget: 2,000 euros (the user decided)" in early
+    assert "TransEuropa (you suggested)" in early and "Ostmere" not in early      # never-again drops out
+    later = G.briefing(p, 31)
+    assert "2,500 euros" in later and "2,000 euros" not in later                 # current value only
+    assert "moving budget" not in G.briefing(p, 2)                               # nothing ahead
+
+
+def test_drift_checks_catch_outdated_values_and_reappearing_retention_facts():
+    from experiments.synth import generate as G
+    p = plan()
+    p["facts"].append(dict(id="F3", about="childhood town", speaker="user", status="decided",
+                           values=[dict(turn=4, value="Ostmere", change="introduce")]))
+    assert any("outdated" in x for x in G.drift_problems(p, 35, "ok", "your budget is 2,000 euros"))
+    assert any("never-again" in x for x in G.drift_problems(p, 40, "back in Ostmere we", "nice"))
+    assert G.drift_problems(p, 35, "ok", "your budget is 2,500 euros") == []
+    msgs = G.recent_messages([dict(user=f"u{i}", assistant=f"a{i}") for i in range(12)], "now?")
+    assert len(msgs) == 17 and msgs[0]["content"] == "u4" and msgs[-1]["content"] == "now?"
