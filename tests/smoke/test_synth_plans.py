@@ -95,3 +95,13 @@ def test_generator_plants_verifies_retries_and_resumes(tmp_path, monkeypatch):
     before = calls["user"]
     G.run(p, tmp_path, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None)
     assert calls["user"] == before                                      # resumed: nothing regenerated
+
+
+def test_a_rejection_happens_once_at_its_first_mention():
+    from experiments.synth import generate as G
+    p = plan()
+    p["facts"][1].update(status="rejected", mentions=[9])
+    d = G.due(p)
+    rejects = [(t, i) for t, slot in d.items() for i in slot["user"] if i["change"] == "reject"]
+    assert [t for t, _ in rejects] == [9]
+    assert not any(i["change"] == "mention" and i["id"] == "F2" for s in d.values() for i in s["user"])

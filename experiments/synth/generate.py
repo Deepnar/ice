@@ -66,9 +66,14 @@ def due(plan):
             item = dict(id=f["id"], about=f["about"], value=v["value"], change=v["change"],
                         status=f["status"], paste=bool(f.get("in_paste")))
             slot(v["turn"])[side].append(item)
-            if f["status"] == "rejected" and v["change"] == "introduce":
-                slot(v["turn"] + 1)["user"].append(dict(item, change="reject", value=v["value"]))
-        for m in f.get("mentions") or []:
+        mentions = list(f.get("mentions") or [])
+        if f["status"] == "rejected":
+            # The user turns the suggestion down at its first mention (plans record the
+            # rejection there), or on the next turn when the plan gives none.
+            turn = mentions.pop(0) if mentions else f["values"][0]["turn"] + 1
+            slot(turn)["user"].append(dict(id=f["id"], about=f["about"], value=f["values"][0]["value"],
+                                           change="reject", status="rejected", paste=False))
+        for m in mentions:
             slot(m)["user"].append(dict(id=f["id"], about=f["about"], value=value_before(f, m),
                                         change="mention", status=f["status"], paste=False))
     for e in plan.get("events") or []:
