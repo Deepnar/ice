@@ -158,9 +158,21 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
 - ✅ Z3 decided 2026-10-26 (FINAL_experiments.md §2.1): private B/A/D/laptop/software, BEAM 40
   conversations (`experiments/beam/`), synthetic S1–S8 + S9 ablation conversation,
   LongMemEval-S slice unchanged, MemoryAgentBench benched, stitched ICE chat dropped.
-- ☐ FINAL build list (§2.1, items 5–13): FINAL runner, synthetic generator, BEAM adapter,
-  LME-S slice + replay, long-context baseline, second judge, cloud-answerer subset, report.
-  Data curation (items 1–4) needs the renewed plan for the cloud parts.
+- FINAL build list (§2.1, items 5–13) — state 2026-10-26:
+  - ✅ synthetic: plan format + validator (`experiments/synth/plans.py`), answer keys from the
+    plan (`keys.py`), turn-by-turn generator (`generate.py`, fakes-tested; cloud run pending).
+  - ✅ synthetic plans S1–S9 written by Claude Haiku 5.5 agents, all validating; S8 = S1's style
+    twin with identical asks; S9 26 asks per component. Occurrences committed beside the plans.
+  - ✅ BEAM: pinned + selected (`experiments/beam/select.py`, MANIFEST), adapter (`adapter.py`:
+    originals with BEAM's own dates, asks, nugget + tau-b scoring).
+  - ✅ LongMemEval-S: slice pinned (`experiments/lme/final_slice.json`); `oracle.py --dataset s --slice`.
+  - ✅ long-context baseline read condition (`read_passes` `long_context`).
+  - ☐ FINAL runner (`run_z2.py` over the history registry: private, synthetic, BEAM, LME-S).
+  - ☐ question phrasing for synthetic asks (Z2's phrasing + check, plus never-said negatives).
+  - ☐ second judge (Haiku 5.5 profile + D6a qualification), cloud-answerer subset, FINAL report.
+  - ☐ private data: originals for A, D, the laptop thread (DeepSeek export), software project;
+    then Z2's S1–S6 ledger/question chain (cloud, after the plan renews) + maintainer review.
+  - ⚑ Open: additive build-up ablation on S9 too (recommended; ~2 GPU days).
 - Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
   non-recursive and dated; S11's `loo_notes` vs `full` superseded-value rate decides it.
 - Merge after S12 reads: quick + db smoke groups on the branch, the ⏳ tests, then merge.
