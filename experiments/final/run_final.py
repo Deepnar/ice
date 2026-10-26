@@ -190,7 +190,8 @@ class SynthGenerate(Z.Stage):
 
     def __init__(self, sid):
         h = HISTORIES[sid]
-        super().__init__(key=f"prep-generate-{sid}", title=f"generate {sid}", unit="turns", estimate=20.0)
+        super().__init__(key=f"prep-generate-{sid}", title=f"generate {sid}", unit="turns", estimate=20.0,
+                         needs=("prep-synth-derive",))
         self.sid, self.turns, self.out = sid, h.turns, ROOT / f"logs/final-synth/{sid}"
 
     def total(self, ctx):
@@ -360,7 +361,14 @@ def final_stages(limit=None):
         from experiments.beam.adapter import export
         export(ROOT / "logs/final-beam")
 
-    out = [Once("prep-asks-B", "B's FINAL asks (sealed families)", [b_asks], write_b_asks,
+    def derive_synth():
+        import subprocess
+        subprocess.run([sys.executable, "experiments/synth/derive.py"], check=True, cwd=ROOT)
+
+    from experiments.synth.derive import derived_paths
+    out = [Once("prep-synth-derive", "synthetic derived files (regenerated, checked against pins)",
+                derived_paths(), derive_synth),
+           Once("prep-asks-B", "B's FINAL asks (sealed families)", [b_asks], write_b_asks,
                 inputs=[z2q / "split/final-sealed.json", z2q / "occurrences.json"]),
            Once("prep-beam-export", "BEAM export (40 conversations)",
                 [HISTORIES[k].path("asks") for k in BEAM], export_beam),

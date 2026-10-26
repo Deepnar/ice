@@ -65,16 +65,10 @@ HISTORIES.update(FINAL_PRIVATE)
 # experiments/synth/generate.py into logs/final-synth/<id>/, asks checked and committed
 # beside the plans (experiments/synth/plans/<id>.asks.json).
 def _synthetic():
-    import json
-    out = {}
-    plans = ROOT / "experiments/synth/plans"
-    for path in sorted(plans.glob("S*.json")):
-        if not path.stem[1:].isdigit():
-            continue
-        pairs = sum(s["pairs"] for s in json.loads(path.read_text())["sessions"])
-        out[path.stem] = History(path.stem, f"syn{path.stem.lower()}", f"logs/final-synth/{path.stem}/originals.json",
-                                 pairs, True, 0, 1.0, 0, asks=f"experiments/synth/plans/{path.stem}.asks.json")
-    return out
+    from experiments.synth.plans import BRIEFS
+    return {sid: History(sid, f"syn{sid.lower()}", f"logs/final-synth/{sid}/originals.json", brief["pairs"], True,
+                         0, 1.0, 0, asks=f"experiments/synth/plans/{sid}.asks.json")
+            for sid, brief in BRIEFS.items()}
 
 
 # FINAL BEAM histories (source clock): the 40 MANIFEST conversations, exported by

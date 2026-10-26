@@ -1,0 +1,6 @@
+# Derived from the plans and question files by experiments/synth/derive.py (pinned in DERIVED.sha256).
+S8.json
+*.occurrences.json
+*.asks.json
+*.final-occurrences.json
+*.ledger.json
