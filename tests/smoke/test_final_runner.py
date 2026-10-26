@@ -31,3 +31,10 @@ def test_s1_is_replayed_twice_into_separate_stores():
     assert first.database(ctx) != again.database(ctx)
     assert stages["local-read-S1-repeat"].replay is again and stages["local-read-S1-repeat"].preset == "final_main"
     assert stages["local-answers-S1-repeat"].needs == ("local-read-S1-repeat",)
+
+
+def test_memory_baselines_are_stages_after_the_lme_reads():
+    stages = {s.key: s for s in F.final_stages()}
+    for system in ("graphiti", "mem0"):
+        assert stages[f"local-baseline-{system}"].needs == ("local-lmes",)
+        assert stages[f"grade-baseline-{system}"].needs == (f"local-answers-baseline-{system}",)

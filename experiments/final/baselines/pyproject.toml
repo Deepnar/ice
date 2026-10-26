@@ -1,0 +1,10 @@
+[project]
+name = "ice-final-baselines"
+version = "0.1.0"
+description = "FINAL's memory-system baselines (Graphiti, Mem0), isolated from ICE's environment"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "graphiti-core[kuzu]>=0.31.2",
+    "mem0ai>=2.2.1",
+    "ollama>=0.6.3",
+]

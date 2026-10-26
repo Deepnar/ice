@@ -303,6 +303,50 @@ def beam_grade(key, judge="muse"):
     return FinalGrade(f"grade-{key}", f"grade {key}", args, (), judge)
 
 
+class Baseline(Z.Stage):
+    """A memory-system baseline on the LongMemEval-S slice, run in its own environment
+    (experiments/final/baselines/run_baseline.py)."""
+
+    BASE = ROOT / "experiments/final/baselines"
+
+    def __init__(self, system):
+        super().__init__(key=f"local-baseline-{system}", title=f"baseline {system} (LongMemEval-S)",
+                         needs=("local-lmes",), unit="questions", estimate=2_400.0)
+        self.system = system
+
+    def out(self, ctx):
+        return ctx.dir / self.key
+
+    def total(self, ctx):
+        return json.loads((ROOT / "experiments/lme/final_slice.json").read_text())["size"]
+
+    def done(self, ctx):
+        return len(list((self.out(ctx) / "instances").glob("*/done.json")))
+
+    def complete(self, ctx):
+        return self.done(ctx) >= self.total(ctx)
+
+    def run(self, ctx):
+        import os
+        log_path = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            cmd = ["uv", "run", "--no-sync", "--project", str(self.BASE), "python", str(self.BASE / "run_baseline.py"),
+                   "--system", self.system, "--ice-units", str(ctx.dir / "local-lmes"), "--out", str(self.out(ctx))]
+            os.environ.setdefault("MEM0_TELEMETRY", "False")
+            env_before = os.environ.get("UV_PROJECT_ENVIRONMENT")
+            os.environ["UV_PROJECT_ENVIRONMENT"] = str(self.BASE / ".venv")
+            try:
+                return ctx.run_child(cmd, log_path), Z._tail(log_path)
+            finally:
+                if env_before is None:
+                    os.environ.pop("UV_PROJECT_ENVIRONMENT", None)
+                else:
+                    os.environ["UV_PROJECT_ENVIRONMENT"] = env_before
+
+        return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
 def final_stages(limit=None):
     b_asks = ROOT / "logs/final-questions/B/asks.json"
     z2q = ROOT / "logs/z2-questions-final/B"
@@ -346,6 +390,11 @@ def final_stages(limit=None):
                       "answers", needs=(dk,))]
     out += [LongMemEvalS(), Z.Answers("lmes", key="local-answers-lmes", title="answers LongMemEval-S",
                                      units_key="local-lmes", needs=("local-lmes",), planned=600, estimate=60.0)]
+    # Memory-system baselines (Z3 D11; which one(s) to run is decided at the time — pick with --only).
+    for system in ("graphiti", "mem0"):
+        out += [Baseline(system), Z.Answers(f"baseline-{system}", key=f"local-answers-baseline-{system}",
+                                            title=f"answers baseline {system}", units_key=f"local-baseline-{system}",
+                                            needs=(f"local-baseline-{system}",), planned=100, estimate=60.0)]
     # Cloud judging, last: one judge (Muse) now; a second judge, when chosen, is another pass
     # with --judge <role> into its own stage keys (Z3 D7, benched).
     for k in PRIVATE + list(SYNTHETIC):
@@ -359,6 +408,12 @@ def final_stages(limit=None):
                              "--units", str(Z._rel(ctx.dir / "local-lmes")), "--answers",
                              str(Z._rel(ctx.dir / "local-answers-lmes")), "--out", str(Z._rel(out))]
     out.append(FinalGrade("grade-lmes", "grade LongMemEval-S", lmes, ("local-answers-lmes",)))
+    for system in ("graphiti", "mem0"):
+        args = (lambda sysname: lambda ctx, out: ["experiments/z2/oracle.py", "grade", "--dataset", "s",
+                "--units", str(Z._rel(ctx.dir / f"local-baseline-{sysname}")), "--answers",
+                str(Z._rel(ctx.dir / f"local-answers-baseline-{sysname}")), "--out", str(Z._rel(out))])(system)
+        out.append(FinalGrade(f"grade-baseline-{system}", f"grade baseline {system}", args,
+                              (f"local-answers-baseline-{system}",)))
     return out
 
 
