@@ -1,0 +1,2034 @@
+{
+ "id": "S7",
+ "persona": {
+  "name": "Ines Varga",
+  "situation": "32, works in claims operations at a regional insurer by day. Runs four side projects and keeps them all in one chat: a flatmate bill-splitting app (Pebble), a literary mystery novel (Harrow), a small online ceramics shop (Kiln Road), and half-marathon training (Stride). Switches between them constantly, sometimes twice in one message.",
+  "voice": "casual, mostly lowercase, medium-length messages, 'ok so', 'lol', 'pls', few capitals; never formal headers"
+ },
+ "sessions": [
+  {
+   "index": 1,
+   "date": "2026-02-09",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Software_&_Tech",
+    "Creative_&_Media",
+    "Meta_AI"
+   ],
+   "intents": [
+    "Generation",
+    "Analysis_&_Summarization"
+   ],
+   "beats": [
+    "Ines says she juggles four side projects and wants the assistant to keep them straight.",
+    "Pebble: flatmate chore and bill splitter; private beta due 2026-05-15; Brightwave for sync; React Native with Expo; Rafi Mendes on the backend.",
+    "Harrow: literary mystery in a Lancashire mill town, working title The Quiet Mills, first full draft due 2026-07-01.",
+    "Ends by asking what the assistant has noted about the app so far (Meta_AI)."
+   ]
+  },
+  {
+   "index": 2,
+   "date": "2026-02-12",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Software_&_Tech",
+    "Creative_&_Media",
+    "Meta_AI"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Pebble: six flatmates per group, servers in London, two-week sprints.",
+    "Harrow: 90,000 word target, first-person narrator Ruth Calder, set in summer 1923, drafting in Scrivener.",
+    "Switches back to Pebble mid-message to ask about the sprint length.",
+    "Asks what the assistant remembers about the novel (Meta_AI)."
+   ]
+  },
+  {
+   "index": 3,
+   "date": "2026-02-19",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Generation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Kiln Road Ceramics opens: hand-thrown mugs and planters, glaze from Harbourline Glaze Co.",
+    "Pebble pro tier set at 3.99 pounds a month.",
+    "Harrow: 22 chapters, 1,200 words on weekdays, writes 6 to 7:30am before work.",
+    "Stride: long runs on Sunday mornings, target pace 5:45 per km."
+   ]
+  },
+  {
+   "index": 4,
+   "date": "2026-02-21",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Software_&_Tech",
+    "Business_&_Finance",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Troubleshooting",
+    "Analysis_&_Summarization"
+   ],
+   "beats": [
+    "Crash reports: assistant proposes Bugsnag, Ines goes with Sentry instead.",
+    "Pebble beta: 25 testers from two flatmate WhatsApp groups.",
+    "Kiln Road: 24 pound tall speckled mug, Shopify Starter plan, restock on Thursdays.",
+    "Harrow: victim is Enid Harlow; Marguerite Oyelaran will beta-read each chapter.",
+    "Stride: 9,000 steps a day, morning runs at 6:15 before the office."
+   ]
+  },
+  {
+   "index": 5,
+   "date": "2026-03-02",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Lifestyle_&_Health",
+    "Software_&_Tech",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Generation"
+   ],
+   "beats": [
+    "Accountant Priya Sandhu does the books each quarter.",
+    "Stock warehouse is a rented unit in Leeds.",
+    "Pebble bug triage on Tuesday mornings only.",
+    "Harrow: Tobias Wren the ferryman is the chief suspect.",
+    "Stride: hydration target of 2.5 litres a day."
+   ]
+  },
+  {
+   "index": 6,
+   "date": "2026-03-07",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Software_&_Tech",
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Generation",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Pebble test phone is a Pixel 8a; they troubleshoot an Android crash on that build.",
+    "Harrow ending: closed, on the flooded mill.",
+    "Kiln Road free UK shipping over a 40 pound basket.",
+    "Stride: swimming Tuesdays, Brindle Street Gym at 32 pounds a month, Monday rest day.",
+    "Asks for a short release-note line for Pebble (Generation)."
+   ]
+  },
+  {
+   "index": 7,
+   "date": "2026-03-19",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Software_&_Tech",
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Meta_AI"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Kiln Road newsletter runs on Mailchimp; assistant suggests Klaviyo, Ines keeps Mailchimp.",
+    "Pebble rule: never auto-charge a flatmate without asking first.",
+    "Harrow: maybe query about 12 agents in September, after the draft.",
+    "Stride: coach Dana Whitcombe does a weekly check-in call.",
+    "Asks what the assistant remembers about the shop (Meta_AI)."
+   ]
+  },
+  {
+   "index": 8,
+   "date": "2026-03-23",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Business_&_Finance",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Decision_Making",
+    "Generation"
+   ],
+   "beats": [
+    "Running shoes: assistant suggests Asics Novablast, Ines passes, picks Hoka Clifton 9.",
+    "12-week training block starts now.",
+    "Kiln Road returns: always 14 days, no questions asked.",
+    "VAT registration for Kiln Road came through last Friday.",
+    "Pebble flatmate cap and hosting region come up again in passing."
+   ]
+  },
+  {
+   "index": 9,
+   "date": "2026-03-29",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Creative_&_Media",
+    "Software_&_Tech",
+    "Business_&_Finance",
+    "Meta_AI"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Generation"
+   ],
+   "beats": [
+    "Harrow correction: the victim is Edith Harlow, typed Enid by mistake.",
+    "Pebble beta slips to 2026-06-12.",
+    "Kiln Road ad spend 300 pounds a month; Harbourline net 30 terms.",
+    "Harrow setting and daily word target come up again.",
+    "Asks what the assistant remembers about the app (Meta_AI)."
+   ]
+  },
+  {
+   "index": 10,
+   "date": "2026-04-06",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Software_&_Tech",
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Troubleshooting",
+    "Analysis_&_Summarization"
+   ],
+   "beats": [
+    "Pebble private beta invites went out last Friday.",
+    "Pebble moves the database off Supabase to self-hosted Postgres on a Hetzner box.",
+    "Harrow: maybe a novella prequel about the ferry crossing.",
+    "Kiln Road newsletter reaches 340 subscribers.",
+    "Stride: running shoes come up again."
+   ]
+  },
+  {
+   "index": 11,
+   "date": "2026-04-09",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Creative_&_Media",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Knee twinge after a 14k run; they work through whether to keep running (Troubleshooting).",
+    "Harrow deadline pushed to 2026-08-15 after the rewrite.",
+    "Kiln Road free-shipping threshold and the Sentry crash tool come up.",
+    "Stride: morning run time comes back."
+   ]
+  },
+  {
+   "index": 12,
+   "date": "2026-04-19",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Software_&_Tech",
+    "Business_&_Finance",
+    "Lifestyle_&_Health",
+    "Creative_&_Media",
+    "Meta_AI"
+   ],
+   "intents": [
+    "Decision_Making",
+    "Generation"
+   ],
+   "beats": [
+    "Pebble database reversal: back to Supabase, self-hosting was too much.",
+    "Harrow ending reversal: open ending, the mill is never reached.",
+    "Stride pace now 5:30 per km; back running after a rest week.",
+    "Kiln Road: the tall speckled mug is about 60 percent of orders.",
+    "Asks what they decided about the database (Meta_AI)."
+   ]
+  },
+  {
+   "index": 13,
+   "date": "2026-04-21",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Software_&_Tech",
+    "Lifestyle_&_Health",
+    "World_&_Current_Events"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Pebble pro goes to 4.49 pounds because the Brightwave bill went up.",
+    "Harrow: 24 chapters after splitting chapter nine; Edith spelling checked.",
+    "Royal Mail strike delaying parcels two to three days.",
+    "Stride: gym and Tuesday swim check-in."
+   ]
+  },
+  {
+   "index": 14,
+   "date": "2026-04-28",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Creative_&_Media",
+    "Business_&_Finance",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Generation",
+    "Analysis_&_Summarization"
+   ],
+   "beats": [
+    "Harrow title changes to Low Water.",
+    "Kiln Road mug goes to 26 pounds after the glaze price rise.",
+    "Stride: sleep target 7.5 hours a night.",
+    "Pebble beta tester count and supplier payment terms come up."
+   ]
+  },
+  {
+   "index": 15,
+   "date": "2026-05-03",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech"
+   ],
+   "intents": [
+    "Generation",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Harrow word target cut to 85,000 after the editor's advice.",
+    "Stride: longest run now 18 km.",
+    "Pebble database, auto-charge rule and Tuesday triage recalled.",
+    "Kiln Road returns window and Stride hydration recalled."
+   ]
+  },
+  {
+   "index": 16,
+   "date": "2026-05-14",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Software_&_Tech",
+    "Lifestyle_&_Health",
+    "Creative_&_Media",
+    "World_&_Current_Events",
+    "Meta_AI"
+   ],
+   "intents": [
+    "Decision_Making",
+    "Analysis_&_Summarization"
+   ],
+   "beats": [
+    "Royal Mail strike called off; deliveries back to normal.",
+    "Stride step target up to 11,000 a day.",
+    "Harrow passed 40,000 words four days ago.",
+    "Pebble flatmate cap and sprint length recalled.",
+    "Asks what the assistant remembers about the shop (Meta_AI)."
+   ]
+  },
+  {
+   "index": 17,
+   "date": "2026-05-18",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Software_&_Tech",
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Troubleshooting",
+    "Generation"
+   ],
+   "beats": [
+    "Kiln Road: Etsy listing added for the mugs next to Shopify.",
+    "Pebble app store review rejected over a permission string; they troubleshoot it.",
+    "Harrow daily word target and novel title recalled.",
+    "Kiln Road newsletter subscriber count and Pebble concept recalled."
+   ]
+  },
+  {
+   "index": 18,
+   "date": "2026-05-24",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Lifestyle_&_Health",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Generation"
+   ],
+   "beats": [
+    "Kiln Road ad spend cut to 220 pounds after the ROAS review.",
+    "Harrow narrator and Pebble pro price recalled.",
+    "Stride long-run day recalled."
+   ]
+  },
+  {
+   "index": 19,
+   "date": "2026-06-02",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Software_&_Tech",
+    "Creative_&_Media",
+    "Meta_AI"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Kiln Road newsletter at 412 subscribers.",
+    "Newsletter tool Mailchimp recalled.",
+    "Harrow chapter count recalled.",
+    "Stride sleep target recalled.",
+    "Asks what the assistant remembers about the novel (Meta_AI)."
+   ]
+  },
+  {
+   "index": 20,
+   "date": "2026-06-05",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health",
+    "Software_&_Tech",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Generation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Harrow agent query plan and writing time slot recalled.",
+    "Pebble co-builder Rafi recalled.",
+    "Kiln Road bestseller recalled.",
+    "Stride swim day recalled."
+   ]
+  },
+  {
+   "index": 21,
+   "date": "2026-06-13",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media",
+    "Software_&_Tech",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "Kiln Road returns window recalled.",
+    "Harrow daily word target recalled.",
+    "Troubleshooting: Instagram reach dropped after the budget cut."
+   ]
+  },
+  {
+   "index": 22,
+   "date": "2026-06-18",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Creative_&_Media",
+    "Software_&_Tech",
+    "Meta_AI"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Generation"
+   ],
+   "beats": [
+    "Harrow draft deadline recalled (2026-08-15).",
+    "Kiln Road free-shipping threshold recalled.",
+    "Asks what date they gave for the draft (Meta_AI)."
+   ]
+  },
+  {
+   "index": 23,
+   "date": "2026-06-20",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Business_&_Finance",
+    "World_&_Current_Events"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Asks if Royal Mail is back to normal (general question, no memory needed).",
+    "Stride race goal recalled: Ridgeway Half on 2026-10-11.",
+    "Decision between two ways to handle delayed parcels to customers."
+   ]
+  },
+  {
+   "index": 24,
+   "date": "2026-06-27",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Software_&_Tech",
+    "Creative_&_Media",
+    "Business_&_Finance",
+    "Lifestyle_&_Health",
+    "Meta_AI"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Generation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Wrap-up: asks for a status across all four projects (Meta_AI).",
+    "Pebble pro price 4.49 pounds recalled.",
+    "Harrow word target 85,000 recalled.",
+    "Picks next steps for each project."
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "id": "F001",
+   "about": "Pebble app concept",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 1,
+     "value": "a flatmate chore and bill splitter for iOS and Android",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    135,
+    403
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F002",
+   "about": "novel working title",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 4,
+     "value": "The Quiet Mills",
+     "change": "introduce"
+    },
+    {
+     "turn": 340,
+     "value": "Low Water",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    136,
+    421
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F003",
+   "about": "novel genre and setting",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 6,
+     "value": "literary mystery set in a Lancashire mill town",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    187
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F004",
+   "about": "Pebble private beta deadline",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 9,
+     "value": "private beta due 2026-05-15",
+     "change": "introduce"
+    },
+    {
+     "turn": 206,
+     "value": "private beta slipped to 2026-06-12",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    89,
+    281
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F005",
+   "about": "Pebble sync and push API provider",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 12,
+     "value": "Brightwave Data for push and sync",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    103,
+    290
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F006",
+   "about": "Pebble app framework",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 14,
+     "value": "React Native with Expo",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    152
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F007",
+   "about": "Pebble co-builder and backend owner",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 16,
+     "value": "Rafi Mendes handles the backend",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    203,
+    479
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F008",
+   "about": "novel first full draft deadline",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 20,
+     "value": "first full draft due 2026-07-01",
+     "change": "introduce"
+    },
+    {
+     "turn": 267,
+     "value": "pushed to 2026-08-15 after the rewrite",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    169,
+    534
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow",
+   "twin_of": "F004"
+  },
+  {
+   "id": "F009",
+   "about": "autumn half marathon",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 28,
+     "value": "Ridgeway Half Marathon on 2026-10-11",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    212,
+    399,
+    560
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride"
+  },
+  {
+   "id": "F010",
+   "about": "novel total word count target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 29,
+     "value": "90,000 words",
+     "change": "introduce"
+    },
+    {
+     "turn": 359,
+     "value": "85,000 words after the editor's cut advice",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    144,
+    589
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F011",
+   "about": "Pebble flatmates per group",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 30,
+     "value": "six flatmates per group",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    183,
+    395
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F012",
+   "about": "novel setting year",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 34,
+     "value": "summer 1923",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    210
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F013",
+   "about": "Pebble server region",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 36,
+     "value": "eu-west-2 (London) for the servers",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    193
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F014",
+   "about": "novel narrator",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 39,
+     "value": "Ruth Calder, first person, past tense",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    155,
+    434
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F015",
+   "about": "Pebble sprint length",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 43,
+     "value": "two-week sprints",
+     "change": "introduce"
+    },
+    {
+     "turn": 253,
+     "value": "ten-day sprints now",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    120,
+    391
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F016",
+   "about": "novel writing software",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 46,
+     "value": "Scrivener on the laptop",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    127
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F017",
+   "about": "novel chapter count",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 52,
+     "value": "22 chapters",
+     "change": "introduce"
+    },
+    {
+     "turn": 306,
+     "value": "24 chapters after splitting chapter nine",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    462
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F018",
+   "about": "Pebble database hosting",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 54,
+     "value": "Supabase, hosted Postgres",
+     "change": "introduce"
+    },
+    {
+     "turn": 238,
+     "value": "self-hosted Postgres on a Hetzner box",
+     "change": "update"
+    },
+    {
+     "turn": 284,
+     "value": "back to Supabase, self-hosting was too much",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [
+    352
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F019",
+   "about": "long run day",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 56,
+     "value": "long run on Sunday mornings",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    208,
+    440
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride"
+  },
+  {
+   "id": "F020",
+   "about": "Pebble pro tier monthly price",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 59,
+     "value": "3.99 pounds a month for pro",
+     "change": "introduce"
+    },
+    {
+     "turn": 311,
+     "value": "4.49 pounds a month, because the Brightwave bill went up",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    129,
+    432,
+    584
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Pebble"
+  },
+  {
+   "id": "F021",
+   "about": "novel daily word target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 61,
+     "value": "1,200 words a day on weekdays",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    215,
+    406,
+    504
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F022",
+   "about": "shop name and product",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 64,
+     "value": "Kiln Road Ceramics, hand-thrown mugs and planters",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    280
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "F023",
+   "about": "target running pace",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 66,
+     "value": "5:45 per km",
+     "change": "introduce"
+    },
+    {
+     "turn": 286,
+     "value": "5:30 per km",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    355
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride"
+  },
+  {
+   "id": "F024",
+   "about": "glaze supplier",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 69,
+     "value": "Harbourline Glaze Co. for the speckled glaze",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    204
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road",
+   "twin_of": "F005"
+  },
+  {
+   "id": "F025",
+   "about": "novel writing time slot",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 70,
+     "value": "write 6am to 7:30am before work",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    180,
+    489
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F026",
+   "about": "Pebble beta tester count",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 77,
+     "value": "25 testers from two flatmate WhatsApp groups",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    332
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F027",
+   "about": "novel victim's name",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 78,
+     "value": "the victim is Enid Harlow",
+     "change": "introduce"
+    },
+    {
+     "turn": 207,
+     "value": "Edith Harlow, I typed Enid by mistake",
+     "change": "correction"
+    }
+   ],
+   "mentions": [
+    96,
+    312
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F028",
+   "about": "shop platform",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 81,
+     "value": "Shopify on the Starter plan",
+     "change": "introduce"
+    },
+    {
+     "turn": 407,
+     "value": "Shopify plus a separate Etsy listing for the mugs",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    283
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road",
+   "twin_of": "F016"
+  },
+  {
+   "id": "F029",
+   "about": "tall speckled mug price",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 85,
+     "value": "24 pounds for the tall speckled mug",
+     "change": "introduce"
+    },
+    {
+     "turn": 330,
+     "value": "26 pounds after the glaze price rise",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    240
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road",
+   "twin_of": "F020"
+  },
+  {
+   "id": "F030",
+   "about": "novel beta reader",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 86,
+     "value": "Marguerite Oyelaran reads each chapter as it lands",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    297
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow",
+   "twin_of": "F007"
+  },
+  {
+   "id": "F031",
+   "about": "morning run time",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 87,
+     "value": "run at 6:15 before the office",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    268
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride"
+  },
+  {
+   "id": "F032",
+   "about": "Bugsnag suggested for Pebble crash reports",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 92,
+     "value": "assistant suggested Bugsnag; user turned it down",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F033",
+   "about": "daily step target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 93,
+     "value": "9,000 steps a day",
+     "change": "introduce"
+    },
+    {
+     "turn": 387,
+     "value": "11,000 steps a day",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    227
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride",
+   "twin_of": "F010"
+  },
+  {
+   "id": "F034",
+   "about": "Pebble crash reporting tool",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 94,
+     "value": "Sentry for crash reports",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    259
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F035",
+   "about": "restock day",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 96,
+     "value": "restock on Thursdays",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    244,
+    494
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "F036",
+   "about": "novel chief suspect",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 106,
+     "value": "Tobias Wren, the ferryman, is the chief suspect",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    243,
+    386
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F037",
+   "about": "Pebble bug triage day",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 110,
+     "value": "triage bugs on Tuesday mornings only",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    221,
+    362
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F038",
+   "about": "stock warehouse city",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 112,
+     "value": "a rented unit in Leeds",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    203
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road",
+   "twin_of": "F013"
+  },
+  {
+   "id": "F039",
+   "about": "daily water target",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 117,
+     "value": "2.5 litres of water a day",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    365
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride"
+  },
+  {
+   "id": "F040",
+   "about": "accountant",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 118,
+     "value": "Priya Sandhu does the books each quarter",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    309
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "F041",
+   "about": "cross-training swim",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 128,
+     "value": "swimming on Tuesdays at Brindle Street",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    316,
+    487
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride"
+  },
+  {
+   "id": "F042",
+   "about": "novel ending",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 133,
+     "value": "ends on the flooded mill, closed ending",
+     "change": "introduce"
+    },
+    {
+     "turn": 288,
+     "value": "open ending instead, the mill is never reached",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [
+    222
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F043",
+   "about": "weekly rest day",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 134,
+     "value": "rest day is Monday",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    315
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride",
+   "twin_of": "F035"
+  },
+  {
+   "id": "F044",
+   "about": "Pebble test phone model",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 139,
+     "value": "Pixel 8a is the test phone",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    229
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "project": "Pebble"
+  },
+  {
+   "id": "F045",
+   "about": "free shipping threshold",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 141,
+     "value": "40 pound basket for free UK shipping",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    254,
+    533
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "F046",
+   "about": "gym membership",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 146,
+     "value": "Brindle Street Gym, 32 pounds a month",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    303
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride"
+  },
+  {
+   "id": "F047",
+   "about": "newsletter tool",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 159,
+     "value": "Mailchimp for the newsletter",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    464
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road",
+   "twin_of": "F034"
+  },
+  {
+   "id": "F048",
+   "about": "Klaviyo suggested for the newsletter",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 161,
+     "value": "assistant suggested Klaviyo; user kept Mailchimp",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "F049",
+   "about": "running coach",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 163,
+     "value": "coach Dana Whitcombe, weekly check-in call",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    336
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride",
+   "twin_of": "F040"
+  },
+  {
+   "id": "F050",
+   "about": "Pebble rule on charging flatmates",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 170,
+     "value": "never auto-charge a flatmate without asking first",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    358
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Pebble"
+  },
+  {
+   "id": "F051",
+   "about": "literary agent query plan",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 172,
+     "value": "query about 12 agents in September, after the draft",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    483
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F052",
+   "about": "returns policy",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 184,
+     "value": "always a 14-day returns window, no questions asked",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    367,
+    510
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "F053",
+   "about": "training block length",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 187,
+     "value": "12-week training block",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    334
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride",
+   "twin_of": "F015"
+  },
+  {
+   "id": "F054",
+   "about": "Asics suggested for running shoes",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 188,
+     "value": "assistant suggested Asics Novablast; user passed",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride"
+  },
+  {
+   "id": "F055",
+   "about": "running shoes",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 190,
+     "value": "Hoka Clifton 9",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    235
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride",
+   "twin_of": "F044"
+  },
+  {
+   "id": "F056",
+   "about": "monthly Instagram ad budget",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 212,
+     "value": "300 pounds a month on Instagram ads",
+     "change": "introduce"
+    },
+    {
+     "turn": 429,
+     "value": "220 pounds a month after the ROAS review",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    297
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "F057",
+   "about": "longest training run",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 218,
+     "value": "16 km longest run",
+     "change": "introduce"
+    },
+    {
+     "turn": 372,
+     "value": "18 km longest run",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    288
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride"
+  },
+  {
+   "id": "F058",
+   "about": "supplier payment terms",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 220,
+     "value": "net 30 payment terms with Harbourline",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    343
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "F059",
+   "about": "novel prequel idea",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 230,
+     "value": "maybe a novella prequel about the ferry crossing",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    392
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "project": "Harrow"
+  },
+  {
+   "id": "F060",
+   "about": "newsletter subscribers",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 231,
+     "value": "340 newsletter subscribers",
+     "change": "introduce"
+    },
+    {
+     "turn": 452,
+     "value": "412 newsletter subscribers",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    414
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "F061",
+   "about": "left knee twinge",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 256,
+     "value": "left knee twinge after the 14k run",
+     "change": "introduce"
+    },
+    {
+     "turn": 278,
+     "value": "back running after a rest week",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride"
+  },
+  {
+   "id": "F062",
+   "about": "bestselling product",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 289,
+     "value": "the tall speckled mug, about 60 percent of orders",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    494
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "F063",
+   "about": "Royal Mail strike and parcel delays",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 319,
+     "value": "Royal Mail strike delaying parcels two to three days",
+     "change": "introduce"
+    },
+    {
+     "turn": 378,
+     "value": "strike called off, deliveries back to normal",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    341
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "World_&_Current_Events",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "F064",
+   "about": "sleep target",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 328,
+     "value": "7.5 hours a night",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    471
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "project": "Stride"
+  }
+ ],
+ "events": [
+  {
+   "id": "E01",
+   "what": "Pebble private beta invites went out to 25 testers",
+   "date": "2026-04-03",
+   "told_turn": 228,
+   "relative_phrase": "last friday",
+   "project": "Pebble"
+  },
+  {
+   "id": "E02",
+   "what": "Kiln Road VAT registration came through",
+   "date": "2026-03-20",
+   "told_turn": 199,
+   "relative_phrase": "last friday",
+   "project": "Kiln Road"
+  },
+  {
+   "id": "E03",
+   "what": "Harrow passed 40,000 words",
+   "date": "2026-05-10",
+   "told_turn": 384,
+   "relative_phrase": "four days ago",
+   "project": "Harrow"
+  }
+ ],
+ "no_memory_turns": [
+  2,
+  5,
+  8,
+  27,
+  33,
+  55,
+  58,
+  68,
+  80,
+  83,
+  102,
+  105,
+  108,
+  130,
+  143,
+  158,
+  164,
+  168,
+  177,
+  186,
+  202,
+  205,
+  211,
+  233,
+  236,
+  252,
+  255,
+  258,
+  277,
+  293,
+  302,
+  305,
+  308,
+  327,
+  333,
+  361,
+  364,
+  368,
+  377,
+  380,
+  402,
+  405,
+  408,
+  427,
+  430,
+  455,
+  458,
+  461,
+  477,
+  480,
+  502,
+  505,
+  508,
+  527,
+  530,
+  552,
+  555,
+  558,
+  577,
+  580
+ ]
+}

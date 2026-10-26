@@ -248,6 +248,8 @@ def main() -> int:
     if "--twins" in sys.argv:
         write_twins()
     for path in sorted(PLANS.glob("S*.json")):
+        if not path.stem[1:].isdigit():          # S1.occurrences.json etc. are derived, not plans
+            continue
         plan = json.loads(path.read_text())
         problems = validate(plan, tags=tags)
         bad += bool(problems)
